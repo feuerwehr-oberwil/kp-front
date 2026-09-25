@@ -120,7 +120,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, type AtemschutzAlarmState } from './lib/atemschutz'
+import { isAtemschutzTrupp, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -3563,7 +3563,16 @@ export function IncidentWorkspace({
   rememberOneShotRef.current = rememberOneShot
   // the Abschluss's «nicht eingesetzt» door (standDownTrupps above) — read only when the question
   // is answered, long after this commit, so an effect is the place to point it
-  useEffect(() => { standDownRef.current = (ids) => { for (const id of ids) setTruppStatus(id, 'raus') } })
+  // ⚠️ Re-checked against the Trupps as they stand NOW: a Sicherungstrupp sent in while the
+  // Abschluss stood open is inside, and «raus» on it would be a real Austritt nobody reported.
+  useEffect(() => {
+    standDownRef.current = (ids) => {
+      for (const id of ids) {
+        const t = truppsRef.current.find((x) => x.id === id)
+        if (t && truppStillRegistered(t)) setTruppStatus(id, 'raus')
+      }
+    }
+  })
   const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) =>
     rememberOneShot('gebaeude', label, restore, reapply)
 

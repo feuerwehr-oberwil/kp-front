@@ -1031,27 +1031,41 @@ to prod.
     same tile opening the GroupChooser behind a last-used first tap, and a «Karte» tile folding
     Ansichten + Ebenen. The vertical rails (tablet/desktop) are unchanged throughout.
 - **The Atemschutz phone board of the full app** (`AtemschutzView · phoneMode` = phone and not the
-  handed-over Tafel; PR #212 and its follow-up, 24.09.2026, Übung 23.09.): sections Drin ·
+  handed-over Tafel; PR #212 and its follow-up, 24./25.09.2026, Übung 23.09.): sections Drin ·
   Sicherungstrupp · Bereit · Draussen, «Drin» by urgency with the 2 s freeze, «Druck | Kontakt»
-  with words, one `PressureSheet`. The tablet grid and the Tafel are NOT this board. Four rules:
+  with words, one `PressureSheet`. The tablet grid and the Tafel are NOT this board, except where
+  a rule below says «every board». Five rules:
   - *The Trupp form is a bottom sheet there, with the due clocks above it* (D1 ⑥): at most two
     due/overdue Trupps, most urgent first, each with a live «Kontakt» that confirms without
-    leaving the form (the pinned set holds 2 s after a tap). The rows sit INSIDE the popup — under
-    the scrim they would be outside presses. Grab bar + swipe-to-close, which is «not now»: every
-    field of the form is a kept draft (`draftKeep`), only «Abbrechen» and the save drop it.
-  - *The Sicherungstrupp has ONE place* (D1 ⑦): between Drin and the rest, always — a quiet dashed
-    slot while nobody is inside, amber from the first crew in. «Bestimmen» = a waiting Trupp's
-    Auftrag becomes «Sichern» (an ordinary edit) or a new one registered on «Sichern». Its first
-    Eintritt writes «Sicherungstrupp eingesetzt». The Abschluss asks about every Atemschutz-Trupp
-    still angemeldet («Zur Tafel» / «Als «nicht eingesetzt» schliessen», the card's own stand-down).
-  - *A Kontakt another device confirmed < 60 s ago asks* (D1 ⑧a, `lib/contactEcho`): a
-    confirmation this JS realm did not write is «anderes Gerät» — no device names. «OK» and every
-    dismissal write nothing. Same-device double taps are unchanged. «Überwachung abgeben makes the
-    giver read-only» (⑧b) is still UNDECIDED — do not build it without a decision.
+    leaving the form. The pinned set holds 2 s after a tap and the row just confirmed reads
+    «✓ Bestätigt», disabled — it stays under the finger. The rows sit INSIDE the popup (under the
+    scrim they would be outside presses). Grab bar + swipe-to-close, which is «not now».
+  - *A kept draft belongs to ONE state of the Trupp* (`draftKeep`, every width): only «Abbrechen»
+    and the save drop it, but an edit / re-entry draft is keyed on the Trupp as the form opened
+    it (sortie + every field the form writes, `truppDraftStamp`) — a new sortie, or a Leitung
+    linked on the Karte meanwhile, opens a fresh form. «Gleiche / Neue Flasche» is never kept.
+    A door that answers a field (`presetAuftrag`: «Bestimmen» → «Sichern») beats a kept draft.
+  - *The Sicherungstrupp has ONE place* (D1 ⑦): between Drin and the rest while anybody is in or
+    waiting — a quiet dashed slot while nobody is inside, amber from the first crew in, gone once
+    every Trupp is out. «Bestimmen» = a waiting Trupp's Auftrag becomes «Sichern» (an ordinary
+    edit) or a new one registered on «Sichern». Its first Eintritt writes «Sicherungstrupp
+    eingesetzt». The Abschluss (every width) asks about every Atemschutz-Trupp still angemeldet
+    that was never inside (a Reserve after earlier sorties was — read the log, `entryTime` is
+    cleared on a re-park): «Zur Tafel» (focused) / «Als «nicht eingesetzt» schliessen». Not while
+    a crew is still inside, and the stand-down runs only after the FINAL «Abschliessen», re-checked
+    against the Trupps as they stand then — a crew sent in meanwhile never gets an Austritt.
+  - *A Kontakt another device confirmed < 60 s ago asks* (D1 ⑧a, `lib/contactEcho`) — on EVERY
+    board, tablet grid and handed-over Tafel included: it guards the act, not a layout. A
+    confirmation this JS realm did not write is «anderes Gerät» — no device names; a stamp more
+    than 5 s in the future (a skewed device) is not an echo. «OK» is the filled, focused default;
+    it and every dismissal write nothing. «Überwachung abgeben makes the giver read-only» (⑧b)
+    was DECIDED AGAINST (25.09.2026) — do not build it.
   - *The Eingangsdruck is guarded, once* (item 2, every width): locked in «Bearbeiten» once the
     Trupp is raus (pointing at the exit's Restdruck); below `doctrine.entryPressureMin` (default
-    270, `/admin › Doktrin`) the form asks ONE question with the value on the button. No upper
-    bound, no second plausibility rule.
+    270, `/admin › Doktrin`) the form asks ONE question with the value on the button and «Ändern»
+    focused. No upper bound, no second plausibility rule.
+  A question whose «yes» WRITES something a reflex must not (these three) puts the safe answer
+  first: `ConfirmSpec · safeAnswer` ('cancel' | 'alt') fills and focuses it, not red.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for

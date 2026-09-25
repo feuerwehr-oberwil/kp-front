@@ -1734,7 +1734,7 @@ describe('a Kontakt another device just confirmed asks first (D1 ⑧a)', () => {
     await waitFor(() => expect(props.recordContact).toHaveBeenCalledWith('tr1'))
   })
 
-  it('asks nothing about this device’s own contact, one a minute old, or on the tablet', () => {
+  it('asks nothing about this device’s own contact, or about one a minute old', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     render(<Overlays />)
     const own = confirmedElsewhere(10)
@@ -1747,13 +1747,34 @@ describe('a Kontakt another device just confirmed asks first (D1 ⑧a)', () => {
     const b = mount({ trupps: [confirmedElsewhere(75)] })
     fireEvent.click(screen.getByRole('button', { name: az.actContact }))
     expect(b.recordContact).toHaveBeenCalledWith('tr1')
-    cleanup()
-    vi.mocked(useIsPhone).mockReturnValue(false)
+  })
+
+  // it guards the ACT, not a layout: the 23.09. case was an iPad and a phone (25.09.2026)
+  it('asks on the tablet grid and on the handed-over Tafel too', async () => {
+    for (const over of [{}, { lite: { subtitle: 'Brand' } }]) {
+      render(<Overlays />)
+      const props = mount({ trupps: [confirmedElsewhere(20)], ...over })
+      fireEvent.click(screen.getByRole('button', { name: az.actContact }))
+      const ask = await screen.findByRole('alertdialog')
+      fireEvent.click(within(ask).getByRole('button', { name: az.contactEchoOk }))
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+      expect(props.recordContact).not.toHaveBeenCalled()
+      cleanup()
+    }
+  })
+
+  it('makes «OK» — which writes nothing — the filled, focused answer', async () => {
     render(<Overlays />)
-    const c = mount({ trupps: [confirmedElsewhere(20)] })
+    mount({ trupps: [confirmedElsewhere(20)] })
     fireEvent.click(screen.getByRole('button', { name: az.actContact }))
-    expect(c.recordContact).toHaveBeenCalledWith('tr1')
-    expect(screen.queryByRole('alertdialog')).toBeNull()
+    const ask = await screen.findByRole('alertdialog')
+    const ok = within(ask).getByRole('button', { name: az.contactEchoOk })
+    await waitFor(() => expect(document.activeElement).toBe(ok))
+    expect(ok.className).toContain('primary')
+    expect(within(ask).getByRole('button', { name: az.contactEchoAgain }).className).not.toContain('primary')
+    // answer it: the pending confirm is module state (lib/ui) and would open in the next test
+    fireEvent.click(ok)
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   })
 })
 
@@ -1864,5 +1885,131 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     const ask = await screen.findByRole('alertdialog')
     fireEvent.click(within(ask).getByRole('button', { name: fillTemplate(az.entryLowConfirm, { bar: 200 }) }))
     await waitFor(() => expect(editTrupp).toHaveBeenLastCalledWith('tr1', expect.objectContaining({ pressure: 200 })))
+  })
+})
+
+/* ── Review of PR #227 (25.09.2026) ───────────────────────────────────────────────────────────── */
+describe('review fixes: drafts belong to one state of the Trupp', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const sortie = (exitMinAgo: number, bar: number, runs = 1): Trupp => {
+    const readings: TruppReading[] = []
+    for (let i = runs; i >= 1; i--) {
+      readings.push({ t: iso((exitMinAgo + i * 20) * 60_000), bar: 300, kind: 'entry' })
+      readings.push({ t: iso((exitMinAgo + (i - 1) * 20) * 60_000), bar: i === 1 ? bar : 150, kind: 'exit', measured: true })
+    }
+    return { ...aktivTrupp(), status: 'raus', exitTime: iso(exitMinAgo * 60_000), readings }
+  }
+  const closeForm = () => fireEvent.click(document.querySelector(`.${s.modalHead} .${s.iconBtn}`)!)
+
+  it('a «Gleiche Flasche» from an abandoned re-entry is not handed to the next sortie', () => {
+    const reactivateTrupp = vi.fn()
+    const props = propsFor({ trupps: [sortie(2, 180)], reactivateTrupp })
+    const view = render(<AtemschutzView {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.bottleSame) }))
+    closeForm()
+    // …the Trupp goes in again on another device and comes out a second time, with 90 bar
+    view.rerender(<AtemschutzView {...props} trupps={[sortie(1, 90, 2)]} />)
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    // nothing chosen: the question stands, and «Im Einsatz» waits for it
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    expect(reactivateTrupp).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.bottleSame) }))
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    expect(reactivateTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 90 }), false)
+  })
+
+  it('an edit draft does not write back a Leitung that was changed elsewhere meanwhile', async () => {
+    const editTrupp = vi.fn()
+    const props = propsFor({ trupps: [{ ...aktivTrupp(), lineNo: 1 }], editTrupp })
+    const view = render(<AtemschutzView {...props} />)
+    const openEdit = async () => {
+      fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+    }
+    await openEdit()
+    fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: 'Keller' } })
+    closeForm()
+    // the Leitung is linked to hose 4 on the Karte while the draft sits there
+    view.rerender(<AtemschutzView {...props} trupps={[{ ...aktivTrupp(), lineNo: 4 }]} />)
+    await openEdit()
+    expect((screen.getByLabelText(az.zielLabel) as HTMLInputElement).value).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ lineNo: 4 }))
+  })
+
+  it('«Bestimmen» opens on «Sichern» even over a kept create draft with another Auftrag', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), id: 'i', name: 'In Ida' }] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    pickAuftrag('Retten')
+    closeForm()
+    fireEvent.click(screen.getByRole('button', { name: az.safetyPick }))
+    const sichern = within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: 'Sichern' })
+    expect(sichern.getAttribute('aria-pressed')).toBe('true')
+  })
+})
+
+describe('review fixes: the phone board', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+
+  it('a pinned row just confirmed says «Bestätigt» and takes no second tap', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const props = mount({ trupps: [{ ...aktivTrupp(), id: 'o', name: 'Over Otto', lastContactTime: iso(7 * 60_000) }] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    const pinned = screen.getByRole('region', { name: az.pinnedLabel })
+    fireEvent.click(within(pinned).getByRole('button', { name: `${az.actContact}: Over Otto` }))
+    const done = within(pinned).getByRole('button', { name: `${az.contactDone}: Over Otto` }) as HTMLButtonElement
+    expect(done.disabled).toBe(true)
+    fireEvent.click(done)
+    expect(props.recordContact).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers no Sicherungstrupp slot once every Trupp is out', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000) }] })
+    expect(screen.queryByText(az.safetyNone)).toBeNull()
+    expect(screen.queryByRole('button', { name: az.safetyPick })).toBeNull()
+  })
+})
+
+describe('review fixes: the low Eingangsdruck on a re-entry', () => {
+  const justOut = (): Trupp => ({
+    ...aktivTrupp(), status: 'raus', exitTime: iso(2 * 60_000),
+    readings: [...aktivTrupp().readings!, { t: iso(2 * 60_000), bar: 120, kind: 'exit', measured: true }],
+  })
+  const typePressure = (bar: number) => {
+    const field = within(screen.getByRole('dialog')).getByText(az.newPressureLabel).closest(`.${s.field}`) as HTMLElement
+    fireEvent.click(within(field).getByTitle(appConfig.copy.stepper.typeToEnter))
+    const input = field.querySelector<HTMLInputElement>(`.${s.stepInput}`)!
+    fireEvent.change(input, { target: { value: String(bar) } })
+    fireEvent.blur(input)
+  }
+
+  it('«Neue Flasche» with a low value asks once, with «Ändern» focused', async () => {
+    render(<Overlays />)
+    const reactivateTrupp = vi.fn()
+    mount({ trupps: [justOut()], reactivateTrupp })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.bottleNew) }))
+    typePressure(200)
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    const ask = await screen.findByRole('alertdialog')
+    const change = within(ask).getByRole('button', { name: az.entryLowChange })
+    await waitFor(() => expect(document.activeElement).toBe(change))
+    expect(change.className).toContain('primary')
+    fireEvent.click(within(ask).getByRole('button', { name: fillTemplate(az.entryLowConfirm, { bar: 200 }) }))
+    await waitFor(() => expect(reactivateTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 200 }), false))
+  })
+
+  it('«Gleiche Flasche» is never asked about — its bar is the Restdruck', () => {
+    render(<Overlays />)
+    const reactivateTrupp = vi.fn()
+    mount({ trupps: [justOut()], reactivateTrupp })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.bottleSame) }))
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(reactivateTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 120 }), false)
   })
 })

@@ -48,7 +48,7 @@ describe('useAbschluss', () => {
     expect(a.onCompleteRapport).not.toHaveBeenCalled()
   })
 
-  /* A Trupp still ANGEMELDET at the Abschluss (24.09.2026, D1 ⑦): the Sicherungstrupp T6 stood
+  /* A Trupp still ANGEMELDET at the Abschluss (24.09.2026, D1 ⑦): the Sicherungstrupp stood
      «angemeldet» to the end of the Übung, and the confirm counted only the crews inside. */
   describe('a Trupp still angemeldet is asked about first', () => {
     const A = appConfig.copy.abschluss
@@ -57,20 +57,34 @@ describe('useAbschluss', () => {
       status: 'angemeldet', auftrag: 'sichern',
     }
 
-    it('«Als nicht eingesetzt schliessen» stands it down, then asks the Abschluss as always', async () => {
+    it('«Als nicht eingesetzt schliessen» stands it down only AFTER the final «Abschliessen»', async () => {
       const ask = vi.mocked(confirmDialog)
-      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(true)
-      const standDownTrupps = vi.fn()
-      const a = args({ trupps: [sich], standDownTrupps })
+      const order: string[] = []
+      ask.mockReset()
+        .mockImplementationOnce(async () => { order.push('ask registered'); return true })
+        .mockImplementationOnce(async () => { order.push('ask abschluss'); return true })
+      const standDownTrupps = vi.fn(() => { order.push('stand down') })
+      const a = args({ trupps: [sich], standDownTrupps, onCompleteRapport: vi.fn(async () => { order.push('complete'); return true }) })
       const r = renderHook(() => useAbschluss(a)).result.current
       await expect(r.confirmAndComplete()).resolves.toBe(true)
       expect(ask.mock.calls[0][0]).toMatchObject({
         message: '1 Trupp noch angemeldet (#6 Muster Leo, Sicherungstrupp).',
         confirmLabel: A.registeredStandDown, altLabel: A.registeredToBoard,
+        // «Zur Tafel» is the focused, filled answer — an Enter closes nothing
+        safeAnswer: 'alt',
       })
       expect(standDownTrupps).toHaveBeenCalledWith(['t6'])
-      expect(ask).toHaveBeenCalledTimes(2)
-      expect(a.onCompleteRapport).toHaveBeenCalled()
+      expect(order).toEqual(['ask registered', 'ask abschluss', 'stand down', 'complete'])
+    })
+
+    it('«schliessen», then «Abbrechen» on the Abschluss, stands NOTHING down', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+      const standDownTrupps = vi.fn()
+      const a = args({ trupps: [sich], standDownTrupps })
+      await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(false)
+      expect(standDownTrupps).not.toHaveBeenCalled()
+      expect(a.onCompleteRapport).not.toHaveBeenCalled()
     })
 
     it('«Zur Tafel» goes to the board and closes nothing', async () => {
@@ -96,20 +110,41 @@ describe('useAbschluss', () => {
       expect(a.setMode).not.toHaveBeenCalled()
     })
 
-    it('asks nothing about a crew inside, a Trupp already out, or a work squad at the vehicle', async () => {
+    it('is not offered while a crew is still inside — the Abschluss asks about that one first', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(false)
+      const standDownTrupps = vi.fn()
+      const a = args({
+        trupps: [sich, { ...sich, id: 'in', no: 1, auftrag: 'loeschen', status: 'aktiv', entryTime: '2026-09-23T19:00:00Z' }],
+        standDownTrupps,
+      })
+      await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
+      expect(ask).toHaveBeenCalledTimes(1)
+      expect(ask.mock.calls[0][0].message).not.toContain('angemeldet')
+    })
+
+    it('asks nothing about a Trupp already out, a work squad at the vehicle, or a Reserve that was inside', async () => {
       const ask = vi.mocked(confirmDialog)
       ask.mockReset().mockResolvedValueOnce(false)
       const a = args({
         trupps: [
-          { ...sich, id: 'in', status: 'aktiv', entryTime: '2026-09-23T19:00:00Z' },
           { ...sich, id: 'out', status: 'raus' },
           { ...sich, id: 'plain', kind: 'einfach', entryPressureBar: 0 },
+          { ...sich, id: 'reserve', readings: [{ t: '2026-09-23T19:00:00Z', bar: 300, kind: 'entry' }] },
         ],
         standDownTrupps: vi.fn(),
       })
       await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
       expect(ask).toHaveBeenCalledTimes(1)
       expect(ask.mock.calls[0][0].message).not.toContain('angemeldet')
+    })
+
+    it('keeps ONE confirm across Trupp writes — the callback is not rebuilt per Kontakt', () => {
+      const a = args({ trupps: [sich], standDownTrupps: vi.fn() })
+      const { result, rerender } = renderHook((p: Parameters<typeof useAbschluss>[0]) => useAbschluss(p), { initialProps: a })
+      const first = result.current.confirmAndComplete
+      rerender({ ...a, trupps: [{ ...sich, lastContactTime: '2026-09-23T19:01:00Z' }] })
+      expect(result.current.confirmAndComplete).toBe(first)
     })
   })
 })

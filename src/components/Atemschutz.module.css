@@ -1919,6 +1919,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .trowCrit .pinClock { color: var(--red); }
 .pinKontakt { min-height: 48px; padding: 0 14px; border-radius: var(--r-ctl); font-size: 14px; }
 .pinKontakt :global(.i) { width: 16px; height: 16px; }
+/* just confirmed: the green of a fresh clock, and visibly not a button any more */
+.pinDone, .pinDone:disabled { opacity: 1; cursor: default; background: color-mix(in srgb, var(--green) 10%, var(--surface));
+  color: var(--green-strong); }
 /* with the keyboard up the band above it is short: the rows give back their air, never a row */
 .modalSheet:global(.is-kb) .formPinned { gap: 4px; padding-bottom: 6px; }
 .modalSheet:global(.is-kb) .pinRow { padding-block: 3px; }
@@ -1934,10 +1937,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .pressureLockedExit { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); }
 
 /* The form's footer at 360px (pre-existing, #212 check): «Abbrechen · Bereitstellen · Im Einsatz»
-   wrapped «Im Einsatz» onto two lines. On a phone the footer is three EVEN columns of one line
-   each — and the quiet «Abbrechen» gives up the side gutter it does not need. */
+   wrapped «Im Einsatz» onto two lines. On a phone the three buttons share the row BY THEIR WORDS
+   (flex basis = content), with the side gutters the quiet «Abbrechen» does not need given back.
+   Measured in Sora 14/700 (25.09.2026): the longest set, German, needs 331 of the 336px a 360px
+   screen leaves; fr «Mettre en réserve» (129px) and it «Tenere di riserva» (121px) fit with room,
+   where an equal three-way split clipped them. Below 360px a label wraps inside its button
+   rather than being cut. */
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  .modalFoot { padding-inline: 12px; gap: 8px; }
-  .modalFoot > :global(.ip-btn) { flex: 1 1 0; min-width: 0; white-space: nowrap; padding-inline: 8px; }
-  .modalFoot > :global(.ip-btn.ghost) { flex: 0 1 auto; }
+  .modalFoot { padding-inline: 12px; gap: 6px; }
+  .modalFoot > :global(.ip-btn) { flex: 1 1 auto; min-width: 0; padding-inline: 8px; justify-content: center;
+    text-align: center; line-height: 1.15; }
+  .modalFoot > :global(.ip-btn.ghost) { flex: 0 1 auto; padding-inline: 4px; }
 }

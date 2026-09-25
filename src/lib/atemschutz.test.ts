@@ -462,6 +462,14 @@ describe('truppStillRegistered (the Abschluss asks about the crew that stood rea
     expect(truppStillRegistered({ ...ready, status: 'raus' })).toBe(false)
   })
 
+  it('leaves out a crew parked as Reserve after an earlier sortie — it WAS inside', () => {
+    expect(truppStillRegistered({ ...ready, readings: [
+      { t: '2026-06-21T10:00:00Z', bar: 300, kind: 'entry' },
+      { t: '2026-06-21T10:20:00Z', bar: 120, kind: 'exit' },
+      { t: '2026-06-21T10:30:00Z', bar: 300, kind: 'registered' },
+    ] })).toBe(false)
+  })
+
   it('leaves out a work squad and a card taken off the board', () => {
     expect(truppStillRegistered({ ...ready, kind: 'einfach' })).toBe(false)
     expect(truppStillRegistered({ ...ready, removedAt: '2026-06-21T10:05:00Z' })).toBe(false)

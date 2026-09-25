@@ -26,7 +26,7 @@ import { ensureNotifyPermission, notificationsSupported, unlockAlarm } from '../
 import { atemschutzDoctrine, atemschutzEquipment, isDemoMode } from '../lib/deploymentConfig'
 import type { SyncStatus } from '../lib/api/workspaceSync'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
-import { useKeptState } from '../lib/draftKeep'
+import { keepDraft, useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { truppOrderKey } from '../lib/useTruppActions'
 import { useTapToType } from '../lib/useTapToType'
@@ -630,21 +630,25 @@ export function AtemschutzView({
    * (lib/contactEcho); a foreign one under 60 s old turns the tap into «Kontakt wurde vor 21 s
    * schon bestätigt (anderes Gerät). Nochmals / OK». «OK» — and every way of dismissing the
    * question — writes nothing. A second tap on the SAME device is unchanged (no question, the
-   * 2 s order freeze). The phone board of the full app only, like everything in this round: the
-   * tablet grid and the handed-over Tafel stay as they are. */
-  const contactTap = async (id: string) => {
+   * 2 s order freeze).
+   * ⚠️ On EVERY board — tablet grid, phone board and the handed-over Tafel (25.09.2026): it guards
+   * the ACT, not a layout, and the 23.09. case was an iPad and a phone. «OK» is the default
+   * (filled, focused — `ConfirmSpec · safeAnswer`): a reflex tap or an Enter writes nothing. */
+  const contactTap = async (id: string): Promise<boolean> => {
     const t = trupps.find((x) => x.id === id)
-    const ago = phoneMode && t ? foreignContactAgo(t, serverNow()) : null
+    const ago = t ? foreignContactAgo(t, serverNow()) : null
     if (t && ago != null) {
       const again = await confirmDialog({
         message: fillTemplate(az.contactEchoMsg, { name: t.name, s: ago }),
         confirmLabel: az.contactEchoAgain,
         cancelLabel: az.contactEchoOk,
+        safeAnswer: 'cancel',
       })
-      if (!again) return
+      if (!again) return false
     }
     freezeOrder()
     recordContact(id)
+    return true
   }
 
   // roster of everyone already entered on any Trupp (GF + AdF) — offered as quick-select chips
@@ -920,20 +924,30 @@ export function AtemschutzView({
    * Nothing due ⇒ nothing pinned. After a tap the pinned set holds for the same 2 s the board's
    * order does: the tapped row drops out of «due» the instant its clock resets, and the row below
    * would otherwise slide up under the finger that is about to tap again. */
-  const [pinHeld, setPinHeld] = useState<string[] | null>(null)
+  // …and the row just confirmed shows «✓ Bestätigt», disabled, for that hold (review 25.09.2026):
+  // it stays under the finger, and a second tap on it was a second Kontakt from the same device
+  const [pinHeld, setPinHeld] = useState<{ ids: string[]; done: string[] } | null>(null)
   useEffect(() => {
     if (!pinHeld) return
     const h = window.setTimeout(() => setPinHeld(null), FREEZE_MS)
     return () => window.clearTimeout(h)
   }, [pinHeld])
   const pinnedDue: Trupp[] = !phoneMode || !form ? []
-    : pinHeld ? pinHeld.map((id) => trupps.find((t) => t.id === id)).filter((t): t is Trupp => !!t && inFieldNow(t))
+    : pinHeld ? pinHeld.ids.map((id) => trupps.find((t) => t.id === id)).filter((t): t is Trupp => !!t && inFieldNow(t))
     : phoneIn.filter((t) => isAtemschutzTrupp(t) && sevOf(t.id) >= 1).slice(0, 2)
   const pinnedRows = pinnedDue.length > 0 ? (
     <div className={s.formPinned} role="region" aria-label={az.pinnedLabel} data-swipe-ignore="">
       {pinnedDue.map((t) => (
         <PinnedRow key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} color={truppColors[t.id]}
-          onContact={(id) => { setPinHeld(pinnedDue.map((x) => x.id)); void contactTap(id) }} />
+          confirmed={!!pinHeld?.done.includes(t.id)}
+          onContact={(id) => {
+            // marked at once (a double tap lands in the same frame), taken back if the double-contact
+            // question was answered «OK» and nothing was written
+            setPinHeld({ ids: pinnedDue.map((x) => x.id), done: [...(pinHeld?.done ?? []), id] })
+            void contactTap(id).then((ok) => {
+              if (!ok) setPinHeld((h) => (h ? { ...h, done: h.done.filter((x) => x !== id) } : h))
+            })
+          }} />
       ))}
     </div>
   ) : null
@@ -1316,8 +1330,11 @@ export function AtemschutzView({
             )}
             {/* the Sicherungstrupp keeps ONE place: under the crews inside, above everybody else —
                 ALWAYS, filled or empty (D1 ⑦, 24.09.2026). Empty it is a quiet dashed slot that
-                says when one is expected, and it turns amber the moment a crew is inside. */}
-            {paBoard.length > 0 && (
+                says when one is expected, and it turns amber the moment a crew is inside.
+                ⚠️ Not once every Trupp is OUT (review 25.09.2026): with nobody in and nobody
+                waiting there is nothing to secure, and «Bestimmen» would register a crew for an
+                Einsatz that is winding down. */}
+            {(phoneIn.length > 0 || phoneReady.length > 0 || phoneSafety.length > 0) && (
               <div className={cx(s.rowList, s.safetyZone)}>
                 {phoneSafety.length > 0 ? phoneSafety.map((t) => (openRow === t.id ? cards([t]) : (
                   // «Einsetzen» is an ordinary Eintritt; its Verlauf row says «Sicherungstrupp
@@ -1332,6 +1349,8 @@ export function AtemschutzView({
                     {canEdit && (phoneReady.length === 0 ? safetyPickButton : (
                       <Menu
                         trigger={safetyPickButton}
+                        // the app's shared menu skin (13-incident.css — despite its name, every
+                        // Atemschutz menu and the audio picker wear it)
                         popupClassName="rp-print-menu"
                         itemClassName={() => 'rp-print-menu-item'}
                         items={[
@@ -1657,8 +1676,11 @@ function SafetyRow({ t, canEdit, onDeploy, onOpen }: {
  *  the live clock, and a worded «Kontakt» that confirms without leaving the form. ONE line, not
  *  the board row's two: the form needs the height, and these rows carry exactly one action. Not a
  *  button as a whole — opening a card from here would close the form over a half-typed Trupp. */
-function PinnedRow({ t, live, alarm, color, onContact }: {
-  t: Trupp; live: TruppLive; alarm: TruppAlarm; color?: string; onContact: (id: string) => void
+function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
+  t: Trupp; live: TruppLive; alarm: TruppAlarm; color?: string
+  /** confirmed a moment ago on this form — the button says so and takes no second tap */
+  confirmed: boolean
+  onContact: (id: string) => void
 }) {
   const az = appConfig.copy.atemschutz
   const sev = alarm.sev
@@ -1673,10 +1695,17 @@ function PinnedRow({ t, live, alarm, color, onContact }: {
         <span className={s.pinClock}>{fmtClock(live.sinceContactSec)}</span>
         <span className={s.pinState}>{word}</span>
       </span>
-      <button type="button" className={cx(s.kontaktBtn, s.pinKontakt, sev === 1 && s.kontaktWarn, sev >= 2 && s.kontaktCrit)}
-        onClick={() => onContact(t.id)} aria-label={`${az.actContact}: ${t.name}`}>
-        <Icon id="radio" /><span>{az.actContact}</span>
-      </button>
+      {confirmed ? (
+        <button type="button" className={cx(s.kontaktBtn, s.pinKontakt, s.pinDone)} disabled
+          aria-label={`${az.contactDone}: ${t.name}`}>
+          <Icon id="check" /><span>{az.contactDone}</span>
+        </button>
+      ) : (
+        <button type="button" className={cx(s.kontaktBtn, s.pinKontakt, sev === 1 && s.kontaktWarn, sev >= 2 && s.kontaktCrit)}
+          onClick={() => onContact(t.id)} aria-label={`${az.actContact}: ${t.name}`}>
+          <Icon id="radio" /><span>{az.actContact}</span>
+        </button>
+      )}
     </div>
   )
 }
@@ -2733,6 +2762,19 @@ function inScrollPort(el: HTMLElement): boolean {
   return r.top >= 0 && r.bottom <= window.innerHeight
 }
 
+/** What a kept edit / re-entry draft belongs to (TruppForm · draftKey): the sortie and every field
+ *  the form writes, as one short string. Pure; the draft store is per session and per incident. */
+function truppDraftStamp(t: Trupp): string {
+  const last = t.readings?.[t.readings.length - 1]
+  const s = JSON.stringify([t.status, t.entryTime, t.exitTime ?? '', last?.t ?? '', last?.kind ?? '',
+    t.name, t.members ?? [], t.auftrag ?? '', t.ziel ?? '', t.lineNo ?? null, t.lineNumber ?? '', t.funkkanal ?? null,
+    t.entryPressureBar, t.kind ?? '', t.equipment ?? []])
+  // FNV-1a — only has to tell two states apart, never to be read
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) }
+  return (h >>> 0).toString(36)
+}
+
 function TruppForm({
   mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, sheet = false, pinned, onAddGuest, onCancel, onSubmit, zielChoices,
 }: {
@@ -2792,7 +2834,18 @@ function TruppForm({
   // ⚠️ The typed Trupp survives a mis-tap. Only «Abbrechen» throws it away — an ✕ or a tap on
   // the backdrop is «not now», and losing three names and a Ziel to a fat finger at 3am is the
   // expensive half of that pair (see lib/draftKeep, the same rule the Gast name follows).
-  const draftKey = `atemschutz:trupp:${mode}:${initial?.id ?? 'new'}`
+  /* ⚠️ …but a draft belongs to ONE state of the Trupp (review 25.09.2026). Keyed on the id alone,
+   * a re-entry abandoned after one sortie handed its «Gleiche Flasche · 120 bar» to the NEXT
+   * sortie's re-entry, and an edit draft wrote back a Leitung somebody had linked on the Karte in
+   * between. So an edit / re-entry draft is keyed on the Trupp as the form opened it — its
+   * sortie (status, Eintritt, Austritt, last log row) and every field the form writes
+   * (`truppDraftStamp`): anything that changed since makes it a fresh form. A new Trupp has no
+   * such state, and its draft stays keyed on «new». */
+  const draftKey = `atemschutz:trupp:${mode}:${initial ? `${initial.id}:${truppDraftStamp(initial)}` : 'new'}`
+  /* «Sicherungstrupp bestimmen» opens the create form on «Sichern» (`presetAuftrag`) — and that
+   * door is the answer, so it wins over a kept create draft's Auftrag. Written into the draft
+   * store BEFORE the Auftrag's own state reads it (a lazy initializer runs once, at mount). */
+  useState(() => { if (mode === 'create' && presetAuftrag) keepDraft(`${draftKey}:auftrag`, presetAuftrag); return 0 })
   // The two roster indexes the slot resolution needs: name → id, and id → Person (to check that
   // a stored positional id really belongs to the name beside it — see lib/personnel · truppSlots).
   const rosterByName = useMemo(() => rosterIdByName(personnel), [personnel])
@@ -2898,7 +2951,9 @@ function TruppForm({
   const lastExit = mode === 'redeploy' ? [...(initial?.readings ?? [])].reverse().find((r) => r.kind === 'exit') : undefined
   const outMin = lastExit ? Math.floor((serverNow() - Date.parse(lastExit.t)) / 60_000) : null
   const bottleAsk = isPa && lastExit != null && outMin != null && outMin < BOTTLE_ASK_MIN && lastExit.bar > 0
-  const [bottle, setBottle, clearBottle] = useKeptState<'same' | 'new' | null>(`${draftKey}:bottle`, null)
+  // ⚠️ NOT kept (review 25.09.2026): the answer is about THIS break, and a kept «Gleiche Flasche»
+  // skipped both questions on a later sortie with the old Restdruck
+  const [bottle, setBottle] = useState<'same' | 'new' | null>(null)
   // No autofocus on a TABLET: the on-screen keyboard would immediately cover the form's other
   // fields, and the Mannschaft is a list that can simply be ticked. The EL taps the field they
   // want first. ⚠️ A PHONE creating a Trupp is the exception (20.09.2026): there the roster
@@ -2998,7 +3053,7 @@ function TruppForm({
 
   const dropDraft = () => {
     clearAuftrag(); clearZiel(); clearEquipment(); clearTeam()
-    clearLineNo(); clearFunkkanal(); clearKind(); clearPressure(); clearBottle()
+    clearLineNo(); clearFunkkanal(); clearKind(); clearPressure()
   }
   const submit = (standby = false) => {
     if (!canSubmit) return
@@ -3107,6 +3162,8 @@ function TruppForm({
         { bar: pressure, min: dz.entryPressureMin, alarm: dz.alarmBar }),
       confirmLabel: fillTemplate(az.entryLowConfirm, { bar: pressure }),
       cancelLabel: az.entryLowChange,
+      // «Ändern» is the answer an Enter or a reflex tap gives — the value stays in the form
+      safeAnswer: 'cancel',
     })
     if (ok) { setLowConfirmed(pressure); return true }
     // «Ändern»: back to the number — unfolded if it sat in the Standard line, and rung

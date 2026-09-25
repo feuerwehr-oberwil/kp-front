@@ -53,7 +53,10 @@ so this file – not the log – is the record of what shipped up to that point.
   Trupp or registers a new one on «Sichern», its Eintritt reads «Sicherungstrupp eingesetzt», and
   «Einsatz abschliessen» asks about a Trupp still angemeldet («Zur Tafel» / «Als «nicht
   eingesetzt» schliessen»). A Kontakt another device confirmed less than a minute ago asks
-  «… schon bestätigt (anderes Gerät). Nochmals / OK» instead of writing a second one. The
+  «… schon bestätigt (anderes Gerät). Nochmals / OK» instead of writing a second one – on the
+  tablet and the handed-over Tafel as well, with «OK» (writes nothing) as the default. A kept
+  form draft now belongs to one sortie: an abandoned re-entry no longer hands its bottle answer
+  to the next one. The
   Eingangsdruck of a Trupp that is out is locked in «Bearbeiten», and one below the new
   `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
   value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.

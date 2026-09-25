@@ -254,6 +254,10 @@ export function truppAwaitsEntry(t: Trupp): boolean {
  */
 export function truppStillRegistered(t: Trupp): boolean {
   return isAtemschutzTrupp(t) && !t.removedAt && t.status === 'angemeldet'
+    // ⚠️ …and never inside at all. A crew parked as Reserve after earlier sorties is angemeldet
+    // with an EMPTY entryTime (useTruppActions · reactivateTrupp · standby clears it), so the
+    // field cannot tell; its log can. «Nicht eingesetzt» on a crew that was in twice is false.
+    && !(t.readings ?? []).some((r) => r.kind === 'entry')
 }
 
 /**

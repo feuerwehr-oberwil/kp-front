@@ -2297,6 +2297,7 @@ export const de = {
     contactEchoMsg: '{name}: Kontakt wurde vor {s} s schon bestätigt (anderes Gerät).',
     contactEchoAgain: 'Nochmals',
     contactEchoOk: 'OK',
+    contactDone: 'Bestätigt',
     // Eingangsdruck eines Trupps, der schon raus ist: gesperrt (Punkt 2)
     pressureLockedLabel: 'Eingangsdruck ({t})',
     pressureLockedLabelPlain: 'Eingangsdruck',
