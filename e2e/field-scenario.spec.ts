@@ -12,7 +12,8 @@ import { test, expect, expectNoClientErrors, login, type ClientErrorReport } fro
 // account on the iPad, the Android and the iPhone, every one of them running the GPS pass, and
 // their saves meeting in 409s and merges). The three each place a Trupp at the same moment, and
 // every Trupp has to be on every device and on the server afterwards: the edit lost in a
-// re-merge (#204) is the bug that would show here.
+// re-merge (#204) is the bug that would show here. A third test pins a known bug as an expected
+// failure: three devices naming their Trupps at the same moment (see the note at that test).
 //
 // The vehicle is the backend's fake fleet (`POST /api/traccar/fake`, TRACCAR_FAKE=1 plus the
 // ALARM_WEBHOOK_SECRET — CI's Image job sets both through e2e/compose.e2e.yml). It serves the
@@ -31,13 +32,16 @@ import { test, expect, expectNoClientErrors, login, type ClientErrorReport } fro
 
 const FLEET_SECRET = process.env.E2E_FLEET_SECRET
 const PIN = process.env.E2E_PIN || '000000'
-/** the Einsatzort — any real coordinate; the Karte frames it, the vehicle stands ~45 m east */
-const SITE = { lat: 47.5137, lng: 7.5559 }
+/** the Einsatzort: the demo incident's neutral centre (src/data/demoIncident.ts, the Swiss
+ *  geographic centre). The Karte frames it; the vehicle stands ~45 m east. */
+const SITE = { lat: 46.8182, lng: 8.2275 }
 const TLF = { name: 'TLF', lat: SITE.lat, lng: SITE.lng + 0.0006, speed: 0, course: 90 }
 /** process follow-up #2: «wait ≥ 20 s with the fleet reporting» — longer than one feed poll (15 s) */
 const REPORTING_MS = 22_000
 /** lib/useRenderStorm's window (2 s) and a second for the report to leave */
 const STORM_SETTLE_MS = 3_000
+/** how long a save or a feed answer may take to show up — generous: a busy CI runner or dev box */
+const SYNC_MS = 30_000
 /** where each device drops its Trupp: below the vehicle and the Leitung, apart from each other */
 const TRUPP_SPOTS = [{ dx: -260, dy: 200 }, { dx: -80, dy: 200 }, { dx: 100, dy: 200 }]
 
@@ -83,10 +87,24 @@ async function centreOf(page: Page, loc: ReturnType<Page['locator']>) {
   return { x: b.x + b.width / 2, y: b.y + b.height / 2 }
 }
 
+/** The vehicle's centre once the Karte has stopped framing: the first fit runs after the map is
+ *  up and can land a moment after the marker is visible (seen on a loaded box — the press went
+ *  18 px beside the TLF and the Linie started uncoupled). Two equal reads 300 ms apart. */
+async function settledVehicle(page: Page) {
+  let last = { x: NaN, y: NaN }
+  await expect.poll(async () => {
+    const now = await centreOf(page, vehicleMarker(page))
+    const still = Math.abs(now.x - last.x) < 1 && Math.abs(now.y - last.y) < 1
+    last = now
+    return still
+  }, { message: 'the Karte never stopped moving under the TLF', intervals: [300], timeout: SYNC_MS }).toBe(true)
+  return last
+}
+
 /** Draw a Leitung that STARTS on the vehicle: a press on a live vehicle in the line tool couples
  *  the line's start to it at once (MapView · the line-start exception), `guarded` at the spot. */
 async function drawCoupledLeitung(page: Page) {
-  const v = await centreOf(page, vehicleMarker(page))
+  const v = await settledVehicle(page)
   await page.keyboard.press('l')
   await page.mouse.move(v.x, v.y)
   await page.mouse.down()
@@ -97,7 +115,7 @@ async function drawCoupledLeitung(page: Page) {
 
 /** Place a «Neuer Trupp» with the Trupp tool at `spot` (relative to the vehicle), and let go of it. */
 async function placeTrupp(page: Page, spot: { dx: number; dy: number }) {
-  const v = await centreOf(page, vehicleMarker(page))
+  const v = await settledVehicle(page)
   await page.keyboard.press('t')
   await page.mouse.click(v.x + spot.dx, v.y + spot.dy)
   await page.getByRole('button', { name: 'Neuer Trupp' }).click()
@@ -112,7 +130,7 @@ const truppDots = (page: Page) => page.locator('.maplibregl-marker .team-dot')
 /** Tap the Trupp marker nearest `spot` — the one this device placed — where a finger would: on
  *  its dot (the marker's pad takes the press, not the dot itself). */
 async function tapTrupp(page: Page, spot: { dx: number; dy: number }) {
-  const v = await centreOf(page, vehicleMarker(page))
+  const v = await settledVehicle(page)
   const want = { x: v.x + spot.dx, y: v.y + spot.dy }
   let best: { x: number; y: number } | null = null
   for (const d of await truppDots(page).all()) {
@@ -128,7 +146,7 @@ async function expectKarteStands(page: Page, where: string) {
   await expect(page.locator('canvas.maplibregl-canvas').first(), `${where}: the Karte is gone`).toBeVisible()
 }
 
-interface ServerView { lines: { gps?: { state: string } }[]; trupps: number }
+interface ServerView { lines: { gps?: { state: string } }[]; trupps: number; truppNames: string[] }
 async function serverView(api: APIRequestContext, incidentId: string): Promise<ServerView> {
   // `workspace` is null until the first save reaches the server
   const ws = (await (await api.get(`/api/incidents/${incidentId}/workspace`)).json()).workspace
@@ -137,6 +155,7 @@ async function serverView(api: APIRequestContext, incidentId: string): Promise<S
   return {
     lines: objects.filter((o) => o.drawing?.kind === 'line').map((o) => ({ gps: o.drawing.startAttachment?.gps })),
     trupps: objects.filter((o) => o.entity?.kind === 'team').length,
+    truppNames: objects.filter((o) => o.entity?.kind === 'team').map((o) => o.entity.label).sort(),
   }
 }
 
@@ -146,24 +165,19 @@ async function serverView(api: APIRequestContext, incidentId: string): Promise<S
  * every device taps its Trupp.
  */
 async function runFieldScenario(devices: Page[], baseURL: string, clientErrors: ClientErrorReport[]) {
-  const api = await stationApi(baseURL)
-  const title = `E2E Feldszenario ${devices.length}× ${Date.now()}`
-  const created = await api.post('/api/incidents', { data: { title, lat: SITE.lat, lng: SITE.lng, is_exercise: true } })
-  expect(created.status(), `POST /api/incidents: ${await created.text()}`).toBe(201)
-  const incident = { id: (await created.json()).id as string, title }
-  try {
-    await reportFleet(api)
+  await withUbung(baseURL, `${devices.length}×`, async (api, incident) => {
     // every device polls the feed; count what reaches each one (the pass runs on every answer)
     const polls = devices.map(() => 0)
     devices.forEach((p, i) => p.on('response', (r) => { if (r.url().endsWith('/api/traccar/positions') && r.ok()) polls[i]++ }))
 
     for (const page of devices) await openOnKarte(page, incident, baseURL)
-    for (const page of devices) await expect(vehicleMarker(page), 'the fake TLF never reached the Karte').toBeVisible()
+    // the first feed answer comes with the Karte's mount; a loaded box took longer than 15 s
+    for (const page of devices) await expect(vehicleMarker(page), 'the fake TLF never reached the Karte').toBeVisible({ timeout: SYNC_MS })
 
     // 1 · the coupling — a Leitung from the parked TLF, on device 1
     await drawCoupledLeitung(devices[0])
     await expect.poll(async () => (await serverView(api, incident.id)).lines.map((l) => l.gps?.state),
-      { message: 'the Leitung never reached the server coupled (startAttachment.gps guarded)' }).toEqual(['guarded'])
+      { message: 'the Leitung never reached the server coupled (startAttachment.gps guarded)', timeout: SYNC_MS }).toEqual(['guarded'])
     // the storm detector calls a storm at 200 commits inside 2 s (lib/useRenderStorm): give a loop
     // the coupling started that long to be reported, so it fails HERE and not at a later step
     await devices[0].waitForTimeout(STORM_SETTLE_MS)
@@ -190,15 +204,28 @@ async function runFieldScenario(devices: Page[], baseURL: string, clientErrors: 
 
     // 5 · every device's Trupp survived the merges — on the server and on every device
     await expect.poll(async () => (await serverView(api, incident.id)).trupps,
-      { message: 'the server lost a Trupp placed on another device', timeout: 30_000 }).toBe(devices.length)
+      { message: 'the server lost a Trupp placed on another device', timeout: SYNC_MS }).toBe(devices.length)
     for (const [i, page] of devices.entries()) {
       await page.keyboard.press('Escape')
-      await expect(truppDots(page), `device ${i + 1} does not show every device's Trupp`).toHaveCount(devices.length, { timeout: 30_000 })
+      await expect(truppDots(page), `device ${i + 1} does not show every device's Trupp`).toHaveCount(devices.length, { timeout: SYNC_MS })
     }
     // …and the coupling is still the operator's: guarded, not paused (the TLF never moved)
     expect((await serverView(api, incident.id)).lines.map((l) => l.gps?.state)).toEqual(['guarded'])
     for (const [i, page] of devices.entries()) await expectKarteStands(page, `device ${i + 1} at the end`)
     expectNoClientErrors(clientErrors, 'at the end of the scenario')
+  })
+}
+
+/** Open an Übung of our own with the TLF parked beside it, run `body`, and archive it again. */
+async function withUbung(baseURL: string, label: string, body: (api: APIRequestContext, incident: { id: string; title: string }) => Promise<void>) {
+  const api = await stationApi(baseURL)
+  const title = `E2E Feldszenario ${label} ${Date.now()}`
+  const created = await api.post('/api/incidents', { data: { title, lat: SITE.lat, lng: SITE.lng, is_exercise: true } })
+  expect(created.status(), `POST /api/incidents: ${await created.text()}`).toBe(201)
+  const incident = { id: (await created.json()).id as string, title }
+  try {
+    await reportFleet(api)
+    await body(api, incident)
   } finally {
     await api.patch(`/api/incidents/${incident.id}`, { data: { is_archived: true } }).catch(() => undefined)
     await api.delete('/api/traccar/fake', { headers: { 'X-Webhook-Secret': FLEET_SECRET ?? '' } }).catch(() => undefined)
@@ -214,15 +241,46 @@ test.describe('field scenario · live GPS, a coupled Leitung, a tapped Trupp', (
   })
 
   test('one device', async ({ page, baseURL, clientErrors }) => {
-    test.setTimeout(120_000)
+    test.setTimeout(180_000)
     await runFieldScenario([page], baseURL!, clientErrors)
     await page.screenshot({ path: test.info().outputPath('field-scenario-1-device.png') })
   })
 
   test('three devices on one login', async ({ page, openDevice, baseURL, clientErrors }) => {
-    test.setTimeout(180_000)
+    test.setTimeout(300_000)
     const devices = [page, await openDevice('device 2'), await openDevice('device 3')]
     await runFieldScenario(devices, baseURL!, clientErrors)
     for (const [i, d] of devices.entries()) await d.screenshot({ path: test.info().outputPath(`field-scenario-3-devices-${i + 1}.png`) })
+  })
+
+  // ⚠️ KNOWN BUG, pinned as an expected failure (24.09.2026). Three devices that place a Trupp
+  // at the same moment all name it «Trupp 1»: each draws the next number from ITS OWN view of
+  // the Einsatz before the others' saves arrive (lib/placedTrupps · nextTeamName), and the merge
+  // keeps all three. docs/trupp-naming.md §1 says two things on one Einsatz are never both
+  // «Trupp 1»; its «Out of scope» accepts the same race for devices that are OFFLINE — here all
+  // three are online and tap «Neuer Trupp» within milliseconds of each other.
+  // The test is marked failing only when the duplicate actually shows, and only with no client
+  // error on record, so a crash is never excused as «the known bug». Once the numbering is fixed
+  // it simply passes; then delete the `test.fail` line and this note.
+  test('three devices placing a Trupp at once give them distinct names', async ({ page, openDevice, baseURL, clientErrors }) => {
+    test.setTimeout(180_000)
+    const devices = [page, await openDevice('device 2'), await openDevice('device 3')]
+    await withUbung(baseURL!, 'Namen', async (api, incident) => {
+      for (const d of devices) await openOnKarte(d, incident, baseURL!)
+      for (const d of devices) await expect(vehicleMarker(d), 'the fake TLF never reached the Karte').toBeVisible({ timeout: SYNC_MS })
+      // every device up to the «Welcher Trupp?» picker first, then all three taps at once
+      await Promise.all(devices.map(async (d, i) => {
+        const v = await settledVehicle(d)
+        await d.keyboard.press('t')
+        await d.mouse.click(v.x + TRUPP_SPOTS[i].dx, v.y + TRUPP_SPOTS[i].dy)
+        await expect(d.getByRole('button', { name: 'Neuer Trupp' })).toBeVisible()
+      }))
+      await Promise.all(devices.map((d) => d.getByRole('button', { name: 'Neuer Trupp' }).click()))
+      await expect.poll(async () => (await serverView(api, incident.id)).trupps, { timeout: SYNC_MS }).toBe(devices.length)
+      const names = (await serverView(api, incident.id)).truppNames
+      expectNoClientErrors(clientErrors, 'placing three Trupps at once')
+      test.fail(new Set(names).size < names.length, `known bug: concurrent devices hand out the same «Trupp N» (docs/trupp-naming.md) — got ${names.join(', ')}`)
+      expect(new Set(names).size, `three Trupps, three names — got ${names.join(', ')}`).toBe(devices.length)
+    })
   })
 })

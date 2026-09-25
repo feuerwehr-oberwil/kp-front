@@ -36,7 +36,10 @@ enforces this). A test that provokes a report on purpose lists it, and only it:
 test.use({ expectedClientErrors: [/^error: Failed to fetch$/] }) // matched against «kind: message»
 ```
 
-The offline smoke is the one user today: its basemap tiles fail while the network is gone.
+The offline smoke is the one user today. Since 24.09.2026 `lib/reportError` drops a bare fetch
+failure while `navigator.onLine` is false (`isOfflineNetworkNoise`), because being offline is not
+a client error. But Chromium's offline emulation reports `navigator.onLine === true` in a document
+reloaded while offline, so that drill's basemap tiles still report «error: Failed to fetch».
 The loop's own console line is never excused, and nothing turns the guard off.
 
 A test that needs more devices asks for `openDevice('device 2')`. That gives another browser
@@ -69,7 +72,18 @@ had ever produced. The spec builds exactly that:
 It runs twice: on one device, and on three devices with one login, as in the Übung. It is
 **chromium only**. The loop lives in our React code, not in anything an engine does
 differently, and the three-device run is the expensive half of the suite. WebKit keeps running
-the smoke under the same guard. Runtime is about 35 s plus 50 s.
+the smoke under the same guard. Runtime is about 35 s plus 50 s, and 20 s for the test below.
+
+Before every press the spec waits until the TLF's screen position holds still for 300 ms. The
+Karte's first framing can land after the marker is already visible, and on a loaded box a press
+measured before it went 18 px beside the TLF, so the Linie started uncoupled.
+
+**A known bug, pinned as an expected failure.** The third test has three devices tap «Neuer
+Trupp» within milliseconds of each other. Each takes the next number from its own view of the
+Einsatz, so all three are «Trupp 1», against docs/trupp-naming.md §1 (that doc accepts the race
+only for devices that are offline). The test marks itself `test.fail` only when the duplicate
+actually shows and no client error is on record. When the numbering is fixed it passes; then
+delete that line.
 
 **Proof that it catches the bug** (24.09.2026): with the #200 fix reverted locally (the
 idempotent pass, the stable `setDocRaw`, TwinTeamPill's guard), both tests fail. The failures
@@ -94,4 +108,4 @@ E2E_BASE_URL=http://localhost:8016 E2E_PIN=194731 E2E_ADMIN_SECRET=<same> \
 
 Without `E2E_FLEET_SECRET`, the field scenario skips locally. In CI it fails instead: CI must
 never quietly drop it. It writes to its own Übung and to the server's fake fleet, so never run
-it against a station in use, and never against front.fwo.li.
+it against a station in use or a production deployment.

@@ -137,10 +137,18 @@ so this file – not the log – is the record of what shipped up to that point.
   or a render storm** (`e2e/guard.ts`), with the report attached and the matching
   `kpfront.clienterror` lines printed from the container log; until now those reports only ever
   reached the server log. CI-only: the fake fleet is switched on by an overlay
-  (`e2e/compose.e2e.yml`), never in `docker-compose.yml`.
+  (`e2e/compose.e2e.yml`), never in `docker-compose.yml`. A third test pins a bug the scenario
+  turned up as an expected failure: three devices that tap «Neuer Trupp» at the same moment all
+  name it «Trupp 1».
 
 ### Fixed
 
+- **An offline tablet no longer fills the server log with «Failed to fetch».** Each basemap tile
+  the Karte could not load while offline was reported as a client error. A bare fetch failure
+  while the browser says it is offline is now dropped (`lib/reportError ·
+  isOfflineNetworkNoise`). Render throws, render storms and a failure while nominally online are
+  still reported, so every `kpfront.clienterror` line in the post-Einsatz check is something that
+  broke.
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched

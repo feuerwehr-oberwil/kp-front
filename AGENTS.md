@@ -50,7 +50,9 @@ chunk. No bundle references it, and the service worker's precache excludes `*.ma
 precache maps. To read a field stack, see [`docs/SOURCEMAPS.md`](docs/SOURCEMAPS.md). A client
 crash report is ONE log line (`kpfront.clienterror`, newlines as « ⏎ », each field bounded). The
 client sends a repeated signature as a counter (`repeat=×N since=…`) and never drops it
-(`src/lib/reportError.ts`).
+(`src/lib/reportError.ts`). The one thing it does not report is a bare fetch failure while
+`navigator.onLine` is false (`isOfflineNetworkNoise`, 24.09.2026). That is the device being
+offline, not a crash: the Karte's basemap tiles alone produced a line each.
 
 **Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
 (plus a few components); the backend uses pytest. The backend has a ruff pre-commit hook; the
