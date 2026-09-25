@@ -150,8 +150,8 @@ describe('buildKrokiPayload', () => {
 
   // ⚠️ D3 (24.09.2026): a live-GPS end the guard holds ON SITE — paused, the TLF drove off — must
   // not be named. The server couples every named end to the glyph where the vehicle is NOW
-  // (kroki · _snap_attached_ends), so a paused hose whose TLF stood at the Magazin printed a line
-  // from the site to the Magazin while the screen showed it ending on site.
+  // (kroki · _snap_attached_ends), so a paused hose whose TLF stood at its depot printed a line
+  // from the site to the depot while the screen showed it ending on site.
   it('does not name a live-GPS end the guard holds on site; names one that sits on its vehicle', () => {
     const SITE: [number, number] = [8.0, 47.0] // a neutral point — no station's real place
     const DEPOT: [number, number] = [8.01, 47.007] // ~1.1 km
@@ -162,7 +162,7 @@ describe('buildKrokiPayload', () => {
     } as Drawing)
     const print = (d: Drawing, e = tlf) => buildKrokiPayload({ entities: [e], drawings: [d], layers: layers.map((l) => ({ ...l, visible: true })), byName: {}, center: SITE })!
     const reach = (coords: [number, number][]) => Math.max(...coords.map((p) => Math.hypot((p[0] - SITE[0]) * 75000, (p[1] - SITE[1]) * 111000)))
-    // paused: the TLF is at the Magazin, the line still ends on site — on paper too
+    // paused: the TLF is at its depot, the line still ends on site — on paper too
     const paused = print(hose('paused'))
     expect(paused.drawings[0].endAt).toBeUndefined()
     expect(reach(paused.drawings[0].coords as [number, number][])).toBeLessThan(100)

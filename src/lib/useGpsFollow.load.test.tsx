@@ -141,11 +141,12 @@ describe('useGpsFollow · LOAD — 40 vehicles, 60 couplings, 500 objects, 200 p
     expect(seen.objects).toHaveLength(LINES + OTHERS_MAP + OTHERS_SHEET)
     // …the snapshots rode through every write by IDENTITY (the pass spreads gps, never rebuilds it)
     for (const d of seen.drawings) expect(d.endAttachment!.gps!.before).toBe(snapshots.get(d.id))
-    // …and the Meldeleiste reads 20 paused ends as «away» and 20 following ends back «on site»
-    // (they moved ~0.1 m a poll), 200 times over, well inside the frame budget
+    // …and the Meldeleiste reads the 20 paused ends (20 vehicles) as 20 «away» rows, and NO «back»
+    // row for the 20 following ends: they never went 300 m out, so they are not «back» (they moved
+    // ~0.1 m a poll) — 200 times over, well inside the frame budget
     const notices = gpsNotices(seen.drawings, feed())
     expect(notices.filter((n) => n.kind === 'away')).toHaveLength(LINES / 3)
-    expect(notices.filter((n) => n.kind === 'back')).toHaveLength(LINES / 3)
+    expect(notices.filter((n) => n.kind === 'back')).toHaveLength(0)
     expect(noticeMs / TICKS).toBeLessThan(5)
   })
 })

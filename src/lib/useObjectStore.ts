@@ -91,8 +91,11 @@ export interface ObjectStore {
    *  fold too early and the last sample lands as a second undo step (↶ then half-un-turns the
    *  object). See the net in the effect below for what the window is still good for. */
   endSheetStep: () => void
-  /** checkpoint the store, then apply a map update — one undo step (no-op if readOnly) */
-  commit: (updater: (d: Doc) => Doc) => void
+  /** checkpoint the store, then apply a map update — one undo step (no-op if readOnly).
+   *  `gesture: false` — the step is an undo step but NOT a hand-placement: a restored snapshot
+   *  («Zurück auf Stand am Einsatzort», lib/gpsReturn) writes through the fit instead of
+   *  flipping a plan-drawn object's anchor (AGENTS.md · «A MACHINE write never flips an anchor»). */
+  commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
   beginDrag: () => void
   endDrag: () => void
   /** a hand is mid-gesture on either surface: a Karte drag (`beginDrag`) or a plan step
@@ -208,10 +211,10 @@ export function useObjectStore(
     }))
   }
 
-  const commit = (updater: (d: Doc) => Doc) => {
+  const commit: ObjectStore['commit'] = (updater, opts) => {
     reporting((see) => store.commit((objects) => {
       const view = docViewOf(objects)
-      const next = foldDoc(objects, updater(view), view)
+      const next = foldDoc(objects, updater(view), view, opts)
       see(objects, next)
       return next
     }))

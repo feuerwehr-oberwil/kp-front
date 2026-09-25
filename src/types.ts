@@ -297,7 +297,9 @@ export interface LineAttachment {
     /** The line as it stood ON SITE when «Weiter folgen» (or «Spur») was tapped — lib/gpsReturn.
      *  Taken once and never overwritten while the end follows, so «Zurück auf Stand am
      *  Einsatzort» can put the line back exactly. Optional and additive: an older client spreads
-     *  `gps` wherever it writes it, so the field rides along untouched and is simply never read. */
+     *  `gps` wherever it writes it, so the field rides along untouched and is simply never read.
+     *  ⚠️ Valid only while its `confirmedAt` is this coupling's (gpsReturn · freshBefore): an
+     *  older build re-confirming the end keeps a snapshot that no longer describes anything. */
     before?: GpsFollowSnapshot
   }
 }
@@ -308,8 +310,9 @@ export interface GpsFollowSnapshot {
   routing: LineRoutingMode
   state: GpsFollowState
   confirmedAt: LngLat
-  /** the vehicle's position at the tap — the on-site point every «vom Einsatzort» distance is
-   *  measured from */
+  /** the coupling's `lastSafe` at the tap: the LAST ON-SITE SAMPLE (a paused end stopped taking
+   *  samples when the vehicle crossed the 20 m guard), not where the vehicle was at the tap. The
+   *  point every «vom Einsatzort» distance is measured from. */
   lastSafe: LngLat
   /** ISO time of the tap (server clock) */
   at: string

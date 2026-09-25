@@ -14,6 +14,9 @@ import { onSiteCoords, revertCoords } from './gpsReturn'
 // (IncidentWorkspace · META_LOG_SETTLE_MS) — a burst of taps on the editor is one row
 const DRAW_LOG_SETTLE_MS = 4000
 
+/** One GPS end to let go of: which line, which end, and where the screen shows it now. */
+export interface GpsDetach { id: string; endpoint: LineEndpoint; fallback?: LngLat }
+
 interface MapDrawingDeps {
   drawings: Drawing[]
   resolvedDrawings?: Drawing[]
@@ -21,7 +24,7 @@ interface MapDrawingDeps {
   tacticalLocked: boolean
   tool: string
   setTool: (id: string) => void
-  commit: (updater: (d: Doc) => Doc) => void
+  commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
   setDocRaw: (updater: (d: Doc) => Doc) => void
   beginDrag: () => void
   endDrag: () => void
@@ -427,27 +430,19 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   }
 
   /** One magnetic attach/detach/retarget gesture = one document checkpoint and one audit event.
-   *
-   *  ⚠️ Letting go of a live-GPS end happens AT THE EINSATZORT, whichever door it came through —
-   *  the Meldung, the editor, the map's × chip (lib/gpsReturn · onSiteCoords). A trace that has
-   *  followed a vehicle off site is cut back to where it stood before following began; the
-   *  «Hier lösen» of 23.09.2026 cut it at the vehicle's current position, depot included. */
+   *  The end lands exactly at `fallback` — a hand dragging a followed end off drops it where the
+   *  finger let go, and «Hier lösen (Spur behalten)» lets go where the end stands. Only the
+   *  explicit «Am Einsatzort» buttons cut a trace back (`releaseGpsOnSite` below). */
   const setDrawingAttachment = (id: string, endpoint: LineEndpoint, attachment: LineAttachment | undefined, fallback: LngLat) => {
     if (tacticalLocked) return
     const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
-    const current = drawings.find((dr) => dr.id === id)
-    const previous = current?.[key]
-    // the whole line changes only when a followed GPS end is cut back on site; every other
-    // attach/detach moves the one end, exactly as before
-    const onSite = !attachment && previous?.gps?.before && current && current.kind === 'line' ? onSiteCoords(current, endpoint, fallback) : null
+    const previous = drawings.find((dr) => dr.id === id)?.[key]
     commit((d) => ({ ...d, drawings: d.drawings.map((dr) => {
       if (dr.id !== id || dr.kind !== 'line' || dr.coords.length < 2) return dr
-      const coords = onSite ?? dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
+      const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
       return { ...dr, coords, [key]: attachment }
     }) }))
-    // replay folds `draw.detach` onto ONE end; a cut-back line says its new shape first
-    if (onSite) emit('draw.edit', { id, patch: { coords: onSite } })
-    emit(attachment ? 'draw.attach' : 'draw.detach', { id, endpoint, attachment, fallback: onSite ? onSite[endpoint === 'start' ? 0 : onSite.length - 1] : fallback })
+    emit(attachment ? 'draw.attach' : 'draw.detach', { id, endpoint, attachment, fallback })
     // …and an end dragged ONTO a Trupp's marker joins the two, exactly as a fresh stroke's does –
     // and an end let go of that marker parts them again
     if (attachment) onLineAttached?.(id, attachment)
@@ -455,24 +450,79 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   }
 
   /**
-   * «Zurück auf Stand am Einsatzort»: the Leitung as it stood when following began
-   * (`gps.before`), detached right there — ONE store checkpoint (so one ↶; the caller names it),
-   * ONE Verlauf row that says so (`rowText`), and the snapshot goes with the attachment it lived
-   * in. Returns false when there is nothing to go back to.
+   * Detach several GPS ends in ONE store step — the geometry each gets is `shape(drawing, end)`,
+   * written with `gesture: false` (restoring or cutting back a line is not a hand placing it: a
+   * plan-drawn hose keeps its sheet and storey — AGENTS.md · «A MACHINE write never flips an
+   * anchor»). Returns the lines whose vertices were REMOVED, for the caller's one Verlauf row.
    */
-  const revertGpsFollow = (id: string, endpoint: LineEndpoint, rowText: string): boolean => {
-    if (tacticalLocked) return false
-    const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
-    const current = drawings.find((dr) => dr.id === id)
-    const previous = current?.[key]
-    const coords = current ? revertCoords(current, endpoint) : null
-    if (!current || !previous || !coords) return false
-    commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === id ? { ...dr, coords, [key]: undefined } : dr)) }))
-    emit('draw.edit', { id, patch: { coords } })
-    emit('draw.detach', { id, endpoint, fallback: coords[endpoint === 'start' ? 0 : coords.length - 1] })
-    log('pen', rowText, 'symbol', undefined, undefined, { subjectId: id })
-    onLineDetached?.(id, previous)
+  const detachGpsEnds = (ends: readonly GpsDetach[], shape: (d: Drawing, e: GpsDetach) => { coords: LngLat[]; removed: boolean } | null): Drawing[] | null => {
+    if (tacticalLocked || !ends.length) return null
+    const work = new Map<string, Drawing>()
+    const previous: { id: string; attachment: LineAttachment }[] = []
+    const removed = new Map<string, Drawing>()
+    const done: GpsDetach[] = []
+    for (const e of ends) {
+      const cur = work.get(e.id) ?? drawings.find((dr) => dr.id === e.id)
+      const key = e.endpoint === 'start' ? 'startAttachment' : 'endAttachment'
+      const att = cur?.[key]
+      if (!cur || cur.kind !== 'line' || !att) continue
+      const next = shape(cur, e)
+      if (!next) continue
+      work.set(e.id, { ...cur, coords: next.coords, [key]: undefined })
+      previous.push({ id: e.id, attachment: att })
+      done.push(e)
+      if (next.removed && !removed.has(e.id)) removed.set(e.id, cur)
+    }
+    if (!work.size) return null
+    commit((d) => ({ ...d, drawings: d.drawings.map((dr) => {
+      const w = work.get(dr.id)
+      if (!w) return dr
+      const out: Drawing = { ...dr, coords: w.coords }
+      for (const e of done) if (e.id === dr.id) out[e.endpoint === 'start' ? 'startAttachment' : 'endAttachment'] = undefined
+      return out
+    }) }), { gesture: false })
+    for (const [id, w] of work) {
+      emit('draw.edit', { id, patch: { coords: w.coords } })
+      for (const e of done) if (e.id === id) emit('draw.detach', { id, endpoint: e.endpoint, fallback: w.coords[e.endpoint === 'start' ? 0 : w.coords.length - 1] })
+    }
+    for (const p of previous) onLineDetached?.(p.id, p.attachment)
+    return [...removed.values()]
+  }
+
+  /**
+   * «Am Einsatzort lassen» / «Am Einsatzort lösen»: each end lets go at its ON-SITE point — a
+   * followed trace cut back to where it stood before following began (lib/gpsReturn ·
+   * onSiteCoords), any other end at `fallback` (the screen's end, on site by the guard). ONE step;
+   * a Verlauf row only when a drive was actually taken out of a line (`row` names those lines).
+   */
+  const releaseGpsOnSite = (ends: readonly GpsDetach[], row: (lines: Drawing[]) => string): boolean => {
+    const removed = detachGpsEnds(ends, (d, e) => onSiteCoords(d, e.endpoint, e.fallback ?? d.coords[e.endpoint === 'start' ? 0 : d.coords.length - 1]))
+    if (!removed) return false
+    if (removed.length) log('pen', row(removed), 'symbol', undefined, undefined, { subjectId: removed[0].id })
     return true
+  }
+
+  /**
+   * «Zurück auf Stand am Einsatzort»: each line as it stood when following began (`gps.before`),
+   * detached right there — ONE store checkpoint (one ↶; the caller names it), ONE Verlauf row
+   * (`rowText`), and the snapshot goes with the attachment it lived in. False when none of the
+   * ends kept a snapshot.
+   */
+  const revertGpsFollow = (ends: readonly GpsDetach[], rowText: string): boolean => {
+    const done = detachGpsEnds(ends, (d, e) => {
+      const coords = revertCoords(d, e.endpoint)
+      return coords ? { coords, removed: coords.length < d.coords.length } : null
+    })
+    if (!done) return false
+    log('pen', rowText, 'symbol', undefined, undefined, { subjectId: ends[0].id })
+    return true
+  }
+
+  /** Several routing patches («Weiter folgen» on every end of one vehicle) — ONE undo step. */
+  const patchDrawingsById = (patches: readonly { id: string; patch: Partial<Drawing> }[]) => {
+    if (tacticalLocked || !patches.length) return
+    for (const { id, patch } of patches) emit('draw.edit', { id, patch })
+    commit((d) => ({ ...d, drawings: d.drawings.map((dr) => patches.filter((p) => p.id === dr.id).reduce((acc, p) => ({ ...acc, ...p.patch }), dr)) }))
   }
 
   // ✓ enabled when the draft is committable: an area needs ≥3 points, a node-mode line ≥2
@@ -500,6 +550,6 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow,
+    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   }
 }

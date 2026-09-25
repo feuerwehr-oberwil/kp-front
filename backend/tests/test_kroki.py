@@ -866,7 +866,7 @@ def test_an_attached_leitung_end_lands_on_the_glyph_as_printed():
 
 def test_a_named_end_follows_its_entity_so_a_held_gps_end_must_not_be_named():
     """⚠️ D3 (24.09.2026): the coupling pass pulls every NAMED end onto the entity where it stands
-    now — 1.1 km away if the TLF is at the Magazin. A live-GPS end the guard holds on site (paused)
+    now — 1.1 km away if the TLF is at its depot. A live-GPS end the guard holds on site (paused)
     is therefore sent WITHOUT `endAt` by the client (lineAttachments · endOnTarget), and so is a
     line reverted with «Zurück auf Stand am Einsatzort» (it is detached). Both print where the
     screen shows them. This pins the server half of that contract."""

@@ -17,16 +17,16 @@ import { toast } from './ui'
 const line = (over: Partial<Drawing> = {}): Drawing =>
   ({ id: 'd1', kind: 'line', coords: [[7.7, 47.4], [7.8, 47.5]], ...over }) as Drawing
 
-function makeDeps(over: { tool?: string; tacticalLocked?: boolean } = {}) {
+function makeDeps(over: { tool?: string; tacticalLocked?: boolean; drawings?: Drawing[] } = {}) {
   // a live doc the commit stub actually applies to, so a burst's second patch sees the first
-  let doc = { entities: [], drawings: [line()] } as unknown as Doc
+  let doc = { entities: [], drawings: over.drawings ?? [line()] } as unknown as Doc
   const deps = {
     drawings: doc.drawings,
     selectedDrawingId: 'd1' as string | null,
     tacticalLocked: over.tacticalLocked ?? false,
     tool: over.tool ?? 'select',
     setTool: vi.fn(),
-    commit: vi.fn((u: (d: Doc) => Doc) => { doc = u(doc); deps.drawings = doc.drawings }),
+    commit: vi.fn((u: (d: Doc) => Doc, _opts?: { gesture?: boolean }) => { void _opts; doc = u(doc); deps.drawings = doc.drawings }),
     setDocRaw: vi.fn(),
     beginDrag: vi.fn(),
     endDrag: vi.fn(),
@@ -302,80 +302,118 @@ describe('draft thresholds', () => {
   })
 })
 
-// D3 (24.09.2026): letting go of a live-GPS end happens AT THE EINSATZORT, and «Zurück auf Stand
-// am Einsatzort» is one step with one row. The Übung on 23.09.2026 saved a depot → site → depot
-// hose line because «Weiter folgen» overwrote the on-site point and «Hier lösen» cut at the
-// vehicle's current position.
-describe('GPS ends: on-site detach and «Zurück auf Stand am Einsatzort»', () => {
+// D3 (24.09.2026): «Am Einsatzort» lets go on site, «Zurück auf Stand am Einsatzort» is one step
+// with one row, and a traced hose may be kept («Hier lösen (Spur behalten)», a drag-off). The Übung
+// on 23.09.2026 saved a depot → site → depot hose line because «Weiter folgen» overwrote the
+// on-site point and «Hier lösen» cut at the vehicle's current position without saying so.
+describe('GPS ends: «Zurück», «Am Einsatzort lösen», «Hier lösen», drag-off', () => {
   const SITE: [number, number] = [8.0, 47.0]
   const DEPOT: [number, number] = [8.01, 47.007]
   const onSite: [number, number][] = [[7.9993, 46.9996], [7.9997, 46.9998], SITE]
-  const followed = (): Drawing => line({
-    // the line after following the TLF to the Magazin: the drive is its tail
+  const followed = (over: Partial<Drawing> = {}): Drawing => line({
+    // the line after following the TLF to its depot: the drive is its tail
     coords: [[7.9993, 46.9996], [7.9997, 46.9998], [8.003, 47.002], [8.007, 47.005], DEPOT],
     endAttachment: {
       target: { kind: 'object', id: 'gps-3', live: true }, routing: 'trace',
       gps: { state: 'continuous', confirmedAt: SITE, lastSafe: DEPOT, before: { coords: onSite, routing: 'direct', state: 'paused', confirmedAt: SITE, lastSafe: SITE, at: '2026-09-23T20:31:00.000Z' } },
     },
+    ...over,
   })
+  const ROW = 'Leitung 1: zurück auf Stand am Einsatzort (20:31), von TLF gelöst'
 
-  it('«Zurück»: ONE commit, the snapshot exactly, the end detached, ONE Verlauf row, a coherent replay pair', () => {
-    const deps = makeDeps()
-    deps.drawings = [followed()]
+  it('«Zurück»: ONE step, NOT a hand gesture, the snapshot exactly, the end detached, ONE Verlauf row, a coherent replay pair', () => {
+    const deps = makeDeps({ drawings: [followed()] })
     const onLineDetached = vi.fn()
     const { result } = renderHook((p) => useMapDrawing(p), { initialProps: { ...deps, onLineDetached } })
     let ok = false
-    act(() => { ok = result.current.revertGpsFollow('d1', 'end', 'Leitung 1: zurück auf Stand am Einsatzort (22:31), von TLF gelöst') })
+    act(() => { ok = result.current.revertGpsFollow([{ id: 'd1', endpoint: 'end' }], ROW) })
     expect(ok).toBe(true)
     expect(deps.commit).toHaveBeenCalledTimes(1)
+    expect(deps.commit.mock.calls[0][1]).toEqual({ gesture: false }) // a plan-drawn hose keeps its sheet
     expect(deps.drawings[0].coords).toEqual(onSite)
     expect(deps.drawings[0].endAttachment).toBeUndefined() // and gps.before with it
     expect(deps.log).toHaveBeenCalledTimes(1)
-    expect(deps.log.mock.calls[0][1]).toBe('Leitung 1: zurück auf Stand am Einsatzort (22:31), von TLF gelöst')
+    expect(deps.log.mock.calls[0][1]).toBe(ROW)
     expect(deps.emit.mock.calls.map((c) => c[0])).toEqual(['draw.edit', 'draw.detach'])
     expect(deps.emit.mock.calls[1][1]).toMatchObject({ id: 'd1', endpoint: 'end', fallback: SITE })
     expect(onLineDetached).toHaveBeenCalledTimes(1)
   })
 
+  it('«Zurück» on TWO hoses of one TLF: one step, one row', () => {
+    const deps = makeDeps({ drawings: [followed(), followed({ id: 'd2' })] })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.revertGpsFollow([{ id: 'd1', endpoint: 'end' }, { id: 'd2', endpoint: 'end' }], 'x') })
+    expect(deps.commit).toHaveBeenCalledTimes(1)
+    expect(deps.log).toHaveBeenCalledTimes(1)
+    expect(deps.drawings.map((d) => d.coords)).toEqual([onSite, onSite])
+  })
+
   it('«Zurück» without a snapshot does nothing at all', () => {
-    const deps = makeDeps()
-    deps.drawings = [line({ endAttachment: { target: { kind: 'object', id: 'gps-3', live: true }, routing: 'direct', gps: { state: 'paused', confirmedAt: SITE, lastSafe: SITE } } })]
+    const deps = makeDeps({ drawings: [line({ endAttachment: { target: { kind: 'object', id: 'gps-3', live: true }, routing: 'direct', gps: { state: 'paused', confirmedAt: SITE, lastSafe: SITE } } })] })
     const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
     let ok = true
-    act(() => { ok = result.current.revertGpsFollow('d1', 'end', 'x') })
+    act(() => { ok = result.current.revertGpsFollow([{ id: 'd1', endpoint: 'end' }], 'x') })
     expect(ok).toBe(false)
     expect(deps.commit).not.toHaveBeenCalled()
     expect(deps.log).not.toHaveBeenCalled()
   })
 
-  it('«Lösen» on a followed end cuts the drive off — whatever end the caller offered (the depot)', () => {
-    const deps = makeDeps()
-    deps.drawings = [followed()]
+  it('«Am Einsatzort lösen» on a followed end cuts the drive off (not a gesture) and says so in ONE row', () => {
+    const deps = makeDeps({ drawings: [followed()] })
     const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
-    act(() => { result.current.setDrawingAttachment('d1', 'end', undefined, DEPOT) })
+    act(() => { result.current.releaseGpsOnSite([{ id: 'd1', endpoint: 'end', fallback: DEPOT }], (lines) => `${lines.length} Fahrt entfernt`) })
     expect(deps.commit).toHaveBeenCalledTimes(1)
+    expect(deps.commit.mock.calls[0][1]).toEqual({ gesture: false })
     expect(deps.drawings[0].coords).toEqual(onSite)
     expect(deps.drawings[0].endAttachment).toBeUndefined()
     expect(deps.emit.mock.calls.map((c) => c[0])).toEqual(['draw.edit', 'draw.detach'])
     expect(deps.emit.mock.calls[1][1]).toMatchObject({ fallback: SITE })
-    expect(deps.log).not.toHaveBeenCalled() // a detach is arranging, as before
+    expect(deps.log).toHaveBeenCalledTimes(1)
+    expect(deps.log.mock.calls[0][1]).toBe('1 Fahrt entfernt')
+  })
+
+  it('«Am Einsatzort lassen» on a paused end that never traced: the one end moves, no row', () => {
+    const deps = makeDeps({ drawings: [line({ endAttachment: { target: { kind: 'object', id: 'gps-3', live: true }, routing: 'direct', gps: { state: 'paused', confirmedAt: SITE, lastSafe: SITE } } })] })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.releaseGpsOnSite([{ id: 'd1', endpoint: 'end', fallback: SITE }], () => 'row') })
+    expect(deps.drawings[0].coords).toEqual([[7.7, 47.4], SITE])
+    expect(deps.log).not.toHaveBeenCalled()
+  })
+
+  it('«Hier lösen (Spur behalten)» and a hand DRAGGING the end off: the end lands where it was let go, the drive stays', () => {
+    const deps = makeDeps({ drawings: [followed()] })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    const DROP: [number, number] = [8.0105, 47.0072]
+    act(() => { result.current.setDrawingAttachment('d1', 'end', undefined, DROP) })
+    expect(deps.drawings[0].coords).toEqual([...followed().coords.slice(0, -1), DROP])
+    expect(deps.drawings[0].endAttachment).toBeUndefined()
+    expect(deps.emit.mock.calls.map((c) => c[0])).toEqual(['draw.detach'])
+    expect(deps.log).not.toHaveBeenCalled()
   })
 
   it('every other detach still moves only the one end', () => {
-    const deps = makeDeps()
-    deps.drawings = [line({ endAttachment: { target: { kind: 'object', id: 'hyd' }, routing: 'direct' } })]
+    const deps = makeDeps({ drawings: [line({ endAttachment: { target: { kind: 'object', id: 'hyd' }, routing: 'direct' } })] })
     const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
     act(() => { result.current.setDrawingAttachment('d1', 'end', undefined, [7.81, 47.51]) })
     expect(deps.drawings[0].coords).toEqual([[7.7, 47.4], [7.81, 47.51]])
     expect(deps.emit.mock.calls.map((c) => c[0])).toEqual(['draw.detach'])
   })
 
-  it('both are no-ops under the tactical lock', () => {
-    const deps = makeDeps({ tacticalLocked: true })
-    deps.drawings = [followed()]
+  it('«Weiter folgen» on every end of one vehicle is ONE step', () => {
+    const deps = makeDeps({ drawings: [followed(), followed({ id: 'd2' })] })
     const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
-    act(() => { result.current.revertGpsFollow('d1', 'end', 'x') })
+    act(() => { result.current.patchDrawingsById([{ id: 'd1', patch: { color: '#000000' } }, { id: 'd2', patch: { color: '#000000' } }]) })
+    expect(deps.commit).toHaveBeenCalledTimes(1)
+    expect(deps.drawings.map((d) => d.color)).toEqual(['#000000', '#000000'])
+  })
+
+  it('all of them are no-ops under the tactical lock', () => {
+    const deps = makeDeps({ tacticalLocked: true, drawings: [followed()] })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.revertGpsFollow([{ id: 'd1', endpoint: 'end' }], 'x') })
+    act(() => { result.current.releaseGpsOnSite([{ id: 'd1', endpoint: 'end' }], () => 'x') })
     act(() => { result.current.setDrawingAttachment('d1', 'end', undefined, DEPOT) })
+    act(() => { result.current.patchDrawingsById([{ id: 'd1', patch: { color: '#000000' } }]) })
     expect(deps.commit).not.toHaveBeenCalled()
   })
 })

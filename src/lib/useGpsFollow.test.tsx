@@ -19,7 +19,9 @@ import { routingPatch } from './gpsReturn'
 import { resolveMapDrawings } from './lineAttachments'
 import { mergeWorkspace } from './mergeWorkspace'
 import { haversineM } from './geo'
-import type { Drawing, Entity, GpsFollowState, LngLat } from '../types'
+import { fitSimilarity } from './georef'
+import type { PlanFit } from './tacticalObjects'
+import type { BoardAnno, Drawing, Entity, GpsFollowState, LngLat } from '../types'
 
 const TLF: LngLat = [8.0, 47.0] // a neutral point — no station's real place
 /** ~0.1 m east per step at this latitude — far inside the 20 m guard for 60 steps */
@@ -133,7 +135,7 @@ describe('followLiveVehicles · the pass itself', () => {
 
 /**
  * D3 (24.09.2026) over the REAL store, the way the Übung went: a hose coupled to the TLF, the TLF
- * drives off (the coupling pauses), «Weiter folgen» is tapped, the TLF drives to the Magazin —
+ * drives off (the coupling pauses), «Weiter folgen» is tapped, the TLF drives to its depot —
  * and «Zurück auf Stand am Einsatzort» has to put the line back as it stood, as ONE undo step,
  * with the snapshot surviving every follower write, the sync merge and ↶/↷.
  */
@@ -144,15 +146,16 @@ describe('useGpsFollow · «Weiter folgen» keeps the way back (D3)', () => {
     Array.from({ length: n }, (_, i) => [from[0] + ((to[0] - from[0]) * (i + 1)) / n, from[1] + ((to[1] - from[1]) * (i + 1)) / n + (i % 2 ? 0.00004 : 0)])
   const reach = (coords: LngLat[]) => Math.max(...coords.map((p) => haversineM(SITE, p)))
 
-  function mountWithEditor(init: TacticalObject[], vehicles: Entity[]) {
+  function mountWithEditor(init: TacticalObject[], vehicles: Entity[], fits: Map<string, PlanFit> = new Map()) {
     const seen = {
+      objects: [] as TacticalObject[],
       drawings: [] as Drawing[],
       log: vi.fn(),
       emit: vi.fn(),
       api: null as null | { store: ReturnType<typeof useObjectStore>; drawing: ReturnType<typeof useMapDrawing> },
     }
     function Host({ vehicles }: { vehicles: Entity[] }) {
-      const store = useObjectStore(init, false, { getFits: () => new Map(), defaultLayer: 'taktisch', fitsVersion: 0 })
+      const store = useObjectStore(init, false, { getFits: () => fits, defaultLayer: 'taktisch', fitsVersion: 0 })
       const drawing = useMapDrawing({
         drawings: store.doc.drawings, selectedDrawingId: null, tacticalLocked: false, tool: 'select', setTool: () => {},
         commit: store.commit, setDocRaw: store.setDocRaw, beginDrag: store.beginDrag, endDrag: store.endDrag,
@@ -160,6 +163,7 @@ describe('useGpsFollow · «Weiter folgen» keeps the way back (D3)', () => {
         setSelectedDrawingId: () => {}, setSelectedId: () => {}, setSelectedDrawIds: () => {}, setSelectedEntityIds: () => {},
       })
       seen.drawings = store.doc.drawings
+      seen.objects = store.objects
       seen.api = { store, drawing }
       useGpsFollow({ liveVehicles: vehicles, enabled: true, setDocRaw: store.setDocRaw })
       return null
@@ -168,7 +172,7 @@ describe('useGpsFollow · «Weiter folgen» keeps the way back (D3)', () => {
     return { seen, feed: (next: Entity[]) => act(() => r.rerender(<Host vehicles={next} />)) }
   }
 
-  it('drive-off → «Weiter folgen» → Magazin → «Zurück»: the on-site line, one ↶ step, no spike', () => {
+  it('drive-off → «Weiter folgen» → depot → «Zurück»: the on-site line, one ↶ step, no spike', () => {
     const start = hose('guarded')
     const { seen, feed } = mountWithEditor(objectsFromLegacy([], [start], {}), [vehicle(SITE)])
     // the TLF drives off: past 20 m the coupling pauses and the end stays on site
@@ -180,14 +184,14 @@ describe('useGpsFollow · «Weiter folgen» keeps the way back (D3)', () => {
     act(() => { seen.api!.drawing.patchDrawingById(d0.id, routingPatch(d0, 'end', 'trace', { resolvedEnd: d0.coords[d0.coords.length - 1], at: '2026-09-23T20:31:00.000Z' })!) })
     const before = seen.drawings[0].endAttachment!.gps!.before!
     expect(before.coords).toEqual(start.coords)
-    // …to the Magazin: every sample is a machine write, and the snapshot rides along untouched
+    // …to the depot: every sample is a machine write, and the snapshot rides along untouched
     for (const p of away.slice(3)) feed([vehicle(p)])
     const followed = seen.drawings[0]
     expect(followed.endAttachment!.gps!.before).toEqual(before)
     expect(reach(followed.coords)).toBeGreaterThan(1000)
     // «Zurück auf Stand am Einsatzort»
     let ok = false
-    act(() => { ok = seen.api!.drawing.revertGpsFollow(followed.id, 'end', 'Leitung: zurück') })
+    act(() => { ok = seen.api!.drawing.revertGpsFollow([{ id: followed.id, endpoint: 'end' }], 'Leitung: zurück') })
     expect(ok).toBe(true)
     expect(seen.drawings[0].coords).toEqual(start.coords)
     expect(seen.drawings[0].endAttachment).toBeUndefined()
@@ -220,5 +224,52 @@ describe('useGpsFollow · «Weiter folgen» keeps the way back (D3)', () => {
     expect(snapOf(mergeWorkspace(base, { objects: objectsFromLegacy([other], [paused], {}) }, mine))).toEqual(snap)
     // an older build saves VIEWS only — the field it does not know is still in the drawing it saved
     expect(snapOf(mergeWorkspace(base, { drawings: [followed] }, base))).toEqual(snap)
+  })
+
+  it('a PLAN-DRAWN hose keeps its sheet and storey through «Zurück» — restoring a snapshot is not a placement', () => {
+    const fit: PlanFit = {
+      fit: fitSimilarity([
+        { plan: { x: 0, y: 0 }, lngLat: { lng: SITE[0] - 0.002, lat: SITE[1] - 0.002 } },
+        { plan: { x: 1, y: 0 }, lngLat: { lng: SITE[0] + 0.002, lat: SITE[1] - 0.002 } },
+      ] as never, 1)!,
+      aspect: 1,
+    }
+    const start = hose('paused')
+    const anno = { id: 'hose', kind: 'draw', pts: [[0.2, 0.4, 1], [0.35, 0.45, 1], [0.5, 0.5, 1]], floor: 1 } as unknown as BoardAnno
+    const init = objectsFromLegacy([], [start], { modul2: [anno] })
+    const { seen, feed } = mountWithEditor(init, [vehicle(SITE)], new Map([['modul2', fit]]))
+    const d0 = seen.drawings[0]
+    act(() => { seen.api!.drawing.patchDrawingById(d0.id, routingPatch(d0, 'end', 'trace', { resolvedEnd: d0.coords[d0.coords.length - 1], at: '2026-09-23T20:31:00.000Z' })!) })
+    for (const p of path(SITE, DEPOT, 8)) feed([vehicle(p)])
+    expect(seen.objects[0].sheet).toBeDefined()
+    act(() => { seen.api!.drawing.revertGpsFollow([{ id: 'hose', endpoint: 'end' }], 'x') })
+    const o = seen.objects.find((x) => x.id === 'hose')!
+    expect(o.sheet?.planId).toBe('modul2') // still the sheet's
+    expect(o.sheet?.anno.floor).toBe(1)    // …on its storey
+    expect(o.drawing?.endAttachment).toBeUndefined()
+    // control: the same object detached by a HAND gesture would re-home to the Karte
+    act(() => { seen.api!.store.undo() })
+    act(() => { seen.api!.drawing.setDrawingAttachment('hose', 'end', undefined, DEPOT) })
+    expect(seen.objects.find((x) => x.id === 'hose')!.sheet).toBeUndefined()
+  })
+
+  it('a «Zurück» on one device beats a FOLLOWER sample from another in the sync merge — either way round', () => {
+    const followed: Drawing = { ...hose('paused'), ...routingPatch(hose('paused'), 'end', 'trace', { resolvedEnd: TLF, at: '2026-09-23T20:31:00.000Z' })! }
+    const driven = path(SITE, DEPOT, 6).reduce((cur, p) => followLiveVehicles({ entities: [], drawings: [cur] }, [vehicle(p)]).drawings[0], followed)
+    const sampled = followLiveVehicles({ entities: [], drawings: [driven] }, [vehicle(DEPOT)]).drawings[0]
+    const reverted: Drawing = { ...driven, coords: hose('paused').coords, endAttachment: undefined }
+    const base = { objects: objectsFromLegacy([], [driven], {}) }
+    const ws = (d: Drawing) => ({ objects: objectsFromLegacy([], [d], {}) })
+    const hoseOf = (m: Record<string, unknown>) => (m.drawings as Drawing[]).find((d) => d.id === 'hose')!
+    expect(sampled).not.toEqual(driven) // the premise: the other device really wrote a sample
+    // I reverted, the server holds the other device's follower sample
+    expect(hoseOf(mergeWorkspace(base, ws(reverted), ws(sampled))).endAttachment).toBeUndefined()
+    // the other device reverted, mine is the follower's sample
+    const m = hoseOf(mergeWorkspace(base, ws(sampled), ws(reverted)))
+    expect(m.endAttachment).toBeUndefined()
+    expect(m.coords).toEqual(hose('paused').coords)
+    // two hands still resolve as before: last writer (mine) wins
+    const recoloured = { ...driven, color: '#000000' }
+    expect(hoseOf(mergeWorkspace(base, ws(recoloured), ws(reverted))).color).toBe('#000000')
   })
 })

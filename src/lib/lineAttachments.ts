@@ -433,7 +433,7 @@ const flatMetres = (a: Point, b: Point) => {
  *
  * ⚠️ The printed Kroki reads this (krokiPayload · `startAt`/`endAt`): the server re-couples every
  * end it is told about to the target glyph AS PRINTED (backend · kroki · `_snap_attached_ends`),
- * and a paused hose whose TLF stood at the Magazin was drawn from the site to the Magazin on
+ * and a paused hose whose TLF stood at its depot was drawn from the site to the depot on
  * paper while the screen showed it ending on site. An end the guard holds is not coupled on paper.
  */
 export function endOnTarget(attachment: LineAttachment, targetCoord: LngLat): boolean {
