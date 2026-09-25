@@ -105,6 +105,9 @@ interface Props {
    *  own — it docks beside one — so it is a door on the rail, lit while the dock is open. On the
    *  folded phone bar (five tiles, no sixth) it is a row of the «Einsatz» chooser instead. */
   onSuche?: () => void
+  /** the phone chooser's row: it OPENS the Suche, never closes it (a list row that toggled the
+   *  thing it names would close it for somebody who came to open it) */
+  onSucheOpen?: () => void
   sucheOn?: boolean
   /** people still missing — the red count on the door */
   sucheCount?: number
@@ -397,7 +400,7 @@ export function NavRail(p: Props) {
           rows={pageRows}
           // from outside the group (a hold on Karte) the marked row is the one a tap would open
           activeId={rapportOn ? p.mode : rapportGo}
-          onPick={(id) => (id === 'suche' ? p.onSuche?.() : p.onMode(id as RapportPage))}
+          onPick={(id) => (id === 'suche' ? (p.onSucheOpen ?? p.onSuche)?.() : p.onMode(id as RapportPage))}
           onClose={() => setPageChooser(false)}
         />
       )}

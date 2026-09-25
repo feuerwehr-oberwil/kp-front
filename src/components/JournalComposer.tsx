@@ -23,7 +23,7 @@ import type { JournalEntryType, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { acceptJournalSuggestion, journalSuggestions, type JournalSuggestion, type TextSelection } from '../lib/journalSuggestions'
 import { suggestPendenzen, type OpenReminder } from '../lib/reminders'
-import { newPersonFromText, suggestSuchePersonen, type PersonView } from '../lib/suche'
+import { newPersonFromText, sucheLinkLabel, suggestSuchePersonen, type PersonView, type SucheComposerLink } from '../lib/suche'
 import { startChips } from '../lib/startChips'
 import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
@@ -1279,17 +1279,4 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       )}
     </Overlay>
   )
-}
-
-/** What an entry written in the Verlauf changes in the Suche on its way (Tür 2): a person still
- *  missing is found, or a new one is reported missing under the words before «vermisst». */
-export type SucheComposerLink =
-  | { kind: 'gefunden'; personId: string; label: string }
-  | { kind: 'neu'; name: string }
-
-function sucheLinkLabel(l: SucheComposerLink): string {
-  const S = appConfig.copy.suche
-  return l.kind === 'gefunden'
-    ? fillTemplate(S.composerKnown, { name: l.label, from: S.status.vermisst, to: S.status.gefunden })
-    : fillTemplate(S.composerNew, { name: l.name })
 }

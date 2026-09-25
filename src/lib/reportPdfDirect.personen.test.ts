@@ -10,13 +10,15 @@ describe('buildDirectReportPayload · personen', () => {
       { id: 'r1', op: 'vermisst', at: '2026-09-03T10:08:00.000Z', text: 'Vermisst: Tim Muster' },
       { id: 'r2', op: 'gefunden', at: '2026-09-03T10:16:00.000Z', text: 'Gefunden: Tim Muster', trupp: 'Trupp 3', floor: 1 },
     ] }],
-    bereiche: [{ id: 'sbg1', floor: 1, createdAt: '', log: [{ id: 'r3', op: 'status', status: 'abgesucht', at: '2026-09-03T10:39:00.000Z', text: 'x' }] }],
+    bereiche: [{ id: 'sbg:k1:1', floor: 1, stack: 'k1', createdAt: '', log: [{ id: 'r3', op: 'status', status: 'abgesucht', at: '2026-09-03T10:39:00.000Z', text: 'x' }] }],
   }
   const payload = (personen: boolean) => buildDirectReportPayload({
     incident: { id: 'i1', title: 'Brand', started_at: '2026-09-03T09:50:00.000Z' } as never,
     draft: { meta: {}, generatedAt: '2026-09-03T12:00:00.000Z', proof: {}, options: { personen } } as never,
     trupps: [], attendance: {}, events: [], plans: [], suche,
     building: { ring: [], ringAspect: 1, floors: [0, 1], floorNames: { 1: 'Hauptgeschoss' } },
+    // the app's own reading of the Gebäude (IncidentWorkspace · sucheStack) — the paper counts what it counts
+    sucheStack: { key: 'k1', floors: [0, 1], floorName: (f) => (f === 1 ? 'Hauptgeschoss' : f === 0 ? 'EG' : `${f}`) },
   }) as { personen: { name: string; gefunden?: string }[]; sucheLine?: string }
 
   it('prints the person with its times and the Bereiche line, in the building\'s own storey names', () => {

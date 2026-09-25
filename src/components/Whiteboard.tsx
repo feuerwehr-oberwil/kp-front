@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LineMarker } from './LineMarker'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import type { BoardAnno, BoardKind, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
@@ -170,8 +170,6 @@ interface Props {
   dockInset?: number
   /** the Suche's progress per storey, worn on the storey's own label («1. OG 2/4») */
   storeyBadges?: Record<number, { text: string; complete: boolean; active: boolean }>
-  /** surface buttons appended to the plan's tool rail (the Suche's toggle) */
-  railExtras?: ReactNode
   sym: SymbolsApi
   /** active Mannschaft names feeding the symbol detail comboboxes (Einsatzleiter / Fahrer …) */
   rosterNames?: string[]
@@ -330,7 +328,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, dockInset = 0, storeyBadges, railExtras }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, dockInset = 0, storeyBadges }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -3815,7 +3813,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           labels={railLabels}
           primary={{ id: 'symbol', icon: appConfig.copy.primarySymbol.icon, label: appConfig.copy.whiteboard.symbol }}
           tools={readOnly ? slimPlanTools : planTools}
-          extras={railExtras}
           active={tool}
           toolRefs={toolBtn}
           // ⚠️ Auswahl and Mehrfach share ONE rail slot (05.09., the same on the Karte): the rail

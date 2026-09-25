@@ -138,3 +138,19 @@
 
 /* the Suche's areas under a Trupp's Ziel field (SucheTrupp · ZielChips) */
 .zielChips { display: flex; flex-direction: column; gap: 6px; margin-top: -4px; }
+
+/* a record withdrawn as «irrtümlich erfasst»: still on the list (the record is not ours to hide),
+   struck through and quiet */
+.row[data-withdrawn] .rowTitle { text-decoration: line-through; color: var(--ink-dim); }
+/* «?» on the Bereiche tab while a question stands on one of its rows */
+.askBadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--amber); color: var(--on-fill);
+  font: 800 12px var(--body); display: inline-grid; place-items: center; }
+/* «Trupp 4 raus – abgesucht? Ja / Teilweise / Nein» — under the area's row, never a dialog */
+.ask { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px 12px; padding: 6px 8px;
+  border-radius: var(--r-ctl); background: color-mix(in srgb, var(--amber) 12%, transparent); }
+.askText { flex: 1 1 100%; font: 700 12.5px var(--body); color: var(--amber-strong); }
+.askBtn { flex: 1 1 0; min-height: var(--tap); border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--surface);
+  color: var(--ink); font: 700 13px var(--body); cursor: pointer; }
+.askBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* at peek the floor chips stand under the one line — the sheet is that much taller */
+.sheet.withChips:global(.ui-detent) { --detent-peek: 108px; }

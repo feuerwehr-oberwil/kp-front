@@ -32,7 +32,7 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
-import { personPrintRows, sucheGroups, sucheLine } from './suche'
+import { personPrintRows, stackKeyOf, sucheGroups, sucheLine, type SucheStack } from './suche'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them).
@@ -324,6 +324,9 @@ export interface DirectReportArgs {
   building?: BuildingDoc | null
   /** the Suche (lib/suche): one line per person with its times, and the one «Suche: …» line */
   suche?: SucheDoc
+  /** the Gebäude as the app's Suche reads it (IncidentWorkspace · sucheStack) — the same storeys
+   *  and the same building key, so the paper counts the areas the screen counted */
+  sucheStack?: SucheStack
   /** alternate endpoint/auth (capture view: poster token instead of the kiosk cookie) */
   transport?: import('./reportPdf').ReportTransport
 }
@@ -362,7 +365,7 @@ export function einsatzleiterForPdf(
 /** The ONE payload builder — shared by the PDF download and the station-printer enqueue
  *  (src/lib/printRelay.ts), so both always produce the identical document. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
-  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building, suche } = args
+  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building, suche, sucheStack } = args
   const meta = draft.meta
 
   // journal photos: send the server-relative media URL — the composer loads the bytes
@@ -391,9 +394,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   // the one line about the Bereiche. Same midnight rule as every other clock on the sheet.
   const sucheClock = spanAwareClock({ alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? incident.closed_at ?? null })
   const clockOf = (iso: string) => sucheClock(iso) ?? ''
-  const floorName = (f: number) => building?.floorNames?.[String(f)] ?? floorLabel(f)
-  const personen = personPrintRows(suche, clockOf, floorName)
-  const sucheSummaryLine = sucheLine(suche, sucheGroups(suche ?? { personen: [], bereiche: [] }, building?.floors ?? [], floorName), clockOf)
+  const stack: SucheStack = sucheStack ?? { key: stackKeyOf(building), floors: [], floorName: (f: number) => building?.floorNames?.[String(f)] ?? floorLabel(f) }
+  const personen = personPrintRows(suche, clockOf, stack.floorName)
+  const sucheSummaryLine = sucheLine(suche, sucheGroups(suche ?? { personen: [], bereiche: [] }, stack), clockOf)
 
   const kroki = draft.options.kroki && scene
     ? buildKrokiPayload({

@@ -1,4 +1,5 @@
 import { useRef, type CSSProperties, type ReactNode } from 'react'
+import { useKeyboardInset } from '../useKeyboardInset'
 import { SheetGrab } from './SheetGrab'
 
 /** The three heights of a {@link DetentSheet}: one line, list + plan, list only. */
@@ -36,6 +37,10 @@ export function DetentSheet({ detent, onDetent, head, peek, children, className,
   ariaLabel: string
   style?: CSSProperties
 }) {
+  // ⚠️ The on-screen keyboard, like Sheet/Overlay ask for it: while it is up the sheet stands on
+  // the KEYBOARD rather than on the nav bar (which the keyboard covers anyway), so the field being
+  // typed into and the form's one button stay above it — at every detent.
+  const kbInset = useKeyboardInset()
   const drag = useRef<{ y0: number; h0: number; el: HTMLElement; moved: boolean; onGrab: boolean } | null>(null)
 
   const down = (e: React.PointerEvent<HTMLElement>) => {
@@ -75,7 +80,8 @@ export function DetentSheet({ detent, onDetent, head, peek, children, className,
   }
 
   return (
-    <section className={`ui-detent is-${detent}${className ? ` ${className}` : ''}`} aria-label={ariaLabel} style={style} data-detent={detent}>
+    <section className={`ui-detent is-${detent}${kbInset > 0 ? ' is-kb' : ''}${className ? ` ${className}` : ''}`} aria-label={ariaLabel} data-detent={detent}
+      style={kbInset > 0 ? ({ ...style, '--detent-bottom': `${kbInset}px` } as CSSProperties) : style}>
       <div className="ui-detent-head" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
         <SheetGrab />
         {head}

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { appConfig } from '../../config/appConfig'
-import { emptySuche, personView, sucheSummary } from '../../lib/suche'
+import { emptySuche, personView, storeyBereichId, sucheSummary } from '../../lib/suche'
 import { useSucheActions, type SucheLog } from '../../lib/useSucheActions'
 import { floorLabel } from '../../lib/whiteboard'
 import type { SucheDoc } from '../../types'
@@ -13,15 +13,15 @@ afterEach(cleanup)
 const C = appConfig.copy.suche
 
 /** The panel over a live slice and the real writer hook — what the dock and the phone sheet mount. */
-function Harness({ initial = emptySuche(), canEdit = true, floors = [0, 1], log = vi.fn<SucheLog>(), onDoc }: {
-  initial?: SucheDoc; canEdit?: boolean; floors?: number[]; log?: SucheLog; onDoc?: (d: SucheDoc) => void
+function Harness({ initial = emptySuche(), canEdit = true, floors = [0, 1], log = vi.fn<SucheLog>(), onDoc, asks }: {
+  initial?: SucheDoc; canEdit?: boolean; floors?: number[]; log?: SucheLog; onDoc?: (d: SucheDoc) => void; asks?: string[]
 }) {
   const [doc, setDoc] = useState(initial)
   const [tab, setTab] = useState<SucheTab>('personen')
   const set = (d: SucheDoc) => { setDoc(d); onDoc?.(d) }
-  const actions = useSucheActions({ suche: doc, set, setRaw: set, canEdit, log, emit: () => {}, floorName: floorLabel })
+  const actions = useSucheActions({ suche: doc, setRaw: set, canEdit, log, emit: () => {}, floorName: floorLabel, stack: 'k1' })
   return (
-    <SuchePanel doc={doc} floors={floors} floorName={floorLabel} canEdit={canEdit} actions={actions}
+    <SuchePanel doc={doc} floors={floors} floorName={floorLabel} stackKey="k1" asks={asks} canEdit={canEdit} actions={actions}
       trupps={[{ id: 't3', label: 'Trupp 3', short: 'T3 Muster' }]} placed={[{ truppId: 't3', floor: 1 }]}
       tab={tab} onTab={setTab} uebergabe={['Rettungsdienst', 'Sammelplatz']} />
   )
@@ -61,7 +61,9 @@ describe('SuchePanel', () => {
     const v = personView(last.personen[0])
     expect(v).toMatchObject({ status: 'uebergeben', foundTrupp: 'Trupp 3', foundFloor: 1, foundWo: 'Technikraum', an: 'Rettungsdienst' })
     // the storey's area now carries the find
-    expect(last.bereiche.find((b) => b.id === 'sbg1')?.log.map((r) => r.op)).toEqual(['fund'])
+    // ONE row, and it names the area the person was found in
+    expect(last.personen[0].log.map((r) => r.op)).toEqual(['vermisst', 'gefunden'])
+    expect(last.personen[0].log[1].bereichId).toBe(storeyBereichId(1, 'k1'))
   })
 
   it('shows every storey as an area with its progress, and sets a status in one tap', () => {
@@ -72,7 +74,7 @@ describe('SuchePanel', () => {
     expect(heads.map((h) => h.textContent)).toEqual(['1. OG', 'EG'])
     fireEvent.click(screen.getAllByText(C.ganzesGeschoss)[1]) // the EG's row
     fireEvent.click(screen.getByRole('button', { name: C.bereichStatus.abgesucht }))
-    expect(last.bereiche.find((b) => b.id === 'sbg0')?.log[0]).toMatchObject({ op: 'status', status: 'abgesucht', text: 'EG abgesucht' })
+    expect(last.bereiche.find((b) => b.id === storeyBereichId(0, 'k1'))?.log[0]).toMatchObject({ op: 'status', status: 'abgesucht', text: 'EG abgesucht' })
   })
 
   it('splits a storey by names; the storey counts its parts plus the rest', () => {
@@ -104,6 +106,35 @@ describe('SuchePanel', () => {
     expect(last.personen).toHaveLength(0)
     fireEvent.click(screen.getByRole('button', { name: C.submitVermisst }))
     expect(personView(last.personen[0])).toMatchObject({ group: true, count: 4, missing: 4 })
+  })
+
+  it('«Trupp raus – abgesucht?» stands on the area\'s row, and only an answer writes', () => {
+    let last: SucheDoc = emptySuche()
+    const eg = storeyBereichId(0, 'k1')
+    const start: SucheDoc = { personen: [], bereiche: [{ id: eg, floor: 0, stack: 'k1', createdAt: '', log: [
+      { id: 'r1', op: 'status', status: 'inArbeit', trupp: 'Trupp 4', truppId: 't4', at: '2026-09-23T20:00:00.000Z', text: 'EG in Arbeit · Trupp 4' },
+    ] }] }
+    render(<Harness initial={start} asks={[eg]} onDoc={(d) => { last = d }} />)
+    fireEvent.click(screen.getByRole('tab', { name: new RegExp(C.tabBereiche) }))
+    const ask = screen.getByRole('group', { name: 'Trupp 4 raus – abgesucht?' })
+    expect(last).toEqual(emptySuche()) // nothing written for asking
+    fireEvent.click(within(ask).getByRole('button', { name: C.rausTeilweise }))
+    expect(last.bereiche[0].log[last.bereiche[0].log.length - 1]).toMatchObject({ status: 'offen', text: 'EG teilweise abgesucht' })
+  })
+
+  it('a person is corrected and withdrawn from its card — both rows, both one step', () => {
+    let last: SucheDoc = emptySuche()
+    const start: SucheDoc = { personen: [{ id: 'p1', name: 'Tim Mustr', createdAt: '2026-09-23T20:08:00.000Z', log: [
+      { id: 'r1', op: 'vermisst', at: '2026-09-23T20:08:00.000Z', text: 'Vermisst: Tim Mustr' },
+    ] }], bereiche: [] }
+    render(<Harness initial={start} onDoc={(d) => { last = d }} />)
+    fireEvent.click(screen.getByText('Tim Mustr'))
+    fireEvent.click(screen.getByRole('button', { name: C.korrigierenBtn }))
+    fireEvent.change(screen.getByLabelText(C.wer), { target: { value: 'Tim Muster' } })
+    fireEvent.click(screen.getByRole('button', { name: C.submitKorrigieren }))
+    expect(personView(last.personen[0]).label).toBe('Tim Muster')
+    fireEvent.click(screen.getByRole('button', { name: C.irrtuemlichBtn }))
+    expect(personView(last.personen[0])).toMatchObject({ status: 'irrtuemlich', missing: 0 })
   })
 
   it('reads only, and says so, where the session may not write', () => {

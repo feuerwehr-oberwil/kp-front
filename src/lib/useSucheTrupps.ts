@@ -1,104 +1,82 @@
 import { useEffect, useRef, type MutableRefObject } from 'react'
-import { appConfig } from '../config/appConfig'
-import { fillTemplate } from './format'
-import { addBereich, bereichStatusOf, findBereichByName, parseZiel, setBereichStatus, type TruppHere } from './suche'
+import { bereichStatusOf, setBereichStatus, zielBereich, type SucheStack, type TruppHere } from './suche'
 import type { SucheActions } from './useSucheActions'
-import { confirmDialog } from './ui'
-import type { SucheDoc, Trupp } from '../types'
+import type { Trupp } from '../types'
 
-/** A short, stable fingerprint of a Ziel for a derived id («1. OG Trakt 3» → «1og-trakt-3»). */
+/** A short, stable fingerprint of a Ziel for a derived id («1. OG Trakt 3» → «1-og-trakt-3»). */
 const slug = (s: string) => s.trim().toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'x'
+
+/** In the field — the same test the Atemschutz merge uses (mergeWorkspace · mergeTrupp). */
+const inField = (s: string | undefined) => !!s && s !== 'angemeldet' && s !== 'raus'
+
+interface Seen { ziel?: string; auftrag?: string; status: string; entryTime?: string; removed: boolean }
 
 /**
  * The Trupps' half of the Suche (24.09.2026), kept in ONE place so the Atemschutz board itself
- * carries nothing but two optional props (AtemschutzView · sucheItems / zielChoices):
+ * carries nothing but two optional props (AtemschutzView · sucheItems / zielChoices). Every write
+ * here is an OBSERVATION of a Trupp save — made the same way on every editor device, under ids
+ * derived from the Trupp, its sortie (`entryTime`) and its Ziel (useSucheActions · observe), so
+ * the devices converge on one record and one Verlauf row:
  *
- * 1. The first Trupp sent to «Absuchen» makes every storey its «ganzes Geschoss» (E6 «von selbst»).
- * 2. A Trupp on «Absuchen» with a Ziel makes that area «in Arbeit · Trupp 4»; a NEW name creates
- *    the area first — on the storey the Ziel names («1. OG Aula»), else the one the Trupp's
- *    marker stands on. Observed on every editor device → written under DERIVED ids
- *    (useSucheActions · observe), so they converge on one record and one Verlauf row.
- * 3. At «Raus», THIS device asks once per area the Trupp was searching: «Trupp 4: 1. OG Trakt 3
- *    abgesucht?» Ja / Teilweise / Nein. Only the device that saw the change happen locally asks —
- *    a Raus that arrived through a merge (`remoteRef`) is somebody else's question.
+ * 1. The first Trupp sent in on «Absuchen» makes every storey its «ganzes Geschoss».
+ * 2. A Trupp IN THE FIELD on «Absuchen» with a Ziel makes that area «in Arbeit · Trupp 4» — on
+ *    the move into the field (a re-entry with the same Ziel is a new sortie, and marks again), or
+ *    when its Ziel changes; a NEW name creates the area first. A Trupp that never went in marks
+ *    nothing.
+ * 3. A changed Ziel, or a removed Trupp, RELEASES the area it was searching («offen»).
+ *
+ * «Raus» asks nothing here: the question «Trupp 4 raus – abgesucht?» stands on the area's own row
+ * (lib/suche · pendingAsks), for every editor device, until somebody answers it.
  */
-export function useSucheTrupps({ trupps, suche, canEdit, actions, floors, floorName, placed, truppsHere, remoteRef }: {
+export function useSucheTrupps({ trupps, canEdit, actions, stack, placed, truppsHere, remoteRef }: {
+  /** EVERY Trupp, the removed ones included (their areas are released) */
   trupps: readonly Trupp[]
-  suche: SucheDoc
   canEdit: boolean
   actions: SucheActions
-  floors: readonly number[]
-  floorName: (f: number) => string
+  stack: SucheStack
   placed: readonly { truppId: string; floor: number }[]
   truppsHere: readonly TruppHere[]
-  /** set by the workspace when a remote hydrate replaced the slices (IncidentWorkspace) */
+  /** set by the workspace when a remote hydrate replaced the slices (IncidentWorkspace): the
+   *  changes it brought were observed where they were made */
   remoteRef: MutableRefObject<boolean>
 }) {
-  const prev = useRef<Map<string, { ziel?: string; auftrag?: string; status: string }> | null>(null)
-  const live = useRef({ suche, actions, floors, floorName, placed, truppsHere, canEdit })
-  useEffect(() => { live.current = { suche, actions, floors, floorName, placed, truppsHere, canEdit } })
+  const prev = useRef<Map<string, Seen> | null>(null)
+  const live = useRef({ actions, stack, placed, truppsHere, canEdit })
+  useEffect(() => { live.current = { actions, stack, placed, truppsHere, canEdit } })
 
-  const askAtRaus = async (truppId: string, label: string) => {
-    const L = live.current
-    const C = appConfig.copy.suche
-    const areas = L.suche.bereiche.filter((b) => {
-      const st = bereichStatusOf(b)
-      return st.status === 'inArbeit' && st.truppId === truppId
-    })
-    for (const b of areas) {
-      const name = b.name ? (b.floor != null ? fillTemplate(C.rowPart, { floor: L.floorName(b.floor), name: b.name }) : b.name) : b.floor != null ? L.floorName(b.floor) : ''
-      const answer = await confirmDialog({
-        title: fillTemplate(C.rausAsk, { trupp: label, bereich: name }),
-        message: C.rausAskHint,
-        confirmLabel: C.rausJa,
-        altLabel: C.rausTeilweise,
-        cancelLabel: C.rausNein,
-      })
-      const A = live.current.actions
-      if (answer === true) A.setStatus(b.id, 'abgesucht', { label, id: truppId })
-      else if (answer === 'alt') A.setStatus(b.id, 'offen', undefined, C.teilweiseAbgesucht)
-      else A.setStatus(b.id, 'offen')
-    }
-  }
   useEffect(() => {
     const before = prev.current
-    prev.current = new Map(trupps.map((t) => [t.id, { ziel: t.ziel, auftrag: t.auftrag, status: t.status }]))
+    prev.current = new Map(trupps.map((t) => [t.id, { ziel: t.ziel?.trim(), auftrag: t.auftrag, status: t.status, entryTime: t.entryTime, removed: !!t.removedAt }]))
     const remote = remoteRef.current
     remoteRef.current = false
     const L = live.current
-    if (!L.canEdit) return
+    if (!L.canEdit || remote || !before) return // the first look is the baseline, never an event
+    const A = L.actions
     // 1 · the storeys, once somebody searches (idempotent: nothing is written twice)
-    if (trupps.some((t) => t.auftrag === 'absuchen' && t.status !== 'raus')) L.actions.seed(L.floors)
-    if (!before) return // the first look is the baseline, never an event
+    if (trupps.some((t) => !t.removedAt && t.auftrag === 'absuchen' && inField(t.status))) A.seed(L.stack.floors)
     for (const t of trupps) {
       const was = before.get(t.id)
       const label = L.truppsHere.find((x) => x.id === t.id)?.label ?? t.name
-      // 2 · Ziel → area «in Arbeit»
       const ziel = t.ziel?.trim()
-      if (t.auftrag === 'absuchen' && ziel && t.status !== 'raus' && (was?.ziel !== t.ziel || was?.auftrag !== t.auftrag)) {
-        const markerFloor = L.placed.find((p) => p.truppId === t.id)?.floor
-        const key = `t${t.id}-${slug(ziel)}`
-        let id = findBereichByName(L.suche, ziel, markerFloor, L.floorName)
-        if (!id) {
-          const z = parseZiel(ziel, L.floors, L.floorName, markerFloor)
-          if (z.name) {
-            L.actions.observe(`${key}-a`, (doc, cx) => {
-              const r = addBereich(doc, { name: z.name!, floor: z.floor }, cx)
-              id = r.id
-              return r
-            })
-          }
-        }
-        if (id) {
-          const target = id
-          L.actions.observe(`${key}-b`, (doc, cx) => setBereichStatus(doc, target, 'inArbeit', { label, id: t.id }, cx))
-        }
+      const searching = !t.removedAt && t.auftrag === 'absuchen' && !!ziel && inField(t.status)
+      const wentIn = inField(t.status) && !inField(was?.status)
+      const changed = !!was && (was.ziel !== ziel || was.auftrag !== t.auftrag)
+      const sortie = `t${t.id}-${slug(t.entryTime ?? 'x')}`
+      // 3 · release what it no longer searches: a new Ziel, another Auftrag, or the Trupp removed
+      if ((changed || (t.removedAt && !was?.removed)) && was) {
+        const keepId = searching ? zielBereich(A.latest(), ziel!, undefined, L.stack, { at: '', newId: () => '', floorName: L.stack.floorName, stack: L.stack.key }).id : null
+        const mine = A.latest().bereiche.filter((b) => { const st = bereichStatusOf(b); return st.status === 'inArbeit' && st.truppId === t.id && b.id !== keepId })
+        for (const b of mine) A.observe(`${sortie}-r-${slug(b.id)}-${slug(ziel ?? 'weg')}`, (doc, cx) => setBereichStatus(doc, b.id, 'offen', undefined, cx))
       }
-      // 3 · Raus → «abgesucht?», asked on the device that saw it happen
-      if (!remote && was && was.status !== 'raus' && t.status === 'raus') void askAtRaus(t.id, label)
+      // 2 · the Ziel's area «in Arbeit» — on the way in, or when the Ziel changes in the field
+      if (searching && (wentIn || changed)) {
+        const key = `${sortie}-${slug(ziel!)}`
+        const markerFloor = L.placed.find((p) => p.truppId === t.id)?.floor
+        A.observe(`${key}-a`, (doc, cx) => zielBereich(doc, ziel!, markerFloor, L.stack, cx))
+        const id = zielBereich(A.latest(), ziel!, markerFloor, L.stack, { at: '', newId: () => '', floorName: L.stack.floorName, stack: L.stack.key }).id
+        if (id) A.observe(`${key}-b`, (doc, cx) => setBereichStatus(doc, id, 'inArbeit', { label, id: t.id }, cx))
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trupps])
-
-
 }

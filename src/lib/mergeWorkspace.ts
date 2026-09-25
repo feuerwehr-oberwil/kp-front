@@ -359,10 +359,19 @@ function mergeWithLog(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
 export function mergeSuche(b: unknown, m: unknown, t: unknown): unknown {
   if (b == null && m == null && t == null) return undefined
   const list = (v: unknown, k: 'personen' | 'bereiche') => asList(asRecord(v)[k])
-  return {
-    personen: mergeById(list(b, 'personen'), list(m, 'personen'), list(t, 'personen'), mergeWithLog),
-    bereiche: mergeById(list(b, 'bereiche'), list(m, 'bereiche'), list(t, 'bereiche'), mergeWithLog),
+  const merge = (k: 'personen' | 'bereiche') => {
+    const base = list(b, k), mine = list(m, k), theirs = list(t, k)
+    // ⚠️ A record BOTH sides added under one id has no ancestor — and mergeById then keeps mine
+    // whole (a concurrent same-id add is LWW). For the Suche that is the ordinary case, not a
+    // collision: a storey's area has a DERIVED id (`sbg:<stack>:<n>`), both devices seed it, and
+    // both write rows onto it — so the other device's rows would be gone. Give such a record an
+    // EMPTY ancestor, and it merges field-wise with its log unioned like any other.
+    const inBase = new Set(base.map((x) => x.id))
+    const theirIds = new Set(theirs.map((x) => x.id))
+    const both = mine.filter((x) => !inBase.has(x.id) && theirIds.has(x.id)).map((x) => ({ id: x.id, log: [] }) as HasId)
+    return mergeById([...base, ...both], mine, theirs, mergeWithLog)
   }
+  return { personen: merge('personen'), bereiche: merge('bereiche') }
 }
 
 // (per-plan board merging is gone — since schema 2 the board is a derived view of the merged

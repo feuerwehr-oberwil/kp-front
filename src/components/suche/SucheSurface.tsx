@@ -40,7 +40,7 @@ export function SuchePhoneSheet({ onClose, detent, onDetent, surface, onSurface,
   hasGebaeude: boolean
 }) {
   const C = appConfig.copy.suche
-  const groups = useMemo(() => sucheGroups(panel.doc, panel.floors, panel.floorName), [panel.doc, panel.floors, panel.floorName])
+  const groups = useMemo(() => sucheGroups(panel.doc, { key: panel.stackKey, floors: panel.floors, floorName: panel.floorName }), [panel.doc, panel.stackKey, panel.floors, panel.floorName])
   const badges = storeyBadges(groups)
   const missing = vermisstCount(panel.doc)
   const summary = sucheSummary(missing, sucheProgress(groups))
@@ -80,7 +80,9 @@ export function SuchePhoneSheet({ onClose, detent, onDetent, surface, onSurface,
     </>
   )
   return (
-    <DetentSheet detent={detent} onDetent={onDetent} ariaLabel={C.title} className={s.sheet} head={head}>
+    // the floor chips stand at PEEK too (the design's ①): the storey progress is the one thing
+    // worth reading while the plan has the screen
+    <DetentSheet detent={detent} onDetent={onDetent} ariaLabel={C.title} className={`${s.sheet}${floorChips ? ` ${s.withChips}` : ''}`} head={head} peek={floorChips || undefined}>
       <SuchePanel key={panel.focus?.nonce ?? 0} {...panel} />
     </DetentSheet>
   )

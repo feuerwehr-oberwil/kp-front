@@ -29,6 +29,7 @@ type View =
   | { kind: 'teilen'; floor: number }
   | { kind: 'rename'; id: string }
   | { kind: 'addBereich' }
+  | { kind: 'korrigieren'; id: string }
 
 /** «Fund melden» on a Trupp (Tür 3): the Trupp and its storey, pre-filled into the find */
 export interface FundPreset { truppId: string; floor?: number }
@@ -38,6 +39,11 @@ export interface SuchePanelProps {
   /** the Gebäude stack's storeys (empty = no Gebäude) */
   floors: readonly number[]
   floorName: (floor: number) => string
+  /** which Gebäude those storeys are (lib/suche · stackKeyOf) */
+  stackKey: string
+  /** the areas whose Trupp is out and nobody has said yet whether they are abgesucht
+   *  (lib/suche · pendingAsks) — the question stands on the row itself */
+  asks?: readonly string[]
   /** the Trupps on the board, as the Suche names them */
   trupps: readonly TruppHere[]
   /** which storey each placed Trupp marker stands on — «Gefunden…» pre-selects from it */
@@ -70,7 +76,7 @@ export function SuchePanel(p: SuchePanelProps) {
     return { kind: 'list' }
   })
   const personen = useMemo(() => personenViews(p.doc), [p.doc])
-  const groups = useMemo(() => sucheGroups(p.doc, p.floors, p.floorName), [p.doc, p.floors, p.floorName])
+  const groups = useMemo(() => sucheGroups(p.doc, { key: p.stackKey, floors: p.floors, floorName: p.floorName }), [p.doc, p.stackKey, p.floors, p.floorName])
   const progress = sucheProgress(groups)
   const missing = vermisstCount(p.doc)
 
@@ -91,7 +97,9 @@ export function SuchePanel(p: SuchePanelProps) {
       onOther={() => setView({ kind: 'vermisst', found: true, preset: view.preset })} />
   } else if (view.kind === 'person' && person(view.id)) {
     body = <PersonCard v={person(view.id)!} {...p} onBack={back} onFound={() => setView({ kind: 'gefunden', id: view.id })}
-      onHand={() => setView({ kind: 'uebergeben', id: view.id })} />
+      onHand={() => setView({ kind: 'uebergeben', id: view.id })} onFix={() => setView({ kind: 'korrigieren', id: view.id })} />
+  } else if (view.kind === 'korrigieren' && person(view.id)) {
+    return <KorrigierenForm v={person(view.id)!} {...p} onDone={() => setView({ kind: 'person', id: view.id })} />
   } else if (view.kind === 'gefunden' && person(view.id)) {
     return <GefundenForm v={person(view.id)!} {...p} preset={view.preset} onDone={() => setView({ kind: 'person', id: view.id })} />
   } else if (view.kind === 'uebergeben' && person(view.id)) {
@@ -134,6 +142,7 @@ export function SuchePanel(p: SuchePanelProps) {
           <button type="button" role="tab" aria-selected={p.tab === 'bereiche'} className={`${s.tab}${p.tab === 'bereiche' ? ` ${s.on}` : ''}`} onClick={() => p.onTab('bereiche')}>
             {C.tabBereiche}
             {progress.total > 0 && <span className={s.tabCount}>{fillTemplate(C.progress, progress)}</span>}
+            {(p.asks?.length ?? 0) > 0 && <span className={s.askBadge} aria-label={fillTemplate(C.asksOpen, { n: p.asks!.length })}>?</span>}
           </button>
         </div>
       )}
@@ -146,7 +155,7 @@ export function SuchePanel(p: SuchePanelProps) {
 
 // ── the lists ────────────────────────────────────────────────────────────────────────────────
 
-const PERSON_TONE: Record<PersonView['status'], string> = { vermisst: 'red', gefunden: 'amber', uebergeben: 'green', entwarnt: 'grey' }
+const PERSON_TONE: Record<PersonView['status'], string> = { vermisst: 'red', gefunden: 'amber', uebergeben: 'green', entwarnt: 'grey', irrtuemlich: 'grey' }
 const BEREICH_TONE: Record<SucheBereichStatus, string> = { offen: 'grey', inArbeit: 'blue', abgesucht: 'green', nichtZugaenglich: 'amber' }
 
 function personLine(v: PersonView, floorName: (f: number) => string, trupps: readonly TruppHere[], doc: SucheDoc): string {
@@ -157,6 +166,7 @@ function personLine(v: PersonView, floorName: (f: number) => string, trupps: rea
     return [where || C.storeyUnknown, fillTemplate(C.since, { t: hhmm(v.vermisstAt) }), searching ? fillTemplate(C.sucht, { trupp: truppShort(searching.label) }) : ''].filter(Boolean).join(' · ')
   }
   if (v.status === 'entwarnt') return [where, `${C.status.entwarnt} ${hhmm(v.entwarntAt)}`].filter(Boolean).join(' · ')
+  if (v.status === 'irrtuemlich') return `${C.status.irrtuemlich} ${hhmm(v.withdrawnAt)}`
   const foundWhere = [v.foundFloor != null ? floorName(v.foundFloor) : '', v.foundWo ?? ''].filter(Boolean).join(' ')
   return [foundWhere, v.foundTrupp ? truppShort(v.foundTrupp) : '', hhmm(v.foundAt), v.an ? `${C.an.toLowerCase()} ${v.an}` : ''].filter(Boolean).join(' · ')
 }
@@ -170,7 +180,7 @@ function PersonenList({ personen, floorName, trupps, doc, onOpen, canEdit }: Suc
     <ul className={s.list}>
       {personen.map((v) => (
         <li key={v.id}>
-          <button type="button" className={s.row} onClick={() => onOpen(v.id)} data-tone={PERSON_TONE[v.status]}>
+          <button type="button" className={s.row} onClick={() => onOpen(v.id)} data-tone={PERSON_TONE[v.status]} data-withdrawn={v.status === 'irrtuemlich' || undefined}>
             <span className={s.rowMain}>
               <span className={s.rowTitle}>{v.label}</span>
               {/* a group's count leads its sub-line («0 / 22 gefunden · …») — beside the name it
@@ -196,7 +206,7 @@ function bereichLine(b: BereichView): string {
   return [C.bereichStatus[b.status], b.trupp ? truppShort(b.trupp) : '', b.status === 'offen' ? '' : hhmm(b.statusAt)].filter(Boolean).join(' · ')
 }
 
-function BereicheList({ groups, onOpen, onFloor, canEdit }: SuchePanelProps & { groups: SucheGroup[]; onOpen: (b: BereichView) => void }) {
+function BereicheList({ groups, onOpen, onFloor, canEdit, asks, actions }: SuchePanelProps & { groups: SucheGroup[]; onOpen: (b: BereichView) => void }) {
   const C = appConfig.copy.suche
   if (!groups.length) {
     return <EmptyState icon="floors" title={C.emptyBereiche} sub={canEdit ? C.emptyBereicheSub : undefined} className={s.empty} />
@@ -221,11 +231,30 @@ function BereicheList({ groups, onOpen, onFloor, canEdit }: SuchePanelProps & { 
                   {u.fund && <span className={s.fund}>{C.fund}</span>}
                   <span className={s.dot} data-tone={BEREICH_TONE[u.status]} aria-hidden>{u.status === 'abgesucht' && <Icon id="check" />}</span>
                 </button>
+                {canEdit && asks?.includes(u.id) && <AskRow u={u} actions={actions} />}
               </li>
             ))}
           </ul>
         </section>
       ))}
+    </div>
+  )
+}
+
+/**
+ * «Trupp 4 raus – abgesucht? Ja / Teilweise / Nein» — on the area's own row, NOT a dialog: it waits
+ * there for whoever runs the list, on every editor device (the Raus may have come from a
+ * handed-over board), and a question nobody answers writes nothing.
+ */
+function AskRow({ u, actions }: { u: BereichView; actions: SucheActions }) {
+  const C = appConfig.copy.suche
+  const trupp = { label: u.trupp, id: u.truppId }
+  return (
+    <div className={s.ask} role="group" aria-label={fillTemplate(C.askInline, { trupp: u.trupp ?? '' })}>
+      <span className={s.askText}>{fillTemplate(C.askInline, { trupp: truppShort(u.trupp ?? '') })}</span>
+      <button type="button" className={s.askBtn} onClick={() => actions.setStatus(u.id, 'abgesucht', trupp)}>{C.rausJa}</button>
+      <button type="button" className={s.askBtn} onClick={() => actions.setStatus(u.id, 'offen', undefined, C.teilweiseAbgesucht)}>{C.rausTeilweise}</button>
+      <button type="button" className={s.askBtn} onClick={() => actions.setStatus(u.id, 'offen')}>{C.rausNein}</button>
     </div>
   )
 }
@@ -253,7 +282,7 @@ function CardHead({ title, tone, pill, onBack }: { title: string; tone: string; 
   )
 }
 
-function PersonCard({ v, floorName, canEdit, actions, onBack, onFound, onHand }: SuchePanelProps & { v: PersonView; onBack: () => void; onFound: () => void; onHand: () => void }) {
+function PersonCard({ v, floorName, canEdit, actions, onBack, onFound, onHand, onFix }: SuchePanelProps & { v: PersonView; onBack: () => void; onFound: () => void; onHand: () => void; onFix: () => void }) {
   const C = appConfig.copy.suche
   const where = [v.floor != null ? floorName(v.floor) : '', v.wo ?? ''].filter(Boolean).join(' ')
   return (
@@ -269,6 +298,12 @@ function PersonCard({ v, floorName, canEdit, actions, onBack, onFound, onHand }:
           {(v.found > v.handed) && <button type="button" className="ip-btn" onClick={onHand}>{C.uebergebenBtn}</button>}
           {v.status === 'vermisst' && v.found === 0 && (
             <button type="button" className="ip-btn" onClick={() => { actions.entwarnen(v.id); onBack() }}>{C.entwarnenBtn}</button>
+          )}
+          {/* a wrong name, count or place, or a record that should never have been one — both are
+              rows (lib/suche · korrigiert / irrtuemlich), and both are one ↶ away */}
+          {v.status !== 'irrtuemlich' && <button type="button" className="ip-btn" onClick={onFix}>{C.korrigierenBtn}</button>}
+          {v.status !== 'irrtuemlich' && (
+            <button type="button" className="ip-btn ip-btn-danger" onClick={() => { actions.irrtuemlich(v.id); onBack() }}>{C.irrtuemlichBtn}</button>
           )}
         </div>
       )}
@@ -568,6 +603,31 @@ function TeilenForm({ floor, group, floorName, actions, onDone }: SuchePanelProp
       </div>
       <Field label={C.teilenRest}>
         <OnOff value={keepRest} onChange={setKeepRest} ariaLabel={C.teilenRest} />
+      </Field>
+    </Form>
+  )
+}
+
+function KorrigierenForm({ v, floors, floorName, actions, onDone }: SuchePanelProps & { v: PersonView; onDone: () => void }) {
+  const C = appConfig.copy.suche
+  const [name, setName] = useState(v.name ?? '')
+  const [group, setGroup] = useState(v.group)
+  const [count, setCount] = useState(v.group ? v.count : 2)
+  const [floor, setFloor] = useState<number | undefined>(v.floor)
+  const [wo, setWo] = useState(v.wo ?? '')
+  return (
+    <Form title={fillTemplate(C.formKorrigieren, { name: v.label })} submitLabel={C.submitKorrigieren} onCancel={onDone}
+      submit={() => { actions.korrigieren(v.id, { name, count: group ? count : undefined, floor, wo }); onDone() }}>
+      <Field label={C.wer}>
+        <input className="ip-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={C.werPlaceholder} aria-label={C.wer} />
+        <div className={s.row2}>
+          <OnOffWords value={group} onChange={setGroup} off={C.einePerson} on={C.gruppe} label={`${C.einePerson} / ${C.gruppe}`} />
+          {group && <Stepper value={count} min={2} max={999} onChange={setCount} ariaLabel={C.anzahl} />}
+        </div>
+      </Field>
+      <Field label={C.zuletzt}>
+        <StoreyChips floors={floors} floorName={floorName} value={floor} onChange={setFloor} label={C.zuletzt} />
+        <input className="ip-input" value={wo} onChange={(e) => setWo(e.target.value)} placeholder={C.woPlaceholder} aria-label={C.woGenau} />
       </Field>
     </Form>
   )

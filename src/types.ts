@@ -1234,9 +1234,9 @@ export interface SucheRow {
   id: string
   /** ISO instant (the shared clock, lib/serverClock) */
   at: string
-  /** Person: vermisst · gefunden · uebergeben · entwarnt. Bereich: status · fund · geteilt ·
-   *  umbenannt. */
-  op: 'vermisst' | 'gefunden' | 'uebergeben' | 'entwarnt' | 'status' | 'fund' | 'geteilt' | 'umbenannt'
+  /** Person: vermisst · gefunden · uebergeben · entwarnt · korrigiert · irrtuemlich. Bereich:
+   *  status · fund · geteilt · umbenannt. */
+  op: 'vermisst' | 'gefunden' | 'uebergeben' | 'entwarnt' | 'korrigiert' | 'irrtuemlich' | 'status' | 'fund' | 'geteilt' | 'umbenannt'
   /** the Verlauf sentence this row wrote — what the ↶ names, what the Rapport can quote */
   text: string
   /** a group's gefunden / übergeben row: how many people this row covers (absent = 1) */
@@ -1247,8 +1247,13 @@ export interface SucheRow {
   /** gefunden: the storey (Gebäude stack index) and the place in words */
   floor?: number
   wo?: string
-  /** übergeben an («Rettungsdienst», «Sammelplatz», …) */
+  /** übergeben an («Rettungsdienst», «Sammelplatz», …) — also on a `gefunden` row that handed
+   *  the person on in the same breath («weiter an»): ONE act, ONE row */
   an?: string
+  /** `gefunden`: the area the person was found in — the area wears «Fund» because of it */
+  bereichId?: string
+  /** `korrigiert`: the values that replace the record's (null floor = «unbekannt») */
+  set?: { name?: string; count?: number; floor?: number | null; wo?: string }
   /** Bereich `status` row: the new status */
   status?: SucheBereichStatus
   /** Bereich `fund` row: the Person found there, when the find was reported through the list */
@@ -1296,6 +1301,9 @@ export interface SucheBereich {
   createdAt: string
   /** the storey row only: its parts cover the whole storey, so no «übriges Geschoss» is left */
   ohneRest?: boolean
+  /** which Gebäude stack the storey belongs to (lib/suche · stackKeyOf) — a replaced building's
+   *  storeys are other records and never lend it their state */
+  stack?: string
   /** step 2 — a drawn box/polygon on the storey or the Karte; absent in step 1 */
   shape?: { planId?: string; pts?: BoardPoint[]; ring?: LngLat[] }
   log: SucheRow[]
