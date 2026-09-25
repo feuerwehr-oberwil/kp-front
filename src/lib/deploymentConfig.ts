@@ -449,6 +449,12 @@ export interface DeploymentConfig {
     sources?: DeploymentSharePointSource[] | null
   }
   integrations?: DeploymentIntegrations
+  /** The Lage-Grundgerüst card on the Karte: which shipped preset runs, and the Einsatzarten
+   *  the station replaced (lib/lageGrundgeruest). Read through `lageGrundgeruestConfig()`. */
+  lageGrundgeruest?: LageGrundgeruestConfig | null
+  /** The presets the SERVER ships (backend app/data/lage_grundgeruest/*.json), served beside the
+   *  document. Response-only: the backend ignores it on the way in, /admin strips it. */
+  lageGrundgeruestPresets?: LageGrundgeruestPresets | null
   /** Opaque version token of the document the SERVER holds, off GET/PUT. Sent back as
    *  `If-Match` on the next save, so a tab holding an hour-old draft is refused instead of
    *  silently reverting whatever anybody changed since (backend · api/config · put_config).
@@ -467,6 +473,7 @@ export interface AlarmGroup {
 }
 
 import { apiGet } from './api'
+import type { LageGrundgeruestConfig, LageGrundgeruestPresets } from './lageGrundgeruest'
 import { idbGet, idbSet } from './idb'
 import { wgs84ToLV95, lv95ToWgs84 } from './geo'
 import { appConfig } from '../config/appConfig'
@@ -575,6 +582,13 @@ export async function loadDeploymentConfigBounded(budgetMs: number): Promise<Dep
     return cached
   }
   return resolved
+}
+
+/** The station's Lage-Grundgerüst block and the presets it resolves against — the ONE read path
+ *  for the card (lib/lageGrundgeruest · slotsFor). An older server serves neither: the presets
+ *  are then empty and the card has nothing to show, which is the honest answer. */
+export function lageGrundgeruestConfig(): { config: LageGrundgeruestConfig | null; presets: LageGrundgeruestPresets } {
+  return { config: resolved.lageGrundgeruest ?? null, presets: resolved.lageGrundgeruestPresets ?? {} }
 }
 
 /** Synchronous accessor returning the resolved singleton ({} until loadDeploymentConfig

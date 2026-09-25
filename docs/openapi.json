@@ -12628,6 +12628,9 @@
           },
           "setup": {
             "$ref": "#/components/schemas/SetupConfig"
+          },
+          "lageGrundgeruest": {
+            "$ref": "#/components/schemas/LageGrundgeruestConfig"
           }
         },
         "type": "object",
@@ -12693,11 +12696,22 @@
           "setup": {
             "$ref": "#/components/schemas/SetupConfig"
           },
+          "lageGrundgeruest": {
+            "$ref": "#/components/schemas/LageGrundgeruestConfig"
+          },
           "integrations": {
             "$ref": "#/components/schemas/ConfigIntegrations"
           },
           "alarmVocabulary": {
             "$ref": "#/components/schemas/AlarmVocabularyStatus"
+          },
+          "lageGrundgeruestPresets": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Lagegrundgeruestpresets"
           },
           "version": {
             "anyOf": [
@@ -14903,6 +14917,133 @@
           "latest_seq"
         ],
         "title": "JournalPage"
+      },
+      "LageGrundgeruestConfig": {
+        "properties": {
+          "preset": {
+            "type": "string",
+            "title": "Preset",
+            "default": "fks-standard"
+          },
+          "kategorien": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/LageSlot"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Kategorien"
+          }
+        },
+        "type": "object",
+        "title": "LageGrundgeruestConfig",
+        "description": "`lageGrundgeruest` — which shipped preset runs, and the Einsatzarten the station replaced.\n\n``{\"preset\": \"fks-standard\"}`` alone is a whole, valid answer (and the default). A key under\n``kategorien`` (an alarm keyword category, e.g. ``brandbekaempfung``) REPLACES that one\nEinsatzart of the preset; an empty list there means «no Grundgerüst for this Einsatzart».\nPresets: app/data/lage_grundgeruest/*.json; docs/CONFIGURATION.md §1e.\n\nA STORED document is read leniently (``context={\"stored\": True}``): a slot today's rules\nrefuse — a symbol renamed in a newer pack — is dropped and logged rather than taking the whole\nstation config down, like every other rule grown since a row was written (load_stored_config)."
+      },
+      "LageSlot": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "linie": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linie"
+          },
+          "vorschlag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LageVorschlag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optional": {
+            "type": "boolean",
+            "title": "Optional",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "LageSlot",
+        "description": "One row of a Lage-Grundgerüst: a thing the Karte should carry, and how to place it.\n\n``symbol`` (a name from public/tactical-symbols.json) XOR ``linie`` (a line preset label) —\nchecked against both vocabularies in ``lage_grundgeruest.check_slot_target``, with a\ndid-you-mean. ``optional`` rows are shown but never counted towards «fertig»."
+      },
+      "LageVorschlag": {
+        "properties": {
+          "naechster": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "hydrant"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Naechster"
+          },
+          "wind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "auf"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind"
+          },
+          "m": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2000.0,
+                "minimum": 5.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "M"
+          }
+        },
+        "type": "object",
+        "title": "LageVorschlag",
+        "description": "Where the Grundgerüst card suggests putting a slot's symbol — a starting point to drag.\n\nExactly one kind: ``{\"naechster\": \"hydrant\"}`` (the nearest point of the station's hydrant\nlayer, straight-line) or ``{\"wind\": \"auf\", \"m\": N}`` (N metres upwind of the Einsatzort, off\nthe incident's current weather). Absent = no suggestion; the row then only arms the tool."
       },
       "LinkTokenIn": {
         "properties": {

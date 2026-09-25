@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, type SetStateAction } from 'react'
 import { useUndoableDoc } from './useUndoableDoc'
 import {
-  anchorChanges, applyBoardToObjects, applyDocToObjects, bakeAll, bakePlan, sheetAnnos, viewsOf,
+  anchorChanges, applyBoardToObjects, applyDocToObjects, bakeAll, bakePlan, reanchoredToKarte, sheetAnnos, viewsOf,
   type AnchorChange, type PlanFit, type TacticalObject,
 } from './tacticalObjects'
 import type { Doc } from './workspace'
-import type { BoardDoc, Entity } from '../types'
+import type { BoardDoc, Entity, LngLat } from '../types'
 
 /**
  * THE tactical store: one collection of `TacticalObject`s, and the two legacy documents every
@@ -93,6 +93,10 @@ export interface ObjectStore {
   endSheetStep: () => void
   /** checkpoint the store, then apply a map update — one undo step (no-op if readOnly) */
   commit: (updater: (d: Doc) => Doc) => void
+  /** Re-anchor one plan-anchored object onto the Karte (tacticalObjects · reanchoredToKarte) —
+   *  one undo step, the flip reported like a drag's. `coord` places a symbol that has no baked
+   *  body yet. Returns whether anything changed. */
+  reanchorToKarte: (id: string, coord?: LngLat) => boolean
   beginDrag: () => void
   endDrag: () => void
   /** a hand is mid-gesture on either surface: a Karte drag (`beginDrag`) or a plan step
@@ -102,6 +106,9 @@ export interface ObjectStore {
   redo: () => boolean
   canUndo: boolean
   canRedo: boolean
+  /** The LIVE store — advanced by every write, unlike `objects` (a per-render snapshot). For a
+   *  reader that runs after a writer in the same task (the undo step's name, IncidentWorkspace). */
+  current: () => TacticalObject[]
   /** hydrate wholesale from merged/remote state — drops the history with it, because the local
    *  stacks no longer describe anything that exists */
   replaceObjects: (objects: TacticalObject[]) => void
@@ -139,7 +146,7 @@ export interface ObjectStoreOptions {
    *  it a corrected georeference moved every projection on that sheet. */
   fitsVersion: number
   /** told whenever a step is laid down, so the global timeline can record it (see useUndoableDoc) */
-  onCheckpoint?: () => void
+  onCheckpoint?: (before: TacticalObject[]) => void
   /**
    * …and whenever a write moved an object BETWEEN the surfaces (tacticalObjects · anchorChanges).
    *
@@ -215,6 +222,21 @@ export function useObjectStore(
       see(objects, next)
       return next
     }))
+  }
+
+  /** ⚠️ Checked BEFORE the commit: a commit always lays a step, and a take-over that changes
+   *  nothing (the object went meanwhile, or is a line with no ground) must not leave one. */
+  const reanchorToKarte = (id: string, coord?: LngLat): boolean => {
+    if (readOnly) return false
+    const o = store.current().find((x) => x.id === id)
+    const flipped = o ? reanchoredToKarte(o, coord, defaultLayer) : null
+    if (!flipped) return false
+    reporting((see) => store.commit((objects) => {
+      const next = objects.map((x) => (x.id === id ? flipped : x))
+      see(objects, next)
+      return next
+    }))
+    return true
   }
 
   /**
@@ -360,8 +382,8 @@ export function useObjectStore(
    * store, not the last one's.
    */
   const gestureOpen = () => store.dragging() || sheetStep.current !== null
-  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen })
-  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen }
+  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, reanchorToKarte, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen })
+  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, reanchorToKarte, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen }
   // ⚠️ Every forwarder spreads the WHOLE parameter list, typed off the public signature, and
   // carries no cast: a hand-written `(a) => …` behind an `as` silently dropped `setBoard`'s
   // `{ gesture }` (24.09.2026), and tsc could not say so. Add an option to a writer and it
@@ -372,6 +394,7 @@ export function useObjectStore(
     beginSheetStep: (...args: Parameters<ObjectStore['beginSheetStep']>) => impl.current.beginSheetStep(...args),
     endSheetStep: (...args: Parameters<ObjectStore['endSheetStep']>) => impl.current.endSheetStep(...args),
     commit: (...args: Parameters<ObjectStore['commit']>) => impl.current.commit(...args),
+    reanchorToKarte: (...args: Parameters<ObjectStore['reanchorToKarte']>) => impl.current.reanchorToKarte(...args),
     beginDrag: (...args: Parameters<ObjectStore['beginDrag']>) => impl.current.beginDrag(...args),
     endDrag: (...args: Parameters<ObjectStore['endDrag']>) => impl.current.endDrag(...args),
     undo: (...args: Parameters<ObjectStore['undo']>) => impl.current.undo(...args),
@@ -385,6 +408,7 @@ export function useObjectStore(
     objects: store.doc, doc, board,
     ...writers,
     canUndo: store.canUndo, canRedo: store.canRedo,
+    current: store.current,
     replaceObjects: store.replace,
   }
 }

@@ -30,6 +30,8 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
       "alarmVocabulary": { "source": "shipped"|"deployment", "schemaVersion": int,
                            "titleKeywords": int, "highPriorityKeywords": int,
                            "fallbackCategory": str },                           # derived
+      "lageGrundgeruest": { "preset": str, "kategorien": { <category>: [slot, …] } },
+      "lageGrundgeruestPresets": { <name>: { "beschreibung": str, "kategorien": {…} } },  # shipped files
       "version": str,                    # opaque token of the STORED document — send it back as
                                          # If-Match on the next PUT (see put_config)
       "warnings": [str]                  # PUT only: keys the schema dropped, layers that cannot
@@ -65,6 +67,7 @@ from ..config_history import changed_sections, emptied_sections, keep_previous
 from ..credentials import load as load_credentials
 from ..database import get_db
 from ..i18n import set_locale
+from ..lage_grundgeruest import PRESETS as LAGE_PRESETS
 from ..models import DeploymentConfig, DeploymentConfigHistory, User
 from ..providers import integrations
 from ..schemas import (
@@ -195,6 +198,7 @@ def _projection(
         **payload,
         integrations=ints,
         alarmVocabulary=_alarm_vocabulary(doc),
+        lageGrundgeruestPresets=LAGE_PRESETS,
         version=version,
         warnings=warnings or [],
     )

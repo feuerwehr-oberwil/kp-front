@@ -280,5 +280,8 @@
     "staleIncidentDays": 30,
     "captureWindowHours": 12,
     "webhooks": []
+  },
+  "lageGrundgeruest": {
+    "preset": "fks-standard"
   }
 }

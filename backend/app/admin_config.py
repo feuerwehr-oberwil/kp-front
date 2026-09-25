@@ -17,6 +17,10 @@ Usage (from the ``backend/`` directory, via ``uv run python -m app.admin_config 
 
     schema              print the JSON Schema of the config document (the contract)
     example             print a populated example config you can edit
+    example --section lageGrundgeruest --preset <name>
+                        print ONE section, a shipped preset spelled out to edit
+    presets lageGrundgeruest
+                        list the shipped Lage-Grundgerüst presets and their Einsatzarten
     validate <file>     parse + validate a file (no DB needed, nothing written)
     diff <file>         show what would change vs the currently-stored config
     load <file>         validate + upsert the file into the row (writes to the DB)
@@ -42,6 +46,11 @@ Behaviour:
   naming which vocabulary the file puts in charge. It is NOT in ``example``: the shipped
   ``app/data/alarm_keywords.json`` is the right answer for nearly every station, and a
   station that needs its own starts from a copy of that file (see docs/CONFIGURATION.md §1a).
+- ``lageGrundgeruest`` — the Grundgerüst card on the Karte — is the other block with a shipped
+  default, and it is per Einsatzart rather than wholesale: ``presets lageGrundgeruest`` lists the
+  shipped files, ``example --section lageGrundgeruest --preset fks-standard`` spells one out as a
+  block to edit and paste into the station's file, and validate/diff/load print which preset runs
+  and which Einsatzarten the file replaces (docs/CONFIGURATION.md §1e).
 """
 
 import argparse
@@ -254,6 +263,10 @@ EXAMPLE_CONFIG: dict[str, Any] = {
         # Fail-open — retried + logged, never blocking intake. [] = off.
         "webhooks": [],
     },
+    # The Lage-Grundgerüst card on the Karte: which shipped preset runs (app/data/lage_grundgeruest).
+    # `kategorien` would replace single Einsatzarten of it — `example --section lageGrundgeruest
+    # --preset fks-standard` spells a preset out to start from.
+    "lageGrundgeruest": {"preset": "fks-standard"},
 }
 
 
@@ -333,6 +346,7 @@ def _push(
     if carried:
         print(f"    kept from the deployment (runtime-written, not in the file): {', '.join(carried)}")
     print(f"    {_vocabulary_line(doc_json)}")
+    print(f"    {_lage_line(doc_json)}")
     _report_notes(raw, doc_json)
     return 0
 
@@ -437,6 +451,65 @@ def _vocabulary_line(doc_json: dict[str, Any]) -> str:
     )
 
 
+def _lage_line(doc_json: dict[str, Any]) -> str:
+    """One line naming the Lage-Grundgerüst this file runs: the preset, and which Einsatzarten it
+    replaces — «the preset, except for these» is the whole meaning of the block."""
+    from .lage_grundgeruest import PRESETS
+
+    block = doc_json.get("lageGrundgeruest") or {}
+    preset = block.get("preset") or "fks-standard"
+    own = block.get("kategorien") or {}
+    shipped = PRESETS.get(preset, {}).get("kategorien", {})
+    replaced = sorted(k for k, v in own.items() if _slots_differ(v, shipped.get(k)))
+    if not replaced:
+        return f"Lage-Grundgerüst: preset «{preset}», no Einsatzart replaced"
+    return f"Lage-Grundgerüst: preset «{preset}», {len(replaced)} Einsatzart(en) replaced: {', '.join(replaced)}"
+
+
+def _slots_differ(own: list[Any] | None, shipped: list[Any] | None) -> bool:
+    """Whether a station list says something its preset does not — compared as the schema reads
+    both, so a spelled-out copy of the preset (``example --preset``) is not «replaced»."""
+    from .schemas import LageSlot
+
+    def norm(slots: list[Any] | None) -> list[dict[str, Any]]:
+        return [LageSlot.model_validate(s).model_dump(mode="json") for s in slots or []]
+
+    return shipped is None or norm(own) != norm(shipped)
+
+
+def _print_presets(section: str) -> int:
+    """``presets lageGrundgeruest`` — the shipped presets, each with its Einsatzarten and slots."""
+    if section != "lageGrundgeruest":
+        fail(f"ERROR: no shipped presets for {section!r} — the one section with presets is lageGrundgeruest.")
+    from .divera import CATEGORY_LABELS
+    from .lage_grundgeruest import DEFAULT_PRESET, PRESET_DIR, PRESETS
+
+    print(f"Lage-Grundgerüst presets ({PRESET_DIR.relative_to(Path(__file__).resolve().parent.parent)}):")
+    for name, preset in PRESETS.items():
+        default = "  (default)" if name == DEFAULT_PRESET else ""
+        print(f"  {name:<14} {preset['beschreibung']}{default}")
+        for category, slots in preset["kategorien"].items():
+            labels = " · ".join(str(s.get("label")) + (" (optional)" if s.get("optional") else "") for s in slots)
+            print(f"      {CATEGORY_LABELS.get(category, category)}: {labels}")
+    return 0
+
+
+def _example_section(section: str, preset: str | None) -> dict[str, Any]:
+    """``example --section lageGrundgeruest [--preset X]`` — one block to paste into a station's
+    file, the preset's lists spelled out under ``kategorien`` so there is something to edit.
+
+    ⚠️ A block, not a document to push on its own: every write replaces the WHOLE config, and a
+    file holding only this section would empty every other one (push/load refuse that anyway)."""
+    from .lage_grundgeruest import DEFAULT_PRESET, PRESETS, hint
+
+    if section != "lageGrundgeruest":
+        fail(f"ERROR: --section {section!r}: only lageGrundgeruest has a section example.")
+    name = preset or DEFAULT_PRESET
+    if name not in PRESETS:
+        fail(f"ERROR: --preset {name!r} is not a shipped preset{hint(name, PRESETS)} (shipped: {', '.join(PRESETS)}).")
+    return {"lageGrundgeruest": {"preset": name, "kategorien": PRESETS[name]["kategorien"]}}
+
+
 async def _show() -> dict[str, Any] | None:
     async with async_session_maker() as db:
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
@@ -509,7 +582,7 @@ def _normalize_argv(argv: list[str]) -> list[str]:
     # ⚠️ Every subcommand must be listed here. It is not a nicety: anything missing falls
     # through to the legacy branch and is rewritten as `load <name>` — so a new command silently
     # becomes a load of a file that does not exist, or worse, of one that does.
-    cmds = {"schema", "example", "validate", "diff", "load", "push", "show", "history", "restore"}
+    cmds = {"schema", "example", "presets", "validate", "diff", "load", "push", "show", "history", "restore"}
     if not argv or argv == ["--show"]:
         return ["show"]
     if argv[0] in cmds or argv[0] in ("-h", "--help"):
@@ -525,7 +598,11 @@ async def _amain(argv: list[str]) -> int:
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("schema", help="print the config JSON Schema (no DB)")
-    sub.add_parser("example", help="print a populated example config (no DB)")
+    p_example = sub.add_parser("example", help="print a populated example config (no DB)")
+    p_example.add_argument("--section", help="print only this section (lageGrundgeruest)")
+    p_example.add_argument("--preset", help="with --section lageGrundgeruest: the shipped preset to spell out")
+    p_presets = sub.add_parser("presets", help="list the shipped presets of a section (no DB)")
+    p_presets.add_argument("section", help="lageGrundgeruest")
     p_val = sub.add_parser("validate", help="validate a file, no write (no DB)")
     p_val.add_argument("file")
     p_diff = sub.add_parser("diff", help="show changes a file would make vs stored config")
@@ -557,12 +634,18 @@ async def _amain(argv: list[str]) -> int:
         print(json.dumps(DeploymentConfigIn.model_json_schema(), indent=2, ensure_ascii=False))
         return 0
     if args.cmd == "example":
-        print(json.dumps(EXAMPLE_CONFIG, indent=2, ensure_ascii=False))
+        if args.preset and not args.section:
+            fail("ERROR: --preset needs --section lageGrundgeruest.")
+        example = _example_section(args.section, args.preset) if args.section else EXAMPLE_CONFIG
+        print(json.dumps(example, indent=2, ensure_ascii=False))
         return 0
+    if args.cmd == "presets":
+        return _print_presets(args.section)
     if args.cmd == "validate":
         raw, doc_json = _read_and_validate(Path(args.file))
         print(f"OK: {args.file} is valid. Top-level keys set: {_summary(doc_json)}")
         print(f"    {_vocabulary_line(doc_json)}")
+        print(f"    {_lage_line(doc_json)}")
         _report_notes(raw, doc_json)
         return 0
     if args.cmd == "diff":
@@ -578,6 +661,7 @@ async def _amain(argv: list[str]) -> int:
         if carried:
             print(f"    kept from the stored config (runtime-written): {', '.join(carried)}")
         print(_vocabulary_line(doc_json))
+        print(_lage_line(doc_json))
         return 0
     if args.cmd == "push":
         require_push_target(args)
@@ -593,6 +677,7 @@ async def _amain(argv: list[str]) -> int:
             if carried:
                 print(f"    would keep from the stored config (runtime-written): {', '.join(carried)}")
             print(f"    {_vocabulary_line(doc_json)}")
+            print(f"    {_lage_line(doc_json)}")
             _report_notes(raw, doc_json)
             return 0
         # ⚠️ REFUSE a load that would empty something that currently has content, unless it is
@@ -625,6 +710,7 @@ async def _amain(argv: list[str]) -> int:
             # said out loud: the file did NOT contain these, and they are still there
             print(f"    kept from the stored config (runtime-written, not in the file): {', '.join(carried)}")
         print(f"    {_vocabulary_line(doc_json)}")
+        print(f"    {_lage_line(doc_json)}")
         _report_notes(raw, doc_json)
         return 0
     if args.cmd == "history":

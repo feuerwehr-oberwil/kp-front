@@ -11,6 +11,11 @@
 /* right-edge safe area — see the note on .navrail's `left` (05-navrail.css) */
 .tool-rail { position: absolute; right: max(16px, env(safe-area-inset-right)); top: 88px; bottom: 16px; height: max-content; margin-block: auto;
   z-index: var(--z-dock); max-height: calc(100dvh - 104px); }
+/* The Karte's ninth entry («Grundgerüst», 24.09.2026) left the list 13px short of fitting on a
+   1180×820 landscape tablet — the one screen the app is built for — and the «more» chevron then
+   sat on the last tile. Two pixels less between the tiles buys 16px back where the height is
+   short; the phone's folded bar (a row, not a column) keeps its own spacing. */
+@media (max-height: 860px) { .tool-rail:not(.folded) .rail-scroll { gap: 2px; } }
 /* The shell, the scroller, its "scroll for more" chevrons, the expand toggle and the drag grip
    are the SHARED rail base (.rail-* · 04b-rail.css), which the left NavRail wears too. What is
    left here is this rail's own half: it is anchored to the RIGHT edge, so it opens leftward, its

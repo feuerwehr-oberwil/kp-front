@@ -1,0 +1,69 @@
+{
+  "_readme": [
+    "The shipped Lage-Grundgerüst «minimal»: KP · Zufahrt · Sammelplatz for every Einsatzart —",
+    "the three things no Lage should be without, whatever the alarm. Format: see fks-standard.json."
+  ],
+  "beschreibung": "KP · Zufahrt · Sammelplatz für jede Einsatzart",
+  "kategorien": {
+    "brandbekaempfung": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "elementarereignis": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "strassenrettung": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "technische_hilfeleistung": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "oelwehr": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "chemiewehr": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "strahlenwehr": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "einsatz_bahnanlagen": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "bma_unechte_alarme": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "dienstleistungen": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "gerettete_tiere": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ],
+    "diverse_einsaetze": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" }
+    ]
+  }
+}
