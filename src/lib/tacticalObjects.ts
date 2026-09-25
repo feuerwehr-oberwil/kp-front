@@ -432,7 +432,11 @@ function annoAfterMapEdit(
     }
     const bearings = sheetBearings(anno, entity, plan, was)
     if (anno.kind === 'shape') return { ...anno, ...shared, ...bearings, storey: entity.floor, ...(asN(entity.sizeM) != null ? { sizeN: asN(entity.sizeM) } : null), ...point(entity.coord) }
-    return { ...anno, ...shared, ...bearings, storey: entity.floor, ...(asN(entity.reachM) != null ? { reachN: asN(entity.reachM) } : null), ...point(entity.coord) }
+    // ⚠️ `done` is said EXPLICITLY, like `storey`: the spread above only carries keys the body
+    // has, and a body that arrives without the key — a restored snapshot, a JSON round trip, a
+    // Gebäude symbol handed back off a Modul sheet — is a body saying «not done», which the
+    // owner's anno has to hear (a «Wieder aktiv» otherwise came back on the next bake).
+    return { ...anno, ...shared, ...bearings, storey: entity.floor, done: entity.done, ...(asN(entity.reachM) != null ? { reachN: asN(entity.reachM) } : null), ...point(entity.coord) }
   }
   if (drawing) {
     if (anno.kind === 'circle') {

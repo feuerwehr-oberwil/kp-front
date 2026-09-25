@@ -19,6 +19,7 @@ import { compositeSpec } from '../lib/symbolRender'
 import { UN_CAPABLE } from '../lib/symbols'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { bearing360 } from '../lib/planProjection'
+import { doneStateText } from '../lib/objectDone'
 
 // detail-field controls: short fixed lists render as directly-tappable segmented tabs (they
 // wrap to multiple rows), longer lists (and the person roster) as a native dropdown; roster
@@ -187,6 +188,15 @@ export interface ContextPanelProps {
   /** preset-seeded field keys — protected from row deletion (no ✕) so they aren't lost by a stray tap */
   protectedKeys?: Set<string>
   onDelete: () => void
+  /** «Gelöscht / erledigt» (lib/objectDone, review item 21b): `true` declares the matter over —
+   *  the symbol stays, greyed, with the time — `false` («Wieder aktiv») takes it back. Wired by
+   *  both surfaces for a placed symbol on an editable surface; absent everywhere else. Where it
+   *  is wired, the footer's delete reads «Entfernen»: next to a «gelöschtes» Feuer, «Löschen»
+   *  would say the opposite of what the button does. */
+  onDone?: (done: boolean) => void
+  /** the row is the FIRST thing in the body — only for damage/hazard symbols, where «done» is the
+   *  next act (lib/objectDone · doneFirst). Absent ⇒ it sits near the bottom, above «Entfernen». */
+  doneFirst?: boolean
   /** Clear a crew member's self-reported position (Selbstauskunft) from the command post.
    *  Editor-only, and offered ONLY on a live `person` dot: somebody drives home with sharing
    *  still on, or a phone dies holding its last fix, and the dot then claims a crew is
@@ -262,7 +272,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, doneFirst = false, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -664,9 +674,40 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
       {onPinGps && <button className="btn" onClick={onPinGps} title={C.pinGpsTitle}><Icon id="coords" />{C.pinGps}</button>}
       {onResetGps
         ? <button className="btn" disabled={!hasOverride} onClick={onResetGps} title={C.resetGpsTitle}><Icon id="compass" />{C.resetGps}</button>
-        : (!readOnly || allowDelete) && !onStopSharing && <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>}
+        // «Entfernen», the one word for taking a tactical object off the picture (25.09.2026) —
+        // «gelöscht» is what a Feuer becomes (objectDone), so it can no longer name this press
+        : (!readOnly || allowDelete) && !onStopSharing && (
+          <button className="btn warn" onClick={onDelete} title={onDone ? appConfig.copy.objectDone.removeHint : undefined}>
+            <Icon id="close" />{appConfig.copy.remove}
+          </button>
+        )}
     </div>
   )
+
+  /* ── «Gelöscht / erledigt» (review item 21b, 24.09.2026) ── the FIRST row of the body, above
+     every property: it is the one question about a Feuer that is asked when the Feuer is out, and
+     the answer used to be «Löschen», which took the fire off the record. Unset it is one press
+     (`.de-action`: no state to be in yet); set it STATES «Erledigt 20:40»
+     and its one way back, «Wieder aktiv». A read-only panel still states it — who reads the
+     Karte in the Führungsansicht wants to know that the fire was declared out, and when. */
+  const doneState = !isNote ? doneStateText(entity) : null
+  const O = appConfig.copy.objectDone
+  const doneRow = doneState ? (
+    <div className="ctx-done-row">
+      <span className="ctx-done-state"><Icon id="check" />{doneState}</span>
+      {onDone && !readOnly && (
+        <button type="button" className="ctx-done-reopen" onClick={() => onDone(false)}>
+          <Icon id="undo" />{O.reopen}
+        </button>
+      )}
+    </div>
+  ) : onDone && !readOnly && !isNote ? (
+    // `.de-action`, the panel's one-press row (DrawEditor · «Richtung umkehren»): glyph + word at
+    // the controls' edge, and a bare check — never a ring, which read as an unticked checkbox
+    <button type="button" className="de-action ctx-done" onClick={() => onDone(true)}>
+      <span className="ctx-done-hint">{O.actionHint}</span><Icon id="check" />{O.action}
+    </button>
+  ) : null
 
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
   const sheetDrag = useSheetDrag({ onClose, tapToggles: false })
@@ -726,6 +767,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
       )}
 
       <div className="ctx-body">
+        {doneFirst && doneRow}
         {/* ── Notiz ── the same three settings the armed-tool dock offers while writing, plus the
             one that changes the note's state: Form. Deliberately short — every extra control here
             is one more thing to reason about at 3am, and each would have to be carried through
@@ -1172,6 +1214,9 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
           <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connectedLines.length))}</span>
           {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><span className="ctx-conn-go" aria-hidden>›</span></button>)}
         </div>}
+        {/* …and for every other symbol near the bottom, right above «Entfernen»: its editor opens
+            by itself after placing, and the first row is where a reflex tap lands */}
+        {!doneFirst && doneRow}
         <div className="ctx-footer-inline">{caprow}{actions}</div>
       </div>
 

@@ -211,6 +211,16 @@ const base = {
     // the generic vehicle glyph — placed copies render their (typed) name baked in,
     // exactly like the live GPS vehicles (see lib/useVehiclePositions · vehicleSymbolSvg)
     vehicleName: 'VKF Fahrzeug',
+    // the FIRE family: a symbol marked «Gelöscht / erledigt» (lib/objectDone) says «gelöscht»,
+    // every other symbol «erledigt». Not the whole «Schadenlage» category — a Rettung, a Wasser
+    // or an Unfall is never «gelöscht». Names are the pack's compatibility keys.
+    fireFamily: ['VKF Feuer'] as string[],
+    // …and where «Gelöscht / erledigt» is the natural NEXT act (3am walk-through, 25.09.2026): the
+    // damage and hazard categories of the pack — Feuer, Rauch, Rettung, Wasser, Unfall, Explosion,
+    // Gefahrstoffe, the Gefahr signs. Their editor opens with the row on top. Every other symbol
+    // (a KP Front, a Fahrzeug, a Hydrant) has it near the bottom, above «Entfernen»: its editor
+    // opens by itself after placing, and a reflex tap on the first row greyed a new KP Front.
+    doneFirstCategories: ['Schadenlage', 'Gefahren'] as string[],
     // detail fields that offer the Mannschaft roster as a combobox (person pickers).
     // «Bedienung» (14.09.) = the person operating a placed device – Lüfter, Pumpe, Absperrung …
     // It is the LAST field of every manned preset below, so the existing caption/field order is
@@ -586,6 +596,9 @@ const base = {
     isolationColor: '#e8392b',
     protectColor: '#e2920a',
     isolationFillOpacity: 0.12,
+    /** a placard marked «Gelöscht / erledigt» (lib/objectDone) keeps its rings, GREY and unfilled —
+     *  the same «over, but it happened» the glyph says; a red wash would still order an evacuation */
+    doneColor: '#8a929e',
   },
   drawing: {
     colors: ['#1f6feb', '#e8392b', '#1f9d57', '#e2920a', '#1b2330', '#ffffff'],

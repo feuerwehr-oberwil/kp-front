@@ -585,6 +585,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                           floorTo={printable.floorTo}
                           spread={printable.spread}
                           count={printable.count}
+                          done={printable.done}
                           // no `caption` — on the sheet the words are a numbered disc plus a
                           // legend line (kroki.py, the collision pass). Drawing them here made
                           // the preview a picture that never comes out, and hid the fact that a

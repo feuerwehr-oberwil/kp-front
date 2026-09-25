@@ -72,6 +72,18 @@ so this file – not the log – is the record of what shipped up to that point.
   has written to for 24 h stops being observed, with one Verlauf row saying so. The server fills
   only the Rapport's «vor Ort»; «zurück» (back at the depot) stays the geofence's.
 
+- **«Gelöscht / erledigt» instead of deleting a symbol.** A symbol's editor now offers
+  «Gelöscht / erledigt» – as its first row on damage and hazard symbols (Feuer, Rauch, Rettung,
+  Gefahr …), near the bottom on everything else, so a reflex tap cannot grey a fresh KP Front: the symbol stays on the Karte, the Plan and every Gebäude storey, greyed
+  and with the time in its corner, and it prints the same way on the Kroki and the Gebäude pages
+  of the Rapport, its legend line ending «gelöscht 20:40» (a Feuer) or «erledigt 20:40»
+  (everything else). «Wieder aktiv» takes it back; both are undoable and each writes one Verlauf
+  row («Feuer EG gelöscht»). Taking an object off the picture is now «Entfernen»
+  everywhere – the delete button on every object panel, its confirm, and the Verlauf row
+  («Feuer entfernt», «3 Objekte entfernt») on the Karte and on plans alike – so «gelöscht» only
+  ever means an extinguished fire; rows already written keep their wording. Removing a single
+  object on a plan finally writes that row too. On the Übung of 23.09.2026 the extinguished EG fire was deleted, and the
+  Rapport's plan no longer showed there had been a fire at all.
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the

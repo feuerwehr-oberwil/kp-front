@@ -36,6 +36,9 @@ import { ApiError } from '../lib/api'
 import { Overlay, Popover } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
+import { doneAct, doneBadge, doneFirst, donePlace } from '../lib/objectDone'
+import { annoLogName } from '../lib/drawingEdit'
+import { serverNowIso } from '../lib/serverClock'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { useHazardData } from '../lib/useHazardData'
@@ -186,6 +189,10 @@ interface Props {
   onRecent: (name: string) => void
   /** append to the unified journal with plan context (team link, plan coords). */
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
+  /** who is signed in — stamped on a «Gelöscht / erledigt» (lib/objectDone · markDone) */
+  authorName?: string
+  /** name the NEXT undo step in the operator's words («Feuer EG gelöscht») instead of «Plan …» */
+  onStepLabel?: (label: string) => void
   /** symbol placed → App may offer logging it as Mittel (same hook as the Lage map) */
   /** record a plan mutation in the hash-chained audit trail (board.* ops). No-op
    *  default keeps the component usable standalone / in tests. */
@@ -317,13 +324,18 @@ interface Props {
  * their `entityId` and flown to it, and the Plan's simply did not. Rows written before 23.08. have
  * none of this and degrade to exactly that older behaviour (see IncidentWorkspace · focusEvent).
  */
-export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: string; x?: number; y?: number; floor?: number }
+export interface PlanLogExtra {
+  kind?: 'symbol' | 'team' | 'history'; annoId?: string; x?: number; y?: number; floor?: number
+  /** which object a row is ABOUT without making it a jump target — a removal (types ·
+   *  TimelineEvent.subjectId), exactly what the Karte's removal row carries */
+  subjectId?: string
+}
 
 // Whiteboard / Tafel — pick a plan document as the background, then
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -1080,8 +1092,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const src = annos.find((a) => a.id === selId)
     if (!src) return
     const id = newId(DUP_PREFIX[src.kind])
+    // …and no «Gelöscht / erledigt» either: the copy is a new thing on the picture (lib/duplicate)
+    const { done: _done, ...rest } = src
     const copy: BoardAnno = {
-      ...src, id, trail: undefined,
+      ...rest, id, trail: undefined,
       ...(src.pts ? { pts: src.pts.map(([x, y, floor]): BoardPoint => [x + DUP_OFFSET_N, y + DUP_OFFSET_N, floor ?? src.floor ?? 0]) } : {}),
       ...(src.x != null ? { x: src.x + DUP_OFFSET_N } : {}),
       ...(src.y != null ? { y: src.y + DUP_OFFSET_N } : {}),
@@ -1965,7 +1979,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const ok = await confirmDialog({
       title: appConfig.copy.whiteboard.clearTrail,
       message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: a.text ?? '', n: a.trail.length }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
     })
     if (!ok) return
     patchCommit(a.id, { trail: [] })
@@ -1978,6 +1992,45 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // marker instead: a removed chip's recorded positions move into a ghost trail the incident
   // owns (lib/truppTrails · reconcileGhostTrails, driven from IncidentWorkspace), so the trash
   // always does the one thing it says and the searched area is still on the sheet afterwards.
+  /**
+   * «Entfernen» on the plan writes the Karte's removal row (review item 21b, 24.09.2026) —
+   * «{name} gelöscht» (`log.objectDeleted`), named the way the Karte names the same object
+   * (lib/drawingEdit · annoLogName) and carrying it as its SUBJECT, never as a jump target: the
+   * object is gone. It used to write nothing for a single object, so a Feuer deleted on the EG
+   * left no trace in the Verlauf at all. ONE act, ONE row: the store fold writes none, and a
+   * group of several keeps its «n Objekte vom Plan gelöscht». An empty Notiz writes none, as on
+   * the Karte.
+   */
+  const logRemoved = (a: BoardAnno) => {
+    const name = annoLogName(a)
+    if (name == null) return
+    log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name }), { subjectId: a.id })
+  }
+
+  /**
+   * «Gelöscht / erledigt» on the plan (lib/objectDone) — the same prop edit the Karte makes
+   * (IncidentWorkspace · setEntityDone): one checkpoint on this plan's history, the `board.edit`
+   * audit event (`done: null` for «Wieder aktiv», which JSON would otherwise drop), the write-
+   * through onto the map body through the store fold, and ONE Verlauf row, with the storey the
+   * symbol stands on — on the Gebäude that is its tile (or its Von/Bis span).
+   */
+  const setAnnoDone = (a: BoardAnno, on: boolean) => {
+    if (readOnly) return
+    const from = stack ? a.floorFrom ?? a.floor ?? 0 : a.floorFrom ?? a.storey
+    const act = doneAct(a, on, {
+      atIso: serverNowIso(), by: authorName,
+      place: donePlace(from, stack ? a.floorTo ?? from : a.floorTo),
+      // this sheet's view — a projected Karte symbol has no anno in the recorded board, and the
+      // event folds to nothing there, while its `entity.edit` greys the map view (lib/objectDone)
+      sheetPlanId: activeId,
+    })
+    if (!act) return
+    onStepLabel?.(act.text) // the ↶ says «Feuer EG gelöscht», the Karte's way, not «Plan …»
+    commit(annos.map((x) => (x.id === a.id ? { ...x, done: act.done } : x)))
+    for (const [op, payload] of act.events) emit(op, payload)
+    log(on ? 'check' : 'undo', act.text, { annoId: a.id, x: a.x, y: a.y, floor: a.floor })
+  }
+
   // returns whether the object actually went — «Marker und Spur löschen» has to take its arming
   // back when the connection question (or the note question) was answered with «Abbrechen»
   const removeWithConnections = async (target: BoardAnno): Promise<boolean> => {
@@ -1985,11 +2038,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
       return rel && ((rel.target.kind === 'object' && rel.target.id === target.id) || (rel.target.kind === 'line' && rel.target.id === target.id)) ? [{ a, endpoint, rel }] : []
     }))
-    if (!affected.length) return await removeAnno(target)
+    if (!affected.length) {
+      const gone = await removeAnno(target)
+      if (gone) logRemoved(target)
+      return gone
+    }
     const ok = await confirmDialog({
       title: fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: target.label ?? target.text ?? appConfig.copy.drawingEditor.drawing }),
       message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
     })
     if (!ok) return false
     const changed = new Set(affected.map((x) => x.a.id))
@@ -2006,6 +2063,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return next
     }))
     emit('board.delete', { id: target.id, planId: activeId })
+    logRemoved(target)
     changed.forEach((id) => {
       const source = annos.find((a) => a.id === id)
       if (!source?.pts) return
@@ -2034,7 +2092,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const ok = await confirmDialog({
       title: appConfig.copy.whiteboard.removeMarkerTrail,
       message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: a.text ?? '', n: a.trail.length }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
     })
     if (!ok) return
     onTrailDrop?.(a.id, true)
@@ -2053,7 +2111,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return rel && removable.includes(rel.target.id) ? [{ a, endpoint, rel }] : []
     }))
     if (affected.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     commit(annos.filter((a) => !removable.includes(a.id)).map((a) => {
@@ -2071,6 +2129,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     removable.forEach((id) => emit('board.delete', { id, planId: activeId }))
     setSelIds((ids) => ids.filter((id) => !removable.includes(id)))
     setSelId(null)
+    const lone = removable.length === 1 ? annos.find((a) => a.id === removable[0]) : undefined
+    if (lone) { logRemoved(lone); return }
     log('close', removable.length > 1
       ? fillTemplate(appConfig.copy.whiteboard.groupDeletedN, { n: removable.length })
       : appConfig.copy.whiteboard.groupDeleted)
@@ -2464,7 +2524,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return rel?.target.kind === 'line' && rel.target.id === selDraw.id && rel.target.endpoint === 'end'
     }).map((endpoint) => ({ id: a.id, endpoint }))) : []
     if (incoming.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     const resolved = renderAnnos.find((a) => a.id === selDraw.id)?.pts
@@ -3354,6 +3414,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         floorTo={stack ? undefined : a.floorTo}
                         spread={a.spread}
                         count={a.count}
+                        // «Gelöscht / erledigt»: grey glyph + the time — the Karte's rule, on the
+                        // Modul sheets and on every Gebäude storey alike
+                        done={doneBadge(a)}
                         // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and
                         // keeps the rest (Fahrer, eigene Felder, Notizen), which only 'Alle' prints
                         // …and the seams come with it: .sym-caption wraps on both surfaces now,
@@ -3949,6 +4012,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({ id: a.id, label: lineLabel(a) }))}
           onFocusLine={(id) => setSelId(id)}
           onDelete={() => void removeWithConnections(selSymbol)}
+          onDone={!readOnly ? (on) => setAnnoDone(selSymbol, on) : undefined}
+          doneFirst={doneFirst(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
         />
       )}
 

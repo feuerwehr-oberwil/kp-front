@@ -553,7 +553,7 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
 // not because the object is protected — and its original's own panel offers Löschen.
 describe('ContextPanel — Löschen on an otherwise read-only panel', () => {
   // rendered twice on purpose (pinned footer + the phone's inline copy); CSS shows exactly one
-  const del = () => screen.queryAllByRole('button', { name: appConfig.copy.delete })
+  const del = () => screen.queryAllByRole('button', { name: appConfig.copy.remove })
 
   it('is hidden on a read-only panel, as it always was', () => {
     setup({ readOnly: true })
@@ -673,5 +673,51 @@ describe('ContextPanel — the Trupps docked onto this symbol', () => {
   it('draws no section at all when nothing is docked', () => {
     setup({ entity: { id: 'h1', symbol: 'VKF Feuer', label: 'Hydrant' } })
     expect(screen.queryByText(az.dockedTeams)).toBeNull()
+  })
+})
+
+// «Gelöscht / erledigt» (review item 21b, 24.09.2026): the row the Übung's EG Feuer needed instead
+// of «Löschen». ONE panel for both surfaces, so these hold on the Karte and the Plan alike.
+describe('ContextPanel — «Gelöscht / erledigt»', () => {
+  const O = appConfig.copy.objectDone
+  const AT = '2026-09-23T18:40:00.000Z'
+
+  it('offers the action as the first row on a damage symbol, and the delete reads «Entfernen»', () => {
+    const p = setup({ onDone: vi.fn(), doneFirst: true })
+    const row = screen.getAllByRole('button', { name: new RegExp(O.action) })[0]
+    // the first thing in the body — above every property
+    expect(row.closest('.ctx-body')?.firstElementChild).toBe(row)
+    fireEvent.click(row)
+    expect(p.onDone).toHaveBeenCalledWith(true)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
+  })
+
+  // 3am walk-through 25.09.2026: a placed KP Front opens its editor by itself, and a reflex tap on
+  // the first row greyed it. Everything that is not damage or hazard keeps the row near the bottom.
+  it('on any other symbol the row sits at the bottom of the body, right above the footer', () => {
+    setup({ onDone: vi.fn(), entity: { id: 'k1', symbol: 'VKF KP Front', label: 'KP Front' } })
+    const row = screen.getAllByRole('button', { name: new RegExp(O.action) })[0]
+    const body = row.closest('.ctx-body')!
+    expect(body.firstElementChild).not.toBe(row)
+    expect(row.nextElementSibling?.classList.contains('ctx-footer-inline')).toBe(true)
+  })
+
+  it('states a set one — «Gelöscht 20:40 · Wieder aktiv» — and «Wieder aktiv» takes it back', () => {
+    const p = setup({ onDone: vi.fn(), entity: { id: 's1', symbol: 'VKF Feuer', label: 'Brand', done: { at: AT } } })
+    expect(screen.getByText(new RegExp(`^${O.word.fire.title} \\d\\d:\\d\\d$`))).toBeTruthy()
+    expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(O.reopen) }))
+    expect(p.onDone).toHaveBeenCalledWith(false)
+  })
+
+  it('a read-only panel states it and offers nothing; a surface that does not wire it has no row, and its delete is «Entfernen» too', () => {
+    setup({ readOnly: true, onDone: vi.fn(), entity: { id: 's1', symbol: 'VKF Rettungen', done: { at: AT } } })
+    expect(screen.getByText(new RegExp(`^${O.word.other.title} `))).toBeTruthy()
+    expect(screen.queryByRole('button', { name: new RegExp(O.reopen) })).toBeNull()
+    cleanup()
+    setup()
+    expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
   })
 })

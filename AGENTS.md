@@ -134,7 +134,13 @@ to prod.
     destroys something (a Geschoss, a Beilage, an Anwesenheits-Block, a Pendenz's «Erledigt» —
     whose inverse is an APPENDED `reopened` row, since 23.09.2026). It does the inverse
     itself and **drops its timeline entry** (`push` returns the dropper), so an act is never
-    undoable twice.
+    undoable twice. ⚠️ …and it writes the SAME counter-row the ↶ would (25.09.2026,
+    `IncidentWorkspace · oneShotUndoToast`): a storey restored from the toast used to leave
+    «Geschoss 3. OG entfernt» alone on the printed Einsatzjournal. The Rapport prints the ↶ / ↷
+    rows as well (`report · journalRows`) — a taken-back act is two rows, on paper too. ⚠️ And a
+    counter-row exists only beside the row it counters (26.09.2026): a one-shot whose act wrote
+    no row undoes silently (`rememberOneShot(…, 'silent')`), and a ↶ of an act the paper does not
+    print (a move) is not printed either (`report · historyCountersPrintedRow`).
   Two rules that fall out of it: a surface that persists on every **keystroke** classifies its
   writes so a burst of typing is ONE step and a value/row appearing or disappearing is its own
   (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate drops the whole
@@ -274,7 +280,7 @@ to prod.
     geo for the Karte; never projected across). The marker's bar has ONE trash (`deleteLocked` and
     the morphing trash are gone, and so is the short-lived footprint button beside it): with no
     trail it removes the marker outright, and with one it opens the app's `Menu` — «Marker
-    entfernen» (the ghost stays) · «Spur löschen» · «Marker und Spur löschen», the last two danger
+    entfernen» (the ghost stays) · «Spur entfernen» · «Marker und Spur entfernen», the last two danger
     rows, each confirming first. The combined row leaves NO ghost: the surface arms the
     reconciliation (`reconcileGhostTrails · dropped`, `IncidentWorkspace · armTrailDrop`) and the
     ghost is born `removedAt`-stamped rather than skipped — a skipped one is ghosted again by the
@@ -310,6 +316,19 @@ to prod.
   their actual text/value, because the Rapport is read on paper where nothing can be clicked. The
   row is also the ONE string the Verlauf, the Rapport and the hash chain all read – so a re-shown
   reminder carries its bare text alongside (`reminder.text`) rather than the row being re-parsed.
+  **Deleting and creating belong in the same channel, on both surfaces**: a single object removed
+  on a Plan writes the Karte's «{name} entfernt» (24.09.2026, `drawingEdit · annoLogName`, as a
+  `subjectId`, never a jump target), and «Gelöscht / erledigt» writes «Feuer EG gelöscht» /
+  «Feuer EG wieder aktiv» from the act itself — one row per act ([`docs/verlauf-coverage.md`](docs/verlauf-coverage.md)).
+  ⚠️ **The two acts never share a verb** (decided 25.09.2026): taking a tactical object off the
+  picture is «Entfernen» / «… entfernt» — button, confirm and Verlauf row, Karte and Plan, every
+  object kind (`copy · remove`, `log.objectDeleted` …) — so «gelöscht» only ever means an
+  extinguished Feuer. That holds for EVERYTHING on the picture (audited 25.09.2026 after the second
+  staging walk-through): a Trupp taken off the board («Trupp N entfernt»), a marker's Spur, a
+  Gebäude storey («Geschoss 3. OG entfernt», now written by the act itself), a plan group — pinned
+  by `config/copy/removalWords.test.ts`. Rows already written keep their «gelöscht»
+  (append-only). «Löschen» stays for records that are not on the picture (an Ansicht, a Schicht,
+  a Checkliste, a Verlauf-Eintrag, a Mittel line).
   The one accepted maintenance exception is whole-incident hard deletion through `/admin`:
   `DELETE /api/incidents/{id}` is deployment-admin-only, and a real Einsatz must already be
   archived (an Übung may be deleted in any state). It deliberately removes the full record and
@@ -350,8 +369,9 @@ to prod.
   turn's degrees are read *on the surface*, beside the pivot and the radius the finger is
   swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet – so the
   two grips are icon-only and never re-flow mid-gesture. «Fertig» ends the editing state
-  (disarm + clear the selection + close its sheets); **«Löschen» is not on the bar** – an object
-  is deleted from its own editor sheet and with the Delete key, which on both surfaces reaches a
+  (disarm + clear the selection + close its sheets); **«Entfernen» is not on the bar** (it was
+  called «Löschen» until 25.09.2026) – an object is removed from its own editor sheet and with the
+  Delete key, which on both surfaces reaches a
   Mehrfach group and a mirrored selection too. On the object itself only **geometry** grips live:
   vertex, «+» midpoint, Verlängern, Verbindung lösen, the radius ring, and a shape's own
   resize grips (its rotate knob left on 02.09.: the bar's ⟳ is the one way to turn a Form;
@@ -446,7 +466,7 @@ to prod.
     hinzufügen» (24.09.2026, `stackFloors · removeStorey` / `withoutOwnOnStorey`): a Karte object
     SHOWN on a storey is not the storey's, and swept out of the view it was deleted outright. It
     stays on the Karte and simply finds no tile. The removal's confirm asks only about what the
-    SAME sweep loses (`removeStorey · lost`, `lib/storeyRemoval`) — «n Markierungen … gelöscht oder
+    SAME sweep loses (`removeStorey · lost`, `lib/storeyRemoval`) — «n Markierungen … entfernt oder
     gekürzt» — and a storey showing only Karte objects goes without asking; the toast still undoes
     it. And the seam honours it per object: a lent anno
     handed back exactly as shown folds to the SAME record (`applyBoardToObjects`), never through
@@ -496,6 +516,10 @@ to prod.
     the step and whose remaining samples fold into it, and the token closes when the finger lifts
     — a plan step is a pointer gesture. With none open, every write is its own step, which is what
     the writers that are not gestures (the Trupp sweeps, a plan ↶, a Gebäude amend) need.
+    ⚠️ The plan laid ITS entry when the step began, before anyone knew whom the fold would touch;
+    when the store takes the step, that entry and its per-plan snapshot are withdrawn
+    (`useObjectStore · onForeignStep` → `lib/planStepLink`, 25.09.2026). A plan-panel edit of a
+    Karte-owned symbol used to cost two ↶, the second one reporting a lost step.
   - **Presentation stays equivalent, and nothing is lent that is owned.** Each surface draws the
     other's objects with its OWN native chrome and sizing (map `symPx`, board `symBase`) — no
     projection tone, no reduced opacity, no twin-only band — and every capability the surface has
@@ -508,6 +532,23 @@ to prod.
     — the live vehicle and responder feed (`planProjection · liveOverlay`, `PlanLiveLayer`),
     read-only but for the one gesture it always had: dropping a Fahrzeug writes the same
     held-in-place override the Karte writes.
+  - **A symbol whose matter is over is marked, never deleted** (24.09.2026, review item 21b,
+    `lib/objectDone`). «Gelöscht / erledigt», a row of the symbol's editor sheet, sets
+    `done {at, by?}` — a SymbolProps prop, so both bodies share it and every write-through and bake
+    carries it (never `BAKE_PRESERVED`: that list would re-add a cleared value from the map body).
+    ⚠️ The row is FIRST only where «done» is the next act — the damage and hazard categories
+    (`appConfig.symbols.doneFirstCategories`) and the fire family (`objectDone · doneFirst`, decided
+    by the PACK's category, never the editable subtitle); every other symbol has it near the bottom,
+    above «Entfernen». An editor opens by itself after placing, and a reflex tap on the first row
+    greyed a brand-new KP Front (3am walk-through, 25.09.2026).
+    The symbol stays, greyed with its HH:MM top-left, by ONE rule on the Karte, the Plan and the
+    Gebäude (`TacticalSymbol` · `.ts-done`, the `--done-*` tokens) and on paper (`kroki ·
+    _place_symbol`, `DONE_ALPHA`). «Wieder aktiv» clears it; both are ordinary undoable prop edits,
+    audited with `done: null` for the clear (JSON drops `undefined`, and the replay would keep it
+    grey). A Feuer is «gelöscht», everything else «erledigt» (`appConfig.symbols.fireFamily`, one
+    copy key `objectDone.word`). The footer's delete reads «Entfernen» — for a mistake — and it
+    writes the Karte's removal row («… entfernt») on the Plan too. Symbols only: a
+    Fläche/Absperrkreis would need greyed ink on four renderers.
   - **Reference change or delete loses nothing.** Correcting a fit re-bakes every sheet-anchored
     object's map body — that correction is the whole point of correcting a fit — as ONE undo step
     with one Verlauf row («Referenz angepasst – n Objekte neu verortet»). A DELETED reference
@@ -835,6 +876,8 @@ to prod.
     (`symbols · symbolLegendText`), for every symbol. ⚠️ Not `symbolCaptionText`: the screen's
     value-only caption is an answer without its question once lifted into a legend. A symbol's own
     `caption: 'off'` is a screen declutter and is not read; only «Beschriftungen aus» silences it.
+    A «Gelöscht / erledigt» symbol ends its line on that Status with its time («Feuer · gelöscht
+    20:40», 24.09.2026) and prints grey, never absent.
   - **One figure-page template** (`report_pdf · figure_pages`): heading, then the muted «Einsatz ·
     Stand …» line, picture, legend – for the Kroki, a plan sheet and a Gebäude page alike. A new
     kind of figure page joins that list; it does not get a layout block of its own. Orientation is

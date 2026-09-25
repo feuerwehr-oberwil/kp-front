@@ -78,6 +78,12 @@ describe('ergRingOverlays', () => {
     expect(overlays[0]).toMatchObject({ kind: 'circle', layer: 'taktisch', center: [7.55, 47.51], radiusM: 30 })
   })
 
+  it('a placard marked «erledigt» keeps its rings, grey and unfilled — with the glyph (objectDone)', () => {
+    const overlays = ergRingOverlays([placard({ done: { at: '2026-09-23T18:40:00.000Z' } })], DAY)
+    expect(overlays).toHaveLength(2)
+    for (const o of overlays) expect(o).toMatchObject({ color: appConfig.ergRings.doneColor, fillOpacity: 0 })
+  })
+
   it('tolerates the legacy dotless field key, like the panel does', () => {
     expect(ergRingOverlays([placard({ fields: { 'UN-Nr': '1008' } })], DAY)).toHaveLength(2)
   })

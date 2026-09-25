@@ -248,7 +248,7 @@ export const de = {
             '**Druck** direkt mit ± einstellen und mit **Bestätigen** übernehmen – das zählt als Kontakt und wird protokolliert; ein Fehlklick ohne Bestätigen ändert nichts. Niedriger Druck wird rot.',
             'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug melden** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder in den Einsatz** (neue Flasche) zurück in die Überwachung – der **Druckverlauf der ersten Ausrückung bleibt dabei erhalten** und steht später vollständig auf dem Rapport.',
             'Draussene Trupps behalten ihren Platz auf der Tafel (grau und gedämpft) statt in einen eigenen Abschnitt zu wandern – die Karte, die du suchst, steht dort, wo sie vorher stand.',
-            'Ein **gelöschter Trupp** verschwindet nur von der Tafel: auf dem Rapport steht er weiter, mit allem, was gemessen wurde, und als **«Von Tafel entfernt»**. Über **Entfernte Trupps** in der Kopfzeile kommt er zurück – der «Rückgängig»-Hinweis ist die schnelle Tür, nicht die einzige.',
+            'Ein **entfernter Trupp** verschwindet nur von der Tafel: auf dem Rapport steht er weiter, mit allem, was gemessen wurde, und als **«Von Tafel entfernt»**. Über **Entfernte Trupps** in der Kopfzeile kommt er zurück – der «Rückgängig»-Hinweis ist die schnelle Tür, nicht die einzige.',
             '**Verlauf** je Trupp (ausklappbar) zeigt jeden Kontakt mit Uhrzeit und Druck.',
             '**Bearbeiten** (Stift) passt Auftrag / Ziel oder Trupp mitten im Einsatz an.',
             'Wer unter AS ist, lässt sich in der **Anwesenheit** nicht abmelden – ein Tipp auf die Zeile springt stattdessen auf die Karte dieses Trupps und hebt sie kurz hervor.',
@@ -686,6 +686,11 @@ export const de = {
   exerciseBadge: 'Übung',
   keepPlacing: 'Mehrere platzieren',
   delete: 'Löschen',
+  /** ⚠️ The ONE word for taking a tactical object (Symbol, Notiz, Form, Linie, Fläche,
+   *  Absperrkreis, Truppmarker) off the picture — its panel's button, its confirm and its Verlauf
+   *  row («… entfernt»), since 25.09.2026. «gelöscht» now means only an extinguished Feuer
+   *  (objectDone); «Löschen» stays for records that are not on the picture (views, checklists). */
+  remove: 'Entfernen',
   undo: 'Rückgängig',
   // ⚠️ «Wiederherstellen», nicht «Wiederholen» (11.09.): «wiederholen» heisst, die Aktion NOCH
   // EINMAL auszuführen – im Verlauf stand hintereinander «Druck 280 bar rückgängig gemacht» und
@@ -1143,11 +1148,15 @@ export const de = {
      *  Zeile ohne Zahl, wie «Referenz entfernt». (georefTwins · handLinkRow) */
     referenceLinked: 'Plan mit Karte verknüpft – {plan}',
     referenceLinkedPlaced: 'Plan mit Karte verknüpft – {plan} – {n} Objekte verortet',
-    objectDeleted: '{name} gelöscht',
-    drawingDeleted: 'Zeichnung gelöscht',
+    /** ⚠️ «entfernt», nicht mehr «gelöscht» (25.09.2026): seit «Gelöscht / erledigt» (objectDone)
+     *  heisst «Feuer gelöscht» ein GELÖSCHTES Feuer. Ein Objekt, das von Karte oder Plan genommen
+     *  wird, ist «entfernt» – das Wort des Knopfs (copy · remove). Geschriebene Zeilen behalten
+     *  ihr «gelöscht» (append-only). */
+    objectDeleted: '{name} entfernt',
+    drawingDeleted: 'Zeichnung entfernt',
     // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is
     // wrong – the singular claims there was only one.
-    selectionDeleted: '{n} Objekte gelöscht',
+    selectionDeleted: '{n} Objekte entfernt',
     duplicated: 'Objekt dupliziert',
     undo: 'Aktion rückgängig gemacht',
     redo: 'Aktion wiederhergestellt',
@@ -1208,6 +1217,31 @@ export const de = {
     // «Zeichnung» named a shape by the fact that somebody drew it — which every row here already
     // says. A line that carries a preset reports THAT instead (lib/lineStyle · linePresetLabel).
     drawKinds: { area: 'Fläche', line: 'Linie', circle: 'Absperrkreis' } as Record<string, string>,
+  },
+  /** «Gelöscht / erledigt» statt löschen (review item 21b, 24.09.2026, lib/objectDone). Das Feuer
+   *  im EG war aus, also wurde das Symbol um 20:40 GELÖSCHT – und der Rapport zeigte danach keinen
+   *  Brand mehr. Jetzt bleibt ein erledigtes Symbol stehen, grau, mit der Uhrzeit; «Entfernen» ist
+   *  nur noch für eine Fehleingabe. */
+  objectDone: {
+    /** ⚠️ EIN Wort, nach Familie: ein Feuer ist «gelöscht», alles andere «erledigt»
+     *  (appConfig.symbols.fireFamily). `title` steht am Zeilenanfang, `inline` mitten im Satz. */
+    word: {
+      fire: { title: 'Gelöscht', inline: 'gelöscht' },
+      other: { title: 'Erledigt', inline: 'erledigt' },
+    },
+    /** die Aktion oben im Symbol-Editor – die Worte der Entscheidung, für jede Familie gleich */
+    action: 'Gelöscht / erledigt',
+    actionHint: 'bleibt grau sichtbar',
+    /** der gesetzte Zustand im Editor und auf dem Rapport: «Erledigt 20:40» */
+    state: '{word} {time}',
+    reopen: 'Wieder aktiv',
+    /** Der Knopf selbst heisst überall «Entfernen» (copy · remove); auf einem Symbol mit «Gelöscht /
+     *  erledigt» sagt dieser Hinweis, wofür er noch da ist: für die Fehleingabe. */
+    removeHint: 'nur bei Fehleingabe',
+    /** Verlauf: «Feuer EG gelöscht» – was und wo. Das Wann ist der Zeitstempel der Zeile selbst,
+     *  derselbe Moment, den `done.at` hält; eine Uhrzeit in Klammern sagte es zweimal. */
+    logDone: '{name} {word}',
+    logReopened: '{name} wieder aktiv',
   },
   // unified, append-only journal (Verlauf) shared by Karte + Plan
   // PHONE: the «+» tile's word and the first section of its sheet (lib/toolFold · Palette) —
@@ -2372,7 +2406,7 @@ export const de = {
     logPressureAlarm: 'Trupp {name}: Druck {bar} bar – Alarmdruck erreicht',
     // A Trupp disappearing from the board is the one action that used to leave nothing behind at
     // all – the toast was gone and the Trupp had never existed.
-    logRemoved: 'Trupp {name} gelöscht',
+    logRemoved: 'Trupp {name} entfernt',
     logRestored: 'Trupp {name} wiederhergestellt',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
@@ -2399,8 +2433,8 @@ export const de = {
     fallbackObjectName: 'Objekt',
   },
   notes: {
-    deleteTitle: 'Notiz löschen',
-    deleteMsg: 'Diese Notiz enthält Text. Wirklich löschen?',
+    deleteTitle: 'Notiz entfernen',
+    deleteMsg: 'Diese Notiz enthält Text. Wirklich entfernen?',
     // note styling — shared by the Karte map and the Plan whiteboard (same controls in the
     // armed-tool dock before placing and in the detail panel afterwards)
     section: 'Notiz',
@@ -2676,9 +2710,9 @@ export const de = {
     insertVertex: 'Punkt einfügen',
     dragVertex: 'Eckpunkt ziehen · gedrückt halten zum Löschen',
     dragRadius: 'Radius ziehen',
-    groupDeleteTitle: 'Auswahl löschen',
-    groupDeleted: 'Auswahl gelöscht',
-    groupDeletedN: '{n} Objekte vom Plan gelöscht',
+    groupDeleteTitle: 'Auswahl entfernen',
+    groupDeleted: 'Auswahl entfernt',
+    groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',
     placeSymbol: 'Symbol «{name}» auf Plan gesetzt',
     placeLine: 'Linie auf Plan gezeichnet',
@@ -2698,10 +2732,10 @@ export const de = {
     // and the record is only destroyed where the operator said so. Both löschen rows are danger
     // rows, and both confirm first.
     removeMarker: 'Marker entfernen',
-    removeMarkerTrail: 'Marker und Spur löschen',
-    clearTrail: 'Spur löschen',
-    clearTrailConfirm: 'Alle {n} markierten Positionen von {name} löschen? Die Spur verschwindet von Karte und Plan.',
-    trailCleared: '{name}: Spur gelöscht',
+    removeMarkerTrail: 'Marker und Spur entfernen',
+    clearTrail: 'Spur entfernen',
+    clearTrailConfirm: 'Alle {n} markierten Positionen von {name} entfernen? Die Spur verschwindet von Karte und Plan.',
+    trailCleared: '{name}: Spur entfernt',
     trails: 'Spuren',
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
@@ -2710,7 +2744,7 @@ export const de = {
     ghostTrail: 'Spur {name}',
     ghostTrailHint: 'Spur von {name} – der Truppmarker wurde entfernt',
     ghostTrailTitle: 'Spur von {name}',
-    ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur löschen?',
+    ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur entfernen?',
     ghostTrailRestore: 'Trupp wieder platzieren',
     ghostTrailRestored: '{name} wieder platziert – Spur übernommen',
     textPlaceholder: 'Notiz …',
@@ -2744,10 +2778,15 @@ export const de = {
     floorHide: 'Geschoss ausblenden',
     floorShow: 'einblenden',
     floorHidden: 'ausgeblendet',
-    removeFloor: 'Geschoss löschen',
-    removeFloorConfirm: '{floor}: {n} Markierungen dieses Geschosses werden gelöscht oder gekürzt. Geschoss trotzdem löschen?',
-    removeFloorConfirmOne: '{floor}: 1 Markierung dieses Geschosses wird gelöscht oder gekürzt. Geschoss trotzdem löschen?',
-    floorRemoved: 'Geschoss gelöscht',
+    removeFloor: 'Geschoss entfernen',
+    removeFloorConfirm: '{floor}: {n} Markierungen dieses Geschosses werden entfernt oder gekürzt. Geschoss trotzdem entfernen?',
+    removeFloorConfirmOne: '{floor}: 1 Markierung dieses Geschosses wird entfernt oder gekürzt. Geschoss trotzdem entfernen?',
+    floorRemoved: 'Geschoss entfernt',
+    /** the Verlauf row for the act itself (25.09.2026) — it used to write only its ↶ row */
+    floorRemovedLog: 'Geschoss {floor} entfernt',
+    floorRemovedLogMarks: 'Geschoss {floor} entfernt – {n} Markierungen entfernt oder gekürzt',
+    floorRestoredLog: 'Geschoss {floor} wiederhergestellt',
+    floorAddedLog: 'Geschoss {floor} hinzugefügt',
     floorAdded: 'Geschoss hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
     buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',
@@ -3143,7 +3182,7 @@ export const de = {
     gpsDistanceNow: 'jetzt {distance} entfernt',
     hiddenTarget: 'Ziel ausgeblendet',
     revealTarget: 'Ebene einblenden',
-    removeConnectedTitle: '{name} löschen',
+    removeConnectedTitle: '{name} entfernen',
     removeConnectedMessage: '{n} Linien werden gelöst.',
     removeEMessage: 'Teilstück löschen? {n} angeschlossene Linien werden gelöst.',
   },

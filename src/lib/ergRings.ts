@@ -12,6 +12,7 @@ import type { Entity, PreparedMapOverlay } from '../types'
 import { appConfig } from '../config/appConfig'
 import { lookupErg, type ErgTihRow } from './erg'
 import { UN_CAPABLE } from './symbols'
+import { doneOf } from './objectDone'
 
 /** The per-placard mode (SymbolProps.ergRings). Absent = 'small': the whole point is that the
  *  rings appear WITHOUT anybody drawing them, and the small-spill pair is the conservative
@@ -82,6 +83,7 @@ export function ergRingOverlays(entities: readonly Entity[], now: Date): Prepare
     const un = Object.entries(e.fields ?? {}).find(([k]) => k.replace(/\.$/, '') === 'UN-Nr')?.[1]
     if (!un?.trim()) continue
     const row = lookupErg(un)?.tih?.[0]
+    const done = !!doneOf(e)
     for (const ring of ergRingsFor(row, e.ergRings ?? DEFAULT_ERG_RING_MODE, now)) {
       const isolation = ring.kind === 'isolation'
       overlays.push({
@@ -90,10 +92,11 @@ export function ergRingOverlays(entities: readonly Entity[], now: Date): Prepare
         layer: e.layer,
         center: e.coord,
         radiusM: ring.radiusM,
-        color: isolation ? cfg.isolationColor : cfg.protectColor,
+        color: done ? cfg.doneColor : isolation ? cfg.isolationColor : cfg.protectColor,
         // isolation is the «get everyone out» circle and gets the visible wash; the protective
         // ring is planning distance — dashed line, no fill, so it never reads as a cordon.
-        fillOpacity: isolation ? cfg.isolationFillOpacity : 0,
+        // …and a placard that is «erledigt» greys its rings with its glyph, unfilled (objectDone)
+        fillOpacity: isolation && !done ? cfg.isolationFillOpacity : 0,
         lineWidth: appConfig.drawing.circleLineWidth,
         lineDasharray: isolation ? undefined : [2, 2],
       })

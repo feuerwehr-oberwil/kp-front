@@ -112,6 +112,31 @@ describe('repeatRuns', () => {
     expect(lastAt.get('a')).toBe('2026-09-01T14:33:10.000Z')
   })
 
+  // staging 25.09.2026 (F2c): dock, ↶, dock again folded into ONE «angedockt 2×»
+  it('ends every run at a ↶ / ↷ — the same line after it is a new act, not a repeat', () => {
+    const { hidden } = repeatRuns([
+      row('d1', '2026-09-01T14:32:00.000Z', 'Gefahrentafel angedockt an «TLF»', { kind: 'symbol', entityId: 'p' }),
+      row('u1', '2026-09-01T14:32:20.000Z', 'Änderung auf der Karte rückgängig gemacht', { kind: 'history', icon: 'undo' }),
+      row('d2', '2026-09-01T14:32:40.000Z', 'Gefahrentafel angedockt an «TLF»', { kind: 'symbol', entityId: 'p' }),
+    ])
+    expect(hidden.size).toBe(0)
+  })
+
+  // D6: storey rows name their storey as subject — entfernt, wiederhergestellt, entfernt,
+  // wiederhergestellt within two minutes are four acts, and two storeys never fold together
+  it('keeps a storey’s removals and restores apart, and two storeys apart', () => {
+    const at = (s: number) => `2026-09-01T14:3${s}:00.000Z`
+    const { hidden } = repeatRuns([
+      row('r1', at(0), 'Geschoss 3. OG entfernt', { kind: 'symbol', subjectId: 'storey:3' }),
+      row('w1', at(1), 'Geschoss 3. OG wiederhergestellt', { kind: 'symbol', subjectId: 'storey:3' }),
+      row('r2', at(2), 'Geschoss 3. OG entfernt', { kind: 'symbol', subjectId: 'storey:3' }),
+      row('w2', at(3), 'Geschoss 3. OG wiederhergestellt', { kind: 'symbol', subjectId: 'storey:3' }),
+      row('a4', at(4), 'Geschoss 4. OG hinzugefügt', { kind: 'symbol', subjectId: 'storey:4' }),
+      row('a5', at(5), 'Geschoss 5. OG hinzugefügt', { kind: 'symbol', subjectId: 'storey:5' }),
+    ])
+    expect(hidden.size).toBe(0)
+  })
+
   it('leaves lastAt empty for a line that never repeated', () => {
     const { lastAt } = repeatRuns([row('a', '2026-09-01T14:32:00.000Z', 'Kontakt überfällig')])
     expect(lastAt.has('a')).toBe(false)
