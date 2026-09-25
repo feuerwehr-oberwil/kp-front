@@ -33,14 +33,16 @@ so this file – not the log – is the record of what shipped up to that point.
 
 - **The server observes; the devices only show** (post-mortem of the Übung on 23.09.2026). «TLF
   vor Ort» and «hat den Einsatzort verlassen» are detected by the server's 30 s GPS sweep and
-  stamped with the GPS fix time – not when a tablet happened to wake up (all five vehicles read
+  stamped with the tracker's own report time – not when a tablet happened to wake up (all five vehicles read
   19:43 in the Übung; GPS said 19:23–19:28). Same rings as before (≤ 150 m, ≥ 300 m, 90 s). The
   Verlauf gets each vehicle's first arrival and last departure; shuttle trips are counted
   instead («3 Fahrten» in the Rapport) and a new **«Fahrzeuge GPS · live»** table under the
   Rapport's Fahrzeugzeiten shows status, an, ab, Fahrten and how old each position is. The
   weather at a running Einsatz is recorded once per reading by the server, and a **wind shift**
   (≥ 45° at ≥ 10 km/h, held over two readings) writes «Wind dreht: W → NO (286° → 66°) · Lüfter
-  prüfen» into the Verlauf and onto the Meldeleiste. Übungen are included.
+  prüfen» into the Verlauf and onto the Meldeleiste. Übungen are included; an Einsatz nobody
+  has written to for 24 h stops being observed, with one Verlauf row saying so. The server fills
+  only the Rapport's «vor Ort»; «zurück» (back at the depot) stays the geofence's.
 
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense

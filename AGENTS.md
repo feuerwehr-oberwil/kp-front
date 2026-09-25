@@ -212,7 +212,8 @@ to prod.
   - ⚠️ **The server observes; devices never write observations** (24.09.2026, design D2 after
     the Feueralarm-Übung of 23.09.2026). A fact about the OUTSIDE world — a vehicle arrived or
     left, the weather, a new Divera alarm — is recorded by the scheduler, once, stamped with
-    the time the fact is about: «vor Ort» / «verlassen» on the GPS fix time inside the 30 s
+    the time the fact is about: «vor Ort» / «verlassen» on the tracker's report time (Traccar
+    `deviceTime`, capped at now) inside the 30 s
     sweep (`app/vehicle_presence`), a `weather.observe` per reading and the wind-shift row
     every 10 min (`app/observations`), the Divera poll (30 s idle / 120 s while an Einsatz
     runs, back-off on 429). Why: a device writes what it noticed WHEN it noticed — five
@@ -222,7 +223,12 @@ to prod.
     «Fahrzeuge GPS · live» table); an older build's own copies are acknowledged and dropped at
     the endpoints (`api/journal · observed_by_server`, `api/events · SERVER_OBSERVED_OPS`). A
     new observation ⇒ a scheduler job registered unconditionally (no-op when unconfigured) with
-    a derived id, never a device-side effect. Full table: `docs/ARCHITECTURE.md`.
+    a derived id, never a device-side effect. Three rules an observer keeps (review 25.09.2026):
+    its memory changes only AFTER the commit (`vehicle_presence · Tick.commit` — a failed tick
+    must not lose a transition); it walks incidents in id order (row locks, deadlock); and what
+    it writes is SERVER-OWNED — `reportMeta.fahrzeuge[].gps` is put back on every client save
+    (`keep_server_gps`). `zurueck` is «back at the depot» and stays the geofence's. «Active» =
+    a human write within 24 h, never the observers' own. Full table: `docs/ARCHITECTURE.md`.
   - ⚠️ **What every device OBSERVES is recorded under a DERIVED id, once** (24.09.2026). One
     login is routinely open on three devices, and each runs the same engines — the Atemschutz
     alarm clock (the one observation still on the devices: it is about the device's own Tafel,
@@ -230,7 +236,7 @@ to prod.
     computes identically from the fact itself, so the server's idempotency keeps one: Verlauf
     rows `azal-`/`azcl-<trupp>-<turnus>` (alarm), and the audit event beside an observed row
     `observedEventId(rowId, actor)` with a payload free of anything device-local. The server's
-    own observers derive theirs the same way (`vp-<n>-<zone>-gps-<device>`, `wx:<incident>:<observed_at>`,
+    own observers derive theirs the same way (`vps-<n>-<zone>-gps-<device>`, `wx:<incident>:<observed_at>`,
     `wxd-<observed_at>`), so a restart or a second worker converges.
     Audit ids are ACTOR-scoped (the server binds a `client_id` to its author; two accounts each
     observed it). The server treats a same-id, same-author, same-op, same-payload event with a

@@ -123,21 +123,32 @@ every editor device wrote what it noticed, when it noticed: all five vehicles «
 19:43 (the moment a tablet woke up; GPS said 19:23–19:28), one weather reading up to five
 times, and 469 Divera polls.
 
-The observer is **active** for an incident that is open, started within the last 24 h and has
-a real coordinate (not 0/0); Übungen included.
+The observer is **active** for an incident that is open, has a real coordinate (not 0/0) and
+was started OR written to by a person within the last 24 h (a journal row or an audit event
+that is not one of the observers' own — they never keep an incident alive by themselves);
+Übungen included. When an open incident goes quiet for 24 h, observation ends with ONE Verlauf
+row (`obs-end-…`) and resumes by itself at the next human write. Every observer walks the
+incidents in id order: each holds incident row locks until its commit, and two orders could
+deadlock. The presence memory changes only after the tick's commit, so a failed tick loses
+nothing, and a new scheduler leader starts from the record.
+
+«The time» of a presence transition is the tracker's own report time, Traccar's `deviceTime`
+(not `fixTime`, not the server's receipt), capped at the server's now.
 
 | Observation | Where | Record |
 | --- | --- | --- |
-| Fahrzeug «vor Ort» / «verlassen» | `vehicle_presence.py`, inside the 30 s GPS sweep (`_vehicle_samples_sweep`); rings ≤ 150 m / ≥ 300 m, 90 s settle, stamped with the FIRST GPS fix in the new zone | a `vehicle.presence` audit event per transition (`vp:<device>:<n>`, the restart memory); Verlauf rows for the first arrival and the last departure only (`vp-<n>-<zone>-gps-<device>`, the departure once the vehicle stayed away 20 min or the incident ends); `reportMeta.fahrzeuge[].gps` (zone, an, ab, Fahrten) for the vehicle table and the Rapport; `vorOrt`/`zurueck` first-writer-wins against the external geofence (`api/alarms · apply_milestones`) |
-| Wetter | `observations.py`, every 10 min (`_weather_sweep`) | one `weather.observe` event per reading, `wx:<incident>:<observed_at>` (the shape the replay reads) |
-| Winddrehung | `observations.py` — ≥ 45° at ≥ 10 km/h, held over two readings | one Verlauf row `wxd-<observed_at>`; devices show it once on the Meldeleiste |
+| Fahrzeug «vor Ort» / «verlassen» | `vehicle_presence.py`, inside the 30 s GPS sweep (`_vehicle_samples_sweep`); rings ≤ 150 m / ≥ 300 m, 90 s settle, stamped with the FIRST report in the new zone | a `vehicle.presence` audit event per transition (`vp:<device>:<n>`, the restart memory); Verlauf rows for the first arrival and the last departure only (`vps-<n>-<zone>-gps-<device>`, the departure once the vehicle stayed away 20 min or observation ends); `reportMeta.fahrzeuge[].gps` (zone, an, ab, Fahrten) for the vehicle table and the Rapport — server-owned, kept on every client save (`keep_server_gps`); `vorOrt` first-writer-wins against the external geofence (`api/alarms · apply_milestones`). Never `zurueck`: that is «back at the depot», the geofence's |
+| Wetter | `observations.py`, every 10 min (`_weather_sweep`), past the request cache | one `weather.observe` event per reading, `wx:<incident>:<observed_at>` (the shape the replay reads) |
+| Winddrehung | `observations.py` — ≥ 45° at ≥ 10 km/h, held over two readings on the same side, from one source + station | one Verlauf row `wxd-<observed_at>` with `writtenAt`; devices show it once on the Meldeleiste for 30 min from `writtenAt` |
 | Divera-Alarme | `_divera_tick`: 30 s while no incident runs, 120 s while one does, exponential back-off on 429 | the pool; the webhook stays the primary intake, devices only READ `/api/divera/pool` |
-| Fahrzeugpositionen | `traccar.cached_vehicle_positions`: one Traccar answer per 10 s for every device | — (the map's live layer) |
+| Fahrzeugpositionen | `traccar.cached_vehicle_positions`: one Traccar answer per 10 s for every device (keyed by the credential identity; single-flight; errors are not cached) | — (the map's live layer) |
 
 A derived id makes a second writer (a restart, a rolling deploy) converge rather than
-duplicate. A device on an older build still writes its own presence rows and weather events;
-the journal and events endpoints acknowledge and drop them (`api/journal · observed_by_server`,
-`api/events · SERVER_OBSERVED_OPS`). The fake fleet (`TRACCAR_FAKE`) feeds the same sweep, so
+duplicate. A device on an older build still writes its own presence rows (`vp-…`) and weather
+events; the journal and events endpoints acknowledge and drop them (`api/journal ·
+observed_by_server`, `api/events · SERVER_OBSERVED_OPS`). Rows it wrote BEFORE the deploy stay
+(append-only) — the server's rows have their own id shape (`vps-`), so an old row can never
+swallow the server's; an incident running across the deploy may show both. The fake fleet (`TRACCAR_FAKE`) feeds the same sweep, so
 all of it runs on dev and demo data.
 
 ## Configuration: four layers
