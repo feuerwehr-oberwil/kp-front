@@ -132,7 +132,8 @@ to prod.
   and writes its boundary row with `lifecycle: 'reopened'`; every crew still inside restarts its
   contact clock at that row's `at`, one `azro-<row>-<Trupp>` row each, and the alarm holds until
   the row has arrived (`lib/reopenClocks`); the alarm that restart ends names the reopen
-  (`contactRestartedAt`), never a Funkkontakt. The Atemschutz-Link of a closed Einsatz says «diese
+  (`contactRestartedAt`), never a Funkkontakt, and the pressure estimate skips the closed
+  interval (`pausedFrom` → `contactRestartedAt`, `atemschutz · estimatePressure`). The Atemschutz-Link of a closed Einsatz says «diese
   Tafel zeigt nur noch an» and follows once a minute (`pollBackoff · minDelayMs`): a link
   session on a closed Einsatz is answered 409 `incident_closed` + `X-Incident-Open: 0` on the
   Einsatz's own routes (before any key check — every close, the second too), and a link page

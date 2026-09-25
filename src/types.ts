@@ -1068,6 +1068,10 @@ export interface Trupp {
    *  D5): equal to `lastContactTime` while that restart is the last thing that moved the clock.
    *  What lets the alarm's «beendet» row name the reopen instead of claiming a Funkkontakt. */
   contactRestartedAt?: string
+  /** …and when the Einsatz had been CLOSED before that reopen: `[pausedFrom, contactRestartedAt]`
+   *  is time spent closed, which the pressure estimate does not count as breathing (staging r4:
+   *  every crew inside read «Alarmdruck … laut Schätzung erreicht» right after the reopen). */
+  pausedFrom?: string
   /** last recorded cylinder pressure (bar) + when (ISO) — logged for the record, never predicted */
   lastPressureBar?: number
   lastPressureTime?: string

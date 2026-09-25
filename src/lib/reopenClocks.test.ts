@@ -19,7 +19,8 @@ describe('latestLifecycle', () => {
       row('r1', '2026-09-25T12:50:00Z', { text: 'Meldung' }),
       row('sys2', '2026-09-25T13:40:00Z', { lifecycle: 'reopened', text: 'Einsatz wiedereröffnet (Nachtrag)' }),
     ]
-    expect(latestLifecycle(rows)).toEqual({ kind: 'reopened', id: 'sys2', at: '2026-09-25T13:40:00Z' })
+    // a reopen carries the close before it — the pause the pressure estimate skips (r4)
+    expect(latestLifecycle(rows)).toEqual({ kind: 'reopened', id: 'sys2', at: '2026-09-25T13:40:00Z', closedAt: '2026-09-25T12:45:00Z' })
     expect(latestLifecycle([...rows].reverse())?.id).toBe('sys2') // order in does not matter
     const legacy = [row('sysA', '2026-09-25T12:45:00Z', { text: 'Einsatz abgeschlossen' })]
     expect(latestLifecycle(legacy)).toEqual({ kind: 'closed', id: 'sysA', at: '2026-09-25T12:45:00Z' })
@@ -57,6 +58,12 @@ describe('clocksAfterReopen', () => {
     const list = [trupp('a')]
     expect(clocksAfterReopen(list, null)).toBe(list)
     expect(clocksAfterReopen(list, { ...reopen, kind: 'closed' })).toBe(list)
+  })
+
+  it('stamps the closed interval on the crew, so the estimate can skip it (r4)', () => {
+    const [t] = clocksAfterReopen([trupp('a')], { ...reopen, closedAt: '2026-09-25T12:45:00Z' })
+    expect(t.pausedFrom).toBe('2026-09-25T12:45:00Z')
+    expect(t.contactRestartedAt).toBe(reopen.at)
   })
 
   it('derives ONE row id per reopen and crew — the same on every device', () => {

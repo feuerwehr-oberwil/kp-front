@@ -29,6 +29,8 @@ export interface LifecycleBoundary {
   id: string
   /** ISO, server time */
   at: string
+  /** for a reopen: when the Einsatz had been closed before it (the close row just before) */
+  closedAt?: string
 }
 
 /** Rows written before boundaries carried `lifecycle` say it in words (append_system_row). */
@@ -41,17 +43,18 @@ const legacyKind = (row: TimelineEvent): LifecycleBoundary['kind'] | null => {
 
 /** The newest close/reopen boundary in the Verlauf (any order in, newest by `at` out). */
 export function latestLifecycle(rows: readonly TimelineEvent[]): LifecycleBoundary | null {
-  let best: LifecycleBoundary | null = null
-  let bestMs = Number.NEGATIVE_INFINITY
-  for (const row of rows) {
-    const kind = row.lifecycle ?? legacyKind(row)
-    if (!kind || !row.at) continue
-    const ms = Date.parse(row.at)
-    if (!Number.isFinite(ms) || ms < bestMs) continue
-    best = { kind, id: row.id, at: row.at }
-    bestMs = ms
+  const all = rows
+    .map((row) => ({ row, kind: row.lifecycle ?? legacyKind(row), ms: row.at ? Date.parse(row.at) : Number.NaN }))
+    .filter((b): b is { row: TimelineEvent; kind: LifecycleBoundary['kind']; ms: number } => !!b.kind && Number.isFinite(b.ms))
+    .sort((a, b) => a.ms - b.ms)
+  const last = all[all.length - 1]
+  if (!last) return null
+  const out: LifecycleBoundary = { kind: last.kind, id: last.row.id, at: last.row.at! }
+  if (last.kind === 'reopened') {
+    const close = [...all].reverse().find((b) => b.kind === 'closed' && b.ms <= last.ms)
+    if (close) out.closedAt = close.row.at
   }
-  return best
+  return out
 }
 
 /** The derived id of one crew's restart row — one per reopen and crew, on every device. */
@@ -72,8 +75,9 @@ export function clocksAfterReopen(trupps: Trupp[], reopen: LifecycleBoundary | n
     const last = Date.parse(t.lastContactTime)
     if (Number.isFinite(last) && last >= at) return t
     changed = true
-    // …and says it was a RESTART, so the alarm this ends names the reopen, not a Funkkontakt (D5)
-    return { ...t, lastContactTime: reopen.at, contactRestartedAt: reopen.at }
+    // …and says it was a RESTART, so the alarm this ends names the reopen, not a Funkkontakt (D5),
+    // and since when it had been closed, so the pressure estimate skips that time (r4)
+    return { ...t, lastContactTime: reopen.at, contactRestartedAt: reopen.at, ...(reopen.closedAt ? { pausedFrom: reopen.closedAt } : {}) }
   })
   return changed ? next : trupps
 }

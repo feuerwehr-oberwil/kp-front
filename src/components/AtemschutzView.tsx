@@ -8,7 +8,7 @@ import { newId } from '../lib/ids'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay, Popover } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
@@ -2168,9 +2168,10 @@ function TruppCard({
    * read when somebody asks that question again. */
   const sockelLine: { key: string; label: string; value: string; alarm?: boolean; dim?: boolean; title?: string }[] = [
     ...(monitored && t.entryTime
-      ? [{ key: 'elapsed', label: az.elapsed, value: fmtElapsedFull(live.elapsedSec) }] : []),
+      // a DURATION that says so — «23:39» read at 23:58 was taken for a clock time (staging r4)
+      ? [{ key: 'elapsed', label: az.elapsed, value: fmtDuration(live.elapsedSec) }] : []),
     ...(live.outSec != null && !out
-      ? [{ key: 'out', label: words.outFor, value: fmtElapsedFull(live.outSec) }] : []),
+      ? [{ key: 'out', label: words.outFor, value: fmtDuration(live.outSec) }] : []),
     ...(monitored && !(canEdit && inField)
       ? [{ key: 'bar', label: az.currentPressure, value: `${live.currentBar} bar`, alarm: pressureLow }] : []),
     ...(estimate
