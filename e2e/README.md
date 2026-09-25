@@ -7,7 +7,7 @@ mount, a wedged session, a render loop on the Karte.
 | Spec | What it guards | Runs |
 | --- | --- | --- |
 | `smoke.spec.ts` | every core surface renders and survives a reload; session renewal; offline journal | CI, chromium + WebKit |
-| `field-scenario.spec.ts` | the Übung of 23.09.2026: a Leitung coupled to a parked vehicle that reports GPS, a tapped Trupp; then three devices on one login; a known bug in Trupp numbering | CI, chromium, no retries |
+| `field-scenario.spec.ts` | the Übung of 23.09.2026: a Leitung coupled to a parked vehicle that reports GPS, a tapped Trupp; then three devices on one login; three devices tapping «Neuer Trupp» at once get three numbers | CI, chromium, no retries |
 | `admin-row-menu.spec.ts` | the admin row menu is on top and its actions fire | CI (needs `E2E_ADMIN_SECRET`) |
 | `demo.spec.ts` | the public demo's entry fits a phone | only against a demo deployment |
 | `workspace-flows.spec.ts` | undo, timeline, keyboard, Abschluss, replay across the workspace seams | opt-in, `E2E_WORKFLOWS=1` |
@@ -85,13 +85,12 @@ started uncoupled. After the Linie is drawn the Karte may pan (measured: 18 px),
 pin ↔ TLF relation is required from then on. The scenario runs with **no retries**: a retry
 that passes would file an intermittent crash as «flaky».
 
-**A known bug, pinned by asserting today's behaviour.** The third test has three devices tap
-«Neuer Trupp» within milliseconds of each other. Each takes the next number from its own view of
-the Einsatz, so all three are «Trupp 1», against docs/trupp-naming.md §1 (that doc accepts the
-race only for devices that are offline). The test asserts that the names are NOT all distinct,
-with the message «KNOWN BUG — when this fails the numbering was fixed: change to toBe(3)». A
-crash still fails it: the guard and the client-error check before the assertion are not
-affected. When the fix lands, the assertion goes red and has to be flipped.
+**Three devices, one number each.** The third test has three devices tap «Neuer Trupp» within
+milliseconds of each other. Each takes the next number from its own view of the Einsatz, so all
+three mint «Trupp 1»; the merge then settles the number (`lib/truppNumbers ·
+resolveTruppNumbers`, docs/trupp-naming.md §7), and the test asserts that the server ends up with
+three distinct names. Until 25.09.2026 this test pinned the duplicate as a known bug. A crash
+still fails it on its own: the guard and the client-error check before the assertion.
 
 **Proof that it catches the bug** (24.09.2026): with the #200 fix reverted locally (the
 idempotent pass, the stable `setDocRaw`, TwinTeamPill's guard), both tests fail. The failures
