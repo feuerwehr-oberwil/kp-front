@@ -16,6 +16,7 @@ import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } fro
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
 import type { BoardDoc, Drawing, Entity } from '../types'
 import type { Saved } from './workspace'
+import { jsonEqual } from './jsonEqual'
 
 type Id = string
 interface HasId {
@@ -37,8 +38,14 @@ const asBoard = (v: unknown): Record<string, HasId[]> =>
 
 /** Structural equality for plain JSON data (the only thing the blob holds). Used to tell "I
  *  changed this field" from "I left it as the ancestor" in the three-way field/record merges.
- *  Key order is stable here because every value is produced by the same buildPayload code. */
-const eq = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a) === JSON.stringify(b)
+ *
+ *  ⚠️ KEY ORDER DOES NOT COUNT (staging r3 F11). This used to say key order was stable because
+ *  buildPayload writes every value — but `base` and `theirs` come back from the server's JSONB,
+ *  which re-sorts every object's keys. An entry this device never touched read as «changed
+ *  here» against its re-sorted ancestor, so when another device changed it for real, «both
+ *  changed» went LWW-mine and the other device's edit was thrown away (a Zeitplan shift, any
+ *  whole-object collection). See lib/jsonEqual. */
+const eq = jsonEqual
 
 /** Three-way merge of ONE non-collection value: if the resolver (mine) left it at the common
  *  ancestor it yields to the server's value (so the other device's concurrent change survives);
@@ -340,6 +347,13 @@ interface MergeCx {
  *    stands in its blob, so possibly malformed or absent); its result is always written. */
 type FieldPolicy = 'local' | ((b: unknown, m: unknown, t: unknown, cx: MergeCx) => unknown)
 
+/** An attendance entry minus `noteAt` — WHEN a device wrote the Funktion, not what it says. */
+const withoutNoteAt = (v: unknown): unknown => {
+  if (!isObj(v) || !('noteAt' in v)) return v
+  const { noteAt: _t, ...rest } = v
+  return rest
+}
+
 const byId = (b: unknown, m: unknown, t: unknown) => mergeById(asList(b), asList(m), asList(t))
 const byKey = (b: unknown, m: unknown, t: unknown) => mergeRecord(asRecord(b), asRecord(m), asRecord(t))
 
@@ -380,7 +394,12 @@ export const MERGE_POLICY = {
   checklists: byKey, // by template id
   // records/singletons that ALSO need three-way merging so a concurrent edit in another domain
   // (the "task-scoped multi-editor" case) isn't clobbered by the resolver's whole blob:
-  attendance: (b, m, t, cx) => mergeRecord(asRecord(b), asRecord(m), asRecord(t), cx.onAttendanceConflict), // per-Person presence — a prime parallel-editor surface
+  // per-Person presence — a prime parallel-editor surface. A divergence is REPORTED only when the
+  // two sides say something different: `noteAt` is when a device wrote the Funktion, not what it
+  // says, and two tablets giving the same crew the same «AS-GF» a second apart agree (staging r3
+  // F11). The value itself stays LWW-mine either way.
+  attendance: (b, m, t, cx) => mergeRecord(asRecord(b), asRecord(m), asRecord(t),
+    cx.onAttendanceConflict && ((c) => { if (!eq(withoutNoteAt(c.mine), withoutNoteAt(c.theirs))) cx.onAttendanceConflict!(c) })),
   planScale: byKey, // per-plan calibration (planId → scale)
   settings: byKey, // per-incident operational settings (Atemschutz doctrine …)
   reportMeta: (b, m, t) => mergeReportMeta(asRecord(b), asRecord(m), asRecord(t)), // Einsatzrapport bookkeeping text

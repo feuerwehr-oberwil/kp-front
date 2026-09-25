@@ -227,6 +227,14 @@ to prod.
     has not seen that merge — the resolver re-bases it onto the merge before merging again
     (`lastMerged`), or the next attempt reads the remote objects it lacks as local deletes
     (the three-device load test lost 7–14 % of edits that way, `workspaceSync.load.test.ts`).
+  - ⚠️ **Key order is never a change** (25.09.2026). The server stores the blob as JSONB, which
+    hands every object back with its keys RE-SORTED, while this device's own objects keep the
+    order the code built them in. Anything that decides «changed / unchanged / same divergence»
+    on synced data compares with `jsonEqual` or `canonicalJson` (`lib/jsonEqual`), never
+    `JSON.stringify(a) === JSON.stringify(b)`: in `mergeById` an untouched entry read as «mine
+    changed» against its re-sorted ancestor, and the other device's real edit lost the
+    «both changed» LWW. Round-trip tests re-sort the server copy (`jsonb.test-utils ·
+    serverRoundTrip`).
 - **A Trupp is `Trupp N` on paper and its Gruppenführer in person** (12.09.,
   [`docs/trupp-naming.md`](docs/trupp-naming.md)). The number comes from ONE counter per Einsatz
   that unlinked «Trupp N» chips draw from too, is never reused, and is a badge beside the leader's

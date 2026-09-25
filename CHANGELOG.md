@@ -163,6 +163,15 @@ so this file – not the log – is the record of what shipped up to that point.
   search placeholder.
 - **The «#N» badge leaves the marker, chip, pill and phone row** – the Trupp's name stands alone
   there, and the card carries the number.
+- **Another device's edit no longer loses the merge to an entry this device never touched.** The
+  server keeps the blob as JSONB, which hands every object back with its keys re-sorted, and the
+  merge compared entries as JSON strings – so an untouched shift, Verlauf row, Mittel, Beilage,
+  checklist, vehicle override, Rapport field or Gebäude read as «changed here», «both changed»
+  went to this device, and the other device's real edit was dropped. The same made a plan
+  correction lose to an untouched binding, raised «abweichende Angaben zusammengeführt» for
+  Anwesenheit entries with two identical sides (or differing only in when the Funktion was
+  written), and gave one divergence two «bitte prüfen» rows. Every comparison the sync makes now
+  ignores key order (`lib/jsonEqual`).
 
 ### Security
 
