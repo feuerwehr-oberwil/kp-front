@@ -327,3 +327,64 @@ describe('group — one act across domains is one step', () => {
     expect(tl.peekUndo()?.label).toBe('KP verschoben')
   })
 })
+
+/* Staging integration (round 4): #227's `group`, #222's `rename` and #234's `touches` / `step` /
+   `standing` meet on the same entry — a compound step must answer all three. */
+describe('group × rename × merge — the three PRs on one step', () => {
+  const part = (domain: UndoDomain, label: string, extra: Partial<UndoEntry> = {}): UndoEntry => ({
+    domain, label, undo: () => {}, redo: () => {}, ...extra,
+  })
+
+  it('a part named while the group is open names the step when it is the primary part', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('karte')
+    const k = tl.push(part('karte', 'Änderung auf der Karte'))
+    tl.push(part('anwesenheit', 'Anwesenheit'))
+    k.rename('TLF verschoben')
+    end()
+    expect(tl.peekUndo()?.label).toBe('TLF verschoben')
+  })
+
+  it('once recorded, only the head part renames the compound; a part alone renames itself', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('trupps')
+    const t = tl.push(part('trupps', 'Trupp 2 angemeldet'))
+    const a = tl.push(part('anwesenheit', 'Anwesenheit'))
+    end()
+    a.rename('Gast erfasst') // not the head — the step keeps the Trupp's words
+    expect(tl.peekUndo()?.label).toBe('Trupp 2 angemeldet')
+    t.rename('Trupp 2 (Muster) angemeldet')
+    expect(tl.peekUndo()?.label).toBe('Trupp 2 (Muster) angemeldet')
+    const solo = tl.group('karte')
+    const k = tl.push(part('karte', 'Änderung auf der Karte'))
+    solo()
+    k.rename('KP Front gesetzt')
+    expect(tl.peekUndo()?.label).toBe('KP Front gesetzt')
+  })
+
+  it('the compound touches what any part touches, keeps every part\'s step, and drops whole', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('trupps')
+    const t = tl.push(part('trupps', 'T', { step: 's-t', touches: () => ['trupps:t1'] }))
+    tl.push(part('anwesenheit', 'A', { step: 's-a', touches: () => ['attendance:p1'] }))
+    end()
+    expect(tl.steps()).toEqual(new Set(['s-t', 's-a']))
+    expect(t.standing()).toBe(true)
+    tl.rebase(['trupps:other'])
+    expect(tl.canUndo()).toBe(true)
+    tl.rebase(['attendance:p1']) // another device changed the person the save filed
+    expect(tl.canUndo()).toBe(false)
+    expect(tl.steps()).toEqual(new Set())
+    expect(t.standing()).toBe(false)
+  })
+
+  it('one part of unknown reach makes the whole step unknown', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('trupps')
+    tl.push(part('trupps', 'T', { touches: () => ['trupps:t1'] }))
+    tl.push(part('anwesenheit', 'A'))
+    end()
+    tl.rebase(['mittel:m1'])
+    expect(tl.canUndo()).toBe(false)
+  })
+})
