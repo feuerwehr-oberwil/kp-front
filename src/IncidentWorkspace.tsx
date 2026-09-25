@@ -3915,6 +3915,8 @@ export function IncidentWorkspace({
   })
   /** «Fund melden» (storey + Trupp pre-filled) and «Bereich abgesucht» on a Trupp's ⋯ menu */
   const sucheTruppItems = (t: Trupp) => {
+    // a Trupp that has not gone in yet has found nothing and searched nothing
+    if (t.status === 'angemeldet') return []
     const S = appConfig.copy.suche
     const floor = sucheTruppFloors.find((p) => p.truppId === t.id)?.floor
     const mine = suche.bereiche.filter((b) => { const st = bereichStatusOf(b); return st.status === 'inArbeit' && st.truppId === t.id })
