@@ -65,7 +65,7 @@ import { toast, confirmDialog, undoToast } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
 import { Overlay } from './lib/overlays'
 import { apiDelete } from './lib/api'
-import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
+import { grundgeruestHidden, hideGrundgeruest, initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useMittelActions } from './lib/useMittelActions'
@@ -1600,9 +1600,18 @@ export function IncidentWorkspace({
   const ggCenter = ownLocation(ggMeta.lng, ggMeta.lat)
   const ggWeather = ggCenter && incidentView.center[0] === ggCenter[0] && incidentView.center[1] === ggCenter[1] ? displayWeather : null
   // 'auto' = shown until complete; 'hidden' = «ausblenden»; 'shown' = asked for from the rail.
-  // Per incident and per device, in memory: the workspace remounts per incident, and a reload
-  // bringing an unfinished Grundgerüst back is the side to err on.
-  const [ggMode, setGgMode] = useState<'auto' | 'shown' | 'hidden'>('auto')
+  // «ausblenden» is remembered per DEVICE and per Einsatz (lib/prefs · grundgeruestHidden) — a
+  // device preference, never the synced workspace: one tablet putting the list away must not
+  // take it off another device. The rail / «+» entry brings it back and clears the flag.
+  const [ggMode, setGgModeState] = useState<'auto' | 'shown' | 'hidden'>(
+    () => (grundgeruestHidden(loadPrefs(), incidentMeta.id) ? 'hidden' : 'auto'))
+  const setGgMode = (next: 'auto' | 'shown' | 'hidden', remember = true) => {
+    setGgModeState(next)
+    if (!remember) return
+    const prefs = loadPrefs()
+    const updated = hideGrundgeruest(prefs, incidentMeta.id, next === 'hidden')
+    if (updated !== prefs) savePrefs(updated)
+  }
   // a surface that cannot place anything gets no card: viewer, `el`, Führungsansicht, a link, replay
   const ggUsable = !tacticalLocked && !asLink && !replayActive
   const ggBaseRows = grundgeruestRows(ggSel.slots, objects, { center: ggCenter, weather: ggWeather, hydrants: null })
@@ -2575,7 +2584,7 @@ export function IncidentWorkspace({
     // there HID the folded strip nobody could see — it always shows, and remounts open.
     if (id === 'grundgeruest') {
       if (isPhone) { setPaletteOpen(false); setGgMode('shown'); setGgOpenSeq((n) => n + 1) }
-      else setGgMode(ggVisible ? 'hidden' : 'shown')
+      else setGgMode(ggVisible ? 'hidden' : 'shown', !(ggVisible && ggProgress.complete))
       return
     }
     // Auswahl (select) is the default navigate state: one finger pans the map, a tap
@@ -5083,7 +5092,8 @@ export function IncidentWorkspace({
               onArm={ggArm}
               onPlace={ggPlace}
               onToKarte={ggTakeOver}
-              onHide={() => setGgMode('hidden')}
+              // a complete card is gone by itself and needs no flag
+              onHide={() => setGgMode('hidden', !ggProgress.complete)}
             />
           )}
 

@@ -133,6 +133,12 @@ export interface Prefs {
   twinLayers?: Record<string, boolean>
   /** Transparency (0..100) of opt-in georeferenced plan rasters on the Lage map. */
   twinLayerOpacity?: Record<string, number>
+  /** The Einsätze whose Lage-Grundgerüst card «ausblenden» put away ON THIS DEVICE, newest last
+   *  (lib/lageGrundgeruest, IncidentWorkspace). A DEVICE preference by design: the FU tablet
+   *  that has seen enough of the list must not take it off the el's phone, so it never rides the
+   *  synced workspace. Per incident, so the next alarm shows it again; capped (`hideGrundgeruest`)
+   *  because it lives in a cookie. A completed card writes nothing — it is gone by itself. */
+  grundgeruestHidden?: string[]
 }
 
 export interface SharePositionPref {
@@ -232,6 +238,25 @@ function readCookie(name: string): string | null {
 export function initialMode(prefs: Prefs, incidentId: string, asLink: boolean): NonNullable<Prefs['mode']> {
   if (asLink) return 'atemschutz'
   return prefs.modeIncidentId === incidentId ? (prefs.mode ?? 'map') : 'map'
+}
+
+/** How many Einsätze the «ausblenden» list remembers — enough for a week of alarms, small
+ *  enough for the cookie. The oldest drops off first. */
+export const GRUNDGERUEST_HIDDEN_CAP = 20
+
+/** Was the Lage-Grundgerüst put away on this device for this Einsatz? */
+export function grundgeruestHidden(p: Prefs, incidentId: string): boolean {
+  return Array.isArray(p.grundgeruestHidden) && p.grundgeruestHidden.includes(incidentId)
+}
+
+/** The prefs with this Einsatz's «ausblenden» set or cleared — pure, the caller saves. The same
+ *  object back when nothing changes, so a caller can skip the cookie write. */
+export function hideGrundgeruest(p: Prefs, incidentId: string, hidden: boolean): Prefs {
+  const list = Array.isArray(p.grundgeruestHidden) ? p.grundgeruestHidden.filter((x) => typeof x === 'string') : []
+  const has = list.includes(incidentId)
+  if (has === hidden) return p
+  const next = hidden ? [...list, incidentId].slice(-GRUNDGERUEST_HIDDEN_CAP) : list.filter((x) => x !== incidentId)
+  return { ...p, grundgeruestHidden: next }
 }
 
 export function loadPrefs(): Prefs {

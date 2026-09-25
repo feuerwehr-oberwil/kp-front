@@ -38,7 +38,8 @@ so this file – not the log – is the record of what shipped up to that point.
   place tool, and where the data has an answer the row suggests one – «Hydrant Nr. 17 · 38 m ·
   hier setzen» from the station's hydrant layer, «Wind aus W · Vorschlag westlich, 80 m» from the
   incident's weather. Taking a suggestion is an ordinary placement (undoable, its usual Verlauf
-  row), selected and ready to drag. The card can be hidden, disappears once complete, and comes
+  row), selected and ready to drag. The card can be hidden (remembered on that device for that
+  Einsatz), disappears once complete, and comes
   back from the tool rail («Grundgerüst»; on a phone it is a strip above the tool bar and the
   entry sits in the «+» sheet). Post-mortem 23.09.2026: after 65 minutes that Karte had no
   Zufahrt, Absperrung, Wasserbezug or Bereitstellungsraum. Station doctrine, not a device

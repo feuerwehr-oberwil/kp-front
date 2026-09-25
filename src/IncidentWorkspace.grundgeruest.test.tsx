@@ -166,6 +166,29 @@ describe('the rail entry (tablet)', () => {
   })
 })
 
+describe('«ausblenden» is remembered on this device, per Einsatz', () => {
+  it('survives a reload; the rail entry brings the card back and clears the flag', async () => {
+    const m = meta()
+    await mount({ m })
+    act(() => { screen.getByRole('button', { name: C.hideAria }).click() })
+    expect(card()).toBeNull()
+    cleanup()
+    await mount({ m })
+    expect(card()).toBeNull()
+    // another Einsatz on the same device is not affected
+    cleanup()
+    await mount()
+    expect(card()).not.toBeNull()
+    cleanup()
+    await mount({ m })
+    act(() => { railEntry()!.click() })
+    expect(card()).not.toBeNull()
+    cleanup()
+    await mount({ m })
+    expect(card()).not.toBeNull()
+  })
+})
+
 describe('the «+» sheet entry (phone)', () => {
   it('always shows the strip OPEN — a second time too, never a hide', async () => {
     rec.phone = true
