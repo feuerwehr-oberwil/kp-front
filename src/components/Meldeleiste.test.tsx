@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
 import { Meldeleiste } from './Meldeleiste'
 import { useMeldung } from '../lib/useMeldung'
 import type { Meldung } from '../lib/meldungen'
@@ -158,5 +159,28 @@ describe('the count the Tafel folds the rest into', () => {
     expect(document.documentElement.style.getPropertyValue('--ml-h')).toMatch(/px$/)
     unmount()
     expect(document.documentElement.style.getPropertyValue('--ml-h')).toBe('')
+  })
+})
+
+/* staging r4 W1: at 820 an alarm row lay over the Anwesenheit's tabs — a tap on «Zeitplan» landed
+ * on «Zum Trupp». Every full page stands BELOW the strip: the shared shell moves down by
+ * `--ml-push`, which the strip's own stylesheet derives from its height while it stands. The
+ * geometry itself is the browser's; what is pinned here is that no shell rule forgets the push. */
+describe('the pages stand below the strip', () => {
+  const css = (path: string) => readFileSync(`${process.cwd()}/${path}`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  it('every inset of the shared shell includes --ml-push', () => {
+    const insets = [...css('src/components/Surface.module.css').matchAll(/:where\(\.shell\)\s*\{([^}]*)\}/g)]
+      .map(([, body]) => body).filter((b) => /\binset\s*:/.test(b))
+    expect(insets.length).toBeGreaterThanOrEqual(2) // the tablet one and the phone one
+    for (const b of insets) expect(b).toContain('var(--ml-push')
+  })
+
+  it('the push is derived from the strip\'s measured height, and only while a strip stands', () => {
+    const rules = [...css('src/styles/08-toasts.css').matchAll(/([^{}]+)\{([^{}]*--ml-push[^{}]*)\}/g)]
+    expect(rules.length).toBeGreaterThanOrEqual(2)
+    for (const [, sel, body] of rules) {
+      expect(sel).toContain(':root:has(.ml)')
+      expect(body).toContain('var(--ml-h')
+    }
   })
 })

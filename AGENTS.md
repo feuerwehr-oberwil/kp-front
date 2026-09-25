@@ -1074,9 +1074,11 @@ to prod.
   - *Closing over a crew inside is said* (staging r3 F4): the final «Trotzdem abschliessen»
     writes «Trupp N (…) beim Abschluss noch drin» per crew and no Austritt; the Rapport ends
     that sortie at the close with the same words while the Einsatz is closed.
-  - *The Tafel is never under the Meldeleiste* (staging r3): there the strip shows its most
-    urgent row plus a count that opens the rest, and the Tafel's shell starts below the strip
-    (`--ml-h`, `.az-tafel`). Everywhere else every row stays open.
+  - *No page is ever under the Meldeleiste* (staging r3 + r4 W1): every full page (the shared
+    shell — Tafel, Anwesenheit, Mittel, Checklisten, Rapport) starts below the strip
+    (`--ml-h` → `--ml-push`, Surface.module.css); only the Karte and the plans let it float over
+    the map. On the Tafel the strip also folds to its most urgent row plus a count (`.az-tafel`);
+    everywhere else every row stays open.
   - *Merges compare JSON, not key order* (staging r3 F11): the server's JSONB re-sorts keys, so
     `mergeWorkspace · eq` ignores key order; an Anwesenheit divergence is reported only when the
     sides differ in more than `noteAt`.

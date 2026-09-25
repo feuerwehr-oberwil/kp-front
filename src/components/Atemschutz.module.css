@@ -1588,6 +1588,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    min-height is a minimum, not a cap, so the chip grows with it. */
 .tabNameWrap { display: block; width: 100%; white-space: normal; overflow-wrap: break-word; text-align: center; }
 .tabClock { font-family: var(--mono); font-size: 14px; font-weight: 800; color: var(--green); }
+/* the clock line carries the Trupp's «#N» too (staging r4, N15) — the name line keeps its width */
+.tabMeta { display: inline-flex; align-items: center; gap: 5px; }
+.tabNo { flex: none; font-size: 11px; }
 /* ⚠️ ONE quiet format for every clock that is NOT running (05.09.): a Trupp that is angemeldet,
    one that is back out, and a work squad with no contact clock at all are all «nothing is
    ticking here», and the placeholder was carrying the same 800-weight mono presence as a live

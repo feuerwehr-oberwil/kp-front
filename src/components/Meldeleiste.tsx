@@ -37,8 +37,9 @@ import { getMeldungen, subscribeMeldungen } from '../lib/useMeldung'
 // ⚠️ …ONE exception, and it is the field's (staging r3, 25.09.2026): on the Trupp-Tafel two rows
 // («wieder geöffnet» + «abgesucht?») took 207px at 360 and sat on the first crew's contact clock,
 // and at 820 one row covered the page title. There, and only there, the strip shows the most
-// urgent row and a COUNT that opens the rest (08-toasts · `.az-tafel`), and the Tafel moves down
-// by the strip's height instead of being painted over — the strip publishes it as `--ml-h`.
+// urgent row and a COUNT that opens the rest (08-toasts · `.az-tafel`). And every full page — not
+// only the Tafel (staging r4, W1: an alarm row over the Anwesenheit's tabs) — moves down by the
+// strip's height instead of being painted over; the strip publishes it as `--ml-h`.
 //
 // A message that has a PLACE stays out of here: ShiftConflictNotice sits inside the Zeitplan it
 // is about, CaptureUsageChip inside the capture surface. Both are uncoverable by construction —

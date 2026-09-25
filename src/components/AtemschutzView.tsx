@@ -1507,12 +1507,16 @@ export function AtemschutzView({
                       nothing on a screen that never shows the Lage or the plan. The full name
                       is what identifies the Trupp here, so it wraps rather than clips (a name
                       like «Binggeli Michael» was cut mid-word against this chip's width).
-                      No «#N» badge either (Bastian, 14.09.): on a chip this narrow the number
-                      fought the wrapped name for space and added nothing the card below does
-                      not say – the badge stays on the card head, the phone row and the map. */}
+                      The «#N» badge (staging r4, N15: the Link's tabs were the one place a crew
+                      had no number, and the radio names it «Trupp 2») rides on the CLOCK line,
+                      not beside the name: on the name line it fought the wrapped name for space
+                      (14.09.), the clock line has room to spare. */}
                   <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
                   {/* the same collapsed-time split the list row and the card make (collapsedClock) */}
-                  <span className={s.tabClock}>{collapsedClock(t, lv).val}</span>
+                  <span className={s.tabMeta}>
+                    <TruppNo no={t.no} className={s.tabNo} />
+                    <span className={s.tabClock}>{collapsedClock(t, lv).val}</span>
+                  </span>
                 </button>
               )
             })}

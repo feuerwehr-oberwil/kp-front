@@ -64,7 +64,8 @@ so this file – not the log – is the record of what shipped up to that point.
   Abschluss noch drin» and the Rapport ends that sortie at the close; identical Anwesenheit
   entries from several tablets no longer raise «abweichende Angaben»; «Trupp anmelden» is the
   one word for registering, and the Trupp menu says «Nach oben holen»; on the Tafel the
-  Meldeleiste folds to one row and the board stands below it. The
+  Meldeleiste folds to one row, and every full page (Tafel, Anwesenheit, Rapport …) stands below
+  the strip instead of under it; the Atemschutz-Link's tabs show the Trupp number. The
   Eingangsdruck of a Trupp that is out is locked in «Bearbeiten», and one below the new
   `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
   value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.
