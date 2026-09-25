@@ -730,6 +730,9 @@ to prod.
   `components/LageGrundgeruestCard`); each row is a symbol or a line preset, ticked when one exists
   on the Karte OR any plan, and its only acts are the ordinary ones — arm the place tool, or «hier
   setzen» through the same `placeSymbolAt` a Karte tap uses (one undo step, the usual Verlauf row).
+  «auf die Karte übernehmen» for a plan-ANCHORED match is the anchor flip a drag makes
+  (`useObjectStore · reanchorToKarte`) — the same record, never a twin. Suggestions come only from
+  the incident's OWN location (never the station default centre) and the fresher incident copy.
   Nothing is written until the operator places something; it is never a block. The lists are the
   deployment config `lageGrundgeruest` (a shipped preset from `backend/app/data/lage_grundgeruest/`
   + per-Einsatzart replacements, `/admin › Lage-Grundgerüst`, `admin_config presets|example

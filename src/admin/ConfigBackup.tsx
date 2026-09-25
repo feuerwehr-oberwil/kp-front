@@ -66,6 +66,9 @@ function emptiedSections(current: Record<string, unknown>, next: Record<string, 
     if (oldVal && typeof oldVal === 'object' && !Array.isArray(oldVal)
         && newVal && typeof newVal === 'object' && !Array.isArray(newVal)) {
       for (const [sub, oldSub] of Object.entries(oldVal as Record<string, unknown>)) {
+        // an empty `lageGrundgeruest.kategorien` is «follow the preset» — a value, not a loss
+        // (backend config_history · EMPTY_IS_A_VALUE, kept in step)
+        if (`${key}.${sub}` === 'lageGrundgeruest.kategorien') continue
         if (!isEmpty(oldSub) && isEmpty((newVal as Record<string, unknown>)[sub])) out.push(`${key}.${sub}`)
       }
     } else if (!isEmpty(oldVal) && isEmpty(newVal)) out.push(key)

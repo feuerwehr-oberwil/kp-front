@@ -750,7 +750,7 @@ export const de = {
     // it, the rail lights it while the card is open). On a phone it lives in the «+» sheet
     // (lib/toolFold · ADD_TOOLS) — everything on that sheet puts something on the Karte, and so
     // does every row of the card.
-    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Grundgerüst', kind: 'action' },
+    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Grundgerüst' },
   ],
   // Plan/whiteboard tool list — mirrors mapTools' ordering (Auswahl · Symbol · then the create
   // tools) so the two shared tool rails read the same. Symbol leads the create group as a plain
@@ -1084,6 +1084,8 @@ export const de = {
   log: {
     audioNote: 'Audionotiz',
     symbolPlaced: 'Symbol «{name}» gesetzt',
+    /** «auf die Karte übernehmen» — a plan-anchored object re-anchored onto the Karte (Lage-Grundgerüst) */
+    symbolToKarte: '«{name}» vom Plan auf die Karte übernommen',
     shapePlaced: '{name} platziert',
     notePlaced: 'Notiz gesetzt',
     teamPlaced: '{name} auf der Karte gesetzt',
@@ -3321,7 +3323,6 @@ export const de = {
     hint: 'Auf die Karte tippen, um den Standort zu setzen',
     confirm: 'Standort übernehmen',
   },
-  // weather badge + popover (TopBar · WeatherBadge) — condition labels, cardinals, readout rows
   // The Lage-Grundgerüst card on the Karte (components/LageGrundgeruestCard, lib/lageGrundgeruest).
   lageGrundgeruest: {
     title: 'Lage-Grundgerüst',
@@ -3349,11 +3350,15 @@ export const de = {
     /** where an upwind suggestion lies, by the same eight sectors as `weather.cardinals` */
     directions: ['nördlich', 'nordöstlich', 'östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich'] as string[],
     /** ticked by an object that exists only on a plan with no Karte fit */
-    planOnly: 'nur auf dem Plan',
     toKarte: 'auf die Karte übernehmen',
     /** the label a Wasserbezugsort set at a hydrant carries (the layer's own number) */
     hydrantLabel: 'Hydrant {nr}',
+    planOnly: 'auf dem Plan',
+    noHydrant: 'Kein Hydrant im Umkreis von {m} m',
+    windAt: '{from} ({time})',
+    noLocation: 'Vorschläge folgen, sobald der Einsatzort gesetzt ist.',
   },
+  // weather badge + popover (TopBar · WeatherBadge) — condition labels, cardinals, readout rows
   weather: {
     label: 'Wetter',
     details: 'Wetterdetails',
@@ -5829,9 +5834,6 @@ export const de = {
       reverseOrder: 'Seiten in umgekehrter Reihenfolge senden',
       reverseOrderHint: 'Für Drucker, die das Blatt mit der bedruckten Seite nach oben auswerfen: der Stapel liegt sonst verkehrt herum und muss von Hand sortiert werden. Wirft dein Drucker nach unten aus, schalte es ab.',
     },
-    // Alarme & Einsätze: die drei Uhren am Lebenslauf eines Einsatzes plus die Webhooks,
-    // über die ein zweites System (z. B. der Zettel-Drucker von kp-rück) überhaupt erst
-    // von einem neuen Einsatz erfährt.
     // /admin › Lage-Grundgerüst (admin/LageGrundgeruestSection)
     lageGrundgeruest: {
       presetTitle: 'Preset',
@@ -5881,7 +5883,6 @@ export const de = {
       metaHydrant: 'Vorschlag: nächster Hydrant',
       metaWind: 'Vorschlag: Wind aufwärts, {m} m',
       metaOptional: 'optional',
-      incomplete: 'Bezeichnung und Symbol/Linie fehlen – noch nicht gespeichert.',
       metresInvalid: 'Meter: {min} bis {max} – noch nicht gespeichert.',
       /** the tabs' short words, keyed by category */
       tabShort: {
@@ -5898,7 +5899,15 @@ export const de = {
         gerettete_tiere: 'Tiere',
         diverse_einsaetze: 'Diverse',
       } as Record<string, string>,
+      incomplete: 'Bezeichnung und Symbol/Linie fehlen – noch nicht gespeichert.',
+      incompleteLabel: 'Die Bezeichnung fehlt – noch nicht gespeichert.',
+      incompleteTarget: 'Symbol oder Linie fehlt – noch nicht gespeichert.',
+      labelTooLong: 'Bezeichnung: höchstens {max} Zeichen – noch nicht gespeichert.',
+      rejectedSlot: 'Element {n} ({kategorie})',
     },
+    // Alarme & Einsätze: die drei Uhren am Lebenslauf eines Einsatzes plus die Webhooks,
+    // über die ein zweites System (z. B. der Zettel-Drucker von kp-rück) überhaupt erst
+    // von einem neuen Einsatz erfährt.
     alarms: {
       colGroup: 'Alarmgruppe',
       // Alarmgruppen: die Gruppen-Hälfte des Zeiten-Rasters auf Rapport und Erfassungsblatt –

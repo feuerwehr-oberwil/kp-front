@@ -102,6 +102,17 @@ export function rejectedFieldLabel(path: string): string {
     'referenceLayers': { field: P.ebenen.title, page: P.ebenen.title },
     'modules': { field: P.objektplaene.title, page: P.objektplaene.title },
     'mittel': { field: appConfig.copy.mittel.title, page: appConfig.copy.mittel.title },
+    'lageGrundgeruest.preset': { field: A.lageGrundgeruest.presetLabel, page: P.grundgeruest.title },
+    'lageGrundgeruest': { field: P.grundgeruest.title, page: P.grundgeruest.title },
+  }
+  // A Lage-Grundgerüst ROW is named the way its page shows it — «Element 3 (Brand)» — because
+  // `lageGrundgeruest.kategorien.brandbekaempfung.2.label` is a path, not a place anybody can find.
+  const slot = /^lageGrundgeruest\.kategorien\.([a-z_]+)(?:\.(\d+))?/.exec(path)
+  if (slot) {
+    const G = A.lageGrundgeruest
+    const kategorie = G.tabShort[slot[1]] ?? slot[1]
+    const field = slot[2] != null ? fillTemplate(G.rejectedSlot, { n: Number(slot[2]) + 1, kategorie }) : kategorie
+    return `${field} (${P.grundgeruest.title})`
   }
   // Longest matching prefix wins, so a row path (`report.links.0.title`) resolves to the
   // editor that owns the row instead of falling through to the raw path.

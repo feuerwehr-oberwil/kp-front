@@ -448,7 +448,7 @@ export const en: Localizable<Copy> = {
     { id: 'note', icon: 'type', label: 'Note', kind: 'tool' },
     { id: 'team', icon: 'flag', label: 'Team', kind: 'tool' },
     { id: 'measure', icon: 'measure', label: 'Measure', kind: 'tool' },
-    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Basics', kind: 'action' },
+    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Basics' },
   ],
   planTools: [
     { id: 'pan', icon: 'select', label: 'Select', alt: { id: 'lasso', icon: 'marquee', label: 'Multi' } },
@@ -751,6 +751,7 @@ export const en: Localizable<Copy> = {
   log: {
     audioNote: 'Audio note',
     symbolPlaced: 'Symbol "{name}" placed',
+    symbolToKarte: '"{name}" taken over from the plan onto the map',
     shapePlaced: '{name} placed',
     notePlaced: 'Note placed',
     teamPlaced: '{name} placed on the map',
@@ -2024,9 +2025,12 @@ export const en: Localizable<Copy> = {
     hydrantNoNr: 'Nearest hydrant · {dist}',
     wind: 'Wind {from} · suggested {dir}, {m} m',
     directions: ['to the north', 'to the north-east', 'to the east', 'to the south-east', 'to the south', 'to the south-west', 'to the west', 'to the north-west'],
-    planOnly: 'only on the plan',
     toKarte: 'put it on the map',
     hydrantLabel: 'Hydrant {nr}',
+    planOnly: 'on the plan',
+    noHydrant: 'No hydrant within {m} m',
+    windAt: '{from} ({time})',
+    noLocation: 'Suggestions follow once the incident location is set.',
   },
   weather: {
     label: 'Weather',
@@ -4847,7 +4851,6 @@ export const en: Localizable<Copy> = {
       metaHydrant: 'Suggestion: nearest hydrant',
       metaWind: 'Suggestion: upwind, {m} m',
       metaOptional: 'optional',
-      incomplete: 'Label and symbol/line are missing – not saved yet.',
       metresInvalid: 'Metres: {min} to {max} – not saved yet.',
       tabShort: {
         brandbekaempfung: 'Fire',
@@ -4863,6 +4866,11 @@ export const en: Localizable<Copy> = {
         gerettete_tiere: 'Animals',
         diverse_einsaetze: 'Other',
       },
+      incomplete: 'Label and symbol/line are missing – not saved yet.',
+      incompleteLabel: 'The label is missing – not saved yet.',
+      incompleteTarget: 'Symbol or line is missing – not saved yet.',
+      labelTooLong: 'Label: at most {max} characters – not saved yet.',
+      rejectedSlot: 'Element {n} ({kategorie})',
     },
     alarms: {
       colGroup: 'Alarm group',

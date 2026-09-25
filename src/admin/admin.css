@@ -1947,7 +1947,7 @@ body:has(.adm) .ui-menu-pos { z-index: var(--z-admin-overlay-menu); }
 .agg-glyph svg { width: 20px; height: 20px; }
 /* the row's neutral icon actions (↑ ↓ ✎) — the bin beside them keeps its red hover */
 .agg-btn { flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
-  border: none; border-radius: var(--r-ctl); background: transparent; color: var(--ink-faint); cursor: pointer; }
+  border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); cursor: pointer; }
 .agg-btn .i { width: 17px; height: 17px; }
 .agg-btn:disabled { opacity: var(--disabled); cursor: default; }
 .agg-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }

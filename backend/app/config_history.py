@@ -62,6 +62,13 @@ async def keep_previous(db: AsyncSession, source: Source, actor_id: uuid.UUID | 
         logger.exception("Could not keep the previous deployment config (continuing with the write)")
 
 
+#: Sub-sections whose EMPTY value is a setting in its own right, not the absence of one: an empty
+#: ``lageGrundgeruest.kategorien`` means «every Einsatzart follows the preset», which is exactly
+#: what /admin writes when the last adapted Einsatzart goes back to the preset. Reported as
+#: «emptied», that reset answered 409 and stalled every Station page's autosave behind it.
+EMPTY_IS_A_VALUE: frozenset[str] = frozenset({"lageGrundgeruest.kategorien"})
+
+
 def emptied_sections(old: dict[str, Any] | None, new: dict[str, Any]) -> list[str]:
     """Which populated parts of `old` would be left EMPTY by `new` — the shape of every one of
     these incidents.
@@ -87,6 +94,8 @@ def emptied_sections(old: dict[str, Any] | None, new: dict[str, Any]) -> list[st
         new_val = new.get(key)
         if isinstance(old_val, dict) and isinstance(new_val, dict):
             for sub, old_sub in old_val.items():
+                if f"{key}.{sub}" in EMPTY_IS_A_VALUE:
+                    continue
                 if not empty(old_sub) and empty(new_val.get(sub)):
                     out.append(f"{key}.{sub}")
         elif not empty(old_val) and empty(new_val):

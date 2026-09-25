@@ -35,7 +35,7 @@ so this file – not the log – is the record of what shipped up to that point.
   on the Karte («Lage-Grundgerüst 2 / 6») lists them for the incident's Einsatzart – for a Brand:
   KP · Zufahrt · Wasserbezug · Sammelplatz · Absperrung · Bereitstellungsraum. A row ticks itself
   when its symbol (or line) exists on the Karte or on any plan; «+ Wasserbezug» arms the ordinary
-  place tool, and where the data has an answer the row suggests one – «Hydrant Nr. 412 · 38 m ·
+  place tool, and where the data has an answer the row suggests one – «Hydrant Nr. 17 · 38 m ·
   hier setzen» from the station's hydrant layer, «Wind aus W · Vorschlag westlich, 80 m» from the
   incident's weather. Taking a suggestion is an ordinary placement (undoable, its usual Verlauf
   row), selected and ready to drag. The card can be hidden, disappears once complete, and comes

@@ -8,8 +8,8 @@ import { appConfig } from '../config/appConfig'
 import { haversineM } from './geo'
 import {
   CATEGORY_LABELS, categoryKey, destinationPoint, grundgeruestProgress, grundgeruestRows,
-  hydrantNr, hydrantPoints, isHydrantLayer, linePresetIdFor, listFor, nearestHydrant, slotMatch,
-  slotsFor, suggestionFor, suggestionText, upwindPoint,
+  HYDRANT_MAX_M, hydrantNr, hydrantPoints, isHydrantLayer, linePresetIdFor, listFor, nearestHydrant,
+  ownLocation, placeable, slotMatch, slotsFor, suggestionFor, suggestionText, takeOverKind, upwindPoint,
   type LageGrundgeruestPresets, type LageSlot,
 } from './lageGrundgeruest'
 import type { TacticalObject } from './tacticalObjects'
@@ -26,7 +26,7 @@ const PRESETS: LageGrundgeruestPresets = {
   minimal: { kategorien: { brandbekaempfung: [KP, SAMMEL], diverse_einsaetze: [SAMMEL] } },
 }
 
-const CENTER: LngLat = [7.57037, 47.52382]
+const CENTER: LngLat = [8.0, 47.0]
 
 const onKarte = (symbol: string, extra: Partial<TacticalObject> = {}): TacticalObject =>
   ({ id: `o-${symbol}`, entity: { id: `o-${symbol}`, kind: 'symbol', layer: 'op', coord: CENTER, symbol }, ...extra }) as TacticalObject
@@ -82,18 +82,33 @@ describe('which list an Einsatz gets', () => {
 
 describe('when a row is done', () => {
   it('a matching symbol on the Karte ticks it', () => {
-    expect(slotMatch(SAMMEL, [onKarte('FW Sammelplatz')])).toEqual({ done: true, onKarte: true, planOnly: null })
+    expect(slotMatch(SAMMEL, [onKarte('FW Sammelplatz')])).toEqual({ done: true, onKarte: true, onPlan: null })
     expect(slotMatch(SAMMEL, [onKarte('FW Warteraum')]).done).toBe(false)
   })
 
-  it('a symbol that exists only on a plan still ticks, and is offered onto the Karte', () => {
+  it('a symbol that exists only on a plan still ticks, and is offered onto the Karte at a tap', () => {
     const plan = onPlan('FW Sammelplatz')
-    expect(slotMatch(SAMMEL, [plan])).toEqual({ done: true, onKarte: false, planOnly: plan })
+    expect(slotMatch(SAMMEL, [plan])).toEqual({ done: true, onKarte: false, onPlan: plan })
+    expect(takeOverKind(plan)).toBe('tap')
   })
 
-  it('a plan symbol baked onto the Karte through its fit is simply on the Karte', () => {
+  it('a plan symbol baked onto the Karte through its fit is still the PLAN\'s — offered, in place', () => {
+    // the 23.09.2026 case: a Sammelplatz drawn on a Gebäude storey shows on the Karte, and ticked
+    // there without any way to make it the Karte's
     const both = { ...onPlan('FW Sammelplatz'), entity: onKarte('FW Sammelplatz').entity } as TacticalObject
-    expect(slotMatch(SAMMEL, [both])).toEqual({ done: true, onKarte: true, planOnly: null })
+    expect(slotMatch(SAMMEL, [both])).toEqual({ done: true, onKarte: false, onPlan: both })
+    expect(takeOverKind(both)).toBe('inPlace')
+  })
+
+  it('once one is Karte-anchored, nothing is offered', () => {
+    expect(slotMatch(SAMMEL, [onPlan('FW Sammelplatz'), onKarte('FW Sammelplatz')]).onPlan).toBeNull()
+  })
+
+  it('a line on an unlinked sheet has no ground position a tap could give it', () => {
+    const planLine = { id: 'l3', sheet: { planId: 'm1', anno: { id: 'l3', kind: 'draw', pts: [], arrow: true, marker: 'Z' } } } as unknown as TacticalObject
+    expect(takeOverKind(planLine)).toBeNull()
+    expect(takeOverKind(null)).toBeNull()
+    expect(takeOverKind(onKarte('FW Sammelplatz'))).toBeNull()
   })
 
   it('a live feed marker never counts', () => {
@@ -156,26 +171,51 @@ describe('where the card suggests a thing', () => {
     expect(suggestionText(s)).toBe('Wind aus W · Vorschlag westlich, 40 m')
   })
 
+  it('says WHEN the wind reading was taken (source + timestamp, 3am tenet)', () => {
+    const at = new Date(2026, 8, 24, 14, 5)
+    const s = suggestionFor(KP, { center: CENTER, weather: { ...wind(270), observed_at: at.toISOString() }, hydrants: null })!
+    expect(suggestionText(s)).toBe('Wind aus W (14:05) · Vorschlag westlich, 40 m')
+  })
+
+  it('no location of the incident\'s own, no suggestion at all — the station default is not the Einsatzort', () => {
+    const points = [{ coord: [8.0005, 47.0003] as LngLat, nr: '7' }]
+    expect(suggestionFor(KP, { center: null, weather: wind(270), hydrants: points })).toBeNull()
+    expect(suggestionFor(WASSER, { center: null, weather: wind(270), hydrants: points })).toBeNull()
+    expect(ownLocation(0, 0)).toBeNull()
+    expect(ownLocation(null, 47.5)).toBeNull()
+    expect(ownLocation(8.1, 47.1)).toEqual([8.1, 47.1])
+  })
+
+  it('a hydrant further than the cap is no answer — said, never placeable', () => {
+    const far = destinationPoint(CENTER, 90, HYDRANT_MAX_M + 50)
+    const s = suggestionFor(WASSER, { center: CENTER, weather: null, hydrants: [{ coord: far, nr: '9' }] })!
+    expect(s.kind).toBe('noHydrant')
+    expect(placeable(s)).toBe(false)
+    expect(suggestionText(s)).toBe(`Kein Hydrant im Umkreis von ${HYDRANT_MAX_M} m`)
+    const near = destinationPoint(CENTER, 90, HYDRANT_MAX_M - 50)
+    expect(placeable(suggestionFor(WASSER, { center: CENTER, weather: null, hydrants: [{ coord: near, nr: '9' }] }))).toBe(true)
+  })
+
   it('finds the nearest hydrant by straight line, with its number', () => {
     const fc = {
       type: 'FeatureCollection',
       features: [
-        { type: 'Feature', geometry: { type: 'Point', coordinates: [7.575, 47.524] }, properties: { nr: 'H-9' } },
-        { type: 'Feature', geometry: { type: 'Point', coordinates: [7.5705, 47.5241] }, properties: { NR: 412 } },
-        { type: 'Feature', geometry: { type: 'LineString', coordinates: [[7.57, 47.52], [7.571, 47.521]] }, properties: {} },
+        { type: 'Feature', geometry: { type: 'Point', coordinates: [8.005, 47.004] }, properties: { nr: 'H-9' } },
+        { type: 'Feature', geometry: { type: 'Point', coordinates: [8.0005, 47.0003] }, properties: { NR: 17 } },
+        { type: 'Feature', geometry: { type: 'LineString', coordinates: [[8.0, 47.0], [8.001, 47.001]] }, properties: {} },
       ],
     }
     const points = hydrantPoints(fc)
     expect(points).toHaveLength(2)
     const near = nearestHydrant(CENTER, points)!
-    expect(near.nr).toBe('412')
+    expect(near.nr).toBe('17')
     const s = suggestionFor(WASSER, { center: CENTER, weather: null, hydrants: points })!
     expect(s.kind).toBe('hydrant')
-    expect(suggestionText(s)).toMatch(/^Hydrant Nr\. 412 · \d+ m$/)
+    expect(suggestionText(s)).toMatch(/^Hydrant Nr\. 17 · \d+ m$/)
   })
 
   it('a hydrant without a number is still the nearest hydrant', () => {
-    const s = suggestionFor(WASSER, { center: CENTER, weather: null, hydrants: [{ coord: [7.5705, 47.5241], nr: null }] })!
+    const s = suggestionFor(WASSER, { center: CENTER, weather: null, hydrants: [{ coord: [8.0005, 47.0003], nr: null }] })!
     expect(suggestionText(s)).toMatch(/^Nächster Hydrant · \d+ m$/)
   })
 
@@ -190,9 +230,10 @@ describe('where the card suggests a thing', () => {
     expect(rows[0].suggestion).toBeNull()
   })
 
-  it('reads a hydrant number off the usual property names', () => {
+  it('reads a hydrant number off the usual property names — never an id or a name', () => {
     expect(hydrantNr({ Nummer: ' 17 ' })).toBe('17')
     expect(hydrantNr({ art: 'Überflurhydrant' })).toBeNull()
+    expect(hydrantNr({ id: 'f-83b1', name: 'Hof Nord' })).toBeNull()
     expect(hydrantNr(null)).toBeNull()
   })
 

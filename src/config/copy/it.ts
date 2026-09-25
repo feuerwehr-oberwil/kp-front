@@ -450,7 +450,7 @@ export const it: Localizable<Copy> = {
     { id: 'note', icon: 'type', label: 'Nota', kind: 'tool' },
     { id: 'team', icon: 'flag', label: 'Squadra', kind: 'tool' },
     { id: 'measure', icon: 'measure', label: 'Misura', kind: 'tool' },
-    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Basi', kind: 'action' },
+    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Basi' },
   ],
   planTools: [
     { id: 'pan', icon: 'select', label: 'Selezione', alt: { id: 'lasso', icon: 'marquee', label: 'Multiplo' } },
@@ -753,6 +753,7 @@ export const it: Localizable<Copy> = {
   log: {
     audioNote: 'Nota audio',
     symbolPlaced: 'Simbolo «{name}» posizionato',
+    symbolToKarte: '«{name}» ripreso dal piano sulla carta',
     shapePlaced: '{name} posizionato',
     notePlaced: 'Nota posizionata',
     shapeDrawn: '{name} disegnato',
@@ -2077,9 +2078,12 @@ export const it: Localizable<Copy> = {
     hydrantNoNr: 'Idrante più vicino · {dist}',
     wind: 'Vento {from} · proposto {dir}, {m} m',
     directions: ['a nord', 'a nord-est', 'a est', 'a sud-est', 'a sud', 'a sud-ovest', 'a ovest', 'a nord-ovest'],
-    planOnly: 'solo sul piano',
     toKarte: 'riporta sulla carta',
     hydrantLabel: 'Idrante {nr}',
+    planOnly: 'sul piano',
+    noHydrant: 'Nessun idrante entro {m} m',
+    windAt: '{from} ({time})',
+    noLocation: 'Le proposte seguiranno appena il luogo dell\'intervento sarà impostato.',
   },
   weather: {
     label: 'Meteo',
@@ -4650,7 +4654,6 @@ export const it: Localizable<Copy> = {
       metaHydrant: 'Proposta: idrante più vicino',
       metaWind: 'Proposta: sopravento, {m} m',
       metaOptional: 'facoltativo',
-      incomplete: 'Mancano denominazione e simbolo/linea – non ancora salvato.',
       metresInvalid: 'Metri: da {min} a {max} – non ancora salvato.',
       tabShort: {
         brandbekaempfung: 'Incendio',
@@ -4666,6 +4669,11 @@ export const it: Localizable<Copy> = {
         gerettete_tiere: 'Animali',
         diverse_einsaetze: 'Diversi',
       },
+      incomplete: 'Mancano denominazione e simbolo/linea – non ancora salvato.',
+      incompleteLabel: 'Manca la denominazione – non ancora salvato.',
+      incompleteTarget: 'Manca il simbolo o la linea – non ancora salvato.',
+      labelTooLong: 'Denominazione: al massimo {max} caratteri – non ancora salvato.',
+      rejectedSlot: 'Elemento {n} ({kategorie})',
     },
     alarms: {
       colGroup: 'Gruppo d’allarme',

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   applyBoardToObjects, applyDocToObjects, bakeGeoBody, bakeSheetSymbol,
-  anchorChanges, bakePlan, objectsFromLegacy, sheetAnchoredIds, sheetAnnos, viewsOf, type TacticalObject,
+  anchorChanges, bakePlan, objectsFromLegacy, reanchoredToKarte, sheetAnchoredIds, sheetAnnos, viewsOf, type TacticalObject,
 } from './tacticalObjects'
 import type { BoardAnno, Drawing, Entity } from '../types'
 
@@ -367,5 +367,31 @@ describe('anchorChanges — which objects changed surface', () => {
     const before = [sheetObj('s1')]
     const after = applyBoardToObjects(before, 'modul2', [anno('s1', { color: 'red' })], PLAN)
     expect(anchorChanges(before, after)).toEqual([])
+  })
+})
+
+describe('reanchoredToKarte — «auf die Karte übernehmen» is the flip, never a twin', () => {
+  const anno = { id: 's1', kind: 'symbol', x: 0.4, y: 0.5, symbol: 'FW Sammelplatz', label: 'Sammelplatz' } as BoardAnno
+  const baked = { id: 's1', kind: 'symbol', layer: 'taktisch', coord: [8.0, 47.0], symbol: 'FW Sammelplatz', label: 'Sammelplatz' } as Entity
+
+  it('a baked body stays where the fit put it — the same record, sheet body dropped', () => {
+    const o: TacticalObject = { id: 's1', entity: baked, sheet: { planId: 'gebaeude', anno } }
+    const next = reanchoredToKarte(o, undefined, 'taktisch')!
+    expect(next).toEqual({ id: 's1', entity: baked })
+    // and it IS an anchor change, reported like a drag's
+    expect(anchorChanges([o], [next])).toEqual([{ id: 's1', left: 'gebaeude', entity: baked }])
+  })
+
+  it('an unlinked sheet\'s symbol takes the tapped spot', () => {
+    const o: TacticalObject = { id: 's1', sheet: { planId: 'modul3', anno } }
+    const next = reanchoredToKarte(o, [8.001, 47.001], 'taktisch')!
+    expect(next.id).toBe('s1')
+    expect(next.sheet).toBeUndefined()
+    expect(next.entity).toMatchObject({ id: 's1', kind: 'symbol', coord: [8.001, 47.001], symbol: 'FW Sammelplatz', label: 'Sammelplatz' })
+  })
+
+  it('nothing to do: a Karte object, or an unlinked symbol without a tap', () => {
+    expect(reanchoredToKarte({ id: 'k', entity: baked }, undefined, 'taktisch')).toBeNull()
+    expect(reanchoredToKarte({ id: 's1', sheet: { planId: 'modul3', anno } }, undefined, 'taktisch')).toBeNull()
   })
 })

@@ -608,7 +608,7 @@
   /* coordinate readout + selection bar sit above the bottom bar + home indicator */
   :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
 
-  /* The Lage-Grundgerüst as a STRIP (07-toolrail · .lgg): one row above the tool bar, in the lane
+  /* The Lage-Grundgerüst as a STRIP (03-map · .lgg): one row above the tool bar, in the lane
      the FAB shares — so it stops short of the FAB's corner (--fab-safe) and never reaches down
      over either bar. Folded it is the one pill with the count; opened, the list grows UPWARD from
      it, capped under the top bar. The host drops it while a tool dock, the selection bar or a

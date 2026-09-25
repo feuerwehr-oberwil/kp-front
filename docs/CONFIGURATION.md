@@ -712,7 +712,9 @@ defaults are presets – files in
 
 `"preset": "fks-standard"` alone is a whole, valid block. `kategorien` **replaces single
 Einsatzarten** of the preset – per Einsatzart, never per row, so «what does our BMA list say» has
-one answer. An empty list there means «no Grundgerüst for this Einsatzart».
+one answer. An empty list there means «no Grundgerüst for this Einsatzart». An empty
+`kategorien` object means «every Einsatzart follows the preset» – a value, so the refuse-to-empty
+guard (§1, point 3) does not count it as emptied when the last adapted Einsatzart is reset.
 
 ```jsonc
 "lageGrundgeruest": {
@@ -743,7 +745,8 @@ One row (a «slot»):
   e.g. `GB Schluesseldepot` – the names spell «ue» for «ü») – or `linie` – a line preset by its
   label: `Zufahrt`, `Rettungsachse`, `Pfeil`.
 - `vorschlag` (optional, symbols only): `{ "naechster": "hydrant" }` – the nearest point of the
-  station's hydrant layer (§2b; straight line, the placed symbol is labelled with the hydrant's
+  station's hydrant layer (§2b; straight line, at most 300 m – further out the row says «Kein
+  Hydrant im Umkreis von 300 m»; the placed symbol is labelled with the hydrant's
   number when the layer carries one), or `{ "wind": "auf", "m": N }` – N metres (5–2000) upwind
   of the Einsatzort. No weather reading, a calm, or no hydrant layer ⇒ no suggestion; the row
   still arms the tool.

@@ -19,7 +19,7 @@
 import type { LngLat, WeatherData } from '../types'
 import type { TacticalObject } from './tacticalObjects'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from './format'
+import { fillTemplate, hhmm } from './format'
 import { fmtDistance, haversineM } from './geo'
 import { linePresetLabel } from './lineStyle'
 
@@ -143,39 +143,59 @@ export function linePresetIdFor(label: string | null | undefined): string | unde
 
 export interface SlotMatch {
   done: boolean
-  /** a matching object has a Karte body (placed there, or baked through a plan's fit) */
+  /** a matching object is ANCHORED on the Karte (placed there, no sheet body) */
   onKarte: boolean
-  /** matched ONLY on a plan with no Karte body — the card offers «auf die Karte übernehmen» */
-  planOnly: TacticalObject | null
+  /** every match is anchored on a plan — the first of them, which the card offers to bring onto
+   *  the Karte («auf die Karte übernehmen»); null when one is Karte-anchored already */
+  onPlan: TacticalObject | null
 }
 
 /**
  * Whether a slot's thing exists — on the Karte OR on any plan (post-mortem: the Sammelplatz was
  * set on the building plan, and it still counts). One store holds both (lib/tacticalObjects):
- * `entity`/`drawing` is the Karte body, `sheet.anno` the plan body. A plan object whose plan is
- * georeferenced carries a baked Karte body and is simply on the Karte; one on an unlinked sheet
- * has none, and that is the case the card offers to bring onto the Karte.
+ * `entity`/`drawing` is the Karte body, `sheet.anno` the plan body, and the sheet body's PRESENCE
+ * is the anchor. So «on the Karte» means Karte-ANCHORED: a Sammelplatz drawn on a Gebäude storey
+ * does show on the Karte through the fit (a baked body), but it belongs to the plan — the
+ * 23.09.2026 case — and the card still offers to take it over. Taking it over re-anchors the
+ * SAME record (`tacticalObjects · reanchoredToKarte`); it never makes a second one.
  *
  * Lines are matched by the NAME their style carries (lineStyle · linePresetLabel), the same way
  * the Verlauf names them — «Zufahrt gezeichnet».
  */
 export function slotMatch(slot: LageSlot, objects: readonly TacticalObject[]): SlotMatch {
-  let onKarte = false
-  let planOnly: TacticalObject | null = null
+  let onPlan: TacticalObject | null = null
   for (const o of objects) {
-    let karte = false
-    let plan = false
-    if (slot.symbol) {
-      karte = !!o.entity && !o.entity.live && o.entity.kind === 'symbol' && o.entity.symbol === slot.symbol
-      plan = !!o.sheet && o.sheet.anno.kind === 'symbol' && o.sheet.anno.symbol === slot.symbol
-    } else if (slot.linie) {
-      karte = !!o.drawing && o.drawing.kind === 'line' && linePresetLabel(o.drawing) === slot.linie
-      plan = !!o.sheet && o.sheet.anno.kind === 'draw' && linePresetLabel(o.sheet.anno) === slot.linie
+    if (o.sheet) {
+      const a = o.sheet.anno
+      const hit = slot.symbol
+        ? a.kind === 'symbol' && a.symbol === slot.symbol
+        : !!slot.linie && a.kind === 'draw' && linePresetLabel(a) === slot.linie
+      if (hit && !onPlan) onPlan = o
+      continue
     }
-    if (karte) { onKarte = true; break }
-    if (plan && !planOnly) planOnly = o
+    const hit = slot.symbol
+      ? !!o.entity && !o.entity.live && o.entity.kind === 'symbol' && o.entity.symbol === slot.symbol
+      : !!slot.linie && !!o.drawing && o.drawing.kind === 'line' && linePresetLabel(o.drawing) === slot.linie
+    if (hit) return { done: true, onKarte: true, onPlan: null }
   }
-  return { done: onKarte || planOnly !== null, onKarte, planOnly: onKarte ? null : planOnly }
+  return { done: onPlan !== null, onKarte: false, onPlan }
+}
+
+/** Can «auf die Karte übernehmen» re-anchor this plan object as it stands? A baked Karte body
+ *  already IS its ground position (flip in place); a symbol with none takes the next Karte tap.
+ *  A line drawn on an unlinked sheet has no position a tap could give it, so it is not offered. */
+export function takeOverKind(o: TacticalObject | null): 'inPlace' | 'tap' | null {
+  if (!o?.sheet) return null
+  if (o.entity || o.drawing) return 'inPlace'
+  return o.sheet.anno.kind === 'symbol' ? 'tap' : null
+}
+
+/** The incident's OWN location — never the station default the map falls back to. 0/0 is
+ *  «no location» (the Divera convention the workspace honours too). */
+export function ownLocation(lng: number | null | undefined, lat: number | null | undefined): LngLat | null {
+  if (lng == null || lat == null || !Number.isFinite(lng) || !Number.isFinite(lat)) return null
+  if (lng === 0 && lat === 0) return null
+  return [lng, lat]
 }
 
 const EARTH_R = 6_371_000
@@ -217,7 +237,9 @@ export function isHydrantLayer(l: { id: string; label?: string | null; symbol?: 
 }
 
 /** Property keys that carry a hydrant's number, most specific first (case-insensitive). */
-const NR_KEYS = ['nr', 'nummer', 'hydrant_nr', 'hydrantnr', 'hydrantennummer', 'number', 'no', 'bezeichnung', 'name', 'id']
+// ⚠️ Never `id` / `name`: those are a feature's database key or a free description, and a
+// Wasserbezugsort labelled «Hydrant 83b1f…» or «Hydrant Schulhaus-Hof» claims a number nobody has.
+const NR_KEYS = ['nr', 'nummer', 'hydrant_nr', 'hydrantnr', 'hydrantennummer', 'number', 'no']
 
 /** A hydrant feature's number, if the layer carries one. */
 export function hydrantNr(props: Record<string, unknown> | null | undefined): string | null {
@@ -259,12 +281,23 @@ export function nearestHydrant(center: LngLat, points: readonly HydrantPoint[]):
 
 // --- suggestions ----------------------------------------------------------------------------------
 
+/** Beyond this the «nearest» hydrant is no answer to «where is our Wasserbezug» — the row says
+ *  so instead of proposing a spot a Schlauchleitung of this length would never reach from. */
+export const HYDRANT_MAX_M = 300
+
 export type Suggestion =
   | { kind: 'hydrant'; coord: LngLat; nr: string | null; distanceM: number }
-  | { kind: 'wind'; coord: LngLat; fromDeg: number; m: number }
+  /** the layer has hydrants, none within HYDRANT_MAX_M — said, never placeable */
+  | { kind: 'noHydrant' }
+  | { kind: 'wind'; coord: LngLat; fromDeg: number; m: number; observedAt: string | null }
+
+/** A suggestion there is a spot for («hier setzen»). */
+export const placeable = (s: Suggestion | null): s is Extract<Suggestion, { coord: LngLat }> => !!s && 'coord' in s
 
 export interface SuggestionContext {
-  center: LngLat
+  /** the incident's OWN location (`ownLocation`); null ⇒ no suggestion at all — a spot computed
+   *  from the station's default map centre would be a confident answer about the wrong place */
+  center: LngLat | null
   weather: WeatherData | null | undefined
   /** null = not loaded (or no hydrant layer): no hydrant suggestion, the row still arms the tool */
   hydrants: readonly HydrantPoint[] | null
@@ -273,14 +306,15 @@ export interface SuggestionContext {
 /** Where the card proposes putting a slot's symbol — always only a starting point to drag. */
 export function suggestionFor(slot: LageSlot, ctx: SuggestionContext): Suggestion | null {
   const v = slot.vorschlag
-  if (!v || !slot.symbol) return null
+  if (!v || !slot.symbol || !ctx.center) return null
   if (v.naechster === 'hydrant') {
     const h = ctx.hydrants ? nearestHydrant(ctx.center, ctx.hydrants) : null
-    return h ? { kind: 'hydrant', coord: h.coord, nr: h.nr, distanceM: h.distanceM } : null
+    if (!h) return null
+    return h.distanceM <= HYDRANT_MAX_M ? { kind: 'hydrant', coord: h.coord, nr: h.nr, distanceM: h.distanceM } : { kind: 'noHydrant' }
   }
   if (v.wind === 'auf' && v.m) {
     const coord = upwindPoint(ctx.center, ctx.weather, v.m)
-    return coord ? { kind: 'wind', coord, fromDeg: ctx.weather!.wind_dir_deg!, m: v.m } : null
+    return coord ? { kind: 'wind', coord, fromDeg: ctx.weather!.wind_dir_deg!, m: v.m, observedAt: ctx.weather?.observed_at ?? null } : null
   }
   return null
 }
@@ -289,17 +323,24 @@ export function suggestionFor(slot: LageSlot, ctx: SuggestionContext): Suggestio
  *  (TopBar · fromLabel), so «aus W» and «westlich» can never disagree. */
 const sectorOf = (deg: number) => Math.round((((deg % 360) + 360) % 360) / 45) % 8
 
-/** «Hydrant Nr. 412 · 38 m» / «Wind aus W · Vorschlag westlich, 80 m» — what a suggestion is, in
+/** «Hydrant Nr. 17 · 38 m» / «Wind aus W · Vorschlag westlich, 80 m» — what a suggestion is, in
  *  the words its row says it in. The action («hier setzen») is the card's, beside it. */
 export function suggestionText(s: Suggestion): string {
   const C = appConfig.copy.lageGrundgeruest
+  if (s.kind === 'noHydrant') return fillTemplate(C.noHydrant, { m: HYDRANT_MAX_M })
   if (s.kind === 'hydrant') {
     const dist = fmtDistance(s.distanceM)
     return s.nr ? fillTemplate(C.hydrant, { nr: s.nr, dist }) : fillTemplate(C.hydrantNoNr, { dist })
   }
   const w = appConfig.copy.weather
   const i = sectorOf(s.fromDeg)
-  return fillTemplate(C.wind, { from: `${w.from} ${w.cardinals[i]}`, dir: C.directions[i], m: s.m })
+  // the reading's own time, beside the answer it produced (3am tenet: source + timestamp)
+  const at = s.observedAt ? new Date(s.observedAt) : null
+  const from = `${w.from} ${w.cardinals[i]}`
+  return fillTemplate(C.wind, {
+    from: at && !Number.isNaN(at.getTime()) ? fillTemplate(C.windAt, { from, time: hhmm(at) }) : from,
+    dir: C.directions[i], m: s.m,
+  })
 }
 
 // --- the card's rows ------------------------------------------------------------------------------

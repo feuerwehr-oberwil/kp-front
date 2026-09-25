@@ -305,3 +305,40 @@ def test_cli_refuses_an_unknown_preset_name():
     out = _cli("example", "--section", "lageGrundgeruest", "--preset", "fks")
     assert out.returncode == 1
     assert "did you mean 'fks-standard'?" in out.stderr
+
+
+# --- resetting the last adapted Einsatzart is not «emptying» ------------------------------
+
+
+def test_an_empty_kategorien_is_a_value_not_a_loss():
+    from app.config_history import emptied_sections
+
+    old = {"lageGrundgeruest": {"preset": "fks-standard", "kategorien": {"chemiewehr": [{"id": "kp"}]}}}
+    new = {"lageGrundgeruest": {"preset": "fks-standard", "kategorien": {}}}
+    assert emptied_sections(old, new) == []
+    # the neighbour rule still stands: the same shape elsewhere IS a loss
+    assert emptied_sections({"report": {"links": [{"title": "x"}]}}, {"report": {"links": []}}) == ["report.links"]
+
+
+@pytest.mark.asyncio
+async def test_resetting_the_only_adapted_einsatzart_is_accepted(client, admin_login, put_config):
+    """/admin › «Auf Preset zurücksetzen» on the last adapted Einsatzart writes `kategorien: {}`.
+    It answered 409 would_empty_sections and stalled every Station page's autosave."""
+    await admin_login(client)
+    own = [{"id": "kp", "label": "KP", "symbol": "VKF KP Front"}]
+    r = await put_config(client, {"lageGrundgeruest": {"preset": "fks-standard", "kategorien": {"chemiewehr": own}}})
+    assert r.status_code == 200, r.text
+    r = await put_config(client, {"lageGrundgeruest": {"preset": "fks-standard", "kategorien": {}}})
+    assert r.status_code == 200, r.text
+    assert (await client.get("/api/config")).json()["lageGrundgeruest"]["kategorien"] == {}
+
+
+@pytest.mark.asyncio
+async def test_a_label_past_80_characters_is_refused_with_its_path(client, admin_login, put_config):
+    """The admin page keeps such a row out of the document (LageGrundgeruestSection · problem); the
+    server's refusal names the row's path, which /admin turns into «Element 1 (Brand)»."""
+    await admin_login(client)
+    long = [{"id": "kp", "label": "K" * 81, "symbol": "VKF KP Front"}]
+    r = await put_config(client, {"lageGrundgeruest": {"kategorien": {"brandbekaempfung": long}}})
+    assert r.status_code == 422
+    assert "lageGrundgeruest" in r.text and "label" in r.text

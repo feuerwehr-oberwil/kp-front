@@ -36,6 +36,9 @@ type Draft = LageSlot
 
 const TAB_FIRST = ['brandbekaempfung', 'bma_unechte_alarme', 'strassenrettung', 'chemiewehr', 'oelwehr', 'elementarereignis']
 
+/** backend schemas.LageSlot · label max_length — one character more is a 422 on the WHOLE
+ *  document, and the autosave would stall every Station page behind it */
+export const LABEL_MAX = 80
 const WIND_MIN = 5
 const WIND_MAX = 2000
 const DEFAULT_WIND_M = 40
@@ -49,7 +52,14 @@ function kindOf(s: Draft): Kind {
 /** why a row is not stored, or null when it is fine to write */
 function problem(s: Draft): string | null {
   const C = appConfig.copy.admin.lageGrundgeruest
-  if (!s.label?.trim() || (!s.symbol && !s.linie)) return C.incomplete
+  const label = s.label?.trim() ?? ''
+  const target = !!(s.symbol || s.linie)
+  // name only what is actually missing — «Bezeichnung und Symbol fehlen» over a row whose label
+  // is right there sends the eye looking for a field that is fine
+  if (!label && !target) return C.incomplete
+  if (!label) return C.incompleteLabel
+  if (!target) return C.incompleteTarget
+  if (label.length > LABEL_MAX) return fillTemplate(C.labelTooLong, { max: LABEL_MAX })
   if (kindOf(s) === 'wind') {
     const m = s.vorschlag?.m
     if (m == null || !Number.isInteger(m) || m < WIND_MIN || m > WIND_MAX) return fillTemplate(C.metresInvalid, { min: WIND_MIN, max: WIND_MAX })
@@ -270,7 +280,7 @@ export function LageGrundgeruestSection() {
               {editingRow && (
                 <>
                   <SettingRow label={C.fieldLabel} tip={C.fieldLabelTip}>
-                    <input className="adm-input" type="text" value={r.label ?? ''} placeholder={C.fieldLabelPlaceholder}
+                    <input className="adm-input" type="text" value={r.label ?? ''} placeholder={C.fieldLabelPlaceholder} maxLength={LABEL_MAX}
                       onChange={(e) => patch(i, { label: e.target.value })} />
                   </SettingRow>
                   <SettingRow label={C.fieldTarget} tip={C.fieldTargetTip}>

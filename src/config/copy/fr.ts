@@ -450,7 +450,7 @@ export const fr: Localizable<Copy> = {
     { id: 'note', icon: 'type', label: 'Note', kind: 'tool' },
     { id: 'team', icon: 'flag', label: 'Équipe', kind: 'tool' },
     { id: 'measure', icon: 'measure', label: 'Mesurer', kind: 'tool' },
-    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Bases', kind: 'action' },
+    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Bases' },
   ],
   planTools: [
     { id: 'pan', icon: 'select', label: 'Sélection', alt: { id: 'lasso', icon: 'marquee', label: 'Multiple' } },
@@ -753,6 +753,7 @@ export const fr: Localizable<Copy> = {
   log: {
     audioNote: 'Note audio',
     symbolPlaced: 'Symbole « {name} » posé',
+    symbolToKarte: '« {name} » repris du plan sur la carte',
     shapePlaced: '{name} placé',
     notePlaced: 'Note posée',
     shapeDrawn: '{name} dessiné',
@@ -2018,9 +2019,12 @@ export const fr: Localizable<Copy> = {
     hydrantNoNr: 'Hydrante la plus proche · {dist}',
     wind: 'Vent {from} · proposé {dir}, {m} m',
     directions: ['au nord', 'au nord-est', 'à l\'est', 'au sud-est', 'au sud', 'au sud-ouest', 'à l\'ouest', 'au nord-ouest'],
-    planOnly: 'seulement sur le plan',
     toKarte: 'reporter sur la carte',
     hydrantLabel: 'Hydrante {nr}',
+    planOnly: 'sur le plan',
+    noHydrant: 'Aucune hydrante dans un rayon de {m} m',
+    windAt: '{from} ({time})',
+    noLocation: 'Les propositions suivront dès que le lieu d\'intervention sera défini.',
   },
   weather: {
     label: 'Météo',
@@ -4651,7 +4655,6 @@ export const fr: Localizable<Copy> = {
       metaHydrant: 'Proposition : hydrante la plus proche',
       metaWind: 'Proposition : au vent, {m} m',
       metaOptional: 'facultatif',
-      incomplete: 'Désignation et symbole/ligne manquent – pas encore enregistré.',
       metresInvalid: 'Mètres : {min} à {max} – pas encore enregistré.',
       tabShort: {
         brandbekaempfung: 'Incendie',
@@ -4667,6 +4670,11 @@ export const fr: Localizable<Copy> = {
         gerettete_tiere: 'Animaux',
         diverse_einsaetze: 'Divers',
       },
+      incomplete: 'Désignation et symbole/ligne manquent – pas encore enregistré.',
+      incompleteLabel: 'La désignation manque – pas encore enregistré.',
+      incompleteTarget: 'Le symbole ou la ligne manque – pas encore enregistré.',
+      labelTooLong: 'Désignation : au plus {max} caractères – pas encore enregistré.',
+      rejectedSlot: 'Élément {n} ({kategorie})',
     },
     alarms: {
       colGroup: 'Groupe d’alarme',

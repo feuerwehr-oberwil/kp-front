@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { fillTemplate } from '../lib/format'
-import { suggestionText, type GrundgeruestRow } from '../lib/lageGrundgeruest'
+import { placeable, suggestionText, takeOverKind, type GrundgeruestRow } from '../lib/lageGrundgeruest'
 
 interface Props {
   rows: GrundgeruestRow[]
   progress: { done: number; total: number; complete: boolean }
   /** no known Einsatzart — the Brand list stands in, and the card says so */
   fallback: boolean
+  /** the incident has no location of its own — no suggestions, and the card says why */
+  noLocation?: boolean
   /** the row whose place tool is armed right now (its next Karte tap places it) */
   armedSlotId: string | null
   phone: boolean
@@ -33,7 +35,7 @@ interface Props {
  * strip above the tool bar — collapsed it is one pill with the count, so it never covers the
  * phone's two bars, and the host hides it while a tool dock or the selection bar needs that lane.
  */
-export function LageGrundgeruestCard({ rows, progress, fallback, armedSlotId, phone, startOpen, raised, onArm, onPlace, onToKarte, onHide }: Props) {
+export function LageGrundgeruestCard({ rows, progress, fallback, noLocation, armedSlotId, phone, startOpen, raised, onArm, onPlace, onToKarte, onHide }: Props) {
   const C = appConfig.copy.lageGrundgeruest
   // phone only: the strip starts as one pill — a list over half a 360px Karte is the thing a
   // 3am operator did not ask for, and the pill's count is already the prompt
@@ -69,30 +71,32 @@ export function LageGrundgeruestCard({ rows, progress, fallback, armedSlotId, ph
       {body && (
         <>
           {fallback && <p className="lgg-note">{C.fallback}</p>}
+          {noLocation && rows.some((r) => !r.match.done && r.slot.vorschlag) && <p className="lgg-note">{C.noLocation}</p>}
           {rows.length === 0 && <p className="lgg-note">{C.empty}</p>}
           {progress.complete && <p className="lgg-note lgg-done-note">{C.complete}</p>}
           <ul className="lgg-list">
             {rows.map((row) => {
               const { slot, match, suggestion } = row
+              const armed = armedSlotId === slot.id
               if (match.done) {
                 return (
-                  <li key={slot.id} className="lgg-row done">
+                  <li key={slot.id} className={`lgg-row done${armed ? ' armed' : ''}`}>
                     <span className="lgg-line">
                       <Icon id="check" className="lgg-tick" />
                       <span className="lgg-label">{slot.label}</span>
                     </span>
-                    {match.planOnly && (
-                      // ticked by an object on a plan with no Karte body — the 23.09.2026 Sammelplatz
-                      // on the building plan. It counts; the way onto the Karte is one tap away.
-                      <button type="button" className="lgg-sug" onClick={() => onToKarte(row)}>
+                    {takeOverKind(match.onPlan) && (
+                      // ticked by an object ANCHORED on a plan — the 23.09.2026 Sammelplatz on the
+                      // building plan. It counts; taking it over moves that same record onto the
+                      // Karte (in place, or at the next Karte tap when its sheet has no fit).
+                      <button type="button" className="lgg-sug" aria-pressed={armed} onClick={() => onToKarte(row)}>
                         <span className="lgg-sug-t">{C.planOnly}</span>
-                        <span className="lgg-sug-act">{C.toKarte}</span>
+                        <span className="lgg-sug-act">{armed ? C.armed : C.toKarte}</span>
                       </button>
                     )}
                   </li>
                 )
               }
-              const armed = armedSlotId === slot.id
               return (
                 <li key={slot.id} className={`lgg-row${armed ? ' armed' : ''}`}>
                   <button type="button" className="lgg-add" aria-pressed={armed} onClick={() => onArm(row)}>
@@ -101,12 +105,14 @@ export function LageGrundgeruestCard({ rows, progress, fallback, armedSlotId, ph
                     {slot.optional && <span className="lgg-opt">{C.optional}</span>}
                     {armed && <span className="lgg-armed">{C.armed}</span>}
                   </button>
-                  {suggestion && (
+                  {placeable(suggestion) && (
                     <button type="button" className="lgg-sug" onClick={() => onPlace(row)}>
                       <span className="lgg-sug-t">{suggestionText(suggestion)}</span>
                       <span className="lgg-sug-act">{C.placeHere}</span>
                     </button>
                   )}
+                  {/* said, never placeable: no hydrant close enough to be an answer */}
+                  {suggestion && !placeable(suggestion) && <p className="lgg-sug lgg-sug-info">{suggestionText(suggestion)}</p>}
                 </li>
               )
             })}
