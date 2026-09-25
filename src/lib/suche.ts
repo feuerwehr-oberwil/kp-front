@@ -227,6 +227,10 @@ export function personView(p: SuchePerson): PersonView {
       entwarnt = r.at
     } else if (r.op === 'irrtuemlich') {
       withdrawn = r.at
+    } else if (r.op === 'korrigiert' && r.set) {
+      // where the person was FOUND, corrected (walk-through 25.09.2026): the latest find's place
+      if ('foundFloor' in r.set) v.foundFloor = r.set.foundFloor ?? undefined
+      if ('foundWo' in r.set) v.foundWo = r.set.foundWo?.trim() || undefined
     }
   }
   const off = !!entwarnt || !!withdrawn
@@ -323,11 +327,23 @@ export function bereichStatusOf(b: SucheBereich, doc?: SucheDoc): { status: Such
       truppId = r.status === 'offen' ? undefined : r.truppId
     } else if (r.op === 'fund') fund = true
   }
-  if (!fund && doc) {
-    fund = doc.personen.some((p) => p.log.some((r) => r.op === 'gefunden' && r.bereichId === b.id)
-      && !p.log.some((r) => r.op === 'irrtuemlich'))
-  }
+  if (!fund && doc) fund = doc.personen.some((p) => foundBereiche(p).includes(b.id))
   return { status, trupp, truppId, at, fund }
+}
+
+/**
+ * The areas a person's finds happened in — what makes an area wear «Fund». A corrected found place
+ * (`korrigiert` · `set.foundBereichId`) moves the LATEST find; a withdrawn record marks nothing.
+ */
+export function foundBereiche(p: SuchePerson): string[] {
+  const rows = chrono(p.log)
+  if (rows.some((r) => r.op === 'irrtuemlich')) return []
+  const out: (string | undefined)[] = []
+  for (const r of rows) {
+    if (r.op === 'gefunden') out.push(r.bereichId)
+    else if (r.op === 'korrigiert' && r.set && 'foundBereichId' in r.set && out.length) out[out.length - 1] = r.set.foundBereichId ?? undefined
+  }
+  return out.filter((x): x is string => !!x)
 }
 
 /** The named parts of one storey of one stack. */
@@ -422,6 +438,24 @@ export function storeyBadges(groups: readonly SucheGroup[]): Record<number, { te
     }
   }
   return out
+}
+
+/**
+ * Where a Trupp is searching, for «Fund melden» (walk-through 25.09.2026, F7): the storey of the
+ * area it works on NOW («in Arbeit» / «teilweise» with its id, the latest), else the storey its
+ * Ziel names, else the storey its marker stands on. Never the missing person's «zuletzt gesehen»
+ * — a find is reported from where the Trupp is.
+ */
+export function truppFloor(doc: SucheDoc, truppId: string, stack: SucheStack, ziel?: string, markerFloor?: number): number | undefined {
+  const mine = doc.bereiche
+    .map((b) => ({ b, st: bereichStatusOf(b) }))
+    .filter(({ st }) => (st.status === 'inArbeit' || st.status === 'teilweise') && st.truppId === truppId)
+    .sort((a, c) => c.st.at.localeCompare(a.st.at))
+  const area = mine.find(({ b }) => b.floor != null)
+  if (area) return area.b.floor
+  const z = ziel?.trim() ? parseZiel(ziel, stack.floors, stack.floorName) : {}
+  if (z.floor != null) return z.floor
+  return markerFloor
 }
 
 /**
@@ -600,10 +634,11 @@ function personSummary(v: Pick<SuchePerson, 'name' | 'count' | 'floor' | 'wo'>, 
  * person was last seen, as a ROW: the record keeps what was first said, the fold shows what is true.
  * Only what actually changed is carried; nothing changed writes nothing.
  */
-export function personKorrigiert(doc: SucheDoc, personId: string, next: { name?: string; count?: number; floor?: number; wo?: string }, cx: SucheCx): { doc: SucheDoc; rows: SucheRow[] } {
+export function personKorrigiert(doc: SucheDoc, personId: string, next: { name?: string; count?: number; floor?: number; wo?: string; foundFloor?: number; foundWo?: string }, cx: SucheCx): { doc: SucheDoc; rows: SucheRow[] } {
   const p = doc.personen.find((x) => x.id === personId)
   if (!p) return { doc, rows: [] }
   const cur = corrected(p)
+  const view = personView(p)
   const want = {
     name: next.name?.trim() || undefined,
     count: next.count && next.count >= 2 ? Math.round(next.count) : undefined,
@@ -615,8 +650,26 @@ export function personKorrigiert(doc: SucheDoc, personId: string, next: { name?:
   if (want.count !== cur.count) set.count = want.count ?? 1
   if (want.floor !== cur.floor) set.floor = want.floor ?? null
   if (want.wo !== cur.wo) set.wo = want.wo ?? ''
+  // …and where the person was found, once somebody found them (the latest find)
+  let foundFrom = ''
+  let foundTo = ''
+  if (view.found > 0 && ('foundFloor' in next || 'foundWo' in next)) {
+    const wantFloor = 'foundFloor' in next ? next.foundFloor : view.foundFloor
+    const wantWo = 'foundWo' in next ? (next.foundWo?.trim() || undefined) : view.foundWo
+    const where = (f?: number, wo?: string) => [f != null ? cx.floorName(f) : '', wo ?? ''].filter(Boolean).join(' ') || appConfig.copy.suche.unbekannt
+    if (wantFloor !== view.foundFloor) {
+      set.foundFloor = wantFloor ?? null
+      // the area wearing «Fund» moves with the storey
+      set.foundBereichId = wantFloor != null ? storeyBereichId(wantFloor, cx.stack) : null
+    }
+    if (wantWo !== view.foundWo) set.foundWo = wantWo ?? ''
+    if ('foundFloor' in set || 'foundWo' in set) {
+      foundFrom = fillTemplate(appConfig.copy.suche.rowGefundenOrt, { wo: where(view.foundFloor, view.foundWo) })
+      foundTo = fillTemplate(appConfig.copy.suche.rowGefundenOrt, { wo: where(wantFloor, wantWo) })
+    }
+  }
   if (!Object.keys(set).length) return { doc, rows: [] }
-  const text = fillTemplate(appConfig.copy.suche.rowKorrigiert, { from: personSummary(cur, cx.floorName), to: personSummary(want, cx.floorName) })
+  const text = fillTemplate(appConfig.copy.suche.rowKorrigiert, { from: personSummary(cur, cx.floorName) + foundFrom, to: personSummary(want, cx.floorName) + foundTo })
   const row: SucheRow = { id: cx.newId('sr'), at: cx.at, op: 'korrigiert', text, set }
   return { doc: { ...doc, personen: appendRow(doc.personen, personId, row) }, rows: [row] }
 }
@@ -1091,12 +1144,27 @@ export const SUCHE_DOCK_INSET = 350
 /** What an entry written in the Verlauf changes in the Suche on its way (Tür 2): a person still
  *  missing is found, or a new one is reported missing under the words before «vermisst». */
 export type SucheComposerLink =
-  | { kind: 'gefunden'; personId: string; label: string }
+  /** `n` of `of` still missing — a GROUP's find always names how many (F6); absent for one person */
+  | { kind: 'gefunden'; personId: string; label: string; n?: number; of?: number }
   | { kind: 'neu'; name: string }
+
+/**
+ * The composer's «gefunden» offer for one person on the list (walk-through 25.09.2026, F6). For a
+ * group it NAMES the count, never «all of them»: a number in the sentence that is not part of the
+ * group's own name («2 Kinder am Sammelplatz») and fits what is still missing, else 1. Typing
+ * «Klasse 4b» to say two children turned up had marked all five remaining found.
+ */
+export function composerFoundLink(text: string, v: PersonView): SucheComposerLink {
+  if (!v.group) return { kind: 'gefunden', personId: v.id, label: v.label }
+  const own = new Set((v.label.match(/\d+/g) ?? []))
+  const said = (text.match(/\b\d{1,3}\b/g) ?? []).filter((d) => !own.has(d)).map(Number).find((n) => n >= 1 && n <= v.missing)
+  return { kind: 'gefunden', personId: v.id, label: v.label, n: said ?? 1, of: v.missing }
+}
 
 /** The change in words, for the Verlauf row the entry becomes: «Tim Muster gefunden». */
 export function sucheChangeWords(l: SucheComposerLink): string {
   const S = appConfig.copy.suche
+  if (l.kind === 'gefunden' && l.n != null) return fillTemplate(S.composerChangeGefundenGroup, { n: l.n, name: l.label })
   return l.kind === 'gefunden'
     ? fillTemplate(S.composerChangeGefunden, { name: l.label })
     : fillTemplate(S.composerChangeNeu, { name: l.name })
@@ -1104,6 +1172,7 @@ export function sucheChangeWords(l: SucheComposerLink): string {
 
 export function sucheLinkLabel(l: SucheComposerLink): string {
   const S = appConfig.copy.suche
+  if (l.kind === 'gefunden' && l.n != null) return fillTemplate(S.composerKnownGroup, { name: l.label, n: l.n, of: l.of ?? l.n })
   return l.kind === 'gefunden'
     ? fillTemplate(S.composerKnown, { name: l.label, from: S.status.vermisst, to: S.status.gefunden })
     : fillTemplate(S.composerNew, { name: l.name })
@@ -1131,4 +1200,15 @@ export function sucheFocusFor(prev: SucheFocus | null, jump?: { personId?: strin
 export function sucheAppClass(isPhone: boolean, open: boolean, detent: 'peek' | 'half' | 'full'): string {
   if (!isPhone || !open) return ''
   return detent === 'peek' ? ' suche-peek' : ' suche-sheet'
+}
+
+/**
+ * Where the Suche opens (walk-through 25.09.2026, F12): on the Karte or a plan RIGHT THERE (null:
+ * stay) — it used to jump to the Gebäude from every door, and the Karte's dock never appeared.
+ * From a surface it cannot stand beside (the Trupps, the Rapport …) it takes the Gebäude, or the
+ * Karte when there is none.
+ */
+export function sucheSurfaceFor(mode: string, hasGebaeude: boolean): 'gebaeude' | 'karte' | null {
+  if (mode === 'map' || mode === 'plans') return null
+  return hasGebaeude ? 'gebaeude' : 'karte'
 }

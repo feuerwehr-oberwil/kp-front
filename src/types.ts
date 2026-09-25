@@ -1270,7 +1270,9 @@ export interface SucheRow {
   /** `gefunden`: the area the person was found in — the area wears «Fund» because of it */
   bereichId?: string
   /** `korrigiert`: the values that replace the record's (null floor = «unbekannt») */
-  set?: { name?: string; count?: number; floor?: number | null; wo?: string }
+  set?: { name?: string; count?: number; floor?: number | null; wo?: string
+    /** where the person was FOUND (the latest find), and the area that then wears «Fund» */
+    foundFloor?: number | null; foundWo?: string; foundBereichId?: string | null }
   /** Bereich `status` row: the new status */
   status?: SucheBereichStatus
   /** `entwarnt` / `irrtuemlich`: why, and who said so — both optional, both in the row's text */

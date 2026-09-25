@@ -122,7 +122,7 @@ export function useSucheActions({ suche, setRaw, remember, canEdit, log, emit, f
       const r = personEntwarnt(ref.current, personId, cx(), why)
       return commit(r.doc, r.rows)
     },
-    korrigieren(personId: string, next: { name?: string; count?: number; floor?: number; wo?: string }) {
+    korrigieren(personId: string, next: { name?: string; count?: number; floor?: number; wo?: string; foundFloor?: number; foundWo?: string }) {
       const r = personKorrigiert(ref.current, personId, next, cx())
       return commit(r.doc, r.rows)
     },

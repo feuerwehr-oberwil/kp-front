@@ -62,22 +62,12 @@ describe('N13 · an open «abgesucht?» is where the operator already looks', ()
   })
 })
 
-describe('N12 · the «vermisst» chip leaves the weather in the tablet head', () => {
-  /** every rule in 10-journal.css that hides the weather */
-  const hiding = [...css('10-journal.css').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-    .filter(([, sel, body]) => sel.includes('.tb-weather-wrap') && /display:\s*none/.test(body))
-    .flatMap(([, sel]) => sel.split(',').map((x) => x.trim()))
-  const bar = (chip: string) => {
-    document.body.innerHTML = `<div class="topbar"><span class="tb-weather-wrap"></span>${chip}</div>`
-    return document.querySelector('.tb-weather-wrap')!
-  }
-
-  it('the Suche chip alone hides nothing; an Atemschutz alarm still wins the room', () => {
-    expect(hiding.length).toBeGreaterThan(0)
-    const withSuche = bar('<button class="tb-az crit tb-suche"></button>')
-    expect(hiding.some((sel) => withSuche.matches(sel))).toBe(false)
-    const withAlarm = bar('<button class="tb-az crit tb-suche"></button><button class="tb-az crit"></button>')
-    expect(hiding.some((sel) => withAlarm.matches(sel))).toBe(true)
+describe('N12 · no chip hides the weather by rule — only the measured ladder does', () => {
+  it('no rule in the bar\'s stylesheet hides the weather because a chip is up', () => {
+    const rules = [...css('10-journal.css').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .filter(([, sel, body]) => sel.includes('.tb-weather-wrap') && /display:\s*none/.test(body))
+      .map(([, sel]) => sel.trim())
+    expect(rules).toEqual(['.topbar.fit-2 .tb-weather-wrap'])
   })
 })
 

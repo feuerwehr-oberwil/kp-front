@@ -23,7 +23,7 @@ import type { JournalEntryType, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { acceptJournalSuggestion, journalSuggestions, type JournalSuggestion, type TextSelection } from '../lib/journalSuggestions'
 import { suggestPendenzen, type OpenReminder } from '../lib/reminders'
-import { newPersonFromText, sucheLinkLabel, suggestSuchePersonen, type PersonView, type SucheComposerLink } from '../lib/suche'
+import { composerFoundLink, newPersonFromText, sucheLinkLabel, suggestSuchePersonen, type PersonView, type SucheComposerLink } from '../lib/suche'
 import { startChips } from '../lib/startChips'
 import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
@@ -926,7 +926,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
               </button>
             )}
             {sucheHits.map((v) => {
-              const link: SucheComposerLink = { kind: 'gefunden', personId: v.id, label: v.label }
+              // a group names HOW MANY (F6): «Klasse 4b · 2 von 5 gefunden», never a silent all-found
+              const link = composerFoundLink(text, v)
               return (
                 <button key={`s:${v.id}`} type="button" className="jc-phrase jc-phrase-suche" title={appConfig.copy.suche.composerTitle}
                   onMouseDown={(e) => e.preventDefault()} onClick={() => onSucheLink?.(link)}>

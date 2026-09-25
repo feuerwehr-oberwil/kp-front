@@ -526,16 +526,18 @@ function AnChips({ uebergabe, value, onChange, optional }: { uebergabe: readonly
 
 function GefundenForm({ v, floors, floorName, trupps, placed, doc, actions, uebergabe, preset, onDone }: SuchePanelProps & { v: PersonView; preset?: FundPreset; onDone: () => void }) {
   const C = appConfig.copy.suche
-  // from a Trupp's «Fund melden» the Trupp's storey wins over the «zuletzt gesehen»
-  const [floor, setFloor] = useState<number | undefined>(preset?.floor ?? v.floor)
-  const [wo, setWo] = useState(v.wo ?? '')
+  // ⚠️ from a Trupp's «Fund melden» the place is the TRUPP's (F7): its storey, or «unbekannt» —
+  // never the group's «zuletzt gesehen», which put a find on the wrong floor in two taps
+  const [floor, setFloor] = useState<number | undefined>(preset ? preset.floor : v.floor)
+  const [wo, setWo] = useState(preset && preset.floor !== v.floor ? '' : (v.wo ?? ''))
   // the Trupp on that storey is pre-selected — the radio report came from somebody who is there
   const here = truppsOnStorey(doc, floor, trupps, placed)
   const [truppId, setTruppId] = useState<string | null | undefined>(preset?.truppId)
   const chosen = truppId === undefined ? (here[0]?.id ?? null) : truppId
   const [other, setOther] = useState('')
   const [an, setAn] = useState<string | undefined>(undefined)
-  const [n, setN] = useState(v.count - v.found)
+  // …and a Trupp reports what it has in front of it: the count starts at ONE, not at everybody
+  const [n, setN] = useState(preset ? 1 : v.count - v.found)
   const submit = () => {
     const t = chosen ? trupps.find((x) => x.id === chosen) : undefined
     actions.gefunden(v.id, { n: v.group ? n : undefined, trupp: t?.label ?? (chosen === '' ? other.trim() || undefined : undefined), truppId: t?.id, floor, wo, an })
@@ -635,9 +637,13 @@ function KorrigierenForm({ v, floors, floorName, actions, onDone }: SuchePanelPr
   const [count, setCount] = useState(v.group ? v.count : 2)
   const [floor, setFloor] = useState<number | undefined>(v.floor)
   const [wo, setWo] = useState(v.wo ?? '')
+  // where the person was FOUND can be wrong too (walk-through 25.09.2026) — once somebody was found
+  const found = v.found > 0
+  const [foundFloor, setFoundFloor] = useState<number | undefined>(v.foundFloor)
+  const [foundWo, setFoundWo] = useState(v.foundWo ?? '')
   return (
     <Form title={fillTemplate(C.formKorrigieren, { name: v.label })} submitLabel={C.submitKorrigieren} onCancel={onDone}
-      submit={() => { actions.korrigieren(v.id, { name, count: group ? count : undefined, floor, wo }); onDone() }}>
+      submit={() => { actions.korrigieren(v.id, { name, count: group ? count : undefined, floor, wo, ...(found ? { foundFloor, foundWo } : {}) }); onDone() }}>
       <Field label={C.wer}>
         <input className="ip-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={C.werPlaceholder} aria-label={C.wer} />
         <div className={s.row2}>
@@ -649,6 +655,12 @@ function KorrigierenForm({ v, floors, floorName, actions, onDone }: SuchePanelPr
         <StoreyChips floors={floors} floorName={floorName} value={floor} onChange={setFloor} label={C.zuletzt} />
         <input className="ip-input" value={wo} onChange={(e) => setWo(e.target.value)} placeholder={C.woPlaceholder} aria-label={C.woGenau} />
       </Field>
+      {found && (
+        <Field label={C.korrigierenGefunden}>
+          <StoreyChips floors={floors} floorName={floorName} value={foundFloor} onChange={setFoundFloor} label={C.korrigierenGefunden} />
+          <input className="ip-input" value={foundWo} onChange={(e) => setFoundWo(e.target.value)} placeholder={C.woPlaceholder} aria-label={`${C.korrigierenGefunden} – ${C.woGenau}`} />
+        </Field>
+      )}
     </Form>
   )
 }

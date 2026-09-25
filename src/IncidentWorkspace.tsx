@@ -193,7 +193,7 @@ import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
 import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
-import { SUCHE_DOCK_INSET, sucheChangeWords, type SucheComposerLink, bereichStatusOf, emptySuche, openBereiche, pendingAsks, personenViews, sanitizeSuche, stackKeyOf, storeyBadges, storeyBereichId, sucheAppClass, sucheFocusFor, sucheGroups, vermisstAbschlussMessage, vermisstCount, type SucheFocus, type SucheStack, type TruppHere } from './lib/suche'
+import { SUCHE_DOCK_INSET, sucheChangeWords, type SucheComposerLink, bereichStatusOf, emptySuche, openBereiche, pendingAsks, personenViews, sanitizeSuche, stackKeyOf, storeyBadges, storeyBereichId, sucheAppClass, sucheFocusFor, sucheGroups, sucheSurfaceFor, truppFloor, vermisstAbschlussMessage, vermisstCount, type SucheFocus, type SucheStack, type TruppHere } from './lib/suche'
 import { SucheDock, SuchePhoneSheet } from './components/suche/SucheSurface'
 import { SuchePanel, type FundPreset, type SucheTab } from './components/suche/SuchePanel'
 import { SucheAskMeldungen } from './components/suche/SucheAskMeldungen'
@@ -2466,7 +2466,7 @@ export function IncidentWorkspace({
     // one line, the one that was written, linked to the person ──
     const sucheRef = sucheLink && canEditSuche
       ? (sucheLink.kind === 'gefunden'
-        ? (sucheActionsRef.current?.gefunden(sucheLink.personId, {}, { silent: true }) ? { personId: sucheLink.personId } : undefined)
+        ? (sucheActionsRef.current?.gefunden(sucheLink.personId, { n: sucheLink.n }, { silent: true }) ? { personId: sucheLink.personId } : undefined)
         : ((id) => (id ? { personId: id } : undefined))(sucheActionsRef.current?.addPerson({ name: sucheLink.name }, { silent: true }) ?? null))
       : undefined
     const reminder: TimelineEvent['reminder'] = d.noteFor
@@ -3992,19 +3992,19 @@ export function IncidentWorkspace({
   }), [sucheGroupsNow, allTrupps])
   const sucheBadges = useMemo(() => (sucheOpen || effSuche.personen.length || effSuche.bereiche.some((b) => b.log.length) ? storeyBadges(sucheGroupsNow) : undefined), [sucheOpen, effSuche, sucheGroupsNow])
   /**
-   * Open the Suche. From the Karte or a plan it docks on the surface you are on (the tool rail's
-   * toggle); from anywhere else — the rail door, the head chip, a Verlauf row — it opens beside
-   * the Gebäude, or beside the Karte when there is none (E5 «Wo man hinkommt»). Opening is also
-   * the moment every storey becomes its «ganzes Geschoss» (E6 «von selbst»).
+   * Open the Suche — from every door (the rail, the head chip, a Verlauf row, a Meldeleiste
+   * question) the same way: beside the Karte or plan you are on, else beside the Gebäude, or the
+   * Karte when there is none (lib/suche · sucheSurfaceFor). Opening is also the moment every
+   * storey becomes its «ganzes Geschoss» (E6 «von selbst»).
    */
-  const openSuche = (opts?: { tab?: SucheTab; personId?: string; bereichId?: string; stay?: boolean }) => {
+  const openSuche = (opts?: { tab?: SucheTab; personId?: string; bereichId?: string }) => {
     setSucheOpen(true)
     if (opts?.tab) setSucheTab(opts.tab)
     // a jump opens its record; a plain open is the LIST — never a form left over from before (N17)
     setSucheFocus((f) => sucheFocusFor(f, opts))
     if (isPhone) setSucheDetent('half')
-    const onSurface = mode === 'map' || mode === 'plans'
-    if (!(opts?.stay && onSurface)) sucheSurface(sucheHasGebaeude ? 'gebaeude' : 'karte')
+    const to = sucheSurfaceFor(mode, sucheHasGebaeude)
+    if (to) sucheSurface(to)
     sucheActions.seed(sucheFloors)
   }
   useLayoutEffect(() => { openSucheRef.current = () => openSuche({ tab: 'personen' }) })
@@ -4040,7 +4040,9 @@ export function IncidentWorkspace({
     // a Trupp that has not gone in yet has found nothing and searched nothing
     if (t.status === 'angemeldet') return []
     const S = appConfig.copy.suche
-    const floor = sucheTruppFloors.find((p) => p.truppId === t.id)?.floor
+    // the storey the Trupp is searching NOW — its area, its Ziel, its marker (F7), never the
+    // missing person's «zuletzt gesehen»
+    const floor = truppFloor(suche, t.id, sucheStack, t.ziel, sucheTruppFloors.find((p) => p.truppId === t.id)?.floor)
     const mine = suche.bereiche.filter((b) => { const st = bereichStatusOf(b); return st.status === 'inArbeit' && st.truppId === t.id })
     const label = sucheTrupps.find((x) => x.id === t.id)?.label ?? t.name
     return [
@@ -5319,7 +5321,9 @@ export function IncidentWorkspace({
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}
         // the Suche's door (a dock, not a surface): toggles where it stands
-        onSuche={() => (sucheSurfaceOn ? setSucheOpen(false) : openSuche())}
+        // ⚠️ the rail entry always OPENS (F12): a toggle closed a dock left open on another
+        // surface, out of sight, and the tap seemed to do nothing. The dock's ✕ closes it.
+        onSuche={() => openSuche()}
         // the phone chooser's row OPENS it — a list row that closed what it names would be a trap
         onSucheOpen={() => openSuche()}
         sucheOn={sucheSurfaceOn}

@@ -165,3 +165,13 @@
 .sheet.withChips:global(.ui-detent) { --detent-peek: 108px; }
 /* at peek the tool bar stays (15-mobile.css · .suche-peek): the one line stands on IT */
 :global(.app.phone-tools.suche-peek) .sheet:global(.ui-detent) { --detent-bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
+
+/* ⚠️ What else stands on the surface keeps clear of the dock (walk-through 25.09.2026): the
+   Meldeleiste ended over the dock's ✕ at 820 px (N13), and the Grundgerüst card's «hier setzen»
+   and «ausblenden» ran under it (N25). Both stop at the dock's left edge — the dock's own geometry
+   (.dock above: right = vrail + 26px, width = --suche-dock-w) plus a 12px channel. */
+:global(:root:has([data-suche-dock])) :global(.ml) {
+  right: calc(var(--vrail-w, 60px) + 26px + var(--suche-dock-w, 340px) + 12px); }
+:global(.app:has([data-suche-dock])) :global(.lgg:not(.lgg-phone)) {
+  width: auto; max-width: 340px;
+  right: calc(var(--vrail-w, 60px) + 26px + var(--suche-dock-w, 340px) + 12px); }

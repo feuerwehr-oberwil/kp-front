@@ -2869,12 +2869,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         never hides the order, and level 0 is the blue one */}
                     <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>
                     <span className="wb-floor-name">{building.floorNames?.[String(f)] ?? floorLabel(f)}</span>
-                    {/* the Suche's progress on this storey — the stack alone answers «wo waren wir» */}
-                    {storeyBadges?.[f] && (
-                      <span className="wb-floor-suche" data-complete={storeyBadges[f].complete || undefined} data-active={storeyBadges[f].active || undefined}>
-                        {storeyBadges[f].complete ? <Icon id="check" /> : null}{storeyBadges[f].text}
-                      </span>
-                    )}
                     {/* fold this storey away – a way of LOOKING, so it stands on every surface,
                         read-only ones included, and never asks (the strip it leaves is the way back) */}
                     {floorsTTB.length > 1 && (
@@ -2886,6 +2880,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFloor(f)}><Icon id="close" /></button>
                     )}
                   </div>
+                  {/* the Suche's progress on this storey — the stack alone answers «wo waren wir».
+                      ⚠️ Its OWN line under the label, not in the label row (walk-through 25.09.2026,
+                      F9): on a narrow tile the row runs into the tile's top-right corner, where
+                      «Geschoss entfernen» stands, and a tap on «0/1» removed the storey. */}
+                  {storeyBadges?.[f] && (
+                    <span className="wb-floor-suche" data-complete={storeyBadges[f].complete || undefined} data-active={storeyBadges[f].active || undefined}>
+                      {storeyBadges[f].complete ? <Icon id="check" /> : null}{storeyBadges[f].text}
+                    </span>
+                  )}
                   {/* (the north dial used to be drawn on this tile, top-right. It now floats in
                       the viewport's corner — see <PlanCompass> below the board: inside the tile
                       it panned and zoomed away with the paper, taking the rotation control with
