@@ -16,7 +16,10 @@ import type { BoardAnno, Drawing, Entity } from './types'
 
 const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], role: 'editor' as string, phone: false }))
 type MapProps = Record<string, unknown> & {
-  entities: Entity[]; drawings: Drawing[]; selectedId: string | null; onSelect: (e: Entity) => void; onMapClick: (c: [number, number]) => void
+  entities: Entity[]; drawings: Drawing[];
+  onMarkerDragStart: (id: string) => void
+  onMarkerDragEnd: (id: string, c: [number, number], join?: null, dock?: { hostId: string } | null) => void
+  selectedId: string | null; onSelect: (e: Entity) => void; onMapClick: (c: [number, number]) => void
 }
 const lastMap = () => rec.map[rec.map.length - 1] as MapProps
 
@@ -99,7 +102,8 @@ const meta = (over: Partial<IncidentMeta> = {}): IncidentMeta => ({
   report_done_at: null, workspace_rev: 0, created_by: null, created_at: '2026-09-24T10:00:00Z', updated_at: '2026-09-24T10:00:00Z',
   ...over,
 })
-const truck = { id: 'p1', kind: 'symbol', symbol: 'VKF Fahrzeug', coord: [7.6, 47.5] } as Entity
+const truck = { id: 'p1', kind: 'symbol', symbol: 'VKF Fahrzeug', label: 'TLF', coord: [7.6, 47.5] } as Entity
+const placard = { id: 'pl1', kind: 'symbol', symbol: appConfig.symbols.placardName, label: 'Tafel', coord: [7.601, 47.501] } as Entity
 
 const settle = async (ms = 30) => { await act(async () => { await new Promise((r) => setTimeout(r, ms)) }) }
 async function mount(opts: { m?: IncidentMeta; incidents?: IncidentMeta[]; workspace?: Partial<Saved>; forceReadOnly?: boolean } = {}) {
@@ -163,6 +167,25 @@ describe('what the undo step says', () => {
   })
 })
 
+describe('every Karte undo step names its act and object (R3-3)', () => {
+  const undoButton = (action: string) => screen.queryAllByRole('button', { name: fillTemplate(appConfig.copy.undoNamed, { action }) })
+
+  it('a move reads «TLF verschoben» — the Verlauf row\'s words', async () => {
+    await mount()
+    act(() => { lastMap().onMarkerDragStart('p1'); lastMap().onMarkerDragEnd('p1', [7.6005, 47.5005]) })
+    await settle()
+    expect(undoButton(fillTemplate(appConfig.copy.log.objectMoved, { name: 'TLF' })).length).toBeGreaterThan(0)
+    expect(undoButton(appConfig.copy.undoDomains.karte)).toHaveLength(0)
+  })
+
+  it('a dock reads the dock row, not the move row that follows it', async () => {
+    await mount({ workspace: { entities: [truck, placard] } as unknown as Partial<Saved> })
+    act(() => { lastMap().onMarkerDragStart('pl1'); lastMap().onMarkerDragEnd('pl1', [7.6001, 47.5001], null, { hostId: 'p1' }) })
+    await settle()
+    expect(undoButton(fillTemplate(appConfig.copy.log.placardDocked, { name: 'Tafel', host: 'TLF' })).length).toBeGreaterThan(0)
+  })
+})
+
 describe('a line row arms the gesture it promises', () => {
   it('«+ Zufahrt» arms Punkte: taps lay the points, ✓ draws the Zufahrt, the row ticks', async () => {
     await mount()
@@ -184,6 +207,16 @@ describe('a line row arms the gesture it promises', () => {
     // …and its ↶ says what it takes back, in the Verlauf row's words
     const action = fillTemplate(appConfig.copy.log.shapeDrawn, { name: 'Zufahrt' })
     expect(screen.getAllByRole('button', { name: fillTemplate(appConfig.copy.undoNamed, { action }) }).length).toBeGreaterThan(0)
+  })
+})
+
+describe('the card holds still (V5)', () => {
+  it('opening an object editor does not re-class (i.e. move) the card', async () => {
+    await mount()
+    const before = card()!.className
+    act(() => lastMap().onSelect(truck))
+    await settle()
+    expect(card()!.className).toBe(before)
   })
 })
 

@@ -365,3 +365,22 @@ export function grundgeruestProgress(rows: readonly GrundgeruestRow[]): { done: 
   const done = required.filter((r) => r.match.done).length
   return { done, total: required.length, complete: required.length > 0 && done === required.length }
 }
+
+// --- «hier setzen» never lands under the card --------------------------------------------------
+
+export interface ScreenRect { left: number; top: number; right: number; bottom: number }
+
+/**
+ * How far to pan the Karte so a point at `p` (screen px) is no longer under the card `rect`, as a
+ * MapLibre `panBy` offset — or null when it is clear already. The shorter of the two ways out
+ * wins: sideways past the card's right edge, or up past its top (the card sits bottom-left), each
+ * with `margin` of air so the symbol and its caption stand free. Staging 3am V5 (25.09.2026): at
+ * 820 px the card covered a KP it had just placed, selected and all.
+ */
+export function panClearOf(p: { x: number; y: number }, rect: ScreenRect, margin = 48): [number, number] | null {
+  const inside = p.x >= rect.left - margin && p.x <= rect.right + margin && p.y >= rect.top - margin && p.y <= rect.bottom + margin
+  if (!inside) return null
+  const right = rect.right + margin - p.x // content must move RIGHT by this much ⇒ panBy(-x)
+  const up = p.y - (rect.top - margin) // …or UP by this much ⇒ panBy(+y)
+  return right <= up ? [-right, 0] : [0, up]
+}

@@ -16,8 +16,6 @@ interface Props {
   phone: boolean
   /** PHONE: open on arrival (the card was asked for from the «+» sheet) */
   startOpen?: boolean
-  /** TABLET: lift the card out of the bottom lane while the selection bar stands in it */
-  raised?: boolean
   onArm: (row: GrundgeruestRow) => void
   onPlace: (row: GrundgeruestRow) => void
   onToKarte: (row: GrundgeruestRow) => void
@@ -35,7 +33,7 @@ interface Props {
  * strip above the tool bar — collapsed it is one pill with the count, so it never covers the
  * phone's two bars, and the host hides it while a tool dock or the selection bar needs that lane.
  */
-export function LageGrundgeruestCard({ rows, progress, fallback, noLocation, armedSlotId, phone, startOpen, raised, onArm, onPlace, onToKarte, onHide }: Props) {
+export function LageGrundgeruestCard({ rows, progress, fallback, noLocation, armedSlotId, phone, startOpen, onArm, onPlace, onToKarte, onHide }: Props) {
   const C = appConfig.copy.lageGrundgeruest
   // phone only: the strip starts as one pill — a list over half a 360px Karte is the thing a
   // 3am operator did not ask for, and the pill's count is already the prompt
@@ -45,7 +43,7 @@ export function LageGrundgeruestCard({ rows, progress, fallback, noLocation, arm
 
   return (
     <section
-      className={`lgg${phone ? ' lgg-phone' : ''}${phone && !open ? ' lgg-folded' : ''}${raised ? ' lgg-raised' : ''}${progress.complete ? ' lgg-complete' : ''}`}
+      className={`lgg${phone ? ' lgg-phone' : ''}${phone && !open ? ' lgg-folded' : ''}${progress.complete ? ' lgg-complete' : ''}`}
       aria-label={C.title}
     >
       <header className="lgg-head">

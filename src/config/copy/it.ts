@@ -429,6 +429,8 @@ export const it: Localizable<Copy> = {
   undoDomains: {
     symbolPlaced: '{name} posizionato',
     symbolToKarte: '{name} ripreso sulla carta',
+    objectChanged: '{name} modificato',
+    objectsChanged: '{n} oggetti modificati',
     reference: 'Riferimento adattato',
     blattform: 'Forma del foglio misurata',
     karte: 'Modifica sulla mappa',
