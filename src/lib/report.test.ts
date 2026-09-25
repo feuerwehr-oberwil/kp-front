@@ -247,6 +247,18 @@ describe('report journal rows', () => {
     expect(journalRows(events, plans).map((r) => r.id)).toEqual(['d1', 'u1', 'd2'])
   })
 
+  // D6 of the final walk-through: a move prints no row, so its ↶ must not print either
+  it('prints a ↶ row only WITH the row it counters — a move’s undo stays off paper like the move', () => {
+    const events: TimelineEvent[] = [
+      { id: 'mv', t: '09:00', at: '2026-06-23T07:00:00.000Z', icon: 'select', text: 'KP Front verschoben', kind: 'symbol' },
+      { id: 'mvU', t: '09:01', at: '2026-06-23T07:01:00.000Z', icon: 'undo', text: 'KP Front verschoben rückgängig gemacht', kind: 'history' },
+      { id: 'set', t: '09:02', at: '2026-06-23T07:02:00.000Z', icon: 'hex', text: 'Symbol «Feuer» gesetzt', kind: 'symbol' },
+      { id: 'setU', t: '09:03', at: '2026-06-23T07:03:00.000Z', icon: 'undo', text: 'Symbol «Feuer» gesetzt rückgängig gemacht', kind: 'history' },
+      { id: 'setR', t: '09:04', at: '2026-06-23T07:04:00.000Z', icon: 'redo', text: 'Symbol «Feuer» gesetzt wiederhergestellt', kind: 'history' },
+    ]
+    expect(journalRows(events, plans).map((r) => r.id)).toEqual(['set', 'setU', 'setR'])
+  })
+
   it('names the Bereich each row actually came from', () => {
     const at = (n: number) => `2026-08-08T2${n}:00:00.000Z`
     const events: TimelineEvent[] = [

@@ -131,7 +131,10 @@ to prod.
     undoable twice. ⚠️ …and it writes the SAME counter-row the ↶ would (25.09.2026,
     `IncidentWorkspace · oneShotUndoToast`): a storey restored from the toast used to leave
     «Geschoss 3. OG entfernt» alone on the printed Einsatzjournal. The Rapport prints the ↶ / ↷
-    rows as well (`report · journalRows`) — a taken-back act is two rows, on paper too.
+    rows as well (`report · journalRows`) — a taken-back act is two rows, on paper too. ⚠️ And a
+    counter-row exists only beside the row it counters (26.09.2026): a one-shot whose act wrote
+    no row undoes silently (`rememberOneShot(…, 'silent')`), and a ↶ of an act the paper does not
+    print (a move) is not printed either (`report · historyCountersPrintedRow`).
   Two rules that fall out of it: a surface that persists on every **keystroke** classifies its
   writes so a burst of typing is ONE step and a value/row appearing or disappearing is its own
   (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate drops the whole

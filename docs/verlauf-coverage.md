@@ -236,6 +236,20 @@ taken back. Two causes, both closed:
   - An Anwesenheit row cleared: the toast writes «Anwesenheit wiederhergestellt: {name}».
   Toasts that undo an act which wrote no row (a shift, a Rapport-Beilage, an attendance block)
   still write none: there is nothing on the record for them to answer.
+- ⚠️ **The rule, stated once (final walk-through, 2026-09-26, D6): a counter-row exists only
+  beside the row it counters.** Writing side: a one-shot whose act wrote no row takes its ↶ / ↷
+  silently (`rememberOneShot(…, 'silent')`) – an Ansicht saved, renamed or deleted, the Gebäude
+  Drehung, a Gebäude swap, a Rapport-Beilage added, captioned or removed. Paper side: a move
+  writes a row on screen but never prints (`report · printableTacticalText`), so its ↶ / ↷ does
+  not print either (`report · historyCountersPrintedRow`) – «KP Front verschoben rückgängig
+  gemacht» stood alone on paper. A ↶ row that names no act (the old «Aktion rückgängig gemacht»,
+  a domain word like «Änderung auf der Karte») still prints: it is the record's only statement
+  that something was taken back.
+- **Storey rows name their storey** (`subjectId` `storey:<n>`, `lib/storeyRemoval ·
+  storeySubject`), so the repeat fold keeps removals and restores apart («entfernt 2×» /
+  «wiederhergestellt 2×» on paper, where the order was entfernt, wiederhergestellt, entfernt,
+  wiederhergestellt) and never folds two storeys. Adding a storey writes «Geschoss 4. OG
+  hinzugefügt» now (it wrote nothing), taken back as «… entfernt».
 - **A ↶ / ↷ row ends every repeat run** (`lib/verlauf · repeatRuns`). «Gefahrentafel angedockt» ·
   ↶ · «… angedockt» again within two minutes folded into ONE row «2×» – the paper then said the
   placard was docked twice with nothing in between (F2c). It was two acts; the dock row has one
@@ -335,9 +349,9 @@ not operator actions. Ordered by operational impact.
 3. *(closed 2026-09-24, see «Gelöscht / erledigt» above)* ~~Deleting a single Plan annotation~~.
 4. **Rapport attachments** – adding/removing audit only, the image caption not at all
    (`src/IncidentWorkspace.tsx`, Rapport attachments block).
-5. **Driver of a GPS vehicle** and **creating a building/floor** have no channel. *(Removing a
-   storey writes its own row since 2026-09-25 – «Geschoss 3. OG entfernt», with the markings it
-   took or cut short – where it used to write only its «… rückgängig gemacht».)*
+5. **Driver of a GPS vehicle** and **creating a building** have no channel. *(Adding and removing a
+   storey write their own rows since 2026-09-25/26 – «Geschoss 4. OG hinzugefügt», «Geschoss 3.
+   OG entfernt» with the markings it took or cut short.)*
 
 *(The file paths deliberately carry no line numbers: this file has gone stale twice because
 `IncidentWorkspace.tsx` moved, not because the behavior changed.)*

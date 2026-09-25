@@ -2757,6 +2757,7 @@ export const de = {
     floorRemovedLog: 'Geschoss {floor} entfernt',
     floorRemovedLogMarks: 'Geschoss {floor} entfernt – {n} Markierungen entfernt oder gekürzt',
     floorRestoredLog: 'Geschoss {floor} wiederhergestellt',
+    floorAddedLog: 'Geschoss {floor} hinzugefügt',
     floorAdded: 'Geschoss hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
     buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',

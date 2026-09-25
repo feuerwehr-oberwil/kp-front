@@ -34,3 +34,13 @@ export function storeyRemovedRow(storey: string, lost: number): string {
 export function storeyRestoredRow(storey: string): string {
   return fillTemplate(appConfig.copy.whiteboard.floorRestoredLog, { floor: storey })
 }
+
+/** …and its creation row — «Geschoss 4. OG hinzugefügt» (26.09.2026: «+ OG / + UG» wrote none,
+ *  while its ↶ wrote a row about it). */
+export function storeyAddedRow(storey: string): string {
+  return fillTemplate(appConfig.copy.whiteboard.floorAddedLog, { floor: storey })
+}
+
+/** The SUBJECT every storey row names (types · TimelineEvent.subjectId), so the repeat fold keeps
+ *  two storeys apart and ends a storey's run at its next act (lib/verlauf · repeatRuns). */
+export const storeySubject = (floor: number): string => `storey:${floor}`

@@ -1676,6 +1676,7 @@ export const en: Localizable<Copy> = {
     floorRemovedLog: 'Floor {floor} removed',
     floorRemovedLogMarks: 'Floor {floor} removed – {n} markings removed or shortened',
     floorRestoredLog: 'Floor {floor} restored',
+    floorAddedLog: 'Floor {floor} added',
     floorAdded: 'Floor added',
     buildingReplaced: 'Building replaced',
     buildingReplacedMarks: 'Building replaced – {n} markings removed',

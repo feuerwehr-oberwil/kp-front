@@ -1672,6 +1672,7 @@ export const fr: Localizable<Copy> = {
     floorRemovedLog: 'Étage {floor} retiré',
     floorRemovedLogMarks: 'Étage {floor} retiré – {n} marquages retirés ou raccourcis',
     floorRestoredLog: 'Étage {floor} rétabli',
+    floorAddedLog: 'Étage {floor} ajouté',
     floorAdded: 'Étage ajouté',
     buildingReplaced: 'Bâtiment remplacé',
     buildingReplacedMarks: 'Bâtiment remplacé – {n} marquages retirés',

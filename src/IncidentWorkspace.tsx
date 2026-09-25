@@ -134,7 +134,7 @@ import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
 import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
-import { askStoreyRemoval, storeyRemovedRow, storeyRestoredRow } from './lib/storeyRemoval'
+import { askStoreyRemoval, storeyAddedRow, storeyRemovedRow, storeyRestoredRow, storeySubject } from './lib/storeyRemoval'
 import { floorPackOf, packFloorNames, packStoreys } from './lib/floorPackBinding'
 import { floorLabel } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
@@ -1864,7 +1864,7 @@ export function IncidentWorkspace({
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
    *  timeline helper is created much further down — the same shape `reportSetRef` uses. */
-  const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => () => void>(() => () => {})
+  const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void, rows?: OneShotRows | 'silent') => () => void>(() => () => {})
   /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
    *  letter (same window and the same reason as the Rapportangaben above). */
   const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
@@ -2734,7 +2734,7 @@ export function IncidentWorkspace({
       // cheap to make and was impossible to unmake except by deleting it through a confirm.
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => vs.filter((x) => x.id !== v.id)),
-        () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])))
+        () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])), 'silent')
       toast(appConfig.copy.mapViews.saved, { icon: 'compass', tone: 'success' })
     },
     onRename: (id, name) => {
@@ -2743,7 +2743,7 @@ export function IncidentWorkspace({
       setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v)))
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name: prev.name } : v))),
-        () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))))
+        () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))), 'silent')
     },
     onDelete: async (id) => {
       const index = cameraViews.findIndex((x) => x.id === id)
@@ -2755,7 +2755,7 @@ export function IncidentWorkspace({
       // comes back at the position it stood in, because the list is in save order
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => (vs.some((x) => x.id === id) ? vs : [...vs.slice(0, index), v, ...vs.slice(index)])),
-        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)))
+        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)), 'silent')
     },
   }
   // Open/close the views popover. Opening it first drops any active tool and the Ebenen
@@ -3546,18 +3546,22 @@ export function IncidentWorkspace({
    * own sentence, so the header says «Rückgängig: Geschoss gelöscht» and not «… Gebäude».
    */
   /** `rows` replaces the generic «… rückgängig gemacht / wiederhergestellt» with the act's own
-   *  counter-rows where it has better words («Geschoss 3. OG wiederhergestellt»). */
-  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, rows?: OneShotRows) => undoHist.push({
+   *  counter-rows where it has better words («Geschoss 3. OG wiederhergestellt»). ⚠️ `'silent'`
+   *  for an act that wrote NO row (staging walk-through 26.09.2026, D6): a counter-row about an
+   *  act the record never mentioned is the paper describing something it never said happened —
+   *  an Ansicht, a Drehung, a Gebäude swap, a Beilage (verlauf-coverage · «taken back»). */
+  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, rows?: OneShotRows | 'silent') => undoHist.push({
     domain,
     label,
     undo: () => { restore(); oneShotRow('undo', label, rows); return true },
     redo: () => { reapply(); oneShotRow('redo', label, rows); return true },
   })
   rememberOneShotRef.current = rememberOneShot
-  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void, rows?: OneShotRows) =>
+  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void, rows?: OneShotRows | 'silent') =>
     rememberOneShot('gebaeude', label, restore, reapply, rows)
   /** The row a one-shot's step owes the record, in either direction — its own words, or the generic ones. */
-  const oneShotRow = (dir: 'undo' | 'redo', label: string, rows?: OneShotRows) => {
+  const oneShotRow = (dir: 'undo' | 'redo', label: string, rows?: OneShotRows | 'silent') => {
+    if (rows === 'silent') { histSide.current.emit(dir); return }
     if (!rows) { logHistStep(dir, label, ''); return }
     rows[dir]()
     histSide.current.emit(dir)
@@ -3568,7 +3572,7 @@ export function IncidentWorkspace({
    * the toast left «Geschoss 3. OG entfernt» standing alone on the printed Einsatzjournal, about a
    * storey that still existed) — and drops the timeline entry, so the act is never taken back twice.
    */
-  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: () => void, rows?: OneShotRows) =>
+  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: () => void, rows?: OneShotRows | 'silent') =>
     undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) })
 
   /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
@@ -5687,8 +5691,9 @@ export function IncidentWorkspace({
                 : wb.buildingReplacedKept
               const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
               const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
-              const drop = rememberGebaeudeStep(line, restore, reapply)
-              oneShotUndoToast(line, line, restore, drop)
+              // the swap writes no Verlauf row, so neither does taking it back (D6, 26.09.2026)
+              const drop = rememberGebaeudeStep(line, restore, reapply, 'silent')
+              oneShotUndoToast(line, line, restore, drop, 'silent')
             }
           }}
           // the two faces of the ONE «Gebäude» rail tile. Both plan ids stay real documents —
@@ -5707,7 +5712,7 @@ export function IncidentWorkspace({
             if (folding) prev.drop()
             setBuilding(next)
             if (!from) return
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next))
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next), 'silent')
             lastReorient.current = { at: now, from, drop }
           }}
           onAddFloor={(dir) => {
@@ -5724,8 +5729,14 @@ export function IncidentWorkspace({
               setBuilding(prevBuilding)
               setBoard((b) => ({ ...b, gebaeude: withoutOwnOnStorey(b.gebaeude ?? [], sheetAnchoredIds(objectsRef.current, 'gebaeude'), newFloor) }), { gesture: false })
             }
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
-            oneShotUndoToast(appConfig.copy.whiteboard.floorAdded, appConfig.copy.whiteboard.floorAdded, restore, drop)
+            // …and it says so, the way the removal does («Deleting and creating belong in the same
+            // channel»): «Geschoss 4. OG hinzugefügt», taken back as «… entfernt», per storey
+            const subject = { subjectId: storeySubject(newFloor) }
+            const addedRow = () => logPlan('plus', storeyAddedRow(floorLabel(newFloor)), subject)
+            const rows: OneShotRows = { undo: () => logPlan('undo', storeyRemovedRow(floorLabel(newFloor), 0), subject), redo: addedRow }
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding), rows)
+            oneShotUndoToast(appConfig.copy.whiteboard.floorAdded, appConfig.copy.whiteboard.floorAdded, restore, drop, rows)
+            addedRow()
           }}
           onRemoveFloor={async (floor) => {
             if (building?.pack || floorPack?.tiles[floor]) return
@@ -5754,14 +5765,18 @@ export function IncidentWorkspace({
             // gemacht», never the removal it took back, and the toast's undo wrote nothing at all)
             // — «Geschoss 3. OG entfernt», and «… wiederhergestellt» when it comes back, by the
             // toast or by ↶ alike; ↷ says «entfernt» again
+            // ⚠️ each row names its STOREY as its subject (D6, 26.09.2026): without one, the repeat
+            // fold matched «entfernt» across the «wiederhergestellt» between them and printed
+            // «Geschoss 3. OG entfernt 2×», and two different storeys could fold into one
             const removedRow = storeyRemovedRow(floorLabel(floor), sweep.lost)
+            const subject = { subjectId: storeySubject(floor) }
             const rows: OneShotRows = {
-              undo: () => logPlan('undo', storeyRestoredRow(floorLabel(floor))),
-              redo: () => logPlan('close', removedRow),
+              undo: () => logPlan('undo', storeyRestoredRow(floorLabel(floor)), subject),
+              redo: () => logPlan('close', removedRow, subject),
             }
             const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply, rows)
             oneShotUndoToast(appConfig.copy.whiteboard.floorRemoved, appConfig.copy.whiteboard.floorRemoved, restore, drop, rows)
-            logPlan('close', removedRow)
+            logPlan('close', removedRow, subject)
           }}
           sym={sym}
           rosterNames={rosterNames}
