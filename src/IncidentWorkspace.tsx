@@ -5132,7 +5132,17 @@ export function IncidentWorkspace({
           // Angedockte Gefahrentafel (lib/docking): name the host, offer the release — the drop
           // gesture that made the bond draws nothing, so this row is where it becomes visible.
           dockedToLabel={selected.dockedTo ? doc.entities.find((e) => e.id === selected.dockedTo)?.label || appConfig.copy.entities.fallbackObjectName : undefined}
-          onUndock={selected.dockedTo && !tacticalLocked ? () => patchEntity(selected.id, { dockedTo: undefined }) : undefined}
+          // …and «Lösen» says so in the Verlauf, the row the drag that made the bond wrote in the
+          // other direction (staging walk-through 25.09.2026: it wrote none, so the paper held
+          // «angedockt» with nothing to close it)
+          onUndock={selected.dockedTo && !tacticalLocked ? () => {
+            const host = doc.entities.find((e) => e.id === selected.dockedTo)
+            patchEntity(selected.id, { dockedTo: undefined })
+            log('select', fillTemplate(appConfig.copy.log.placardUndocked, {
+              name: selected.label || appConfig.copy.entities.fallbackObjectName,
+              host: host?.label || appConfig.copy.entities.fallbackObjectName,
+            }), 'symbol', undefined, selected.id)
+          } : undefined}
           // …and the same bond from the HOST's side: the Trupps standing on THIS symbol, one row
           // each, worded «Trupp 4 · bei «Hydrant»» so a row names both sides before «Lösen»
           // separates them — the mirror of the marker's own join slot (components/TwinTeamPill).

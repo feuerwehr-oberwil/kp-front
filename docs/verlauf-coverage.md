@@ -236,6 +236,12 @@ taken back. Two causes, both closed:
   - An Anwesenheit row cleared: the toast writes «Anwesenheit wiederhergestellt: {name}».
   Toasts that undo an act which wrote no row (a shift, a Rapport-Beilage, an attendance block)
   still write none: there is nothing on the record for them to answer.
+- **A ↶ / ↷ row ends every repeat run** (`lib/verlauf · repeatRuns`). «Gefahrentafel angedockt» ·
+  ↶ · «… angedockt» again within two minutes folded into ONE row «2×» – the paper then said the
+  placard was docked twice with nothing in between (F2c). It was two acts; the dock row has one
+  writer (the hand's own gesture, `IncidentWorkspace · finishEntityMove`), carried placards and
+  merges write none, and journal rows merge by id. «Lösen» in the placard's panel now writes its
+  «… von «{host}» gelöst» too.
 
 ## What a Verlauf row can carry since 17.08.
 

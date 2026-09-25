@@ -176,6 +176,11 @@ export function repeatRuns(events: TimelineEvent[]): {
     const key = `${obj}\u0000${text}`
     const ms = Date.parse(e.at!)
     if (!Number.isFinite(ms)) continue
+    // ⚠️ A ↶ / ↷ row ends EVERY open run (staging walk-through 25.09.2026, F2c). It names no
+    // object, yet it takes an act back — so the same line after it is a new act, not the app
+    // repeating itself: «Gefahrentafel angedockt», ↶, «… angedockt» again printed as ONE row
+    // «2×», and the paper then said the placard was docked twice with nothing in between.
+    if (e.kind === 'history') { open.clear(); openOf.clear(); continue }
     const run = open.get(key)
     // …and, for a row that names its object, only while nothing else has happened to it since
     if (run && ms - run.lastMs <= REPEAT_WINDOW_MS && (!obj || openOf.get(obj) === key)) {

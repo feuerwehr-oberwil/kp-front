@@ -229,6 +229,24 @@ describe('report journal rows', () => {
     expect(journalRows(events, plans).map((r) => r.id)).toEqual(['set', 'undo', 'legacy'])
   })
 
+  // F2(c) of the same walk-through: «Gefahrentafel angedockt» printed twice «with nothing in
+  // between». It was two real acts — dock, ↶, dock again — and the ↶ between them was the row the
+  // paper dropped; within two minutes the repeat fold even merged the two into ONE «2×» row
+  // (lib/verlauf · repeatRuns now ends every run at a ↶/↷). Only one writer produces the dock row
+  // (IncidentWorkspace · finishEntityMove, on the device whose hand made the gesture; a merge, a
+  // carried placard and ↶/↷ write none), and journal rows merge by id, so another device never
+  // adds a second copy.
+  it('prints the ↶ between two docks of the same placard, so the second «angedockt» makes sense', () => {
+    const row = (id: string, n: number, text: string, kind: TimelineEvent['kind']): TimelineEvent =>
+      ({ id, t: `09:0${n}`, at: `2026-06-23T07:0${n}:00.000Z`, icon: kind === 'history' ? 'undo' : 'select', text, kind, ...(kind === 'history' ? {} : { entityId: 'placard' }) })
+    const events = [
+      row('d1', 1, 'Gefahrentafel angedockt an «TLF»', 'symbol'),
+      row('u1', 2, 'Änderung auf der Karte rückgängig gemacht', 'history'),
+      row('d2', 3, 'Gefahrentafel angedockt an «TLF»', 'symbol'),
+    ]
+    expect(journalRows(events, plans).map((r) => r.id)).toEqual(['d1', 'u1', 'd2'])
+  })
+
   it('names the Bereich each row actually came from', () => {
     const at = (n: number) => `2026-08-08T2${n}:00:00.000Z`
     const events: TimelineEvent[] = [
