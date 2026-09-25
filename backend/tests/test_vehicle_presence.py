@@ -48,10 +48,8 @@ SCENE = (LAT, LNG)
 @pytest.fixture(autouse=True)
 def _clean_state():
     vp.reset_state()
-    vp._last_seen.clear()
     yield
     vp.reset_state()
-    vp._last_seen.clear()
 
 
 # --- the pure state machine -------------------------------------------------------------
@@ -196,12 +194,19 @@ def test_a_manual_row_keeps_its_times_but_the_table_still_learns():
     assert changed and row["gps"]["zone"] == "away" and ours  # a person's time: the row is still ours
 
 
-def test_the_last_departure_moves_with_the_shuttle_while_it_is_the_servers():
+def test_the_scene_departure_lives_in_gps_ab_and_zurueck_stays_the_geofences():
+    """Decided 25.09.2026: `zurueck` is «back at the DEPOT» in the milestone vocabulary. The scene
+    rings cannot know that, so the server never writes it — the departure is `gps.ab`."""
     ws, _, _ = vp.apply_gps_presence(None, "mtf", _presence(zone="away", n=2, last_departure=T0))
     later = T0 + timedelta(minutes=30)
     ws, _, _ = vp.apply_gps_presence(ws, "mtf", _presence(zone="away", n=4, fahrten=2, last_departure=later))
     row = ws["reportMeta"]["fahrzeuge"][0]
-    assert row["zurueck"] == later.isoformat() and row["gps"]["fahrten"] == 2
+    assert "zurueck" not in row and row["gps"]["ab"] == later.isoformat() and row["gps"]["fahrten"] == 2
+    assert row["gps"]["owns"] == ["vorOrt"]
+    # …and the geofence's «zurück» lands, before or after the server's observation
+    back = MilestonesIn(divera_id=1, vehicles=[{"id": "mtf", "zurueck": "2026-09-23T18:10:00Z"}])
+    ws, changed, _ = apply_milestones(ws, back, {}, {"mtf": "MTF"})
+    assert changed == 1 and ws["reportMeta"]["fahrzeuge"][0]["zurueck"] == "2026-09-23T18:10:00+00:00"
 
 
 # --- the tick, against the database ------------------------------------------------------
@@ -225,10 +230,16 @@ async def incident(db_session):
     return inc
 
 
-async def _tick(db, where, fix: datetime, now: datetime | None = None, **kw) -> int:
-    n = await vp.observe(db, [_pos(where, fix, **kw)], now or fix)
+async def _run(db, positions, now: datetime) -> int:
+    """A tick the way the scheduler runs it: observe, commit, THEN apply the memory."""
+    tick = await vp.observe(db, positions, now)
     await db.commit()
-    return n
+    tick.commit()
+    return tick.written
+
+
+async def _tick(db, where, fix: datetime, now: datetime | None = None, **kw) -> int:
+    return await _run(db, [_pos(where, fix, **kw)], now or fix)
 
 
 async def _settle(db, where, first: datetime, **kw) -> None:
@@ -266,7 +277,7 @@ async def test_an_arrival_reaches_the_verlauf_and_the_rapport_with_the_fix_time(
     await _settle(db_session, SCENE, arrived)
 
     rows = await _rows(db_session, incident)
-    assert [(r["id"], r["text"], r["at"]) for r in rows] == [("vp-1-scene-gps-3", "TLF vor Ort", arrived.isoformat())]
+    assert [(r["id"], r["text"], r["at"]) for r in rows] == [("vps-1-scene-gps-3", "TLF vor Ort", arrived.isoformat())]
     assert rows[0]["entityId"] == "gps-3"
     events = await _events(db_session, incident)
     assert [e.client_id for e in events] == ["vp:3:0", "vp:3:1"]
@@ -297,11 +308,11 @@ async def test_the_trips_between_are_counted_not_written(db_session, incident):
     last = t + timedelta(minutes=35)
     await _settle(db_session, AWAY, last)
     # still owed: the vehicle has been gone for less than FINAL_AWAY_S
-    assert [r["id"] for r in await _rows(db_session, incident)] == ["vp-1-scene-gps-3"]
+    assert [r["id"] for r in await _rows(db_session, incident)] == ["vps-1-scene-gps-3"]
     # …and once it stayed away, the LAST departure is written, stamped when it left
     await _tick(db_session, AWAY, last + timedelta(seconds=vp.FINAL_AWAY_S + 60))
     rows = await _rows(db_session, incident)
-    assert [r["id"] for r in rows] == ["vp-1-scene-gps-3", "vp-4-away-gps-3"]
+    assert [r["id"] for r in rows] == ["vps-1-scene-gps-3", "vps-4-away-gps-3"]
     assert rows[1]["at"] == last.isoformat() and rows[1]["text"] == "TLF hat den Einsatzort verlassen"
     await db_session.refresh(incident)
     gps = incident.map_workspace_json["reportMeta"]["fahrzeuge"][0]["gps"]
@@ -332,7 +343,7 @@ async def test_a_departure_owed_across_a_restart_is_still_written_once(db_sessio
     await _tick(db_session, AWAY, now)  # rebuilt, and 55 min away: due
     vp.reset_state()
     await _tick(db_session, AWAY, now + timedelta(seconds=30))  # rebuilt again: already written
-    assert [r["id"] for r in await _rows(db_session, incident)] == ["vp-1-away-gps-3"]
+    assert [r["id"] for r in await _rows(db_session, incident)] == ["vps-1-away-gps-3"]
 
 
 async def test_closing_the_einsatz_writes_the_owed_departure(db_session, incident):
@@ -344,10 +355,9 @@ async def test_closing_the_einsatz_writes_the_owed_departure(db_session, inciden
     incident.status = "abgeschlossen"
     incident.is_archived = True
     await db_session.commit()
-    await vp.observe(db_session, [], now)
-    await db_session.commit()
+    await _run(db_session, [], now)
     rows = await _rows(db_session, incident)
-    assert [(r["id"], r["at"]) for r in rows] == [("vp-1-away-gps-3", left.isoformat())]
+    assert [(r["id"], r["at"]) for r in rows] == [("vps-1-away-gps-3", left.isoformat())]
 
 
 async def test_the_external_geofence_first_means_no_second_vor_ort_row(db_session, incident):
@@ -419,6 +429,8 @@ async def test_an_older_clients_presence_rows_are_acknowledged_and_dropped(clien
     inc = (await client.post("/api/incidents", json={"title": "Mixed"})).json()["id"]
     rows = [
         {"id": "vp-1-scene-gps-3", "t": "19:43", "icon": "truck", "text": "TLF vor Ort"},
+        # a client must never write the server's own shape either
+        {"id": "vps-2-away-gps-3", "t": "19:44", "icon": "truck", "text": "TLF hat den Einsatzort verlassen"},
         {"id": "t1", "t": "19:44", "icon": "flag", "text": "Lage erkundet"},
     ]
     r = await client.post(f"/api/incidents/{inc}/journal", json={"entries": rows})
@@ -426,3 +438,206 @@ async def test_an_older_clients_presence_rows_are_acknowledged_and_dropped(clien
     assert [e["row"]["id"] for e in r.json()["entries"]] == ["t1"]
     page = (await client.get(f"/api/incidents/{inc}/journal")).json()
     assert [e["row"]["id"] for e in page["entries"]] == ["t1"]
+
+
+# --- review of 25.09.2026 ---------------------------------------------------------------------
+
+
+async def test_a_tick_that_fails_midway_loses_no_transition(db_session, incident, monkeypatch):
+    """The memory moves on only after the commit. A tick that raised used to leave `_state`
+    advanced over a rolled-back database: the arrival was never written, and came back later
+    stamped with the post-restart time."""
+    import app.api.journal as journal_mod
+
+    now = datetime.now(UTC)
+    await _tick(db_session, AWAY, now - timedelta(minutes=10))
+    first = now - timedelta(minutes=8)
+    for s in (0, 30, 60):
+        await _tick(db_session, SCENE, first + timedelta(seconds=s))
+
+    real = journal_mod.append_rows
+
+    async def _boom(*a, **k):
+        raise RuntimeError("the database went away mid-tick")
+
+    monkeypatch.setattr(journal_mod, "append_rows", _boom)
+    with pytest.raises(RuntimeError):
+        await vp.observe(db_session, [_pos(SCENE, first + timedelta(seconds=90))], first + timedelta(seconds=90))
+    await db_session.rollback()  # what the scheduler does; tick.commit() never ran
+    await db_session.refresh(incident)
+    monkeypatch.setattr(journal_mod, "append_rows", real)
+
+    assert await _rows(db_session, incident) == []
+    await _tick(db_session, SCENE, first + timedelta(seconds=120))
+    rows = await _rows(db_session, incident)
+    assert [(r["id"], r["at"]) for r in rows] == [("vps-1-scene-gps-3", first.isoformat())]
+
+
+async def test_every_observer_walks_the_einsaetze_in_one_order(db_session, incident):
+    """Presence and weather each hold incident row locks until their commit; walking the same
+    Einsätze in two orders is a deadlock. Both walk them by id."""
+    for i in range(4):
+        db_session.add(Incident(title=f"E{i}", source="manual", status="offen", lat=LAT, lng=LNG + i / 100))
+    await db_session.commit()
+    ids = [str(i.id) for i in await vp.active_incidents(db_session, datetime.now(UTC))]
+    assert len(ids) == 5 and ids == sorted(ids)
+
+
+async def test_a_row_an_older_client_wrote_before_the_deploy_does_not_swallow_the_servers(db_session, incident):
+    """The old hook wrote `vp-1-scene-gps-3` stamped when a tablet noticed. The server's row has
+    its own id shape, so the journal's skip-a-known-id cannot swallow it."""
+    from app.api.journal import append_rows
+
+    old = {
+        "id": "vp-1-scene-gps-3",
+        "t": "19:43",
+        "at": datetime.now(UTC).isoformat(),
+        "icon": "truck",
+        "text": "TLF vor Ort",
+    }
+    await append_rows(db_session, incident.id, [old])
+    await db_session.commit()
+    now = datetime.now(UTC)
+    await _tick(db_session, AWAY, now - timedelta(minutes=10))
+    arrived = now - timedelta(minutes=8)
+    await _settle(db_session, SCENE, arrived)
+    rows = {r["id"]: r for r in await _rows(db_session, incident)}
+    assert set(rows) == {"vp-1-scene-gps-3", "vps-1-scene-gps-3"}
+    assert rows["vps-1-scene-gps-3"]["at"] == arrived.isoformat()
+
+
+async def test_a_tracker_time_in_the_future_is_capped_at_now(db_session, incident):
+    now = datetime.now(UTC)
+    await _tick(db_session, AWAY, now + timedelta(hours=2), now=now)
+    [ev] = await _events(db_session, incident)
+    assert ev.occurred_at.replace(tzinfo=UTC) <= now
+
+
+async def test_an_unnamed_tracker_writes_no_row_where_the_geofence_writes(db_session, incident):
+    """Traccar says «TLF 1», the config and the geofence say «tlf»: the geofence has already
+    written its own «TLF vor Ort», and a second row under another name would be a duplicate."""
+    geofenced = {"reportMeta": {"fahrzeuge": [{"id": "tlf", "ausgerueckt": "2026-09-23T17:16:00+00:00"}]}}
+    incident.map_workspace_json = geofenced
+    await db_session.commit()
+    now = datetime.now(UTC)
+    await _tick(db_session, AWAY, now - timedelta(minutes=10), device_id=9, name="TLF 1")
+    await _settle(db_session, SCENE, now - timedelta(minutes=8), device_id=9, name="TLF 1")
+    assert await _rows(db_session, incident) == []
+    assert [e.client_id for e in await _events(db_session, incident)] == ["vp:9:0", "vp:9:1"]  # still recorded
+
+
+async def test_a_quiet_einsatz_stops_being_observed_with_one_row_and_resumes(db_session, incident):
+    """«Active» is a human write within 24 h, not the start time. The observers' own writes do
+    not count, so a never-closed Einsatz ends with ONE row and is not kept alive by the sweep."""
+    from app.api.journal import append_rows
+
+    now = datetime.now(UTC)
+    await _tick(db_session, AWAY, now - timedelta(minutes=10))  # observed: a baseline event
+    incident.started_at = now - timedelta(hours=30)
+    await db_session.commit()
+    # the only writes are the observer's own (the fixture has no human write) → quiet
+    assert await vp.active_incidents(db_session, now) == []
+    await _run(db_session, [_pos(SCENE, now)], now)
+    await _run(db_session, [_pos(SCENE, now)], now + timedelta(seconds=30))
+    vp.reset_state()  # a restart: still exactly one row
+    await _run(db_session, [_pos(SCENE, now)], now + timedelta(seconds=60))
+    ended = [r for r in await _rows(db_session, incident) if r["id"].startswith("obs-end-")]
+    assert len(ended) == 1 and "24 h ohne Eintrag" in ended[0]["text"]
+
+    # somebody writes → observed again
+    await append_rows(db_session, incident.id, [{"id": "t-human", "t": "", "icon": "flag", "text": "Nachkontrolle"}])
+    await db_session.commit()
+    assert [i.id for i in await vp.active_incidents(db_session, datetime.now(UTC))] == [incident.id]
+
+
+async def test_a_recent_human_write_keeps_an_old_einsatz_observed(db_session, incident):
+    from app.api.journal import append_rows
+
+    incident.started_at = datetime.now(UTC) - timedelta(hours=30)
+    await db_session.commit()
+    await append_rows(db_session, incident.id, [{"id": "t-late", "t": "", "icon": "flag", "text": "Brandwache"}])
+    await db_session.commit()
+    assert [i.id for i in await vp.active_incidents(db_session, datetime.now(UTC))] == [incident.id]
+
+
+async def test_the_close_out_runs_even_with_no_fleet_source(db_session, incident, monkeypatch):
+    """The feed switched off (or Traccar unset) must not strand an owed departure."""
+    from app import scheduler
+
+    class _Ctx:
+        async def __aenter__(self):
+            return db_session
+
+        async def __aexit__(self, *exc):
+            return False
+
+    now = datetime.now(UTC)
+    await _tick(db_session, SCENE, now - timedelta(minutes=10))
+    left = now - timedelta(minutes=5)
+    await _settle(db_session, AWAY, left)
+    incident.status = "abgeschlossen"
+    await db_session.commit()
+    monkeypatch.setattr(scheduler, "async_session_maker", lambda: _Ctx())
+    await scheduler._vehicle_samples_sweep()  # no Traccar, no fake fleet
+    assert [(r["id"], r["at"]) for r in await _rows(db_session, incident)] == [("vps-1-away-gps-3", left.isoformat())]
+
+
+async def test_a_new_scheduler_leader_forgets_the_memory(monkeypatch):
+    from app import scheduler
+    from app.config import settings
+
+    vp._state[("x", 1)] = None
+    vp._closed_out.add("x")
+    monkeypatch.setattr(settings, "demo_reset_cron", "")
+    monkeypatch.setattr(settings, "demo_reset_seconds", 0)
+    monkeypatch.setattr(scheduler, "_scheduler", None)
+    try:
+        scheduler._start_scheduler_jobs()
+    finally:
+        scheduler._stop_scheduler_jobs()
+    assert vp._state == {} and vp._closed_out == set()
+
+
+# --- the gps block is the server's -----------------------------------------------------------
+
+
+def test_a_client_save_keeps_the_servers_gps_block():
+    stored = {
+        "reportMeta": {
+            "fahrzeuge": [
+                {"id": "tlf", "vorOrt": "A", "gps": {"zone": "scene", "fahrten": 2}},
+                {"id": "mtf", "gps": {"zone": "away", "fahrten": 1}},
+            ]
+        }
+    }
+    incoming = {
+        "reportMeta": {
+            "fahrzeuge": [
+                {"id": "tlf", "vorOrt": "A", "ausgerueckt": "B", "manual": True, "gps": {"zone": "away", "fahrten": 1}},
+                {"id": "adl", "ausgerueckt": "C", "gps": {"zone": "scene"}},  # a device may not invent one
+            ]
+        }
+    }
+    vp.keep_server_gps(incoming, stored)
+    rows = {r["id"]: r for r in incoming["reportMeta"]["fahrzeuge"]}
+    assert rows["tlf"]["gps"] == {"zone": "scene", "fahrten": 2} and rows["tlf"]["manual"] is True
+    assert rows["adl"] == {"id": "adl", "ausgerueckt": "C"}
+    assert rows["mtf"] == {"id": "mtf", "gps": {"zone": "away", "fahrten": 1}}  # a dropped row keeps its block
+
+
+async def test_an_old_clients_workspace_put_cannot_erase_the_gps_block(client, editor, db_session):
+    import uuid as _uuid
+
+    r = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+    assert r.status_code == 200
+    iid = (await client.post("/api/incidents", json={"title": "PUT"})).json()["id"]
+    inc = await db_session.get(Incident, _uuid.UUID(iid))
+    inc.map_workspace_json = {"reportMeta": {"fahrzeuge": [{"id": "tlf", "gps": {"zone": "scene", "fahrten": 1}}]}}
+    await db_session.commit()
+    rev = (await client.get(f"/api/incidents/{iid}/workspace")).json()["workspace_rev"]
+    # an older build knows nothing of `gps` and saves its own Fahrzeugzeiten
+    ws = {"reportMeta": {"fahrzeuge": [{"id": "tlf", "ausgerueckt": "2026-09-23T17:16:00+00:00"}]}}
+    r = await client.put(f"/api/incidents/{iid}/workspace", json={"workspace": ws, "base_rev": rev})
+    assert r.status_code == 200, r.text
+    row = r.json()["workspace"]["reportMeta"]["fahrzeuge"][0]
+    assert row == {"id": "tlf", "ausgerueckt": "2026-09-23T17:16:00+00:00", "gps": {"zone": "scene", "fahrten": 1}}

@@ -132,7 +132,9 @@ async def append_system_row(db: AsyncSession, incident_id: uuid.UUID, *, icon: s
 #: time. A device still running the previous build keeps writing its own under the same id
 #: shape, stamped when IT noticed; those are acknowledged and dropped, so a mixed-version day
 #: converges on the server's record instead of adding the device's late copy beside it.
-_OBSERVED_BY_SERVER = re.compile(r"^vp-[0-9]+-(scene|away)-")
+#: `vp-` is what the previous client build wrote, `vps-` the server's own shape (25.09.2026) —
+#: a device writes neither.
+_OBSERVED_BY_SERVER = re.compile(r"^vps?-[0-9]+-(scene|away)-")
 
 
 def observed_by_server(entry: dict) -> bool:

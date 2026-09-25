@@ -381,9 +381,12 @@ async def _vehicle_samples_sweep() -> None:
         # vehicle track from the next tick instead of the next restart.
         await load_credentials(db)
         source = fleet_source()
-        if source is None:
-            return
         now = datetime.now(UTC)
+        if source is None:
+            # no feed — but an Einsatz that closed may still owe its vehicles' last departures,
+            # and a quiet one its «observation ended» row (the feed may have been switched off)
+            await _observe_presence(db, [], now)
+            return
         try:
             open_ids = list(
                 (
@@ -493,14 +496,17 @@ async def _vehicle_samples_sweep() -> None:
 async def _observe_presence(db: AsyncSession, positions: list, now: datetime) -> None:
     """«vor Ort» / «verlassen» for every vehicle at every active Einsatz (app.vehicle_presence).
     ⚠️ The scheduler's advisory lock makes this ONE writer per deployment; the derived ids
-    (`vp:<device>:<n>`, `vp-<n>-<zone>-gps-<device>`) make a second one harmless anyway."""
+    (`vp:<device>:<n>`, `vps-<n>-<zone>-gps-<device>`) make a second one harmless anyway.
+    ⚠️ The tick's memory is applied only AFTER the commit (`Tick.commit`): a failed tick leaves
+    both the database and the memory where they were, so the next tick writes what it missed."""
     from .vehicle_presence import observe
 
     try:
-        n = await observe(db, positions, now)
+        tick = await observe(db, positions, now)
         await db.commit()
-        if n:
-            logger.info("Vehicle presence: %d record(s) written", n)
+        tick.commit()
+        if tick.written:
+            logger.info("Vehicle presence: %d record(s) written", tick.written)
     except Exception:
         await db.rollback()
         logger.exception("Vehicle presence sweep failed")
@@ -695,6 +701,12 @@ def _start_scheduler_jobs() -> None:
 
     if _scheduler is not None:
         return
+    # A new leader (boot, or taking over from another replica) must not trust memory from an
+    # earlier leadership of its own: the other replica wrote in between. The observers rebuild
+    # from the record.
+    from .vehicle_presence import reset_state
+
+    reset_state()
     jobs: list[str] = []
     _scheduler = AsyncIOScheduler()
     # ⚠️ EVERY CREDENTIAL-DRIVEN JOB BELOW IS REGISTERED UNCONDITIONALLY, and each no-ops on a

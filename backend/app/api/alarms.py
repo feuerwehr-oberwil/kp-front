@@ -124,9 +124,10 @@ def apply_milestones(
     journal_texts).
 
     ⚠️ FIRST WRITER WINS against the server's own GPS observation (24.09.2026, D2-b): a
-    `vorOrt` / `zurueck` the server already stamped from the fix time (`gps.owns`, written by
-    app/vehicle_presence) is not overwritten here — and the server leaves alone what this
-    webhook stamped first. Two writers of one fact; whoever saw it first keeps it."""
+    `vorOrt` the server already stamped from the tracker's time (`gps.owns`, written by
+    app/vehicle_presence) is not overwritten here — and the server leaves alone a `vorOrt` this
+    webhook stamped first. Two writers of one fact; whoever saw it first keeps it. `zurueck`
+    («back at the depot») is this webhook's alone: the server never writes it (25.09.2026)."""
     base = dict(ws or {})
     rm = dict(base.get("reportMeta") or {})
     changed = 0
