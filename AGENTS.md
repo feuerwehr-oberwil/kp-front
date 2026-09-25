@@ -237,10 +237,13 @@ to prod.
     `lib/truppNumbers`, trupp-naming §7). Every device derives the next number from its own view,
     so three online devices tapping «Neuer Trupp» in one second all minted «Trupp 1». At the end
     of `mergeWorkspace`, every contested number stays with ONE claimant (on the board and went in
-    > on the board > taken off the board > an unlinked «Trupp N» chip, then registration time,
-    then id), and the others take the next numbers of the one counter (`formerNos` keeps what
-    they lost). It is pure over the merge's INPUTS: the same inputs give the same numbers on every
-    device, nothing is left to ping-pong — but which merge lands first can decide the keeper. A
+    > on the board > taken off the board > an unlinked «Trupp N» chip, then the one the server
+    already holds under it, then registration time, then id), and the others take the next
+    numbers of the one counter (`formerNos` keeps what they lost). ⚠️ One move per collision
+    (N16): a re-merge after a 409 first takes back its OWN un-landed renumberings
+    (`unwindUnlanded`) — a number it just handed out is not a claim. It is pure over the merge's
+    INPUTS: the same inputs give the same numbers on every device, nothing is left to ping-pong —
+    but which merge lands first can decide the keeper. A
     session settles only what its push carries (`WorkspaceSync · numberScope`: the Link Trupps
     only, `el` nothing). It is NOT an act: it reaches the view by a hydrate (which drops the undo
     timeline) and writes ONE Verlauf row, «Trupp 1 (…) heisst jetzt Trupp 3», under the DERIVED

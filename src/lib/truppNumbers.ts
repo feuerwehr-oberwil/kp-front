@@ -41,6 +41,8 @@ interface Claimant {
   no: number
   /** how much record hangs off this number — the one with the most keeps it (see `rank`) */
   weight: number
+  /** the other side of the merge (the server's copy) already holds it under THIS number */
+  landed: boolean
   /** when it was minted (ms), the tie-break every device reads the same */
   created: number
 }
@@ -101,22 +103,82 @@ function counterNames(objects: readonly TacticalObject[], trails: readonly Trupp
   return [...out, ...ghostCounterNames(trails)]
 }
 
-function claimantsOf(trupps: readonly Trupp[], objects: readonly TacticalObject[]): Claimant[] {
+/** The key of one claim — «this record holds this number». */
+const claimKey = (kind: Claimant['kind'], id: string, no: number) => `${kind}|${id}|${no}`
+
+function claimantsOf(trupps: readonly Trupp[], objects: readonly TacticalObject[], landed?: ReadonlySet<string>): Claimant[] {
   const out: Claimant[] = []
   for (const t of trupps) {
     if (!t || typeof t.id !== 'string' || typeof t.no !== 'number' || !Number.isFinite(t.no)) continue
-    out.push({ kind: 'trupp', id: t.id, no: t.no, weight: truppWeight(t), created: registeredAt(t) })
+    out.push({ kind: 'trupp', id: t.id, no: t.no, weight: truppWeight(t), landed: !!landed?.has(claimKey('trupp', t.id, t.no)), created: registeredAt(t) })
   }
   for (const o of objects) {
     const no = chipNo(o)
-    if (no !== undefined) out.push({ kind: 'chip', id: o.id, no, weight: 0, created: idMs(o.id) })
+    if (no !== undefined) out.push({ kind: 'chip', id: o.id, no, weight: 0, landed: !!landed?.has(claimKey('chip', o.id, no)), created: idMs(o.id) })
   }
   return out
 }
 
 /**
- * Who KEEPS a contested number: the claimant with the most record behind it, then the one minted
- * first, then the id. Weight first, because a number is what the paper and the radio already say:
+ * The claims the OTHER side of a merge already holds — in `WorkspaceSync` the server's copy, i.e.
+ * what every device that polled has shown, and written rows under. See `rank`.
+ */
+export function landedClaims(theirs: { trupps?: unknown; objects?: unknown }): Set<string> {
+  const trupps = (Array.isArray(theirs.trupps) ? theirs.trupps : []) as Trupp[]
+  const objects = (Array.isArray(theirs.objects) ? theirs.objects : []).filter((o): o is TacticalObject => !!o && typeof o === 'object' && typeof (o as TacticalObject).id === 'string')
+  return new Set(claimantsOf(trupps, objects).map((c) => claimKey(c.kind, c.id, c.no)))
+}
+
+const numList = (v: unknown): number[] => (Array.isArray(v) ? v.filter((n): n is number => typeof n === 'number' && Number.isFinite(n)) : [])
+
+/**
+ * Take back every renumbering THIS side of a merge made that the other side never took — before
+ * the numbers are settled again (staging walk-through 25.09.2026, N16).
+ *
+ * ⚠️ Why. A merge whose PUT 409s is merged AGAIN from its own result, so a number it handed out a
+ * moment ago (never pushed, never shown, nothing written under it) came back as a CLAIM: three
+ * devices each minted «2» beside a «1», two merges ran against the same server copy and BOTH
+ * handed out 3, and the second to land then moved the first one's Trupp a second time, 3 → 4 —
+ * `formerNos` [2, 3] on one crew and 3 on another, so on paper two crews «were» Trupp 3. Unwound,
+ * the Trupp is back at the number its device showed, loses (or keeps) it once, and never carries a
+ * number in `formerNos` that nothing was written under.
+ *
+ * Read off the data alone: `formerNos` beyond what the other side's copy of the Trupp carries, on
+ * a Trupp whose number differs from that copy's, are this side's un-landed moves. The number is
+ * set back to the first of them and `formerNos` to the other side's.
+ */
+export function unwindUnlanded(trupps: readonly Trupp[], theirs: unknown): Trupp[] {
+  const server = new Map(
+    (Array.isArray(theirs) ? theirs : [])
+      .filter((t): t is Trupp => !!t && typeof t === 'object' && typeof (t as Trupp).id === 'string')
+      .map((t) => [t.id, t]),
+  )
+  return trupps.map((t) => {
+    if (!t || typeof t.no !== 'number') return t
+    const mineFormer = numList(t.formerNos)
+    if (!mineFormer.length) return t
+    const s = server.get(t.id)
+    if (s && s.no === t.no) return t // landed as it stands
+    const landed = numList(s?.formerNos)
+    if (mineFormer.length <= landed.length || !landed.every((n, i) => mineFormer[i] === n)) return t
+    const out: Trupp = { ...t, no: mineFormer[landed.length] }
+    if (landed.length) out.formerNos = landed
+    else delete out.formerNos
+    return out
+  })
+}
+
+/**
+ * Who KEEPS a contested number: the claimant with the most record behind it, then the one the
+ * server's copy already holds under it (`landed`), then the one minted first, then the id.
+ *
+ * ⚠️ `landed` second (N16): a number on the server is on every screen that polled it and in the
+ * rows written since. A newcomer of equal weight — minted earlier, but offline or in a merge that
+ * had not landed — takes the next number instead, so a Trupp that was already renumbered once is
+ * not moved a second time by a claim that arrives later. Weight still beats it: a crew that went
+ * in keeps the number its Atemschutz-Journal is written under.
+ *
+ * Weight first, because a number is what the paper and the radio already say:
  *   4 · a Trupp on the board that went in — its Eintritt, its Druckverlauf, its Rückzug are all
  *       printed under this number; renaming it would rename the one record that matters most;
  *   3 · a Trupp on the board that has not gone in yet — its Anmeldung row is all there is;
@@ -129,7 +191,7 @@ function claimantsOf(trupps: readonly Trupp[], objects: readonly TacticalObject[
  * later merge to settle again.
  */
 const rank = (a: Claimant, b: Claimant) =>
-  b.weight - a.weight || a.created - b.created || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  b.weight - a.weight || Number(b.landed) - Number(a.landed) || a.created - b.created || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 
 /** The chip label for its new number, in the chip's own spelling («trupp 1» stays lower-case). */
 const relabel = (label: string | undefined, no: number): string =>
@@ -159,12 +221,17 @@ export type NumberScope = 'all' | 'trupps' | 'off'
 export function resolveTruppNumbers(
   trupps: readonly Trupp[],
   objects: readonly TacticalObject[],
-  trails: readonly TruppTrail[] = [],
-  scope: NumberScope = 'all',
+  { trails = [], scope = 'all', landed }: {
+    /** ghost trails — the counter reads their numbers */
+    trails?: readonly TruppTrail[]
+    scope?: NumberScope
+    /** the claims the other side of the merge already holds (`landedClaims`) — see `rank` */
+    landed?: ReadonlySet<string>
+  } = {},
 ): { trupps: Trupp[]; objects: TacticalObject[] } | null {
   if (scope === 'off') return null
   const byNo = new Map<number, Claimant[]>()
-  for (const c of claimantsOf(trupps, scope === 'all' ? objects : [])) {
+  for (const c of claimantsOf(trupps, scope === 'all' ? objects : [], landed)) {
     const list = byNo.get(c.no)
     if (list) list.push(c)
     else byNo.set(c.no, [c])

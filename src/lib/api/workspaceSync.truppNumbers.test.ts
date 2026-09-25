@@ -182,9 +182,11 @@ describe('WorkspaceSync · the renumbering row is never lost (review of #228)', 
     await settle([a])
     a.sync.dispose()
 
-    // B registered earlier (10 ms) but saves later: its merge takes 1 from X, which is on the server
+    // B's Trupp went in before B saved: it outranks X, and its merge takes 1 from X, which is on
+    // the server — the one case a landed number moves (a crew inside keeps its number)
     const b = await device('b')
-    b.local = { trupps: [reg('Y', 1, 10)] }
+    const y = reg('Y', 1, 10)
+    b.local = { trupps: [{ ...y, readings: [...y.readings, { t: '2026-09-25T10:00:30.000Z', bar: 300, kind: 'entry' }] }] }
     // B's view is stale: it had opened before A's save landed
     const bs = b.sync as unknown as { entry: { base: Ws; baseRev: number; workspace: Ws } }
     bs.entry = { ...bs.entry, base: {}, baseRev: 0 }
@@ -260,4 +262,54 @@ describe('WorkspaceSync · a session nobody listens to', () => {
     expect(sync.drainTruppRenumbered().map((c) => `${c.id}:${c.from}->${c.to}`)).toEqual(['P:1->2', 'P:2->1'])
     sync.dispose()
   })
+})
+
+// Staging walk-through, 25.09.2026 (N16): a Trupp «1» stands, and three devices register at the
+// same moment, each minting «2». Two of the merges ran against the same server copy and both
+// handed out 3; the second one to land then moved the other Trupp again, 3 → 4, and the paper
+// said two crews «were» Trupp 3. A Trupp moves at most ONCE per collision, straight from the
+// number its device showed to the one it keeps, and a number nothing was written under never
+// enters `formerNos`.
+describe('WorkspaceSync · three devices, one collision, one move each (N16)', () => {
+  const orders = [[0, 1, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0], [0, 2, 1], [1, 0, 2]]
+  const patterns: [string, () => () => number][] = [
+    ['no latency', () => () => 0],
+    ['even latency', () => () => 40],
+    ['uneven latency', () => { let n = 0; return () => [40, 5, 90, 20, 60, 15, 75][n++ % 7] }],
+  ]
+  for (const [label, latency] of patterns) {
+    it.each(orders)(`save order %i-%i-%i, ${label}`, async (...order: number[]) => {
+      server.ws = { trupps: [reg('K', 1, 0)] }
+      server.rev = 1
+      server.latency = latency()
+      const devices = [await device('n0'), await device('n1'), await device('n2')]
+      // all three mint «2» from the same view — the saves go out in `order`, a few ms apart
+      for (const d of order) {
+        devices[d].local = { trupps: [...(devices[d].local.trupps ?? []), reg(`T${d}`, 2, 100 + d)] }
+        devices[d].sync.save(devices[d].local)
+        await vi.advanceTimersByTimeAsync(3)
+      }
+      await settle(devices)
+      for (const dev of devices) await follow(dev)
+      for (const dev of devices) await follow(dev)
+
+      const ws = server.ws as Ws
+      const trupps = ws.trupps!
+      expect(new Set(trupps.map((t) => t.no)).size).toBe(4) // four crews, four numbers
+      expect(trupps.find((t) => t.id === 'K')!.no).toBe(1)
+      for (const t of trupps.filter((x) => x.id !== 'K')) {
+        // at most one move, and only ever away from the number it was minted under
+        expect(t.formerNos ?? []).toEqual(t.no === 2 ? [] : [2])
+      }
+      // no number is one crew's now and another crew's before
+      const now = new Set(trupps.map((t) => t.no))
+      for (const t of trupps) for (const n of t.formerNos ?? []) expect(now.has(n) && n !== 2).toBe(false)
+      // the rows: one per moved Trupp, straight from 2 to where it ended — never a chain
+      const rows = [...new Set(devices.flatMap((dev) => dev.rows))].sort()
+      const moved = trupps.filter((t) => t.formerNos?.length).map((t) => `trn-${t.id}-2-${t.no}`).sort()
+      expect(rows).toEqual(moved)
+      for (const dev of devices) expect(dev.local).toEqual(ws)
+      for (const dev of devices) dev.sync.dispose()
+    })
+  }
 })

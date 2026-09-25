@@ -574,13 +574,47 @@ describe('mergeWorkspace — three devices mint «Trupp 1» at the same moment',
   const base: Ws = { trupps: [] }
   const A = { trupps: [reg('trA', 10)] }, B = { trupps: [reg('trB', 20)] }, C = { trupps: [reg('trC', 30)] }
 
-  it('the Trupps end up 1, 2, 3 — whichever device lands first, the first REGISTERED keeps 1', () => {
+  it('the Trupps end up 1, 2, 3 — the first to LAND keeps 1, and nobody moves twice', () => {
+    const ids = ['trA', 'trB', 'trC']
     for (const order of [[0, 1, 2], [2, 1, 0], [1, 2, 0], [2, 0, 1]]) {
       const out = land(base, [A, B, C], order)
       expect(out.trupps).toHaveLength(3) // nothing lost — the merge keeps every record
-      expect(numbers(out).trA).toBe(1)
+      // equal weight: the number already on the server stays with its holder (N16)
+      expect(numbers(out)[ids[order[0]]]).toBe(1)
       expect(new Set(Object.values(numbers(out)))).toEqual(new Set([1, 2, 3]))
+      for (const t of out.trupps ?? []) expect((t as { formerNos?: number[] }).formerNos ?? []).toEqual(t.no === 1 ? [] : [1])
     }
+  })
+
+  // N16 (staging, 25.09.2026): a merge that 409s is merged again from its OWN result, whose
+  // freshly handed-out number is not a claim — nothing was pushed, shown or written under it
+  it('a re-merge takes back its own un-landed renumbering instead of moving a landed Trupp again', () => {
+    // «Trupp 1» stands; three devices mint «2» from that view — K2's lands first
+    const K = reg('K', 0)
+    const server1 = { trupps: [K] }
+    const K2 = { ...reg('K2', 0), no: 2 }
+    const E = { ...reg('trE', 20), no: 2 }, G = { ...reg('trG', 10), no: 2 }
+    const s1 = { trupps: [K, K2] }
+    // E's and G's merges both run against that same server copy, and both hand out 3
+    const e1 = mergeWorkspace(server1, { trupps: [K, E] }, s1) as Ws
+    const g1 = mergeWorkspace(server1, { trupps: [K, G] }, s1) as Ws
+    expect(numbers(e1).trE).toBe(3)
+    expect(numbers(g1).trG).toBe(3)
+    // E lands; G's PUT 409s and G re-merges ITS OWN result over the new server copy
+    const g2 = mergeWorkspace(s1, g1, e1) as Ws
+    expect(numbers(g2)).toEqual({ K: 1, K2: 2, trE: 3, trG: 4 }) // E stays: it moved once
+    const byId = Object.fromEntries((g2.trupps ?? []).map((t) => [t.id, (t as { formerNos?: number[] }).formerNos]))
+    expect(byId.trE).toEqual([2])
+    expect(byId.trG).toEqual([2]) // 2 → 4 in ONE move: 3 was never G's, and never on paper
+  })
+
+  it('a landed Trupp that already moved once keeps its number over an earlier-minted newcomer', () => {
+    const X = { ...reg('trX', 50), no: 2, formerNos: [1] } // moved 1 → 2 by an earlier merge, on the server
+    const K = { ...reg('K', 0), no: 1 }
+    const server = { trupps: [K, X] }
+    const Y = { ...reg('trY', 5), no: 2 } // minted «2» offline before X existed
+    const out = mergeWorkspace({ trupps: [K] }, { trupps: [K, Y] }, server) as Ws
+    expect(numbers(out)).toEqual({ K: 1, trX: 2, trY: 3 })
   })
 
   it('two re-merging at once (both merged against the first, one lands, the other re-merges) still ends distinct', () => {
@@ -606,7 +640,7 @@ describe('mergeWorkspace — three devices mint «Trupp 1» at the same moment',
     const chips = [0, 1, 2].map((i) => ({ objects: [team(`trupp17587944000${i}0-0${i}ab`)] }))
     const out = land({ objects: [] }, chips, [1, 2, 0]) as Ws
     expect(Object.values(labels(out)).sort()).toEqual(['Trupp 1', 'Trupp 2', 'Trupp 3'])
-    expect(labels(out)['trupp1758794400000-00ab']).toBe('Trupp 1') // minted first
+    expect(labels(out)['trupp1758794400010-01ab']).toBe('Trupp 1') // landed first
     // the legacy `entities` view is DERIVED from the relabelled objects, never left behind
     expect(Object.fromEntries((out.entities ?? []).map((e) => [e.id, e.label]))).toEqual(labels(out))
   })

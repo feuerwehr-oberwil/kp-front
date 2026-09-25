@@ -106,28 +106,40 @@ be registrable offline.
   (`lib/truppNumbers · resolveTruppNumbers`). The claimants of a number are the Trupps carrying
   it (removed ones included) and the UNLINKED chips labelled «Trupp N»; a chip bound to a Trupp
   is that Trupp's marker and wears its leader's name.
-- **Who keeps it:** the one with the most record behind it, then the one minted first
-  (registration time off its first log row, which is on the deployment's clock; a chip's id
-  timestamp), then the id. «Most record», highest first: a Trupp ON the board that went in
-  (Eintritt) · one on the board that is only registered · the same two taken OFF the board
-  (`removedAt` – still on the Rapport, but nobody calls it any more) · a loose chip.
+- **Who keeps it:** the one with the most record behind it, then the one the server's copy
+  already holds under that number (`landed` – it is on every screen that polled it, and in the
+  rows written since), then the one minted first (registration time off its first log row, which
+  is on the deployment's clock; a chip's id timestamp), then the id. «Most record», highest
+  first: a Trupp ON the board that went in (Eintritt) · one on the board that is only registered
+  · the same two taken OFF the board (`removedAt` – still on the Rapport, but nobody calls it any
+  more) · a loose chip. So at equal weight the first to LAND keeps the number, and a claim that
+  arrives later – minted earlier, but offline or in a merge that had not landed – takes the next.
+- **One move per collision** (N16 of the staging walk-through, 25.09.2026). A merge that 409s is
+  merged again from its own result, and the number it had just handed out used to come back as a
+  CLAIM: «Trupp 1» stood, three devices minted «2», two merges ran against the same server copy
+  and both handed out 3, and the second to land moved the first one's Trupp again, 3 → 4 – on
+  paper two crews «were» Trupp 3. Now each merge first takes back this side's un-landed
+  renumberings (`truppNumbers · unwindUnlanded`: `formerNos` beyond the server copy's, on a Trupp
+  whose number differs from it), so the Trupp is back at the number its device showed and moves
+  once, straight to where it ends (2 → 4); and a landed number stays with its holder at equal
+  weight. A number enters `formerNos` only once it was on the server.
 - **The others** take the next numbers of the ONE counter, above everything anybody holds or
   held, in that same order – exactly as if they had been minted a moment later. The counter reads
   every Trupp's number and former numbers, every chip, and every ghost trail («Spur»), deleted ones
   included: a deleted chip that left a Spur used its number. A chip is relabelled on both of its
   bodies («Trupp 1» → «Trupp 4»), and the Karte's legacy views are derived again. A Trupp keeps
   what it lost in `Trupp.formerNos`.
-- **Convergence:** the function is pure over the merged record: identical merge INPUTS give
-  identical numbers on every device, and the output has no duplicate left for a later merge to
-  act on – no ping-pong. It is NOT independent of timing. Which number a loser gets depends on
-  the order the devices landed in, and so can WHO keeps the number: the weights are read off the
-  record as the resolving merge sees it, and the first result to land settles it for good.
+- **Convergence:** the function is pure over the merge's inputs: identical INPUTS give identical
+  numbers on every device, and the output has no duplicate left for a later merge to act on – no
+  ping-pong. It is NOT independent of timing: which number a loser gets, and at equal weight who
+  keeps it, follow the order the devices landed in; the first result to land settles it, and a
+  Trupp moves again only if a later claim outweighs it (a crew that went in).
 - **The offline case, honestly:** a device that was offline and sent its Trupp in (Eintritt)
-  before reconnecting outranks an online Trupp that registered first but has not gone in yet. On
+  before reconnecting outranks an online Trupp that is on the server but has not gone in yet. On
   reconnect the ONLINE Trupp is renumbered, although the crew may have been called by that number
   on the radio for as long as the other device was away. That is the trade: the crew that is
-  inside keeps the number its Atemschutz-Journal is written under. If both went in, the one
-  registered first keeps the number, and the other's whole journal so far stands under a number
+  inside keeps the number its Atemschutz-Journal is written under. If both went in, the one on the
+  server keeps the number, and the offline one's whole journal so far stands under a number
   that is now another crew's – the renumber row and `formerNos` (below) are what make that
   readable afterwards, not what prevents it.
 - **What each session may settle:** only what its push can carry (`WorkspaceSync ·

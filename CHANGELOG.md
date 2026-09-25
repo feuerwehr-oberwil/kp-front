@@ -135,7 +135,8 @@ so this file – not the log – is the record of what shipped up to that point.
   records under one number – on the Karte, in the Verlauf and on the Rapport. The merge now
   settles the number: a Trupp that went in keeps it over one that did not, a registered Trupp
   over a loose marker, then the one minted first; the others take the next free numbers, and the
-  Verlauf says so once («Trupp 1 (…) heisst jetzt Trupp 3») – from whichever device noticed,
+  Verlauf says so once («Trupp 1 (…) heisst jetzt Trupp 3», one move per Trupp, never a chain
+  through a number another crew ends up with) – from whichever device noticed,
   including the one whose merge did it and the Atemschutz-Link. Every device reaches the same
   answer without asking the server, offline devices included once they are back. Rows already
   written keep the number they were written with; the Rapport's heading reads «Trupp 3 (zuerst

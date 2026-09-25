@@ -16,7 +16,7 @@
 
 import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
-import { resolveTruppNumbers, type NumberScope } from './truppNumbers'
+import { landedClaims, resolveTruppNumbers, unwindUnlanded, type NumberScope } from './truppNumbers'
 import type { TruppTrail } from './truppTrails'
 import type { BoardDoc, Drawing, Entity, Trupp } from '../types'
 import type { Saved } from './workspace'
@@ -477,7 +477,16 @@ export function mergeWorkspace(
   // both records, as it must, and now settles the NUMBER — one keeps it, the others take the next
   // ones (lib/truppNumbers). A chip that lost is relabelled in the objects, so the three legacy
   // views are derived again from them.
-  const renumbered = resolveTruppNumbers(out.trupps as Trupp[], objects, out.trails as TruppTrail[], opts.numbers ?? 'all')
+  // Two things first (N16, 25.09.2026): this side's own un-landed renumberings are taken back
+  // (a re-merge after a 409 starts from its own last result), and the claims the other side
+  // already holds are passed along — a number on the server stays with its holder at equal weight.
+  const scope = opts.numbers ?? 'all'
+  if (scope !== 'off') out.trupps = unwindUnlanded(out.trupps as Trupp[], theirs.trupps)
+  const renumbered = resolveTruppNumbers(out.trupps as Trupp[], objects, {
+    trails: out.trails as TruppTrail[],
+    scope,
+    landed: landedClaims({ trupps: theirs.trupps, objects: objectsOf(theirs) }),
+  })
   if (renumbered) {
     out.trupps = renumbered.trupps
     if (renumbered.objects.some((o, i) => o !== objects[i])) {

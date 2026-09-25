@@ -122,7 +122,7 @@ describe('resolveTruppNumbers — one number, one holder', () => {
       { id: 'ght-x', sourceId: 'x', name: 'Trupp 5', createdAt: '2026-09-25T10:00:00Z', removedAt: '2026-09-25T10:01:00Z' },
       { id: 'ght-y', sourceId: 'y', truppId: 'gone', truppNo: 6, name: 'Meier A.', createdAt: '2026-09-25T10:00:00Z' },
     ]
-    const r = resolveTruppNumbers([trupp('a', 1, '2026-09-25T10:00:00.010Z'), trupp('b', 1, '2026-09-25T10:00:00.020Z')], [], ghosts)!
+    const r = resolveTruppNumbers([trupp('a', 1, '2026-09-25T10:00:00.010Z'), trupp('b', 1, '2026-09-25T10:00:00.020Z')], [], { trails: ghosts })!
     expect(r.trupps.find((t) => t.id === 'b')!.no).toBe(7)
   })
 
@@ -136,10 +136,10 @@ describe('resolveTruppNumbers — one number, one holder', () => {
   it('scope «trupps» (the Atemschutz-Link) settles Trupps only; «off» (the el role) settles nothing', () => {
     const ts = [trupp('a', 1, '2026-09-25T10:00:00.010Z'), trupp('b', 1, '2026-09-25T10:00:00.020Z')]
     const chips = [chip('trupp1758794400000-00a', 'Trupp 2'), chip('trupp1758794400001-00b', 'Trupp 2')]
-    const r = resolveTruppNumbers(ts, chips, [], 'trupps')!
+    const r = resolveTruppNumbers(ts, chips, { scope: 'trupps' })!
     expect(r.trupps.map((t) => t.no)).toEqual([1, 3]) // above the chips' 2 — the counter still reads them
     expect(r.objects.map(labelOf)).toEqual(['Trupp 2', 'Trupp 2']) // chips it cannot push stay as they are
-    expect(resolveTruppNumbers(ts, chips, [], 'off')).toBeNull()
+    expect(resolveTruppNumbers(ts, chips, { scope: 'off' })).toBeNull()
   })
 
   it('is settled: resolving the result again changes nothing (no ping-pong)', () => {
