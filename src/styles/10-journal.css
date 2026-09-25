@@ -83,6 +83,7 @@
 /* the Suche's «2 vermisst» wears the red of a missing person but not the pulse: it stands for as
    long as the search does, and a chip that blinks for an hour is one nobody sees any more */
 .tb-az.crit.tb-suche { animation: none; }
+.tb-suche-short { display: none; font-variant-numeric: tabular-nums; }
 /* ⚠️ The pulse animates the BACKGROUND, not `opacity` (15.09.2026). An opacity animation put the
    chip on its own compositor layer over the bar's backdrop-filter, and WebKit then left the
    previous second's digits ghosting under the new ones («6:18» over «6:08») – a background

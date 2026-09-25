@@ -36,7 +36,7 @@ export function DetentSheet({ detent, onDetent, head, peek, children, className,
   ariaLabel: string
   style?: CSSProperties
 }) {
-  const drag = useRef<{ y0: number; h0: number; el: HTMLElement; moved: boolean } | null>(null)
+  const drag = useRef<{ y0: number; h0: number; el: HTMLElement; moved: boolean; onGrab: boolean } | null>(null)
 
   const down = (e: React.PointerEvent<HTMLElement>) => {
     // a control inside the head keeps its own press (the ✕, the Gebäude | Karte switch, a chip)
@@ -46,7 +46,9 @@ export function DetentSheet({ detent, onDetent, head, peek, children, className,
     if (!el) return
     e.currentTarget.setPointerCapture?.(e.pointerId)
     el.classList.add('is-dragging')
-    drag.current = { y0: e.clientY, h0: el.getBoundingClientRect().height, el, moved: false }
+    // ⚠️ read where the press STARTED: with the pointer captured, the release is targeted at the
+    // head itself, so a tap on the bar could not be told from a tap beside it at release time
+    drag.current = { y0: e.clientY, h0: el.getBoundingClientRect().height, el, moved: false, onGrab: !!t.closest('.ui-sheet-grab') }
   }
   const move = (e: React.PointerEvent) => {
     const d = drag.current
@@ -64,7 +66,7 @@ export function DetentSheet({ detent, onDetent, head, peek, children, className,
     const i = ORDER.indexOf(detent)
     if (!d.moved) {
       // a tap on the bar (or on the peek line) steps UP; at the top it comes back to half
-      if ((e.target as HTMLElement).closest('.ui-sheet-grab') || detent === 'peek') onDetent(detent === 'full' ? 'half' : ORDER[i + 1])
+      if (d.onGrab || detent === 'peek') onDetent(detent === 'full' ? 'half' : ORDER[i + 1])
       return
     }
     const dy = d.y0 - e.clientY

@@ -321,7 +321,10 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           <button className="tb-az crit tb-suche" onClick={onOpenSuche} title={appConfig.copy.suche.vermisstChipHint}
             aria-label={`${appConfig.copy.suche.title}: ${fillTemplate(appConfig.copy.suche.vermisstChip, { n: sucheMissing })}`}>
             <Icon id="people" />
-            <span>{fillTemplate(appConfig.copy.suche.vermisstChip, { n: sucheMissing })}</span>
+            {/* the words on a wide bar, the bare count on a phone's (15-mobile.css) — the bar there
+                also carries the Atemschutz chip, and two worded chips pushed the title under ↶ */}
+            <span className="tb-suche-full">{fillTemplate(appConfig.copy.suche.vermisstChip, { n: sucheMissing })}</span>
+            <span className="tb-suche-short" aria-hidden>{sucheMissing}</span>
           </button>
         )}
         {/* Atemschutz chip — pinned at the far right so it never shifts the other controls.

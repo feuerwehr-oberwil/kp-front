@@ -486,6 +486,9 @@
   .tb-az-name { display: none; }
   .tb-az { gap: 5px; padding: 6px 9px; }
   .topbar:has(.tb-az) .tb-einsatzuhr { display: none; }
+  /* the Suche's chip keeps its glyph and the COUNT here, like the Atemschutz chip keeps its clock */
+  .tb-suche .tb-suche-full { display: none; }
+  .tb-suche .tb-suche-short { display: inline; }
 
   /* ── Chrome stays on the SCREEN while the keyboard is up ──
      The document cannot scroll any more (02-base.css · fixed body), but iOS still PANS the
