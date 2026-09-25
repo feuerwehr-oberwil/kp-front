@@ -7,13 +7,15 @@ mount, a wedged session, a render loop on the Karte.
 | Spec | What it guards | Runs |
 | --- | --- | --- |
 | `smoke.spec.ts` | every core surface renders and survives a reload; session renewal; offline journal | CI, chromium + WebKit |
-| `field-scenario.spec.ts` | the Übung of 23.09.2026: a Leitung coupled to a parked vehicle that reports GPS, a tapped Trupp; then three devices on one login | CI, chromium |
+| `field-scenario.spec.ts` | the Übung of 23.09.2026: a Leitung coupled to a parked vehicle that reports GPS, a tapped Trupp; then three devices on one login; a known bug in Trupp numbering | CI, chromium, no retries |
 | `admin-row-menu.spec.ts` | the admin row menu is on top and its actions fire | CI (needs `E2E_ADMIN_SECRET`) |
 | `demo.spec.ts` | the public demo's entry fits a phone | only against a demo deployment |
 | `workspace-flows.spec.ts` | undo, timeline, keyboard, Abschluss, replay across the workspace seams | opt-in, `E2E_WORKFLOWS=1` |
 
-CI runs all of them in the *Image* job against the production container it has just built
-(`.github/workflows/ci.yml`); `playwright.config.ts` starts no servers.
+CI's *Image* job runs the suite against the production container it has just built
+(`.github/workflows/ci.yml`). Only the rows marked CI actually run there: the demo spec skips
+on a station image, and the workflow flows skip without their flag. `playwright.config.ts`
+starts no servers.
 
 ## The client-error guard
 
@@ -61,11 +63,12 @@ had ever produced. The spec builds exactly that:
 3. Device 1 draws a Linie that starts on the TLF with the line tool (`l`). A press on a live
    vehicle couples the start at once. The server must hold `startAttachment.gps.state ===
    'guarded'`.
-4. Every device places a «Neuer Trupp» with the Trupp tool (`t`) at the same moment.
+4. Every device places a «Neuer Trupp» with the Trupp tool (`t`), concurrently.
 5. For 22 s the fleet re-reports the same fix every 5 s, as a parked Traccar device does. Each
-   device must have seen at least two feed answers.
+   device must get at least one feed answer after that window opens.
 6. Every device taps its Trupp. The Trupp's action bar must open, and there must be no
-   SurfaceBoundary card and no client error.
+   SurfaceBoundary card. After 3 s (the storm detector's window) there must be no client
+   error: the tap is the exact moment the Übung crashed.
 7. Every Trupp must be on the server and on every device (the edit lost in a re-merge, #204).
    The coupling must still be `guarded`.
 
@@ -74,16 +77,21 @@ It runs twice: on one device, and on three devices with one login, as in the Üb
 differently, and the three-device run is the expensive half of the suite. WebKit keeps running
 the smoke under the same guard. Runtime is about 35 s plus 50 s, and 20 s for the test below.
 
-Before every press the spec waits until the TLF's screen position holds still for 300 ms. The
-Karte's first framing can land after the marker is already visible, and on a loaded box a press
-measured before it went 18 px beside the TLF, so the Linie started uncoupled.
+Before every press the spec waits for a FRAMED Karte, not only a still one. The TLF has to
+stand east of the Einsatzort pin on the same row, at about its 46 m. Before the first press the
+pin must also be at the canvas centre, which is the opening view. Two reads 300 ms apart must
+agree. On a loaded box a press measured too early went 18 px beside the TLF, and the Linie
+started uncoupled. After the Linie is drawn the Karte may pan (measured: 18 px), so only the
+pin ↔ TLF relation is required from then on. The scenario runs with **no retries**: a retry
+that passes would file an intermittent crash as «flaky».
 
-**A known bug, pinned as an expected failure.** The third test has three devices tap «Neuer
-Trupp» within milliseconds of each other. Each takes the next number from its own view of the
-Einsatz, so all three are «Trupp 1», against docs/trupp-naming.md §1 (that doc accepts the race
-only for devices that are offline). The test marks itself `test.fail` only when the duplicate
-actually shows and no client error is on record. When the numbering is fixed it passes; then
-delete that line.
+**A known bug, pinned by asserting today's behaviour.** The third test has three devices tap
+«Neuer Trupp» within milliseconds of each other. Each takes the next number from its own view of
+the Einsatz, so all three are «Trupp 1», against docs/trupp-naming.md §1 (that doc accepts the
+race only for devices that are offline). The test asserts that the names are NOT all distinct,
+with the message «KNOWN BUG — when this fails the numbering was fixed: change to toBe(3)». A
+crash still fails it: the guard and the client-error check before the assertion are not
+affected. When the fix lands, the assertion goes red and has to be flipped.
 
 **Proof that it catches the bug** (24.09.2026): with the #200 fix reverted locally (the
 idempotent pass, the stable `setDocRaw`, TwinTeamPill's guard), both tests fail. The failures
@@ -95,6 +103,8 @@ IncidentWorkspace · tab=map · changed: objects×200».
 ```bash
 # a throwaway database on the dev compose db (just db), migrated, and the built SPA served by
 # the backend. TRACCAR_FAKE + ALARM_WEBHOOK_SECRET only for the field scenario.
+just db
+docker compose -f docker-compose.dev.yml exec db psql -U kpfront -c 'CREATE DATABASE kpfront_e2e'
 pnpm build
 cd backend && DATABASE_URL=postgresql+asyncpg://kpfront:kpfront@localhost:5434/kpfront_e2e \
   SECRET_KEY=<32+ chars> ENVIRONMENT=production COOKIE_SECURE=false SEED_PIN=194731 \
@@ -106,6 +116,8 @@ E2E_BASE_URL=http://localhost:8016 E2E_PIN=194731 E2E_ADMIN_SECRET=<same> \
   E2E_FLEET_SECRET=<the ALARM_WEBHOOK_SECRET> pnpm test:e2e --project chromium
 ```
 
-Without `E2E_FLEET_SECRET`, the field scenario skips locally. In CI it fails instead: CI must
+`E2E_PIN` is the seeded PIN (`helpers.ts` exports it as `PIN`; the default `000000` is the seed
+file's own, which a production-mode backend refuses — hence `SEED_PIN`). Afterwards drop the
+database again. Without `E2E_FLEET_SECRET`, the field scenario skips locally. In CI it fails instead: CI must
 never quietly drop it. It writes to its own Übung and to the server's fake fleet, so never run
 it against a station in use or a production deployment.

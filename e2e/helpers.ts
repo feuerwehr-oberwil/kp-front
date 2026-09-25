@@ -10,7 +10,7 @@ export { test, expect, expectNoClientErrors, type ClientErrorReport } from './gu
 
 // Seed kiosk PIN — the committed dev seed (backend/app/seed_users.json). Override
 // with E2E_PIN if a deployment seeds a different one.
-const PIN = process.env.E2E_PIN || '000000'
+export const PIN = process.env.E2E_PIN || '000000'
 
 // The ErrorBoundary render-throw fallback (copy/de.ts → errorBoundary.title). If this
 // is on screen a surface crashed on mount — the exact failure this smoke exists to catch.

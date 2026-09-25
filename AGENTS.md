@@ -52,7 +52,8 @@ crash report is ONE log line (`kpfront.clienterror`, newlines as « ⏎ », each
 client sends a repeated signature as a counter (`repeat=×N since=…`) and never drops it
 (`src/lib/reportError.ts`). The one thing it does not report is a bare fetch failure while
 `navigator.onLine` is false (`isOfflineNetworkNoise`, 24.09.2026). That is the device being
-offline, not a crash: the Karte's basemap tiles alone produced a line each.
+offline, not a crash. The reports could not leave an offline device anyway, but the counter of
+failed basemap tiles went out after reconnect as «Failed to fetch ×N».
 
 **Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
 (plus a few components); the backend uses pytest. The backend has a ruff pre-commit hook; the

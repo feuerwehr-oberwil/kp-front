@@ -16,8 +16,9 @@ import { test as base, expect, type BrowserContext, type Page, type TestInfo } f
 //
 // A test that provokes a report ON PURPOSE names it, report by report, with
 // `test.use({ expectedClientErrors: [/^error: Failed to fetch$/] })` — matched against
-// «kind: message» of the report body. Nothing else is excused, and the console / uncaught line
-// of a render loop never is. There is deliberately no switch that turns the guard off.
+// «kind: message» of the report body. Nothing else is excused. A crash is never excused, whatever
+// the list says: not the kinds render / surface-recrash / render-storm, and not the console /
+// uncaught line of a render loop. There is deliberately no switch that turns the guard off.
 
 export interface ClientErrorReport {
   /** which browser context («device») saw it — `device 1` is the test's own `page` */
@@ -40,11 +41,15 @@ const CLIENT_ERROR_PATH = '/api/diag/client-error'
 /** the loop's own words: React's minified #185 (prod build), its dev text, and the storm beacon */
 const LOOP_SIGNS = /Minified React error #185|Maximum update depth exceeded|render storm/i
 
-/** «kind: message» of a report body, for `expectedClientErrors` — '' if it is not one */
+/** report kinds that ARE a crash — never excused by `expectedClientErrors` */
+const NEVER_EXCUSED = new Set(['render', 'surface-recrash', 'render-storm'])
+
+/** «kind: message» of a report body, for `expectedClientErrors` — '' if it is not one, or if
+ *  its kind can never be excused */
 function kindAndMessage(body: string): string {
   try {
     const r = JSON.parse(body) as { kind?: unknown; message?: unknown }
-    return `${r.kind}: ${r.message}`
+    return NEVER_EXCUSED.has(`${r.kind}`) ? '' : `${r.kind}: ${r.message}`
   } catch { return '' }
 }
 
@@ -52,7 +57,8 @@ function kindAndMessage(body: string): string {
 function guardClientErrors(context: BrowserContext, device: string, sink: ClientErrorSink) {
   const push = (source: ClientErrorReport['source'], detail: string) => {
     const report = { device, source, at: new Date().toISOString(), detail: detail.slice(0, 4000) }
-    const excused = source === 'client-error' && sink.allow.some((re) => re.test(kindAndMessage(detail)))
+    const said = source === 'client-error' ? kindAndMessage(detail) : ''
+    const excused = said !== '' && sink.allow.some((re) => re.test(said))
     if (excused) sink.expected.push(report)
     else sink.reports.push(report)
   }

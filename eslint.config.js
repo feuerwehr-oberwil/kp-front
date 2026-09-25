@@ -62,10 +62,12 @@ export default tseslint.config(
   // Every spec takes `test` from ./helpers: that one carries the client-error guard (e2e/guard.ts),
   // and a spec on the bare Playwright `test` would pass through a render storm unnoticed.
   {
-    files: ['e2e/**/*.spec.ts'],
+    files: ['e2e/**/*.ts'],
+    ignores: ['e2e/guard.ts'], // the one file that extends the bare `test`
     rules: {
       'no-restricted-imports': ['error', { paths: [{
-        name: '@playwright/test', importNames: ['test'],
+        // `default` too: the package's default export IS `test`
+        name: '@playwright/test', importNames: ['test', 'default'],
         message: "Import `test` from './helpers' — it carries the client-error guard (e2e/guard.ts).",
       }] }],
     },
