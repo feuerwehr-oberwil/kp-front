@@ -705,6 +705,9 @@ export const de = {
    *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf
    *  bekommen hat); Karte und Plan führen ein Dokument, das viele kleine Schritte kennt. */
   undoDomains: {
+    /** a Karte placement names what it placed (placeSymbolAt, the Lage-Grundgerüst) */
+    symbolPlaced: '{name} gesetzt',
+    symbolToKarte: '{name} auf die Karte übernommen',
     /** Die Passung eines Plans wurde korrigiert — ein Schritt für alle neu verorteten Objekte. */
     reference: 'Referenz angepasst',
     /** ⚠️ Dieselbe Rückverortung, aber NIEMAND hat die Referenz angefasst: die App hat das
@@ -816,6 +819,11 @@ export const de = {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
+    /** …per input mode, because the two take different gestures: «Freihand» draws only with a
+     *  drag (a tap does nothing), «Punkte» only with taps and ✓. The Lage-Grundgerüst row armed
+     *  for a line says the Punkte sentence's first half word for word (lageGrundgeruest.armedLine). */
+    lineFreehand: 'Auf der Karte ziehen, um eine Linie zu zeichnen. Für einzelne Punkte: «Punkte». Farbe, Breite und Stil danach im Editor.',
+    lineNodes: 'Punkte auf die Karte tippen, mit ✓ abschliessen. Farbe, Breite und Stil danach im Editor.',
     area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -3343,6 +3351,7 @@ export const de = {
     optional: 'optional',
     /** a row whose place tool is armed: the next Karte tap places it */
     armed: 'Auf die Karte tippen',
+    armedLine: 'Punkte auf die Karte tippen, mit ✓ abschliessen',
     placeHere: 'hier setzen',
     hydrant: 'Hydrant Nr. {nr} · {dist}',
     hydrantNoNr: 'Nächster Hydrant · {dist}',

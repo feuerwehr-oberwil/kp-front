@@ -103,7 +103,7 @@ export function LageGrundgeruestCard({ rows, progress, fallback, noLocation, arm
                     <Icon id="plus" className="lgg-plus" />
                     <span className="lgg-label">{slot.label}</span>
                     {slot.optional && <span className="lgg-opt">{C.optional}</span>}
-                    {armed && <span className="lgg-armed">{C.armed}</span>}
+                    {armed && <span className="lgg-armed">{slot.linie ? C.armedLine : C.armed}</span>}
                   </button>
                   {placeable(suggestion) && (
                     <button type="button" className="lgg-sug" onClick={() => onPlace(row)}>
@@ -112,7 +112,9 @@ export function LageGrundgeruestCard({ rows, progress, fallback, noLocation, arm
                     </button>
                   )}
                   {/* said, never placeable: no hydrant close enough to be an answer */}
-                  {suggestion && !placeable(suggestion) && <p className="lgg-sug lgg-sug-info">{suggestionText(suggestion)}</p>}
+                  {suggestion && !placeable(suggestion) && (
+                    <p className="lgg-sug lgg-sug-info"><span className="lgg-sug-t">{suggestionText(suggestion)}</span></p>
+                  )}
                 </li>
               )
             })}

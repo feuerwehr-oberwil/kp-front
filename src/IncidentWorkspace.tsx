@@ -2629,6 +2629,8 @@ export function IncidentWorkspace({
     // effectiveLayer at read time — this just means new data needs no shim.)
     const layer = VEHICLE_SYMBOLS.has(s) ? appConfig.gps.layerId : appConfig.defaults.operationalLayerId
     const entity: Entity = { id, kind: 'symbol', layer, coord: c, ...seedSymbolProps(s, sym.symbols), ...(opts?.label ? { label: opts.label } : {}) }
+    // the ↶ names what it takes back («Rückgängig: KP Front gesetzt»), not «Änderung auf der Karte»
+    stepLabel.current = fillTemplate(C_HIST.undoDomains.symbolPlaced, { name: formatSymbolName(s) })
     commit((d) => ({ ...d, entities: [...d.entities, entity] }))
     addRecent(s)
     setSelectedDrawIds([]); setSelectedEntityIds([])
@@ -4292,6 +4294,9 @@ export function IncidentWorkspace({
       // the preset's bundle seeds the next line, exactly as the line style the dock remembers
       const p = resolveLinePreset(linePresetIdFor(slot.linie) ?? 'freihand', drawDashed)
       setDrawArrow(!!p.arrow); setDrawMarker(p.marker ?? ''); setDrawDashed(!!p.dashed)
+      // ⚠️ «Punkte», not the remembered mode: a Zufahrt is laid along a road tap by tap, and the
+      // row says «Punkte … tippen» — in «Freihand» those taps did nothing (staging 3am, 25.09.)
+      setLineMode('nodes'); setDraft([])
       setTool('line')
     }
     setGgArmedId(slot.id)
@@ -4315,9 +4320,12 @@ export function IncidentWorkspace({
   const ggTakeOverAt = (id: string, coord?: LngLat) => {
     const o = objects.find((x) => x.id === id)
     setGgTakeOverId(null)
-    if (!o || tacticalLocked || !reanchorToKarte(id, coord)) return
+    if (!o || tacticalLocked) return
     const a = o.sheet?.anno
     const name = o.entity?.label || a?.label || (a?.symbol ? formatSymbolName(a.symbol) : '') || appConfig.copy.lageGrundgeruest.title
+    stepLabel.current = fillTemplate(C_HIST.undoDomains.symbolToKarte, { name })
+    // nothing changed ⇒ no step was laid, so the label must not wait for the next one
+    if (!reanchorToKarte(id, coord)) { stepLabel.current = null; return }
     log('hex', fillTemplate(appConfig.copy.log.symbolToKarte, { name }), 'symbol', undefined, id)
     setSelectedDrawIds([]); setSelectedEntityIds([])
     if (o.drawing) { setSelectedDrawingId(id); setSelectedId(null) } else { setSelectedId(id); setSelectedDrawingId(null) }
@@ -5491,7 +5499,9 @@ export function IncidentWorkspace({
           // «D pur» (09.09.): no colour/width/style here — the finished line lands selected in
           // the DrawEditor (useMapDrawing · one-shot to Select), which is where the styling
           // lives; new lines inherit the last-used style (the editor writes the defaults back)
-          [{ type: 'info', text: appConfig.copy.dockHints.line }],
+          // the hint for the mode that is ON: «Freihand» draws only with a drag, «Punkte» only
+          // with taps and ✓ — one sentence for both promised a tap that did nothing (staging 3am)
+          [{ type: 'info', text: lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
         ]} />
       )}
       {mapUI && tool === 'area' && (

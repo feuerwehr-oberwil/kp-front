@@ -2,7 +2,7 @@
 import 'fake-indexeddb/auto'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
-import type { BoardAnno, Entity } from './types'
+import type { BoardAnno, Drawing, Entity } from './types'
 
 /*
  * The Lage-Grundgerüst WIRED into the workspace — what the pure rules (lib/lageGrundgeruest) and
@@ -16,7 +16,7 @@ import type { BoardAnno, Entity } from './types'
 
 const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], role: 'editor' as string, phone: false }))
 type MapProps = Record<string, unknown> & {
-  entities: Entity[]; selectedId: string | null; onSelect: (e: Entity) => void; onMapClick: (c: [number, number]) => void
+  entities: Entity[]; drawings: Drawing[]; selectedId: string | null; onSelect: (e: Entity) => void; onMapClick: (c: [number, number]) => void
 }
 const lastMap = () => rec.map[rec.map.length - 1] as MapProps
 
@@ -47,6 +47,7 @@ const PRESETS = vi.hoisted(() => ({
     kategorien: {
       brandbekaempfung: [
         { id: 'kp', label: 'KP · Einsatzleitung', symbol: 'VKF KP Front', vorschlag: { wind: 'auf', m: 40 } },
+        { id: 'zufahrt', label: 'Zufahrt', linie: 'Zufahrt' },
         { id: 'sammel', label: 'Sammelplatz', symbol: 'FW Sammelplatz' },
       ],
       strassenrettung: [{ id: 'patienten', label: 'Patientensammelstelle', symbol: 'VKF Patientensammelstelle' }],
@@ -68,6 +69,7 @@ import { WorkspaceSync } from './lib/api/workspaceSync'
 import type { IncidentMeta } from './lib/api/incidents'
 import type { Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
+import { fillTemplate, formatSymbolName } from './lib/format'
 
 const C = appConfig.copy.lageGrundgeruest
 
@@ -148,6 +150,37 @@ describe('«hier setzen» is an ordinary placement', () => {
     expect(lastMap().selectedId).toBe(kp[0].id)
     key('z', { metaKey: true }); await settle()
     expect(placed('VKF KP Front')).toHaveLength(0)
+  })
+})
+
+describe('what the undo step says', () => {
+  it('names what «hier setzen» placed — not «Änderung auf der Karte»', async () => {
+    await mount()
+    act(() => { screen.getByText(C.placeHere).click() })
+    await settle()
+    const action = fillTemplate(appConfig.copy.undoDomains.symbolPlaced, { name: formatSymbolName('VKF KP Front') })
+    expect(screen.getAllByRole('button', { name: fillTemplate(appConfig.copy.undoNamed, { action }) }).length).toBeGreaterThan(0)
+  })
+})
+
+describe('a line row arms the gesture it promises', () => {
+  it('«+ Zufahrt» arms Punkte: taps lay the points, ✓ draws the Zufahrt, the row ticks', async () => {
+    await mount()
+    // the row and the dock say the same words (the dock carries the styling sentence after it)
+    expect(appConfig.copy.dockHints.lineNodes.startsWith(C.armedLine)).toBe(true)
+    act(() => { screen.getByText('Zufahrt').click() })
+    await settle()
+    expect(screen.getByText(C.armedLine)).toBeTruthy()
+    act(() => lastMap().onMapClick([7.6, 47.5]))
+    act(() => lastMap().onMapClick([7.601, 47.501]))
+    await settle()
+    act(() => { screen.getByRole('button', { name: appConfig.copy.done }).click() })
+    await settle()
+    const lines = lastMap().drawings.filter((d) => d.kind === 'line')
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toMatchObject({ arrow: true, marker: 'Z' })
+    expect(lines[0].coords).toHaveLength(2)
+    expect(screen.queryByText(C.armedLine)).toBeNull()
   })
 })
 

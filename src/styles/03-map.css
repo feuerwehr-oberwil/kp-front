@@ -349,7 +349,10 @@
    tap does, where the eye already is */
 .lgg-row.armed .lgg-add { background: var(--ink-fill); color: var(--on-accent-ink); }
 .lgg-row.armed .lgg-plus { color: inherit; }
-.lgg-armed { flex: none; font: 600 12px var(--body); opacity: .85; }
+/* the armed hint may be a sentence («Punkte auf die Karte tippen, mit ✓ abschliessen») — it wraps
+   at the right, and the label it belongs to keeps its whole word */
+.lgg-armed { flex: 0 1 auto; min-width: 0; margin-left: auto; text-align: right; padding: 4px 0; font: 600 12px/1.25 var(--body); opacity: .85; }
+.lgg-row.armed .lgg-label { flex: 0 0 auto; }
 .lgg-sug { min-height: var(--tap); width: 100%; display: flex; align-items: center; gap: 8px;
   padding: 0 10px 0 35px; border: none; border-radius: var(--r-ctl); background: transparent; cursor: pointer; text-align: left; }
 .lgg-sug:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
