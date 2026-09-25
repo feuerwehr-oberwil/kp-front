@@ -15,6 +15,7 @@ Two things sit in front of the client (24.09.2026, post-mortem of the Übung on 
 """
 
 import asyncio
+import hashlib
 import time
 from datetime import datetime
 from urllib.parse import urlsplit
@@ -179,38 +180,62 @@ traccar_client = TraccarClient()
 #: devices on one login were three Traccar logins every 15 s for the same fleet.
 POSITIONS_CACHE_SECONDS = 10.0
 
-# (who asked — base url + account, so a credential change is a miss —, monotonic time, answer
-# or the error it raised). An error is cached for the same window: with the lock below, N
-# devices polling a dead Traccar would otherwise wait out N timeouts in a row.
-_positions_cache: tuple[str, float, list[VehiclePosition] | Exception] | None = None
-_positions_lock = asyncio.Lock()
+# (whose answer — the credential identity, so a changed URL, account OR password is a miss —,
+# monotonic time, answer). Only ANSWERS are cached: an error is handed to every request that
+# was waiting on the same fetch (single-flight, below) and forgotten, so the next poll asks
+# Traccar again instead of repeating a stale failure for ten seconds.
+_positions_cache: tuple[str, float, list[VehiclePosition]] | None = None
+_positions_inflight: tuple[str, asyncio.Future[list[VehiclePosition]]] | None = None
+
+
+def _credential_identity() -> str:
+    """Who the answer belongs to: URL + account + a digest of the password (never the password)."""
+    digest = hashlib.sha256(traccar_client.password.encode("utf-8")).hexdigest()[:16]
+    return f"{traccar_client.base_url}|{traccar_client.email}|{digest}"
 
 
 async def cached_vehicle_positions() -> list[VehiclePosition]:
     """``traccar_client.get_vehicle_positions()``, answered at most once per
-    ``POSITIONS_CACHE_SECONDS`` for everybody. Single-flight: a request that arrives while the
-    fetch is running waits for it and reads its answer."""
-    global _positions_cache
-    key = f"{traccar_client.base_url}|{traccar_client.email}"
-    async with _positions_lock:
-        hit = _positions_cache
-        if hit is not None and hit[0] == key and time.monotonic() - hit[1] < POSITIONS_CACHE_SECONDS:
-            if isinstance(hit[2], Exception):
-                raise hit[2]
-            return list(hit[2])
+    ``POSITIONS_CACHE_SECONDS`` for everybody. Single-flight: a request that arrives while a fetch
+    for the same credentials is running waits for THAT fetch — its answer or its error."""
+    global _positions_cache, _positions_inflight
+    key = _credential_identity()
+    hit = _positions_cache
+    if hit is not None and hit[0] == key and time.monotonic() - hit[1] < POSITIONS_CACHE_SECONDS:
+        return list(hit[2])
+    flight = _positions_inflight
+    if flight is not None and flight[0] == key and not flight[1].done():
         try:
-            answer = await traccar_client.get_vehicle_positions()
-        except Exception as e:
-            _positions_cache = (key, time.monotonic(), e)
-            raise
+            return list(await asyncio.shield(flight[1]))
+        except asyncio.CancelledError:
+            # the FETCHING request was cancelled (its client went away) — not this one: fetch
+            task = asyncio.current_task()
+            if not flight[1].cancelled() or (task is not None and task.cancelling()):
+                raise
+    future: asyncio.Future[list[VehiclePosition]] = asyncio.get_running_loop().create_future()
+    _positions_inflight = (key, future)
+    try:
+        answer = await traccar_client.get_vehicle_positions()
+    except Exception as e:
+        future.set_exception(e)
+        future.exception()  # retrieved: nobody waiting is not an «exception never retrieved»
+        raise
+    else:
         _positions_cache = (key, time.monotonic(), answer)
-        return list(answer)
+        future.set_result(answer)
+    finally:
+        if not future.done():
+            future.cancel()  # this fetch was cancelled; a waiter fetches for itself
+        if _positions_inflight is not None and _positions_inflight[1] is future:
+            _positions_inflight = None
+    return list(answer)
 
 
 def reset_positions_cache() -> None:
     """Tests, and nothing else."""
-    global _positions_cache
+    global _positions_cache, _positions_inflight
     _positions_cache = None
+    _positions_inflight = None
 
 
 #: The injected fake fleet (``POST /api/traccar/fake``) — in memory only, a restart clears it and

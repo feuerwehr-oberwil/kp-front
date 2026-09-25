@@ -13,6 +13,7 @@ track run on it too.
 `/positions` answers every device from ONE Traccar call per 10 s (`traccar.cached_vehicle_positions`).
 """
 
+import zlib
 from datetime import UTC, datetime
 
 import httpx
@@ -27,6 +28,15 @@ from ..credentials import load as load_credentials
 from ..traccar import VehiclePosition, VehicleTrail, cached_vehicle_positions, fake_positions, traccar_client
 
 router = APIRouter(prefix="/traccar", tags=["traccar"])
+
+
+def fake_device_id(name: str) -> int:
+    """A fake tracker's id, derived from its NAME: the same vehicle keeps its id whatever order
+    a scenario lists it in, and across restarts — the server's presence record is keyed by it
+    (`vp:<device>:<n>`), so an id that followed the list order would hand one vehicle's history
+    to another."""
+    return zlib.crc32(name.strip().lower().encode("utf-8")) % 1_000_000 + 1
+
 
 # Injected fake fleet — in-memory only (a restart clears it; the scenario CLI re-injects).
 # Never consulted while the TRACCAR_FAKE flag is off. It lives in `app.traccar` so the
@@ -81,7 +91,7 @@ async def set_fake_positions(
     now = datetime.now(UTC)
     _fake_positions[:] = [
         VehiclePosition(
-            device_id=i + 1,
+            device_id=fake_device_id(v.name),
             device_name=v.name,
             unique_id=v.name.lower(),
             status=v.status,
@@ -92,7 +102,7 @@ async def set_fake_positions(
             last_update=(v.ts if v.ts.tzinfo else v.ts.replace(tzinfo=UTC)) if v.ts else now,
             address=v.address,
         )
-        for i, v in enumerate(payload)
+        for v in payload
     ]
     return {"ok": True, "count": len(_fake_positions)}
 

@@ -73,12 +73,14 @@ def test_milestones_payload_resolves_offsets_and_omits_absent_times():
 
 def test_a_position_may_carry_its_fix_time_as_an_offset():
     """The server stamps «vor Ort» with the FIX time (24.09.2026), so a scenario can place one."""
-    s = Scenario(positions=[{"name": "TLF", "lat": 47.5, "lng": 7.5, "at": "-8m"}, {"name": "ADL", "lat": 1, "lng": 2}])
+    s = Scenario(
+        positions=[{"name": "TLF", "lat": 46.948, "lng": 7.4474, "at": "-8m"}, {"name": "ADL", "lat": 1, "lng": 2}]
+    )
     body = fake_positions_payload(s.positions, NOW)
     assert body[0] == {
         "name": "TLF",
-        "lat": 47.5,
-        "lng": 7.5,
+        "lat": 46.948,
+        "lng": 7.4474,
         "status": "online",
         "ts": (NOW - timedelta(minutes=8)).isoformat(),
     }
