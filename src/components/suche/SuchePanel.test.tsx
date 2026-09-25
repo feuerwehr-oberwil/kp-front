@@ -89,6 +89,23 @@ describe('SuchePanel', () => {
     expect(within(group).getByText('0/3')).toBeTruthy()
   })
 
+  it('a group is counted with the stepper, and only the one button reports it', () => {
+    let last: SucheDoc = emptySuche()
+    render(<Harness onDoc={(d) => { last = d }} />)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(C.addVermisst) }))
+    fireEvent.change(screen.getByLabelText(C.wer), { target: { value: 'Gruppe Werkstatt' } })
+    fireEvent.click(screen.getByRole('button', { name: C.gruppe }))
+    const more = within(screen.getByRole('group', { name: C.anzahl })).getByRole('button', { name: appConfig.copy.stepper.more })
+    // a real press: the step fires on pointerdown, and the browser's click follows it
+    const press = () => { fireEvent.pointerDown(more, { button: 0 }); fireEvent.pointerUp(window); fireEvent.click(more) }
+    press()
+    press()
+    // ⚠️ the stepper's buttons are no submit: nothing reported yet (it once was, at 3)
+    expect(last.personen).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: C.submitVermisst }))
+    expect(personView(last.personen[0])).toMatchObject({ group: true, count: 4, missing: 4 })
+  })
+
   it('reads only, and says so, where the session may not write', () => {
     render(<Harness canEdit={false} />)
     expect(screen.getByText(C.readOnlyNote)).toBeTruthy()

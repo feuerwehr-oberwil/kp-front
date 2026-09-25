@@ -348,7 +348,9 @@ function FundPicker({ preset, personen, trupps, floorName, onBack, onPerson, onO
 
 function Form({ title, children, submit, submitLabel, disabled, onCancel }: { title: string; children: ReactNode; submit: () => void; submitLabel: string; disabled?: boolean; onCancel: () => void }) {
   return (
-    <form className={s.panel} onSubmit={(e) => { e.preventDefault(); if (!disabled) submit() }}>
+    // ⚠️ NOT a <form>: the shared Stepper renders plain <button>s, and inside a form every one of
+    // them is a submit — «+» on «Anzahl» reported the group missing at 3 (found in the visual pass)
+    <div className={s.panel} role="group" aria-label={title}>
       <div className={s.scroll}>
         <div className={s.form}>
           <h3 className={s.formTitle}>{title}</h3>
@@ -357,9 +359,9 @@ function Form({ title, children, submit, submitLabel, disabled, onCancel }: { ti
       </div>
       <div className={s.foot}>
         <button type="button" className="ip-btn" onClick={onCancel}>{appConfig.copy.suche.cancel}</button>
-        <button type="submit" className="ip-btn primary" disabled={disabled}>{submitLabel}</button>
+        <button type="button" className="ip-btn primary" disabled={disabled} onClick={() => { if (!disabled) submit() }}>{submitLabel}</button>
       </div>
-    </form>
+    </div>
   )
 }
 
