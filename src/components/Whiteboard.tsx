@@ -191,6 +191,8 @@ interface Props {
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
   /** who is signed in — stamped on a «Gelöscht / erledigt» (lib/objectDone · markDone) */
   authorName?: string
+  /** name the NEXT undo step in the operator's words («Feuer EG gelöscht») instead of «Plan …» */
+  onStepLabel?: (label: string) => void
   /** symbol placed → App may offer logging it as Mittel (same hook as the Lage map) */
   /** record a plan mutation in the hash-chained audit trail (board.* ops). No-op
    *  default keeps the component usable standalone / in tests. */
@@ -333,7 +335,7 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -1090,8 +1092,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const src = annos.find((a) => a.id === selId)
     if (!src) return
     const id = newId(DUP_PREFIX[src.kind])
+    // …and no «Gelöscht / erledigt» either: the copy is a new thing on the picture (lib/duplicate)
+    const { done: _done, ...rest } = src
     const copy: BoardAnno = {
-      ...src, id, trail: undefined,
+      ...rest, id, trail: undefined,
       ...(src.pts ? { pts: src.pts.map(([x, y, floor]): BoardPoint => [x + DUP_OFFSET_N, y + DUP_OFFSET_N, floor ?? src.floor ?? 0]) } : {}),
       ...(src.x != null ? { x: src.x + DUP_OFFSET_N } : {}),
       ...(src.y != null ? { y: src.y + DUP_OFFSET_N } : {}),
@@ -2016,10 +2020,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const from = stack ? a.floorFrom ?? a.floor ?? 0 : a.floorFrom ?? a.storey
     const place = donePlace(from, stack ? a.floorTo ?? from : a.floorTo)
     const name = doneName(a)
+    const text = done ? doneRowText(name, place, a.symbol) : reopenedRowText(name, place)
+    onStepLabel?.(text) // the ↶ says «Feuer EG gelöscht», the Karte's way, not «Plan …»
     commit(annos.map((x) => (x.id === a.id ? { ...x, done } : x)))
     emit('board.edit', { id: a.id, patch: { done: done ?? null }, planId: activeId })
-    log(on ? 'check' : 'undo', done ? doneRowText(name, place, a.symbol, done) : reopenedRowText(name, place),
-      { annoId: a.id, x: a.x, y: a.y, floor: a.floor })
+    // …and the Karte's view of the same object (its baked or its own map body) — the replay folds
+    // VIEWS, so a plan-side mark must reach the map view too; a symbol with no map body folds to
+    // nothing there, the answer every too-thin event gets (lib/replay)
+    emit('entity.edit', { id: a.id, patch: { done: done ?? null } })
+    log(on ? 'check' : 'undo', text, { annoId: a.id, x: a.x, y: a.y, floor: a.floor })
   }
 
   // returns whether the object actually went — «Marker und Spur löschen» has to take its arming

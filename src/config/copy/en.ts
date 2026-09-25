@@ -814,7 +814,7 @@ export const en: Localizable<Copy> = {
     state: '{word} {time}',
     reopen: 'Active again',
     removeHint: 'only for a mistake',
-    logDone: '{name} {word} ({time})',
+    logDone: '{name} {word}',
     logReopened: '{name} active again',
   },
   addSheet: { tile: 'Add', tools: 'Draw & crew' },

@@ -91,13 +91,12 @@ export function doneName(props: Pick<SymbolProps, 'label' | 'symbol'>): string {
 const named = (name: string, place: string) => (place ? `${name} ${place}` : name)
 
 /**
- * The Verlauf row for the act — «Feuer EG gelöscht (20:40)». A row carries what was said
- * (AGENTS · append-only), so it names the object, the storey and the time itself.
+ * The Verlauf row for the act — «Feuer EG gelöscht». A row carries what was said (AGENTS ·
+ * append-only), so it names the object and its storey; the WHEN is the row's own timestamp, which
+ * is the same instant `done.at` holds (review of PR #226: a bracketed time said it twice).
  */
-export function doneRowText(name: string, place: string, symbol: string | undefined, done: ObjectDone): string {
-  return fillTemplate(appConfig.copy.objectDone.logDone, {
-    name: named(name, place), word: doneWord(symbol, 'inline'), time: doneTime(done),
-  })
+export function doneRowText(name: string, place: string, symbol: string | undefined): string {
+  return fillTemplate(appConfig.copy.objectDone.logDone, { name: named(name, place), word: doneWord(symbol, 'inline') })
 }
 
 /** …and its counterpart, «Feuer EG wieder aktiv» — an appended correction, never an edit. */

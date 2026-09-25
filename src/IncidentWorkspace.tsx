@@ -187,6 +187,7 @@ import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
 import { canBeDone, doneName, doneOf, donePlace, doneRowText, markDone, reopenedRowText } from './lib/objectDone'
+import { createPlanStepLink, type PlanStepLink } from './lib/planStepLink'
 import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
@@ -448,6 +449,11 @@ export function IncidentWorkspace({
   /** the caption the NEXT store checkpoint carries, when its writer knows a better word than
    *  the domain's — see `onCheckpoint` below */
   const stepLabel = useRef<string | null>(null)
+  /** …and the same one-shot caption for the next PLAN step (rememberPlanStep), set by a plan writer
+   *  that knows the words for its act (Whiteboard · onStepLabel) */
+  const planStepLabel = useRef<string | null>(null)
+  /** ONE gesture on a plan is ONE undo step, whichever stack takes it (lib/planStepLink) */
+  const planStepLink = useRef<PlanStepLink | null>(null)
   // On open, fit the map to the incident's existing map content (symbols + drawings) instead of
   // zooming onto the bare Einsatzort point — so a pre-filled Lage is framed ("eingepasst"). One
   // snapshot per incident (mirrors `init`), so it never snaps the view back while you draw.
@@ -622,6 +628,7 @@ export function IncidentWorkspace({
           else if (c.drawing) histSide.current.emit('draw.edit', { id: c.id, patch: { coords: c.drawing.coords } })
         }
       },
+      onForeignStep: () => planStepLink.current?.foreignTaken(),
       onForeignSheetEdit: (events) => {
         for (const event of events) histSide.current.emit(event.op, event.payload)
       },
@@ -871,14 +878,22 @@ export function IncidentWorkspace({
     // not own (lib/useObjectStore · setBoard): one gesture is one step on whichever stack owns
     // what it touched, and this is the signal that keeps it to one.
     beginSheetStep()
-    const label = fillTemplate(C_HIST.undoDomains.plan, { plan: planLabelRef.current(planId) })
-    undoHist.push({
+    const label = planStepLabel.current ?? fillTemplate(C_HIST.undoDomains.plan, { plan: planLabelRef.current(planId) })
+    planStepLabel.current = null
+    const drop = undoHist.push({
       domain: 'plan',
       scope: planId,
       label,
       undo: () => histStep(planStepAt(planId, 'undo'), 'undo', label, ''),
       redo: () => histStep(planStepAt(planId, 'redo'), 'redo', label, ''),
     })
+    // if the fold that follows reaches an object this sheet does not own, the STORE takes the
+    // step and this entry (and its snapshot) is withdrawn — one gesture, one ↶ (lib/planStepLink)
+    planStepLink.current ??= createPlanStepLink((pid) => setPlanHistory((m) => {
+      const c = m[pid]
+      return c?.past.length ? { ...m, [pid]: { ...c, past: c.past.slice(0, -1) } } : m
+    }))
+    planStepLink.current.opened(planId, drop)
   }
   // …and the zoom/pan of each plan, for the same reason: coming back from the Karte to a board
   // that had reset itself to «eingepasst» means finding your place on it again, every time.
@@ -3316,10 +3331,15 @@ export function IncidentWorkspace({
     const done = on ? markDone(serverNowIso(), user?.display_name) : undefined
     const name = doneName(ent)
     const place = donePlace(ent.floorFrom ?? ent.floor, ent.floorTo)
-    const text = done ? doneRowText(name, place, ent.symbol, done) : reopenedRowText(name, place)
+    const text = done ? doneRowText(name, place, ent.symbol) : reopenedRowText(name, place)
     stepLabel.current = text // the ↶ names the act, not «Änderung auf der Karte»
     commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === ent.id ? { ...e, done } : e)) }))
     emit('entity.edit', { id: ent.id, patch: { done: done ?? null } })
+    // …and the view that OWNS it, when that is a sheet: the replay folds VIEWS, and a symbol drawn
+    // on a plan would otherwise stay red on the replayed plan until the next snapshot — the same
+    // «emit the pair» the anchor flip does (AGENTS · Replay stays VIEW-based)
+    const ownerPlan = objectsRef.current.find((o) => o.id === ent.id)?.sheet?.planId
+    if (ownerPlan) emit('board.edit', { id: ent.id, planId: ownerPlan, patch: { done: done ?? null } })
     log(on ? 'check' : 'undo', text, 'symbol', undefined, ent.id)
   }
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
@@ -5736,7 +5756,10 @@ export function IncidentWorkspace({
           hist={planHistory}
           setHist={setPlanHistory}
           onCheckpoint={rememberPlanStep}
-          onStepEnd={endSheetStep}
+          onStepEnd={() => { planStepLink.current?.closed(); endSheetStep() }}
+          // the words of a plan act for its ↶ — on both stacks, since whichever owns the object
+          // takes the step (lib/planStepLink)
+          onStepLabel={(label) => { planStepLabel.current = label; stepLabel.current = label }}
           views={planViews}
           fitRef={planFit}
           keysRef={planKeys}

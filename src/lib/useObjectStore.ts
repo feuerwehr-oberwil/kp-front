@@ -152,6 +152,15 @@ export interface ObjectStoreOptions {
   onAnchorChange?: (changes: AnchorChange[]) => void
   /** Committed edits made through another sheet, in the owning views' replay vocabulary. */
   onForeignSheetEdit?: (events: ForeignSheetEditEvent[]) => void
+  /**
+   * ⚠️ A plan step's fold reached an object the sheet does not own, so THIS stack took the step
+   * (AGENTS · «Ownership decides the undo stack»). The plan surface laid its own checkpoint when
+   * the step began (IncidentWorkspace · rememberPlanStep), before anyone knew whom the edit would
+   * touch — and one gesture is ONE step, so the caller withdraws that plan entry here. Without it
+   * a plan-panel edit of a Karte-owned symbol cost two ↶ presses, and the second reported a lost
+   * step. Fired once per open plan step, outside the store's updater.
+   */
+  onForeignStep?: () => void
 }
 
 export interface ForeignSheetEditEvent {
@@ -162,7 +171,7 @@ export interface ForeignSheetEditEvent {
 export function useObjectStore(
   init: TacticalObject[],
   readOnly: boolean,
-  { getFits, defaultLayer, fitsVersion, onCheckpoint, onAnchorChange, onForeignSheetEdit }: ObjectStoreOptions,
+  { getFits, defaultLayer, fitsVersion, onCheckpoint, onAnchorChange, onForeignSheetEdit, onForeignStep }: ObjectStoreOptions,
 ): ObjectStore {
   const store = useUndoableDoc<TacticalObject[]>(init, readOnly, onCheckpoint)
   const { setDocRaw: setObjects } = store
@@ -290,6 +299,7 @@ export function useObjectStore(
 
   const setBoard: SetBoard = (a, opts) => {
     const changedOwners = new Map<string, { before: TacticalObject; after: TacticalObject }>()
+    let tookPlanStep = false
     reporting((see) => setObjects((objects) => {
       const view = boardViewOf(objects, getFits())
       const next = typeof a === 'function' ? a(view) : a
@@ -317,6 +327,7 @@ export function useObjectStore(
       if (out !== objects && foreignEdit && (gesture === null || stepped.current !== gesture)) {
         store.checkpoint(objects)
         stepped.current = gesture ?? undefined // …the gesture's remaining samples fold into it
+        tookPlanStep = gesture !== null
       }
       see(objects, out)
       return out
@@ -327,6 +338,7 @@ export function useObjectStore(
       before: foreignPending.current.get(id)?.before ?? change.before, after: change.after,
     })
     if (sheetStep.current === null) flushForeign()
+    if (tookPlanStep) onForeignStep?.()
   }
 
   const rebake: ObjectStore['rebake'] = (opts) => {

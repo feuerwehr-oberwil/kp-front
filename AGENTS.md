@@ -285,7 +285,7 @@ to prod.
   reminder carries its bare text alongside (`reminder.text`) rather than the row being re-parsed.
   **Deleting and creating belong in the same channel, on both surfaces**: a single object removed
   on a Plan writes the Karte's «{name} entfernt» (24.09.2026, `drawingEdit · annoLogName`, as a
-  `subjectId`, never a jump target), and «Gelöscht / erledigt» writes «Feuer EG gelöscht (20:40)» /
+  `subjectId`, never a jump target), and «Gelöscht / erledigt» writes «Feuer EG gelöscht» /
   «Feuer EG wieder aktiv» from the act itself — one row per act ([`docs/verlauf-coverage.md`](docs/verlauf-coverage.md)).
   ⚠️ **The two acts never share a verb** (decided 25.09.2026): taking a tactical object off the
   picture is «Entfernen» / «… entfernt» — button, confirm and Verlauf row, Karte and Plan, every
@@ -456,6 +456,10 @@ to prod.
     the step and whose remaining samples fold into it, and the token closes when the finger lifts
     — a plan step is a pointer gesture. With none open, every write is its own step, which is what
     the writers that are not gestures (the Trupp sweeps, a plan ↶, a Gebäude amend) need.
+    ⚠️ The plan laid ITS entry when the step began, before anyone knew whom the fold would touch;
+    when the store takes the step, that entry and its per-plan snapshot are withdrawn
+    (`useObjectStore · onForeignStep` → `lib/planStepLink`, 25.09.2026). A plan-panel edit of a
+    Karte-owned symbol used to cost two ↶, the second one reporting a lost step.
   - **Presentation stays equivalent, and nothing is lent that is owned.** Each surface draws the
     other's objects with its OWN native chrome and sizing (map `symPx`, board `symBase`) — no
     projection tone, no reduced opacity, no twin-only band — and every capability the surface has

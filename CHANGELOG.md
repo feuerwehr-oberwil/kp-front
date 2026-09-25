@@ -36,7 +36,7 @@ so this file – not the log – is the record of what shipped up to that point.
   and with the time in its corner, and it prints the same way on the Kroki and the Gebäude pages
   of the Rapport, its legend line ending «gelöscht 20:40» (a Feuer) or «erledigt 20:40»
   (everything else). «Wieder aktiv» takes it back; both are undoable and each writes one Verlauf
-  row («Feuer EG gelöscht (20:40)»). Taking an object off the picture is now «Entfernen»
+  row («Feuer EG gelöscht»). Taking an object off the picture is now «Entfernen»
   everywhere – the delete button on every object panel, its confirm, and the Verlauf row
   («Feuer entfernt», «3 Objekte entfernt») on the Karte and on plans alike – so «gelöscht» only
   ever means an extinguished fire; rows already written keep their wording. Removing a single

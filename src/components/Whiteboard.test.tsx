@@ -1068,6 +1068,17 @@ describe('the plan’s selection bar', () => {
     expect(log).toHaveBeenCalledWith('layers', appConfig.copy.log.duplicated, expect.objectContaining({ annoId: copy.id }))
   })
 
+  // «Gelöscht / erledigt» (lib/objectDone) belongs to the thing that is over, never to its copy
+  it('never copies «Gelöscht / erledigt» — a duplicated Feuer is a new, burning one', () => {
+    const f: BoardAnno = { id: 'f1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Feuer', label: 'Feuer', done: { at: '2026-09-23T18:40:00.000Z' } }
+    const { container, onChange, keysRef } = withKeys([f])
+    fireEvent.pointerDown(container.querySelector('.wb-symbol')!)
+    act(() => { keysRef.current!.duplicate() })
+    const copy = out(onChange).find((a) => a.id !== 'f1')!
+    expect(copy.symbol).toBe('VKF Feuer')
+    expect('done' in copy).toBe(false)
+  })
+
   // ⚠️ A recorded track belongs to the Trupp that walked it (`teamLocked` refuses to delete one),
   // so a copy that inherited it would fabricate a movement history AND arrive undeletable.
   it('never copies a Trupp’s recorded trail', () => {
@@ -1641,11 +1652,13 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     expect(saved).toHaveLength(1) // still there
     expect(saved[0].done?.at).toBeTruthy()
     expect(saved[0].done?.by).toBe('Muster Anna')
-    // ONE row, naming what, where and when — «Feuer EG gelöscht (20:40)»
+    // ONE row, naming what and where (the row's own timestamp says when) — «Feuer EG gelöscht»
     expect(log).toHaveBeenCalledTimes(1)
-    expect(log.mock.calls[0][1]).toMatch(/^Feuer EG gelöscht \(\d\d:\d\d\)$/)
+    expect(log.mock.calls[0][1]).toBe('Feuer EG gelöscht')
     expect(log.mock.calls[0][2]).toMatchObject({ annoId: 'f1' })
     expect(emit).toHaveBeenCalledWith('board.edit', expect.objectContaining({ id: 'f1', patch: { done: saved[0].done } }))
+    // …and the Karte's view of the same object, so the replay's map view greys it too
+    expect(emit).toHaveBeenCalledWith('entity.edit', { id: 'f1', patch: { done: saved[0].done } })
   })
 
   it('states a set one and takes it back with «Wieder aktiv» — a row, and `done: null` for the replay', () => {
@@ -1658,6 +1671,7 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     expect(lastSaved(onChange)[0].done).toBeUndefined()
     expect(log.mock.calls[0][1]).toBe('Feuer EG wieder aktiv')
     expect(emit).toHaveBeenCalledWith('board.edit', expect.objectContaining({ id: 'f1', patch: { done: null } }))
+    expect(emit).toHaveBeenCalledWith('entity.edit', { id: 'f1', patch: { done: null } })
   })
 
   it('«Entfernen» writes the same removal row the Karte writes — once, about the object', async () => {

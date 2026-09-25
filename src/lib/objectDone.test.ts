@@ -38,9 +38,9 @@ describe('the words — one key, a family switch', () => {
     expect(doneBadge({ done: { at: AT } })).toBe(HHMM)
   })
 
-  it('writes the Verlauf rows with what, where and when', () => {
-    expect(doneRowText('Feuer', 'EG', 'VKF Feuer', { at: AT })).toBe(`Feuer EG gelöscht (${HHMM})`)
-    expect(doneRowText('Lüfter', '', 'VKF Luefter mobil', { at: AT })).toBe(`Lüfter erledigt (${HHMM})`)
+  it('writes the Verlauf rows with what and where — the row’s own timestamp is the when', () => {
+    expect(doneRowText('Feuer', 'EG', 'VKF Feuer')).toBe('Feuer EG gelöscht')
+    expect(doneRowText('Lüfter', '', 'VKF Luefter mobil')).toBe('Lüfter erledigt')
     expect(reopenedRowText('Feuer', 'EG')).toBe('Feuer EG wieder aktiv')
   })
 
@@ -103,6 +103,24 @@ describe('one object, two surfaces — `done` is a prop both bodies share', () =
     const fromMap = applyDocToObjects(objects, { entities: [{ ...objects[0].entity!, done: undefined }], drawings: [] }, fits)
     expect(doneOf(fromMap[0].sheet?.anno)).toBeNull()
     expect(doneOf(bakeGeoBody(fromMap[0], PLAN, 'taktisch').entity)).toBeNull()
+    // …and with the key ABSENT rather than present-but-undefined — a restored snapshot or a JSON
+    // round trip hands the body back that way, and it still means «not done»
+    const { done: _gone, ...bare } = objects[0].entity!
+    const fromBare = applyDocToObjects(objects, { entities: [bare as Entity], drawings: [] }, fits)
+    expect(doneOf(fromBare[0].sheet?.anno)).toBeNull()
+    expect(doneOf(bakeGeoBody(fromBare[0], PLAN, 'taktisch').entity)).toBeNull()
+  })
+
+  it('MOVING it between the surfaces keeps it — the same object, still over', () => {
+    // dragged on the Karte: the anchor flips to geo, the sheet body goes, `done` stays
+    const objects = onSheet({ done: { at: AT } })
+    const moved = applyDocToObjects(objects, { entities: [{ ...objects[0].entity!, coord: [ORIGIN.lng + 0.001, ORIGIN.lat] }], drawings: [] }, fits)
+    expect(moved[0].sheet).toBeUndefined()
+    expect(moved[0].entity?.done).toEqual({ at: AT })
+    // …and dragged back onto the sheet: the anchor flips to the paper, `done` stays
+    const shown = sheetAnnos(moved, 'modul2', PLAN)[0]
+    const back = applyBoardToObjects(moved, 'modul2', [{ ...shown, x: 0.3, y: 0.3 }], PLAN)
+    expect(back[0].sheet?.anno.done).toEqual({ at: AT })
   })
 
   it('a Karte symbol shown on a sheet carries it there too (the projection)', () => {

@@ -1209,9 +1209,9 @@ export const de = {
     /** Der Knopf selbst heisst überall «Entfernen» (copy · remove); auf einem Symbol mit «Gelöscht /
      *  erledigt» sagt dieser Hinweis, wofür er noch da ist: für die Fehleingabe. */
     removeHint: 'nur bei Fehleingabe',
-    /** Verlauf: «Feuer EG gelöscht (20:40)» – was, wo, wann. Die Uhrzeit steht in Klammern, weil
-     *  sie die Aussage ist (der Zeilenkopf ist der Moment des Tippens). */
-    logDone: '{name} {word} ({time})',
+    /** Verlauf: «Feuer EG gelöscht» – was und wo. Das Wann ist der Zeitstempel der Zeile selbst,
+     *  derselbe Moment, den `done.at` hält; eine Uhrzeit in Klammern sagte es zweimal. */
+    logDone: '{name} {word}',
     logReopened: '{name} wieder aktiv',
   },
   // unified, append-only journal (Verlauf) shared by Karte + Plan

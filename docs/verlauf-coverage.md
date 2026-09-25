@@ -177,7 +177,7 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
 
 | Act | Verlauf row | Audit | ↶ |
 |---|---|---|---|
-| «Gelöscht / erledigt» (first row of a symbol's editor sheet) | «Feuer EG gelöscht (20:40)» – a Feuer is «gelöscht», every other symbol «erledigt» (`objectDone.logDone`), with the storey it stands on | `entity.edit` / `board.edit` with `{ done: {at, by?} }` | yes – one prop-edit step; the ↶ writes its own «… rückgängig gemacht» |
+| «Gelöscht / erledigt» (first row of a symbol's editor sheet) | «Feuer EG gelöscht» – a Feuer is «gelöscht», every other symbol «erledigt» (`objectDone.logDone`), with the storey it stands on | `entity.edit` **and** `board.edit` with `{ done: {at, by?} }` – both views, see below | yes – one prop-edit step; the ↶ writes its own «… rückgängig gemacht» |
 | «Wieder aktiv» | «Feuer EG wieder aktiv» (`objectDone.logReopened`) | the same op with `{ done: null }` – `null`, because JSON drops `undefined` and the replay would fold an empty patch and keep the symbol grey | yes |
 | «Entfernen» (single object) on the **Plan** | «Feuer entfernt» – the Karte's own `log.objectDeleted`, named the way the Karte names it (`drawingEdit · annoLogName`), carried as `subjectId` | `board.delete` | yes, as before |
 
@@ -185,9 +185,18 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
   setEntityDone`, `Whiteboard · setAnnoDone` / `logRemoved`) and nowhere else: the store fold
   writes none, the Karte's edit-settle window (`entityEditChanges`) does not read `done`, and a
   plan removal of a *projected* Karte object goes through the plan's handler only.
-- **Replay stays coherent** because `done` is an ordinary prop: it rides the same `entity.edit` /
-  `board.edit` the other symbol props ride, and the views carry it (the anno and the baked map
-  body both hold it – `lib/tacticalObjects`).
+- **Replay stays coherent because the act emits BOTH views' op** – the pair, like an anchor flip.
+  The surface a finger is on speaks its own document, and the replay folds views: a mark on a
+  plan also emits `entity.edit` (the Karte's baked or own body; a symbol with no map body folds to
+  nothing), and a mark on the Karte of a sheet-anchored symbol also emits `board.edit` for the
+  sheet that owns it. With one op only, the other replayed view stayed red until the next
+  snapshot. (Other symbol props do not do this yet; `done` does because the record's claim «the
+  fire was out at 20:40» must hold in both views.)
+- ⚠️ **Accepted limitation, same as every object prop:** objects merge WHOLE (`mergeById`,
+  last-writer-wins per object), so device A's «Wieder aktiv» and device B's concurrent edit of the
+  same symbol (say its Anzahl) can leave the picture with B's version – still grey – while the
+  Verlauf holds A's «Feuer EG wieder aktiv». The row stays true as a record of the act; the
+  picture follows the merge.
 - **A group** of several removed on the Plan keeps «{n} Objekte vom Plan entfernt»; a «group» of
   one writes the single-object row. An empty Notiz writes nothing, as on the Karte.
 - ⚠️ **The two acts never share a verb** (decided 2026-09-25). Every removal row – Karte and

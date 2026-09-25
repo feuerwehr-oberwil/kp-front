@@ -816,8 +816,8 @@ export const fr: Localizable<Copy> = {
     state: '{word} {time}',
     reopen: 'De nouveau actif',
     removeHint: 'seulement en cas d’erreur',
-    logDone: '{name} {word} ({time})',
-    logReopened: '{name} de nouveau actif',
+    logDone: '{name} : état {word}',
+    logReopened: '{name} : état actif',
   },
   addSheet: { tile: 'Ajouter', tools: 'Dessin & équipe' },
   toolDock: {
