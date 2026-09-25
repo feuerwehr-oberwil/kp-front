@@ -49,6 +49,11 @@ export const sideInsets = (viewportW: number, phone = viewportW <= 600) =>
 // edges of the stack (CSS top/bottom: -17px). The default "fit" reserves this much
 // extra room above AND below so both pills stay fully on-screen instead of clipping.
 export const STACK_VPAD = 36
+// …and, below that, the bottom-left chip row (09-whiteboard · .wb-botleft: 12px off the edge, a
+// --tap tall). The stack's «+ UG» straddles its bottom edge, so a fit that ran down to the
+// canvas edge put that pill ON the chips (3am test r2, 25.09.2026 — at 820 and at 360). The
+// Gebäude fit reserves the row; an ordinary sheet does not, it has no pill down there.
+export const STACK_CHIP_ROW = 56
 export const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 export const floorLabel = (f: number) => {
   const c = appConfig.copy.floor

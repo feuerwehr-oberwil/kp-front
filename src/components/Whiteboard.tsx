@@ -52,7 +52,7 @@ import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
-import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
+import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
@@ -500,6 +500,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // floor-stack: a vertical stack of footprint sheets (top = highest storey). Read before the
   // view hook because the stack zooms one step deeper than a sheet does (see MAX_SCALE_STACK).
   const stack = !!(active.floorStack && building && building.floors.length)
+  // the Gebäude also keeps its «+ UG» off the bottom-left chip row (lib/whiteboard ·
+  // STACK_CHIP_ROW); `vShift` is where the centre of the lane between bar and row lies — the
+  // board transform, the zoom focus (useBoardView) and «centre on» all read it
+  const botRes = stack ? STACK_CHIP_ROW : 0
+  const vShift = (TOP_INSET - botRes) / 2
   // ⚠️ A sheet drawn from tiles zooms by its PAPER size (lib/planTiles · paperMaxScale): the fit it
   // is measured against is computed further down, so the ceiling lives in state and the view hook
   // reads it through a ref.
@@ -510,7 +515,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const maxScale = stack
     ? (stackDensity ? paperMaxScale(stackDensity, 1, MAX_SCALE_STACK) : MAX_SCALE_STACK)
     : Math.max(MAX_SCALE, paperScale ?? 0)
-  const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef, canvasEl, viewMemory, maxScale)
+  const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef, canvasEl, viewMemory, maxScale, vShift)
 
   const osm = active.osm
   /** every storey the building HAS, top-to-bottom – what the eye toggles list, what the document
@@ -724,10 +729,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const side = useMemo(() => sideInsets(vp.w, isPhone), [vp.w, isPhone])
   const fit = useMemo(() => {
     const w = Math.max(0, vp.w - side.l - side.r)
-    const h = Math.max(0, vp.h - TOP_INSET - (stack ? 2 * STACK_VPAD : 0)); if (!w || !h) return { w: 0, h: 0 }
+    const h = Math.max(0, vp.h - TOP_INSET - botRes - (stack ? 2 * STACK_VPAD : 0)); if (!w || !h) return { w: 0, h: 0 }
     const byW = { w, h: w * effAspect }
     return byW.h <= h ? byW : { w: h / effAspect, h }
-  }, [vp, effAspect, stack, side])
+  }, [vp, effAspect, stack, side, botRes])
   // a storey says its density at the CURRENT zoom; the ceiling wants it at fit. Rounded, so the
   // sub-pixel wobble of a re-layout cannot move the ceiling under a finger.
   const takeStackDensity = (now: number) => {
@@ -2081,7 +2086,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // focus so “centre” never means underneath a rail or the floating top bar.
     const surface = {
       minX: canvas.left + side.l, maxX: canvas.right - side.r,
-      minY: canvas.top + TOP_INSET, maxY: canvas.bottom,
+      minY: canvas.top + TOP_INSET, maxY: canvas.bottom - botRes,
     }
     if (!panelEl) return visibleWorkRect(surface, null, false)
     const panel = panelEl.getBoundingClientRect()
@@ -2126,7 +2131,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const my = mapY(floor, y)
     const target = rectCenter(planWorkRect(canvas, document.querySelector('.ctx')))
     const baseX = canvas.left + canvas.width / 2 + (side.l - side.r) / 2
-    const baseY = canvas.top + canvas.height / 2 + TOP_INSET / 2
+    const baseY = canvas.top + canvas.height / 2 + vShift
     applyView(s, {
       x: target.x - baseX - (x - 0.5) * w,
       y: target.y - baseY - (my - 0.5) * h,
@@ -2833,8 +2838,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             ref={boardRef}
             className={`wb-board ${blank ? 'wb-board-blank' : ''}`}
             // the reserved lanes are not symmetric (the rails differ), so the centre shifts by half
-            // their difference — exactly what TOP_INSET / 2 already does for the top bar
-            style={{ width: sW || undefined, height: sH || undefined, transform: `translate(-50%, -50%) translate(${pos.x + (side.l - side.r) / 2}px, ${pos.y + TOP_INSET / 2}px)` }}
+            // their difference — exactly what `vShift` does for the top bar (and the Gebäude's
+            // chip row below)
+            style={{ width: sW || undefined, height: sH || undefined, transform: `translate(-50%, -50%) translate(${pos.x + (side.l - side.r) / 2}px, ${pos.y + vShift}px)` }}
           >
             {stack && building ? (
               <>
