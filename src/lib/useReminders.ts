@@ -74,7 +74,9 @@ export function completeReminder(r: OpenReminder, deps: {
     close()
     return true
   }
-  const drop = timeline?.push({ domain: 'pendenz', label: doneText, undo: reopen, redo }) ?? (() => {})
+  // ⚠️ `touches: []` — both directions APPEND a Verlauf row and write nothing of the workspace, so
+  // no workspace merge can invalidate them; each checks the item's live state itself (isOpen)
+  const drop = timeline?.push({ domain: 'pendenz', label: doneText, touches: () => [], undo: reopen, redo }) ?? (() => {})
   announce?.(doneText, () => { if (reopen()) drop() })
 }
 

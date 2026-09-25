@@ -67,8 +67,10 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
    *  `buildPayload`'s IDENTITY, and a hydrate re-seeds every slice — so a merge that changed
    *  nothing this device cares about still produced a fresh identity and a push. Two devices
    *  with the same Einsatz open pushed each other's echoes back and forth, and since a hydrate
-   *  drops both undo stacks by design, the loop quietly ate every ↶ on both of them. Content,
-   *  not identity, is the only thing that can tell those apart.
+   *  then dropped both undo stacks wholesale, the loop quietly ate every ↶ on both of them.
+   *  (Since 25.09.2026 a hydrate drops only the steps whose records it changed, and an echo
+   *  changes none — but the echo is still a wasted push.) Content, not identity, is the only
+   *  thing that can tell those apart.
    *  Held as the serialized string — or, after a skipped mid-gesture compare (below), as the
    *  payload itself, serialized only when the next compare needs it. */
   const lastPushed = useRef<string | Saved | null>(null)

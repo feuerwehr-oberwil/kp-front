@@ -12,7 +12,7 @@ import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
-import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type InitialState, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
@@ -23,7 +23,7 @@ import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays 
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
 import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from './lib/docking'
-import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
+import type { AttendanceState, BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newId, newRowId } from './lib/ids'
@@ -47,14 +47,15 @@ import { cartoRasterTiles } from './lib/carto'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
-import { useObjectStore } from './lib/useObjectStore'
+import { boardViewOf, useObjectStore } from './lib/useObjectStore'
+import { annoRefs, carryUndoThroughMerge, fieldsOf, listById, planViewChanges, recordByKey, recordKey, workspaceChanges, type RecordKey, type RecordShape } from './lib/undoKeys'
 import { useGpsFollow } from './lib/useGpsFollow'
 import { useUndoTimeline } from './lib/useUndoTimeline'
-import type { UndoDomain } from './lib/undoTimeline'
+import { undoCaption, type Dropper, type UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { pushSliceStep } from './lib/sliceUndoStep'
-import { foldsIntoPrevious, keepMachineFields, reportStep as reportStepOf } from './lib/reportUndo'
+import { foldsIntoPrevious, keepMachineFields, REPORT_MACHINE_FIELDS, reportStep as reportStepOf } from './lib/reportUndo'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
@@ -125,14 +126,14 @@ import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
-import type { BoardHistory } from './components/useBoardDoc'
+import { keepPlanSteps, planStackTouches, type BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
 import { prewarmPlans } from './components/PdfViewport'
 import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
-import { amendBuilding } from './lib/buildingTransfer'
+import { amendBuilding, buildingPickStep } from './lib/buildingTransfer'
 import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
 import { askStoreyRemoval } from './lib/storeyRemoval'
 import { floorPackOf, packFloorNames, packStoreys } from './lib/floorPackBinding'
@@ -312,6 +313,18 @@ interface WorkspaceProps {
 
 /** One Drehung of the Gebäude is one drag, not forty slider frames — see onReorient. */
 const REORIENT_FOLD_MS = 1500
+
+
+/** How each undoable slice is made of records (lib/undoKeys) — the merge's own unit for each, so a
+ *  remote merge keeps every step that writes records it did not change. Module-level: a shape is
+ *  a constant, and the slice hooks take it as a stable argument. */
+const ATTENDANCE_RECORDS = recordByKey<AttendanceState[string]>('attendance')
+const MITTEL_RECORDS = listById<MittelEntry>('mittel')
+const CHECKLIST_RECORDS = recordByKey<ChecklistState[string]>('checklists')
+/** the app's own bookkeeping rides outside the Rapport's snapshots (lib/reportUndo), so it is no
+ *  record of a step either */
+const REPORT_RECORDS = recordByKey<ReportMeta[keyof ReportMeta]>('reportMeta', REPORT_MACHINE_FIELDS) as unknown as RecordShape<ReportMeta>
+const ZEITPLAN_RECORDS = fieldsOf<{ shifts: Shift[]; bands: ShiftBand[] }>({ shifts: listById<Shift>('shifts'), bands: listById<ShiftBand>('bands') })
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
@@ -535,10 +548,6 @@ export function IncidentWorkspace({
   /** `log`/`emit` are built far below (they need half this component); a timeline entry pushed up
    *  here has to reach the versions that exist when the ↶ is actually pressed. */
   const histSide = useRef<{ log: typeof log; emit: typeof emit }>({ log: () => {}, emit: () => {} })
-  /** ⚠️ Through a ref: `applyWorkspace` below is a `useCallback` pinned to the incident, so it
-   *  must not close over a timeline handle from one particular render. */
-  const histClear = useRef(() => {})
-  histClear.current = () => undoHist.clear()
   /**
    * The Verlauf row + audit event one step owes the record — append-only, so this ADDS a row
    * saying the correction happened and never touches the row it corrects.
@@ -572,7 +581,7 @@ export function IncidentWorkspace({
   // action exactly, because there the timeline entry is written by hand anyway.
   const {
     objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
-    undo: undoDoc, redo: redoDoc, replaceObjects,
+    undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, stepKeys: storeStepKeys,
   } = useObjectStore(
     init.objects,
     readOnly,
@@ -584,14 +593,18 @@ export function IncidentWorkspace({
        *  saying «Änderung auf der Karte» for a corrected georeference described the wrong act
        *  entirely. One-shot: a writer sets it just before its checkpoint, everything else keeps
        *  the domain word, which for a store step is honest (the object IS the Karte's). */
-      onCheckpoint: () => {
+      onCheckpoint: (step) => {
         const label = stepLabel.current ?? C_HIST.undoDomains.karte
         stepLabel.current = null
         undoHist.push({
           domain: 'karte',
           label,
-          undo: () => histStep(undoDocRef.current(), 'undo', label, ''),
-          redo: () => histStep(redoDocRef.current(), 'redo', label, ''),
+          // ⚠️ the STORE step this entry stands for, and the objects it writes — what lets a remote
+          // merge keep it when it changed other objects only (lib/undoTimeline · rebase)
+          step,
+          touches: () => storeStepKeys(step),
+          undo: () => histStep(undoDocRef.current(step), 'undo', label, ''),
+          redo: () => histStep(redoDocRef.current(step), 'redo', label, ''),
         })
       },
       /**
@@ -736,6 +749,13 @@ export function IncidentWorkspace({
   // The bindings register as the georef home for `incident:` keys (pairing mode, Passung,
   // reset all route through it) and their corrections join the shared undo timeline.
   useIncidentPlanBindings(incidentMeta.id, planBindings, setPlanBindings, readOnly, undoHist)
+  /** The synced slices AS THIS RENDER HOLDS THEM — what a merge is diffed against to learn which
+   *  records it changed (applyWorkspace · workspaceChanges). The objects are read live instead. */
+  const liveWs = useRef<Partial<Record<keyof Saved, unknown>>>({})
+  liveWs.current = {
+    trupps: allTrupps, mittel, shifts, bands, cameraViews, trails, attachments, vehicleOverrides, checklists,
+    attendance, planScale, settings: incidentSettings, reportMeta, planBindings, building, pickedObjectId, intakeReviewedAt,
+  }
   // ⚠️ The board list, filtered ONCE at the source. A deleted Trupp is stamped rather than
   // removed (types · Trupp.removedAt) so the Rapport can still print it — and everything else in
   // this component, from the alarm host to the map markers to the roster lock, must never see it
@@ -799,7 +819,7 @@ export function IncidentWorkspace({
     const r = dir === 'undo' ? undoHist.undo() : undoHist.redo()
     if (r.status === 'empty') return
     if (r.status === 'lost') { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
-    if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: r.entry.label }))
+    if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: undoCaption(r.entry) }))
   }
   /** …from a button, which anchors the caption at itself. Every ↶ ↷ in the app goes through this. */
   const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => stepHistory(dir, e.currentTarget)
@@ -807,7 +827,7 @@ export function IncidentWorkspace({
   // the Plan keeps its own per-document history (inside Whiteboard); it reports its
   // step fns up here so the GLOBAL TopBar undo/redo drives whichever
   // surface is showing — one control, both surfaces, no rail-level duplication.
-  const planHist = useRef<{ undo: () => void; redo: () => void } | null>(null)
+  const planHist = useRef<{ undo: (expect?: string) => boolean; redo: (expect?: string) => boolean } | null>(null)
   // ⚠️ …and the STACKS live here rather than inside the Whiteboard, because the Whiteboard is
   // mounted only while `mode === 'plans'`: as component state the plan's history was thrown away
   // every time somebody glanced at the Verlauf or the Karte and came back — «nichts, was sich
@@ -834,19 +854,16 @@ export function IncidentWorkspace({
    * we still go through `planHist`, because that path also clears the board's selection and
    * writes the Verlauf row the Whiteboard has always written.
    */
-  const planStepAt = (planId: string, dir: 'undo' | 'redo'): boolean => {
+  // `step` = the plan step the timeline entry stands for: a stack whose top is another is not
+  // stepped (the entry is then «lost», never applied to the wrong snapshot)
+  const planStepAt = (planId: string, dir: 'undo' | 'redo', step: string): boolean => {
     if (planId === activePlanIdRef.current && planHist.current) {
-      const can = planHistoryRef.current[planId]
-      const has = dir === 'undo' ? !!can?.past.length : !!can?.future.length
-      if (!has) return false
-      if (dir === 'undo') planHist.current.undo(); else planHist.current.redo()
-      return true
+      return dir === 'undo' ? planHist.current.undo(step) : planHist.current.redo(step)
     }
     const cur = planHistoryRef.current[planId]
-    const stack = dir === 'undo' ? cur?.past : cur?.future
-    if (!stack?.length) return false
-    const to = dir === 'undo' ? stack[stack.length - 1] : stack[0]
-    const from = boardRef.current[planId] ?? []
+    const to = dir === 'undo' ? cur?.past[cur.past.length - 1] : cur?.future[0]
+    if (!to || to.id !== step) return false
+    const from = { id: to.id, snap: boardRef.current[planId] ?? [] }
     setPlanHistory((m) => {
       const c = m[planId]
       if (!c) return m
@@ -856,7 +873,7 @@ export function IncidentWorkspace({
     })
     // ⚠️ a RESTORE, not a placement (`gesture: false`): the snapshot is the sheet's whole view,
     // projections included, and read as a hand it flipped any it still held at an older spot
-    setBoard((all) => ({ ...all, [planId]: to }), { gesture: false })
+    setBoard((all) => ({ ...all, [planId]: to.snap }), { gesture: false })
     return true
   }
   /** Record on the timeline that one plan document just gained a step. The Whiteboard pushes its
@@ -865,7 +882,7 @@ export function IncidentWorkspace({
    *  sweeps, a Gebäude amend) goes through the store's `setBoard` instead, which lays its step on
    *  the STORE's stack where the write touched an object the sheet does not own (lib/useObjectStore
    *  · touchedForeign) — the one stack such a write can reach. */
-  const rememberPlanStep = (planId: string) => {
+  const rememberPlanStep = (planId: string, step: string) => {
     // ⚠️ …and the STORE is told too, because a plan gesture may reach an object the sheet does
     // not own (lib/useObjectStore · setBoard): one gesture is one step on whichever stack owns
     // what it touched, and this is the signal that keeps it to one.
@@ -875,8 +892,14 @@ export function IncidentWorkspace({
       domain: 'plan',
       scope: planId,
       label,
-      undo: () => histStep(planStepAt(planId, 'undo'), 'undo', label, ''),
-      redo: () => histStep(planStepAt(planId, 'redo'), 'redo', label, ''),
+      // ⚠️ A plan's stack holds whole-sheet VIEW snapshots, not per-object steps, so it survives a
+      // merge only WHOLE: every entry of it names every object the sheet's history or view holds,
+      // plus the sheet's view itself — a merge that touches any of them drops the plan's steps
+      // together (useBoardDoc · planStackTouches / keepPlanSteps). `step` is the snapshot's own id.
+      step,
+      touches: () => planStackTouches(planId, planHistoryRef.current[planId], boardRef.current[planId]),
+      undo: () => histStep(planStepAt(planId, 'undo', step), 'undo', label, ''),
+      redo: () => histStep(planStepAt(planId, 'redo', step), 'redo', label, ''),
     })
   }
   // …and the zoom/pan of each plan, for the same reason: coming back from the Karte to a board
@@ -1593,7 +1616,7 @@ export function IncidentWorkspace({
   // …reached through a ref because the Anwesenheit's history is created much further down (it
   // needs the roster and the attendance actions), while this merge path has to exist up here.
   // Same shape as `planHist` below.
-  const attHistClear = useRef<(() => void) | null>(null)
+  const sliceRebase = useRef<((next: InitialState, keep: ((step: string) => boolean) | null) => void) | null>(null)
   // …and the ghost-trail reconciliation's re-seed, for the same reason: the hook that owns it
   // (lib/useGhostTrails) needs the tactical store, which is built further down.
   const ghostReseedRef = useRef<(() => void) | null>(null)
@@ -1610,33 +1633,49 @@ export function IncidentWorkspace({
     reportGate(gate)
     syncedLayerState.current = gate.ws?.layerState ?? []
     const next = deriveInitial(gate.ws, incidentMeta.id, prefs, incidentMeta.type)
-    // replaceObjects swaps the whole store — the Karte AND every sheet, they are one collection
-    // now — AND drops undo history (the local stacks no longer apply to remote/merged state:
-    // undoing into it would resurrect remotely-deleted content).
-    replaceObjects(next.objects); setLayers(next.layers); journal.ingestLegacy(next.timeline)
+    // every synced slice takes the merged value (the objects come in with their history below)
+    setLayers(next.layers); journal.ingestLegacy(next.timeline)
     setRecent(next.recent); setBuilding(next.building)
     setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setTrails(next.trails); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPlanBindings(next.planBindings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
-    // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
-    // list that no longer exists, and stepping into one would write this device's rows back over
-    // what another device just merged in. The Plan's stacks go too — they now outlive the board's
-    // unmount (see `planHistory`), so nothing else drops them any more.
-    attHistClear.current?.(); setPlanHistory({})
+    /* ⚠️ WHAT THE MERGE CHANGED, record by record — and the undo timeline keeps everything else
+     * (25.09.2026, reversing 08.09.: this path used to drop the whole timeline, and with three
+     * devices on an Einsatz that greyed ↶ out within seconds of any save anywhere).
+     * `changed` is every record whose value differs between the live state and the one being
+     * written (lib/undoKeys · workspaceChanges — the objects read LIVE, the slices as rendered),
+     * plus every plan sheet whose drawn view that moves (derived only when an object changed).
+     * The timeline drops each entry whose inverse touches one of them (and the older ones behind
+     * a dropped one that touch what it touched); each domain then keeps exactly the steps whose
+     * entries survived, re-laid onto the merged state: the store per object, the slices per
+     * record, a plan's stack whole (useBoardDoc · planStackTouches); still-standing undo toasts
+     * are spent where their records moved. An echo changes nothing and drops nothing.
+     * ⚠️ All or nothing (undoKeys · carryUndoThroughMerge): if any of it throws, the old rule
+     * applies — the whole timeline and every history go — and the merged state still lands. */
+    carryUndoThroughMerge(undoHist, () => {
+      const changed = workspaceChanges({ ...liveWs.current, objects: liveObjects() }, next)
+      for (const k of planViewChanges(boardRef.current, () => boardViewOf(next.objects, getFits()), changed)) changed.add(k)
+      return changed
+    }, [
+      // the whole store swaps in — the Karte AND every sheet, they are one collection now
+      { rebase: (keep) => rebaseObjects(next.objects, keep), drop: () => replaceObjects(next.objects) },
+      // Anwesenheit, Mittel, Checklisten, Rapport, Zeitplan
+      { rebase: (keep) => sliceRebase.current?.(next, keep), drop: () => sliceRebase.current?.(next, null) },
+      // `keep` is a set captured by the merge — never re-read inside the lazy updater
+      { rebase: (keep) => setPlanHistory((h) => keepPlanSteps(h, keep)), drop: () => setPlanHistory({}) },
+    ], {
+      onFail: (e) => console.error('undo bookkeeping failed on merge — history dropped', e),
+      // F8: ↶ must never quietly turn into an older act on another surface — say it once
+      onTopDropped: (e) => toast(fillTemplate(appConfig.copy.undoTopDropped, { what: appConfig.copy.undoDroppedWhat[e.domain] }), { icon: 'warn' }),
+    })
     // …and the ghost-trail reconciliation re-seeds instead of running: the store was REPLACED, so
     // every marker on it would read as «vanished» and the merge would ghost the whole picture.
     // Through a ref, because the hook that owns it is declared further down this component.
     ghostReseedRef.current?.()
-    // …and every OPEN fold window with them. A burst that is still collecting (a Kurzbericht
-    // being typed, a Bildlegende, the Gebäude-Drehung) points at a state the merge has replaced:
+    // …and every OPEN fold window with them — the Rapport's typing burst, the Bildlegende, the
+    // Gebäude-Drehung (the plan sheet-step token is re-opened by the store itself when its step
+    // went, useObjectStore · rebaseObjects). A burst still collecting points at a state the merge has replaced:
     // folding the next write into it would write a pre-merge value back, and — worse — lay no
     // step of its own, so the edit that followed a merge would be the one thing with no way back.
     lastReportStep.current = null; lastCaptionStep.current = null; lastReorient.current = null
-    // ⚠️ …and the ONE global timeline goes with ALL of them. This path replaces every slice at
-    // once — the doc, the board, the trupps, the Anwesenheit, Mittel, Checklisten — so there is
-    // no entry left that describes anything real: a delegating one would step a stack that has
-    // just been emptied, and a closure one would write a pre-merge snapshot back over what
-    // another device merged in. Dropping the whole timeline is the honest answer, and it is why
-    // `invalidate(domain)` exists for the narrower case rather than being used here.
-    histClear.current()
     // Drop any selection pointing at an entity/drawing that no longer exists after the merge.
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
@@ -1750,7 +1789,7 @@ export function IncidentWorkspace({
    *
    * ⚠️ It is the undoable slice's `set` (see `reportSet` further down, where `canWriteRecord`
    * and the timeline are both in scope), while `saveReportMeta` itself is deliberately
-   * identity-stable per mount — the same shape `attHistClear` uses for the Anwesenheit. Before
+   * identity-stable per mount — the same shape `sliceRebase` uses for the slices' merge. Before
    * that assignment lands it is the plain setter, so a write on the very first render still
    * reaches the workspace; it simply lays no step down.
    */
@@ -1845,7 +1884,7 @@ export function IncidentWorkspace({
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
    *  timeline helper is created much further down — the same shape `reportSetRef` uses. */
-  const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => () => void>(() => () => {})
+  const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null) => Dropper>(() => Object.assign(() => {}, { standing: () => false }))
   /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
    *  letter (same window and the same reason as the Rapportangaben above). */
   const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
@@ -2715,7 +2754,8 @@ export function IncidentWorkspace({
       // cheap to make and was impossible to unmake except by deleting it through a confirm.
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => vs.filter((x) => x.id !== v.id)),
-        () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])))
+        () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])),
+        () => [recordKey('cameraViews', v.id)])
       toast(appConfig.copy.mapViews.saved, { icon: 'compass', tone: 'success' })
     },
     onRename: (id, name) => {
@@ -2724,7 +2764,8 @@ export function IncidentWorkspace({
       setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v)))
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name: prev.name } : v))),
-        () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))))
+        () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))),
+        () => [recordKey('cameraViews', id)])
     },
     onDelete: async (id) => {
       const index = cameraViews.findIndex((x) => x.id === id)
@@ -2736,7 +2777,8 @@ export function IncidentWorkspace({
       // comes back at the position it stood in, because the list is in save order
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => (vs.some((x) => x.id === id) ? vs : [...vs.slice(0, index), v, ...vs.slice(index)])),
-        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)))
+        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)),
+        () => [recordKey('cameraViews', id)])
     },
   }
   // Open/close the views popover. Opening it first drops any active tool and the Ebenen
@@ -3199,7 +3241,9 @@ export function IncidentWorkspace({
     })
     patchEntity(entityId, { dockedTo: undefined })
     log('select', line, 'team', undefined, entityId)
-    undoToast(line, () => patchEntity(entityId, { dockedTo: hostId }))
+    // the re-dock names the HOST too: it docks at wherever the host stands, and a host another
+    // device has moved since is not where this bond was broken
+    undoToast(line, () => patchEntity(entityId, { dockedTo: hostId }), [recordKey('objects', entityId), recordKey('objects', hostId)])
   }
   /**
    * A live Fahrzeug was dragged on a Modul — «hier ist es wirklich».
@@ -3479,8 +3523,7 @@ export function IncidentWorkspace({
   // the stack the one you notice three names later. A toast undo is itself a write through `set`,
   // so ↶ after it re-applies the tap — «undo the last thing I did», consistently.
   // ⚠️ `canWriteRecord`, not `readOnly`: the Anwesenheit is not the Atemschutz-Link's slice.
-  const attHist = useUndoableSlice(attendance, setAttendance, !canWriteRecord)
-  attHistClear.current = attHist.clear
+  const attHist = useUndoableSlice(attendance, setAttendance, !canWriteRecord, undefined, ATTENDANCE_RECORDS)
   /** Record an Anwesenheits-Schritt on the global timeline. The slice keeps its own stack and
    *  performs the step (delegation); this only says WHEN it happened relative to everything else.
    *  ⚠️ Through a ref, and declared up here: `attSet` is handed to `useAttendanceActions` during
@@ -3488,15 +3531,24 @@ export function IncidentWorkspace({
    *  ⚠️ The label is the surface, not the names. At push time the write has not landed, so who
    *  moved is not knowable yet — and the Verlauf row `stepAttendance` writes still names them,
    *  which is where a reader six months later actually looks. */
-  const stepAttendanceRef = useRef<(dir: 'undo' | 'redo') => boolean>(() => false)
-  const rememberAttendanceStep = () => undoHist.push({
-    domain: 'anwesenheit',
-    label: C_HIST.undoDomains.anwesenheit,
-    undo: () => stepAttendanceRef.current('undo'),
-    redo: () => stepAttendanceRef.current('redo'),
-  })
+  const stepAttendanceRef = useRef<(dir: 'undo' | 'redo', step?: string) => boolean>(() => false)
+  const rememberAttendanceStep = () => {
+    // the slice step the write just laid, and the people it writes (lib/undoKeys)
+    const step = attHist.topStep() ?? undefined
+    return undoHist.push({
+      domain: 'anwesenheit',
+      label: C_HIST.undoDomains.anwesenheit,
+      step,
+      // (any render's `attHist` will do: its stacks are refs, shared by every render)
+      touches: () => (step ? attHist.stepKeys(step) : null),
+      undo: () => stepAttendanceRef.current('undo', step),
+      redo: () => stepAttendanceRef.current('redo', step),
+    })
+  }
   /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. */
-  const attSet: typeof attHist.set = (update) => { const laid = attHist.set(update); rememberAttendanceStep(); return laid }
+  // ⚠️ an entry only for a write that LAID a step (a viewer's write lays none — an entry for it
+  // would step the one below, somebody else's)
+  const attSet: typeof attHist.set = (update) => { const laid = attHist.set(update); if (laid) rememberAttendanceStep(); return laid }
   /**
    * A Gebäude one-shot on the timeline. These own no stack at all — a storey added, a storey
    * removed, a building replaced — so the entry carries BOTH states itself, the way the
@@ -3506,15 +3558,19 @@ export function IncidentWorkspace({
    * drops its entry when it is used, so an act is never undoable twice. The label is the toast's
    * own sentence, so the header says «Rückgängig: Geschoss gelöscht» and not «… Gebäude».
    */
-  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => undoHist.push({
+  /* ⚠️ `touches` names EVERY record `restore`/`reapply` write (lib/undoKeys) — that is what a
+   * remote merge checks the step against; a record left out is one a ↶ could carry a pre-merge
+   * value back into. A function, read when a merge lands, for a set only knowable then. */
+  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null) => undoHist.push({
     domain,
     label,
+    touches,
     undo: () => { restore(); logHistStep('undo', label, ''); return true },
     redo: () => { reapply(); logHistStep('redo', label, ''); return true },
   })
   rememberOneShotRef.current = rememberOneShot
-  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) =>
-    rememberOneShot('gebaeude', label, restore, reapply)
+  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null) =>
+    rememberOneShot('gebaeude', label, restore, reapply, touches)
 
   /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
    *
@@ -3632,7 +3688,8 @@ export function IncidentWorkspace({
     // header's «Rückgängig: …» names the surface the operator is standing on
     rememberOneShot(g.planId ? 'plan' : 'karte', appConfig.copy.whiteboard.clearTrail,
       () => setTrails((ts) => restoreGhostTrail(ts, id)),
-      () => setTrails((ts) => removeGhostTrail(ts, id, at)))
+      () => setTrails((ts) => removeGhostTrail(ts, id, at)),
+      () => [recordKey('trails', id)])
   }
   // …and what each person's Bemerkung said, for as long as this incident is open here. The record
   // loses it when a row is cycled to «frei» (the entry goes, as it must); this is what puts it back
@@ -3667,8 +3724,8 @@ export function IncidentWorkspace({
     journal.append(conflictResolvedRow(open, choice, user?.display_name))
     emit('attendance.conflict.resolved', { key: open.key, sig: open.sig })
   }
-  const stepAttendance = (dir: 'undo' | 'redo'): boolean => {
-    const moved = dir === 'undo' ? attHist.undo() : attHist.redo()
+  const stepAttendance = (dir: 'undo' | 'redo', step?: string): boolean => {
+    const moved = dir === 'undo' ? attHist.undo(step) : attHist.redo(step)
     if (!moved) return false
     const names = changedAttendanceNames(moved.from, moved.to, rosterById)
     const A = appConfig.copy.anwesenheit
@@ -3695,24 +3752,24 @@ export function IncidentWorkspace({
    * item 4» is not, once a merge has been through it.
    * ⚠️ `canEditRecord`, like the Anwesenheit: both are record surfaces an `el` may write.
    */
-  const mittelHist = useUndoableSlice(mittel, setMittel, !canWriteRecord)
-  const checklistHist = useUndoableSlice(checklists, setChecklists, !canWriteRecord)
+  const mittelHist = useUndoableSlice(mittel, setMittel, !canWriteRecord, undefined, MITTEL_RECORDS)
+  const checklistHist = useUndoableSlice(checklists, setChecklists, !canWriteRecord, undefined, CHECKLIST_RECORDS)
   /** One recorded step over a slice somebody else owns. `op` is the domain-scoped audit prefix —
    *  see `logHistStep` for why a bare `undo` would wedge an `el` session's outbox. */
   /*  `describe` lets the domain write the step's rows itself — the Checklisten write «☑ …» /
    *  «Meilenstein zurückgenommen: …» for a milestone, the same row a tap writes — and a `true`
    *  from it replaces the generic «… rückgängig gemacht», so one step is never two rows. */
   /*  ⚠️ The slice's history travels as a REF, read when the step is taken (lib/sliceUndoStep). */
-  const rememberSliceStep = <T,>(domain: UndoDomain, histRef: { readonly current: UndoableSlice<T> }, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) =>
+  const rememberSliceStep = <T,>(laid: boolean, domain: UndoDomain, histRef: { readonly current: UndoableSlice<T> }, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) =>
     pushSliceStep(undoHist, {
-      domain, label, histRef, onStep,
+      domain, label, laid, histRef, onStep,
       record: (moved, dir) => {
         if (moved && describe?.(moved)) { histSide.current.emit(`${op}${dir}`); return true }
         return histStep(!!moved, dir, label, op, icon, 'journal')
       },
     })
-  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
-  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
+  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep(laid, 'mittel', mittelHistRef, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
+  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep(laid, 'checkliste', checklistHistRef, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
   // ⚠️ The entry outlives the render that pushed it, and `hist` closes over that render's stacks.
   const mittelHistRef = useRef(mittelHist); mittelHistRef.current = mittelHist
   const checklistHistRef = useRef(checklistHist); checklistHistRef.current = checklistHist
@@ -3734,7 +3791,7 @@ export function IncidentWorkspace({
   // keepMachineFields): it lays no step of its own, so it travels inside whatever step stands —
   // and a ↶ that handed back an outstanding `printJob` would leave `settlePrintJob` nothing to
   // stamp, i.e. lose the «in der Warteschlange» / «Rapport erstellt» marks to an undone sentence.
-  const reportHist = useUndoableSlice(reportMeta, setReportMeta, !canWriteRecord, keepMachineFields)
+  const reportHist = useUndoableSlice(reportMeta, setReportMeta, !canWriteRecord, keepMachineFields, REPORT_RECORDS)
   const reportHistRef = useRef(reportHist); reportHistRef.current = reportHist
   const reportSet: typeof reportHist.set = (u) => {
     // ⚠️ A session that may not write the record still writes LOCALLY exactly as it did before
@@ -3757,7 +3814,7 @@ export function IncidentWorkspace({
     // ⚠️ …and the fold window closes on every ↶ ↷ (the last argument): the step it would fold
     // into has just moved to the other stack, so typing in the same field right after an undo
     // would lay no step of its own — and the next ↷ would overwrite it.
-    if (laid) rememberSliceStep('rapport', reportHistRef, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
+    rememberSliceStep(laid, 'rapport', reportHistRef, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
     return laid
   }
   reportSetRef.current = reportSet
@@ -3795,8 +3852,20 @@ export function IncidentWorkspace({
   const zeitplanHist = useUndoableSlice(zeitplanDoc, (v) => {
     const next = typeof v === 'function' ? v(zeitplanDoc) : v
     setShifts(next.shifts); setBands(next.bands)
-  }, !canWriteRecord)
+  }, !canWriteRecord, undefined, ZEITPLAN_RECORDS)
   const zeitplanHistRef = useRef(zeitplanHist); zeitplanHistRef.current = zeitplanHist
+  // A remote merge re-lays every slice's stack onto what it merged (applyWorkspace, far above,
+  // which runs before any of these exist — hence the ref). Called AFTER the timeline has decided
+  // which entries survive: `keep` is their step ids.
+  // `keep` null = the merge bookkeeping failed: every stack goes (undoKeys · carryUndoThroughMerge)
+  sliceRebase.current = (next, keep) => {
+    if (!keep) { for (const h of [attHist, mittelHist, checklistHist, reportHist, zeitplanHist]) h.clear(); return }
+    attHist.rebase(next.attendance, keep)
+    mittelHist.rebase(next.mittel, keep)
+    checklistHist.rebase(next.checklists, keep)
+    reportHist.rebase(next.reportMeta, keep)
+    zeitplanHist.rebase({ shifts: next.shifts, bands: next.bands }, keep)
+  }
   const zeitplanBurst = useRef(false)
   const zeitplanWrite = (next: (cur: { shifts: Shift[]; bands: ShiftBand[] }) => { shifts: Shift[]; bands: ShiftBand[] }) => {
     const fold = zeitplanBurst.current
@@ -3807,7 +3876,7 @@ export function IncidentWorkspace({
     }
     // `shift.` is on the `el` audit allowlist (backend · EL_EVENT_PREFIXES): an Einsatzleiter
     // plans shifts, so their ↶ must not 403 the batch — see logHistStep.
-    if (laid) rememberSliceStep('zeitplan', zeitplanHistRef, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
+    rememberSliceStep(laid, 'zeitplan', zeitplanHistRef, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
   }
   const setShiftsUndoable: Dispatch<SetStateAction<Shift[]>> = (u) =>
     zeitplanWrite((cur) => ({ ...cur, shifts: typeof u === 'function' ? u(cur.shifts) : u }))
@@ -4501,7 +4570,8 @@ export function IncidentWorkspace({
               const c = map.unproject([p.x + 36, p.y + 36])
               patchEntity(entityId, { coord: [c.lng, c.lat] })
             }
-            undoToast(appConfig.copy.atemschutz.lineUnlinkedToast, () => { linkTruppLine(truppId, lineId) })
+            undoToast(appConfig.copy.atemschutz.lineUnlinkedToast, () => { linkTruppLine(truppId, lineId) },
+              [recordKey('trupps', truppId), recordKey('objects', lineId), recordKey('objects', entityId)])
           }}
           // the pill's «Lösen» for the OTHER bond (15.09.): a docked marker lets go of its symbol
           // without the detail sheet – dragging cannot part them any more, it moves both
@@ -5619,19 +5689,21 @@ export function IncidentWorkspace({
             // a machine write (`gesture: false`): the amend re-anchors ink, nobody placed it
             setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false })
             setActivePlanId('gebaeude') // auto-jump to the floor-stack
-            if (hasWork) {
-              // confirm-with-undo: the previous stack (floors + markings) is restorable in place,
-              // and the toast repeats the counts — «Gebäude ersetzt» alone never said what happened.
-              const line = amend.legacy
-                ? (markCount > 0 ? fillTemplate(wb.buildingReplacedMarks, { n: markCount }) : wb.buildingReplaced)
-                : amend.dropped > 0 ? fillTemplate(wb.buildingReplacedCarriedDropped, { n: amend.carried, d: amend.dropped })
-                : markCount > 0 ? fillTemplate(wb.buildingReplacedCarried, { n: amend.carried })
-                : wb.buildingReplacedKept
-              const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
-              const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
-              const drop = rememberGebaeudeStep(line, restore, reapply)
-              undoToast(line, () => { restore(); drop() })
-            }
+            // ⚠️ EVERY pick is its own ↶ step — a first «Übernehmen» too (staging r3, 25.09.2026:
+            // ↶ stayed lit on an older Karte step, so the tap meant for the building took back
+            // something else). The toast only where work was at stake: it repeats the counts —
+            // «Gebäude ersetzt» alone never said what happened (lib/buildingTransfer · buildingPickStep).
+            const pick = buildingPickStep(prevBuilding, amend, markCount, hasWork, wb, fillTemplate)
+            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
+            const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
+            // the stack, and the stack's OWN annos before and after (never a lent one:
+            // withOwnAnnos hands those back untouched) — plus the stack's whole view, so a merge
+            // that changed anything drawn on it drops the step rather than sweeping it
+            const wrote = () => [recordKey('building'), recordKey('planview', 'gebaeude'),
+              ...[...owned, ...prevGebaeude.map((a) => a.id), ...amend.annos.map((a) => a.id)].map((id) => recordKey('objects', id)),
+              ...[...prevGebaeude, ...amend.annos].flatMap(annoRefs)]
+            const drop = rememberGebaeudeStep(pick.label, restore, reapply, wrote)
+            if (pick.toast) undoToast(pick.label, () => { restore(); drop() }, drop.standing)
           }}
           // the two faces of the ONE «Gebäude» rail tile. Both plan ids stay real documents —
           // this only moves the active one, which is what makes the merged tile navigable at all
@@ -5649,7 +5721,7 @@ export function IncidentWorkspace({
             if (folding) prev.drop()
             setBuilding(next)
             if (!from) return
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next))
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next), () => [recordKey('building')])
             lastReorient.current = { at: now, from, drop }
           }}
           onAddFloor={(dir) => {
@@ -5666,8 +5738,15 @@ export function IncidentWorkspace({
               setBuilding(prevBuilding)
               setBoard((b) => ({ ...b, gebaeude: withoutOwnOnStorey(b.gebaeude ?? [], sheetAnchoredIds(objectsRef.current, 'gebaeude'), newFloor) }), { gesture: false })
             }
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
-            undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
+            // the stack, and whatever of the stack's own now stands on the new storey — read when a
+            // merge asks, since that is what the sweep in `restore` would take (plus the view)
+            const wrote = () => {
+              const own = sheetAnchoredIds(objectsRef.current, 'gebaeude')
+              const swept = (boardRef.current.gebaeude ?? []).filter((a) => own.has(a.id) && (a.floor ?? 0) === newFloor)
+              return [recordKey('building'), recordKey('planview', 'gebaeude'), ...swept.map((a) => recordKey('objects', a.id)), ...swept.flatMap(annoRefs)]
+            }
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding), wrote)
+            undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() }, drop.standing)
           }}
           onRemoveFloor={async (floor) => {
             if (building?.pack || floorPack?.tiles[floor]) return
@@ -5692,8 +5771,11 @@ export function IncidentWorkspace({
             // confirm-with-undo: the removed storey's annotations come back with it
             const restore = () => { setBuilding(prevBuilding); writeOwn(sweep.before) }
             const reapply = () => { setBuilding(nextBuilding); writeOwn(sweep.after) }
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply)
-            undoToast(appConfig.copy.whiteboard.floorRemoved, () => { restore(); drop() })
+            const wrote = () => [recordKey('building'), recordKey('planview', 'gebaeude'),
+              ...[...sweep.owned, ...sweep.before.map((a) => a.id), ...sweep.after.map((a) => a.id)].map((id) => recordKey('objects', id)),
+              ...[...sweep.before, ...sweep.after].flatMap(annoRefs)]
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply, wrote)
+            undoToast(appConfig.copy.whiteboard.floorRemoved, () => { restore(); drop() }, drop.standing)
           }}
           sym={sym}
           rosterNames={rosterNames}

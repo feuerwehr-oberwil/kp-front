@@ -439,6 +439,15 @@ export const it: Localizable<Copy> = {
     zeitplan: 'Pianificazione',
     ansicht: 'Vista',
   },
+  undoSurfaces: {
+    karte: 'Mappa', plan: 'Piano', trupps: 'Squadre', anwesenheit: 'Presenze', mittel: 'Materiale', checkliste: 'Checklist',
+    gebaeude: 'Edificio', rapport: 'Rapporto', zeitplan: 'Pianificazione', ansicht: 'Mappa', pendenz: 'Diario',
+  },
+  undoTopDropped: 'L’ultimo passo non si può più annullare – un altro dispositivo ha modificato {what}',
+  undoDroppedWhat: {
+    karte: 'la mappa', plan: 'il piano', trupps: 'la squadra', anwesenheit: 'le presenze', mittel: 'il materiale', checkliste: 'la checklist',
+    gebaeude: 'l’edificio', rapport: 'il rapporto', zeitplan: 'la pianificazione', ansicht: 'le viste', pendenz: 'il compito',
+  },
   play: 'Riproduci',
   clear: 'Cancella ricerca',
   mapTools: [
@@ -1661,6 +1670,7 @@ export const it: Localizable<Copy> = {
     buildingReplacedKept: 'Edificio cambiato – piani mantenuti',
     buildingReplacedCarried: 'Edificio cambiato – {n} contrassegni trasferiti',
     buildingReplacedCarriedDropped: 'Edificio cambiato – {n} trasferiti, {d} rimossi',
+    buildingTaken: 'Edificio adottato',
     replaceBuilding: 'Scegli un altro edificio',
     replaceBuildingConfirm: 'La pila di piani attuale viene scartata e sostituita dalla nuova sagoma.',
     replaceBuildingConfirmMarks: 'Sui piani ci sono {n} contrassegni. Sono ancorati alla sagoma attuale e non possono essere trasferiti a un’altra – verranno rimossi. «Annulla» nell’avviso li ripristina.',
