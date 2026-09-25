@@ -142,7 +142,7 @@
 .adm-floors-bar-tools .adm-hint { margin: 0; }
 .adm-floors-zoom { display: inline-flex; align-items: center; gap: 2px; flex: none;
   padding: 2px; border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); }
-.adm-floors-zoom button { appearance: none; border: 0; background: transparent; border-radius: var(--r-sm);
+.adm-floors-zoom button { appearance: none; border: 0; background: transparent; border-radius: calc(var(--r-ctl) - 3px);
   width: 40px; height: 40px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; }
 .adm-floors-zoom button:hover:not(:disabled) { background: var(--surface); color: var(--ink); }
 .adm-floors-zoom button:disabled { opacity: var(--disabled); cursor: default; }
@@ -196,7 +196,7 @@
 .adm-floors-colhead h4 { margin: 0; font-size: 14px; }
 .adm-floors-colhead .adm-menu { margin-left: auto; }
 .adm-floors-stack { display: flex; flex-direction: column; gap: 7px; }
-.adm-floor { border: 1px solid var(--border); border-radius: 10px; background: var(--fill-soft); }
+.adm-floor { border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--fill-soft); }
 .adm-floor.active { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); background: var(--surface); }
 .adm-floor.dragging { opacity: .5; }
 .adm-floor.over { box-shadow: 0 -2px 0 0 var(--blue-strong); }
@@ -204,7 +204,7 @@
    pill of its own inside that border – so the index chip's border read as a third box nested in
    a second one, and the two radii never quite met. Chip · Name · Zustand, on one plain row. */
 .adm-floor-head { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 7px 9px; }
-.adm-floor.active .adm-floor-head { border-radius: 9px 9px 0 0; border-bottom: 1px solid var(--border-soft); background: color-mix(in srgb, var(--blue) 8%, var(--surface)); }
+.adm-floor.active .adm-floor-head { border-radius: calc(var(--r-sm) - 1px) calc(var(--r-sm) - 1px) 0 0; border-bottom: 1px solid var(--border-soft); background: color-mix(in srgb, var(--blue) 8%, var(--surface)); }
 .adm-floor-grip { display: grid; place-items: center; width: 22px; flex: none; color: var(--ink-faint); cursor: grab; touch-action: none; }
 .adm-floor-grip .i { width: 16px; height: 16px; }
 .adm-floor-select { display: flex; align-items: center; min-width: 0; flex: 1 1 auto; min-height: var(--tap);
@@ -259,7 +259,7 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 /* below the list: «hier kommt das nächste Geschoss dazu», then the Ablage */
 .adm-floors .adm-floors-add { margin: 0; }
 .adm-floors-tray { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 11px 14px;
-  border: 1px dashed var(--border); border-radius: 10px; color: var(--ink-dim); font-size: 12.5px; }
+  border: 1px dashed var(--border); border-radius: var(--r-sm); color: var(--ink-dim); font-size: 12.5px; }
 .adm-floors-tray-pages { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
 
 /* the Vorschau tab: a grid of floor tiles in building order, in place of the split. Level 0 on

@@ -1083,7 +1083,7 @@ export const fr: Localizable<Copy> = {
     // no longer asked in the Trupp form (04.09.) – still offered on the Lage/plan and in admin
     colorAuto: 'Automatique',
     // état sync/horloge dans l'en-tête du tableau (voir de.ts)
-    syncStand: '{status} – état de {t}',
+    syncStand: '{status} · {t}',
     clockSkewChip: 'Horloge de l\'appareil décalée ({d} min)',
     formCreateTitle: 'Créer un binôme',
     formEditTitle: 'Modifier le binôme',

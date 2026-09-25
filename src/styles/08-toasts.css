@@ -196,7 +196,12 @@
   bottom: max(28px, calc(16px + env(safe-area-inset-bottom))); z-index: var(--z-toast);
   display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; pointer-events: none;
   max-height: calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  /* the scroll port clips, and it clipped each pill's shadow into a grey box around its corners:
+     48px of room on every side (--shadow reaches ~50px down), handed straight back by the negative
+     margin, so the pills stand exactly where the lane says and only their shadow uses the extra
+     (the toaster is pointer-events: none) */
+  margin: -48px; padding: 48px; }
 .toaster > * { max-width: 100%; }
 /* A desktop/tablet detail panel owns the right side of the operational surface. Messages are
    centred in the genuinely free map/plan band instead of painting over that panel's fields and
@@ -219,28 +224,46 @@
       + clamp(300px, calc(100vw - 420px), 360px));
   }
 }
-/* The pill lands ON the dark primary button of a sheet footer (Rapport: «Einsatzrapport (PDF)»)
-   and on the night map — both as dark as --ink-fill, and --shadow's own hairline is dark, so the
-   edge dissolved and toast + button read as one block. A light inner edge gives the pill its own
-   contour on any base; --on-accent-ink is near-white in both themes, so it also holds on the
-   red/green tone fills below. */
-/* `touch-action: pan-y` — same instrument `.toast-actions` already uses: it hands horizontal
-   movement to the pill's own pointer handlers (lib/ui.tsx · ToastRow) while leaving vertical
-   panning of the stack to the browser. The drag itself is INLINE transform (no transition) so it
-   never lags the finger; `.toast.out`'s own transition only plays once the pill isn't being
-   dragged any more (leaving without ever having been swiped). */
-.toast { display: flex; flex: none; align-items: center; gap: 9px; pointer-events: auto;
-  background: var(--ink-fill); color: var(--on-accent-ink); font-size: 13px; font-weight: 600;
-  padding: 10px 16px; border-radius: var(--r-cluster); white-space: nowrap; touch-action: pan-y;
-  box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--on-accent-ink) 24%, transparent);
+/* ── ONE message surface (25.09.2026) ──────────────────────────────────────────────────────
+   Every line of text the app lays over the Karte or a Plan — a toast, an instruction while a mode
+   is on (Gebäude wählen, Leitung wählen …), a tool's tip, the hold-tip — wears THIS: the app's own
+   surface (white by day, the dark surface by night — it flips with the theme like every panel),
+   ink text, 13/600, the ONE corner (--r-sm) like the cards and chips beside it — not the bars'
+   bigger one, which read as a different shape (25.09.2026, maintainer). No outline of its own:
+   the house shadow's hairline is its edge. Its buttons sit --msg-pad inside and wear the corner
+   less that gap (--r-msg-in), so the two still run parallel. A tone is the colour of the glyph the
+   sentence leads with — never an edge or a fill (a coloured edge bent round the corner and read as
+   a stray outline). It used to be a dark pill here, a light bar there, a third size for the tool
+   tip and a 9px corner on the hold-tip.
+   What goes away BY ITSELF says so: a ✕ and a line at its foot that runs out with the time
+   (lib/ui · ToastRow). An instruction that stays while its mode is on has neither.
+   `touch-action: pan-y` hands horizontal movement to the pill's own pointer handlers (lib/ui ·
+   ToastRow) while leaving vertical panning of the stack to the browser. */
+.toast { position: relative; overflow: hidden; box-sizing: border-box; display: flex; flex: none; align-items: center;
+  gap: 9px; pointer-events: auto; min-height: calc(var(--tap) + 2 * var(--msg-pad));
+  background: var(--surface); color: var(--ink); border: none; box-shadow: var(--shadow);
+  font: 600 13px/1.35 var(--body); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) 14px;
+  border-radius: var(--r-sm); white-space: nowrap; touch-action: pan-y;
   animation: toastIn .22s var(--ease); }
+/* no button at its right end (a live status, an instruction): the text keeps the left side's air */
+.toast:not(:has(> .toast-x, > .toast-actions)) { padding-right: 14px; }
+/* the running-out line: full at the start, empty when the pill leaves (duration inline, per toast).
+   Inset by the corner on both sides, so it stays a straight line and never bends round the corner
+   into something that reads as a border. */
+.toast-life { position: absolute; left: var(--r-sm); right: var(--r-sm); bottom: 0; height: 2px; pointer-events: none;
+  border-radius: 1px; background: color-mix(in srgb, var(--ink) 22%, transparent); transform-origin: left center;
+  animation: toastLife linear forwards; }
+@keyframes toastLife { to { transform: scaleX(0); } }
+/* reduced motion: the global rule would end the run at once and the line would vanish — it stands
+   still at full length instead, still saying «this one goes by itself» beside the ✕ */
+@media (prefers-reduced-motion: reduce) { .toast-life { animation: none !important; } }
 /* out the way it came in, only quicker — dismissToast marks the pill `.out`, lets this play,
    and removes the node .16s later (lib/ui.tsx). Leaving must never make the app wait. */
 .toast.out { opacity: 0; transform: translateY(8px) scale(.96); pointer-events: none;
   transition: opacity .14s var(--ease), transform .14s var(--ease); }
 /* a pill with no action dismisses on a tap (lib/ui.tsx puts `.tap` on exactly those) */
 .toast.tap { cursor: pointer; }
-.toast .i { width: 16px; height: 16px; flex: none; }
+.toast .i { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
 /* live job as a chain of stages (printJobToast): reached ones keep their tick and step back, the
    running one carries the label, unreached ones stay visible as pips — «what still has to
    happen» is readable without opening anything. */
@@ -253,7 +276,7 @@
 .toast-chev { display: flex; flex: none; opacity: .28; }
 .toast-chev .i { width: 12px; height: 12px; }
 .toast-pip { width: 7px; height: 7px; border-radius: 50%; flex: none;
-  background: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); }
+  background: var(--ink-faint); }
 /* the sheet feeding out of the printer — a rotating dial (the usual busy glyph) reads wrong on a
    printer. The global prefers-reduced-motion rule stills it; the stages stay readable. */
 .print-feed-paper { animation: printFeed 2s var(--ease) infinite; }
@@ -274,36 +297,31 @@
    drag itself would lag the touch by exactly the transition's duration. */
 .toast-actions { display: flex; align-items: center; gap: 2px; flex: none; margin-left: 4px;
   transition: transform .16s var(--ease), opacity .16s var(--ease); touch-action: pan-y; }
-/* ⚠️ 36px, not the 44 the action beside it keeps: this is the SECONDARY way out (the flick is the
-   other), and a second full-size target in a pill that already lands on the FAB would trade one
-   obstruction for a wider one. */
-.toast-x { pointer-events: auto; flex: none; width: 36px; min-height: 44px; display: grid; place-items: center;
-  border: none; background: none; color: var(--on-accent-ink); opacity: .55; cursor: pointer;
-  border-radius: var(--r-sm); }
+/* the ✕ — on every pill that goes away by itself. A full --tap square with the button corner, so
+   inside the pill's --bar-pad it is concentric with the pill like every button in a bar. */
+.toast-x { pointer-events: auto; flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
+  border: none; background: none; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-msg-in); }
 @media (hover: hover) {
-  .toast-x:hover { opacity: 1; background: color-mix(in srgb, var(--on-accent-ink) 18%, transparent); }
+  .toast-x:hover { color: var(--ink); background: var(--fill-soft); }
 }
 .toast-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.toast-x .i { width: 15px; height: 15px; }
+.toast-x .i { width: 16px; height: 16px; color: inherit; }
 /* inline action (confirm-with-undo): the toaster itself is pointer-events:none, so the
-   button re-enables hits; sized to stay a comfortable touch target inside the pill */
-.toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: 4px; padding: 6px 14px; min-height: 44px;
-  font-size: 12.5px; font-weight: 700; color: var(--on-accent-ink); border: none; border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--on-accent-ink) 18%, transparent); cursor: pointer;
-  max-width: min(240px, 60vw); white-space: normal; overflow-wrap: break-word; line-height: 1.2; }
-/* ⚠️ It carries `.btn` too, and `.btn:hover` paints --surface — a WHITE block on the red
-   Sync-Fehler pill, with the near-white label vanishing into it. The pill's own tone is the base
-   here, so hovering only deepens the same translucent fill (and needs `.toast` in front of it to
-   outrank `.btn:hover`). */
+   button re-enables hits. The house quiet button on the pill's surface. It carries `.btn` too,
+   whose hover paints --surface, so the pill-scoped rules below keep the fill. */
+.toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: 4px; padding: 6px 14px; min-height: var(--tap);
+  font: 700 12.5px/1.2 var(--body); color: var(--ink); border: none; border-radius: var(--r-msg-in);
+  background: var(--fill-soft); cursor: pointer;
+  max-width: min(240px, 60vw); white-space: normal; overflow-wrap: break-word; }
 @media (hover: hover) {
-  .toast .toast-action:hover { background: color-mix(in srgb, var(--on-accent-ink) 30%, transparent);
-    color: var(--on-accent-ink); }
+  .toast .toast-action:hover { background: var(--border); color: var(--ink); }
 }
 .toast .toast-action:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* the fill is overridden, so the ink has to be too — .toast sits on --ink-fill and keeps its
-   near-white, which lands at 2.2:1 once the fill turns green */
-.toast-success { background: var(--green); color: var(--on-fill); }
-.toast-warn { background: var(--red); color: var(--on-fill); }
+/* A tone is the colour of the glyph the sentence leads with (and of the running step's glyph) —
+   never a fill and never an edge (25.09.2026). The text stays ink. */
+.toast-success { --toast-tone: var(--green); }
+.toast-warn { --toast-tone: var(--red); }
+.toast-success > .i, .toast-warn > .i, :is(.toast-success, .toast-warn) .toast-step.now .i { color: var(--toast-tone); }
 /* the success tick draws itself in once (lib/ui · ToastCheck) instead of popping on statically —
    the pill-sized cousin of the sync glyph's closing tick (13-incident.css). The path measures
    ≈20.2, the dash is cut to that; the .05s delay lets the pill's own entrance land first. No
@@ -315,37 +333,9 @@
 @media (prefers-reduced-motion: reduce) {
   .toast-check path { animation: none; stroke-dashoffset: 0; }
 }
-/* …but a LIVE status (the print job, lib/printJobToast) wears its tone as an EDGE instead. It
-   stands on the screen for as long as the job takes, and a saturated pill held for a minute and a
-   half reads as an alarm rather than as «läuft» — then flips to a full green that reads as a
-   second alarm. So the pill stays the neutral ink surface every other status shares and the
-   colour sits on the leading edge and on the running step's glyph — the Meldeleiste's
-   `.ml-row.t-*` rule, one surface up.
-   ⚠️ Mixed toward --on-accent-ink, not used raw: --green/--red are tuned as ink ON a light
-   surface and land muddy on the dark pill (day --green #178a4a on --ink-fill #1b2330). The mix
-   tracks both themes' tokens, so night stays right too. */
-.toast-edge { --toast-edge: var(--on-accent-ink); }  /* a toneless status keeps the plain pill */
-.toast-edge.toast-success { --toast-edge: color-mix(in srgb, var(--green) 72%, var(--on-accent-ink)); }
-.toast-edge.toast-warn { --toast-edge: color-mix(in srgb, var(--red) 72%, var(--on-accent-ink)); }
-.toast-edge.toast-success, .toast-edge.toast-warn {
-  background: var(--ink-fill); color: var(--on-accent-ink);
-  /* the edge is drawn INTO the pill (inset shadow, no layout box), so it cannot round the
-     corner off; the extra left padding keeps the first glyph clear of it */
-  box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--on-accent-ink) 24%, transparent),
-    inset 3px 0 0 0 var(--toast-edge);
-  padding-left: 19px;
-}
-/* a failure is an edge by default now (lib/ui · defaultToneStyle, 23.09.2026) — the full red fill
-   read as an alarm for «Synchronisierung fehlgeschlagen», whose changes are safe on the device.
-   It keeps a trace of red in the pill itself, so a failure and a plain status still tell apart
-   at a glance without the edge; ~12 % holds in both themes (the ink fill flips, the mix follows).
-   ⚠️ FAILURES only (`.toast-fail`, lib/ui · isFailure) — not every warn edge: the print pill wears
-   the same edge while a job is queued or printing, and a minute and a half of red-tinted pill for
-   a printer that is merely busy is exactly what the edge style exists to avoid (printJobToast). */
-.toast-edge.toast-warn.toast-fail { background: color-mix(in srgb, var(--red) 12%, var(--ink-fill)); }
-/* the glyph the sentence leads with (a failure's ⚠) and the running step's own icon carry the
-   same colour — the state is readable without the edge, for whoever reads glyphs before edges */
-.toast-edge > .i, .toast-edge .toast-step.now .i { color: var(--toast-edge); }
+/* a FAILURE keeps a trace of red in the pill itself, so it tells apart from a live status that
+   merely wears the warn edge (the print job while queued/printing — lib/ui · isFailure). */
+.toast-warn.toast-fail { background: color-mix(in srgb, var(--red) 6%, var(--surface)); }
 @keyframes toastIn { from { opacity: 0; transform: translateY(10px) scale(.96); } }
 
 .confirm-backdrop { z-index: var(--z-confirm-scrim); }
@@ -380,7 +370,7 @@
 .confirm-list-go::before { display: none; }
 .confirm-list-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   width: 100%; min-height: 44px; padding: 0 10px 0 12px; border: 1px solid var(--border);
-  border-radius: 8px; background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border-radius: var(--r-sm); background: color-mix(in srgb, var(--ink) 4%, transparent);
   font: 700 13px/1.3 var(--body); color: var(--ink); text-align: left; cursor: pointer; }
 .confirm-list-btn:active { background: color-mix(in srgb, var(--ink) 9%, transparent); }
 .confirm-list-chev { font-size: 18px; line-height: 1; color: var(--ink-faint); }
@@ -622,7 +612,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-input { height: var(--de-h); padding: 0 10px; }
 .draw-editor .de-input-short { width: 66px; }
 .draw-editor .dh-swatches, .draw-editor .dh-widths { gap: 8px; }
-.draw-editor .useg { border-radius: var(--r-sm); padding: 2px; gap: 2px; }
+.draw-editor .useg { border-radius: var(--r-sm); padding: 2px; gap: 2px; --useg-in: calc(var(--r-sm) - 2px); }
 .draw-editor .useg-btn { min-height: calc(var(--de-h) - 4px); padding: 0 12px; }
 .draw-editor .step-btn { width: var(--de-h); height: var(--de-h); min-height: var(--de-h); }
 .draw-editor .de-row > span:first-child { flex: 0 1 auto; min-width: 0; }
@@ -716,8 +706,10 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    kind of thing. Slightly wider, so most phrases stay on one line at all. */
 .hold-tip { position: fixed; z-index: var(--z-hold-tip); pointer-events: none;
   max-width: min(320px, calc(100vw - 16px));
-  padding: 6px 11px; border-radius: 9px;
-  background: var(--ink-fill); color: var(--on-accent-ink);
-  font: 600 12.5px/1.35 var(--body);
+  padding: 8px 12px; border-radius: var(--r-sm);
+  /* the message surface (see «ONE message surface» above), compact: it rides beside a finger,
+     so it keeps a single line's height */
+  background: var(--surface); color: var(--ink); border: none;
+  font: 600 13px/1.35 var(--body);
   text-align: center; text-wrap: balance;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .35); }
+  box-shadow: var(--shadow); }

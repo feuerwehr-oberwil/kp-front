@@ -571,5 +571,5 @@
    under the finger shows only geometry, and the bars' `title` times never fire on touch.
    Written imperatively by ZeitplanView (textContent + hidden) — no per-frame React state. */
 .dragReadout { position: absolute; top: 6px; right: 16px; z-index: 5; pointer-events: none;
-  background: var(--ink-fill); color: var(--on-accent-ink); border-radius: 9px; padding: 6px 11px;
-  font: 700 13px var(--mono); font-variant-numeric: tabular-nums; box-shadow: var(--shadow-sm); }
+  background: var(--surface); color: var(--ink); border: none; border-radius: var(--r-sm); padding: 6px 11px;
+  font: 700 13px var(--mono); font-variant-numeric: tabular-nums; box-shadow: var(--shadow); }
