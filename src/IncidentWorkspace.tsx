@@ -54,7 +54,7 @@ import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
 import { boardViewOf, useObjectStore } from './lib/useObjectStore'
-import { annoRefs, carryUndoThroughMerge, fieldsOf, listById, planViewChanges, recordByKey, recordKey, workspaceChanges, type RecordKey, type RecordShape } from './lib/undoKeys'
+import { annoRefs, carryUndoThroughMerge, fieldsOf, listById, planViewChanges, recordByKey, recordKey, workspaceChanges, type RecordedField, type RecordKey, type RecordShape } from './lib/undoKeys'
 import { useGpsFollow } from './lib/useGpsFollow'
 import { fmtAway, freshBefore, gpsLineName, gpsReleaseRow, gpsRevertWords, hasTraced, onSiteAnchor, onSiteKnown, routingPatch, useGpsNotices, type GpsEnd } from './lib/gpsReturn'
 import { useUndoTimeline } from './lib/useUndoTimeline'
@@ -806,10 +806,13 @@ export function IncidentWorkspace({
   /** The synced slices AS THIS RENDER HOLDS THEM — what a merge is diffed against to learn which
    *  records it changed (applyWorkspace · workspaceChanges). The objects are read live instead. */
   const liveWs = useRef<Partial<Record<keyof Saved, unknown>>>({})
-  liveWs.current = {
+  // (typed against undoKeys · RecordedField: a recorded slice missing here fails tsc — the objects
+  // are the one exception, read live from the store)
+  const liveSlices: Record<Exclude<RecordedField, 'objects'>, unknown> = {
     trupps: allTrupps, mittel, shifts, bands, cameraViews, trails, attachments, vehicleOverrides, checklists,
     attendance, planScale, settings: incidentSettings, reportMeta, planBindings, building, pickedObjectId, intakeReviewedAt, suche,
   }
+  liveWs.current = liveSlices
   // ⚠️ The board list, filtered ONCE at the source. A deleted Trupp is stamped rather than
   // removed (types · Trupp.removedAt) so the Rapport can still print it — and everything else in
   // this component, from the alarm host to the map markers to the roster lock, must never see it
@@ -4203,7 +4206,7 @@ export function IncidentWorkspace({
   const sucheActions = useSucheActions({
     suche,
     setRaw: setSuche,
-    remember: (label, undo, redo) => { undoHist.push({ domain: 'suche', label, undo, redo }) },
+    remember: (label, undo, redo, touches) => { undoHist.push({ domain: 'suche', label, touches, undo, redo }) },
     canEdit: canEditSuche,
     log,
     emit,

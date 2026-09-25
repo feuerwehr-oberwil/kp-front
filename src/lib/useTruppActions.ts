@@ -1694,7 +1694,9 @@ export function useTruppActions(deps: Deps) {
     // that no longer exists — the Trupp comes back and «auf Plan zeigen» leads nowhere. It is
     // re-placed via «Platzieren», which is what the other two doors already leave the operator to.
     const drop = remember(id, line, tr && { ...tr, annoId: undefined, planId: undefined, entityId: undefined }, apply)
-    if (tr) undoToast(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: truppLogName(tr) }), () => { drop(); restoreTrupp(tr) })
+    // ⚠️ guarded by the Trupp's record (lib/undoKeys · watchRecords): once a merge changed it, the
+    // toast declines instead of restoring the card as it stood before the other device's write
+    if (tr) undoToast(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: truppLogName(tr) }), () => { drop(); restoreTrupp(tr) }, [recordKey('trupps', id)])
     return drop
   }
   // undo for deleteTrupp (the delete-now + Rückgängig toast): re-add the captured Trupp with

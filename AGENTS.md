@@ -184,7 +184,11 @@ to prod.
     in front of an action that does not already say it («Trupps · Trupp 1 (…): Ausrüstung: WBK»,
     `undoTimeline · undoCaption`, `copy.undoSurfaces`) — the Verlauf row keeps the bare action. Add an entry ⇒ give
     it a `touches` that covers EVERYTHING its undo and redo write, and every record those values
-    link to; add an id-valued link field ⇒ add it to `objectRefs`.
+    link to; add an id-valued link field ⇒ add it to `objectRefs`; add a synced slice ⇒ its
+    `WORKSPACE_RECORDS` row (tsc asks) AND its entry in `liveWs` (tsc asks too, `RecordedField`).
+    The Suche is `suche:<personen|bereiche>/<id>` and its patch steps name the records they
+    wrote (`useSucheActions · patchTouches`); a Trupp's grow-only `crewFiled` marker is not part
+    of its record here, because every Trupp inverse keeps the live one (`keepCrewFiled`).
   Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are
   new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
   metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.

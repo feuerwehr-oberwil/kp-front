@@ -10,6 +10,8 @@ import {
 } from './suche'
 import { mergeSuche, mergeWorkspace } from './mergeWorkspace'
 import { floorLabel } from './whiteboard'
+import { patchTouches } from './useSucheActions'
+import { sucheRecordKey } from './undoKeys'
 import type { SucheDoc } from '../types'
 
 const K = 'k1' // the Gebäude every test stands in
@@ -342,6 +344,17 @@ describe('undo: a step takes back exactly what it added', () => {
     const d2 = renameBereich(d1, id, 'Werkraum', w.cx()).doc
     expect(applySuchePatch(d2, rn, 'undo').bereiche.find((b) => b.id === id)!.name).toBe('Werkraum')
     expect(rowOwner(d1, d1.bereiche.find((b) => b.id === id)!.log[0].id)).toEqual({ bereichId: id })
+  })
+
+  it('a step names the records its inverse writes, so a merge that left them alone keeps it (#234)', () => {
+    const w = world()
+    const a = addPerson(emptySuche(), { name: 'Tim Muster' }, w.cx()).doc
+    const pid = a.personen[0].id
+    expect(patchTouches(diffSuche(emptySuche(), a))).toEqual([sucheRecordKey('personen', pid)])
+    const d0 = addBereich(a, { name: 'Trakt 3', floor: 1 }, w.cx()).doc
+    const bid = d0.bereiche.find((b) => b.name === 'Trakt 3')!.id
+    const d1 = personGefunden(renameBereich(d0, bid, 'Aula', w.cx()).doc, pid, { trupp: 'Trupp 3' }, w.cx()).doc
+    expect(patchTouches(diffSuche(d0, d1)).sort()).toEqual([sucheRecordKey('bereiche', bid), sucheRecordKey('personen', pid)].sort())
   })
 })
 

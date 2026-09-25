@@ -258,6 +258,25 @@ export function recordDiff<T>(a: T, b: T, shape: Pick<RecordShape<T>, 'records'>
   return out
 }
 
+/** Trupps by id — WITHOUT the crew filing's one-shot marker (types · Trupp.crewFiled, #227). The
+ *  marker is grow-only (merged as a union, never a Trupp conflict) and every Trupp inverse keeps
+ *  the live one (crewFiling · keepCrewFiled), so no ↶ can carry an old value back into it. A merge
+ *  that only grew it — another device filed the crew a moment later, which is its job — changed
+ *  nothing a step writes, and must not cost the steps on that Trupp. Records only: no snapshot
+ *  history is re-laid over Trupps (they join the timeline as closures, useTruppActions). */
+const truppRecords: Pick<RecordShape<unknown>, 'records'> = {
+  records: (v) => {
+    const out = new Map<RecordKey, unknown>()
+    if (!Array.isArray(v)) return out
+    for (const t of v) {
+      if (!hasId(t)) continue
+      const { crewFiled: _filed, ...rest } = t as HasId & { crewFiled?: unknown }
+      out.set(recordKey('trupps', t.id), rest)
+    }
+    return out
+  },
+}
+
 /** One record of the Suche (lib/suche): a person or a Bereich, by id — `mergeSuche`'s unit (a
  *  record both devices changed merges field-wise with its log unioned, so the record is the unit
  *  here, never a single row: coarser than the merge is safe). `suche:<kind>/<id>`. */
@@ -287,7 +306,7 @@ export const WORKSPACE_RECORDS = {
   drawings: null,
   board: null,
   timeline: null,
-  trupps: listById('trupps'),
+  trupps: truppRecords,
   mittel: listById('mittel'),
   shifts: listById('shifts'),
   bands: listById('bands'),
@@ -312,6 +331,12 @@ export const WORKSPACE_RECORDS = {
   weather: null,
   schemaVersion: null,
 } satisfies Record<keyof Saved, Pick<RecordShape<never>, 'records'> | null>
+
+/** The fields a merge diff reads — every WORKSPACE_RECORDS row that is not `null`. The render's
+ *  copy of them (IncidentWorkspace · liveWs) is typed against this, so a slice added here without
+ *  being handed to the diff fails `tsc` instead of reading as «every record changed» on every
+ *  hydrate. */
+export type RecordedField = { [K in keyof typeof WORKSPACE_RECORDS]: (typeof WORKSPACE_RECORDS)[K] extends null ? never : K }[keyof typeof WORKSPACE_RECORDS]
 
 /**
  * What a step from `before` to `after` TOUCHES: the records it writes, plus every record the old

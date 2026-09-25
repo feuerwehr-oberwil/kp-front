@@ -10,6 +10,21 @@ import {
   type GefundenInput, type SucheCx, type SuchePatch, type SucheWhy, type VermisstInput,
 } from './suche'
 import type { SucheBereichStatus, SucheDoc, SucheRow, TimelineEvent } from '../types'
+import { sucheRecordKey, type RecordKey } from './undoKeys'
+
+/** Every Suche record a step's inverse (or its redo) writes: the records it created (↶ removes
+ *  them whole), the ones it appended rows to, and the ones whose fields it changed. The RECORD is
+ *  the unit, as it is the merge's (`mergeSuche`) — so another device's row on the same person or
+ *  Bereich drops the step, which is coarser than needed and therefore safe. (Integration of #229
+ *  with #234, 25.09.2026: before, these entries carried no `touches`, which the timeline reads as
+ *  «unknown reach» — any merge at all dropped them and every older step with them.) */
+export function patchTouches(p: SuchePatch): RecordKey[] {
+  const out = new Set<RecordKey>()
+  for (const c of p.created) out.add(sucheRecordKey(c.kind, c.rec.id))
+  for (const r of p.rows) out.add(sucheRecordKey(r.kind, r.owner))
+  for (const f of p.fields) out.add(sucheRecordKey(f.kind, f.id))
+  return [...out]
+}
 
 /** The Verlauf writer as the Suche needs it: the row carries its own sentence, a `suche` link to
  *  the record it is about, and — for a forward write — the SucheRow's own id, so the Verlauf row
@@ -21,8 +36,10 @@ interface Deps {
   suche: SucheDoc
   /** the plain write — every change goes through it; history is kept HERE, as patches */
   setRaw: (next: SucheDoc) => void
-  /** put one step on the Einsatz's undo timeline (IncidentWorkspace · undoHist) */
-  remember?: (label: string, undo: () => boolean, redo: () => boolean) => void
+  /** put one step on the Einsatz's undo timeline (IncidentWorkspace · undoHist). `touches` names
+   *  the Suche records the step's inverse writes (lib/undoKeys · sucheRecordKey), so a remote
+   *  merge that changed none of them keeps the step (lib/undoTimeline · rebase). */
+  remember?: (label: string, undo: () => boolean, redo: () => boolean, touches: () => readonly RecordKey[]) => void
   canEdit: boolean
   log: SucheLog
   emit: (op: string, payload?: Record<string, unknown>) => void
@@ -68,7 +85,7 @@ export function useSucheActions({ suche, setRaw, remember, canEdit, log, emit, f
   }
   /** one step: forward now, and the pair that takes it back / puts it back */
   const step = (patch: SuchePatch, label: string) => {
-    remember?.(label, () => revert(patch, 'undo'), () => revert(patch, 'redo'))
+    remember?.(label, () => revert(patch, 'undo'), () => revert(patch, 'redo'), () => patchTouches(patch))
   }
   const revert = (patch: SuchePatch, dir: 'undo' | 'redo'): boolean => {
     if (!canEdit) return false

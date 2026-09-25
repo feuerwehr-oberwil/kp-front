@@ -187,7 +187,8 @@ be registrable offline.
   (`whiteboard.teamNameTaken`), and a Spur revived under a number handed out since comes back as
   the next one (`placedTrupps · counterNames / teamNoTaken / freshTeamLabel`).
 - **Undo:** a renumbering is a merge outcome, not an act. It reaches the view only through a
-  hydrate, which drops the undo timeline (AGENTS.md · Undo/redo), and it pushes nothing on it.
+  hydrate, which drops every undo step that touches a renumbered Trupp or chip (AGENTS.md ·
+  Undo/redo, `lib/undoKeys`), and it pushes nothing on it.
 
 ## Out of scope
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   annoRefs, carryUndoThroughMerge, fieldsOf, historyTouches, keyMatcher, listById, noteRemoteChanges, objectRefs, planViewChanges,
-  rebaseHistory, rebasePending, recordByKey, recordDiff, sameValue, stepTouches, touchesCache, watchRecords, workspaceChanges,
+  rebaseHistory, rebasePending, recordByKey, recordDiff, sameValue, stepTouches, sucheRecordKey, touchesCache, watchRecords, workspaceChanges,
 } from './undoKeys'
 import { createUndoTimeline } from './undoTimeline'
 
@@ -238,5 +238,21 @@ describe('undoKeys — a toast that outlives a merge', () => {
     released.release()
     noteRemoteChanges(['shifts:s'])
     expect(released.ok()).toBe(true) // no longer watched — its toast is gone
+  })
+})
+
+describe('undoKeys — slices other PRs added (staging integration 25.09.2026)', () => {
+  it('reads the Suche record by record, person and Bereich apart', () => {
+    const before = { personen: [{ id: 'p1', log: [] }], bereiche: [{ id: 'b1', log: [] }] }
+    const after = { personen: [{ id: 'p1', log: [{ id: 'r1' }] }], bereiche: [{ id: 'b1', log: [] }, { id: 'b2', log: [] }] }
+    expect([...workspaceChanges({ suche: before }, { suche: after })].sort())
+      .toEqual([sucheRecordKey('bereiche', 'b2'), sucheRecordKey('personen', 'p1')].sort())
+    expect(workspaceChanges({ suche: before }, { suche: structuredClone(before) }).size).toBe(0)
+  })
+
+  it('a Trupp whose crew-filing marker only grew is not a changed record — every inverse keeps the marker', () => {
+    const t = { id: 't1', no: 1, status: 'bereit' }
+    expect(workspaceChanges({ trupps: [t] }, { trupps: [{ ...t, crewFiled: ['p1'] }] }).size).toBe(0)
+    expect([...workspaceChanges({ trupps: [t] }, { trupps: [{ ...t, status: 'drin', crewFiled: ['p1'] }] })]).toEqual(['trupps:t1'])
   })
 })
