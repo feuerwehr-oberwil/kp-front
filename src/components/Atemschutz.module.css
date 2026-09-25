@@ -1974,4 +1974,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .newBtn { width: auto; padding: 0 14px 0 12px; }
   .newBtn span { display: inline; }
   .newBtn :global(.i) { width: 16px; height: 16px; }
+  /* …and with its word the head is one button wider: at 360px beside «2 Alarme», the QR and the
+     bell it was cut at the card's edge (reshoot, 25.09.2026). The phone head's controls sit 8px
+     apart — the app's one gap between neighbours (AGENTS.md · the top bar) — so all four fit. */
+  .head:not(.headCompact) .headActs { gap: 8px; }
 }
+/* the Trupp number on the collapsed phone row (N15): the badge the card head wears, a little
+   quieter, never shrinking the name to make room */
+.trowNo { flex: none; font-size: 11.5px; }

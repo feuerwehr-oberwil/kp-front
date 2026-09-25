@@ -100,6 +100,7 @@ export function useAbschluss({
     const inside = truppsRef.current.filter(truppStillDeployed)
     if (inside.length > 0) {
       const answer = await confirmDialog({
+        title: A.insideTitle,
         message: insideAbschlussMessage(inside),
         confirmLabel: A.insideClose,
         altLabel: A.registeredToBoard,
@@ -109,18 +110,6 @@ export function useAbschluss({
       if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
       if (answer !== true) return false
     }
-    /* ⚠️ A Trupp still ANGEMELDET is asked about FIRST, on its own (24.09.2026, D1 ⑦). On 23.09.
-       the Sicherungstrupp T6 stood «angemeldet» to the end, and the confirm below counted only
-       the crews inside, so the record closed with a crew neither sent in nor stood down. Three
-       answers: «Zur Tafel» (the focused, safe one) goes there and closes nothing; «Als «nicht
-       eingesetzt» schliessen» is the SAME close-out the card offers (Trupp … nicht eingesetzt,
-       undoable per Trupp); dismissing does nothing at all.
-       ⚠️ The answer is only RECORDED here (review 25.09.2026). The stand-down runs after the
-       final «Abschliessen» below — «schliessen» and then «Abbrechen» on the next question must
-       leave every Trupp exactly as it was.
-       ⚠️ Not while a crew is still recorded inside: that is the question that matters, and the
-       confirm below asks it («Noch im Einsatz …»). Closing the waiting crews first would put
-       «nicht eingesetzt» rows beside a Trupp nobody has reported out. */
     /* ⚠️ People still MISSING are their own question too, right after the crews (walk-through
        25.09.2026, N6). «8 Personen noch vermisst» was the first grey row of nine under a filled,
        focused «Trotzdem abschliessen», and an Enter closed the Einsatz over them. The sentence
@@ -138,6 +127,18 @@ export function useAbschluss({
       if (answer === 'alt') { openSuche?.(); return false }
       if (answer !== true) return false
     }
+    /* ⚠️ A Trupp still ANGEMELDET is asked about FIRST, on its own (24.09.2026, D1 ⑦). On 23.09.
+       the Sicherungstrupp T6 stood «angemeldet» to the end, and the confirm below counted only
+       the crews inside, so the record closed with a crew neither sent in nor stood down. Three
+       answers: «Zur Tafel» (the focused, safe one) goes there and closes nothing; «Als «nicht
+       eingesetzt» schliessen» is the SAME close-out the card offers (Trupp … nicht eingesetzt,
+       undoable per Trupp); dismissing does nothing at all.
+       ⚠️ The answer is only RECORDED here (review 25.09.2026). The stand-down runs after the
+       final «Abschliessen» below — «schliessen» and then «Abbrechen» on the next question must
+       leave every Trupp exactly as it was.
+       ⚠️ Not while a crew is still recorded inside: that is the question that matters, and the
+       confirm below asks it («Noch im Einsatz …»). Closing the waiting crews first would put
+       «nicht eingesetzt» rows beside a Trupp nobody has reported out. */
     const registered = standDownTrupps && truppsStillOut === 0 ? truppsRef.current.filter(truppStillRegistered) : []
     let standDown: string[] = []
     if (registered.length > 0) {
@@ -188,6 +189,12 @@ export function useAbschluss({
       // the button names what is actually about to happen — closing an Einsatz with open points
       // is allowed, and the label is where that is said out loud
       confirmLabel: anyOpen ? A.confirmAnyway : A.confirmBtn,
+      /* ⚠️ …and with open points the SAFE answer is the focused, filled one (staging r2, N6,
+         25.09.2026): after the crews question, an Enter on this list closed the Einsatz with
+         people still missing. «Zurück» is the default, «Trotzdem abschliessen» the quiet
+         choice. With nothing open, «Abschliessen» stays the primary — that is what the operator
+         came here to do. (The Suche's own first question sits above this one, in its PR.) */
+      ...(anyOpen ? { cancelLabel: A.confirmBack, safeAnswer: 'cancel' as const } : {}),
     })
     if (!ok) return false
     if (standDown.length && standDownTrupps) {

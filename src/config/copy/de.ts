@@ -2312,6 +2312,14 @@ export const de = {
     newTruppShort: 'Trupp',
     // kleine Marke am Sicherungstrupp, auch nachdem er eingesetzt ist
     safetyChip: 'SiTr',
+    /* ── Staging-Durchgang 2, 25.09.2026 ── */
+    // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, AGENTS.md)
+    removedToast: 'Trupp {name} entfernt',
+    // «Entfernen» auf einem Trupp, der DRIN ist: zuerst fragen, «Raus melden» ist die sichere Antwort
+    removeInsideTitle: 'Trupp {name} ist drin – erst rausmelden?',
+    removeInsideMsg: 'Entfernen nimmt den Trupp von der Tafel und aus jedem Alarm. Meist ist gemeint: Der Trupp ist draussen.',
+    // der Weg hinein für einen Trupp, der nie drin war («Wieder» wäre falsch)
+    actEnterFirst: 'In den Einsatz',
     contactDone: 'Bestätigt',
     // Eingangsdruck eines Trupps, der schon raus ist: gesperrt (Punkt 2)
     pressureLockedLabel: 'Eingangsdruck ({t})',
@@ -4039,6 +4047,9 @@ export const de = {
     insideMany: '{n} Trupps sind noch drin: {list}.',
     insideTrupp: 'Trupp {name}',
     insideClose: 'Trotzdem abschliessen',
+    insideTitle: 'Trupps noch drin',
+    // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
+    confirmBack: 'Zurück',
     done: 'Rapport abgeschlossen',
     doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
     failed: 'Abschluss fehlgeschlagen',

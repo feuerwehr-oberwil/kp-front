@@ -59,8 +59,11 @@ selected pill with them – on the picture the name alone is the label.
 - Every Trupp row starts with the label and the leader: `Trupp 1 (Meier Anna): …`.
 - **Safety rows** (angemeldet, Eintritt, Kontakt, Druck, Rückzug, Austritt, Alarm, Wieder
   einrücken) spell out the whole crew: `Trupp 1 (Meier Anna / Dürring Jan): Eintritt`.
-- **Housekeeping rows** (platziert, Farbe, Leitung, bearbeitet, gelöscht, wiederhergestellt,
-  nicht mehr gesetzt) name the leader only: `Trupp 1 (Meier Anna): Farbe geändert`.
+- **Housekeeping rows** (platziert, Farbe, Leitung, gelöscht, wiederhergestellt, nicht mehr
+  gesetzt) name the leader only: `Trupp 1 (Meier Anna): Farbe geändert`.
+- **Edit rows** (bearbeitet: Auftrag, Ausrüstung, Kanal …) spell out the whole crew since
+  25.09.2026 (staging walk-through r2): they are read to answer «what did THIS crew do», and the
+  leader alone named a different set of people than the safety rows around them.
 - The crew separator is **« / » everywhere** – journal, card crew line, alarm row, finder.
   Comma stays reserved for role lists («Unter AS: …»). `truppLogName` is the one formatter.
 - The journal vocabulary term is **`Trupp 1`** (deviation from the first draft's

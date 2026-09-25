@@ -770,9 +770,12 @@ export function truppCrewHistory(t: Trupp, all: readonly Trupp[] = []): { leader
   return { leader, cycles }
 }
 
-export function readingKindLabel(kind: TruppReading['kind']): string {
+/** `standDown`: this `exit` row closed a run that never went in (lib/atemschutz ·
+ *  isStandDownExit) — it prints «Nicht eingesetzt», never «Austritt» (staging N8, 25.09.2026). */
+export function readingKindLabel(kind: TruppReading['kind'], standDown = false): string {
   const r = appConfig.copy.report
   const az = appConfig.copy.atemschutz
+  if (kind === 'exit' && standDown) return az.statusNotDeployed
   if (kind === 'registered') return az.readingKind.registered
   if (kind === 'entry') return r.truppEntry
   if (kind === 'contact') return az.readingKind.contact

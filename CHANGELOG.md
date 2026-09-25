@@ -70,7 +70,14 @@ so this file – not the log – is the record of what shipped up to that point.
   tap on «Kontakt» writes one contact; «Einsatz abschliessen» asks about crews still inside first,
   by name, with «Zur Tafel» as the default, and afterwards stays on the closed Einsatz instead of
   opening another; the empty board has its own «Trupp anmelden», the phone head button carries a
-  word, a Sicherungstrupp wears «SiTr», and «Ändern» and a chip's ✕ are full 44 px targets. The
+  word, a Sicherungstrupp wears «SiTr», and «Ändern» and a chip's ✕ are full 44 px targets. A
+  second walk-through fixed: every Gast from the Trupp form was filed twice in the Anwesenheit
+  (and the Verlauf printed ids); a crew registered on the Atemschutz-Link never reached the
+  Anwesenheit (an editor device now files it, once); «Entfernen» on a crew inside asks first and
+  every removal can be undone from its toast; «Nicht eingesetzt» moved into ⋮ and no longer logs
+  an «Austritt»; the Abschluss's paperwork list focuses «Zurück»; the phone board shows Trupp
+  numbers, the Link opens on the most urgent crew inside, the Eintrag «+» no longer covers a
+  crew's «Kontakt», and an edit row in the Verlauf names the whole crew. The
   Eingangsdruck of a Trupp that is out is locked in «Bearbeiten», and one below the new
   `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
   value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.

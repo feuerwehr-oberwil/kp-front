@@ -1071,7 +1071,7 @@ to prod.
   handed-over Tafel; PR #212 and its follow-up, 24./25.09.2026, Übung 23.09.): sections Drin ·
   Sicherungstrupp · Bereit · Draussen, «Drin» by urgency with the 2 s freeze, «Druck | Kontakt»
   with words, one `PressureSheet`. The tablet grid and the Tafel are NOT this board, except where
-  a rule below says «every board». Five rules:
+  a rule below says «every board». The rules:
   - *The Trupp form is a bottom sheet there, with the due clocks above it* (D1 ⑥): at most two
     due/overdue Trupps, most urgent first, each with a live «Kontakt» that confirms without
     leaving the form. The pinned set holds 2 s after a tap and the row just confirmed reads
@@ -1108,6 +1108,17 @@ to prod.
     Trupp 1 (…), Trupp 2 (…).»), «Zur Tafel» focused, closing anyway the quiet answer — and after
     the Abschluss the app stays on the closed Einsatz (App · completeRapport), never opens another.
     A Sicherungstrupp wears «SiTr» on its row and card at every width, sent in or not.
+  - *The record is kept whole* (staging walk-through r2, 25.09.2026): the Gäste the form files at
+    its save are filed QUIETLY and named once in the crew's «Unter AS: …» row — the crew filing
+    knows them (`IncidentWorkspace · fileTruppGuest`) instead of reading a render-old Anwesenheit
+    and filing them again. A session that cannot write the record (the Atemschutz-Link) files and
+    logs nothing; every device that can OBSERVES the Trupps and files a missing crew under derived
+    ids (`lib/crewFiling`). «Entfernen» on a crew INSIDE asks first («Raus melden» focused), and
+    every removal raises the confirm-with-undo toast. «Nicht eingesetzt» is a row of the ⋮, never
+    the button beside «Im Einsatz», and its log row reads «Nicht eingesetzt», never «Austritt».
+    The collapsed phone row carries the «#N» badge; the handed-over phone board opens on the most
+    urgent crew inside; the Eintrag FAB is not drawn over the phone Trupps page (a floating button
+    over a scrolling list of Kontakt buttons cannot be kept clear by an inset).
   - *A Kontakt another device confirmed < 60 s ago asks* (D1 ⑧a, `lib/contactEcho`) — on EVERY
     board, tablet grid and handed-over Tafel included: it guards the act, not a layout. A
     confirmation this JS realm did not write is «anderes Gerät» — no device names; a stamp more

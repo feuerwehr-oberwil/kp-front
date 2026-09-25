@@ -35,6 +35,7 @@ import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions
 import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
+import { unfiledTruppCrew } from './lib/crewFiling'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -4179,13 +4180,18 @@ export function IncidentWorkspace({
   const ensurePresentForRole = (
     ids: (string | undefined)[], roleNote?: string, groupTemplate?: string,
     noteFor?: (id: string) => string | undefined,
+    /** Gäste the Trupp form filed a moment ago in the SAME act (fileTruppGuest): already present
+     *  — this render's `attendance` cannot know it yet — and named by the name they were filed
+     *  under, never by their id (staging N1: «Unter AS: g1790338070425-0etoa, …»). */
+    justFiled?: ReadonlyMap<string, string>,
   ) => {
     // Not on an Atemschutz-Link session: its Anwesenheit write is a no-op (the slice never
     // carries attendance), and a Verlauf row claiming «anwesend · AS» over a record that never
     // changed would be a lie on paper. The tablet marks the crew present when it takes the Trupp.
     if (!canWriteRecord) return
     const wanted = [...new Set(ids.filter(Boolean) as string[])]
-    const fresh = wanted.filter((id) => !isPresent(attendance[id]))
+    const fresh = wanted.filter((id) => !justFiled?.has(id) && !isPresent(attendance[id]))
+    const nameOf = (id: string) => justFiled?.get(id) ?? rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id
     // ⚠️ APPEND, don't fill-if-empty: one person routinely holds two jobs, and the Fahrer who
     // then goes under Atemschutz is «Fahrer Pio, AS». See lib/roleAssignment · mergeRoleNote for
     // when a part replaces an earlier one instead of joining it.
@@ -4224,7 +4230,7 @@ export function IncidentWorkspace({
     if (groupTemplate && roleNote) {
       const named = wanted
         .filter((id) => fresh.includes(id) || noted.has(id))
-        .map((id) => rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id)
+        .map(nameOf)
       if (named.length) log('people', fillTemplate(groupTemplate, { role: roleNote, list: named.join(', ') }), 'team')
       return
     }
@@ -4263,16 +4269,64 @@ export function IncidentWorkspace({
    *  picker (`leaderPersonId`) or the keyboard (the first name `unrecordedCrewNames` returns is
    *  `f.name`, which IS the leader — see types · Trupp.name). */
   const ensurePresentFromTrupp = (f: Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds' | 'kind'>) => {
+    /* ⚠️ Not on a session that cannot write the record (staging N2, 25.09.2026): on the
+       Atemschutz-Link every write below was a no-op while `addGuest` still logged «… als weitere
+       Person erfasst» — a line claiming a record that never changed. An editor device files that
+       crew when it SEES the Trupp (the observer effect below, lib/crewFiling). */
+    if (!canWriteRecord) { filedGuestsRef.current = new Map(); return }
     const { role, leaderRole, groupTemplate } = truppRoleNote(f)
+    // the Gäste the form's save filed a moment ago (fileTruppGuest) — this render's attendance
+    // does not hold them yet, and read from it they were filed a SECOND time (staging N1)
+    const filed = filedGuestsRef.current
+    filedGuestsRef.current = new Map()
     const ids = [f.leaderPersonId, ...(f.memberPersonIds ?? [])]
-    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined))
+    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined), filed)
     // 'presence': being in a Trupp contradicts nothing — the conflict check is about somebody
     // holding a SECOND job (lib/roleAssignment · roleConflictHint)
     const lead = f.name.trim()
-    for (const name of unrecordedCrewNames(f, (n) => personIdForName(rosterIdByName, n))) {
+    const filedIdOf = (n: string) => [...filed].find(([, nm]) => nm === n)?.[0]
+    for (const name of unrecordedCrewNames(f, (n) => filedIdOf(n) ?? personIdForName(rosterIdByName, n))) {
       assignTypedName(name, 'presence', name === lead ? leaderRole : role)
     }
   }
+  /** The Trupp form's Gast door (AtemschutzView · TruppForm · fileGuests), called at the SAVE.
+   *  A name the Mannschaft knows is that person; any other is a Gast row, filed QUIETLY — the
+   *  crew's one «Unter AS: …» row that `ensurePresentFromTrupp` writes right after names them
+   *  all — and remembered for that call (staging N1: one person, one row, one line). */
+  const filedGuestsRef = useRef<Map<string, string>>(new Map())
+  const fileTruppGuest = (name: string): string | undefined => {
+    const known = personIdForName(rosterIdByName, name)
+    if (known) return known
+    const id = addGuest(name, undefined, { quiet: true })
+    if (id) filedGuestsRef.current.set(id, name)
+    return id
+  }
+  /* ── A crew registered where the record cannot be written reaches it anyway (staging N2) ──
+     An Atemschutz-Link may write the Trupps and nothing else, so its crew — Gäste above all —
+     never reached the Anwesenheit. Every device that MAY write the record OBSERVES the Trupps and
+     files what is missing under ids every device derives the same way (lib/crewFiling), so two
+     tablets converge on one row per person and one Verlauf line per Trupp. A machine write: raw
+     `setAttendance`, never the undo timeline, and idempotent — once filed, nothing is left to
+     file (AGENTS.md · a machine writer writes nothing when nothing changed). */
+  useEffect(() => {
+    if (!canWriteRecord || replayActive || incidentMeta.is_archived) return
+    const todo = unfiledTruppCrew(allTrupps, attendance, (n) => personIdForName(rosterIdByName, n))
+    if (!todo.length) return
+    setAttendance((cur) => {
+      let next = cur
+      for (const f of todo) for (const e of f.entries) {
+        if (next[e.id]) continue
+        next = next === cur ? { ...cur } : next
+        next[e.id] = { ...openPresence(undefined, incidentMeta.started_at, e.name), note: e.note }
+      }
+      return next
+    })
+    for (const f of todo) {
+      log('people', fillTemplate(f.groupTemplate, { role: f.role, list: f.entries.map((e) => e.name).join(', ') }), 'team',
+        undefined, undefined, { rowId: f.rowId })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTrupps, attendance, canWriteRecord, replayActive, incidentMeta.is_archived])
 
   /** Assign a role: presence + Bemerkung, and the hint if it contradicts the record (lib ·
    *  roleAssignment). The hint never blocks — it is shown after the assignment went through. */
@@ -4453,7 +4507,7 @@ export function IncidentWorkspace({
       // this Einsatz) links that row instead of opening a second one beside it. No job
       // written here: the Trupp is not formed yet, and submitting it writes «AS» itself.
       // ⚠️ NOT for a link session: the Anwesenheit is not its slice, and the write would 403.
-      onAddGuest={canEditIncident ? (name) => assignTypedName(name, 'presence') : undefined}
+      onAddGuest={canEditIncident ? fileTruppGuest : undefined}
       createTrupp={createTruppA}
       placeTrupp={placeTrupp}
       placeTargets={placeTargets}
@@ -6320,7 +6374,13 @@ export function IncidentWorkspace({
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
           always add a journal entry / photo / voice memo from the field — tap to compose,
           hold to record a voice memo (same gesture as the desktop TopBar Eintrag) */}
-      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && (
+      {/* ⚠️ …but NOT over the Atemschutz board (staging walk-through r2, 25.09.2026, N9). There it
+          sat on the third crew's «Kontakt» and on «Einsetzen»: a thumb at the right edge opened
+          the composer instead of confirming contact. A bottom inset cannot fix a button that
+          floats over a SCROLLING list, and a reserved 66px column would narrow every row's
+          Druck | Kontakt at 360px — the board's primary controls — to protect a secondary one.
+          The Verlauf stays one tap away in the phone's top bar. */}
+      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && mode !== 'atemschutz' && (
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}

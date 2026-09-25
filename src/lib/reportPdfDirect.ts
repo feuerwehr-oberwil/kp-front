@@ -18,7 +18,7 @@ import type { ReportDraft } from './report'
 import {
   annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
 } from './report'
-import { isAtemschutzTrupp } from './atemschutz'
+import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
@@ -576,9 +576,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         // ⚠️ no bar on a Kontakt/Rückzug row — that number was carried over, not read off a gauge
         // — and none on a row of 0, which is a Trupp that had no cylinder when it was written
         // (lib/report · readingBarShown)
-        .map((rr) => ({
+        .map((rr, i, all) => ({
           t: rr.t ? formatDateTime(rr.t) : '',
-          kindLabel: readingKindLabel(rr.kind),
+          kindLabel: readingKindLabel(rr.kind, isStandDownExit(all, i)),
           bar: rr.bar != null && readingBarShown(rr) ? String(rr.bar) : undefined,
         }))),
     })),

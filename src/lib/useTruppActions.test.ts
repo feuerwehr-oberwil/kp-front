@@ -26,6 +26,10 @@ vi.mock('./ui', async (importOriginal) => ({
     ui.toasts.push({ text, undo: opts?.action?.onClick })
     return 0
   },
+  undoToast: (text: string, onUndo: () => void) => {
+    ui.toasts.push({ text, undo: onUndo })
+    return 0
+  },
   confirmDialog: (opts: { title?: string; message: string }) => {
     ui.confirms.push(opts)
     return Promise.resolve(ui.answer)
@@ -928,7 +932,7 @@ describe('useTruppActions — what changed on the way back in', () => {
     })
     expect(lines).toEqual([
       'Trupp Bachmann Reto / Pfister Markus: erneuter Eintritt – Eingangsdruck 300 bar – Retten · Kanal 7',
-      'Trupp Bachmann Reto: Auftrag Retten, Funkkanal 5 → 7',
+      'Trupp Bachmann Reto / Pfister Markus: Auftrag Retten, Funkkanal 5 → 7',
     ])
   })
 
@@ -2446,5 +2450,29 @@ describe('useTruppActions — an Eingangsdruck set on purpose is logged as measu
     actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 250, pressureMeasured: true })
     const rows = state.trupps[0].readings!
     expect(rows.find((r) => r.kind === 'entry' && r.bar === 250)).toMatchObject({ measured: true })
+  })
+})
+
+describe('useTruppActions — a removal says so and can be taken back from the toast (staging N4)', () => {
+  it('shows ONE confirm-with-undo toast; its «Rückgängig» restores the card and drops the ↶ entry', () => {
+    ui.toasts.length = 0
+    const { actions, state, timeline } = timed(baseTrupp({ no: 3, members: ['Graf Eva'] }))
+    actions.deleteTrupp('T1')
+    expect(state.trupps[0].removedAt).toBeTruthy()
+    expect(ui.toasts).toHaveLength(1)
+    expect(ui.toasts[0].text).toBe(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: '3 (Keller Anna / Graf Eva)' }))
+    ui.toasts[0].undo!()
+    expect(state.trupps[0].removedAt).toBeUndefined()
+    // the delete is no longer on the timeline — it cannot be taken back a second time
+    expect(timeline.canUndo()).toBe(false)
+  })
+})
+
+describe('useTruppActions — an edit row names the whole crew (staging r2, N27)', () => {
+  it('«Trupp N (Leader / Member): …», like every other row about the people in it', () => {
+    const lines: string[] = []
+    const { actions } = harness(baseTrupp({ no: 4, members: ['Graf Eva'], auftrag: 'loeschen' }), undefined, (_i, t) => lines.push(t))
+    actions.editTrupp('T1', { name: 'Keller Anna', members: ['Graf Eva'], pressure: 300, auftrag: 'retten' })
+    expect(lines[0]).toMatch(/^Trupp 4 \(Keller Anna \/ Graf Eva\): /)
   })
 })

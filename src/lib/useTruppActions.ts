@@ -5,7 +5,7 @@ import type { TacticalObject } from './tacticalObjects'
 import type { ObjectStore, SetBoard } from './useObjectStore'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
-import { confirmDialog, toast } from './ui'
+import { confirmDialog, toast, undoToast } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
@@ -1134,7 +1134,7 @@ export function useTruppActions(deps: Deps) {
      * event still fires: that stream records the action, not the sentence. */
     const changes = truppEditChanges(tr, f)
     const line = changes.length
-      ? fillTemplate(appConfig.copy.atemschutz.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name }, 'leader'), changes: changes.join(', ') })
+      ? fillTemplate(appConfig.copy.atemschutz.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name, members: f.members }), changes: changes.join(', ') })
       : null
     if (line) log('pen', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.edit', { id })
@@ -1173,7 +1173,7 @@ export function useTruppActions(deps: Deps) {
     const az = appConfig.copy.atemschutz
     const labels = truppEquipmentLabels(next)
     const line = fillTemplate(az.logEditFields, {
-      name: truppLogName(tr, 'leader'),
+      name: truppLogName(tr),
       changes: labels.length ? fillTemplate(az.changeEquipment, { list: labels.join(', ') }) : az.changeEquipmentNone,
     })
     log('pen', line, 'team', undefined, undefined, { subjectId: id })
@@ -1346,7 +1346,7 @@ export function useTruppActions(deps: Deps) {
      * in the list, for the reason documented there: it is the only entry that turns a safety
      * watch on or off. */
     const changes = truppEditChanges(tr, f, { pressure: false, crew: false })
-    if (changes.length) log('pen', fillTemplate(az.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name }, 'leader'), changes: changes.join(', ') }), 'team', undefined, undefined, { subjectId: id })
+    if (changes.length) log('pen', fillTemplate(az.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name, members: f.members }), changes: changes.join(', ') }), 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.status', { id, status: standby ? 'angemeldet' : 'aktiv' })
   }
   /**
@@ -1673,15 +1673,19 @@ export function useTruppActions(deps: Deps) {
     // card never left the record and putting it back is un-stamping it — a fresh Trupp would be a
     // second registration of a crew that only ever registered once. The placement refs stay gone
     // (see restoreTrupp): the chip on the plan cannot be resurrected faithfully.
-    // ⚠️ Two doors, one act: this ↶ timeline entry, and the non-expiring «Entfernte Trupps»
-    // menu. (The delete's own «Rückgängig» toast was the third and went 09.09. with all the
-    // board's confirm toasts.)
+    // ⚠️ Three doors, one act: this ↶ timeline entry, the non-expiring «Entfernte Trupps» menu,
+    // and — back since 25.09.2026 (staging N4) — the confirm-with-undo toast AGENTS.md asks of a
+    // one-shot that DESTROYS something (the 09.09. sweep took it with the Kontakt/Druck toasts,
+    // but a removal is not a Kontakt). The toast's «Rückgängig» restores through `restoreTrupp`
+    // and drops this timeline entry, so the act is never undoable twice.
     // ⚠️ …and the placement refs are STRIPPED on the way back, exactly as `restoreTrupp` strips
     // them: `dropPlacements` above took the plan chip and the map marker with it, and they cannot
     // be resurrected faithfully. Restoring the card verbatim would point it at an annotation id
     // that no longer exists — the Trupp comes back and «auf Plan zeigen» leads nowhere. It is
     // re-placed via «Platzieren», which is what the other two doors already leave the operator to.
-    return remember(id, line, tr && { ...tr, annoId: undefined, planId: undefined, entityId: undefined }, apply)
+    const drop = remember(id, line, tr && { ...tr, annoId: undefined, planId: undefined, entityId: undefined }, apply)
+    if (tr) undoToast(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: truppLogName(tr) }), () => { drop(); restoreTrupp(tr) })
+    return drop
   }
   // undo for deleteTrupp (the delete-now + Rückgängig toast): re-add the captured Trupp with
   // its full monitoring record (readings, times, pressures). The plan chip / map marker was
