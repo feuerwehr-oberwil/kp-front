@@ -94,7 +94,7 @@ afterAll(async () => { await new Promise((r) => setTimeout(r, 200)) })
 let seq = 0
 const meta = (over: Partial<IncidentMeta> = {}): IncidentMeta => ({
   id: `inc-gg${++seq}`, divera_id: null, title: 'Grundgerüst', type: 'Brandbekämpfung', priority: null, address: 'Teststrasse 1',
-  lat: 47.5, lng: 7.6, status: 'active', source: 'manual', source_ref: null, auto_opened: false,
+  lat: 47.5, lng: 7.6, status: 'offen', source: 'manual', source_ref: null, auto_opened: false,
   started_at: '2026-09-24T10:00:00Z', closed_at: null, is_archived: false, is_exercise: true,
   report_done_at: null, workspace_rev: 0, created_by: null, created_at: '2026-09-24T10:00:00Z', updated_at: '2026-09-24T10:00:00Z',
   ...over,
