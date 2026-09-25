@@ -2724,6 +2724,7 @@ export const de = {
     addFloorDown: 'Untergeschoss hinzufügen',
     // the Verlauf row of «+ OG / + UG» (the toast stays the short «Geschoss hinzugefügt»)
     floorAddedLog: 'Geschoss {floor} hinzugefügt',
+    floorAddedToast: '{floor} hinzugefügt',
     floorHide: 'Geschoss ausblenden',
     floorShow: 'einblenden',
     floorHidden: 'ausgeblendet',

@@ -268,6 +268,12 @@
 .wb-zoom { display: flex; align-items: center; gap: 2px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; flex: none; }
 .wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: var(--z-map-util); background: var(--glass);
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-cluster); padding: 4px; }
+/* Below 860px the top bar runs the full width, so the cluster drops under it — what the Karte's
+   own cluster does at the same width (MapUtility · .toputil). At 820 its «–» sat under the bar
+   and a tap on it hit the bar (3am test r4, 26.09.2026). */
+@media (max-width: 860px) {
+  .wb-zoom-float { top: calc(80px + env(safe-area-inset-top)); }
+}
 .wb-zoom button { min-width: 40px; height: 40px; padding: 0 10px; border: none; background: none; border-radius: var(--r-sm); display: grid; place-items: center;
   color: var(--ink-dim); cursor: pointer; font-family: var(--body); font-size: 12.5px; font-weight: 700; transition: background .14s var(--ease); }
 @media (hover: hover) {

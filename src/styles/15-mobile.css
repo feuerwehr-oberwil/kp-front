@@ -850,21 +850,24 @@
      (20-touch-floors · .wb-scale-chip), so the 38px reserve still put the pill's foot on their
      heads – the Gebäude's «Ref. automatisch» toast sat square on the Gebäude chip. */
   :root:has(.wb-botleft) .toaster { --plan-row-reserve: calc(var(--tap) + 8px); }
+  /* the Gebäude's «+ UG» above that row (08-toasts · --stack-foot-lift): here the plan-row
+     reserve already clears the chips, so the lift is only the pill's own band */
+  :root:has(.wb-floor-add-down) .toaster { --stack-foot-lift: 70px; }
   /* …and the Rapport's docked tab strip is one more fixed piece of bottom chrome, on exactly the
      one page that shows one. `:has`, like every other lane state here, because the host is a root
      sibling of `.app`. (The strip is rendered at every width but only `display: block` here, so
      the selector has to name the PAGE, not merely the element.) */
   :root:has(.app.mode-rapport .rp-tabs) .toaster { --rp-tabs-safe: 60px; }
   .toaster {
-    --toast-lane-bottom: calc(var(--rail-h) + 24px + var(--rp-tabs-safe, 0px) + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
+    --toast-lane-bottom: calc(var(--rail-h) + 24px + var(--rp-tabs-safe, 0px) + var(--plan-row-reserve, 0px) + var(--stack-foot-lift, 0px) + env(safe-area-inset-bottom));
     bottom: var(--toast-lane-bottom);
     max-height: calc(100dvh - var(--toast-lane-bottom) - 84px - env(safe-area-inset-top));
   }
   :root:has(.phone-tools) .toaster {
-    --toast-lane-bottom: calc(var(--rail-h) * 2 + 24px + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
+    --toast-lane-bottom: calc(var(--rail-h) * 2 + 24px + var(--plan-row-reserve, 0px) + var(--stack-foot-lift, 0px) + env(safe-area-inset-bottom));
   }
   :root:has(.phone-tools .wb-dock) .toaster {
-    --toast-lane-bottom: calc(var(--rail-h) * 3 + 30px + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
+    --toast-lane-bottom: calc(var(--rail-h) * 3 + 30px + var(--plan-row-reserve, 0px) + var(--stack-foot-lift, 0px) + env(safe-area-inset-bottom));
   }
   /* The Meldeleiste is pinned to the SAME 72px baseline as the relocated lane below, at z54
      under the toaster's z90 — so every pill landed square on its first row and on that row's

@@ -361,6 +361,8 @@ describe('(e) acts on the picture that the Verlauf used to miss (3am test r3, 25
     await settle()
     expect((lastBoard() as BoardProps & { building: { floors: number[] } }).building.floors).toEqual([0, 1, 2, 3])
     expect(await rows()).toContain(fillTemplate(appConfig.copy.whiteboard.floorAddedLog, { floor: '3. OG' }))
+    // …and the ↶ names the storey too (3am test r4, 26.09.2026: «Geschoss hinzugefügt» ×3)
+    expect(screen.getByRole('button', { name: new RegExp(fillTemplate(appConfig.copy.whiteboard.floorAddedToast, { floor: '3. OG' })) })).toBeTruthy()
   })
 
   it('«Lösen» on a docked Gefahrentafel writes «… von «TLF» gelöst»', async () => {

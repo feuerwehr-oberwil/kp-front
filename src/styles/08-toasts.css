@@ -199,11 +199,17 @@
    at ~5 pills) hid the pill carrying «Rückgängig» below the fold with nothing saying so. */
 .toaster { position: fixed;
   left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right));
-  bottom: max(28px, calc(16px + env(safe-area-inset-bottom))); z-index: var(--z-toast);
+  bottom: calc(max(28px, calc(16px + env(safe-area-inset-bottom))) + var(--stack-foot-lift, 0px)); z-index: var(--z-toast);
   display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; pointer-events: none;
   max-height: calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .toaster > * { max-width: 100%; }
+/* While the Gebäude stack shows its «+ UG» (and the chip row under it), the lane starts above
+   them: at the default fit the pill's top stands ~114px over the canvas foot (Whiteboard ·
+   STACK_CHIP_ROW + STACK_VPAD, half the pill outside), and a toast at the 28px baseline lay on it
+   — three stacked «Geschoss hinzugefügt» pills hid it completely (3am test r4, 26.09.2026). The
+   phone restates the lift for its own lane (15-mobile). */
+:root:has(.wb-floor-add-down) .toaster { --stack-foot-lift: 96px; }
 /* A desktop/tablet detail panel owns the right side of the operational surface. Messages are
    centred in the genuinely free map/plan band instead of painting over that panel's fields and
    actions. The tablet panel has a fluid width; these values mirror 06-contextpanel's `.ctx` plus

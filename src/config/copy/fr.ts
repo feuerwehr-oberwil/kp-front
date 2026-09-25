@@ -1657,6 +1657,7 @@ export const fr: Localizable<Copy> = {
     climbBack: 'Retour à {floor}',
     addFloorDown: 'Ajouter un sous-sol',
     floorAddedLog: 'Étage {floor} ajouté',
+    floorAddedToast: '{floor} ajouté',
     floorHide: 'Masquer l’étage',
     floorShow: 'afficher',
     floorHidden: 'masqué',
