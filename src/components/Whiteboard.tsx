@@ -2879,8 +2879,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       18px ✕ right beside the fold eye, one tap took a storey away for everybody. It
                       stands alone in the tile's opposite corner now, a full --tap square, so a press
                       meant for the name or the eye can never land on it; the act is still
-                      confirm-with-undo and writes its own Verlauf row (IncidentWorkspace ·
-                      onRemoveFloor). */}
+                      confirm-with-undo (IncidentWorkspace · onRemoveFloor). Its Verlauf row and
+                      the «entfernt» wording come with PR #226 (whiteboard.floorRemovedLog). */}
                   {f !== 0 && !readOnly && !building.pack && !floorPack?.tiles[f] && (
                     <button className="wb-floor-x"
                       title={`${appConfig.copy.whiteboard.removeFloor}: ${building.floorNames?.[String(f)] ?? floorLabel(f)}`}

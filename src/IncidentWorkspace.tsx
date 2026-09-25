@@ -5689,8 +5689,7 @@ export function IncidentWorkspace({
             const sweep = removeStorey(board.gebaeude ?? [], sheetAnchoredIds(objects, 'gebaeude'), floor, nextBuilding?.floors ?? [])
             // asks only about what the sweep LOSES — own annos deleted or cut short, never a Karte
             // object shown here — and not at all when that is nothing; the toast undoes either way
-            const storeyName = prevBuilding?.floorNames?.[String(floor)] ?? floorLabel(floor)
-            if (!await askStoreyRemoval(sweep.lost, storeyName)) return
+            if (!await askStoreyRemoval(sweep.lost, floorLabel(floor))) return
             // a machine write (`gesture: false`) — a sweep of what stood on the storey, no placement
             const writeOwn = (own: BoardAnno[]) => setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, sweep.owned, own) }), { gesture: false })
             setBuilding(nextBuilding)
@@ -5698,13 +5697,8 @@ export function IncidentWorkspace({
             // confirm-with-undo: the removed storey's annotations come back with it
             const restore = () => { setBuilding(prevBuilding); writeOwn(sweep.before) }
             const reapply = () => { setBuilding(nextBuilding); writeOwn(sweep.after) }
-            // the act has its OWN Verlauf row (3am test r2, 25.09.2026: only the undo wrote one —
-            // «Geschoss gelöscht rückgängig gemacht» about a removal the Verlauf never mentioned),
-            // named by the storey it took, in the removal vocabulary («entfernt»)
-            const line = fillTemplate(appConfig.copy.whiteboard.floorRemoved, { name: storeyName })
-            logPlan('floors', line, { floor })
-            const drop = rememberGebaeudeStep(line, restore, reapply)
-            undoToast(line, () => { restore(); drop() })
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply)
+            undoToast(appConfig.copy.whiteboard.floorRemoved, () => { restore(); drop() })
           }}
           sym={sym}
           rosterNames={rosterNames}

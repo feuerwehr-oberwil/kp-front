@@ -32,7 +32,6 @@ const rec = vi.hoisted(() => ({
   order: [] as string[],
   answer: false,
   confirms: 0,
-  report: null as null | { events: { text?: string }[] },
 }))
 type MapProps = Record<string, unknown> & {
   entities: Entity[]; drawings: Drawing[]; onSelect: (e: Entity) => void; onFreehand: (c: [number, number][]) => void
@@ -70,12 +69,7 @@ vi.mock('./components/Whiteboard', async () => {
   return { Whiteboard: FakeBoard }
 })
 // the Rapport's own chunk, prefetched on idle — not part of any contract here
-// …recording its props: `events` is the Verlauf as the workspace holds it, which is how (e) reads
-// the rows an act wrote without mounting the Verlauf drawer
-vi.mock('./components/ReportPreflight', () => ({
-  ReportPreflight: (p: { events: { text?: string }[] }) => { rec.report = p; return null },
-  requestReportStep: () => {},
-}))
+vi.mock('./components/ReportPreflight', () => ({ ReportPreflight: () => null, requestReportStep: () => {} }))
 vi.mock('./lib/ui', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/ui')>()
   return { ...mod, confirmDialog: () => { rec.confirms++; return Promise.resolve(rec.answer) } }
@@ -102,7 +96,7 @@ beforeAll(() => {
 })
 beforeEach(() => {
   rec.map.length = 0; rec.board.length = 0; rec.order.length = 0; rec.boardDoc = null
-  rec.answer = false; rec.confirms = 0; rec.report = null
+  rec.answer = false; rec.confirms = 0
   vi.clearAllMocks()
   // every request the workspace makes (journal, audit, alignments, weather …) is simply absent
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -340,35 +334,5 @@ describe('(d) the render budget', () => {
     render(tree)
     await settle(60); await settle(60); await settle(60)
     expect(commits).toBeLessThanOrEqual(MOUNT_IDLE_COMMITS)
-  })
-})
-
-describe('(e) «Geschoss entfernen» writes its own Verlauf row', () => {
-  // 3am test r2, 25.09.2026: one tap removed the 3. OG, and the Verlauf only ever said «Geschoss
-  // gelöscht rückgängig gemacht» — about a removal it had never mentioned
-  const stack = {
-    src: [[[0, 0], [1, 0], [1, 1], [0, 1]]], orientDeg: 0, northUp: false,
-    rings: [[[0, 0], [1, 0], [1, 1], [0, 1]]], ring: [[0, 0], [1, 0], [1, 1], [0, 1]], ringAspect: 1,
-    floors: [0, 1, 2],
-  }
-  const rows = () => (rec.report?.events ?? []).map((e) => e.text)
-
-  it('the removal is a row naming the storey, the ↶ its own row after it', async () => {
-    const { tree } = workspaceTree(meta(), { workspace: { entities: [truck], building: stack } as unknown as Saved })
-    render(tree)
-    await settle()
-    await openPlan('gebaeude')
-    const board = lastBoard() as BoardProps & { onRemoveFloor: (f: number) => Promise<void> }
-    await act(async () => { await board.onRemoveFloor(2) })
-    await settle()
-    expect((lastBoard() as BoardProps & { building: { floors: number[] } }).building.floors).toEqual([0, 1])
-    key('r'); await settle(60)
-    const removed = 'Geschoss 2. OG entfernt'
-    expect(appConfig.copy.whiteboard.floorRemoved).toContain('{name}')
-    expect(rows()).toContain(removed)
-    key('z', { metaKey: true }); await settle(60)
-    const texts = rows()
-    expect(texts.filter((t) => t === removed)).toHaveLength(1)
-    expect(texts.some((t) => t?.includes(removed) && t !== removed)).toBe(true) // «… rückgängig gemacht»
   })
 })
