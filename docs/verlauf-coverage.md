@@ -240,8 +240,8 @@ taken back. Two causes, both closed:
   ↶ · «… angedockt» again within two minutes folded into ONE row «2×» – the paper then said the
   placard was docked twice with nothing in between (F2c). It was two acts; the dock row has one
   writer (the hand's own gesture, `IncidentWorkspace · finishEntityMove`), carried placards and
-  merges write none, and journal rows merge by id. «Lösen» in the placard's panel now writes its
-  «… von «{host}» gelöst» too.
+  merges write none, and journal rows merge by id. («Lösen» in the placard's panel gets its
+  «… von «{host}» gelöst» row in PR #232.)
 
 ## What a Verlauf row can carry since 17.08.
 
