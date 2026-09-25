@@ -2,6 +2,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import type { AbschlussStep } from './abschluss'
 import type { ConfirmItem } from './overlays/ConfirmCard'
+import type { Trupp } from '../types'
 
 /**
  * The still-open points of «Einsatz abschliessen», as things you can TAP.
@@ -107,4 +108,22 @@ export function controlChipLabel(open: number, hints: number): string {
     open > 0 ? fillTemplate(P.controlOpen, { n: open }) : '',
     hints === 1 ? P.controlHint : hints > 1 ? fillTemplate(P.controlHints, { n: hints }) : '',
   ].filter(Boolean).join(' · ')
+}
+
+/**
+ * The question in front of the Abschluss when Atemschutz-Trupps are still ANGEMELDET (24.09.2026,
+ * D1 ⑦, lib/atemschutz · truppStillRegistered): «1 Trupp noch angemeldet (#6 Muster Leo,
+ * Sicherungstrupp).» Each Trupp by its number and Gruppenführer — the number is what the Rapport
+ * prints, the name is what people call it — and a Sicherungstrupp says that it is one, because
+ * that is the crew this question almost always is about.
+ */
+export function registeredAbschlussMessage(trupps: readonly Trupp[]): string {
+  const A = appConfig.copy.abschluss
+  const list = trupps.map((t) => {
+    const who = `${typeof t.no === 'number' ? `#${t.no} ` : ''}${t.name.trim()}`
+    return t.auftrag === 'sichern' ? fillTemplate(A.registeredSafety, { name: who }) : who
+  }).join(' · ')
+  return trupps.length === 1
+    ? fillTemplate(A.registeredOne, { list })
+    : fillTemplate(A.registeredMany, { n: trupps.length, list })
 }

@@ -2140,6 +2140,11 @@ export const de = {
      * er ist der Normalfall, und sein Eingangsdruck sagt es ohnehin.
      */
     logEntryNoAs: 'Trupp {name}: Eintritt – ohne Atemschutz',
+    /** …und der Sicherungstrupp, der hineingeht (24.09.2026, D1 ⑦): er wird nur geschickt, wenn
+     *  drinnen etwas schiefgeht – die Zeile, nach der eine Rekonstruktion zuerst sucht. Abgeleitet
+     *  vom Trupp (Auftrag «Sichern», erster Eintritt), nicht vom Knopf (useTruppActions ·
+     *  setTruppStatus). */
+    logSafetyEntry: 'Trupp {name}: Sicherungstrupp eingesetzt',
     logContact: 'Trupp {name}: Kontakt bestätigt',
     logPressure: 'Trupp {name}: Druck {bar} bar',
     // Rückzug and Fortsetzen reset the contact clock; that has to be in the Verlauf, otherwise
@@ -2280,6 +2285,30 @@ export const de = {
     safetyNoneHint: 'Ein Trupp ist drin',
     safetyNoneHintMany: '{n} Trupps sind drin',
     safetyPick: 'Bestimmen',
+    /* ── Handy-Tafel, zweite Runde (24.09.2026, D1 ⑥ ⑦ ⑧a, Punkt 2) ─────────────────────────── */
+    // der leere Platz, solange noch niemand drin ist – ruhig, nicht amber
+    safetyNoneExpected: 'Ab dem 1. Trupp drin wird er erwartet',
+    // «Bestimmen» mit bereiten Trupps: einen davon nehmen oder einen neuen anmelden
+    safetyPickTitle: 'Sicherungstrupp bestimmen',
+    safetyPickNew: 'Neuen Trupp anmelden (Sichern)',
+    // die fälligen Trupps über dem Anmelde-Sheet (Bereichsname für Screenreader)
+    pinnedLabel: 'Fällige Trupps',
+    // Kontakt, den ein ANDERES Gerät vor weniger als 60 s schon bestätigt hat (lib/contactEcho)
+    contactEchoMsg: '{name}: Kontakt wurde vor {s} s schon bestätigt (anderes Gerät).',
+    contactEchoAgain: 'Nochmals',
+    contactEchoOk: 'OK',
+    // Eingangsdruck eines Trupps, der schon raus ist: gesperrt (Punkt 2)
+    pressureLockedLabel: 'Eingangsdruck ({t})',
+    pressureLockedLabelPlain: 'Eingangsdruck',
+    pressureLocked: 'Trupp ist raus',
+    pressureLockedExit: 'Restdruck beim Austritt ({t}): {bar} bar',
+    pressureLockedHint: 'Nach dem Austritt gesperrt. Eine Korrektur gehört als Eintrag in den Verlauf.',
+    // …und die EINE Plausibilitätsfrage: ein Eingangsdruck unter dem Stationsminimum
+    // (doctrine.entryPressureMin). Die Zahl steht auf dem Knopf.
+    entryLowMsg: '{bar} bar ist für einen Eintritt tief (Station: ab {min}). Stimmt das, meldet der Trupp gleich einen Alarm bei ≤{alarm}.',
+    entryLowMsgNoAlarm: '{bar} bar ist für einen Eintritt tief (Station: ab {min}).',
+    entryLowConfirm: '{bar} bestätigen',
+    entryLowChange: 'Ändern',
     bottleAsk: 'Vor {min} min raus, zuletzt {bar} bar. Welche Flasche?',
     bottleAskNow: 'Gerade raus, zuletzt {bar} bar. Welche Flasche?',
     bottleSame: 'Gleiche Flasche',
@@ -3980,6 +4009,15 @@ export const de = {
     // …und wenn noch etwas offen ist, sagt es der Knopf. Abschliessen ist erlaubt – das ist der
     // Ort, an dem das ausgesprochen wird, statt hinter einem gleich beschrifteten Knopf.
     confirmAnyway: 'Trotzdem abschliessen',
+    /* Ein Atemschutz-Trupp, der beim Abschluss noch ANGEMELDET ist (24.09.2026, D1 ⑦): typisch
+       der Sicherungstrupp, der bereitstand und nie hinein musste. Vor der eigentlichen Frage
+       gestellt; «nicht eingesetzt» ist derselbe Abschluss wie auf der Karte (Trupp … nicht
+       eingesetzt). */
+    registeredOne: '1 Trupp noch angemeldet ({list}).',
+    registeredMany: '{n} Trupps noch angemeldet ({list}).',
+    registeredSafety: '{name}, Sicherungstrupp',
+    registeredToBoard: 'Zur Tafel',
+    registeredStandDown: 'Als «nicht eingesetzt» schliessen',
     done: 'Rapport abgeschlossen',
     doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
     failed: 'Abschluss fehlgeschlagen',
@@ -6032,6 +6070,8 @@ export const de = {
       alarmBarRueckzugInvalid: 'Wert noch nicht gespeichert – erwartet wird eine ganze Zahl über 0 und höchstens {max} (nicht über dem Alarmdruck; die Rückzugslinie meldet sich früher, nicht später).',
       defaultPressure: 'Eingangsdruck (bar)',
       defaultPressureTip: 'Fülldruck, mit dem der Trupp-Assistent startet (z. B. 300-bar-Flasche im Dienst).',
+      entryPressureMin: 'Eingangsdruck mindestens (bar)',
+      entryPressureMinTip: 'Ein Eingangsdruck darunter – bei der Anmeldung, beim Wiedereintritt mit neuer Flasche oder beim Korrigieren – wird einmal nachgefragt («180 bar ist für einen Eintritt tief»). Keine Obergrenze. 0 schaltet die Rückfrage ab. Ohne Eintrag gilt {n} bar.',
       pressureStep: 'Druck-Schrittweite (bar)',
       pressureStepTip: 'Schrittweite der ±Druckregler; Eingaben rasten auf dieses Raster ein.',
       pressureMax: 'Druck-Maximum (bar)',

@@ -1812,11 +1812,17 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .safetyDeploy { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
   border-radius: var(--r-ctl); background: var(--green); color: var(--on-accent-ink); font: 800 14px var(--body); }
 .safetyDeploy:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* Empty: a QUIET dashed slot while nobody is inside (D1 ⑦, 24.09.2026) — it only says where the
+   Sicherungstrupp will stand and when it is expected. Amber from the first crew inside
+   (`.safetyNoneDue`): from then on a missing one is a gap, and the slot says so in the warn tone. */
 .safetyNone { display: flex; align-items: center; gap: 10px; padding: 10px 11px 10px 14px; border-radius: var(--r-ctl);
-  border: 2px dashed color-mix(in srgb, var(--amber) 60%, transparent);
-  background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }
+  border: 2px dashed var(--border);
+  background: transparent; }
 .safetyNoneTxt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.safetyNoneTxt b { font: 800 15px var(--body); color: var(--amber-strong); }
+.safetyNoneTxt b { font: 800 15px var(--body); color: var(--ink-dim); }
+.safetyNoneDue { border-color: color-mix(in srgb, var(--amber) 60%, transparent);
+  background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }
+.safetyNoneDue .safetyNoneTxt b { color: var(--amber-strong); }
 .safetyNoneTxt small { font-size: 12.5px; color: var(--ink-dim); }
 .safetyPick { flex: none; min-height: 48px; padding: 0 16px; border: none; cursor: pointer; border-radius: var(--r-ctl);
   background: var(--surface); color: var(--ink); font: 800 14px var(--body); box-shadow: inset 0 0 0 1.5px var(--glass-edge); }
@@ -1866,3 +1872,72 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    operator had just given was the one thing on the form they could not read. */
 .bottleOn { background: color-mix(in srgb, var(--blue) 12%, var(--surface)); color: var(--blue);
   box-shadow: inset 0 0 0 2px var(--blue); }
+
+/* ── Phone board, second round (24.09.2026, D1 ⑥ ⑦ ⑧a, item 2) ──────────────────────────────── */
+
+/* The Trupp form as a BOTTOM SHEET on the phone board, the due clocks pinned above it (D1 ⑥).
+   The popup is a transparent column flush with the bottom edge: `.formPinned` on top, `.sheetFrame`
+   below taking the rest. It keeps ≥ 24px of headroom — that is what `swipeDismiss` measures a
+   bottom sheet by, and what shows the board is still there. `top` + `bottom: 0` and no height, so
+   the keyboard lift (Overlay · keyboardLift, an inline `margin-bottom`) shortens the column from
+   below instead of pushing it off the top.
+   ⚠️ Same gate as the full-screen phone `.modal` above (= PHONE_QUERY), and doubled classes so it
+   wins over that block and over its `:global(.is-kb)` ride-up, whichever comes later. */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .modal.modalSheet, .modal.modalSheet:global(.is-kb) {
+    top: max(24px, calc(env(safe-area-inset-top) + 8px)); bottom: 0; left: 0; transform: none;
+    width: 100vw; height: auto; max-height: none; overflow: visible;
+    background: none; backdrop-filter: none; box-shadow: none; border-radius: 0;
+    display: flex; flex-direction: column; }
+  .sheetFrame { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+    background: var(--glass); backdrop-filter: blur(16px); box-shadow: var(--shadow);
+    border-radius: var(--r-hero) var(--r-hero) 0 0; }
+  /* the grab bar is the sheet's top gutter now — the head needs none of its own (15-mobile.css
+     · `.ui-sheet-grab`), and a head under a bar is the handle, as on every other bottom sheet */
+  .modalSheet .modalHead { padding-top: 2px; touch-action: none; }
+  .modalSheet .modalHead button { touch-action: auto; }
+}
+
+/* the pinned due Trupps — one line each, over the scrim, above the sheet's top edge */
+.formPinned { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 0 8px 8px; }
+/* ⚠️ Width and style only: the COLOUR of the left edge is the tier's (`.trowWarn`/`.trowCrit`,
+   declared earlier in this file), and a shorthand here would paint over it. */
+.pinRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px;
+  padding: 6px 6px 6px 12px; border-left-width: 5px; border-left-style: solid; border-radius: var(--r-ctl);
+  box-shadow: 0 0 0 1px var(--border-soft), var(--shadow); font-family: var(--body); }
+/* the NAME gets the elastic column and may take two lines — a long surname lost the first name at
+   360px; the state word rides under the clock instead, where it is about the clock */
+.pinName { min-width: 0; display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 800; color: var(--ink); }
+.pinNameTxt { min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 1.2; }
+.pinTime { display: flex; flex-direction: column; align-items: flex-end; }
+.pinState { font-size: 12.5px; font-weight: 700; color: var(--ink-dim); margin-top: 3px; white-space: nowrap; }
+.trowWarn .pinState { color: var(--amber-strong); }
+.trowCrit .pinState { color: var(--red); }
+.pinClock { font: 800 24px var(--mono); line-height: 1; font-variant-numeric: tabular-nums; color: var(--green); }
+.trowWarn .pinClock { color: var(--amber); }
+.trowCrit .pinClock { color: var(--red); }
+.pinKontakt { min-height: 48px; padding: 0 14px; border-radius: var(--r-ctl); font-size: 14px; }
+.pinKontakt :global(.i) { width: 16px; height: 16px; }
+/* with the keyboard up the band above it is short: the rows give back their air, never a row */
+.modalSheet:global(.is-kb) .formPinned { gap: 4px; padding-bottom: 6px; }
+.modalSheet:global(.is-kb) .pinRow { padding-block: 3px; }
+.modalSheet:global(.is-kb) .pinKontakt { min-height: var(--tap); }
+
+/* The locked Eingangsdruck of a Trupp that is out (item 2): the value, the lock and its reason
+   in one quiet line where the stepper stood — a readout, visibly not a control. */
+.pressureLocked { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; min-height: var(--tap);
+  padding: 8px 14px; border-radius: var(--r-ctl); background: var(--fill-soft, rgba(0, 0, 0, .045)); }
+.pressureLocked b { font: 800 19px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.pressureLockedWhy { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 700; color: var(--ink-dim); }
+.pressureLockedWhy :global(.i) { width: 15px; height: 15px; }
+.pressureLockedExit { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+
+/* The form's footer at 360px (pre-existing, #212 check): «Abbrechen · Bereitstellen · Im Einsatz»
+   wrapped «Im Einsatz» onto two lines. On a phone the footer is three EVEN columns of one line
+   each — and the quiet «Abbrechen» gives up the side gutter it does not need. */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .modalFoot { padding-inline: 12px; gap: 8px; }
+  .modalFoot > :global(.ip-btn) { flex: 1 1 0; min-width: 0; white-space: nowrap; padding-inline: 8px; }
+  .modalFoot > :global(.ip-btn.ghost) { flex: 0 1 auto; }
+}

@@ -47,6 +47,16 @@ Rapport as «Von Tafel entfernt».
 Everything else on the Atemschutz board is in the Verlauf: placing, radio contact, pressure
 report, status change, editing, returning, linking/unlinking a Leitung, alarm escalation.
 
+⚠️ **The Sicherungstrupp going in says so** (2026-09-24): the first Eintritt of an
+Atemschutz-Trupp on Auftrag «Sichern» writes «Trupp N (…): Sicherungstrupp eingesetzt»
+(`logSafetyEntry`) instead of the plain «Eintritt» – whether it came from the phone slot's
+«Einsetzen» or the card's «Im Einsatz». Derived from the Trupp, not from the button. The log row
+underneath is an ordinary `entry`, and ↶ takes it back like any Eintritt. The Abschluss's
+«Als «nicht eingesetzt» schliessen» writes the existing «Trupp … nicht eingesetzt» row, one per
+Trupp still angemeldet. «Sicherungstrupp bestimmen» on an existing Trupp is an ordinary edit
+(«Auftrag Sichern»). A double contact answered «OK» (another device confirmed it < 60 s ago)
+writes nothing at all.
+
 ⚠️ **Two contact kinds have been kinds of their own since 2026-08-19**, no longer «Kontakt»: the
 **exit** («Ausgerückt») and the **re-entry** after a Rückzug. The safety clock is untouched by
 this – a re-entry resets it just like a contact does – but the printed Atemschutz journal now

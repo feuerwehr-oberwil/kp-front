@@ -20,6 +20,7 @@ import { alarmBarFor, currentRunStart, earlyEntryCorrection, isAtemschutzTrupp, 
 // `serverNowIso()` is the device clock, so a station that has never reached the server is
 // unaffected.
 import { serverNowIso } from './serverClock'
+import { noteOwnContact } from './contactEcho'
 import { nextTruppNo, resolveMarkerJoin } from './placedTrupps'
 import { floorLabel } from './whiteboard'
 import type { UndoTimeline } from './undoTimeline'
@@ -855,6 +856,9 @@ export function useTruppActions(deps: Deps) {
     const now = serverNowIso()
     const apply = (t: Trupp): Trupp => ({ ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    // this device's own confirmation — what lets a second device's tap within a minute ask first
+    // instead of writing a second contact (lib/contactEcho, 24.09.2026)
+    noteOwnContact(id, now)
     const line = fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr ? truppLogName(tr) : '' })
     log('radio', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.contact', { id })
@@ -906,6 +910,7 @@ export function useTruppActions(deps: Deps) {
     const apply = (t: Trupp): Trupp => ({ ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
       readings: [...(t.readings ?? []), { t: now, bar, kind: crossed ? 'alarm' : 'pressure' }] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    noteOwnContact(id, now) // a Druckmeldung confirms the contact too (lib/contactEcho)
     const line = fillTemplate(
       crossed ? appConfig.copy.atemschutz.logPressureAlarm : appConfig.copy.atemschutz.logPressure,
       { name: tr ? truppLogName(tr) : '', bar },
@@ -991,6 +996,8 @@ export function useTruppActions(deps: Deps) {
       return { ...t, status }
     }
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    // a Rückzug and a Fortsetzen are radio answers — this device's own (lib/contactEcho)
+    if (impliesContact) noteOwnContact(id, now)
     // «draussen» on a Trupp that never went in is a false statement about where people were —
     // a Sicherungstrupp that was stood down gets its own line (see atemschutz · truppNeverDeployed)
     const neverDeployed = status === 'raus' && !tr?.entryTime
@@ -999,7 +1006,14 @@ export function useTruppActions(deps: Deps) {
      * that went in was wearing masks). Only the entry rows carry it: they are the moment the
      * question is asked, and repeating it on every Kontakt would be wallpaper. An Atemschutz
      * Eintritt is unchanged — it is the norm, and its Eingangsdruck already says so. */
-    const entryTpl = tr && !isAtemschutzTrupp(tr) ? az.logEntryNoAs : az.logEntry
+    /* ⚠️ …and a SICHERUNGSTRUPP going in says that it did (24.09.2026, D1 ⑦): «Sicherungstrupp
+     * eingesetzt» rather than a bare «Eintritt». The crew that stood ready for the others is only
+     * ever sent in because something went wrong inside, and that is the one row a reconstruction
+     * of the Einsatz looks for first. Derived from the Trupp — Auftrag «Sichern», under PA, its
+     * FIRST Eintritt of this run — not from which button was pressed: the phone's «Einsetzen»
+     * and the card's «Im Einsatz» put the same crew into the same building. */
+    const safetyEntry = !!tr && status === 'aktiv' && !tr.entryTime && tr.auftrag === 'sichern' && isAtemschutzTrupp(tr)
+    const entryTpl = tr && !isAtemschutzTrupp(tr) ? az.logEntryNoAs : safetyEntry ? az.logSafetyEntry : az.logEntry
     const tpl = status === 'aktiv' ? (isResume ? az.logContinue : entryTpl)
       : status === 'rueckzug' ? az.logRueckzug
       : status === 'raus' ? (neverDeployed ? az.logNotDeployed : measuredExit ? az.logExitBar : az.logExit) : null

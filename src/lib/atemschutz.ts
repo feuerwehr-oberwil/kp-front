@@ -12,7 +12,7 @@
 // The view layer (AtemschutzView) feeds it a Trupp + the current wall-clock time and renders
 // the derived live numbers + the contact-clock alarm tier.
 
-import type { Trupp, TruppKind, TruppReading } from '../types'
+import type { Trupp, TruppFields, TruppKind, TruppReading } from '../types'
 import { pad2 } from './format'
 
 /**
@@ -240,6 +240,47 @@ export function truppTransferState(from: Trupp | undefined, personId: string): T
  */
 export function truppAwaitsEntry(t: Trupp): boolean {
   return !t.removedAt && t.status === 'angemeldet' && !t.entryTime
+}
+
+/**
+ * An Atemschutz-Trupp still standing at the Tafel when the Einsatz is closed — registered, never
+ * sent in, never stood down (24.09.2026, D1 ⑦). On 23.09. the Sicherungstrupp T6 stayed
+ * «angemeldet» to the end, and the Abschluss asked only about the crews INSIDE. The Abschluss now
+ * asks about these too (useAbschluss): the honest close-out is «nicht eingesetzt», the same one
+ * the card offers, and the record then says a crew stood ready rather than leaving it pending.
+ *
+ * Under Atemschutz only, like the card's «Nicht eingesetzt»: a work squad waiting at the vehicle
+ * has no such close-out, and nothing about it is being watched.
+ */
+export function truppStillRegistered(t: Trupp): boolean {
+  return isAtemschutzTrupp(t) && !t.removedAt && t.status === 'angemeldet'
+}
+
+/**
+ * The form's fields AS the Trupp stands — what an edit that changes ONE thing sends, so
+ * `editTrupp` writes exactly that one change (its Verlauf row, its undo) and nothing else.
+ * Used by «Sicherungstrupp bestimmen» (AtemschutzView), which turns a waiting Trupp's Auftrag to
+ * «Sichern». `color` stays undefined («no change»), and `kind` is passed as stored (absent =
+ * Atemschutz), so neither can read as a change it is not.
+ */
+export function truppFieldsOf(t: Trupp, over: Partial<TruppFields> = {}): TruppFields {
+  return {
+    name: t.name, members: t.members, auftrag: t.auftrag, ziel: t.ziel, lineNo: t.lineNo,
+    funkkanal: t.funkkanal, pressure: t.entryPressureBar, leaderPersonId: t.leaderPersonId,
+    memberPersonIds: t.memberPersonIds, kind: t.kind, equipment: t.equipment,
+    ...over,
+  }
+}
+
+/**
+ * Does this Eingangsdruck earn the ONE plausibility question (24.09.2026, item 2)? Below the
+ * station's minimum (`doctrine.entryPressureMin`), and never for the station's own default — a
+ * doctrine that sets its minimum above its own fill pressure would otherwise ask on every
+ * Anmeldung, which is how a question stops being read. `min` 0 switches it off; 0 bar is not an
+ * entry at all (the form refuses it on its own). No upper bound, on purpose.
+ */
+export function entryPressureAsks(bar: number, d: { entryPressureMin: number; defaultPressureBar: number }): boolean {
+  return d.entryPressureMin > 0 && bar > 0 && bar < d.entryPressureMin && bar !== d.defaultPressureBar
 }
 
 /**

@@ -8,6 +8,7 @@ import { fillTemplate } from './format'
 import type { Doc } from './workspace'
 import { objectsFromLegacy } from './tacticalObjects'
 import { createUndoTimeline } from './undoTimeline'
+import { foreignContactAgo, resetOwnContacts } from './contactEcho'
 
 // Capture the confirm-with-undo toasts, so the undo the operator would tap can be tapped here.
 // `vi.hoisted` because vi.mock's factory is hoisted above the imports and would otherwise read
@@ -2340,5 +2341,59 @@ describe('useTruppActions — Raus with a Restdruck', () => {
     const t = state.trupps[0]
     expect(t.lastPressureBar).toBeUndefined()
     expect(lines).toEqual(['Trupp Keller Anna nicht eingesetzt'])
+  })
+})
+
+describe('useTruppActions — the Sicherungstrupp going in says so (24.09.2026, D1 ⑦)', () => {
+  const standing = (over: Partial<Trupp> = {}): Trupp =>
+    baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [], auftrag: 'sichern', ...over })
+
+  it('writes «Sicherungstrupp eingesetzt» for the first Eintritt of a Trupp on «Sichern»', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(standing(), undefined, (_i, t) => lines.push(t))
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(lines).toEqual(['Trupp Keller Anna: Sicherungstrupp eingesetzt'])
+    // the record is an ordinary Eintritt: the clock starts, the log opens the run
+    const t = state.trupps[0]
+    expect(t.status).toBe('aktiv')
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'entry', bar: 300 })
+  })
+
+  it('keeps the plain «Eintritt» for any other Auftrag, and for a work squad on «Sichern»', () => {
+    const lines: string[] = []
+    harness(standing({ auftrag: 'loeschen' }), undefined, (_i, t) => lines.push(t)).actions.setTruppStatus('T1', 'aktiv')
+    harness(standing({ kind: 'einfach', entryPressureBar: 0 }), undefined, (_i, t) => lines.push(t)).actions.setTruppStatus('T1', 'aktiv')
+    expect(lines).toEqual(['Trupp Keller Anna: Eintritt', 'Trupp Keller Anna: Eintritt – ohne Atemschutz'])
+  })
+
+  it('is undoable like every other Eintritt — ↶ puts the crew back at the Tafel', () => {
+    const { actions, state, timeline } = timed(standing())
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(state.trupps[0].status).toBe('aktiv')
+    timeline.undo()
+    expect(state.trupps[0]).toMatchObject({ status: 'angemeldet', entryTime: '' })
+  })
+})
+
+describe('useTruppActions — this device notes its own contacts (lib/contactEcho)', () => {
+  beforeEach(resetOwnContacts)
+  const lastAt = (t: Trupp) => Date.parse(t.readings![t.readings!.length - 1].t)
+
+  it('a Kontakt, a Druck and a Rückzug written here never read as «anderes Gerät»', () => {
+    const a = harness(baseTrupp({ readings: [] }))
+    a.actions.recordContact('T1')
+    expect(foreignContactAgo(a.state.trupps[0], lastAt(a.state.trupps[0]))).toBeNull()
+    const b = harness(baseTrupp({ readings: [] }))
+    b.actions.recordPressure('T1', 280)
+    expect(foreignContactAgo(b.state.trupps[0], lastAt(b.state.trupps[0]))).toBeNull()
+    const c = harness(baseTrupp({ readings: [] }))
+    c.actions.setTruppStatus('T1', 'rueckzug')
+    expect(foreignContactAgo(c.state.trupps[0], lastAt(c.state.trupps[0]))).toBeNull()
+  })
+
+  it('…while the same row arriving from elsewhere does', () => {
+    const now = Date.now()
+    const other = { id: 'T1', readings: [{ t: new Date(now - 5000).toISOString(), bar: 300, kind: 'contact' as const }] }
+    expect(foreignContactAgo(other, now)).toBe(5)
   })
 })
