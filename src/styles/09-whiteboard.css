@@ -413,7 +413,8 @@
 /* add-storey control (mirrors the floating zoom) */
 /* add-storey pills positioned like a real building section: OG above the stack, UG below */
 .wb-floor-add { position: absolute; left: 50%; transform: translateX(-50%); z-index: 8;
-  display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 5px 12px 5px 9px; border-radius: var(--r-pill);
+  /* a full --tap tall (3am test r3, 25.09.2026: they were 34px); still straddling the edge, by half */
+  display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 5px 14px 5px 11px; border-radius: var(--r-pill);
   border: 1px solid var(--glass-line); background: var(--glass); box-shadow: var(--shadow-sm);
   color: var(--ink-dim); font: 700 12px var(--body); line-height: 1; cursor: pointer;
   user-select: none; -webkit-user-select: none; }
@@ -421,8 +422,8 @@
   .wb-floor-add:hover { background: var(--surface); color: var(--ink); }
 }
 .wb-floor-add .i { width: 13px; height: 13px; stroke-width: 2.4; }
-.wb-floor-add-up { top: -17px; }     /* straddle the top edge of the stack */
-.wb-floor-add-down { bottom: -17px; } /* straddle the bottom edge of the stack */
+.wb-floor-add-up { top: calc(var(--tap) / -2); }     /* straddle the top edge of the stack */
+.wb-floor-add-down { bottom: calc(var(--tap) / -2); } /* straddle the bottom edge of the stack */
 
 /* (.wb-north-dial / -btn / -ring / -needle / -n are gone, 30.08.: the north dial was drawn ON the
    topmost storey tile, so it panned and zoomed with the paper. It is a fixed chip in the viewport's
@@ -730,6 +731,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   .wb-dock-tog, .wb-dock-go { height: 30px; }
 }
 .wb-dock .wb-style-sep { width: 22px; height: 1px; } /* horizontal divider in the vertical stack */
+/* the armed mode's one-line hint (ToolDock · hint) is a PHONE row (15-mobile); the column dock
+   of a tablet has no room for a sentence and keeps ⓘ */
+.wb-dock-hint { display: none; }
 .wb-dock-ic { display: grid; place-items: center; height: 30px; color: rgba(255, 255, 255, .85); }
 .wb-dock-ic .i { width: 18px; height: 18px; }
 /* ⚠️ The ✕ STAYS on screen while the dock scrolls. It is the first item of the first group, so on

@@ -72,3 +72,7 @@
     bottom: calc(var(--rail-h) + max(20px + var(--tap) + 8px, 18px + var(--fab-safe, 0px)) + env(safe-area-inset-bottom));
     width: max-content; max-width: calc(100vw - 20px); }
 }
+
+/* the Einsatzort on the picker — the Karte's target ring (07-toolrail · .map-incident), centred on
+   its point, above the outlines, never in the way of a tap on the building under it */
+.wb-osm-pin { transform: translate(-50%, -50%); z-index: 2; pointer-events: none; }

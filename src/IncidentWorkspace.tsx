@@ -3188,17 +3188,21 @@ export function IncidentWorkspace({
    * The marker keeps its coordinate and simply stands on it again (lib/docking · dockSlotOffset:
    * only the RENDERED position was ever snapped to the host's corner).
    */
+  // «Lösen» — a Trupp marker off its host, or a Gefahrentafel off its Fahrzeug. Both write the
+  // row a drag-release already writes (3am test r3, 25.09.2026: the placard editor's «Lösen» wrote
+  // none — the record said «angedockt» and never that the bond ended).
   const undockTeam = (entityId: string) => {
     const ent = doc.entities.find((e) => e.id === entityId)
     const hostId = ent?.dockedTo
     if (!ent || !hostId) return
     const L = appConfig.copy.log
-    const line = fillTemplate(L.teamUndocked, {
+    const placard = isPlacard(ent)
+    const line = fillTemplate(placard ? L.placardUndocked : L.teamUndocked, {
       name: ent.label || appConfig.copy.entities.fallbackObjectName,
       host: doc.entities.find((e) => e.id === hostId)?.label || appConfig.copy.entities.fallbackObjectName,
     })
     patchEntity(entityId, { dockedTo: undefined })
-    log('select', line, 'team', undefined, entityId)
+    log('select', line, placard ? 'symbol' : 'team', undefined, entityId)
     undoToast(line, () => patchEntity(entityId, { dockedTo: hostId }))
   }
   /**
@@ -5077,7 +5081,7 @@ export function IncidentWorkspace({
           // Angedockte Gefahrentafel (lib/docking): name the host, offer the release — the drop
           // gesture that made the bond draws nothing, so this row is where it becomes visible.
           dockedToLabel={selected.dockedTo ? doc.entities.find((e) => e.id === selected.dockedTo)?.label || appConfig.copy.entities.fallbackObjectName : undefined}
-          onUndock={selected.dockedTo && !tacticalLocked ? () => patchEntity(selected.id, { dockedTo: undefined }) : undefined}
+          onUndock={selected.dockedTo && !tacticalLocked ? () => undockTeam(selected.id) : undefined}
           // …and the same bond from the HOST's side: the Trupps standing on THIS symbol, one row
           // each, worded «Trupp 4 · bei «Hydrant»» so a row names both sides before «Lösen»
           // separates them — the mirror of the marker's own join slot (components/TwinTeamPill).
@@ -5304,7 +5308,7 @@ export function IncidentWorkspace({
         ]} />
       )}
       {mapUI && tool === 'line' && (
-        <ToolDock groups={[
+        <ToolDock hint={lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodesShort : appConfig.copy.dockHints.lineFreeShort} groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
@@ -5319,7 +5323,7 @@ export function IncidentWorkspace({
         ]} />
       )}
       {mapUI && tool === 'area' && (
-        <ToolDock groups={[
+        <ToolDock hint={areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodesShort : appConfig.copy.dockHints.areaFreeShort} groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); setDraft([]) } },
@@ -5537,6 +5541,8 @@ export function IncidentWorkspace({
           // the anchor «Automatisch ausrichten» fetches its OSM reference box around: the active
           // object's own coordinate, else the Einsatzort (they coincide for a near object)
           georefAnchor={activeObjectPos ?? incidentView.center}
+          // the Einsatzort on the Gebäude picker — only a REAL coordinate (0/0 is Divera's «none»)
+          incidentPos={incidentMeta.lng != null && incidentMeta.lat != null && (incidentMeta.lng !== 0 || incidentMeta.lat !== 0) ? [incidentMeta.lng, incidentMeta.lat] : null}
           // not for el: the pick is `pickedObjectId` in the shared blob, which its record slice
           // never pushes — the switch would hold on this device until the next hydrate
           onObjectSwitch={linkScoped || isEl ? undefined : () => setPickerOpen(true)}
@@ -5671,6 +5677,8 @@ export function IncidentWorkspace({
               setBuilding(prevBuilding)
               setBoard((b) => ({ ...b, gebaeude: withoutOwnOnStorey(b.gebaeude ?? [], sheetAnchoredIds(objectsRef.current, 'gebaeude'), newFloor) }), { gesture: false })
             }
+            // the act's own Verlauf row (3am test r3, 25.09.2026: «+ OG / + UG» wrote none)
+            logPlan('floors', fillTemplate(appConfig.copy.whiteboard.floorAddedLog, { floor: floorLabel(newFloor) }), { floor: newFloor })
             const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
             undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
           }}

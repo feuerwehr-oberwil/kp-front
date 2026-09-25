@@ -138,12 +138,16 @@ interface Props {
    *  header tells the full story, iOS 26, 08.09.2026). */
   sW: number
   sH: number
+  /** the Einsatzort, drawn as the Karte's own target ring (3am test r3, 25.09.2026: the picker
+   *  showed a field of identical outlines and nothing said which one the Einsatz is at). Absent
+   *  for an Einsatz without a coordinate — a ring at a fallback centre would point at nothing. */
+  pin?: LngLat | null
 }
 
 // Live OSM building-outline backdrop for the whiteboard — a traceable base, and
 // the surface where the affected building(s) are picked into the floor-stack.
 // Tapping footprints toggles a selection; "Übernehmen" transfers them all at once.
-export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, preselectSrc, preselectGeo, onPick, sW, sH }: Props) {
+export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, preselectSrc, preselectGeo, onPick, sW, sH, pin }: Props) {
   // Seed from the resolved cache so a warm hit (prefetched at boot, or a prior open) paints the
   // outlines immediately instead of flashing the loader while the async IDB read settles.
   const [rings, setRings] = useState<Ring[] | null>(() => resolved.get(bboxKey(center, radiusM).key) ?? null)
@@ -246,6 +250,13 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
   if (rings.length === 0) return <div className={s['wb-osm-hint']}>{copy.osmEmpty}</div>
 
   const n = selected.size
+  // the Einsatzort in the same 0..1 board space the rings are projected into (loadBuildings)
+  const pinAt = (() => {
+    if (!pin) return null
+    const { south, west, north, east } = bboxKey(center, radiusM)
+    const x = (pin[0] - west) / (east - west), y = (north - pin[1]) / (north - south)
+    return x >= 0 && x <= 1 && y >= 0 && y <= 1 ? { x, y } : null
+  })()
   // the existing building was found and is highlighted — say once that tapping ADDS to it
   const preselected = !touched && !!preselectGeo && !!preselectSrc?.length && n > 0
 
@@ -261,6 +272,11 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
           />
         ))}
       </svg>
+      {pinAt && (
+        <div className={cx('map-here map-incident', s['wb-osm-pin'])} role="img"
+          aria-label={appConfig.copy.map.incidentHere} title={appConfig.copy.map.incidentHere}
+          style={{ position: 'absolute', left: `${pinAt.x * 100}%`, top: `${pinAt.y * 100}%` }} />
+      )}
       {/* the bar is portaled to <body> so the transformed/panned plan board doesn't
           drag it around — it stays put at the bottom of the plan viewport */}
       {interactive && createPortal(
