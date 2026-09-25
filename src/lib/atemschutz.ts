@@ -340,6 +340,24 @@ export function entryPressureAsks(bar: number, d: { entryPressureMin: number; de
  * Derived from the absence of an `entryTime` rather than stored, so no old record has to be
  * migrated and no two fields can disagree about whether somebody went in.
  */
+/**
+ * Is the `exit` row at `index` a STAND-DOWN — the close of a run that never had an Eintritt
+ * (staging walk-through 25.09.2026, N8)? «Nicht eingesetzt» writes an `exit` row like any Austritt
+ * (useTruppActions · setTruppStatus), and every place that labels a row by its kind printed
+ * «Austritt» for a crew that never went in: the card's «zuletzt», its log, the Rapport's sheet.
+ * Read off the log: the last run-opening row before it is an Anmeldung, not an Eintritt.
+ */
+export function isStandDownExit(readings: readonly TruppReading[], index: number): boolean {
+  if (readings[index]?.kind !== 'exit') return false
+  for (let i = index - 1; i >= 0; i--) {
+    const k = readings[i].kind
+    if (k === 'entry') return false
+    if (k === 'registered') return true
+    if (k === 'exit') return false
+  }
+  return false
+}
+
 export function truppNeverDeployed(t: Trupp): boolean {
   return t.status === 'raus' && !t.entryTime
 }

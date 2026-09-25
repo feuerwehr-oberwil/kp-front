@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EARLY_PRESSURE_CORRECTION_MS, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
+import { EARLY_PRESSURE_CORRECTION_MS, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, isStandDownExit, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -477,6 +477,21 @@ describe('entryPressureConfirmed — an Eingangsdruck set on purpose', () => {
     const t: Trupp = { ...base, readings: [{ t: base.entryTime, bar: 250, kind: 'entry', measured: true }] }
     expect(earlyEntryCorrection(t, REF + 60_000)).toBe(false)
     expect(earlyEntryCorrection({ ...t, readings: [{ t: base.entryTime, bar: 300, kind: 'entry' }] }, REF + 60_000)).toBe(true)
+  })
+})
+
+describe('isStandDownExit — «nicht eingesetzt» is never an «Austritt»', () => {
+  const at = (m: number) => new Date(REF + m * 60_000).toISOString()
+  it('is a stand-down only when the run opened with an Anmeldung and never went in', () => {
+    const standDown = [
+      { t: at(0), bar: 300, kind: 'registered' as const },
+      { t: at(0), bar: 300, kind: 'crew' as const, crew: { name: 'A', members: [] } },
+      { t: at(5), bar: 300, kind: 'exit' as const },
+    ]
+    expect(isStandDownExit(standDown, 2)).toBe(true)
+    const real = [{ t: at(0), bar: 300, kind: 'registered' as const }, { t: at(1), bar: 300, kind: 'entry' as const }, { t: at(9), bar: 120, kind: 'exit' as const }]
+    expect(isStandDownExit(real, 2)).toBe(false)
+    expect(isStandDownExit(real, 1)).toBe(false)
   })
 })
 

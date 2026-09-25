@@ -341,10 +341,14 @@ describe('the lifecycle row: in the order the Einsatz runs', () => {
    * Einsatz runs — deploying is what usually happens to a waiting Trupp, so «Einrücken» leads and
    * the stand-down sits right, where «Raus melden» also lives. The width flip is CSS
    * (`.actions:has(> .actEnter:first-child)`), so «Einrücken» still takes the room. */
-  it('leads the pre-entry row with «Einrücken», the stand-down on the right', () => {
+  // «Nicht eingesetzt» left the row for the ⋮ (staging r2, N8): an equal button one tap beside
+  // «Im Einsatz» was a reflex away from closing the wrong way
+  it('leads the pre-entry row with «Im Einsatz» alone — the stand-down is a row of the ⋮', async () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'angemeldet' }] })
     const labels = [...document.querySelectorAll(`.${s.actions} .${s.actBtn}`)].map((b) => b.textContent)
-    expect(labels).toEqual([az.actEnter, az.actNotDeployed])
+    expect(labels).toEqual([az.actEnter])
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    expect(await screen.findByRole('menuitem', { name: az.actNotDeployed })).toBeTruthy()
   })
 })
 
@@ -795,6 +799,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
    * keep its controls in reach. It has something to open (its Verlauf), and a footprint that
    * means «platzieren» is exactly the knowledge that is gone after six months without practice. */
   it('puts bearbeiten · platzieren · entfernen behind the same ⋯ as every other card', async () => {
+    render(<Overlays />)
     const deleteTrupp = vi.fn()
     mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' }, deleteTrupp })
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
@@ -802,7 +807,9 @@ describe('the board with Trupps that are not under Atemschutz', () => {
       expect(await screen.findByRole('menuitem', { name: label })).toBeTruthy()
     }
     fireEvent.click(await screen.findByRole('menuitem', { name: az.remove }))
-    expect(deleteTrupp).toHaveBeenCalledWith('tr9')
+    // the work squad is out there — removing it asks first (staging r2, N4)
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: az.remove }))
+    await waitFor(() => expect(deleteTrupp).toHaveBeenCalledWith('tr9'))
   })
 
   // The handed-over Tafel operates the Atemschutzüberwachung and nothing else — that is what the
@@ -1429,13 +1436,31 @@ describe('«Entfernen» on a never-deployed Trupp offers «nicht eingesetzt» fi
     expect(setTruppStatus).not.toHaveBeenCalled()
   })
 
-  it('removes a Trupp that went in straight away — no dialog', () => {
+  /* A crew INSIDE is asked about first (staging walk-through r2, N4): one tap on «Entfernen»
+     took a crew under PA off the board and out of every alarm. «Raus melden» is the focused,
+     filled answer; removing anyway is the quiet one. */
+  it('asks before removing a crew that is inside — «Raus melden» is the safe, focused answer', async () => {
     render(<Overlays />)
     const deleteTrupp = vi.fn()
     mount({ trupps: [aktivTrupp()], deleteTrupp })
     openRemove()
-    expect(screen.queryByRole('alertdialog')).toBeNull()
-    expect(deleteTrupp).toHaveBeenCalledWith('tr1')
+    const ask = await screen.findByRole('alertdialog')
+    const out = within(ask).getByRole('button', { name: az.actExit })
+    await waitFor(() => expect(document.activeElement).toBe(out))
+    expect(out.className).toContain('primary')
+    fireEvent.click(out)
+    // «Raus melden» asks the Restdruck, exactly as the card's own button does
+    await waitFor(() => expect(screen.getByRole('button', { name: az.exitNoBar })).toBeTruthy())
+    expect(deleteTrupp).not.toHaveBeenCalled()
+  })
+
+  it('removes a crew that is inside only when «Entfernen» is chosen in that question', async () => {
+    render(<Overlays />)
+    const deleteTrupp = vi.fn()
+    mount({ trupps: [aktivTrupp()], deleteTrupp })
+    openRemove()
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: az.remove }))
+    await waitFor(() => expect(deleteTrupp).toHaveBeenCalledWith('tr1'))
   })
 })
 
@@ -2151,5 +2176,40 @@ describe('staging: the empty board, the SiTr chip, the held pinned row', () => {
     fireEvent.click(within(pinned).getByRole('button', { name: `${az.actContact}: Warn Wanda` }))
     expect(within(pinned).getByText(az.clockOk)).toBeTruthy()
     expect(within(pinned).queryByText(az.clockWarn)).toBeNull()
+  })
+})
+
+/* ── Staging walk-through r2, 25.09.2026 ──────────────────────────────────────────────────────── */
+describe('staging r2: numbers, the Link\'s first Trupp, and «nicht eingesetzt»', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+
+  it('the collapsed phone row carries the Trupp number beside the leader (N15)', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), no: 4 }] })
+    const row = screen.getByText('Steiner').closest(`.${s.trow}`) as HTMLElement
+    expect(within(row).getByText('#4')).toBeTruthy()
+  })
+
+  it('the handed-over phone board opens on the most urgent crew inside, not on a Trupp that is out (N18)', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ lite: { subtitle: 'Brand' }, trupps: [
+      { ...aktivTrupp(), id: 'o', name: 'Out Otto', status: 'raus', exitTime: iso(60_000), order: 0 },
+      { ...aktivTrupp(), id: 'i', name: 'In Ida', lastContactTime: iso(4.5 * 60_000), order: 1 },
+    ] })
+    const card = document.querySelector(`.${s.focusCard}`) as HTMLElement
+    expect(within(card).getByText('In Ida')).toBeTruthy()
+    expect(within(card).queryByRole('button', { name: az.actReenter })).toBeNull()
+  })
+
+  it('a stood-down Trupp reads «Nicht eingesetzt», never «Austritt», and goes «In den Einsatz» (N8)', () => {
+    const stoodDown: Trupp = {
+      ...aktivTrupp(), status: 'raus', entryTime: '', exitTime: iso(60_000),
+      readings: [{ t: iso(5 * 60_000), bar: 300, kind: 'registered' }, { t: iso(60_000), bar: 300, kind: 'exit' }],
+    }
+    mount({ trupps: [stoodDown] })
+    const preview = document.querySelector(`.${s.vrowLast}`)?.textContent ?? ''
+    expect(preview).toContain(az.statusNotDeployed)
+    expect(preview).not.toContain(az.readingKind.exit)
+    expect(screen.getByRole('button', { name: az.actEnterFirst })).toBeTruthy()
   })
 })

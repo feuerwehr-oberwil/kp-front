@@ -388,10 +388,13 @@
    more of the same sentence */
 .confirm-note { margin: 0 0 18px; font: 500 12.5px/1.45 var(--body); color: var(--ink-faint); }
 .confirm-msg:last-of-type:not(:only-of-type) { margin-bottom: 18px; }
-.confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+/* ⚠️ …and it WRAPS on a wide screen too (staging walk-through 25.09.2026, N22): three long
+   answers («Trotzdem abschliessen · Zur Tafel · Abbrechen») pushed «Abbrechen» out past the
+   card's left edge at 1180px. A button that does not fit takes the next line, never the margin. */
+.confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 /* .ip-btn, the house family — `.btn` is the dense map-dock button (12.5px, flex:1, bounces on
    press) and using it here is what made the confirm read as another app's dialog. */
-.confirm-actions .ip-btn { flex: 0 0 auto; min-width: 96px; min-height: var(--tap); justify-content: center; }
+.confirm-actions .ip-btn { flex: 0 0 auto; min-width: 96px; max-width: 100%; min-height: var(--tap); justify-content: center; }
 .btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
 @media (hover: hover) {
   .btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }

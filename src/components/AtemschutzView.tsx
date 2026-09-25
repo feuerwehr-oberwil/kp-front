@@ -8,7 +8,7 @@ import { newId } from '../lib/ids'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay, Popover, SheetGrab } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -847,8 +847,17 @@ export function AtemschutzView({
   const undoWord = undoLabel ? fillTemplate(appConfig.copy.undoNamed, { action: undoLabel }) : appConfig.copy.undo
   const redoWord = redoLabel ? fillTemplate(appConfig.copy.redoNamed, { action: redoLabel }) : appConfig.copy.redo
   const [picked, setPicked] = useState<string | null>(null)
+  /* The handed-over phone board OPENS on the crew that needs the Überwacher first — the most
+   * urgent one inside (the «Drin» order: tier, how far past its line, longest running) — never
+   * simply the first Trupp of the board (staging walk-through r2, N18: it opened on a Trupp that
+   * was out, its biggest control «Wieder in den Einsatz», while another crew was inside). With
+   * nobody inside it is the board's first Trupp, as before. */
+  const firstFocus = focusMode
+    ? [...board.filter((t) => isAtemschutzTrupp(t) && inFieldNow(t))].sort((a, b) =>
+      (sevOf(b.id) - sevOf(a.id)) || (urgency(b) - urgency(a)) || (runningSec(b) - runningSec(a)))[0] ?? board[0]
+    : undefined
   const focusId = focusMode
-    ? (picked && board.some((t) => t.id === picked) ? picked : board[0]?.id ?? null)
+    ? (picked && board.some((t) => t.id === picked) ? picked : firstFocus?.id ?? null)
     : null
   const lastOverdue = useRef<string | null>(null)
   const mostOverdueId = mostOverdue?.id ?? null
@@ -2019,9 +2028,12 @@ function TruppRow({
       <span className={s.trowId}>
         <span className={s.trowName}>
           <span className={s.trowDot} style={color ? { background: color } : undefined} />
-          {/* no «#N» badge on the row either (Bastian, 14.09.) – it sat between the name and
-              the clock as a third thing to read; the open card head still carries it */}
           <span className={s.trowNameTxt}>{t.name}</span>
+          {/* ⚠️ The «#N» badge IS on the collapsed row again (staging walk-through r2,
+              25.09.2026, N15 — reversing 14.09.): radio traffic, the Verlauf and «heisst jetzt
+              Trupp 4» all speak in numbers, and matching one to a row meant opening every card.
+              Beside the leader's name, never instead of it (AGENTS.md · trupp-naming). */}
+          <TruppNo no={t.no} className={s.trowNo} />
           {/* the crew that stands ready for the others keeps saying so once it is sent in */}
           {isAtemschutzTrupp(t) && t.auftrag === 'sichern' && <SafetyChip />}
         </span>
@@ -2303,6 +2315,24 @@ function TruppCard({
   // preEntry && monitored, so it logs and prints as one). «Entfernen» stays a button away for
   // the erroneous Anmeldung; dismissing does nothing.
   const doDelete = async () => {
+    /* ⚠️ A crew that is INSIDE is asked about first (staging walk-through 25.09.2026, N4): one tap
+       on «Entfernen» took a crew under PA off the board and out of every alarm, with no question.
+       What the operator almost always means is «they are out» — so «Raus melden» is the filled,
+       focused answer, and removing them anyway is the quiet one. */
+    if (inField) {
+      const a = await confirmDialog({
+        title: fillTemplate(az.removeInsideTitle, { name: t.no != null ? `${t.no}` : t.name }),
+        message: az.removeInsideMsg,
+        confirmLabel: az.remove,
+        altLabel: words.exit,
+        cancelLabel: az.cancel,
+        safeAnswer: 'alt',
+      })
+      if (a === 'alt') { askExit(); return }
+      if (a !== true) return
+      onDelete(t.id)
+      return
+    }
     if (preEntry && monitored) {
       const a = await confirmDialog({
         title: az.removeUnusedTitle,
@@ -2350,6 +2380,13 @@ function TruppCard({
       { label: az.moveBack, onClick: () => onMove(t.id, -1) },
       { label: az.moveForward, onClick: () => onMove(t.id, 1) },
     ] : []),
+    /* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one was the
+     * bin — which throws away the one record that says a crew stood ready, on a document that is
+     * the legal account of the Einsatz. This closes it like any other Trupp: under «Draussen»,
+     * «In den Einsatz» right there. Under Atemschutz only: a Sicherungstrupp is by definition
+     * under PA. ⚠️ In the MENU since 25.09.2026 (staging N8) — it sat as an equal button one tap
+     * beside «Im Einsatz». */
+    ...(canEdit && preEntry && monitored ? [{ kind: 'sep' as const }, { label: az.actNotDeployed, onClick: () => onStatus(t.id, 'raus') }] : []),
     ...(canEdit ? [{ kind: 'sep' as const }, { label: az.remove, onClick: doDelete, danger: true }] : []),
   // ⚠️ a separator may never LEAD. On a Trupp that has come out and was never placed, every row
   // above «Entfernen» is withheld and the menu opened on a bare rule.
@@ -2426,9 +2463,11 @@ function TruppCard({
    * Trupp whose Art was changed mid-run carries `paOn`/`paOff` rows right there in this list,
    * which say it more precisely than a re-labelled Eintritt could.
    */
-  const readingLabel = (r: Pick<TruppReading, 'kind' | 'crew'>) => {
+  const readingLabel = (r: Pick<TruppReading, 'kind' | 'crew'>, idx: number) => {
     // a crew row IS its names — «Meier Anna / Frei Nina» says who the Trupp was from then on
     if (r.kind === 'crew' && r.crew) return [r.crew.name, ...r.crew.members].map((n) => n.trim()).filter(Boolean).join(' / ')
+    // …and the close of a run that never went in is «Nicht eingesetzt», never an «Austritt» (N8)
+    if (isStandDownExit(readings, idx)) return az.statusNotDeployed
     const what = az.readingKind[r.kind] ?? r.kind
     return !monitored && r.kind === 'entry' ? fillTemplate(az.readingNoAs, { what }) : what
   }
@@ -2592,18 +2631,10 @@ function TruppCard({
             <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
               <Icon id="flag" /><span>{az.actEnter}</span>
             </button>
-            {/* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one
-                was the bin — which throws away the one record that says a crew stood ready, on a
-                document that is the legal account of the Einsatz. This closes it like any other
-                Trupp: under «Draussen», break clock running, «Wieder in den Einsatz» right there.
-                ⚠️ Only under Atemschutz: a Sicherungstrupp is by definition under PA, so on a
-                work squad this is a second button offering an answer to a question nobody asks. */}
-            {monitored && (
-              <button className={cx(s.actBtn, s.actStandDown)} title={az.actNotDeployedHint}
-                onClick={() => onStatus(t.id, 'raus')}>
-                <Icon id="logout" /><span>{az.actNotDeployed}</span>
-              </button>
-            )}
+            {/* «Nicht eingesetzt» is no longer the button beside it (staging walk-through
+                25.09.2026, N8): two equal buttons side by side, one of which closes the Trupp in a
+                tap, is a reflex away from the wrong one. It is a row of the ⋮ menu now, behind the
+                same word (see `menuItems`). */}
           </div>
         )}
         {canEdit && inField && (
@@ -2636,7 +2667,8 @@ function TruppCard({
         {status === 'raus' && canEdit && (
           <div className={s.actions}>
             <button className={cx(s.actBtn, s.actReenter)} onClick={onReenter}>
-              <Icon id="flag" /><span>{az.actReenter}</span>
+              {/* a crew that was never in goes «In den Einsatz», not «wieder» (N8) */}
+              <Icon id="flag" /><span>{neverDeployed ? az.actEnterFirst : az.actReenter}</span>
             </button>
           </div>
         )}
@@ -2687,7 +2719,7 @@ function TruppCard({
                 {logOpen ? null : lastReading
                   ? fillTemplate(az.verlaufLatest, {
                       time: fmtTime(lastReading.t),
-                      what: (az.readingKind[lastReading.kind] ?? lastReading.kind)
+                      what: readingLabel(lastReading, readings.lastIndexOf(lastReading))
                         + (barShown(lastReading) ? ` ${lastReading.bar} bar` : ''),
                     })
                   : az.zoneTimes}
@@ -2765,7 +2797,7 @@ function TruppCard({
                                   one it carries is the last reported value, not a fresh reading —
                                   and a Trupp without Atemschutz shows none at all (barShown) */}
                               <span className={s.logBar}>{barShown(r) ? `${r.bar} bar` : ''}</span>
-                              <span className={s.logKind}>{readingLabel(r)}</span>
+                              <span className={s.logKind}>{readingLabel(r, idx)}</span>
                             </li>
                           )
                         })}

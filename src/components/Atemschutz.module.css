@@ -1975,3 +1975,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .newBtn span { display: inline; }
   .newBtn :global(.i) { width: 16px; height: 16px; }
 }
+/* the Trupp number on the collapsed phone row (N15): the badge the card head wears, a little
+   quieter, never shrinking the name to make room */
+.trowNo { flex: none; font-size: 11.5px; }

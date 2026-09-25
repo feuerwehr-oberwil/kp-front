@@ -95,6 +95,7 @@ export function useAbschluss({
     const inside = truppsRef.current.filter(truppStillDeployed)
     if (inside.length > 0) {
       const answer = await confirmDialog({
+        title: A.insideTitle,
         message: insideAbschlussMessage(inside),
         confirmLabel: A.insideClose,
         altLabel: A.registeredToBoard,
@@ -162,6 +163,12 @@ export function useAbschluss({
       // the button names what is actually about to happen — closing an Einsatz with open points
       // is allowed, and the label is where that is said out loud
       confirmLabel: anyOpen ? A.confirmAnyway : A.confirmBtn,
+      /* ⚠️ …and with open points the SAFE answer is the focused, filled one (staging r2, N6,
+         25.09.2026): after the crews question, an Enter on this list closed the Einsatz with
+         people still missing. «Zurück» is the default, «Trotzdem abschliessen» the quiet
+         choice. With nothing open, «Abschliessen» stays the primary — that is what the operator
+         came here to do. (The Suche's own first question sits above this one, in its PR.) */
+      ...(anyOpen ? { cancelLabel: A.confirmBack, safeAnswer: 'cancel' as const } : {}),
     })
     if (!ok) return false
     if (standDown.length && standDownTrupps) {

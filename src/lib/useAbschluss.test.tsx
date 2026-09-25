@@ -192,4 +192,17 @@ describe('useAbschluss', () => {
       expect(a.onCompleteRapport).not.toHaveBeenCalled()
     })
   })
+
+  // N6 (staging r2): with open points the list's safe answer is the focused one
+  it('with open points, «Zurück» is the focused answer and «Trotzdem abschliessen» the quiet one', async () => {
+    const ask = vi.mocked(confirmDialog)
+    ask.mockReset().mockResolvedValueOnce(false)
+    const a = args()
+    await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
+    expect(ask.mock.calls[0][0]).toMatchObject({
+      confirmLabel: appConfig.copy.abschluss.confirmAnyway,
+      cancelLabel: appConfig.copy.abschluss.confirmBack,
+      safeAnswer: 'cancel',
+    })
+  })
 })
