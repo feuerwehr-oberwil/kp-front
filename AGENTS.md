@@ -327,7 +327,15 @@ to prod.
   - «Trupp N raus – abgesucht? Ja / Teilweise / Nein» is NOT a dialog: it is derived
     (`pendingAsks` — an area «in Arbeit» whose Trupp is out) and stands on the area's own row, on
     every editor device (the Raus may come from a handed-over board), until somebody answers; an
-    unanswered question writes nothing.
+    unanswered question writes nothing. It is COUNTED where people look — the head chip, the
+    phone's peek line, the Bereiche tab — and each one is a Meldeleiste row
+    (`components/suche/SucheAskMeldungen`, kind `suche`) that goes by itself once answered.
+    «Teilweise» is its own status (`teilweise`, keeps the Trupp), never «offen», and counts as
+    not done everywhere.
+  - A record that ENDS without a find («Entwarnen», «Irrtümlich erfasst») is never one tap: a
+    short form asks why and who said so (both optional, both in the row), «Abbrechen» focused.
+    The Abschluss asks about people still missing as its own question after the crews
+    (`vermisstAbschlussMessage`), «Zur Suche» focused.
   - Undo is the WRITER's, as patches (`diffSuche` / `applySuchePatch`): a step takes back exactly
     the records, rows and fields it added — never a row the machine or another device wrote since,
     which a whole-slice snapshot (`useUndoableSlice`) did. Its Verlauf row quotes each row it took

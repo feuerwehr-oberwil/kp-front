@@ -41,10 +41,14 @@ so this file – not the log – is the record of what shipped up to that point.
   the «2 vermisst» head chip for everyone, the Verlauf composer («Name · vermisst → gefunden»),
   and «Fund melden» / «Bereich abgesucht» on a Trupp. A Trupp's Ziel picks an area and marks it
   «in Arbeit» on its way in; once it is out, «Trupp N raus – abgesucht? Ja / Teilweise / Nein»
-  stands on the area's row. A person can be corrected or withdrawn («irrtümlich erfasst»), and
-  ↶ takes back exactly one act. The Rapport
-  counts the Gerettete from the list and prints a «Personen» section with one line per person and
-  «Suche: 8 Bereiche, alle abgesucht 20:39»; the Abschluss asks about people still missing.
+  stands on the area's row, on the head chip («9 vermisst · 1 Frage»), in the phone's peek line
+  and as a Meldeleiste row until somebody answers; «Teilweise» is its own status («teilweise
+  abgesucht · T1 · 14:19»), never the «offen» of an area nobody touched. A person can be corrected;
+  «Entwarnen» and «Irrtümlich erfasst» ask why and who said so first, with «Abbrechen» focused. ↶
+  takes back exactly one act. «Fund melden» opens as a sheet over the board it was asked from. The
+  Rapport counts the Gerettete from the list and prints a «Personen» section with one line per
+  person and «Suche: 8 Bereiche, alle abgesucht 20:39»; the Abschluss asks about people still
+  missing as its own question, naming them, with «Zur Suche» focused.
   Editors only; the Einsatzleiter and viewers read. Station config: `suche.uebergabe`.
 
 - **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the
