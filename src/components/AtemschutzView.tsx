@@ -2031,9 +2031,11 @@ function TruppRow({
         <span className={s.trowName}>
           <span className={s.trowDot} style={color ? { background: color } : undefined} />
           <span className={s.trowNameTxt}>{t.name}</span>
-          {/* ⚠️ The «#N» badge IS on the collapsed row again (staging walk-through r2,
-              25.09.2026, N15 — reversing 14.09.): radio traffic, the Verlauf and «heisst jetzt
-              Trupp 4» all speak in numbers, and matching one to a row meant opening every card.
+          {/* ⚠️ The «#N» badge IS on the collapsed row (staging walk-through r2, 25.09.2026,
+              N15 — following the 14.09. decision, which keeps the badge on the card head, the
+              phone row and the map, and off the Link's tab chips only): radio traffic, the
+              Verlauf and «heisst jetzt Trupp 4» all speak in numbers, and matching one to a
+              row meant opening every card.
               Beside the leader's name, never instead of it (AGENTS.md · trupp-naming). */}
           <TruppNo no={t.no} className={s.trowNo} />
           {/* the crew that stands ready for the others keeps saying so once it is sent in */}
