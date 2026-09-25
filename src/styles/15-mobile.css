@@ -1036,3 +1036,8 @@
      AnwesenheitView): where the bar has no pair, the surface being tapped offers its own. */
   .topbar .tb-act-history { display: none; }
 }
+/* The Suche's phone sheet (components/suche · SuchePhoneSheet, 24.09.2026) stands where the tool bar
+   stands — directly on the nav bar, which it never covers. While it is open the drawing tools, the
+   FAB and the selection bar step aside: the sheet is for LOOKING at the plan while the list is
+   worked, and its ✕ gives all of them back. Only ever set on a phone (IncidentWorkspace). */
+.app.suche-sheet :is(.tool-rail, .wb-tools, .fab-entry, .sel-bar) { display: none; }

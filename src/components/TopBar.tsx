@@ -116,6 +116,12 @@ interface Props {
   /** app-wide Atemschutz alarm state — drives the conditional chip (only shown when a Trupp is
    *  fällig/überfällig, so it never crowds the bar in the normal case) */
   azAlarm?: AtemschutzAlarmState
+  /** People still missing in the Suche (lib/suche · vermisstCount). The «2 vermisst» chip stands
+   *  in every head, for everyone, from the first vermisst until the last is found — like the
+   *  Atemschutz chip, it is only there while it has something to say. */
+  sucheMissing?: number
+  /** tap on that chip: the Suche, on its Personen tab */
+  onOpenSuche?: () => void
   /** Live GPS feed has gone silent — the vehicles on the map are frozen. */
   gpsStale?: boolean
   /** Age of the last successful GPS poll, for the chip's readout. */
@@ -141,7 +147,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, sucheMissing = 0, onOpenSuche, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -308,6 +314,15 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
               <span className="tb-gps-age">{Math.round(gpsAgeMs / 60_000)} min</span>
             )}
           </span>
+        )}
+        {/* the Suche's chip (24.09.2026): «2 vermisst», red, for everyone while anybody is — the
+            one question the Übung on 23.09. could not answer from any screen at 20:15 */}
+        {sucheMissing > 0 && (
+          <button className="tb-az crit tb-suche" onClick={onOpenSuche} title={appConfig.copy.suche.vermisstChipHint}
+            aria-label={`${appConfig.copy.suche.title}: ${fillTemplate(appConfig.copy.suche.vermisstChip, { n: sucheMissing })}`}>
+            <Icon id="people" />
+            <span>{fillTemplate(appConfig.copy.suche.vermisstChip, { n: sucheMissing })}</span>
+          </button>
         )}
         {/* Atemschutz chip — pinned at the far right so it never shifts the other controls.
             AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first

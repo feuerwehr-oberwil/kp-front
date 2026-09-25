@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { LineMarker } from './LineMarker'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import type { BoardAnno, BoardKind, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
@@ -165,6 +165,13 @@ interface Props {
   /** device pref «Beschriftung der Werkzeugleisten» (lib/prefs · railLabels) — the word under each glyph.
    *  The setting says «in den beiden Leisten», so the plan's rail has to be handed it too. */
   railLabels?: RailLabels
+  /** the Suche's dock stands beside the stack (components/suche · SucheDock): px it takes off the
+   *  right, so the fit and «centre on» measure the room that is actually left (tablet only) */
+  dockInset?: number
+  /** the Suche's progress per storey, worn on the storey's own label («1. OG 2/4») */
+  storeyBadges?: Record<number, { text: string; complete: boolean; active: boolean }>
+  /** surface buttons appended to the plan's tool rail (the Suche's toggle) */
+  railExtras?: ReactNode
   sym: SymbolsApi
   /** active Mannschaft names feeding the symbol detail comboboxes (Einsatzleiter / Fahrer …) */
   rosterNames?: string[]
@@ -323,7 +330,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, dockInset = 0, storeyBadges, railExtras }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -721,7 +728,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // …and the rails: the WINDOW decides whether they are floating side rails or bottom bars, not
   // the canvas width — during the «Karte verknüpfen» split the canvas is half a screen wide with
   // both rails still in place (lib/whiteboard · sideInsets).
-  const side = useMemo(() => sideInsets(vp.w, isPhone), [vp.w, isPhone])
+  const side = useMemo(() => {
+    const base = sideInsets(vp.w, isPhone)
+    return dockInset > 0 && !isPhone ? { ...base, r: base.r + dockInset } : base
+  }, [vp.w, isPhone, dockInset])
   const fit = useMemo(() => {
     const w = Math.max(0, vp.w - side.l - side.r)
     const h = Math.max(0, vp.h - TOP_INSET - (stack ? 2 * STACK_VPAD : 0)); if (!w || !h) return { w: 0, h: 0 }
@@ -2124,7 +2134,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const canvas = canvasRef.current?.getBoundingClientRect()
     if (!w || !h || !canvas) return
     const my = mapY(floor, y)
-    const target = rectCenter(planWorkRect(canvas, document.querySelector('.ctx')))
+    // …or, on a phone, the Suche's sheet pulled up over the stack (lib/overlays · DetentSheet)
+    const target = rectCenter(planWorkRect(canvas, document.querySelector('.ctx') ?? document.querySelector('.ui-detent')))
     const baseX = canvas.left + canvas.width / 2 + (side.l - side.r) / 2
     const baseY = canvas.top + canvas.height / 2 + TOP_INSET / 2
     applyView(s, {
@@ -2860,6 +2871,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         never hides the order, and level 0 is the blue one */}
                     <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>
                     <span className="wb-floor-name">{building.floorNames?.[String(f)] ?? floorLabel(f)}</span>
+                    {/* the Suche's progress on this storey — the stack alone answers «wo waren wir» */}
+                    {storeyBadges?.[f] && (
+                      <span className="wb-floor-suche" data-complete={storeyBadges[f].complete || undefined} data-active={storeyBadges[f].active || undefined}>
+                        {storeyBadges[f].complete ? <Icon id="check" /> : null}{storeyBadges[f].text}
+                      </span>
+                    )}
                     {/* fold this storey away – a way of LOOKING, so it stands on every surface,
                         read-only ones included, and never asks (the strip it leaves is the way back) */}
                     {floorsTTB.length > 1 && (
@@ -3798,6 +3815,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           labels={railLabels}
           primary={{ id: 'symbol', icon: appConfig.copy.primarySymbol.icon, label: appConfig.copy.whiteboard.symbol }}
           tools={readOnly ? slimPlanTools : planTools}
+          extras={railExtras}
           active={tool}
           toolRefs={toolBtn}
           // ⚠️ Auswahl and Mehrfach share ONE rail slot (05.09., the same on the Karte): the rail

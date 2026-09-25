@@ -31,6 +31,7 @@ import { truppOrderKey } from '../lib/useTruppActions'
 import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
 import { TruppNo } from './TruppNo'
+import { ZielChips } from './suche/SucheTrupp'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
@@ -98,7 +99,7 @@ export function AtemschutzView({
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt,
   onUndo, onRedo, canUndo = false, canRedo = false, undoLabel, redoLabel,
-  syncStatus, lastSyncedAt, clockSkewMs,
+  syncStatus, lastSyncedAt, clockSkewMs, sucheItems, zielChoices,
 }: {
   trupps: Trupp[]
   /** trupp id → the colour it wears on the Lage / plan (useTruppActions · truppColors). Every
@@ -241,6 +242,11 @@ export function AtemschutzView({
    *  minutes out, whose operator will read every other timestamp in the app (Verlauf, Fotos,
    *  Anwesenheit) as if it were right. */
   clockSkewMs?: number | null
+  /** the Suche's rows on a Trupp's ⋯ menu — «Fund melden», «Bereich abgesucht» (components/suche ·
+   *  sucheTruppItems). Absent on a session that may not write the Suche. */
+  sucheItems?: (t: Trupp) => { label: string; onClick: () => void }[]
+  /** the Suche's areas, offered under the Ziel field — a pick fills the Ziel (components/suche) */
+  zielChoices?: string[]
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   /* ── «Tafel pur» sees the Atemschutz and NOTHING else (decided 03.09.) ─────────────────────
@@ -876,6 +882,7 @@ export function AtemschutzView({
       // «Tafel pur»: everything that points at the Karte or a drawn Leitung is unreachable from
       // this session, and a control that will fail is worse than no control (see `lite` above).
       lite={!!lite}
+      sucheItems={lite ? undefined : sucheItems}
       onCollapse={compact && !focusMode ? () => setOpenRow(null) : undefined}
     />
     )
@@ -1405,6 +1412,7 @@ export function AtemschutzView({
           })}
           leitungOptions={leitungOptions(form.trupp?.id)}
           lite={!!lite}
+          zielChoices={lite ? undefined : zielChoices}
           // ⚠️ EVERY phone, not only the handed-over one (03.09.). `compact` is `useIsPhone`, so a
           // tablet — where the whole form stands in one glance — keeps the single screen; the
           // stack exists for the 375px case, where the single screen puts the fields that start
@@ -1867,8 +1875,10 @@ function TruppRow({
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onPressure, onStatus, onAskExit, onAskPressure, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false,
+  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onPressure, onStatus, onAskExit, onAskPressure, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false, sucheItems,
 }: {
+  /** the Suche's rows at the head of the ⋯ menu (AtemschutzView · sucheItems) */
+  sucheItems?: (t: Trupp) => { label: string; onClick: () => void }[]
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
   alarm: TruppAlarm
@@ -2108,6 +2118,8 @@ function TruppCard({
      * reading, which is the point (useTruppActions · editTrupp · pressurePatch, and the form
      * says so under the field). Everything it writes reaches the Verlauf exactly as a live edit
      * does — one `logEditFields` row naming what changed. */
+    // the Suche's two doors (Tür 3): the radio report reaches the ASÜ or the plan person here
+    ...(canEdit && sucheItems ? sucheItems(t) : []),
     ...(canEdit ? [{ label: az.edit, onClick: () => onEdit() }] : []),
     ...(lite ? [] : (t.annoId || t.entityId)
       ? [{ label: t.entityId ? az.showOnMap : az.showOnPlan, onClick: () => onShowPlan(t.id) }]
@@ -2614,8 +2626,10 @@ function inScrollPort(el: HTMLElement): boolean {
 }
 
 function TruppForm({
-  mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, onAddGuest, onCancel, onSubmit,
+  mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, onAddGuest, onCancel, onSubmit, zielChoices,
 }: {
+  /** the Suche's areas under the Ziel field (components/suche · ZielChips) */
+  zielChoices?: string[]
   mode: FormMode
   initial?: Trupp
   /** a NEW Trupp's Auftrag, chosen by the door it came through — «Sicherungstrupp bestimmen»
@@ -3124,6 +3138,11 @@ function TruppForm({
           onChange={(v) => setZiel(stripUnprintable(v))}
         />
       </label>
+      {/* the Suche's areas (24.09.2026): a pick fills the Ziel; a NEW name typed above creates
+          the area once the Trupp is saved (lib/useSucheTrupps) */}
+      {zielChoices && zielChoices.length > 0 && auftrag === 'absuchen' && (
+        <ZielChips choices={zielChoices} value={ziel} onPick={setZiel} />
+      )}
       {/* Ausrüstung — multi-select chips with a tick box, so it reads as «several go» next to the
           single-choice Art tiles above (mock 14.09.). Only under Atemschutz: a work squad takes no
           Retthaube in. The list comes from the station (deploymentConfig · atemschutzEquipment). */}

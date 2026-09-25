@@ -23,6 +23,7 @@ import type { JournalEntryType, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { acceptJournalSuggestion, journalSuggestions, type JournalSuggestion, type TextSelection } from '../lib/journalSuggestions'
 import { suggestPendenzen, type OpenReminder } from '../lib/reminders'
+import { newPersonFromText, suggestSuchePersonen, type PersonView } from '../lib/suche'
 import { startChips } from '../lib/startChips'
 import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
@@ -173,7 +174,7 @@ function TimeStepper({ hhmm, onChange }: { hhmm: string; onChange: (v: string) =
 // coordinate, which is the weak version of what the Wiedergabe does — scrub to the moment and
 // the entire picture is the one from back then. The row still records its surface; that is
 // addJournal's business, not this sheet's.
-export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz }: {
+export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz, suchePersonen, sucheLink, onSucheLink }: {
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
   /** opened from a Pendenz row: everything written here becomes a Meldung ON that item rather
@@ -187,6 +188,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   openPendenzen?: { id: string; text: string; urgent?: boolean }[]
   /** attach the entry being written to one of them (the workspace owns `noteOn`) */
   onLinkPendenz?: (p: { id: string; text: string }) => void
+  /** the Suche's people (lib/suche · personenViews) — Tür 2: a sentence that names somebody still
+   *  missing offers «Eva Beispiel · vermisst → gefunden», and «… vermisst» offers a new person.
+   *  Absent ⇒ nothing offered (a session that may not write the Suche). */
+  suchePersonen?: PersonView[]
+  /** the status change this entry carries on its way (the workspace owns it, like `noteOn`) */
+  sucheLink?: SucheComposerLink | null
+  onSucheLink?: (l: SucheComposerLink | null) => void
   /** this incident's own rows, for the chips offered while the field is still empty (see
    *  lib/startChips). Absent ⇒ the station's list is offered as it stands. */
   timeline?: TimelineEvent[]
@@ -306,6 +314,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     [text, openPendenzen, noteOn],
   )
   const canLink = openPendenzen.length > 0 && !!onLinkPendenz
+  // …and the Suche's people this sentence names (Tür 2). ⚠️ Same rules as the Pendenz chips: LAST
+  // in the row, never the Tab target — accepting one changes a person's status, not a word.
+  const sucheHits = useMemo(
+    () => (!suchePersonen || !onSucheLink || sucheLink ? [] : suggestSuchePersonen(text, suchePersonen)),
+    [text, suchePersonen, onSucheLink, sucheLink],
+  )
+  const sucheNew = !suchePersonen || !onSucheLink || sucheLink || sucheHits.length ? null : newPersonFromText(text)
   // ── the ○ opens a menu; it no longer cycles ───────────────────────────────────────────────
   // ⚠️ Three states reached by tapping the same ring in turn were a guessing game, and the way to
   // «hang this on something already open» was a long press — a gesture that cannot announce
@@ -864,7 +879,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         </div>
 
         {/* A single ranked band; its empty row keeps the phone sheet steady while typing. */}
-        {(suggestions.length === 0 && pendenzHits.length === 0)
+        {(suggestions.length === 0 && pendenzHits.length === 0 && sucheHits.length === 0 && !sucheNew && !sucheLink)
           ? <div className="jc-phrases is-empty" aria-hidden /> : (
           // Keep the keyboard focused on mousedown (the chips' own onMouseDown); the row itself
           // scrolls NATIVELY — see .jc-phrases in 18-audio.css for why the hand-rolled pan went.
@@ -895,6 +910,29 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 onClick={() => onLinkPendenz?.({ id: r.id, text: r.text })}
               ><span className="jc-ring" />{C.noteOnLabel}{r.text}</button>
             ))}
+            {/* ── the Suche (Tür 2): the status changes on the way; the sentence stays the row ── */}
+            {sucheLink && (
+              <button key="suche:on" type="button" className="jc-phrase jc-phrase-suche on" aria-pressed
+                title={appConfig.copy.suche.composerTitle}
+                onMouseDown={(e) => e.preventDefault()} onClick={() => onSucheLink?.(null)}>
+                <Icon id="search" />{sucheLinkLabel(sucheLink)}<Icon id="close" />
+              </button>
+            )}
+            {sucheHits.map((v) => {
+              const link: SucheComposerLink = { kind: 'gefunden', personId: v.id, label: v.label }
+              return (
+                <button key={`s:${v.id}`} type="button" className="jc-phrase jc-phrase-suche" title={appConfig.copy.suche.composerTitle}
+                  onMouseDown={(e) => e.preventDefault()} onClick={() => onSucheLink?.(link)}>
+                  <Icon id="search" />{sucheLinkLabel(link)}
+                </button>
+              )
+            })}
+            {sucheNew && (
+              <button key="s:new" type="button" className="jc-phrase jc-phrase-suche" title={appConfig.copy.suche.composerTitle}
+                onMouseDown={(e) => e.preventDefault()} onClick={() => onSucheLink?.({ kind: 'neu', name: sucheNew })}>
+                <Icon id="search" />{sucheLinkLabel({ kind: 'neu', name: sucheNew })}
+              </button>
+            )}
           </div>
         )}
 
@@ -1241,4 +1279,17 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       )}
     </Overlay>
   )
+}
+
+/** What an entry written in the Verlauf changes in the Suche on its way (Tür 2): a person still
+ *  missing is found, or a new one is reported missing under the words before «vermisst». */
+export type SucheComposerLink =
+  | { kind: 'gefunden'; personId: string; label: string }
+  | { kind: 'neu'; name: string }
+
+function sucheLinkLabel(l: SucheComposerLink): string {
+  const S = appConfig.copy.suche
+  return l.kind === 'gefunden'
+    ? fillTemplate(S.composerKnown, { name: l.label, from: S.status.vermisst, to: S.status.gefunden })
+    : fillTemplate(S.composerNew, { name: l.name })
 }
