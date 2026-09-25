@@ -320,13 +320,13 @@ describe('the Rapport', () => {
     w.set(t('20:10'))
     d = addPerson(d, { name: 'Klasse 3c', count: 22 }, w.cx()).doc
     w.set(t('20:16'))
-    d = personGefunden(d, d.personen[0].id, { trupp: 'Trupp 3', floor: 1, wo: 'Z301' }, w.cx()).doc
+    d = personGefunden(d, d.personen[0].id, { trupp: 'Trupp 3', floor: 1, wo: 'Z101' }, w.cx()).doc
     w.set(t('20:21'))
     d = personUebergeben(d, d.personen[0].id, { an: 'Rettungsdienst' }, w.cx()).doc
     d = personGefunden(d, d.personen[1].id, { n: 20 }, w.cx()).doc
     const rows = personPrintRows(d, clock, floorLabel)
     expect(rows).toEqual([
-      { name: 'Tim Muster', detail: 'zuletzt 1. OG Technikraum · Quelle Schulleitung', vermisst: '20:08', gefunden: '20:16 · Trupp 3 · 1. OG Z301', status: '20:21 an Rettungsdienst', open: false },
+      { name: 'Tim Muster', detail: 'zuletzt 1. OG Technikraum · Quelle Schulleitung', vermisst: '20:08', gefunden: '20:16 · Trupp 3 · 1. OG Z101', status: '20:21 an Rettungsdienst', open: false },
       { name: 'Klasse 3c (22 Pers.)', vermisst: '20:10', gefunden: '20 / 22 gefunden · 20:21', status: '2 vermisst', open: true },
     ])
     const groups = sucheGroups(d, [0, 1], floorLabel)

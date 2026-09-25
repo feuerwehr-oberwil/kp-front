@@ -745,7 +745,7 @@ export interface PersonPrintRow {
   detail?: string
   /** HH:MM reported missing */
   vermisst: string
-  /** «20:16 · Trupp 3 · 1. OG Z301» (a group: «20 / 22 · 20:16 …») */
+  /** «20:16 · Trupp 3 · 1. OG Z101» (a group: «20 / 22 · 20:16 …») */
   gefunden?: string
   /** «20:21 an Rettungsdienst» · «entwarnt 20:05» · «noch vermisst» */
   status: string

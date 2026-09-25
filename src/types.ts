@@ -1275,7 +1275,7 @@ export interface SuchePerson {
   count?: number
   /** zuletzt gesehen: storey index on the Gebäude stack; absent = unbekannt */
   floor?: number
-  /** zuletzt gesehen, in words («Technikraum», «Z303») */
+  /** zuletzt gesehen, in words («Technikraum», «Z102») */
   wo?: string
   /** who reported it («Schulleitung», «Anrufer 144») */
   quelle?: string

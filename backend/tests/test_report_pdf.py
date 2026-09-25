@@ -390,7 +390,7 @@ async def test_report_pdf_carries_the_personen_section(client, editor):
             "name": "Tim Muster",
             "detail": "zuletzt 1. OG Technikraum · Quelle Schulleitung",
             "vermisst": "20:08",
-            "gefunden": "20:16 · Trupp 3 · 1. OG Z301",
+            "gefunden": "20:16 · Trupp 3 · 1. OG Z101",
             "status": "20:21 an Rettungsdienst",
         },
         {

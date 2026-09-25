@@ -238,7 +238,7 @@ class PersonRowIn(BaseModel):
     detail: str | None = None
     #: HH:MM reported missing
     vermisst: str
-    #: «20:16 · Trupp 3 · 1. OG Z301» (a group: «20 / 22 gefunden · …»)
+    #: «20:16 · Trupp 3 · 1. OG Z101» (a group: «20 / 22 gefunden · …»)
     gefunden: str | None = None
     #: «20:21 an Rettungsdienst» · «entwarnt 20:05» · «vermisst» · «2 vermisst»
     status: str
