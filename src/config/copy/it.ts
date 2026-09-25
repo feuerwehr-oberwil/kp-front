@@ -1077,7 +1077,7 @@ export const it: Localizable<Copy> = {
     asMark: 'ARA',
     empty: 'Ancora nessuna squadra in sorveglianza.',
     emptyHint: 'Crea una squadra per avviare la sorveglianza.',
-    newTrupp: 'Crea squadra',
+    newTrupp: 'Annuncia squadra',
     shareLink: 'Cedi la sorveglianza',
     shareLinkOn: 'Cedi la sorveglianza – un link è attivo',
     linkReentryHint: 'Il link riporta a questa tavola – se la pagina viene chiusa per errore, basta aprire di nuovo il codice QR.',
@@ -1094,7 +1094,7 @@ export const it: Localizable<Copy> = {
     // stato sync/orologio nell'intestazione della tavola (vedi de.ts)
     syncStand: '{status} – stato delle {t}',
     clockSkewChip: 'Orologio del dispositivo sfasato ({d} min)',
-    formCreateTitle: 'Crea squadra',
+    formCreateTitle: 'Annuncia squadra',
     formEditTitle: 'Modifica squadra',
     formRedeployTitle: 'Rientrare',
     sectionTeam: 'Squadra',
@@ -1365,8 +1365,8 @@ export const it: Localizable<Copy> = {
     orderManual: 'Come posato',
     orderAuftrag: 'Compito',
     orderName: 'Nome',
-    moveBack: 'Sposta la scheda avanti',
-    moveForward: 'Sposta la scheda indietro',
+    moveBack: 'Sposta su',
+    moveForward: 'Sposta giù',
     truppFallbackName: 'Squadra',
     editPressureLabel: 'Correggi la pressione d\'ingresso (bar)',
     editPressureHint: 'Corregge la pressione d\'ingresso registrata – non conta come contatto radio.',
@@ -1439,6 +1439,8 @@ export const it: Localizable<Copy> = {
     logPressureAlarm: 'Squadra {name}: pressione {bar} bar – pressione d\'allarme raggiunta',
     logRemoved: 'Squadra {name} eliminata',
     logRestored: 'Squadra {name} ripristinata',
+    logInsideAtClose: 'Squadra {name} ancora dentro alla chiusura',
+    cycleEndAtClose: '{t} (ancora dentro alla chiusura)',
   },
   lineDecor: {
     W: 'Acqua',
@@ -2083,6 +2085,9 @@ export const it: Localizable<Copy> = {
   },
   meldeleiste: {
     region: 'Messaggi',
+    more: '+{n} altro messaggio',
+    moreMany: '+{n} altri messaggi',
+    less: 'Mostra meno',
   },
   session: {
     expiredTitle: 'Accesso scaduto',

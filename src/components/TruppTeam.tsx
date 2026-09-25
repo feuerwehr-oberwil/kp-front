@@ -40,7 +40,7 @@ export function TruppTeam({
   value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById,
   phone = false, wanted = false, searchInputRef,
 }: {
-  /** this form is here to NAME a Trupp and has nobody in it yet («Trupp erstellen»): the search
+  /** this form is here to NAME a Trupp and has nobody in it yet («Trupp anmelden»): the search
    *  wears the ring until the first person stands in the list – who is going in matters more than
    *  what they will do there, and the field looked exactly as optional as the rest (20.09.2026) */
   wanted?: boolean

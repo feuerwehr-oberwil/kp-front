@@ -1045,7 +1045,7 @@ export function AtemschutzView({
       aria-label={bellLabel} title={bellLabel}
     >
       <Icon id={muted ? 'bell-off' : 'bell'} />
-      {/* the WORD on a wide head (22.09.2026): three unlabelled squares beside «Trupp erstellen»
+      {/* the WORD on a wide head (22.09.2026): three unlabelled squares beside «Trupp anmelden»
           were a guess for anybody who had not held them. A phone keeps the square — its bar has
           no room, and the hold-tooltip is the phone's way of asking. */}
       {!isPhone && <span>{muted ? az.alarmMutedWord : audioBlocked ? az.alarmBlockedWord : az.alarmWord}</span>}
@@ -1153,7 +1153,9 @@ export function AtemschutzView({
   )
 
   return (
-    <div className={cx(s.surface, lite && s.surfaceLite)} onPointerDownCapture={primeOnFirstTap}>
+    // `az-tafel`: the global hook the Meldeleiste folds itself to one row for, and moves the
+    // Tafel below itself on (08-toasts · staging r3)
+    <div className={cx(s.surface, lite && s.surfaceLite, 'az-tafel')} onPointerDownCapture={primeOnFirstTap}>
       <header className={cx(s.head, focusMode && s.headCompact)}>
         <div className={cx(s.headTitles, focusMode && s.headTitlesCompact)}>
           {focusMode ? (
@@ -2110,7 +2112,7 @@ function TruppRow({
  *
  * ⚠️ The secondary controls are a MENU with words, not a row of glyphs. Every one of them
  * already had a German name that only ever surfaced in a `title`: «Platzieren», «Leitung
- * wählen», «Karte nach vorne schieben». That a footprint means «platzieren» and a droplet means
+ * wählen», «Nach oben holen». That a footprint means «platzieren» and a droplet means
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({

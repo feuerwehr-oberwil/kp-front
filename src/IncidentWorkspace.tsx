@@ -126,7 +126,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
+import { isAtemschutzTrupp, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -1968,11 +1968,15 @@ export function IncidentWorkspace({
    *  down, so the hook gets a stable door and the ref is pointed at them once they exist. */
   const standDownRef = useRef<(ids: string[]) => void>(() => {})
   const standDownTrupps = useCallback((ids: string[]) => standDownRef.current(ids), [])
+  // …and the row for a crew the Abschluss closes over (staging r3 F4), pointed the same way
+  const noteInsideRef = useRef<(ts: Trupp[]) => void>(() => {})
+  const noteInsideAtClose = useCallback((ts: Trupp[]) => noteInsideRef.current(ts), [])
   const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
     standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
+    noteInsideAtClose: canWriteRecord ? noteInsideAtClose : undefined,
     suche: sucheAbschluss, openSuche: useCallback(() => openSucheRef.current(), []),
   })
 
@@ -3684,8 +3688,34 @@ export function IncidentWorkspace({
     undo: () => stepAttendanceRef.current('undo'),
     redo: () => stepAttendanceRef.current('redo'),
   })
-  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. */
-  const attSet: typeof attHist.set = (update) => { const laid = attHist.set(update); rememberAttendanceStep(); return laid }
+  /**
+   * A Trupp SAVE is one act (staging r3 F1): the Gäste its form files, the crew it marks present
+   * and the AS-Funktion it writes are part of «Trupp 2 … angemeldet» — ONE ↶ takes the Trupp and
+   * the people it filed back together, nothing half-done. Opened by the first write of a save
+   * (fileTruppGuest, or the create/edit/re-entry wrapper), it gathers every step pushed until the
+   * save's synchronous run ends (a microtask later) into one timeline entry, and folds the
+   * Anwesenheit writes of that run into ONE slice step.
+   * It used to leave «Rückgängig: Anwesenheit» on top, which stripped the crew's Funktion, kept
+   * them present, kept the Trupp — and wrote «Anwesenheit zurückgenommen» over it.
+   */
+  const truppSaveRef = useRef<{ laidAttendance: boolean } | null>(null)
+  const openTruppSave = () => {
+    if (truppSaveRef.current) return
+    const save = { laidAttendance: false }
+    truppSaveRef.current = save
+    const end = undoHist.group('trupps')
+    queueMicrotask(() => { if (truppSaveRef.current === save) truppSaveRef.current = null; end() })
+  }
+  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. Inside
+   *  a Trupp save the save's first write is its step and the rest fold into it. */
+  const attSet: typeof attHist.set = (update) => {
+    const save = truppSaveRef.current
+    if (save?.laidAttendance) return attHist.set(update, { coalesce: () => true })
+    const laid = attHist.set(update)
+    rememberAttendanceStep()
+    if (save && laid) save.laidAttendance = true
+    return laid
+  }
   /**
    * A Gebäude one-shot on the timeline. These own no stack at all — a storey added, a storey
    * removed, a building replaced — so the entry carries BOTH states itself, the way the
@@ -3711,6 +3741,14 @@ export function IncidentWorkspace({
       for (const id of ids) {
         const t = truppsRef.current.find((x) => x.id === id)
         if (t && truppStillRegistered(t)) setTruppStatus(id, 'raus')
+      }
+    }
+  })
+  useEffect(() => {
+    noteInsideRef.current = (ts) => {
+      for (const t of ts) {
+        log('logout', fillTemplate(appConfig.copy.atemschutz.logInsideAtClose, { name: truppLogName(t) }), 'team',
+          undefined, undefined, { subjectId: t.id })
       }
     }
   })
@@ -4420,6 +4458,7 @@ export function IncidentWorkspace({
    *  all — and remembered for that call (staging N1: one person, one row, one line). */
   const filedGuestsRef = useRef<Map<string, string>>(new Map())
   const fileTruppGuest = (name: string): string | undefined => {
+    openTruppSave()
     const known = personIdForName(rosterIdByName, name)
     if (known) return known
     const id = addGuest(name, undefined, { quiet: true })
@@ -4542,12 +4581,13 @@ export function IncidentWorkspace({
   // ⚠️ The CANONICALISED crew reaches the Anwesenheit too, not the raw form values: a Gast row is
   // opened under the name that is written down everywhere else, so «Hans Müller» typed into the
   // Trupp form cannot open a second row beside the roster's «Müller Hans».
-  const createTruppA = (t: Trupp) => { const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
-  const editTruppA = (id: string, f: TruppFields) => { const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
+  // ⚠️ Each is ONE step on the timeline with the crew filing it causes (openTruppSave).
+  const createTruppA = (t: Trupp) => { openTruppSave(); const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
+  const editTruppA = (id: string, f: TruppFields) => { openTruppSave(); const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
   // `standby` MUST be forwarded: this wrapper used to swallow it, so «Bereitstellen» ran the
   // «Wieder einrücken» path — a crew standing at the vehicle with a running contact clock, which
   // is exactly the case the standby fork exists to prevent (see useTruppActions · reactivateTrupp).
-  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
+  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { openTruppSave(); const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE

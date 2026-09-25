@@ -165,6 +165,27 @@
 }
 .ml-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ml-x.ghost { visibility: hidden; pointer-events: none; }
+/* ── On the Trupp-Tafel: one row, a count, and the Tafel BELOW the strip (staging r3) ─────────
+   Two rows («wieder geöffnet» + «abgesucht?») took 207px at 360 and sat on the first crew's
+   contact clock; at 820 a single row covered the page title. On the Tafel — and nowhere else, the
+   rest of the app keeps every row open (Meldeleiste's header) — the strip shows its most urgent
+   row and folds the others into a count that opens them, and the Tafel's shell starts under the
+   strip instead of under the top bar, so nothing of the board is ever painted over. The strip
+   publishes its own height as `--ml-h` (Meldeleiste · useLayoutEffect). */
+.ml-more { display: none; }
+:root:has(.az-tafel) .ml-more { display: flex; align-items: center; width: 100%; min-height: 44px;
+  padding: 0 13px 0 16px; border: none; border-top: 1px solid var(--border-soft); background: none;
+  font: 600 13px var(--body); color: var(--ink-dim); text-align: left; cursor: pointer; }
+:root:has(.az-tafel) .ml:not(.ml-all) .ml-row ~ .ml-row { display: none; }
+:root:has(.az-tafel) .ml { max-height: min(40dvh, 320px); }
+:root:has(.ml) .app:not(.as-link-shell) .az-tafel { top: calc(92px + var(--ml-h, 0px) + 8px + env(safe-area-inset-top)); }
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  :root:has(.ml) .app:not(.as-link-shell) .az-tafel { top: calc(72px + var(--ml-h, 0px) + 8px + env(safe-area-inset-top)); }
+}
+/* The handed-over Tafel has no top bar: the strip stands at the top of the screen and the shell's
+   column starts under it. */
+:root:has(.as-link-shell) .ml { top: max(8px, env(safe-area-inset-top)); }
+:root:has(.as-link-shell):has(.ml) .as-link-shell { padding-top: calc(max(8px, env(safe-area-inset-top)) + var(--ml-h, 0px) + 8px); }
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* the rails are gone from the sides here (the nav rail is the bottom bar), so the strip takes
      the full width — and the actions drop onto a second line per row, where they may shrink

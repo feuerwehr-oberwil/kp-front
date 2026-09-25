@@ -1164,7 +1164,23 @@ to prod.
     270, `/admin › Doktrin`) the form asks ONE question with the value on the button and «Ändern»
     focused. No upper bound, no second plausibility rule.
   A question whose «yes» WRITES something a reflex must not (these three) puts the safe answer
-  first: `ConfirmSpec · safeAnswer` ('cancel' | 'alt') fills and focuses it, not red.
+  first: `ConfirmSpec · safeAnswer` ('cancel' | 'alt') fills and focuses it, not red. Every
+  question MOUNTS FRESH (`Overlays` keys the card per request, staging r3 F5): a chain answered
+  and re-asked in one render batch kept the node, and the focus of the «Trotzdem abschliessen»
+  just tapped stood on the next question's same button — Enter closed through «vermisst».
+  - *One act, one ↶* (staging r3 F1): a Trupp save — create, edit, re-entry — is ONE timeline
+    step with the Gäste it files and the Funktion it writes (`undoTimeline · group`,
+    `IncidentWorkspace · openTruppSave`, the save's Anwesenheit writes folded into one slice
+    step). ↶ reads «Trupp N … angemeldet» and takes the Trupp and its filing back together.
+  - *Closing over a crew inside is said* (staging r3 F4): the final «Trotzdem abschliessen»
+    writes «Trupp N (…) beim Abschluss noch drin» per crew and no Austritt; the Rapport ends
+    that sortie at the close with the same words while the Einsatz is closed.
+  - *The Tafel is never under the Meldeleiste* (staging r3): there the strip shows its most
+    urgent row plus a count that opens the rest, and the Tafel's shell starts below the strip
+    (`--ml-h`, `.az-tafel`). Everywhere else every row stays open.
+  - *Merges compare JSON, not key order* (staging r3 F11): the server's JSONB re-sorts keys, so
+    `mergeWorkspace · eq` ignores key order; an Anwesenheit divergence is reported only when the
+    sides differ in more than `noteAt`.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for

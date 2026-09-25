@@ -1076,7 +1076,7 @@ export const en: Localizable<Copy> = {
     asMark: 'SCBA',
     empty: 'No team under monitoring yet.',
     emptyHint: 'Create a team to start monitoring.',
-    newTrupp: 'Create team',
+    newTrupp: 'Register team',
     shareLink: 'Hand over monitoring',
     shareLinkOn: 'Hand over monitoring – a link is active',
     linkReentryHint: 'The link leads back to this board – if the page is closed by accident, simply open the QR code again.',
@@ -1094,7 +1094,7 @@ export const en: Localizable<Copy> = {
     // sync/clock status in the board header (see de.ts)
     syncStand: '{status} – as of {t}',
     clockSkewChip: 'Device clock is off ({d} min)',
-    formCreateTitle: 'Create team',
+    formCreateTitle: 'Register team',
     formEditTitle: 'Edit team',
     formRedeployTitle: 'Re-deploy',
     sectionTeam: 'Team',
@@ -1376,8 +1376,8 @@ export const en: Localizable<Copy> = {
     orderManual: 'As placed',
     orderAuftrag: 'Task',
     orderName: 'Name',
-    moveBack: 'Move card forward',
-    moveForward: 'Move card back',
+    moveBack: 'Move up',
+    moveForward: 'Move down',
     truppFallbackName: 'Team',
     editPressureLabel: 'Correct the entry pressure (bar)',
     editPressureHint: 'Corrects the recorded entry pressure — does not count as radio contact.',
@@ -1442,6 +1442,8 @@ export const en: Localizable<Copy> = {
     logPressureAlarm: 'Team {name}: pressure {bar} bar — alarm pressure reached',
     logRemoved: 'Team {name} deleted',
     logRestored: 'Team {name} restored',
+    logInsideAtClose: 'Team {name} still inside at closing',
+    cycleEndAtClose: '{t} (still inside at closing)',
   },
   lineDecor: {
     W: 'Water',
@@ -2030,6 +2032,9 @@ export const en: Localizable<Copy> = {
   },
   meldeleiste: {
     region: 'Messages',
+    more: '+{n} more message',
+    moreMany: '+{n} more messages',
+    less: 'Show less',
   },
   session: {
     expiredTitle: 'Sign-in expired',

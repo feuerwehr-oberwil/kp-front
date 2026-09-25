@@ -39,6 +39,10 @@ interface Args {
    *  confirm stood open must never get an Austritt). Absent (a caller that may not write the
    *  Tafel) ⇒ the registered question is not asked. */
   standDownTrupps?: (ids: string[]) => void
+  /** Write «Trupp N (…) beim Abschluss noch drin» for each of these (staging r3 F4) — a crew the
+   *  Abschluss closes over is SAID in the Verlauf, without inventing an Austritt. Absent (a caller
+   *  that may not write the record) ⇒ nothing is written. */
+  noteInsideAtClose?: (trupps: Trupp[]) => void
 }
 
 /**
@@ -53,7 +57,7 @@ interface Args {
  */
 export function useAbschluss({
   reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
-  setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, suche, openSuche,
+  setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche,
 }: Args) {
   const abschlussMissing = useMemo(
     () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
@@ -203,6 +207,15 @@ export function useAbschluss({
       // the handover flushes it (App · completeRapport flushes the sync, then archives)
       await new Promise((r) => setTimeout(r, 0))
     }
+    /* ⚠️ Closing over a crew still inside wrote NOTHING (staging r3 F4): the record ended with two
+       open sorties and no word that the Abschluss had gone over them. One row per crew, read off
+       the Trupps as they stand NOW — the Rapport ends each open sortie at the close with the same
+       words (reportPdfDirect · cycleEndAtClose). Still no Austritt: nobody reported one. */
+    const insideNow = truppsRef.current.filter(truppStillDeployed)
+    if (insideNow.length && noteInsideAtClose) {
+      noteInsideAtClose(insideNow)
+      await new Promise((r) => setTimeout(r, 0)) // committed before the handover flushes
+    }
     // ⚠️ Drain the media queue FIRST, from here. The Abschluss closes the incident and App then
     // drops what has already gone up (clearUploadedMedia) — and an upload also has to patch its
     // Verlauf row's blob: URL to the server one (useMediaQueue · onUploaded), which needs this
@@ -213,7 +226,7 @@ export function useAbschluss({
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport()
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, suche, openSuche])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

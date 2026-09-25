@@ -183,6 +183,22 @@ describe('useAbschluss', () => {
       expect(standDownTrupps).not.toHaveBeenCalled()
     })
 
+    // staging r3 F4: closing over them wrote nothing, and the record ended with open sorties
+    it('closing anyway writes «beim Abschluss noch drin» for each crew — before the handover, and only then', async () => {
+      const ask = vi.mocked(confirmDialog)
+      const order: string[] = []
+      const noteInsideAtClose = vi.fn((ts: Trupp[]) => { order.push(`note ${ts.map((t) => t.id).join(',')}`) })
+      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+      const a = args({ trupps: [inside], noteInsideAtClose, onCompleteRapport: vi.fn(async () => { order.push('complete'); return true }) })
+      await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
+      expect(order).toEqual(['note in', 'complete'])
+      // «Trotzdem» on the crews question, then «Zurück» on the list: nothing written
+      noteInsideAtClose.mockClear()
+      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+      await renderHook(() => useAbschluss(args({ trupps: [inside], noteInsideAtClose }))).result.current.confirmAndComplete()
+      expect(noteInsideAtClose).not.toHaveBeenCalled()
+    })
+
     it('dismissing it does nothing', async () => {
       const ask = vi.mocked(confirmDialog)
       ask.mockReset().mockResolvedValueOnce(false)
