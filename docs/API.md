@@ -220,3 +220,13 @@ Everywhere else the counters are never written, so this prints an empty table fo
 is counted, and what deliberately is not, is [`backend/app/visits.py`](../backend/app/visits.py);
 the promise made to visitors is [PRIVACY.md](../PRIVACY.md) § «Counting visitors without
 recognising them».
+
+### After every Einsatz: `admin_postcheck`
+
+`python -m app.admin_postcheck <incident-id|latest> [--logs app.jsonl] [--http http.jsonl]`
+(`just postcheck …`) is the read-only morning-after check. It lists the devices seen, their
+crashes and render storms, HTTP errors and 409 bursts, clock jumps, duplicate events, PIN prompts
+and the vehicle «vor Ort / verlassen» rows against the GPS. It exits 1 when there are findings.
+It never writes: the session is switched to read-only before the first query. `--dump <dir>`
+reads a post-mortem's JSON dumps instead of a database. How to get the Railway logs, and what
+counts as a finding: [`backend/README.md`](../backend/README.md#the-post-einsatz-check-admin_postcheck).
