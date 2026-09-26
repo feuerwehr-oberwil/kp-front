@@ -1830,7 +1830,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .trow.trowTwo .trowClock { grid-area: clock; }
 .trow.trowTwo .trowChevron { grid-area: chev; width: 24px; }
 .trow.trowTwo .trowAct { grid-area: act; }
-.trowActs { display: grid; grid-template-columns: 1fr 1.35fr; gap: 8px; }
+/* two IDENTICAL tiles since the slim-down (26.09.2026 evening): the 1.35fr the «Druck 240 bar»
+   button needed went with the word — a gauge and a number take no more room than «Kontakt» */
+.trowActs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .trow:is(.trowTwo, .trowCard) .trowKontakt { min-height: 48px; padding: 0 12px; }
 .trow:is(.trowTwo, .trowCard) .trowKontakt span { display: inline; }
 /* …and a row WITHOUT the two actions (Bereit, Draussen, a viewer's board, a Trupp without
@@ -1847,15 +1849,50 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; line-height: 1.2; }
 /* a Trupp not yet in has no contact clock: its «–:––» is quiet, like an out crew's (.trowOut) */
 .trowIdle .trowClockVal { font-size: 17px; font-weight: 700; color: var(--ink-dim); }
-.trowPressBtn { min-height: 48px; padding: 0 12px; border-radius: var(--r-ctl); font-size: 14px;
+/* ── ONE tile family on the phone (26.09.2026 evening, phone card slim-down) ───────────────────
+   The pressure tile, «Kontakt», «Rückzug» and «Raus» are one shape — 48px, the one corner, ONE
+   1px inset edge, 800/14 — laid as a 2×2 grid on the opened card (the pair, then `.actions`
+   under it with the same columns and gap) and as the pair alone on the closed row. Colour is
+   state and nothing else: the Kontakt tile wears the tier (`.kontaktWarn` / `.kontaktCrit` over
+   its calm green), «Rückzug» is amber only while the Trupp is at or under its Alarmdruck
+   (`.actAlarm`), the bar is red at or under the line (`.pairBarLow`); everything else is plain. */
+.trowPressBtn { min-height: 48px; padding: 0 12px; border-radius: var(--r-sm); font-size: 14px;
   background: var(--surface); color: var(--ink); gap: 7px;
-  box-shadow: inset 0 0 0 1.5px var(--glass-edge); }
+  box-shadow: inset 0 0 0 1px var(--glass-edge); }
+.trowPressBtn :global(.i) { width: 17px; height: 17px; }
 @media (hover: hover) { .trowPressBtn:hover { background: var(--fill-soft); } }
-/* the last reported bar on the Druck button (TruppPair, 26.09.2026) — the band's pressure readout
+/* the last reported bar on the pressure tile (TruppPair, 26.09.2026) — the band's pressure readout
    moved here, so the row and the opened card show it in one place. Mono like every bar on this
    board; red at or under this Trupp's line, the colour the band's «Alarmdruck» wore. */
 .pairBar { font: 800 14px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pairBarLow { color: var(--red); }
+/* …the second row of the grid: the lifecycle buttons, in the tile shape. The tablet card's
+   weights (loud Rückzug, quiet Raus, `auto` + `1fr`) do not apply here — four tiles under one
+   clock are read as a keypad, and a keypad has equal keys. */
+.trowCard .actions { grid-template-columns: 1fr 1fr; gap: 8px; }
+.trowCard .actions:has(> :only-child) { grid-template-columns: 1fr; }
+.trowCard .actBtn { min-height: 48px; padding: 0 12px; border-radius: var(--r-sm); font-size: 14px; font-weight: 800;
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--glass-edge); }
+.trowCard .actBtn :global(.i) { width: 16px; height: 16px; }
+.trowCard :is(.actRueckzug, .actContinue, .actExit, .actStandDown) { color: var(--ink-dim); }
+@media (hover: hover) { .trowCard :is(.actRueckzug, .actContinue, .actExit):hover { background: var(--fill-soft); } }
+/* amber ONLY at or under the Alarmdruck: that is the moment the tile is the answer */
+.trowCard .actRueckzug.actAlarm { color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 10%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 42%, transparent); }
+/* the tier as WORDS, one line under the tiles (TruppCard · stateLine); amber for «fällig», red for
+   overdue / Alarmdruck (`.kennCrit`), grey for a stopped clock or a work squad (`.kennQuiet`) */
+.stateLine { margin-top: 8px; font: 800 12.5px/1.35 var(--body); color: var(--amber-strong); }
+/* the Trupp's number after the name on the opened card's head (RowLine · no) — and «after the
+   name» means beside its last letter, so the name gives up its stretch there */
+.trowNo { margin-left: 2px; }
+.trowName:has(> .trowNo) > .trowNameTxt { flex: 0 1 auto; }
+/* the opened card's foot as ONE terse line: values with units, the Verlauf's chevron at the end,
+   and the whole line is the tap (TruppCard · footZone, rowMode) */
+.vrowTerse { padding: 0 11px; gap: 8px; }
+.vrowTerse .metaLine { flex: 1 1 auto; min-width: 0; padding: 0; }
+.trowCard .vrowTerse .metaLine { padding: 0; }
+.vrowTerse .logChev { margin-left: auto; }
 
 /* ── The opened card on the phone board IS the row, grown downwards (26.09.2026, owner) ─────────
    Same frame, tone and padding as `.trow` at this width (10px 11px), the same first line
@@ -1880,11 +1917,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    Kennzeile keeps the card's 8–10px rhythm instead of a 44px band; its glyph sits in the
    chevron's column */
 .kennRow > .headMenu { margin: -8px -10px -8px 0; }
-.kennNo { margin: 0; }
 .kennQuiet { color: var(--ink-dim); }
 .kennCrit { color: var(--red); }
 .trowCard .noteZone { padding: 8px 0 0; }
-.trowCard .actZone { padding: 10px 0 0; }
+.trowCard .actZone { padding: 8px 0 0; }
 .trowCard .noteZone:empty, .trowCard .actZone:empty { padding: 0; }
 /* the Verlauf keeps its full-bleed foot (hairline + wash), flush with the frame's bottom edge */
 .trowCard .vfoot { margin: 12px -11px -12px; }
@@ -1901,21 +1937,18 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .safetyDeploy { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
   border-radius: var(--r-ctl); background: var(--green); color: var(--on-accent-ink); font: 800 14px var(--body); }
 .safetyDeploy:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* Empty: a QUIET dashed slot while nobody is inside (D1 ⑦, 24.09.2026) — it only says where the
-   Sicherungstrupp will stand and when it is expected. Amber from the first crew inside
-   (`.safetyNoneDue`): from then on a missing one is a gap, and the slot says so in the warn tone. */
-.safetyNone { display: flex; align-items: center; gap: 10px; padding: 10px 11px 10px 14px; border-radius: var(--r-ctl);
-  border: 2px dashed var(--border);
-  background: transparent; }
-.safetyNoneTxt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.safetyNoneTxt b { font: 800 15px var(--body); color: var(--ink-dim); }
-.safetyNoneDue { border-color: color-mix(in srgb, var(--amber) 60%, transparent);
-  background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }
-.safetyNoneDue .safetyNoneTxt b { color: var(--amber-strong); }
-.safetyNoneTxt small { font-size: 12.5px; color: var(--ink-dim); }
-.safetyPick { flex: none; min-height: 48px; padding: 0 16px; border: none; cursor: pointer; border-radius: var(--r-ctl);
-  background: var(--surface); color: var(--ink); font: 800 14px var(--body); box-shadow: inset 0 0 0 1.5px var(--glass-edge); }
-.safetyPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* The SICHERUNGSTRUPP head (26.09.2026, phone card slim-down): a section head like DRIN / DRAUSSEN,
+   its rule, and «Bestimmen» at the row's right — a 36px pill of the count badge's family, so the
+   head reads as a head with a door in it, not as a box. The dashed «Kein Sicherungstrupp» slot
+   (D1 ⑦, 24.09.2026) went with the slim-down: an empty section under its own head says the same
+   in no words. `.sectDue`: a crew is inside and nobody stands ready — the title wears the warn
+   tone, a hint (the alarm rules do not know it), never a fill. */
+.sectSafety { margin-bottom: 8px; }
+.sect::after { order: 1; }
+.sectAct { order: 2; flex: none; min-height: 36px; padding: 0 14px; border: none; cursor: pointer; border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: 800 13px var(--body); box-shadow: inset 0 0 0 1px var(--glass-edge); }
+.sectAct:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.sectDue .sectTitle { color: var(--amber-strong); }
 
 /* (`.cardPressBtn`, the opened phone card's own Druck row, is gone since 26.09.2026: the opened
    card wears the row's «Druck | Kontakt» pair — TruppPair, `.pairBar`.) */
@@ -2070,8 +2103,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .surfaceFrozen .bandVal, .surfaceFrozen .trowClockVal, .surfaceFrozen .tabClock { color: var(--ink-dim); animation: none; }
 .surfaceFrozen .band { background: var(--fill-soft, rgba(0, 0, 0, .045)); }
 .surfaceFrozen .bandWord, .surfaceFrozen .trowState { color: var(--ink-faint); }
-/* …and the empty Sicherungstrupp slot (staging r6, F3): «Kein Sicherungstrupp · 2 Trupps sind drin»
-   is a fact about the board at the close, not a call to act — the dashed amber was the one
-   coloured warning left on a neutral closed Tafel. Same words, the frozen tone. */
-.surfaceFrozen .safetyNone { border-color: var(--glass-edge); background: var(--surface); }
-.surfaceFrozen .safetyNoneTxt b { color: var(--ink-dim); }
+/* …and the SICHERUNGSTRUPP head (staging r6, F3; a head since 26.09.2026): a missing
+   Sicherungstrupp is a fact about the board at the close, not a call to act — the amber title was
+   the one coloured warning left on a neutral closed Tafel. Same word, the frozen tone. */
+.surfaceFrozen .sectDue .sectTitle { color: var(--ink-dim); }

@@ -54,6 +54,14 @@ export function IconSprite() {
       <symbol id="box" viewBox="0 0 24 24"><path d="M12 3 4 7v10l8 4 8-4V7z" /><path d="M4 7l8 4 8-4M12 11v10" /></symbol>
       <symbol id="warn" viewBox="0 0 24 24"><path d="M12 3.5 22 20.5H2z" /><path d="M12 10v4.5" /><circle cx="12" cy="17.7" r=".4" /></symbol>
       <symbol id="drop" viewBox="0 0 24 24"><path d="M12 3.5c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z" /></symbol>
+      {/* The Manometer (26.09.2026, phone card slim-down): a half dial with its needle — what an
+          Atemschutzgeräteträger reads the pressure off, and it means pressure and nothing else. It
+          replaced the #drop on the pressure tile and on the top bar's Alarmdruck chip: a droplet
+          says WATER, which is the one thing a bar reading under Atemschutz is not. #drop stays for
+          the Leitung rows of the Verlauf (useTruppActions), where water is what it means. Distinct
+          from #gauge (a full dial with its stem, the Atemschutz surface's own glyph) at 16px by the
+          open bottom. */}
+      <symbol id="manometer" viewBox="0 0 24 24"><path d="M4 16.5a8 8 0 0 1 16 0" /><path d="M12 16.5 16.6 11.3" /><circle cx="12" cy="16.5" r="1.3" fill="currentColor" stroke="none" /><path d="M12 8.5V10M6.2 12.4l1.3.7M17.8 12.4l-1.3.7" stroke-opacity=".55" /></symbol>
       <symbol id="radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" /><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M6 6a9 9 0 0 0 0 12M18 6a9 9 0 0 1 0 12" /></symbol>
       <symbol id="flag" viewBox="0 0 24 24"><path d="M6 3v18M6 4h11l-2.5 3.5L17 11H6" /></symbol>
       <symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6" /></symbol>

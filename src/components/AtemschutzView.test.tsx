@@ -398,9 +398,9 @@ describe('an abgeschlossener Einsatz (frozenAt)', () => {
     const css = readFileSync(`${process.cwd()}/src/components/Atemschutz.module.css`, 'utf8')
     expect(css).toMatch(/\.surfaceFrozen \.st-aktiv, \.surfaceFrozen \.st-rueckzug, \.surfaceFrozen \.st-ueberfaellig \{ border-top-color: var\(--ink-faint\); \}/)
     expect(css).toMatch(/\.surfaceFrozen \.bandVal, \.surfaceFrozen \.trowClockVal, \.surfaceFrozen \.tabClock \{ color: var\(--ink-dim\)/)
-    // …the empty Sicherungstrupp slot included — no dashed amber on a closed Tafel (r6, F3)
-    expect(css).toMatch(/\.surfaceFrozen \.safetyNone \{ border-color: var\(--glass-edge\); background: var\(--surface\); \}/)
-    expect(css).toMatch(/\.surfaceFrozen \.safetyNoneTxt b \{ color: var\(--ink-dim\); \}/)
+    // …the SICHERUNGSTRUPP head included — no amber title on a closed Tafel (r6, F3; a head since
+    // the slim-down of 26.09.2026)
+    expect(css).toMatch(/\.surfaceFrozen \.sectDue \.sectTitle \{ color: var\(--ink-dim\); \}/)
   })
 })
 
@@ -453,9 +453,11 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
       fireEvent.click(row)
       const open = snapshot(document.querySelector('[data-az-open]')!)
       expect(open).toEqual(closed)
-      // two buttons, words on both, the bar on the Druck
+      // two tiles: the bar behind the gauge (the word «Druck» is its spoken name only since the
+      // slim-down of 26.09.2026), «Kontakt» with its word
       expect(open.pair).toHaveLength(2)
-      expect(open.pair[0]).toContain(`${az.actPressure} 240 bar`)
+      expect(open.pair[0]).toMatch(/\|240 bar$/)
+      expect(within(document.querySelector('[data-az-open]') as HTMLElement).getByRole('button', { name: `${az.actPressure} 240 bar` })).toBeTruthy()
       expect(open.pair[1]).toContain(az.actContact)
     } finally {
       vi.useRealTimers()
@@ -486,9 +488,10 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
     expect(card.querySelector(`.${s.band}`)).toBeNull()
     expect(within(card).getAllByRole('button', { name: az.actContact })).toHaveLength(1)
     expect(within(card).getAllByRole('button', { name: druckName })).toHaveLength(1)
-    // the Trupp's number, gone from the line, stands at the head of the Kennzeile
-    expect(card.querySelector(`.${s.trowHead}`)!.textContent).not.toContain('#2')
-    expect(card.querySelector(`.${s.kenn}`)!.textContent).toContain('#2')
+    // the Trupp's number, gone from the row's line, stands small after the name on the opened
+    // card's head (slim-down 26.09.2026 — the Kennzeile is a strip of tappable facts now)
+    expect(card.querySelector(`.${s.trowHead}`)!.textContent).toContain('#2')
+    expect(card.querySelector(`.${s.kenn}`)!.textContent).not.toContain('#2')
     // …and the pair works the same from here
     fireEvent.click(within(card).getByRole('button', { name: az.actContact }))
     expect(props.recordContact).toHaveBeenCalledWith('tr1')
@@ -1690,22 +1693,17 @@ describe('the phone board (full app)', () => {
     expect(setTruppStatus).toHaveBeenCalledWith('a', 'raus')
   })
 
+  /* The empty slot is a section HEAD since the slim-down (26.09.2026): «SICHERUNGSTRUPP ——— Bestimmen»,
+   * the title in the warn tone while a crew is inside and nobody stands ready. The two sentences the
+   * dashed box carried («Kein Sicherungstrupp · Ein Trupp ist drin») went with it. */
   it('asks for a Sicherungstrupp while a crew is inside and none stands ready', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [inField('a', 'Anna', 1)] })
-    expect(screen.getByText(az.safetyNone)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: az.safetyPick }))
+    const head = screen.getByText(az.safetyTitle).closest(`.${s.sect}`)!
+    expect(head.classList.contains(s.sectDue)).toBe(true)
+    fireEvent.click(within(head as HTMLElement).getByRole('button', { name: az.safetyPick }))
     const sichern = within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: 'Sichern' })
     expect(sichern.getAttribute('aria-pressed')).toBe('true')
-  })
-
-  it('counts the crews inside on the empty Sicherungstrupp slot — never «Ein Trupp» for four', () => {
-    vi.mocked(useIsPhone).mockReturnValue(true)
-    mount({ trupps: [inField('a', 'Anna', 1)] })
-    expect(screen.getByText(az.safetyNoneHint)).toBeTruthy()
-    cleanup()
-    mount({ trupps: [inField('a', 'Anna', 1), inField('b', 'Beat', 2), inField('c', 'Cla', 3)] })
-    expect(screen.getByText(fillTemplate(az.safetyNoneHintMany, { n: 3 }))).toBeTruthy()
   })
 
   it('gives a row without the two actions the one-line grid, so every clock sits in one column', () => {
@@ -1751,7 +1749,9 @@ describe('the phone board (full app)', () => {
       inField('a', 'Anna', 1),
       { ...aktivTrupp(), id: 'sich', name: 'Safe Sam', auftrag: 'sichern', status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] },
     ], setTruppStatus })
-    expect(screen.queryByText(az.safetyNone)).toBeNull()
+    // the head stays, its door goes: a Trupp stands under it
+    expect(screen.getByText(az.safetyTitle)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: az.safetyPick })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: az.safetyDeploy }))
     expect(setTruppStatus).toHaveBeenCalledWith('sich', 'aktiv')
   })
@@ -1917,16 +1917,17 @@ describe('the Sicherungstrupp slot, complete (D1 ⑦)', () => {
   const ready = (id: string, name: string, over: Partial<Trupp> = {}): Trupp => ({
     ...aktivTrupp(), id, name, members: ['Beispiel Ina'], status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [], ...over,
   })
-  const slot = () => screen.getByText(az.safetyNone).closest(`.${s.safetyNone}`)!
+  // the section head (slim-down 26.09.2026) — the dashed slot it replaced had the same two states
+  const slot = () => screen.getByText(az.safetyTitle).closest(`.${s.sect}`)!
 
   it('stands quiet in its place while nobody is inside, and turns amber with the first crew in', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [ready('r', 'Ready Rita')] })
-    expect(slot().classList.contains(s.safetyNoneDue)).toBe(false)
-    expect(screen.getByText(az.safetyNoneExpected)).toBeTruthy()
+    expect(slot().classList.contains(s.sectDue)).toBe(false)
+    expect(within(slot() as HTMLElement).getByRole('button', { name: az.safetyPick })).toBeTruthy()
     cleanup()
     mount({ trupps: [ready('r', 'Ready Rita'), { ...aktivTrupp(), id: 'i', name: 'In Ida' }] })
-    expect(slot().classList.contains(s.safetyNoneDue)).toBe(true)
+    expect(slot().classList.contains(s.sectDue)).toBe(true)
   })
 
   it('«Bestimmen» takes a Trupp standing ready — its Auftrag becomes «Sichern», nothing else', async () => {
@@ -2102,7 +2103,7 @@ describe('review fixes: the phone board', () => {
   it('offers no Sicherungstrupp slot once every Trupp is out', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000) }] })
-    expect(screen.queryByText(az.safetyNone)).toBeNull()
+    expect(screen.queryByText(az.safetyTitle)).toBeNull()
     expect(screen.queryByRole('button', { name: az.safetyPick })).toBeNull()
   })
 })

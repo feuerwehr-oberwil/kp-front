@@ -365,7 +365,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
               title={appConfig.copy.atemschutz.chipHint}
               aria-label={`${appConfig.copy.modes.atemschutz}: ${what} — ${u.name}`}
             >
-              <Icon id={lowPressure ? 'drop' : 'gauge'} />
+              {/* the Manometer for the Alarmdruck (26.09.2026): the droplet it wore said water */}
+              <Icon id={lowPressure ? 'manometer' : 'gauge'} />
               <span className="tb-az-name">{u.name}</span>
               {/* the clock ticks off the bar's own 1 Hz tick — the alarm state object stays
                   reference-stable between tier/Trupp transitions (App must not re-render per
