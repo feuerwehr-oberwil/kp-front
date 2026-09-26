@@ -668,11 +668,15 @@ describe('(h) the phone FAB never sits over the Atemschutz board', () => {
 
 /* staging r5 N3: the Meldeleiste paints INSIDE the open Einsatz's `.app` (lib/meldeleisteHost) —
    beside it, at App root, it outranked the whole stacking context and lay over the Einsatz menu. */
-describe('(i) the workspace is where the Meldeleiste paints', () => {
+describe('(k) the workspace is where the Meldeleiste paints', () => {
   it('registers its .app as the strip\'s host, and lets go when it unmounts', async () => {
     const { unmount } = await mount()
     expect(getMeldeleisteHost()?.classList.contains('app')).toBe(true)
     unmount()
     expect(getMeldeleisteHost()).toBeNull()
+    // the last test of the file: let the unmounted workspace's IndexedDB round-trips (the media
+    // queue's mount flush) land while jsdom still stands — under a loaded full run they settled
+    // after the teardown and failed the suite with «window is not defined» (useMediaQueue)
+    await settle(100)
   })
 })
