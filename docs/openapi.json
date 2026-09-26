@@ -12623,6 +12623,9 @@
           "report": {
             "$ref": "#/components/schemas/ReportConfig"
           },
+          "suche": {
+            "$ref": "#/components/schemas/SucheConfig"
+          },
           "sharepoint": {
             "$ref": "#/components/schemas/SharePointConfig"
           },
@@ -12689,6 +12692,9 @@
           },
           "report": {
             "$ref": "#/components/schemas/ReportConfig"
+          },
+          "suche": {
+            "$ref": "#/components/schemas/SucheConfig"
           },
           "sharepoint": {
             "$ref": "#/components/schemas/SharePointConfig"
@@ -17586,6 +17592,20 @@
           "auth"
         ],
         "title": "SubscriptionKeys"
+      },
+      "SucheConfig": {
+        "properties": {
+          "uebergabe": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Uebergabe"
+          }
+        },
+        "type": "object",
+        "title": "SucheConfig",
+        "description": "The Suche (24.09.2026): `uebergabe` is the short list «weiter an» offers when a found\nperson is handed over (Rettungsdienst · Sammelplatz · Angehörige). Empty = the app's national\ndefault; the operator can always type another."
       },
       "TerminalSessionIn": {
         "properties": {

@@ -150,6 +150,9 @@
 .nav-live.nav-count { top: 2px; right: 2px; width: auto; min-width: 16px; height: 16px; padding: 0 3px;
   box-sizing: border-box; border-radius: 8px; background: var(--accent); color: var(--on-accent-ink);
   font: 800 10px var(--body); line-height: 12px; text-align: center; }
+/* the Suche's count is the people still MISSING — semantic red, never the station accent (which
+   a station may have set to anything) */
+.nav-live.nav-count.nav-vermisst { background: var(--red); color: var(--on-fill); }
 /* Atemschutz cross-surface alarm dot: amber when fällig, red + pulse when überfällig */
 .nav-live.nav-alarm { background: var(--amber); }
 .nav-live.nav-alarm.crit { background: var(--red); animation: nav-alarm-pulse 1.4s infinite; }

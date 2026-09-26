@@ -518,7 +518,7 @@ describe('mergeWorkspace — every field of the blob has a declared merge policy
     board: true, activePlanId: true, activeModule: true, pickedObjectId: true, planScale: true,
     building: true, vehicleOverrides: true, checklists: true, trupps: true, attendance: true,
     mittel: true, shifts: true, bands: true, cameraViews: true, trails: true, reportMeta: true,
-    attachments: true, planBindings: true, settings: true, intakeReviewedAt: true, weather: true,
+    attachments: true, suche: true, planBindings: true, settings: true, intakeReviewedAt: true, weather: true,
     schemaVersion: true,
   }
   const keys = Object.keys(FIELDS) as (keyof Saved)[]
@@ -544,8 +544,10 @@ describe('mergeWorkspace — every field of the blob has a declared merge policy
     for (const k of keys.filter((k) => MERGE_POLICY[k] !== 'local')) expect(k in merged).toBe(true)
   })
 
-  it('a key this build does not know rides with mine, as before the policy map', () => {
-    expect(mergeWorkspace({ future: 1 }, { future: 1 }, { future: 2 }).future).toBe(1)
+  it('a key this build does not know merges three-way as a value — an unchanged copy yields, a change wins', () => {
+    // (it rode with mine until 24.09.2026, which let an older device's echo revert a newer slice)
+    expect(mergeWorkspace({ future: 1 }, { future: 1 }, { future: 2 }).future).toBe(2)
+    expect(mergeWorkspace({ future: 1 }, { future: 3 }, { future: 1 }).future).toBe(3)
   })
 })
 

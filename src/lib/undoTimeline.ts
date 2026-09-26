@@ -31,7 +31,7 @@ import { newId } from './ids'
 
 /** The surfaces an entry can come from. `scope` narrows it further where a domain has several
  *  independent documents (a Plan id) – so replacing one plan does not invalidate the others. */
-export type UndoDomain = 'karte' | 'plan' | 'trupps' | 'anwesenheit' | 'mittel' | 'checkliste' | 'gebaeude' | 'rapport' | 'zeitplan' | 'ansicht' | 'pendenz'
+export type UndoDomain = 'karte' | 'plan' | 'trupps' | 'anwesenheit' | 'mittel' | 'checkliste' | 'gebaeude' | 'rapport' | 'zeitplan' | 'ansicht' | 'pendenz' | 'suche'
 
 /** What an entry's undo/redo reports back. `false` = the target is gone; the entry is discarded
  *  and the operator is told, rather than the app pushing stale state over a remote truth. */

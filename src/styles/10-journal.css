@@ -53,7 +53,11 @@
 .tb-az-clock { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 /* An ÜBERFÄLLIGER Trupp outranks the weather readout for the width. The chip only exists while
    somebody is overdue, so this trade only happens exactly when it should. */
-.topbar:has(.tb-az) .tb-weather-wrap { display: none; }
+/* ⚠️ What leaves the bar when it runs out of room is no longer decided here by «an alarm hides the
+   weather» (walk-through 25.09.2026, N12/N23): that rule took the weather off a 1180 px bar that
+   still had room for it, while at 360 px nothing stopped the Einsatz pill from being squeezed to
+   20 px. The bar is MEASURED instead (lib/useHeadFit) and collapses by priority — see the
+   `.topbar.fit-N` ladder below. */
 /* …and below 1100px it outranks the incident TITLE as well, for the same reason and by the same
    mechanism the phone layout already uses (glyph in, words out — the full title stays one tap away
    in the dropdown). Without this the bar ran out of road: the chip is allowed to shrink, but not
@@ -63,16 +67,34 @@
    of «Peter Schmid 615:41» outside the bar, i.e. the one thing on screen that must be legible was
    the one thing sitting on the map. The title is what a crowded bar can most afford to lose: you
    know which incident you are standing in; you do not know how long the Trupp has been inside. */
-@media (max-width: 1100px) {
-  .topbar:has(.tb-az) .ip-switch-title { display: none; }
-  .topbar:has(.tb-az) .ip-switch-glyph { display: grid; }
-  /* «Verlauf» loses its word too, the same trade the bar already makes for everyone below 860px.
-     Not «Eintrag»: that one stays labelled, because writing the journal entry is the thing an
-     officer does WHILE the alarm is running. :not(.tb-rem-count) so the reminder badge — a count,
-     not a label — survives; hiding it would drop a number the bar exists to show. */
-  .topbar:has(.tb-az) .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
-  .topbar:has(.tb-az) .tb-act:not(.tb-act-add) { padding: 8px; }
-}
+/* ── The bar's priority ladder (lib/useHeadFit · HEAD_FIT_STEPS) ──
+   Measured from nothing collapsed, one step at a time, until the bar fits; a step keeps every
+   step below it. Lowest priority first: the weather, the Einsatzdauer, ↷, the gaps, the Verlauf
+   word, the Suche's words, the alarm's name, the Einsatz title (the pill stays — glyph and ÜBUNG
+   marker), and last the «1?» count (the «?» stays). The pill itself never gives: squeezed below
+   a readable width counts as «does not fit». «Eintrag» keeps its word — writing the entry is
+   what an officer does WHILE the alarm runs. :not(.tb-rem-count) keeps the reminder count, a
+   number the bar exists to show.
+   ⚠️ No step takes a chip's ICON (final walk-through, R1): a bare red «5» said nothing. */
+.topbar.fit-1 :is(.tb-weather-cond, .tb-weather-temp) { display: none; }
+.topbar.fit-2 .tb-weather-wrap { display: none; }
+.topbar.fit-3 .tb-einsatzuhr { display: none; }
+.topbar.fit-4 .tb-act-redo { display: none; }
+.topbar.fit-5 { gap: 3px; padding-inline: 6px; }
+.topbar.fit-5 .tb-actions { gap: 0; }
+.topbar.fit-5 :is(.tb-az, .ip-switch-btn) { padding-inline: 7px; }
+.topbar.fit-6 .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
+.topbar.fit-6 .tb-act:not(.tb-act-add) { padding: 8px; }
+.topbar.fit-7 .tb-suche .tb-suche-full { display: none; }
+.topbar.fit-7 .tb-suche .tb-suche-short { display: inline; }
+.topbar.fit-8 .tb-az-name { display: none; }
+.topbar.fit-9 .ip-switch-title { display: none; }
+.topbar.fit-9 .ip-switch-glyph { display: grid; }
+.topbar.fit-9:has(.ip-switch-btn > .ip-badge-exercise) .ip-switch-glyph { display: none; }
+.topbar.fit-10 .tb-suche-ask-n { display: none; }
+/* every chip in the bar is at least a tap wide, its glyph and its number together */
+.topbar :is(.tb-az, .tb-suche) { min-width: var(--tap); justify-content: center; }
+.topbar :is(.tb-az, .tb-suche) > .i { flex: none; }
 .tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 @media (hover: hover) {
   .tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
@@ -80,6 +102,12 @@
 /* the quiet lead: «Kontakt fällig» in amber, no pulse — the pulse is the alarm's voice */
 .tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 .tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
+/* the Suche's «2 vermisst» wears the red of a missing person but not the pulse: it stands for as
+   long as the search does, and a chip that blinks for an hour is one nobody sees any more */
+.tb-az.crit.tb-suche { animation: none; }
+.tb-suche-short { display: none; font-variant-numeric: tabular-nums; }
+/* the open «abgesucht?» questions beside the count on a narrow bar (N13) */
+.tb-suche-ask { margin-left: 5px; padding: 1px 6px; border-radius: var(--r-pill); background: var(--amber); color: var(--on-fill); font-weight: 800; }
 /* ⚠️ The pulse animates the BACKGROUND, not `opacity` (15.09.2026). An opacity animation put the
    chip on its own compositor layer over the bar's backdrop-filter, and WebKit then left the
    previous second's digits ghosting under the new ones («6:18» over «6:08») – a background

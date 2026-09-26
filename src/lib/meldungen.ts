@@ -14,7 +14,7 @@
  *  `warn`-toned Prüfen row does not overtake a due Wiedervorlage). */
 export type MeldungTone = 'alarm' | 'warn' | 'info' | 'calm'
 
-/** The ranking, and the whole design in eight lines. Lower stands higher on the strip. Adding a
+/** The ranking, and the whole design in a dozen lines. Lower stands higher on the strip. Adding a
  *  kind means deciding, once, where it stands — the point. */
 export const MELDUNG_RANK = {
   /** an Atemschutztrupp is überfällig or has reached its Alarmdruck — the audible alarm's own
@@ -33,25 +33,30 @@ export const MELDUNG_RANK = {
    *  and wrote the Verlauf row; this is that row, once per device (24.09.2026, D2). Above the
    *  GPS-follow row: a Lüfter blowing the wrong way is about the crew inside. */
   wind: 4,
+  /** a Trupp came out of an area it was searching and nobody has said yet whether it is
+   *  abgesucht (lib/suche · pendingAsks, walk-through 25.09.2026 N13) — one row per question,
+   *  gone when somebody answers, never waved away: the answer IS the dismissal. Below the wind:
+   *  the «abgesucht?» ask is bookkeeping that waits, a Lüfter blowing the wrong way is not. */
+  suche: 5,
   /** a vehicle a drawn Leitung is attached to has driven off; its anchor is off-screen */
-  gps: 5,
+  gps: 6,
   /** the alarm source's guesses have not been checked yet */
-  review: 6,
+  review: 7,
   /** another tab of this browser holds the edit lock */
-  tabLock: 7,
+  tabLock: 8,
   /** the tactical symbol pack failed to load — Karte and Kroki run without glyphs */
-  symbols: 8,
+  symbols: 9,
   /** offline with no cached basemap for this view — the map is a flat colour */
-  basemap: 9,
+  basemap: 10,
   /** the device has been offline past the grace window — edits are piling up locally
    *  (syncAlert · createOfflinePresence); stands until the link is back */
-  offline: 10,
+  offline: 11,
   /** the session cookie expired — the sync is standing still until the operator signs in again */
-  session: 11,
+  session: 12,
   /** a new build is waiting for the next app start */
-  update: 12,
+  update: 13,
   /** «KP Front als App installieren» */
-  install: 13,
+  install: 14,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK

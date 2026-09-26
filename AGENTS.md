@@ -241,6 +241,17 @@ to prod.
     it writes is SERVER-OWNED — `reportMeta.fahrzeuge[].gps` is put back on every client save
     (`keep_server_gps`). `zurueck` is «back at the depot» and stays the geofence's. «Active» =
     a human write within 24 h, never the observers' own. Full table: `docs/ARCHITECTURE.md`.
+  - ⚠️ **A new slice survives the builds that do not know it yet** (25.09.2026, review of the
+    Suche). An older device rebuilds its save from the fields IT knows, and a save replaces the
+    blob — so one tablet that had not updated erased a whole new slice for everybody. Three
+    guards, one per layer, all generic: `sanitizeWorkspace` keeps every top-level key it does not
+    know and the save echoes it back (`workspace · carriedWorkspaceKeys`, IncidentWorkspace ·
+    `carriedKeys`); the merge treats such a key three-way as a value, and «absent on my side»
+    as «never knew it», never «deleted» (`mergeWorkspace · unknownWorkspaceKeys`); and the server
+    carries the stored value over when a save leaves the key out (`api/incidents ·
+    CARRIED_WORKSPACE_KEYS` — builds already in the field predate the first two). Adding a synced
+    slice therefore means: its `MERGE_POLICY` row, its entry in `CARRIED_WORKSPACE_KEYS`, and a
+    client that ALWAYS sends it (even empty — absence cannot say «emptied»).
   - ⚠️ **What every device OBSERVES is recorded under a DERIVED id, once** (24.09.2026). One
     login is routinely open on three devices, and each runs the same engines — the Atemschutz
     alarm clock (the one observation still on the devices: it is about the device's own Tafel,
@@ -357,6 +368,74 @@ to prod.
   its audit chain, so do not widen this to editors, individual production rows, or a mutable
   history shortcut. Revisit external deletion evidence/retention policy before offering managed
   hosting; the current trust boundary is one station operating its own deployment.
+- **The Suche is ONE synced slice + append-only rows** (24.09.2026, step 1 — `lib/suche`,
+  `components/suche`). `suche = { personen, bereiche }`: a record says who or where, and what
+  happened to it is its own `log` — every state (vermisst → gefunden → übergeben / entwarnt; a
+  Bereich's offen / in Arbeit + Trupp / abgesucht / nicht zugänglich, «Fund») is FOLDED from it,
+  never stored. Each log row carries the Verlauf sentence it wrote, and the Verlauf row carries a
+  `suche` link back (Bereich «Suche», a tap opens the record). Rules that fall out of it:
+  - It merges by id, and a record both sides changed merges field-wise with its log as a union
+    by row id (`mergeWorkspace · mergeSuche`) — two devices booking two things about one person
+    keep both; a row one side took back stays gone. A record BOTH sides added under one derived id
+    (a storey both seeded) gets an empty ancestor and merges the same way, never «mine wins».
+  - A storey's own area is `sbg:<stack>:<index>` — DERIVED from the Gebäude (`stackKeyOf`: the
+    pack's binding, else the footprint) and the storey, so every device seeds the same record and a
+    REPLACED building starts fresh. The seed on first open (and on the first Trupp sent in on
+    «Absuchen») is a machine write, idempotent and no undo step. An unseeded storey renders as a
+    virtual «ganzes Geschoss · offen» so read-only devices see the same gaps.
+  - A find is ONE row (`gefunden`, with «weiter an» and the area it happened in on it — the area
+    wears «Fund» from it); «+ Gefunden» writes no «Vermisst». A person is corrected and withdrawn
+    by rows too (`korrigiert`, `irrtuemlich`) — a withdrawn record counts nowhere and is not
+    printed in «Personen» (the Einsatzjournal keeps both rows).
+  - What a Trupp's save implies is OBSERVED on every editor device and written under ids derived
+    from the Trupp, its SORTIE (`entryTime`) and its Ziel (`useSucheActions · observe`,
+    `lib/useSucheTrupps`): on the move into the field (or a new Ziel there) its Ziel's area turns
+    «in Arbeit · Trupp N» — a new name creating the part, a re-entry marking again; a new Ziel or a
+    removed Trupp releases the old area. A Trupp that never went in marks nothing.
+  - «Trupp N raus – abgesucht? Ja / Teilweise / Nein» is NOT a dialog: it is derived
+    (`pendingAsks` — an area «in Arbeit» whose Trupp is out) and stands on the area's own row, on
+    every editor device (the Raus may come from a handed-over board), until somebody answers; an
+    unanswered question writes nothing. It is COUNTED where people look — the head chip, the
+    phone's peek line, the Bereiche tab — and each one is a Meldeleiste row
+    (`components/suche/SucheAskMeldungen`, kind `suche`) that goes by itself once answered.
+    «Teilweise» is its own status (`teilweise`, keeps the Trupp), never «offen», and counts as
+    not done everywhere.
+  - A group is never found «all at once» by accident: the composer's chip names the count
+    («Klasse 4b · 2 von 5 gefunden», `composerFoundLink` — digits or a number word, never the
+    name's own), and it is offered when the sentence NAMES the record anywhere («2 Kinder der
+    Klasse 4b») as well as while the name is being typed (`suggestSuchePersonen`), and «Fund melden» starts at ONE, on
+    the storey the Trupp is searching (`truppFloor`), never the group's «zuletzt gesehen».
+    «Korrigieren …» also corrects where somebody was FOUND (the latest find; the «Fund» mark
+    moves with it, `foundBereiche`).
+  - The Suche opens where you are (`sucheSurfaceFor`); the rail entry always opens, never
+    toggles a dock that is out of sight. What else stands on the surface keeps clear of the dock
+    and the peek line (Meldeleiste, Grundgerüst card/strip, the storey ✕ — the storey's badge
+    has its own line under the label).
+  - A record that ENDS without a find («Entwarnen», «Irrtümlich erfasst») is never one tap: a
+    short form asks why and who said so (both optional, both in the row), «Abbrechen» focused.
+    The Abschluss asks about people still missing as its own question after the crews
+    (`vermisstAbschlussMessage`), «Zur Suche» focused.
+  - Undo is the WRITER's, as patches (`diffSuche` / `applySuchePatch`): a step takes back exactly
+    the records, rows and fields it added — never a row the machine or another device wrote since,
+    which a whole-slice snapshot (`useUndoableSlice`) did. Its Verlauf row quotes each row it took
+    back («Zurückgenommen: …»). The composer's entry that changes a status IS that change's Verlauf
+    row (`silent`) and says the change in its text («… · Suche: Tim Muster gefunden»).
+  - Every write emits ONE audit event with its patch (`suche.step` / `suche.undo`), and replay
+    folds those forward from the snapshot anchor (`lib/replay`) — row by row, like the Karte.
+  - EDITOR only in step 1 (`canEditIncident`): the `el` and viewers read; the record slice and the
+    Atemschutz-Link routes do not carry `suche`, and «Fund melden» from a link session is not
+    offered.
+  - Doors: the rail entry with the red count and the head chip «n vermisst» (phone: a row of the
+    «Einsatz» chooser, which OPENS it). No toggle in the tool rails — three doors to one thing.
+    Tablet: a DOCK beside the Gebäude or the Karte (the stack fits itself into the room left,
+    `Whiteboard · dockInset`), storey labels carry «2/4». Phone: `overlays/DetentSheet`, the one
+    NON-modal peek · half · full sheet — it stands on the nav bar and never covers it (on the
+    keyboard while that is up), the floor chips stand at every detent, and the tool bar steps
+    aside while it is up.
+  - ⚠️ Step 2 (not built): drawn areas and person markers on the plan/Karte, and the Rettung
+    symbol becoming a Person, fill the fields that are typed and empty today (`SuchePerson.point`,
+    `SucheBereich.shape`) — no migration. A drawn area is its own kind «Suchbereich», never a line,
+    so it can never be offered to a Trupp as its Leitung (the 23.09.2026 failure).
 - **A setting lives in one of three places – pick by who owns it, not by what is easiest to
   reach.** (1) *Device preference* – theme, symbol scale, rail words, offline radius, screen
   wake: cookie via `src/lib/prefs.ts`, surfaced in the **Einstellungen sheet**
@@ -426,6 +505,13 @@ to prod.
   zoom) — a real seam, where «select vs. create» was noise; the map-utility cluster has air; and
   the Einsatz menu draws ONE hairline, above the identity row (the small-caps label heads «App»
   on its own, but the signed-in row is not an action and the rule says «the list ends here»).
+  What leaves the TOP BAR when it runs out of room is MEASURED, not ruled per breakpoint
+  (`lib/useHeadFit`, 25.09.2026): one `fit-N` step at a time until it fits, lowest priority
+  first — weather, Einsatzdauer, ↷, the gaps, the Verlauf word, the Suche's words, the alarm's
+  name, the Einsatz title (the pill stays: glyph + ÜBUNG), the «1?» count. The Einsatz pill never
+  gives: squeezed below a readable width counts as «does not fit». A chip NEVER loses its icon —
+  a bare number says nothing — and is at least a tap wide. A new chip in the bar takes its place
+  in that ladder, never a `:has(...)` rule that hides a neighbour.
   A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
   in a `Menu`.
   And **no native form
@@ -778,7 +864,9 @@ to prod.
     — never a frame that is full-screen or centred there, like the Trupp form on a tablet or the
     handed-over Tafel; on the full app's PHONE board it IS a bottom sheet since 24.09.2026 and
     wears the bar, see the Atemschutz bullet), and the one
-    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026). The
+    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026). The one
+    NON-modal bottom sheet is `DetentSheet` (peek · half · full over a live surface, 24.09.2026,
+    the Suche): no backdrop, no focus trap, never closed by a swipe — its owner's ✕ closes it. The
     gesture needs the frame FLUSH with the bottom edge — which is why the phone Verlauf is a real
     bottom sheet now and no longer a card floating 8px off it.
   - **One menu row, one wash.** Every row `Menu`/`ContextMenu` renders wears `ui-menu-item`

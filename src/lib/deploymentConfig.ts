@@ -425,6 +425,9 @@ export interface DeploymentConfig {
   mittel?: DeploymentMittel
   /** journal composer: station Textbausteine (quick phrases); empty → app defaults */
   journal?: { quickPhrases?: string[] | null }
+  /** the Suche: «weiter an» — the station's short list of where found people are handed over
+   *  (Rettungsdienst · Sammelplatz · …); empty → the national default (copy · suche.uebergabeZiele) */
+  suche?: { uebergabe?: string[] | null }
   /** station alarm groups for the Alarmierungs-/Ausrückzeiten grid — empty hides it */
   alarms?: { groups?: AlarmGroup[] | null }
   /** Einsatzrapport form presets (Partnerorganisationen checkbox row) */
@@ -928,4 +931,12 @@ export function externalMapLinks(lng: number, lat: number): { label: string; hre
   return links
     .filter((l): l is { label: string; urlTemplate: string } => !!l?.label && !!l?.urlTemplate)
     .map((l) => ({ label: l.label, href: fill(l.urlTemplate) }))
+}
+
+/** «weiter an» in the Suche (lib/suche · Gefunden / Übergeben): the station's list when it set
+ *  one (`suche.uebergabe`), else the national default. Read per call, so a config that arrives
+ *  after boot applies at the next form. */
+export function sucheUebergabe(): string[] {
+  const list = (getDeploymentConfig().suche?.uebergabe ?? []).map((s) => s.trim()).filter(Boolean)
+  return list.length ? list : [...appConfig.copy.suche.uebergabeZiele]
 }

@@ -69,7 +69,9 @@ const PAGE_ROWS = 150
 // document alone and lands on it — which is all any plan row ever did. The record is append-only,
 // so those rows are never going to grow coordinates; landing them on the right plan with nothing
 // selected is the graceful floor, not a bug to guard against.
-const targetOf = (e: TimelineEvent): 'map-entity' | 'map-pin' | 'plan' | null => {
+const targetOf = (e: TimelineEvent): 'map-entity' | 'map-pin' | 'plan' | 'suche' | null => {
+  // a row about a Person / Bereich of the Suche opens the Suche on it (lib/suche)
+  if (e.suche) return 'suche'
   if (e.entityId) return 'map-entity'
   if (e.coord) return 'map-pin'
   const placedOnPlan = e.annoId != null || e.px != null || e.kind === 'symbol' || e.kind === 'team'
@@ -142,6 +144,7 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
     { icon: 'box', label: R.areaMittel },
     { icon: 'clipboard', label: R.areaRapport },
     { icon: 'check', label: R.areaChecklist },
+    { icon: 'search', label: R.areaSuche },
     { icon: 'type', label: R.areaManual },
     { ring: 'open', label: C.legendPendenzOpen },
     { ring: 'urgent', label: C.legendPendenzUrgent },
@@ -155,7 +158,7 @@ const FILTER_DISC: Record<JournalCategoryKind, { icon?: string; surface?: 'map' 
   manual: { icon: 'type' }, auftrag: { icon: 'type' }, sofort: { icon: 'type' }, pendenz: { ring: 'open' },
   map: { icon: 'circle', surface: 'map' }, plan: { icon: 'flag', surface: 'plan' },
   anwesenheit: { icon: 'people' }, atemschutz: { icon: 'gauge' }, mittel: { icon: 'box' },
-  rapport: { icon: 'clipboard' }, checklist: { icon: 'check' }, system: { icon: 'doc' },
+  rapport: { icon: 'clipboard' }, checklist: { icon: 'check' }, system: { icon: 'doc' }, suche: { icon: 'search' },
 }
 
 // The unified Verlauf — the single, append-only stream of everything that
@@ -1283,8 +1286,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 {target != null && (
                   <button type="button" className="btn"
                     onClick={() => { setDetailId(null); onSelect(e) }}>
-                    <Icon id={target === 'plan' ? 'flag' : 'pin'} />
-                    {target === 'plan' ? appConfig.copy.atemschutz.showOnPlan : appConfig.copy.atemschutz.showOnMap}
+                    <Icon id={target === 'plan' ? 'flag' : target === 'suche' ? 'search' : 'pin'} />
+                    {target === 'plan' ? appConfig.copy.atemschutz.showOnPlan : target === 'suche' ? appConfig.copy.suche.showInSuche : appConfig.copy.atemschutz.showOnMap}
                   </button>
                 )}
               </div>

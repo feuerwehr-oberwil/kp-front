@@ -463,6 +463,33 @@
    there the sheet is a centred dialog and there is no «down» to push it to — 15-mobile.css turns
    it on inside the same phone query the bottom-sheet layout itself lives in. */
 .ui-sheet-grab { display: none; }
+/* The NON-modal phone sheet with three detents (lib/overlays · DetentSheet, 24.09.2026). Fixed to
+   the viewport between two lines its owner publishes — `--detent-bottom` (above the nav bar it
+   must never cover) and `--detent-top` (under the top bar). No backdrop: what is under it stays
+   live. The height is the detent's, or the finger's while it drags (`--detent-live`). */
+.ui-detent { position: fixed; left: 0; right: 0; z-index: var(--z-detent);
+  bottom: var(--detent-bottom, 0px);
+  --detent-peek: 64px;
+  --detent-half: min(46dvh, calc(100dvh - var(--detent-top, 64px) - var(--detent-bottom, 0px) - 120px));
+  --detent-full: calc(100dvh - var(--detent-top, 64px) - var(--detent-bottom, 0px) - 8px);
+  height: var(--detent-live, var(--detent-half));
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-bottom: 0; border-radius: var(--r-hero) var(--r-hero) 0 0;
+  box-shadow: var(--shadow); transition: height .2s var(--ease); }
+.ui-detent.is-peek { height: var(--detent-live, var(--detent-peek)); }
+.ui-detent.is-full { height: var(--detent-live, var(--detent-full)); }
+.ui-detent.is-dragging { transition: none; }
+.ui-detent .ui-sheet-grab { display: flex; align-items: flex-end; justify-content: center; flex: none;
+  height: 18px; padding: 0 0 4px; touch-action: none; cursor: grab; }
+.ui-detent .ui-sheet-grab span { width: 40px; height: 5px; border-radius: var(--r-pill); background: var(--border); }
+/* the head is the handle — it must not hand the vertical gesture to the browser first; its own
+   controls opt back in */
+.ui-detent-head { flex: none; touch-action: none; }
+.ui-detent-head :is(button, input, [role="tab"]) { touch-action: auto; }
+.ui-detent-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+.ui-detent-body[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .ui-detent { transition: none; } }
 .ip-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 8px; }
 /* 800, like EVERY other title in the app — Anwesenheit, Mittel, Atemschutz, Checklists, Hilfe and
    the Rapport all set their h2 at 800/19. At 700 the dialog heads («Weitere Person erfassen»,

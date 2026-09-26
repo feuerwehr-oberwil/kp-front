@@ -139,6 +139,8 @@
   --z-chrome-raised: 36;     /* the coordinate read-out, over the chrome it reads out of */
   --z-map-util: 40;          /* compass · zoom · Standort · wind — the floating glass clusters */
   --z-map-util-raised: 41;   /* the phone's share pill, over them */
+  --z-detent: 42;            /* the phone's detent sheet (the Suche) — over every floating map chip, so
+                                at full height no wind or compass chip sits on its ✕ (25.09.2026, N10) */
   --z-replay: 50;            /* Wiedergabe */
   --z-messages: 54;          /* the message lane (.ml) */
   --z-fab: 55;               /* the phone's capture button */

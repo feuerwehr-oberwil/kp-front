@@ -84,6 +84,39 @@ so this file – not the log – is the record of what shipped up to that point.
   ever means an extinguished fire; rows already written keep their wording. Removing a single
   object on a plan finally writes that row too. On the Übung of 23.09.2026 the extinguished EG fire was deleted, and the
   Rapport's plan no longer showed there had been a fire at all.
+- **The Suche, step 1: who is still missing, and what is abgesucht (Übung 23.09.2026).** One list
+  of Personen (vermisst → gefunden → übergeben, or entwarnt; groups with a count) and Bereiche
+  (every storey of the Gebäude by itself, split by names; offen · in Arbeit + Trupp · abgesucht ·
+  nicht zugänglich · Fund), synced across devices and written into the Verlauf change by change.
+  On a tablet it docks beside the Gebäude or the Karte and the storey labels carry the progress
+  («1. OG 2/4»); on a phone it is a peek · half · full sheet over the plan that never covers the
+  nav bar, with floor chips and a Gebäude | Karte switch. Doors: the rail entry with the red count,
+  the «2 vermisst» head chip for everyone, the Verlauf composer («Name · vermisst → gefunden»),
+  and «Fund melden» / «Bereich abgesucht» on a Trupp. A Trupp's Ziel picks an area and marks it
+  «in Arbeit» on its way in; once it is out, «Trupp N raus – abgesucht? Ja / Teilweise / Nein»
+  stands on the area's row, on the head chip («9 vermisst · 1 Frage»), in the phone's peek line
+  and as a Meldeleiste row until somebody answers; «Teilweise» is its own status («teilweise
+  abgesucht · T1 · 14:19»), never the «offen» of an area nobody touched. A person can be corrected;
+  «Entwarnen» and «Irrtümlich erfasst» ask why and who said so first, with «Abbrechen» focused. ↶
+  takes back exactly one act. «Fund melden» opens as a sheet over the board it was asked from. The
+  Rapport counts the Gerettete from the list and prints a «Personen» section with one line per
+  person and «Suche: 8 Bereiche, alle abgesucht 20:39»; the Abschluss asks about people still
+  missing as its own question, naming them, with «Zur Suche» focused. A group is never found all
+  at once by accident: the composer's chip names the count («Klasse 4b · 2 von 5 gefunden»,
+  taken from the sentence — «3 von Klasse 4b gefunden», «zwei Kinder der Klasse 4b» — the group
+  found by its name anywhere in it) and
+  «Fund melden» starts at one, on the storey the Trupp is searching. «Korrigieren …» also corrects
+  where somebody was found. The Suche opens beside the Karte or plan you are on, and the rail entry
+  always opens it. The Meldeleiste, the Lage-Grundgerüst card and strip, and the storey ✕ keep
+  clear of the dock, the peek line and the storey's progress badge.
+- **The top bar collapses by priority, measured.** When a bar runs out of room, it gives up the
+  weather first, then the Einsatzdauer, ↷, the spacing, the Verlauf word, the Suche's words, the
+  alarm's name and the Einsatz title — one step at a time, only as far as needed. The Einsatz
+  pill never shrinks below a readable width (it was 20 px at 360 px with all chips up), no chip
+  is ever a bare number without its icon, and the weather stays on a 1180 px bar with an alarm
+  and the Suche chip up.
+  Editors only; the Einsatzleiter and viewers read. Station config: `suche.uebergabe`.
+
 - **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the
   phone no longer hides the clocks: the form is a bottom sheet, and the due and overdue Trupps
   (at most two, most urgent first) stand above it with a live «Kontakt» that confirms without
@@ -284,6 +317,9 @@ so this file – not the log – is the record of what shipped up to that point.
   marker (⌘D) takes the next number, a rename to a number somebody holds is refused, a revived
   Spur whose number was handed out since comes back as the next one, and a deleted marker's Spur
   keeps its number from being handed out again.
+- **A new synced slice survives an older device.** A build that does not know a top-level key
+  of the workspace now carries it through its load, its save and its merge, and the server keeps
+  a stored `suche` a save leaves out — one tablet that had not updated could erase the slice.
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched

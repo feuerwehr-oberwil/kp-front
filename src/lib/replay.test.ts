@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { activeReplayRange, activityMoments, findGaps, fractionAtTime, gapAt, journalMoments, layoutTrack, momentAt, segmentsFromGaps, stateAt, stepMoment, timeAtFraction, vehiclesAt } from './replay'
 import type { ReplayBundle, ReplayEvent, VehicleSampleRow } from './replay'
 import type { Saved } from './workspace'
+import { addPerson, diffSuche, emptySuche, personGefunden, personView } from './suche'
 
 const iso = (ms: number) => new Date(ms).toISOString()
 
@@ -81,6 +82,27 @@ describe('stateAt — fold over a snapshot anchor', () => {
     const s = await stateAt(b, 1000)
     expect(s).not.toBeNull()
     expect(s?.entities).toEqual([])
+  })
+
+  it('folds the Suche forward from its patches — row by row between two snapshots, and a ↶ takes its row back', async () => {
+    // every Suche write emits the PATCH it made (lib/useSucheActions); the fold applies it
+    const before = addPerson(emptySuche(), { name: 'Tim Muster' }, { at: iso(500), newId: (p) => `${p}1`, floorName: (f) => String(f), stack: '' }).doc
+    const after = personGefunden(before, before.personen[0].id, {}, { at: iso(2500), newId: (p) => `${p}2`, floorName: (f) => String(f), stack: '' }).doc
+    const created = diffSuche(emptySuche(), before)
+    const found = diffSuche(before, after)
+    const events = [
+      ev({ seq: 1, op_type: 'suche.step', occurred_at: iso(1000), payload_json: { patch: created } }),
+      ev({ seq: 2, op_type: 'suche.step', occurred_at: iso(3000), payload_json: { patch: found } }),
+      ev({ seq: 3, op_type: 'suche.undo', occurred_at: iso(5000), payload_json: { patch: found } }),
+      ev({ seq: 4, op_type: 'suche.step', occurred_at: iso(6000), payload_json: { patch: { created: [{ kind: 'personen', rec: { nope: 1 } }] } } }),
+    ]
+    const b = bundle(events, () => ({ workspace: emptyWs(), occurredMs: 0 }))
+    expect((await stateAt(b, 900))?.suche).toBeUndefined()
+    expect(personView((await stateAt(b, 2000))!.suche!.personen[0]).status).toBe('vermisst')
+    expect(personView((await stateAt(b, 4000))!.suche!.personen[0]).status).toBe('gefunden')
+    expect(personView((await stateAt(b, 5500))!.suche!.personen[0]).status).toBe('vermisst')
+    // a malformed record in a patch is dropped, never folded
+    expect((await stateAt(b, 7000))!.suche!.personen).toHaveLength(1)
   })
 
   it('folds entity.add events that occur in (snapshot, T]', async () => {

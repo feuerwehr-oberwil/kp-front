@@ -69,6 +69,31 @@ describe('every open point is a link', () => {
   })
 })
 
+describe('abschlussOpenPoints — the Suche (24.09.2026)', () => {
+  it('asks about people still missing FIRST, and makes the Abschluss a «trotzdem»', () => {
+    const pts = abschlussOpenPoints(['zeiten'], 0, 0, { vermisst: 2, openBereiche: [] })
+    expect(pts[0]).toEqual({ kind: 'vermisst', n: 2 })
+    expect(abschlussOpenLabel(pts[0])).toBe('2 Personen noch vermisst')
+    expect(abschlussOpenLabel({ kind: 'vermisst', n: 1 })).toBe('1 Person noch vermisst')
+    expect(countsAsOpen(pts[0])).toBe(true)
+  })
+
+  it('names an area not abgesucht as a HINT only — it never turns the button into «trotzdem»', () => {
+    const pts = abschlussOpenPoints([], 0, 0, { vermisst: 0, openBereiche: ['1. OG Trakt 3', '2. OG'] })
+    expect(pts).toEqual([{ kind: 'bereiche', names: ['1. OG Trakt 3', '2. OG'] }])
+    expect(abschlussOpenLabel(pts[0])).toBe('Nicht abgesucht: 1. OG Trakt 3, 2. OG')
+    expect(pts.some(countsAsOpen)).toBe(false)
+  })
+
+  it('both rows lead to the Suche; nothing is said without one', () => {
+    const go = { step: vi.fn(), trupps: vi.fn(), media: vi.fn(), suche: vi.fn() }
+    const items = abschlussOpenItems(abschlussOpenPoints([], 0, 0, { vermisst: 1, openBereiche: ['EG'] }), go)
+    items.forEach((i) => i.onClick())
+    expect(go.suche).toHaveBeenCalledTimes(2)
+    expect(abschlussOpenPoints([], 0, 0, { vermisst: 0, openBereiche: [] })).toEqual([])
+  })
+})
+
 describe('controlChipLabel — the Rapport head\'s one Kontrolle chip', () => {
   it('counts the open steps and the warnings each in its own words', () => {
     expect(controlChipLabel(4, 0)).toBe('4 noch offen')

@@ -228,6 +228,24 @@ class PendenzRowIn(BaseModel):
     notes: list[PendenzNoteIn] = []
 
 
+class PersonRowIn(BaseModel):
+    """One person of the Suche (24.09.2026, lib/suche · personPrintRows), derived by the client
+    from the person's append-only log. Every cell arrives formatted: the times follow the sheet's
+    one midnight rule, and a group carries its count in ``name`` («Klasse 3c (22 Pers.)»)."""
+
+    name: str
+    #: «zuletzt 1. OG Technikraum · Quelle Schulleitung» — a sub-line under the name
+    detail: str | None = None
+    #: HH:MM reported missing
+    vermisst: str
+    #: «20:16 · Trupp 3 · 1. OG Z101» (a group: «20 / 22 gefunden · …»)
+    gefunden: str | None = None
+    #: «20:21 an Rettungsdienst» · «entwarnt 20:05» · «vermisst» · «2 vermisst»
+    status: str
+    #: still missing when the Rapport was written — the status cell prints bold
+    open: bool = False
+
+
 class KrokiEntityIn(BaseModel):
     """One placed tactical symbol for the server-rendered Kroki. Dynamic glyphs
     (live vehicles, placards) arrive as the client-resolved SVG string."""
@@ -617,6 +635,9 @@ class ReportOptionsIn(BaseModel):
     #: Einsatzjournal is a normal choice, and the outstanding items are the last thing that should
     #: disappear with it. Defaults True so an older client that sends no option still prints them.
     pendenzen: bool = True
+    #: the Suche's «Personen» (24.09.2026) — its own switch like the Pendenzen; True by default so
+    #: an older client that sends no option still prints what it sends
+    personen: bool = True
 
 
 class PersonalSummaryIn(BaseModel):
@@ -681,6 +702,10 @@ class ReportPayload(BaseModel):
     #: Aufträge / Pendenzen — printed right after the Verlauf they are derived from, so a reader
     #: checking one line only turns back a page.
     pendenzen: list[PendenzRowIn] = []
+    #: the Suche's Personen — printed right after the Pendenzen, one line per person with times
+    personen: list[PersonRowIn] = []
+    #: «Suche: 8 Bereiche, alle abgesucht 20:39» — the one line about the Bereiche
+    sucheLine: str | None = None
     attachments: list[AttachmentIn] = []
 
 
@@ -762,6 +787,11 @@ L = {
     "colErledigt": "Erledigt",
     "pendenzOpen": "offen",
     "pendenzUrgent": "dringend",
+    # the Suche's Personen (24.09.2026) — after the Pendenzen, on the same sheet
+    "personen": "Personen",
+    "colVermisst": "Vermisst",
+    "colGefunden": "Gefunden",
+    "colStatus": "Status",
     "colArea": "Bereich",
     "colEntry": "Eintrag",
     "transcript": "Transkript",
@@ -2120,6 +2150,41 @@ def compose_report_pdf(
         # says out loud — «!» sits next to the word «dringend», an indented line under an Auftrag
         # reads as belonging to it, «offen» is the word in the column — and a caption that repeats
         # its own table teaches the reader to skip captions.
+
+    # --- Personen (the Suche, 24.09.2026) — right after the Pendenzen, the same kind of section:
+    # derived by the client from append-only rows, one line per person with its times, and the one
+    # «Suche: …» line about the Bereiche under it. The main page keeps only the «Gerettet» cell.
+    if opt.personen and (payload.personen or payload.sucheLine):
+        story.append(Spacer(1, 7 * mm))
+        story.extend(head(L["personen"]))
+        if payload.personen:
+            s_head = [
+                Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colWer", "colVermisst", "colGefunden", "colStatus")
+            ]
+            s_body: list[list] = []
+            for per in payload.personen:
+                who: list = [Paragraph(_esc(per.name), st["cell"])]
+                if per.detail:
+                    who.append(Paragraph(_esc(per.detail), st["subline"]))
+                status = f"<b>{_esc(per.status)}</b>" if per.open else _esc(per.status)
+                s_body.append(
+                    [
+                        who,
+                        Paragraph(_esc(per.vermisst), st["cell"]),
+                        Paragraph(_esc(per.gefunden or ""), st["cell"]),
+                        Paragraph(status, st["cell"]),
+                    ]
+                )
+            s_tbl = Table(
+                [s_head, *s_body],
+                colWidths=[inner_w - 116 * mm, 20 * mm, 56 * mm, 40 * mm],
+                repeatRows=1,
+            )
+            s_tbl.setStyle(_table_style())
+            story.append(s_tbl)
+        if payload.sucheLine:
+            story.append(Spacer(1, 3 * mm))
+            story.append(Paragraph(_esc(payload.sucheLine), st["cell"]))
 
     # --- Anhang: Kroki + annotated plans ALWAYS at the end (decided 2026-07-14) — the data
     # sections above are the identical main section; visual material is appended, never

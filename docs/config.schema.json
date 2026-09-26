@@ -1866,6 +1866,20 @@
       ],
       "title": "SharePointSource",
       "type": "object"
+    },
+    "SucheConfig": {
+      "description": "The Suche (24.09.2026): `uebergabe` is the short list «weiter an» offers when a found\nperson is handed over (Rettungsdienst · Sammelplatz · Angehörige). Empty = the app's national\ndefault; the operator can always type another.",
+      "properties": {
+        "uebergabe": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Uebergabe",
+          "type": "array"
+        }
+      },
+      "title": "SucheConfig",
+      "type": "object"
     }
   },
   "description": "The full config document an admin PUTs. All sections optional → `{}` is valid.\n\nThe input `integrations` block (ON/OFF intent) is accepted but IGNORED for the GET\nprojection: integration availability is derived from env-configured secrets, not the\ndocument (see ConfigIntegrations / config_projection in the router).",
@@ -1921,6 +1935,9 @@
     },
     "report": {
       "$ref": "#/$defs/ReportConfig"
+    },
+    "suche": {
+      "$ref": "#/$defs/SucheConfig"
     },
     "sharepoint": {
       "$ref": "#/$defs/SharePointConfig"

@@ -4,7 +4,7 @@ import type { InitialState } from './workspace'
 /** The per-incident SYNCED workspace slices — the operational data that rides the workspace
  *  blob (offline cache + three-way merge sync): the synced per-incident settings (Atemschutz
  *  interval …), checklist tick-state, Atemschutz trupps, attendance, Mittel
- *  (material-use log), the Schichtenplanung and its bands, saved camera views, the Trupp «Spuren» the incident kept (lib/truppTrails), per-plan scale calibration, Einsatzrapport metadata,
+ *  (material-use log), the Suche (Personen + Bereiche), the Schichtenplanung and its bands, saved camera views, the Trupp «Spuren» the incident kept (lib/truppTrails), per-plan scale calibration, Einsatzrapport metadata,
  *  the Gebäude document, the active plan id, the manually-picked Einsatzobjekt, and the shared
  *  «Einsatzdaten geprüft» stamp.
  *
@@ -28,6 +28,7 @@ export function useWorkspaceDoc(init: InitialState) {
   const [planScale, setPlanScale] = useState(init.planScale)
   const [reportMeta, setReportMeta] = useState(init.reportMeta)
   const [attachments, setAttachments] = useState(init.attachments)
+  const [suche, setSuche] = useState(init.suche)
   const [building, setBuilding] = useState(init.building)
   const [planBindings, setPlanBindings] = useState(init.planBindings)
   const [activePlanId, setActivePlanId] = useState(init.activePlanId)
@@ -46,6 +47,7 @@ export function useWorkspaceDoc(init: InitialState) {
     planScale, setPlanScale,
     reportMeta, setReportMeta,
     attachments, setAttachments,
+    suche, setSuche,
     building, setBuilding,
     planBindings, setPlanBindings,
     activePlanId, setActivePlanId,

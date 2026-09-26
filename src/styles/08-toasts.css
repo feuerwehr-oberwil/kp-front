@@ -213,6 +213,15 @@
   .ml-act { order: 1; flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; }
   .ml-act .ml-btn { flex: 1 1 auto; min-width: 0; }
 }
+/* …and the same second line wherever the strip itself is NARROW, whatever the screen: beside the
+   Suche's dock on an 820 px tablet it keeps ~280 px (Suche.module.css), and the actions painted
+   straight over the title (walk-through 25.09.2026, N13). Measured on the strip, not the viewport. */
+.ml { container-type: inline-size; }
+@container (max-width: 480px) {
+  .ml-row { flex-wrap: wrap; padding-bottom: 8px; }
+  .ml-act { order: 1; flex: 1 1 100%; justify-content: flex-end; }
+  .ml-act .ml-btn { flex: 1 1 auto; min-width: 0; }
+}
 
 /* pinned to both edges (NOT left:50% + translate: an auto-width fixed box only gets the
    space right of the 50% mark as shrink-to-fit width, so long undo toasts collapsed to a

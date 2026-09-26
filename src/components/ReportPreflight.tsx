@@ -7,6 +7,7 @@ import { buildDirectReportPayload, downloadDirectReportPdf, usedStackFloors } fr
 import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
+import { geretteteFromSuche, type SucheStack } from '../lib/suche'
 import { rowPhotos } from '../lib/verlauf'
 // the geometry every full surface stands in — the Rapport is the fifth of them
 import surface from './Surface.module.css'
@@ -38,7 +39,7 @@ import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
 import { incidentDays } from '../lib/zeitplanFormat'
-import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
+import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, SucheDoc, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
 import { PersonField } from './PersonField'
@@ -255,7 +256,7 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, suche, sucheStack, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -309,6 +310,11 @@ export function ReportPreflight({
   board?: BoardDoc
   /** the picked Gebäude (floor stack) — exports as blank-base plan pages when present */
   building?: BuildingDoc | null
+  /** the Suche (lib/suche): the Gerettete offer counts its Personen, and the print carries its
+   *  «Personen» section */
+  suche?: SucheDoc
+  /** the Gebäude as the Suche reads it — the Rapport counts the areas the screen counted */
+  sucheStack?: SucheStack
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
   captureUsage?: CaptureUsage | null
   /** Beilagen: photos that belong to the REPORT (an ID document, a damage close-up), printed
@@ -569,8 +575,14 @@ export function ReportPreflight({
     [scene?.entities, board],
   )
   const geretteteLage = useMemo(() => geretteteFromLage(placedOnLage), [placedOnLage])
+  // ⚠️ Once the Suche holds anybody, the PEOPLE come from its list (24.09.2026): found + handed
+  // over, a group by its count, marked «aus Personen» — the Rettungs-Symbol's count stops being
+  // offered for them (a symbol that stood for «vermisst» was counted as a rescue). The animals
+  // still come off the Karte: the Suche does not list them. Without a Suche nothing changes.
+  const geretteteAusPersonen = suche?.personen.length ? geretteteFromSuche(suche) : null
+  const geretteteSource = geretteteAusPersonen != null ? { personen: geretteteAusPersonen, tiere: geretteteLage.tiere } : geretteteLage
   const geretteteHint = canEdit
-    ? geretteteOffer(geretteteLage, { personen: numOrU(geretteteP), tiere: numOrU(geretteteT) })
+    ? geretteteOffer(geretteteSource, { personen: numOrU(geretteteP), tiere: numOrU(geretteteT) })
     : null
   // ── «Auf der Karte» — the Partnerorganisationen the Kroki already shows ──
   // A «Bereich Polizei» standing on the map IS the answer to «war die da?», and the checklist
@@ -885,7 +897,7 @@ export function ReportPreflight({
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({
-        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, suche, sucheStack,
         // the printed journal marks the same terms the app marks (lib/journalLinks) — the Trupps
         // included, or the paper would mark every name in a row except the crew it is about
         vocab: journalVocabulary(personnel, attendance, undefined, trupps),
@@ -919,7 +931,7 @@ export function ReportPreflight({
     if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
     warmedRef.current = true
     const payload = buildDirectReportPayload({
-      incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+      incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, suche, sucheStack,
       roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
     })
     void prewarmPrint(editorPrintTransport(), incident.id, payload)
@@ -940,7 +952,7 @@ export function ReportPreflight({
     try {
       const t = editorPrintTransport()
       const payload = buildDirectReportPayload({
-        incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+        incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, suche, sucheStack,
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
@@ -1583,6 +1595,8 @@ export function ReportPreflight({
                   // on the sheet said so. The count is also the diagnostic — «(0)» means the Einsatz
                   // raised none, not that the section is broken.
                   { kind: 'check' as const, label: fillTemplate(P.togglePendenzen, { n: pendenzCount }), checked: options.pendenzen && pendenzCount > 0, disabled: pendenzCount === 0, onChange: (v: boolean) => patchOpt({ pendenzen: v }) },
+                  // the Suche's Personen — its own row like the Pendenzen, disabled while nobody was reported
+                  { kind: 'check' as const, label: fillTemplate(P.togglePersonen, { n: suche?.personen.length ?? 0 }), checked: options.personen && (suche?.personen.length ?? 0) > 0, disabled: !suche?.personen.length, onChange: (v: boolean) => patchOpt({ personen: v }) },
                   { kind: 'check' as const, label: fillTemplate(P.toggleAttachments, { n: attachments.length }), checked: options.attachments && attachments.length > 0, disabled: attachments.length === 0, onChange: (v: boolean) => patchOpt({ attachments: v }) },
                   { kind: 'sep' as const },
                   { kind: 'check' as const, label: P.toggleDetailedAudit, checked: options.detailedAudit, onChange: (v: boolean) => patchOpt({ detailedAudit: v }) },
@@ -1900,7 +1914,10 @@ export function ReportPreflight({
                 {geretteteHint && (
                   <div className="rz-lage-strip" role="status">
                     <span className="rz-lage-text">
-                      {fillTemplate(P.geretteteLageStrip, {
+                      {geretteteAusPersonen != null ? [
+                        fillTemplate(appConfig.copy.suche.gerettetStrip, { n: geretteteHint.personen }),
+                        geretteteHint.tiere ? fillTemplate(P.geretteteLageStrip, { list: fillTemplate(P.geretteteLageTiere, { n: geretteteHint.tiere }) }) : '',
+                      ].filter(Boolean).join(' · ') : fillTemplate(P.geretteteLageStrip, {
                         list: [
                           geretteteHint.personen ? fillTemplate(P.geretteteLagePersonen, { n: geretteteHint.personen }) : '',
                           geretteteHint.tiere ? fillTemplate(P.geretteteLageTiere, { n: geretteteHint.tiere }) : '',

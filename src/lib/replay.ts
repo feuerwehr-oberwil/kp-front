@@ -28,6 +28,7 @@
 
 import { apiGet } from './api'
 import { isBoardAnno, isDrawing, isEntity, sanitizeWorkspace, type Saved } from './workspace'
+import { applySuchePatch, emptySuche, sanitizeSuche, type SuchePatch } from './suche'
 import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LayerId, LngLat, WeatherData } from '../types'
 
 // --- API shapes (mirror backend schemas) --------------------------------------------
@@ -515,6 +516,15 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
       if (planId && id) ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).filter((a) => a.id !== id) }
       break
     }
+    // the Suche (lib/suche): every write emits the PATCH it made — the records it created, the rows
+    // it appended, the fields it changed — so the list folds forward exactly, row by row, between
+    // two snapshots; a ↶ emits the same patch as `suche.undo`
+    case 'suche.step':
+    case 'suche.undo': {
+      const patch = asSuchePatch(p.patch)
+      if (patch) ws.suche = applySuchePatch(ws.suche ?? emptySuche(), patch, e.op_type === 'suche.undo' ? 'undo' : 'redo')
+      break
+    }
     case 'layer.toggle': {
       const lid = (typeof p.id === 'string' ? p.id : null) as LayerId | null
       if (lid && ws.layerState) {
@@ -535,6 +545,29 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
     default:
       break
   }
+}
+
+/** A `suche.*` event's patch, through the same gate the live load uses (sanitizeSuche) — a
+ *  malformed record or row is dropped, never folded. */
+function asSuchePatch(v: unknown): SuchePatch | null {
+  if (!v || typeof v !== 'object') return null
+  const raw = v as Record<string, unknown>
+  const kinds = new Set(['personen', 'bereiche'])
+  const list = (x: unknown) => (Array.isArray(x) ? x.filter((y) => !!y && typeof y === 'object') as Record<string, unknown>[] : [])
+  const created = list(raw.created).filter((c) => kinds.has(String(c.kind))).flatMap((c) => {
+    const doc = sanitizeSuche({ [String(c.kind)]: [c.rec] })
+    const rec = doc?.[c.kind as 'personen' | 'bereiche'][0]
+    return rec ? [{ kind: c.kind as 'personen' | 'bereiche', rec }] : []
+  })
+  const rows = list(raw.rows).filter((r) => kinds.has(String(r.kind)) && typeof r.owner === 'string').flatMap((r) => {
+    const doc = sanitizeSuche({ personen: [{ id: 'x', log: [r.row] }] })
+    const row = doc?.personen[0]?.log[0]
+    return row ? [{ kind: r.kind as 'personen' | 'bereiche', owner: r.owner as string, row }] : []
+  })
+  const fields = list(raw.fields).filter((f) => kinds.has(String(f.kind)) && typeof f.id === 'string'
+    && !!f.before && typeof f.before === 'object' && !!f.after && typeof f.after === 'object')
+    .map((f) => ({ kind: f.kind as 'personen' | 'bereiche', id: f.id as string, before: f.before as Record<string, unknown>, after: f.after as Record<string, unknown> }))
+  return { created, rows, fields }
 }
 
 /** The reconstructed-state slices the UI reads when scrubbing. It IS the `Saved` blob:

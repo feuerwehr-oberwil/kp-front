@@ -378,6 +378,51 @@ async def test_report_pdf_carries_the_pendenzen_section(client, editor):
     assert "offen" in text  # the item nobody ticked off
 
 
+async def test_report_pdf_carries_the_personen_section(client, editor):
+    """The Suche's «Personen» (24.09.2026) end to end, for the same reason as the Pendenzen above:
+    pydantic drops an unknown key without a word, so only the page text proves the section made it
+    — the rows with their times, the bold «noch vermisst», and the one «Suche: …» line."""
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    payload = _minimal_payload(inc)
+    payload["personen"] = [
+        {
+            "name": "Tim Muster",
+            "detail": "zuletzt 1. OG Technikraum · Quelle Schulleitung",
+            "vermisst": "20:08",
+            "gefunden": "20:16 · Trupp 3 · 1. OG Z101",
+            "status": "20:21 an Rettungsdienst",
+        },
+        {
+            "name": "Klasse 3c (22 Pers.)",
+            "vermisst": "20:10",
+            "gefunden": "20 / 22 gefunden · 20:21",
+            "status": "2 vermisst",
+            "open": True,
+        },
+    ]
+    payload["sucheLine"] = "Suche: 8 Bereiche, 7 abgesucht · nicht abgesucht: 1. OG Trakt 3"
+    r = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(payload)})
+    assert r.status_code == 200, r.text
+
+    doc = pdfium.PdfDocument(io.BytesIO(r.content))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Personen" in text
+    assert "Tim Muster" in text
+    assert "Technikraum" in text  # the detail sub-line
+    assert "an Rettungsdienst" in text
+    assert "Klasse 3c (22 Pers.)" in text
+    assert "nicht abgesucht: 1. OG Trakt 3" in text
+
+    # …and switched off, nothing of it prints
+    payload["options"] = {**payload.get("options", {}), "personen": False}
+    r2 = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(payload)})
+    assert r2.status_code == 200, r2.text
+    doc2 = pdfium.PdfDocument(io.BytesIO(r2.content))
+    text2 = "\n".join(doc2[i].get_textpage().get_text_range() for i in range(len(doc2)))
+    assert "Tim Muster" not in text2
+
+
 async def test_journal_photos_print_side_by_side(client, editor):
     """Several photos on ONE journal row are laid out across the column, not stacked.
 

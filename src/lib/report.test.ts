@@ -406,6 +406,12 @@ describe('journalArea · one glyph, one Bereich — without breaking the record'
   const ev = (over: Partial<TimelineEvent>): TimelineEvent =>
     ({ id: 'x', t: '22:00', at, icon: 'type', text: 'Zeile', ...over })
 
+  it('files a Suche row under «Suche» by its link — the list\'s own row, its ↶ and a composer entry alike', () => {
+    expect(journalArea(ev({ icon: 'search', text: 'Gefunden: Tim Muster', suche: { personId: 'p1' } }), plans)).toBe('Suche')
+    expect(journalArea(ev({ icon: 'undo', kind: 'history', text: 'Zurückgenommen: EG abgesucht', suche: { bereichId: 'sbg0' } }), plans)).toBe('Suche')
+    expect(journalArea(ev({ kind: 'journal', text: 'Eva Beispiel beim Notausgang', suche: { personId: 'p2' } }), plans)).toBe('Suche')
+  })
+
   it('reads the poster’s Beilage rows under both glyphs — the new one and the one in the record', () => {
     expect(journalArea(ev({ icon: 'attach', text: 'Beilage hinzugefügt' }), plans)).toBe('Rapport')
     expect(journalArea(ev({ icon: 'photo', text: 'Beilage hinzugefügt' }), plans)).toBe('Rapport')

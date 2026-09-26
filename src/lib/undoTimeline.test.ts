@@ -216,4 +216,20 @@ describe('group — one act across domains is one step', () => {
     drop()
     expect(tl.canUndo()).toBe(false)
   })
+
+  // both halves together (merge of #222's named steps and the grouped Trupp save): a writer names
+  // its step once it knows its words — inside a group, or after the group closed
+  it('a grouped part can still be named: in the open group, and on the recorded step when it is the head', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('karte')
+    const h = tl.push({ domain: 'karte', label: 'Änderung', undo: () => {}, redo: () => {} })
+    const other = tl.push({ domain: 'trupps', label: 'T', undo: () => {}, redo: () => {} })
+    h.rename('KP gesetzt')
+    end()
+    expect(tl.peekUndo()?.label).toBe('KP gesetzt')
+    other.rename('nicht der Kopf') // a non-head part does not rename the step
+    expect(tl.peekUndo()?.label).toBe('KP gesetzt')
+    h.rename('KP verschoben')
+    expect(tl.peekUndo()?.label).toBe('KP verschoben')
+  })
 })
