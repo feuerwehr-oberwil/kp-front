@@ -855,17 +855,29 @@ to prod.
   - *The ✕ that closes a sheet is 36px with an 18px glyph, everywhere* (`.ip-x`, `.journal-x`,
     `.ctx-x` — one rule in 13-incident.css; it was 28/30/32). Beside a 44px search field it is
     44px instead (Palette, Verlauf search), and it is the ordinary grey, never a filled «on».
-  - *Radius:* **every** button is `var(--r-sm)`, whatever its size, border or icon-only-ness —
-    **except one that sits in a bar's padding** (22.09.2026): its corner is the bar's radius minus
-    the padding, so the two curves run concentric (`--r-nested`, stated beside the padding of
-    `.topbar` and `.rail` and their phone rules; read by the identity pill, `.tb-act`, the
-    Einsatzuhr, the rails' tiles; falls back to `--r-sm` outside a bar). A 10px card inside a
-    22px bar read as «way more angled than the container around it». `.toputil` already was
-    this arithmetic (16 − 6 = 10). The dark docks' ✕ (Ebenen, Ansichten) are the house 36/18 too.
-    Rows, list items, option cells, tiles and field triggers are **not** buttons and keep
-    `--r-ctl`; on-canvas furniture (handles, vertices, pins, trail marks, colour swatches, the
-    badges attached to a map object), dots, legends and avatars stay round – roundness is what
-    tells map furniture apart from chrome.
+  - *Radius – ONE corner (25.09.2026):* **every** rectangle is `var(--r-sm)` (12px) – button,
+    field, status box, row, card, page card, sheet, dialog, message; `--r-ctl`/`--r-surface`/
+    `--r-hero` are aliases of it, kept only as role names. Three exceptions, each a rule, never
+    taste: (1) things under ~32px tall wear `--r-xs` (the same shape at that size) and map
+    furniture, dots, avatars and the FAB stay round – roundness is what tells map furniture
+    apart from chrome; (2) a **floating container that hugs controls** (top bar, nav/tool bar,
+    glass clusters, menus, docks) keeps ONE even gap all round – `--bar-pad` plus its
+    1px border – and its corner is the controls' corner plus that gap, `--r-bar` (19px), so the
+    curves run parallel like nested squares (the top bar had 7px above the pill and 11px beside
+    it, and no radius could match both); a MESSAGE is not a bar – it wears the one corner itself
+    and its buttons sit `--msg-pad` inside with `--r-msg-in`; (3) the **parts of one control** (segments in `.useg`,
+    the zoom buttons in their group) are the control's corner less their inset. No literal px
+    radius above `--r-xs` (hairline ticks and handles aside); the old 10 · 14 · 16 · 20 · 22 scale put three corners on three neighbouring
+    buttons and read as a mess.
+  - *Messages – ONE surface, ONE lane (25.09.2026):* a toast, a mode's instruction (Gebäude
+    wählen), a tool's tip and the hold-tip wear the same look (08-toasts.css · «ONE message
+    surface»): the app's own surface (light by day, dark by night – never a dark pill on a light
+    UI), ink 13/600, the one corner, no outline of its own. A tone is the colour of the glyph the
+    sentence leads with – never an edge, never a fill. What goes away **by itself** shows a ✕
+    and a line that runs out with its time (lib/ui · ToastRow); what stays while its mode is on
+    shows neither. On a phone they share one lane
+    (`--msg-lane-bottom`, 15-mobile): the bars' own width (8px in from each side) and above the
+    FAB, never beside it.
   - *Type:* two sizes, two weights. `12.5px/700` compact (toolbars, docks, dense rows, chips),
     `14px/700` standard (sheet footers, form + page actions), and `800` **only** on the single
     action of a surface (Kontakt, Speichern, Senden). Nothing else.

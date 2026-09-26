@@ -243,7 +243,7 @@
 /* max-width beside the min: collision handling shifts a popup back onto the screen, it cannot
    shrink one that is wider than the screen. A long Trupp label is what would grow this past a
    phone's width — same guard the print menu and the context menu already carry. */
-.de-menu-pop { min-width: 200px; max-width: min(320px, 92vw); padding: 6px; border-radius: var(--r-ctl); background: var(--surface);
+.de-menu-pop { min-width: 200px; max-width: min(320px, 92vw); padding: var(--bar-pad); border-radius: var(--r-bar); background: var(--surface);
   box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — radius + hover/press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .de-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
@@ -272,7 +272,7 @@
    and «always the same spot» has to mean the same spot on the SCREEN. Nothing above it carries a
    transform, so the viewport is the containing block on both. */
 .sel-bar { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
-  display: flex; align-items: center; gap: 8px; padding: 6px;
+  display: flex; align-items: center; gap: 8px; padding: var(--bar-pad);
   border-radius: var(--r-cluster); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); box-shadow: var(--shadow); animation: pop .16s var(--ease); }
 /* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action) —

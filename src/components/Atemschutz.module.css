@@ -271,7 +271,7 @@
    One framed object rather than three stacked full-bleed strips: «wie lange schon» and «jetzt
    Kontakt» belong together, and the Druck setter was the only input on the card, filed as the
    third of four rows in a table of numbers that are otherwise only read. */
-.block { margin: 0 12px; border: 1.5px solid var(--glass-edge); border-radius: 16px; overflow: hidden; }
+.block { margin: 0 12px; border: 1.5px solid var(--glass-edge); border-radius: var(--r-sm); overflow: hidden; }
 .blockWarn { border-color: color-mix(in srgb, var(--amber) 50%, transparent); }
 .blockCrit { border-color: color-mix(in srgb, var(--red) 55%, transparent); }
 
@@ -1162,6 +1162,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .newBtn span { display: none; }
   /* the overdue badge is critical — keep it fully informative; the title truncates to make room */
   .overdueBadge { flex: none; padding: 7px 11px; }
+  /* …and the controls stand 8px apart in the one-row head, like the handed-over board's */
+  .head:not(.headCompact) .headActs { gap: 8px; }
 }
 
 /* respect reduced-motion: the überfällig signal is carried by colour + the state WORD + the
@@ -1452,6 +1454,16 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    the arrangement does not change identity between devices. */
 .headActs { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end;
   gap: var(--head-gap); flex: 0 0 auto; margin-left: auto; }
+/* ONE ROW (25.09.2026) — the handed-over board has had it since 09.09.; the full app still spent a
+   second row on its controls under «Trupps» (phone head 123px → 69px, and the tablet's wrapped too).
+   The titles give up the shared 240px basis and take what the controls leave; 132px is «Trupps»
+   plus the short sync line, so the head only wraps when a control more joins it (the overdue badge,
+   «Gelöschte») — the state that earns the second row. */
+.head:not(.headCompact) .headTitles { flex: 1 1 0; min-width: 132px; }
+.head:not(.headCompact) :global(.az-syncline) { flex-wrap: nowrap; min-width: 0; }
+.head:not(.headCompact) :global(.az-syncline) > * { min-width: 0; }
+.head:not(.headCompact) :global(.az-syncline) > * > span:last-child {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* «Ein Trupp, ein Bildschirm» — the handed-over board on a phone (AtemschutzView · focusMode).
    ⚠️ mock 03 (maintainer correction, 03.09.): the kicker is DROPPED here rather than shrunk —
@@ -1573,7 +1585,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    sooner, which `.tabNameWrap` has allowed since round 2. */
 .strip { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; }
 .tab { min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  padding: 5px 6px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+  padding: 5px 6px; border-radius: var(--r-sm); border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
 .tab:active { background-image: linear-gradient(var(--press), var(--press)); }
 .tabName { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .tabName :global(.i) { width: 14px; height: 14px; }
@@ -1826,6 +1838,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .cardPressBtn { width: 100%; justify-content: space-between; margin-top: 8px; padding: 0 14px; background: var(--surface);
   color: var(--ink); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--glass-edge); border-radius: var(--r-ctl); }
 .cardPressBtn b { font-family: var(--mono); font-weight: 800; }
+/* …and inside the Kontakt frame it is a ROW of the frame, like «Kontakt» above it (25.09.2026):
+   its own outline 1px inside the frame's drew a second ring with a second, tighter corner */
+.block .cardPressBtn { margin-top: 0; box-shadow: none; border-radius: 0; border-top: 1.5px solid var(--glass-edge); }
 
 /* the picker: a centred card at every width, like the place picker (never a full-screen sheet) */
 .pressureSheet { width: min(380px, calc(100vw - 24px)); height: auto; max-height: calc(100dvh - 24px); }
@@ -1836,7 +1851,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 }
 .pressureSheetHint { margin: 0 20px 4px; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
 .pressureGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 16px 6px; }
-.pressureCol { display: flex; flex-direction: column; gap: 7px; padding: 6px; border-radius: var(--r-ctl);
+.pressureCol { display: flex; flex-direction: column; gap: 7px; padding: 6px; border-radius: calc(var(--r-sm) + 6px);
   background: var(--fill-soft, rgba(0, 0, 0, .045)); }
 .pressureCell { min-height: 54px; border: none; cursor: pointer; border-radius: var(--r-sm); background: var(--surface);
   font: 800 21px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;

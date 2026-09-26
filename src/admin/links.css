@@ -14,7 +14,7 @@
    card body's own 16px, because these are entries of one list and not sections. */
 .lnk-recs { display: flex; flex-direction: column; gap: 12px; }
 
-.lnk-rec { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.lnk-rec { border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
 
 /* the head line: name (+ the card's one ⓘ) · state · what it is for · the actions, right-aligned.
    It WRAPS — at a narrow width the actions drop to a second line rather than squeezing the

@@ -96,7 +96,7 @@
      fallback for when it has not. */
   min-width: 190px; max-width: min(320px, 92vw);
   max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
-  padding: 6px; border-radius: var(--r-ctl);
+  padding: var(--bar-pad); border-radius: var(--r-bar);   /* hugs its rows — 01-tokens · «ONE corner» */
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge);
   z-index: var(--z-popover);
 }
