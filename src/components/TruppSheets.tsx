@@ -1,16 +1,19 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, stripUnprintable } from '../lib/format'
 import { cx } from '../lib/cx'
 import { Overlay, SheetFoot, SheetGrab } from '../lib/overlays'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
-import { abbreviateName } from '../lib/personnel'
-import { auftragSheetFields, kanalPad, kanalSheetFields, leitungChoices, quickAuftragTypes } from '../lib/truppQuickEdit'
+import { abbreviateName, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
+import { atemschutzEquipment } from '../lib/deploymentConfig'
+import type { TruppTransferState } from '../lib/atemschutz'
+import { auftragSheetFields, fileGuestSlots, kanalPad, kanalSheetFields, leitungChoices, quickAuftragTypes, teamConflict, truppSheetFields, type CrewSlot } from '../lib/truppQuickEdit'
 import type { LeitungOption } from '../lib/truppLines'
-import type { Trupp, TruppAuftrag, TruppFields } from '../types'
+import type { Person, Trupp, TruppAuftrag, TruppFields } from '../types'
 import { Segmented } from './Segmented'
 import { ClearableInput } from './ClearableInput'
+import { TruppTeam } from './TruppTeam'
 import { ZielChips } from './suche/SucheTrupp'
 import s from './Atemschutz.module.css'
 
@@ -172,6 +175,115 @@ export function AuftragSheet({ t, zielChoices, leitungOptions, lite = false, onS
                 {fillTemplate(az.lineChip, { n: o.no })}{o.onPlan ? ' · P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+    </MiniSheet>
+  )
+}
+
+/**
+ * The sentence under a crew that names a person who is in another Trupp — and, where that Trupp
+ * has not gone in, the one tap that takes them out of it (lib/truppQuickEdit · teamConflict). ONE
+ * row for the big form and the Trupp sheet (26.09.2026): the form used to draw it inline. Two
+ * buttons inside one warn field, never a button inside a button: the sentence points at the crew
+ * (`onPoint`), the action moves the person.
+ */
+export function TeamConflictRow({ conflict, toName, onPoint, onTransfer, className }: {
+  conflict: NonNullable<ReturnType<typeof teamConflict>>
+  /** the Gruppenführer this crew is forming — the other Trupp's Verlauf row says where they went */
+  toName: string
+  onPoint?: () => void
+  onTransfer?: (personId: string, toName: string) => void
+  className?: string
+}) {
+  const az = appConfig.copy.atemschutz
+  return (
+    <div className={cx(s.formWarn, className)}>
+      <Icon id="warn" />
+      <button type="button" className={s.formWarnText} onClick={onPoint}>
+        {fillTemplate(conflict.state === 'deployed' ? az.assignedConflictDeployed : az.assignedConflict, { name: conflict.name })}
+      </button>
+      {conflict.state === 'ready' && onTransfer && (
+        <button type="button" className={s.formWarnAct} onClick={() => onTransfer(conflict.personId, toName)}>
+          {az.assignedTransfer}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * «Trupp 2» — «Mannschaft» over the form's own crew picker (TruppTeam: chips with ✕, «Person
+ * suchen …», the Gruppenführer hint), «Ausrüstung» over the station's toggles, one Speichern. The
+ * same record, the same helpers as the form (lib/truppQuickEdit · crewFields / fileGuestSlots /
+ * teamConflict); the Gäste typed here reach the Anwesenheit at the save, as the form's do. Only an
+ * Atemschutz-Trupp is asked its Ausrüstung — a work squad takes no Retthaube in.
+ */
+export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById, transferState, onTransfer, onAddGuest, onSave, onClose }: {
+  t: Trupp
+  personnel: Person[]
+  legacyRoster: string[]
+  presentIds: Set<string>
+  stationIds: Set<string>
+  /** who is in another ACTIVE Trupp — the picker greys them, the save is held while one is in the crew */
+  assignedIds: Set<string>
+  rolesById: Map<string, string>
+  transferState?: (personId: string) => TruppTransferState
+  onTransfer?: (personId: string, toName: string) => void
+  onAddGuest?: (name: string) => string | undefined
+  onSave: (f: TruppFields) => Promise<boolean> | boolean
+  onClose: () => void
+}) {
+  const az = appConfig.copy.atemschutz
+  const rosterByName = useMemo(() => rosterIdByName(personnel), [personnel])
+  const rosterById = useMemo(() => rosterFromList(personnel), [personnel])
+  const [team, setTeam] = useState<CrewSlot[]>(() =>
+    truppSlots(t, rosterByName, rosterById).map((sl) => (sl.personId ? sl : { ...sl, personId: personIdForName(rosterByName, sl.name) })))
+  const [equipment, setEquipment] = useState<string[]>(t.equipment ?? [])
+  const toggle = (id: string) => setEquipment(equipment.includes(id) ? equipment.filter((x) => x !== id) : [...equipment, id])
+  const conflict = teamConflict(team, assignedIds, transferState, az.assignedFallbackName)
+  const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
+  const canSave = leaderOk && !conflict
+  const teamRef = useRef<HTMLDivElement>(null)
+  const isPa = t.kind !== 'einfach'
+  const save = async () => {
+    if (!canSave) { teamRef.current?.scrollIntoView?.({ block: 'center' }); return }
+    // the Gäste are filed NOW, at the save — never on a tap in the picker — and their ids ride
+    // over the crew's (the form's `fileCrew`, same order of operations)
+    const f = truppSheetFields(t, team, equipment, atemschutzEquipment().map((e) => e.id))
+    if (await onSave({ ...f, ...fileGuestSlots(team, onAddGuest) })) onClose()
+  }
+  const title = t.no != null ? fillTemplate(az.quickTrupp, { no: t.no }) : t.name
+  return (
+    <MiniSheet title={title} sub={t.no != null ? t.name : undefined} ariaLabel={`${title} · ${az.editFieldLabels.crew}`} onClose={onClose}
+      className={s.miniSheetTall}
+      footer={(
+        <SheetFoot className={s.modalFoot}>
+          <button type="button" className={cx('ip-btn primary', !canSave && s.btnBlocked)} aria-disabled={!canSave} onClick={() => void save()}>{az.save}</button>
+        </SheetFoot>
+      )}>
+      <div ref={teamRef} className={s.field}>
+        <span>{az.editFieldLabels.crew}</span>
+        <TruppTeam value={team} onChange={setTeam} phone
+          personnel={personnel} legacyRoster={legacyRoster} presentIds={presentIds} stationIds={stationIds}
+          assignedIds={assignedIds} rolesById={rolesById} />
+      </div>
+      {conflict && <TeamConflictRow conflict={conflict} toName={team[0]?.name.trim() ?? ''} onTransfer={onTransfer}
+        onPoint={() => teamRef.current?.scrollIntoView?.({ block: 'center' })} />}
+      {isPa && (
+        <div className={s.field}>
+          <span>{az.equipmentLabel}</span>
+          <div className={s.miniChips} role="group" aria-label={az.equipmentLabel}>
+            {atemschutzEquipment().map((e) => {
+              const on = equipment.includes(e.id)
+              return (
+                <button key={e.id} type="button" role="checkbox" aria-checked={on}
+                  className={cx(s.miniChip, on && s.miniChipOn)} onClick={() => toggle(e.id)}>
+                  {az.equipmentLabels[e.id] ?? e.label}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}

@@ -1,7 +1,10 @@
 import { appConfig } from '../config/appConfig'
 import type { Trupp, TruppAuftrag, TruppFields } from '../types'
-import { isAtemschutzTrupp, truppFieldsOf } from './atemschutz'
+import { isAtemschutzTrupp, truppFieldsOf, type TruppTransferState } from './atemschutz'
 import type { LeitungOption } from './truppLines'
+
+/** one crew slot as TruppTeam holds it — `[0]` is the Gruppenführer (components/PersonField · Slot) */
+export type CrewSlot = { name: string; personId?: string }
 
 /**
  * The phone card's mini sheets — Kanal · Auftrag · Trupp (26.09.2026, phone card slim-down,
@@ -73,4 +76,62 @@ export function auftragSheetFields(t: Trupp, v: { auftrag: TruppAuftrag | null |
 /** …and the Kanal sheet's one tap: the same Trupp, one channel. */
 export function kanalSheetFields(t: Trupp, funkkanal: number): TruppFields {
   return truppFieldsOf(t, { funkkanal })
+}
+
+/* ── The crew, shared by the big form and the Trupp sheet (26.09.2026, ④) ─────────────────────
+ * The form owned these three answers inline; the Trupp sheet needs the same three, and two
+ * copies of «who is already in another Trupp» or «which typed name becomes a Gast» would drift
+ * the way three drawings of the card once did. So they are functions here, and both call them. */
+
+/**
+ * The first slot whose person is already in another ACTIVE Trupp (one person, one Trupp), with
+ * whether that Trupp is one they may be quietly moved out of (lib/atemschutz · truppTransferState)
+ * — the warning carries an ACTION, so it needs the id it is about. `null` = nobody clashes.
+ */
+export function teamConflict(
+  team: readonly CrewSlot[], assignedIds: ReadonlySet<string>,
+  transferState: ((personId: string) => TruppTransferState) | undefined, fallbackName: string,
+): { personId: string; name: string; state: TruppTransferState } | null {
+  for (const sl of team) {
+    if (sl.personId && assignedIds.has(sl.personId)) {
+      return { personId: sl.personId, name: sl.name.trim() || fallbackName, state: transferState?.(sl.personId) ?? 'blocked' }
+    }
+  }
+  return null
+}
+
+/**
+ * The Gäste typed into a crew reach the Anwesenheit at the SAVE — never earlier (staging
+ * walk-through 25.09.2026: «Abbrechen» left a person on the Rapport who never existed). Filed
+ * through `onAddGuest` (assignTypedName, which links a name already on the list instead of opening
+ * a second row); the ids come back into the Trupp, so the card and the Personalblatt are one
+ * person. A slot that already has an id, an empty one, or no door at all is left as it is.
+ */
+export function fileGuestSlots(team: readonly CrewSlot[], onAddGuest?: (name: string) => string | undefined): Pick<TruppFields, 'leaderPersonId' | 'memberPersonIds'> {
+  const filed = team.map((sl) => (sl.personId || !sl.name.trim() || !onAddGuest ? sl : { ...sl, personId: onAddGuest(sl.name.trim()) }))
+  const ids = filed.slice(1).filter((m) => m.name.trim()).map((m) => m.personId).filter(Boolean) as string[]
+  return { leaderPersonId: filed[0]?.personId, memberPersonIds: ids.length ? ids : undefined }
+}
+
+/** The crew as the record keeps it: the Gruppenführer's name, the AdF as names, and their ids —
+ *  the same shape the form's save builds (`name` + `members`, so nothing that ever read a Trupp
+ *  changed). Empty slots are dropped; an empty crew is an empty `members`. */
+export function crewFields(team: readonly CrewSlot[]): Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds'> {
+  const clean = team.slice(1).filter((m) => m.name.trim())
+  const ids = clean.map((m) => m.personId).filter(Boolean) as string[]
+  return {
+    name: team[0]?.name.trim() ?? '',
+    members: clean.length ? clean.map((m) => m.name.trim()) : undefined,
+    leaderPersonId: team[0]?.personId,
+    memberPersonIds: ids.length ? ids : undefined,
+  }
+}
+
+/** What the Trupp sheet's Speichern hands `editTrupp`: the Trupp as it stands, its crew and its
+ *  Ausrüstung replaced — the ids in the station's list order, nothing at all when nothing is
+ *  ticked (as the form's save writes them). `ownIds` is the station's list (deploymentConfig ·
+ *  atemschutzEquipment), so two operators ticking the same items record the same array. */
+export function truppSheetFields(t: Trupp, team: readonly CrewSlot[], equipment: readonly string[], ownIds: readonly string[]): TruppFields {
+  const eq = ownIds.filter((id) => equipment.includes(id))
+  return truppFieldsOf(t, { ...crewFields(team), equipment: eq.length ? eq : undefined })
 }

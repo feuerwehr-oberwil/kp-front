@@ -701,6 +701,58 @@ describe('the mini sheets', () => {
     expect(screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })).toBeTruthy()
   })
 
+  /* ④ — the Trupp sheet: the form's crew picker and the Ausrüstung toggles in one short sheet,
+   * saved through editTrupp with the crew and the Ausrüstung replaced and nothing else touched. */
+  it('the crew chip opens the Trupp sheet; ✕ on a member and Speichern write the smaller crew', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const editTrupp = vi.fn()
+    mount({ trupps: [{ ...withFacts(), equipment: ['wbk'] }], editTrupp })
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    fireEvent.click(within(document.querySelector('[data-az-open]') as HTMLElement).getByRole('button', { name: 'Huber' }))
+    const sheet = screen.getByRole('dialog', { name: new RegExp(`^${fillTemplate(az.quickTrupp, { no: 2 })}`) })
+    expect(within(sheet).getByText(az.editFieldLabels.crew)).toBeTruthy()
+    expect(within(sheet).getByText(az.equipmentLabel)).toBeTruthy()
+    fireEvent.click(within(sheet).getByRole('button', { name: fillTemplate(az.teamRemove, { name: 'Huber' }) }))
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ name: 'Steiner', members: undefined, equipment: ['wbk'], auftrag: 'loeschen', funkkanal: 11, pressure: 300 }))
+  })
+
+  it('ticking the Ausrüstung writes the ids in the station\'s order, and none when none', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const editTrupp = vi.fn()
+    mount({ trupps: [{ ...withFacts(), equipment: ['wbk'] }], editTrupp })
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    fireEvent.click(within(document.querySelector('[data-az-open]') as HTMLElement).getByRole('button', { name: 'WBK' }))
+    const sheet = screen.getByRole('dialog')
+    const box = (label: string) => within(sheet).getByRole('checkbox', { name: label })
+    expect(box('WBK').getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(box('Retthaube'))
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(editTrupp.mock.calls[0][1].equipment).toEqual(['retthaube', 'wbk'])
+    expect(editTrupp.mock.calls[0][1].members).toEqual(['Huber'])
+  })
+
+  it('a Gast typed into the sheet is filed at the save, and the id comes back into the Trupp', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    // no roster in this fixture, so every bare name is a Gast — Steiner and Huber file too, as
+    // they would from the form (fileGuestSlots is the same helper)
+    const editTrupp = vi.fn(), onAddGuest = vi.fn((name: string) => `g:${name}`)
+    mount({ trupps: [withFacts()], editTrupp, onAddGuest })
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    fireEvent.click(within(document.querySelector('[data-az-open]') as HTMLElement).getByRole('button', { name: 'Huber' }))
+    const sheet = screen.getByRole('dialog')
+    fireEvent.change(within(sheet).getByLabelText(az.teamSearchPlaceholder), { target: { value: 'Neu Nora' } })
+    fireEvent.click(within(sheet).getByRole('option', { name: fillTemplate(az.teamGuestAdd, { name: 'Neu Nora' }) }))
+    expect(onAddGuest).not.toHaveBeenCalled()
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(onAddGuest).toHaveBeenCalledWith('Neu Nora')
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({
+      name: 'Steiner', members: ['Huber', 'Neu Nora'], leaderPersonId: 'g:Steiner', memberPersonIds: ['g:Huber', 'g:Neu Nora'] }))
+  })
+
   it('a viewer has no doors: the facts are plain text', () => {
     mount({ trupps: [withFacts()], canEdit: false })
     expect(screen.queryByRole('button', { name: `${az.funkkanalUnit} 11` })).toBeNull()

@@ -33,7 +33,8 @@ import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
 import { TruppNo } from './TruppNo'
 import { ZielChips } from './suche/SucheTrupp'
-import { AuftragSheet, KanalSheet } from './TruppSheets'
+import { AuftragSheet, KanalSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
+import { fileGuestSlots, teamConflict } from '../lib/truppQuickEdit'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
@@ -274,7 +275,7 @@ export function AtemschutzView({
    * card, one short sheet, every save through `editTrupp`. Opened from the card's chips on every
    * width (the tablet's Kennzeile entries are the same doors), so the sheet is what a tap on a fact
    * does — the big form stays for Art and Eingangsdruck, behind «Bearbeiten». */
-  const [quick, setQuick] = useState<{ id: string; kind: 'kanal' | 'auftrag' } | null>(null)
+  const [quick, setQuick] = useState<{ id: string; kind: 'kanal' | 'auftrag' | 'trupp' } | null>(null)
   /* The one pressure picker (PressureSheet, 24.09.2026): a Druckmeldung from the phone row or card,
    * and the Restdruck at «Raus melden» on every width. Null when closed. */
   const [pressureAsk, setPressureAsk] = useState<{ id: string; kind: 'pressure' | 'exit' } | null>(null)
@@ -1015,7 +1016,7 @@ export function AtemschutzView({
       // …and on the phone the card's Druck is the same picker instead of the ± stepper
       onAskPressure={phoneMode ? (id) => setPressureAsk({ id, kind: 'pressure' }) : undefined}
       onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
-      onQuick={canEdit ? (kind) => (kind === 'trupp' ? openForm('edit', t) : setQuick({ id: t.id, kind })) : undefined}
+      onQuick={canEdit ? (kind) => setQuick({ id: t.id, kind }) : undefined}
       onDelete={deleteTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
       // ⚠️ never on a work squad. The arrows move one GLOBAL order while the board renders two
       // filtered sections, so a step can swap a Trupp past the section boundary and look like it
@@ -1696,8 +1697,20 @@ export function AtemschutzView({
         const save = (f: TruppFields) => saveQuick(t.id, f)
         return quick.kind === 'kanal'
           ? <KanalSheet t={t} onSave={save} onClose={close} />
-          : <AuftragSheet t={t} zielChoices={lite ? undefined : zielChoices} leitungOptions={leitungOptions(t.id)} lite={!!lite}
+          : quick.kind === 'auftrag'
+          ? <AuftragSheet t={t} zielChoices={lite ? undefined : zielChoices} leitungOptions={leitungOptions(t.id)} lite={!!lite}
               onSave={save} onClose={close} />
+          /* the crew and the Ausrüstung — the same roster, presence and «one person, one Trupp»
+             answers the form gets (see TruppForm's props below); a Trupp that has come OUT binds
+             nobody, for the reason given there */
+          : <TruppSheet t={t} personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
+              assignedIds={t.status === 'raus' ? NO_ASSIGNED : assignedPersonIds(trupps.filter((x) => x.id !== t.id))}
+              transferState={(personId) => truppTransferState(truppOfPerson.get(personId), personId)}
+              onTransfer={transferOutOfTrupp && ((personId, toName) => {
+                const from = truppOfPerson.get(personId)
+                if (from) transferOutOfTrupp(from.id, personId, toName)
+              })}
+              onAddGuest={onAddGuest} onSave={save} onClose={close} />
       })()}
 
       {placePick && (() => {
@@ -3451,18 +3464,9 @@ function TruppForm({
   /* ⚠️ The person, not just their name (11.09.): the warning now carries an ACTION — take them
      out of the other Trupp — and that needs the id it is about and whether that Trupp is one a
      person may be quietly moved out of at all (lib/atemschutz · truppTransferState). */
-  const assignedConflict = useMemo(() => {
-    for (const sl of team) {
-      if (sl.personId && assignedIds.has(sl.personId)) {
-        return {
-          personId: sl.personId,
-          name: sl.name.trim() || az.assignedFallbackName,
-          state: transferState?.(sl.personId) ?? 'blocked',
-        }
-      }
-    }
-    return null
-  }, [team, assignedIds, transferState])
+  // ONE answer for the form and the Trupp sheet (lib/truppQuickEdit · teamConflict, 26.09.2026)
+  const assignedConflict = useMemo(() => teamConflict(team, assignedIds, transferState, az.assignedFallbackName),
+    [team, assignedIds, transferState, az.assignedFallbackName])
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
   const bottleOk = !bottleAsk || bottle != null
   const canSubmit = auftragOk && leaderOk && (!showPressure || pressureLocked || pressure > 0) && bottleOk && !assignedConflict
@@ -3534,12 +3538,8 @@ function TruppForm({
      * through the same door as before (`onAddGuest` · assignTypedName, which links a name already
      * on the list instead of opening a second row); the ids come back into the Trupp, so the card
      * and the Personalblatt are one person. */
-    const fileGuests = (): Pick<TruppFields, 'leaderPersonId' | 'memberPersonIds'> => {
-      const filed = team.map((sl) => (sl.personId || !sl.name.trim() || !onAddGuest ? sl
-        : { ...sl, personId: onAddGuest(sl.name.trim()) }))
-      const ids = filed.slice(1).filter((m) => m.name.trim()).map((m) => m.personId).filter(Boolean) as string[]
-      return { leaderPersonId: filed[0].personId, memberPersonIds: ids.length ? ids : undefined }
-    }
+    // (shared with the Trupp sheet since 26.09.2026 — lib/truppQuickEdit · fileGuestSlots)
+    const fileGuests = (): Pick<TruppFields, 'leaderPersonId' | 'memberPersonIds'> => fileGuestSlots(team, onAddGuest)
     /* ⚠️ The draft is dropped only once the board SAYS the Trupp was written (staging walk-through
      * 25.09.2026): a question in front of the save — a Leitung another Trupp is on, a field
      * changed on another device, «Überwachung beenden?» — answered «Zurück» used to return to a
@@ -3964,18 +3964,10 @@ function TruppForm({
             withheld (the other crew is out there) it is the only door left. Two buttons inside
             one warn field, never a button inside a button. */}
         {assignedConflict && (
-          <div ref={conflictRef} className={cx(s.formColWide, s.formWarn)}>
-            <Icon id="warn" />
-            <button type="button" className={s.formWarnText} onClick={() => pointAt(() => teamRef.current)}>
-              {fillTemplate(assignedConflict.state === 'deployed' ? az.assignedConflictDeployed : az.assignedConflict,
-                { name: assignedConflict.name })}
-            </button>
-            {assignedConflict.state === 'ready' && onTransfer && (
-              <button type="button" className={s.formWarnAct}
-                onClick={() => onTransfer(assignedConflict.personId, team[0]?.name.trim() ?? '')}>
-                {az.assignedTransfer}
-              </button>
-            )}
+          <div ref={conflictRef} className={s.formColWide}>
+            {/* one row for the form and the Trupp sheet (TruppSheets · TeamConflictRow, 26.09.2026) */}
+            <TeamConflictRow conflict={assignedConflict} toName={team[0]?.name.trim() ?? ''}
+              onPoint={() => pointAt(() => teamRef.current)} onTransfer={onTransfer} />
           </div>
         )}
       </div>

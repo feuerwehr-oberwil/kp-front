@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { KANAL_PAD_MAX, auftragSheetFields, kanalPad, kanalSheetFields, leitungChoices, quickAuftragTypes } from './truppQuickEdit'
+import { describe, expect, it, vi } from 'vitest'
+import { KANAL_PAD_MAX, auftragSheetFields, crewFields, fileGuestSlots, kanalPad, kanalSheetFields, leitungChoices, quickAuftragTypes, teamConflict, truppSheetFields } from './truppQuickEdit'
 import { truppEditChanges } from './useTruppActions'
 import type { Trupp } from '../types'
 
@@ -73,5 +73,40 @@ describe('the sheets\' choices', () => {
     // …once, when it is drawn
     expect(leitungChoices(trupp, [...drawn, { no: 1, onPlan: false }]).map((o) => o.no)).toEqual([1, 2, 4])
     expect(leitungChoices({ ...trupp, lineNo: undefined }, drawn).map((o) => o.no)).toEqual([2, 4])
+  })
+})
+
+/* ── the crew, shared by the form and the Trupp sheet (④) ─────────────────────────────────── */
+describe('the crew helpers the form and the Trupp sheet share', () => {
+  const team = [{ name: 'Hirter Stephan', personId: 'p1' }, { name: 'Bendik Dimitri', personId: 'p2' }, { name: 'Gast Gabi' }, { name: '  ' }]
+
+  it('names the first person who is already in another active Trupp, with what may be done about it', () => {
+    expect(teamConflict(team, new Set(['p9']), undefined, 'Diese Person')).toBeNull()
+    expect(teamConflict(team, new Set(['p2']), () => 'ready', 'Diese Person')).toEqual({ personId: 'p2', name: 'Bendik Dimitri', state: 'ready' })
+    // no transfer door ⇒ the plain sentence; an unnamed slot ⇒ the fallback name
+    expect(teamConflict([{ name: '', personId: 'p2' }], new Set(['p2']), undefined, 'Diese Person')).toEqual({ personId: 'p2', name: 'Diese Person', state: 'blocked' })
+  })
+
+  it('files the typed Gäste at the save and hands their ids back — linked people untouched', () => {
+    const onAddGuest = vi.fn((name: string) => `g:${name}`)
+    expect(fileGuestSlots(team, onAddGuest)).toEqual({ leaderPersonId: 'p1', memberPersonIds: ['p2', 'g:Gast Gabi'] })
+    expect(onAddGuest).toHaveBeenCalledTimes(1)
+    expect(onAddGuest).toHaveBeenCalledWith('Gast Gabi')
+    // without a door nothing is filed and the Gast stays a bare name
+    expect(fileGuestSlots(team)).toEqual({ leaderPersonId: 'p1', memberPersonIds: ['p2'] })
+  })
+
+  it('writes the crew in the record\'s shape — leader name + member names, empty slots dropped', () => {
+    expect(crewFields(team)).toEqual({ name: 'Hirter Stephan', members: ['Bendik Dimitri', 'Gast Gabi'], leaderPersonId: 'p1', memberPersonIds: ['p2'] })
+    expect(crewFields([{ name: 'Solo Sam' }])).toEqual({ name: 'Solo Sam', members: undefined, leaderPersonId: undefined, memberPersonIds: undefined })
+  })
+
+  it('the Trupp sheet\'s save replaces crew and Ausrüstung only, ids in the station\'s order, none when none', () => {
+    const own = ['retthaube', 'wbk', 'multiwarn']
+    const f = truppSheetFields(trupp, [{ name: 'Hirter Stephan', personId: 'p1' }], ['multiwarn', 'retthaube'], own)
+    expect(f).toMatchObject({ name: 'Hirter Stephan', members: undefined, equipment: ['retthaube', 'multiwarn'], auftrag: 'loeschen', ziel: 'Test', lineNo: 1, funkkanal: 11, pressure: 280 })
+    expect(truppSheetFields(trupp, [{ name: 'Hirter Stephan', personId: 'p1' }], [], own).equipment).toBeUndefined()
+    // …and nothing changed writes nothing (editTrupp's rule)
+    expect(truppEditChanges(trupp, truppSheetFields(trupp, [{ name: 'Hirter Stephan', personId: 'p1' }, { name: 'Bendik Dimitri', personId: 'p2' }], ['retthaube'], own))).toEqual([])
   })
 })
