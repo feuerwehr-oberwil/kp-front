@@ -403,7 +403,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const pendenzen = pendenzRows(events, meta.startedAt ?? incident.started_at)
   // …and the Suche's Personen after them (24.09.2026): one line per person with its times, plus
   // the one line about the Bereiche. Same midnight rule as every other clock on the sheet.
-  const sucheClock = spanAwareClock({ alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? incident.closed_at ?? null })
+  const sucheClock = spanAwareClock({ alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? closeTimeOf(incident) ?? null })
   const clockOf = (iso: string) => sucheClock(iso) ?? ''
   const stack: SucheStack = sucheStack ?? { key: stackKeyOf(building), floors: [], floorName: (f: number) => building?.floorNames?.[String(f)] ?? floorLabel(f) }
   const personen = personPrintRows(suche, clockOf, stack.floorName)

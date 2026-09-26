@@ -34,4 +34,23 @@ describe('buildDirectReportPayload · personen', () => {
     expect(out.personen).toEqual([])
     expect(out.sucheLine).toBeUndefined()
   })
+  it('dates the Suche times when a reopen moved the Einsatzende to the next day (latest close, not the first)', () => {
+    // closed the same day, reopened, closed again a day later: the Suche's times span two days,
+    // so each carries its date — measured against the LATEST close (closeTimeOf), not the first
+    const found = '2026-09-04T09:00:00.000Z'
+    const out = buildDirectReportPayload({
+      incident: { id: 'i1', title: 'Brand', started_at: '2026-09-03T10:00:00.000Z', is_archived: true,
+        closed_at: '2026-09-03T11:00:00.000Z', last_closed_at: '2026-09-04T11:00:00.000Z' } as never,
+      draft: { meta: {}, generatedAt: '2026-09-04T12:00:00.000Z', proof: {}, options: { personen: true } } as never,
+      trupps: [], attendance: {}, events: [], plans: [],
+      suche: { personen: [{ id: 'p2', name: 'Eva Beispiel', createdAt: '2026-09-03T10:30:00.000Z', log: [
+        { id: 'v', op: 'vermisst', at: '2026-09-03T10:30:00.000Z', text: 'Vermisst: Eva Beispiel' },
+        { id: 'g', op: 'gefunden', at: found, text: 'Gefunden: Eva Beispiel' },
+      ] }], bereiche: [] },
+    }) as { personen: { name: string; gefunden?: string }[] }
+    const d = new Date(found)
+    const day = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
+    expect(out.personen[0].gefunden).toContain(day)
+  })
 })
+
