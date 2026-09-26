@@ -1,6 +1,7 @@
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from './deploymentConfig'
 import { formatSymbolName } from './format'
+import { doneStatusText } from './objectDone'
 import type { CaptionMode, SymbolControl, SymbolProps } from '../types'
 
 const presets = appConfig.symbols.presets
@@ -212,7 +213,9 @@ export function symbolLegendText(props: SymbolProps, globalMode: CaptionMode): s
   const order = presets.byName[props.symbol]?.fields ?? []
   const keys = [...order, ...Object.keys(fields).filter((k) => !order.includes(k))]
   // a vehicle's label IS its name («TLF 1») and never equals the symbol's own, so it passes
-  const parts = [formatSymbolName(props.symbol), customLabel(props), ...keys.map((k) => fields[k]?.trim()), globalMode === 'all' ? props.notes?.trim() : undefined]
+  // …and a symbol marked «Gelöscht / erledigt» (lib/objectDone) ends on that STATUS with its time
+  // — «Feuer · gelöscht 20:40» — the one word a grey glyph on paper cannot say by itself
+  const parts = [formatSymbolName(props.symbol), customLabel(props), ...keys.map((k) => fields[k]?.trim()), globalMode === 'all' ? props.notes?.trim() : undefined, doneStatusText(props) ?? undefined]
   const seen = new Set<string>()
   // one line: the legend wraps by itself, and a newline would start a second, unnumbered row
   return parts.filter((v): v is string => !!v && !seen.has(v) && !!seen.add(v)).map((v) => v.replace(/\s*\n\s*/g, ' ')).join(' · ')
