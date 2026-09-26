@@ -2,6 +2,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { floorLabel } from './whiteboard'
 import type { Entity } from '../types'
+import { jsonEqual } from './jsonEqual'
 
 /**
  * What changed on a tactical symbol, in words — the Verlauf line for editing the Kroki.
@@ -83,7 +84,7 @@ export function entityEditChanges(prev: Entity, next: Entity): string[] {
 
   // Ausbreitung is a statement about how the damage is developing — the shape of it belongs in
   // the picture, but that it was recorded at all belongs in the record.
-  if (JSON.stringify(prev.spread ?? null) !== JSON.stringify(next.spread ?? null)) {
+  if (!jsonEqual(prev.spread ?? null, next.spread ?? null)) {
     out.push(next.spread ? L.spreadSet : L.spreadCleared)
   }
 

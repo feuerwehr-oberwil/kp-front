@@ -41,6 +41,7 @@ from ..schemas import (
     WorkspacePut,
     _scrub_drawing_props,
 )
+from ..vehicle_presence import keep_server_gps
 
 logger = logging.getLogger(__name__)
 
@@ -284,6 +285,9 @@ async def apply_workspace_put(
     stored = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
     previous = {key: deepcopy(stored[key]) for key in ALARM_VALIDATED_KEYS if key in stored}
     _scrub_drawing_props(previous)
+    # The vehicles' `gps` blocks are the SERVER's (app/vehicle_presence): whatever copy a device
+    # sends — stale, merged over, or none at all from an older build — the stored one stands.
+    keep_server_gps(body.workspace, stored)
     try:
         validate_alarm_workspace(body.workspace, previous)
     except ValueError as exc:

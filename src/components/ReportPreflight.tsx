@@ -20,6 +20,8 @@ import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
+import { fahrtenText } from '../lib/vehiclePresence'
+import { VehicleGpsTable } from './VehicleGpsTable'
 import type { ZeitKind } from '../lib/alarmzeiten'
 import type { AssignableRole } from '../lib/roleAssignment'
 import { deploymentName, getDeploymentConfig, reportLinks } from '../lib/deploymentConfig'
@@ -253,7 +255,7 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, canShare = canEdit, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -322,6 +324,11 @@ export function ReportPreflight({
    *  (which is «nur ansehen – zum Bearbeiten reaktivieren»): the fields render, filled in and
    *  readable, but nothing in them can be changed. */
   canEdit?: boolean
+  /** may this session hand the Einsatz out (the «Weitergeben» section)? NOT `canEdit`: the `el`
+   *  role keeps the record but minting and reading links is editor-only on the server — the
+   *  section fetched both links on mount and logged two 403s for every el (3am test, 25.09.2026).
+   *  Defaults to `canEdit` for callers that never distinguished the two. */
+  canShare?: boolean
   /** Stunden editor: correct one person's von–bis; omit to render the table read-only */
   /** open the Einsatzdaten panel to correct the dispatch facts; omit to hide the link
    *  (e.g. viewers / read-only) */
@@ -2001,10 +2008,13 @@ export function ReportPreflight({
                           <label key={c.id} className="rz-row">
                             <span className="rz-name">
                               {c.label}
-                              {(v?.vorOrt || v?.zurueck) && (
+                              {(v?.vorOrt || v?.zurueck || fahrtenText(v)) && (
                                 <span className="rz-sub">
-                                  {v?.vorOrt ? ` ${P.vorOrtShort} ${clockOf(v.vorOrt)}` : ''}
-                                  {v?.zurueck ? ` · ${P.zurueckShort} ${clockOf(v.zurueck)}` : ''}
+                                  {[
+                                    v?.vorOrt ? `${P.vorOrtShort} ${clockOf(v.vorOrt)}` : '',
+                                    v?.zurueck ? `${P.zurueckShort} ${clockOf(v.zurueck)}` : '',
+                                    fahrtenText(v),
+                                  ].filter(Boolean).map((t, i) => (i ? ` · ${t}` : ` ${t}`)).join('')}
                                 </span>
                               )}
                             </span>
@@ -2017,6 +2027,10 @@ export function ReportPreflight({
                       </div>
                     </div>
                   )}
+                  {/* What the SERVER observed from GPS (D2, 24.09.2026) — display only, and read
+                      off the REMOTE blob: the server is its only writer, so a local copy being
+                      edited above has nothing to add to it. */}
+                  <VehicleGpsTable fahrzeuge={remoteFahrzeuge} />
                 </>
               )
             })()}
@@ -2560,13 +2574,14 @@ export function ReportPreflight({
               A section of its own (01.09.), and since 04.09. the LAST one on the page. Never on
               paper: the printed Rapport is the record, and «wer darf das hier lesen» is not part
               of it. Absent for a viewer — handing the Einsatzakte out of the station is an
-              editor's decision.
+              editor's decision — and absent for the `el` role too (`canShare`), which keeps the
+              record but may not mint or even read a link.
               ⚠️ It used to sit between «Formulare & Links» and the Kroki, in the middle of the
               column, where a QR the size of a hand cut the checklist in two and read as a step in
               it. It is not one: handing the Einsatzakte out is what one does AFTER the rapport is
               written, so it closes the page instead of interrupting it. Nothing about the section
               itself changed — same `data-tab`, same surface, same «Teilen» sheet inline. */}
-          {canEdit && (
+          {canShare && (
             <section className="report-pre-section rp-share" data-tab="beilagen">
               <h3>{P.shareHead}</h3>
               {/* `archived` because the Rapport is most often opened AFTER the Abschluss, and

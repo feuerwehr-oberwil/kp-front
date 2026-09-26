@@ -294,7 +294,28 @@ export interface LineAttachment {
     confirmedAt: LngLat
     /** Last safely resolved endpoint; used while GPS following is paused/missing. */
     lastSafe: LngLat
+    /** The line as it stood ON SITE when «Weiter folgen» (or «Spur») was tapped — lib/gpsReturn.
+     *  Taken once and never overwritten while the end follows, so «Zurück auf Stand am
+     *  Einsatzort» can put the line back exactly. Optional and additive: an older client spreads
+     *  `gps` wherever it writes it, so the field rides along untouched and is simply never read.
+     *  ⚠️ Valid only while its `confirmedAt` is this coupling's (gpsReturn · freshBefore): an
+     *  older build re-confirming the end keeps a snapshot that no longer describes anything. */
+    before?: GpsFollowSnapshot
   }
+}
+/** `LineAttachment.gps.before` — the on-site line at the moment following began. */
+export interface GpsFollowSnapshot {
+  /** the line's vertices, its GPS end on the point the screen showed on site */
+  coords: LngLat[]
+  routing: LineRoutingMode
+  state: GpsFollowState
+  confirmedAt: LngLat
+  /** the coupling's `lastSafe` at the tap: the LAST ON-SITE SAMPLE (a paused end stopped taking
+   *  samples when the vehicle crossed the 20 m guard), not where the vehicle was at the tap. The
+   *  point every «vom Einsatzort» distance is measured from. */
+  lastSafe: LngLat
+  /** ISO time of the tap (server clock) */
+  at: string
 }
 export interface Drawing {
   id: string
@@ -389,6 +410,10 @@ export interface TimelineEvent {
   t: string             // HH:MM
   /** absolute timestamp for reports/exports. Older saved rows may only have `t`. */
   at?: string
+  /** When the SERVER wrote the row, where that differs from `at` — an observer's row is dated
+   *  by the fact it records (a wind reading, a GPS time) and may arrive long after it
+   *  (backend · app/observations). Read for «is this still news», never for ordering. */
+  writtenAt?: string
   icon: string
   text: string
   kind?: 'audio' | 'symbol' | 'vehicle' | 'layer' | 'note' | 'photo' | 'snapshot' | 'journal' | 'team' | 'history' | 'reminder'
@@ -997,13 +1022,24 @@ export interface Trupp {
   /**
    * The Trupp's own number — «Trupp 3» — handed out at registration from ONE counter per Einsatz
    * that unlinked plan chips and map markers («Trupp N», lib/placedTrupps · nextTeamName) draw
-   * from too, so two things on the same incident are never both called Trupp 1. Never reused,
-   * never renumbered. Absent only on a record written before 12.09.; the load normaliser numbers
+   * from too, so two things on the same incident are never both called Trupp 1. Never reused.
+   * Changed ONLY by the merge, when two devices minted the same number at once (lib/truppNumbers,
+   * 25.09.2026 — one keeps it, the other takes the next, and the Verlauf says so); nothing else
+   * ever writes it after registration. Absent only on a record written before 12.09.; the load normaliser numbers
    * those by registration time (lib/workspace · numberTrupps) and the next write persists it.
    * Documentation, not identity: people call a Trupp by its Gruppenführer, so the leader stays
    * the face of the card and the marker, and this is the small badge beside it.
    */
   no?: number
+  /**
+   * The numbers this Trupp carried BEFORE a merge gave its number to another device's Trupp,
+   * oldest first (lib/truppNumbers · resolveTruppNumbers, 25.09.2026). Written by the resolver
+   * alone, deterministically, so every device computes the same list. The Rapport's heading reads
+   * «Trupp 3 (zuerst Trupp 1)» from it, because the rows written before the change still say
+   * «Trupp 1»; the Verlauf marks those rows' «Trupp 1» as THIS Trupp (journalLinks · subjectId).
+   * Absent on every Trupp that was never renumbered.
+   */
+  formerNos?: number[]
   /** group leader's name = the Trupp title (also the linked plan chip's label) */
   name: string
   /** other team members (for the board card; the chip shows only the leader) */

@@ -806,11 +806,44 @@ export function AtemschutzView({
   useEffect(() => {
     const list = listRef.current, port = bodyRef.current
     if (!list || !port) return
+    for (const el of list.querySelectorAll('[data-az-fab-foot]')) el.removeAttribute('data-az-fab-foot')
     if (!compact || !openRow) { list.style.removeProperty('--az-open-pad'); return }
     const card = list.querySelector<HTMLElement>('[data-az-open]')
     if (!card) return
-    list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - card.offsetHeight - 16)}px`)
+    // Parked at the top of the port, a card about a port tall ends in the FAB's corner, and the
+    // circle sat on its Verlauf row's chevron (field checks 24.09.2026). That ROW — and only it —
+    // then keeps the FAB's column free (Atemschutz.module.css · data-az-fab-foot), for exactly as
+    // long as it really stands under the circle: measured where it IS, never assumed. So it is
+    // re-measured on everything that moves one against the other — the card changing height (the
+    // Verlauf opening, a crew row, a warning; that also resizes the spacer), the port changing
+    // height or scrolling (the parking scroll itself is smooth, so its end arrives as scroll
+    // events), and the window or visual viewport resizing (the FAB is `position: fixed`). Scroll
+    // and resize are folded into one measurement per frame.
+    const measure = () => {
+      list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - card.offsetHeight - 16)}px`)
+      const row = card.querySelector<HTMLElement>('[data-az-foot]')
+      const fab = document.querySelector('.fab-entry')?.getBoundingClientRect()
+      if (!row) return
+      const r = row.getBoundingClientRect()
+      row.toggleAttribute('data-az-fab-foot', !!fab && r.top < fab.bottom && r.bottom > fab.top)
+    }
+    let frame = 0
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure() }) }
+    measure()
     card.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    port.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    window.visualViewport?.addEventListener('resize', schedule)
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
+    ro?.observe(card)
+    ro?.observe(port)
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      port.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      window.visualViewport?.removeEventListener('resize', schedule)
+      ro?.disconnect()
+    }
   }, [compact, openRow])
 
   /* WHICH cards the current pointer marks — and which one the board scrolls to.
@@ -1111,7 +1144,9 @@ export function AtemschutzView({
             aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             onClick={() => setSelfFocus({ id: mostOverdue.id, nonce: Date.now(), markAll: true })}
           >
-            <Icon id="warn" /><span>{az.overdueBadge(overdueCount)}</span>
+            <Icon id="warn" /><span className={s.overdueWord}>{az.overdueBadge(overdueCount)}</span>
+            {/* the phone's crowded head keeps only the number (Atemschutz.module.css) */}
+            <span className={s.overdueShort} aria-hidden="true">{overdueCount}</span>
           </button>
         )}
         {/* ⚠️ The way back that does not expire. Deleting a Trupp raises a «Rückgängig» toast for six
@@ -2449,7 +2484,7 @@ function TruppCard({
         )}
         {(lastReading || timesShown) && (
           <>
-            <button type="button" className={s.vrow} aria-expanded={logOpen} onClick={() => setLogOpen((o) => !o)}>
+            <button type="button" className={s.vrow} data-az-foot="" aria-expanded={logOpen} onClick={() => setLogOpen((o) => !o)}>
               <Icon id="history" /><span className={s.vrowLbl}>{az.verlauf}</span>
               {/* ⚠️ The preview belongs to the CLOSED row only (09.09.). Its whole job is to
                   answer «und dann?» without opening anything — and open, it printed the newest

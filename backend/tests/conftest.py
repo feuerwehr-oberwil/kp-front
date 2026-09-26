@@ -7,9 +7,17 @@ shims so the *whole* schema — incidents, audit chain, revoked_tokens — stand
 without a database server. Every timestamp column in the schema declares
 ``DateTime(timezone=True)``; SQLite's own DATETIME impl silently drops the tzinfo on write
 and hands back a naive datetime on read, which is not what asyncpg does, so that impl is
-swapped for one that reattaches UTC on the way out. Behaviour the tests assert
-(optimistic-lock UPDATE, blocklist PK lookup, hash chain) is dialect-agnostic, so SQLite is
-a faithful stand-in here.
+swapped for one that reattaches UTC on the way out. SQLite also ignores every foreign key
+unless ``PRAGMA foreign_keys=ON`` is set per connection, so it is — an ``ON DELETE CASCADE`` /
+``RESTRICT`` behaves here the way Postgres enforces it. Behaviour the tests assert
+(optimistic-lock UPDATE, blocklist PK lookup, hash chain, FK cascades) is then
+dialect-agnostic, so SQLite is a faithful stand-in here.
+
+⚠️ One thing it is NOT: every session shares ONE connection (``StaticPool`` — an in-memory
+database lives and dies with its connection), so sessions are not isolated transactions the
+way they are on Postgres. A session that rolls back undoes whatever another session has
+written but not yet committed. Only concurrency exposes that (a background task writing while
+a request runs); such a test lets the task finish first (see ``test_stt._poll_done``).
 
 Fixtures:
 - ``engine`` / ``db_session``: a rolled-back async session per test.
@@ -103,6 +111,17 @@ async def engine(database_url: str):
         kwargs = {"poolclass": StaticPool, "connect_args": {"check_same_thread": False}}
 
     eng = create_async_engine(database_url, **kwargs)
+    if is_sqlite:
+        from sqlalchemy import event
+
+        # Postgres always enforces foreign keys; SQLite only when asked, per connection. Without
+        # this the demo reset's object → plan-dataset cascade silently did nothing here, and the
+        # 20.09.2026 regression it guards (a RESTRICT that aborted the whole reset) was invisible.
+        @event.listens_for(eng.sync_engine, "connect")
+        def _enforce_foreign_keys(dbapi_conn, _record):
+            cur = dbapi_conn.cursor()
+            cur.execute("PRAGMA foreign_keys=ON")
+            cur.close()
 
     import app.models  # noqa: F401  (register tables on Base.metadata)
     from app.database import Base
@@ -115,6 +134,25 @@ async def engine(database_url: str):
         async with eng.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
         await eng.dispose()
+
+
+@pytest.fixture(autouse=True)
+def _clean_overpass_caches():
+    """Overpass answers and the parsed station snapshot are cached process-wide (app/overpass ·
+    _cache/_inflight, app/reference_buildings · _cache): one test's answer must not be the next
+    one's cache hit."""
+    from app import overpass, reference_buildings
+
+    def reset() -> None:
+        overpass._cache.clear()
+        overpass._inflight.clear()
+        reference_buildings._cache = None
+        reference_buildings._live = None
+        reference_buildings._live_load = None
+
+    reset()
+    yield
+    reset()
 
 
 @pytest.fixture(autouse=True)
