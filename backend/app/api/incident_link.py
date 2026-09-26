@@ -97,12 +97,14 @@ from ..auth.cookies import TERMINAL_COOKIE, set_link_cookie, set_terminal_cookie
 from ..auth.dependencies import CurrentAdmin
 from ..auth.incident_link import (
     LINK_TOKEN_TYPE,
+    ClosedForLink,
     create_atemschutz_session_token,
     create_link_session_token,
     create_standing_atemschutz_session_token,
     create_terminal_device_token,
     create_terminal_session_token,
     create_view_session_token,
+    incident_closed_at,
     key_fingerprint,
     read_terminal_device_fingerprint,
 )
@@ -315,10 +317,20 @@ async def _open_atemschutz_session(token: str, response: Response, db: AsyncSess
 
     Looked up, not decoded — the secret IS the credential, exactly like the view link. What
     differs is the lifecycle: this one is minted while the Einsatz runs, so a closed or
-    archived Einsatz answers the alarm link's 404 («noch nicht / nicht mehr verfügbar»). An
-    unknown or revoked secret answers the same 401 as every other bad token: the two refusals
-    stay apart because they mean different things to the person holding the phone, and neither
-    tells them anything about an Einsatz they don't already have the link for.
+    archived Einsatz is refused. An unknown or revoked secret answers the same 401 as every other
+    bad token: the two refusals stay apart because they mean different things to the person
+    holding the phone, and neither tells them anything about an Einsatz they don't already have
+    the link for.
+
+    ⚠️ CLOSED IS SAID AS «CLOSED» here (staging r6, F2, 26.09.2026) — the same 409
+    `incident_closed` a running session gets on the Einsatz's own routes (auth/incident_link ·
+    ClosedForLink), not the alarm link's blind 404. The Atemschutz page reloaded after the close
+    used to read that 404 as «the alarm has only just come in», spin, and settle on «nicht
+    abrufbar» — and stayed there after «Wieder öffnen» until someone tapped «Erneut versuchen».
+    With the reason it shows the closed card and keeps asking once a minute, so a reopen brings
+    the board back by itself. Nothing is disclosed: the secret was minted for this one Einsatz,
+    so its holder already knows it exists; the alarm link's (src, ref) token keeps its one 404
+    (no probing). No cookie is set — a closed Einsatz still grants no session.
     """
     secret = token[len(ATEMSCHUTZ_TOKEN_PREFIX) :]
     if not secret:
@@ -327,7 +339,7 @@ async def _open_atemschutz_session(token: str, response: Response, db: AsyncSess
     if inc is None:
         raise _invalid_token()
     if not inc.is_open:
-        raise HTTPException(status_code=404, detail="Einsatz nicht (mehr) verfügbar")
+        raise ClosedForLink(await incident_closed_at(db, str(inc.id)))
     set_link_cookie(response, create_atemschutz_session_token(str(inc.id), secret))
     return {"incident_id": str(inc.id)}
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EARLY_PRESSURE_CORRECTION_MS, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, earlyEntryCorrection, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppTransferState } from './atemschutz'
+import { EARLY_PRESSURE_CORRECTION_MS, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, earlyEntryCorrection, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -654,5 +654,42 @@ describe('fmtElapsedFull — long durations read as time, not as raw minutes', (
   it('stops pretending to tick past a day', () => {
     expect(fmtElapsedFull(7936 * 60 + 27)).toBe('5 d 12 h')
     expect(fmtElapsedFull(null)).toBe('–:––')
+  })
+})
+
+
+/* Staging r4: after a close and a reopen, every crew inside read «Alarmdruck … laut Schätzung
+ * erreicht» — the projection ran through the whole hour the Einsatz stood closed. Time spent
+ * closed is not time under PA. */
+describe('estimatePressure · time spent closed does not count', () => {
+  const at = (min: number) => new Date(Date.parse('2026-09-25T12:00:00Z') + min * 60_000).toISOString()
+  const base = {
+    id: 't', name: 'Tst', status: 'aktiv', entryPressureBar: 300, entryTime: at(0), lastContactTime: at(0),
+    readings: [{ t: at(10), bar: 250, kind: 'pressure' as const }],
+  } as unknown as Trupp
+  const now = Date.parse(at(75))
+
+  it('projects only the time the Einsatz ran: 10 min before the close + 5 after the reopen', () => {
+    const paused = { ...base, pausedFrom: at(20), contactRestartedAt: at(70) }
+    const open = estimatePressure(base, now, 6.8, 40)!
+    const withPause = estimatePressure(paused, now, 6.8, 40)!
+    // 5 bar/min measured: the running view projects 65 min, the paused one 15 min
+    expect(open.bar).toBe(0)
+    expect(withPause.bar).toBe(250 - 5 * 15)
+  })
+
+  it('a reading taken after the reopen rates over running time only', () => {
+    const paused = { ...base, pausedFrom: at(20), contactRestartedAt: at(70), readings: [{ t: at(72), bar: 240, kind: 'pressure' as const }] }
+    // 60 bar over 72 min wall clock — but 22 min of it under PA
+    expect(estimatePressure(paused, Date.parse(at(72)), 6.8, 40)!.rateBarPerMin).toBeCloseTo(60 / 22, 5)
+  })
+})
+
+describe('fmtDuration — a duration that says it is one (staging r4)', () => {
+  it('carries its unit, so «23:39» is never read as a clock time', () => {
+    expect(fmtDuration(23 * 60 + 39)).toBe('23:39 min')
+    expect(fmtDuration(3600 + 125)).toBe('1:02:05 h')
+    expect(fmtDuration(2 * 86_400 + 3 * 3600)).toBe('2 d 3 h')
+    expect(fmtDuration(null)).toBe('–:––')
   })
 })

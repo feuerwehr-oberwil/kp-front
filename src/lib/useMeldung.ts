@@ -25,7 +25,7 @@ export const getMeldungen = () => snapshot
 /** Everything about a Meldung that can be READ. Handlers close over live state and are rebuilt on
  *  every render of their publisher; the strip only has to repaint when one of these changes. */
 const face = (m: Meldung): string => [
-  m.kind, m.tone, m.icon, m.title, m.sub ?? '', m.dismiss?.label ?? '',
+  m.kind, m.tone, m.icon, m.title, m.sub ?? '', m.dismiss?.label ?? '', m.wrap ? 'wrap' : '',
   // whether the title is a way in at all is READ from the row (underlined words vs plain text),
   // so a message that gains or loses its `onOpen` has to repaint
   m.onOpen ? `open·${m.onOpen.label}` : '',

@@ -6,7 +6,7 @@ import { onReachable } from './connectivity'
 import { attendanceConflictRows, conflictRows } from './attendanceConflict'
 import { fillTemplate } from './format'
 import type { RecordConflict } from './mergeWorkspace'
-import { createLongPollLoop } from './pollBackoff'
+import { createLongPollLoop, SLOW_FOLLOW_MS } from './pollBackoff'
 import { createClockSkewAlert, createSyncAlertTracker } from './syncAlert'
 import { recordTrouble } from './trouble'
 import { serverNowIso } from './serverClock'
@@ -26,6 +26,9 @@ const truppConflictRows = (conflicts: RecordConflict[], seen: Set<string>) =>
       return fillTemplate(appConfig.copy.journal.truppConflict, { name })
     },
   })
+
+/** A held poll that answers «nothing new» faster than this did not hold (see the round). */
+const QUICK_EMPTY_ANSWER_MS = 1_000
 
 interface IncidentSyncDeps {
   sync: WorkspaceSync
@@ -57,6 +60,13 @@ interface IncidentSyncDeps {
    *  Read on every save; see the persistence effect for what it buys. Optional: omitted → every
    *  save is compared, as before. */
   gestureOpen?: () => boolean
+  /** Whether the view shows the Einsatz as RUNNING — sent with the long poll so a close or reopen
+   *  elsewhere is answered at once instead of after the timeout (lib/incidentClosed). Read
+   *  through a ref: it must not restart the loop by itself. Optional: omitted → not sent. */
+  incidentOpen?: boolean
+  /** Follow once a minute instead of long-polling — the Atemschutz-Link of a CLOSED Einsatz,
+   *  whose every request is refused until a reopen (pollBackoff · minDelayMs). Read through a ref. */
+  slowFollow?: boolean
 }
 
 /**
@@ -67,7 +77,20 @@ interface IncidentSyncDeps {
  * the reactive sync-status badge. State writes stay in App via `applyWorkspace`/`buildPayload`; this
  * hook owns the sync-internal refs (skip/first/liveRev) + effects so the wiring is one unit.
  */
-export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen }: IncidentSyncDeps) {
+export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen, incidentOpen, slowFollow }: IncidentSyncDeps) {
+  const incidentOpenRef = useRef(incidentOpen)
+  useEffect(() => { incidentOpenRef.current = incidentOpen }, [incidentOpen])
+  const slowFollowRef = useRef(slowFollow)
+  useEffect(() => { slowFollowRef.current = slowFollow }, [slowFollow])
+  /** What the SERVER last said about the lifecycle (its `X-Incident-Open`), which is what the next
+   *  poll claims — never only what the view shows. A closed view that did not adopt a reopen used to
+   *  keep sending `open=0`, the server answered at once because it was open, and the loop went
+   *  straight into the next round: 3.4 requests a second, for as long as the view stood (N1,
+   *  staging 26.09.2026). Reset when the view changes, so a flip it did adopt is claimed at once. */
+  const heardOpenRef = useRef<boolean | null>(null)
+  useEffect(() => { heardOpenRef.current = null }, [incidentOpen])
+  const claimOpen = () => heardOpenRef.current ?? incidentOpenRef.current
+  const onLifecycle = (open: boolean) => { heardOpenRef.current = open }
   // re-hydrate flags one save to skip — otherwise an editor would immediately push the
   // just-pulled blob back, bumping the rev and triggering an endless pull→push→pull echo.
   const skipSave = useRef(false)
@@ -266,14 +289,22 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
       baseMs: appConfig.sync.livePollMs,
       maxMs: appConfig.sync.livePollMaxMs,
       hiddenMs,
+      minDelayMs: () => (slowFollowRef.current ? SLOW_FOLLOW_MS : 0),
       round: async ({ hidden, signal }) => {
         // Demo follows the shared server too now (edits persist + sync across visitors, like a real
         // station). The `!sync.hasUnsynced` guard still protects in-progress local edits from being
         // clobbered mid-edit; the nightly reset re-seeds everyone at once. A dirty round fetches
         // nothing, so it reports "unanswered" and the loop eases off.
-        if (!readOnly && sync.hasUnsynced) return false
+        if (!readOnly && sync.hasUnsynced) {
+          // ⚠️ …but it still asks whether the Einsatz is RUNNING (review of #235): a device that is
+          // always a little dirty would otherwise never hear a close by the poll. A quick no-wait
+          // read, whose lifecycle header is all that is used — nothing is adopted over the edits.
+          await pollWorkspaceSince(incidentId, Math.max(liveRev.current, sync.rev), { wait: false, signal, open: claimOpen(), onLifecycle }).catch(() => null)
+          return false
+        }
         const since = Math.max(liveRev.current, sync.rev)
-        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal })
+        const askedAt = Date.now()
+        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal, open: claimOpen(), onLifecycle })
         // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in
         // flight (with a held request that window is now the whole wait, so this guard matters
         // MORE, not less). Adopting the server blob now would clobber that unsaved edit — the
@@ -287,6 +318,11 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
           if (!readOnly) sync.adoptServer(ws, res.workspace_rev)
           hydrate(ws as unknown as Saved)
         }
+        // ⚠️ …and a held poll that came back at once with NOTHING new did not hold (N1): whatever
+        // the reason, answering «unanswered» lets the loop ease off instead of spinning. A real
+        // wake (another device's save) brings a blob and stays hot; a lifecycle wake brings the
+        // header, which the next claim now matches, so that poll parks again.
+        if (!res && !hidden && Date.now() - askedAt < QUICK_EMPTY_ANSWER_MS) return false
         return true
       },
     })

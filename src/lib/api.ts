@@ -179,6 +179,17 @@ export function isDenial(e: unknown): boolean {
  */
 export const SESSION_EXPIRED_EVENT = 'kp:session-expired'
 
+/**
+ * A LINK page's own Einsatz answered 403 on the routes the page lives on — the workspace, the
+ * Verlauf, the events (D1, 25.09.2026). The link is revoked, or dead for a reason the server does
+ * not say to a link holder: every further write this page takes can never be delivered. The
+ * Atemschutz-Link used to take a re-entry locally, run its clock, and report only «Sync-Fehler –
+ * lokal gespeichert». The workspace listens and freezes the Tafel read-only. `detail` is the
+ * incident id. (A CLOSED Einsatz answers 409 `incident_closed` instead — lib/incidentClosed.)
+ */
+export const LINK_REFUSED_EVENT = 'kp:link-refused'
+const LINK_CORE_ROUTE = /^\/api\/incidents\/([^/?]+)\/(?:workspace|journal|events)(?:[/?]|$)/
+
 /** One signal that fires when EITHER input does. The long-poll loops need both halves: the
  *  timeout still cuts a half-open connection, and the caller's own controller drops a request
  *  the server is deliberately holding open (tab hidden, incident switched, hook torn down). */
@@ -287,6 +298,11 @@ async function requestResponse(path: string, init?: RequestInit, timeoutMs = DEF
   // cannot loop, and neither can a page whose own link session is the
   // authority: its 401 is about the LINK, and refreshing would renew a device login the link
   // page has no business touching (and could not use anyway).
+  if (res.status === 403 && linkPageOwnsSession() && typeof window !== 'undefined') {
+    const m = LINK_CORE_ROUTE.exec(path)
+    if (m) window.dispatchEvent(new CustomEvent(LINK_REFUSED_EVENT, { detail: m[1] }))
+  }
+
   if (res.status === 401 && !isAuthPath && !linkPageOwnsSession()) {
     const ok = await tryRefresh()
     if (ok) {

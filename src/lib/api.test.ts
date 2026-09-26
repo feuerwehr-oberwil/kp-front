@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, SESSION_EXPIRED_EVENT, apiBeacon, apiDelete, apiGet, apiGetRaw, apiPost, apiPut, isUnverifiable } from './api'
+import { ApiError, LINK_REFUSED_EVENT, SESSION_EXPIRED_EVENT, apiBeacon, apiDelete, apiGet, apiGetRaw, apiPost, apiPut, isUnverifiable } from './api'
 import { resetServerClock, serverClockOffsetMs } from './serverClock'
 
 // api.ts is the fetch wrapper under EVERY backend call: typed errors, the transparent
@@ -454,5 +454,34 @@ describe('request — the server clock rides along', () => {
     await apiGet('/api/incidents/i1/workspace')
     expect(fetchMock).toHaveBeenCalledWith('/api/incidents/i1/workspace', expect.objectContaining({ cache: 'no-store' }))
     expect(serverClockOffsetMs()).not.toBeNull()
+  })
+})
+
+describe('request — an Atemschutz-Link page refused on its own Einsatz (D1)', () => {
+  // The Link took a re-entry locally after a second close and reported only «Sync-Fehler». A 403
+  // on the routes the page lives on now says so ONCE on `window`, and the workspace freezes.
+  it('dispatches kp:link-refused for a 403 on the workspace, the Verlauf or the events', async () => {
+    const win = new EventTarget()
+    const onRefused = vi.fn()
+    win.addEventListener(LINK_REFUSED_EVENT, (e) => onRefused((e as CustomEvent<string>).detail))
+    vi.stubGlobal('window', win)
+    vi.stubGlobal('location', { pathname: '/l/a12345678' })
+    fetchMock.mockResolvedValue(new Response('{"detail":"Für diesen Einsatz-Link nicht freigegeben"}', { status: 403 }))
+    await expect(apiPost('/api/incidents/inc-7/journal', { entries: [] })).rejects.toMatchObject({ status: 403 })
+    await expect(apiGet('/api/incidents/inc-7/workspace?since=3')).rejects.toMatchObject({ status: 403 })
+    expect(onRefused.mock.calls).toEqual([['inc-7'], ['inc-7']])
+  })
+
+  it('stays quiet for a station-wide route, and for the ordinary app', async () => {
+    const win = new EventTarget()
+    const onRefused = vi.fn()
+    win.addEventListener(LINK_REFUSED_EVENT, onRefused)
+    vi.stubGlobal('window', win)
+    vi.stubGlobal('location', { pathname: '/l/a12345678' })
+    fetchMock.mockResolvedValue(new Response('{}', { status: 403 }))
+    await expect(apiGet('/api/plan-scales')).rejects.toMatchObject({ status: 403 })
+    vi.stubGlobal('location', { pathname: '/' })
+    await expect(apiGet('/api/incidents/inc-7/workspace')).rejects.toMatchObject({ status: 403 })
+    expect(onRefused).not.toHaveBeenCalled()
   })
 })
