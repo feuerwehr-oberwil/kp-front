@@ -9,9 +9,11 @@ signed export + verify UI (C) are deferred per the plan — but ``verify_chain``
 here already since it's cheap and proves the capture is sound.
 """
 
+import gzip
 import hashlib
 import json
 import uuid
+import zlib
 from datetime import UTC, datetime
 
 import anyio
@@ -149,8 +151,28 @@ async def append_event(
     return event
 
 
+# gzip's own magic number: how a stored snapshot says it is compressed
+_GZIP_MAGIC = b"\x1f\x8b"
+
+
 def _encode_snapshot(workspace: dict) -> bytes:
-    return json.dumps(workspace, separators=(",", ":")).encode("utf-8")
+    """The blob as gzipped compact JSON.
+
+    Compressed since 26.09.2026. One full blob per save adds up: a 24 h Einsatz wrote ~0.4 GB, and
+    a Grossereignis-sized one ~10 GB (docs/testing/fat-incident.md). Real workspace blobs shrink
+    ~5× (3–6× measured on prod's biggest), so the one-per-save rule below can stay as it is.
+    Level 6 is zlib's default speed/size trade-off; this runs on a worker thread anyway.
+    """
+    return gzip.compress(json.dumps(workspace, separators=(",", ":")).encode("utf-8"), compresslevel=6, mtime=0)
+
+
+def _decode_snapshot(data: bytes) -> dict:
+    """A stored snapshot back to its blob. Decided by the gzip magic bytes, not by the key: every
+    snapshot written before 26.09.2026 is plain JSON (`….json`) and stays readable as it is.
+    Nothing is rewritten, because backup originals are immutable (AGENTS.md)."""
+    if data[:2] == _GZIP_MAGIC:
+        data = gzip.decompress(data)
+    return json.loads(data.decode("utf-8"))
 
 
 async def snapshot_workspace(db: AsyncSession, *, incident_id: uuid.UUID, workspace: dict) -> WorkspaceSnapshot:
@@ -173,7 +195,7 @@ async def snapshot_workspace(db: AsyncSession, *, incident_id: uuid.UUID, worksp
             select(func.coalesce(func.max(IncidentEvent.seq), 0)).where(IncidentEvent.incident_id == incident_id)
         )
     ).scalar_one()
-    key = storage.new_key(f"snapshots/{incident_id}", ".json")
+    key = storage.new_key(f"snapshots/{incident_id}", ".json.gz")
     storage.created_in_transaction(db, key)
     data = await anyio.to_thread.run_sync(_encode_snapshot, workspace)
     await storage.aput_bytes(key, data)
@@ -221,8 +243,11 @@ async def load_snapshot_at(
     if snap is None:
         return None, None
     try:
-        blob = json.loads(storage.get_bytes(snap.storage_key).decode("utf-8"))
-    except (FileNotFoundError, ValueError):
+        # read and decode off the event loop: at field sizes a decompress + parse is milliseconds
+        # of CPU that every other request would otherwise wait behind (see snapshot_workspace)
+        blob = await anyio.to_thread.run_sync(_decode_snapshot, await storage.aget_bytes(snap.storage_key))
+    # a missing file, and a truncated or corrupt one, answer «no snapshot» as they always have
+    except (OSError, ValueError, EOFError, zlib.error):
         blob = None
     return snap, blob
 

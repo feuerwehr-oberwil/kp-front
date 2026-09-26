@@ -64,7 +64,10 @@ dev database. Then it runs two phases.
   from `real` to `large`.
 - **Check the `machine load` line.** A run on a busy machine is not comparable to a quiet one.
   Here the same preset measured 4 s on a quiet machine and 14 s under load.
-- `snapshot storage ≈` is extrapolated to the incident's full save count, one full blob per save.
+- `snapshot storage ≈` is extrapolated to the incident's full save count, one gzipped blob per
+  save. The generator's random coordinates compress worse than real blobs (about 4× against about
+  5×), so treat it as an upper bound. The `on disk` line under it is what the saves that were
+  actually sent took.
 
 ## Results – 2026-09-26
 
@@ -77,7 +80,8 @@ Dev laptop (WSL, 12 cores), machine load 1–3, 4× CPU throttle in the browser.
 | Heartbeat p99 while saving | 14 ms | 13 ms | 73 ms | 174 ms |
 | Open: read workspace | 23 ms | 23 ms | 106 ms | 312 ms |
 | Replay: read all events | 43 ms / 0.4 MB | 224 ms / 1.7 MB | 307 ms / 2.4 MB | 1.3 s / 11 MB |
-| Snapshot storage for the incident | 73 MB | 434 MB | 1.0 GB | 10.4 GB |
+| Snapshot storage for the incident (before [compression](#snapshot-compression-26092026)) | 73 MB | 434 MB | 1.0 GB | 10.4 GB |
+| … after, gzipped | 22 MB | 98 MB | 308 MB | 2.8 GB |
 | Browser: open → Karte drawn | 3.8 s | 3.8 s | 4.8 s | 12.0 s |
 | Browser: worst freeze while opening | 185 ms | 295 ms | 480 ms | 3.3 s |
 | Browser: pan, frame p50 / p95 | 50 / 83 ms | 67 / 117 ms | 17 / 233 ms | 150 / 600 ms |
@@ -103,12 +107,21 @@ quadratic blow-up anywhere. At `extreme`, hydrate, serialise and the 409 merge e
    become realistic, the fix is to draw symbols in a map layer or drop the markers outside the
    viewport. The save path is not where the problem is.
 4. **Snapshot storage grows with blob size × saves.** One uncompressed full blob per save
-   (`audit.snapshot_workspace`) means about 0.4 GB for a normal 24 h Einsatz, 1 GB at `large` and
-   10 GB at `extreme`. The prod volume used 7 GB of 50 GB on 2026-09-26. Compressing snapshots
-   would recover most of it (the client already sees 8–10× on the same JSON, see `lib/api`
-   gzipText) without thinning them out, which `snapshot_workspace` deliberately rules out.
+   (`audit.snapshot_workspace`) meant about 0.4 GB for a normal 24 h Einsatz, 1 GB at `large` and
+   10 GB at `extreme`. The prod volume used 7 GB of 50 GB on 2026-09-26. **Fixed the same day:**
+   snapshots are now stored gzipped (see below). Thinning them out instead is deliberately ruled
+   out by `snapshot_workspace`.
 5. **Save latency and the follower wake grow linearly with the blob** (about 0.25 ms per KB on
    this machine). That's acceptable up to `large`, and only becomes noticeable at `extreme`.
+
+### Snapshot compression (26.09.2026)
+
+Every save still writes one snapshot, now as gzipped compact JSON (`….json.gz`,
+`app/audit.py · _encode_snapshot`). On prod's biggest real blobs gzip saves 3–6×, about 5× on
+average. The generator's data compresses about 4×, which is what the "after" row above shows. The
+reader tells old and new apart by gzip's magic bytes, not by the key. Snapshots written before
+this stay plain `….json` and are read as they are; they are never rewritten, because backup
+originals are immutable. `/snapshot`, `/state` and the Replay answer exactly as before.
 
 Harness lessons, kept here so the next person doesn't relearn them:
 
