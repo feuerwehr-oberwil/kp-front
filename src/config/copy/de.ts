@@ -2132,6 +2132,26 @@ export const de = {
     actRueckzug: 'Rückzug melden',
     actContinue: 'Fortsetzen',
     actExit: 'Raus melden',
+    /* ⚠️ Die KACHELN der Handy-Karte (26.09.2026, phone card slim-down): nur das Verb, ohne
+     * «melden» – die aufgeklappte Karte sagt «Rückzug · Raus» neben «Kontakt» und dem Druck, und
+     * vier Kacheln nebeneinander tragen keine zwei Wörter. Die Langformen (`actRueckzug`,
+     * `actExit`) bleiben der Tablet-Karte, dem Bestätigungsdialog («Raus melden» als sichere
+     * Antwort) und dem Screenreader-Namen der Kachel. */
+    tileRueckzug: 'Rückzug',
+    tileExit: 'Raus',
+    /* ── Die Mini-Sheets der Handy-Karte (26.09.2026, phone card slim-down; components/TruppSheets) ──
+     * Ein Chip auf der Karte öffnet EIN kurzes Sheet für genau diese Angabe. Titel sind die
+     * bestehenden Feldnamen (`editFieldLabels`, `funkkanalUnit`); hier nur, was es dort noch nicht gab. */
+    // die zweite Titelzeile: «Hirter Stephan · Trupp 2» – wessen Sheet über der abgedunkelten Tafel steht
+    quickTrupp: 'Trupp {no}',
+    // das Kanal-Pad hat kein Speichern – der eine Satz sagt, dass ein Tipp wählt und schliesst
+    kanalSheetHint: 'Antippen wählt und schliesst.',
+    // die Leitung-Chips: «keine · Ltg 1 · Ltg 2 …»
+    lineNone: 'keine',
+    lineChip: 'Ltg {n}',
+    // der gestrichelte Chip auf der Handy-Karte, wo der Auftrag fehlt (die Tablet-Kennzeile behält
+    // «Auftrag offen»); das «+» gehört zum Wort – ein Chip, der etwas hinzufügt
+    auftragAdd: '+ Auftrag',
     // ⚠️ APP ONLY (09.09., Feldtest) – ein Trupp ohne Atemschutz meldet einen erledigten Auftrag,
     // keinen Funkkontakt. Die ausgehändigte Link-Tafel bleibt bei «Raus melden», für JEDEN
     // Trupp: das ist der eine Bildschirm, den eine externe Person bekommt, und er darf nicht
@@ -2402,13 +2422,11 @@ export const de = {
     phoneSectionOut: 'Draussen',
     safetyTitle: 'Sicherungstrupp',
     safetyDeploy: 'Einsetzen',
-    safetyNone: 'Kein Sicherungstrupp',
-    safetyNoneHint: 'Ein Trupp ist drin',
-    safetyNoneHintMany: '{n} Trupps sind drin',
+    // «Bestimmen» am Abschnittskopf SICHERUNGSTRUPP (26.09.2026, phone card slim-down) – der
+    // gestrichelte Kasten «Kein Sicherungstrupp · Ein Trupp ist drin» ist weg; der Kopf steht wie
+    // DRIN/DRAUSSEN, und der leere Abschnitt IST die Aussage
     safetyPick: 'Bestimmen',
     /* ── Handy-Tafel, zweite Runde (24.09.2026, D1 ⑥ ⑦ ⑧a, Punkt 2) ─────────────────────────── */
-    // der leere Platz, solange noch niemand drin ist – ruhig, nicht amber
-    safetyNoneExpected: 'Ab dem 1. Trupp drin wird er erwartet',
     // «Bestimmen» mit bereiten Trupps: einen davon nehmen oder einen neuen anmelden
     safetyPickTitle: 'Sicherungstrupp bestimmen',
     safetyPickNew: 'Neuen Trupp anmelden (Sichern)',
