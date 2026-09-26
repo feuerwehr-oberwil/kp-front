@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import type { BoardAnno, Drawing, Entity } from './types'
+import { undoCaption } from './lib/undoTimeline'
 
 /*
  * The Lage-Grundgerüst WIRED into the workspace — what the pure rules (lib/lageGrundgeruest) and
@@ -157,18 +158,22 @@ describe('«hier setzen» is an ordinary placement', () => {
   })
 })
 
+/** «Rückgängig: Karte · …» — the header names the SURFACE in front of the act's own words
+ *  (#234 · undoCaption), which for a Karte step are the Verlauf row's (#222 · karteStepLabel) */
+const undoNamed = (action: string) => fillTemplate(appConfig.copy.undoNamed, { action: undoCaption({ domain: 'karte', label: action }) })
+
 describe('what the undo step says', () => {
   it('names what «hier setzen» placed — not «Änderung auf der Karte»', async () => {
     await mount()
     act(() => { screen.getByText(C.placeHere).click() })
     await settle()
     const action = fillTemplate(appConfig.copy.undoDomains.symbolPlaced, { name: formatSymbolName('VKF KP Front') })
-    expect(screen.getAllByRole('button', { name: fillTemplate(appConfig.copy.undoNamed, { action }) }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: undoNamed(action) }).length).toBeGreaterThan(0)
   })
 })
 
 describe('every Karte undo step names its act and object (R3-3)', () => {
-  const undoButton = (action: string) => screen.queryAllByRole('button', { name: fillTemplate(appConfig.copy.undoNamed, { action }) })
+  const undoButton = (action: string) => screen.queryAllByRole('button', { name: undoNamed(action) })
 
   it('a move reads «TLF verschoben» — the Verlauf row\'s words', async () => {
     await mount()
@@ -206,7 +211,7 @@ describe('a line row arms the gesture it promises', () => {
     expect(screen.queryByText(C.armedLine)).toBeNull()
     // …and its ↶ says what it takes back, in the Verlauf row's words
     const action = fillTemplate(appConfig.copy.log.shapeDrawn, { name: 'Zufahrt' })
-    expect(screen.getAllByRole('button', { name: fillTemplate(appConfig.copy.undoNamed, { action }) }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: undoNamed(action) }).length).toBeGreaterThan(0)
   })
 })
 

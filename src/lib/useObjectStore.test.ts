@@ -359,6 +359,34 @@ describe('a sheet edit of an object the sheet does not own', () => {
     expect(result.current.gestureOpen()).toBe(false)
   })
 
+  // ⚠️ 25.09.2026: a remote merge that drops the step an OPEN plan gesture took must re-open the
+  // token — or the rest of the gesture folds into a step that is gone and lays none of its own
+  it('a merge that drops the open gesture’s step makes its next sample lay a new one', () => {
+    const laid: string[] = []
+    const { result } = renderHook(() => useObjectStore(geoStore(), false, {
+      getFits: () => FITS, defaultLayer: 'taktisch', fitsVersion: 0, onCheckpoint: (s) => laid.push(s),
+    }))
+    // `gesture: false` keeps the object the KARTE's (no anchor flip), so every sample stays an edit
+    // of an object the sheet does not own — the store-stack path under test
+    const sample = (x: number) => result.current.setBoard((b) => ({ ...b, modul2: [shownAnno(x)] }), { gesture: false })
+    act(() => {
+      result.current.beginSheetStep()
+      sample(0.4)
+      sample(0.3)
+    })
+    expect(laid).toHaveLength(1)
+    // a merge that keeps it: the gesture still folds into it
+    act(() => result.current.rebaseObjects(result.current.liveObjects(), () => true))
+    act(() => sample(0.28))
+    expect(laid).toHaveLength(1)
+    // a merge that drops it: the next sample takes a fresh step
+    act(() => result.current.rebaseObjects(result.current.liveObjects(), () => false))
+    act(() => sample(0.25))
+    expect(laid).toHaveLength(2)
+    act(() => sample(0.2))
+    expect(laid).toHaveLength(2) // …and the rest of the gesture folds into THAT one
+  })
+
   it('…while an edit of the sheet’s OWN anno leaves this stack alone', () => {
     const { result } = store()
     act(() => result.current.setBoard(() => ({ modul2: [anno('s1')] })))

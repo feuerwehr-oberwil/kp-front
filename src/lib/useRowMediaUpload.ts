@@ -2,7 +2,8 @@ import { useCallback, useRef, type Dispatch, type MutableRefObject, type SetStat
 import { appConfig } from '../config/appConfig'
 import type { ReportAttachment } from '../types'
 import type { IncidentMeta } from './api/incidents'
-import type { UndoDomain } from './undoTimeline'
+import type { Dropper, UndoDomain } from './undoTimeline'
+import { recordKey, type RecordKey } from './undoKeys'
 import type { MediaQueueApi } from './useMediaQueue'
 import { uploadMedia } from './incidents'
 import { prepareUploadImage } from './imagePrep'
@@ -26,7 +27,7 @@ interface Args {
   emit: (op: string, payload?: Record<string, unknown>) => void
   /** ⚠️ The REF OBJECT, not its value: the workspace assigns the timeline's one-shot pusher to it
    *  much further down its render, after this hook has run. */
-  rememberOneShotRef: MutableRefObject<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void, rows?: 'silent') => () => void>
+  rememberOneShotRef: MutableRefObject<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: 'silent') => Dropper>
   /** …and the Bildlegende's standing fold window, which the workspace's remote hydrate resets */
   lastCaptionStepRef: MutableRefObject<{ key: string; at: number; from: string | undefined; drop: () => void } | null>
 }
@@ -122,6 +123,7 @@ export function useRowMediaUpload({
           () => setAttachments((list) => { const cur = list.find((a) => a.id === id); if (cur) kept.row = cur; return list.filter((a) => a.id !== id) }),
           () => setAttachments((list) => (list.some((a) => a.id === id) ? list : [...list, kept.row])),
           // a Beilage writes no Verlauf row, so neither does taking it back (D6, 26.09.2026)
+          () => [recordKey('attachments', id)],
           'silent',
         )
         try {
@@ -160,6 +162,7 @@ export function useRowMediaUpload({
       'rapport', appConfig.copy.preflight.attachmentCaptioned,
       () => setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: from } : a))),
       () => setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: to } : a))),
+      () => [recordKey('attachments', id)],
       'silent',
     )
     lastCaptionStepRef.current = { key, at: now, from, drop }
@@ -178,9 +181,10 @@ export function useRowMediaUpload({
     const drop = rememberOneShotRef.current(
       'rapport', appConfig.copy.preflight.attachmentRemoved,
       restore, () => setAttachments((list) => list.filter((a) => a.id !== id)),
+      () => [recordKey('attachments', id)],
       'silent',
     )
-    undoToast(appConfig.copy.preflight.attachmentRemoved, () => { restore(); drop() })
+    undoToast(appConfig.copy.preflight.attachmentRemoved, () => { restore(); drop() }, drop.standing)
   }, [canWriteRecord, setAttachments, emit, rememberOneShotRef])
 
   return { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment }

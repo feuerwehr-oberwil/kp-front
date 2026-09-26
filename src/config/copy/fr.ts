@@ -446,6 +446,15 @@ export const fr: Localizable<Copy> = {
     ansicht: 'Vue',
     suche: 'Recherche',
   },
+  undoSurfaces: {
+    karte: 'Carte', plan: 'Plan', trupps: 'Équipes', anwesenheit: 'Présences', mittel: 'Matériel', checkliste: 'Checklists',
+    gebaeude: 'Bâtiment', rapport: 'Rapport', zeitplan: 'Planning', ansicht: 'Carte', pendenz: 'Journal', suche: 'Recherche',
+  },
+  undoTopDropped: 'La dernière étape ne peut plus être annulée – un autre appareil a modifié {what}',
+  undoDroppedWhat: {
+    karte: 'la carte', plan: 'le plan', trupps: 'l’équipe', anwesenheit: 'les présences', mittel: 'le matériel', checkliste: 'la checklist',
+    gebaeude: 'le bâtiment', rapport: 'le rapport', zeitplan: 'le planning', ansicht: 'les vues', pendenz: 'la tâche', suche: 'la recherche',
+  },
   play: 'Lire',
   clear: 'Effacer la recherche',
   mapTools: [
@@ -1739,6 +1748,7 @@ export const fr: Localizable<Copy> = {
     buildingReplacedKept: 'Bâtiment changé – étages conservés',
     buildingReplacedCarried: 'Bâtiment changé – {n} marquages repris',
     buildingReplacedCarriedDropped: 'Bâtiment changé – {n} repris, {d} supprimés',
+    buildingTaken: 'Bâtiment repris',
     replaceBuilding: 'Choisir un autre bâtiment',
     replaceBuildingConfirm: 'La pile d’étages actuelle est abandonnée et remplacée par le nouveau contour.',
     replaceBuildingConfirmMarks: 'Les étages portent {n} marquages. Ils sont liés au contour actuel et ne peuvent pas être reportés sur un autre – ils seront supprimés. « Annuler » dans l’avis les rétablit.',

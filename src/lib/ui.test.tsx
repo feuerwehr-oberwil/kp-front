@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { Overlays, toast, updateToast, dismissToast, confirmDialog, openPhoto } from './ui'
+import { Overlays, toast, undoToast, updateToast, dismissToast, confirmDialog, openPhoto } from './ui'
+import { noteRemoteChanges } from './undoKeys'
 import { appConfig } from '../config/appConfig'
 
 afterEach(() => {
@@ -77,6 +78,40 @@ describe('confirmDialog (Base UI AlertDialog)', () => {
     // …so Enter (a click on the focused button) answers the SAFE way
     fireEvent.click(document.activeElement as HTMLElement)
     await expect(second).resolves.toBe(false)
+  })
+})
+
+describe('undoToast outlives remote merges (25.09.2026)', () => {
+  it('declines once a merge changed a record its «Rückgängig» would write', () => {
+    vi.useFakeTimers() // afterEach flushes what these leave standing
+    render(<Overlays />)
+    const onUndo = vi.fn()
+    act(() => { undoToast('Block entfernt', onUndo, ['attendance:p1']) })
+    act(() => noteRemoteChanges(['attendance:p1']))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.undo }))
+    expect(onUndo).not.toHaveBeenCalled()
+    expect(screen.getByText(appConfig.copy.undoLost)).toBeTruthy()
+  })
+
+  it('acts when the merge changed other records, and when a predicate guard still holds', () => {
+    vi.useFakeTimers() // afterEach flushes what these leave standing
+    render(<Overlays />)
+    const onUndo = vi.fn()
+    act(() => { undoToast('Block entfernt', onUndo, ['attendance:p1']) })
+    act(() => noteRemoteChanges(['attendance:p2']))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.undo }))
+    expect(onUndo).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks a predicate guard at the press', () => {
+    vi.useFakeTimers() // afterEach flushes what these leave standing
+    render(<Overlays />)
+    const onUndo = vi.fn()
+    let standing = true
+    act(() => { undoToast('Geschoss gelöscht', onUndo, () => standing) })
+    standing = false
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.undo }))
+    expect(onUndo).not.toHaveBeenCalled()
   })
 })
 

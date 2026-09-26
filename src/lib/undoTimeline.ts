@@ -1,5 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { newId } from './ids'
+import { keyMatcher, type RecordKey } from './undoKeys'
 
 /**
  * ONE chronological undo timeline for the whole Einsatz (decided 2026-09-08).
@@ -21,12 +22,20 @@ import { newId } from './ids'
  *     carry their own inverse, because those domains keep no stack of their own (they used to hand
  *     the inverse to a toast that then expired).
  *
- * ⚠️ An entry may describe something that no longer exists: the slice it edited was replaced by a
- * remote merge, or the record it touched lost a delete-beats-edit race. Two mechanisms answer that,
- * and both must stay – `invalidate()` for the history we KNOW died (the hydrate that dropped it),
- * and a soft `false` from an entry's own undo/redo for the one that only finds out when it tries.
- * Neither may throw: a failed undo drops its entry and says so quietly. Nothing is left half-done,
- * because an entry that cannot act does not act.
+ * ⚠️ An entry may describe something that no longer exists: another device changed the record it
+ * would write, or the record lost a delete-beats-edit race. Two mechanisms answer that, and both
+ * must stay – `rebase()` for what a merge is KNOWN to have changed, and a soft `false` from an
+ * entry's own undo/redo for the one that only finds out when it tries. Neither may throw: a failed
+ * undo drops its entry and says so quietly. Nothing is left half-done, because an entry that
+ * cannot act does not act.
+ *
+ * ⚠️ A remote merge drops only what it INVALIDATED (25.09.2026, reversing the 08.09. rule that
+ * dropped the whole timeline on every hydrate — with three devices that greyed ↶ out within
+ * seconds of any save anywhere). Each entry says which records its inverse writes (`touches`,
+ * lib/undoKeys); `rebase` drops the ones whose records the merge changed, and — transitively —
+ * the older ones that write a record a dropped one wrote, because the dropped step's effect is now
+ * permanent and stepping past it would take it back. Everything else stays, and each delegating
+ * domain re-lays the steps that stayed onto the merged state (`rebaseHistory`).
  */
 
 /** The surfaces an entry can come from. `scope` narrows it further where a domain has several
@@ -47,16 +56,39 @@ export interface UndoEntry {
   scope?: string
   undo: () => UndoResult
   redo: () => UndoResult
+  /** A delegating entry's own step in its domain's history (the Karte store, a slice, a plan). A
+   *  merge keeps exactly the domain steps whose entries survive `rebase` (see `steps()`). */
+  step?: string
+  /**
+   * The records this entry's undo/redo TOUCHES (lib/undoKeys · RecordKey), asked when a remote
+   * merge lands: everything the inverse writes, and every record those values link to (a
+   * placard's host, a Leitung end's target — undoKeys · objectRefs). A record left out is one a
+   * ↶ could carry a pre-merge value back into, or re-link to where it no longer is. Absent, `null` or throwing = unknown: the entry is dropped
+   * by any merge that changed anything, and so is everything older than it.
+   */
+  touches?: () => readonly RecordKey[] | null
+}
+
+/** What `push` hands back: the way to take that ONE entry off the timeline again, plus whether it
+ *  is still standing on the ↶ side — a confirm-with-undo toast asks before it does the inverse
+ *  itself, so a merge that dropped the entry (or a ↶ that already took it) makes the toast
+ *  decline instead of writing over another device's change. */
+export interface Dropper {
+  (): void
+  standing: () => boolean
 }
 
 interface Recorded extends UndoEntry {
   id: string
+  /** a compound step (`group`): the domain steps of its parts, all kept or all dropped together */
+  partSteps?: readonly string[]
 }
 
-/** What `push` hands back: the dropper (call it) and a way to NAME the entry once the writer
- *  knows what it did — the Karte learns that only after its commit (its Verlauf row, or the
- *  objects that changed), and the ↶ must not keep saying «Änderung auf der Karte». */
-export type UndoHandle = (() => void) & { rename: (label: string) => void }
+/** What `push` hands back: the Dropper (call it; ask whether it is still standing) and a way to
+ *  NAME the entry once the writer knows what it did — the Karte learns that only after its commit
+ *  (its Verlauf row, or the objects that changed), and the ↶ must not keep saying «Änderung auf
+ *  der Karte». */
+export type UndoHandle = Dropper & { rename: (label: string) => void }
 
 /** What a step did. `lost` is the soft failure: the entry could not act and has been dropped. */
 export type StepOutcome =
@@ -81,6 +113,16 @@ export interface UndoTimeline {
   /** a domain's history is gone (remote hydrate, slice reset, plan replaced): drop its entries
    *  from BOTH stacks. Pass `scope` to drop one document's entries and leave its siblings. */
   invalidate: (domain: UndoDomain, scope?: string) => void
+  /**
+   * A remote merge changed these records: drop every entry whose inverse would write one of them —
+   * and, transitively, every older entry that writes a record a dropped one wrote. Newest first on
+   * the ↶ side, next-first on the ↷ side. Keeps everything else. Never throws.
+   */
+  rebase: (changed: Iterable<RecordKey>) => void
+  /** the `step` ids of every entry still on either stack */
+  steps: () => Set<string>
+  /** read-only view of both stacks, oldest first on `past`, next-first on `future` */
+  entries: () => { past: readonly UndoEntry[]; future: readonly UndoEntry[] }
   /** everything is gone (a different incident is loaded) */
   clear: () => void
   /**
@@ -97,6 +139,19 @@ export interface UndoTimeline {
   group: (primary?: UndoDomain) => () => void
   /** React glue – fires whenever the stacks change, so `canUndo`/the label re-render */
   subscribe: (fn: () => void) => () => void
+}
+
+/**
+ * What «Rückgängig: …» names for an entry: its action, with the SURFACE it happened on in front
+ * wherever the action does not already say it («Trupps · Trupp 1 (…): Ausrüstung: WBK», but
+ * «Änderung auf der Karte» as it stands). Since a merge drops single steps (25.09.2026), the ↶
+ * can come to point at an older act on another surface after another device's save — and a tap
+ * meant for the Karte must not take back a Trupp edit unannounced. For the header's labels and
+ * the flash caption only; the Verlauf row keeps the bare action.
+ */
+export function undoCaption(entry: Pick<UndoEntry, 'domain' | 'label'>): string {
+  const surface = appConfig.copy.undoSurfaces[entry.domain]
+  return !surface || entry.label.includes(surface) ? entry.label : `${surface} · ${entry.label}`
 }
 
 export function createUndoTimeline(cap: number = appConfig.defaults.historyCap): UndoTimeline {
@@ -122,7 +177,7 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
     return { status: 'done', entry }
   }
 
-  const record = (entry: UndoEntry, id: string) => {
+  const record = (entry: Omit<Recorded, 'id'>, id: string) => {
     // A new action anywhere clears the ENTIRE global redo tail, not just its own domain's:
     // the tail is a chronology, and re-doing into a past that has moved on is not «forward».
     past = [...past, { ...entry, id }].slice(-cap)
@@ -149,12 +204,25 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
   /** a recorded compound step → the part whose label it wears (UndoHandle · rename) */
   const headOf = new Map<string, string>()
 
-  const compound = (parts: Recorded[], primary?: UndoDomain): UndoEntry => {
+  const compound = (parts: Recorded[], primary?: UndoDomain): Omit<Recorded, 'id'> => {
     const head = parts.find((p) => p.domain === primary) ?? parts[0]
     return {
       domain: head.domain,
       label: head.label,
       scope: head.scope,
+      // the step touches what ANY of its parts touches; one part of unknown reach makes the whole
+      // step unknown (a merge that changed anything drops it — lib/undoTimeline · rebase)
+      touches: () => {
+        const keys: RecordKey[] = []
+        for (const p of parts) {
+          const k = p.touches?.() ?? null
+          if (k === null) return null
+          keys.push(...k)
+        }
+        return keys
+      },
+      // …and the domain steps of every part: a merge keeps them only while this step stands
+      partSteps: parts.flatMap((p) => p.partSteps ?? (p.step ? [p.step] : [])),
       // newest first, like the separate steps would have run; a part that finds its target gone
       // does not stop the others (they are still takeable), but the step reports the loss
       undo: () => {
@@ -183,6 +251,8 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
           if (host) dropById(host)
         }
         return Object.assign(dropPart, {
+          // still in the open group, or its recorded step still on the ↶ side
+          standing: () => (open === g ? g.parts.some((p) => p.id === id) : past.some((e) => e.id === (partOf.get(id) ?? id))),
           // a part named while its group is open carries the name into the step; once the group
           // is recorded, only the part the compound wears as its head names the step
           rename: (label: string) => {
@@ -194,7 +264,10 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
         })
       }
       record(entry, id)
-      return Object.assign(() => dropById(id), { rename: (label: string) => renameById(id, label) })
+      return Object.assign(() => dropById(id), {
+        standing: () => past.some((e) => e.id === id),
+        rename: (label: string) => renameById(id, label),
+      })
     },
     group: (primary) => {
       if (open) return () => {}
@@ -224,6 +297,32 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
       future = future.filter(keep)
       if (past.length + future.length !== before) notify()
     },
+    rebase: (changedKeys) => {
+      const changed = [...changedKeys]
+      if (keyMatcher(changed).empty) return
+      const keysOf = (e: Recorded): readonly RecordKey[] | null => {
+        try { return e.touches?.() ?? null } catch { return null }
+      }
+      // one walk per stack, in the order the steps would be TAKEN: a step is only reachable after
+      // every step in front of it, so a dropped one poisons, record by record, those behind it
+      const walk = (stack: Recorded[]): Recorded[] => {
+        const seen = keyMatcher(changed)
+        let unknown = false
+        return stack.filter((e) => {
+          if (unknown) return false
+          const keys = keysOf(e)
+          if (keys === null) { unknown = true; return false }
+          if (seen.meets(keys)) { seen.add(keys); return false }
+          return true
+        })
+      }
+      const before = past.length + future.length
+      past = walk([...past].reverse()).reverse()
+      future = walk(future)
+      if (past.length + future.length !== before) notify()
+    },
+    steps: () => new Set([...past, ...future].flatMap((e) => e.partSteps ?? (e.step ? [e.step] : []))),
+    entries: () => ({ past, future }),
     clear: () => { past = []; future = []; notify() },
     subscribe: (fn) => { listeners.add(fn); return () => { listeners.delete(fn) } },
   }

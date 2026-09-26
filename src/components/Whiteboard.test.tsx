@@ -1442,7 +1442,7 @@ describe('gesture contracts of the plan surface', () => {
 
   type Fn = (...args: unknown[]) => void
   type Spies = { onChange: Mock<Fn>; onCheckpoint: Mock<Fn>; emit: Mock<Fn> }
-  const history = { current: null as { undo: () => void; redo: () => void } | null }
+  const history = { current: null as { undo: (expect?: string) => boolean; redo: (expect?: string) => boolean } | null }
   const latest = { annos: [] as BoardAnno[] }
   function Controlled({ initial, spies, extra }: { initial: BoardAnno[]; spies: Spies; extra: Partial<React.ComponentProps<typeof Whiteboard>> }) {
     const [annos, setAnnos] = useState(initial)

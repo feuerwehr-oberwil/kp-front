@@ -22,8 +22,8 @@ function useTickSlice() {
   useEffect(() => { histRef.current = hist })
   const [timeline] = useState(() => createUndoTimeline())
   const set = (next: boolean) => {
-    hist.set(next)
-    pushSliceStep(timeline, { domain: 'checkliste', label: 'Checkliste', histRef, record: (moved) => !!moved })
+    const laid = hist.set(next)
+    pushSliceStep(timeline, { domain: 'checkliste', label: 'Checkliste', laid, histRef, record: (moved) => !!moved })
   }
   return { ticked, set, timeline }
 }
@@ -54,6 +54,23 @@ describe('pushSliceStep — ↶ steps the slice as it stands NOW', () => {
     }
     // re-tick taken back → unticked; the untick taken back → ticked; the tick → the start
     expect(seen).toEqual([false, true, false])
+    expect(result.current.timeline.canUndo()).toBe(false)
+  })
+
+  // 25.09.2026: a write that laid no step (a viewer's, or one folded into the standing step) must
+  // put nothing on the timeline — the entry would name the step BELOW, somebody else's
+  it('a write that laid no step pushes no entry', () => {
+    const { result } = renderHook(() => {
+      const [v, setV] = useState(0)
+      const hist = useUndoableSlice(v, setV, true) // a viewer: `set` lays nothing
+      const [timeline] = useState(() => createUndoTimeline())
+      return { hist, timeline }
+    })
+    act(() => {
+      const laid = result.current.hist.set(1)
+      const drop = pushSliceStep(result.current.timeline, { domain: 'mittel', label: 'Mittel', laid, histRef: { current: result.current.hist }, record: () => true })
+      expect(drop.standing()).toBe(false)
+    })
     expect(result.current.timeline.canUndo()).toBe(false)
   })
 })

@@ -737,6 +737,43 @@ export const de = {
     /** Suche: eine Person oder ein Bereich — Meldung, Fund, Status, Teilung. */
     suche: 'Suche',
   },
+  /** ⚠️ Die FLÄCHE, auf der ein Schritt passiert ist — steht vor der Aktion in «Rückgängig: …»,
+   *  wo die Aktion sie nicht schon selbst nennt (lib/undoTimeline · undoCaption). Seit ein Merge
+   *  nur noch einzelne Schritte fallen lässt (25.09.2026), kann das ↶ nach einem fremden Speichern
+   *  auf eine ältere Aktion einer ANDEREN Fläche zeigen; ohne Fläche nimmt der zweite Tipp, der
+   *  der Karte galt, eine Trupp-Änderung zurück. */
+  undoSurfaces: {
+    karte: 'Karte',
+    plan: 'Plan',
+    trupps: 'Trupps',
+    anwesenheit: 'Anwesenheit',
+    mittel: 'Material',
+    checkliste: 'Checklisten',
+    gebaeude: 'Gebäude',
+    rapport: 'Rapport',
+    zeitplan: 'Zeitplan',
+    ansicht: 'Karte',
+    pendenz: 'Verlauf',
+    suche: 'Suche',
+  },
+  /** Ein anderes Gerät hat geändert, was der OBERSTE Schritt zurückgenommen hätte: der Schritt
+   *  fällt weg, und das ↶ zeigt jetzt auf etwas Älteres. Einmal sagen, statt still umzubenennen.
+   *  `{what}` aus `undoDroppedWhat`. */
+  undoTopDropped: 'Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät hat {what} geändert',
+  undoDroppedWhat: {
+    karte: 'die Karte',
+    plan: 'den Plan',
+    trupps: 'den Trupp',
+    anwesenheit: 'die Anwesenheit',
+    mittel: 'das Material',
+    checkliste: 'die Checkliste',
+    gebaeude: 'das Gebäude',
+    rapport: 'den Rapport',
+    zeitplan: 'den Zeitplan',
+    ansicht: 'die Ansichten',
+    pendenz: 'die Pendenz',
+    suche: 'die Suche',
+  },
   play: 'Abspielen',
   clear: 'Suche löschen',
   // kind drives how the tool-rail button reads & behaves:
@@ -2874,6 +2911,8 @@ export const de = {
     buildingReplacedKept: 'Gebäude gewechselt – Geschosse behalten',
     buildingReplacedCarried: 'Gebäude gewechselt – {n} Markierungen übertragen',
     buildingReplacedCarriedDropped: 'Gebäude gewechselt – {n} übertragen, {d} weggefallen',
+    /** Ein Gebäude zum ersten Mal übernommen (noch kein Stapel da) — der ↶-Schritt dafür. */
+    buildingTaken: 'Gebäude übernommen',
     replaceBuilding: 'Anderes Gebäude wählen',
     replaceBuildingConfirm: 'Der bisherige Geschoss-Stapel wird verworfen und durch den neuen Umriss ersetzt.',
     // ⚠️ Der LEGACY-Fall: ein Gebäude ohne Georeferenz lässt sich nicht auf dem Boden verorten,

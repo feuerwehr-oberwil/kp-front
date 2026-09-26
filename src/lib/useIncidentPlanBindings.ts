@@ -4,6 +4,7 @@ import type { Georef } from './georef'
 import { georefDispatch } from './georefMode'
 import { effectiveBindingGeoref, overridePlanBinding, registerIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
 import type { UndoTimeline } from './undoTimeline'
+import { recordKey } from './undoKeys'
 
 /** Keeps the shared georef UI attached to this incident's synced, undoable workspace slice. */
 export function useIncidentPlanBindings(
@@ -47,6 +48,8 @@ export function useIncidentPlanBindings(
       history.push({
         domain: 'plan', scope: before.planId,
         label: appConfig.copy.whiteboard.georef.linkTitle,
+        // the inverse writes this binding's override and nothing else (lib/undoKeys)
+        touches: () => [recordKey('planBindings', id)],
         undo: step.undo,
         redo: () => apply(step.override),
       })

@@ -25,6 +25,7 @@ import { nextTruppNo, resolveMarkerJoin } from './placedTrupps'
 import { floorLabel } from './whiteboard'
 import type { UndoTimeline } from './undoTimeline'
 import { keepCrewFiled } from './crewFiling'
+import { recordKey } from './undoKeys'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
@@ -340,6 +341,9 @@ export function useTruppActions(deps: Deps) {
     return undoTimeline.push({
       domain: 'trupps',
       label,
+      // the inverse writes this ONE Trupp, whole (never field by field, see above) — so it is that
+      // record a remote merge must leave alone for the step to survive (lib/undoKeys)
+      touches: () => [recordKey('trupps', id)],
       // the crew-filing marker is a machine fact, not part of the edit — it stays (crewFiling)
       undo: () => step('undo', (cur) => keepCrewFiled(before, cur)),
       redo: () => step('redo', apply),
@@ -482,7 +486,7 @@ export function useTruppActions(deps: Deps) {
         logStep(dir, line, t.id)
         return true
       }
-      undoTimeline.push({ domain: 'trupps', label: line, undo: () => step('undo', removedAt), redo: () => step('redo', undefined) })
+      undoTimeline.push({ domain: 'trupps', label: line, touches: () => [recordKey('trupps', t.id)], undo: () => step('undo', removedAt), redo: () => step('redo', undefined) })
     }
   }
   const updateTrupp = (id: string, patch: Partial<Trupp>) =>

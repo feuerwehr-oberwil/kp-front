@@ -87,7 +87,8 @@ import { georefSuggestEligible, requestGeorefSuggestion, type GeorefSuggestStep 
 import { PlanLiveLayer } from './PlanLiveLayer'
 import type { LiveMark } from '../lib/planProjection'
 import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
-import { pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
+import { newPlanStep, pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
+import { recordKey, watchRecords } from '../lib/undoKeys'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles } from './WbControls'
 import { MeasurePanel } from './MeasurePanel'
@@ -204,7 +205,7 @@ interface Props {
   emit?: (op: string, payload?: Record<string, unknown>) => void
   /** expose this plan's per-document undo/redo so the GLOBAL TopBar control can drive
    *  it while the Plan is the active surface (App routes undo/redo by surface). */
-  historyRef?: React.MutableRefObject<{ undo: () => void; redo: () => void } | null>
+  historyRef?: React.MutableRefObject<{ undo: (expect?: string) => boolean; redo: (expect?: string) => boolean } | null>
   /** ⚠️ The plan undo/redo STACKS, held by the caller: this component unmounts on every surface
    *  switch, so history kept in its own state was thrown away the moment you glanced at the
    *  Verlauf. Keyed by plan id, so it stays per-plan-document. See useBoardDoc · BoardHistory. */
@@ -214,7 +215,7 @@ interface Props {
    *  (lib/undoTimeline) in the same chronology as the Karte and the Atemschutz-Tafel. Every
    *  `setHist(pushBoardPast(…))` in this file owes it a call — the stacks and the timeline are
    *  two halves of one step and must never come apart. */
-  onCheckpoint?: (planId: string) => void
+  onCheckpoint?: (planId: string, step: string) => void
   /** ⚠️ The per-plan zoom/pan memory, also held by the caller and for the same reason as `hist`:
    *  a glance at the Lage unmounts this component, and a board that reset to «eingepasst» every
    *  time you looked away is a board you have to re-find your way around on every return. A REF,
@@ -1766,13 +1767,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const att = { ...draftAttachments.current } // commitLine consumes the ref — kept for the undo
     const planId = activeId
     const anno = kind === 'line' ? commitLine(d) : commitArea(d)
+    // the take-back deletes this ONE anno — spent once another device's merge changed it
+    // (lib/undoKeys · watchRecords), so it can never delete their edit
+    const watch = watchRecords([recordKey('objects', anno.id)])
     toast(fillTemplate(appConfig.copy.toolDock.autoCommitted, { name: kind === 'line' ? appConfig.copy.drawingEditor.line : appConfig.copy.drawingEditor.area }), {
+      onDismiss: watch.release,
       action: {
         label: appConfig.copy.toolDock.autoCommitUndo,
         onClick: () => {
+          watch.release()
+          if (!watch.ok()) { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
           if (activeIdRef.current === planId) {
             // still on this sheet: take the anno back and put the shape in the hand again
-            setHist((m) => pushBoardPast(m, planId, annosRef.current)); onCheckpoint?.(planId)
+            const step = newPlanStep()
+            setHist((m) => pushBoardPast(m, planId, annosRef.current, step)); onCheckpoint?.(planId, step)
             onChangeRef.current(annosRef.current.filter((a) => a.id !== anno.id))
             emit('board.delete', { id: anno.id, planId })
             draftAttachments.current = att
@@ -1786,7 +1794,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             // the document was left mid-toast: the anno still comes off its own sheet (through
             // this closure, which still points there), but a draft cannot be handed back onto a
             // document that is no longer open
-            setHist((m) => pushBoardPast(m, planId, [...annos, anno])); onCheckpoint?.(planId)
+            const step = newPlanStep()
+            setHist((m) => pushBoardPast(m, planId, [...annos, anno], step)); onCheckpoint?.(planId, step)
             onChange(annos)
             emit('board.delete', { id: anno.id, planId })
           }
