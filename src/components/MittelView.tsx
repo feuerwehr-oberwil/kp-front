@@ -7,7 +7,7 @@ import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSo
 import { fillTemplate, stripUnprintable } from '../lib/format'
 import { cx } from '../lib/cx'
 import { caretToEnd, toast } from '../lib/ui'
-import { Menu, Overlay, Sheet } from '../lib/overlays'
+import { Menu, Overlay, Sheet, SheetFoot } from '../lib/overlays'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { EmptyState } from './EmptyState'
@@ -844,7 +844,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
           />
         </label>
       </div>
-      <div className="ip-actions">
+      <SheetFoot className="ip-actions">
         {/* destructive action to the left, away from Speichern — and only where there is
             something the operator actually put there by hand */}
         {target.custom && (
@@ -854,7 +854,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
         )}
         <button type="button" className="ip-btn" onClick={onClose}>{M.cancel}</button>
         <button type="button" className="ip-btn primary" disabled={!valid} onClick={submit}>{M.save}</button>
-      </div>
+      </SheetFoot>
     </Overlay>
   )
 }
