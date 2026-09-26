@@ -24,9 +24,9 @@
   width: max-content; max-width: min(440px, 90vw); z-index: var(--z-floating-tip); box-sizing: border-box;
   /* the one message surface (08-toasts.css · «ONE message surface») — it was the one dark pill
      with its own corner and its own type */
-  display: flex; align-items: center; min-height: calc(var(--tap) + 2 * var(--msg-pad)); padding: var(--msg-pad) 14px;
-  background: var(--surface); color: var(--ink); border: none; border-radius: var(--r-sm);
-  box-shadow: var(--shadow); font: 600 13px/1.35 var(--body); text-align: left; }
+  display: flex; align-items: center; min-height: var(--float-h); padding: var(--msg-pad) var(--float-pad-x);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none; border-radius: var(--r-sm);
+  box-shadow: var(--float-edge); font: 600 13px/1.35 var(--body); text-align: left; }
 /* phones: clear ALL THREE bottom bars (nav + tool bar + the horizontal tool-option dock) so the
    hint sits above the dock, not under it — rail-h*3 (was *2, which collided with the dock) */
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {

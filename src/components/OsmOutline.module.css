@@ -14,13 +14,14 @@
 
 /* floating transfer bar for multi-building select — bottom-centre of the plan
    viewport (portaled to <body>, so the panned/zoomed board never drags it) */
-/* ⚠️ Clears the Objekt chip row (`.wb-botleft`, bottom 12px + ~32px tall). At 26px this bar sat
+/* ⚠️ Clears the Objekt chip row (`.wb-botleft`: 16px up, --float-h tall, since 26.09.2026 — it
+   was 12px + ~32px, and this bar sat at 58px): one --float-gap above it. At 26px this bar sat
    in the same band, and since it is centred while the chip is left-aligned they collided as
    soon as the chip carried a full address — «Gebäude antippen, dann übernehmen» printed over
    the name of the object being picked FOR. */
 /* The wrapper owns the placement so ONE line of context (the existing building is highlighted /
    part of it is missing here) can sit directly above the buttons it qualifies. */
-.wb-osm-barwrap { position: fixed; left: 50%; bottom: 58px; transform: translateX(-50%); z-index: var(--z-help-scrim);
+.wb-osm-barwrap { position: fixed; left: 50%; bottom: calc(16px + var(--float-h) + var(--float-gap)); transform: translateX(-50%); z-index: var(--z-help-scrim);
   display: flex; flex-direction: column; align-items: center; gap: 6px; }
 /* ⚠️ The house shapes, not pills (20.09.2026): this bar was the one place in the app with
    fully round buttons in a fully round tray, at 13px/600 – and on a phone both labels wrapped
@@ -33,10 +34,10 @@
    their own, next to a dark toast saying the same kind of thing. An instruction stays while the
    pick is on, so it carries no ✕ and no running line. */
 .wb-osm-bar, .wb-osm-note, .wb-osm-warn { box-sizing: border-box; display: flex; align-items: center; gap: 6px;
-  min-height: calc(var(--tap) + 2 * var(--msg-pad)); padding: var(--msg-pad);
-  background: var(--surface); border: none; border-radius: var(--r-sm); box-shadow: var(--shadow);
+  min-height: var(--float-h); padding: var(--msg-pad);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); border: none; border-radius: var(--r-sm); box-shadow: var(--float-edge);
   font: 600 13px/1.35 var(--body); color: var(--ink); }
-.wb-osm-note, .wb-osm-warn { gap: 9px; padding: var(--msg-pad) 14px; }
+.wb-osm-note, .wb-osm-warn { gap: 9px; padding: var(--msg-pad) var(--float-pad-x); }
 /* a saved outline that is not in this fetch WILL be lost on «Übernehmen» — the one thing here
    that is a loss, so it leads with the warn glyph in the warn colour, as a toast does */
 .wb-osm-warn :global(.i) { flex: none; width: 16px; height: 16px; color: var(--amber-strong); }
@@ -65,8 +66,8 @@
      and the phone reserves a single lane for it (IncidentWorkspace · activePlanNoTools). */
   /* ⚠️ …and above whatever stands highest at the foot (24.09.2026): the chip row
      («Zurück zum Gebäude», 09-whiteboard · .wb-botleft at rail-h + 20px, --tap tall on a touch
-     screen – +62px put the hint 2px INTO it) or the Eintrag FAB beside it (bottom rail-h + 18px,
-     and as tall as the --fab-safe it reserves sideways, 58 + an 8px channel). `width: max-content`
+     screen – +62px put the hint 2px INTO it) or the Eintrag FAB beside it (then 58px tall).
+     `width: max-content`
      because a box centred with `left: 50%` only gets the right HALF of the screen to lay out in –
      the one-line hint wrapped into a three-line column over the chip. */
   /* ⚠️ …and since 25.09.2026 it simply stands in THE message lane (15-mobile · --msg-lane-bottom),

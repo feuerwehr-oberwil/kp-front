@@ -53,6 +53,24 @@
      (08-toasts.css · «ONE message surface»). */
   --msg-pad: 4px;
   --r-msg-in: calc(var(--r-sm) - var(--msg-pad));
+  /* ── ONE floating family (26.09.2026, owner: «keep things unified in terms of those bottom
+     toasts, infos etc. so everything has the same shape, colour, padding») ────────────────
+     Everything small that floats over the Karte or a Plan — the messages above, the plan's chip
+     row (Objekt · Gebäude · Massstab · ⌖ Karte), the phone's Grundgerüst strip and the Eintrag
+     FAB — is ONE piece: the bars' own material (--glass, its blur, the --glass-line edge drawn as
+     an INSET ring so it costs no layout, and --shadow), ONE row height (a --tap button plus
+     --msg-pad all round — the height a toast with its ✕ already had), the one corner, 14px of air
+     before the first glyph, 16px glyphs. A state is the colour of a GLYPH inside it (a lamp, the
+     leading icon), never an outline: the Massstab chip wore a blue ring and the object chip an
+     amber one, and beside the toasts they read as four different things. The FAB stays round —
+     roundness is what makes it THE Eintrag button (AGENTS.md · one corner) — but it is the row's
+     height and stands on the row's baseline (15-mobile · --float-bottom). */
+  --float-bg: var(--glass);
+  --float-blur: blur(14px) saturate(1.4);
+  --float-edge: inset 0 0 0 1px var(--glass-line), var(--shadow);
+  --float-h: calc(var(--tap) + 2 * var(--msg-pad));
+  --float-pad-x: 14px;
+  --float-gap: 8px;
   --ease: cubic-bezier(.2, .7, .3, 1);
   /* THE app-wide :active wash — layered as a background-image overlay so it composes with
      any background underneath. Built on --ink, which flips for the night theme, so the wash

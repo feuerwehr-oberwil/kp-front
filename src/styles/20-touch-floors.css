@@ -63,8 +63,8 @@
   /* the Einsatz card's row of actions (40) and its sync mark (32), and the menu's «Abmelden» (30) */
   .ip-card-act, .ip-menu-logout, .ip-btn { min-height: var(--tap); }
   .ip-card-sync { width: var(--tap); height: var(--tap); margin: -9px -10px 0 0; }
-  /* the plan's trust chips along its foot — Einsatzobjekt · Massstab · Karte verknüpfen — were 29px */
-  .wb-scale-chip { min-height: var(--tap); }
+  /* (the plan's trust chips along its foot — Einsatzobjekt · Massstab · Karte verknüpfen — were 29px
+     and stood --tap here; since 26.09.2026 they are --float-h at every width, 09-whiteboard) */
   /* the Rapport's pencil on the Einsatzdaten card (26) and the ± stepper's reset (32) */
   .report-meta-dispatch-hint, .step-clear { width: var(--tap); height: var(--tap); }
 }

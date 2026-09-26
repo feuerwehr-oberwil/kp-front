@@ -35,7 +35,7 @@ import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
 import {
   defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
-import { missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
+import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
@@ -1235,7 +1235,8 @@ export function ReportPreflight({
      Rows raised before 04.09. carry no structured payload and are deliberately not returned;
      an item nobody can close would leave the step open for ever on every past Einsatz. */
   const conflicts = useMemo(() => openConflicts(events), [events])
-  const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount, openConflicts: conflicts.length }
+  // ONE builder with the workspace's doors (the badge, the chooser, the Abschluss) — lib/abschluss
+  const facts: AbschlussFacts = abschlussFacts(meta, attendanceCount, mittelCount, conflicts.length)
   const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
   // People whose presence blocks cannot be turned into a duration — almost always a still-open
   // block borrowing an Einsatzende that lies BEFORE it. They fall out of BOTH Einsatzstunden
