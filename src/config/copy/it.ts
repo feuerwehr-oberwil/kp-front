@@ -5420,6 +5420,8 @@ export const it: Localizable<Copy> = {
     pickHintKarteAny: 'Tocca la carta nel punto giusto',
     pickHintPlanAny: 'Tocca il piano nel punto giusto',
     pinShow: 'Mostra {name}',
+    layerLabel: 'Ricerca',
+    layerOn: 'Livello «Ricerca» riattivato',
   },
   mittel: {
     title: 'Materiale',

@@ -610,14 +610,14 @@ describe('pins: places where somebody put them, and a missing person without a p
     expect(suchePins(d, floorLabel)[0]).toMatchObject({ status: 'abgesucht', hot: false })
   })
 
-  it('the Karte\'s pins print on the Kroki as notes on the tactical layer; a plan pin does not', () => {
+  it('the Karte\'s pins print on the Kroki as notes on their own Ebenen row; a plan pin does not', () => {
     const w = world()
     let d = addBereich(emptySuche(), { name: 'Scheune', point: karte }, w.cx()).doc
     d = addBereich(d, { name: 'Keller', point: plan }, w.cx()).doc
     d = addPerson(d, { name: 'Muster Tim', wo: 'Scheune' }, w.cx()).doc
-    const notes = sucheKrokiNotes(d, floorLabel, 'taktisch')
-    expect(notes).toEqual([expect.objectContaining({ kind: 'note', layer: 'taktisch', coord: karte.coord, label: 'Suche: Scheune · offen · Person vermisst' })])
-    expect(sucheKrokiNotes(undefined, floorLabel, 'taktisch')).toEqual([])
+    const notes = sucheKrokiNotes(d, floorLabel, 'suche')
+    expect(notes).toEqual([expect.objectContaining({ kind: 'note', layer: 'suche', coord: karte.coord, label: 'Suche: Scheune · offen · Person vermisst' })])
+    expect(sucheKrokiNotes(undefined, floorLabel, 'suche')).toEqual([])
   })
 })
 

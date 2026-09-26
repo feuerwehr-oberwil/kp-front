@@ -5531,6 +5531,8 @@ export const de = {
     pickHintKarteAny: 'Tippe auf die Karte, wo es ist',
     pickHintPlanAny: 'Tippe auf den Plan, wo es ist',
     pinShow: '{name} zeigen',
+    layerLabel: 'Suche',
+    layerOn: 'Ebene «Suche» wieder eingeschaltet',
   },
   // Mittel surface (MittelView) — manual material capture for Rapport / resupply
   mittel: {

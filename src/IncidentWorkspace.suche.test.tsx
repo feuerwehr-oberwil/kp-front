@@ -212,3 +212,28 @@ describe('putting a place on the Karte from the card', () => {
     expect(sucheCard()).toBeNull()
   })
 })
+
+describe('the Ebenen row «Suche» (owner, 26.09.2026)', () => {
+  const placed: SucheDoc = { personen: [], bereiche: [{ id: 'b1', name: 'Scheune', createdAt: '2026-09-26T10:05:00Z', point: { coord: [7.61, 47.51] }, log: [] }] }
+  const row = () => [...document.querySelectorAll<HTMLButtonElement>('.layers-card .lrow')].find((b) => b.textContent?.includes(C.layerLabel))
+
+  it('is a row among the contents, on by default; off, the Karte draws no pin — the card and its door stay', async () => {
+    await mount({ workspace: { suche: placed } as unknown as Partial<Saved> })
+    expect(lastMap().overlay?.props.pins.map((p) => p.id)).toEqual(['b1'])
+    await click(ebenen())
+    expect(row()?.getAttribute('aria-pressed')).toBe('true')
+    await click(row()!)
+    expect(lastMap().overlay).toBeUndefined()
+    await click(door())
+    expect(sucheCard()).not.toBeNull()
+  })
+
+  it('«📍» on a row switches it back on rather than showing a pin nobody can see', async () => {
+    await mount({ workspace: { suche: placed } as unknown as Partial<Saved> })
+    await click(ebenen())
+    await click(row()!)
+    await click(door())
+    await click(screen.getByRole('button', { name: fillTemplate(C.pinShow, { name: 'Scheune' }) }))
+    expect(lastMap().overlay?.props.pins.map((p) => p.id)).toEqual(['b1'])
+  })
+})

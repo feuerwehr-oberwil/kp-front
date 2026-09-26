@@ -597,9 +597,14 @@ to prod.
     going away cancels the pick). A form's pin is written with the record in the SAME step; a
     card's is its own step with an `ort` row (`setPlacePoint`). «＋ Vermisst» puts its point on
     a new (or unplaced) place, on the person when there is no place, and offers none for a place
-    that stands already (`pointTarget`). The Karte's pins print on the Kroki as notes on the
-    tactical layer (`sucheKrokiNotes`) — not on a Kroki reconstructed for a past moment, and not
-    on the plan pages. Pins follow replay (they are the slice as it stood).
+    that stands already (`pointTarget`). The pins have ONE Ebenen row, «Suche»
+    (`defaults.sucheLayerId`, on by default, a device pref like every row, in «Alle ein / Alle
+    aus / Standard»), for the Karte and the plans alike; off, no pin is drawn but the card and
+    its door stay, and «Zeigen» or a pick switches it back on and says so. The Karte's pins print
+    on the Kroki as notes on that row (`sucheKrokiNotes`) — not on a Kroki reconstructed for a
+    past moment, and not on the plan pages (both accepted, owner 26.09.2026). Pins follow replay
+    (the slice as it stood). Two devices typing one new name at once make two places — accepted,
+    no auto-merge (`ensurePlace`).
   - ⚠️ Not built: drawn search AREAS (`SucheBereich.shape` stays typed and empty). A drawn area
     is its own kind «Suchbereich», never a line, so it can never be offered to a Trupp as its
     Leitung (the 23.09.2026 failure).

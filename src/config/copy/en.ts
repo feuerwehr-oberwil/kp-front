@@ -3456,6 +3456,8 @@ export const en: Localizable<Copy> = {
     pickHintKarteAny: 'Tap the map where it is',
     pickHintPlanAny: 'Tap the plan where it is',
     pinShow: 'Show {name}',
+    layerLabel: 'Search',
+    layerOn: 'Layer «Search» switched on again',
   },
   mittel: {
     title: 'Material',

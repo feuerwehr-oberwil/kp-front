@@ -1158,7 +1158,7 @@ export function IncidentWorkspace({
   /** The Suche's card hands the surface over for ONE tap (components/suche · SuchePick): the next
    *  tap on the Karte or the open plan is a place's position. The card steps aside meanwhile,
    *  keeping every word of its form; ✕, Esc or the card going away cancel it. */
-  const [suchePick, setSuchePick] = useState<{ name: string; done: (p: SuchePoint) => void } | null>(null)
+  const [suchePick, setSuchePick] = useState<{ name: string; done: (p: SuchePoint) => void; layerOn?: boolean } | null>(null)
   // «Trupp finden» (TruppFinder) — an overlay over whatever is on screen, not a surface
   const [findTruppOpen, setFindTruppOpen] = useState(false)
   useEffect(() => { if (tool !== 'select') { setViewsOpen(false); setPanel(null) } }, [tool])
@@ -4461,12 +4461,22 @@ export function IncidentWorkspace({
   /** where a tap could put a place right now: the Karte, or the sheet the plan surface shows */
   const suchePickSurface: SuchePick['surface'] | null = mode === 'map' ? 'karte'
     : mode === 'plans' && planDocs.some((d) => d.id === activePlanId) ? 'plan' : null
+  /** the Ebenen row «Suche» (26.09.2026, owner): off, the pins are not drawn — the card and its
+   *  door stay. Showing a pin or placing one switches the row back on (and says so): a pin put
+   *  down where nobody can see it would be a pin nobody knows is there. */
+  const sucheLayerOn = isVisible(appConfig.defaults.sucheLayerId)
+  const sucheLayerEnsure = (): boolean => {
+    if (sucheLayerOn || replayActive) return false
+    toggleLayer(appConfig.defaults.sucheLayerId)
+    return true
+  }
   const suchePickApi: SuchePick | undefined = canEditSuche && !replayActive && !tacticalLocked && suchePickSurface
-    ? { surface: suchePickSurface, start: (name, done) => setSuchePick({ name, done }) }
+    ? { surface: suchePickSurface, start: (name, done) => setSuchePick({ name, done, layerOn: sucheLayerEnsure() }) }
     : undefined
   /** «📍» on a row / «Zeigen» on a card: the pin, brought into view — on its own surface (a place
    *  put on a plan opens that plan). On a phone the card goes, or it would cover what it shows. */
   const sucheShow = (p: SuchePoint) => {
+    if (sucheLayerEnsure()) toast(appConfig.copy.suche.layerOn, { icon: 'layers' })
     if (p.coord) {
       if (mode !== 'map') { clearMapUi(); setMode('map') }
       const map = mapRef.current?.getMap()
@@ -4485,7 +4495,9 @@ export function IncidentWorkspace({
   // on a tablet a toast that STANDS for the mode, lib/ui · onDismiss — swiping it cancels the pick)
   const suchePickHint = suchePick ? (suchePick.name
     ? fillTemplate(mode === 'plans' ? appConfig.copy.suche.pickHintPlan : appConfig.copy.suche.pickHintKarte, { name: suchePick.name })
-    : (mode === 'plans' ? appConfig.copy.suche.pickHintPlanAny : appConfig.copy.suche.pickHintKarteAny)) : null
+    : (mode === 'plans' ? appConfig.copy.suche.pickHintPlanAny : appConfig.copy.suche.pickHintKarteAny))
+    // …and, when the pick had to switch the Ebenen row back on, the hint says so
+    + (suchePick.layerOn ? ` · ${appConfig.copy.suche.layerOn}` : '') : null
   // (on a phone the dock's own hint row says it — ToolDock · hint — so the toast is the tablet's)
   useEffect(() => {
     if (!suchePickHint || isPhone) return
@@ -5378,7 +5390,7 @@ export function IncidentWorkspace({
         <MapView
           ref={mapRef}
           // the Suche's pins over the tactical layer — inert while a pick waits for its tap
-          overlay={suchePinsNow.length ? <SucheMapPins pins={suchePinsNow} onOpen={suchePick ? undefined : sucheOpenPin} /> : undefined}
+          overlay={sucheLayerOn && suchePinsNow.length ? <SucheMapPins pins={suchePinsNow} onOpen={suchePick ? undefined : sucheOpenPin} /> : undefined}
           entities={entities}
           readOnly={tacticalLocked}
           layers={mapLayers}
@@ -6790,7 +6802,7 @@ export function IncidentWorkspace({
           focus={planFocus}
           // the Suche's door at the end of the plan's bar — the same card as on the Karte
           suche={{ on: panel === 'suche', count: sucheMissing, onToggle: toggleSuche }}
-          suchePins={suchePinsNow}
+          suchePins={sucheLayerOn ? suchePinsNow : undefined}
           onSuchePin={sucheOpenPin}
           suchePick={suchePick && sucheCardOn ? { onPick: (p) => { const k = suchePick; setSuchePick(null); k.done(p) } } : null}
           trupps={effTrupps}
