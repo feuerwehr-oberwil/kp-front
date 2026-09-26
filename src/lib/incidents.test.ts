@@ -70,7 +70,8 @@ describe('WorkspaceSync.flushKeepalive — teardown beacon', () => {
     expect(apiBeacon).toHaveBeenCalledTimes(1)
     expect(apiBeacon).toHaveBeenCalledWith(
       `/api/incidents/${ID}/workspace?slim=1`,
-      { workspace: { a: 1 }, base_rev: 0 },
+      // `edited_at`: when the edit was made — a closed Einsatz takes a save from before its close
+      { workspace: { a: 1 }, base_rev: 0, edited_at: expect.stringMatching(/^\d{4}-\d\d-\d\dT/) },
       'PUT',
     )
     // fire-and-forget: dirty stays set so a same-device reopen / next flush still reconciles

@@ -20,12 +20,12 @@ const alarm: DiveraAlarm = {
 
 const ix = appConfig.copy.intake
 
-const labels = (attachFirst: boolean) => {
+const labels = (attachFirst: boolean, canAttach = true) => {
   render(
     <>
       <IncomingAlarmBanner
         alarms={[alarm]} taking={null} attachFirst={attachFirst}
-        onTake={() => {}} onAttach={() => {}}
+        onTake={() => {}} onAttach={canAttach ? () => {} : undefined}
       />
       <Meldeleiste />
     </>,
@@ -51,5 +51,13 @@ describe('IncomingAlarmBanner', () => {
     // both actions stay reachable — only the emphasis moves
     expect(order).toEqual([ix.attachShort, ix.alarmOpen])
     expect(primary).toBe(ix.attachShort)
+  })
+
+  it('offers no «Zu Einsatz» at all while the open Einsatz is closed — and Öffnen is the one filled', () => {
+    // review of #235: attached to a closed Einsatz, the dispatch's Zeiten and Meldung would land
+    // in a closed record; App passes no onAttach then (isIncidentRunning)
+    const { order, primary } = labels(true, false)
+    expect(order).toEqual([ix.alarmOpen])
+    expect(primary).toBe(ix.alarmOpen)
   })
 })

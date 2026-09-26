@@ -1,5 +1,6 @@
 import { formatDateTime } from './report'
 import { describe, it, expect } from 'vitest'
+import { closeTimeOf } from './api/incidents'
 import { buildDirectReportPayload, einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf, usedStackFloors } from './reportPdfDirect'
 import { TILE_AR } from './whiteboard'
 import { appConfig } from '../config/appConfig'
@@ -360,5 +361,63 @@ describe('buildDirectReportPayload · plan pages', () => {
   it('…and a sheet whose only marks come from the Karte still gets its page', () => {
     expect(pages({ m2: [{ id: 'fromMap', kind: 'symbol', symbol: 'VKF Fahrzeug', x: 0.6, y: 0.4 }] })).toHaveLength(1)
     expect(pages({})).toHaveLength(0)
+  })
+})
+
+/* D2 + D4 (staging 25.09.2026): after a reopen and a second close the paper's Einsatzende is
+ * the SECOND close, and the rows that reached the record after the (first) close go to the PDF
+ * with their Nachtrag mark — the server prints it (report_pdf · JournalRowIn.nachtrag). */
+describe('buildDirectReportPayload · the close on paper', () => {
+  const incident = {
+    id: 'i1', title: 'Brand', started_at: '2026-09-25T21:36:00.000Z',
+    closed_at: '2026-09-25T22:07:00.000Z', last_closed_at: '2026-09-25T22:15:00.000Z',
+  } as never
+  const events: TimelineEvent[] = [
+    { id: 'on-time', t: '', at: '2026-09-25T22:00:00.000Z', icon: 'radio', text: 'Trupp 1: Kontakt', kind: 'team' },
+    { id: 'late', t: '', at: '2026-09-25T22:05:00.000Z', icon: 'radio', text: 'Trupp 2: Kontakt', kind: 'team', receivedAfterClose: true },
+    { id: 'reopened', t: '', at: '2026-09-25T22:13:00.000Z', icon: 'type', text: 'Nach dem Wiederöffnen', kind: 'journal' },
+  ]
+  const payload = () => buildDirectReportPayload({
+    incident,
+    draft: { meta: {}, generatedAt: '2026-09-25T22:20:00.000Z', proof: {}, options: { journal: true } } as never,
+    trupps: [], attendance: {}, events, plans: [],
+  }) as { journal: { text: string; nachtrag?: boolean }[]; meta: Record<string, unknown> }
+
+  it('marks every row that reached the record after the close — and only those', () => {
+    const byText = new Map(payload().journal.map((r) => [r.text, r.nachtrag]))
+    expect(byText.get('Trupp 1: Kontakt')).toBeUndefined()
+    expect(byText.get('Trupp 2: Kontakt')).toBe(true) // before the close, received after it
+    expect(byText.get('Nach dem Wiederöffnen')).toBe(true)
+  })
+
+  it('ends the Einsatzleitung (and every other open span) at the SECOND close, not the first', () => {
+    // a handover mid-Einsatz: the last span runs to the Einsatzende — which is the current close
+    const rows: TimelineEvent[] = [
+      { id: 'e2', t: '', at: '2026-09-25T22:10:00.000Z', icon: '', text: 'Rapportangaben: Einsatzleiter «Huber Beat»' },
+      { id: 'e1', t: '', at: '2026-09-25T21:40:00.000Z', icon: '', text: 'Rapportangaben: Einsatzleiter «Meier Anna»' },
+    ]
+    const out = buildDirectReportPayload({
+      incident,
+      draft: { meta: { einsatzleiter: 'Huber Beat' }, generatedAt: '2026-09-25T22:20:00.000Z', proof: {}, options: {} } as never,
+      trupps: [], attendance: {}, events: rows, plans: [],
+    }) as { meta: { einsatzleiter?: string } }
+    // same instant rendered through the sheet's clock: the handover prints, and nothing reads 00:07
+    expect(out.meta.einsatzleiter).toContain('Huber Beat')
+    expect(JSON.stringify(out)).not.toContain('00:07')
+    expect(closeTimeOf(incident as never)).toBe('2026-09-25T22:15:00.000Z')
+  })
+
+  it('ends an Anwesenheit still open at the close at the SECOND close (00:15), not the first (00:07)', () => {
+    const out = buildDirectReportPayload({
+      incident,
+      draft: { meta: {}, generatedAt: '2026-09-25T22:20:00.000Z', proof: {}, options: { attendance: true } } as never,
+      trupps: [], events: [], plans: [],
+      roster: [{ id: 'p1', name: 'Tst Emil' }],
+      attendance: { p1: { status: 'present', checkedInAt: '2026-09-25T21:40:00.000Z', displayNameSnapshot: 'Tst Emil' } } as never,
+    })
+    const personal = JSON.stringify((out as { personal: unknown }).personal)
+    const clock = (iso: string) => new Date(iso).toTimeString().slice(0, 5)
+    expect(personal).toContain(clock('2026-09-25T22:15:00.000Z'))
+    expect(personal).not.toContain(clock('2026-09-25T22:07:00.000Z'))
   })
 })

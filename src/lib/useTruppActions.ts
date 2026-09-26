@@ -1607,12 +1607,31 @@ export function useTruppActions(deps: Deps) {
   /** …and the line that ends it, naming what ended it. Read off the Trupp's OWN log — the same
    *  readings the printed Druckprotokoll shows — so the row can never claim a Funkkontakt where
    *  the record holds a Druckmeldung. Idempotent the same way, on the same turnus. */
-  const logTruppAlarmCleared = (id: string, turnus: string) => {
-    const tr = trupps.find((t) => t.id === id)
+  const logTruppAlarmCleared = (id: string, turnus: string, seen?: Trupp) => {
+    // ⚠️ THE TRUPP THE ALARM ENGINE SAW, not this hook's state (F1, 26.09.2026). The engine runs on
+    // the Tafel with the reopen's clock restart already laid over it (IncidentWorkspace
+    // `alarmTrupps`, derived from the reopen ROW), while the restart is written into `trupps` by
+    // an effect of the parent that runs AFTER the child's. A tablet that only heard the reopen
+    // therefore ended the alarm off the pre-restart state and wrote «– Funkkontakt» where the
+    // reopening tablet wrote «– Kontaktuhr neu gestartet» — and the server keeps whichever copy
+    // of the derived row id comes first. Reading the evaluated Trupp makes the reason a function
+    // of the same facts (the Trupp's readings + the reopen row) on every device.
+    const tr = seen ?? trupps.find((t) => t.id === id)
     const az = appConfig.copy.atemschutz
     // the last MEASURED or lifecycle row — a crew row says nothing about how the alarm ended
     const last = tr?.readings?.filter((r) => r.kind !== 'crew').slice(-1)[0]?.kind
-    const reason = (last && az.alarmClearedBy[last]) || az.alarmClearedOther
+    // ⚠️ …unless the clock was RESTARTED by «Wieder öffnen» (D5, 25.09.2026): then nobody reached
+    // the crew, and the last reading's «Funkkontakt» would put a radio call on paper that never
+    // happened. The restart says what it was.
+    const restarted = !!tr?.contactRestartedAt && tr.contactRestartedAt === tr.lastContactTime
+    // ⚠️ …and only the alarm that was STILL RUNNING at the reopen is ended by it (N4, 26.09.2026).
+    // The alarm is keyed on the contact it ran from (`turnus`); if a later contact had come in
+    // before the reopen — a Kontakt delivered late from an offline phone — THAT contact ended the
+    // alarm, and its own Verlauf row (at its own time) is the record of it. A «beendet» row
+    // written now would put the end at the moment this device heard the reopen, and blame the
+    // wrong cause: nothing is written.
+    if (restarted && tr!.contactBeforeRestart != null && tr!.contactBeforeRestart !== turnus) return
+    const reason = restarted ? az.alarmClearedByReopen : (last && az.alarmClearedBy[last]) || az.alarmClearedOther
     const rowId = `azcl-${id}-${turnus}`
     log('radio', fillTemplate(az.logAlarmCleared, { name: tr ? truppLogName(tr) : '', reason }), 'team',
       undefined, undefined, { rowId, subjectId: id })

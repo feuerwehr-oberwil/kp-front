@@ -1175,3 +1175,29 @@ describe('krokiFitMaxZoom', () => {
     expect(krokiFitMaxZoom([[7.5704, 47.5241]])).toBe(20)                       // a lone symbol keeps its streets
   })
 })
+
+describe('journalRows · Nachtrag (staging r3)', () => {
+  it('prints a row the server received after the close as a Nachtrag, in its own time order', () => {
+    const closed = '2026-07-02T18:00:00Z'
+    const events = [
+      { id: 'on-time', t: '', at: '2026-07-02T17:50:00Z', icon: 'radio', text: 'Trupp 1: Kontakt', kind: 'team' as const },
+      { id: 'late', t: '', at: '2026-07-02T17:55:00Z', icon: 'radio', text: 'Trupp 2: Kontakt', kind: 'team' as const, receivedAfterClose: true },
+    ]
+    const rows = journalRows(events, [], undefined, closed)
+    const byText = new Map(rows.map((r) => [r.text, r]))
+    expect(byText.get('Trupp 1: Kontakt')?.nachtrag).toBe(false)
+    expect(byText.get('Trupp 2: Kontakt')?.nachtrag).toBe(true)
+  })
+
+  it('prints what the Abschluss itself wrote as part of the close (staging r6, F3)', () => {
+    const closed = '2026-07-02T18:00:00Z'
+    const events = [
+      { id: 'close', t: '', at: closed, icon: 'lock', text: 'Einsatz abgeschlossen', lifecycle: 'closed' as const },
+      { id: 'inside', t: '', at: '2026-07-02T18:00:00.600Z', icon: 'logout', text: 'Trupp 2 beim Abschluss noch drin', kind: 'team' as const, atClose: true },
+      { id: 'later', t: '', at: '2026-07-02T18:30:00Z', icon: 'radio', text: 'Nachtrag Funk', kind: 'journal' as const },
+    ]
+    const byText = new Map(journalRows(events, [], undefined, closed).map((r) => [r.text, r]))
+    expect(byText.get('Trupp 2 beim Abschluss noch drin')?.nachtrag).toBe(false)
+    expect(byText.get('Nachtrag Funk')?.nachtrag).toBe(true)
+  })
+})

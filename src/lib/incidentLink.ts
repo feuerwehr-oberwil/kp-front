@@ -10,6 +10,12 @@
 // which session this page speaks with, so the two can never disagree.
 
 import { ApiError, apiPost } from './api'
+import { isIncidentClosedRefusal, refusalClosedAt } from './incidentClosed'
+import { SLOW_FOLLOW_MS } from './pollBackoff'
+
+/** How often a link page showing «Einsatz abgeschlossen» asks again — the same once a minute a
+ *  frozen Link follows its closed Einsatz with (lib/useIncidentSync · slowFollow). */
+export const LINK_CLOSED_FOLLOW_MS = SLOW_FOLLOW_MS
 
 /**
  * Why the link could not be opened — a responder-facing reason, not an HTTP status.
@@ -20,11 +26,18 @@ import { ApiError, apiPost } from './api'
  * From the responder's side they also collapse into the same instruction anyway: this Einsatz
  * isn't on this device, wait a moment or ask the Einsatzleitung.
  */
-export type LinkFailure = 'disabled' | 'invalid' | 'notReady' | 'offline' | 'error'
+export type LinkFailure = 'disabled' | 'invalid' | 'notReady' | 'offline' | 'error' | 'closed'
 
+/**
+ * `closed` is the one exception to «all 404s alike», and it is not a 404: the Atemschutz link's
+ * own secret names one Einsatz, so its exchange says «abgeschlossen» outright — the same 409
+ * `incident_closed` a running session gets (backend api/incident_link · _open_atemschutz_session;
+ * staging r6, F2). It is the one failure a REOPEN undoes, so the page keeps asking
+ * (`LINK_CLOSED_FOLLOW_MS`) instead of offering a button.
+ */
 export type LinkExchange =
   | { ok: true; incidentId: string }
-  | { ok: false; reason: LinkFailure }
+  | { ok: false; reason: LinkFailure; closedAt?: string | null }
 
 /**
  * Trade the link token for the httpOnly session cookie. One attempt, no retry — the retry
@@ -41,6 +54,7 @@ export async function exchangeLinkToken(token: string): Promise<LinkExchange> {
     if (e.status === 0) return { ok: false, reason: 'offline' }
     if (e.status === 403) return { ok: false, reason: 'disabled' } // station has the feature off
     if (e.status === 401) return { ok: false, reason: 'invalid' }  // link invalid or expired
+    if (isIncidentClosedRefusal(e)) return { ok: false, reason: 'closed', closedAt: refusalClosedAt(e) }
     if (e.status === 404) return { ok: false, reason: 'notReady' } // closed / archived / not ingested
     return { ok: false, reason: 'error' }
   }

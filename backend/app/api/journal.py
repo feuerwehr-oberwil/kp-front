@@ -21,11 +21,26 @@ from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, JournalEntry
 from ..schemas import JournalAppendIn, JournalEntryOut, JournalPage
-from .incidents import INCIDENT_NOT_FOUND
+from .incidents import INCIDENT_NOT_FOUND, happened_after_close, incident_closed, incident_lifecycle
 
 router = APIRouter(prefix="/incidents", tags=["journal"])
 
 MAX_BATCH = 500
+
+#: The Verlauf rows a CLOSED Einsatz no longer takes (N3, 25.09.2026 — see api/incidents ·
+#: `incident_closed`): what the running Einsatz writes about ITSELF. «team» is the whole
+#: Atemschutz-Tafel — Kontakt, Druck, Austritt and the alarm clock's own «Atemschutz-Alarm …
+#: Überfällig» (`azal-`/`azcl-`); «symbol»/«layer» are the Karte and the Pläne, whose workspace
+#: writes are refused beside them; «vehicle» is the live GPS feed. Everything else — a Meldung, a
+#: Foto, a Pendenz's lifecycle, a transcript or upload patch — is the record, and a late one is
+#: a Nachtrag, which the Verlauf and the Rapport already print as such.
+CLOSED_REFUSED_KINDS = frozenset({"team", "symbol", "layer", "vehicle"})
+
+
+def _live_row(row: dict) -> bool:
+    # ⚠️ A row carrying a `conflict` is a record divergence and its answer (lib/attendanceConflict,
+    # the Trupp merge notes `tc…`) — settling one is record-keeping, closed or not.
+    return row.get("kind") in CLOSED_REFUSED_KINDS and not row.get("conflict")
 
 
 async def _ensure(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = False) -> None:
@@ -118,11 +133,18 @@ async def append_rows(db: AsyncSession, incident_id: uuid.UUID, entries: list[di
     return accepted
 
 
-async def append_system_row(db: AsyncSession, incident_id: uuid.UUID, *, icon: str, text: str) -> None:
+async def append_system_row(
+    db: AsyncSession, incident_id: uuid.UUID, *, icon: str, text: str, lifecycle: str | None = None
+) -> None:
     """Server-authored boundary row (Einsatz abgeschlossen / wiedereröffnet). `t` stays empty —
     clients localise the display time from `at` (the server clock is UTC)."""
     at = datetime.now(UTC).isoformat()
-    row = {"id": f"sys{uuid.uuid4().hex[:12]}", "t": "", "at": at, "icon": icon, "text": text}
+    row: dict = {"id": f"sys{uuid.uuid4().hex[:12]}", "t": "", "at": at, "icon": icon, "text": text}
+    # `lifecycle` ("closed" | "reopened") names the boundary for the clients, which must not parse
+    # the German sentence: after a reopen the Atemschutz clocks of the crews still inside restart
+    # from THIS row's `at` (lib/reopenClocks), and they hold the alarm until it has arrived.
+    if lifecycle:
+        row["lifecycle"] = lifecycle
     await append_rows(db, incident_id, [row])
 
 
@@ -152,6 +174,30 @@ async def append_journal(
             raise _Denied()
         for e in body.entries:
             e["via"] = atemschutz_link_source(user)
+    # The lifecycle, under the incident row lock `append_rows` takes next, so a close cannot commit
+    # in between. A row made BEFORE the close is recorded; a row the Verlauf ALREADY holds (a retry
+    # whose answer was lost) is the idempotent success it always was — only a new live row made
+    # after the close is refused. Every row ACCEPTED while the Einsatz is closed is stamped
+    # `receivedAfterClose`: a Kontakt from 14:44 that reached the server at 14:47, after a 14:45
+    # close, is a true fact in its time order — and on paper it says it came late (a Nachtrag).
+    lifecycle = await incident_lifecycle(db, incident_id, lock=True)
+    if not lifecycle.is_open:
+        for e in body.entries:
+            e["receivedAfterClose"] = True
+    live = [e for e in body.entries if _live_row(e)]
+    if live and not lifecycle.is_open:
+        stored = set(
+            (
+                await db.execute(
+                    select(JournalEntry.client_id).where(
+                        JournalEntry.incident_id == incident_id,
+                        JournalEntry.client_id.in_([e.get("id") for e in live]),
+                    )
+                )
+            ).scalars()
+        )
+        if any(e.get("id") not in stored and happened_after_close(e.get("at"), lifecycle.closed_at) for e in live):
+            raise incident_closed(lifecycle.closed_at)
     accepted = await append_rows(db, incident_id, body.entries)
     if accepted:
         latest = accepted[-1].seq

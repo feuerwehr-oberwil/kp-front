@@ -36,8 +36,9 @@ export function IncomingAlarmBanner({ alarms, taking, attachFirst, onTake, onAtt
    *  follows — one tap, and the times land where the operator is looking. */
   attachFirst: boolean
   onTake: (a: DiveraAlarm) => void
-  /** attach this alarm to the active incident (split dispatch; the caller confirms) */
-  onAttach: (a: DiveraAlarm) => void
+  /** attach this alarm to the active incident (split dispatch; the caller confirms). Absent when
+   *  there is nothing to attach TO — the active Einsatz is closed — and then only «Öffnen» shows. */
+  onAttach?: (a: DiveraAlarm) => void
 }) {
   const ix = appConfig.copy.intake
   const [dismissed, setDismissed] = useState<Set<number>>(loadDismissedAlarms)
@@ -54,7 +55,8 @@ export function IncomingAlarmBanner({ alarms, taking, attachFirst, onTake, onAtt
   const busy = top != null && taking === top.divera_id
   // The same two actions either way — only which one is filled, and reads first, changes.
   const actionsFor = (a: DiveraAlarm) => {
-    const take = { label: busy ? ix.alarmOpening : ix.alarmOpen, icon: busy ? 'rotate' : 'truck', busy, primary: !attachFirst, disabled: busy, onClick: () => onTake(a) }
+    const take = { label: busy ? ix.alarmOpening : ix.alarmOpen, icon: busy ? 'rotate' : 'truck', busy, primary: !attachFirst || !onAttach, disabled: busy, onClick: () => onTake(a) }
+    if (!onAttach) return [take]
     // split dispatch: this alarm may be the Einsatz that's already open — join it
     const attach = { label: ix.attachShort, icon: 'swap', primary: attachFirst, disabled: busy, onClick: () => onAttach(a) }
     return attachFirst ? [attach, take] : [take, attach]

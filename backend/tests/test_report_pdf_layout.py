@@ -945,3 +945,24 @@ def test_the_fallback_kroki_fit_frames_like_the_panel():
     # sharp one: six symbols within 10 m were legible at 21 but filled 15 % of the sheet
     compact = KrokiIn.model_validate({"fitPoints": [[7.5704, 47.5241], [7.57041, 47.52411]]})  # a few metres
     assert _kroki_view(compact, 1300, 1820).z == 22.0
+
+
+def test_a_nachtrag_row_is_marked_on_paper():
+    """D4 (25.09.2026): the app marks a row that reached the record after the Einsatzende — the
+    paper has to say it too, under the row's time; an ordinary row carries no mark."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Probe D4", "id": "n"},
+            "generatedAt": "26.09.2026 00:20",
+            "journal": [
+                {"timeLabel": "00:05", "area": "Atemschutz", "text": "Trupp 2: Kontakt bestätigt", "nachtrag": True},
+                {"timeLabel": "00:06", "area": "Manuell", "text": "Vor dem Abschluss"},
+            ],
+        }
+    )
+    doc = pdfium.PdfDocument(io.BytesIO(compose_report_pdf(payload, {}, {})))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Trupp 2: Kontakt bestätigt" in text
+    assert text.count("Nachtrag") == 1
+    # …under the row's own time, not somewhere else on the page
+    assert text.index("00:05") < text.index("Nachtrag") < text.index("00:06")

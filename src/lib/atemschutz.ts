@@ -561,7 +561,16 @@ export function estimatePressure(
   // the configured assumption — which is the honest answer to a record that contradicts itself.
   const first = unique[0]
   const latest = unique[unique.length - 1]
-  const elapsedMin = (latest.at - first.at) / 60000
+  // ⚠️ Time the Einsatz spent CLOSED is not time under PA (staging r4): a crew still recorded as
+  // inside across a close and a reopen breathed nothing on the record meanwhile — counted, the
+  // projection ran through the whole closed hour and raised «Alarmdruck … laut Schätzung» at the
+  // reopen. The pause is the interval the reopen restart stamped (lib/reopenClocks).
+  const pausedFrom = ms(t.pausedFrom)
+  const pausedTo = ms(t.contactRestartedAt)
+  const paused = pausedFrom > 0 && pausedTo > pausedFrom
+  const activeMs = (from: number, to: number) =>
+    Math.max(0, to - from - (paused ? Math.max(0, Math.min(to, pausedTo) - Math.max(from, pausedFrom)) : 0))
+  const elapsedMin = activeMs(first.at, latest.at) / 60000
   const measuredRate = elapsedMin > 0 ? (first.bar - latest.bar) / elapsedMin : 0
   const hasMeasuredConsumption = unique.length >= 2 && measuredRate > 0
   const fallbackRate = cylinderLiters > 0 && consumptionLPerMin > 0
@@ -570,7 +579,7 @@ export function estimatePressure(
   const rateBarPerMin = hasMeasuredConsumption ? measuredRate : fallbackRate
   if (!(rateBarPerMin > 0)) return null
 
-  const projectedMin = Math.max(0, (now - latest.at) / 60000)
+  const projectedMin = Math.max(0, activeMs(latest.at, now) / 60000)
   return {
     bar: Math.max(0, Math.min(latest.bar, Math.round(latest.bar - rateBarPerMin * projectedMin))),
     source: hasMeasuredConsumption ? 'history' : 'assumption',
@@ -600,4 +609,14 @@ export function fmtElapsedFull(sec: number | null): string {
   if (s < 3600) return fmtClock(s)
   if (s < 86_400) return `${Math.floor(s / 3600)}:${pad2(Math.floor(s / 60) % 60)}:${pad2(s % 60)}`
   return `${Math.floor(s / 86_400)} d ${Math.floor(s / 3600) % 24} h`
+}
+
+/** A DURATION that says it is one (staging r4): «Einsatzzeit 23:39» on the Link, read at 23:58, was
+ *  taken for a clock time. Under an hour the value carries «min», under a day «h»; beyond that
+ *  fmtElapsedFull already names its units. The safety clock stays the bare fmtClock. */
+export function fmtDuration(sec: number | null): string {
+  const v = fmtElapsedFull(sec)
+  if (sec == null) return v
+  const s = Math.max(0, sec)
+  return s < 3600 ? `${v} min` : s < 86_400 ? `${v} h` : v
 }

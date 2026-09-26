@@ -165,7 +165,7 @@ interface Readingish {
 /** Trupp fields that are ISO timestamps where "later" is the only safe answer when both sides
  *  wrote one: a contact clock that moves BACKWARDS would re-arm an überfällig alarm somebody
  *  already answered — or worse, silence one by resurrecting a fresher-looking stale time. */
-const TRUPP_TIME_FIELDS = new Set(['entryTime', 'lastContactTime', 'lastPressureTime', 'exitTime', 'removedAt'])
+const TRUPP_TIME_FIELDS = new Set(['entryTime', 'lastContactTime', 'lastPressureTime', 'exitTime', 'removedAt', 'contactRestartedAt', 'pausedFrom', 'contactBeforeRestart'])
 
 /** The later of two ISO timestamps, or null when either doesn't parse (caller falls back). */
 function laterIso(a: unknown, b: unknown): unknown | null {
