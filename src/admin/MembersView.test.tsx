@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // What this pins is the reason the Rolle stopped being a dropdown: it defaulted to «Betrachter»,
@@ -43,10 +43,21 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
+/** Render and let the mocked user list land INSIDE act(), so React has rendered the rows AND run
+ *  their effects before the test touches anything. Waiting for a row's text is not enough: that
+ *  update lands outside act, its commit shows the text at once, but the effects it scheduled run
+ *  a task later — and under a loaded full suite the click below came first. Base UI's row menu is
+ *  not wired up until those effects have run, so the click was swallowed and «Bearbeiten» never
+ *  appeared (CI and local full runs since 20.09.2026, never the file alone). */
+const renderMembers = async () => {
+  render(<MembersView />)
+  await act(() => apiGet.mock.results[0].value)
+}
+
 /** Open the add-member form and fill everything EXCEPT the role. */
 const fillFormWithoutRole = async () => {
-  render(<MembersView />)
-  await waitFor(() => expect(screen.getByText('fu')).toBeTruthy())
+  await renderMembers()
+  expect(screen.getByText('fu')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: C.add }))
   const inputs = document.querySelectorAll<HTMLInputElement>('.adm-members-addbox .adm-input')
   fireEvent.change(inputs[0], { target: { value: 'kunz' } })
@@ -99,9 +110,9 @@ describe('Mitglied anlegen — die Rolle ist eine Frage, keine Voreinstellung', 
 describe('die Rolle in der Tabelle', () => {
   it('nennt einen Einsatzleiter «Einsatzleiter»', async () => {
     apiGet.mockResolvedValue([{ ...EXISTING, id: 'u3', username: 'el1', display_name: 'Meier El', role: 'el' }])
-    render(<MembersView />)
+    await renderMembers()
 
-    await waitFor(() => expect(screen.getByText('el1')).toBeTruthy())
+    expect(screen.getByText('el1')).toBeTruthy()
     expect(document.querySelector('.adm-members-role')?.textContent).toBe(C.roleEl)
     expect(screen.queryByText(C.roleViewer)).toBeNull()
   })
@@ -111,9 +122,9 @@ describe('die Rolle in der Tabelle', () => {
       EXISTING,
       { ...EXISTING, id: 'u2', username: 'kunz', display_name: 'Kunz Bea', role: 'viewer' },
     ])
-    render(<MembersView />)
+    await renderMembers()
 
-    await waitFor(() => expect(screen.getByText('kunz')).toBeTruthy())
+    expect(screen.getByText('kunz')).toBeTruthy()
     expect(Array.from(document.querySelectorAll('.adm-members-role')).map((e) => e.textContent))
       .toEqual([C.roleEditor, C.roleViewer])
   })
@@ -127,9 +138,9 @@ describe('der Status in der Tabelle', () => {
       EXISTING,
       { ...EXISTING, id: 'u2', username: 'kunz', display_name: 'Kunz Bea', is_active: false },
     ])
-    render(<MembersView />)
+    await renderMembers()
 
-    await waitFor(() => expect(screen.getByText('kunz')).toBeTruthy())
+    expect(screen.getByText('kunz')).toBeTruthy()
     expect(Array.from(document.querySelectorAll('.adm-badge-state')).map((e) => e.textContent))
       .toEqual([C.active, C.inactive])
     expect(document.querySelectorAll('.adm-badge.on')).toHaveLength(1)
@@ -140,8 +151,8 @@ describe('der Status in der Tabelle', () => {
 describe('Mitglied bearbeiten — dort EXISTIERT der Wert', () => {
   it('preselects the member\'s current role and never returns to «nothing chosen»', async () => {
     apiGet.mockResolvedValue([EXISTING, { ...EXISTING, id: 'u2', username: 'kunz', display_name: 'Kunz Bea', role: 'viewer' }])
-    render(<MembersView />)
-    await waitFor(() => expect(screen.getByText('kunz')).toBeTruthy())
+    await renderMembers()
+    expect(screen.getByText('kunz')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: `Geschützte Aktionen für Kunz Bea` }))
     fireEvent.click(await screen.findByText(Cc.edit))
