@@ -120,9 +120,11 @@ to prod.
   back on screen. Parked entries are exported by «Einträge sichern», keep the lamp amber until
   then, and are SENT again once the Einsatz runs again. A plain 409 on the workspace is still
   the revision conflict: test the code first. «Wieder öffnen» elsewhere comes back the same way
-  (`X-Incident-Open: 1`, the same wake, the list watch, `reopenedMetaFor`), but only for an
-  Einsatz a close SIGNAL made read-only here — one the operator opened closed on purpose stays
-  read-only — with its own row. «Anhängen» is never offered onto a closed Einsatz.
+  (`X-Incident-Open: 1`, the same wake, the list watch, `reopenedMetaFor`) on EVERY device that
+  shows the Einsatz closed, however it came to (a close signal, its own close, «Alle Einsätze» —
+  forceReadOnly goes too), with its own row naming the reopen row's time. The live poll claims
+  `open=` from the server's last `X-Incident-Open`, never only from the view, and a held poll that
+  answers at once with nothing new eases off — a closed view must never spin (it did, 3.4/s). «Anhängen» is never offered onto a closed Einsatz.
   After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
   … erscheinen als Nachträge»); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
   until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped

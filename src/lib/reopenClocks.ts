@@ -77,7 +77,10 @@ export function clocksAfterReopen(trupps: Trupp[], reopen: LifecycleBoundary | n
     changed = true
     // …and says it was a RESTART, so the alarm this ends names the reopen, not a Funkkontakt (D5),
     // and since when it had been closed, so the pressure estimate skips that time (r4)
-    return { ...t, lastContactTime: reopen.at, contactRestartedAt: reopen.at, ...(reopen.closedAt ? { pausedFrom: reopen.closedAt } : {}) }
+    return {
+      ...t, lastContactTime: reopen.at, contactRestartedAt: reopen.at, contactBeforeRestart: t.lastContactTime,
+      ...(reopen.closedAt ? { pausedFrom: reopen.closedAt } : {}),
+    }
   })
   return changed ? next : trupps
 }

@@ -1072,6 +1072,10 @@ export interface Trupp {
    *  is time spent closed, which the pressure estimate does not count as breathing (staging r4:
    *  every crew inside read «Alarmdruck … laut Schätzung erreicht» right after the reopen). */
   pausedFrom?: string
+  /** …and the contact time the restart REPLACED: an alarm opened on that contact was still running
+   *  at the reopen (the restart ends it); one opened on an older contact had already been ended
+   *  by this one (N4, staging 26.09.2026). */
+  contactBeforeRestart?: string
   /** last recorded cylinder pressure (bar) + when (ISO) — logged for the record, never predicted */
   lastPressureBar?: number
   lastPressureTime?: string

@@ -1811,6 +1811,9 @@ export function IncidentWorkspace({
     downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)
     setExportedClosedRefused(closedRefusedTotal)
   }, [journal, auditDelivery, sync, incidentMeta.id, closedRefusedTotal])
+  // the newest close/reopen boundary in the Verlauf, the server's own rows (lib/reopenClocks) —
+  // the reopen's clock restart keys on it below, and the reopen's row names ITS time (N6)
+  const lifecycleBoundary = useMemo(() => latestLifecycle(journal.rows), [journal.rows])
   const lifecycleRefused = lifecycleElsewhere?.event === 'closed' ? closedRefusedTotal : resentOnReopen
   // ⚠️ …and it EXPIRES (V2, staging 25.09.2026): «wieder geöffnet» sat 110 px tall on a 360 phone
   // until somebody found the ✕. Two minutes, like every notice that only informs — unless it
@@ -1828,7 +1831,11 @@ export function IncidentWorkspace({
       // the Link holder cannot reopen anything: its row says what the board still does
       forLink={asLink}
       event={lifecycleElsewhere.event}
-      at={lifecycleElsewhere.at}
+      // ⚠️ the time of the REOPEN, not of hearing it (N6, 26.09.2026): the Link hears on its
+      // minute poll, and «wieder geöffnet (02:46)» for a reopen at 02:45 is a wrong time on screen.
+      // The server's reopen row says when; until it has arrived, the moment it was heard.
+      at={lifecycleElsewhere.event === 'reopened' && lifecycleBoundary?.kind === 'reopened'
+        ? Date.parse(lifecycleBoundary.at) : lifecycleElsewhere.at}
       refused={lifecycleRefused}
       onExport={exportEntries}
       onDismiss={() => setLifecycleHiddenAt(lifecycleElsewhere.at)}
@@ -1992,7 +1999,6 @@ export function IncidentWorkspace({
   // the meta can say «running» a moment before the Verlauf has the reopen row: the alarm HOLDS
   // for that moment, and once the row is there it counts every crew still inside from the
   // reopen — never across the closed interval, which rang «Überfällig» the instant it ran again.
-  const lifecycleBoundary = useMemo(() => latestLifecycle(journal.rows), [journal.rows])
   const reopenPending = running && lifecycleBoundary?.kind === 'closed'
   const alarmTrupps = useMemo(() => clocksAfterReopen(trupps, running ? lifecycleBoundary : null), [trupps, running, lifecycleBoundary])
   const azAlarmActive = azMonitoring && !reopenPending

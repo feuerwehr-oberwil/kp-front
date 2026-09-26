@@ -361,7 +361,7 @@ describe('(g) «Wieder öffnen» with a crew still inside (staging r3, F4)', () 
     const longAgo = new Date(Date.now() - 60 * 60_000).toISOString()
     const overdue = { id: 'tr-k', no: 1, name: 'Tst Karl', status: 'aktiv', entryPressureBar: 300, entryTime: longAgo, lastContactTime: longAgo }
     const closedAt = new Date(Date.now() - 30 * 60_000).toISOString()
-    const reopenAt = new Date(Date.now() - 1_000).toISOString()
+    const reopenAt = new Date(Date.now() - 3 * 60_000).toISOString()
     const closeRow = { id: 'sysclose', t: '', at: closedAt, icon: 'flag', text: 'Einsatz abgeschlossen', lifecycle: 'closed' }
     const reopenRow = { id: 'sysreopen', t: '', at: reopenAt, icon: 'undo', text: 'Einsatz wiedereröffnet (Nachtrag)', lifecycle: 'reopened' }
     let serverRows: unknown[] = [closeRow]
@@ -381,11 +381,12 @@ describe('(g) «Wieder öffnen» with a crew still inside (staging r3, F4)', () 
     }))
     const sync = new WorkspaceSync(m.id)
     const ws = { entities: [truck], trupps: [overdue] } as unknown as Saved
-    const tree = (im: IncidentMeta) => <><Meldeleiste />{workspaceTree(im, { sync, workspace: ws }).tree}</>
+    const heardAt = Date.now()
+    const tree = (im: IncidentMeta, lifecycleElsewhere?: WsProps['lifecycleElsewhere']) => <><Meldeleiste />{workspaceTree(im, { sync, workspace: ws, lifecycleElsewhere }).tree}</>
     // the device opens it closed (a close heard earlier), then the reopen arrives by the poll…
     const { rerender } = render(tree({ ...m, is_archived: true, closed_at: closedAt }))
     await settle(60)
-    rerender(tree({ ...m, is_archived: false, closed_at: closedAt }))
+    rerender(tree({ ...m, is_archived: false, closed_at: closedAt }, { event: 'reopened', at: heardAt }))
     await settle(60); await settle(1_100)
     const rows = () => [...document.querySelectorAll('.ml-row')].map((r) => r.textContent ?? '')
     // …before the Verlauf has the reopen row: the alarm HOLDS rather than ring across the closed hour
@@ -398,6 +399,10 @@ describe('(g) «Wieder öffnen» with a crew still inside (staging r3, F4)', () 
     expect(rows().some((t) => t.includes('Tst Karl'))).toBe(false)
     const restart = posted.filter((r) => r.id === 'azro-sysreopen-tr-k')
     expect(restart).toHaveLength(1)
+    // …and the notice names the REOPEN's time (the server row), not when this device heard it (N6)
+    const hhmm = (ms: number) => `${String(new Date(ms).getHours()).padStart(2, '0')}:${String(new Date(ms).getMinutes()).padStart(2, '0')}`
+    const titles = [...document.querySelectorAll('.ml-title')].map((t) => t.textContent)
+    expect(titles).toContain(`Einsatz wurde auf einem anderen Gerät wieder geöffnet (${hhmm(Date.parse(reopenAt))})`)
   }, 20_000)
 })
 

@@ -1866,3 +1866,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    operator had just given was the one thing on the form they could not read. */
 .bottleOn { background: color-mix(in srgb, var(--blue) 12%, var(--surface)); color: var(--blue);
   box-shadow: inset 0 0 0 2px var(--blue); }
+
+/* ⚠️ A CLOSED Einsatz (N5, staging 26.09.2026): every clock stands at the close and nothing is
+   running. The tiers are already silent there (AtemschutzView · FROZEN_ALARM), but the colours
+   that mean «running» stayed — a red top edge on a crew overdue at the close (its derived status),
+   green numbers that read «Kontakt ok». Frozen, every state wears the one neutral tone that
+   «Stand beim Abschluss» means. Last in the file and scoped to the surface, so it outranks the
+   status and tier rules above without touching the live board. */
+.surfaceFrozen .st-aktiv, .surfaceFrozen .st-rueckzug, .surfaceFrozen .st-ueberfaellig { border-top-color: var(--ink-faint); }
+.surfaceFrozen .trow { border-left-color: var(--ink-faint); background: var(--surface); }
+.surfaceFrozen .bandVal, .surfaceFrozen .trowClockVal, .surfaceFrozen .tabClock { color: var(--ink-dim); animation: none; }
+.surfaceFrozen .band { background: var(--fill-soft, rgba(0, 0, 0, .045)); }
+.surfaceFrozen .bandWord, .surfaceFrozen .trowState { color: var(--ink-faint); }

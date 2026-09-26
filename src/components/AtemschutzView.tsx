@@ -1031,7 +1031,7 @@ export function AtemschutzView({
   )
 
   return (
-    <div className={cx(s.surface, lite && s.surfaceLite)} onPointerDownCapture={primeOnFirstTap}>
+    <div className={cx(s.surface, lite && s.surfaceLite, frozenAt != null && s.surfaceFrozen)} onPointerDownCapture={primeOnFirstTap}>
       <header className={cx(s.head, focusMode && s.headCompact)}>
         <div className={cx(s.headTitles, focusMode && s.headTitlesCompact)}>
           {focusMode ? (

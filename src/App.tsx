@@ -224,10 +224,6 @@ export default function App() {
   const runningSinceRef = useRef(0)
   /** …and the one THIS device is reopening («Wieder öffnen» here remounts it editable itself) */
   const reopeningLocallyRef = useRef<string | null>(null)
-  /** the Einsatz this device switched to read-only because a close SIGNAL said so — the only one
-   *  a reopen elsewhere switches back to live (review of #235). An Einsatz the operator opened
-   *  closed on purpose, out of «Alle Einsätze», stays the read-only view they asked for. */
-  const closedBySignalRef = useRef<string | null>(null)
   /** the Einsatz closed — or reopened — on ANOTHER device while it was open here, and when */
   const [lifecycleElsewhere, setLifecycleElsewhere] = useState<{ id: string; event: 'closed' | 'reopened'; at: number } | null>(null)
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
@@ -281,7 +277,6 @@ export default function App() {
     if (selectReq.current !== my) { sync.dispose(); return } // superseded mid-flight
     syncRef.current = sync
     runningSinceRef.current = serverNow()
-    closedBySignalRef.current = null
     setLifecycleElsewhere(null)
     setActiveMeta(meta as IncidentMeta)
     // Make sure the open switcher list contains the one we just opened. Normally it already
@@ -524,7 +519,6 @@ export default function App() {
       const meta = closedMetaFor(activeMetaRef.current, sig, fresh, closingLocallyRef.current)
       if (!meta) return
       archiveReturnRef.current = null
-      closedBySignalRef.current = meta.id
       setLifecycleElsewhere({ id: meta.id, event: 'closed', at: closedNoticeAt(meta.last_closed_at ?? meta.closed_at, runningSinceRef.current, serverNow()) })
       setActiveMeta(meta)
       setIncidents((list) => (list ?? []).map((i) => (i.id === meta.id ? meta : i)))
@@ -533,18 +527,20 @@ export default function App() {
   }, [])
 
   // …and the way back: «Wieder öffnen» on ANOTHER device (same channels, lib/incidentClosed ·
-  // reopenedMetaFor). ONLY for the Einsatz a close signal switched to read-only here
-  // (closedBySignalRef) — one the operator opened closed on purpose stays read-only. The meta
-  // flips back in place and the workspace is live again; what was parked while it was closed is
-  // sent (IncidentWorkspace · requeue), and its row says so.
+  // reopenedMetaFor). EVERY device showing this Einsatz closed follows it — the one a close signal
+  // switched, the one that closed it itself, one opened closed out of «Alle Einsätze» (N1): the
+  // meta flips back in place, forceReadOnly goes, and the workspace is live again; what was parked
+  // while it was closed is sent (IncidentWorkspace · requeue), and its row says so.
   useEffect(() => {
     const handle = async (sig: IncidentReopenedSignal) => {
-      if (!reopenedMetaFor(activeMetaRef.current, { ...sig, source: 'poll' }, null, reopeningLocallyRef.current, closedBySignalRef.current)) return
+      if (!reopenedMetaFor(activeMetaRef.current, { ...sig, source: 'poll' }, null, reopeningLocallyRef.current)) return
       const fresh = (await getIncident(sig.incidentId).catch(() => null)) as IncidentMeta | null
       // re-read after the await: a switch, a local reopen or an earlier signal may have settled it
-      const meta = reopenedMetaFor(activeMetaRef.current, sig, fresh, reopeningLocallyRef.current, closedBySignalRef.current)
+      const meta = reopenedMetaFor(activeMetaRef.current, sig, fresh, reopeningLocallyRef.current)
       if (!meta) return
-      closedBySignalRef.current = null
+      // …and a view opened read-only (out of «Alle Einsätze», or re-shown closed after this
+      // device's own close) is live now too: a reopen is the current state, not a choice to undo
+      setForceReadOnly(false)
       runningSinceRef.current = serverNow()
       setLifecycleElsewhere({ id: meta.id, event: 'reopened', at: serverNow() })
       setActiveMeta(meta)

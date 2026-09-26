@@ -84,7 +84,7 @@ export async function pollWorkspaceSince(
   sinceRev: number,
   /** `open`: whether the caller shows the Einsatz as running — the server answers at once, rather
    *  than parking, when that is no longer true (a close or reopen it would otherwise sit out) */
-  opts?: { wait?: boolean; signal?: AbortSignal; open?: boolean },
+  opts?: { wait?: boolean; signal?: AbortSignal; open?: boolean; onLifecycle?: (open: boolean) => void },
 ): Promise<{ workspace: Workspace | null; workspace_rev: number } | null> {
   const wait = opts?.wait ?? false
   const believed = opts?.open === undefined ? '' : `&open=${opts.open ? 1 : 0}`
@@ -100,6 +100,7 @@ export async function pollWorkspaceSince(
   // A close never moves the revision, so this header is the only way a follower hears of it
   // (N3, 25.09.2026). Absent (an older backend) → silent, as before.
   const open = res.headers.get('X-Incident-Open')
+  if (open === '0' || open === '1') opts?.onLifecycle?.(open === '1')
   if (open === '0') {
     reportIncidentClosed({ incidentId: id, closedAt: res.headers.get('X-Incident-Closed-At'), source: 'poll' })
   } else if (open === '1') {

@@ -4,6 +4,7 @@
 // OPEN-ONLY (showing never logs, never counts as Kontakt). The Druck stepper is back inline
 // (a Druckmeldung must never cost an opening tap); its ± only stages a pending value and the
 // explicit «Bestätigen» commits.
+import { readFileSync } from 'node:fs'
 import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -380,6 +381,12 @@ describe('an abgeschlossener Einsatz (frozenAt)', () => {
     expect(document.querySelector(`.${s.bandCrit}`)).toBeNull()
     expect(screen.getByText(az.clockFrozen)).toBeTruthy()
     expect(screen.queryByText(az.clockOverdue)).toBeNull()
+    // …and the colours that mean «running» go too (N5): the board wears the frozen tone, whose
+    // rules neutralise the red status edge and the green clocks
+    expect(document.querySelector(`.${s.surfaceFrozen}`)).toBeTruthy()
+    const css = readFileSync(`${process.cwd()}/src/components/Atemschutz.module.css`, 'utf8')
+    expect(css).toMatch(/\.surfaceFrozen \.st-aktiv, \.surfaceFrozen \.st-rueckzug, \.surfaceFrozen \.st-ueberfaellig \{ border-top-color: var\(--ink-faint\); \}/)
+    expect(css).toMatch(/\.surfaceFrozen \.bandVal, \.surfaceFrozen \.trowClockVal, \.surfaceFrozen \.tabClock \{ color: var\(--ink-dim\)/)
   })
 })
 

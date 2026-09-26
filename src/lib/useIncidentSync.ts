@@ -25,6 +25,9 @@ const truppConflictRows = (conflicts: RecordConflict[], seen: Set<string>) =>
     },
   })
 
+/** A held poll that answers «nothing new» faster than this did not hold (see the round). */
+const QUICK_EMPTY_ANSWER_MS = 1_000
+
 interface IncidentSyncDeps {
   sync: WorkspaceSync
   readOnly: boolean
@@ -71,6 +74,15 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   useEffect(() => { incidentOpenRef.current = incidentOpen }, [incidentOpen])
   const slowFollowRef = useRef(slowFollow)
   useEffect(() => { slowFollowRef.current = slowFollow }, [slowFollow])
+  /** What the SERVER last said about the lifecycle (its `X-Incident-Open`), which is what the next
+   *  poll claims — never only what the view shows. A closed view that did not adopt a reopen used to
+   *  keep sending `open=0`, the server answered at once because it was open, and the loop went
+   *  straight into the next round: 3.4 requests a second, for as long as the view stood (N1,
+   *  staging 26.09.2026). Reset when the view changes, so a flip it did adopt is claimed at once. */
+  const heardOpenRef = useRef<boolean | null>(null)
+  useEffect(() => { heardOpenRef.current = null }, [incidentOpen])
+  const claimOpen = () => heardOpenRef.current ?? incidentOpenRef.current
+  const onLifecycle = (open: boolean) => { heardOpenRef.current = open }
   // re-hydrate flags one save to skip — otherwise an editor would immediately push the
   // just-pulled blob back, bumping the rev and triggering an endless pull→push→pull echo.
   const skipSave = useRef(false)
@@ -253,11 +265,12 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
           // ⚠️ …but it still asks whether the Einsatz is RUNNING (review of #235): a device that is
           // always a little dirty would otherwise never hear a close by the poll. A quick no-wait
           // read, whose lifecycle header is all that is used — nothing is adopted over the edits.
-          await pollWorkspaceSince(incidentId, Math.max(liveRev.current, sync.rev), { wait: false, signal, open: incidentOpenRef.current }).catch(() => null)
+          await pollWorkspaceSince(incidentId, Math.max(liveRev.current, sync.rev), { wait: false, signal, open: claimOpen(), onLifecycle }).catch(() => null)
           return false
         }
         const since = Math.max(liveRev.current, sync.rev)
-        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal, open: incidentOpenRef.current })
+        const askedAt = Date.now()
+        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal, open: claimOpen(), onLifecycle })
         // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in
         // flight (with a held request that window is now the whole wait, so this guard matters
         // MORE, not less). Adopting the server blob now would clobber that unsaved edit — the
@@ -271,6 +284,11 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
           if (!readOnly) sync.adoptServer(ws, res.workspace_rev)
           hydrate(ws as unknown as Saved)
         }
+        // ⚠️ …and a held poll that came back at once with NOTHING new did not hold (N1): whatever
+        // the reason, answering «unanswered» lets the loop ease off instead of spinning. A real
+        // wake (another device's save) brings a blob and stays hot; a lifecycle wake brings the
+        // header, which the next claim now matches, so that poll parks again.
+        if (!res && !hidden && Date.now() - askedAt < QUICK_EMPTY_ANSWER_MS) return false
         return true
       },
     })

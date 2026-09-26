@@ -1616,6 +1616,13 @@ export function useTruppActions(deps: Deps) {
     // the crew, and the last reading's «Funkkontakt» would put a radio call on paper that never
     // happened. The restart says what it was.
     const restarted = !!tr?.contactRestartedAt && tr.contactRestartedAt === tr.lastContactTime
+    // ⚠️ …and only the alarm that was STILL RUNNING at the reopen is ended by it (N4, 26.09.2026).
+    // The alarm is keyed on the contact it ran from (`turnus`); if a later contact had come in
+    // before the reopen — a Kontakt delivered late from an offline phone — THAT contact ended the
+    // alarm, and its own Verlauf row (at its own time) is the record of it. A «beendet» row
+    // written now would put the end at the moment this device heard the reopen, and blame the
+    // wrong cause: nothing is written.
+    if (restarted && tr!.contactBeforeRestart != null && tr!.contactBeforeRestart !== turnus) return
     const reason = restarted ? az.alarmClearedByReopen : (last && az.alarmClearedBy[last]) || az.alarmClearedOther
     const rowId = `azcl-${id}-${turnus}`
     log('radio', fillTemplate(az.logAlarmCleared, { name: tr ? truppLogName(tr) : '', reason }), 'team',

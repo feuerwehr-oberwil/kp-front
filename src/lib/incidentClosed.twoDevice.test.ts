@@ -399,3 +399,32 @@ describe('a re-send never empties a refused slot it could not read (review of #2
     } finally { read.mockRestore() }
   })
 })
+
+describe('a reopen reaches EVERY device showing the Einsatz closed — both orders (N1)', () => {
+  // staging 26.09.2026: tablet B closed the Einsatz itself; tablet T opened it closed out of «Alle
+  // Einsätze». Phone A reopened. B and T stayed «abgeschlossen» — the old rule followed a reopen
+  // only where a close SIGNAL had switched the view. Now the answer is the same for both.
+  it.each([
+    ['B closed it itself, A reopens', true],
+    ['T opened it closed from «Alle Einsätze», A reopens', false],
+  ])('%s: the poll hears «open» and the closed view is followed back to live', async (_label, closedHere) => {
+    const mod = await import('./incidentClosed')
+    const heard: string[] = []
+    const off = mod.onIncidentReopened((s) => { if (s.incidentId === INC) heard.push(s.source) })
+    const closedMeta = {
+      id: INC, title: 'x', status: 'offen', is_archived: true, closed_at: '2026-09-25T12:45:00+00:00',
+      last_closed_at: '2026-09-25T12:45:00+00:00',
+    } as never
+    // the close — by this device or before it ever opened the Einsatz
+    if (closedHere) await archiveIncident(INC)
+    else Object.assign(server, { open: false, closedAt: '2026-09-25T12:45:00+00:00' })
+    // …the reopen, on another device
+    await reactivateIncident(INC)
+    // this device's poll, claiming what its view shows (closed)
+    expect(await pollWorkspaceSince(INC, server.rev, { open: false })).toBeNull()
+    expect(heard).toContain('poll')
+    const fresh = { ...(closedMeta as object), is_archived: false } as never
+    expect(mod.reopenedMetaFor(closedMeta, { incidentId: INC, source: 'poll' }, fresh, null)).toBe(fresh)
+    off()
+  })
+})
