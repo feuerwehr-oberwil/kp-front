@@ -521,11 +521,34 @@ to prod.
     never «mine wins».
   - **Fewer taps** (26.09.2026): the place's circle IS the button (one tap abgesucht, again offen —
     a status row each time) and «Gefunden» / «+1» sit on a missing person's line (one tap, with the
-    place and the Trupp searching it on the row); both raise the confirm-with-undo toast, whose
-    «Rückgängig» takes the patch back AND drops the timeline entry (`useSucheActions · commit` →
-    `SucheTakeBack`). Everything else is on the record's own card: a place's status choices, its
-    Trupp, «Fund», «Umbenennen», its history; a person's «Gefunden …», «Übergeben …»,
-    «Entwarnen», «Korrigieren …» and — apart, at the foot — «Irrtümlich erfasst».
+    place and the Trupp searching it on the row). ⚠️ **No toast on the tick** (owner, evening
+    26.09.2026: two ticks stacked two «Rückgängig» bars over the list): the tick is its own undo
+    and the header's ↶ takes it back. The confirm-with-undo toast stays ONLY on a «Gefunden» that
+    ENDS a search (the last missing person of a record — the button goes with it, the head count
+    drops), whose «Rückgängig» takes the patch back AND drops the timeline entry
+    (`useSucheActions · commit` → `SucheTakeBack`). A pin placed or set again raises none.
+  - **A place's card is calm** (owner, owner-4 26.09.2026, «toooooo much going on»): the name
+    with a small ✎ (renamed in place), «Wer sucht?» (the Trupps on the board + «niemand» —
+    picking one IS «in Arbeit · T1»), «Status» as ONE segmented control of four (offen ·
+    teilweise · abgesucht · nicht zugänglich — no «in Arbeit», no «Fund»: a find is a person's
+    «Gefunden», and the place still wears the «Fund» mark from it), ONE position row («📍 Auf
+    Karte setzen», or «📍 Zeigen» + a quiet «Neu setzen» — no «Position entfernen», ↶ covers a
+    wrong pin), the Raus question while it waits, the history below. A person's card keeps
+    «Gefunden …», «Übergeben …», «Entwarnen», «Korrigieren …», the same position row and — apart,
+    at the foot — «Irrtümlich erfasst».
+  - **«Wer sucht?» and the Trupp's Ziel are one act** (`useSucheActions · assign`): the place
+    «in Arbeit · Trupp N» (a Trupp searches one place: its other place in Arbeit goes «offen»),
+    the Trupp's Ziel = the place's name (a Trupp with no Auftrag gets «Absuchen»; a Ziel under
+    «Anderes» IS the order and is never overwritten), the previous Trupp's Ziel that named the
+    place cleared — ONE step whose ↶ puts back the places AND the Ziele, one Verlauf row per
+    place. The Trupp write marks itself (`useSucheTrupps · ownRef`) so the observer does not
+    answer it again outside the step. The SAME act from the surface: a Trupp's marker dropped on
+    a place's pin — on the Karte through the dock ring (MapView · `sucheTargets`, the nearer of
+    symbol and pin wins, a closed ring links), on a plan on the drop like its hose join
+    (Whiteboard · `onTruppAtSuchePin`, `lib/suche · sucheDropTarget`) — goes to
+    `IncidentWorkspace · sucheLinkTrupp` → `assign`; its step comes after the move's, so ↶ takes
+    the link back first and leaves the marker where it was put. A Trupp already out is not
+    offered.
   - A find is ONE row (`gefunden`, with «weiter an» and the place it happened in on it — the place
     wears «Fund» from it); «+ Gefunden» writes no «Vermisst». A person is corrected and withdrawn
     by rows too (`korrigiert`, `irrtuemlich`) — a withdrawn record counts nowhere and is not
@@ -562,7 +585,9 @@ to prod.
     question, the Abschluss) takes you to the Karte first. Forms replace the list inside the card.
     Gone with step 1's surfaces: the NavRail entry, the phone chooser's row, the tablet dock, the
     peek · half · full sheet, the Gebäude | Karte switch, the Personen | Bereiche tabs, the floor
-    chips.
+    chips. On a phone the card HUGS its content up to the Ebenen sheet's cap (owner-3,
+    26.09.2026): it stands on its bottom edge above the bars, so a new row grows it upward and the
+    two buttons at its foot never move under the thumb.
   - A record that ENDS without a find («Entwarnen», «Irrtümlich erfasst») is never one tap: a
     short form asks why and who said so (both optional, both in the row), «Abbrechen» focused.
     The Abschluss asks about people still missing as its own question after the crews
@@ -587,8 +612,7 @@ to prod.
     chip (`components/suche/SuchePins`), 12.5px words, coloured like the list's circle, a RED ring
     while somebody is still missing there; it stands over the tactical symbols / the sheet's
     objects and under every popup; a tap opens the card on the record. Placing is OPTIONAL, from
-    the forms («📍 Auf Karte / Plan setzen») and the record's card (Zeigen · Verschieben ·
-    Position entfernen): the card hands the surface over for ONE tap (`SuchePick` →
+    the forms («📍 Auf Karte / Plan setzen») and the record's card (Zeigen · Neu setzen): the card hands the surface over for ONE tap (`SuchePick` →
     IncidentWorkspace · `suchePick`; on the Karte through MapView's own `picking` path, which
     comes before any drawing's selection, with the markers click-through (`.suche-picking`) — a
     selection would close the card and lose the form; on a plan a clear layer over the sheet

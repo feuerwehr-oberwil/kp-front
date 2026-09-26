@@ -1,9 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type PointerEvent, type ReactNode } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate, formatTime } from '../../lib/format'
 import { Icon } from '../../lib/icons'
 import {
-  BEREICH_STATUSES, foundWhere, personenViews, personPlace, personWhere, placeKey, sucheOrte, truppAt, truppShort,
+  foundWhere, personenViews, personPlace, personWhere, placeKey, sucheOrte, truppAt, truppShort,
   type BereichView, type OrtView, type PersonView, type TruppHere,
 } from '../../lib/suche'
 import type { SucheActions, SucheTakeBack } from '../../lib/useSucheActions'
@@ -22,7 +22,6 @@ type View =
   | { kind: 'fund'; preset: FundPreset }
   | { kind: 'uebergeben'; id: string }
   | { kind: 'bereich'; id: string }
-  | { kind: 'rename'; id: string }
   | { kind: 'addBereich' }
   | { kind: 'korrigieren'; id: string }
   | { kind: 'entwarnen' | 'irrtuemlich'; id: string }
@@ -58,7 +57,8 @@ export interface SuchePanelProps {
   /** The panel hosts ONE flow and hands back when it is done (the «Fund melden» sheet over the
    *  Atemschutz board, N17): every «done» and every ‹ calls this instead of showing the list. */
   onExit?: () => void
-  /** the confirm-with-undo toast (lib/ui · undoToast) — a prop so a test can hold it */
+  /** the confirm-with-undo toast (lib/ui · undoToast) — a prop so a test can hold it. Raised
+   *  ONLY by a «Gefunden» that ends a missing-person search (SuchePanel · foundNow). */
   onUndoable?: (text: string, takeBack: () => void) => void
   /** «📍 Auf Karte / Plan setzen» — absent where there is no surface to put anything on (the
    *  «Fund melden» sheet over the Tafel, a read-only device) */
@@ -95,19 +95,30 @@ export function SuchePanel(p: SuchePanelProps) {
   const bereich = (id: string) => bereiche.find((u) => u.id === id)
   const placeOf = (v: PersonView) => orte.orte.find((o) => o.personen.some((x) => x.id === v.id))?.bereich
 
-  /** «Gefunden» on a person's line (design «F»): ONE tap, with the Trupp searching that place and
-   *  the place itself on the row — and the house toast to take it back. A group gets one («＋1»). */
+  /**
+   * «Gefunden» on a person's line (design «F»): ONE tap, with the Trupp searching that place and
+   * the place itself on the row. A group gets one at a time («＋1»).
+   * ⚠️ The toast only where the tap ENDS a search (owner 26.09.2026, «we don't need those
+   * toasts»): the last missing person of a record found takes the «Gefunden» button away with
+   * it — the list offers no way back and the head's «vermisst» count drops — so that tap keeps the
+   * confirm-with-undo toast. A «＋1» that leaves people missing is its own visible count on the
+   * line, and a repeat tap is the point of it: toasts stacked over the list there. Both are on
+   * the ↶ timeline either way.
+   */
   const foundNow = (v: PersonView) => {
     const b = placeOf(v)
     const t = truppAt(b)
     const r = p.actions.gefunden(v.id, { n: v.group ? 1 : undefined, bereichId: b?.id, trupp: t?.label, truppId: t?.id })
+    if (v.missing > 1) return
     undoable(r, v.group ? fillTemplate(C.toastGefundenGroup, { name: v.label }) : fillTemplate(C.toastGefunden, { name: v.label }))
   }
-  /** the tick circle: abgesucht, and again back to offen — one row, one toast */
-  const tick = (b: BereichView) => {
-    const r = p.actions.toggleAbgesucht(b.id)
-    undoable(r, fillTemplate(b.status === 'abgesucht' ? C.toastOffen : C.toastAbgesucht, { name: b.label }))
-  }
+  /**
+   * The tick circle: abgesucht, and again back to offen — one row, NO toast (owner 26.09.2026,
+   * «we don't need those toasts»: two ticks stacked two «Rückgängig» bars over the list). The
+   * tick is its own undo — tap it again — the circle shows at once what it did, and the header's
+   * ↶ takes it back like every other act.
+   */
+  const tick = (b: BereichView) => { p.actions.toggleAbgesucht(b.id) }
 
   if (view.kind === 'vermisst') return <VermisstForm {...p} places={bereiche} found={view.found} preset={view.preset} onDone={back} />
   if (view.kind === 'addBereich') return <BereichForm {...p} places={bereiche} onDone={back} />
@@ -123,9 +134,6 @@ export function SuchePanel(p: SuchePanelProps) {
   if (view.kind === 'uebergeben' && person(view.id)) {
     return <UebergebenForm v={person(view.id)!} {...p} onDone={() => setView({ kind: 'person', id: view.id })} />
   }
-  if (view.kind === 'rename' && bereich(view.id)) {
-    return <RenameForm b={bereich(view.id)!} {...p} places={bereiche} onDone={() => setView({ kind: 'bereich', id: view.id })} />
-  }
 
   let body: ReactNode
   let foot: ReactNode = null
@@ -139,7 +147,7 @@ export function SuchePanel(p: SuchePanelProps) {
       onHand={() => setView({ kind: 'uebergeben', id: view.id })} onFix={() => setView({ kind: 'korrigieren', id: view.id })}
       onWhy={(kind) => setView({ kind, id: view.id })} />
   } else if (view.kind === 'bereich' && bereich(view.id)) {
-    body = <BereichCard b={bereich(view.id)!} {...p} onBack={back} onRename={() => setView({ kind: 'rename', id: view.id })} />
+    body = <BereichCard key={view.id} b={bereich(view.id)!} {...p} places={bereiche} onBack={back} />
   } else {
     const empty = !orte.unbekannt && !orte.orte.length
     body = empty ? (
@@ -273,21 +281,23 @@ function ShowButton({ name, onClick }: { name: string; onClick: () => void }) {
 }
 
 /**
- * Where a record stands on the surface, on its own card: «Auf Karte setzen» while it stands
- * nowhere; «Zeigen», «Verschieben» (a pick on the surface you are on) and «Position entfernen»
- * once it does — each an ordinary step with its row and its ↶ (lib/suche · setPlacePoint).
+ * Where a record stands on the surface, on its own card — ONE row (owner 26.09.2026, «toooooo
+ * much going on»): «📍 Auf Karte setzen» while it stands nowhere; once it does, «📍 Zeigen» and
+ * one quiet «Neu setzen» (a pick on the surface you are on). Each is an ordinary step with its
+ * row and its ↶ (lib/suche · setPlacePoint). No «Position entfernen» any more: a pin put in the
+ * wrong spot is one ↶ away, or «Neu setzen»; a place without a position was never required, so
+ * nothing asks to take one off again (the action stays in the writer, `setPoint(…, null)`).
  */
 function PlaceActions({ kind, id, name, point, pick, onShow, actions }: { kind: 'bereiche' | 'personen'; id: string; name: string; point?: SuchePoint
   pick?: SuchePick; onShow?: (p: SuchePoint) => void; actions: SucheActions }) {
   const C = appConfig.copy.suche
-  if (!pick && !point) return null
+  if (!pick && !(point && onShow)) return null
   const put = () => pick?.start(name, (p) => { actions.setPoint(kind, id, p) })
   return (
-    <div className={s.cardActions}>
+    <div className={s.posRow}>
       {!point && pick && <button type="button" className={s.btn} onClick={put}><Icon id="pin" />{pick.surface === 'plan' ? C.pickPlan : C.pickKarte}</button>}
-      {point && onShow && <button type="button" className={s.btn} onClick={() => onShow(point)}><Icon id="pin" />{fillTemplate(C.pinShow, { name })}</button>}
-      {point && pick && <button type="button" className={s.btn} onClick={put}>{C.pickMove}</button>}
-      {point && <button type="button" className={s.btn} onClick={() => actions.setPoint(kind, id, null)}>{C.pickRemove}</button>}
+      {point && onShow && <button type="button" className={s.btn} onClick={() => onShow(point)} aria-label={fillTemplate(C.pinShow, { name })}><Icon id="pin" />{C.zeigen}</button>}
+      {point && pick && <button type="button" className={`${s.btn} ${s.quietBtn}`} onClick={put}>{C.pickAgain}</button>}
     </div>
   )
 }
@@ -372,54 +382,117 @@ function PersonCard({ v, where, canEdit, doc, floorName, pick, onShow, actions, 
   )
 }
 
-/** A place's own card: its status choices (the list's circle only says «abgesucht»), who searches
- *  it, «Fund», its name, and what happened to it. */
-function BereichCard({ b, trupps, canEdit, actions, pick, onShow, onBack, onRename }: SuchePanelProps & { b: BereichView; onBack: () => void; onRename: () => void }) {
+/** The four a place can be SET to on its card. «in Arbeit» is not one of them: it is who searches
+ *  it («Wer sucht?»), and a Trupp picked there IS «in Arbeit · T1». */
+const SET_STATUSES = ['offen', 'teilweise', 'abgesucht', 'nichtZugaenglich'] as const satisfies readonly SucheBereichStatus[]
+
+/**
+ * A place's own card — calm (owner 26.09.2026, «toooooo much going on»: six status chips, four
+ * buttons and the history had one weight). Top to bottom, each thing once:
+ * - the NAME, with a small ✎ that renames it in place (no «Umbenennen» form);
+ * - «Wer sucht?» — the Trupps on the board and «niemand»: picking one IS «in Arbeit · T1», and
+ *   writes the Trupp's Ziel too (useSucheActions · assign — the same act as linking the Trupp's
+ *   marker to this place's pin on the Karte or a plan);
+ * - «Status» — one segmented control of four: offen · teilweise · abgesucht · nicht zugänglich.
+ *   All four earn their place: «offen» is the way back, «teilweise» is the Raus answer's own
+ *   state (N14), «nicht zugänglich» is what a crew reports at a locked door. No «Fund» here: a
+ *   find is booked on a PERSON («Gefunden»), and the place wears the «Fund» mark from that row;
+ * - the position, one row (PlaceActions);
+ * - what happened to it, quiet, below.
+ */
+function BereichCard({ b, trupps, canEdit, actions, pick, onShow, onBack, places, asks }: SuchePanelProps & { b: BereichView; places: readonly BereichView[]; onBack: () => void }) {
   const C = appConfig.copy.suche
-  const [pickTrupp, setPickTrupp] = useState(false)
-  const set = (st: SucheBereichStatus, t?: TruppHere | null) => {
-    actions.setStatus(b.id, st, t ? { label: t.label, id: t.id } : t === null ? { label: undefined } : undefined)
-    setPickTrupp(false)
-  }
-  const pickable = trupps.filter((t) => t.status !== 'raus')
+  // a Trupp already out is not offered (it would stand there as «raus – abgesucht?» at once) —
+  // unless it IS the one this place names, whose chip has to show as chosen
+  const here = b.status === 'inArbeit' ? b.truppId : undefined
+  const pickable = trupps.filter((t) => t.status !== 'raus' || t.id === here)
+  const setStatus = (st: SucheBereichStatus) => { if (st !== b.status) actions.setStatus(b.id, st) }
   return (
     <div className={s.rec}>
-      <CardHead title={b.label} tone={BEREICH_TONE[b.status]} pill={b.status === 'inArbeit' && b.trupp ? fillTemplate(C.statusInArbeit, { trupp: truppShort(b.trupp) }) : C.bereichStatus[b.status]} onBack={onBack} />
-      {canEdit && (
+      <PlaceHead b={b} canEdit={canEdit} places={places} actions={actions} onBack={onBack} />
+      {canEdit && !!asks?.includes(b.id) && <AskRow u={b} actions={actions} />}
+      {canEdit ? (
         <>
-          <div className={s.label}>{C.statusTitle}</div>
-          <div className={s.chips} role="group" aria-label={C.statusTitle}>
-            {BEREICH_STATUSES.map((st) => (
-              <button key={st} type="button" className={s.chip} data-tone={BEREICH_TONE[st]} aria-pressed={b.status === st}
-                onClick={() => (st === 'inArbeit' && pickable.length ? setPickTrupp(true) : set(st))}>
-                {st === 'inArbeit' && b.status === 'inArbeit' && b.trupp ? fillTemplate(C.statusInArbeit, { trupp: truppShort(b.trupp) }) : C.bereichStatus[st]}
-              </button>
-            ))}
-            <button type="button" className={s.chip} data-tone="red" aria-pressed={b.fund} disabled={b.fund} onClick={() => actions.fund(b.id)}>{C.fund}</button>
-          </div>
-          {pickTrupp && (
-            <>
-              <div className={s.label}>{C.truppPick}</div>
-              <div className={s.chips}>
-                {pickable.map((t) => <button key={t.id} type="button" className={s.chip} onClick={() => set('inArbeit', t)}>{t.short}</button>)}
-                <button type="button" className={s.chip} onClick={() => set('inArbeit', null)}>{C.truppNone}</button>
+          <div className={s.field}>
+            <span className={s.label} id={`ws-${b.id}`}>{C.werSuchtCard}</span>
+            {pickable.length ? (
+              <div className={s.chips} role="group" aria-labelledby={`ws-${b.id}`}>
+                {pickable.map((t) => (
+                  <button key={t.id} type="button" className={s.chip} data-tone="blue" aria-pressed={here === t.id}
+                    onClick={() => { if (here !== t.id) actions.assign(b.id, { label: t.label, id: t.id }) }}>{t.short}</button>
+                ))}
+                <button type="button" className={s.chip} data-tone="grey" aria-pressed={b.status !== 'inArbeit'}
+                  onClick={() => { actions.assign(b.id, null) }}>{C.niemand}</button>
               </div>
-            </>
-          )}
-          <PlaceActions kind="bereiche" id={b.id} name={b.label} point={b.point} pick={pick} onShow={onShow} actions={actions} />
-          {/* a step-1 storey row has no name of its own to change */}
-          {b.name && b.floor == null && (
-            <div className={s.cardActions}>
-              <button type="button" className={s.btn} onClick={onRename}>{C.umbenennen}</button>
+            ) : <span className={s.note}>{b.status === 'inArbeit' && b.trupp ? fillTemplate(C.statusInArbeit, { trupp: truppShort(b.trupp) }) : C.keinTrupp}</span>}
+          </div>
+          <div className={s.field}>
+            <span className={s.label} id={`st-${b.id}`}>{C.statusTitle}</span>
+            {/* the shared segmented geometry (.useg, 06-contextpanel), in the status colours */}
+            <div className={`useg ${s.seg}`} role="group" aria-labelledby={`st-${b.id}`}>
+              {SET_STATUSES.map((st) => (
+                <button key={st} type="button" className={`useg-btn${b.status === st ? ' on' : ''}`} data-tone={BEREICH_TONE[st]}
+                  aria-pressed={b.status === st} onClick={() => setStatus(st)}>{C.statusSeg[st]}</button>
+              ))}
             </div>
-          )}
+          </div>
+          <PlaceActions kind="bereiche" id={b.id} name={b.label} point={b.point} pick={pick} onShow={onShow} actions={actions} />
         </>
-      )}
-      {!canEdit && b.point && onShow && (
-        <div className={s.cardActions}><button type="button" className={s.btn} onClick={() => onShow(b.point!)}><Icon id="pin" />{fillTemplate(C.pinShow, { name: b.label })}</button></div>
+      ) : (
+        <>
+          <p className={s.cardLine}><span className={s.pill} data-tone={BEREICH_TONE[b.status]}>{bereichLine(b)}</span></p>
+          <PlaceActions kind="bereiche" id={b.id} name={b.label} point={b.point} onShow={onShow} actions={actions} />
+        </>
       )}
       {b.rows.length ? <History rows={b.rows} /> : <p className={s.cardLine}>{fillTemplate(C.erfasstAt, { t: hhmm(b.createdAt) })}</p>}
     </div>
+  )
+}
+
+/**
+ * The place's name as the card's title, with a small ✎ that turns it into a field right there
+ * (26.09.2026 — «Umbenennen» was a button and a form of its own). Enter or ✓ takes it, Esc or ✕
+ * leaves it; a name another place already carries is refused with a word, never taken (two
+ * places that read the same would be one place to everybody reading the list). A step-1 storey
+ * row has no name of its own to change, so it has no ✎.
+ */
+function PlaceHead({ b, canEdit, places, actions, onBack }: { b: BereichView; canEdit: boolean; places: readonly BereichView[]; actions: SucheActions; onBack: () => void }) {
+  const C = appConfig.copy.suche
+  const [name, setName] = useState<string | null>(null)
+  const clash = name != null && places.some((x) => x.id !== b.id && placeKey(x.label) === placeKey(name))
+  const valid = name != null && !!name.trim() && name.trim() !== b.name && !clash
+  const take = () => { if (valid) actions.rename(b.id, name!); setName(null) }
+  const renamable = canEdit && !!b.name && b.floor == null
+  // ⚠️ the ✓ / ✕ take the press BEFORE the field's blur (TwinTeamPill's pen, same trap): a blur
+  // that commits first would leave the ✕ nothing to cancel
+  const hold = (e: PointerEvent) => e.preventDefault()
+  return (
+    <>
+      <div className={s.cardHead}>
+        <button type="button" className={s.back} onClick={onBack} aria-label={C.back}><Icon id="chevron-left" /></button>
+        {name == null ? (
+          <>
+            <h3 className={s.cardTitle}>{b.label}</h3>
+            {b.fund && <span className={s.fund}>{C.fund}</span>}
+            {renamable && (
+              <button type="button" className={s.pen} aria-label={C.umbenennen} title={C.umbenennen} onClick={() => setName(b.name ?? '')}><Icon id="pen" /></button>
+            )}
+          </>
+        ) : (
+          <>
+            <input className={`${s.input} ${s.titleInput}`} value={name} autoFocus aria-label={C.umbenennen}
+              aria-invalid={clash || undefined} onChange={(e) => setName(e.target.value)} onBlur={take}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); take() }
+                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setName(null) }
+              }} />
+            <button type="button" className={s.pen} aria-label={C.umbenennenSubmit} title={C.umbenennenSubmit} disabled={!valid} onPointerDown={hold} onClick={take}><Icon id="check" /></button>
+            <button type="button" className={s.pen} aria-label={C.cancel} title={C.cancel} onPointerDown={hold} onClick={() => setName(null)}><Icon id="close" /></button>
+          </>
+        )}
+      </div>
+      {clash && <span className={s.titleHint} role="status">{C.nameTakenTitle}</span>}
+    </>
   )
 }
 
@@ -760,21 +833,6 @@ function WhyForm({ kind, v, actions, onCancel, onDone }: SuchePanelProps & { kin
           {C.whyQuellen.map((q) => <button key={q} type="button" className={s.chip} aria-pressed={quelle === q} onClick={() => setQuelle(quelle === q ? '' : q)}>{q}</button>)}
         </div>
         <input className={s.input} value={quelle} onChange={(e) => setQuelle(e.target.value)} placeholder={C.werSagtPlaceholder} aria-label={C.werSagt} />
-      </Field>
-    </Form>
-  )
-}
-
-function RenameForm({ b, actions, places, onDone }: SuchePanelProps & { b: BereichView; places: BereichView[]; onDone: () => void }) {
-  const C = appConfig.copy.suche
-  const [name, setName] = useState(b.name ?? '')
-  // two places that read the same would be one place to everybody reading the list
-  const clash = places.some((x) => x.id !== b.id && placeKey(x.label) === placeKey(name))
-  return (
-    <Form title={C.umbenennen} submit={() => { actions.rename(b.id, name); onDone() }} submitLabel={C.umbenennenSubmit}
-      disabled={!name.trim() || name.trim() === b.name || clash} onCancel={onDone}>
-      <Field label={C.bereichWo} hint={clash ? C.nameTaken : undefined}>
-        <input className={s.input} value={name} onChange={(e) => setName(e.target.value)} aria-label={C.bereichWo} autoFocus />
       </Field>
     </Form>
   )

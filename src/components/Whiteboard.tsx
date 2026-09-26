@@ -98,8 +98,9 @@ import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
 import { SucheToolButton } from './suche/SucheToolButton'
 import { SuchePinChip } from './suche/SuchePins'
+import { DOCK_RADIUS_PX } from '../lib/docking'
 import sucheCss from './suche/Suche.module.css'
-import type { SuchePin } from '../lib/suche'
+import { sucheDropTarget, type SuchePin } from '../lib/suche'
 
 const COLORS = appConfig.drawing.colors
 
@@ -182,6 +183,10 @@ interface Props {
   /** the Suche hands the plan a pick (components/suche · SuchePick): the next TAP on the sheet is
    *  a place's position — a drag still pans, two fingers still zoom */
   suchePick?: { onPick: (p: { planId: string; x: number; y: number; floor: number }) => void } | null
+  /** A Trupp's chip dropped on a Suche place's pin on this sheet (owner 26.09.2026, owner-5):
+   *  the Trupp searches that place — the host sets it «in Arbeit» and the Trupp's Ziel
+   *  (IncidentWorkspace · sucheLinkTrupp). Absent where the Suche may not be written. */
+  onTruppAtSuchePin?: (truppId: string, bereichId: string) => void
   sym: SymbolsApi
   /** active Mannschaft names feeding the symbol detail comboboxes (Einsatzleiter / Fahrer …) */
   rosterNames?: string[]
@@ -355,7 +360,7 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, suche, suchePins = [], onSuchePin, suchePick }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, suche, suchePins = [], onSuchePin, suchePick, onTruppAtSuchePin }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -1982,6 +1987,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const { chipDrag, chipDown, chipMove, chipUp } = useWbChipDrag({
     tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH,
     attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp,
+    // …and a Trupp's chip dropped ON a Suche place's pin links the two, the way it joins a free
+    // hose end above: the picture is the pick. Measured from the chip's DOT to the pin's point
+    // (the stem's tip), in board px, within the placard's dock reach (lib/docking) — a chip
+    // parked beside the pin, not one carried past it. No ring here, like the hose join on a plan.
+    onTruppDropped: (a) => {
+      if (!onTruppAtSuchePin || !a.truppId || a.x == null || a.y == null || !sW || !sH) return
+      const pins = suchePins.flatMap((p) => (p.kind === 'bereich' && p.point.planId === activeId && p.point.x != null && p.point.y != null
+        && (!stack || floorsTTB.includes(p.point.floor ?? 0))
+        ? [{ id: p.id, x: p.point.x * sW, y: (stack ? mapY(p.point.floor ?? 0, p.point.y) : p.point.y) * sH }] : []))
+      const best = sucheDropTarget(pins, { x: a.x * sW, y: mapY(a.floor, a.y) * sH }, DOCK_RADIUS_PX)
+      if (best) onTruppAtSuchePin(a.truppId, best.id)
+    },
   })
 
   // object-manipulation hand-off for the stage dispatcher in useBoardGestures: when no

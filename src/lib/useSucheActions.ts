@@ -4,13 +4,13 @@ import { fillTemplate } from './format'
 import { newId } from './ids'
 import { serverNowIso } from './serverClock'
 import {
-  addBereich, addFoundPerson, addPerson, applySuchePatch, diffSuche, markFund, patchEmpty, patchRows,
-  personEntwarnt, personGefunden, personIrrtuemlich, personKorrigiert, personUebergeben, renameBereich, rowOwner,
+  addBereich, addFoundPerson, addPerson, applySuchePatch, assignBereichTrupp, bereichStatusOf, diffSuche, markFund, patchEmpty, patchRows,
+  personEntwarnt, personGefunden, personIrrtuemlich, personKorrigiert, personUebergeben, placeKey, placeLabel, renameBereich, rowOwner,
   setBereichStatus, setPlacePoint, toggleAbgesucht,
   type GefundenInput, type SucheCx, type SuchePatch, type SucheWhy, type VermisstInput,
 } from './suche'
-import type { SucheBereichStatus, SucheDoc, SuchePoint, SucheRow, TimelineEvent } from '../types'
-import { sucheRecordKey, type RecordKey } from './undoKeys'
+import type { SucheBereichStatus, SucheDoc, SuchePoint, SucheRow, TimelineEvent, Trupp } from '../types'
+import { recordKey, sucheRecordKey, type RecordKey } from './undoKeys'
 
 /** Every Suche record a step's inverse (or its redo) writes: the records it created (↶ removes
  *  them, or strips its own rows off one somebody built on since), the ones it appended rows to,
@@ -48,7 +48,24 @@ interface Deps {
   emit: (op: string, payload?: Record<string, unknown>) => void
   /** how a step-1 record's storey is named (lib/suche · SucheCx) */
   floorName: (floor: number) => string
+  /** The Trupps' Ziel, for «Wer sucht?» (`assign`): read as it stands NOW, and written back
+   *  without a row or a step of its own — the Suche's step carries it. Absent (a test, the
+   *  «Fund melden» sheet's own host), the place is assigned and no Trupp is written. */
+  trupps?: SucheTruppZiel
 }
+
+/** A Trupp's order as «Wer sucht?» reads and writes it (IncidentWorkspace wires it to the board). */
+export type TruppZiel = Pick<Trupp, 'ziel' | 'auftrag'>
+export interface SucheTruppZiel {
+  get: (id: string) => (TruppZiel & Pick<Trupp, 'kind'>) | undefined
+  /** false = the Trupp is gone (a merge, a delete) — the step declines that half quietly */
+  set: (id: string, v: TruppZiel) => boolean
+}
+
+/** One Trupp's Ziel as a step changed it — what its ↶ puts back and its ↷ writes again. */
+interface ZielChange { id: string; before: TruppZiel; after: TruppZiel }
+
+const sameZiel = (a: TruppZiel | undefined, b: TruppZiel) => !!a && (a.ziel ?? '') === (b.ziel ?? '') && (a.auftrag ?? '') === (b.auftrag ?? '')
 
 /** Options every write takes: `silent` writes the record without its own Verlauf row, because
  *  the row that carries the words is being written by somebody else (the composer's own entry —
@@ -70,7 +87,7 @@ export interface SucheTakeBack { label: string; takeBack: () => void }
  * Returns what the act created where a caller needs it (the new person's id, the place a typed
  * Ziel created) so a flow can go on from there.
  */
-export function useSucheActions({ suche, setRaw, remember, canEdit, log, emit, floorName }: Deps) {
+export function useSucheActions({ suche, setRaw, remember, canEdit, log, emit, floorName, trupps }: Deps) {
   // ⚠️ The LATEST doc, not the render's: a flow can take two acts in one handler (a Ziel's place
   // created and then set «in Arbeit»), and the second has to build on the first rather than on
   // the render both started from.
@@ -117,6 +134,17 @@ export function useSucheActions({ suche, setRaw, remember, canEdit, log, emit, f
     const drop = step(patch, label)
     return { label, takeBack: () => { revert(patch, 'undo'); drop?.() } }
   }
+  /** Write the Trupps' half of an assignment: each Ziel goes to `to` only where it still reads
+   *  `from` — a Ziel somebody changed since on the board is theirs, and stays. */
+  const writeZiele = (changes: readonly ZielChange[], dir: 'undo' | 'redo'): boolean => {
+    let any = false
+    for (const c of changes) {
+      const [from, to] = dir === 'undo' ? [c.after, c.before] : [c.before, c.after]
+      if (!sameZiel(trupps?.get(c.id), from)) continue
+      if (trupps?.set(c.id, to)) { any = true; emit('atemschutz.edit', { id: c.id }) }
+    }
+    return any
+  }
 
   return {
     /** «＋ Vermisst» — the person, and the place when it is new: ONE step (lib/suche · addPerson). */
@@ -152,6 +180,45 @@ export function useSucheActions({ suche, setRaw, remember, canEdit, log, emit, f
     setStatus(bereichId: string, status: SucheBereichStatus, trupp?: { label?: string; id?: string }, note?: string) {
       const r = setBereichStatus(ref.current, bereichId, status, trupp, cx(), note)
       return commit(r.doc, r.rows)
+    },
+    /**
+     * «Wer sucht?» — a Trupp for a place, or «niemand» (null). The place turns «in Arbeit ·
+     * Trupp 1» (lib/suche · assignBereichTrupp) AND the Trupp's Ziel reads the place's name, so
+     * the board, the Rapport and the Raus question («Trupp 1 raus – abgesucht?», lib/suche ·
+     * pendingAsks) all say the same thing; the Trupp that searched it before lets go of a Ziel
+     * that named it. ONE step, ONE Verlauf row per place (owner 26.09.2026: the card's pick and
+     * a Trupp marker linked to the place's pin are the same act, with the same ↶).
+     * A Ziel under «Anderes» is the order itself (types · Trupp.ziel) and is never overwritten;
+     * an Atemschutz Trupp with no Auftrag yet gets «Absuchen».
+     */
+    assign(bereichId: string, trupp: { label: string; id: string } | null): boolean {
+      if (!canEdit) return false
+      const before = ref.current
+      const b = before.bereiche.find((x) => x.id === bereichId)
+      if (!b) return false
+      const r = assignBereichTrupp(before, bereichId, trupp, cx())
+      const name = placeLabel(b, floorName)
+      const cur = bereichStatusOf(b)
+      const ziele: ZielChange[] = []
+      const t = trupp ? trupps?.get(trupp.id) : undefined
+      if (trupp && t && t.auftrag !== 'anderes' && placeKey(t.ziel ?? '') !== placeKey(name)) {
+        ziele.push({ id: trupp.id, before: { ziel: t.ziel, auftrag: t.auftrag },
+          after: { ziel: name, auftrag: t.auftrag ?? (t.kind === 'einfach' ? undefined : 'absuchen') } })
+      }
+      const prev = cur.status === 'inArbeit' && cur.truppId && cur.truppId !== trupp?.id ? trupps?.get(cur.truppId) : undefined
+      if (prev && cur.truppId && prev.auftrag !== 'anderes' && placeKey(prev.ziel ?? '') === placeKey(name)) {
+        ziele.push({ id: cur.truppId, before: { ziel: prev.ziel, auftrag: prev.auftrag }, after: { ziel: undefined, auftrag: prev.auftrag } })
+      }
+      const patch = r.rows.length ? write(r.doc) : null
+      const wrote = writeZiele(ziele, 'redo')
+      if (!patch && !wrote) return false
+      if (patch) say(r.rows, r.doc)
+      const label = r.rows[0]?.text ?? name
+      remember?.(label,
+        () => { const a = patch ? revert(patch, 'undo') : false; return writeZiele(ziele, 'undo') || a },
+        () => { const a = patch ? revert(patch, 'redo') : false; return writeZiele(ziele, 'redo') || a },
+        () => [...(patch ? patchTouches(patch) : []), ...ziele.map((z) => recordKey('trupps', z.id))])
+      return true
     },
     /** the tick circle: abgesucht, or back to offen */
     toggleAbgesucht(bereichId: string) {

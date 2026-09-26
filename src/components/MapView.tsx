@@ -21,6 +21,7 @@ import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LTG_PX, TEAM_LABEL_STYLE } from '../lib/mapView'
 import { dockSlots, dockRadiusFor, nearestDockHost } from '../lib/docking'
+import { sucheDropTarget } from '../lib/suche'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
@@ -232,6 +233,9 @@ const featArea = (f: { geometry?: { type?: string; coordinates?: unknown } }): n
   return Math.abs(s) / 2
 }
 
+/** What a dropped Trupp marker's closed ring aimed at: a symbol to dock to, or a Suche place. */
+export type MarkerDock = { hostId: string } | { sucheId: string }
+
 interface Props {
   entities: Entity[]
   layers: LayerDef[]
@@ -317,8 +321,14 @@ interface Props {
    *  drop, so «not armed = nothing attaches» holds for this gesture too — the surface that drew
    *  the ring is the one that says whether it filled, and the writer never re-guesses. */
   /** `dock`: a Trupp marker's answer to «dock to a symbol?» – the host whose ring closed, null
-   *  when no ring closed, undefined when the surface has no opinion (a placard docks instantly) */
-  onMarkerDragEnd: (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: { hostId: string } | null) => void
+   *  when no ring closed, undefined when the surface has no opinion (a placard docks instantly).
+   *  `{ sucheId }` when the ring that closed was a Suche place's pin (`sucheTargets`). */
+  onMarkerDragEnd: (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: MarkerDock | null) => void
+  /** The Suche's places standing on the Karte, as targets a dragged Trupp marker can be LINKED
+   *  to (owner 26.09.2026, «I can't attach a Trupp to the Absuchen thing but only to the
+   *  symbols»): the same ring, the same hold as docking to a symbol. Asked per dragged marker —
+   *  empty for a marker that is no Trupp's, or whose Trupp is already out. */
+  sucheTargets?: (entityId: string) => readonly { id: string; coord: LngLat }[]
   /** rotate a (live vehicle) marker by dragging its on-icon handle */
   onRotate?: (id: string, deg: number) => void
   /** drag-to-transform a placed shape: rotate (top handle) / resize (corner handle).
@@ -424,7 +434,7 @@ export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
-    onView, onBasemapUnavailable, overlay, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
+    onView, onBasemapUnavailable, overlay, sucheTargets, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
     onSelectionDone, georefPlanRasters = [] } = props
@@ -1005,7 +1015,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
    *  while the marker hovers inside the dock radius, and only a CLOSED ring docks on release –
    *  a marker merely carried past a symbol must not stick to it. The hose join above wins when
    *  both are in reach; the dock ring then does not show at all. */
-  type DockAim = { entityId: string; hostId: string; coord: LngLat; since: number; armed: boolean }
+  // …and a Suche place's pin is a third (26.09.2026): `suche` marks the aim as a place, not an
+  // entity — the drop links the Trupp to it (IncidentWorkspace · finishEntityMove) and docks nothing
+  type DockAim = { entityId: string; hostId: string; coord: LngLat; since: number; armed: boolean; suche?: boolean }
   const [dockAim, setDockAimState] = useState<DockAim | null>(null)
   const dockAimRef = useRef<DockAim | null>(null)
   const dockAimTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1019,12 +1031,23 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const map = mapInst.current
     const me = entities.find((e) => e.id === id)
     if (!map || me?.kind !== 'team' || teamJoinRef.current) { clearDockAim(); return }
-    const host = nearestDockHost(c, entities.filter((e) => e.id !== id), (q) => map.project(q as [number, number]), dockRadiusFor(me))
-    if (!host || !Array.isArray(host.coord)) { clearDockAim(); return }
+    const project = (q: LngLat) => map.project(q as [number, number])
+    const radius = dockRadiusFor(me)
+    const sym = nearestDockHost(c, entities.filter((e) => e.id !== id), project, radius)
+    // the nearer of the two wins: a symbol to dock to, or a Suche place to search
+    const at = project(c)
+    const far = (q: LngLat) => { const p = project(q); return Math.hypot(p.x - at.x, p.y - at.y) }
+    const targets = sucheTargets?.(id) ?? []
+    const hit = sucheDropTarget(targets.map((t) => ({ id: t.id, ...project(t.coord) })), at, radius)
+    const place = hit && { ...hit, coord: targets.find((t) => t.id === hit.id)!.coord }
+    const host = place && (!sym || !Array.isArray(sym.coord) || place.d < far(sym.coord as LngLat))
+      ? { id: place.id, coord: place.coord, suche: true }
+      : sym && Array.isArray(sym.coord) ? { id: sym.id, coord: sym.coord as LngLat, suche: false } : null
+    if (!host) { clearDockAim(); return }
     // still over the same host: let the ring keep filling rather than restarting it
-    if (dockAimRef.current?.entityId === id && dockAimRef.current.hostId === host.id) return
+    if (dockAimRef.current?.entityId === id && dockAimRef.current.hostId === host.id && !!dockAimRef.current.suche === host.suche) return
     clearDockAim()
-    const st: DockAim = { entityId: id, hostId: host.id, coord: host.coord as LngLat, since: Date.now(), armed: false }
+    const st: DockAim = { entityId: id, hostId: host.id, coord: host.coord, since: Date.now(), armed: false, ...(host.suche ? { suche: true } : {}) }
     setDockAim(st)
     dockAimTimer.current = setTimeout(() => {
       const now = dockAimRef.current
@@ -1357,7 +1380,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     // it always did (IncidentWorkspace · finishEntityMove).
     const da = dockAimRef.current
     const dock = entities.find((e) => e.id === id)?.kind === 'team'
-      ? (da?.armed && da.entityId === id ? { hostId: da.hostId } : null)
+      ? (da?.armed && da.entityId === id ? (da.suche ? { sucheId: da.hostId } : { hostId: da.hostId }) : null)
       : undefined
     clearTeamJoin()
     clearDockAim()

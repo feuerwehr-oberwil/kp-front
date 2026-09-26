@@ -87,7 +87,7 @@ import { consumeJustUpdated } from './lib/swUpdate'
 import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
 import { useOnline } from './lib/useOnline'
 import { onReachable } from './lib/connectivity'
-import { MapView } from './components/MapView'
+import { MapView, type MarkerDock } from './components/MapView'
 import { Splash } from './components/Splash'
 import { TopBar, WeatherBadge } from './components/TopBar'
 import { NavRail } from './components/NavRail'
@@ -1654,6 +1654,8 @@ export function IncidentWorkspace({
   /** a remote hydrate replaced the slices — the Trupp status changes it brought are somebody
    *  else's to ask about at Raus (lib/useSucheTrupps) */
   const sucheRemoteRef = useRef(false)
+  /** the Trupps whose Ziel the Suche's own «Wer sucht?» just wrote (lib/useSucheTrupps · ownRef) */
+  const sucheOwnTruppsRef = useRef(new Set<string>())
   // the moment the Eintrag composer opened — used as the entry timestamp (the info was usually
   // relevant / the order given then, not when Erfassen is finally pressed)
   const composerOpenedAt = useRef<string | null>(null)
@@ -3590,8 +3592,12 @@ export function IncidentWorkspace({
     // none of those were placed by the hand that dragged this (lib/tacticalObjects · movedIds).
     }), { movedIds: [id] })
   }
-  const finishEntityMove = (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: { hostId: string } | null) => {
+  const finishEntityMove = (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, aim?: MarkerDock | null) => {
     if (tacticalLocked) return
+    // a closed ring on a Suche place's pin links the Trupp to that place (below); for the
+    // symbol-dock logic it is an open ring — the marker docks to nothing by it
+    const sucheId = aim && 'sucheId' in aim ? aim.sucheId : null
+    const dock = aim && 'sucheId' in aim ? null : aim
     if (liveIds.has(id)) setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } }))
     else {
       // Andocken (lib/docking, Feldtest Manuel 07.09.): a Gefahrentafel dropped beside a
@@ -3669,6 +3675,11 @@ export function IncidentWorkspace({
     emit(liveIds.has(id) ? 'entity.edit' : 'entity.move', { id, coord: c })
     drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id && a.routing === 'trace'))
       .forEach((d) => emit('draw.edit', { id: d.id, patch: { coords: d.coords } }))
+    // …and a Trupp marker whose ring closed on a Suche place: «in Arbeit · Trupp N» there, its
+    // own step AFTER the move's (the ↶ takes the link back first, the marker stays where it was
+    // put; a second ↶ moves it back) — the same act as «Wer sucht?» on the place's card
+    const truppId = doc.entities.find((x) => x.id === id)?.truppId
+    if (sucheId && truppId) sucheLinkTrupp(truppId, sucheId)
   }
   /**
    * «Lösen» on an angedockter Trupp, from the HOST symbol's panel (15.09.2026).
@@ -4407,6 +4418,18 @@ export function IncidentWorkspace({
     log,
     emit,
     floorName: sucheFloorName,
+    // «Wer sucht?» writes the Trupp's Ziel as part of ITS step (useSucheActions · assign): read
+    // live (a ↶ minutes later meets the board as it is), and marked as the Suche's own write so
+    // the observer does not answer it a second time (lib/useSucheTrupps · ownRef)
+    trupps: {
+      get: (id) => truppsRef.current.find((t) => t.id === id && !t.removedAt),
+      set: (id, v) => {
+        if (!truppsRef.current.some((t) => t.id === id && !t.removedAt)) return false
+        sucheOwnTruppsRef.current.add(id)
+        setTrupps((ts) => ts.map((t) => (t.id === id ? { ...t, ziel: v.ziel, auftrag: v.auftrag } : t)))
+        return true
+      },
+    },
   })
   useLayoutEffect(() => { sucheActionsRef.current = sucheActions })
   /* ── where the Suche is open (26.09.2026, design «F»): a CARD in the Ebenen slot (`panel`), on
@@ -4515,7 +4538,7 @@ export function IncidentWorkspace({
    *    «in Arbeit · Trupp 4», and the release when it changes ── */
   useSucheTrupps({
     trupps: allTrupps, canEdit: canEditSuche && !replayActive, actions: sucheActions, floorName: sucheFloorName,
-    truppsHere: sucheTrupps, remoteRef: sucheRemoteRef,
+    truppsHere: sucheTrupps, remoteRef: sucheRemoteRef, ownRef: sucheOwnTruppsRef,
   })
   /** «Fund melden» (Trupp and its place pre-filled) and «Bereich abgesucht» on a Trupp's ⋯ menu */
   const sucheTruppItems = (t: Trupp) => {
@@ -4538,6 +4561,27 @@ export function IncidentWorkspace({
           : openSuche({ bereichId: mine[0]?.id ?? bereichId })),
       },
     ]
+  }
+  /**
+   * A Trupp linked to a Suche place from the surface (owner 26.09.2026, owner-5: «I can't attach
+   * a Trupp to the Absuchen thing but only to the symbols»): its marker dropped on the place's
+   * pin with the ring closed — on the Karte (MapView · sucheTargets) or its chip on a plan
+   * (Whiteboard · onTruppAtSuchePin). Exactly «Wer sucht?» on the place's card: the place «in
+   * Arbeit · Trupp N», the Trupp's Ziel its name, one Verlauf row, one ↶ (useSucheActions ·
+   * assign). A Trupp already out is not offered as searching anything.
+   */
+  const sucheLinkTrupp = (truppId: string, bereichId: string) => {
+    const t = sucheTrupps.find((x) => x.id === truppId)
+    if (!t || t.status === 'raus' || !canEditSuche || replayActive) return
+    sucheActions.assign(bereichId, { label: t.label, id: t.id })
+  }
+  /** the places standing on the Karte a dragged Trupp marker can be linked to — none for a
+   *  marker that is no Trupp's, or whose Trupp is out, and none while the pins are not shown */
+  const sucheMapTargets = (entityId: string): { id: string; coord: LngLat }[] => {
+    const tid = entities.find((e) => e.id === entityId)?.truppId
+    const t = tid ? sucheTrupps.find((x) => x.id === tid) : undefined
+    if (!t || t.status === 'raus' || !canEditSuche || replayActive || !sucheLayerOn) return []
+    return suchePinsNow.flatMap((p) => (p.kind === 'bereich' && p.point.coord ? [{ id: p.id, coord: p.point.coord as LngLat }] : []))
   }
   /** every place by its label, for the Trupp form's Ziel chips */
   const sucheZielChoices = useMemo(() => sucheShown.map((u) => u.label).filter(Boolean), [sucheShown])
@@ -5499,6 +5543,7 @@ export function IncidentWorkspace({
           onMarkerDragStart={startEntityMove}
           onMarkerMove={streamEntityMove}
           onMarkerDragEnd={finishEntityMove}
+          sucheTargets={sucheMapTargets}
           onRotate={(id, deg) => { if (tacticalLocked) return; setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], rotation: deg } })) }}
           onShapeTransform={(id, patch, phase) => {
             if (tacticalLocked) return
@@ -6804,6 +6849,7 @@ export function IncidentWorkspace({
           suche={{ on: panel === 'suche', count: sucheMissing, onToggle: toggleSuche }}
           suchePins={sucheLayerOn ? suchePinsNow : undefined}
           onSuchePin={sucheOpenPin}
+          onTruppAtSuchePin={canEditSuche && !replayActive && !tacticalLocked ? sucheLinkTrupp : undefined}
           suchePick={suchePick && sucheCardOn ? { onPick: (p) => { const k = suchePick; setSuchePick(null); k.done(p) } } : null}
           trupps={effTrupps}
           // the Karte's markers, the other plans' chips, the ghost trails and every Trupp ever
