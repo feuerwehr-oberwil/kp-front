@@ -2139,6 +2139,16 @@ export const de = {
      * Antwort) und dem Screenreader-Namen der Kachel. */
     tileRueckzug: 'Rückzug',
     tileExit: 'Raus',
+    /* ── Die Mini-Sheets der Handy-Karte (26.09.2026, phone card slim-down; components/TruppSheets) ──
+     * Ein Chip auf der Karte öffnet EIN kurzes Sheet für genau diese Angabe. Titel sind die
+     * bestehenden Feldnamen (`editFieldLabels`, `funkkanalUnit`); hier nur, was es dort noch nicht gab. */
+    // die zweite Titelzeile: «Hirter Stephan · Trupp 2» – wessen Sheet über der abgedunkelten Tafel steht
+    quickTrupp: 'Trupp {no}',
+    // das Kanal-Pad hat kein Speichern – der eine Satz sagt, dass ein Tipp wählt und schliesst
+    kanalSheetHint: 'Antippen wählt und schliesst.',
+    // die Leitung-Chips: «keine · Ltg 1 · Ltg 2 …»
+    lineNone: 'keine',
+    lineChip: 'Ltg {n}',
     // ⚠️ APP ONLY (09.09., Feldtest) – ein Trupp ohne Atemschutz meldet einen erledigten Auftrag,
     // keinen Funkkontakt. Die ausgehändigte Link-Tafel bleibt bei «Raus melden», für JEDEN
     // Trupp: das ist der eine Bildschirm, den eine externe Person bekommt, und er darf nicht

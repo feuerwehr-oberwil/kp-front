@@ -1285,6 +1285,10 @@ export const en: Localizable<Copy> = {
     actExit: 'Report out',
     tileRueckzug: 'Withdraw',
     tileExit: 'Out',
+    quickTrupp: 'Team {no}',
+    kanalSheetHint: 'Tap picks and closes.',
+    lineNone: 'none',
+    lineChip: 'Line {n}',
     actExitPlain: 'Task done', // ⚠️ app only — see de.ts · actExitPlain
     actReenter: 'Re-deploy',
     actNotDeployed: 'Not deployed',

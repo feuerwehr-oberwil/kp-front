@@ -33,6 +33,7 @@ import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
 import { TruppNo } from './TruppNo'
 import { ZielChips } from './suche/SucheTrupp'
+import { AuftragSheet, KanalSheet } from './TruppSheets'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
@@ -269,6 +270,11 @@ export function AtemschutzView({
   // the shared create / edit / re-deploy form — null when closed
   // `adoptMarkerId`: the loose marker a create form was opened FROM — joined to the Trupp on save
   const [form, setForm] = useState<{ mode: FormMode; trupp?: Trupp; focus?: 'auftrag'; adoptMarkerId?: string; presetAuftrag?: TruppAuftrag } | null>(null)
+  /* The mini sheets (26.09.2026, phone card slim-down — components/TruppSheets): one fact of the
+   * card, one short sheet, every save through `editTrupp`. Opened from the card's chips on every
+   * width (the tablet's Kennzeile entries are the same doors), so the sheet is what a tap on a fact
+   * does — the big form stays for Art and Eingangsdruck, behind «Bearbeiten». */
+  const [quick, setQuick] = useState<{ id: string; kind: 'kanal' | 'auftrag' } | null>(null)
   /* The one pressure picker (PressureSheet, 24.09.2026): a Druckmeldung from the phone row or card,
    * and the Restdruck at «Raus melden» on every width. Null when closed. */
   const [pressureAsk, setPressureAsk] = useState<{ id: string; kind: 'pressure' | 'exit' } | null>(null)
@@ -735,6 +741,42 @@ export function AtemschutzView({
     unlockAlarm(); if (!isDemoMode()) void ensureNotifyPermission()
   }
 
+  /**
+   * One Leitung, one Trupp. Typing a number that someone else is already on used to save silently
+   * and leave two Trupps claiming one hose — the tag then picked one of them and the Überwacher had
+   * no way of knowing. Name both and let the operator decide: a takeover IS the normal case
+   * (Ablösung), it just has to be said out loud. Cancel returns to the form with everything still
+   * typed. ⚠️ ONE helper for every save that can set a Leitung — the form's (`submitForm`) and the
+   * Auftrag sheet's (`saveQuick`, 26.09.2026) — so no door around the question exists.
+   * `true` when the write may go ahead (the previous Trupp has let go by then) — a plain `true`
+   * with no clash, so a save that asks nothing still writes in the same tick it was tapped (the
+   * board's tests, and the create form's kept draft, count on that); a Promise only while asking.
+   */
+  const confirmLineTake = (f: TruppFields, ownId?: string): true | Promise<boolean> => {
+    const clash = f.lineNo == null ? undefined
+      : trupps.find((t) => t.id !== ownId && t.status !== 'raus' && truppLineNo(t) === f.lineNo)
+    if (!clash) return true
+    return confirmDialog({
+      title: fillTemplate(az.lineTakeTitle, { n: String(f.lineNo) }),
+      message: fillTemplate(az.lineTakeMsg, { n: String(f.lineNo), from: clash.name, to: f.name }),
+      confirmLabel: az.lineTakeConfirm,
+      cancelLabel: appConfig.copy.cancel,
+    }).then((ok) => {
+      if (!ok) return false
+      unlinkTruppLine(clash.id) // the previous Trupp lets go — its Leitung is now this one's
+      return true
+    })
+  }
+  /** A mini sheet's save (components/TruppSheets): the same question in front of a Leitung, then
+   *  the ONE write path. `true` = written, the sheet closes; `false` = the operator said no and the
+   *  sheet stays open with everything still picked. */
+  const saveQuick = async (id: string, f: TruppFields): Promise<boolean> => {
+    const take = confirmLineTake(f, id)
+    if (take !== true && !(await take)) return false
+    editTrupp(id, f)
+    return true
+  }
+
   /** Resolves `true` once the Trupp is written — the form drops its kept draft only then, so every
    *  «Zurück» / «Abbrechen» on a question in front of the save returns to a form still filled in. */
   const submitForm = async (f0: TruppFields, standby = false, extra?: TruppSubmitExtra): Promise<boolean> => {
@@ -761,23 +803,8 @@ export function AtemschutzView({
       }
       f = truppEditPatch(current, f0, extra.touched)
     }
-    // One Leitung, one Trupp. Typing a number that someone else is already on used to save
-    // silently and leave two Trupps claiming one hose — the tag then picked one of them and the
-    // Überwacher had no way of knowing. Name both and let the operator decide: a takeover IS the
-    // normal case (Ablösung), it just has to be said out loud. Cancel returns to the form with
-    // everything still typed.
-    const clash = f.lineNo == null ? undefined
-      : trupps.find((t) => t.id !== form.trupp?.id && t.status !== 'raus' && truppLineNo(t) === f.lineNo)
-    if (clash) {
-      const ok = await confirmDialog({
-        title: fillTemplate(az.lineTakeTitle, { n: String(f.lineNo) }),
-        message: fillTemplate(az.lineTakeMsg, { n: String(f.lineNo), from: clash.name, to: f.name }),
-        confirmLabel: az.lineTakeConfirm,
-        cancelLabel: appConfig.copy.cancel,
-      })
-      if (!ok) return false
-      unlinkTruppLine(clash.id) // the previous Trupp lets go — its Leitung is now this one's
-    }
+    const take = confirmLineTake(f, form.trupp?.id)
+    if (take !== true && !(await take)) return false
     // every question is answered — NOW the Gäste typed into the form reach the Anwesenheit
     // (TruppForm · fileGuests), and only if the crew is part of what this save writes
     const fileCrew = () => {
@@ -988,6 +1015,7 @@ export function AtemschutzView({
       // …and on the phone the card's Druck is the same picker instead of the ± stepper
       onAskPressure={phoneMode ? (id) => setPressureAsk({ id, kind: 'pressure' }) : undefined}
       onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
+      onQuick={canEdit ? (kind) => setQuick({ id: t.id, kind }) : undefined}
       onDelete={deleteTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
       // ⚠️ never on a work squad. The arrows move one GLOBAL order while the board renders two
       // filtered sections, so a step can swap a Trupp past the section boundary and look like it
@@ -1660,6 +1688,18 @@ export function AtemschutzView({
         )
       })()}
 
+      {quick && (() => {
+        const t = trupps.find((x) => x.id === quick.id)
+        // the Trupp left the board on another device while the sheet stood open — nothing to edit
+        if (!t) return null
+        const close = () => setQuick(null)
+        const save = (f: TruppFields) => saveQuick(t.id, f)
+        return quick.kind === 'kanal'
+          ? <KanalSheet t={t} onSave={save} onClose={close} />
+          : <AuftragSheet t={t} zielChoices={lite ? undefined : zielChoices} leitungOptions={leitungOptions(t.id)} lite={!!lite}
+              onSave={save} onClose={close} />
+      })()}
+
       {placePick && (() => {
         // the symbols already standing, minus this Trupp's own (see lib/placedTrupps · markerOptions)
         const markers = markerOptions(placePick)
@@ -2225,8 +2265,11 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onPressure, onStatus, onAskExit, onAskPressure, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false, sucheItems,
+  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onPressure, onStatus, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false, sucheItems,
 }: {
+  /** the mini sheets (26.09.2026 — components/TruppSheets): a tap on the Kanal opens the Kanal
+   *  sheet, a tap on the Auftrag / Ziel / a missing Auftrag the Auftrag sheet. Absent for a viewer. */
+  onQuick?: (kind: 'kanal' | 'auftrag') => void
   /** the Suche's rows at the head of the ⋯ menu (AtemschutzView · sucheItems) */
   sucheItems?: (t: Trupp) => { label: string; onClick: () => void }[]
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
@@ -2664,10 +2707,17 @@ function TruppCard({
         {/* ⚠️ The Auftrag is optional in the form (it must never hold a Trupp at the door), so its
             ABSENCE has to be visible — a Trupp with no job is a question the Überwacher has to be
             able to see, not one nobody thinks to ask. */}
+        {/* …and since 26.09.2026 every fact that has a sheet is a door to it (`onQuick`): the
+            Auftrag with its Ziel, the Kanal, and the missing Auftrag — which used to open the whole
+            form on its Auftrag field and now opens the one sheet that answers it. */}
         {kennItem('auftrag', auftrag
-          ? <span className={s.kennAuftrag}>{auftrag}</span>
-          : <button type="button" className={s.kennOpen} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>)}
-        {t.ziel && kennItem('ziel', <span>{t.ziel}</span>)}
+          ? (onQuick
+            ? <button type="button" className={s.kennTap} onClick={() => onQuick('auftrag')}><span className={s.kennAuftrag}>{auftrag}</span></button>
+            : <span className={s.kennAuftrag}>{auftrag}</span>)
+          : <button type="button" className={s.kennOpen} onClick={() => (onQuick ? onQuick('auftrag') : onEdit('auftrag'))}>{az.auftragOpen}</button>)}
+        {t.ziel && kennItem('ziel', onQuick
+          ? <button type="button" className={s.kennTap} onClick={() => onQuick('auftrag')}>{t.ziel}</button>
+          : <span>{t.ziel}</span>)}
         {/* where the marker stands (15.09.): docked to a symbol on the Karte, the card says so –
             the same jump the marker itself offers, so a tap lands on it */}
         {dockedAt && kennItem('docked', lite
@@ -2682,7 +2732,9 @@ function TruppCard({
               {az.lineField} {lineTag}<Icon id="chevron" />
             </button>
           : <span>{az.lineField} {lineTag}</span>)}
-        {t.funkkanal != null && kennItem('kanal', <span>Kanal {t.funkkanal}</span>)}
+        {t.funkkanal != null && kennItem('kanal', onQuick
+          ? <button type="button" className={s.kennTap} onClick={() => onQuick('kanal')}>{az.funkkanalUnit} {t.funkkanal}</button>
+          : <span>{az.funkkanalUnit} {t.funkkanal}</span>)}
         {/* the Ausrüstung as short tags at the end — RH · WBK — nothing when nothing was ticked;
             a station-defined id without a Kürzel shows its full label */}
         {equipmentTags.map(({ id, tag }) => kennItem(`eq-${id}`, <span className={s.kennTag}>{tag}</span>))}

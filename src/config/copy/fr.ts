@@ -1274,6 +1274,10 @@ export const fr: Localizable<Copy> = {
     actExit: 'Annoncer sorti',
     tileRueckzug: 'Repli',
     tileExit: 'Sorti',
+    quickTrupp: 'Binôme {no}',
+    kanalSheetHint: 'Toucher choisit et ferme.',
+    lineNone: 'aucune',
+    lineChip: 'Cond. {n}',
     actExitPlain: 'Mission terminée', // ⚠️ app only — see de.ts · actExitPlain
     actReenter: 'Réengager',
     actNotDeployed: 'Non engagée',

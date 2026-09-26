@@ -6,7 +6,7 @@
 // explicit «Bestätigen» commits.
 import { readFileSync } from 'node:fs'
 import { useState } from 'react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -14,6 +14,7 @@ import s from './Atemschutz.module.css'
 import { appConfig } from '../config/appConfig'
 import { Overlays } from '../lib/ui'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
+import * as deploymentConfig from '../lib/deploymentConfig'
 import { fillTemplate } from '../lib/format'
 import { clearAllDrafts } from '../lib/draftKeep'
 import type { AttendanceState, Trupp, TruppFields, TruppReading } from '../types'
@@ -551,11 +552,109 @@ describe('pointing to a Trupp', () => {
     scroll.mockRestore()
   })
 
-  it('opens «Auftrag offen» directly on a highlighted Auftrag field', () => {
+  /* Since the slim-down (26.09.2026) the gap opens the one sheet that answers it — the Auftrag
+   * sheet with the six tiles (components/TruppSheets) — not the whole form on its Auftrag field. A
+   * viewer's card (no `onQuick`) still hands the gap to the form. */
+  it('opens «Auftrag offen» on the Auftrag sheet, tiles ready', () => {
     mount({ trupps: [{ ...aktivTrupp(), auftrag: undefined }] })
     fireEvent.click(screen.getByRole('button', { name: az.auftragOpen }))
-    const art = screen.getByText(az.auftragLabel).closest('div')
-    expect(art?.classList.contains(s.formFlash)).toBe(true)
+    const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
+    expect(within(sheet).getByRole('group', { name: az.editFieldLabels.auftrag })).toBeTruthy()
+    expect(within(sheet).getByRole('button', { name: 'Löschen' })).toBeTruthy()
+  })
+})
+
+/* ── The mini sheets (26.09.2026, phone card slim-down — components/TruppSheets) ────────────────
+ * One fact of the card, one short sheet, and every save goes through `editTrupp` with the Trupp as
+ * it stands and only that sheet's fields changed (lib/truppQuickEdit, tested there). Here: the
+ * doors, the one-tap Kanal, the Auftrag save, and the Leitung question the form's save asks. */
+describe('the mini sheets', () => {
+  // a station's Handfunk range (the shipped ceiling is a free 9999, which is the stepper's case)
+  const real = atemschutzDoctrine()
+  beforeEach(() => { vi.spyOn(deploymentConfig, 'atemschutzDoctrine').mockImplementation(() => ({ ...real, funkkanalMin: 1, funkkanalMax: 16 })) })
+  afterEach(() => { vi.restoreAllMocks(); vi.mocked(useIsPhone).mockReturnValue(false) })
+  const withFacts = (): Trupp => ({ ...aktivTrupp(), no: 2, auftrag: 'loeschen', ziel: 'Test', funkkanal: 11, lineNo: 1 })
+
+  it('«Kanal 11» opens the pad on 11; one tap writes the channel and closes', async () => {
+    const editTrupp = vi.fn()
+    mount({ trupps: [withFacts()], editTrupp })
+    fireEvent.click(screen.getByRole('button', { name: `${az.funkkanalUnit} 11` }))
+    const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.funkkanalUnit}`) })
+    // whose sheet: the name and the number under the title
+    expect(sheet.textContent).toContain(`Steiner · ${fillTemplate(az.quickTrupp, { no: 2 })}`)
+    expect(within(sheet).getByRole('button', { name: '11' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(within(sheet).getByRole('button', { name: '7' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: new RegExp(`^${az.funkkanalUnit}`) })).toBeNull())
+    expect(editTrupp).toHaveBeenCalledTimes(1)
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ funkkanal: 7, auftrag: 'loeschen', ziel: 'Test', lineNo: 1, pressure: 300, name: 'Steiner', members: ['Huber'] }))
+  })
+
+  it('the same channel again writes nothing and just closes', async () => {
+    const editTrupp = vi.fn()
+    mount({ trupps: [withFacts()], editTrupp })
+    fireEvent.click(screen.getByRole('button', { name: `${az.funkkanalUnit} 11` }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '11' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(editTrupp).not.toHaveBeenCalled()
+  })
+
+  it('the Auftrag chip opens the sheet on the stored values; Speichern writes Auftrag, Ziel and Leitung together', async () => {
+    const editTrupp = vi.fn()
+    mount({ trupps: [withFacts()], editTrupp, leitungOptions: () => [{ no: 1, onPlan: false }, { no: 2, onPlan: true }] })
+    fireEvent.click(screen.getByRole('button', { name: 'Löschen' }))
+    const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
+    expect(within(sheet).getByRole('button', { name: 'Löschen' }).getAttribute('aria-pressed')).toBe('true')
+    expect((within(sheet).getByLabelText(az.editFieldLabels.ziel) as HTMLInputElement).value).toBe('Test')
+    expect(within(sheet).getByRole('button', { name: fillTemplate(az.lineChip, { n: 1 }) }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Retten' }))
+    fireEvent.change(within(sheet).getByLabelText(az.editFieldLabels.ziel), { target: { value: '2. OG' } })
+    fireEvent.click(within(sheet).getByRole('button', { name: `${fillTemplate(az.lineChip, { n: 2 })} · P` }))
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ auftrag: 'retten', ziel: '2. OG', lineNo: 2, funkkanal: 11, pressure: 300 }))
+  })
+
+  it('«keine» lets the Leitung go — absent, never an empty number', async () => {
+    const editTrupp = vi.fn()
+    mount({ trupps: [withFacts()], editTrupp })
+    fireEvent.click(screen.getByRole('button', { name: 'Löschen' }))
+    const sheet = screen.getByRole('dialog')
+    fireEvent.click(within(sheet).getByRole('button', { name: az.lineNone }))
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(editTrupp.mock.calls[0][1].lineNo).toBeUndefined()
+  })
+
+  /* the one question the form's save asks in front of a Leitung is asked here too — ONE helper
+   * (AtemschutzView · confirmLineTake), so the sheet is not a way around it */
+  it('a Leitung another Trupp is on asks first; «Übernehmen» unlinks the other and writes, cancel keeps the sheet open', async () => {
+    render(<Overlays />)
+    const editTrupp = vi.fn(), unlinkTruppLine = vi.fn()
+    mount({
+      trupps: [withFacts(), { ...aktivTrupp(), id: 'tr2', name: 'Other Olga', lineNo: 3 }],
+      editTrupp, unlinkTruppLine, leitungOptions: () => [{ no: 3, onPlan: false, takenBy: 'Other Olga' }],
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Löschen' })[0])
+    const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
+    fireEvent.click(within(sheet).getByRole('button', { name: new RegExp(`^${fillTemplate(az.lineChip, { n: 3 })}`) }))
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
+    let ask = await screen.findByRole('alertdialog')
+    fireEvent.click(within(ask).getByRole('button', { name: appConfig.copy.cancel }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(editTrupp).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })).toBeTruthy()
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
+    ask = await screen.findByRole('alertdialog')
+    fireEvent.click(within(ask).getByRole('button', { name: az.lineTakeConfirm }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(unlinkTruppLine).toHaveBeenCalledWith('tr2')
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ lineNo: 3 }))
+  })
+
+  it('a viewer has no doors: the facts are plain text', () => {
+    mount({ trupps: [withFacts()], canEdit: false })
+    expect(screen.queryByRole('button', { name: `${az.funkkanalUnit} 11` })).toBeNull()
+    expect(screen.getByText(`${az.funkkanalUnit} 11`)).toBeTruthy()
   })
 })
 
