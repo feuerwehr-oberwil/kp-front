@@ -187,6 +187,10 @@ class JournalRowIn(BaseModel):
     #: store keeps them all, the paper shows where it started and where it ended, 19.08.).
     correctedAt: str | None = None  # client-formatted HH:MM of the LAST correction
     textOriginal: str | None = None
+    #: the row reached the record after the Einsatzende — written after the close, or written
+    #: before it and received after it (src/lib/report · journalRows, `receivedAfterClose`). The
+    #: paper marks it the way the app does (D4, 25.09.2026: the flag was computed and dropped).
+    nachtrag: bool = False
     photoKey: str | None = None  # legacy: figure key of a client-uploaded photo
     photoUrl: str | None = None  # single photo — the shape rows written before 2026-08-06 carry
     #: several photos on one row (one damage is rarely one picture). Readers take both.
@@ -429,6 +433,19 @@ class TruppCycleIn(BaseModel):
     changes: list[CrewChangeIn] = []
 
 
+def _trupp_heading(tr: TruppIn) -> str:
+    """«Trupp 1 – Meier Anna»; «Trupp 3 (zuerst Trupp 1) – Meier Anna» for a renumbered Trupp;
+    the bare name for a payload without a number (an older client)."""
+    if tr.no is None:
+        return tr.name
+    leader = tr.leader or tr.name
+    former = [n for n in tr.formerNos if n != tr.no]
+    if former:
+        nos = ", ".join(f"Trupp {n}" for n in former)
+        return L["truppHeadingFormer"].format(no=tr.no, former=nos, leader=leader)
+    return L["truppHeading"].format(no=tr.no, leader=leader)
+
+
 class TruppIn(BaseModel):
     name: str
     #: The Trupp's number and its Gruppenführer AT REGISTRATION (docs/trupp-naming.md §5) — the
@@ -436,6 +453,10 @@ class TruppIn(BaseModel):
     #: heading is the bare name as before.
     no: int | None = None
     leader: str | None = None
+    #: The numbers this Trupp carried before a merge renumbered it (25.09.2026, lib/truppNumbers):
+    #: the heading then reads «Trupp 3 (zuerst Trupp 1) – Meier Anna». Empty for every other Trupp
+    #: and on an older client's payload.
+    formerNos: list[int] = []
     #: The crew per deployment cycle, replacing the «AdF n» rows and the Eintritt/Austritt rows
     #: when present: each cycle names who went in, and the changes fall into the cycle they
     #: happened in. Empty on an older client's payload — the old rows print then.
@@ -716,6 +737,9 @@ L = {
     "notDeployed": "Nicht eingesetzt",
     # the heading of a numbered Trupp, and the per-cycle rows under it (docs/trupp-naming.md §5)
     "truppHeading": "Trupp {no} – {leader}",
+    # a Trupp a merge renumbered (two devices minted one number at once, docs/trupp-naming.md §7):
+    # its early Verlauf rows still say the old number, so the heading names it too
+    "truppHeadingFormer": "Trupp {no} (zuerst {former}) – {leader}",
     "cycle": "Einsatz {n}",
     "colTime": "Zeit",
     "colKind": "Art",
@@ -749,6 +773,8 @@ L = {
     # the printed counterpart of the app's «korrigiert HH:MM»-chip + «Der ursprüngliche
     # Wortlaut bleibt im Protokoll»
     "correctedLine": "korrigiert {t} · ursprünglich: «{text}»",
+    # a row that reached the record after the Einsatzende — under its time, like the app's badge
+    "nachtrag": "Nachtrag",
     # sub-line under «Was» when an Auftrag / eine Pendenz carried a timed Erinnerung
     "pendenzDue": "fällig {t}",
     "noEntries": "Keine Einträge.",
@@ -2039,7 +2065,10 @@ def compose_report_pdf(
                 )
                 entry_cells.append(Spacer(1, 2))
                 entry_cells.append(shot_tbl)
-            body.append([Paragraph(_esc(r.timeLabel), st["cell"]), Paragraph(_esc(r.area), st["cell"]), entry_cells])
+            time_cell: list = [Paragraph(_esc(r.timeLabel), st["cell"])]
+            if r.nachtrag:
+                time_cell.append(Paragraph(_esc(L["nachtrag"]), st["muted"]))
+            body.append([time_cell, Paragraph(_esc(r.area), st["cell"]), entry_cells])
         # ⚠️ 29mm: the longest label «16.08.2026 15:35» measures 24.7mm at 9pt Helvetica, plus the
         # 3.5mm of cell padding — so it never wraps onto a second line, which would inflate EVERY
         # journal row. It was 36mm, sized for a label that still carried a comma between the date
@@ -2315,7 +2344,7 @@ def compose_report_pdf(
             # a column of clocks with no crew name above it is unusable. A block taller than a
             # full frame still splits normally (KeepTogether hands its content back when it fits
             # nowhere), so a very long log is never made unprintable by this.
-            heading = L["truppHeading"].format(no=tr.no, leader=tr.leader or tr.name) if tr.no is not None else tr.name
+            heading = _trupp_heading(tr)
             block: list = [Paragraph(_esc(heading), st["h3"])]
             # A TABLE, not one Paragraph per line: as free lines each value started right after
             # its own label, so «AdF 1», «Auftrag / Ziel» and «Eintritt» put their values at three

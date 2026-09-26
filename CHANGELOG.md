@@ -31,6 +31,27 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The morning after an Einsatz, one command lists what went wrong, even if nobody reported
+  it.** `admin_postcheck <incident|latest>` (`just postcheck`) lists the devices that worked the
+  incident. Per device it shows their crash reports and render storms, their HTTP errors and 409
+  bursts on the workspace, and their PIN prompts and expired sessions. It also lists Verlauf rows
+  whose own time is off the server's (the clock that jumped back to 20.09. during the Übung of
+  23.09.2026), the same event written by several devices, and the «vor Ort / verlassen» rows
+  against the vehicles' GPS track. It reads the Railway app and HTTP logs, or a post-mortem's
+  JSON dumps instead of a database, and it never writes. It exits 1 when it finds something, so
+  a cron job can run it. *No action needed.*
+- **The server observes; the devices only show** (post-mortem of the Übung on 23.09.2026). «TLF
+  vor Ort» and «hat den Einsatzort verlassen» are detected by the server's 30 s GPS sweep and
+  stamped with the tracker's own report time – not when a tablet happened to wake up (all five vehicles read
+  19:43 in the Übung; GPS said 19:23–19:28). Same rings as before (≤ 150 m, ≥ 300 m, 90 s). The
+  Verlauf gets each vehicle's first arrival and last departure; shuttle trips are counted
+  instead («3 Fahrten» in the Rapport) and a new **«Fahrzeuge GPS · live»** table under the
+  Rapport's Fahrzeugzeiten shows status, an, ab, Fahrten and how old each position is. The
+  weather at a running Einsatz is recorded once per reading by the server, and a **wind shift**
+  (≥ 45° at ≥ 10 km/h, held over two readings) writes «Wind dreht: W → NO (286° → 66°) · Lüfter
+  prüfen» into the Verlauf and onto the Meldeleiste. Übungen are included; an Einsatz nobody
+  has written to for 24 h stops being observed, with one Verlauf row saying so. The server fills
+  only the Rapport's «vor Ort»; «zurück» (back at the depot) stays the geofence's.
 - **«Gelöscht / erledigt» instead of deleting a symbol.** A symbol's editor now offers
   «Gelöscht / erledigt» as its first row – on damage and hazard symbols only (Feuer, Rauch,
   Rettung, Gefahr …), never on a Fahrzeug, a KP Front or a Hydrant: the symbol stays on the Karte, the Plan and every Gebäude storey, greyed
@@ -139,9 +160,75 @@ so this file – not the log – is the record of what shipped up to that point.
   by area, for the nightly run too.
 - **Map zoom to 21**, and a Koordinaten fold in «Einsatz erfassen» that stays shut once address
   and coordinate both stand.
+- **CI plays the Übung of 23.09.2026 on every pull request.** A new e2e scenario
+  (`e2e/field-scenario.spec.ts`) parks a fake TLF next to an Übung, couples a Leitung to it on
+  the Karte, drops a Trupp, lets the fleet report for 22 s and taps the Trupp – once on one
+  device, once on three devices with one login that place their Trupps concurrently (every
+  Trupp has to be on every device and on the server afterwards). With the post-mortem's render
+  loop put back, it fails with the field's own reports: React #185 on the Karte and «render
+  storm: IncidentWorkspace». And **every e2e test now fails when the app reports a client error
+  or a render storm** (`e2e/guard.ts`), with the report attached and the matching
+  `kpfront.clienterror` lines printed from the container log; until now those reports only ever
+  reached the server log. CI-only: the fake fleet is switched on by an overlay
+  (`e2e/compose.e2e.yml`), never in `docker-compose.yml`. The scenario runs without retries, so
+  an intermittent crash cannot pass as «flaky». A third test has three devices tap «Neuer
+  Trupp» at the same moment and requires three different numbers (the duplicate it first turned
+  up is fixed, see «Three devices tapping «Neuer Trupp» at once» below).
+
+### Changed
+
+- **Divera is polled by the server only**: every 30 s while no Einsatz runs, every 120 s while
+  one does, backing off on HTTP 429. The devices read the pool and no longer make the server
+  poll (469 Divera calls in one Übung). The webhook stays the primary intake.
+- **One Traccar answer serves every device for 10 s**, instead of one Traccar login per device
+  per 15 s poll.
+- **The fake fleet (`TRACCAR_FAKE`) reaches the server's GPS sweep**, so the replay track and the
+  presence detection run on dev and demo data; a fake position may carry its fix time (`ts`, or
+  `at` as an offset in a scenario file).
+- A device still on the previous build keeps writing its own «vor Ort» rows and weather
+  events; the server acknowledges and drops them, so a mixed-version day converges on the
+  server's record.
 
 ### Fixed
 
+- **Three devices tapping «Neuer Trupp» at once no longer make three «Trupp 1».** Each device
+  drew the next number from its own view of the Einsatz, and the merge rightly kept all three
+  records under one number – on the Karte, in the Verlauf and on the Rapport. The merge now
+  settles the number: a Trupp that went in keeps it over one that did not, a registered Trupp
+  over a loose marker, then the one minted first; the others take the next free numbers, and the
+  Verlauf says so once («Trupp 1 (…) heisst jetzt Trupp 3», one move per Trupp, never a chain
+  through a number another crew ends up with) – from whichever device noticed,
+  including the one whose merge did it and the Atemschutz-Link. Every device reaches the same
+  answer without asking the server, offline devices included once they are back. Rows already
+  written keep the number they were written with; the Rapport's heading reads «Trupp 3 (zuerst
+  Trupp 1)», and in the Verlauf those rows' «Trupp 1» points at the right crew. A copied loose
+  marker (⌘D) takes the next number, a rename to a number somebody holds is refused, a revived
+  Spur whose number was handed out since comes back as the next one, and a deleted marker's Spur
+  keeps its number from being handed out again.
+- **Another device's Mittel entries are no longer deleted by this device's next save.** A merged
+  workspace refreshed every synced list on screen except Mittel, so this device kept its stale
+  list and saved it back, which the merge read as a deletion. The merge now applies every synced
+  field through a typed setter map, and a synced field with no setter fails `tsc`.
+- **No «Failed to fetch» counter in the server log after an offline spell.** While offline, every
+  basemap tile the Karte could not load was counted as a client error. The reports themselves
+  could not leave the device, but the repeat counter did once the network was back:
+  «Failed to fetch ×N» with nothing broken behind it. A bare fetch failure while the browser says
+  it is offline is now not counted at all (`lib/reportError · isOfflineNetworkNoise`). Render
+  throws, render storms and a failure while nominally online are still reported, so the
+  post-Einsatz check reads only what broke.
+- **A Leitung coupled to a vehicle's GPS has a way back to the Einsatzort.** In the Übung on
+  23.09.2026 «Weiter folgen» was tapped for a TLF already back at its depot; the hose line traced
+  the drive (a 1.15 km spike, printed on the Rapport) and nothing remembered where it had ended on
+  site. Now the Meldung – one row per vehicle, naming its lines – says how far the vehicle is
+  («TLF fährt weg · 340 m vom Einsatzort», raised only from 100 m – a parked vehicle's GPS scatter
+  asks nothing) and leads with a green «Am Einsatzort lassen»;
+  «Weiter folgen» keeps the line as it stood (`gps.before`, ignored by older builds), and the line
+  editor, while an end follows or has stopped following, offers «Zurück auf Stand am Einsatzort
+  (hh:mm)», «Am Einsatzort lösen» and «Hier lösen (Spur behalten)» – a traced hose may be kept.
+  A vehicle back within 150 m after having been 300 m out gets the offer once more. «Zurück» and
+  a cut-back are one undo step with one Verlauf row, keep a plan-drawn hose on its sheet, and win
+  over another device's GPS poll in the sync. The printed Kroki no longer pulls a paused end to
+  wherever the vehicle is now.
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched
@@ -175,6 +262,21 @@ so this file – not the log – is the record of what shipped up to that point.
   search placeholder.
 - **The «#N» badge leaves the marker, chip, pill and phone row** – the Trupp's name stands alone
   there, and the card carries the number.
+- **Another device's edit no longer loses the merge to an entry this device never touched.** The
+  server keeps the blob as JSONB, which hands every object back with its keys re-sorted, and the
+  merge compared entries as JSON strings – so an untouched shift, Verlauf row, Mittel, Beilage,
+  checklist, vehicle override, Rapport field or Gebäude read as «changed here», «both changed»
+  went to this device, and the other device's real edit was dropped. The same made a plan
+  correction lose to an untouched binding, raised «abweichende Angaben zusammengeführt» for
+  Anwesenheit entries with two identical sides (or differing only in when the Funktion was
+  written), and gave one divergence two «bitte prüfen» rows. Every comparison the sync makes now
+  ignores key order (`lib/jsonEqual`).
+- **Two devices saving different fields of one person or one shift in the same second both keep
+  their edit.** The second save merged against the same ancestor and the whole entry went to
+  one device: a «von» vanished under the other device's Bemerkung (with a false «zwei
+  Funktionen … bitte prüfen» row), a shift's «bis» under the other device's «von» (silently).
+  Anwesenheit entries and Zeitplan shifts now merge per field; only a field both devices changed
+  is an Abweichung, and its row names only that field.
 
 ### Security
 

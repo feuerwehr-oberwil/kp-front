@@ -32,19 +32,21 @@ function makeSync() {
     adoptServer: vi.fn(),
     drainAttendanceConflicts: vi.fn().mockReturnValue([]),
     drainTruppConflicts: vi.fn().mockReturnValue([]),
+    drainTruppRenumbered: vi.fn().mockReturnValue([]),
     hasUnsynced: false,
     rev: 0,
     syncStatus: 'synced' as const,
     lastSyncedAt: null,
     onAttendanceConflicts: undefined,
     onTruppConflicts: undefined as ((conflicts: unknown[]) => void) | undefined,
+    onTruppRenumbered: undefined as ((changes: unknown[]) => void) | undefined,
     onApplyMerged: undefined,
     onStatus: undefined,
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: unknown) => void }) {
+function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: unknown) => void; appendTeamRow?: (row: unknown) => void }) {
   const blob = {} as unknown as Saved
   return renderHook(
     ({ bp }) => useIncidentSync({
@@ -53,6 +55,8 @@ function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: 
       applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       appendJournal: opts?.appendJournal as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      appendTeamRow: opts?.appendTeamRow as any,
       alarmUrgent: opts?.alarmUrgent,
     }),
     { initialProps: { bp: () => blob } },
@@ -212,9 +216,56 @@ describe('useIncidentSync — trupp conflict notes', () => {
   })
 })
 
+describe('useIncidentSync — renumbered Trupps', () => {
+  const trupp = { id: 'tr1', no: 3, name: 'Meier Anna', members: ['Müller Hans'], status: 'angemeldet' }
+  const change = { kind: 'trupp', id: 'tr1', from: 1, to: 3, trupp }
+
+  it('writes ONE Verlauf row per renumbering, under the id every device derives', () => {
+    const sync = makeSync()
+    sync.drainTruppRenumbered = vi.fn().mockReturnValue([change]) // init()'s cold-reopen merge
+    const appendJournal = vi.fn()
+    mount(sync, { appendTeamRow: appendJournal })
+    expect(appendJournal).toHaveBeenCalledTimes(1)
+    const row = appendJournal.mock.calls[0][0]
+    expect(row.id).toBe('trn-tr1-1-3')
+    expect(row.text).toBe('Trupp 1 (Meier Anna / Müller Hans) heisst jetzt Trupp 3')
+    expect(row).toMatchObject({ kind: 'team', subjectId: 'tr1' })
+    // the same change seen again (a later poll, a re-merge) adds nothing
+    sync.onTruppRenumbered?.([change])
+    expect(appendJournal).toHaveBeenCalledTimes(1)
+  })
+
+  it('a loose chip says its old and its new name, as the picture showed them', () => {
+    const sync = makeSync()
+    const appendJournal = vi.fn()
+    mount(sync, { appendTeamRow: appendJournal })
+    sync.onTruppRenumbered?.([{ kind: 'chip', id: 'trupp1758', from: 1, to: 2, fromLabel: 'trupp 1', toLabel: 'trupp 2' }])
+    expect(appendJournal.mock.calls[0][0]).toMatchObject({ id: 'trn-trupp1758-1-2', text: 'trupp 1 heisst jetzt trupp 2', subjectId: 'trupp1758' })
+  })
+
+  it('the Atemschutz-Link writes it too: it has the team-row appender and none of the conflict notes', () => {
+    const sync = makeSync()
+    const appendTeamRow = vi.fn()
+    mount(sync, { appendTeamRow }) // no appendJournal — the Link session
+    expect(sync.onTruppConflicts).toBeUndefined()
+    sync.onTruppRenumbered?.([change])
+    expect(appendTeamRow).toHaveBeenCalledTimes(1)
+    expect(appendTeamRow.mock.calls[0][0].kind).toBe('team') // the one kind a link may append
+  })
+
+  it('without a team-row appender nothing registers — the engine is not left buffering for nobody', () => {
+    const sync = makeSync()
+    mount(sync, { appendJournal: vi.fn() })
+    expect(sync.onTruppRenumbered).toBeUndefined()
+    expect(sync.drainTruppRenumbered).not.toHaveBeenCalled()
+  })
+})
+
 describe('useIncidentSync — live-follow loop', () => {
   it('long-polls while visible and starts the next round right after the answer', async () => {
-    pollWorkspaceSince.mockResolvedValue(null) // 304: nothing new
+    // 304 after the server HELD the request (~20 s) — a real long-poll answer (an INSTANT 304 is
+    // a poll that did not hold, and eases off instead: see the N1 block below)
+    pollWorkspaceSince.mockImplementation(() => new Promise((r) => setTimeout(() => r(null), 20_000)))
     const sync = makeSync()
     mount(sync)
 
@@ -226,7 +277,7 @@ describe('useIncidentSync — live-follow loop', () => {
     expect(opts.signal).toBeInstanceOf(AbortSignal)
 
     // no 2 s beat any more: the next round follows the answer, spaced only by the floor
-    await vi.advanceTimersByTimeAsync(LONG_POLL_SPACING_MS)
+    await vi.advanceTimersByTimeAsync(20_000 + LONG_POLL_SPACING_MS)
     expect(pollWorkspaceSince).toHaveBeenCalledTimes(2)
   })
 
@@ -277,13 +328,16 @@ describe('useIncidentSync — live-follow loop', () => {
   })
 
   it('skips the round while local edits are unsynced (the guard that prevents clobbering)', async () => {
-    pollWorkspaceSince.mockResolvedValue(null)
+    // …it still ASKS, no-wait, whether the Einsatz runs (review of #235: a device that is always
+    // a little dirty must hear a close too) — but it adopts nothing over the local edits
+    pollWorkspaceSince.mockResolvedValue({ workspace: { remote: true }, workspace_rev: 99 })
     const sync = makeSync()
     sync.hasUnsynced = true
     mount(sync)
 
     await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
-    expect(pollWorkspaceSince).not.toHaveBeenCalled()
+    expect(pollWorkspaceSince).toHaveBeenCalledWith(expect.any(String), expect.any(Number), expect.objectContaining({ wait: false }))
+    expect(sync.adoptServer).not.toHaveBeenCalled()
   })
 
   it('aborts the held request on teardown so a 20 s hold cannot outlive the loop', async () => {
@@ -385,14 +439,15 @@ describe('useIncidentSync – edit during a conflict merge', () => {
 describe('useIncidentSync — unmounting unhooks only its own sync callbacks', () => {
   it('leaves a handler someone registered after it in place', () => {
     const sync = makeSync()
-    const { unmount } = mount(sync, { appendJournal: vi.fn() })
+    const { unmount } = mount(sync, { appendJournal: vi.fn(), appendTeamRow: vi.fn() })
     // the hook's own handlers are in the slots…
     expect(sync.onStatus).toBeTypeOf('function')
     expect(sync.onApplyMerged).toBeTypeOf('function')
     expect(sync.onAttendanceConflicts).toBeTypeOf('function')
     expect(sync.onTruppConflicts).toBeTypeOf('function')
+    expect(sync.onTruppRenumbered).toBeTypeOf('function')
     // …until a later subscriber takes them over
-    const later = { onStatus: vi.fn(), onApplyMerged: vi.fn(), onAttendanceConflicts: vi.fn(), onTruppConflicts: vi.fn() }
+    const later = { onStatus: vi.fn(), onApplyMerged: vi.fn(), onAttendanceConflicts: vi.fn(), onTruppConflicts: vi.fn(), onTruppRenumbered: vi.fn() }
     Object.assign(sync, later)
     unmount()
     expect(sync).toMatchObject(later)
@@ -400,11 +455,48 @@ describe('useIncidentSync — unmounting unhooks only its own sync callbacks', (
 
   it('clears its own handlers when nobody replaced them', () => {
     const sync = makeSync()
-    const { unmount } = mount(sync, { appendJournal: vi.fn() })
+    const { unmount } = mount(sync, { appendJournal: vi.fn(), appendTeamRow: vi.fn() })
     unmount()
     expect(sync.onStatus).toBeUndefined()
     expect(sync.onApplyMerged).toBeUndefined()
     expect(sync.onAttendanceConflicts).toBeUndefined()
     expect(sync.onTruppConflicts).toBeUndefined()
+    expect(sync.onTruppRenumbered).toBeUndefined()
+  })
+})
+
+describe('useIncidentSync — a closed view never spins its poll (N1, staging 26.09.2026)', () => {
+  // A closed view that did not adopt a reopen kept claiming `open=0`; the server, open again,
+  // answered at once, and the loop went straight into the next round: 3.4 requests a second.
+  function mountClosed(sync: ReturnType<typeof makeSync>) {
+    const blob = {} as unknown as Saved
+    return renderHook(() => useIncidentSync({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sync: sync as any, readOnly: true, incidentId: 'i1', buildPayload: () => blob,
+      applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(), incidentOpen: false,
+    }))
+  }
+
+  it('claims what the SERVER last said, so the next poll parks — and never spins meanwhile', async () => {
+    const claims: (boolean | undefined)[] = []
+    pollWorkspaceSince.mockImplementation(async (_id: string, _since: number, o: { open?: boolean; onLifecycle?: (open: boolean) => void }) => {
+      claims.push(o.open)
+      o.onLifecycle?.(true) // the server is open again — and answers at once while the claim says 0
+      return null
+    })
+    mountClosed(makeSync())
+    await vi.advanceTimersByTimeAsync(10_000)
+    // the first claim is the view's (closed); every later one is what the server said
+    expect(claims[0]).toBe(false)
+    expect(claims.slice(1).every((c) => c === true)).toBe(true)
+    // 10 s: the spinning client made ~34 requests; an easing one a handful
+    expect(pollWorkspaceSince.mock.calls.length).toBeLessThanOrEqual(6)
+  })
+
+  it('also eases off when the server keeps answering at once for any other reason', async () => {
+    pollWorkspaceSince.mockImplementation(async () => null) // no header at all: an older backend
+    mountClosed(makeSync())
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(pollWorkspaceSince.mock.calls.length).toBeLessThanOrEqual(6)
   })
 })

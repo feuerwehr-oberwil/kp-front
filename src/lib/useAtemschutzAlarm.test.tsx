@@ -235,7 +235,7 @@ describe('AtemschutzAlarmHost · the überfällig line is written once per real 
     )
     act(() => { vi.advanceTimersByTime(1000) })
     expect(logAlarmCleared).toHaveBeenCalledTimes(1)
-    expect(logAlarmCleared.mock.calls[0]).toEqual(['t1', new Date(T0).toISOString()])
+    expect(logAlarmCleared.mock.calls[0].slice(0, 2)).toEqual(['t1', new Date(T0).toISOString()])
   })
 
   it('⚠️ an Austritt closes it too — that is the case the record used to swallow', () => {

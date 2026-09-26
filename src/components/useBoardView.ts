@@ -85,6 +85,9 @@ export function useBoardView(
   memory?: { views: MutableRefObject<BoardViews>; planId: string; signature: string },
   /** this board's zoom ceiling — the floor-stack's is one step higher than a sheet's */
   maxScale: number = MAX_SCALE,
+  /** how far below the canvas centre the fitted board sits — half the top bar, less half the
+   *  Gebäude's bottom chip row (Whiteboard · vShift) */
+  centreShift: number = TOP_INSET / 2,
 ) {
   const initial = memory ? resumeBoardView(memory.views.current[memory.planId], memory.signature) : FIT_VIEW
   const [scale, setScale] = useState(initial.scale)
@@ -117,6 +120,9 @@ export function useBoardView(
   // the paper size, which the tile manifest states a moment after mount; lib/planTiles).
   const maxRef = useRef(maxScale)
   maxRef.current = maxScale
+  // the same reason for the centre shift (it changes with the surface: a sheet ↔ the Gebäude)
+  const shiftRef = useRef(centreShift)
+  useEffect(() => { shiftRef.current = centreShift }, [centreShift])
   const clamp = (s: number) => Math.min(maxRef.current, Math.max(MIN_SCALE, s))
   // zoom keeping a focal point fixed — cursor for the wheel, centre for the buttons
   const zoomTo = (factor: number, mx?: number, my?: number) => {
@@ -128,9 +134,9 @@ export function useBoardView(
     // familiar eingepasst view instead of an off-centre one.
     if (n <= 1) { applyView(n, { x: 0, y: 0 }); return }
     const k = n / s
-    // board is rendered centred + TOP_INSET/2 lower (see the board transform), so
+    // board is rendered centred + `centreShift` lower (see the board transform), so
     // the y focal centre is the canvas centre shifted down by the same amount
-    const cx = el.clientWidth / 2, cy = el.clientHeight / 2 + TOP_INSET / 2
+    const cx = el.clientWidth / 2, cy = el.clientHeight / 2 + shiftRef.current
     const fx = mx ?? cx, fy = my ?? cy
     applyView(n, { x: (fx - cx) * (1 - k) + k * p.x, y: (fy - cy) * (1 - k) + k * p.y })
   }

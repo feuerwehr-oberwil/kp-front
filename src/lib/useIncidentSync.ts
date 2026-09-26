@@ -6,9 +6,11 @@ import { onReachable } from './connectivity'
 import { attendanceConflictRows, conflictRows } from './attendanceConflict'
 import { fillTemplate } from './format'
 import type { RecordConflict } from './mergeWorkspace'
-import { createLongPollLoop } from './pollBackoff'
+import { createLongPollLoop, SLOW_FOLLOW_MS } from './pollBackoff'
 import { createClockSkewAlert, createSyncAlertTracker } from './syncAlert'
 import { recordTrouble } from './trouble'
+import { serverNowIso } from './serverClock'
+import { renumberRow, type TruppRenumbering } from './truppNumbers'
 import { toast } from './ui'
 import type { Saved } from './workspace'
 import type { TimelineEvent } from '../types'
@@ -25,6 +27,9 @@ const truppConflictRows = (conflicts: RecordConflict[], seen: Set<string>) =>
     },
   })
 
+/** A held poll that answers «nothing new» faster than this did not hold (see the round). */
+const QUICK_EMPTY_ANSWER_MS = 1_000
+
 interface IncidentSyncDeps {
   sync: WorkspaceSync
   readOnly: boolean
@@ -40,6 +45,12 @@ interface IncidentSyncDeps {
    *  merge saw both sides change the same person's entry. Optional: omitted (or read-only) →
    *  conflicts stay silent, merge behavior is unchanged. */
   appendJournal?: (row: TimelineEvent) => void
+  /** Append one Trupp row (`kind: 'team'`) — the renumbering row a merge makes necessary
+   *  (lib/truppNumbers · renumberRow). Separate from `appendJournal` because the Atemschutz-Link
+   *  has this one and not that one: the server takes `team` rows from a link and nothing else, and
+   *  the Link's own Trupp is as likely to be renumbered as anybody's. Omitted → no row is written
+   *  here (and the change is not buffered: nobody will ever listen). */
+  appendTeamRow?: (row: TimelineEvent) => void
   /** THIS device is sounding the Atemschutz alarm (tier 2). The event that ends the tone — a
    *  Funkkontakt or Druckmeldung, usually entered on another device — arrives via this poll, so
    *  a hidden tab drops from hiddenPollMs to hiddenAlarmPollMs while it is true. A device that
@@ -49,6 +60,13 @@ interface IncidentSyncDeps {
    *  Read on every save; see the persistence effect for what it buys. Optional: omitted → every
    *  save is compared, as before. */
   gestureOpen?: () => boolean
+  /** Whether the view shows the Einsatz as RUNNING — sent with the long poll so a close or reopen
+   *  elsewhere is answered at once instead of after the timeout (lib/incidentClosed). Read
+   *  through a ref: it must not restart the loop by itself. Optional: omitted → not sent. */
+  incidentOpen?: boolean
+  /** Follow once a minute instead of long-polling — the Atemschutz-Link of a CLOSED Einsatz,
+   *  whose every request is refused until a reopen (pollBackoff · minDelayMs). Read through a ref. */
+  slowFollow?: boolean
 }
 
 /**
@@ -59,7 +77,20 @@ interface IncidentSyncDeps {
  * the reactive sync-status badge. State writes stay in App via `applyWorkspace`/`buildPayload`; this
  * hook owns the sync-internal refs (skip/first/liveRev) + effects so the wiring is one unit.
  */
-export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, alarmUrgent, gestureOpen }: IncidentSyncDeps) {
+export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen, incidentOpen, slowFollow }: IncidentSyncDeps) {
+  const incidentOpenRef = useRef(incidentOpen)
+  useEffect(() => { incidentOpenRef.current = incidentOpen }, [incidentOpen])
+  const slowFollowRef = useRef(slowFollow)
+  useEffect(() => { slowFollowRef.current = slowFollow }, [slowFollow])
+  /** What the SERVER last said about the lifecycle (its `X-Incident-Open`), which is what the next
+   *  poll claims — never only what the view shows. A closed view that did not adopt a reopen used to
+   *  keep sending `open=0`, the server answered at once because it was open, and the loop went
+   *  straight into the next round: 3.4 requests a second, for as long as the view stood (N1,
+   *  staging 26.09.2026). Reset when the view changes, so a flip it did adopt is claimed at once. */
+  const heardOpenRef = useRef<boolean | null>(null)
+  useEffect(() => { heardOpenRef.current = null }, [incidentOpen])
+  const claimOpen = () => heardOpenRef.current ?? incidentOpenRef.current
+  const onLifecycle = (open: boolean) => { heardOpenRef.current = open }
   // re-hydrate flags one save to skip — otherwise an editor would immediately push the
   // just-pulled blob back, bumping the rev and triggering an endless pull→push→pull echo.
   const skipSave = useRef(false)
@@ -67,8 +98,10 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
    *  `buildPayload`'s IDENTITY, and a hydrate re-seeds every slice — so a merge that changed
    *  nothing this device cares about still produced a fresh identity and a push. Two devices
    *  with the same Einsatz open pushed each other's echoes back and forth, and since a hydrate
-   *  drops both undo stacks by design, the loop quietly ate every ↶ on both of them. Content,
-   *  not identity, is the only thing that can tell those apart.
+   *  then dropped both undo stacks wholesale, the loop quietly ate every ↶ on both of them.
+   *  (Since 25.09.2026 a hydrate drops only the steps whose records it changed, and an echo
+   *  changes none — but the echo is still a wasted push.) Content, not identity, is the only
+   *  thing that can tell those apart.
    *  Held as the serialized string — or, after a skipped mid-gesture compare (below), as the
    *  payload itself, serialized only when the next compare needs it. */
   const lastPushed = useRef<string | Saved | null>(null)
@@ -81,9 +114,29 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // the editing side appends the note.
   const seenConflicts = useRef(new Set<string>())
   const seenTruppConflicts = useRef(new Set<string>())
+  const seenRenumbered = useRef(new Set<string>())
   useEffect(() => {
-    if (!appendJournal || readOnly) return
+    if (readOnly) return
+    // A Trupp (or loose chip) whose number a merge gave to another device's — ONE row per change,
+    // under a derived id, so every other device saying the same change adds nothing
+    // (lib/truppNumbers · renumberRow). The seen-set only saves the round-trip. Wired on its OWN
+    // appender: the Atemschutz-Link writes these (`team` rows) and none of the conflict notes.
+    const reportRenumbered = (changes: TruppRenumbering[]) => {
+      if (!appendTeamRow) return
+      const at = serverNowIso()
+      for (const c of changes) {
+        const row = renumberRow(c, at)
+        if (seenRenumbered.current.has(row.id)) continue
+        seenRenumbered.current.add(row.id)
+        appendTeamRow(row)
+      }
+    }
+    if (appendTeamRow) {
+      sync.onTruppRenumbered = reportRenumbered
+      reportRenumbered(sync.drainTruppRenumbered())
+    }
     const report = (conflicts: RecordConflict[]) => {
+      if (!appendJournal) return
       const rows = attendanceConflictRows(conflicts, seenConflicts.current)
       for (const row of rows) appendJournal(row)
       // A divergence that produced a note is worth asking the operator about later: LWW kept
@@ -93,22 +146,26 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     // Same wiring for concurrently edited Trupps. Here the merge is field-level (nothing was
     // dropped), but an SCBA record two devices wrote at once still gets its note + follow-up.
     const reportTrupps = (conflicts: RecordConflict[]) => {
+      if (!appendJournal) return
       const rows = truppConflictRows(conflicts, seenTruppConflicts.current)
       for (const row of rows) appendJournal(row)
       if (rows.length > 0) recordTrouble('syncConflict')
     }
-    sync.onAttendanceConflicts = report
-    sync.onTruppConflicts = reportTrupps
-    report(sync.drainAttendanceConflicts()) // conflicts from init()'s cold-reopen merge
-    reportTrupps(sync.drainTruppConflicts())
+    if (appendJournal) {
+      sync.onAttendanceConflicts = report
+      sync.onTruppConflicts = reportTrupps
+      report(sync.drainAttendanceConflicts()) // conflicts from init()'s cold-reopen merge
+      reportTrupps(sync.drainTruppConflicts())
+    }
     // ⚠️ Each cleanup below clears only ITS OWN handler: WorkspaceSync's callbacks are single
     // slots, and an unconditional `= undefined` would silently unhook whoever registered after
     // this effect (the auditEventStore · subscribe rule).
     return () => {
       if (sync.onAttendanceConflicts === report) sync.onAttendanceConflicts = undefined
       if (sync.onTruppConflicts === reportTrupps) sync.onTruppConflicts = undefined
+      if (sync.onTruppRenumbered === reportRenumbered) sync.onTruppRenumbered = undefined
     }
-  }, [sync, appendJournal, readOnly])
+  }, [sync, appendJournal, appendTeamRow, readOnly])
 
   // persistence → server (offline cache + debounced sync). Skip the first run so loading
   // an incident doesn't immediately re-push the just-loaded state.
@@ -232,14 +289,22 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
       baseMs: appConfig.sync.livePollMs,
       maxMs: appConfig.sync.livePollMaxMs,
       hiddenMs,
+      minDelayMs: () => (slowFollowRef.current ? SLOW_FOLLOW_MS : 0),
       round: async ({ hidden, signal }) => {
         // Demo follows the shared server too now (edits persist + sync across visitors, like a real
         // station). The `!sync.hasUnsynced` guard still protects in-progress local edits from being
         // clobbered mid-edit; the nightly reset re-seeds everyone at once. A dirty round fetches
         // nothing, so it reports "unanswered" and the loop eases off.
-        if (!readOnly && sync.hasUnsynced) return false
+        if (!readOnly && sync.hasUnsynced) {
+          // ⚠️ …but it still asks whether the Einsatz is RUNNING (review of #235): a device that is
+          // always a little dirty would otherwise never hear a close by the poll. A quick no-wait
+          // read, whose lifecycle header is all that is used — nothing is adopted over the edits.
+          await pollWorkspaceSince(incidentId, Math.max(liveRev.current, sync.rev), { wait: false, signal, open: claimOpen(), onLifecycle }).catch(() => null)
+          return false
+        }
         const since = Math.max(liveRev.current, sync.rev)
-        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal })
+        const askedAt = Date.now()
+        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal, open: claimOpen(), onLifecycle })
         // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in
         // flight (with a held request that window is now the whole wait, so this guard matters
         // MORE, not less). Adopting the server blob now would clobber that unsaved edit — the
@@ -253,6 +318,11 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
           if (!readOnly) sync.adoptServer(ws, res.workspace_rev)
           hydrate(ws as unknown as Saved)
         }
+        // ⚠️ …and a held poll that came back at once with NOTHING new did not hold (N1): whatever
+        // the reason, answering «unanswered» lets the loop ease off instead of spinning. A real
+        // wake (another device's save) brings a blob and stays hot; a lifecycle wake brings the
+        // header, which the next claim now matches, so that poll parks again.
+        if (!res && !hidden && Date.now() - askedAt < QUICK_EMPTY_ANSWER_MS) return false
         return true
       },
     })

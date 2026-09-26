@@ -290,7 +290,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
    * the answer actually changes — a few times per pan, not a few hundred.
    */
   /** The Schraffur tiles, on THIS map instance — images are per-map, and the preview draws its
-   *  own (MapView registers the Karte's). Re-added on `styledata` because a style reload drops
+   *  own (MapImages registers the Karte's). Re-added on `styledata` because a style reload drops
    *  every registered image, and minted on demand for a colour outside the palette. */
   useEffect(() => {
     const m = mapRef.current?.getMap()

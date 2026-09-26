@@ -4,12 +4,14 @@ import { allAuftragTypes, appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
 import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
+import { fahrtenText } from './vehiclePresence'
 import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
 import { truppNeverDeployed } from './atemschutz'
 import { atemschutzEquipment, attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
-import { repeatRuns, rowPhotos, rowText } from './verlauf'
+import { isNachtrag, repeatRuns, rowPhotos, rowText } from './verlauf'
 import { linkMarkup, type JournalLink } from './journalLinks'
+import { jsonEqual } from './jsonEqual'
 
 export interface KrokiView {
   center: LngLat
@@ -379,7 +381,6 @@ export function journalRows(
    *  existed simply keeps every suffix, which is what it printed yesterday. */
   opts?: { includeBookkeeping?: boolean; vocab?: JournalLink[]; truppIds?: ReadonlySet<string> },
 ): JournalPrintRow[] {
-  const closedMs = closedAt ? Date.parse(closedAt) : NaN
   // …and a line the app repeated while nothing changed prints ONCE, with its count — the same
   // rule the Verlauf reads by, so paper and screen tell the same story (lib/verlauf).
   const repeats = repeatRuns(events)
@@ -429,7 +430,10 @@ export function journalRows(
               ...e.transcriptSections.map((s) => `${fmtDuration(s.at)}  ${s.text}`),
             ]
           : undefined,
-        nachtrag: Number.isFinite(closedMs) && iso != null && Date.parse(iso) > closedMs,
+        // …or received by the server while the Einsatz was closed, whatever time it carries: a
+        // Kontakt from before the close that arrived after it is late on paper (staging r3)
+        // …and a row the Abschluss itself wrote is part of the close (lib/verlauf · isNachtrag)
+        nachtrag: isNachtrag(iso != null && iso !== e.at ? { ...e, at: iso } : e, closedAt),
         repeats: repeats.counts.get(e.id),
         correctedAt: e.correctedAt && e.textOriginal ? hhmm(new Date(e.correctedAt)) : undefined,
         // the original through the same prefix-strip as the latest text, or the two would
@@ -920,7 +924,11 @@ export function metaExtrasForPdf(meta: ReportMeta, bounds?: IncidentBounds): {
     ...gRows.map(({ config: c, value: v }): [string, string] => [
       c.color ? `${c.label} (${c.color})` : c.label, clock(v?.alarmedAt),
     ]),
-    ...vRows.map(({ config: c, value: v }): [string, string] => [c.label, clock(v?.ausgerueckt)]),
+    // «· 3 Fahrten» where the server's GPS saw a vehicle on scene more than once (a
+    // shuttle to the depot) — the trips the Verlauf leaves out on purpose (D2-a, 24.09.2026)
+    ...vRows.map(({ config: c, value: v }): [string, string] => [
+      c.label, [clock(v?.ausgerueckt), fahrtenText(v)].filter(Boolean).join(' · '),
+    ]),
   ]
   return {
     gerettete, rueckmeldungElz, zeiten,
@@ -1064,7 +1072,7 @@ export function changedReportMetaLines(prev: ReportMeta, next: ReportMeta): Repo
   // in that grid persists both. Logged separately they printed the same fact twice in one row —
   // «Ausgerückt «10.08.2026, 14:05», Fahrzeugzeiten» — so when the vehicles moved, the vehicles
   // are the statement and the derived header is not.
-  const fahrzeugeMoved = JSON.stringify(prev.fahrzeuge ?? null) !== JSON.stringify(next.fahrzeuge ?? null)
+  const fahrzeugeMoved = !jsonEqual(prev.fahrzeuge ?? null, next.fahrzeuge ?? null)
   for (const k of keys) {
     if (META_QUIET.has(k)) continue
     if (k === 'ausgeruecktAt' && fahrzeugeMoved) continue
@@ -1072,7 +1080,7 @@ export function changedReportMetaLines(prev: ReportMeta, next: ReportMeta): Repo
     const b = (next as Record<string, unknown>)[k]
     // structural compare: gruppen/fahrzeuge/partnerContacts are arrays of objects, and an
     // identity check would report a change on every re-render that rebuilt them
-    if (JSON.stringify(a ?? null) === JSON.stringify(b ?? null)) continue
+    if (jsonEqual(a ?? null, b ?? null)) continue
     // the structured fields write their own sentences — see `_structuredMetaLines`
     const structured = _structuredMetaLines(k, a, b)
     if (structured) { statements.push(...structured); continue }

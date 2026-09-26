@@ -154,3 +154,32 @@ describe('reportClientError — kinds', () => {
     expect(sent()[1].stack).toContain('index-abc.js')
   })
 })
+
+describe('reportClientError — offline network noise', () => {
+  const setOnline = (v: boolean) => vi.stubGlobal('navigator', { onLine: v })
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('drops a bare fetch failure while the browser says it is offline (the Karte basemap tiles)', () => {
+    setOnline(false)
+    for (const m of ['Failed to fetch', 'Load failed', 'NetworkError when attempting to fetch resource.']) {
+      reportClientError(new TypeError(m), { kind: 'error' })
+      reportClientError(new TypeError(m), { kind: 'unhandledrejection' })
+    }
+    vi.advanceTimersByTime(REPEAT_EVERY_MS * 2)
+    expect(apiBeacon).not.toHaveBeenCalled()
+  })
+
+  it('still reports the same failure while online: a dead route the browser calls online is news', () => {
+    setOnline(true)
+    reportClientError(new TypeError('Failed to fetch'), { kind: 'error' })
+    expect(sent().map((r) => r.message)).toEqual(['Failed to fetch'])
+  })
+
+  it('still reports anything else while offline: a render throw, or a message that only mentions a fetch', () => {
+    setOnline(false)
+    reportClientError(new TypeError('Failed to fetch'), { kind: 'render' })
+    reportClientError(new Error('Failed to fetch the plan index: bad JSON'), { kind: 'error' })
+    reportClientError(boom(), { kind: 'render', surface: 'map' })
+    expect(sent().map((r) => r.kind)).toEqual(['render', 'error', 'render'])
+  })
+})

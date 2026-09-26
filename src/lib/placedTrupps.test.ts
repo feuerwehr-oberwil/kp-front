@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { markerHolderNote, markerOptions, markerSite, nextTeamName, nextTruppNo, placedTrupps, resolveMarkerJoin, teamNameNo, truppMatches } from './placedTrupps'
+import { counterNames, freshTeamLabel, markerHolderNote, markerOptions, markerSite, nextTeamName, nextTruppNo, placedTrupps, resolveMarkerJoin, teamNameNo, teamNoTaken, truppMatches } from './placedTrupps'
 import { searchQuery } from './search'
 import { objectsFromLegacy } from './tacticalObjects'
 import type { BoardAnno, BoardDoc, Entity, PlanDocument, Trupp } from '../types'
@@ -239,5 +239,43 @@ describe('the surface a marker stands on is its anchor, not its collection membe
 
   it('a map-anchored marker still reads as the Karte', () => {
     expect(markerSite('e1', objs([ent({ id: 'e1', label: 'Trupp 1' })], {}))).toEqual({ kind: 'map', entityId: 'e1' })
+  })
+})
+
+// A duplicate ONE device could see coming is refused or re-minted where it happens, never left
+// for a merge to settle (docs/trupp-naming.md §7, review of #228).
+describe('the one counter at the source — counterNames · teamNoTaken · freshTeamLabel', () => {
+  const objects = objectsFromLegacy(
+    [{ id: 'm1', kind: 'team', layer: 'ops', coord: [8, 46], label: 'Trupp 2' } as Entity],
+    [],
+    { m6: [{ id: 'c1', kind: 'resource', x: 0.5, y: 0.5, text: 'Trupp 3' } as BoardAnno] },
+  )
+  const ghosts = [{ id: 'ght-gone', sourceId: 'gone', name: 'Trupp 5', createdAt: '2026-09-25T10:00:00Z', removedAt: '2026-09-25T10:01:00Z' }]
+  const trupps = [{ no: 1 }, { no: 7, formerNos: [4] }]
+
+  it('reads every chip once, every ghost (deleted ones too), every Trupp number and every former one', () => {
+    const names = counterNames(objects, ghosts, trupps)
+    expect(names.map(teamNameNo).sort()).toEqual([1, 2, 3, 4, 5, 7])
+    expect(nextTruppNo([], names)).toBe(8)
+  })
+
+  it('leaves out the chip being renamed or revived, and the ghost it left', () => {
+    expect(counterNames(objects, ghosts, [], 'm1').map(teamNameNo)).toEqual([3, 5])
+    expect(counterNames(objects, ghosts, [], 'gone').map(teamNameNo)).toEqual([2, 3])
+  })
+
+  it('a hand rename to a held number is taken; a free number or a word is not', () => {
+    const others = counterNames(objects, ghosts, trupps, 'm1')
+    expect(teamNoTaken('Trupp 3', others)).toBe(true)
+    expect(teamNoTaken('trupp 5', others)).toBe(true) // a deleted chip's Spur still holds 5
+    expect(teamNoTaken('Trupp 9', others)).toBe(false)
+    expect(teamNoTaken('Angriff Nord', others)).toBe(false)
+  })
+
+  it('⌘D on «Trupp 2» mints the next number; a copy of a free or a named chip keeps its label', () => {
+    const names = counterNames(objects, ghosts, trupps)
+    expect(freshTeamLabel('Trupp 2', names)).toBe('Trupp 8')
+    expect(freshTeamLabel('Trupp 9', names)).toBe('Trupp 9') // a Spur revived under a number nobody took since
+    expect(freshTeamLabel('Angriff Nord', names)).toBe('Angriff Nord')
   })
 })

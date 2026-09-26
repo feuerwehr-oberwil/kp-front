@@ -728,6 +728,41 @@ export const de = {
     zeitplan: 'Zeitplan',
     ansicht: 'Ansicht',
   },
+  /** ⚠️ Die FLÄCHE, auf der ein Schritt passiert ist — steht vor der Aktion in «Rückgängig: …»,
+   *  wo die Aktion sie nicht schon selbst nennt (lib/undoTimeline · undoCaption). Seit ein Merge
+   *  nur noch einzelne Schritte fallen lässt (25.09.2026), kann das ↶ nach einem fremden Speichern
+   *  auf eine ältere Aktion einer ANDEREN Fläche zeigen; ohne Fläche nimmt der zweite Tipp, der
+   *  der Karte galt, eine Trupp-Änderung zurück. */
+  undoSurfaces: {
+    karte: 'Karte',
+    plan: 'Plan',
+    trupps: 'Trupps',
+    anwesenheit: 'Anwesenheit',
+    mittel: 'Material',
+    checkliste: 'Checklisten',
+    gebaeude: 'Gebäude',
+    rapport: 'Rapport',
+    zeitplan: 'Zeitplan',
+    ansicht: 'Karte',
+    pendenz: 'Verlauf',
+  },
+  /** Ein anderes Gerät hat geändert, was der OBERSTE Schritt zurückgenommen hätte: der Schritt
+   *  fällt weg, und das ↶ zeigt jetzt auf etwas Älteres. Einmal sagen, statt still umzubenennen.
+   *  `{what}` aus `undoDroppedWhat`. */
+  undoTopDropped: 'Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät hat {what} geändert',
+  undoDroppedWhat: {
+    karte: 'die Karte',
+    plan: 'den Plan',
+    trupps: 'den Trupp',
+    anwesenheit: 'die Anwesenheit',
+    mittel: 'das Material',
+    checkliste: 'die Checkliste',
+    gebaeude: 'das Gebäude',
+    rapport: 'den Rapport',
+    zeitplan: 'den Zeitplan',
+    ansicht: 'die Ansichten',
+    pendenz: 'die Pendenz',
+  },
   play: 'Abspielen',
   clear: 'Suche löschen',
   // kind drives how the tool-rail button reads & behaves:
@@ -816,6 +851,12 @@ export const de = {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
+    // ONE line for the armed mode, on the phone dock itself (ToolDock · hint) — the text above
+    // stays behind ⓘ
+    lineFreeShort: 'Mit dem Finger über die Karte ziehen',
+    lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
+    areaFreeShort: 'Den Umriss mit dem Finger ziehen',
+    areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
     area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -1184,6 +1225,16 @@ export const de = {
      *  row: the Verlauf said a Fläche had been drawn and never what it turned out to be. */
     drawingLabelSet: '{kind} «{value}»',
     drawingLabelCleared: '{kind}: Beschriftung entfernt',
+    /** «Zurück auf Stand am Einsatzort» (24.09.2026, lib/gpsReturn): the Leitung had followed a
+     *  vehicle off site, and was put back as it stood when following began. The row names the
+     *  moment and the vehicle, because the Rapport's Kroki shows only the result. */
+    gpsReverted: '{name}: zurück auf Stand am Einsatzort ({time}), von {vehicle} gelöst',
+    /** …the vehicle out of the feed: no placeholder in its place */
+    gpsRevertedBare: '{name}: zurück auf Stand am Einsatzort ({time})',
+    /** «Am Einsatzort lösen» that took a DRIVE out of the line — a change of the record, so a row;
+     *  a release that removes nothing stays silent like every other detach */
+    gpsReleasedOnSite: '{name}: am Einsatzort von {vehicle} gelöst, Fahrt entfernt',
+    gpsReleasedOnSiteBare: '{name}: am Einsatzort gelöst, Fahrt entfernt',
     // ⚠️ `line: 'Linie'`, not 'Zeichnung' (31.08.): the tool is called Linie everywhere else, and
     // «Zeichnung» named a shape by the fact that somebody drew it — which every row here already
     // says. A line that carries a preset reports THAT instead (lib/lineStyle · linePresetLabel).
@@ -1247,6 +1298,12 @@ export const de = {
       refusedTitleOne: '1 Protokollereignis für diese Rolle nicht vorgesehen',
       refusedTitle: '{n} Protokollereignisse für diese Rolle nicht vorgesehen',
       refusedBody: 'Der Server nimmt diese Ereignisse von dieser Anmeldung nicht an. Sie bleiben auf diesem Gerät und können gesichert werden; der Verlauf ist davon nicht betroffen.',
+      // 25.09.2026 (N3): was nach dem Abschluss des Einsatzes noch ankam — nicht übernommen, gesichert
+      closedTitleOne: '1 Eintrag nach dem Abschluss nicht übernommen',
+      closedTitle: '{n} Einträge nach dem Abschluss nicht übernommen',
+      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge den Server erreichten. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und können gesichert werden. Wird der Einsatz wieder geöffnet, werden sie nachgesendet.',
+      // die Statusleuchte, solange solche Einträge nur auf dem Gerät liegen
+      closedShort: 'Einträge nach dem Abschluss nicht übernommen – sichern',
     },
     open: 'Verlauf',
     add: 'Eintrag',
@@ -2002,6 +2059,8 @@ export const de = {
     readingNoAs: '{what} – ohne Atemschutz',
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
+    // R3: ein abgeschlossener Einsatz alarmiert nicht – die Uhr steht beim Abschluss
+    clockFrozen: 'Stand beim Abschluss',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
     // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
@@ -2144,6 +2203,12 @@ export const de = {
     // Eingangsdruck – dieselbe Regel gilt für den erneuten Eintritt weiter unten.
     logRegister: 'Trupp {name} angemeldet – Eingangsdruck {bar} bar',
     logRegisterPlain: 'Trupp {name} angemeldet',
+    // Zwei Geräte haben im selben Moment dieselbe Nummer vergeben; die Zusammenführung lässt sie
+    // einem und gibt den anderen die nächste freie (lib/truppNumbers). EINE Zeile pro Wechsel –
+    // die früheren Zeilen bleiben unter der alten Nummer stehen, diese verbindet die beiden.
+    logRenumbered: 'Trupp {name} heisst jetzt Trupp {no}',
+    // …und ein loser Trupp-Marker, mit den Namen, die er auf dem Bild trug
+    logRenumberedChip: '{from} heisst jetzt {to}',
     // Verlauf row for when somebody changes the safety values. WITH old and new values:
     // «geändert» alone doesn't say whether the threshold got stricter or looser.
     logSafety: 'Atemschutz-Sicherheitswerte geändert: {changes}',
@@ -2365,6 +2430,8 @@ export const de = {
     /** Fallback, wenn die letzte Messung nichts hergibt – der Alarm ist trotzdem beendet, und
      *  eine Zeile, die das sagt, ist mehr wert als gar keine. */
     alarmClearedOther: 'Kontakt wiederhergestellt',
+    // …und wenn die Kontaktuhr durch «Wieder öffnen» neu lief: kein Funkkontakt, sondern das (D5)
+    alarmClearedByReopen: 'Kontaktuhr neu gestartet (wieder geöffnet)',
     // The Alarmdruck used to be visible only on the card – the record was missing the moment the
     // Trupp had to turn back. Only on CROSSING it, not on every value below it.
     //
@@ -2379,6 +2446,9 @@ export const de = {
     // all – the toast was gone and the Trupp had never existed.
     logRemoved: 'Trupp {name} entfernt',
     logRestored: 'Trupp {name} wiederhergestellt',
+    // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
+    // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
+    logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
@@ -2432,6 +2502,10 @@ export const de = {
     dockHints: {
       draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Breite und Stil danach im Editor.',
       line: 'Eckpunkte antippen. Doppeltippen oder «Fertig» schliesst die Linie ab. Farbe, Breite und Stil danach im Editor.',
+      lineFreeShort: 'Mit dem Finger über den Plan ziehen',
+      lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
+      areaFreeShort: 'Den Umriss mit dem Finger ziehen',
+      areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
       area: 'Ziehen zeichnet den Umriss frei. Oder Eckpunkte antippen (mind. 3) – Doppeltippen oder «Fertig» schliesst die Fläche ab.',
       circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
       text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -2718,6 +2792,9 @@ export const de = {
     ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur entfernen?',
     ghostTrailRestore: 'Trupp wieder platzieren',
     ghostTrailRestored: '{name} wieder platziert – Spur übernommen',
+    // Umbenennen eines losen Trupp-Markers auf eine Nummer, die schon vergeben ist (ein Trupp,
+    // ein anderer Marker oder eine Spur trägt sie) – abgelehnt, der alte Name bleibt
+    teamNameTaken: '{name} ist schon vergeben – der Name bleibt',
     textPlaceholder: 'Notiz …',
     blankHint: 'Leeres Blatt – mit Linie, Fläche, Notiz, Symbol oder Trupp beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',
@@ -2746,6 +2823,8 @@ export const de = {
     climbDown: 'Ein Geschoss tiefer weiter',
     climbBack: 'Zurück auf {floor}',
     addFloorDown: 'Untergeschoss hinzufügen',
+    // the toast and ↶ of «+ OG / + UG», naming the storey (its Verlauf row comes with #226)
+    floorAddedToast: '{floor} hinzugefügt',
     floorHide: 'Geschoss ausblenden',
     floorShow: 'einblenden',
     floorHidden: 'ausgeblendet',
@@ -2764,6 +2843,8 @@ export const de = {
     buildingReplacedKept: 'Gebäude gewechselt – Geschosse behalten',
     buildingReplacedCarried: 'Gebäude gewechselt – {n} Markierungen übertragen',
     buildingReplacedCarriedDropped: 'Gebäude gewechselt – {n} übertragen, {d} weggefallen',
+    /** Ein Gebäude zum ersten Mal übernommen (noch kein Stapel da) — der ↶-Schritt dafür. */
+    buildingTaken: 'Gebäude übernommen',
     replaceBuilding: 'Anderes Gebäude wählen',
     replaceBuildingConfirm: 'Der bisherige Geschoss-Stapel wird verworfen und durch den neuen Umriss ersetzt.',
     // ⚠️ Der LEGACY-Fall: ein Gebäude ohne Georeferenz lässt sich nicht auf dem Boden verorten,
@@ -2886,10 +2967,8 @@ export const de = {
     pinGps: 'Festhalten',
     pinGpsTitle: 'Fahrzeug hier festhalten – es bleibt stehen, auch wenn es wegfährt',
     logPinned: '{name} festgehalten',
-    // Verlauf rows from the Fahrzeug feed. They answer «wann ist wer weggefahren» – the question
-    // nobody can answer from memory hours later.
-    logVehicleArrived: '{name} vor Ort',
-    logVehicleLeft: '{name} hat den Einsatzort verlassen',
+    // (The «vor Ort» / «hat den Einsatzort verlassen» rows are written by the SERVER since
+    // 25.09.2026, in German like every server-written row — backend · app/vehicle_presence.)
     // Remove a self-reported position from the Kommandoposten: somebody drives home with sharing
     // still on, or a phone dies on its last fix – the dot then claims a Kraft is somewhere it
     // is not.
@@ -3117,8 +3196,42 @@ export const de = {
     gpsFollowing: 'GPS folgt aktiv',
     gpsMovingAway: 'Fahrzeug bewegt sich weg',
     gpsContinue: 'Weiter folgen',
-    gpsDetachHere: 'Hier lösen',
-    gpsPause: 'Folgen pausieren',
+    /** ⚠️ Says WHERE (24.09.2026): «Hier lösen» read as «here, where the vehicle is now», and in
+     *  the line editor that is what it did — the depot spike of 23.09.2026. Letting go of a GPS end
+     *  now always happens at the Einsatzort (lib/gpsReturn · onSiteCoords). */
+    gpsDetachOnSite: 'Am Einsatzort lösen',
+    /** a traced hose may be KEPT (24.09.2026): let go where the end stands now, the drive stays
+     *  as the laid hose. Also the only release offered where the on-site point is not known. */
+    gpsDetachHere: 'Hier lösen (Spur behalten)',
+    /** the Meldung's ✕ on a «stopped» row */
+    gpsDismiss: 'Ausblenden',
+    gpsPause: 'Folgen stoppen',
+    // ── The Meldung when a coupled vehicle drives off / comes back (GpsFollowMeldung, D3) ──
+    gpsAwayTitle: '{vehicle} fährt weg · {distance} vom Einsatzort',
+    gpsAwayTitleBare: '{vehicle} fährt weg',
+    /** ⚠️ The sub-line is ONE line on a 360px phone (~44 characters) — keep these short */
+    gpsAwaySub: '{lines} endet noch am Einsatzort.',
+    gpsAwaySubMany: '{lines} enden noch am Einsatzort.',
+    /** the PRIMARY move of that Meldung: let go, with the end where it is — on site */
+    gpsKeepOnSite: 'Am Einsatzort lassen',
+    /** following was stopped after the line had traced the drive */
+    gpsStoppedTitle: '{vehicle} · {distance} vom Einsatzort',
+    gpsStoppedTitleBare: '{vehicle} · Folgen gestoppt',
+    gpsStoppedSub: 'Folgen gestoppt · {lines} zeigt die Fahrt.',
+    gpsStoppedSubMany: 'Folgen gestoppt · {lines} zeigen die Fahrt.',
+    /** the vehicle is on site again while the line still follows it (TLF went to refill) */
+    gpsBackTitle: '{vehicle} wieder am Einsatzort',
+    gpsBackSub: '{lines} zeigt die Fahrt seit {time}.',
+    gpsBackSubMany: '{lines} zeigen die Fahrt seit {time}.',
+    gpsRevert: 'Zurück auf Stand am Einsatzort',
+    gpsRevertAt: 'Zurück auf Stand am Einsatzort ({time})',
+    /** the ↶ bubble's word for that step */
+    gpsRevertStep: '{name} zurück auf Stand am Einsatzort',
+    // ── The line editor while an end follows (DrawEditor · the GPS block at the top) ──
+    gpsFollowingHead: '{line} · folgt {vehicle} seit {time}',
+    gpsFollowingHeadBare: '{line} · folgt {vehicle}',
+    gpsStoppedHead: '{line} · Folgen gestoppt · {vehicle}',
+    gpsDistanceNow: 'jetzt {distance} entfernt',
     hiddenTarget: 'Ziel ausgeblendet',
     revealTarget: 'Ebene einblenden',
     removeConnectedTitle: '{name} entfernen',
@@ -3384,6 +3497,10 @@ export const de = {
       fog: 'Nebel', drizzle: 'Niesel', rain: 'Regen', snow: 'Schnee',
       rainShowers: 'Regenschauer', snowShowers: 'Schneeschauer', thunder: 'Gewitter', cloudy: 'Bewölkt',
     } as Record<string, string>,
+    // The wind-shift Meldung (24.09.2026, D2). Its words are the server's Verlauf row
+    // («Wind dreht: W → NO (286° → 66°) · Lüfter prüfen»); these two are its doors.
+    windShiftOpen: 'Im Verlauf öffnen',
+    windShiftDismiss: 'Ausblenden',
   },
   // PDF rendering — status line in PdfScroller + first-load placeholder in PdfViewport (Plan)
   pdf: {
@@ -3764,6 +3881,11 @@ export const de = {
     errorTitle: 'Der Server antwortet nicht.',
     errorHint: 'Bitte nochmals versuchen. Bleibt es dabei: bei der Einsatzleitung melden.',
     retry: 'Erneut versuchen',
+    // an Atemschutz-Link reloaded while its Einsatz is closed (staging r6, F2): the page asks
+    // once a minute and opens the board by itself after «Wieder öffnen»
+    closedTitle: 'Einsatz abgeschlossen',
+    closedAt: 'Abgeschlossen um {time}.',
+    closedHint: 'Wird der Einsatz wieder geöffnet, erscheint die Tafel hier von selbst.',
     // the Einsatz could not be loaded after opening the link (signal gone) – the landing page
     // says so instead of showing an empty incident list
     unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
@@ -3953,9 +4075,34 @@ export const de = {
   // was es beschreibt: die Liste.
   archived: {
     title: 'Einsatz abgeschlossen',
-    hint: 'Nur ansehen – zum Bearbeiten wieder öffnen.',
+    // r3, F10: der Rapport bleibt nach dem Abschluss korrigierbar (Nachträge) – alles andere nicht
+    hint: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    // …und wer gar nichts wieder öffnen kann (Link-Sitzungen)
+    hintViewOnly: 'Nur ansehen.',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
+    // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
+    // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
+    closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
+    closedElsewhereSub: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    // …und was dieses Gerät danach noch schicken wollte (ein Kontakt, eine Tafel-Änderung von
+    // offline): nicht übernommen, aber nicht verloren.
+    closedRefusedOne: '1 Eintrag dieses Geräts kam nach dem Abschluss und wurde nicht mehr übernommen. Er bleibt auf diesem Gerät gespeichert.',
+    closedRefused: '{n} Einträge dieses Geräts kamen nach dem Abschluss und wurden nicht mehr übernommen. Sie bleiben auf diesem Gerät gespeichert.',
+    closedExport: 'Einträge sichern',
+    closedDismiss: 'Hinweis ausblenden',
+    // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
+    reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
+    // r3, F10: der Rapport eines abgeschlossenen Einsatzes bleibt korrigierbar – und sagt es
+    rapportClosedHint: 'Einsatz abgeschlossen – Änderungen am Rapport erscheinen als Nachträge.',
+    // …und die Atemschutz-Link-Tafel, deren Halter nichts wieder öffnen kann
+    linkClosedTitle: 'Einsatz abgeschlossen – diese Tafel zeigt nur noch an',
+    // D1: der Link wurde für seinen eigenen Einsatz abgelehnt (widerrufen) – nichts mehr annehmen
+    linkRefusedTitle: 'Dieser Link gilt nicht mehr – diese Tafel zeigt nur noch an',
+    reopenedElsewhereSub: 'Wieder bearbeitbar – spätere Einträge erscheinen als Nachträge.',
+    // was beim Abschluss zurückgestellt wurde, geht jetzt raus – als Nachtrag
+    reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt nachgesendet – als Nachtrag.',
+    reopenedParked: 'Wieder bearbeitbar. {n} Einträge dieses Geräts, die nach dem Abschluss nicht übernommen wurden, werden jetzt nachgesendet – als Nachträge.',
   },
   // Einsätze history list
   history: {
@@ -4312,6 +4459,24 @@ export const de = {
     ausgeruecktDerived: 'aus den Fahrzeugzeiten übernommen',
     vorOrtShort: 'vor Ort',
     zurueckShort: 'zurück',
+    // The vehicle table (24.09.2026, D2): what the SERVER observed from the GPS positions,
+    // display only. an = first arrival, ab = last departure, both GPS fix times.
+    gpsTableTitle: 'Fahrzeuge GPS · live',
+    gpsTableNote: 'Zeiten aus den GPS-Positionen, vom Server erfasst',
+    gpsColFzg: 'Fzg',
+    gpsColStatus: 'Status',
+    gpsColAn: 'an',
+    gpsColAb: 'ab',
+    gpsColFahrten: 'Fahrten',
+    gpsColPos: 'Pos.',
+    gpsStatusScene: 'vor Ort',
+    gpsStatusAway: 'unterwegs',
+    gpsAgeSec: 'vor {n} s',
+    gpsAgeMin: 'vor {n} min',
+    gpsAgeHour: 'vor {n} h',
+    gpsAgeStale: 'Position veraltet',
+    // …and on paper, where a vehicle was on scene more than once (a supply vehicle shuttling to the depot)
+    fahrtenCount: '{n} Fahrten',
     rueckmeldungLabel: 'Rückmeldung ELZ',
     rueckmeldungName: 'Name',
     // ⚠️ Nicht bloss «Zeit»: das Feld steht jetzt neben dem Einsatzende, und zwei Zeitfelder

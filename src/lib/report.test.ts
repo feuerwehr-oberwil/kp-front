@@ -583,6 +583,20 @@ describe('server-PDF payload extras', () => {
     ])
   })
 
+  // D2-a (24.09.2026): the shuttle trips are not Verlauf rows, so the paper is where they are
+  // counted — «3 Fahrten» beside a vehicle the server's GPS saw on scene more than once.
+  it('prints «n Fahrten» beside a vehicle that was on scene more than once', () => {
+    const out = metaExtrasForPdf({
+      fahrzeuge: [
+        { id: 'tlf', ausgerueckt: '2026-07-31T12:43:46', gps: { zone: 'scene', fahrten: 1 } },
+        { id: 'pio', gps: { zone: 'away', fahrten: 3 } },
+      ],
+    })
+    expect(out.zeiten.slice(2)).toEqual([['TLF', '12:43'], ['Pio', '3 Fahrten']])
+    const both = metaExtrasForPdf({ fahrzeuge: [{ id: 'tlf', ausgerueckt: '2026-07-31T12:43:46', gps: { zone: 'away', fahrten: 2 } }] })
+    expect(both.zeiten.find(([l]) => l === 'TLF')?.[1]).toBe('12:43 · 2 Fahrten')
+  })
+
   it('builds the Material worksheet: full catalogue with stubs, recorded amounts filled', () => {
     const catalogue = [
       { id: 'oel', label: 'Ölbinder', unit: 'Sack' },
@@ -1215,5 +1229,31 @@ describe('krokiFitMaxZoom', () => {
     expect(krokiFitMaxZoom([[7.5704, 47.5241], [7.5709, 47.5241]])).toBe(20)    // ~38 m
     expect(krokiFitMaxZoom([[7.5704, 47.5241], [7.57041, 47.52411]])).toBe(21) // inside one building
     expect(krokiFitMaxZoom([[7.5704, 47.5241]])).toBe(20)                       // a lone symbol keeps its streets
+  })
+})
+
+describe('journalRows · Nachtrag (staging r3)', () => {
+  it('prints a row the server received after the close as a Nachtrag, in its own time order', () => {
+    const closed = '2026-07-02T18:00:00Z'
+    const events = [
+      { id: 'on-time', t: '', at: '2026-07-02T17:50:00Z', icon: 'radio', text: 'Trupp 1: Kontakt', kind: 'team' as const },
+      { id: 'late', t: '', at: '2026-07-02T17:55:00Z', icon: 'radio', text: 'Trupp 2: Kontakt', kind: 'team' as const, receivedAfterClose: true },
+    ]
+    const rows = journalRows(events, [], undefined, closed)
+    const byText = new Map(rows.map((r) => [r.text, r]))
+    expect(byText.get('Trupp 1: Kontakt')?.nachtrag).toBe(false)
+    expect(byText.get('Trupp 2: Kontakt')?.nachtrag).toBe(true)
+  })
+
+  it('prints what the Abschluss itself wrote as part of the close (staging r6, F3)', () => {
+    const closed = '2026-07-02T18:00:00Z'
+    const events = [
+      { id: 'close', t: '', at: closed, icon: 'lock', text: 'Einsatz abgeschlossen', lifecycle: 'closed' as const },
+      { id: 'inside', t: '', at: '2026-07-02T18:00:00.600Z', icon: 'logout', text: 'Trupp 2 beim Abschluss noch drin', kind: 'team' as const, atClose: true },
+      { id: 'later', t: '', at: '2026-07-02T18:30:00Z', icon: 'radio', text: 'Nachtrag Funk', kind: 'journal' as const },
+    ]
+    const byText = new Map(journalRows(events, [], undefined, closed).map((r) => [r.text, r]))
+    expect(byText.get('Trupp 2 beim Abschluss noch drin')?.nachtrag).toBe(false)
+    expect(byText.get('Nachtrag Funk')?.nachtrag).toBe(true)
   })
 })

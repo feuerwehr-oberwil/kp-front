@@ -3,6 +3,7 @@ import { floorLabel } from './whiteboard'
 import { matchesQuery, type SearchQuery } from './search'
 import { abbreviateName } from './personnel'
 import type { TacticalObject } from './tacticalObjects'
+import { ghostCounterNames, type TruppTrail } from './truppTrails'
 import type { LngLat, PlanDocument, Trupp, TruppKind } from '../types'
 
 /**
@@ -73,9 +74,13 @@ export function teamNameNo(name: string | undefined): number | undefined {
  * dropped on the Lage at 03:12 and the Atemschutz-Trupp registered at 03:14 cannot both be
  * called Trupp 2 — and when they turn out to be the same crew, linking relabels the chip.
  */
-export function nextTruppNo(trupps: Iterable<{ no?: number }>, chipNames: Iterable<string | undefined>): number {
+export function nextTruppNo(trupps: Iterable<{ no?: number; formerNos?: number[] }>, chipNames: Iterable<string | undefined>): number {
   let max = 0
-  for (const t of trupps) if (typeof t.no === 'number' && Number.isFinite(t.no)) max = Math.max(max, t.no)
+  for (const t of trupps) {
+    if (typeof t.no === 'number' && Number.isFinite(t.no)) max = Math.max(max, t.no)
+    // …and the numbers a merge took from it (lib/truppNumbers): those were handed out once too
+    if (Array.isArray(t.formerNos)) for (const n of t.formerNos) if (typeof n === 'number' && Number.isFinite(n)) max = Math.max(max, n)
+  }
   for (const name of chipNames) max = Math.max(max, teamNameNo(name) ?? 0)
   return max + 1
 }
@@ -91,6 +96,56 @@ export function nextTruppNo(trupps: Iterable<{ no?: number }>, chipNames: Iterab
  */
 export function nextTeamName(taken: Iterable<string | undefined>, trupps: Iterable<{ no?: number }> = []): string {
   return `${appConfig.copy.whiteboard.team} ${nextTruppNo(trupps, taken)}`
+}
+
+/**
+ * Every name the ONE counter reads, as a list of «Trupp N»-parsable strings: each chip's label
+ * (one per OBJECT — a sheet chip's baked map body is the same chip), each ghost trail's
+ * (truppTrails · ghostCounterNames — a deleted chip that left a Spur used its number), and every
+ * registered Trupp's number, removed ones included. `exceptId` leaves one chip — and the ghost it
+ * left — out: the chip being renamed or revived must not count as holding its own number.
+ */
+export function counterNames(
+  objects: readonly TacticalObject[],
+  trails: readonly TruppTrail[],
+  trupps: Iterable<{ no?: number; formerNos?: number[] }>,
+  exceptId?: string,
+): (string | undefined)[] {
+  const word = appConfig.copy.whiteboard.team
+  const out: (string | undefined)[] = []
+  for (const o of objects) {
+    if (o.id === exceptId) continue
+    if (o.sheet) { if (o.sheet.anno.kind === 'resource') out.push(o.sheet.anno.text) }
+    else if (o.entity?.kind === 'team') out.push(o.entity.label)
+  }
+  out.push(...ghostCounterNames((trails ?? []).filter((g) => g?.sourceId !== exceptId), word))
+  for (const t of trupps) {
+    for (const n of [t.no, ...(Array.isArray(t.formerNos) ? t.formerNos : [])]) {
+      if (typeof n === 'number' && Number.isFinite(n)) out.push(`${word} ${n}`)
+    }
+  }
+  return out
+}
+
+/** Would `label` say a number somebody in `names` already holds? False for a label that is not a
+ *  «Trupp N» at all — «Angriff Nord» collides with nothing. */
+export function teamNoTaken(label: string | undefined, names: Iterable<string | undefined>): boolean {
+  const no = teamNameNo(label)
+  if (no === undefined) return false
+  for (const n of names) if (teamNameNo(n) === no) return true
+  return false
+}
+
+/**
+ * The label a chip may carry without duplicating a number: `label` itself when it is free (or not
+ * a «Trupp N» at all), else the next number of the one counter. ⚠️ This is the SOURCE-side guard
+ * against a duplicate one device could see coming — ⌘D on a loose chip, a Spur revived under a
+ * number handed out since (docs/trupp-naming.md §7). A duplicate between DEVICES is the merge's
+ * (lib/truppNumbers); one device must never leave one for an unrelated 409 to settle.
+ */
+export function freshTeamLabel(label: string | undefined, names: readonly (string | undefined)[]): string | undefined {
+  if (!teamNoTaken(label, names)) return label
+  return `${appConfig.copy.whiteboard.team} ${nextTruppNo([], names)}`
 }
 
 /** Everyone in a Trupp, leader first — the order the card and the Kroki print. */

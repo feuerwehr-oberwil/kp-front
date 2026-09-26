@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { StrictMode } from 'react'
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { Journal } from './Journal'
 import type { TimelineEvent } from '../types'
 import type { OpenReminder } from '../lib/reminders'
@@ -35,9 +35,18 @@ function setup(over: Partial<React.ComponentProps<typeof Journal>> = {}) {
 }
 
 describe('Journal · landing on one row («im Verlauf» on the Wiedergabe caption)', () => {
-  it('⚠️ survives StrictMode’s double mount — the landing must not be a one-shot', async () => {
+  // ⚠️ The frames are the TEST's to hand out, not the machine's. jsdom never lays the list out, so
+  // the landing waits its ~20 frames for a height that never comes and then lands anyway — and on
+  // real frames that is ~350 ms idle but well over a second under a loaded full suite, where a
+  // `waitFor` (1 s) gave up first. Faked, the same frames run in the same order every time.
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'setTimeout', 'clearTimeout'] }) })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('⚠️ survives StrictMode’s double mount — the landing must not be a one-shot', () => {
     setup({ landOn: { id: 'r2', nonce: 1 } })
-    await waitFor(() => expect(cls('r2')).toContain('jr-flash'))
+    // a second of frames — past the give-up-on-layout, short of the flash's 2 s fade
+    act(() => { vi.advanceTimersByTime(1000) })
+    expect(cls('r2')).toContain('jr-flash')
     expect(cls('r1')).not.toContain('jr-flash')
     expect(cls('r3')).not.toContain('jr-flash')
   })
@@ -594,5 +603,26 @@ describe('Journal · the search in the head', () => {
     fireEvent.click(lens())
     expect(document.querySelector('.jr-legend')).toBeNull()
     expect(document.querySelector('.jr-strip')).toBeNull()
+  })
+})
+
+describe('Journal · Escape closes one thing, innermost first', () => {
+  // 3am test r4, 26.09.2026: on the tablet Esc did nothing — the drawer vetoed Escape wholesale
+  // (dismissEscape={false}) and never closed on it itself
+  it('Esc closes the drawer', () => {
+    const { onClose } = setup()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('with the search open, the first Esc closes the search and the second the drawer', () => {
+    const { onClose } = setup()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Im Verlauf suchen' })[0])
+    expect(screen.getByRole('textbox', { name: 'Im Verlauf suchen' })).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.queryByRole('textbox', { name: 'Im Verlauf suchen' })).toBeNull()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

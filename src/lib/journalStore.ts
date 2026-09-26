@@ -4,6 +4,7 @@ import { newId } from './ids'
 import { rowPhotos, swapUrl } from './verlauf'
 import type { TimelineEvent } from '../types'
 import type { SyncStatus } from './api/workspaceSync'
+import { isIncidentClosedRefusal, refusalClosedAt, reportIncidentClosed } from './incidentClosed'
 
 /**
  * Journal (Verlauf) client store — the row-based replacement for the in-blob timeline.
@@ -35,7 +36,16 @@ export type PullResult = 'new' | 'none' | 'failed'
 
 interface ServerRow { seq: number; row: TimelineEvent }
 interface JournalPage { entries: ServerRow[]; latest_seq: number }
-interface Persisted { rows: ServerRow[]; latestSeq: number; outbox: TimelineEvent[]; dead?: TimelineEvent[] }
+/** `refused` (25.09.2026, N3): rows the server turned down because the Einsatz had been CLOSED by
+ *  the time they arrived — a Kontakt tapped on a device that had not heard yet, the alarm clock's
+ *  «Überfällig», a Tafel row queued offline. Unlike `dead` they are not an error anybody can fix:
+ *  no retry delivers them while the Einsatz stays closed, so they are not part of the sync status
+ *  and «Erneut versuchen» does not re-send them. They are not in the Verlauf either — the closed
+ *  record is what it shows, and these rows are not in it. Kept, never dropped: persisted here,
+ *  carried by `recoveryData` («Einträge sichern»), counted for the notice that says why — and
+ *  sent again once the Einsatz runs again (`requeueRefused`, «Wieder öffnen»). Absent in older
+ *  caches. */
+interface Persisted { rows: ServerRow[]; latestSeq: number; outbox: TimelineEvent[]; dead?: TimelineEvent[]; refused?: TimelineEvent[] }
 
 const KEY = (incidentId: string) => `kp-journal-${incidentId}`
 const FLUSH_BATCH = 400
@@ -113,7 +123,7 @@ export function chronological(rows: readonly TimelineEvent[]): TimelineEvent[] {
 }
 
 export class JournalStore {
-  private state: Persisted = { rows: [], latestSeq: 0, outbox: [], dead: [] }
+  private state: Persisted = { rows: [], latestSeq: 0, outbox: [], dead: [], refused: [] }
   /** legacy blob rows in CHRONOLOGICAL (oldest-first) order — the blob stores newest-first */
   private legacy: TimelineEvent[] = []
   /** stable echo for buildPayload — recreated ONLY when the legacy set changes, so the
@@ -214,8 +224,12 @@ export class JournalStore {
       const accepted = new Set(this.state.rows.map((r) => r.row.id))
       const pending = new Map([...cached.outbox, ...this.state.outbox].map((r) => [r.id, r]))
       this.state.outbox = [...pending.values()].filter((r) => !accepted.has(r.id))
+      const refused = new Map([...(cached.refused ?? []), ...(this.state.refused ?? [])].map((r) => [r.id, r]))
+      this.state.refused = [...refused.values()].filter((r) => !accepted.has(r.id))
+      for (const r of this.state.refused) pending.delete(r.id)
+      this.state.outbox = this.state.outbox.filter((r) => !refused.has(r.id))
       const dead = new Map([...(cached.dead ?? []), ...(this.state.dead ?? [])].map((r) => [r.id, r]))
-      this.state.dead = [...dead.values()].filter((r) => !accepted.has(r.id) && !pending.has(r.id))
+      this.state.dead = [...dead.values()].filter((r) => !accepted.has(r.id) && !pending.has(r.id) && !refused.has(r.id))
       this.state.latestSeq = Math.max(this.state.latestSeq, cached.latestSeq)
     }
     if (!this.readOnly) {
@@ -372,6 +386,25 @@ export class JournalStore {
       this.emit()
       accepted = true
     } catch (e) {
+      // The Einsatz was closed before these rows arrived (N3): not a failure — park, don't redden.
+      // A batch is refused whole, so the refused row is isolated the way a poisoned one is: one
+      // row at a time, and the record rows (a Meldung, a patch) still go through beside it.
+      if (isIncidentClosedRefusal(e)) {
+        if (this.singleMode || this.state.outbox.length === 1) {
+          const [refused, ...rest] = this.state.outbox
+          this.state.refused = [...(this.state.refused ?? []), refused]
+          this.state.outbox = rest
+          if (!rest.length) this.singleMode = false
+          this.deliveryFailure = null
+          this.persist()
+          reportIncidentClosed({ incidentId: this.incidentId, closedAt: refusalClosedAt(e), source: 'refusal' })
+          this.emit()
+          // the next row may be one the closed record still takes — keep draining
+          return !this.disposed
+        }
+        this.singleMode = true
+        return !this.disposed
+      }
       this.deliveryFailure = e instanceof ApiError && e.status === 0 ? 'offline' : 'error'
       if (isPermanentRejection(e)) {
         if (this.singleMode || this.state.outbox.length === 1) {
@@ -427,6 +460,7 @@ export class JournalStore {
       const server = new Set(this.state.rows.map((r) => r.row.id))
       this.state.outbox = this.state.outbox.filter((r) => !server.has(r.id))
       this.state.dead = (this.state.dead ?? []).filter((r) => !server.has(r.id))
+      this.state.refused = (this.state.refused ?? []).filter((r) => !server.has(r.id))
       this.persist()
       this.emit()
       return 'new'
@@ -451,6 +485,27 @@ export class JournalStore {
 
   get rejectedCount(): number {
     return this.state.dead?.length ?? 0
+  }
+
+  /** rows the closed Einsatz no longer took — parked, not owed (see Persisted · refused) */
+  get refusedCount(): number {
+    return this.state.refused?.length ?? 0
+  }
+
+  /** The Einsatz runs again («Wieder öffnen»): the parked rows go back into the outbox, oldest
+   *  first, and out — they print as Nachträge. A fresh refusal (closed again meanwhile) parks
+   *  them again; nothing is dropped either way. */
+  async requeueRefused(): Promise<void> {
+    if (this.initializing) await this.initializing
+    if (this.readOnly || this.disposed || !this.state.refused?.length) return
+    const queued = new Set(this.state.outbox.map((r) => r.id))
+    this.state.outbox.push(...this.state.refused.filter((r) => !queued.has(r.id)))
+    this.state.refused = []
+    this.singleMode = false
+    this.persist()
+    this.emit()
+    await this.landed()
+    await this.flush()
   }
 
   /** A synced workspace must not hide an unsent or undurable journal. */
@@ -485,6 +540,8 @@ export class JournalStore {
       version: 1,
       incidentId: this.incidentId,
       entries: [...this.state.outbox, ...(this.state.dead ?? [])],
+      // not in `entries`: those are owed, these the closed Einsatz refused (Persisted · refused)
+      refused: [...(this.state.refused ?? [])],
     }
   }
 
@@ -589,6 +646,7 @@ export class JournalStore {
     const s = new Set(this.state.rows.map((r) => r.row.id))
     for (const r of this.state.outbox) s.add(r.id)
     for (const r of this.state.dead ?? []) s.add(r.id)
+    for (const r of this.state.refused ?? []) s.add(r.id)
     return s
   }
 
@@ -646,7 +704,7 @@ export class JournalStore {
       if (durable) {
         // Clear only rows actually contained in this committed snapshot. A new append can
         // arrive during another hydration while an older write is still settling.
-        const ids = new Set([...snapshot.rows.map((r) => r.row.id), ...snapshot.outbox.map((r) => r.id), ...(snapshot.dead ?? []).map((r) => r.id)])
+        const ids = new Set([...snapshot.rows.map((r) => r.row.id), ...snapshot.outbox.map((r) => r.id), ...(snapshot.dead ?? []).map((r) => r.id), ...(snapshot.refused ?? []).map((r) => r.id)])
         const handed = hydrationHandoffs.get(this.incidentId)
         for (const id of ids) { this.preHydrationAppends.delete(id); handed?.delete(id) }
         if (handed?.size === 0) hydrationHandoffs.delete(this.incidentId)

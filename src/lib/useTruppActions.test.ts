@@ -1027,6 +1027,43 @@ describe('the Atemschutz-Alarm rows — what ended it, and once for the whole Ei
       expect(rows[0].id).toBe('azcl-T1-2026-07-06T10:00:00Z')
     }
   })
+
+  it('names the REOPEN when «Wieder öffnen» restarted the clock — no Funkkontakt that never happened (D5)', () => {
+    const rows: { text: string; id?: string }[] = []
+    const reopenAt = '2026-07-06T11:00:00Z'
+    const { actions } = rowHarness(baseTrupp({
+      name: 'Fabich Mischa', readings: [{ t: 'x', bar: 200, kind: 'contact' }],
+      lastContactTime: reopenAt, contactRestartedAt: reopenAt,
+    }), rows)
+    actions.logTruppAlarmCleared('T1', '2026-07-06T10:00:00Z')
+    expect(rows[0].text).toBe('Atemschutz-Alarm beendet: Trupp Fabich Mischa – Kontaktuhr neu gestartet (wieder geöffnet)')
+    // …and a real Kontakt given since the restart is a Funkkontakt again
+    const later: { text: string; id?: string }[] = []
+    const { actions: a2 } = rowHarness(baseTrupp({
+      name: 'Fabich Mischa', readings: [{ t: 'x', bar: 200, kind: 'contact' }],
+      lastContactTime: '2026-07-06T11:05:00Z', contactRestartedAt: reopenAt,
+    }), later)
+    a2.logTruppAlarmCleared('T1', '2026-07-06T11:00:00Z')
+    expect(later[0].text).toBe('Atemschutz-Alarm beendet: Trupp Fabich Mischa – Funkkontakt')
+  })
+
+  it('writes the restart-ended row ONLY for an alarm still running at the reopen (N4)', () => {
+    const reopenAt = '2026-07-06T11:00:00Z'
+    const alarmOpenedOn = '2026-07-06T10:00:00Z' // the contact the alarm ran from (its turnus)
+    // running at the reopen: the restart replaced exactly that contact → the restart ends it
+    const running: { text: string; id?: string }[] = []
+    rowHarness(baseTrupp({
+      name: 'Fabich Mischa', lastContactTime: reopenAt, contactRestartedAt: reopenAt, contactBeforeRestart: alarmOpenedOn,
+    }), running).actions.logTruppAlarmCleared('T1', alarmOpenedOn)
+    expect(running.map((r) => r.text)).toEqual(['Atemschutz-Alarm beendet: Trupp Fabich Mischa – Kontaktuhr neu gestartet (wieder geöffnet)'])
+    // a late Kontakt (10:39, delivered from an offline phone) had already ended it: its own row is
+    // the record — nothing is written at the reopen, and nothing blames the restart
+    const ended: { text: string; id?: string }[] = []
+    rowHarness(baseTrupp({
+      name: 'Fabich Mischa', lastContactTime: reopenAt, contactRestartedAt: reopenAt, contactBeforeRestart: '2026-07-06T10:39:00Z',
+    }), ended).actions.logTruppAlarmCleared('T1', alarmOpenedOn)
+    expect(ended).toEqual([])
+  })
 })
 
 /* The three lifecycle taps that touch the SAFETY CLOCK — «Eingerückt» starts it, «Rückzug» and

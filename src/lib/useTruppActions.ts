@@ -23,6 +23,7 @@ import { serverNowIso } from './serverClock'
 import { nextTruppNo, resolveMarkerJoin } from './placedTrupps'
 import { floorLabel } from './whiteboard'
 import type { UndoTimeline } from './undoTimeline'
+import { recordKey } from './undoKeys'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
@@ -279,6 +280,10 @@ interface Deps {
    *  can be tapped minutes later, and by then a merge may have taken the card away – that is the
    *  one case the entry has to decline instead of writing a ghost back. */
   liveTrupps?: () => Trupp[]
+  /** Every name the ONE counter reads beyond the Trupps (IncidentWorkspace · truppCounterNames:
+   *  every chip once, and every ghost trail — a deleted chip that left a Spur used its number).
+   *  Absent: the chips of `entities` and `board` alone, as before. */
+  counterNames?: () => (string | undefined)[]
 }
 
 /**
@@ -289,7 +294,7 @@ interface Deps {
  * persistence blob + hydrate + multiple components) and are passed in.
  */
 export function useTruppActions(deps: Deps) {
-  const { trupps, drawings, entities, objects, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing, undoTimeline, liveTrupps } = deps
+  const { trupps, drawings, entities, objects, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing, undoTimeline, liveTrupps, counterNames } = deps
 
   /** The Verlauf row + audit event a step owes the record — append-only, so a correction is a NEW
    *  row and never a rewritten one. Icon 'undo' with kind 'team' lands the row under «Atemschutz»
@@ -334,6 +339,9 @@ export function useTruppActions(deps: Deps) {
     return undoTimeline.push({
       domain: 'trupps',
       label,
+      // the inverse writes this ONE Trupp, whole (never field by field, see above) — so it is that
+      // record a remote merge must leave alone for the step to survive (lib/undoKeys)
+      touches: () => [recordKey('trupps', id)],
       undo: () => step('undo', () => before),
       redo: () => step('redo', apply),
     })
@@ -420,7 +428,7 @@ export function useTruppActions(deps: Deps) {
     // Its number — from the one counter per Einsatz (docs/trupp-naming.md §1): every Trupp ever
     // registered, removed ones included (a number is never reused), and every unlinked chip.
     const at = serverNowIso()
-    const t: Trupp = { ...t0, no: t0.no ?? nextTruppNo(liveTrupps?.() ?? trupps, placedNames()) }
+    const t: Trupp = { ...t0, no: t0.no ?? nextTruppNo(liveTrupps?.() ?? trupps, counterNames?.() ?? placedNames()) }
     // The Eingangsdruck IS a measurement, taken at the Tafel before anybody goes anywhere — so it
     // opens the Druckverlauf rather than sitting outside it. It used to be recorded only in
     // `entryPressureBar`, and the log started at «Eingerückt»: a Sicherungstrupp that was never
@@ -475,7 +483,7 @@ export function useTruppActions(deps: Deps) {
         logStep(dir, line, t.id)
         return true
       }
-      undoTimeline.push({ domain: 'trupps', label: line, undo: () => step('undo', removedAt), redo: () => step('redo', undefined) })
+      undoTimeline.push({ domain: 'trupps', label: line, touches: () => [recordKey('trupps', t.id)], undo: () => step('undo', removedAt), redo: () => step('redo', undefined) })
     }
   }
   const updateTrupp = (id: string, patch: Partial<Trupp>) =>
@@ -1607,12 +1615,31 @@ export function useTruppActions(deps: Deps) {
   /** …and the line that ends it, naming what ended it. Read off the Trupp's OWN log — the same
    *  readings the printed Druckprotokoll shows — so the row can never claim a Funkkontakt where
    *  the record holds a Druckmeldung. Idempotent the same way, on the same turnus. */
-  const logTruppAlarmCleared = (id: string, turnus: string) => {
-    const tr = trupps.find((t) => t.id === id)
+  const logTruppAlarmCleared = (id: string, turnus: string, seen?: Trupp) => {
+    // ⚠️ THE TRUPP THE ALARM ENGINE SAW, not this hook's state (F1, 26.09.2026). The engine runs on
+    // the Tafel with the reopen's clock restart already laid over it (IncidentWorkspace
+    // `alarmTrupps`, derived from the reopen ROW), while the restart is written into `trupps` by
+    // an effect of the parent that runs AFTER the child's. A tablet that only heard the reopen
+    // therefore ended the alarm off the pre-restart state and wrote «– Funkkontakt» where the
+    // reopening tablet wrote «– Kontaktuhr neu gestartet» — and the server keeps whichever copy
+    // of the derived row id comes first. Reading the evaluated Trupp makes the reason a function
+    // of the same facts (the Trupp's readings + the reopen row) on every device.
+    const tr = seen ?? trupps.find((t) => t.id === id)
     const az = appConfig.copy.atemschutz
     // the last MEASURED or lifecycle row — a crew row says nothing about how the alarm ended
     const last = tr?.readings?.filter((r) => r.kind !== 'crew').slice(-1)[0]?.kind
-    const reason = (last && az.alarmClearedBy[last]) || az.alarmClearedOther
+    // ⚠️ …unless the clock was RESTARTED by «Wieder öffnen» (D5, 25.09.2026): then nobody reached
+    // the crew, and the last reading's «Funkkontakt» would put a radio call on paper that never
+    // happened. The restart says what it was.
+    const restarted = !!tr?.contactRestartedAt && tr.contactRestartedAt === tr.lastContactTime
+    // ⚠️ …and only the alarm that was STILL RUNNING at the reopen is ended by it (N4, 26.09.2026).
+    // The alarm is keyed on the contact it ran from (`turnus`); if a later contact had come in
+    // before the reopen — a Kontakt delivered late from an offline phone — THAT contact ended the
+    // alarm, and its own Verlauf row (at its own time) is the record of it. A «beendet» row
+    // written now would put the end at the moment this device heard the reopen, and blame the
+    // wrong cause: nothing is written.
+    if (restarted && tr!.contactBeforeRestart != null && tr!.contactBeforeRestart !== turnus) return
+    const reason = restarted ? az.alarmClearedByReopen : (last && az.alarmClearedBy[last]) || az.alarmClearedOther
     const rowId = `azcl-${id}-${turnus}`
     log('radio', fillTemplate(az.logAlarmCleared, { name: tr ? truppLogName(tr) : '', reason }), 'team',
       undefined, undefined, { rowId, subjectId: id })

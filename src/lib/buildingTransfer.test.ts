@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { amendBuilding, georefFromPick, matchStoredRings, remapAcrossBuildings, srcAcrossGround, srcToPicker, type BuildingFrame } from './buildingTransfer'
+import { amendBuilding, buildingPickStep, georefFromPick, matchStoredRings, remapAcrossBuildings, srcAcrossGround, srcToPicker, type BuildingFrame } from './buildingTransfer'
 import { buildView, fpBoxFrac, remapPoint, type Pt, type Ring } from './footprint'
 import type { BoardAnno, BuildingDoc } from '../types'
 
@@ -267,5 +267,28 @@ describe('matchStoredRings — finding the saved building among the live footpri
     const m = matchStoredRings(toSrc(picked), geo, CENTER, R, [live[0], live[1]])
     expect(m.indices).toEqual([0])
     expect(m.missing).toBe(1)
+  })
+})
+
+// staging r3 (25.09.2026): after the first «Übernehmen», ↶ held an older, unrelated Karte step —
+// the pick laid a step only when an existing stack carried work
+describe('buildingPickStep — every pick is its own ↶ step', () => {
+  const copy = {
+    buildingTaken: 'Gebäude übernommen', buildingReplaced: 'Gebäude ersetzt', buildingReplacedMarks: 'Gebäude ersetzt – {n}',
+    buildingReplacedKept: 'Gebäude gewechselt – Geschosse behalten', buildingReplacedCarried: 'übertragen {n}', buildingReplacedCarriedDropped: '{n}/{d}',
+  }
+  const fill = (t: string, v: Record<string, string | number>) => t.replace(/\{(\w+)\}/g, (_, k: string) => String(v[k]))
+  const clean = { legacy: false, carried: 0, dropped: 0 }
+  const had = { floors: [0] } as unknown as BuildingDoc
+
+  it('names a FIRST pick, with no toast (nothing was at stake)', () => {
+    expect(buildingPickStep(null, clean, 0, false, copy, fill)).toEqual({ label: 'Gebäude übernommen', toast: false })
+  })
+  it('names a re-pick of a bare stack, still without a toast', () => {
+    expect(buildingPickStep(had, clean, 0, false, copy, fill)).toEqual({ label: 'Gebäude gewechselt – Geschosse behalten', toast: false })
+  })
+  it('keeps the counting labels and the toast where work was at stake', () => {
+    expect(buildingPickStep(had, { legacy: false, carried: 3, dropped: 1 }, 4, true, copy, fill)).toEqual({ label: '3/1', toast: true })
+    expect(buildingPickStep(had, { legacy: true, carried: 0, dropped: 0 }, 2, true, copy, fill)).toEqual({ label: 'Gebäude ersetzt – 2', toast: true })
   })
 })

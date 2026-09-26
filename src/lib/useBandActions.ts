@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { confirmDialog, undoToast } from './ui'
+import { recordKey } from './undoKeys'
 import type { Person, Shift, ShiftBand } from '../types'
 import { bandAssignWindow, bandCell, mergePersonShifts, splitShiftAtBand } from './shifts'
 import { newId } from './ids'
@@ -91,7 +92,7 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
       setBands((cur) => (cur.some((b) => b.id === id) ? cur : [...cur, prev]))
       const back = new Set(attached)
       setShifts((cur) => cur.map((s) => (back.has(s.id) ? { ...s, bandId: id } : s)))
-    })
+    }, [recordKey('bands', id), ...attached.map((sid) => recordKey('shifts', sid))])
   }
 
   /**

@@ -5,7 +5,9 @@ import {
   type AnchorChange, type PlanFit, type TacticalObject,
 } from './tacticalObjects'
 import type { Doc } from './workspace'
+import { listById, objectRefs, type RecordKey } from './undoKeys'
 import type { BoardDoc, Entity } from '../types'
+import { jsonEqual } from './jsonEqual'
 
 /**
  * THE tactical store: one collection of `TacticalObject`s, and the two legacy documents every
@@ -91,20 +93,33 @@ export interface ObjectStore {
    *  fold too early and the last sample lands as a second undo step (↶ then half-un-turns the
    *  object). See the net in the effect below for what the window is still good for. */
   endSheetStep: () => void
-  /** checkpoint the store, then apply a map update — one undo step (no-op if readOnly) */
-  commit: (updater: (d: Doc) => Doc) => void
+  /** checkpoint the store, then apply a map update — one undo step (no-op if readOnly).
+   *  `gesture: false` — the step is an undo step but NOT a hand-placement: a restored snapshot
+   *  («Zurück auf Stand am Einsatzort», lib/gpsReturn) writes through the fit instead of
+   *  flipping a plan-drawn object's anchor (AGENTS.md · «A MACHINE write never flips an anchor»). */
+  commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
   beginDrag: () => void
   endDrag: () => void
   /** a hand is mid-gesture on either surface: a Karte drag (`beginDrag`) or a plan step
    *  (`beginSheetStep`) is open. Read live — for the save path (useIncidentSync · gestureOpen). */
   gestureOpen: () => boolean
-  undo: () => boolean
-  redo: () => boolean
+  /** `expect` = the step the timeline entry stands for; a different top is not stepped */
+  undo: (expect?: string) => boolean
+  redo: (expect?: string) => boolean
   canUndo: boolean
   canRedo: boolean
-  /** hydrate wholesale from merged/remote state — drops the history with it, because the local
-   *  stacks no longer describe anything that exists */
+  /** replace the store wholesale and drop the history with it */
   replaceObjects: (objects: TacticalObject[]) => void
+  /**
+   * Hydrate from merged/remote state and KEEP the steps the timeline kept (25.09.2026): each is
+   * re-laid onto the merged objects as a patch of the objects it wrote (lib/undoKeys ·
+   * rebaseHistory), so a ↶ can no longer carry a pre-merge object back over another device's.
+   */
+  rebaseObjects: (objects: TacticalObject[], keep: (step: string) => boolean) => void
+  /** the `objects:<id>` records store step `id` writes — `null` when the stack holds no such step */
+  stepKeys: (id: string) => RecordKey[] | null
+  /** the LIVE store (not this render's snapshot) — what a merge is diffed against */
+  liveObjects: () => TacticalObject[]
   /**
    * Re-derive every baked map body: the georeference of some plan has changed, so every symbol
    * standing on that sheet now stands somewhere else on the ground. Returns HOW MANY objects
@@ -138,8 +153,9 @@ export interface ObjectStoreOptions {
    *  derived THROUGH the fits, and `getFits` is a ref no memo can see into — this is what tells
    *  it a corrected georeference moved every projection on that sheet. */
   fitsVersion: number
-  /** told whenever a step is laid down, so the global timeline can record it (see useUndoableDoc) */
-  onCheckpoint?: () => void
+  /** told whenever a step is laid down, with its id, so the global timeline can record it (see
+   *  useUndoableDoc) */
+  onCheckpoint?: (step: string) => void
   /**
    * …and whenever a write moved an object BETWEEN the surfaces (tacticalObjects · anchorChanges).
    *
@@ -173,7 +189,7 @@ export function useObjectStore(
   readOnly: boolean,
   { getFits, defaultLayer, fitsVersion, onCheckpoint, onAnchorChange, onForeignSheetEdit, onForeignStep }: ObjectStoreOptions,
 ): ObjectStore {
-  const store = useUndoableDoc<TacticalObject[]>(init, readOnly, onCheckpoint)
+  const store = useUndoableDoc<TacticalObject[]>(init, readOnly, onCheckpoint, OBJECT_RECORDS)
   const { setDocRaw: setObjects } = store
 
   const views = useMemo(() => viewsOf(store.doc), [store.doc])
@@ -217,10 +233,10 @@ export function useObjectStore(
     }))
   }
 
-  const commit = (updater: (d: Doc) => Doc) => {
+  const commit: ObjectStore['commit'] = (updater, opts) => {
     reporting((see) => store.commit((objects) => {
       const view = docViewOf(objects)
-      const next = foldDoc(objects, updater(view), view)
+      const next = foldDoc(objects, updater(view), view, opts)
       see(objects, next)
       return next
     }))
@@ -253,6 +269,10 @@ export function useObjectStore(
    */
   const sheetStep = useRef<symbol | null>(null)
   const stepped = useRef<symbol | undefined>(undefined)
+  /** …and the id of the store step that token took — a merge that drops that step re-opens the
+   *  token (`rebaseObjects`), or the rest of the gesture would fold into a step that is gone and
+   *  lay none of its own */
+  const steppedStep = useRef<string | null>(null)
   const foreignPending = useRef(new Map<string, { before: TacticalObject; after: TacticalObject }>())
   const foreignReporter = useRef(onForeignSheetEdit)
   foreignReporter.current = onForeignSheetEdit
@@ -260,7 +280,7 @@ export function useObjectStore(
     const events: ForeignSheetEditEvent[] = []
     const current = new Map(store.current().map((o) => [o.id, o]))
     for (const { before, after } of foreignPending.current.values()) {
-      if (!after.sheet || current.get(after.id)?.sheet?.planId !== after.sheet.planId || JSON.stringify(before) === JSON.stringify(after)) continue
+      if (!after.sheet || current.get(after.id)?.sheet?.planId !== after.sheet.planId || jsonEqual(before, after)) continue
       // Full replacement preserves field removals through JSON transport as well.
       events.push({ op: 'board.edit', payload: { id: after.id, planId: after.sheet.planId, patch: after.sheet.anno, replace: true } })
       if (after.entity) events.push({ op: 'entity.edit', payload: { id: after.id, patch: after.entity, replace: true } })
@@ -315,7 +335,7 @@ export function useObjectStore(
         for (const before of out) {
           if (!before.sheet || before.sheet.planId === planId) continue
           const after = foldedById.get(before.id)
-          if (after && after.sheet?.planId === before.sheet.planId && JSON.stringify(before) !== JSON.stringify(after)) {
+          if (after && after.sheet?.planId === before.sheet.planId && !jsonEqual(before, after)) {
             changedOwners.set(before.id, { before: changedOwners.get(before.id)?.before ?? before, after })
           }
         }
@@ -325,7 +345,7 @@ export function useObjectStore(
       const gesture = sheetStep.current
       // no gesture open ⇒ a discrete write, and every one of those is its own step
       if (out !== objects && foreignEdit && (gesture === null || stepped.current !== gesture)) {
-        store.checkpoint(objects)
+        steppedStep.current = store.checkpoint(objects)
         stepped.current = gesture ?? undefined // …the gesture's remaining samples fold into it
         tookPlanStep = gesture !== null
       }
@@ -372,8 +392,13 @@ export function useObjectStore(
    * store, not the last one's.
    */
   const gestureOpen = () => store.dragging() || sheetStep.current !== null
-  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen })
-  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen }
+  const rebaseObjects: ObjectStore['rebaseObjects'] = (objects, keep) => {
+    store.rebase(objects, keep)
+    // ⚠️ the open plan gesture's step went with the merge: its next sample must lay a new one
+    if (steppedStep.current && !keep(steppedStep.current)) { stepped.current = undefined; steppedStep.current = null }
+  }
+  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current })
+  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current }
   // ⚠️ Every forwarder spreads the WHOLE parameter list, typed off the public signature, and
   // carries no cast: a hand-written `(a) => …` behind an `as` silently dropped `setBoard`'s
   // `{ gesture }` (24.09.2026), and tsc could not say so. Add an option to a writer and it
@@ -389,6 +414,9 @@ export function useObjectStore(
     undo: (...args: Parameters<ObjectStore['undo']>) => impl.current.undo(...args),
     redo: (...args: Parameters<ObjectStore['redo']>) => impl.current.redo(...args),
     rebake: (...args: Parameters<ObjectStore['rebake']>) => impl.current.rebake(...args),
+    rebaseObjects: (...args: Parameters<ObjectStore['rebaseObjects']>) => impl.current.rebaseObjects(...args),
+    stepKeys: (...args: Parameters<ObjectStore['stepKeys']>) => impl.current.stepKeys(...args),
+    liveObjects: () => impl.current.liveObjects(),
     // read by the save path (useIncidentSync) per sample: a drag or an open plan step
     gestureOpen: () => impl.current.gestureOpen(),
   }), [])
@@ -412,10 +440,16 @@ function touchedForeign(before: TacticalObject[], after: TacticalObject[], planI
   return false
 }
 
+/** How the store is made of records for undo: one object per id, the merge's own unit — and what
+ *  each object LINKS to (docking, Leitung attachments, its Trupp, a Gebäude storey), so a step
+ *  that re-states a link is dropped with the record it links to (undoKeys · objectRefs). */
+const OBJECT_RECORDS = listById<TacticalObject>('objects', objectRefs)
+
 /** …and what every sheet DRAWS, for the same reason: an updater must see the LIVE store. ONE
  *  builder per sheet (tacticalObjects · sheetAnnos), shared with the write seam's own «what did
- *  it look like a moment ago» — see the note there for what two orders cost. */
-function boardViewOf(objects: TacticalObject[], fits: ReadonlyMap<string, PlanFit>): BoardDoc {
+ *  it look like a moment ago» — see the note there for what two orders cost. Exported for the
+ *  merge, which has to know which sheets a changed object is shown on (undoKeys · planViewChanges). */
+export function boardViewOf(objects: TacticalObject[], fits: ReadonlyMap<string, PlanFit>): BoardDoc {
   const out: BoardDoc = {}
   const planIds = new Set<string>(fits.keys())
   for (const o of objects) if (o.sheet) planIds.add(o.sheet.planId)

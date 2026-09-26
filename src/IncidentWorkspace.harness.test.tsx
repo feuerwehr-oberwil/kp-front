@@ -3,7 +3,8 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Profiler, useState } from 'react'
-import type { BoardAnno, Drawing, Entity } from './types'
+import type { BoardAnno, Drawing, Entity, MittelEntry } from './types'
+import type { MittelDraft } from './components/MittelView'
 
 /*
  * The workspace as ONE component, mounted whole (23.09.2026) — the safety net for splitting
@@ -18,6 +19,10 @@ import type { BoardAnno, Drawing, Entity } from './types'
  *   (d) the render budget: how many commits mount + idle cost, against a recorded baseline — a
  *       move that adds a memo, a state or an effect-order change shows up here first.
  *   (e) the two-device loop: a merge that changes nothing must write nothing back.
+ *   (f) a merge reaches the screen: what another device wrote shows here, and this device's next
+ *       save carries it — a slice the merge never handed to its setter is saved back as a delete.
+ *   (g) a close on ANOTHER device: the same mount goes read-only, the alarm stops, one row says so.
+ *   (h) a reopen with a crew inside: no instant «Überfällig» — the clock restarts at the reopen.
  *
  * The two heavy surfaces are prop recorders. The Plan's stand-in runs the REAL useBoardDoc, so
  * a plan step is exactly the checkpoint the Whiteboard lays down.
@@ -32,6 +37,8 @@ const rec = vi.hoisted(() => ({
   order: [] as string[],
   answer: false,
   confirms: 0,
+  report: null as null | { events: { text?: string }[] },
+  mittel: [] as Record<string, unknown>[],
 }))
 type MapProps = Record<string, unknown> & {
   entities: Entity[]; drawings: Drawing[]; onSelect: (e: Entity) => void; onFreehand: (c: [number, number][]) => void
@@ -68,8 +75,20 @@ vi.mock('./components/Whiteboard', async () => {
   }
   return { Whiteboard: FakeBoard }
 })
+// the Mittel surface as a prop recorder: the entries it is handed, and its save door
+vi.mock('./components/MittelView', () => ({
+  MittelView: (p: Record<string, unknown> & { entries: MittelEntry[] }) => {
+    rec.mittel.push(p)
+    return <ul data-testid="mittel">{p.entries.map((e) => <li key={e.id}>{e.label}</li>)}</ul>
+  },
+}))
 // the Rapport's own chunk, prefetched on idle — not part of any contract here
-vi.mock('./components/ReportPreflight', () => ({ ReportPreflight: () => null, requestReportStep: () => {} }))
+// …recording its props: `events` is the Verlauf as the workspace holds it, which is how (e) reads
+// the rows an act wrote without mounting the Verlauf drawer
+vi.mock('./components/ReportPreflight', () => ({
+  ReportPreflight: (p: { events: { text?: string }[] }) => { rec.report = p; return null },
+  requestReportStep: () => {},
+}))
 vi.mock('./lib/ui', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/ui')>()
   return { ...mod, confirmDialog: () => { rec.confirms++; return Promise.resolve(rec.answer) } }
@@ -80,11 +99,14 @@ vi.mock('./lib/mediaQueue', async (importOriginal) => {
 })
 
 import { IncidentWorkspace } from './IncidentWorkspace'
+import { Meldeleiste } from './components/Meldeleiste'
 import { WorkspaceSync } from './lib/api/workspaceSync'
 import type { IncidentMeta } from './lib/api/incidents'
 import type { Saved } from './lib/workspace'
 import { georefDispatch } from './lib/georefMode'
 import { appConfig } from './config/appConfig'
+import { fillTemplate } from './lib/format'
+import { loadPrefs, savePrefs } from './lib/prefs'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -95,8 +117,8 @@ beforeAll(() => {
   })) as unknown as typeof window.matchMedia
 })
 beforeEach(() => {
-  rec.map.length = 0; rec.board.length = 0; rec.order.length = 0; rec.boardDoc = null
-  rec.answer = false; rec.confirms = 0
+  rec.map.length = 0; rec.board.length = 0; rec.order.length = 0; rec.boardDoc = null; rec.mittel.length = 0
+  rec.answer = false; rec.confirms = 0; rec.report = null
   vi.clearAllMocks()
   // every request the workspace makes (journal, audit, alignments, weather …) is simply absent
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -107,7 +129,7 @@ let seq = 0
 const meta = (): IncidentMeta => ({
   // a fresh id per test: the per-incident IndexedDB slots never leak between cases
   id: `inc-h${++seq}`, divera_id: null, title: 'Harness', type: null, priority: null, address: 'Teststrasse 1',
-  lat: 47.5, lng: 7.6, status: 'active', source: 'manual', source_ref: null, auto_opened: false,
+  lat: 47.5, lng: 7.6, status: 'offen', source: 'manual', source_ref: null, auto_opened: false,
   started_at: '2026-09-23T10:00:00Z', closed_at: null, is_archived: false, is_exercise: true,
   report_done_at: null, workspace_rev: 0, created_by: null, created_at: '2026-09-23T10:00:00Z', updated_at: '2026-09-23T10:00:00Z',
 })
@@ -294,9 +316,113 @@ describe('(c) the Abschluss', () => {
     rec.answer = true
     rec.order.length = 0
     await pressAbschluss()
-    expect(onCompleteRapport).toHaveBeenCalledTimes(1)
+    // the Verlauf and audit outboxes drain between the media and the handover (review of #235) —
+    // an await more, which a loaded runner can stretch past the fixed settle
+    await waitFor(() => expect(onCompleteRapport).toHaveBeenCalledTimes(1))
     expect(rec.order.slice(-2)).toEqual(['flush', 'complete'])
   })
+})
+
+describe('(g) closed on ANOTHER device while open here (N3, staging 25.09.2026)', () => {
+  // App flips the live meta when the close is heard (App · onIncidentClosed) and hands the moment
+  // down — no remount. The same mount must go read-only, stop the Atemschutz alarm (its Meldung is
+  // the audible alarm's own row) and say what happened, with the time.
+  it('the Karte locks, the alarm stops and one row says «auf einem anderen Gerät abgeschlossen»', async () => {
+    const m = meta()
+    const longAgo = new Date(Date.now() - 60 * 60_000).toISOString()
+    const overdue = { id: 'tr-k', name: 'Tst Karl', status: 'aktiv', entryPressureBar: 300, entryTime: longAgo, lastContactTime: longAgo }
+    const sync = new WorkspaceSync(m.id)
+    const ws = { entities: [truck], trupps: [overdue] } as unknown as Saved
+    const tree = (im: IncidentMeta, lifecycleElsewhere?: WsProps['lifecycleElsewhere']) => <><Meldeleiste />{workspaceTree(im, { sync, workspace: ws, lifecycleElsewhere }).tree}</>
+    const { rerender } = render(tree(m))
+    await settle(60); await settle(1_100) // the 1 Hz alarm tick
+    const rows = () => [...document.querySelectorAll('.ml-row')].map((r) => r.textContent ?? '')
+    expect(lastMap().readOnly).toBe(false)
+    expect(rows().some((t) => t.includes('Tst Karl'))).toBe(true) // überfällig — the alarm is on
+
+    const closedAt = new Date()
+    rerender(tree({ ...m, is_archived: true, closed_at: closedAt.toISOString() }, { event: 'closed', at: closedAt.getTime() }))
+    await settle(60); await settle(1_100)
+
+    expect(lastMap().readOnly).toBe(true)
+    expect(rows().some((t) => t.includes('Tst Karl'))).toBe(false) // the alarm stopped with the Einsatz
+    const title = document.querySelector('.ml-title')?.textContent ?? ''
+    expect(title).toBe(`Einsatz wurde auf einem anderen Gerät abgeschlossen (${String(closedAt.getHours()).padStart(2, '0')}:${String(closedAt.getMinutes()).padStart(2, '0')})`)
+    expect(document.querySelector('.app')).toBeTruthy() // the same workspace, not a jump elsewhere
+    // …and never over the Rapport, whose head carries the page's own actions (V3)
+    key('r'); await settle()
+    expect([...document.querySelectorAll('.ml-title')].some((t) => t.textContent?.includes('anderen Gerät'))).toBe(false)
+    key('k'); await settle()
+
+    // …and «Wieder öffnen» on another device: live again, in place, the alarm back, one row
+    const reopenedAt = new Date()
+    rerender(tree({ ...m, is_archived: false, closed_at: closedAt.toISOString() }, { event: 'reopened', at: reopenedAt.getTime() }))
+    await settle(60); await settle(1_100)
+    expect(lastMap().readOnly).toBe(false)
+    expect(rows().some((t) => t.includes('Tst Karl'))).toBe(true) // the Tafel is watched again
+    const hhmm = `${String(reopenedAt.getHours()).padStart(2, '0')}:${String(reopenedAt.getMinutes()).padStart(2, '0')}`
+    const titles = [...document.querySelectorAll('.ml-title')].map((t) => t.textContent)
+    expect(titles).toContain(`Einsatz wurde auf einem anderen Gerät wieder geöffnet (${hhmm})`)
+    expect(titles.some((t) => t?.includes('abgeschlossen'))).toBe(false) // the close's row is gone
+  })
+
+  it('an Einsatz OPENED closed says nothing of the kind — nobody saw it happen', async () => {
+    const m = { ...meta(), is_archived: true, closed_at: '2026-09-25T10:00:00Z' }
+    render(<><Meldeleiste />{workspaceTree(m, { forceReadOnly: true }).tree}</>)
+    await settle(60)
+    expect(document.querySelector('.ml-title')?.textContent ?? '').not.toMatch(/anderen Gerät/)
+  })
+})
+
+describe('(h) «Wieder öffnen» with a crew still inside (staging r3, F4)', () => {
+  it('holds the alarm until the reopen row is there, then restarts the clock at it — one row, no instant «Überfällig»', async () => {
+    const m = meta()
+    const longAgo = new Date(Date.now() - 60 * 60_000).toISOString()
+    const overdue = { id: 'tr-k', no: 1, name: 'Tst Karl', status: 'aktiv', entryPressureBar: 300, entryTime: longAgo, lastContactTime: longAgo }
+    const closedAt = new Date(Date.now() - 30 * 60_000).toISOString()
+    const reopenAt = new Date(Date.now() - 3 * 60_000).toISOString()
+    const closeRow = { id: 'sysclose', t: '', at: closedAt, icon: 'flag', text: 'Einsatz abgeschlossen', lifecycle: 'closed' }
+    const reopenRow = { id: 'sysreopen', t: '', at: reopenAt, icon: 'undo', text: 'Einsatz wiedereröffnet (Nachtrag)', lifecycle: 'reopened' }
+    let serverRows: unknown[] = [closeRow]
+    const posted: { id: string }[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/journal') && (init?.method ?? 'GET') === 'GET') {
+        const entries = serverRows.map((row, i) => ({ seq: i + 1, row }))
+        return new Response(JSON.stringify({ entries, latest_seq: entries.length }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      if (url.includes('/journal') && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { entries: { id: string }[] }
+        posted.push(...body.entries)
+        return new Response(JSON.stringify({ entries: [], latest_seq: serverRows.length }), { status: 201, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })
+    }))
+    const sync = new WorkspaceSync(m.id)
+    const ws = { entities: [truck], trupps: [overdue] } as unknown as Saved
+    const heardAt = Date.now()
+    const tree = (im: IncidentMeta, lifecycleElsewhere?: WsProps['lifecycleElsewhere']) => <><Meldeleiste />{workspaceTree(im, { sync, workspace: ws, lifecycleElsewhere }).tree}</>
+    // the device opens it closed (a close heard earlier), then the reopen arrives by the poll…
+    const { rerender } = render(tree({ ...m, is_archived: true, closed_at: closedAt }))
+    await settle(60)
+    rerender(tree({ ...m, is_archived: false, closed_at: closedAt }, { event: 'reopened', at: heardAt }))
+    await settle(60); await settle(1_100)
+    const rows = () => [...document.querySelectorAll('.ml-row')].map((r) => r.textContent ?? '')
+    // …before the Verlauf has the reopen row: the alarm HOLDS rather than ring across the closed hour
+    expect(rows().some((t) => t.includes('Tst Karl'))).toBe(false)
+
+    // the reopen row arrives (the journal loop's next round)
+    serverRows = [closeRow, reopenRow]
+    await settle(2_600); await settle(1_100)
+    // the clock restarted at the reopen: still no alarm, and ONE row under the derived id
+    expect(rows().some((t) => t.includes('Tst Karl'))).toBe(false)
+    const restart = posted.filter((r) => r.id === 'azro-sysreopen-tr-k')
+    expect(restart).toHaveLength(1)
+    // …and the notice names the REOPEN's time (the server row), not when this device heard it (N6)
+    const hhmm = (ms: number) => `${String(new Date(ms).getHours()).padStart(2, '0')}:${String(new Date(ms).getMinutes()).padStart(2, '0')}`
+    const titles = [...document.querySelectorAll('.ml-title')].map((t) => t.textContent)
+    expect(titles).toContain(`Einsatz wurde auf einem anderen Gerät wieder geöffnet (${hhmm(Date.parse(reopenAt))})`)
+  }, 20_000)
 })
 
 describe('(e) a hydrate that changes nothing writes nothing', () => {
@@ -322,6 +448,41 @@ describe('(e) a hydrate that changes nothing writes nothing', () => {
   })
 })
 
+describe('(f) a merge reaches the screen', () => {
+  // Live on production until 25.09.2026: applyWorkspace handed every synced slice to its setter
+  // except `mittel`. Another device's Mittel line never showed here, and this device's next save
+  // — whose ancestor DID hold it — carried the stale list, which the three-way merge reads as a
+  // local delete (delete wins). The line vanished from every device.
+  const row = (id: string, label: string): MittelEntry => ({ id, label, unit: 'Stk', menge: 1, at: '2026-09-25T08:00:00Z' })
+  const lastMittel = () => rec.mittel[rec.mittel.length - 1] as { entries: MittelEntry[]; onSave: (d: MittelDraft) => void }
+  const shown = () => Array.from(screen.getByTestId('mittel').querySelectorAll('li')).map((li) => li.textContent)
+
+  it('another device’s Mittel line shows after the merge, and the next save keeps it', async () => {
+    const m = meta()
+    savePrefs({ ...loadPrefs(), mode: 'mittel', modeIncidentId: m.id }) // open straight on Mittel
+    const sync = new WorkspaceSync(m.id)
+    const mine = row('m-mine', 'Schlauch 55')
+    const { tree } = workspaceTree(m, { sync, workspace: { entities: [truck], mittel: [mine] } as unknown as Saved })
+    render(tree)
+    await settle(60); await settle(60)
+    expect(shown()).toEqual(['Schlauch 55'])
+
+    const theirs = row('m-theirs', 'Ölbinder')
+    const merged = { entities: [truck], mittel: [mine, theirs] } as unknown as Parameters<NonNullable<typeof sync.onApplyMerged>>[0]
+    act(() => sync.onApplyMerged!(merged, 1))
+    await settle(60)
+    expect(shown()).toEqual(['Schlauch 55', 'Ölbinder'])
+
+    // this device records its own line — the save must carry the other device's too
+    const save = vi.spyOn(sync, 'save')
+    act(() => lastMittel().onSave({ label: 'Absperrband', unit: 'Rolle', menge: 2 }))
+    await settle(60)
+    expect(save).toHaveBeenCalled()
+    const saved = save.mock.calls[save.mock.calls.length - 1][0] as unknown as Saved
+    expect(saved.mittel?.map((e) => e.label)).toEqual(['Schlauch 55', 'Ölbinder', 'Absperrband'])
+  })
+})
+
 describe('(d) the render budget', () => {
   // Recorded 23.09.2026 on the code before the split: 4 on every one of repeated runs (mount, the
   // IndexedDB hydrate, the 404s settling). A hook extraction must not RAISE it: an added state, a changed effect
@@ -334,5 +495,40 @@ describe('(d) the render budget', () => {
     render(tree)
     await settle(60); await settle(60); await settle(60)
     expect(commits).toBeLessThanOrEqual(MOUNT_IDLE_COMMITS)
+  })
+})
+
+describe('(e) acts on the picture that the Verlauf used to miss (3am test r3, 25.09.2026)', () => {
+  const rows = async () => { key('r'); await settle(60); return (rec.report?.events ?? []).map((e) => e.text) }
+
+  it('«+ OG» names the storey on its ↶ (its Verlauf row comes with #226)', async () => {
+    const stack = {
+      src: [[[0, 0], [1, 0], [1, 1], [0, 1]]], orientDeg: 0, northUp: false,
+      rings: [[[0, 0], [1, 0], [1, 1], [0, 1]]], ring: [[0, 0], [1, 0], [1, 1], [0, 1]], ringAspect: 1,
+      floors: [0, 1, 2],
+    }
+    const { tree } = workspaceTree(meta(), { workspace: { entities: [truck], building: stack } as unknown as Saved })
+    render(tree)
+    await settle()
+    await openPlan('gebaeude')
+    act(() => (lastBoard() as BoardProps & { onAddFloor: (dir: 1 | -1) => void }).onAddFloor(1))
+    await settle()
+    expect((lastBoard() as BoardProps & { building: { floors: number[] } }).building.floors).toEqual([0, 1, 2, 3])
+    // 3am test r4, 26.09.2026: three adds read «Geschoss hinzugefügt» ×3, naming no storey
+    expect(screen.getByRole('button', { name: new RegExp(fillTemplate(appConfig.copy.whiteboard.floorAddedToast, { floor: '3. OG' })) })).toBeTruthy()
+  })
+
+  it('«Lösen» on a docked Gefahrentafel writes «… von «TLF» gelöst»', async () => {
+    const host = { id: 'h1', kind: 'symbol', symbol: 'VKF Fahrzeug', label: 'TLF', coord: [7.6, 47.5] } as Entity
+    const placard = { id: 'pl1', kind: 'symbol', symbol: appConfig.symbols.placardName, label: 'Tafel', coord: [7.6, 47.5], dockedTo: 'h1' } as Entity
+    const { tree } = workspaceTree(meta(), { workspace: { entities: [host, placard] } as unknown as Saved })
+    render(tree)
+    await settle()
+    act(() => lastMap().onSelect(placard))
+    await settle()
+    fireEvent.click(screen.getAllByText(appConfig.copy.contextPanel.dockedRelease)[0])
+    await settle()
+    expect(lastMap().entities.find((e) => e.id === 'pl1')?.dockedTo).toBeUndefined()
+    expect(await rows()).toContain(fillTemplate(appConfig.copy.log.placardUndocked, { name: 'Tafel', host: 'TLF' }))
   })
 })

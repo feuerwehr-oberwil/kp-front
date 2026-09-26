@@ -146,6 +146,10 @@ class Incident(Base):
     # them mean "not a real alarm". A consumer that treats NULL as suspicious is wrong.
     alarm_origin: Mapped[str | None] = mapped_column(String(32), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # When it was closed THIS time (D2, 25.09.2026): stamped on every close, where `closed_at`
+    # keeps the first. The Einsatzende, the Einsatzdauer and the end of the Anwesenheit default
+    # to this; `closed_at` only marks the Nachträge.
+    last_closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Übung — orthogonal to the VKF `type` (an exercise still has a category). Exercises are
     # excluded from the stats export by default and are the ONLY incidents that may be hard-
@@ -213,7 +217,14 @@ class Incident(Base):
         Verified against production 2026-08-05. Archiving it, or moving `status` off an active
         one, still ends it immediately.
         """
-        return not self.is_archived and self.status in INCIDENT_ACTIVE_STATUSES
+        return lifecycle_open(self.is_archived, self.status)
+
+
+def lifecycle_open(is_archived: bool, status: str) -> bool:
+    """`Incident.is_open` from the two columns alone — for a route that reads the lifecycle
+    without loading the row (the workspace long-poll, the closed-Einsatz refusal in
+    api/incidents · `incident_lifecycle`). One condition, so the two can never drift."""
+    return not is_archived and status in INCIDENT_ACTIVE_STATUSES
 
 
 # Partial-unique: only one incident per Divera alarm, but many manual incidents have

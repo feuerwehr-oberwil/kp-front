@@ -1,6 +1,7 @@
 import type { PlanFloor } from './api/reference'
 import type { Georef, GeorefPair } from './georef'
 import type { Saved } from './workspace'
+import { jsonEqual } from './jsonEqual'
 
 /** Old workspaces lack a binding marker; existing operator content requires conservative migration. */
 export function hasLegacyAlignmentContext(workspace: Saved | null | undefined): boolean {
@@ -100,7 +101,10 @@ export function mergeIncidentPlanBindings(base: IncidentPlanBinding[], mine: Inc
   const bases = new Map(base.map((binding) => [binding.id, binding]))
   const local = new Map(mine.map((binding) => [binding.id, binding]))
   const server = new Map(theirs.map((binding) => [binding.id, binding]))
-  const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+  // ⚠️ not JSON.stringify: base/theirs come back from the server's JSONB with every key re-sorted
+  // (a pair's `lngLat` reads {lat, lng}), and a key-order-only difference made my untouched
+  // binding «a different snapshot» — my override correction was dropped (lib/jsonEqual)
+  const equal = jsonEqual
   const snapshot = ({ override: _override, ...binding }: IncidentPlanBinding) => binding
   // what «the same snapshot» is compared on: floors may be filled in later (fillBindingFloors),
   // so a side that merely HAS them is still the same frozen backdrop

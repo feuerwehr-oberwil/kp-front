@@ -14,7 +14,7 @@ import { EmptyState } from './EmptyState'
 import type { MittelEntry, MittelStatus } from '../types'
 import {
   visibleMittel, groupBySource, currentLineFor, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
-  mittelRecommendations, defaultSourceFor,
+  mittelRecommendations, defaultSourceFor, tombstoneStands,
   type CurrentMittel, type MittelListCell, type MittelListRow, type MittelRecommendation, type SymbolMatch,
   type TruppForMittel,
 } from '../lib/mittel'
@@ -119,6 +119,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const sources = cfg?.sources ?? appConfig.mittel.sources
   const units = cfg?.units?.length ? cfg.units : appConfig.mittel.units
   const categorised = catalogue.some((c) => c.category)
+  // the list as it stands NOW, for a toast pressed renders later (see deleteLine)
+  const entriesLive = useRef(entries)
+  useEffect(() => { entriesLive.current = entries }, [entries])
 
   const [view, setView] = useState<'list' | 'source'>('list')
   /* The composer, and what it opens WITH. `{}` is the bare «+» (nothing typed yet); a `seed`
@@ -229,10 +232,19 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   /** Remove a hand-added line for good, with the usual undo — the entries are append-only, so
    *  undo is just another save that clears the tombstone. */
   const deleteLine = (probe: MatProbe, menge: number, label: string) => {
+    const since = new Date().toISOString()
     onSave({ ...probe, menge, deleted: true })
     toast(fillTemplate(M.removedToast, { label }), {
       icon: 'trash',
-      action: { label: appConfig.copy.undo, onClick: () => onSave({ ...probe, menge, deleted: false }) },
+      action: {
+        label: appConfig.copy.undo,
+        // …only while this removal is still the line's newest word (lib/mittel · tombstoneStands):
+        // another device's later write to it is not ours to overwrite
+        onClick: () => {
+          if (!tombstoneStands(entriesLive.current, probe, since)) { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
+          onSave({ ...probe, menge, deleted: false })
+        },
+      },
     })
   }
 

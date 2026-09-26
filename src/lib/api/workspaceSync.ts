@@ -2,14 +2,17 @@
 // three-way merge on conflict. Split out of the incidents data layer because it's the single
 // heaviest, most stateful unit — see ./workspace for the plain get/put the engine drives.
 import { ApiError, isDenial, isUnverifiable } from '../api'
-import { idbDel, idbGet, idbRead, idbSet, type IdbRead } from '../idb'
+import { idbDel, idbGet, idbKeys, idbRead, idbSet, type IdbRead } from '../idb'
+import { serverNow } from '../serverClock'
 import { withTileEviction } from '../tileEvict'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
+import { truppRenumberings, type NumberScope, type TruppRenumbering } from '../truppNumbers'
 import {
   getWorkspace, putWorkspace, putWorkspaceBeacon, putWorkspaceRecord, putWorkspaceRecordBeacon, putWorkspaceTrupps, putWorkspaceTruppsBeacon,
   type Workspace,
 } from './workspace'
 import type { Trupp } from '../../types'
+import { isIncidentClosedRefusal, refusalClosedAt, reportIncidentClosed } from '../incidentClosed'
 
 // --- Workspace sync: offline cache + debounced save with three-way merge -------------
 // `base` is the last server revision we shared with everyone else — the common ancestor a
@@ -26,6 +29,9 @@ type CacheEntry = {
    *  lands after the identity changed still says whose work it is. An entry without one predates
    *  ownership (see `loadReadableEntry` for how it is adopted or preserved). */
   owner?: string
+  /** When the newest edit in `workspace` was made, on the server-aligned clock (lib/serverClock)
+   *  — sent as `edited_at`, so a closed Einsatz takes a save made before its close. */
+  editedAt?: number
 }
 const cacheKey = (id: string) => `kp-front-ws-${id}`
 // A fallback slot, one per (incident, owner). Another user's UNSYNCED work is parked here so the
@@ -39,6 +45,21 @@ const ownerCacheKey = (id: string, owner: string) => `kp-front-ws-${id}::${owner
 // by hand from this key (there is deliberately no auto-restore — see loadReadableEntry). First
 // writer wins, so an already-parked orphan (the real pre-upgrade copy) is never clobbered.
 const orphanCacheKey = (id: string) => `kp-front-ws-${id}::__preupgrade__`
+// The REFUSED slot (N3, 25.09.2026): saves the server turned down because the Einsatz had been
+// closed by then — a Kontakt tapped on a device that had not heard yet, a Tafel edit queued
+// offline. Not owed (no retry can deliver them while the Einsatz stays closed), never dropped:
+// kept here as a list, newest last, and carried by «Einträge sichern» (refusedRecoveryData).
+const refusedCacheKey = (id: string) => `kp-front-ws-${id}::__refused__`
+
+/** One save the server refused because the Einsatz was closed — the blob as this device had it. */
+export interface RefusedWorkspace {
+  workspace: Workspace
+  /** the ancestor it was built on — what a reopen merges it against (requeueRefused) */
+  base?: Workspace
+  baseRev: number
+  refusedAt: number
+  owner?: string
+}
 
 // --- Who may read this device's offline cache ----------------------------------------
 // The cache is the product's core promise, so exactly two things close it, and NEITHER of them
@@ -241,6 +262,20 @@ export class WorkspaceSync {
    *  Verlauf note so a human checks. Buffers like the attendance channel until registration. */
   onTruppConflicts?: (conflicts: RecordConflict[]) => void
   private truppConflictBuf: RecordConflict[] = []
+  /** Registered by the live view (useIncidentSync): a Trupp or loose «Trupp N» chip changed its
+   *  number — a merge settled a number two devices minted at once (lib/truppNumbers). The caller
+   *  writes the ONE Verlauf row, under an id derived from the change, so every report of the same
+   *  change is the same row. Reported (see `reportRenumbered`) for what the view showed against
+   *  what it is handed, and — by the device whose merge made the change — for what the server
+   *  held against what that device pushed. Buffers until registration like the conflict
+   *  channels, keyed by the change, so a session nobody listens to holds each change once. */
+  onTruppRenumbered?: (changes: TruppRenumbering[]) => void
+  private renumberBuf = new Map<string, TruppRenumbering>()
+  /** The last state the VIEW holds: what it last saved, or what it was last handed (init, a
+   *  merge applied in place, an adopted revision). A renumbering is said against this as well as
+   *  against the content that 409'd — a Trupp registered while a merge was in flight exists in
+   *  neither the content that 409'd nor the server copy, only here. */
+  private viewState: Workspace = {}
   /** the lifecycle state on its own, before the cache-durability overlay (effectiveSyncStatus) */
   private base: SyncStatus
   /** what the UI last saw — the overlaid value */
@@ -263,6 +298,12 @@ export class WorkspaceSync {
   private slotUnread = false
   private probing = false
   private probeTimer: ReturnType<typeof setTimeout> | null = null
+  /** Saves refused because the Einsatz is closed (see refusedCacheKey) — read at init(), kept in
+   *  step with the slot. Parked, not pending: they are not part of the sync status. */
+  private refused: RefusedWorkspace[] = []
+  /** Who wants to hear that the refused count changed (a save was just parked, or the slot held
+   *  some from an earlier session) — see `subscribeRefused`. */
+  private refusedListeners = new Set<(count: number) => void>()
 
   constructor(
     private readonly incidentId: string,
@@ -378,10 +419,12 @@ export class WorkspaceSync {
    *  edited since). The server ancestor and rev stay this session's, so the push goes at them. */
   private mergeFoundSlot(stored: CacheEntry) {
     const merged = this.mergeReporting(stored.base ?? {}, stored.workspace, this.entry.workspace)
+    // both halves were written under their numbers: this session's view, and the slot's offline work
+    this.reportRenumbered(this.viewState, merged)
+    this.reportRenumbered(stored.workspace, merged)
     this.saveSeq++ // a push in flight carries the pre-merge state: it must not mark this clean
     this.entry = { ...this.entry, workspace: merged, dirty: true, owner: this.entry.owner ?? stored.owner ?? cacheOwner ?? undefined }
-    if (this.onApplyMerged) this.onApplyMerged(merged, this.entry.baseRev)
-    else this.opts.onServerWorkspace?.(merged, this.entry.baseRev)
+    this.handToView(merged, this.entry.baseRev)
     this.setStatus('pending')
     this.armDebounce()
   }
@@ -392,7 +435,7 @@ export class WorkspaceSync {
   private mergeReporting(base: Workspace, mine: Workspace, theirs: Workspace): Workspace {
     const conflicts: RecordConflict[] = []
     const truppConflicts: RecordConflict[] = []
-    const merged = mergeWorkspace(base, mine, theirs, (c) => conflicts.push(c), (c) => truppConflicts.push(c))
+    const merged = mergeWorkspace(base, mine, theirs, (c) => conflicts.push(c), (c) => truppConflicts.push(c), { numbers: this.numberScope })
     if (conflicts.length) {
       if (this.onAttendanceConflicts) this.onAttendanceConflicts(conflicts)
       else this.conflictBuf.push(...conflicts)
@@ -402,6 +445,49 @@ export class WorkspaceSync {
       else this.truppConflictBuf.push(...truppConflicts)
     }
     return merged
+  }
+
+  /** What this session's merges may settle (lib/truppNumbers · NumberScope): only what its push
+   *  can carry. A slice that settled a number it cannot push would see the old one come back on
+   *  the next poll — and say so, «1 → 2» and then «2 → 1». */
+  private get numberScope(): NumberScope {
+    return this.opts.slice === 'record' ? 'off' : this.opts.slice === 'trupps' ? 'trupps' : 'all'
+  }
+
+  /** The merge with this session's number scope — for the re-base merges that report nothing. */
+  private merge(base: Workspace, mine: Workspace, theirs: Workspace): Workspace {
+    return mergeWorkspace(base, mine, theirs, undefined, undefined, { numbers: this.numberScope })
+  }
+
+  /** Hand a merged state to the live view (in place, else the remount fallback) and remember it
+   *  as what the view now holds. */
+  private handToView(ws: Workspace, rev: number) {
+    this.viewState = ws
+    if (this.onApplyMerged) this.onApplyMerged(ws, rev)
+    else this.opts.onServerWorkspace?.(ws, rev)
+  }
+
+  /** Report what changed its Trupp number between `before` and `after` — see onTruppRenumbered.
+   *  A diff rather than a report out of the merge itself: a merge whose PUT 409s is merged again
+   *  and may settle differently, and only a state that reaches the view (or the server) is true.
+   *  `adopt` marks a revision the live poll adopted — the ONE source a session that settles
+   *  nothing itself (the `el` role's record slice) reports from: everything it merges it cannot
+   *  push, so everything it could report from a merge would be its own guess. */
+  private reportRenumbered(before: Workspace, after: Workspace, source: 'merge' | 'adopt' = 'merge') {
+    if (source === 'merge' && this.numberScope === 'off') return
+    const changes = truppRenumberings(before, after)
+    if (!changes.length) return
+    if (this.onTruppRenumbered) { this.onTruppRenumbered(changes); return }
+    // nobody listening yet (init runs before the view mounts): hold each change ONCE, so a
+    // session no listener ever registers on cannot grow this without bound
+    for (const c of changes) this.renumberBuf.set(`${c.id}|${c.from}|${c.to}`, c)
+  }
+
+  /** Renumberings seen before a listener registered (init()'s cold-reopen merge). */
+  drainTruppRenumbered(): TruppRenumbering[] {
+    const buf = [...this.renumberBuf.values()]
+    this.renumberBuf.clear()
+    return buf
   }
 
   /** Conflicts reported before a listener registered (init()'s cold-reopen merge) — the
@@ -519,6 +605,13 @@ export class WorkspaceSync {
   /** Load initial state: prefer server; fall back to offline cache when the server could not be
    *  ASKED. A server that answered «no» gets no fallback — see mayRead / isDenial. */
   async init(): Promise<{ workspace: Workspace | null; rev: number; fromCache: boolean }> {
+    const opened = await this.open()
+    // what the caller hydrates the view from — every renumbering is said against it from now on
+    this.viewState = opened.workspace ?? {}
+    return opened
+  }
+
+  private async open(): Promise<{ workspace: Workspace | null; rev: number; fromCache: boolean }> {
     // Capture who opened this incident BEFORE any await. A login/logout can land during the server
     // fetch below (auth.adoptUser moves the module-level owner), and the cached unsynced work we
     // may serve or stamp belongs to THIS session — never the one that happened to be live when the
@@ -570,6 +663,8 @@ export class WorkspaceSync {
         }
         const server = workspace ?? {}
         const merged = this.mergeReporting(cached.base ?? {}, cached.workspace, server)
+        // the offline work was written (and its Verlauf rows with it) under the cached numbers
+        this.reportRenumbered(cached.workspace, merged)
         this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: ownerAtStart ?? cached.owner }
         this.writeCache()
         this.opts.onRev?.(workspace_rev)
@@ -622,7 +717,8 @@ export class WorkspaceSync {
     // Stamp the editing session NOW (the enqueue moment), so the debounced write can't be
     // relabelled if the identity changes before it lands (SEC-10 owner races). An entry that
     // already knows its owner keeps it — recovered/parked work stays its author's.
-    this.entry = { ...this.entry, workspace, dirty: true, owner: this.entry.owner ?? cacheOwner ?? undefined }
+    this.entry = { ...this.entry, workspace, dirty: true, owner: this.entry.owner ?? cacheOwner ?? undefined, editedAt: serverNow() }
+    this.viewState = workspace
     this.writeCache()
     this.setStatus('pending')
     this.armDebounce(keepTimer)
@@ -675,7 +771,11 @@ export class WorkspaceSync {
         this.flushCache() // the cache must carry what is about to become the ancestor
         await this.pushCurrent()
       } catch (e) {
-        if (e instanceof ApiError && e.status === 409) {
+        // ⚠️ BEFORE the 409 branch: this 409 is not a revision conflict — merging and retrying
+        // would only collect it again (N3). The save is parked and the view goes back to the record.
+        if (isIncidentClosedRefusal(e)) {
+          if (!(await this.parkRefused(e))) return
+        } else if (e instanceof ApiError && e.status === 409) {
           if (!(await this.resolveConflict())) return
         } else {
           // A revoked session closes cached reads device-wide while preserving dirty work.
@@ -717,18 +817,23 @@ export class WorkspaceSync {
   flushKeepalive(): void {
     this.flushCache() // the page is dying — the debounce would never fire
     if (!this.entry.dirty || this.disposed) return
-    if (this.opts.slice === 'trupps') putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev)
+    if (this.opts.slice === 'trupps') putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso())
     else if (this.opts.slice === 'record') putWorkspaceRecordBeacon(this.incidentId, recordSlice(this.entry.workspace), this.entry.baseRev)
-    else putWorkspaceBeacon(this.incidentId, this.entry.workspace, this.entry.baseRev)
+    else putWorkspaceBeacon(this.incidentId, this.entry.workspace, this.entry.baseRev, this.editedAtIso())
   }
 
   /** The ONE write. A `slice` sends its subset on its own route; everything else about a
    *  push — when, at which base_rev, and what a 409 means — is identical, which is why the
    *  merge/retry machinery below never has to know which session it is running in. */
   private push(workspace: Workspace, baseRev: number) {
-    if (this.opts.slice === 'trupps') return putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev)
+    if (this.opts.slice === 'trupps') return putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso())
     if (this.opts.slice === 'record') return putWorkspaceRecord(this.incidentId, recordSlice(workspace), baseRev)
-    return putWorkspace(this.incidentId, workspace, baseRev)
+    return putWorkspace(this.incidentId, workspace, baseRev, this.editedAtIso())
+  }
+
+  /** `edited_at` for a push — when the newest edit in it was made (CacheEntry.editedAt) */
+  private editedAtIso(): string | undefined {
+    return this.entry.editedAt != null ? new Date(this.entry.editedAt).toISOString() : undefined
   }
 
   // Push the current workspace at the current baseRev. On success, advance baseRev and
@@ -738,8 +843,12 @@ export class WorkspaceSync {
   private async pushCurrent(): Promise<void> {
     const seqAtStart = this.saveSeq
     const pushed = this.entry.workspace
+    const serverHad = this.entry.base ?? {}
     const { workspace_rev } = await this.push(pushed, this.entry.baseRev)
     this.retryCount = 0 // server accepted a push → backoff starts over on the next failure
+    // a merge this device made earlier (a cold reopen, a found slot) may have renumbered what the
+    // server held; now that it is ON the server, this device says so — see resolveConflict
+    this.reportRenumbered(serverHad, pushed)
     if (this.saveSeq === seqAtStart) {
       // server now holds exactly what we pushed → that becomes the new merge ancestor.
       this.entry = { ...this.entry, base: pushed, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
@@ -793,7 +902,7 @@ export class WorkspaceSync {
         // the same rebase the success branch below does with `mine0`, for the same reason.
         // No await between here and the merge, so no save can slip in between.
         if (lastMerged && this.saveSeq !== lastMergedSeq) {
-          this.entry = { ...this.entry, workspace: mergeWorkspace(mine0, this.entry.workspace, lastMerged) }
+          this.entry = { ...this.entry, workspace: this.merge(mine0, this.entry.workspace, lastMerged) }
         }
         const merged = this.mergeReporting(this.entry.base ?? {}, this.entry.workspace, server.workspace ?? {})
         this.entry = { ...this.entry, workspace: merged, base: server.workspace ?? {}, baseRev: server.workspace_rev, dirty: true }
@@ -804,6 +913,12 @@ export class WorkspaceSync {
         const { workspace_rev } = await this.push(merged, server.workspace_rev)
         this.opts.onRev?.(workspace_rev)
         this.retryCount = 0 // merge landed → backoff starts over on the next failure
+        // ⚠️ The RESOLVING device says what its merge renumbered of the server's copy, once that
+        // is on the server. The devices that minted those numbers would say it too when their
+        // view is handed the change — but one of them may be an Atemschutz-Link, or reopen later
+        // from a clean cache and simply adopt the server copy with nothing to compare. The row
+        // id is derived from the change (truppNumbers · renumberRow), so saying it twice is once.
+        this.reportRenumbered(server.workspace ?? {}, merged)
         if (this.saveSeq === seqAtStart) {
           this.entry = { ...this.entry, base: merged, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
           this.writeCache()
@@ -812,7 +927,7 @@ export class WorkspaceSync {
           // A local edit landed during the merge PUT. It was built on `mine0` (pre-merge), so
           // re-base it onto the merged result — otherwise pushing it blindly next flush would
           // overwrite the remote additions we just merged in. Different objects all survive.
-          const remerged = mergeWorkspace(mine0, this.entry.workspace, merged)
+          const remerged = this.merge(mine0, this.entry.workspace, merged)
           this.entry = { ...this.entry, workspace: remerged, base: merged, baseRev: workspace_rev, dirty: true, lastSyncedAt: Date.now() }
           this.writeCache()
           this.setStatus('pending')
@@ -821,11 +936,17 @@ export class WorkspaceSync {
         // Apply BOTH branches to the live view. Its next edit is built from this state;
         // leaving the remerged union only in the cache would delete remote additions on
         // that next save, now at a current revision where no 409 can rescue them.
-        if (this.onApplyMerged) this.onApplyMerged(this.entry.workspace, workspace_rev)
-        else this.opts.onServerWorkspace?.(this.entry.workspace, workspace_rev)
+        // What the view showed is said against what it is handed: `mine0` (the content that 409'd)
+        // AND the view's latest state — a Trupp registered while this merge was in flight is in
+        // that one only, and the re-base above may have renumbered it (review of #228).
+        this.reportRenumbered(mine0, this.entry.workspace)
+        this.reportRenumbered(this.viewState, this.entry.workspace)
+        this.handToView(this.entry.workspace, workspace_rev)
         this.opts.onMerged?.()
         return true
       } catch (e) {
+        // the merge landed on a closed Einsatz — the same answer as a plain push gets (see drain)
+        if (isIncidentClosedRefusal(e)) return this.parkRefused(e)
         if (e instanceof ApiError && e.status === 409) continue // someone else landed too — re-merge
         if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
         this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
@@ -839,6 +960,194 @@ export class WorkspaceSync {
   }
 
   /**
+   * The server refused the save because the Einsatz is CLOSED and the save's newest edit was made
+   * after the close (lib/incidentClosed, N3). In this order:
+   *  1. PARK the blob in the refused slot — durably, or not at all: a failed IndexedDB write must
+   *     never claim local durability, so on failure the entry simply stays dirty in the main slot
+   *     (still this device's copy) and the status says so.
+   *  2. Save what the closed Einsatz still TAKES (review of #235): the record part — a Rapport
+   *     correction typed on the same save as a Tafel tap — goes up again on its own through the
+   *     record route (`putWorkspaceRecord`), which a closed Einsatz accepts. It used to go down
+   *     with the refused rest and resurface only in the export.
+   *  3. Put the RECORD back on screen at once, from what is known without asking: the ancestor the
+   *     refused save was built on IS the server's current blob (the revision check passed before
+   *     the refusal), plus the record part if it just landed. Only without an ancestor (an old
+   *     cache) is the server asked — and if that fails, the view is flagged and re-fetched on a
+   *     backoff, the status saying `error` meanwhile, so a refused state never stands as «synced».
+   * Resolves true once parked, false when the park itself failed.
+   */
+  private async parkRefused(e: unknown): Promise<boolean> {
+    const pushed = this.entry.workspace
+    const base = this.entry.base
+    const baseRev = this.entry.baseRev
+    const item: RefusedWorkspace = { workspace: pushed, base, baseRev, refusedAt: Date.now(), owner: this.entry.owner }
+    const seqAtPark = this.saveSeq
+    const readable = await this.loadRefused()
+    const next = [...this.refused, item]
+    // ⚠️ A slot that could not be READ is not an empty one: writing `next` over it would destroy
+    // what an earlier session parked there (the idb rule — a failed read is not a miss). The save
+    // goes to a slot of its own instead (`loadRefused` reads those too); the main slot is left.
+    const durable = readable
+      ? await idbSet(refusedCacheKey(this.incidentId), next)
+      : await idbSet(`${refusedCacheKey(this.incidentId)}:${item.refusedAt}`, [item])
+    reportIncidentClosed({ incidentId: this.incidentId, closedAt: refusalClosedAt(e), source: 'refusal' })
+    if (this.disposed) return false
+    if (!durable) {
+      this.cacheDurable = false
+      this.setStatus('error')
+      return false
+    }
+    this.refused = next
+    this.emitRefused()
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null }
+    this.retryCount = 0
+    // a save made while the park was in flight is not in the parked blob: it stays owed
+    if (this.saveSeq !== seqAtPark) { this.setStatus('pending'); this.armDebounce(); return true }
+
+    // (2) the record part, on its own route — only the full-document engine can have one to save
+    let landed: { workspace: Workspace; rev: number } | null = null
+    if (!this.opts.slice && base) {
+      const record = recordSlice(pushed)
+      const changed = RECORD_SLICE_KEYS.some((k) => JSON.stringify(record[k]) !== JSON.stringify(base[k]))
+      if (changed) {
+        try {
+          const { workspace_rev } = await putWorkspaceRecord(this.incidentId, record, baseRev)
+          landed = { workspace: { ...base, ...record }, rev: workspace_rev }
+        } catch { /* parked whole — the export and a reopen still carry it */ }
+        if (this.disposed) return true
+        if (this.saveSeq !== seqAtPark) { this.setStatus('pending'); this.armDebounce(); return true }
+      }
+    }
+    // (3) the record back on screen
+    const shown = landed ?? (base ? { workspace: base, rev: baseRev } : null)
+    if (shown) {
+      this.entry = { ...this.entry, workspace: shown.workspace, base: shown.workspace, baseRev: shown.rev, dirty: false, lastSyncedAt: Date.now() }
+      this.writeCache()
+      if (landed) this.opts.onRev?.(landed.rev)
+      this.setStatus('synced')
+      this.applyInPlace(shown.workspace, shown.rev)
+      return true
+    }
+    this.entry = { ...this.entry, dirty: false }
+    this.writeCache()
+    await this.refetchRecord()
+    return true
+  }
+
+  private applyInPlace(ws: Workspace, rev: number) {
+    if (this.onApplyMerged) this.onApplyMerged(ws, rev)
+    else this.opts.onServerWorkspace?.(ws, rev)
+  }
+
+  /** The view still shows a refused state and there was no ancestor to put back: fetch the
+   *  record, and until that works say `error` and try again on the retry backoff. */
+  private refetchOwed = false
+  private refetchTimer: ReturnType<typeof setTimeout> | null = null
+  private refetchCount = 0
+  private async refetchRecord(): Promise<void> {
+    try {
+      const server = await getWorkspace(this.incidentId)
+      if (this.disposed) return
+      this.refetchOwed = false
+      this.refetchCount = 0
+      if (this.entry.dirty) return // a new edit merges against the server on its own push
+      const ws = server.workspace ?? {}
+      this.adoptServer(ws, server.workspace_rev)
+      this.applyInPlace(ws, server.workspace_rev)
+    } catch {
+      if (this.disposed) return
+      this.refetchOwed = true
+      this.setStatus('error')
+      const delay = Math.min(60_000, 5_000 * 2 ** this.refetchCount++)
+      if (this.refetchTimer) clearTimeout(this.refetchTimer)
+      this.refetchTimer = setTimeout(() => { this.refetchTimer = null; if (this.refetchOwed) void this.refetchRecord() }, delay)
+    }
+  }
+
+  /** The refused count, as it changes — what the UI says «nicht übernommen» with. Subscribing reads
+   *  the slot (so a reload still counts and exports what an earlier session parked). Returns the
+   *  unsubscribe. */
+  subscribeRefused(listener: (count: number) => void): () => void {
+    this.refusedListeners.add(listener)
+    void this.loadRefused()
+    return () => { this.refusedListeners.delete(listener) }
+  }
+
+  private emitRefused() {
+    if (this.disposed) return
+    for (const l of [...this.refusedListeners]) l(this.refused.length)
+  }
+
+  /** Read the refused slot — the main one AND every fallback slot a park after a failed read
+   *  wrote (`…::__refused__:<ts>`) — merging with anything parked in this session meanwhile.
+   *  Resolves true once the MAIN slot was read (a miss included), false when that read failed —
+   *  then nothing is cached, so the next call reads again. */
+  private refusedLoad: Promise<boolean> | null = null
+  loadRefused(): Promise<boolean> {
+    if (!this.refusedLoad) {
+      const key = refusedCacheKey(this.incidentId)
+      const gen = ++this.refusedGen
+      this.refusedLoad = (async () => {
+        const read = await idbRead<RefusedWorkspace[]>(key)
+        const found: RefusedWorkspace[] = read.ok && Array.isArray(read.value) ? [...read.value] : []
+        const extra = await idbKeys(`${key}:`)
+        const fallbackKeys = extra.ok ? (extra.value ?? []) : []
+        for (const k of fallbackKeys) {
+          const r = await idbRead<RefusedWorkspace[]>(k)
+          if (r.ok && Array.isArray(r.value)) found.push(...r.value)
+        }
+        this.refusedFallbackKeys = fallbackKeys
+        if (found.length) {
+          const seen = new Set(this.refused.map((r) => r.refusedAt))
+          this.refused = [...found.filter((r) => !seen.has(r.refusedAt)), ...this.refused]
+          this.emitRefused()
+        }
+        if (!read.ok && this.refusedGen === gen) this.refusedLoad = null
+        return read.ok
+      })()
+    }
+    return this.refusedLoad
+  }
+  private refusedFallbackKeys: string[] = []
+  private refusedGen = 0
+
+  /**
+   * The Einsatz runs again («Wieder öffnen», review of #235): send what was parked. Each parked
+   * blob is merged three-way onto the current state against the ancestor it was built on, the
+   * result saved like any edit (a debounce, the 409 merge, a fresh refusal parks it again), and
+   * the slots are emptied. Everything after the reopen prints as a Nachtrag.
+   */
+  async requeueRefused(): Promise<void> {
+    // ⚠️ Only once the MAIN slot was actually read: emptying a slot that could not be read would
+    // destroy what an earlier session parked there. Unread ⇒ nothing is re-sent now; the next
+    // attempt (the next render that sees the Einsatz running) reads again.
+    if (!(await this.loadRefused())) return
+    if (this.disposed || !this.refused.length) return
+    const parked = this.refused
+    let ws = this.entry.workspace
+    for (const p of parked) ws = mergeWorkspace(p.base ?? {}, p.workspace, ws)
+    const emptied = await idbSet(refusedCacheKey(this.incidentId), [])
+    if (!emptied || this.disposed) return // still parked — nothing is sent twice or lost
+    for (const k of this.refusedFallbackKeys) await idbDel(k)
+    this.refusedFallbackKeys = []
+    this.refused = []
+    this.emitRefused()
+    this.save(ws)
+    this.applyInPlace(ws, this.entry.baseRev)
+    await this.flush()
+  }
+
+  /** Saves refused because the Einsatz was closed — parked until it runs again (see parkRefused). */
+  get refusedCount(): number {
+    return this.refused.length
+  }
+
+  /** The refused saves for «Einträge sichern» — a copy; exporting acknowledges nothing. */
+  refusedRecoveryData(): RefusedWorkspace[] {
+    return structuredClone(this.refused)
+  }
+
+  /**
    * Adopt a server revision the app fetched out-of-band (the live-follow poll), rebasing
    * our cache onto it so the NEXT local edit pushes at the right base_rev instead of 409ing.
    * Drops any local dirty state, so callers must only adopt when not dirty — the live-follow
@@ -848,6 +1157,8 @@ export class WorkspaceSync {
    */
   adoptServer(workspace: Workspace, rev: number) {
     if (this.disposed) return
+    this.reportRenumbered(this.viewState, workspace, 'adopt')
+    this.viewState = workspace
     this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? this.entry.owner }
     this.writeCache()
     this.opts.onRev?.(rev)
@@ -874,5 +1185,6 @@ export class WorkspaceSync {
     if (this.timer) clearTimeout(this.timer)
     if (this.retryTimer) clearTimeout(this.retryTimer)
     if (this.probeTimer) clearTimeout(this.probeTimer)
+    if (this.refetchTimer) clearTimeout(this.refetchTimer)
   }
 }

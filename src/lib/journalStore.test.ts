@@ -13,6 +13,7 @@ import { ApiError } from './api'
 import { __resetIdbForTests } from './idb'
 import * as idb from './idb'
 import { chronological, JournalStore, persistedPendingRows } from './journalStore'
+import { onIncidentClosed } from './incidentClosed'
 import { simulatedDevice } from './devices.test-utils'
 import type { TimelineEvent } from '../types'
 
@@ -924,5 +925,61 @@ describe('persistedPendingRows — the launcher\'s «Abmelden» count', () => {
     await idb.idbSet('kp-journal-b', { rows: [], latestSeq: 3, outbox: [row('b1')] })
     expect(await persistedPendingRows(['a', 'b', 'never-opened'])).toBe(4)
     expect(await persistedPendingRows([])).toBe(0)
+  })
+})
+
+describe('JournalStore — a CLOSED Einsatz refuses the live rows (N3, 25.09.2026)', () => {
+  // The other phone had a «Kontakt» and the alarm clock's «Überfällig» on the way when the
+  // Einsatz was closed elsewhere. The server refuses them by name (409 incident_closed): they are
+  // parked as REFUSED — kept, exported, never re-sent, not a red lamp, not in the Verlauf — and
+  // the Meldung beside them still goes through as a Nachtrag.
+  const closed = () => {
+    const e = new ApiError(409, 'Einsatz ist abgeschlossen – nicht mehr übernommen')
+    e.code = 'incident_closed'
+    e.data = { code: 'incident_closed', closed_at: '2026-09-25T12:45:00Z' }
+    return e
+  }
+
+  it('parks the refused rows, lets the record rows through, and says the Einsatz is closed', async () => {
+    const heard: unknown[] = []
+    const off = onIncidentClosed((s) => heard.push(s))
+    const srv = fakeServer()
+    const good = apiPost.getMockImplementation()!
+    apiPost.mockImplementation(async (p: string, body: { entries: TimelineEvent[] }) => {
+      if (body.entries.some((e) => e.kind === 'team')) throw closed()
+      return good(p, body)
+    })
+    const s = new JournalStore(INC, false)
+    try {
+      await s.init([])
+      s.append(row('kontakt', { kind: 'team' }))
+      s.append(row('meldung', { kind: 'journal' }))
+      s.append(row('azal-tr1-3', { kind: 'team' }))
+      await settle()
+      for (let i = 0; i < 5; i++) await s.flush()
+      await settle()
+
+      expect(srv.rows.map((r) => r.row.id)).toEqual(['meldung'])
+      expect(s.pendingCount).toBe(0)
+      expect(s.rejectedCount).toBe(0)
+      expect(s.refusedCount).toBe(2)
+      expect(s.syncStatus).toBe('synced') // not owed — no red lamp
+      expect(s.display().map((r) => r.id)).toEqual(['meldung']) // the closed record, as it is
+      expect(s.recoveryData().refused.map((r) => r.id).sort()).toEqual(['azal-tr1-3', 'kontakt'])
+      expect(heard).toContainEqual({ incidentId: INC, closedAt: '2026-09-25T12:45:00Z', source: 'refusal' })
+
+      // «Erneut versuchen» does not re-send them into the same refusal
+      apiPost.mockClear()
+      await s.retry()
+      expect(apiPost).not.toHaveBeenCalled()
+
+      // …and a reload finds them parked, not pending
+      s.dispose()
+      const reopened = new JournalStore(INC, false)
+      await reopened.init([])
+      expect(reopened.refusedCount).toBe(2)
+      expect(reopened.pendingCount).toBe(0)
+      reopened.dispose()
+    } finally { off(); s.dispose() }
   })
 })
