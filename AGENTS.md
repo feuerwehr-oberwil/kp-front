@@ -227,6 +227,23 @@ to prod.
     has not seen that merge — the resolver re-bases it onto the merge before merging again
     (`lastMerged`), or the next attempt reads the remote objects it lacks as local deletes
     (the three-device load test lost 7–14 % of edits that way, `workspaceSync.load.test.ts`).
+  - ⚠️ **Key order is never a change** (25.09.2026). The server stores the blob as JSONB, which
+    hands every object back with its keys RE-SORTED, while this device's own objects keep the
+    order the code built them in. Anything that decides «changed / unchanged / same divergence»
+    on synced data compares with `jsonEqual` or `canonicalJson` (`lib/jsonEqual`), never
+    `JSON.stringify(a) === JSON.stringify(b)`: in `mergeById` an untouched entry read as «mine
+    changed» against its re-sorted ancestor, and the other device's real edit lost the
+    «both changed» LWW. Round-trip tests re-sort the server copy (`jsonb.test-utils ·
+    serverRoundTrip`).
+  - **Anwesenheit entries and Zeitplan shifts merge PER FIELD** (staging r4 D3, 25.09.2026):
+    two saves in the same second share one ancestor, and whole-object LWW dropped one device's
+    field. `mergeWorkspace · mergeFields` resolves unit by unit — an entry's presence
+    (`status`/`intervals`/`checkedInAt`/`leftAt`) is ONE unit, the Funktion (`note` + `noteAt`)
+    another, `source`/`displayNameSnapshot` are quiet bookkeeping. Only a unit both sides
+    changed differently is a divergence; it is reported as two whole entries differing only in
+    that unit, so the row names only it and settling either side keeps the other edits. A shift
+    whose merged from/to would not be a block keeps mine's pair. Reproduced end-to-end with two
+    engines on the 409 path (`workspaceSync.sameSecond.test.ts`).
 - **A Trupp is `Trupp N` on paper and its Gruppenführer in person** (12.09.,
   [`docs/trupp-naming.md`](docs/trupp-naming.md)). The number comes from ONE counter per Einsatz
   that unlinked «Trupp N» chips draw from too, is never reused, and is a badge beside the leader's
