@@ -211,6 +211,17 @@ const base = {
     // the generic vehicle glyph — placed copies render their (typed) name baked in,
     // exactly like the live GPS vehicles (see lib/useVehiclePositions · vehicleSymbolSvg)
     vehicleName: 'VKF Fahrzeug',
+    // the FIRE family: a symbol marked «Gelöscht / erledigt» (lib/objectDone) says «gelöscht»,
+    // every other symbol «erledigt». Not the whole «Schadenlage» category — a Rettung, a Wasser
+    // or an Unfall is never «gelöscht». Names are the pack's compatibility keys.
+    fireFamily: ['VKF Feuer'] as string[],
+    // …and the ONLY symbols «Gelöscht / erledigt» is offered for (owner's sign-off on #226,
+    // 26.09.2026: «only support this for some types. we don't need "erledigt" for cars»): the
+    // damage and hazard categories of the pack — Feuer, Rauch, Rettung, Wasser, Unfall, Explosion,
+    // Gefahrstoffe, the Gefahr signs — plus the fire family above. A Fahrzeug, a KP Front, a
+    // Hydrant, an Einsatzmittel never gets the row; where it is offered it is the editor's FIRST
+    // row, because being over is the next thing that happens to a fire (lib/objectDone).
+    doneCategories: ['Schadenlage', 'Gefahren'] as string[],
     // detail fields that offer the Mannschaft roster as a combobox (person pickers).
     // «Bedienung» (14.09.) = the person operating a placed device – Lüfter, Pumpe, Absperrung …
     // It is the LAST field of every manned preset below, so the existing caption/field order is
@@ -586,6 +597,9 @@ const base = {
     isolationColor: '#e8392b',
     protectColor: '#e2920a',
     isolationFillOpacity: 0.12,
+    /** a placard marked «Gelöscht / erledigt» (lib/objectDone) keeps its rings, GREY and unfilled —
+     *  the same «over, but it happened» the glyph says; a red wash would still order an evacuation */
+    doneColor: '#8a929e',
   },
   drawing: {
     colors: ['#1f6feb', '#e8392b', '#1f9d57', '#e2920a', '#1b2330', '#ffffff'],

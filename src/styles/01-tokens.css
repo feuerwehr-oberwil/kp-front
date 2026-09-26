@@ -207,6 +207,14 @@
      coming back; at .55 it still looks tappable and you press it. .45 is the one that reads as
      "not now" while staying legible. Never inline the number — this is the only place it lives. */
   --disabled: .45;
+  /* «Gelöscht / erledigt» (lib/objectDone): a symbol whose matter is over STAYS, greyed. One rule
+     for the Karte, the Plan and the Gebäude (symbolRender · `.ts-done`), and the print mirrors
+     the same two numbers (backend kroki · DONE_ALPHA). Grey, not merely faint: a faded red flame
+     still reads as a fire. Lighter than --disabled's .45 would say «not now» about a control;
+     this is ink on a picture, and it has to stay findable on an aerial by day and a dark basemap
+     at night — the storey/time chips around it are not dimmed. */
+  --done-filter: grayscale(1);
+  --done-opacity: .5;
   /* THE primary-action fill, in one place. A "primary" button was --ink-fill on some surfaces,
      --blue on others and the station's --accent on four more — and --accent is alarm red in
      Oberwil, i.e. the same colour as delete. Red now only ever means danger/delete and never
@@ -240,6 +248,10 @@
    --------------------------------------------------------------------------- */
 :root[data-theme="night"] {
   color-scheme: dark;
+  /* «erledigt» at night: half the ink of a dark glyph on a dark board is nothing at all (checked
+     24.09.2026 on the Gebäude) — lifted and less transparent, so it recedes without vanishing */
+  --done-filter: grayscale(1) brightness(1.6);
+  --done-opacity: .75;
   /* near-opaque so glass panels (Ebenen, ctx, Verlauf, rails) read properly dark
      instead of letting the map bleed through the blur */
   --glass: rgba(20, 26, 36, .97);

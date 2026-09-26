@@ -76,7 +76,7 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
     const ok = await confirmDialog({
       title: appConfig.copy.whiteboard.clearTrail,
       message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: e.label ?? '', n: e.trail.length }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
     })
     if (!ok) return
     commit((d) => ({ ...d, entities: d.entities.map((x) => (x.id === id ? { ...x, trail: [] } : x)) }))

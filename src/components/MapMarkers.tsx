@@ -20,6 +20,7 @@ import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { useHazardData } from '../lib/useHazardData'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
+import { doneBadge } from '../lib/objectDone'
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { fanOffsets, markerZ, pileAt } from '../lib/labelPass'
@@ -963,6 +964,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     // count bottom-right, the docked Trupps themselves bottom-left. The crews'
                     // names ride as its title; the words «bei «…»» stay off the map.
                     docked={dockedHosts.get(e.id)?.join(' · ')}
+                    // «Gelöscht / erledigt»: grey glyph + the time, the same rule the Plan draws
+                    done={doneBadge(e)}
                     // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and
                     // keeps the rest (Fahrer, eigene Felder, Notizen), which only 'Alle' prints
                     caption={capHidden || !capText ? null : softHyphenateText(capText)}

@@ -1,8 +1,8 @@
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from './format'
+import { fillTemplate, formatSymbolName } from './format'
 import { linePresetLabel } from './lineStyle'
 import { floorLabel } from './whiteboard'
-import type { Drawing } from '../types'
+import type { BoardAnno, Drawing, Entity } from '../types'
 
 /**
  * What changed on a drawing, in words — the Verlauf line for editing a line/Fläche on the Kroki.
@@ -112,4 +112,46 @@ export function drawingLogName(d: Drawing): string {
     if (preset) return preset
   }
   return kinds[d.kind] || kinds.line
+}
+
+/**
+ * The ONE removal row of a Karte selection (IncidentWorkspace · deleteSelection) — «… entfernt»
+ * since 25.09.2026, never «gelöscht», which now means an extinguished Feuer (lib/objectDone).
+ * One object is named like its creation row («Fläche entfernt», «Einsatzleiter entfernt»), and
+ * a symbol without a label by its display name, not the pack's key; more are counted, because
+ * «Zeichnung entfernt» after a lasso over eleven objects is not vague, it is wrong.
+ */
+export function removalRowText(drawings: readonly Drawing[], entities: readonly Pick<Entity, 'label' | 'symbol'>[]): string {
+  const L = appConfig.copy.log
+  const gone = drawings.length + entities.length
+  if (gone > 1) return fillTemplate(L.selectionDeleted, { n: gone })
+  if (drawings.length === 1) return fillTemplate(L.objectDeleted, { name: drawingLogName(drawings[0]) })
+  if (entities.length === 1) {
+    const e = entities[0]
+    const name = (e.label ?? '').trim() || (e.symbol ? formatSymbolName(e.symbol) : appConfig.copy.entities.fallbackObjectName)
+    return fillTemplate(L.objectDeleted, { name })
+  }
+  return L.drawingDeleted
+}
+
+/**
+ * The name a Verlauf row calls a PLAN annotation — the SAME name the Karte's row gives the same
+ * object, so «Entfernen» writes one row, «{name} entfernt», whichever surface the finger was on
+ * (review item 21b, 24.09.2026: the plan used to write none at all). A drawing is named by
+ * `drawingLogName`, a symbol/Form/Trupp chip by its label or text like `entityLogName`, and a
+ * symbol without one by its display name.
+ *
+ * Null for an EMPTY Notiz: the Karte writes no row for one either (IncidentWorkspace ·
+ * deleteEntity) — a note that said nothing is a placement being taken back, not a record.
+ */
+export function annoLogName(a: BoardAnno): string | null {
+  if (a.kind === 'draw' || a.kind === 'area' || a.kind === 'circle') {
+    return drawingLogName({ ...a, kind: a.kind === 'draw' ? 'line' : a.kind, coords: [] } as Drawing)
+  }
+  if (a.kind === 'text') return (a.text ?? '').trim() || null
+  const own = (a.kind === 'resource' ? a.text ?? a.label : a.label ?? a.text)?.trim()
+  if (own) return own
+  if (a.kind === 'symbol' && a.symbol) return formatSymbolName(a.symbol)
+  if (a.kind === 'shape' && a.shape) return appConfig.copy.shapes.names[a.shape] ?? appConfig.copy.entities.fallbackObjectName
+  return appConfig.copy.entities.fallbackObjectName
 }

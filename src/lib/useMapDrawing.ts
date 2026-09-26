@@ -394,7 +394,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       const ok = await confirmDialog({
         title: fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: target?.label ?? appConfig.copy.drawingEditor.drawing }),
         message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: incoming.length }),
-        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
       })
       if (!ok) return
     }

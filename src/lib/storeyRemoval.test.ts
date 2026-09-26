@@ -5,7 +5,7 @@ import { useObjectStore } from './useObjectStore'
 import { bakeGeoBody, sheetAnchoredIds, withOwnAnnos, type AnchorChange, type PlanFit, type TacticalObject } from './tacticalObjects'
 import { fitSimilarity } from './georef'
 import { removeStorey, stackInstances, withoutOwnOnStorey } from './stackFloors'
-import { askStoreyRemoval } from './storeyRemoval'
+import { askStoreyRemoval, storeyAddedRow, storeyRemovedRow, storeyRestoredRow, storeySubject } from './storeyRemoval'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import type { BoardAnno, Drawing, Entity } from '../types'
@@ -273,5 +273,27 @@ describe('«Geschoss entfernen» keeps the Karte’s objects', () => {
       expect(confirms.map((c) => c.message)).toEqual([fillTemplate(appConfig.copy.whiteboard.removeFloorConfirmOne, { floor: '3. OG' })])
       expect(go).toBe(true)
     })
+  })
+})
+
+// staging 25.09.2026: removing a storey wrote only its «… rückgängig gemacht», never itself —
+// and what it did write said «gelöscht», the word that now means an extinguished Feuer
+describe('the storey removal’s own Verlauf row', () => {
+  it('names the storey, and what went with it when anything did — «entfernt»', () => {
+    expect(storeyRemovedRow('3. OG', 0)).toBe('Geschoss 3. OG entfernt')
+    expect(storeyRemovedRow('3. OG', 2)).toBe('Geschoss 3. OG entfernt – 2 Markierungen entfernt oder gekürzt')
+  })
+})
+
+describe('the storey’s counter-row when it comes back', () => {
+  it('says «wiederhergestellt», whether the toast or ↶ brought it back', () => {
+    expect(storeyRestoredRow('3. OG')).toBe('Geschoss 3. OG wiederhergestellt')
+  })
+})
+
+describe('the storey’s creation row and subject', () => {
+  it('says «hinzugefügt», and every storey row names its storey as its subject', () => {
+    expect(storeyAddedRow('4. OG')).toBe('Geschoss 4. OG hinzugefügt')
+    expect(storeySubject(3)).not.toBe(storeySubject(4))
   })
 })

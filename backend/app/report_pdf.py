@@ -245,6 +245,10 @@ class KrokiEntityIn(BaseModel):
     count: int | None = None
     spread: dict | None = None  # {h: 'E'|'W', hBounded, up, down, vBounded}
     caption: str | None = None
+    #: «Gelöscht / erledigt» (client lib/objectDone): the HH:MM the symbol was declared over. The
+    #: glyph prints GREY with this time in its top-left corner (kroki · _place_symbol /
+    #: _symbol_badges); the legend's word («gelöscht 20:40») already rides in `caption`.
+    done: str | None = None
     sizeM: float | None = None  # generic shapes: ground size in metres (client shapePx)
     # which generic shape — the size and aspect limits are per kind (app/kroki.py), because a
     # Rotation is a run across the map and far leaner than any box
@@ -367,6 +371,9 @@ class PlanAnnoIn(BaseModel):
     #: chip: three chips within a few centimetres of one another on a plan are as unreadable on
     #: paper as they were on the 08.08. Kroki, and a plan has no zoom.
     caption: str | None = None
+    #: «Gelöscht / erledigt» — the same field, the same print as `KrokiEntityIn.done`: on a Modul
+    #: sheet and on every Gebäude storey the symbol stays, greyed, with the time
+    done: str | None = None
     #: FKS Entwicklung arrows around the glyph — {left, right, up, down, …Bounded} (+ the legacy
     #: {h, hBounded, vBounded} shape); see kroki._spread_dirs
     spread: dict | None = None

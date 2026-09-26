@@ -134,7 +134,7 @@ import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
 import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
-import { askStoreyRemoval } from './lib/storeyRemoval'
+import { askStoreyRemoval, storeyAddedRow, storeyRemovedRow, storeyRestoredRow, storeySubject } from './lib/storeyRemoval'
 import { floorPackOf, packFloorNames, packStoreys } from './lib/floorPackBinding'
 import { floorLabel } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
@@ -186,7 +186,9 @@ import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
-import { drawingLogName } from './lib/drawingEdit'
+import { canBeDone, doneAct, doneOf, donePlace, offersDone } from './lib/objectDone'
+import { createPlanStepLink, type PlanStepLink } from './lib/planStepLink'
+import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
@@ -274,6 +276,9 @@ function isFreeText(el: HTMLElement): boolean {
 // (per incident). Keep the value in-memory so deriveInitial can import it once this session, then
 // clear the legacy cookie field so a later reset can't be resurrected from a stale cookie.
 if (prefs.pickedObject) savePrefs({ ...loadPrefs(), pickedObject: undefined })
+
+/** A one-shot's own counter-rows for ↶ and ↷ (IncidentWorkspace · rememberOneShot) */
+interface OneShotRows { undo: () => void; redo: () => void }
 
 interface WorkspaceProps {
   incidentMeta: IncidentMeta
@@ -447,6 +452,11 @@ export function IncidentWorkspace({
   /** the caption the NEXT store checkpoint carries, when its writer knows a better word than
    *  the domain's — see `onCheckpoint` below */
   const stepLabel = useRef<string | null>(null)
+  /** …and the same one-shot caption for the next PLAN step (rememberPlanStep), set by a plan writer
+   *  that knows the words for its act (Whiteboard · onStepLabel) */
+  const planStepLabel = useRef<string | null>(null)
+  /** ONE gesture on a plan is ONE undo step, whichever stack takes it (lib/planStepLink) */
+  const planStepLink = useRef<PlanStepLink | null>(null)
   // On open, fit the map to the incident's existing map content (symbols + drawings) instead of
   // zooming onto the bare Einsatzort point — so a pre-filled Lage is framed ("eingepasst"). One
   // snapshot per incident (mirrors `init`), so it never snaps the view back while you draw.
@@ -621,6 +631,7 @@ export function IncidentWorkspace({
           else if (c.drawing) histSide.current.emit('draw.edit', { id: c.id, patch: { coords: c.drawing.coords } })
         }
       },
+      onForeignStep: () => planStepLink.current?.foreignTaken(),
       onForeignSheetEdit: (events) => {
         for (const event of events) histSide.current.emit(event.op, event.payload)
       },
@@ -870,14 +881,22 @@ export function IncidentWorkspace({
     // not own (lib/useObjectStore · setBoard): one gesture is one step on whichever stack owns
     // what it touched, and this is the signal that keeps it to one.
     beginSheetStep()
-    const label = fillTemplate(C_HIST.undoDomains.plan, { plan: planLabelRef.current(planId) })
-    undoHist.push({
+    const label = planStepLabel.current ?? fillTemplate(C_HIST.undoDomains.plan, { plan: planLabelRef.current(planId) })
+    planStepLabel.current = null
+    const drop = undoHist.push({
       domain: 'plan',
       scope: planId,
       label,
       undo: () => histStep(planStepAt(planId, 'undo'), 'undo', label, ''),
       redo: () => histStep(planStepAt(planId, 'redo'), 'redo', label, ''),
     })
+    // if the fold that follows reaches an object this sheet does not own, the STORE takes the
+    // step and this entry (and its snapshot) is withdrawn — one gesture, one ↶ (lib/planStepLink)
+    planStepLink.current ??= createPlanStepLink((pid) => setPlanHistory((m) => {
+      const c = m[pid]
+      return c?.past.length ? { ...m, [pid]: { ...c, past: c.past.slice(0, -1) } } : m
+    }))
+    planStepLink.current.opened(planId, drop)
   }
   // …and the zoom/pan of each plan, for the same reason: coming back from the Karte to a board
   // that had reset itself to «eingepasst» means finding your place on it again, every time.
@@ -1849,7 +1868,7 @@ export function IncidentWorkspace({
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
    *  timeline helper is created much further down — the same shape `reportSetRef` uses. */
-  const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => () => void>(() => () => {})
+  const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void, rows?: OneShotRows | 'silent') => () => void>(() => () => {})
   /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
    *  letter (same window and the same reason as the Rapportangaben above). */
   const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
@@ -2059,8 +2078,8 @@ export function IncidentWorkspace({
     opts?: { rowId?: string; subjectId?: string }) =>
     pushEvent({ icon, text, kind, audioUrl, entityId, subjectId: opts?.subjectId, surface: 'map' }, opts?.rowId)
   // plan events carry document + (optional) team / coordinate context for jump-back
-  const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) =>
-    pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor })
+  const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string }) =>
+    pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor, subjectId: extra?.subjectId })
   // …and now that both exist, hand them to the timeline's entries (see `histSide` far above:
   // an entry is pushed long before this line runs and pressed long after it).
   histSide.current = { log, emit }
@@ -2094,7 +2113,7 @@ export function IncidentWorkspace({
         return a?.target.kind === 'line' && a.target.id === drawing.id && a.target.endpoint === 'end'
       }).map((endpoint) => ({ id: d.id, endpoint }))) : []
     if (incoming.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     const resolvedTarget = resolvedMapDrawings.find((d) => d.id === drawing.id)
@@ -2719,7 +2738,7 @@ export function IncidentWorkspace({
       // cheap to make and was impossible to unmake except by deleting it through a confirm.
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => vs.filter((x) => x.id !== v.id)),
-        () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])))
+        () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])), 'silent')
       toast(appConfig.copy.mapViews.saved, { icon: 'compass', tone: 'success' })
     },
     onRename: (id, name) => {
@@ -2728,7 +2747,7 @@ export function IncidentWorkspace({
       setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v)))
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name: prev.name } : v))),
-        () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))))
+        () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))), 'silent')
     },
     onDelete: async (id) => {
       const index = cameraViews.findIndex((x) => x.id === id)
@@ -2740,7 +2759,7 @@ export function IncidentWorkspace({
       // comes back at the position it stood in, because the list is in save order
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => (vs.some((x) => x.id === id) ? vs : [...vs.slice(0, index), v, ...vs.slice(index)])),
-        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)))
+        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)), 'silent')
     },
   }
   // Open/close the views popover. Opening it first drops any active tool and the Ebenen
@@ -3004,7 +3023,7 @@ export function IncidentWorkspace({
       return a && ((a.target.kind === 'object' && ents.includes(a.target.id)) || (a.target.kind === 'line' && ids.includes(a.target.id))) ? [{ dr, endpoint, a }] : []
     }))
     if (affected.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     commit((d) => ({
@@ -3035,18 +3054,9 @@ export function IncidentWorkspace({
       emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
     })
     setSelectedDrawIds([]); setSelectedEntityIds([])
-    // «Zeichnung entfernt» after a lasso over eleven objects is not vague, it is wrong — the
-    // singular says one thing went. The count is right here; a reconstruction needs it. A single
-    // deletion is named like its creation row («Fläche gelöscht», «Einsatzleiter gelöscht»).
-    const gone = ids.length + ents.length
-    const lone = ids.length === 1 ? drawings.find((d) => d.id === ids[0]) : undefined
-    const loneEnt = ents.length === 1 ? entities.find((e) => e.id === ents[0]) : undefined
-    log('close', gone > 1
-      ? fillTemplate(appConfig.copy.log.selectionDeleted, { n: gone })
-      : lone ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(lone) })
-      : loneEnt ? fillTemplate(appConfig.copy.log.objectDeleted, { name: entityLogName(loneEnt) })
-      : appConfig.copy.log.drawingDeleted,
-      // …named by WHAT was removed, so two «Feuerwehr gelöscht» seconds apart stay two rows
+    // ONE row, counted or named (lib/drawingEdit · removalRowText) — «… entfernt»
+    log('close', removalRowText(drawings.filter((d) => ids.includes(d.id)), entities.filter((e) => ents.includes(e.id))),
+      // …named by WHAT was removed, so two «Feuerwehr entfernt» seconds apart stay two rows
       undefined, undefined, undefined, { subjectId: ids[0] ?? ents[0] })
   }
 
@@ -3203,7 +3213,14 @@ export function IncidentWorkspace({
     })
     patchEntity(entityId, { dockedTo: undefined })
     log('select', line, 'team', undefined, entityId)
-    undoToast(line, () => patchEntity(entityId, { dockedTo: hostId }))
+    // …and the toast's way back says so too: the bond is restored, and the record has to hear it
+    undoToast(line, () => {
+      patchEntity(entityId, { dockedTo: hostId })
+      log('select', fillTemplate(L.teamDocked, {
+        name: ent.label || appConfig.copy.entities.fallbackObjectName,
+        host: doc.entities.find((e) => e.id === hostId)?.label || appConfig.copy.entities.fallbackObjectName,
+      }), 'team', undefined, entityId)
+    })
   }
   /**
    * A live Fahrzeug was dragged on a Modul — «hier ist es wirklich».
@@ -3271,7 +3288,7 @@ export function IncidentWorkspace({
       const ok = await confirmDialog({
         title: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }) : appConfig.copy.notes.deleteTitle,
         message: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: connected.length }) : appConfig.copy.notes.deleteMsg,
-        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
       })
       if (!ok) return false
     }
@@ -3304,6 +3321,29 @@ export function IncidentWorkspace({
       }
     })
     return true
+  }
+  /**
+   * «Gelöscht / erledigt» on the Karte (review item 21b, lib/objectDone). A PROP edit — one undo
+   * step through `commit`, the `entity.edit` audit event, and the write-through onto the anno when
+   * the symbol stands on a sheet (lib/tacticalObjects) — plus its OWN Verlauf row, written here
+   * and nowhere else: the ↶ writes only its own «… rückgängig gemacht» (the timeline's row).
+   * ⚠️ The audit patch says `done: null` for «Wieder aktiv»: JSON drops an `undefined`, and the
+   * replay would then fold an empty patch and keep the symbol grey (lib/replay · entity.edit).
+   */
+  const setEntityDone = (ent: Entity, on: boolean) => {
+    if (tacticalLocked) return
+    const act = doneAct(ent, on, {
+      atIso: serverNowIso(), by: user?.display_name,
+      place: donePlace(ent.floorFrom ?? ent.floor, ent.floorTo),
+      // the sheet that draws it natively, if any — its view gets the event too (lib/objectDone)
+      sheetPlanId: objectsRef.current.find((o) => o.id === ent.id)?.sheet?.planId,
+      cat: sym.symbols.find((x) => x.name === ent.symbol)?.cat,
+    })
+    if (!act) return
+    stepLabel.current = act.text // the ↶ names the act, not «Änderung auf der Karte»
+    commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === ent.id ? { ...e, done: act.done } : e)) }))
+    for (const [op, payload] of act.events) emit(op, payload)
+    log(on ? 'check' : 'undo', act.text, 'symbol', undefined, ent.id)
   }
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({
@@ -3510,15 +3550,35 @@ export function IncidentWorkspace({
    * drops its entry when it is used, so an act is never undoable twice. The label is the toast's
    * own sentence, so the header says «Rückgängig: Geschoss gelöscht» and not «… Gebäude».
    */
-  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => undoHist.push({
+  /** `rows` replaces the generic «… rückgängig gemacht / wiederhergestellt» with the act's own
+   *  counter-rows where it has better words («Geschoss 3. OG wiederhergestellt»). ⚠️ `'silent'`
+   *  for an act that wrote NO row (staging walk-through 26.09.2026, D6): a counter-row about an
+   *  act the record never mentioned is the paper describing something it never said happened —
+   *  an Ansicht, a Drehung, a Gebäude swap, a Beilage (verlauf-coverage · «taken back»). */
+  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, rows?: OneShotRows | 'silent') => undoHist.push({
     domain,
     label,
-    undo: () => { restore(); logHistStep('undo', label, ''); return true },
-    redo: () => { reapply(); logHistStep('redo', label, ''); return true },
+    undo: () => { restore(); oneShotRow('undo', label, rows); return true },
+    redo: () => { reapply(); oneShotRow('redo', label, rows); return true },
   })
   rememberOneShotRef.current = rememberOneShot
-  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) =>
-    rememberOneShot('gebaeude', label, restore, reapply)
+  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void, rows?: OneShotRows | 'silent') =>
+    rememberOneShot('gebaeude', label, restore, reapply, rows)
+  /** The row a one-shot's step owes the record, in either direction — its own words, or the generic ones. */
+  const oneShotRow = (dir: 'undo' | 'redo', label: string, rows?: OneShotRows | 'silent') => {
+    if (rows === 'silent') { histSide.current.emit(dir); return }
+    if (!rows) { logHistStep(dir, label, ''); return }
+    rows[dir]()
+    histSide.current.emit(dir)
+  }
+  /**
+   * ⚠️ A one-shot's confirm-with-undo toast. Its «Rückgängig» is the SAME act as the header's ↶ —
+   * so it writes the SAME counter-row (staging walk-through, 25.09.2026: a storey restored from
+   * the toast left «Geschoss 3. OG entfernt» standing alone on the printed Einsatzjournal, about a
+   * storey that still existed) — and drops the timeline entry, so the act is never taken back twice.
+   */
+  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: () => void, rows?: OneShotRows | 'silent') =>
+    undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) })
 
   /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
    *
@@ -3567,7 +3627,7 @@ export function IncidentWorkspace({
     const ok = await confirmDialog({
       title: appConfig.copy.whiteboard.removeMarkerTrail,
       message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: e.label ?? '', n: e.trail.length }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
     })
     if (!ok) return
     armTrailDrop(id, true)
@@ -3625,7 +3685,7 @@ export function IncidentWorkspace({
     } else {
       const ok = await confirmDialog({
         title: appConfig.copy.whiteboard.clearTrail, message,
-        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
       })
       if (!ok) return
     }
@@ -5081,6 +5141,7 @@ export function IncidentWorkspace({
           // Angedockte Gefahrentafel (lib/docking): name the host, offer the release — the drop
           // gesture that made the bond draws nothing, so this row is where it becomes visible.
           dockedToLabel={selected.dockedTo ? doc.entities.find((e) => e.id === selected.dockedTo)?.label || appConfig.copy.entities.fallbackObjectName : undefined}
+          // «Lösen»'s Verlauf row and undo toast come with PR #232 (fix/3am-polish) — not written here, or twice
           onUndock={selected.dockedTo && !tacticalLocked ? () => patchEntity(selected.id, { dockedTo: undefined }) : undefined}
           // …and the same bond from the HOST's side: the Trupps standing on THIS symbol, one row
           // each, worded «Trupp 4 · bei «Hydrant»» so a row names both sides before «Lösen»
@@ -5111,6 +5172,12 @@ export function IncidentWorkspace({
           fieldHints={rosterFieldHints(selected)}
           protectedKeys={selected.kind === 'symbol' ? new Set(symbolPresetFieldKeys(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)) : undefined}
           onDelete={() => deleteEntity(selected.id)}
+          // «Gelöscht / erledigt» only where being OVER means something — a Feuer, a Rauch, a
+          // Gefahr — never a Fahrzeug (lib/objectDone · offersDone); an older `done` elsewhere may
+          // still be reopened, so nothing recorded is stuck grey
+          onDone={canBeDone(selected.kind) && !selected.live && !tacticalLocked
+            && (offersDone(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat) || !!doneOf(selected))
+            ? (on) => setEntityDone(selected, on) : undefined}
           hasOverride={vehicleOverrides[selected.id] != null}
           // Vehicles only. «GPS» undoes an operator's drag/rotate of a live symbol — a person
           // dot has neither (both are blocked in MapMarkers), so the button sat there
@@ -5633,8 +5700,9 @@ export function IncidentWorkspace({
                 : wb.buildingReplacedKept
               const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
               const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
-              const drop = rememberGebaeudeStep(line, restore, reapply)
-              undoToast(line, () => { restore(); drop() })
+              // the swap writes no Verlauf row, so neither does taking it back (D6, 26.09.2026)
+              const drop = rememberGebaeudeStep(line, restore, reapply, 'silent')
+              oneShotUndoToast(line, line, restore, drop, 'silent')
             }
           }}
           // the two faces of the ONE «Gebäude» rail tile. Both plan ids stay real documents —
@@ -5653,7 +5721,7 @@ export function IncidentWorkspace({
             if (folding) prev.drop()
             setBuilding(next)
             if (!from) return
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next))
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next), 'silent')
             lastReorient.current = { at: now, from, drop }
           }}
           onAddFloor={(dir) => {
@@ -5670,8 +5738,14 @@ export function IncidentWorkspace({
               setBuilding(prevBuilding)
               setBoard((b) => ({ ...b, gebaeude: withoutOwnOnStorey(b.gebaeude ?? [], sheetAnchoredIds(objectsRef.current, 'gebaeude'), newFloor) }), { gesture: false })
             }
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
-            undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
+            // …and it says so, the way the removal does («Deleting and creating belong in the same
+            // channel»): «Geschoss 4. OG hinzugefügt», taken back as «… entfernt», per storey
+            const subject = { subjectId: storeySubject(newFloor) }
+            const addedRow = () => logPlan('plus', storeyAddedRow(floorLabel(newFloor)), subject)
+            const rows: OneShotRows = { undo: () => logPlan('undo', storeyRemovedRow(floorLabel(newFloor), 0), subject), redo: addedRow }
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding), rows)
+            oneShotUndoToast(appConfig.copy.whiteboard.floorAdded, appConfig.copy.whiteboard.floorAdded, restore, drop, rows)
+            addedRow()
           }}
           onRemoveFloor={async (floor) => {
             if (building?.pack || floorPack?.tiles[floor]) return
@@ -5696,8 +5770,22 @@ export function IncidentWorkspace({
             // confirm-with-undo: the removed storey's annotations come back with it
             const restore = () => { setBuilding(prevBuilding); writeOwn(sweep.before) }
             const reapply = () => { setBuilding(nextBuilding); writeOwn(sweep.after) }
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply)
-            undoToast(appConfig.copy.whiteboard.floorRemoved, () => { restore(); drop() })
+            // …and the act's OWN rows (staging 25.09.2026: the Verlauf held only «… rückgängig
+            // gemacht», never the removal it took back, and the toast's undo wrote nothing at all)
+            // — «Geschoss 3. OG entfernt», and «… wiederhergestellt» when it comes back, by the
+            // toast or by ↶ alike; ↷ says «entfernt» again
+            // ⚠️ each row names its STOREY as its subject (D6, 26.09.2026): without one, the repeat
+            // fold matched «entfernt» across the «wiederhergestellt» between them and printed
+            // «Geschoss 3. OG entfernt 2×», and two different storeys could fold into one
+            const removedRow = storeyRemovedRow(floorLabel(floor), sweep.lost)
+            const subject = { subjectId: storeySubject(floor) }
+            const rows: OneShotRows = {
+              undo: () => logPlan('undo', storeyRestoredRow(floorLabel(floor)), subject),
+              redo: () => logPlan('close', removedRow, subject),
+            }
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply, rows)
+            oneShotUndoToast(appConfig.copy.whiteboard.floorRemoved, appConfig.copy.whiteboard.floorRemoved, restore, drop, rows)
+            logPlan('close', removedRow, subject)
           }}
           sym={sym}
           rosterNames={rosterNames}
@@ -5712,12 +5800,16 @@ export function IncidentWorkspace({
           // placed on Modul 1 books onto the Material sheet like one placed on the Karte
           onRecent={addRecent}
           log={logPlan}
+          authorName={user?.display_name}
           emit={emit}
           historyRef={planHist}
           hist={planHistory}
           setHist={setPlanHistory}
           onCheckpoint={rememberPlanStep}
-          onStepEnd={endSheetStep}
+          onStepEnd={() => { planStepLink.current?.closed(); endSheetStep() }}
+          // the words of a plan act for its ↶ — on both stacks, since whichever owns the object
+          // takes the step (lib/planStepLink)
+          onStepLabel={(label) => { planStepLabel.current = label; stepLabel.current = label }}
           views={planViews}
           fitRef={planFit}
           keysRef={planKeys}
