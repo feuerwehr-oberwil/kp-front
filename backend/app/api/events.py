@@ -74,6 +74,14 @@ EL_EVENT_PREFIXES = (
 )
 
 
+#: Events only the SERVER emits (24.09.2026): the weather at an active Einsatz is observed by the
+#: scheduler every 10 min (app/observations, id `wx:<incident>:<observed_at>`). A device still
+#: running the previous build emits its own `weather.observe` per reading — up to five copies of
+#: one reading in the Übung of 23.09.2026. Acknowledged and dropped here, so a mixed-version day
+#: carries one reading per observation: the server's.
+SERVER_OBSERVED_OPS = frozenset({"weather.observe"})
+
+
 def _el_event_ok(op_type: str) -> bool:
     return op_type.startswith(EL_EVENT_PREFIXES)
 
@@ -109,6 +117,8 @@ async def ingest_events(
     # uq_incident_events_seq, which is what a 500 on somebody's phone mid-Einsatz used to be.
     out = []
     for e in body.events:
+        if e.op_type in SERVER_OBSERVED_OPS:
+            continue  # acknowledged, not stored — see SERVER_OBSERVED_OPS
         try:
             ev = await audit.append_event(
                 db,

@@ -6,7 +6,6 @@ import { motionDuration, prefersReducedMotion } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
 import { useVehicleLayer } from './lib/useVehicleLayer'
-import { useVehiclePresenceLog } from './lib/useVehiclePresenceLog'
 import { usePersonPositions } from './lib/usePersonPositions'
 import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
@@ -113,6 +112,7 @@ import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
 import { GpsFollowMeldung } from './components/GpsFollowMeldung'
+import { WindShiftMeldung } from './components/WindShiftMeldung'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { SymbolsFailedMeldung } from './components/SymbolsFailedMeldung'
 import { NoBasemapMeldung } from './components/NoBasemapMeldung'
@@ -416,12 +416,13 @@ export function IncidentWorkspace({
    * `readOnly` now uses.
    *
    * ⚠️ It is not `canEditIncident`. That one also excludes the Führungsansicht, where journal
-   * capture, media upload and the weather log deliberately stay live (see `elView`); gating
-   * these on it would silently switch off half of what an EL device is for. What has to be
-   * excluded is the Atemschutz-Link: it is genuinely not read-only — it operates the Tafel —
-   * but it owns exactly ONE slice, and everything outside that slice is refused by the backend.
-   * Left on bare `readOnly`, those writers would emit `weather.observe` events into a 403,
-   * drain a media queue that cannot upload, and dirty a blob whose push carries only Trupps.
+   * capture and media upload deliberately stay live (see `elView`); gating these on it would
+   * silently switch off half of what an EL device is for. What has to be excluded is the
+   * Atemschutz-Link: it is genuinely not read-only — it operates the Tafel — but it owns
+   * exactly ONE slice, and everything outside that slice is refused by the backend. Left on
+   * bare `readOnly`, those writers would drain a media queue that cannot upload and dirty a
+   * blob whose push carries only Trupps. (The weather log it also gated is the SERVER's since
+   * 24.09.2026 — app/observations.)
    */
   const canWriteRecord = !readOnly && !asLink
   // Phones edit like tablets — the tool bar is simply always there on the drawing surfaces
@@ -637,7 +638,7 @@ export function IncidentWorkspace({
   // they auto-update and never get persisted. The operator can drag a vehicle to
   // reposition it and drag its handle to orient it; those overrides live here
   // (persisted) and win over the GPS value until reset via the "GPS" button.
-  const { gpsVehicles, liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides, gpsStale, gpsAgeMs } = useVehicleLayer(init.vehicleOverrides)
+  const { liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides, gpsStale, gpsAgeMs } = useVehicleLayer(init.vehicleOverrides)
   // Standort teilen. Two halves that deliberately do not meet: this device REPORTS where its
   // holder is (`share`, available to every session including a link-scoped phone), and the
   // command post READS the crew picture (`livePeople`, refused to a link session server-side,
@@ -1557,18 +1558,12 @@ export function IncidentWorkspace({
   const auditDelivery = useAuditEvents(incidentMeta.id, readOnly, user ? `${user.id}:${user.link_kind ?? 'login'}` : null, auditScope)
   const { emit, flushEvents, flushEventsBeacon } = auditDelivery
 
-  // Weather for the incident location. Polled live; each NEW observation is recorded as a
-  // `weather.observe` event so the replay fold can show the wind/condition as it stood at any
-  // past instant (see lib/replay · stateAt). During replay the badge reads the folded reading.
+  // Weather for the incident location — polled for the badge only. The RECORD of it (the
+  // `weather.observe` events the replay folds, lib/replay · stateAt) is written by the SERVER
+  // since 24.09.2026, once per reading per active Einsatz (backend · app/observations): every
+  // device used to emit its own copy of each reading, and none while every screen slept.
+  // During replay the badge reads the folded reading.
   const liveWeather = useWeather(incidentView.center)
-  const lastWxAt = useRef<string | null>(null)
-  useEffect(() => {
-    const w = liveWeather.data
-    if (!canWriteRecord || !w || !w.observed_at || w.observed_at === lastWxAt.current) return
-    lastWxAt.current = w.observed_at
-    emit('weather.observe', { weather: w })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveWeather.data, canWriteRecord])
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
   const openWeatherDetails = useCallback(() => {
     const [lng, lat] = incidentView.center
@@ -2132,18 +2127,11 @@ export function IncidentWorkspace({
   // write the tactical document only reads the coupling, and a replay is the past.
   useGpsFollow({ liveVehicles, enabled: canEditIncident, setDocRaw })
 
-  // «Wann ist das TLF weggefahren?» — the feed answers it into the Verlauf, because an hour
-  // later nobody can. Reads the RAW feed (`gpsVehicles`), not the overridden view: a vehicle
-  // held in place by hand still really drives away, and that is the moment worth recording.
-  useVehiclePresenceLog({
-    vehicles: gpsVehicles,
-    center: incidentView.center,
-    enabled: canEditIncident && !replayActive,
-    log,
-    // the shared Verlauf: another device's row for the same transition is read back here, so
-    // three tablets on one login write ONE «hat den Einsatzort verlassen» (24.09.2026)
-    rows: journal.rows,
-  })
+  // «Wann ist das TLF weggefahren?» is answered by the SERVER now (24.09.2026, D2): its 30 s GPS
+  // sweep writes «vor Ort» / «hat den Einsatzort verlassen» on the GPS fix time (backend ·
+  // app/vehicle_presence). This device used to run the same rings and stamp the moment IT
+  // noticed — all five vehicles «vor Ort» at 19:43 in the Übung, when a tablet woke up; GPS said
+  // 19:23–19:28. The server observes; devices never write observations.
 
   const pausedGpsConnections = useMemo(() => drawings.flatMap((drawing) => (['start', 'end'] as const).flatMap((endpoint) => {
     const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
@@ -4800,6 +4788,16 @@ export function IncidentWorkspace({
           onDetach={() => detachGpsHere(drawing, endpoint)}
         />
       ))}
+
+      {/* the wind turned — the server observed it and wrote the Verlauf row; shown here once
+          per device while it is news (components/WindShiftMeldung, 24.09.2026) */}
+      {!replayActive && (
+        <WindShiftMeldung
+          incidentId={incidentMeta.id}
+          rows={journal.rows}
+          onOpenJournal={() => setJournalOpen(true)}
+        />
+      )}
 
       {/* one-tap way back after a Rapport checklist row navigated here — without it, the
           round trip went through the incident menu every time (feedback 2026-07-08) */}

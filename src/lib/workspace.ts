@@ -134,6 +134,24 @@ export interface FahrzeugZeit {
   vorOrt?: string
   zurueck?: string
   manual?: boolean
+  /** What the SERVER observed from GPS (backend · app/vehicle_presence, 24.09.2026). Written by
+   *  the scheduler only, never by a device; read by the vehicle table and the Rapport's «n
+   *  Fahrten» (lib/vehiclePresence). `manual` protects the times above, not this. */
+  gps?: FahrzeugGps
+}
+
+export interface FahrzeugGps {
+  zone: 'scene' | 'away'
+  /** the Traccar device id — the live fix age comes from the positions feed under it */
+  device?: number
+  /** first arrival on scene (the tracker's report time, Traccar `deviceTime`) */
+  an?: string
+  /** last departure from scene (same clock) — NOT `zurueck`, which is «back at the depot» */
+  ab?: string
+  /** stays on scene — 3 for a vehicle that shuttled to the depot twice */
+  fahrten?: number
+  /** the Rapport clocks the server stamped first (first writer wins against the geofence) */
+  owns?: 'vorOrt'[]
 }
 
 /** Per-incident, SYNCED operational settings — part of the workspace blob, so they

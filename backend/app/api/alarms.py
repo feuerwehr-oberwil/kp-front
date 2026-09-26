@@ -9,6 +9,7 @@ Fail-closed like the Divera webhook: no ALARM_WEBHOOK_SECRET → 403.
 """
 
 import uuid
+from collections.abc import Callable
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -120,7 +121,13 @@ def apply_milestones(
     Idempotent: replayed identical values change nothing. Operator edits win: an entry
     carrying `manual: True` is never touched. Unknown ids are stored verbatim (the form
     renders them as unmatched lines — never dropped). Returns (new_ws, changed_count,
-    journal_texts)."""
+    journal_texts).
+
+    ⚠️ FIRST WRITER WINS against the server's own GPS observation (24.09.2026, D2-b): a
+    `vorOrt` the server already stamped from the tracker's time (`gps.owns`, written by
+    app/vehicle_presence) is not overwritten here — and the server leaves alone a `vorOrt` this
+    webhook stamped first. Two writers of one fact; whoever saw it first keeps it. `zurueck`
+    («back at the depot») is this webhook's alone: the server never writes it (25.09.2026)."""
     base = dict(ws or {})
     rm = dict(base.get("reportMeta") or {})
     changed = 0
@@ -152,9 +159,11 @@ def apply_milestones(
             vby_id[v.id] = cur
         if cur.get("manual"):
             continue
+        gps = cur.get("gps")
+        server_owned = set(gps.get("owns") or []) if isinstance(gps, dict) else set()
         for field, verb in verbs.items():
             val = getattr(v, field)
-            if val is None:
+            if val is None or field in server_owned:
                 continue
             iso = val.isoformat()
             if cur.get(field) != iso:
@@ -179,15 +188,15 @@ def apply_milestones(
 _CAS_ATTEMPTS = 5
 
 
-async def _apply_and_store(
+async def cas_workspace(
     db: AsyncSession,
     incident_id: uuid.UUID,
-    payload: MilestonesIn,
-    group_labels: dict[str, str],
-    vehicle_labels: dict[str, str],
-) -> tuple[int, list[str]]:
-    """Upsert the milestone values into the incident's workspace blob. Returns
-    (changed_count, journal_texts) — both empty when the values were already there."""
+    mutate: Callable[[dict | None], tuple[dict, bool]],
+) -> bool:
+    """Compare-and-swap a SERVER write into the incident's workspace blob: `mutate(blob)` returns
+    (new_blob, changed); the write lands only if nobody moved `workspace_rev` meanwhile, else the
+    blob is re-read and `mutate` runs again on top. Returns whether anything was written. Shared
+    by the milestone webhook and the server's GPS presence (app/vehicle_presence)."""
     for _ in range(_CAS_ATTEMPTS):
         # populate_existing: a losing round has to see the winner's blob, not the copy the
         # identity map still holds from before their UPDATE landed.
@@ -197,14 +206,9 @@ async def _apply_and_store(
             )
         ).scalar_one()
         base_rev = inc.workspace_rev or 0
-        new_ws, changed, journal_texts = apply_milestones(
-            inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else None,
-            payload,
-            group_labels,
-            vehicle_labels,
-        )
+        new_ws, changed = mutate(inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else None)
         if not changed:
-            return 0, []
+            return False
         result = await execute_dml(
             db,
             update(Incident)
@@ -216,10 +220,32 @@ async def _apply_and_store(
             # so it owes the wake-up too — otherwise a Meilenstein reaches the DB instantly and
             # the tablets still take a full long-poll timeout to show it (see app/live_wait).
             notify_after_commit(db, workspace_topic(incident_id))
-            return changed, journal_texts
+            return True
     # Someone rewrote the blob under us five times running. The sender retries with backoff
     # and the upsert is idempotent, so a 503 costs a delay, never a milestone.
     raise HTTPException(status_code=503, detail="Workspace zu stark umkämpft — später erneut versuchen")
+
+
+async def _apply_and_store(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    payload: MilestonesIn,
+    group_labels: dict[str, str],
+    vehicle_labels: dict[str, str],
+) -> tuple[int, list[str]]:
+    """Upsert the milestone values into the incident's workspace blob. Returns
+    (changed_count, journal_texts) — both empty when the values were already there."""
+    out: tuple[int, list[str]] = (0, [])
+
+    def mutate(ws: dict | None) -> tuple[dict, bool]:
+        nonlocal out
+        new_ws, changed, journal_texts = apply_milestones(ws, payload, group_labels, vehicle_labels)
+        out = (changed, journal_texts)
+        return new_ws, bool(changed)
+
+    if not await cas_workspace(db, incident_id, mutate):
+        return 0, []
+    return out
 
 
 @router.post("/milestones", response_model=MilestonesOut)
