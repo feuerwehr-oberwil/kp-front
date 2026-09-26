@@ -1411,7 +1411,11 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* Same material as the buttons it stands in line with — .ip-btn is `--surface` on `--glass-edge`.
    On `--surface-2` + `--border` the chip read as a slightly translucent hole between two solid
    buttons; the row levelled height and corner but never the surface. */
-.rp-state { display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; cursor: pointer;
+/* ⚠️ Content CENTRED (owner, staging 26.09.2026: «fix the padding of the noch offen button»): on
+   a phone the chip takes the row's slack (below · `flex: 1 1 auto`), and with its glyph and words
+   hugging the left it stood as a wide box with 12px on one side and ~120px on the other — a text
+   field, not a button. Centred, the air is even; on a wide head it hugs its content anyway. */
+.rp-state { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; cursor: pointer;
   min-width: 0; border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
   font: 700 12.5px var(--body); }
 .rp-state svg { width: 15px; height: 15px; flex: none; }

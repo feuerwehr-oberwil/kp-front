@@ -47,7 +47,7 @@ import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from '.
 import { trackPrintJob } from './lib/printJobToast'
 import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
-import { conflictResolvedRow, type OpenConflict } from './lib/attendanceConflict'
+import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { cartoRasterTiles } from './lib/carto'
 import { useMeasure } from './lib/useMeasure'
@@ -2210,8 +2210,11 @@ export function IncidentWorkspace({
   // never prints as a Nachtrag for being stamped a moment past the server's `closed_at`.
   const closingRowsRef = useRef(false)
   const markClosing = useCallback((on: boolean) => { closingRowsRef.current = on }, [])
+  // the Rapport counts an unsettled Abweichung as open — so does every door to it (lib/abschluss ·
+  // abschlussFacts): the phone's «Einsatz» badge, the chooser, the Abschluss, the archive count
+  const openConflictCount = useMemo(() => openConflicts(timeline).length, [timeline])
   const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
-    reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+    reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
     standDownTrupps: canEditTrupps ? standDownTrupps : undefined,

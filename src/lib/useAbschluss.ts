@@ -4,7 +4,7 @@ import type { AttendanceState, MittelEntry, Trupp } from '../types'
 import { closeTimeOf, isIncidentRunning, type IncidentMeta } from './api/incidents'
 import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
-import { missingSteps, type AbschlussStep } from './abschluss'
+import { abschlussFacts, missingSteps, type AbschlussStep } from './abschluss'
 import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen, insideAbschlussMessage, registeredAbschlussMessage } from './abschlussOpen'
 import { truppStillDeployed, truppStillRegistered } from './atemschutz'
 import { mittelLineCount } from './mittel'
@@ -14,6 +14,9 @@ interface Args {
   reportMeta: ReportMeta
   attendance: AttendanceState
   mittel: MittelEntry[]
+  /** unsettled Anwesenheits-Abweichungen (attendanceConflict · openConflicts over the Verlauf) —
+   *  the Rapport counts them as open (lib/abschluss · abschlussFacts), so every door to it does */
+  openConflictCount: number
   /** the board's Trupps (removed ones already filtered out) */
   trupps: Trupp[]
   incidentMeta: Pick<IncidentMeta, 'is_archived' | 'status' | 'closed_at' | 'last_closed_at'>
@@ -62,12 +65,12 @@ interface Args {
  * used to stand, so the hook order and every identity downstream are unchanged.
  */
 export function useAbschluss({
-  reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+  reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
   setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche, flushOutboxes, markClosing,
 }: Args) {
   const abschlussMissing = useMemo(
-    () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
-    [reportMeta, attendance, mittel],
+    () => missingSteps(abschlussFacts(reportMeta, Object.keys(attendance).length, mittelLineCount(mittel), openConflictCount)),
+    [reportMeta, attendance, mittel, openConflictCount],
   )
   /** How many Trupps are still recorded as being out there (lib/atemschutz · truppStillDeployed).
    *  NOT an ABSCHLUSS_STEP: those are the Rapport's Mindestangaben, and this is a state of the

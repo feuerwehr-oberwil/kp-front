@@ -1437,6 +1437,13 @@ to prod.
     a second tap or a hold opens the ONE list (`components/GroupChooser`), and «Plan wählen» opens
     unasked the first time the tile is used in an Einsatz, once per device (`lib/chooserOffer`).
     Both wear the corner mark (`.nav-grp`; `.vrail-grp` on the two-state Auswahl).
+    ⚠️ The «Einsatz» tile's badge is what the Rapport still has OPEN, in amber (26.09.2026, owner:
+    «why is there 3 in the bottom when 6 are open?» — it was the head count). ONE number from ONE
+    derivation: `lib/abschluss · abschlussFacts` → `missingSteps`, read by the Rapport's «⚠ n noch
+    offen» chip and — through `useAbschluss`, which now counts the unsettled Abweichungen too — by
+    the badge, the chooser's Rapport row (in the chip's words, `controlChipLabel`), the Abschluss
+    confirm and the archive count (`rapportOneCount.test.tsx`). The head count lives on the
+    chooser's Anwesenheit row.
   - Every BAR stacked above the nav bar keeps ONE 6px channel (`--rail-h + 14px`: the tool bar,
     `.rp-tabs`, the page card in `Surface.module.css`); the floating row above the bars keeps the
     family's `--float-gap` (8px) — the gap its pieces keep from each other and from the edge.
