@@ -5314,6 +5314,7 @@ export const de = {
     abschlussVermisstOne: '1 Person noch vermisst',
     abschlussBereiche: 'Nicht abgesucht: {list}',
     // die eigene Frage vor dem Abschluss (N6)
+    abschlussAskTitle: 'Personen noch vermisst',
     abschlussAskOne: '1 Person noch vermisst: {list}.',
     abschlussAskMany: '{n} Personen noch vermisst: {list}.',
     abschlussAskGroup: '{name} ({n})',

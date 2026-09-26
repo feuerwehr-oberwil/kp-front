@@ -3341,6 +3341,7 @@ export const en: Localizable<Copy> = {
     abschlussVermisst: '{n} people still missing',
     abschlussVermisstOne: '1 person still missing',
     abschlussBereiche: 'Not searched: {list}',
+    abschlussAskTitle: 'People still missing',
     abschlussAskOne: '1 person still missing: {list}.',
     abschlussAskMany: '{n} people still missing: {list}.',
     abschlussAskGroup: '{name} ({n})',
