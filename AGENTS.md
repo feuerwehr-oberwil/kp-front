@@ -575,6 +575,20 @@ to prod.
   Geschossplan» on every storey (prod, 20.09.2026). Floors that exist are never replaced. Bound sheets carry `incident:` georef keys, routed by
   `stationPlanScale · georefForPlan`; legacy fits under existing ink are preserved, never
   silently replaced.
+- **Building outlines come from the station's snapshot first** (25.09.2026). `POST
+  /api/overpass/buildings` clips the box out of the stored station snapshot
+  (`reference_buildings · stored_answer`, read-only) whenever that covers the box AND its
+  `fetched_at` is at most 30 days old; otherwise it races the mirrors and falls back to the
+  snapshot at any age only when every mirror failed (also with no mirror configured, before the
+  503). Only the alignment worker refreshes the snapshot, and only while it has jobs to run, so
+  «recent» is not a given. ⚠️ The live path has its OWN parsed copy (`_live`, one shared load for
+  concurrent cold callers, parse and clip off the event loop): the worker's `_cache` is returned
+  for ten minutes without checking the station's objects, and fed from the live path it once
+  handed the worker a snapshot missing newly pushed objects. The race itself is cached
+  per query (6 h, 64 entries, never a failure) and shared between concurrent callers — every
+  device of an Einsatz asks for the same box from ONE egress address, which the public mirrors
+  throttle — and its per-mirror guard (30 s) outlasts the query's own `[timeout:25]`. Staging
+  answered about half of all Karte opens with a 502 before.
 - **A plan PDF is downloaded ONCE per revision, and its pages are rendered once per width**
   (18.09.2026). pdf.js is never handed a URL: `lib/pdfBytes` does one plain `GET` and
   `PdfViewport · docEntry` opens the document from `data` (a COPY — pdf.js transfers, i.e.
@@ -656,6 +670,9 @@ to prod.
     surface registers while it is open (`overlays/popoverGuard` · `usePopoverGuard`; `Menu`,
     `Popover` and `ComboMenu` already do), and `Sheet`/`Overlay` veto an `outside-press`/
     `escape-key` dismissal while the register is warm. Add a hand-rolled popover ⇒ register it.
+    A surface with its own INNER layers (a search, an inline editor) answers Esc through
+    `Overlay · onEscape` — true = «I closed my layer» — never through `dismissEscape={false}`,
+    which only vetoes and left the Verlauf drawer deaf to Esc on the tablet (26.09.2026).
   - **A phone bottom sheet is closed by pushing it down.** `overlays/swipeDismiss`, spread on the
     popup by `Sheet` and `Overlay` (`swipeToClose`, on by default) — never a per-surface copy. It
     measures that the popup IS a bottom sheet, leaves a scrolled body its own gesture, never starts
@@ -686,7 +703,17 @@ to prod.
   everything tactical stay 403 for it), and `viewer`
   (read-only). Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
   on, `readOnly` off) with `canEditRecord` unlocking the four surfaces, `canEditMeta` the
-  Einsatzdaten panel, and the sync pushing `slice: 'record'`. The legacy `commander` value has been migrated away: the stored role,
+  Einsatzdaten panel, and the sync pushing `slice: 'record'`. ⚠️ **A door the role cannot go
+  through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026). A
+  READ-OUT is not a door: it stays, disabled in the `.wb-object:disabled` recipe (full opacity,
+  its own words and tone, no tap). So a locked session (el, Führungsansicht, viewer, replay) keeps
+  the building's name, the Massstab and the linked «⌖ Karte» chip as read-outs — an unchecked
+  automatic fit must never look like a checked one, whoever is looking — but gets no «Anderes
+  Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». Every
+  session that cannot share links (`canShareLink` false: el, Führungsansicht, viewer, link) gets
+  no «Weitergeben» section, and so sends no GET for a link it may not read. The `el` also gets no
+  saved-view writes, no vehicle override, no object switch, no «Wieder öffnen», no transcription
+  and no checklist «Zeichnen» link. The legacy `commander` value has been migrated away: the stored role,
   the `Literal`/type unions, the `CurrentEditor` dependency, and `user?.role === 'editor'` checks
   all use `editor` now. Do not reintroduce `commander`, and do not add deployment-admin power to the
   incident role model. Deployment administration is **separated** behind the `ADMIN_SECRET` env var:

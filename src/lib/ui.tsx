@@ -33,7 +33,7 @@ export interface ToastStep {
   state: 'done' | 'now' | 'future' | 'fail'
   icon?: 'check' | 'warn' | 'printer'
 }
-interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean }
+interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean; kind?: string }
 /** A confirm that is on screen and waiting for its answer — the shared `ConfirmSpec` plus what
  *  only the pending state needs: which request it is, and the promise to settle. */
 interface ConfirmReq extends ConfirmSpec {
@@ -82,9 +82,13 @@ export function dismissToast(id: number) {
   setTimeout(() => { toasts = toasts.filter((x) => x.id !== id); emit() }, 160)
 }
 
-export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void }): number {
+export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void; kind?: string }): number {
+  // `kind`: a toast of the same kind still on screen is REPLACED, not stacked under the new one
+  // (3am test r4, 26.09.2026: three «+ OG» taps stacked three identical «Geschoss hinzugefügt ·
+  // Rückgängig» pills over the stack's own «+ UG»). The replaced toast's act stays on ↶.
+  if (opts?.kind) for (const t of toasts) if (t.kind === opts.kind && !t.leaving) dismissToast(t.id)
   const id = seq++
-  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss }]
+  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss, kind: opts?.kind }]
   emit()
   // sticky toasts stay until updateToast/dismissToast decides (live status). Otherwise an
   // action (e.g. confirm-with-undo) needs time to be seen and tapped.
@@ -104,8 +108,8 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
  * own icon (radio, drop, trash, pen, move, check) and that glyph is what names the edit; they
  * are not an unfinished sweep.
  */
-export function undoToast(text: string, onUndo: () => void): number {
-  return toast(text, { icon: 'undo', action: { label: appConfig.copy.undo, onClick: onUndo } })
+export function undoToast(text: string, onUndo: () => void, opts?: { kind?: string }): number {
+  return toast(text, { icon: 'undo', action: { label: appConfig.copy.undo, onClick: onUndo }, kind: opts?.kind })
 }
 
 /** Patch a live toast in place (text/icon/tone/action). Pass `duration` to auto-dismiss it

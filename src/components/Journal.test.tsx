@@ -596,3 +596,24 @@ describe('Journal · the search in the head', () => {
     expect(document.querySelector('.jr-strip')).toBeNull()
   })
 })
+
+describe('Journal · Escape closes one thing, innermost first', () => {
+  // 3am test r4, 26.09.2026: on the tablet Esc did nothing — the drawer vetoed Escape wholesale
+  // (dismissEscape={false}) and never closed on it itself
+  it('Esc closes the drawer', () => {
+    const { onClose } = setup()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('with the search open, the first Esc closes the search and the second the drawer', () => {
+    const { onClose } = setup()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Im Verlauf suchen' })[0])
+    expect(screen.getByRole('textbox', { name: 'Im Verlauf suchen' })).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.queryByRole('textbox', { name: 'Im Verlauf suchen' })).toBeNull()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})

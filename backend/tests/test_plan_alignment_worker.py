@@ -320,7 +320,7 @@ async def test_the_snapshot_is_fetched_once_and_a_refusing_mirror_keeps_the_stal
     await db_session.commit()
     calls: list[str] = []
 
-    async def fetch(query, timeout_s=20.0):
+    async def fetch(query, timeout_s=20.0, **_kw):
         calls.append(query)
         return {"elements": [{"type": "way", "id": 1, "geometry": [{"lat": 47.5, "lon": 7.5}]}]}
 

@@ -3188,18 +3188,30 @@ export function IncidentWorkspace({
    * The marker keeps its coordinate and simply stands on it again (lib/docking · dockSlotOffset:
    * only the RENDERED position was ever snapped to the host's corner).
    */
+  // «Lösen» — a Trupp marker off its host, or a Gefahrentafel off its Fahrzeug. Both write the
+  // row a drag-release already writes (3am test r3, 25.09.2026: the placard editor's «Lösen» wrote
+  // none — the record said «angedockt» and never that the bond ended).
   const undockTeam = (entityId: string) => {
     const ent = doc.entities.find((e) => e.id === entityId)
     const hostId = ent?.dockedTo
     if (!ent || !hostId) return
     const L = appConfig.copy.log
-    const line = fillTemplate(L.teamUndocked, {
+    const placard = isPlacard(ent)
+    const line = fillTemplate(placard ? L.placardUndocked : L.teamUndocked, {
       name: ent.label || appConfig.copy.entities.fallbackObjectName,
       host: doc.entities.find((e) => e.id === hostId)?.label || appConfig.copy.entities.fallbackObjectName,
     })
     patchEntity(entityId, { dockedTo: undefined })
-    log('select', line, 'team', undefined, entityId)
-    undoToast(line, () => patchEntity(entityId, { dockedTo: hostId }))
+    log('select', line, placard ? 'symbol' : 'team', undefined, entityId)
+    // the toast's ↶ re-docks only onto a host that still stands, and only a marker that is still
+    // loose — by the time it is tapped the host may have been deleted, or the marker docked
+    // elsewhere (CodeRabbit on #232); `objectsRef` is the store as it is NOW, not at the release
+    undoToast(line, () => {
+      const now = objectsRef.current
+      const hostStands = now.some((o) => o.entity?.id === hostId)
+      const stillLoose = now.find((o) => o.entity?.id === entityId)?.entity?.dockedTo == null
+      if (hostStands && stillLoose) patchEntity(entityId, { dockedTo: hostId })
+    })
   }
   /**
    * A live Fahrzeug was dragged on a Modul — «hier ist es wirklich».
@@ -5077,7 +5089,7 @@ export function IncidentWorkspace({
           // Angedockte Gefahrentafel (lib/docking): name the host, offer the release — the drop
           // gesture that made the bond draws nothing, so this row is where it becomes visible.
           dockedToLabel={selected.dockedTo ? doc.entities.find((e) => e.id === selected.dockedTo)?.label || appConfig.copy.entities.fallbackObjectName : undefined}
-          onUndock={selected.dockedTo && !tacticalLocked ? () => patchEntity(selected.id, { dockedTo: undefined }) : undefined}
+          onUndock={selected.dockedTo && !tacticalLocked ? () => undockTeam(selected.id) : undefined}
           // …and the same bond from the HOST's side: the Trupps standing on THIS symbol, one row
           // each, worded «Trupp 4 · bei «Hydrant»» so a row names both sides before «Lösen»
           // separates them — the mirror of the marker's own join slot (components/TwinTeamPill).
@@ -5116,7 +5128,9 @@ export function IncidentWorkspace({
           onStopSharing={selected.live && selected.kind === 'person' && canEditIncident && !readOnly
             ? () => { void stopPersonSharing(selected.id) }
             : undefined}
-          onResetGps={selected.live && selected.kind !== 'person'
+          // not for a session whose override never leaves the device (the el record slice,
+          // a viewer): «GPS» would clear it here and the next hydrate would put it back
+          onResetGps={selected.live && selected.kind !== 'person' && !readOnly && !isEl
             ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest })
             : undefined}
           // «Hier festhalten»: the Kroki is printed hours later, and a vehicle that has since
@@ -5135,7 +5149,7 @@ export function IncidentWorkspace({
           // A live vehicle's Fahrer: the GPS feed reports where a vehicle IS, never who is in
           // it, and that is the one thing the FU needs to reach it. Kept in the override map
           // because the entity itself is rebuilt from the feed on every poll.
-          driver={selected.live && selected.kind !== 'person' && !readOnly
+          driver={selected.live && selected.kind !== 'person' && !readOnly && !isEl
             ? {
               value: vehicleOverrides[selected.id]?.fahrer ?? '',
               options: rosterNames,
@@ -5302,7 +5316,7 @@ export function IncidentWorkspace({
         ]} />
       )}
       {mapUI && tool === 'line' && (
-        <ToolDock groups={[
+        <ToolDock hint={lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodesShort : appConfig.copy.dockHints.lineFreeShort} groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
@@ -5317,7 +5331,7 @@ export function IncidentWorkspace({
         ]} />
       )}
       {mapUI && tool === 'area' && (
-        <ToolDock groups={[
+        <ToolDock hint={areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodesShort : appConfig.copy.dockHints.areaFreeShort} groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); setDraft([]) } },
@@ -5430,8 +5444,9 @@ export function IncidentWorkspace({
                 <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
-                    framings · Ansicht speichern). */}
-                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
+                    framings · Ansicht speichern). `|| isEl` as on MapUtility's twin: saved views
+                    live in the shared blob, which the el record slice never pushes. */}
+                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly || isEl} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
                 {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px). Every touch form
                     factor pinches, and on a tablet the two buttons cost rail space that the
                     tools above need more. */}
@@ -5534,7 +5549,11 @@ export function IncidentWorkspace({
           // the anchor «Automatisch ausrichten» fetches its OSM reference box around: the active
           // object's own coordinate, else the Einsatzort (they coincide for a near object)
           georefAnchor={activeObjectPos ?? incidentView.center}
-          onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
+          // the Einsatzort on the Gebäude picker — only a REAL coordinate (0/0 is Divera's «none»)
+          incidentPos={incidentMeta.lng != null && incidentMeta.lat != null && (incidentMeta.lng !== 0 || incidentMeta.lat !== 0) ? [incidentMeta.lng, incidentMeta.lat] : null}
+          // not for el: the pick is `pickedObjectId` in the shared blob, which its record slice
+          // never pushes — the switch would hold on this device until the next hydrate
+          onObjectSwitch={linkScoped || isEl ? undefined : () => setPickerOpen(true)}
           // A georeferenced Modul has the Karte's real scale, so its tactical symbols follow the
           // Karte setting too. Standalone sheets keep the independent Modul preference.
           symMul={planSymbolScale(symbolScale, !!activeLinkedPlan)}
@@ -5666,8 +5685,12 @@ export function IncidentWorkspace({
               setBuilding(prevBuilding)
               setBoard((b) => ({ ...b, gebaeude: withoutOwnOnStorey(b.gebaeude ?? [], sheetAnchoredIds(objectsRef.current, 'gebaeude'), newFloor) }), { gesture: false })
             }
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
-            undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
+            // (the act's own Verlauf row «Geschoss 4. OG hinzugefügt» comes with PR #226)
+            // the toast and the ↶ NAME the storey («2. OG hinzugefügt»), and a second «+ OG» replaces
+            // the first toast instead of stacking another identical pill (3am test r4, 26.09.2026)
+            const line = fillTemplate(appConfig.copy.whiteboard.floorAddedToast, { floor: floorLabel(newFloor) })
+            const drop = rememberGebaeudeStep(line, restore, () => setBuilding(nextBuilding))
+            undoToast(line, () => { restore(); drop() }, { kind: 'gebaeude-storey' })
           }}
           onRemoveFloor={async (floor) => {
             if (building?.pack || floorPack?.tiles[floor]) return
@@ -5767,6 +5790,8 @@ export function IncidentWorkspace({
           onTick={toggleTick}
           onBranch={setBranch}
           onAction={checklistAction}
+          // «Zeichnen» arms the Karte's line tool, which a locked device disarms on arrival
+          offersAction={(a) => a !== 'draw' || !tacticalLocked}
         />
       ))}
 
@@ -5842,6 +5867,7 @@ export function IncidentWorkspace({
           onCaptionAttachment={canEditRecord ? captionAttachment : undefined}
           onRemoveAttachment={canEditRecord ? removeAttachment : undefined}
           canEdit={canEditRecord}
+          canShare={canShareLink}
           onRolePicked={assignRole}
           // the Einsatzleiter / Rückmeldung pickers: a typed name is a Gast, so the EL named on
           // the front page of the rapport is on the Anwesenheit behind it even for a Nachbarwehr
@@ -5913,6 +5939,8 @@ export function IncidentWorkspace({
           row={player.row}
           events={timeline}
           readOnly={readOnly}
+          // transcribing and deciding its segments is editor-only on the server (api/media)
+          canTranscribe={isEditor}
           initialSeekSec={player.seekSec}
           // the same vocabulary the composer gets — «Eintrag an dieser Stelle» writes into the
           // same Verlauf, so it completes and marks names identically

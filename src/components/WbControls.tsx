@@ -567,7 +567,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive
           (09.09.): no colour/width/style here — the finished line lands selected in the
           DrawEditor, which is where the styling lives (and writes the next-ink defaults). */}
       {tool === 'line' && (
-        <ToolDock groups={[
+        <ToolDock hint={lineMode === 'nodes' ? appConfig.copy.whiteboard.dockHints.lineNodesShort : appConfig.copy.whiteboard.dockHints.lineFreeShort} groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand', onClick: () => { setLineMode('freehand'); onCancelDraft() } },
@@ -582,7 +582,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive
           because it is the same question: tap the corners, or draw it. Styling: in the editor
           afterwards, like the Linie. */}
       {tool === 'area' && (
-        <ToolDock groups={[
+        <ToolDock hint={areaMode === 'nodes' ? appConfig.copy.whiteboard.dockHints.areaNodesShort : appConfig.copy.whiteboard.dockHints.areaFreeShort} groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); onCancelDraft() } },
