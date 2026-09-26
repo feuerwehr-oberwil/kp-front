@@ -150,7 +150,7 @@ export function useSucheActions({ suche, setRaw, remember, canEdit, log, emit, f
     },
     /** «＋ Bereich (Name)» and, optionally, who searches it: finds the place by name, else creates
      *  it. Returns its id — `null` only for an empty name. */
-    addBereich(input: { name: string; trupp?: { label: string; id?: string } }): string | null {
+    addBereich(input: { name: string; trupp?: { label: string; id?: string }; point?: SuchePoint }): string | null {
       const r = addBereich(ref.current, input, cx())
       if (r.doc !== ref.current) commit(r.doc, r.rows)
       return r.id

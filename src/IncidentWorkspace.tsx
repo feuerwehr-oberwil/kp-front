@@ -23,7 +23,7 @@ import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays 
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
 import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from './lib/docking'
-import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, Shift, ShiftBand, SucheDoc, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
+import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, Shift, ShiftBand, SucheDoc, SuchePoint, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newId, newRowId } from './lib/ids'
@@ -63,7 +63,7 @@ import { pushSliceStep } from './lib/sliceUndoStep'
 import { foldsIntoPrevious, keepMachineFields, reportStep as reportStepOf } from './lib/reportUndo'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
-import { toast, confirmDialog, undoToast } from './lib/ui'
+import { toast, confirmDialog, dismissToast, undoToast } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
 import { Overlay, Sheet } from './lib/overlays'
 import { apiDelete } from './lib/api'
@@ -194,10 +194,11 @@ import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
 import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
-import { composerRowSuffix, type SucheComposerLink, bereichStatusOf, emptySuche, openBereiche, pendingAsks, personenViews, sanitizeSuche, shownBereiche, sucheFocusFor, truppPlace, vermisstAbschlussMessage, vermisstCount, type SucheFocus, type SucheStack, type TruppHere } from './lib/suche'
+import { composerRowSuffix, type SucheComposerLink, bereichStatusOf, emptySuche, openBereiche, pendingAsks, personenViews, sanitizeSuche, shownBereiche, sucheFocusFor, suchePins, truppPlace, vermisstAbschlussMessage, vermisstCount, type SucheFocus, type SuchePin, type SucheStack, type TruppHere } from './lib/suche'
 import { SucheCard } from './components/suche/SucheCard'
 import { SucheToolButton } from './components/suche/SucheToolButton'
-import { SuchePanel, type FundPreset } from './components/suche/SuchePanel'
+import { SuchePanel, type FundPreset, type SuchePick } from './components/suche/SuchePanel'
+import { SucheMapPins } from './components/suche/SuchePins'
 import { SucheAskMeldungen } from './components/suche/SucheAskMeldungen'
 import { useSucheTrupps } from './lib/useSucheTrupps'
 import { useSucheActions, type SucheActions } from './lib/useSucheActions'
@@ -1047,6 +1048,10 @@ export function IncidentWorkspace({
   // ⚠️ The Suche's card is the SAME slot (26.09.2026, design «F»): one value, so Ebenen and Suche
   // are exclusive by construction and every path that closes Ebenen closes the Suche too.
   const [panel, setPanel] = useState<'layers' | 'suche' | null>(null)
+  /** The Suche's card hands the surface over for ONE tap (components/suche · SuchePick): the next
+   *  tap on the Karte or the open plan is a place's position. The card steps aside meanwhile,
+   *  keeping every word of its form; ✕, Esc or the card going away cancel it. */
+  const [suchePick, setSuchePick] = useState<{ name: string; done: (p: SuchePoint) => void } | null>(null)
   // «Trupp finden» (TruppFinder) — an overlay over whatever is on screen, not a surface
   const [findTruppOpen, setFindTruppOpen] = useState(false)
   useEffect(() => { if (tool !== 'select') { setViewsOpen(false); setPanel(null) } }, [tool])
@@ -2023,7 +2028,9 @@ export function IncidentWorkspace({
       // the confirm AND peeled a map layer behind it. The Plan's twin of this handler already
       // matched both roles; this is the Lage catching up.
       if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
-      if (pending || pendingShape) { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }
+      // the Suche's pick is the innermost layer: Esc gives the card back, form and all
+      if (suchePick) setSuchePick(null)
+      else if (pending || pendingShape) { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }
       // …then the coordinate crosshair: while it aims it swallows every map tap and hides the
       // selection bar, and until 02.09. Escape did not know it existed
       else if (coord.mode !== 'off') coord.setMode('off')
@@ -2042,7 +2049,7 @@ export function IncidentWorkspace({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pending, pendingShape, coord.mode, panel, viewsOpen, tool, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [suchePick, pending, pendingShape, coord.mode, panel, viewsOpen, tool, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
   // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
@@ -2750,6 +2757,9 @@ export function IncidentWorkspace({
   }
 
   const onMapClick = (c: LngLat) => {
+    // the Suche waits for a position: this tap IS it (before the panel's own tap-away below, which
+    // would close the very card that asked)
+    if (suchePick) { const k = suchePick; setSuchePick(null); k.done({ coord: c }); return }
     // a map tap dismisses an open Ebenen panel first (parity with the phone backdrop) —
     // the panel is map chrome, so tapping the map behind it should just close it
     if (panel !== null) { setPanel(null); return }
@@ -4075,12 +4085,45 @@ export function IncidentWorkspace({
   // the card belongs to the Karte and the plans — shown only there (every surface switch through
   // the NavRail puts it away with Ebenen, clearMapUi)
   const sucheCardOn = panel === 'suche' && (mode === 'map' || mode === 'plans') && !composerOpen && !journalOpen && !offlineReadyOpen
+  /** where a tap could put a place right now: the Karte, or the sheet the plan surface shows */
+  const suchePickSurface: SuchePick['surface'] | null = mode === 'map' ? 'karte'
+    : mode === 'plans' && planDocs.some((d) => d.id === activePlanId) ? 'plan' : null
+  const suchePickApi: SuchePick | undefined = canEditSuche && !replayActive && !tacticalLocked && suchePickSurface
+    ? { surface: suchePickSurface, start: (name, done) => setSuchePick({ name, done }) }
+    : undefined
+  /** «📍» on a row / «Zeigen» on a card: the pin, brought into view — on its own surface (a place
+   *  put on a plan opens that plan). On a phone the card goes, or it would cover what it shows. */
+  const sucheShow = (p: SuchePoint) => {
+    if (p.coord) {
+      if (mode !== 'map') { clearMapUi(); setMode('map') }
+      const map = mapRef.current?.getMap()
+      map?.easeTo({ center: p.coord as [number, number], zoom: Math.max(map.getZoom(), 18), duration: 450 })
+    } else if (p.planId && p.x != null && p.y != null) {
+      if (mode !== 'plans') clearMapUi()
+      setMode('plans'); setActivePlanId(p.planId)
+      setPlanFocus({ x: p.x, y: p.y, floor: p.floor ?? 0, nonce: Date.now() })
+    }
+    if (isPhone) setPanel(null)
+  }
+  /** a pin tapped on the surface: the card, on that record */
+  const sucheOpenPin = (pin: SuchePin) => openSuche(pin.kind === 'person' ? { personId: pin.id } : { bereichId: pin.id })
+  const suchePinsNow = useMemo(() => suchePins(effSuche, sucheFloorName), [effSuche, sucheFloorName])
+  // …the pick's sentence, in words on screen for as long as it waits (the dock's ⓘ holds it too):
+  // a toast that STANDS for the mode (lib/ui · onDismiss) — swiping it away cancels the pick
+  const suchePickHint = suchePick ? (suchePick.name
+    ? fillTemplate(mode === 'plans' ? appConfig.copy.suche.pickHintPlan : appConfig.copy.suche.pickHintKarte, { name: suchePick.name })
+    : (mode === 'plans' ? appConfig.copy.suche.pickHintPlanAny : appConfig.copy.suche.pickHintKarteAny)) : null
+  useEffect(() => {
+    if (!suchePickHint) return
+    const id = toast(suchePickHint, { sticky: true, icon: 'pin', onDismiss: () => setSuchePick(null) })
+    return () => dismissToast(id)
+  }, [suchePickHint])
   const suchePanelProps = {
     doc: effSuche, floorName: sucheFloorName, trupps: sucheTrupps,
     // «Trupp 4 raus – abgesucht?» stands on the place's own row while its Trupp is out
     asks: sucheAskUnits.map((u) => u.id),
     canEdit: canEditSuche && !replayActive, actions: sucheActions, focus: sucheFocus,
-    uebergabe: sucheUebergabe(),
+    uebergabe: sucheUebergabe(), pick: suchePickApi, onShow: sucheShow,
   }
   /* ── the Trupps' half (Tür 3, E6 «Aus dem Trupp») — lib/useSucheTrupps owns it: a Ziel's place
    *    «in Arbeit · Trupp 4», and the release when it changes ── */
@@ -4944,6 +4987,8 @@ export function IncidentWorkspace({
       {(sym.ready || sym.error) ? guarded('map', (
         <MapView
           ref={mapRef}
+          // the Suche's pins over the tactical layer — inert while a pick waits for its tap
+          overlay={suchePinsNow.length ? <SucheMapPins pins={suchePinsNow} onOpen={suchePick ? undefined : sucheOpenPin} /> : undefined}
           entities={entities}
           readOnly={tacticalLocked}
           layers={mapLayers}
@@ -5474,7 +5519,7 @@ export function IncidentWorkspace({
           eating the first tap on a board that looked perfectly normal. */}
       {/* …and the Suche's card (26.09.2026) has the same catcher on the Karte AND on a plan — there
           only while the card is actually up, never as a bare sheet over the board */}
-      {isPhone && (mapUI ? panel !== null : sucheCardOn) && <div className="mapctl-backdrop" onClick={() => setPanel(null)} />}
+      {isPhone && !suchePick && (mapUI ? panel !== null : sucheCardOn) && <div className="mapctl-backdrop" onClick={() => setPanel(null)} />}
 
       {/* the Ebenen dock (.layers-card z201) sits ABOVE the +Eintrag composer / Verlauf
           scrim that covers every other map popup, so it needs an explicit guard to hide
@@ -6254,6 +6299,9 @@ export function IncidentWorkspace({
           focus={planFocus}
           // the Suche's door at the end of the plan's bar — the same card as on the Karte
           suche={{ on: panel === 'suche', count: sucheMissing, onToggle: toggleSuche }}
+          suchePins={suchePinsNow}
+          onSuchePin={sucheOpenPin}
+          suchePick={suchePick && sucheCardOn ? { onPick: (p) => { const k = suchePick; setSuchePick(null); k.done(p) } } : null}
           trupps={effTrupps}
           // the Karte's markers and the other plans' chips, for the one Trupp counter
           placedTeamNames={() => [
@@ -6314,7 +6362,17 @@ export function IncidentWorkspace({
 
       {/* the Suche's card (26.09.2026, design «F»): in the Ebenen slot on the Karte and on a plan,
           and — like Ebenen — hidden under the composer / Verlauf that covers every map popup */}
-      {sucheCardOn && guarded('suche', <SucheCard {...suchePanelProps} onClose={() => setPanel(null)} />, false)}
+      {sucheCardOn && guarded('suche', <SucheCard {...suchePanelProps} onClose={() => setPanel(null)}
+        picking={!!suchePick} onGone={() => setSuchePick(null)} />, false)}
+      {/* …and while it waits for the tap: the placement dock every tool uses (its ✕, what is being
+          put down, and its ⓘ with the sentence), on the Karte and on a plan alike */}
+      {suchePick && sucheCardOn && (
+        <ToolDock groups={[
+          [{ type: 'close', onClick: () => setSuchePick(null) }],
+          [{ type: 'glyph', node: <Icon id="pin" /> }],
+          [{ type: 'info', text: suchePickHint ?? '' }],
+        ]} />
+      )}
       {/* «Fund melden» (N17): over whatever surface asked for it, and back there when done */}
       {sucheFund && canEditSuche && !replayActive && guarded('suche-fund', (
         <Sheet open onClose={() => setSucheFund(null)} title={appConfig.copy.suche.fundMelden} sheetClassName="suche-fund-sheet" fit>

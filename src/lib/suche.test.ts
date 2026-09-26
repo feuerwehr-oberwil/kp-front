@@ -4,7 +4,7 @@ import {
   geretteteFromSuche, markFund, newPersonFromText, openBereiche, patchRows, pendingAsks, personEntwarnt, personGefunden,
   personIrrtuemlich, personKorrigiert, personPlace, personPrintRows, personUebergeben, personView, personenViews, placeLabel,
   renameBereich, rowOwner, sanitizeSuche, setBereichStatus, setPlacePoint, shownBereiche, sucheChangeWords, sucheFocusFor,
-  sucheHeadLine, sucheLine, sucheLinkLabel, sucheOrte, suggestSuchePersonen, toggleAbgesucht, truppAt, truppPlace, truppShort,
+  sucheHeadLine, sucheKrokiNotes, sucheLine, sucheLinkLabel, sucheOrte, suchePins, suggestSuchePersonen, toggleAbgesucht, truppAt, truppPlace, truppShort, pointTarget,
   vermisstAbschlussMessage, vermisstCount, zielBereich,
   type SucheCx,
 } from './suche'
@@ -536,5 +536,57 @@ describe('the walk-through of 25.09.2026 (round 2)', () => {
     expect(jump).toEqual({ personId: 'p1', bereichId: undefined, nonce: 1 })
     expect(sucheFocusFor(jump, undefined)).toBeNull()
     expect(sucheFocusFor(jump, { bereichId: 'b1' })).toEqual({ personId: undefined, bereichId: 'b1', nonce: 2 })
+  })
+})
+
+describe('pins: places where somebody put them, and a missing person without a place', () => {
+  const karte = { coord: [7.6, 47.5] as [number, number] }
+  const plan = { planId: 'gebaeude', x: 0.4, y: 0.6, floor: 2 }
+
+  it('a place set in the form carries its pin from birth — one step with the rest', () => {
+    const w = world()
+    const r = addBereich(emptySuche(), { name: 'Scheune', trupp: { label: 'Trupp 1', id: 't1' }, point: karte }, w.cx())
+    expect(r.doc.bereiche[0].point).toEqual(karte)
+    expect(suchePins(r.doc, floorLabel)).toEqual([{ id: r.id, kind: 'bereich', label: 'Scheune · T1', status: 'inArbeit', hot: false, point: karte }])
+    const undone = applySuchePatch(r.doc, diffSuche(emptySuche(), r.doc), 'undo')
+    expect(suchePins(undone, floorLabel)).toEqual([])
+  })
+
+  it('«＋ Vermisst» puts the point on a NEW place, on the person without a place, and never on a place that stands already', () => {
+    const w = world()
+    const a = addPerson(emptySuche(), { name: 'Muster Tim', wo: 'Keller', point: plan }, w.cx())
+    expect(a.doc.bereiche[0].point).toEqual(plan)
+    expect(a.person).not.toHaveProperty('point')
+    expect(pointTarget(a.doc, a.doc.bereiche[0].id)).toBeNull()
+    // the place stands already: a second report there adds no pin anywhere
+    const b = addPerson(a.doc, { name: 'Beispiel Anna', wo: 'keller', point: karte }, w.cx())
+    expect(b.doc.bereiche[0].point).toEqual(plan)
+    expect(b.person).not.toHaveProperty('point')
+    // no place at all: the person stands there, as a red pin of their own
+    const c = addPerson(emptySuche(), { name: 'Hauswart', point: karte }, w.cx())
+    expect(c.person.point).toEqual(karte)
+    expect(suchePins(c.doc, floorLabel)).toEqual([{ id: c.person.id, kind: 'person', label: 'Hauswart', status: 'vermisst', hot: true, point: karte }])
+    // …only while missing
+    expect(suchePins(personGefunden(c.doc, c.person.id, {}, w.cx()).doc, floorLabel)).toEqual([])
+  })
+
+  it('the colour is the status, the red ring is «somebody is still missing here»', () => {
+    const w = world()
+    let d = addBereich(emptySuche(), { name: 'Keller', point: karte }, w.cx()).doc
+    d = addPerson(d, { name: 'Muster Tim', wo: 'Keller' }, w.cx()).doc
+    expect(suchePins(d, floorLabel)[0]).toMatchObject({ status: 'offen', hot: true })
+    d = personGefunden(d, d.personen[0].id, { bereichId: d.bereiche[0].id }, w.cx()).doc
+    d = toggleAbgesucht(d, d.bereiche[0].id, w.cx()).doc
+    expect(suchePins(d, floorLabel)[0]).toMatchObject({ status: 'abgesucht', hot: false })
+  })
+
+  it('the Karte\'s pins print on the Kroki as notes on the tactical layer; a plan pin does not', () => {
+    const w = world()
+    let d = addBereich(emptySuche(), { name: 'Scheune', point: karte }, w.cx()).doc
+    d = addBereich(d, { name: 'Keller', point: plan }, w.cx()).doc
+    d = addPerson(d, { name: 'Muster Tim', wo: 'Scheune' }, w.cx()).doc
+    const notes = sucheKrokiNotes(d, floorLabel, 'taktisch')
+    expect(notes).toEqual([expect.objectContaining({ kind: 'note', layer: 'taktisch', coord: karte.coord, label: 'Suche: Scheune · offen · Person vermisst' })])
+    expect(sucheKrokiNotes(undefined, floorLabel, 'taktisch')).toEqual([])
   })
 })

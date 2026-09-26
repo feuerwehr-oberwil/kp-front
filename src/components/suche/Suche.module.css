@@ -210,3 +210,44 @@ button.ortMain:active { background-image: linear-gradient(var(--press), var(--pr
 .zielChips .label { color: var(--ink-dim); }
 .zielChips .chip { border-color: var(--glass-edge); background: var(--surface); color: var(--ink); }
 .zielChips .chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+
+/* ── pins on the Karte and the plans (SuchePins) ─────────────────────────────────────────────── */
+/* The app's chip: a light pill in both themes (a pin sits on a map or a sheet, never on the dark
+   card), 12.5px/800 words, a status disc, a stem to the spot. The red ring is «somebody is still
+   missing here» and nothing else. The button is 44px tall to hit; the chip it draws is 30. */
+.pin { position: relative; display: inline-flex; align-items: center; gap: 6px; max-width: 220px; min-height: 30px;
+  margin-bottom: 7px; padding: 3px 10px 3px 4px; border: 2px solid var(--tone, var(--border)); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: 800 12.5px/1.15 var(--body); cursor: pointer;
+  box-shadow: 0 2px 6px rgba(15, 25, 45, .28); }
+.pin::before { content: ''; position: absolute; inset: -7px -4px; }  /* the 44px it takes to hit */
+.pin::after { content: ''; position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
+  border: 6px solid transparent; border-top-color: var(--tone, var(--border)); border-bottom: 0; }
+.pin[data-status="offen"] { --tone: var(--ink-faint); }
+.pin[data-status="inArbeit"] { --tone: var(--blue); }
+.pin[data-status="teilweise"] { --tone: color-mix(in srgb, var(--green) 55%, var(--blue)); }
+.pin[data-status="abgesucht"] { --tone: var(--green); }
+.pin[data-status="nichtZugaenglich"] { --tone: var(--amber); }
+.pin[data-status="vermisst"] { --tone: var(--red); }
+.pin[data-hot] { box-shadow: 0 0 0 3px var(--red), 0 2px 8px rgba(15, 25, 45, .32); }
+.pin:active { background-image: linear-gradient(var(--press), var(--press)); }
+.pinDot { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  border: 2px solid var(--tone); color: var(--on-accent-ink); }
+.pin[data-status="offen"] .pinDot { background: none; }
+.pin[data-status="inArbeit"] .pinDot { border-style: dashed; }
+.pin[data-status="teilweise"] .pinDot { background: linear-gradient(90deg, var(--tone) 50%, transparent 50%); }
+.pin[data-status="abgesucht"] .pinDot, .pin[data-status="vermisst"] .pinDot, .pin[data-status="nichtZugaenglich"] .pinDot { background: var(--tone); }
+.pinDot :global(.i) { width: 12px; height: 12px; stroke-width: 3; }
+.pinText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* on a plan: stood on its spot by the board (Whiteboard · suchePins), bottom-centre on the point */
+.planPin { position: absolute; z-index: 6; transform: translate(-50%, -100%); }
+
+/* «📍» on a list row: the place stands somewhere — a tap brings it into view */
+.show { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none;
+  border-radius: var(--r-sm); color: var(--sx-dim); cursor: pointer; }
+.show:active { background-image: linear-gradient(var(--press), var(--press)); }
+.show :global(.i) { width: 18px; height: 18px; }
+/* the form's «📍 Auf Karte setzen» — an offer, like «mehrere?», until a position is set */
+.pickRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pickNote { font: 500 12.5px var(--body); color: var(--sx-faint); }
+/* while the card hands the surface over to a pick, it steps aside — the form keeps its words */
+.card[data-picking] { display: none; }

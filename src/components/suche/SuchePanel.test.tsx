@@ -8,7 +8,7 @@ import { emptySuche, personView, shownBereiche } from '../../lib/suche'
 import { createUndoTimeline } from '../../lib/undoTimeline'
 import { useSucheActions, type SucheLog } from '../../lib/useSucheActions'
 import { floorLabel } from '../../lib/whiteboard'
-import type { SucheDoc, SucheRow } from '../../types'
+import type { SucheDoc, SuchePoint, SucheRow } from '../../types'
 import { SuchePanel, type SuchePanelProps } from './SuchePanel'
 import { SucheCard } from './SucheCard'
 
@@ -19,10 +19,10 @@ const row = (id: string, op: SucheRow['op'], at: string, text: string, more: Par
 
 /** The panel over a live slice, the real writer hook and a real undo timeline — what the card and
  *  the «Fund melden» sheet mount. */
-function Harness({ initial = emptySuche(), canEdit = true, log = vi.fn<SucheLog>(), onDoc, asks, focus, onExit, onUndoable, timeline, card }: {
+function Harness({ initial = emptySuche(), canEdit = true, log = vi.fn<SucheLog>(), onDoc, asks, focus, onExit, onUndoable, timeline, card, pick, onShow }: {
   initial?: SucheDoc; canEdit?: boolean; log?: SucheLog; onDoc?: (d: SucheDoc) => void; asks?: string[]
   focus?: SuchePanelProps['focus']; onExit?: () => void; onUndoable?: SuchePanelProps['onUndoable']
-  timeline?: ReturnType<typeof createUndoTimeline>; card?: boolean
+  timeline?: ReturnType<typeof createUndoTimeline>; card?: boolean; pick?: SuchePanelProps['pick']; onShow?: SuchePanelProps['onShow']
 }) {
   const [doc, setDoc] = useState(initial)
   const set = (d: SucheDoc) => { setDoc(d); onDoc?.(d) }
@@ -33,7 +33,7 @@ function Harness({ initial = emptySuche(), canEdit = true, log = vi.fn<SucheLog>
   const props: SuchePanelProps = {
     doc, floorName: floorLabel, asks, canEdit, actions,
     trupps: [{ id: 't1', label: 'Trupp 1', short: 'T1 Muster', status: 'drin' }, { id: 't3', label: 'Trupp 3', short: 'T3 Beispiel', status: 'drin' }, { id: 't5', label: 'Trupp 5', short: 'T5 Probe', status: 'raus' }],
-    uebergabe: ['Rettungsdienst', 'Sammelplatz'], focus, onExit, onUndoable: onUndoable ?? (() => {}),
+    uebergabe: ['Rettungsdienst', 'Sammelplatz'], focus, onExit, onUndoable: onUndoable ?? (() => {}), pick, onShow,
   }
   return card ? <SucheCard {...props} onClose={() => {}} /> : <SuchePanel {...props} />
 }
@@ -329,5 +329,58 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     unmount()
     render(<Harness card initial={{ personen: [person('p1', 'A')], bereiche: [] }} />)
     expect(screen.getByText(fillTemplate(C.vermisstChip, { n: 1 })).hasAttribute('data-hot')).toBe(true)
+  })
+
+  it('«📍 Auf Karte setzen» in «＋ Bereich» hands the surface over and gets the tap back; the pin is born with the place — one step', () => {
+    let last: SucheDoc = emptySuche()
+    const timeline = createUndoTimeline()
+    let done: ((p: SuchePoint) => void) | null = null
+    const start = vi.fn((_name: string, cb: (p: SuchePoint) => void) => { done = cb })
+    render(<Harness timeline={timeline} pick={{ surface: 'karte', start }} onDoc={(d) => { last = d }} />)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(C.addBereich) }))
+    fireEvent.change(screen.getByLabelText(C.bereichWo), { target: { value: 'Scheune' } })
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(C.pickKarte) }))
+    expect(start).toHaveBeenCalledWith('Scheune', expect.any(Function))
+    // the tap on the surface comes back; the form still holds its words
+    act(() => done!({ coord: [7.6, 47.5] }))
+    expect(screen.getByRole('button', { name: new RegExp(C.pickSet) }).getAttribute('aria-pressed')).toBe('true')
+    expect((screen.getByLabelText(C.bereichWo) as HTMLInputElement).value).toBe('Scheune')
+    expect(last.bereiche).toEqual([]) // nothing written before «Erfassen»
+    fireEvent.click(screen.getByRole('button', { name: C.submitBereich }))
+    expect(last.bereiche[0]).toMatchObject({ name: 'Scheune', point: { coord: [7.6, 47.5] } })
+    act(() => { timeline.undo() })
+    expect(last.bereiche).toEqual([])
+  })
+
+  it('a place\'s card puts it on the surface, moves it and takes it off — each an ordinary step; «📍» on its row shows it', () => {
+    let last: SucheDoc = emptySuche()
+    const onShow = vi.fn()
+    let done: ((p: SuchePoint) => void) | null = null
+    const pick = { surface: 'plan' as const, start: (_n: string, cb: (p: SuchePoint) => void) => { done = cb } }
+    render(<Harness initial={{ personen: [], bereiche: [place('b1', 'Keller')] }} pick={pick} onShow={onShow} onDoc={(d) => { last = d }} />)
+    // no position yet: no «📍» on the row
+    expect(screen.queryByRole('button', { name: fillTemplate(C.pinShow, { name: 'Keller' }) })).toBeNull()
+    fireEvent.click(within(screen.getByRole('region', { name: 'Keller' })).getByText('Keller'))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(C.pickPlan) }))
+    act(() => done!({ planId: 'gebaeude', x: 0.5, y: 0.4, floor: 1 }))
+    expect(last.bereiche[0].point).toEqual({ planId: 'gebaeude', x: 0.5, y: 0.4, floor: 1 })
+    expect(last.bereiche[0].log.slice(-1)[0]).toMatchObject({ op: 'ort', text: 'Keller auf dem Plan gesetzt' })
+    fireEvent.click(screen.getByRole('button', { name: C.pickRemove }))
+    expect(last.bereiche[0]).not.toHaveProperty('point')
+    // back on the list with a position: «📍» brings it into view
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(C.pickPlan) }))
+    act(() => done!({ planId: 'gebaeude', x: 0.2, y: 0.3, floor: 0 }))
+    fireEvent.click(screen.getByRole('button', { name: C.back }))
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.pinShow, { name: 'Keller' }) }))
+    expect(onShow).toHaveBeenCalledWith({ planId: 'gebaeude', x: 0.2, y: 0.3, floor: 0 })
+  })
+
+  it('«＋ Vermisst» at a place that stands already offers no second pin', () => {
+    render(<Harness initial={{ personen: [], bereiche: [{ ...place('b1', 'Keller'), point: { coord: [7.6, 47.5] } }] }} pick={{ surface: 'karte', start: vi.fn() }} />)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(C.addVermisst) }))
+    expect(screen.getByRole('button', { name: new RegExp(C.pickKarte) })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Keller' }))
+    expect(screen.queryByRole('button', { name: new RegExp(C.pickKarte) })).toBeNull()
+    expect(screen.getByText(C.pickAlready)).toBeTruthy()
   })
 })

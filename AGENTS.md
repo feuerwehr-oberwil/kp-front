@@ -386,10 +386,26 @@ to prod.
   - EDITOR only in step 1 (`canEditIncident`): the `el` and viewers read; the record slice and the
     Atemschutz-Link routes do not carry `suche`, and «Fund melden» from a link session is not
     offered.
-  - ⚠️ Step 2 (not built): drawn areas and person markers on the plan/Karte, and the Rettung
-    symbol becoming a Person, fill the fields that are typed and empty today (`SuchePerson.point`,
-    `SucheBereich.shape`) — no migration. A drawn area is its own kind «Suchbereich», never a line,
-    so it can never be offered to a Trupp as its Leitung (the 23.09.2026 failure).
+  - **Places stand on the surface as PINS** (26.09.2026, owner). `SucheBereich.point` (and
+    `SuchePerson.point` for somebody missing with no place): a Karte `coord`, OR a plan sheet
+    (`planId`, `x`/`y`, `floor` — on its storey band). One position per record; a pin is shown
+    only on the surface it was put on (no projection between Karte and plans). A pin is the app's
+    chip (`components/suche/SuchePins`), 12.5px words, coloured like the list's circle, a RED ring
+    while somebody is still missing there; it stands over the tactical symbols / the sheet's
+    objects and under every popup; a tap opens the card on the record. Placing is OPTIONAL, from
+    the forms («📍 Auf Karte / Plan setzen») and the record's card (Zeigen · Verschieben ·
+    Position entfernen): the card hands the surface over for ONE tap (`SuchePick` →
+    IncidentWorkspace · `suchePick`; the placement dock ✕ · 📍 · ⓘ plus a toast that STANDS for
+    the mode — swipe it and the pick is cancelled; the card steps aside keeping its form, and its
+    going away cancels the pick). A form's pin is written with the record in the SAME step; a
+    card's is its own step with an `ort` row (`setPlacePoint`). «＋ Vermisst» puts its point on
+    a new (or unplaced) place, on the person when there is no place, and offers none for a place
+    that stands already (`pointTarget`). The Karte's pins print on the Kroki as notes on the
+    tactical layer (`sucheKrokiNotes`) — not on a Kroki reconstructed for a past moment, and not
+    on the plan pages. Pins follow replay (they are the slice as it stood).
+  - ⚠️ Not built: drawn search AREAS (`SucheBereich.shape` stays typed and empty). A drawn area
+    is its own kind «Suchbereich», never a line, so it can never be offered to a Trupp as its
+    Leitung (the 23.09.2026 failure).
 - **A setting lives in one of three places – pick by who owns it, not by what is easiest to
   reach.** (1) *Device preference* – theme, symbol scale, rail words, offline radius, screen
   wake: cookie via `src/lib/prefs.ts`, surfaced in the **Einstellungen sheet**

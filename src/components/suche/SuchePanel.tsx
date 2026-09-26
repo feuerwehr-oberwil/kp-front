@@ -3,12 +3,12 @@ import { appConfig } from '../../config/appConfig'
 import { fillTemplate, formatTime } from '../../lib/format'
 import { Icon } from '../../lib/icons'
 import {
-  BEREICH_STATUSES, foundWhere, personenViews, personWhere, placeKey, sucheOrte, truppAt, truppShort,
+  BEREICH_STATUSES, foundWhere, personenViews, personPlace, personWhere, placeKey, sucheOrte, truppAt, truppShort,
   type BereichView, type OrtView, type PersonView, type TruppHere,
 } from '../../lib/suche'
 import type { SucheActions, SucheTakeBack } from '../../lib/useSucheActions'
 import { undoToast } from '../../lib/ui'
-import type { SucheBereichStatus, SucheDoc } from '../../types'
+import type { SucheBereichStatus, SucheDoc, SuchePoint } from '../../types'
 import { Stepper } from '../Stepper'
 import s from './Suche.module.css'
 
@@ -30,6 +30,16 @@ type View =
 /** «Fund melden» on a Trupp (Tür 3): the Trupp, and the place it is searching now if any */
 export interface FundPreset { truppId: string; bereichId?: string }
 
+/**
+ * Putting a place on the surface you are on (26.09.2026): the card hands the surface over to a
+ * pick — the workspace shows the instruction and its ✕, the card steps aside keeping every word
+ * typed — and the tap comes back as a point. `surface` names where the tap will land.
+ */
+export interface SuchePick {
+  surface: 'karte' | 'plan'
+  start: (name: string, done: (point: SuchePoint) => void) => void
+}
+
 export interface SuchePanelProps {
   doc: SucheDoc
   /** how a step-1 record's storey is named («1. OG») */
@@ -50,6 +60,11 @@ export interface SuchePanelProps {
   onExit?: () => void
   /** the confirm-with-undo toast (lib/ui · undoToast) — a prop so a test can hold it */
   onUndoable?: (text: string, takeBack: () => void) => void
+  /** «📍 Auf Karte / Plan setzen» — absent where there is no surface to put anything on (the
+   *  «Fund melden» sheet over the Tafel, a read-only device) */
+  pick?: SuchePick
+  /** «📍» on a row: bring a pin into view (the Karte, or its plan) */
+  onShow?: (point: SuchePoint) => void
 }
 
 const hhmm = (iso?: string) => (iso && Number.isFinite(Date.parse(iso)) ? formatTime(new Date(iso)) : '')
@@ -192,7 +207,7 @@ function personLine(v: PersonView): string {
   return [fillTemplate(C.gefundenAt, { t: hhmm(v.foundAt) }), v.foundTrupp ? truppShort(v.foundTrupp) : '', v.an ? `${C.an.toLowerCase()} ${v.an}` : ''].filter(Boolean).join(' · ')
 }
 
-function OrtBlock({ o, unknown, ask, canEdit, actions, onOpen, onTick, onPerson, onFound }: SuchePanelProps & {
+function OrtBlock({ o, unknown, ask, canEdit, actions, doc, onShow, onOpen, onTick, onPerson, onFound }: SuchePanelProps & {
   o: OrtView; unknown?: boolean; ask?: boolean
   onOpen?: () => void; onTick?: () => void; onPerson: (id: string) => void; onFound: (v: PersonView) => void
 }) {
@@ -213,6 +228,7 @@ function OrtBlock({ o, unknown, ask, canEdit, actions, onOpen, onTick, onPerson,
           {onOpen
             ? <button type="button" className={s.ortMain} onClick={onOpen}>{head}</button>
             : <div className={s.ortMain}>{head}</div>}
+          {b?.point && onShow && <ShowButton name={o.label} onClick={() => onShow(b.point!)} />}
           {b && onTick && (
             // ⚠️ The circle IS the button (design «F»): it looked like one in step 1 and did nothing.
             // A read-only device sees the same circle, inert.
@@ -236,6 +252,8 @@ function OrtBlock({ o, unknown, ask, canEdit, actions, onOpen, onTick, onPerson,
             </span>
             <span className={s.personSub}>{personLine(v)}</span>
           </button>
+          {/* a person with a pin of their own (no place) shows it from the line, like a place */}
+          {!b && onShow && pointOf(doc, v.id) && <ShowButton name={v.label} onClick={() => onShow(pointOf(doc, v.id)!)} />}
           {canEdit && v.status === 'vermisst' && v.missing > 0 && (
             v.group
               ? <button type="button" className={s.foundBtn} onClick={() => onFound(v)} aria-label={fillTemplate(C.plusOneLabel, { name: v.label })} title={fillTemplate(C.plusOneLabel, { name: v.label })}>{C.plusOne}</button>
@@ -244,6 +262,33 @@ function OrtBlock({ o, unknown, ask, canEdit, actions, onOpen, onTick, onPerson,
         </div>
       ))}
     </section>
+  )
+}
+
+const pointOf = (doc: SucheDoc, personId: string) => doc.personen.find((p) => p.id === personId)?.point
+
+function ShowButton({ name, onClick }: { name: string; onClick: () => void }) {
+  const label = fillTemplate(appConfig.copy.suche.pinShow, { name })
+  return <button type="button" className={s.show} onClick={onClick} aria-label={label} title={label}><Icon id="pin" /></button>
+}
+
+/**
+ * Where a record stands on the surface, on its own card: «Auf Karte setzen» while it stands
+ * nowhere; «Zeigen», «Verschieben» (a pick on the surface you are on) and «Position entfernen»
+ * once it does — each an ordinary step with its row and its ↶ (lib/suche · setPlacePoint).
+ */
+function PlaceActions({ kind, id, name, point, pick, onShow, actions }: { kind: 'bereiche' | 'personen'; id: string; name: string; point?: SuchePoint
+  pick?: SuchePick; onShow?: (p: SuchePoint) => void; actions: SucheActions }) {
+  const C = appConfig.copy.suche
+  if (!pick && !point) return null
+  const put = () => pick?.start(name, (p) => { actions.setPoint(kind, id, p) })
+  return (
+    <div className={s.cardActions}>
+      {!point && pick && <button type="button" className={s.btn} onClick={put}><Icon id="pin" />{pick.surface === 'plan' ? C.pickPlan : C.pickKarte}</button>}
+      {point && onShow && <button type="button" className={s.btn} onClick={() => onShow(point)}><Icon id="pin" />{fillTemplate(C.pinShow, { name })}</button>}
+      {point && pick && <button type="button" className={s.btn} onClick={put}>{C.pickMove}</button>}
+      {point && <button type="button" className={s.btn} onClick={() => actions.setPoint(kind, id, null)}>{C.pickRemove}</button>}
+    </div>
   )
 }
 
@@ -289,7 +334,7 @@ function CardHead({ title, tone, pill, onBack }: { title: string; tone: string; 
   )
 }
 
-function PersonCard({ v, where, canEdit, onBack, onFound, onHand, onFix, onWhy }: SuchePanelProps & { v: PersonView; where: string; onBack: () => void; onFound: () => void; onHand: () => void; onFix: () => void; onWhy: (kind: 'entwarnen' | 'irrtuemlich') => void }) {
+function PersonCard({ v, where, canEdit, doc, floorName, pick, onShow, actions, onBack, onFound, onHand, onFix, onWhy }: SuchePanelProps & { v: PersonView; where: string; onBack: () => void; onFound: () => void; onHand: () => void; onFix: () => void; onWhy: (kind: 'entwarnen' | 'irrtuemlich') => void }) {
   const C = appConfig.copy.suche
   return (
     <div className={s.rec}>
@@ -310,6 +355,11 @@ function PersonCard({ v, where, canEdit, onBack, onFound, onHand, onFix, onWhy }
           {v.status !== 'irrtuemlich' && <button type="button" className={s.btn} onClick={onFix}>{C.korrigierenBtn}</button>}
         </div>
       )}
+      {/* a person with no place stands on the surface as a pin of their own (a place's pin
+          already stands for everybody there) */}
+      {canEdit && v.missing > 0 && !personPlace(doc, v, floorName) && (
+        <PlaceActions kind="personen" id={v.id} name={v.label} point={pointOf(doc, v.id)} pick={pick} onShow={onShow} actions={actions} />
+      )}
       <History rows={v.rows} />
       {/* ⚠️ «Irrtümlich erfasst» stands APART, at the foot of the card — it was the red button right
           beside «Korrigieren …» and withdrew a person in one tap (walk-through 25.09.2026, N7) */}
@@ -324,7 +374,7 @@ function PersonCard({ v, where, canEdit, onBack, onFound, onHand, onFix, onWhy }
 
 /** A place's own card: its status choices (the list's circle only says «abgesucht»), who searches
  *  it, «Fund», its name, and what happened to it. */
-function BereichCard({ b, trupps, canEdit, actions, onBack, onRename }: SuchePanelProps & { b: BereichView; onBack: () => void; onRename: () => void }) {
+function BereichCard({ b, trupps, canEdit, actions, pick, onShow, onBack, onRename }: SuchePanelProps & { b: BereichView; onBack: () => void; onRename: () => void }) {
   const C = appConfig.copy.suche
   const [pickTrupp, setPickTrupp] = useState(false)
   const set = (st: SucheBereichStatus, t?: TruppHere | null) => {
@@ -356,6 +406,7 @@ function BereichCard({ b, trupps, canEdit, actions, onBack, onRename }: SuchePan
               </div>
             </>
           )}
+          <PlaceActions kind="bereiche" id={b.id} name={b.label} point={b.point} pick={pick} onShow={onShow} actions={actions} />
           {/* a step-1 storey row has no name of its own to change */}
           {b.name && b.floor == null && (
             <div className={s.cardActions}>
@@ -363,6 +414,9 @@ function BereichCard({ b, trupps, canEdit, actions, onBack, onRename }: SuchePan
             </div>
           )}
         </>
+      )}
+      {!canEdit && b.point && onShow && (
+        <div className={s.cardActions}><button type="button" className={s.btn} onClick={() => onShow(b.point!)}><Icon id="pin" />{fillTemplate(C.pinShow, { name: b.label })}</button></div>
       )}
       {b.rows.length ? <History rows={b.rows} /> : <p className={s.cardLine}>{fillTemplate(C.erfasstAt, { t: hhmm(b.createdAt) })}</p>}
     </div>
@@ -447,6 +501,31 @@ function PlaceField({ label, hint, value, onChange, places, autoFocus }: { label
   )
 }
 
+/**
+ * «📍 Auf Karte / Plan setzen» in a form — optional, and never the only way: a place without a
+ * position lives in the list all the same. The form hands the surface over and gets the tap back
+ * (`SuchePick`); nothing is written until the form is sent, so its one ↶ takes the pin too.
+ */
+function PickField({ pick, name, point, onPoint, already }: { pick?: SuchePick; name: string; point?: SuchePoint; onPoint: (p: SuchePoint | undefined) => void
+  /** the place chosen already stands somewhere — no second pin is offered */
+  already?: boolean }) {
+  const C = appConfig.copy.suche
+  if (!pick) return null
+  if (already) return <div className={s.pickRow}><Icon id="pin" /><span className={s.pickNote}>{C.pickAlready}</span></div>
+  return (
+    <div className={s.pickRow}>
+      {point ? (
+        <>
+          <button type="button" className={s.chip} aria-pressed onClick={() => pick.start(name, onPoint)}><Icon id="pin" />{C.pickSet}</button>
+          <button type="button" className={`${s.chip} ${s.quietChip}`} onClick={() => onPoint(undefined)}>{C.pickClear}</button>
+        </>
+      ) : (
+        <button type="button" className={`${s.chip} ${s.quietChip}`} onClick={() => pick.start(name, onPoint)}><Icon id="pin" />{pick.surface === 'plan' ? C.pickPlan : C.pickKarte}</button>
+      )}
+    </div>
+  )
+}
+
 /** «Anzahl» stays OPTIONAL (owner, F-b): one person is the default and asks nothing; «mehrere?»
  *  opens the stepper for a group. */
 function CountField({ count, onChange }: { count: number | null; onChange: (n: number | null) => void }) {
@@ -489,7 +568,7 @@ function AnChips({ uebergabe, value, onChange, optional }: { uebergabe: readonly
 
 /** «＋ Vermisst» — Wer?, Wo zuletzt gesehen?, and (only when asked for) how many. «Gefunden» for
  *  somebody not on the list (from «Fund melden») is the same form with Von and «weiter an». */
-function VermisstForm({ trupps, actions, uebergabe, places, found, preset, onDone }: SuchePanelProps & { places: BereichView[]; found?: boolean; preset?: FundPreset; onDone: () => void }) {
+function VermisstForm({ trupps, actions, uebergabe, places, found, preset, pick, onDone }: SuchePanelProps & { places: BereichView[]; found?: boolean; preset?: FundPreset; onDone: () => void }) {
   const C = appConfig.copy.suche
   const [name, setName] = useState('')
   const [count, setCount] = useState<number | null>(null)
@@ -498,8 +577,10 @@ function VermisstForm({ trupps, actions, uebergabe, places, found, preset, onDon
   const [truppId, setTruppId] = useState<string | null>(preset?.truppId ?? null)
   const [other, setOther] = useState('')
   const [an, setAn] = useState<string | undefined>(undefined)
+  const [point, setPoint] = useState<SuchePoint | undefined>(undefined)
+  const chosen = places.find((b) => placeKey(b.label) === placeKey(wo))
   const submit = () => {
-    const input = { name, count: count ?? undefined, wo, quelle }
+    const input = { name, count: count ?? undefined, wo, quelle, point: chosen?.point ? undefined : point }
     if (!found) { actions.addPerson(input); onDone(); return }
     const t = truppId ? trupps.find((x) => x.id === truppId) : undefined
     actions.addFound(input, { trupp: t?.label ?? (truppId === '' ? other.trim() || undefined : undefined), truppId: t?.id, wo, an })
@@ -511,6 +592,7 @@ function VermisstForm({ trupps, actions, uebergabe, places, found, preset, onDon
         <input className={s.input} value={name} onChange={(e) => setName(e.target.value)} placeholder={C.werPlaceholder} aria-label={C.wer} autoFocus />
       </Field>
       <PlaceField label={found ? C.wo : C.woZuletzt} hint={found ? undefined : C.woZuletztHint} value={wo} onChange={setWo} places={places} />
+      {!found && <PickField pick={pick} name={wo.trim() || name.trim()} point={point} onPoint={setPoint} already={!!chosen?.point} />}
       <CountField count={count} onChange={setCount} />
       {found ? (
         <>
@@ -532,16 +614,17 @@ function VermisstForm({ trupps, actions, uebergabe, places, found, preset, onDon
 
 /** «＋ Bereich» — Wo?, and optionally who searches it, from the Trupps on the board. «noch
  *  niemand» is the default: a place entered is not yet a place anybody was sent to. */
-function BereichForm({ trupps, actions, onDone }: SuchePanelProps & { onDone: () => void }) {
+function BereichForm({ trupps, actions, pick, onDone }: SuchePanelProps & { onDone: () => void }) {
   const C = appConfig.copy.suche
   const [name, setName] = useState('')
+  const [point, setPoint] = useState<SuchePoint | undefined>(undefined)
   const [truppId, setTruppId] = useState<string | null>(null)
   // a Trupp already out cannot be the one searching now — it would stand there as «raus –
   // abgesucht?» the moment it was picked
   const pickable = trupps.filter((t) => t.status !== 'raus')
   const submit = () => {
     const t = truppId ? pickable.find((x) => x.id === truppId) : undefined
-    actions.addBereich({ name, trupp: t ? { label: t.label, id: t.id } : undefined })
+    actions.addBereich({ name, trupp: t ? { label: t.label, id: t.id } : undefined, point })
     onDone()
   }
   return (
@@ -549,6 +632,7 @@ function BereichForm({ trupps, actions, onDone }: SuchePanelProps & { onDone: ()
       <Field label={C.bereichWo}>
         <input className={s.input} value={name} onChange={(e) => setName(e.target.value)} placeholder={C.bereichWoPlaceholder} aria-label={C.bereichWo} autoFocus />
       </Field>
+      <PickField pick={pick} name={name.trim()} point={point} onPoint={setPoint} />
       <Field label={C.werSucht}>
         <div className={s.chips} role="group" aria-label={C.werSucht}>
           {pickable.map((t) => <button key={t.id} type="button" className={s.chip} aria-pressed={truppId === t.id} onClick={() => setTruppId(truppId === t.id ? null : t.id)}>{t.short}</button>)}

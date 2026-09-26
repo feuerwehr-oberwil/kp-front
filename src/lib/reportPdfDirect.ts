@@ -32,7 +32,7 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
-import { personPrintRows, sucheLine, type SucheStack } from './suche'
+import { personPrintRows, sucheKrokiNotes, sucheLine, type SucheStack } from './suche'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them).
@@ -400,9 +400,16 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const personen = personPrintRows(suche, clockOf, stack.floorName)
   const sucheSummaryLine = sucheLine(suche, stack.floorName, clockOf)
 
+  // The Suche's pins that stand on the Karte print as notes on the Kroki (26.09.2026), riding the
+  // tactical layer — so they print exactly when the tactical symbols do. ⚠️ Not on a Kroki
+  // reconstructed for a PAST moment (`krokiAt`): the slice handed in is today's, and a pin saying
+  // «abgesucht» on a picture of 21:14 would claim a search that had not happened yet. The plan
+  // pages print the sheet's own objects only; a pin on a plan is not one of them.
+  const suchePinNotes = draft.options.krokiAt ? [] : sucheKrokiNotes(suche, stack.floorName, appConfig.defaults.operationalLayerId)
   const kroki = draft.options.kroki && scene
     ? buildKrokiPayload({
-        entities: scene.entities, drawings: scene.drawings, layers: scene.layers, byName: scene.byName,
+        entities: suchePinNotes.length ? [...scene.entities, ...suchePinNotes] : scene.entities,
+        drawings: scene.drawings, layers: scene.layers, byName: scene.byName,
         center: scene.center,
         currentView: draft.options.krokiView ?? null,
         captionMode: scene.captionMode,

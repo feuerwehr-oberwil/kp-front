@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { sucheHeadLine, sucheOrte } from '../../lib/suche'
@@ -13,12 +13,21 @@ import s from './Suche.module.css'
  * Step 1 had a dock on the tablet, a peek · half · full sheet on the phone, a Gebäude | Karte
  * switch and two tabs — seven controls before the first missing person.
  */
-export function SucheCard({ onClose, ...panel }: SuchePanelProps & { onClose: () => void }) {
+export function SucheCard({ onClose, picking, onGone, ...panel }: SuchePanelProps & {
+  onClose: () => void
+  /** a pick is waiting for its tap on the surface: the card steps aside, keeping its form */
+  picking?: boolean
+  /** the card went away (✕, a tool, another popup): a pick it asked for goes with it */
+  onGone?: () => void
+}) {
   const C = appConfig.copy.suche
+  const gone = useRef(onGone)
+  useEffect(() => { gone.current = onGone })
+  useEffect(() => () => gone.current?.(), [])
   const o = useMemo(() => sucheOrte(panel.doc, panel.floorName), [panel.doc, panel.floorName])
   const line = sucheHeadLine(o)
   return (
-    <section className={`layers-card ${s.card}`} aria-label={C.title} data-suche-card>
+    <section className={`layers-card ${s.card}`} aria-label={C.title} data-suche-card data-picking={picking || undefined}>
       <div className={`lc-title ${s.head}`}>
         <Icon id="search" />{C.title}
         {line && <span className={s.headLine} data-hot={o.missing > 0 || undefined}>{line}</span>}

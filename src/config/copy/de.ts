@@ -5309,6 +5309,21 @@ export const de = {
     rowOrtGesetzt: '{name} {wo} gesetzt',
     rowOrtVerschoben: '{name} {wo} verschoben',
     rowOrtWeg: '{name}: Position entfernt',
+    // Pins auf Karte und Plan (26.09.2026)
+    krokiPin: 'Suche: {name} · {status}',
+    krokiHot: 'Person vermisst',
+    pickKarte: 'Auf Karte setzen',
+    pickPlan: 'Auf Plan setzen',
+    pickSet: 'Position gesetzt',
+    pickMove: 'Verschieben',
+    pickRemove: 'Position entfernen',
+    pickClear: 'Position wieder weg',
+    pickAlready: 'Dieser Ort hat schon eine Position',
+    pickHintKarte: 'Tippe auf die Karte, wo «{name}» ist',
+    pickHintPlan: 'Tippe auf den Plan, wo «{name}» ist',
+    pickHintKarteAny: 'Tippe auf die Karte, wo es ist',
+    pickHintPlanAny: 'Tippe auf den Plan, wo es ist',
+    pinShow: '{name} zeigen',
   },
   // Mittel surface (MittelView) — manual material capture for Rapport / resupply
   mittel: {

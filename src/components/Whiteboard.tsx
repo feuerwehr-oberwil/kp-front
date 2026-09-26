@@ -93,6 +93,9 @@ import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
 import { SucheToolButton } from './suche/SucheToolButton'
+import { SuchePinChip } from './suche/SuchePins'
+import sucheCss from './suche/Suche.module.css'
+import type { SuchePin } from '../lib/suche'
 
 const COLORS = appConfig.drawing.colors
 
@@ -169,6 +172,12 @@ interface Props {
   /** the Suche's door at the end of the rail (components/suche · SucheToolButton, 26.09.2026) —
    *  the same button the Karte carries beside Ebenen; the card it opens is the workspace's */
   suche?: { on: boolean; count: number; onToggle: () => void }
+  /** the Suche's pins (lib/suche · suchePins) — the ones on THIS sheet are drawn on their storey */
+  suchePins?: readonly SuchePin[]
+  onSuchePin?: (pin: SuchePin) => void
+  /** the Suche hands the plan a pick (components/suche · SuchePick): the next TAP on the sheet is
+   *  a place's position — a drag still pans, two fingers still zoom */
+  suchePick?: { onPick: (p: { planId: string; x: number; y: number; floor: number }) => void } | null
   sym: SymbolsApi
   /** active Mannschaft names feeding the symbol detail comboboxes (Einsatzleiter / Fahrer …) */
   rosterNames?: string[]
@@ -327,7 +336,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, suche }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, suche, suchePins = [], onSuchePin, suchePick }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -753,6 +762,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const toNorm = (clientX: number, clientY: number): [number, number] | null => {
     const r = boardRef.current?.getBoundingClientRect(); if (!r || !r.width) return null
     return [(clientX - r.left) / r.width, (clientY - r.top) / r.height]
+  }
+  // the Suche's pick (26.09.2026): a TAP — one finger, no travel — on the sheet is the position;
+  // anything else stays the board's own gesture (a pan, a pinch). Read in the capture phase, so
+  // the stage below still pans as ever; the transparent layer over the sheet keeps the tap off
+  // whatever stands there.
+  const pickTap = useRef<{ x: number; y: number; n: number } | null>(null)
+  const pickUp = (e: React.PointerEvent) => {
+    const t = pickTap.current
+    pickTap.current = null
+    if (!suchePick || !t || t.n > 1 || Math.hypot(e.clientX - t.x, e.clientY - t.y) > 8) return
+    const n = toNorm(e.clientX, e.clientY)
+    if (!n || n[0] < 0 || n[0] > 1 || n[1] < 0 || n[1] > 1) return
+    const floor = stack ? floorAt(n[1]) : 0
+    suchePick.onPick({ planId: activeId, x: n[0], y: stack ? localY(n[1], floor) : n[1], floor })
   }
 
   // --- Plan-Maßstab + Messen (calibration and ephemeral measurement) ---
@@ -2814,12 +2837,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // root, so this capture handler runs BEFORE useArmedTransform's listener on this very
           // element and would dismiss the twin panel of the object the drag is about to move.
           onPointerDownCapture={(e) => {
+            if (suchePick) pickTap.current = { x: e.clientX, y: e.clientY, n: pickTap.current ? 2 : 1 }
             if (arm.armed && !(e.target as HTMLElement | null)?.closest?.('[data-arm-exempt]')) return
             if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setNotePanelId(null) }
             trackDown(e)
           }}
-          onPointerUpCapture={trackUp}
-          onPointerCancelCapture={trackUp}
+          onPointerUpCapture={(e) => { pickUp(e); trackUp(e) }}
+          onPointerCancelCapture={(e) => { pickTap.current = null; trackUp(e) }}
           onPointerDown={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setNotePanelId(null) } stageDown(e) }}
           onPointerMove={stageMove}
           onPointerUp={stageUp}
@@ -3659,6 +3683,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 </Fragment>
               )
             })}
+
+            {/* the Suche's pins on this sheet (their own layer: over the sheet's objects, under
+                every popup) — on a stack each on its storey band, and none on a folded storey */}
+            {suchePins.filter((p) => p.point.planId === activeId && p.point.x != null && p.point.y != null
+              && (!stack || floorsTTB.includes(p.point.floor ?? 0))).map((p) => (
+              <div key={`suche:${p.id}`} className={sucheCss.planPin}
+                style={{ left: `${p.point.x! * 100}%`, top: `${(stack ? mapY(p.point.floor ?? 0, p.point.y!) : p.point.y!) * 100}%` }}>
+                <SuchePinChip pin={p} onOpen={onSuchePin} />
+              </div>
+            ))}
+            {/* …and while the Suche waits for a position, one clear layer over all of it */}
+            {suchePick && <div className="wb-ink wb-suche-pick" style={{ zIndex: 9, cursor: 'crosshair' }} />}
 
             {/* create-tool capture layer */}
             {creating && (

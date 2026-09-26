@@ -27,7 +27,7 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { fuzzyScore, norm } from './quickPhrases'
-import type { SucheBereich, SucheBereichStatus, SucheDoc, SuchePerson, SuchePoint, SucheRow } from '../types'
+import type { Entity, LayerId, SucheBereich, SucheBereichStatus, SucheDoc, SuchePerson, SuchePoint, SucheRow } from '../types'
 
 export const emptySuche = (): SucheDoc => ({ personen: [], bereiche: [] })
 
@@ -578,8 +578,21 @@ export interface VermisstInput {
   /** «Wo zuletzt gesehen?» — free words; a place on the list, or a new one (empty = unbekannt) */
   wo?: string
   quelle?: string
+  /** «📍 Auf Karte / Plan setzen» in the form: where it was (lib/suche · pointTarget) */
+  point?: SuchePoint
   /** step-1 callers only: a storey */
   floor?: number
+}
+
+/**
+ * Where a point set in «＋ Vermisst» belongs (26.09.2026): on the PLACE when the place has none
+ * yet (a new place, or one nobody put on the Karte) — the place is what gets searched and ticked;
+ * on the PERSON when there is no place at all («Ort unbekannt», a red person pin of its own).
+ * A place that already stands somewhere keeps its pin — the form offers no second one then.
+ */
+export function pointTarget(doc: SucheDoc, placeId: string | null): 'bereich' | 'person' | null {
+  if (!placeId) return 'person'
+  return doc.bereiche.find((b) => b.id === placeId)?.point ? null : 'bereich'
 }
 
 const seg = (tpl: string, v: Record<string, string | number>, on: unknown) => (on ? fillTemplate(tpl, v) : '')
@@ -631,10 +644,15 @@ function newPerson(input: VermisstInput & { bereichId?: string | null }, cx: Suc
 export function addPerson(doc: SucheDoc, input: VermisstInput, cx: SucheCx): { doc: SucheDoc; person: SuchePerson; row: SucheRow } {
   const count = input.count && input.count >= 2 ? Math.round(input.count) : undefined
   const place = input.floor == null ? placeFor(doc, input.wo, cx) : { doc, id: null, wo: input.wo }
-  const at = { ...input, count, wo: place.wo }
+  const { point, ...rest } = input
+  const at = { ...rest, count, wo: place.wo }
   const row: SucheRow = { id: cx.newId('sr'), at: cx.at, op: 'vermisst', text: vermisstText(at, cx.floorName) }
+  const target = point ? pointTarget(place.doc, place.id) : null
   const person = newPerson({ ...at, bereichId: place.id }, cx, [row], cx.newId('sp'))
-  return { doc: { ...place.doc, personen: [...place.doc.personen, person] }, person, row }
+  // …and the pin in the same act, so the one ↶ takes it with the rest
+  const bereiche = target === 'bereich' ? place.doc.bereiche.map((b) => (b.id === place.id ? { ...b, point } : b)) : place.doc.bereiche
+  const withPoint = target === 'person' ? { ...person, point } : person
+  return { doc: { ...place.doc, bereiche, personen: [...place.doc.personen, withPoint] }, person: withPoint, row }
 }
 
 export interface GefundenInput {
@@ -857,7 +875,7 @@ export function renameBereich(doc: SucheDoc, id: string, name: string, cx: Suche
 
 /** «＋ Bereich»: a place by its name, and optionally the Trupp that searches it — one act. A name
  *  the list already has is FOUND, not duplicated (and the Trupp, if one was picked, goes there). */
-export function addBereich(doc: SucheDoc, input: { name: string; trupp?: { label: string; id?: string } }, cx: SucheCx): { doc: SucheDoc; rows: SucheRow[]; id: string | null } {
+export function addBereich(doc: SucheDoc, input: { name: string; trupp?: { label: string; id?: string }; point?: SuchePoint }, cx: SucheCx): { doc: SucheDoc; rows: SucheRow[]; id: string | null } {
   const name = input.name.trim().replace(/\s+/g, ' ')
   if (!name) return { doc, rows: [], id: null }
   const found = findPlace(doc, name, cx.floorName)
@@ -866,7 +884,7 @@ export function addBereich(doc: SucheDoc, input: { name: string; trupp?: { label
   const rows: SucheRow[] = []
   if (!found) {
     const row: SucheRow = { id: cx.newId('sr'), at: cx.at, op: 'angelegt', text: fillTemplate(appConfig.copy.suche.rowAngelegt, { name }) }
-    const b: SucheBereich = { id: cx.newId('sb'), name, createdAt: cx.at, log: [row] }
+    const b: SucheBereich = { id: cx.newId('sb'), name, createdAt: cx.at, ...(input.point ? { point: input.point } : {}), log: [row] }
     d = { ...doc, bereiche: [...doc.bereiche, b] }
     id = b.id
     rows.push(row)
@@ -1014,6 +1032,62 @@ export function rowOwner(doc: SucheDoc, rowId: string): { personId?: string; ber
   if (p) return { personId: p.id }
   const b = doc.bereiche.find((x) => x.log.some((r) => r.id === rowId))
   return b ? { bereichId: b.id } : undefined
+}
+
+// ── pins: where places (and people without one) stand on the Karte and the plans ─────────
+
+/**
+ * One pin on a surface (26.09.2026, the owner's answer on the overlay): a place where somebody put
+ * it, coloured by its status, with a red ring while somebody is still missing there — and a person
+ * still missing who stands somewhere but belongs to no place, as a red pin of their own.
+ */
+export interface SuchePin {
+  /** the record's id — a tap opens the card on it */
+  id: string
+  kind: 'bereich' | 'person'
+  /** «Keller», «Wohnung 2. OG links · T1» (in Arbeit names the Trupp), «Muster Tim» */
+  label: string
+  /** a place's status; a person pin is always «vermisst» */
+  status: SucheBereichStatus | 'vermisst'
+  /** somebody is still missing here */
+  hot: boolean
+  point: SuchePoint
+}
+
+export function suchePins(doc: SucheDoc, floorName: (f: number) => string): SuchePin[] {
+  const o = sucheOrte(doc, floorName)
+  const out: SuchePin[] = []
+  for (const x of o.orte) {
+    const b = x.bereich
+    if (!b?.point) continue
+    const t = b.status === 'inArbeit' && b.trupp ? ` · ${truppShort(b.trupp)}` : ''
+    out.push({ id: b.id, kind: 'bereich', label: b.label + t, status: b.status, hot: x.hot, point: b.point })
+  }
+  // a person with a pin of their own: only while missing, and only without a place (a place's
+  // pin already stands for everybody there)
+  const placed = new Set(o.orte.filter((x) => x.bereich).flatMap((x) => x.personen.map((p) => p.id)))
+  for (const p of doc.personen) {
+    if (!p.point || placed.has(p.id)) continue
+    const v = personView(p)
+    if (v.missing <= 0) continue
+    out.push({ id: p.id, kind: 'person', label: v.group ? `${v.label} (${v.missing})` : v.label, status: 'vermisst', hot: true, point: p.point })
+  }
+  return out
+}
+
+/** The pins that stand on the Karte, as the Kroki's notes (lib/reportPdfDirect): the printed map
+ *  says what the screen said — «Suche: Keller · abgesucht» — in the status colour. They ride the
+ *  tactical layer, so they print exactly when the tactical symbols do. */
+export function sucheKrokiNotes(doc: SucheDoc | undefined, floorName: (f: number) => string, layer: LayerId): Entity[] {
+  if (!doc) return []
+  const C = appConfig.copy.suche
+  const color: Record<SuchePin['status'], string> = { vermisst: '#d62f2f', offen: '#5b6576', inArbeit: '#1f6fe5', teilweise: '#2e8f86', abgesucht: '#1e8a4a', nichtZugaenglich: '#b86e00' }
+  return suchePins(doc, floorName).filter((p) => p.point.coord).map((p): Entity => ({
+    id: `suche-${p.id}`, kind: 'note', layer, coord: p.point.coord!,
+    label: fillTemplate(C.krokiPin, { name: p.label, status: p.kind === 'person' ? C.status.vermisst : C.bereichStatus[p.status as SucheBereichStatus] })
+      + (p.kind === 'bereich' && p.hot ? ` · ${C.krokiHot}` : ''),
+    color: p.hot ? color.vermisst : color[p.status],
+  }))
 }
 
 // ── the Trupps, as the Suche names them ─────────────────────────────────────────────────────
