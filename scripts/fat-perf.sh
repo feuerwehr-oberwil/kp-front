@@ -35,6 +35,8 @@ trap cleanup EXIT
 [ "${FAT_SKIP_BUILD:-}" = 1 ] || pnpm build >/dev/null
 
 db_url="postgresql+asyncpg://kpfront:kpfront@localhost:${pg_port}/kpfront"
+# a throwaway key per run — the seeded PIN is hashed with it, and nothing outlives the run
+secret_key=$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')
 for preset in "${presets[@]}"; do
   cleanup
   storage=$(mktemp -d)
@@ -45,7 +47,7 @@ for preset in "${presets[@]}"; do
   (cd backend && DATABASE_URL=$db_url uv run alembic upgrade head >/dev/null 2>&1)
   if curl -sf "localhost:${port}/health" >/dev/null; then echo "port ${port} is already taken — set FAT_PORT" >&2; exit 1; fi
   (cd backend && DATABASE_URL=$db_url MEDIA_STORAGE_DIR=$storage SPA_DIR=../dist \
-    SECRET_KEY=fat-perf-0123456789abcdef0123456789abcdef0123456789abcdef \
+    SECRET_KEY="$secret_key" \
     exec setsid uv run uvicorn app.main:app --port "$port" --log-level warning >"$storage.log" 2>&1) &
   api_pid=$!
   until curl -sf "localhost:${port}/health" >/dev/null; do sleep 1; done
