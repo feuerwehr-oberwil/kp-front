@@ -1057,6 +1057,12 @@ to prod.
     NON-modal peek · half · full sheet the Suche had left with it on 26.09.2026.) The
     gesture needs the frame FLUSH with the bottom edge — which is why the phone Verlauf is a real
     bottom sheet now and no longer a card floating 8px off it.
+  - **A sheet's footer row is `SheetFoot`** (`.ui-sheet-foot`, 26.09.2026): `Sheet` draws it for
+    `footer`, and a bespoke frame whose footer is its bottom edge on a phone wears it (the Trupp
+    form, the Mittel note, the Georef transfer). ONE rule in 15-mobile.css insets it on a phone —
+    `max(20px, safe-area-inset-left/right)` and `16px + safe-area-inset-bottom` — at a weight a
+    surface's own footer class cannot undercut; never inset a sheet footer per surface (the Trupp
+    form's own rule lost to a later one and put its buttons into an iPhone's corners).
   - **One menu row, one wash.** Every row `Menu`/`ContextMenu` renders wears `ui-menu-item`
     (+ `ui-menu-danger`), which carries the hover (`--blue` at 8 %, gated on `hover: hover`), the
     keyboard `[data-highlighted]`, the `--press` wash and the `--r-ctl` row radius
@@ -1431,7 +1437,13 @@ to prod.
   Sicherungstrupp · Bereit · Draussen, «Drin» by urgency with the 2 s freeze, «Druck | Kontakt»
   with words, one `PressureSheet`. The tablet grid and the Tafel are NOT this board, except where
   a rule below says «every board». The rules:
-  - *The Trupp form is a bottom sheet there, with the due clocks above it* (D1 ⑥): at most two
+  - *The opened card is the row grown downwards* (owner, staging 26.09.2026): the same frame and
+    tone, the same line (`RowLine`: dot · name · clock) and the same «Druck 240 bar | Kontakt» pair
+    (`TruppPair`) in the same place, collapsed or open, in every tier — opening only ADDS the
+    Kennzeile (led by «#N» and, where there is one, the tier in words; the ⋯ at its end), the note,
+    Rückzug / Raus, the Sockel line and the Verlauf. No band, no second Kontakt, no Druck row. The
+    whole first line is the collapse toggle. The tablet grid and the Tafel keep the full card.
+ at most two
     due/overdue Trupps, most urgent first, each with a live «Kontakt» that confirms without
     leaving the form. The pinned set holds 2 s after a tap and the row just confirmed reads
     «✓ Bestätigt», disabled — it stays under the finger. The rows sit INSIDE the popup (under the

@@ -6,6 +6,7 @@ import { SheetGrip } from '../../components/SheetGrip'
 import { keyboardLift, useKeyboardInset } from '../useKeyboardInset'
 import { useDismissGrace } from './dismissGrace'
 import { SheetGrab } from './SheetGrab'
+import { SheetFoot } from './SheetFoot'
 import { useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
 
@@ -96,7 +97,7 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
             <Dialog.Close className="ip-x" aria-label={appConfig.copy.closeDialog}><Icon id="close" /></Dialog.Close>
           </div>
           <div className="ip-body">{children}</div>
-          {footer && <div className="ip-actions">{footer}</div>}
+          {footer && <SheetFoot className="ip-actions">{footer}</SheetFoot>}
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

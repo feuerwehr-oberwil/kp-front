@@ -37,6 +37,8 @@ const az = appConfig.copy.atemschutz
 /** «Trupp anmelden» names the door AND the form's own button (staging r3 N19, one word) — the
  *  door is the first on the page, the form's submit the last */
 const firstBtn = (name: string) => screen.getAllByRole('button', { name })[0]
+/** the phone's «Druck» — its name carries the last reported bar since 26.09.2026 («Druck 240 bar») */
+const druckName = new RegExp(`^${az.actPressure} \\d+ bar$`)
 const lastBtn = (name: string) => { const all = screen.getAllByRole('button', { name }); return all[all.length - 1] }
 // the doctrine the form starts a fresh cylinder at — the number a closed «Luft & Funk» prints
 const dz = atemschutzDoctrine()
@@ -410,7 +412,7 @@ describe('an abgeschlossener Einsatz (frozenAt)', () => {
 describe('the row ⇄ card toggle keeps its place', () => {
   afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
 
-  it('leaves the collapse chevron at the trailing edge, with the ⋯ inside it', () => {
+  it('leaves the collapse chevron at the trailing edge of the same line, and the ⋯ off that line', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     // the closed row: the chevron is the row's last child
@@ -418,12 +420,78 @@ describe('the row ⇄ card toggle keeps its place', () => {
     expect(row.lastElementChild!.className).toContain(s.trowChevron)
 
     fireEvent.click(row)
-    const head = document.querySelector(`.${s.cardHead}`)!
-    const chevron = screen.getByRole('button', { name: az.collapse })
+    // …opened, the row's first line IS the collapse control, its chevron still the last thing on it
+    const head = screen.getByRole('button', { name: new RegExp(az.collapse) })
+    expect(head.lastElementChild!.className).toContain(s.trowChevron)
+    // …and the ⋯ (whose menu carries «Entfernen») is nowhere on that line, and comes after it
     const menu = screen.getByRole('button', { name: az.cardMenu })
-    expect(head.lastElementChild).toBe(chevron)
-    // …and the ⋯ sits before it, never in the slot the chevron was tapped in
-    expect(chevron.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    expect(head.contains(menu)).toBe(false)
+    expect(head.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
+/* Owner on staging, 26.09.2026: «keep the same UI whether the card is collapsed or not (for
+ * Druck/Kontakt)». The opened card drew the clock again in a band, a full-width «Kontakt» and a
+ * «Druck» row — the same two buttons in a second shape, one tap after the first. Now the opened
+ * card is the row grown downwards: the same line, the same pair, the same tone, in every tier. */
+describe('the opened phone card wears the collapsed row’s line and pair', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const tiers: [string, number][] = [['normal', 1], ['fällig', 5.4], ['überfällig', 8]]
+  const snapshot = (frame: Element) => ({
+    tone: [...frame.classList].filter((c) => [s.trowWarn, s.trowCrit, s.trowIdle, s.trowOut, s.trowPlain].includes(c)),
+    line: frame.querySelector(`.${s.trowId}`)!.outerHTML + frame.querySelector(`.${s.trowClock}`)!.outerHTML,
+    pair: [...frame.querySelectorAll(`.${s.trowActs} > *`)].map((b) => `${b.className}|${b.textContent}`),
+  })
+
+  it.each(tiers)('draws the same line, the same «Druck | Kontakt» and the same tone — %s', (_label, contactAgoMin) => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.mocked(useIsPhone).mockReturnValue(true)
+      mount({ trupps: [{ ...aktivTrupp(), lastContactTime: iso(contactAgoMin * 60_000) }] })
+      const row = document.querySelector(`.${s.trow}`)!
+      const closed = snapshot(row)
+      fireEvent.click(row)
+      const open = snapshot(document.querySelector('[data-az-open]')!)
+      expect(open).toEqual(closed)
+      // two buttons, words on both, the bar on the Druck
+      expect(open.pair).toHaveLength(2)
+      expect(open.pair[0]).toContain(`${az.actPressure} 240 bar`)
+      expect(open.pair[1]).toContain(az.actContact)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the due and overdue colours of «Kontakt» on the opened card', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [
+      { ...aktivTrupp(), id: 'd', name: 'Due Dora', lastContactTime: iso(5.4 * 60_000) },
+      { ...aktivTrupp(), id: 'o', name: 'Over Otto', lastContactTime: iso(8 * 60_000) },
+    ] })
+    for (const [name, tier] of [['Due Dora', s.kontaktWarn], ['Over Otto', s.kontaktCrit]] as const) {
+      fireEvent.click(screen.getByText(name).closest(`.${s.trow}`)!)
+      const card = document.querySelector('[data-az-open]') as HTMLElement
+      expect(within(card).getByRole('button', { name: az.actContact }).className).toContain(tier)
+      // …and the tier said in WORDS once, at the head of the Kennzeile (never by colour alone)
+      expect(within(card).getByText(tier === s.kontaktWarn ? az.clockWarn : az.clockOverdue)).toBeTruthy()
+      fireEvent.click(within(card).getByRole('button', { name: new RegExp(az.collapse) }))
+    }
+  })
+
+  it('opens without the band, the big Kontakt and the Druck row the card used to add', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const props = mount({ trupps: [{ ...aktivTrupp(), no: 2 }] })
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    const card = document.querySelector('[data-az-open]') as HTMLElement
+    expect(card.querySelector(`.${s.band}`)).toBeNull()
+    expect(within(card).getAllByRole('button', { name: az.actContact })).toHaveLength(1)
+    expect(within(card).getAllByRole('button', { name: druckName })).toHaveLength(1)
+    // the Trupp's number, gone from the line, stands at the head of the Kennzeile
+    expect(card.querySelector(`.${s.trowHead}`)!.textContent).not.toContain('#2')
+    expect(card.querySelector(`.${s.kenn}`)!.textContent).toContain('#2')
+    // …and the pair works the same from here
+    fireEvent.click(within(card).getByRole('button', { name: az.actContact }))
+    expect(props.recordContact).toHaveBeenCalledWith('tr1')
   })
 })
 
@@ -756,12 +824,13 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(rows).toHaveLength(2)
     expect(document.querySelector(`.${s.card}`)).toBeNull() // nothing open yet
     fireEvent.click(rows.find((r) => r.textContent?.includes('Gerber'))!)
-    const card = document.querySelector(`.${s.card}`)!
+    // the opened phone card is the row grown downwards (26.09.2026) — in the row's own quiet tone
+    const card = document.querySelector('[data-az-open]')!
     expect(card.textContent).toContain('Gerber')
-    expect(card.classList.contains(s.cardPlain)).toBe(true)
+    expect(card.classList.contains(s.trowPlain)).toBe(true)
     // …and back, through the same control the Atemschutz half uses
-    fireEvent.click(screen.getByRole('button', { name: az.collapse }))
-    expect(document.querySelector(`.${s.card}`)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.collapse) }))
+    expect(document.querySelector('[data-az-open]')).toBeNull()
   })
 
   /* ⚠️ A work squad's log is real and stays — angemeldet / eingerückt / draussen is its
@@ -1309,6 +1378,21 @@ describe('the Reihenfolge menu', () => {
     expect(bar?.nextElementSibling?.className).toContain(s.modalFoot)
   })
 
+  // the owner's iPhone, 26.09.2026: the footer ran into the display's rounded corners — it is the
+  // shared sheet footer now, whose one rule pays the safe area (overlays/SheetFoot, 15-mobile.css)
+  it('draws its footer as the shared sheet footer, so it pays the phone’s safe area', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [aktivTrupp()] })
+    fireEvent.click(firstBtn(az.newTrupp))
+    const foot = document.querySelector(`.${s.modalFoot}`)!
+    expect(foot.classList.contains('ui-sheet-foot')).toBe(true)
+    expect(foot.closest('[role="dialog"]')).toBeTruthy()
+    // …and the form's own module no longer insets it on a phone — the rule that tried never
+    // applied (a later base rule of the same weight won), and a working copy would drift
+    const css = readFileSync(`${process.cwd()}/src/components/Atemschutz.module.css`, 'utf8')
+    expect(css).not.toMatch(/\.modalFoot \{[^}]*(padding-inline|padding-bottom|safe-area)/)
+  })
+
   /* ⚠️ «X ist bereits in einem anderen Trupp» is fixed in the MANNSCHAFT and nowhere else
    * (05.09.): the sentence names a person, and taking them out of this Trupp is section 1's job.
    * It used to be an inert <p> that only rang itself, leaving whichever section happened to be
@@ -1583,7 +1667,7 @@ describe('the phone board (full app)', () => {
   it('«Druck» on the row opens the picker and one tap records the reading', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const props = mount({ trupps: [inField('a', 'Anna', 1)] })
-    fireEvent.click(screen.getByRole('button', { name: az.actPressure }))
+    fireEvent.click(screen.getByRole('button', { name: druckName }))
     fireEvent.click(screen.getByRole('button', { name: '200' }))
     expect(props.recordPressure).toHaveBeenCalledWith('a', 200)
   })
@@ -2141,14 +2225,14 @@ describe('staging: the first Druckmeldung says what it does', () => {
   it('names the replaced Eingangsdruck on the sheet within the first minutes', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [justIn()] })
-    fireEvent.click(screen.getByRole('button', { name: az.actPressure }))
+    fireEvent.click(screen.getByRole('button', { name: druckName }))
     expect(screen.getByText(new RegExp(fillTemplate(az.pressureSheetFirst, { bar: 300 })))).toBeTruthy()
   })
 
   it('keeps the ordinary line for an Eingangsdruck set on purpose', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [justIn({ readings: [{ t: iso(60_000), bar: 300, kind: 'entry', measured: true }] })] })
-    fireEvent.click(screen.getByRole('button', { name: az.actPressure }))
+    fireEvent.click(screen.getByRole('button', { name: druckName }))
     expect(screen.queryByText(new RegExp(fillTemplate(az.pressureSheetFirst, { bar: 300 })))).toBeNull()
     expect(screen.getByText(new RegExp(az.pressureSheetHint))).toBeTruthy()
   })
