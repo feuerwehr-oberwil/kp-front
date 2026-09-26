@@ -10,7 +10,10 @@
     "strict": true,
     "noEmit": true,
     "isolatedModules": true,
-    "types": ["node"]
+    // e2e/fat-incident.perf.ts imports the fat-incident generator, and through its types a slice
+    // of src/ – which reads import.meta.env and has .tsx modules
+    "jsx": "react-jsx",
+    "types": ["node", "vite/client"]
   },
   "include": ["e2e/**/*.ts", "playwright.config.ts"]
 }
