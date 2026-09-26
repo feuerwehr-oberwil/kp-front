@@ -29,25 +29,29 @@ export const MELDUNG_RANK = {
   alarm: 2,
   /** a Wiedervorlage that has come due — persists until erledigt, never expires silently */
   reminder: 3,
+  /** the wind has turned (≥ 45° at ≥ 10 km/h, held over two readings) — the server observed it
+   *  and wrote the Verlauf row; this is that row, once per device (24.09.2026, D2). Above the
+   *  GPS-follow row: a Lüfter blowing the wrong way is about the crew inside. */
+  wind: 4,
   /** a vehicle a drawn Leitung is attached to has driven off; its anchor is off-screen */
-  gps: 4,
+  gps: 5,
   /** the alarm source's guesses have not been checked yet */
-  review: 5,
+  review: 6,
   /** another tab of this browser holds the edit lock */
-  tabLock: 6,
+  tabLock: 7,
   /** the tactical symbol pack failed to load — Karte and Kroki run without glyphs */
-  symbols: 7,
+  symbols: 8,
   /** offline with no cached basemap for this view — the map is a flat colour */
-  basemap: 8,
+  basemap: 9,
   /** the device has been offline past the grace window — edits are piling up locally
    *  (syncAlert · createOfflinePresence); stands until the link is back */
-  offline: 9,
+  offline: 10,
   /** the session cookie expired — the sync is standing still until the operator signs in again */
-  session: 10,
+  session: 11,
   /** a new build is waiting for the next app start */
-  update: 11,
+  update: 12,
   /** «KP Front als App installieren» */
-  install: 12,
+  install: 13,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK

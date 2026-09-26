@@ -20,6 +20,8 @@ import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
+import { fahrtenText } from '../lib/vehiclePresence'
+import { VehicleGpsTable } from './VehicleGpsTable'
 import type { ZeitKind } from '../lib/alarmzeiten'
 import type { AssignableRole } from '../lib/roleAssignment'
 import { deploymentName, getDeploymentConfig, reportLinks } from '../lib/deploymentConfig'
@@ -2001,10 +2003,13 @@ export function ReportPreflight({
                           <label key={c.id} className="rz-row">
                             <span className="rz-name">
                               {c.label}
-                              {(v?.vorOrt || v?.zurueck) && (
+                              {(v?.vorOrt || v?.zurueck || fahrtenText(v)) && (
                                 <span className="rz-sub">
-                                  {v?.vorOrt ? ` ${P.vorOrtShort} ${clockOf(v.vorOrt)}` : ''}
-                                  {v?.zurueck ? ` · ${P.zurueckShort} ${clockOf(v.zurueck)}` : ''}
+                                  {[
+                                    v?.vorOrt ? `${P.vorOrtShort} ${clockOf(v.vorOrt)}` : '',
+                                    v?.zurueck ? `${P.zurueckShort} ${clockOf(v.zurueck)}` : '',
+                                    fahrtenText(v),
+                                  ].filter(Boolean).map((t, i) => (i ? ` · ${t}` : ` ${t}`)).join('')}
                                 </span>
                               )}
                             </span>
@@ -2017,6 +2022,10 @@ export function ReportPreflight({
                       </div>
                     </div>
                   )}
+                  {/* What the SERVER observed from GPS (D2, 24.09.2026) — display only, and read
+                      off the REMOTE blob: the server is its only writer, so a local copy being
+                      edited above has nothing to add to it. */}
+                  <VehicleGpsTable fahrzeuge={remoteFahrzeuge} />
                 </>
               )
             })()}
