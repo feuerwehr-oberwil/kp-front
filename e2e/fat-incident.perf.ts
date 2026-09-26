@@ -1,4 +1,5 @@
 import { loadavg } from 'node:os'
+import { gzipSync } from 'node:zlib'
 import type { APIRequestContext, Page } from '@playwright/test'
 import { FAT_PRESETS, fatIncident, type FatIncident, type FatPreset } from '../src/lib/fatIncident'
 // the guarded `test` (e2e/guard.ts): a client error or a render storm on a fat incident fails the run
@@ -93,6 +94,8 @@ test('server: build the incident up, save by save', async ({ page }) => {
   const saveWindow = { from: Date.now(), to: 0 }
   const putMs: number[] = []
   const sizes: number[] = []
+  /** what one snapshot of each save takes on disk — gzipped as app/audit · _encode_snapshot does */
+  const stored: number[] = []
   const journalMs: number[] = []
   const wakeLag: number[] = []
   let journalSent = 0
@@ -116,8 +119,10 @@ test('server: build the incident up, save by save', async ({ page }) => {
         await ok(await api.post(`${base}/events`, { data: { events: evs.slice(k, k + 500).map((e) => ({ op_type: e.op_type, occurred_at: e.occurred_at, payload: e.payload_json ?? {}, client_id: `fat-${e.seq}` })) } }), 'events')
       }
       eventsSent += evs.length
-      const body = JSON.stringify({ workspace: fat.stateAt(f), base_rev: rev })
+      const state = fat.stateAt(f)
+      const body = JSON.stringify({ workspace: state, base_rev: rev })
       sizes.push(body.length)
+      stored.push(gzipSync(JSON.stringify(state), { level: 6 }).length)
       const woke = wakes.length
       const [res, t] = await timed(async () => ok(await api.put(`${base}/workspace?slim=1`, { data: body, headers: { 'content-type': 'application/json' } }), 'save'))
       putMs.push(t)
@@ -133,14 +138,14 @@ test('server: build the incident up, save by save', async ({ page }) => {
   await beat
 
   // the full save count the crew would have made, each one a snapshot of the blob as it stood
-  const avg = sizes.reduce((a, b) => a + b, 0) / sizes.length
+  const avg = stored.reduce((a, b) => a + b, 0) / stored.length
   const q = (xs: number[], from: number, to: number) => xs.slice(Math.floor(from * xs.length), Math.ceil(to * xs.length))
   line(`\n── ${PRESET} (×${fat.options.scale}, ${fat.options.hours} h) ─────────────────────────────`)
   // a shared machine skews every number below — a run under load is not comparable to one without
   line(`machine load           ${loadavg().map((x) => x.toFixed(1)).join(' / ')} (1/5/15 min)`)
   line(`blob at the end        ${kb(sizes[sizes.length - 1])}   ·  Verlauf ${fat.journal.length} rows  ·  ${fat.events.length} audit events`)
   line(`saves                  ${fat.saves} in the real incident, ${SAMPLED_SAVES} sent`)
-  line(`snapshot storage       ≈ ${kb(avg * fat.saves)} for this incident (one full blob per save)`)
+  line(`snapshot storage       ≈ ${kb(avg * fat.saves)} for this incident (one gzipped blob per save — synthetic data compresses worse than real, so this is an upper bound)`)
   line(`save (PUT) p50/p95     first quarter ${ms(pct(q(putMs, 0, 0.25), 50))}/${ms(pct(q(putMs, 0, 0.25), 95))}  ·  last quarter ${ms(pct(q(putMs, 0.75, 1), 50))}/${ms(pct(q(putMs, 0.75, 1), 95))}`)
   line(`follower wake p50/p95  ${ms(pct(wakeLag, 50))}/${ms(pct(wakeLag, 95))}   (save answered → other device has the new blob)`)
   line(`heartbeat p50/p99/max  ${ms(pct(heartbeat, 50))}/${ms(pct(heartbeat, 99))}/${ms(Math.max(...heartbeat))}   (cheapest request while saves run — event-loop stalls)`)

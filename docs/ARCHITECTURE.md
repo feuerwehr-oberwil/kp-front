@@ -111,8 +111,8 @@ system, user CRUD, geodata/objects) gate on a secret-backed admin-session cookie
 incident editor role, and it is fail-closed – an unset `ADMIN_SECRET` returns 403 on every
 admin endpoint rather than falling back to the editor PIN.
 Incident state is one workspace blob per incident; the audit trail (`audit.py`) hash-chains
-every change and keeps fold snapshots so an incident can be replayed and verified
-(`GET /api/incidents/{id}/verify`).
+every change and keeps fold snapshots (one gzipped copy of the blob per save) so an incident
+can be replayed and verified (`GET /api/incidents/{id}/verify`).
 
 ## Configuration: four layers
 
