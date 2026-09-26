@@ -50,9 +50,13 @@ chunk. No bundle references it, and the service worker's precache excludes `*.ma
 precache maps. To read a field stack, see [`docs/SOURCEMAPS.md`](docs/SOURCEMAPS.md). A client
 crash report is ONE log line (`kpfront.clienterror`, newlines as « ⏎ », each field bounded). The
 client sends a repeated signature as a counter (`repeat=×N since=…`) and never drops it
-(`src/lib/reportError.ts`). `app.admin_postcheck` parses these lines back per device, the
-morning after every Einsatz (read-only; [`backend/README.md`](backend/README.md)). If you change
-the line's shape, update `parse_crash_message` and its test.
+(`src/lib/reportError.ts`). The one thing it does not report is a bare fetch failure while
+`navigator.onLine` is false (`isOfflineNetworkNoise`, 24.09.2026). That is the device being
+offline, not a crash. The reports could not leave an offline device anyway, but the counter of
+failed basemap tiles went out after reconnect as «Failed to fetch ×N». `app.admin_postcheck`
+parses these lines back per device, the morning after every Einsatz (read-only;
+[`backend/README.md`](backend/README.md)). If you change the line's shape, update
+`parse_crash_message` and its test.
 
 **Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
 (plus a few components); the backend uses pytest. The backend has a ruff pre-commit hook; the
@@ -1070,8 +1074,14 @@ to prod.
   `ci.yml` go **fully green**, *then* merge – never merge a red branch. `ci.yml` runs three gate
   jobs: *Frontend (tsc + build)* – eslint + `tsc --noEmit` + vitest + `vite build`; *Backend
   (ruff + alembic + pytest)*; *Image (hadolint + build + smoke)* – builds & boots the real
-  production container and drives the Playwright white-screen smoke (`e2e/smoke.spec.ts`) against
-  it. An **urgent prod hotfix** may still go straight to `main` (see the commit bullets / the 3am
+  production container and drives the Playwright e2e against it: the white-screen smoke
+  (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026
+  (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp,
+  and then three devices on one login). ⚠️ **Every e2e test fails when the app reports a client
+  error or a render storm** (`e2e/guard.ts`, 24.09.2026). A spec imports `test` from
+  `e2e/helpers`, never from `@playwright/test` (eslint enforces it). A report a test provokes on
+  purpose is listed with `expectedClientErrors`; nothing turns the guard off (`e2e/README.md`).
+  An **urgent prod hotfix** may still go straight to `main` (see the commit bullets / the 3am
   tenet) – but run `pnpm lint && pnpm test` (and ideally `pnpm build`) locally first. For
   interactive changes a unit test can't cover, use `/code-review` on the diff and `/verify` to
   drive the real app. Keep the house rule: every new mutating feature ships with a `src/lib` test.
