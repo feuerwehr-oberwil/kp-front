@@ -194,7 +194,7 @@ import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
 import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
-import { SUCHE_DOCK_INSET, sucheChangeWords, type SucheComposerLink, bereichStatusOf, emptySuche, openBereiche, pendingAsks, personenViews, sanitizeSuche, stackKeyOf, storeyBadges, storeyBereichId, sucheAppClass, sucheFocusFor, sucheGroups, sucheSurfaceFor, truppFloor, vermisstAbschlussMessage, vermisstCount, type SucheFocus, type SucheStack, type TruppHere } from './lib/suche'
+import { SUCHE_DOCK_INSET, composerRowSuffix, type SucheComposerLink, bereichStatusOf, emptySuche, openBereiche, pendingAsks, personenViews, sanitizeSuche, stackKeyOf, storeyBadges, storeyBereichId, sucheAppClass, sucheFocusFor, sucheGroups, sucheSurfaceFor, truppFloor, vermisstAbschlussMessage, vermisstCount, type SucheFocus, type SucheStack, type TruppHere } from './lib/suche'
 import { SucheDock, SuchePhoneSheet } from './components/suche/SucheSurface'
 import { SuchePanel, type FundPreset, type SucheTab } from './components/suche/SuchePanel'
 import { SucheAskMeldungen } from './components/suche/SucheAskMeldungen'
@@ -2526,8 +2526,9 @@ export function IncidentWorkspace({
       // Verlauf, Rapport and the hash chain all read this one string, and a row whose meaning
       // lived in a side field would read differently in the app than it does on paper. The
       // structured fields travel along for filtering, not for display.
-      // …and the status change it carried says so IN the row: «… · Suche: Tim Muster gefunden»
-      icon, text: composeJournalText(body, d) + (sucheRef && sucheLink ? fillTemplate(appConfig.copy.suche.composerRowSuffix, { change: sucheChangeWords(sucheLink) }) : ''),
+      // …and the status change it carried says so IN the row («… · Suche: Tim Muster gefunden»),
+      // unless the sentence already says it (lib/suche · composerRowSuffix)
+      icon, text: composeJournalText(body, d) + (sucheRef && sucheLink ? composerRowSuffix(body, sucheLink) : ''),
       kind, entryType: d.entryType, reminder,
       ...(sucheRef ? { suche: sucheRef } : {}),
       audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,

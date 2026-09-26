@@ -1193,6 +1193,25 @@ export function sucheChangeWords(l: SucheComposerLink): string {
     : fillTemplate(S.composerChangeNeu, { name: l.name })
 }
 
+/**
+ * The Verlauf row's «· Suche: …» for an entry that changed a status on its way — or nothing, when
+ * the sentence already SAYS that change (confirmation check 26.09.2026): «3 von Klasse 4b
+ * gefunden» was written as «3 von Klasse 4b gefunden · Suche: 3 von Klasse 4b gefunden». Said
+ * means: every word of the name, the new status word («gefunden» / «vermisst») and — for a group —
+ * the count stand in the sentence. Otherwise the structured part is appended, once.
+ */
+export function composerRowSuffix(text: string, l: SucheComposerLink): string {
+  const S = appConfig.copy.suche
+  const said = new Set(wordsOf(text))
+  const name = l.kind === 'gefunden' ? l.label : l.name
+  const status = norm(l.kind === 'gefunden' ? S.status.gefunden : S.status.vermisst)
+  const count = l.kind === 'gefunden' && l.n != null
+    ? said.has(String(l.n)) || (l.n <= S.countWords.length && said.has(S.countWords[l.n - 1]))
+    : true
+  const says = wordsOf(name).every((w) => said.has(w)) && said.has(status) && count
+  return says ? '' : fillTemplate(S.composerRowSuffix, { change: sucheChangeWords(l) })
+}
+
 export function sucheLinkLabel(l: SucheComposerLink): string {
   const S = appConfig.copy.suche
   if (l.kind === 'gefunden' && l.n != null) return fillTemplate(S.composerKnownGroup, { name: l.label, n: l.n, of: l.of ?? l.n })

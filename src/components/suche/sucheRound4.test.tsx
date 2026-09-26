@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { addPerson, composerFoundLink, emptySuche, personenViews, suggestSuchePersonen, type SucheCx } from '../../lib/suche'
+import { addPerson, composerFoundLink, composerRowSuffix, emptySuche, personenViews, suggestSuchePersonen, type SucheCx } from '../../lib/suche'
 import { HEAD_FIT_STEPS } from '../../lib/useHeadFit'
 import { floorLabel } from '../../lib/whiteboard'
 import { JournalComposer } from '../JournalComposer'
@@ -76,5 +76,24 @@ describe('R1 · the head drops ↷ before any chip gives, and no chip ever loses
     expect(css).not.toMatch(/\.topbar\.fit-\d+[^{]*:is\(\.tb-suche, \.tb-az\) > \.i \{\s*display:\s*none/)
     expect(css).not.toMatch(/\.topbar\.fit-\d+[^{]*\.tb-(suche|az)[^{]*> \.i[^{]*\{\s*display:\s*none/)
     expect(css).toMatch(/\.topbar :is\(\.tb-az, \.tb-suche\) \{ min-width: var\(--tap\)/)
+  })
+})
+
+describe('the Verlauf row says the change once', () => {
+  const link = (text: string) => { const v = suggestSuchePersonen(text, world())[0]; return composerFoundLink(text, v) }
+  it.each([
+    ['3 von Klasse 4b gefunden', ''],
+    ['Klasse 4b: drei gefunden', ''],
+    ['Klasse 4b: 3 gefunden, Rest noch im Keller', ''],
+    ['3 Kinder der Klasse 4b am Sammelplatz', ' · Suche: 3 von Klasse 4b gefunden'],
+    ['Klasse 4b gefunden', ' · Suche: 1 von Klasse 4b gefunden'],
+    ['Eva Beispiel gefunden', ''],
+    ['Eva Beispiel am Sammelplatz', ' · Suche: Eva Beispiel gefunden'],
+  ])('«%s» → «%s»', (text, suffix) => {
+    expect(composerRowSuffix(text, link(text))).toBe(suffix)
+  })
+
+  it('a new person reported in the sentence is not reported twice', () => {
+    expect(composerRowSuffix('Hauswart meldet: Tim Muster vermisst', { kind: 'neu', name: 'Tim Muster' })).toBe('')
   })
 })
