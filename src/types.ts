@@ -516,6 +516,11 @@ export interface TimelineEvent {
    *  staging r3): a Kontakt from 14:44 that arrived at 14:47, after a 14:45 close, keeps its
    *  place in time — and still prints as a Nachtrag, because it reached the record late. */
   receivedAfterClose?: boolean
+  /** Written BY the Abschluss itself, between the operator's confirm and the close — the crews it
+   *  went over, the ones it stood down (staging r6, F3). Part of the close, never a Nachtrag, even
+   *  when the device's clock put it a moment past the server's `closed_at` (lib/verlauf ·
+   *  isNachtrag bounds how far past). */
+  atClose?: boolean
   /** A server boundary row: the Einsatz was closed or reopened here (backend · append_system_row).
    *  What the clients key the reopen's clock restart on — never the German sentence. */
   lifecycle?: 'closed' | 'reopened'

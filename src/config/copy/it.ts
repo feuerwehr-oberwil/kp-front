@@ -2476,6 +2476,9 @@ export const it: Localizable<Copy> = {
     errorTitle: 'Il server non risponde.',
     errorHint: 'Riprovare. Se il problema persiste, avvisare il comando d\'intervento.',
     retry: 'Riprova',
+    closedTitle: 'Intervento chiuso',
+    closedAt: 'Chiuso alle {time}.',
+    closedHint: 'Se l’intervento viene riaperto, il tabellone ricompare qui da solo.',
     unavailable: 'Questo intervento non è raggiungibile al momento. Ricarica la pagina appena hai di nuovo segnale.',
   },
   standingLink: {

@@ -15,10 +15,22 @@ import type { TimelineEvent } from '../types'
  *  server clock is UTC — the client localises); legacy rows fall back to their baked t. */
 export const rowTime = (e: TimelineEvent): string => (e.at ? formatTime(new Date(e.at)) : e.t)
 
+/** How far past the Einsatzende a row written BY the Abschluss may be stamped and still count as
+ *  part of the close — the backend's clock tolerance for a closed Einsatz (api/incidents ·
+ *  CLOSED_CLOCK_TOLERANCE), so the flag can never carry a real Nachtrag off the paper. */
+export const AT_CLOSE_TOLERANCE_MS = 120_000
+
 /** appended after the Einsatzende (closed_at) → renders as a Nachtrag — and so does a row the
- *  server received while the Einsatz was closed, whatever time it carries (`receivedAfterClose`) */
-export const isNachtrag = (e: TimelineEvent, closedAt?: string | null): boolean =>
-  !!e.receivedAfterClose || (!!closedAt && !!e.at && Date.parse(e.at) > Date.parse(closedAt))
+ *  server received while the Einsatz was closed, whatever time it carries (`receivedAfterClose`).
+ *  ⚠️ …except what the Abschluss wrote on its way to the close (staging r6, F3): «Trupp … beim
+ *  Abschluss noch drin» was stamped 0.6 s after the server's `closed_at` and printed as a
+ *  Nachtrag beside an «Einsatz abgeschlossen» of the same minute that did not. */
+export const isNachtrag = (e: TimelineEvent, closedAt?: string | null): boolean => {
+  const close = closedAt ? Date.parse(closedAt) : Number.NaN
+  const at = e.at ? Date.parse(e.at) : Number.NaN
+  if (e.atClose && Number.isFinite(close) && Number.isFinite(at) && at <= close + AT_CLOSE_TOLERANCE_MS) return false
+  return !!e.receivedAfterClose || (Number.isFinite(close) && Number.isFinite(at) && at > close)
+}
 
 export interface DayGroup {
   /** localized date label for the separator — null for today's rows (no separator) */

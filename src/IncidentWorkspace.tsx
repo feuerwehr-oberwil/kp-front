@@ -2200,6 +2200,11 @@ export function IncidentWorkspace({
   // …and the row for a crew the Abschluss closes over (staging r3 F4), pointed the same way
   const noteInsideRef = useRef<(ts: Trupp[]) => void>(() => {})
   const noteInsideAtClose = useCallback((ts: Trupp[]) => noteInsideRef.current(ts), [])
+  // What the Abschluss writes on its way to the close is part of the close (staging r6, F3):
+  // `pushEvent` marks every row made between the confirm and the close's answer `atClose`, so it
+  // never prints as a Nachtrag for being stamped a moment past the server's `closed_at`.
+  const closingRowsRef = useRef(false)
+  const markClosing = useCallback((on: boolean) => { closingRowsRef.current = on }, [])
   const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
@@ -2211,6 +2216,7 @@ export function IncidentWorkspace({
     // after it they would be judged against a closed Einsatz. After the stand-down and the
     // «beim Abschluss noch drin» rows (#227), so those go up with them.
     flushOutboxes: flushRecordOutboxes,
+    markClosing,
   })
   // --- the Atemschutz clocks across «Wieder öffnen» (staging r3, F4; lib/reopenClocks) ----------
   // The newest close/reopen boundary in the Verlauf, the server's own rows. Right after a reopen
@@ -2422,7 +2428,7 @@ export function IncidentWorkspace({
     // ⚠️ Two rows in the same millisecond must never share an id — the server's idempotency skip
     // silently swallows the second (legal record). A per-mount counter kept ONE device's rows
     // apart but not two devices' (post-mortem 23.09.2026): newRowId adds the random tail (lib/ids).
-    journal.append({ id: id ?? newRowId(), t: formatTime(new Date(at)), at, ...rest })
+    journal.append({ id: id ?? newRowId(), t: formatTime(new Date(at)), at, ...rest, ...(closingRowsRef.current ? { atClose: true } : {}) })
   }
   // map events keep the positional signature, so every existing call site is unchanged
   // `opts` carries the two things a row may need that are not part of its sentence: `rowId`

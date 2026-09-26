@@ -15,7 +15,8 @@ import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { AuthProvider, useAuth } from '../lib/auth'
 import App from '../App'
-import { openIncidentLink, type LinkFailure } from '../lib/incidentLink'
+import { LINK_CLOSED_FOLLOW_MS, exchangeLinkToken, openIncidentLink, type LinkFailure } from '../lib/incidentLink'
+import { fillTemplate, hhmm } from '../lib/format'
 import { TERMINAL_PATH, linkKindFromToken, linkTokenFromPath } from '../lib/linkMode'
 import StandingApp from './StandingApp'
 
@@ -24,7 +25,7 @@ type State =
   /** the incident isn't in kp-front yet — the exchange is retrying behind this screen */
   | { phase: 'pending' }
   | { phase: 'ok' }
-  | { phase: 'failed'; reason: LinkFailure }
+  | { phase: 'failed'; reason: LinkFailure; closedAt?: string | null }
 
 /** One card, one instruction. Retry is offered only where waiting or tapping can change the
  *  answer — an expired link and a station that never enabled the feature will not fix
@@ -37,6 +38,7 @@ function LinkMessage({ reason, onRetry }: { reason: LinkFailure; onRetry: () => 
     disabled: { title: C.disabledTitle, hint: C.disabledHint, canRetry: false },
     offline: { title: C.offlineTitle, hint: C.offlineHint, canRetry: true },
     error: { title: C.errorTitle, hint: C.errorHint, canRetry: true },
+    closed: { title: C.closedTitle, hint: C.closedHint, canRetry: false }, // rendered by ClosedCard
   }
   const { title, hint, canRetry } = said[reason]
   return (
@@ -47,6 +49,26 @@ function LinkMessage({ reason, onRetry }: { reason: LinkFailure; onRetry: () => 
         <p>{title}</p>
         <p className="cv-hint">{hint}</p>
         {canRetry && <button type="button" className="cv-btn" onClick={onRetry}>{C.retry}</button>}
+      </div>
+    </div>
+  )
+}
+
+/** The Einsatz this link belongs to is CLOSED (staging r6, F2). Not a failure to act on — a state
+ *  to wait out: the page asks again once a minute and whenever the phone comes back to it
+ *  (LinkBoot), so «Wieder öffnen» brings the board back without anyone tapping anything. Until
+ *  then it says when it was closed, and nothing here invites a retry. */
+function ClosedCard({ closedAt }: { closedAt?: string | null }) {
+  const C = appConfig.copy.incidentLink
+  const at = closedAt ? new Date(closedAt) : null
+  return (
+    <div className="cv-shell">
+      <IconSprite />
+      <div className="cv-card cv-center" role="status" data-link-closed>
+        <Icon id="lock" />
+        <p>{C.closedTitle}</p>
+        {at && Number.isFinite(at.getTime()) && <p className="cv-hint">{fillTemplate(C.closedAt, { time: hhmm(at) })}</p>}
+        <p className="cv-hint">{C.closedHint}</p>
       </div>
     </div>
   )
@@ -72,11 +94,39 @@ function LinkBoot({ token }: { token: string }) {
   useEffect(() => {
     let alive = true
     void openIncidentLink(token, { onPending: () => { if (alive) setState({ phase: 'pending' }) } })
-      .then((r) => { if (alive) setState(r.ok ? { phase: 'ok' } : { phase: 'failed', reason: r.reason }) })
+      .then((r) => { if (alive) setState(r.ok ? { phase: 'ok' } : { phase: 'failed', reason: r.reason, closedAt: r.closedAt }) })
     return () => { alive = false }
   }, [token, attempt])
 
   const retry = () => { setState({ phase: 'opening' }); setAttempt((n) => n + 1) }
+
+  // ⚠️ A CLOSED Einsatz is FOLLOWED, not given up on (staging r6, F2). The Atemschutz page
+  // reloaded after the close used to land on «eben erst eingetroffen» → «nicht abrufbar» and
+  // stay there after «Wieder öffnen» until somebody tapped «Erneut versuchen». Once a minute —
+  // and at once when the phone is looked at again — the exchange is asked quietly; a reopen
+  // opens the board, anything else (no signal, still closed) keeps the card as it is.
+  const following = state.phase === 'failed' && state.reason === 'closed'
+  useEffect(() => {
+    if (!following) return
+    let alive = true
+    const ask = () => {
+      void exchangeLinkToken(token).then((r) => {
+        if (!alive) return
+        if (r.ok) setState({ phase: 'ok' })
+        else if (r.reason === 'closed') setState({ phase: 'failed', reason: 'closed', closedAt: r.closedAt })
+      })
+    }
+    const timer = window.setInterval(ask, LINK_CLOSED_FOLLOW_MS)
+    const onVisible = () => { if (document.visibilityState === 'visible') ask() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', ask)
+    return () => {
+      alive = false
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', ask)
+    }
+  }, [following, token])
 
   // The AuthProvider mounts only AFTER the exchange: it probes /me once on mount, so mounting
   // it earlier would have it settle on "logged out" before the session cookie exists.
@@ -99,6 +149,7 @@ function LinkBoot({ token }: { token: string }) {
     )
   }
 
+  if (state.reason === 'closed') return <ClosedCard closedAt={state.closedAt} />
   return <LinkMessage reason={state.reason} onRetry={retry} />
 }
 

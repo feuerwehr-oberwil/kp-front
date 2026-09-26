@@ -2021,3 +2021,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .surfaceFrozen .bandVal, .surfaceFrozen .trowClockVal, .surfaceFrozen .tabClock { color: var(--ink-dim); animation: none; }
 .surfaceFrozen .band { background: var(--fill-soft, rgba(0, 0, 0, .045)); }
 .surfaceFrozen .bandWord, .surfaceFrozen .trowState { color: var(--ink-faint); }
+/* …and the empty Sicherungstrupp slot (staging r6, F3): «Kein Sicherungstrupp · 2 Trupps sind drin»
+   is a fact about the board at the close, not a call to act — the dashed amber was the one
+   coloured warning left on a neutral closed Tafel. Same words, the frozen tone. */
+.surfaceFrozen .safetyNone { border-color: var(--glass-edge); background: var(--surface); }
+.surfaceFrozen .safetyNoneTxt b { color: var(--ink-dim); }

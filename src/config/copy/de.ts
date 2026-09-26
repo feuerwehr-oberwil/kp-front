@@ -4003,6 +4003,11 @@ export const de = {
     errorTitle: 'Der Server antwortet nicht.',
     errorHint: 'Bitte nochmals versuchen. Bleibt es dabei: bei der Einsatzleitung melden.',
     retry: 'Erneut versuchen',
+    // an Atemschutz-Link reloaded while its Einsatz is closed (staging r6, F2): the page asks
+    // once a minute and opens the board by itself after «Wieder öffnen»
+    closedTitle: 'Einsatz abgeschlossen',
+    closedAt: 'Abgeschlossen um {time}.',
+    closedHint: 'Wird der Einsatz wieder geöffnet, erscheint die Tafel hier von selbst.',
     // the Einsatz could not be loaded after opening the link (signal gone) – the landing page
     // says so instead of showing an empty incident list
     unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',

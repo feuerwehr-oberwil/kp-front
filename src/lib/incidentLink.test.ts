@@ -41,6 +41,18 @@ describe('exchangeLinkToken', () => {
     await expect(exchangeLinkToken(TOKEN)).resolves.toEqual({ ok: false, reason: 'notReady' })
   })
 
+  it('409 incident_closed (the Atemschutz link, staging r6 F2) → closed, with the time it names', async () => {
+    const e = new ApiError(409, 'Einsatz ist abgeschlossen – nicht mehr übernommen')
+    e.code = 'incident_closed'
+    e.data = { code: 'incident_closed', closed_at: '2026-09-26T01:12:00+00:00' }
+    apiPost.mockRejectedValue(e)
+    await expect(exchangeLinkToken(TOKEN)).resolves.toEqual({ ok: false, reason: 'closed', closedAt: '2026-09-26T01:12:00+00:00' })
+    // …and it is not retried as «noch nicht verfügbar»: that loop is for a 404 only
+    apiPost.mockClear()
+    await expect(openIncidentLink(TOKEN, { sleep: async () => {} })).resolves.toMatchObject({ ok: false, reason: 'closed' })
+    expect(apiPost).toHaveBeenCalledTimes(1)
+  })
+
   it('status 0 (no connection / timeout) → offline, not a server verdict', async () => {
     apiPost.mockRejectedValue(new ApiError(0, 'Server nicht erreichbar'))
     await expect(exchangeLinkToken(TOKEN)).resolves.toEqual({ ok: false, reason: 'offline' })

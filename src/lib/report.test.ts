@@ -1253,4 +1253,16 @@ describe('journalRows · Nachtrag (staging r3)', () => {
     expect(byText.get('Trupp 1: Kontakt')?.nachtrag).toBe(false)
     expect(byText.get('Trupp 2: Kontakt')?.nachtrag).toBe(true)
   })
+
+  it('prints what the Abschluss itself wrote as part of the close (staging r6, F3)', () => {
+    const closed = '2026-07-02T18:00:00Z'
+    const events = [
+      { id: 'close', t: '', at: closed, icon: 'lock', text: 'Einsatz abgeschlossen', lifecycle: 'closed' as const },
+      { id: 'inside', t: '', at: '2026-07-02T18:00:00.600Z', icon: 'logout', text: 'Trupp 2 beim Abschluss noch drin', kind: 'team' as const, atClose: true },
+      { id: 'later', t: '', at: '2026-07-02T18:30:00Z', icon: 'radio', text: 'Nachtrag Funk', kind: 'journal' as const },
+    ]
+    const byText = new Map(journalRows(events, [], undefined, closed).map((r) => [r.text, r]))
+    expect(byText.get('Trupp 2 beim Abschluss noch drin')?.nachtrag).toBe(false)
+    expect(byText.get('Nachtrag Funk')?.nachtrag).toBe(true)
+  })
 })

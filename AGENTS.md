@@ -134,18 +134,25 @@ to prod.
   After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
   … erscheinen als Nachträge»); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
   until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped
-  `receivedAfterClose` and prints as a Nachtrag whatever its time. A reopen clears
+  `receivedAfterClose` and prints as a Nachtrag whatever its time — except a row the Abschluss
+  itself wrote between the confirm and the close (`atClose`, set by `useAbschluss · markClosing`;
+  honoured up to 120 s past the close, `verlauf · isNachtrag`). A reopen clears
   `report_done_at` (a running Einsatz is not «Rapport fertig»), keeps `closed_at` (the first
   Einsatzende, which marks the Nachträge — so the Einsatzuhr ignores it while the Einsatz runs),
   and writes its boundary row with `lifecycle: 'reopened'`; every crew still inside restarts its
   contact clock at that row's `at`, one `azro-<row>-<Trupp>` row each, and the alarm holds until
   the row has arrived (`lib/reopenClocks`); the alarm that restart ends names the reopen
-  (`contactRestartedAt`), never a Funkkontakt, and the pressure estimate skips the closed
+  (`contactRestartedAt`), never a Funkkontakt — read off the Trupp the alarm engine EVALUATED
+  (`logAlarmCleared(id, turnus, seen)`), not the parent's state, which gets the restart one effect
+  later, so every tablet writes the same reason under the one derived id — and the pressure estimate skips the closed
   interval (`pausedFrom` → `contactRestartedAt`, `atemschutz · estimatePressure`). The Atemschutz-Link of a closed Einsatz says «diese
   Tafel zeigt nur noch an» and follows once a minute (`pollBackoff · minDelayMs`): a link
   session on a closed Einsatz is answered 409 `incident_closed` + `X-Incident-Open: 0` on the
   Einsatz's own routes (before any key check — every close, the second too), and a link page
-  refused 403 on its workspace/Verlauf/events freezes read-only (`api · LINK_REFUSED_EVENT`). The
+  refused 403 on its workspace/Verlauf/events freezes read-only (`api · LINK_REFUSED_EVENT`). A
+  per-Einsatz Atemschutz link RELOADED while closed gets the same 409 from the exchange (no cookie;
+  the alarm link's (src, ref) exchange keeps its one 404) and shows «Einsatz abgeschlossen», asking
+  again once a minute so a reopen opens the board by itself (`link/LinkApp · ClosedCard`). The
   link KEY is not revoked by a close, on purpose: the QR panel shows it standing and a reopen
   revives it. `closed_at` is the FIRST close (Nachträge only); `last_closed_at` is stamped on
   every close and is the Einsatzende the clock, the Rapport and the Anwesenheit ends default to
