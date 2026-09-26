@@ -30,7 +30,7 @@ interface Seen { ziel?: string; auftrag?: string; status: string; entryTime?: st
  * «Raus» asks nothing here: the question «Trupp 4 raus – abgesucht?» stands on the area's own row
  * (lib/suche · pendingAsks), for every editor device, until somebody answers it.
  */
-export function useSucheTrupps({ trupps, canEdit, actions, floorName, truppsHere, remoteRef }: {
+export function useSucheTrupps({ trupps, canEdit, actions, floorName, truppsHere, remoteRef, ownRef }: {
   /** EVERY Trupp, the removed ones included (their areas are released) */
   trupps: readonly Trupp[]
   canEdit: boolean
@@ -41,6 +41,11 @@ export function useSucheTrupps({ trupps, canEdit, actions, floorName, truppsHere
   /** set by the workspace when a remote hydrate replaced the slices (IncidentWorkspace): the
    *  changes it brought were observed where they were made */
   remoteRef: MutableRefObject<boolean>
+  /** Trupps whose Ziel the Suche ITSELF just wrote («Wer sucht?», useSucheActions · assign) —
+   *  that step already says everything about the places, and its ↶ / ↷ put them back as one.
+   *  Observing that Ziel as if the board had changed it could write a row OUTSIDE the step (a
+   *  release under a derived id no ↶ reaches) — so those Trupps are skipped once (26.09.2026). */
+  ownRef?: MutableRefObject<Set<string>>
 }) {
   const prev = useRef<Map<string, Seen> | null>(null)
   const live = useRef({ actions, floorName, truppsHere, canEdit })
@@ -51,12 +56,15 @@ export function useSucheTrupps({ trupps, canEdit, actions, floorName, truppsHere
     prev.current = new Map(trupps.map((t) => [t.id, { ziel: t.ziel?.trim(), auftrag: t.auftrag, status: t.status, entryTime: t.entryTime, removed: !!t.removedAt }]))
     const remote = remoteRef.current
     remoteRef.current = false
+    const own = new Set(ownRef?.current ?? [])
+    ownRef?.current.clear()
     const L = live.current
     if (!L.canEdit || remote || !before) return // the first look is the baseline, never an event
     const A = L.actions
     // what a Ziel resolves to without writing anything (the place it names, or null for a new one)
     const peek = (ziel: string) => zielBereich(A.latest(), ziel, { at: '', newId: () => '', floorName: L.floorName }).id
     for (const t of trupps) {
+      if (own.has(t.id)) continue
       const was = before.get(t.id)
       const label = L.truppsHere.find((x) => x.id === t.id)?.label ?? t.name
       const ziel = t.ziel?.trim()

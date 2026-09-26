@@ -6,9 +6,9 @@ import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import { emptySuche, personView, shownBereiche } from '../../lib/suche'
 import { createUndoTimeline } from '../../lib/undoTimeline'
-import { useSucheActions, type SucheLog } from '../../lib/useSucheActions'
+import { useSucheActions, type SucheLog, type SucheTruppZiel } from '../../lib/useSucheActions'
 import { floorLabel } from '../../lib/whiteboard'
-import type { SucheDoc, SuchePoint, SucheRow } from '../../types'
+import type { SucheDoc, SuchePoint, SucheRow, Trupp } from '../../types'
 import { SuchePanel, type SuchePanelProps } from './SuchePanel'
 import { SucheCard } from './SucheCard'
 
@@ -19,15 +19,17 @@ const row = (id: string, op: SucheRow['op'], at: string, text: string, more: Par
 
 /** The panel over a live slice, the real writer hook and a real undo timeline — what the card and
  *  the «Fund melden» sheet mount. */
-function Harness({ initial = emptySuche(), canEdit = true, log = vi.fn<SucheLog>(), onDoc, asks, focus, onExit, onUndoable, timeline, card, pick, onShow }: {
+function Harness({ initial = emptySuche(), canEdit = true, log = vi.fn<SucheLog>(), onDoc, asks, focus, onExit, onUndoable, timeline, card, pick, onShow, ziele }: {
   initial?: SucheDoc; canEdit?: boolean; log?: SucheLog; onDoc?: (d: SucheDoc) => void; asks?: string[]
   focus?: SuchePanelProps['focus']; onExit?: () => void; onUndoable?: SuchePanelProps['onUndoable']
   timeline?: ReturnType<typeof createUndoTimeline>; card?: boolean; pick?: SuchePanelProps['pick']; onShow?: SuchePanelProps['onShow']
+  /** the Trupps' Ziel, as the workspace hands it to «Wer sucht?» */
+  ziele?: SucheTruppZiel
 }) {
   const [doc, setDoc] = useState(initial)
   const set = (d: SucheDoc) => { setDoc(d); onDoc?.(d) }
   const actions = useSucheActions({
-    suche: doc, setRaw: set, canEdit, log, emit: () => {}, floorName: floorLabel,
+    suche: doc, setRaw: set, canEdit, log, emit: () => {}, floorName: floorLabel, trupps: ziele,
     remember: timeline ? (label, undo, redo) => timeline.push({ domain: 'suche', label, undo, redo }) : undefined,
   })
   const props: SuchePanelProps = {
@@ -118,33 +120,37 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     expect(screen.getByText(C.ortUnbekannt)).toBeTruthy()
   })
 
-  it('the circle IS the button: one tap abgesucht (with the house toast to take it back), again → offen', () => {
+  it('the circle IS the button: one tap abgesucht, again → offen — NO toast, the ↶ takes it back (owner 26.09.2026)', () => {
     let last: SucheDoc = emptySuche()
     const timeline = createUndoTimeline()
     const onUndoable = vi.fn<(text: string, takeBack: () => void) => void>()
-    render(<Harness initial={{ personen: [], bereiche: [place('b1', 'Treppenhaus')] }} timeline={timeline} onUndoable={onUndoable} onDoc={(d) => { last = d }} />)
-    const tick = screen.getByRole('button', { name: fillTemplate(C.tickAbgesucht, { name: 'Treppenhaus' }) })
-    fireEvent.click(tick)
-    expect(shownBereiche(last, floorLabel)[0].status).toBe('abgesucht')
+    render(<Harness initial={{ personen: [], bereiche: [place('b1', 'Treppenhaus'), place('b2', 'Keller')] }} timeline={timeline} onUndoable={onUndoable} onDoc={(d) => { last = d }} />)
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.tickAbgesucht, { name: 'Treppenhaus' }) }))
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.tickAbgesucht, { name: 'Keller' }) }))
+    const status = () => Object.fromEntries(shownBereiche(last, floorLabel).map((b) => [b.label, b.status]))
+    expect(status()).toEqual({ Treppenhaus: 'abgesucht', Keller: 'abgesucht' })
     expect(last.bereiche[0].log.slice(-1)[0]).toMatchObject({ op: 'status', status: 'abgesucht', text: 'Treppenhaus abgesucht' })
-    expect(onUndoable).toHaveBeenCalledWith(fillTemplate(C.toastAbgesucht, { name: 'Treppenhaus' }), expect.any(Function))
-    // the toast's «Rückgängig» takes it back — and the ↶ has nothing left to take (never twice)
-    act(() => onUndoable.mock.calls[0][1]())
-    expect(shownBereiche(last, floorLabel)[0].status).toBe('offen')
-    expect(timeline.canUndo()).toBe(false)
-    // tapped twice: abgesucht, then back to offen — a row each time
+    // two ticks, not a single toast (they stacked two «Rückgängig» bars over the list)
+    expect(onUndoable).not.toHaveBeenCalled()
+    // the header's ↶ takes the last tick back, then the one before
+    act(() => { timeline.undo() })
+    expect(status()).toEqual({ Treppenhaus: 'abgesucht', Keller: 'offen' })
+    act(() => { timeline.undo() })
+    expect(status()).toEqual({ Treppenhaus: 'offen', Keller: 'offen' })
+    // …and the tick is its own undo: tapped twice, abgesucht then back to offen — a row each time
     fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.tickAbgesucht, { name: 'Treppenhaus' }) }))
     fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.tickOffen, { name: 'Treppenhaus' }) }))
     expect(shownBereiche(last, floorLabel)[0].status).toBe('offen')
     expect(last.bereiche[0].log.map((r) => r.status)).toEqual(['abgesucht', 'offen'])
+    expect(onUndoable).not.toHaveBeenCalled()
   })
 
-  it('«Gefunden» on the person\'s line books the find in ONE tap — with the place and the Trupp searching it', () => {
+  it('«Gefunden» on the person\'s line books the find in ONE tap — the toast only where the tap ENDS a search', () => {
     let last: SucheDoc = emptySuche()
     const onUndoable = vi.fn<(text: string, takeBack: () => void) => void>()
     const start: SucheDoc = {
       bereiche: [place('b1', 'Wohnung 2. OG links', [row('s1', 'status', '20:05', 'Wohnung 2. OG links in Arbeit · Trupp 1', { status: 'inArbeit', trupp: 'Trupp 1', truppId: 't1' })])],
-      personen: [person('p1', 'Muster Tim', { bereichId: 'b1', wo: 'Wohnung 2. OG links' }), person('p2', 'Gruppe Werkstatt', { count: 6 })],
+      personen: [person('p1', 'Muster Tim', { bereichId: 'b1', wo: 'Wohnung 2. OG links' }), person('p2', 'Gruppe Werkstatt', { count: 2 })],
     }
     render(<Harness initial={start} onUndoable={onUndoable} onDoc={(d) => { last = d }} />)
     const line = screen.getByRole('region', { name: 'Wohnung 2. OG links' })
@@ -152,13 +158,19 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     fireEvent.click(within(line).getByRole('button', { name: fillTemplate(C.toastGefunden, { name: 'Muster Tim' }) }))
     expect(personView(last.personen[0])).toMatchObject({ status: 'gefunden', foundTrupp: 'Trupp 1' })
     expect(last.personen[0].log[1]).toMatchObject({ op: 'gefunden', bereichId: 'b1', text: 'Gefunden: Muster Tim · Wohnung 2. OG links · Trupp 1' })
+    // the button is gone with the find — the toast is the way back on the list
+    expect(onUndoable).toHaveBeenCalledTimes(1)
     expect(onUndoable).toHaveBeenLastCalledWith(fillTemplate(C.toastGefunden, { name: 'Muster Tim' }), expect.any(Function))
-    // a group gets «＋1», one at a time
+    // a group gets «＋1», one at a time — no toast while somebody of it is still missing…
     fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.plusOneLabel, { name: 'Gruppe Werkstatt' }) }))
-    expect(personView(last.personen[1])).toMatchObject({ found: 1, missing: 5 })
-    // …and the toast takes a find back
+    expect(personView(last.personen[1])).toMatchObject({ found: 1, missing: 1 })
+    expect(onUndoable).toHaveBeenCalledTimes(1)
+    // …and the one for the LAST of them, which ends that search
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.plusOneLabel, { name: 'Gruppe Werkstatt' }) }))
+    expect(personView(last.personen[1])).toMatchObject({ found: 2, missing: 0 })
+    expect(onUndoable).toHaveBeenLastCalledWith(fillTemplate(C.toastGefundenGroup, { name: 'Gruppe Werkstatt' }), expect.any(Function))
     act(() => onUndoable.mock.calls[1][1]())
-    expect(personView(last.personen[1])).toMatchObject({ found: 0, missing: 6 })
+    expect(personView(last.personen[1])).toMatchObject({ found: 1, missing: 1 })
   })
 
   it('orders the list: «Ort unbekannt» on top, missing first, entry order, abgesucht-and-nobody-missing quiet at the end', () => {
@@ -196,7 +208,7 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     render(<Harness initial={start} />)
     expect(sections()).toEqual(['1. OG Trakt 3', '1. OG'])
     expect(within(screen.getByRole('region', { name: '1. OG Trakt 3' })).getByText('Tim Muster')).toBeTruthy()
-    // a storey row has no name of its own: its card offers no «Umbenennen»
+    // a storey row has no name of its own: its card offers no ✎
     fireEvent.click(within(screen.getByRole('region', { name: '1. OG' })).getByText('1. OG'))
     expect(screen.queryByRole('button', { name: C.umbenennen })).toBeNull()
     expect(screen.getByText('1. OG in Arbeit · Trupp 1')).toBeTruthy()
@@ -230,20 +242,102 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     expect(tick.getAttribute('data-tone')).toBe('part')
   })
 
-  it('a place\'s own card: the status choices, the Trupp, «Fund», a new name — and never a name two places share', () => {
+  it('a place\'s own card is calm: name + ✎, «Wer sucht?», four statuses, one position row, the history — nothing else', () => {
+    render(<Harness initial={{ personen: [], bereiche: [place('b1', 'Keller', [row('s1', 'status', '20:05', 'Keller abgesucht', { status: 'abgesucht' })])] }}
+      pick={{ surface: 'karte', start: vi.fn() }} />)
+    fireEvent.click(within(screen.getByRole('region', { name: 'Keller' })).getByText('Keller'))
+    expect(screen.getByRole('heading', { name: 'Keller' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: C.umbenennen })).toBeTruthy()
+    // «Wer sucht?»: the Trupps on the board (never one already out) and «niemand»
+    const who = screen.getByRole('group', { name: C.werSuchtCard })
+    expect(within(who).getAllByRole('button').map((b) => b.textContent)).toEqual(['T1 Muster', 'T3 Beispiel', C.niemand])
+    expect(within(who).getByRole('button', { name: C.niemand }).getAttribute('aria-pressed')).toBe('true')
+    // «Status»: four, in this order — no «in Arbeit» (that is «Wer sucht?»), no «Fund» (a find is a person's)
+    const st = screen.getByRole('group', { name: C.statusTitle })
+    expect(within(st).getAllByRole('button').map((b) => b.textContent)).toEqual([C.statusSeg.offen, C.statusSeg.teilweise, C.statusSeg.abgesucht, C.statusSeg.nichtZugaenglich])
+    expect(within(st).getByRole('button', { name: C.statusSeg.abgesucht }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('button', { name: C.fund })).toBeNull()
+    expect(screen.queryByRole('button', { name: C.bereichStatus.inArbeit })).toBeNull()
+    // the position: ONE button while it stands nowhere
+    expect(screen.getByRole('button', { name: new RegExp(C.pickKarte) })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: C.pickAgain })).toBeNull()
+    // the history stays
+    expect(screen.getByText('Keller abgesucht')).toBeTruthy()
+  })
+
+  it('picking a Trupp in «Wer sucht?» IS «in Arbeit · T1» — and its Ziel reads the place; one step, one ↶', () => {
     let last: SucheDoc = emptySuche()
+    const timeline = createUndoTimeline()
+    const log = vi.fn<SucheLog>()
+    const board: Record<string, { ziel?: string; auftrag?: Trupp['auftrag'] }> = { t1: { auftrag: 'absuchen', ziel: 'Garage' }, t3: {} }
+    const ziele: SucheTruppZiel = { get: (id) => board[id], set: (id, v) => { board[id] = { ...v }; return true } }
+    const start: SucheDoc = { personen: [], bereiche: [
+      place('b1', 'Keller'),
+      place('b2', 'Garage', [row('s1', 'status', '20:05', 'Garage in Arbeit · Trupp 1', { status: 'inArbeit', trupp: 'Trupp 1', truppId: 't1' })]),
+    ] }
+    render(<Harness initial={start} timeline={timeline} log={log} ziele={ziele} onDoc={(d) => { last = d }} />)
+    fireEvent.click(within(screen.getByRole('region', { name: 'Keller' })).getByText('Keller'))
+    fireEvent.click(within(screen.getByRole('group', { name: C.werSuchtCard })).getByRole('button', { name: 'T1 Muster' }))
+    const [keller, garage] = shownBereiche(last, floorLabel)
+    expect(keller).toMatchObject({ status: 'inArbeit', trupp: 'Trupp 1', truppId: 't1' })
+    // a Trupp searches one place at a time: the one it had goes back to «offen»
+    expect(garage.status).toBe('offen')
+    expect(board.t1).toEqual({ auftrag: 'absuchen', ziel: 'Keller' })
+    expect(log).toHaveBeenCalledWith('search', 'Keller in Arbeit · Trupp 1', undefined, undefined, undefined, expect.anything())
+    expect(within(screen.getByRole('group', { name: C.werSuchtCard })).getByRole('button', { name: 'T1 Muster' }).getAttribute('aria-pressed')).toBe('true')
+    // ONE ↶ takes the place, the released place and the Ziel back together
+    act(() => { timeline.undo() })
+    expect(last).toEqual(start)
+    expect(board.t1).toEqual({ auftrag: 'absuchen', ziel: 'Garage' })
+    expect(timeline.canUndo()).toBe(false)
+    // a Trupp with no Auftrag yet is «Absuchen» from here; «niemand» lets the place go again
+    fireEvent.click(within(screen.getByRole('group', { name: C.werSuchtCard })).getByRole('button', { name: 'T3 Beispiel' }))
+    expect(board.t3).toEqual({ auftrag: 'absuchen', ziel: 'Keller' })
+    fireEvent.click(within(screen.getByRole('group', { name: C.werSuchtCard })).getByRole('button', { name: C.niemand }))
+    expect(shownBereiche(last, floorLabel)[0].status).toBe('offen')
+    // …and the Trupp's Ziel that named it goes with it
+    expect(board.t3).toEqual({ auftrag: 'absuchen', ziel: undefined })
+  })
+
+  it('a status is one tap on the segmented control; «offen» lets a Trupp in Arbeit go', () => {
+    let last: SucheDoc = emptySuche()
+    render(<Harness initial={{ personen: [], bereiche: [place('b1', 'Keller', [row('s1', 'status', '20:05', 'Keller in Arbeit · Trupp 1', { status: 'inArbeit', trupp: 'Trupp 1', truppId: 't1' })])] }}
+      onDoc={(d) => { last = d }} />)
+    fireEvent.click(within(screen.getByRole('region', { name: 'Keller' })).getByText('Keller'))
+    const st = screen.getByRole('group', { name: C.statusTitle })
+    // in Arbeit: no status segment is chosen — «Wer sucht?» says it
+    expect(within(st).getAllByRole('button').some((b) => b.getAttribute('aria-pressed') === 'true')).toBe(false)
+    fireEvent.click(within(st).getByRole('button', { name: C.statusSeg.nichtZugaenglich }))
+    expect(shownBereiche(last, floorLabel)[0]).toMatchObject({ status: 'nichtZugaenglich' })
+    fireEvent.click(within(st).getByRole('button', { name: C.statusSeg.offen }))
+    expect(shownBereiche(last, floorLabel)[0]).toMatchObject({ status: 'offen', trupp: undefined })
+  })
+
+  it('the ✎ renames in place — Enter takes it, a name two places would share is refused, Esc leaves it', () => {
+    let last: SucheDoc | null = null
     render(<Harness initial={{ personen: [], bereiche: [place('b1', 'Keller'), place('b2', 'Dachstock')] }} onDoc={(d) => { last = d }} />)
     fireEvent.click(within(screen.getByRole('region', { name: 'Keller' })).getByText('Keller'))
-    fireEvent.click(screen.getByRole('button', { name: C.bereichStatus.inArbeit }))
-    fireEvent.click(screen.getByRole('button', { name: 'T1 Muster' }))
-    expect(shownBereiche(last, floorLabel)[0]).toMatchObject({ status: 'inArbeit', trupp: 'Trupp 1' })
     fireEvent.click(screen.getByRole('button', { name: C.umbenennen }))
-    const input = screen.getByLabelText(C.bereichWo)
+    const input = screen.getByRole('textbox', { name: C.umbenennen })
     fireEvent.change(input, { target: { value: 'dachstock' } })
+    expect(screen.getByText(C.nameTakenTitle)).toBeTruthy()
     expect((screen.getByRole('button', { name: C.umbenennenSubmit }) as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.change(input, { target: { value: 'Keller Nord' } })
-    fireEvent.click(screen.getByRole('button', { name: C.umbenennenSubmit }))
-    expect(last.bereiche[0].name).toBe('Keller Nord')
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(screen.getByRole('heading', { name: 'Keller' })).toBeTruthy()
+    expect(last).toBeNull() // nothing written
+    fireEvent.click(screen.getByRole('button', { name: C.umbenennen }))
+    fireEvent.change(screen.getByRole('textbox', { name: C.umbenennen }), { target: { value: 'Keller Nord' } })
+    fireEvent.keyDown(screen.getByRole('textbox', { name: C.umbenennen }), { key: 'Enter' })
+    expect(last!.bereiche[0].name).toBe('Keller Nord')
+    expect(screen.getByRole('heading', { name: 'Keller Nord' })).toBeTruthy()
+  })
+
+  it('«Trupp raus – abgesucht?» stands on the place\'s card too, while it waits', () => {
+    render(<Harness initial={{ personen: [], bereiche: [place('b1', 'Keller', [row('s1', 'status', '20:00', 'Keller in Arbeit · Trupp 5', { status: 'inArbeit', trupp: 'Trupp 5', truppId: 't5' })])] }} asks={['b1']} />)
+    fireEvent.click(within(screen.getByRole('region', { name: 'Keller' })).getByText('Keller'))
+    expect(screen.getByRole('group', { name: 'Trupp 5 raus – abgesucht?' })).toBeTruthy()
+    // the Trupp it names is out, and still shows as the one that searched it
+    expect(within(screen.getByRole('group', { name: C.werSuchtCard })).getByRole('button', { name: 'T5 Probe' }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('a person is corrected and withdrawn from its card — both rows, both one step', () => {
@@ -352,7 +446,7 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     expect(last.bereiche).toEqual([])
   })
 
-  it('a place\'s card puts it on the surface, moves it and takes it off — each an ordinary step; «📍» on its row shows it', () => {
+  it('a place\'s card puts it on the surface and sets it again — one row, each an ordinary step; «📍» on its row shows it', () => {
     let last: SucheDoc = emptySuche()
     const onShow = vi.fn()
     let done: ((p: SuchePoint) => void) | null = null
@@ -365,14 +459,18 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     act(() => done!({ planId: 'gebaeude', x: 0.5, y: 0.4, floor: 1 }))
     expect(last.bereiche[0].point).toEqual({ planId: 'gebaeude', x: 0.5, y: 0.4, floor: 1 })
     expect(last.bereiche[0].log.slice(-1)[0]).toMatchObject({ op: 'ort', text: 'Keller auf dem Plan gesetzt' })
-    fireEvent.click(screen.getByRole('button', { name: C.pickRemove }))
-    expect(last.bereiche[0]).not.toHaveProperty('point')
-    // back on the list with a position: «📍» brings it into view
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(C.pickPlan) }))
+    // with a pin: «📍 Zeigen» and «Neu setzen» — and no «Position entfernen» (↶ covers a wrong pin)
+    expect(screen.queryByRole('button', { name: new RegExp(C.pickPlan) })).toBeNull()
+    expect(screen.queryByRole('button', { name: /entfernen/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: C.pickAgain }))
     act(() => done!({ planId: 'gebaeude', x: 0.2, y: 0.3, floor: 0 }))
+    expect(last.bereiche[0].point).toEqual({ planId: 'gebaeude', x: 0.2, y: 0.3, floor: 0 })
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.pinShow, { name: 'Keller' }) }))
+    expect(onShow).toHaveBeenLastCalledWith({ planId: 'gebaeude', x: 0.2, y: 0.3, floor: 0 })
+    // back on the list with a position: «📍» brings it into view
     fireEvent.click(screen.getByRole('button', { name: C.back }))
     fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.pinShow, { name: 'Keller' }) }))
-    expect(onShow).toHaveBeenCalledWith({ planId: 'gebaeude', x: 0.2, y: 0.3, floor: 0 })
+    expect(onShow).toHaveBeenCalledTimes(2)
   })
 
   it('«＋ Vermisst» at a place that stands already offers no second pin', () => {

@@ -32,6 +32,9 @@ interface Args {
   emit: (op: string, payload?: Record<string, unknown>) => void
   activeId: string
   onLinkLineTrupp?: (lineId: string, truppId: string) => void
+  /** a Trupp's chip was dropped and joined no hose — the board may still link it to what it was
+   *  dropped on (a Suche place's pin, Whiteboard · onTruppAtSuchePin) */
+  onTruppDropped?: (a: BoardAnno) => void
 }
 
 /**
@@ -45,7 +48,7 @@ interface Args {
  */
 export function useWbChipDrag({
   tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH,
-  attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp,
+  attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp, onTruppDropped,
 }: Args) {
   const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number; floorOffset: number } | null>(null)
 
@@ -129,7 +132,7 @@ export function useWbChipDrag({
       attachmentLines,
       (p) => [p[0] * sW, mapY(p[2] ?? 0, p[1]) * sH],
     )
-    if (!join) return
+    if (!join) { onTruppDropped?.(a); return }
     // the chip's own trace-routed coupling, written exactly as the endpoint magnet writes one
     const out: Partial<BoardAnno> = join.endpoint === 'start'
       ? { startAttachment: { target: { kind: 'object', id: d.id }, routing: 'trace' } }

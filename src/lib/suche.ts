@@ -849,6 +849,34 @@ export function setBereichStatus(doc: SucheDoc, id: string, status: SucheBereich
   return { doc: { ...doc, bereiche: appendRow(doc.bereiche, id, row) }, rows: [row] }
 }
 
+/**
+ * «Wer sucht?» (owner, 26.09.2026): a Trupp picked for a place IS «in Arbeit · Trupp 1», from the
+ * place's card or by linking the Trupp's marker to the place's pin, the same act either way. A
+ * Trupp searches ONE place at a time, as its Ziel names one, so a place it was «in Arbeit» on
+ * before is released («offen»), the way a new Ziel releases it (lib/useSucheTrupps). `null` is
+ * «niemand»: a place in Arbeit goes back to «offen», and any other status stays as it is.
+ */
+export function assignBereichTrupp(doc: SucheDoc, id: string, trupp: { label: string; id: string } | null, cx: SucheCx): { doc: SucheDoc; rows: SucheRow[] } {
+  const b = doc.bereiche.find((x) => x.id === id)
+  if (!b) return { doc, rows: [] }
+  if (!trupp) return bereichStatusOf(b).status === 'inArbeit' ? setBereichStatus(doc, id, 'offen', undefined, cx) : { doc, rows: [] }
+  let d = doc
+  const rows: SucheRow[] = []
+  for (const other of doc.bereiche) {
+    if (other.id === id) continue
+    const st = bereichStatusOf(other)
+    if (st.status !== 'inArbeit' || st.truppId !== trupp.id) continue
+    const r = setBereichStatus(d, other.id, 'offen', undefined, cx)
+    d = r.doc
+    rows.push(...r.rows)
+  }
+  const r = setBereichStatus(d, id, 'inArbeit', trupp, cx)
+  // nothing new for the place itself (the same Trupp, already in Arbeit there): nothing at all
+  if (!r.rows.length) return { doc, rows: [] }
+  // the place's own row first — it names the act, and the ↶ reads its words (useSucheActions)
+  return { doc: r.doc, rows: [...r.rows, ...rows] }
+}
+
 /** The tick circle on a place's row (design «F»): offen / in Arbeit / teilweise → abgesucht, and
  *  abgesucht → back to offen. One row either way, like any other status. */
 export function toggleAbgesucht(doc: SucheDoc, id: string, cx: SucheCx): { doc: SucheDoc; rows: SucheRow[] } {
@@ -1123,6 +1151,21 @@ export function suchePins(doc: SucheDoc, floorName: (f: number) => string): Such
     out.push({ id: p.id, kind: 'person', label: v.group ? `${v.label} (${v.missing})` : v.label, status: 'vermisst', hot: true, point: p.point })
   }
   return out
+}
+
+/**
+ * The place a dropped Trupp marker lands ON (owner 26.09.2026, owner-5): the nearest pin within
+ * `radius` of the marker's point, both in the same pixel space (the Karte's screen, a plan's
+ * board). The Karte weighs it against the nearest symbol and fills a ring first (MapView ·
+ * trackDockAim); the plan links on the drop, like its hose join (Whiteboard · onTruppDropped).
+ */
+export function sucheDropTarget(pins: readonly { id: string; x: number; y: number }[], at: { x: number; y: number }, radius: number): { id: string; d: number } | null {
+  let best: { id: string; d: number } | null = null
+  for (const p of pins) {
+    const d = Math.hypot(p.x - at.x, p.y - at.y)
+    if (d <= radius && (!best || d < best.d)) best = { id: p.id, d }
+  }
+  return best
 }
 
 /** The pins that stand on the Karte, as the Kroki's notes (lib/reportPdfDirect): the printed map
