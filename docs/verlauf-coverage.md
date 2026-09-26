@@ -26,6 +26,26 @@ On top of that there is a third, small source: the server writes lifecycle rows 
 (`append_system_row`, `backend/app/api/journal.py:96`) – incident closed, reopened,
 Nachalarm, automatic archival.
 
+## What the server observes (since 24.09.2026)
+
+Observations of the outside world are written by the scheduler, never by a
+device (`docs/ARCHITECTURE.md` · «The server observes»). Their rows carry derived ids, `t: ""`
+(clients render the time from `at`) and German text, like the other server rows:
+
+| Row | Id | `at` | When |
+|---|---|---|---|
+| «TLF vor Ort» | `vps-<n>-scene-gps-<device>` | the tracker's FIRST report inside 150 m (Traccar `deviceTime`) | the vehicle's first arrival only; later arrivals are trips, counted in `reportMeta.fahrzeuge[].gps.fahrten` and printed as «3 Fahrten», never rows. No row when the external geofence already wrote «TLF vor Ort 19:23» for it (first writer wins) |
+| «TLF hat den Einsatzort verlassen» | `vps-<n>-away-gps-<device>` | the tracker's FIRST report beyond 300 m | the LAST departure only: written once the vehicle stayed away 20 min, or when observation ends — so it appears late but stands where it happened. A tracker the config cannot name writes no row where the external geofence is writing (it may name it differently) |
+| «Wind dreht: W → NO (286° → 66°) · Lüfter prüfen» | `wxd-<observed_at>` | the confirming reading | a turn ≥ 45° at ≥ 10 km/h, held over two readings on the same side, from one source + station; the devices show it once on the Meldeleiste for 30 min from the row's `writtenAt` (`WindShiftMeldung`, ✕ is remembered per device) |
+| «Automatische Beobachtung beendet (24 h ohne Eintrag) …» | `obs-end-<last activity>` | 24 h after the last human write | once per quiet spell of an OPEN, observed Einsatz; observation resumes at the next human write |
+
+Audit only (no row): `vehicle.presence` (every transition and the silent baseline, source
+`gps`) and `weather.observe` (every reading, source `weather`, id `wx:<incident>:<observed_at>`
+— the replay's wind badge). Rows written before the deploy by the devices (`vp-` rows stamped
+when a device noticed, `weather.observe` per device) stay as they are; the server's own `vps-`
+rows are written beside them, never swallowed by them. An older build's new ones are dropped at
+the endpoints.
+
 ## Atemschutz: the full cycle is on the record
 
 Every Trupp row names the Trupp as `Trupp N (Gruppenführer …)` since 12.09.
@@ -34,6 +54,13 @@ Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names; 
 (platziert, Farbe, Leitung, bearbeitet, gelöscht, wiederhergestellt, nicht mehr gesetzt) name the
 leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
 that date keep their `Trupp {Gruppenführer}` wording – the log is append-only.
+
+A Trupp or loose «Trupp N» marker whose number a merge gave to another device's Trupp
+(two devices minted it at once, [`trupp-naming.md`](trupp-naming.md) §7) writes ONE row,
+«Trupp {name} heisst jetzt Trupp {no}» (`lib/truppNumbers` · `renumberRow`, copy
+`atemschutz.logRenumbered`; a chip «{from} heisst jetzt {to}», `logRenumberedChip`), under the
+derived id `trn-<id>-<from>-<to>`, so the devices that all noticed it – the resolving one and the
+Atemschutz-Link included – leave one row between them.
 
 A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
 (`useTruppActions.ts` · `logRegister`). Whoever thinks it's missing is usually just not looking
@@ -107,6 +134,27 @@ was a gap in the *docs*, not in the Verlauf – this is what the truth looks lik
 - **Arranging does not write:** color, style, geometry, vertices are operator actions and
   land only in the audit stream (`draw.edit`) – that's the deliberate silence from the table
   above, and it applies to the Fläche just like to every other drawing.
+
+**Two exceptions, and each is a row: a GPS-coupled Leitung loses a drive** (since 24.09.2026,
+`src/lib/gpsReturn.ts`, `useMapDrawing · revertGpsFollow` / `releaseGpsOnSite`). A Leitung end
+coupled to a vehicle's GPS that has *followed* the vehicle off site traced the drive into the
+line. Taking that drive out again is not arranging – it changes the hose line the Rapport prints –
+so both acts that do it write ONE row (icon `pen`), naming every line of the one vehicle the tap
+acted on:
+
+| Act | Row | ↶ |
+|---|---|---|
+| «Zurück auf Stand am Einsatzort» – the line exactly as it stood when following began, detached there | «{Leitungen}: zurück auf Stand am Einsatzort ({hh:mm}), von {Fahrzeug} gelöst» (`gpsReverted`; `gpsRevertedBare` without the vehicle when it is out of the feed) | one step, its bubble «{Leitungen} zurück auf Stand am Einsatzort rückgängig gemacht» |
+| «Am Einsatzort lassen» / «Am Einsatzort lösen» that CUT a trace back to its on-site end | «{Leitungen}: am Einsatzort von {Fahrzeug} gelöst, Fahrt entfernt» (`gpsReleasedOnSite` / `…Bare`) | one step |
+
+The audit stream gets `draw.edit` (the new coords) + `draw.detach`, so the replay folds the same
+line. The acts around them stay silent, like every other attachment change: «Weiter folgen»,
+«Folgen stoppen», «Hier lösen (Spur behalten)» (it keeps the drive: nothing leaves the record),
+«Am Einsatzort lassen» on an end that never traced, a hand dragging the end off (audit
+`draw.edit` / `draw.detach` only). The GPS Meldungen themselves («TLF fährt weg · 340 m vom
+Einsatzort», «TLF wieder am Einsatzort») write nothing – they are the Meldeleiste, see above – and
+answering the «back» offer with «Weiter folgen» or waving a «stopped» row away with ✕ is
+remembered on the device only.
 
 Why a real log can still show 0 «Fläche» hits: on the Lage people draw mostly with lines and
 symbols – the row appears the moment somebody drags out a Fläche.

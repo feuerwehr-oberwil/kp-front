@@ -1,4 +1,5 @@
 import { nextTruppNo } from './placedTrupps'
+import { ghostCounterNames } from './truppTrails'
 import type { TruppTrail } from './truppTrails'
 import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, BuildingDoc, CameraView, DrawKind, Drawing, Entity, EntityKind, GeoTrailPoint, LayerDef, LayerId, LngLat, MittelEntry, ReportAttachment, Shift, ShiftBand, TimelineEvent, TrailPoint, Trupp, TruppReading, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
@@ -134,6 +135,24 @@ export interface FahrzeugZeit {
   vorOrt?: string
   zurueck?: string
   manual?: boolean
+  /** What the SERVER observed from GPS (backend · app/vehicle_presence, 24.09.2026). Written by
+   *  the scheduler only, never by a device; read by the vehicle table and the Rapport's «n
+   *  Fahrten» (lib/vehiclePresence). `manual` protects the times above, not this. */
+  gps?: FahrzeugGps
+}
+
+export interface FahrzeugGps {
+  zone: 'scene' | 'away'
+  /** the Traccar device id — the live fix age comes from the positions feed under it */
+  device?: number
+  /** first arrival on scene (the tracker's report time, Traccar `deviceTime`) */
+  an?: string
+  /** last departure from scene (same clock) — NOT `zurueck`, which is «back at the depot» */
+  ab?: string
+  /** stays on scene — 3 for a vehicle that shuttled to the depot twice */
+  fahrten?: number
+  /** the Rapport clocks the server stamped first (first writer wins against the geofence) */
+  owns?: 'vorOrt'[]
 }
 
 /** Per-incident, SYNCED operational settings — part of the workspace blob, so they
@@ -557,6 +576,26 @@ export interface InitialState {
   intakeReviewedAt?: string
 }
 
+/** InitialState keys a remote/merged workspace does NOT hand to a setter:
+ *  - `activePlanId` is device-local (which plan THIS device is looking at; `Saved.activePlanId`
+ *    is `'local'` in MERGE_POLICY), so another device's merge must not move it;
+ *  - `doc` and `board` are VIEWS of `objects` — `replaceObjects` swaps them with it. */
+type NotApplied = 'activePlanId' | 'doc' | 'board'
+
+/** One setter per slice a merged workspace replaces — the applyWorkspace contract.
+ *
+ *  ⚠️ Typed against InitialState, so a synced slice added there without a setter here fails
+ *  `tsc` (mergeWorkspace checks the other half: every synced `Saved` field has an InitialState
+ *  slot). Until 25.09.2026 applyWorkspace was a hand-kept list of setter calls that had skipped
+ *  `mittel`: another device's Mittel entries never reached this device's screen, and its next
+ *  save — whose ancestor did hold them — read them as local deletions (delete wins). */
+export type WorkspaceAppliers = { [K in Exclude<keyof InitialState, NotApplied>]-?: (value: InitialState[K]) => void }
+
+/** Hand every applied slice of `next` to its setter, in the order `set` lists them. */
+export function applyInitialState(next: InitialState, set: WorkspaceAppliers): void {
+  for (const k of Object.keys(set) as (keyof WorkspaceAppliers)[]) (set[k] as (value: unknown) => void)(next[k])
+}
+
 // the plan a fresh emergency opens on: Modul 1 (the Übersicht), falling back to the first
 // document only if that slot is ever removed from the catalogue
 const defaultPlanId = planDocuments.find((p) => p.id === 'modul1')?.id ?? planDocuments[0].id
@@ -760,6 +799,8 @@ export function deriveInitial(
     trupps: numberTrupps(ws?.trupps ?? [], [
       ...entities.filter((e) => e.kind === 'team').map((e) => e.label),
       ...Object.values(board).flat().filter((a) => a.kind === 'resource').map((a) => a.text),
+      // …and every ghost trail: a deleted chip that left a Spur used its number too
+      ...ghostCounterNames(ws?.trails),
     ]),
     attendance: ws?.attendance ?? {},
     mittel: ws?.mittel ?? [],

@@ -4,6 +4,8 @@ import type { Georef } from './georef'
 import { georefDispatch } from './georefMode'
 import { effectiveBindingGeoref, overridePlanBinding, registerIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
 import type { UndoTimeline } from './undoTimeline'
+import { recordKey } from './undoKeys'
+import { jsonEqual } from './jsonEqual'
 
 /** Keeps the shared georef UI attached to this incident's synced, undoable workspace slice. */
 export function useIncidentPlanBindings(
@@ -22,7 +24,7 @@ export function useIncidentPlanBindings(
       if (readOnly) throw new Error('Incident alignment is read-only')
       const before = latest.current.find((binding) => binding.id === id)
       if (!before) throw new Error('Incident plan binding is unavailable')
-      if (JSON.stringify(effectiveBindingGeoref(before)) === JSON.stringify(georef)) return
+      if (jsonEqual(effectiveBindingGeoref(before), georef)) return
       const apply = (override: Georef | undefined) => {
         if (!latest.current.some((binding) => binding.id === id)) return false
         // Stored undo must also leave the live pairing mode, whose draft otherwise masks it.
@@ -47,6 +49,8 @@ export function useIncidentPlanBindings(
       history.push({
         domain: 'plan', scope: before.planId,
         label: appConfig.copy.whiteboard.georef.linkTitle,
+        // the inverse writes this binding's override and nothing else (lib/undoKeys)
+        touches: () => [recordKey('planBindings', id)],
         undo: step.undo,
         redo: () => apply(step.override),
       })

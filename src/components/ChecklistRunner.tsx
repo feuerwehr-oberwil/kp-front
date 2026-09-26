@@ -82,7 +82,7 @@ function ItemRow({
 }
 
 function PhaseBlock({
-  phase, state, canTick, onToggle, onBranch, onAction,
+  phase, state, canTick, onToggle, onBranch, onAction, offersAction,
 }: {
   phase: Phase
   state: TemplateState
@@ -90,6 +90,7 @@ function PhaseBlock({
   onToggle: (item: Item) => void
   onBranch: (phaseId: string, branchId: string) => void
   onAction: (item: Item, a: NonNullable<Item['action']>) => void
+  offersAction?: (a: NonNullable<Item['action']>) => boolean
 }) {
   const CL = appConfig.copy.checklists
   const activeBranch = state.activeBranch?.[phase.id]
@@ -130,7 +131,7 @@ function PhaseBlock({
             tickInfo={ticks[it.id]}
             canTick={canTick}
             onToggle={() => onToggle(it)}
-            onAction={(a) => onAction(it, a)}
+            onAction={it.action && offersAction?.(it.action) === false ? undefined : (a) => onAction(it, a)}
           />
         ))}
         {!items.length && phase.branches?.length && (
@@ -142,7 +143,7 @@ function PhaseBlock({
 }
 
 export function ChecklistRunner({
-  template, state, canTick, onToggle, onBranch, onAction,
+  template, state, canTick, onToggle, onBranch, onAction, offersAction,
 }: {
   template: ChecklistTemplate
   state: TemplateState
@@ -150,6 +151,9 @@ export function ChecklistRunner({
   onToggle: (item: Item) => void
   onBranch: (phaseId: string, branchId: string) => void
   onAction: (item: Item, a: NonNullable<Item['action']>) => void
+  /** false ⇒ the item's deep link is not drawn: a door this session cannot go through (the
+   *  «Zeichnen» link on a tactically locked device lands on a Karte that disarms the tool) */
+  offersAction?: (a: NonNullable<Item['action']>) => boolean
 }) {
   const CL = appConfig.copy.checklists
   const overall = templateProgress(template, state)
@@ -175,6 +179,7 @@ export function ChecklistRunner({
           onToggle={onToggle}
           onBranch={onBranch}
           onAction={onAction}
+          offersAction={offersAction}
         />
       ))}
       <footer className={s['cl-runner-foot']}>{template.source}</footer>

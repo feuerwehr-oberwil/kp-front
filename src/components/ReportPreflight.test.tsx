@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ReportPreflight } from './ReportPreflight'
 import { Overlays } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
@@ -70,18 +70,26 @@ describe('ReportPreflight · Ausdrucken with missing Mindestangaben', () => {
         />
       </>,
     )
-    const print = await screen.findByRole('button', { name: R.send })
-    fireEvent.click(print)
+    // ⚠️ Settle, then query ONCE: no findBy/waitFor polling. The mocked loaders (print relay,
+    // chain, Einsatz text) resolve at once; flushed inside act() the button is simply there. Polled,
+    // the first check always FAILED (the button waits on the relay status), and a failing role query
+    // renders the whole document into its error before the second, successful one runs. There is no
+    // race here, only CPU: ~0.5 s idle, the first role query in a worker alone ~0.2 s (jsdom's
+    // getComputedStyle warming up). It crossed the 5 s limit (5.1 s) on a machine running several
+    // full suites at once (25.09.2026); the dropped work is a third of it.
+    await act(async () => {})
+    const print = screen.getByRole('button', { name: R.send })
+    await act(async () => { fireEvent.click(print) })
 
-    const dialog = await screen.findByRole('alertdialog')
+    const dialog = screen.getByRole('alertdialog')
     expect(dialog.textContent).toContain(appConfig.copy.preflight.exportIncompleteTitle)
     // the open point is a BUTTON in the list, not a bullet
-    const row = screen.getByRole('button', { name: A.steps.kurzbericht })
+    const row = within(dialog).getByRole('button', { name: A.steps.kurzbericht })
     expect(row.closest('.confirm-list')).toBeTruthy()
 
     await act(async () => { fireEvent.click(row) })
 
-    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(screen.queryByRole('alertdialog')).toBeNull()
     // the sheet scrolled to the step and its field holds the focus
     expect(scrollTo).toHaveBeenCalled()
     const target = document.querySelector<HTMLElement>('[data-step="kurzbericht"]')

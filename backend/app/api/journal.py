@@ -8,6 +8,7 @@ deleted; lifecycle changes (reminder done/snoozed, corrections) are NEW rows, as
 else in the incident record.
 """
 
+import re
 import uuid
 from datetime import UTC, datetime
 
@@ -148,6 +149,21 @@ async def append_system_row(
     await append_rows(db, incident_id, [row])
 
 
+#: Verlauf rows only the SERVER writes (24.09.2026): «vor Ort» / «hat den Einsatzort verlassen»
+#: are observed by the scheduler's GPS sweep (app/vehicle_presence) and stamped with the fix
+#: time. A device still running the previous build keeps writing its own under the same id
+#: shape, stamped when IT noticed; those are acknowledged and dropped, so a mixed-version day
+#: converges on the server's record instead of adding the device's late copy beside it.
+#: `vp-` is what the previous client build wrote, `vps-` the server's own shape (25.09.2026) —
+#: a device writes neither.
+_OBSERVED_BY_SERVER = re.compile(r"^vps?-[0-9]+-(scene|away)-")
+
+
+def observed_by_server(entry: dict) -> bool:
+    rid = entry.get("id")
+    return isinstance(rid, str) and _OBSERVED_BY_SERVER.match(rid) is not None
+
+
 @router.post("/{incident_id}/journal", response_model=JournalPage, status_code=201)
 async def append_journal(
     incident_id: uuid.UUID,
@@ -174,6 +190,10 @@ async def append_journal(
             raise _Denied()
         for e in body.entries:
             e["via"] = atemschutz_link_source(user)
+    # acknowledged (2xx, so the device's outbox lets go of them) and not stored — see below. FIRST,
+    # before the closed check: a server-owned observation an old build still writes is dropped
+    # whether the Einsatz is closed or not (never stored ⇒ never refused).
+    entries = [e for e in body.entries if not observed_by_server(e)]
     # The lifecycle, under the incident row lock `append_rows` takes next, so a close cannot commit
     # in between. A row made BEFORE the close is recorded; a row the Verlauf ALREADY holds (a retry
     # whose answer was lost) is the idempotent success it always was — only a new live row made
@@ -182,9 +202,9 @@ async def append_journal(
     # close, is a true fact in its time order — and on paper it says it came late (a Nachtrag).
     lifecycle = await incident_lifecycle(db, incident_id, lock=True)
     if not lifecycle.is_open:
-        for e in body.entries:
+        for e in entries:
             e["receivedAfterClose"] = True
-    live = [e for e in body.entries if _live_row(e)]
+    live = [e for e in entries if _live_row(e)]
     if live and not lifecycle.is_open:
         stored = set(
             (
@@ -198,7 +218,7 @@ async def append_journal(
         )
         if any(e.get("id") not in stored and happened_after_close(e.get("at"), lifecycle.closed_at) for e in live):
             raise incident_closed(lifecycle.closed_at)
-    accepted = await append_rows(db, incident_id, body.entries)
+    accepted = await append_rows(db, incident_id, entries) if entries else []
     if accepted:
         latest = accepted[-1].seq
     else:

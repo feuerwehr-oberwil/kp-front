@@ -33,25 +33,29 @@ export const MELDUNG_RANK = {
   lifecycle: 3,
   /** a Wiedervorlage that has come due — persists until erledigt, never expires silently */
   reminder: 4,
+  /** the wind has turned (≥ 45° at ≥ 10 km/h, held over two readings) — the server observed it
+   *  and wrote the Verlauf row; this is that row, once per device (24.09.2026, D2). Above the
+   *  GPS-follow row: a Lüfter blowing the wrong way is about the crew inside. */
+  wind: 5,
   /** a vehicle a drawn Leitung is attached to has driven off; its anchor is off-screen */
-  gps: 5,
+  gps: 6,
   /** the alarm source's guesses have not been checked yet */
-  review: 6,
+  review: 7,
   /** another tab of this browser holds the edit lock */
-  tabLock: 7,
+  tabLock: 8,
   /** the tactical symbol pack failed to load — Karte and Kroki run without glyphs */
-  symbols: 8,
+  symbols: 9,
   /** offline with no cached basemap for this view — the map is a flat colour */
-  basemap: 9,
+  basemap: 10,
   /** the device has been offline past the grace window — edits are piling up locally
    *  (syncAlert · createOfflinePresence); stands until the link is back */
-  offline: 10,
+  offline: 11,
   /** the session cookie expired — the sync is standing still until the operator signs in again */
-  session: 11,
+  session: 12,
   /** a new build is waiting for the next app start */
-  update: 12,
+  update: 13,
   /** «KP Front als App installieren» */
-  install: 13,
+  install: 14,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK
@@ -67,6 +71,9 @@ export interface MeldungAction {
   onClick: () => void
   /** the row's one filled action (AGENTS.md button spec) */
   primary?: boolean
+  /** a primary whose move KEEPS things safely as they are, filled green like the Atemschutz
+   *  «Eintritt» (`--green`) — «Am Einsatzort lassen» (GpsFollowMeldung, D3-a). Only with `primary`. */
+  go?: boolean
   disabled?: boolean
 }
 

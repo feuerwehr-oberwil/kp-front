@@ -326,7 +326,7 @@ src/                       React/Vite frontend
   data/                    neutral fallback data
   lib/                     domain logic, offline storage, and sync
 backend/                   FastAPI/PostgreSQL service
-e2e/                       Playwright smoke against the built image
+e2e/                       Playwright smoke + field scenario against the built image
 examples/demo-data/        synthetic Musterdorf deployment data
 examples/scenarios/        fake-alarm scenarios for `app.fake_scenario`
 public/                    tactical symbols and PWA assets

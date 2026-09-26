@@ -723,6 +723,41 @@ export const de = {
     zeitplan: 'Zeitplan',
     ansicht: 'Ansicht',
   },
+  /** ⚠️ Die FLÄCHE, auf der ein Schritt passiert ist — steht vor der Aktion in «Rückgängig: …»,
+   *  wo die Aktion sie nicht schon selbst nennt (lib/undoTimeline · undoCaption). Seit ein Merge
+   *  nur noch einzelne Schritte fallen lässt (25.09.2026), kann das ↶ nach einem fremden Speichern
+   *  auf eine ältere Aktion einer ANDEREN Fläche zeigen; ohne Fläche nimmt der zweite Tipp, der
+   *  der Karte galt, eine Trupp-Änderung zurück. */
+  undoSurfaces: {
+    karte: 'Karte',
+    plan: 'Plan',
+    trupps: 'Trupps',
+    anwesenheit: 'Anwesenheit',
+    mittel: 'Material',
+    checkliste: 'Checklisten',
+    gebaeude: 'Gebäude',
+    rapport: 'Rapport',
+    zeitplan: 'Zeitplan',
+    ansicht: 'Karte',
+    pendenz: 'Verlauf',
+  },
+  /** Ein anderes Gerät hat geändert, was der OBERSTE Schritt zurückgenommen hätte: der Schritt
+   *  fällt weg, und das ↶ zeigt jetzt auf etwas Älteres. Einmal sagen, statt still umzubenennen.
+   *  `{what}` aus `undoDroppedWhat`. */
+  undoTopDropped: 'Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät hat {what} geändert',
+  undoDroppedWhat: {
+    karte: 'die Karte',
+    plan: 'den Plan',
+    trupps: 'den Trupp',
+    anwesenheit: 'die Anwesenheit',
+    mittel: 'das Material',
+    checkliste: 'die Checkliste',
+    gebaeude: 'das Gebäude',
+    rapport: 'den Rapport',
+    zeitplan: 'den Zeitplan',
+    ansicht: 'die Ansichten',
+    pendenz: 'die Pendenz',
+  },
   play: 'Abspielen',
   clear: 'Suche löschen',
   // kind drives how the tool-rail button reads & behaves:
@@ -811,6 +846,12 @@ export const de = {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
+    // ONE line for the armed mode, on the phone dock itself (ToolDock · hint) — the text above
+    // stays behind ⓘ
+    lineFreeShort: 'Mit dem Finger über die Karte ziehen',
+    lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
+    areaFreeShort: 'Den Umriss mit dem Finger ziehen',
+    areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
     area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -1175,6 +1216,16 @@ export const de = {
      *  row: the Verlauf said a Fläche had been drawn and never what it turned out to be. */
     drawingLabelSet: '{kind} «{value}»',
     drawingLabelCleared: '{kind}: Beschriftung entfernt',
+    /** «Zurück auf Stand am Einsatzort» (24.09.2026, lib/gpsReturn): the Leitung had followed a
+     *  vehicle off site, and was put back as it stood when following began. The row names the
+     *  moment and the vehicle, because the Rapport's Kroki shows only the result. */
+    gpsReverted: '{name}: zurück auf Stand am Einsatzort ({time}), von {vehicle} gelöst',
+    /** …the vehicle out of the feed: no placeholder in its place */
+    gpsRevertedBare: '{name}: zurück auf Stand am Einsatzort ({time})',
+    /** «Am Einsatzort lösen» that took a DRIVE out of the line — a change of the record, so a row;
+     *  a release that removes nothing stays silent like every other detach */
+    gpsReleasedOnSite: '{name}: am Einsatzort von {vehicle} gelöst, Fahrt entfernt',
+    gpsReleasedOnSiteBare: '{name}: am Einsatzort gelöst, Fahrt entfernt',
     // ⚠️ `line: 'Linie'`, not 'Zeichnung' (31.08.): the tool is called Linie everywhere else, and
     // «Zeichnung» named a shape by the fact that somebody drew it — which every row here already
     // says. A line that carries a preset reports THAT instead (lib/lineStyle · linePresetLabel).
@@ -2118,6 +2169,12 @@ export const de = {
     // Eingangsdruck – dieselbe Regel gilt für den erneuten Eintritt weiter unten.
     logRegister: 'Trupp {name} angemeldet – Eingangsdruck {bar} bar',
     logRegisterPlain: 'Trupp {name} angemeldet',
+    // Zwei Geräte haben im selben Moment dieselbe Nummer vergeben; die Zusammenführung lässt sie
+    // einem und gibt den anderen die nächste freie (lib/truppNumbers). EINE Zeile pro Wechsel –
+    // die früheren Zeilen bleiben unter der alten Nummer stehen, diese verbindet die beiden.
+    logRenumbered: 'Trupp {name} heisst jetzt Trupp {no}',
+    // …und ein loser Trupp-Marker, mit den Namen, die er auf dem Bild trug
+    logRenumberedChip: '{from} heisst jetzt {to}',
     // Verlauf row for when somebody changes the safety values. WITH old and new values:
     // «geändert» alone doesn't say whether the threshold got stricter or looser.
     logSafety: 'Atemschutz-Sicherheitswerte geändert: {changes}',
@@ -2411,6 +2468,10 @@ export const de = {
     dockHints: {
       draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Breite und Stil danach im Editor.',
       line: 'Eckpunkte antippen. Doppeltippen oder «Fertig» schliesst die Linie ab. Farbe, Breite und Stil danach im Editor.',
+      lineFreeShort: 'Mit dem Finger über den Plan ziehen',
+      lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
+      areaFreeShort: 'Den Umriss mit dem Finger ziehen',
+      areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
       area: 'Ziehen zeichnet den Umriss frei. Oder Eckpunkte antippen (mind. 3) – Doppeltippen oder «Fertig» schliesst die Fläche ab.',
       circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
       text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -2697,6 +2758,9 @@ export const de = {
     ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur löschen?',
     ghostTrailRestore: 'Trupp wieder platzieren',
     ghostTrailRestored: '{name} wieder platziert – Spur übernommen',
+    // Umbenennen eines losen Trupp-Markers auf eine Nummer, die schon vergeben ist (ein Trupp,
+    // ein anderer Marker oder eine Spur trägt sie) – abgelehnt, der alte Name bleibt
+    teamNameTaken: '{name} ist schon vergeben – der Name bleibt',
     textPlaceholder: 'Notiz …',
     blankHint: 'Leeres Blatt – mit Linie, Fläche, Notiz, Symbol oder Trupp beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',
@@ -2725,6 +2789,8 @@ export const de = {
     climbDown: 'Ein Geschoss tiefer weiter',
     climbBack: 'Zurück auf {floor}',
     addFloorDown: 'Untergeschoss hinzufügen',
+    // the toast and ↶ of «+ OG / + UG», naming the storey (its Verlauf row comes with #226)
+    floorAddedToast: '{floor} hinzugefügt',
     floorHide: 'Geschoss ausblenden',
     floorShow: 'einblenden',
     floorHidden: 'ausgeblendet',
@@ -2738,6 +2804,8 @@ export const de = {
     buildingReplacedKept: 'Gebäude gewechselt – Geschosse behalten',
     buildingReplacedCarried: 'Gebäude gewechselt – {n} Markierungen übertragen',
     buildingReplacedCarriedDropped: 'Gebäude gewechselt – {n} übertragen, {d} weggefallen',
+    /** Ein Gebäude zum ersten Mal übernommen (noch kein Stapel da) — der ↶-Schritt dafür. */
+    buildingTaken: 'Gebäude übernommen',
     replaceBuilding: 'Anderes Gebäude wählen',
     replaceBuildingConfirm: 'Der bisherige Geschoss-Stapel wird verworfen und durch den neuen Umriss ersetzt.',
     // ⚠️ Der LEGACY-Fall: ein Gebäude ohne Georeferenz lässt sich nicht auf dem Boden verorten,
@@ -2860,10 +2928,8 @@ export const de = {
     pinGps: 'Festhalten',
     pinGpsTitle: 'Fahrzeug hier festhalten – es bleibt stehen, auch wenn es wegfährt',
     logPinned: '{name} festgehalten',
-    // Verlauf rows from the Fahrzeug feed. They answer «wann ist wer weggefahren» – the question
-    // nobody can answer from memory hours later.
-    logVehicleArrived: '{name} vor Ort',
-    logVehicleLeft: '{name} hat den Einsatzort verlassen',
+    // (The «vor Ort» / «hat den Einsatzort verlassen» rows are written by the SERVER since
+    // 25.09.2026, in German like every server-written row — backend · app/vehicle_presence.)
     // Remove a self-reported position from the Kommandoposten: somebody drives home with sharing
     // still on, or a phone dies on its last fix – the dot then claims a Kraft is somewhere it
     // is not.
@@ -3091,8 +3157,42 @@ export const de = {
     gpsFollowing: 'GPS folgt aktiv',
     gpsMovingAway: 'Fahrzeug bewegt sich weg',
     gpsContinue: 'Weiter folgen',
-    gpsDetachHere: 'Hier lösen',
-    gpsPause: 'Folgen pausieren',
+    /** ⚠️ Says WHERE (24.09.2026): «Hier lösen» read as «here, where the vehicle is now», and in
+     *  the line editor that is what it did — the depot spike of 23.09.2026. Letting go of a GPS end
+     *  now always happens at the Einsatzort (lib/gpsReturn · onSiteCoords). */
+    gpsDetachOnSite: 'Am Einsatzort lösen',
+    /** a traced hose may be KEPT (24.09.2026): let go where the end stands now, the drive stays
+     *  as the laid hose. Also the only release offered where the on-site point is not known. */
+    gpsDetachHere: 'Hier lösen (Spur behalten)',
+    /** the Meldung's ✕ on a «stopped» row */
+    gpsDismiss: 'Ausblenden',
+    gpsPause: 'Folgen stoppen',
+    // ── The Meldung when a coupled vehicle drives off / comes back (GpsFollowMeldung, D3) ──
+    gpsAwayTitle: '{vehicle} fährt weg · {distance} vom Einsatzort',
+    gpsAwayTitleBare: '{vehicle} fährt weg',
+    /** ⚠️ The sub-line is ONE line on a 360px phone (~44 characters) — keep these short */
+    gpsAwaySub: '{lines} endet noch am Einsatzort.',
+    gpsAwaySubMany: '{lines} enden noch am Einsatzort.',
+    /** the PRIMARY move of that Meldung: let go, with the end where it is — on site */
+    gpsKeepOnSite: 'Am Einsatzort lassen',
+    /** following was stopped after the line had traced the drive */
+    gpsStoppedTitle: '{vehicle} · {distance} vom Einsatzort',
+    gpsStoppedTitleBare: '{vehicle} · Folgen gestoppt',
+    gpsStoppedSub: 'Folgen gestoppt · {lines} zeigt die Fahrt.',
+    gpsStoppedSubMany: 'Folgen gestoppt · {lines} zeigen die Fahrt.',
+    /** the vehicle is on site again while the line still follows it (TLF went to refill) */
+    gpsBackTitle: '{vehicle} wieder am Einsatzort',
+    gpsBackSub: '{lines} zeigt die Fahrt seit {time}.',
+    gpsBackSubMany: '{lines} zeigen die Fahrt seit {time}.',
+    gpsRevert: 'Zurück auf Stand am Einsatzort',
+    gpsRevertAt: 'Zurück auf Stand am Einsatzort ({time})',
+    /** the ↶ bubble's word for that step */
+    gpsRevertStep: '{name} zurück auf Stand am Einsatzort',
+    // ── The line editor while an end follows (DrawEditor · the GPS block at the top) ──
+    gpsFollowingHead: '{line} · folgt {vehicle} seit {time}',
+    gpsFollowingHeadBare: '{line} · folgt {vehicle}',
+    gpsStoppedHead: '{line} · Folgen gestoppt · {vehicle}',
+    gpsDistanceNow: 'jetzt {distance} entfernt',
     hiddenTarget: 'Ziel ausgeblendet',
     revealTarget: 'Ebene einblenden',
     removeConnectedTitle: '{name} löschen',
@@ -3358,6 +3458,10 @@ export const de = {
       fog: 'Nebel', drizzle: 'Niesel', rain: 'Regen', snow: 'Schnee',
       rainShowers: 'Regenschauer', snowShowers: 'Schneeschauer', thunder: 'Gewitter', cloudy: 'Bewölkt',
     } as Record<string, string>,
+    // The wind-shift Meldung (24.09.2026, D2). Its words are the server's Verlauf row
+    // («Wind dreht: W → NO (286° → 66°) · Lüfter prüfen»); these two are its doors.
+    windShiftOpen: 'Im Verlauf öffnen',
+    windShiftDismiss: 'Ausblenden',
   },
   // PDF rendering — status line in PdfScroller + first-load placeholder in PdfViewport (Plan)
   pdf: {
@@ -4316,6 +4420,24 @@ export const de = {
     ausgeruecktDerived: 'aus den Fahrzeugzeiten übernommen',
     vorOrtShort: 'vor Ort',
     zurueckShort: 'zurück',
+    // The vehicle table (24.09.2026, D2): what the SERVER observed from the GPS positions,
+    // display only. an = first arrival, ab = last departure, both GPS fix times.
+    gpsTableTitle: 'Fahrzeuge GPS · live',
+    gpsTableNote: 'Zeiten aus den GPS-Positionen, vom Server erfasst',
+    gpsColFzg: 'Fzg',
+    gpsColStatus: 'Status',
+    gpsColAn: 'an',
+    gpsColAb: 'ab',
+    gpsColFahrten: 'Fahrten',
+    gpsColPos: 'Pos.',
+    gpsStatusScene: 'vor Ort',
+    gpsStatusAway: 'unterwegs',
+    gpsAgeSec: 'vor {n} s',
+    gpsAgeMin: 'vor {n} min',
+    gpsAgeHour: 'vor {n} h',
+    gpsAgeStale: 'Position veraltet',
+    // …and on paper, where a vehicle was on scene more than once (a supply vehicle shuttling to the depot)
+    fahrtenCount: '{n} Fahrten',
     rueckmeldungLabel: 'Rückmeldung ELZ',
     rueckmeldungName: 'Name',
     // ⚠️ Nicht bloss «Zeit»: das Feld steht jetzt neben dem Einsatzende, und zwei Zeitfelder

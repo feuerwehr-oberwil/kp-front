@@ -243,8 +243,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // ── the search (mock verlauf-02, 14.09.) ──
   // `null` = closed; a string (even '') = the field has REPLACED the head row. Per-opening like
   // the legend: the drawer remounts on each open, so closing it is what resets the search.
-  // ⚠️ The Overlay keeps `dismissEscape={false}`: Escape in the field closes the SEARCH, not the
-  // drawer – the same «own the key» rule the transcript editors below follow.
+  // Escape closes ONE thing, innermost first (Overlay · onEscape, 26.09.2026): an open search or
+  // inline editor, and only then the drawer. It used to be `dismissEscape={false}` — the drawer
+  // owned the key and never closed on it, so on a tablet Esc did nothing at all.
   const [search, setSearch] = useState<string | null>(null)
   const query = useMemo(() => (search == null ? null : journalQuery(search)), [search])
   const searching = search != null
@@ -425,7 +426,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
    */
   // one marking for every piece of prose in the drawer — the row text and the transcript
   // subtitle lines mark the same vocabulary the composer marked while it was being typed
-  const marked = (text: string) => linkParts(text, vocab).map((p, pi) => {
+  // ⚠️ `subjectId`: a row ABOUT a Trupp links its «Trupp N» to that Trupp by id — after a
+  // renumbering (docs/trupp-naming.md §7) its early rows say a number another crew holds now
+  const marked = (text: string, subjectId?: string) => linkParts(text, vocab, { subjectId }).map((p, pi) => {
     if (!p.kind) return <span key={pi}>{p.text}</span>
     // ⚠️ An address is the one mark that DOES something, so it is the one that must not also do
     // what the row does. A row selects, seeks or opens a place under the finger; without the
@@ -437,7 +440,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
       )
     }
     return (
-      <b key={pi} className={`jr-link jr-link-${p.kind}`}>
+      <b key={pi} className={`jr-link jr-link-${p.kind}`} title={p.hint} data-trupp={p.truppId}>
         {p.text}
         {p.role && <i className="jr-link-role"> ({p.role})</i>}
       </b>
@@ -615,9 +618,19 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     ]
   }
 
+  /** Escape, innermost first (Overlay · onEscape): an inline editor, then the search, and only
+   *  when neither is open does the drawer close. A field's own Esc handler may already have closed
+   *  its layer in this same keydown — this still reads the render's state, so it answers «consumed»
+   *  and the drawer stays. */
+  const escapeInner = (): boolean => {
+    if (editTx) { setEditTx(null); return true }
+    if (editRow) { setEditRow(null); return true }
+    if (search != null) { setSearch(null); return true }
+    return false
+  }
 
   return (
-    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false} grab popupRef={setDrawerEl} style={heldStyle}>
+    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} onEscape={escapeInner} grab popupRef={setDrawerEl} style={heldStyle}>
         {/* ── the head STAYS while searching (22.09.2026) ──
             The field used to take the head's place – title · ⓘ · Replay · ✕ gone, a bare search
             box at the top – and with it went the answer to «where am I»: the drawer no longer said
@@ -945,7 +958,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 {/* ⚠️ `rowText`, not `e.text`: a picture row with no caption of its own reads
                     «Foto» (reversed 31.08. — a run of them was a column of bare timestamps). The
                     RECORD is untouched either way (lib/verlauf · rowText). */}
-                <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e))}</span>
+                <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e), e.subjectId)}</span>
                 <span className="jr-trail">
                   {/* Footnotes ABOUT the row — «Nachtrag», «korrigiert HH:MM», «6×». They say
                       that the append-only record holds more than the row shows, which is worth
@@ -1233,7 +1246,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 </div>
               )}
               {/* the row's own words, and — on a memo — what it says (the list's subtitle chrome) */}
-              <p className="jr-detail-text">{marked(rowText(e))}</p>
+              <p className="jr-detail-text">{marked(rowText(e), e.subjectId)}</p>
               {e.audioUrl && hasTx && (
                 <div className="jr-subs">
                   {e.transcript && <p><span>{marked(e.transcript)}</span></p>}

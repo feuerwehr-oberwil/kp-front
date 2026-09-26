@@ -91,12 +91,16 @@ class WeatherClient:
         other = "open-meteo" if primary == "meteoswiss" else "meteoswiss"
         return [primary, other]
 
-    async def get_weather(self, lat: float, lng: float) -> WeatherData | None:
-        """Current weather near (lat,lng). TTL-cached; None if no provider yields data."""
+    async def get_weather(self, lat: float, lng: float, *, fresh: bool = False) -> WeatherData | None:
+        """Current weather near (lat,lng). TTL-cached; None if no provider yields data.
+
+        `fresh=True` skips the cache READ (the answer still refreshes the cache for everybody):
+        the scheduler's weather observer (app/observations) records a reading once per 10 min,
+        and a cached answer would put it into the record another 10 min late."""
         key = (round(lat, 2), round(lng, 2))
         async with self._lock:
             hit = self._cache.get(key)
-            if hit and hit[1] > time.monotonic():
+            if hit and hit[1] > time.monotonic() and not fresh:
                 return hit[0]
 
         result: WeatherData | None = None

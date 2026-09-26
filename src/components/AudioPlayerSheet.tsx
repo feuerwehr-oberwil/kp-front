@@ -120,10 +120,13 @@ function useStt(audioUrl: string | undefined, enabled: boolean) {
 // SECTIONS (offset + text) onto the memo's own row, listed as subtitle lines in the Verlauf.
 // A 8-second memo annotated with «ordinary» rows produced an unrelated-looking «Manuell» row
 // while the memo kept nagging for its transcript (19.08.).
-export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSection, onEditSection, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
+export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, onAddEntry, onAddSection, onEditSection, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
   row: TimelineEvent
   events: TimelineEvent[]
   readOnly: boolean
+  /** may this session ask for a transcript and decide its segments? The routes are editor-only
+   *  (api/media · CurrentEditor), so an `el` gets the player without the STT surface */
+  canTranscribe?: boolean
   /** everything this Einsatz has words for — same list the composer gets (lib/journalLinks ·
    *  journalVocabulary), so «Eintrag an dieser Stelle» completes and marks names identically */
   vocab?: JournalLink[]
@@ -158,7 +161,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
   const peaks = usePeaks(row.audioUrl)
 
   // STT: fail-closed — the whole surface exists only with a configured engine + editor
-  const sttAvailable = !!getDeploymentConfig().integrations?.sttConfigured && !readOnly && !!onAddEntry
+  const sttAvailable = !!getDeploymentConfig().integrations?.sttConfigured && !readOnly && canTranscribe && !!onAddEntry
   const { stt, setStt, start: startStt } = useStt(row.audioUrl, sttAvailable)
   // local text corrections to drafts before confirming (keyed by segment index)
   const [drafts, setDrafts] = useState<Record<number, string>>({})

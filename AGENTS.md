@@ -50,7 +50,13 @@ chunk. No bundle references it, and the service worker's precache excludes `*.ma
 precache maps. To read a field stack, see [`docs/SOURCEMAPS.md`](docs/SOURCEMAPS.md). A client
 crash report is ONE log line (`kpfront.clienterror`, newlines as « ⏎ », each field bounded). The
 client sends a repeated signature as a counter (`repeat=×N since=…`) and never drops it
-(`src/lib/reportError.ts`).
+(`src/lib/reportError.ts`). The one thing it does not report is a bare fetch failure while
+`navigator.onLine` is false (`isOfflineNetworkNoise`, 24.09.2026). That is the device being
+offline, not a crash. The reports could not leave an offline device anyway, but the counter of
+failed basemap tiles went out after reconnect as «Failed to fetch ×N». `app.admin_postcheck`
+parses these lines back per device, the morning after every Einsatz (read-only;
+[`backend/README.md`](backend/README.md)). If you change the line's shape, update
+`parse_crash_message` and its test.
 
 **Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
 (plus a few components); the backend uses pytest. The backend has a ruff pre-commit hook; the
@@ -191,8 +197,50 @@ to prod.
     undoable twice.
   Two rules that fall out of it: a surface that persists on every **keystroke** classifies its
   writes so a burst of typing is ONE step and a value/row appearing or disappearing is its own
-  (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate drops the whole
-  timeline plus every open fold window, because nothing on it describes anything real any more.
+  (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate closes the open
+  fold windows — the Rapport's typing burst (`lastReportStep`), the Bildlegende
+  (`lastCaptionStep`), the Gebäude-Drehung (`lastReorient`) — and re-opens a plan gesture whose
+  step the merge took: the store's sheet-step token (`useObjectStore · rebaseObjects`) and the
+  Whiteboard's first-movement checkpoint (`useBoardDoc · set`) each lay a fresh step at the
+  gesture's next sample.
+  - ⚠️ **A remote merge drops only the steps it INVALIDATED** (25.09.2026, `lib/undoKeys`,
+    `UndoTimeline.rebase`) — this REVERSES the 08.09. rule that dropped the whole timeline on
+    every hydrate, which with three devices greyed ↶ out within ~2 s of any save anywhere.
+    `applyWorkspace` diffs the live state against the merged one record by record, at or coarser
+    than the merge's own granularity (`WORKSPACE_RECORDS`: an object/Trupp/Mittel row by id, an
+    Anwesenheit by person, a Rapport field by name, `building:` whole; `planview:<planId>` for a
+    sheet whose drawn view moved, `planview:*` when a fit field did). The diff is by value and
+    insensitive to key order ONLY (an `undefined` property counts as absent): array order and
+    every value are compared exactly — the merge's own comparison (`undoKeys · sameValue` IS
+    `lib/jsonEqual`), so «the merge changed this record» and «this side changed it» never
+    disagree about a re-sorted value. Every entry says which records its undo/redo TOUCH
+    (`touches`): every record it writes, AND every record one of those values LINKS to — a
+    placard's `dockedTo`, a Leitung end's attachment target, a `truppId`, a Gebäude body's
+    `building:` (`objectRefs` / `annoRefs`, old value and new) — because re-stating a link means
+    «where the target is NOW», and a ↷ that re-docks onto a host another device moved would land
+    at the old spot. The merge drops each entry that touches a changed record, plus — walking in
+    the order the steps would be taken — every entry behind a dropped one that touches a record
+    the dropped one touched (its effect is now permanent). An entry with no `touches` is dropped
+    by any real change, and so is everything older. An echo drops nothing. The delegating
+    domains then keep exactly the steps whose entries survived (`step`), RE-LAID onto the merged
+    state as a patch of the records each wrote (`rebaseHistory`; an open Karte drag via
+    `rebasePending`) — the Karte store per object, the slices per record — so no snapshot carries
+    a pre-merge value of a record the merge changed. A Plan's stack is whole-sheet VIEW snapshots
+    (an absent anno is a deletion), so it cannot be re-laid: it survives only WHOLE
+    (`planStackTouches` names the stack's every object, link and its view), cut by step id
+    (`keepPlanSteps`). The confirm-with-undo toasts are guarded too: `undoToast(…, guard)`
+    declines with «Nicht mehr rückgängig machbar» once a merge changed a record it would write or
+    link to (or its entry is no longer `standing`); a toast whose target lives outside the
+    workspace checks the target itself (`georefStillIs`, `mittel · tombstoneStands`). The whole
+    bookkeeping runs through `carryUndoThroughMerge`: if any of it throws, the old rule applies
+    (timeline cleared, every history dropped, the merged state still lands). ⚠️ ↶ never turns
+    into an older act SILENTLY (staging r3, F8): when a merge drops the step ↶ would have taken
+    back, one line says so («Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät
+    hat … geändert», `onTopDropped`), and the header's label and flash caption name the SURFACE
+    in front of an action that does not already say it («Trupps · Trupp 1 (…): Ausrüstung: WBK»,
+    `undoTimeline · undoCaption`, `copy.undoSurfaces`) — the Verlauf row keeps the bare action. Add an entry ⇒ give
+    it a `touches` that covers EVERYTHING its undo and redo write, and every record those values
+    link to; add an id-valued link field ⇒ add it to `objectRefs`.
   Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are
   new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
   metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.
@@ -269,14 +317,35 @@ to prod.
   `Saved` at compile time, so a field without a policy fails `tsc` instead of silently merging
   as «this device wins» (23.09.2026). (`Person`/roster is the exception – it carries
   `updatedAt` because it's pulled from Divera, not merged.)
+  - ⚠️ **The server observes; devices never write observations** (24.09.2026, design D2 after
+    the Feueralarm-Übung of 23.09.2026). A fact about the OUTSIDE world — a vehicle arrived or
+    left, the weather, a new Divera alarm — is recorded by the scheduler, once, stamped with
+    the time the fact is about: «vor Ort» / «verlassen» on the tracker's report time (Traccar
+    `deviceTime`, capped at now) inside the 30 s
+    sweep (`app/vehicle_presence`), a `weather.observe` per reading and the wind-shift row
+    every 10 min (`app/observations`), the Divera poll (30 s idle / 120 s while an Einsatz
+    runs, back-off on 429). Why: a device writes what it noticed WHEN it noticed — five
+    vehicles «vor Ort» at 19:43 because a tablet woke up (GPS said 19:23–19:28), one weather
+    reading ×5, 469 Divera polls — and writes nothing while every screen sleeps. Devices only
+    READ (the pool, the Verlauf, the `reportMeta.fahrzeuge[].gps` block behind the Rapport's
+    «Fahrzeuge GPS · live» table); an older build's own copies are acknowledged and dropped at
+    the endpoints (`api/journal · observed_by_server`, `api/events · SERVER_OBSERVED_OPS`). A
+    new observation ⇒ a scheduler job registered unconditionally (no-op when unconfigured) with
+    a derived id, never a device-side effect. Three rules an observer keeps (review 25.09.2026):
+    its memory changes only AFTER the commit (`vehicle_presence · Tick.commit` — a failed tick
+    must not lose a transition); it walks incidents in id order (row locks, deadlock); and what
+    it writes is SERVER-OWNED — `reportMeta.fahrzeuge[].gps` is put back on every client save
+    (`keep_server_gps`). `zurueck` is «back at the depot» and stays the geofence's. «Active» =
+    a human write within 24 h, never the observers' own. Full table: `docs/ARCHITECTURE.md`.
   - ⚠️ **What every device OBSERVES is recorded under a DERIVED id, once** (24.09.2026). One
     login is routinely open on three devices, and each runs the same engines — the Atemschutz
-    alarm clock, the Fahrzeug presence rings. A row or event such an engine writes must carry
-    an id every device computes identically from the fact itself, so the server's idempotency
-    keeps one: Verlauf rows `azal-`/`azcl-<trupp>-<turnus>` (alarm), `vp-<n>-<zone>-<vehicle>`
-    (presence — `n` is the vehicle's transition number in the shared Verlauf, so a device that
-    wakes ten minutes later finds the row and writes nothing), and the audit event beside an
-    observed row `observedEventId(rowId, actor)` with a payload free of anything device-local.
+    alarm clock (the one observation still on the devices: it is about the device's own Tafel,
+    not the outside world). A row or event such an engine writes must carry an id every device
+    computes identically from the fact itself, so the server's idempotency keeps one: Verlauf
+    rows `azal-`/`azcl-<trupp>-<turnus>` (alarm), and the audit event beside an observed row
+    `observedEventId(rowId, actor)` with a payload free of anything device-local. The server's
+    own observers derive theirs the same way (`vps-<n>-<zone>-gps-<device>`, `wx:<incident>:<observed_at>`,
+    `wxd-<observed_at>`), so a restart or a second worker converges.
     Audit ids are ACTOR-scoped (the server binds a `client_id` to its author; two accounts each
     observed it). The server treats a same-id, same-author, same-op, same-payload event with a
     different `occurred_at` as the duplicate (the first observation's time is kept) — a
@@ -287,12 +356,51 @@ to prod.
     has not seen that merge — the resolver re-bases it onto the merge before merging again
     (`lastMerged`), or the next attempt reads the remote objects it lacks as local deletes
     (the three-device load test lost 7–14 % of edits that way, `workspaceSync.load.test.ts`).
+  - ⚠️ **Key order is never a change** (25.09.2026). The server stores the blob as JSONB, which
+    hands every object back with its keys RE-SORTED, while this device's own objects keep the
+    order the code built them in. Anything that decides «changed / unchanged / same divergence»
+    on synced data compares with `jsonEqual` or `canonicalJson` (`lib/jsonEqual`), never
+    `JSON.stringify(a) === JSON.stringify(b)`: in `mergeById` an untouched entry read as «mine
+    changed» against its re-sorted ancestor, and the other device's real edit lost the
+    «both changed» LWW. Round-trip tests re-sort the server copy (`jsonb.test-utils ·
+    serverRoundTrip`).
+  - **Anwesenheit entries and Zeitplan shifts merge PER FIELD** (staging r4 D3, 25.09.2026):
+    two saves in the same second share one ancestor, and whole-object LWW dropped one device's
+    field. `mergeWorkspace · mergeFields` resolves unit by unit — an entry's presence
+    (`status`/`intervals`/`checkedInAt`/`leftAt`) is ONE unit, the Funktion (`note` + `noteAt`)
+    another, `source`/`displayNameSnapshot` are quiet bookkeeping. Only a unit both sides
+    changed differently is a divergence; it is reported as two whole entries differing only in
+    that unit, so the row names only it and settling either side keeps the other edits. A shift
+    whose merged from/to would not be a block keeps mine's pair. Reproduced end-to-end with two
+    engines on the 409 path (`workspaceSync.sameSecond.test.ts`).
 - **A Trupp is `Trupp N` on paper and its Gruppenführer in person** (12.09.,
   [`docs/trupp-naming.md`](docs/trupp-naming.md)). The number comes from ONE counter per Einsatz
   that unlinked «Trupp N» chips draw from too, is never reused, and is a badge beside the leader's
   name – never the primary label. Every Verlauf row about a Trupp is `Trupp N (crew …)` through
   `truppLogName`, and the crew's history is `crew` rows in the Trupp's own log, which is what the
   Rapport prints per cycle. Add a crew-changing action ⇒ it writes a `crew` row.
+  - ⚠️ **Two devices that mint the same number at once are settled by the MERGE** (25.09.2026,
+    `lib/truppNumbers`, trupp-naming §7). Every device derives the next number from its own view,
+    so three online devices tapping «Neuer Trupp» in one second all minted «Trupp 1». At the end
+    of `mergeWorkspace`, every contested number stays with ONE claimant (on the board and went in
+    > on the board > taken off the board > an unlinked «Trupp N» chip, then the one the server
+    already holds under it, then registration time, then id), and the others take the next
+    numbers of the one counter (`formerNos` keeps what they lost). ⚠️ One move per collision
+    (N16): a re-merge after a 409 first takes back its OWN un-landed renumberings
+    (`unwindUnlanded`) — a number it just handed out is not a claim. It is pure over the merge's
+    INPUTS: the same inputs give the same numbers on every device, nothing is left to ping-pong —
+    but which merge lands first can decide the keeper. A
+    session settles only what its push carries (`WorkspaceSync · numberScope`: the Link Trupps
+    only, `el` nothing). It is NOT an act: it reaches the view by a hydrate (which drops the undo
+    timeline) and writes ONE Verlauf row, «Trupp 1 (…) heisst jetzt Trupp 3», under the DERIVED
+    id `trn-<id>-<from>-<to>` — said against the view's content that 409'd AND its latest save,
+    against every adopted revision, and by the resolving device after its push; the Link writes
+    it too (`appendTeamRow`). Rows written under the old number stay as they are; the Rapport
+    heading reads «Trupp 3 (zuerst Trupp 1)», and a row's `subjectId` links its «Trupp 1» by id.
+    `Trupp.no` changes nowhere else — don't add a second writer. A duplicate ONE device could see
+    coming (⌘D, a rename, a revived Spur) is refused or re-minted at the source
+    (`placedTrupps · counterNames / freshTeamLabel`), never left for a merge; the counter reads
+    every chip, every ghost trail and every Trupp ever registered.
   - **A Trupp's marker says which STOREY it is on** (18.09.2026): the Gebäude chip — at rest
     (`.team-dot`) and selected (`TwinTeamPill`) — and the Karte marker whose body was baked off
     that chip wear the same signed badge a Leitung's `floorTag` wears (`.team-floor`,
@@ -484,6 +592,29 @@ to prod.
     it. And the seam honours it per object: a lent anno
     handed back exactly as shown folds to the SAME record (`applyBoardToObjects`), never through
     the bake — which lost a note's text and laid a store step for nothing.
+  - ⚠️ **A live-GPS Leitung end keeps its way back to the Einsatzort** (24.09.2026, D3,
+    `lib/gpsReturn`). The first «Weiter folgen» / «Spur» on a GPS end stores the on-site line in
+    `gps.before` (geometry, coupling state, tap time). It is taken ONCE — never overwritten while
+    the end follows or after «Folgen stoppen» — rides with the attachment through sync, merge, bake
+    and ↶, and is dropped by detaching or a fresh confirmation. It counts only while its
+    `confirmedAt` is the coupling's own (`freshBefore`): an older client spreads `gps`, carries the
+    field unread and may re-confirm the end under it. Three releases, each saying what it does:
+    «Zurück auf Stand am Einsatzort» restores the snapshot exactly; «Am Einsatzort lassen/lösen»
+    cuts a followed trace back to its on-site end (`onSiteCoords`, the cut vertex found by value),
+    offered only where that point is KNOWN (`onSiteKnown`); «Hier lösen (Spur behalten)» keeps the
+    traced hose — a traced line may be meant to stay. A hand dragging the end off lands at the drop
+    point. Restoring or cutting back is `commit(…, { gesture: false })`: not a placement, so a
+    plan-drawn hose keeps its sheet and storey. Either act that takes vertices out writes ONE
+    Verlauf row (`log.gpsReverted` / `log.gpsReleasedOnSite`). The Meldung is ONE row per vehicle
+    and question, acting on all of its ends; «fährt weg» is RAISED only at ≥100 m from the on-site
+    point (`AWAY_NOTICE_M` — below it the 20 m pause stays silent, GPS scatter of a parked vehicle
+    asks nothing, and a vehicle back under it clears the row without a word); the «back on site» offer ARMS only once the vehicle
+    was ≥300 m out (live or in the trace) and is asked once per return; a «stopped» row can be
+    waved away — both device-local. The sync merge lets a hand's change of a hose beat a
+    follower-only change (`followerOnlyChange` in `mergeWorkspace`), or another device's poll puts
+    the drive back after a «Zurück». And the printed Kroki names an attached end only while it
+    SITS on its object (`lineAttachments · endOnTarget`): the server couples every named end to the
+    glyph where the vehicle is now.
   - ⚠️ **A machine writer is idempotent — writing an unchanged value is a render loop**
     (24.09.2026, post-mortem of the Übung on 23.09.2026). A pass that runs on a feed or an effect
     returns the document it was given (`cur` itself) when nothing changed BY VALUE; a copy with an
@@ -635,6 +766,20 @@ to prod.
   Geschossplan» on every storey (prod, 20.09.2026). Floors that exist are never replaced. Bound sheets carry `incident:` georef keys, routed by
   `stationPlanScale · georefForPlan`; legacy fits under existing ink are preserved, never
   silently replaced.
+- **Building outlines come from the station's snapshot first** (25.09.2026). `POST
+  /api/overpass/buildings` clips the box out of the stored station snapshot
+  (`reference_buildings · stored_answer`, read-only) whenever that covers the box AND its
+  `fetched_at` is at most 30 days old; otherwise it races the mirrors and falls back to the
+  snapshot at any age only when every mirror failed (also with no mirror configured, before the
+  503). Only the alignment worker refreshes the snapshot, and only while it has jobs to run, so
+  «recent» is not a given. ⚠️ The live path has its OWN parsed copy (`_live`, one shared load for
+  concurrent cold callers, parse and clip off the event loop): the worker's `_cache` is returned
+  for ten minutes without checking the station's objects, and fed from the live path it once
+  handed the worker a snapshot missing newly pushed objects. The race itself is cached
+  per query (6 h, 64 entries, never a failure) and shared between concurrent callers — every
+  device of an Einsatz asks for the same box from ONE egress address, which the public mirrors
+  throttle — and its per-mirror guard (30 s) outlasts the query's own `[timeout:25]`. Staging
+  answered about half of all Karte opens with a 502 before.
 - **A plan PDF is downloaded ONCE per revision, and its pages are rendered once per width**
   (18.09.2026). pdf.js is never handed a URL: `lib/pdfBytes` does one plain `GET` and
   `PdfViewport · docEntry` opens the document from `data` (a COPY — pdf.js transfers, i.e.
@@ -716,6 +861,9 @@ to prod.
     surface registers while it is open (`overlays/popoverGuard` · `usePopoverGuard`; `Menu`,
     `Popover` and `ComboMenu` already do), and `Sheet`/`Overlay` veto an `outside-press`/
     `escape-key` dismissal while the register is warm. Add a hand-rolled popover ⇒ register it.
+    A surface with its own INNER layers (a search, an inline editor) answers Esc through
+    `Overlay · onEscape` — true = «I closed my layer» — never through `dismissEscape={false}`,
+    which only vetoes and left the Verlauf drawer deaf to Esc on the tablet (26.09.2026).
   - **A phone bottom sheet is closed by pushing it down.** `overlays/swipeDismiss`, spread on the
     popup by `Sheet` and `Overlay` (`swipeToClose`, on by default) — never a per-surface copy. It
     measures that the popup IS a bottom sheet, leaves a scrolled body its own gesture, never starts
@@ -746,7 +894,17 @@ to prod.
   everything tactical stay 403 for it), and `viewer`
   (read-only). Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
   on, `readOnly` off) with `canEditRecord` unlocking the four surfaces, `canEditMeta` the
-  Einsatzdaten panel, and the sync pushing `slice: 'record'`. The legacy `commander` value has been migrated away: the stored role,
+  Einsatzdaten panel, and the sync pushing `slice: 'record'`. ⚠️ **A door the role cannot go
+  through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026). A
+  READ-OUT is not a door: it stays, disabled in the `.wb-object:disabled` recipe (full opacity,
+  its own words and tone, no tap). So a locked session (el, Führungsansicht, viewer, replay) keeps
+  the building's name, the Massstab and the linked «⌖ Karte» chip as read-outs — an unchecked
+  automatic fit must never look like a checked one, whoever is looking — but gets no «Anderes
+  Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». Every
+  session that cannot share links (`canShareLink` false: el, Führungsansicht, viewer, link) gets
+  no «Weitergeben» section, and so sends no GET for a link it may not read. The `el` also gets no
+  saved-view writes, no vehicle override, no object switch, no «Wieder öffnen», no transcription
+  and no checklist «Zeichnen» link. The legacy `commander` value has been migrated away: the stored role,
   the `Literal`/type unions, the `CurrentEditor` dependency, and `user?.role === 'editor'` checks
   all use `editor` now. Do not reintroduce `commander`, and do not add deployment-admin power to the
   incident role model. Deployment administration is **separated** behind the `ADMIN_SECRET` env var:
@@ -1089,8 +1247,14 @@ to prod.
   `ci.yml` go **fully green**, *then* merge – never merge a red branch. `ci.yml` runs three gate
   jobs: *Frontend (tsc + build)* – eslint + `tsc --noEmit` + vitest + `vite build`; *Backend
   (ruff + alembic + pytest)*; *Image (hadolint + build + smoke)* – builds & boots the real
-  production container and drives the Playwright white-screen smoke (`e2e/smoke.spec.ts`) against
-  it. An **urgent prod hotfix** may still go straight to `main` (see the commit bullets / the 3am
+  production container and drives the Playwright e2e against it: the white-screen smoke
+  (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026
+  (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp,
+  and then three devices on one login). ⚠️ **Every e2e test fails when the app reports a client
+  error or a render storm** (`e2e/guard.ts`, 24.09.2026). A spec imports `test` from
+  `e2e/helpers`, never from `@playwright/test` (eslint enforces it). A report a test provokes on
+  purpose is listed with `expectedClientErrors`; nothing turns the guard off (`e2e/README.md`).
+  An **urgent prod hotfix** may still go straight to `main` (see the commit bullets / the 3am
   tenet) – but run `pnpm lint && pnpm test` (and ideally `pnpm build`) locally first. For
   interactive changes a unit test can't cover, use `/code-review` on the diff and `/verify` to
   drive the real app. Keep the house rule: every new mutating feature ships with a `src/lib` test.

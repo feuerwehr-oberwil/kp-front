@@ -763,6 +763,24 @@ async def test_a_numbered_trupp_prints_its_heading_and_the_crew_per_cycle():
     assert "Eintritt: " not in text
 
 
+async def test_a_renumbered_trupp_names_its_first_number_in_the_heading():
+    # two devices minted «Trupp 1» at once and the merge gave this one 3 (docs/trupp-naming.md
+    # §7): its early Verlauf rows still say «Trupp 1», so the Atemschutz page says both
+    from app.report_pdf import ReportPayload
+
+    payload = _minimal_payload("x")
+    payload["options"] = {"atemschutz": True}
+    payload["trupps"] = [
+        {"name": "Meier Anna", "no": 3, "formerNos": [1], "leader": "Meier Anna", "members": [], "readings": []},
+        {"name": "Keller Andreas", "no": 1, "leader": "Keller Andreas", "members": [], "readings": []},
+    ]
+    pdf_bytes = compose_report_pdf(ReportPayload.model_validate(payload), {})
+    doc = pdfium.PdfDocument(io.BytesIO(pdf_bytes))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Trupp 3 (zuerst Trupp 1) – Meier Anna" in text
+    assert "Trupp 1 – Keller Andreas" in text
+
+
 async def test_an_older_payload_without_cycles_prints_exactly_as_before():
     from app.report_pdf import ReportPayload
 

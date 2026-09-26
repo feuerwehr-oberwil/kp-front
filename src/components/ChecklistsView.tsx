@@ -18,7 +18,7 @@ const EMPTY_STATE: TemplateState = { ticks: {}, activeBranch: {} }
 // renders the selection: an action checklist runs as a checkable phase list; a Stichwort
 // opens its reading view (with inline diagrams). Ticking/branch are lifted to App.
 export function ChecklistsView({
-  checklists, canTick, divera, onTick, onBranch, onAction,
+  checklists, canTick, divera, onTick, onBranch, onAction, offersAction,
 }: {
   checklists: ChecklistState
   canTick: boolean
@@ -26,6 +26,7 @@ export function ChecklistsView({
   onTick: (template: ChecklistTemplate, item: Item) => void
   onBranch: (templateId: string, phaseId: string, branchId: string) => void
   onAction: (item: Item, a: NonNullable<Item['action']>) => void
+  offersAction?: (a: NonNullable<Item['action']>) => boolean
 }) {
   const CL = appConfig.copy.checklists
   // Templates are fetched from the reference registry (offline-cached, bundled fallback) — async,
@@ -184,6 +185,7 @@ export function ChecklistsView({
               onToggle={(item) => onTick(activeTemplate, item)}
               onBranch={(phaseId, branchId) => onBranch(activeTemplate.id, phaseId, branchId)}
               onAction={onAction}
+              offersAction={offersAction}
             />
           ) : (
             <ChecklistEntryReader entry={activeEntry} templateId={activeEntryTemplateId} />
