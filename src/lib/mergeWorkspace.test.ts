@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { MERGE_POLICY, mergeById, mergeRecord, mergeWorkspace } from './mergeWorkspace'
+import { MERGE_POLICY, mergeById, mergeRecord, mergeWorkspace, type RecordConflict } from './mergeWorkspace'
+import { conflictWhat } from './attendanceConflict'
 import type { Saved } from './workspace'
+import { serverRoundTrip } from './jsonb.test-utils'
 
 const o = (id: string, extra: Record<string, unknown> = {}) => ({ id, ...extra })
 
@@ -272,7 +274,7 @@ describe('mergeWorkspace — task-scoped cross-domain merges (no clobbering)', (
 })
 
 describe('mergeById — documented LWW data-loss (whole-object replacement, non-Trupp collections)', () => {
-  // For every collection EXCEPT trupps the merge is per-OBJECT last-writer-wins with
+  // For every collection EXCEPT trupps, attendance and shifts the merge is per-OBJECT LWW with
   // WHOLE-OBJECT replacement — it does NOT merge field-by-field within a single object. So when
   // two devices concurrently edit DIFFERENT fields of the SAME object, the later writer
   // ("mine") replaces the object wholesale and the other device's field change is silently
@@ -544,5 +546,185 @@ describe('mergeWorkspace — every field of the blob has a declared merge policy
 
   it('a key this build does not know rides with mine, as before the policy map', () => {
     expect(mergeWorkspace({ future: 1 }, { future: 1 }, { future: 2 }).future).toBe(1)
+  })
+})
+
+/* staging r3 F11, 25.09.2026: the server keeps the blob as JSONB and hands every object back with
+ * its keys RE-SORTED, while this device's own entries keep the order the code built them in. The
+ * merge compared entries as JSON strings, so an entry this device never touched read as «changed
+ * here» against its re-sorted ancestor — and when another device really changed it, «both
+ * changed» went LWW-mine and the other device's edit was thrown away. Every policy that compares
+ * values is walked here: base and theirs are what the server sent back, mine is this device's
+ * untouched copy. */
+describe.each(['jsonb', 'alphabetical'] as const)('mergeWorkspace — a server round trip re-sorts keys (%s): key order is no edit', (order) => {
+  const server = <T,>(v: T): T => serverRoundTrip(v, order)
+  /** base = the server's copy of `mine`; theirs = the server's copy of the other device's edit */
+  const roundTrip = (field: string, mine: unknown, theirs: unknown) =>
+    mergeWorkspace(server({ [field]: mine }), { [field]: mine }, server({ [field]: theirs }))[field]
+
+  const collections: [string, Record<string, unknown>, Record<string, unknown>][] = [
+    ['timeline', { id: 'r1', t: '17:09', text: 'Lage erkundet', icon: 'note', at: '2026-09-25T17:09:00Z' }, { text: 'Lage erkundet, 2. OG' }],
+    ['mittel', { id: 'm1', label: 'Schaummittel', unit: 'l', qty: 20, at: '2026-09-25T17:30:00Z' }, { qty: 40 }],
+    ['shifts', { id: 'sh1', personId: 'p1', from: '2026-09-25T17:00:00Z', to: '2026-09-25T19:00:00Z', bandId: 'bd1' }, { to: '2026-09-25T21:00:00Z' }],
+    ['bands', { id: 'bd1', label: 'Nacht', from: '2026-09-25T22:00:00Z', to: '2026-09-26T06:00:00Z' }, { label: 'Nacht 1' }],
+    ['cameraViews', { id: 'cv1', name: 'Übersicht', center: [7.55, 47.51], zoom: 17, bearing: 0 }, { zoom: 18 }],
+    ['trails', { id: 'ght-a', sourceId: 'a', truppNo: 1, points: [{ lng: 7.55, lat: 47.51, t: '2026-09-25T17:10:00Z' }] }, { removedAt: '2026-09-25T18:00:00Z' }],
+    ['attachments', { id: 'att1', url: '/api/media/att1', caption: 'Schaden', at: '2026-09-25T17:20:00Z' }, { caption: 'Schaden Küche' }],
+  ]
+
+  it.each(collections)('%s: another device\'s edit to an entry this device never touched survives', (field, entry, edit) => {
+    expect(JSON.stringify(server(entry))).not.toBe(JSON.stringify(entry)) // the round trip really re-sorted
+    const theirs = { ...entry, ...edit }
+    expect(roundTrip(field, [entry], [theirs])).toEqual([theirs])
+  })
+
+  it('objects: another device\'s move of a map object survives, in the object and in its view', () => {
+    const entity = { id: 'a', kind: 'symbol', layer: 'taktisch', coord: [7.55, 47.51], label: 'TLF' }
+    const theirs = { id: 'a', entity: { ...entity, coord: [7.56, 47.52] } }
+    const merged = mergeWorkspace(server({ objects: [{ id: 'a', entity }] }), { objects: [{ id: 'a', entity }] }, server({ objects: [theirs] }))
+    expect(merged.objects).toEqual([theirs])
+    expect((merged.entities as { coord: number[] }[])[0].coord).toEqual([7.56, 47.52])
+  })
+
+  const values: [string, unknown, unknown][] = [
+    ['vehicleOverrides', { tlf: { coord: [7.55, 47.51], rotation: 90, fahrer: 'Tst Jan' } }, { tlf: { coord: [7.55, 47.51], rotation: 180, fahrer: 'Tst Jan' } }],
+    ['checklists', { brand: { activeBranch: { p1: 'ohne' }, ticks: { erkunden: { by: 'EL', at: '17:10' } } } }, { brand: { activeBranch: { p1: 'mit' }, ticks: { erkunden: { by: 'EL', at: '17:10' } } } }],
+    ['settings', { contactIntervalMin: 10, contactGraceSec: 60, defaultFunkkanal: 11 }, { contactIntervalMin: 10, contactGraceSec: 60, defaultFunkkanal: 12 }],
+    ['attendance', { p1: { status: 'present', displayNameSnapshot: 'Tst Jan', intervals: [{ from: '2026-09-25T17:09:00Z' }] } },
+      { p1: { status: 'left', displayNameSnapshot: 'Tst Jan', intervals: [{ from: '2026-09-25T17:09:00Z', to: '2026-09-25T19:00:00Z' }], leftAt: '2026-09-25T19:00:00Z' } }],
+    ['reportMeta', { partnerContacts: [{ org: 'Polizei', name: 'Wache', phone: '117' }], linksDone: { l1: '2026-09-25T18:00:00Z' }, fahrzeuge: [{ id: 'tlf', vorOrt: '2026-09-25T17:08:00Z', manual: true }] },
+      { partnerContacts: [{ org: 'Polizei', name: 'Wache', phone: '112' }], linksDone: { l1: '2026-09-25T18:00:00Z' }, fahrzeuge: [{ id: 'tlf', vorOrt: '2026-09-25T17:07:00Z', manual: true }] }],
+    ['building', { ring: [[0, 0], [1, 0], [1, 1]], ringAspect: 1.5, floors: [0, 1], floorNames: { 0: 'EG' } }, { ring: [[0, 0], [1, 0], [1, 1]], ringAspect: 1.5, floors: [0, 1], floorNames: { 0: 'EG / ZWG' } }],
+    ['trupps', [{ id: 't1', no: 1, status: 'aktiv', crew: [{ personId: 'p1', name: 'Tst Jan', role: 'TF' }] }],
+      [{ id: 't1', no: 1, status: 'aktiv', crew: [{ personId: 'p1', name: 'Tst Jan', role: 'TF' }, { personId: 'p2', name: 'Tst Eva', role: 'TM' }] }]],
+  ]
+
+  it.each(values)('%s: another device\'s edit to a value this device never touched survives', (field, mine, theirs) => {
+    expect(JSON.stringify(server(mine))).not.toBe(JSON.stringify(mine)) // the round trip really re-sorted
+    expect(roundTrip(field, mine, theirs)).toEqual(theirs)
+  })
+
+  it('and this device\'s own edit still wins over an entry the other device never touched', () => {
+    const sh = { id: 'sh1', personId: 'p1', from: '2026-09-25T17:00:00Z', to: '2026-09-25T19:00:00Z' }
+    const mine = { ...sh, to: '2026-09-25T20:00:00Z' }
+    expect(mergeWorkspace(server({ shifts: [sh] }), { shifts: [mine] }, server({ shifts: [sh] })).shifts).toEqual([mine])
+  })
+})
+
+/* staging r3 F11: four tablets filed the same Link crew under the same derived id, and every
+ * person got «abweichende Angaben zusammengeführt – bitte prüfen» with two identical sides. Key
+ * order is not a difference, nor is the moment a device wrote the same Funktion. */
+describe('attendance conflicts — only when the two sides say something different', () => {
+  const entry = { status: 'present', displayNameSnapshot: 'Tst Jan', intervals: [{ from: '2026-09-25T17:09:00Z' }], checkedInAt: '2026-09-25T17:09:00Z', note: 'AS-GF' }
+
+  it('two devices filing the same person under the same derived id collapse silently, whatever the key order', () => {
+    const conflicts: unknown[] = []
+    const merged = mergeWorkspace({ attendance: {} }, { attendance: { 'g-t1-x': entry } }, { attendance: { 'g-t1-x': serverRoundTrip(entry) } },
+      (c) => conflicts.push(c)) as { attendance: Record<string, unknown> }
+    expect(conflicts).toEqual([])
+    expect(merged.attendance['g-t1-x']).toEqual(entry)
+  })
+
+  it('an entry neither device changed raises nothing after a round trip', () => {
+    const conflicts: unknown[] = []
+    mergeWorkspace(serverRoundTrip({ attendance: { p1: entry } }), { attendance: { p1: entry } }, serverRoundTrip({ attendance: { p1: entry } }), (c) => conflicts.push(c))
+    expect(conflicts).toEqual([])
+  })
+
+  it('a difference only in noteAt is no divergence; a different Funktion still is', () => {
+    const conflicts: unknown[] = []
+    mergeWorkspace({ attendance: {} }, { attendance: { p1: { ...entry, noteAt: '2026-09-25T17:09:01Z' } } },
+      { attendance: { p1: serverRoundTrip({ ...entry, noteAt: '2026-09-25T17:09:03Z' }) } }, (c) => conflicts.push(c))
+    expect(conflicts).toEqual([])
+    mergeWorkspace({ attendance: {} }, { attendance: { p1: entry } }, { attendance: { p1: { ...entry, note: 'AS' } } }, (c) => conflicts.push(c))
+    expect(conflicts).toHaveLength(1)
+  })
+})
+
+/* staging r4 D3: two devices saving DIFFERENT fields of one person or one shift in the same second
+ * both build on the same ancestor; merged as whole objects, one of the two edits was lost. The
+ * end-to-end reproduction with two sync engines is workspaceSync.sameSecond.test.ts. */
+describe('mergeWorkspace — Anwesenheit entries merge per fact', () => {
+  const base = { status: 'present', displayNameSnapshot: 'Tst Emil', checkedInAt: '2026-09-25T21:36:00Z', intervals: [{ from: '2026-09-25T21:36:00Z' }], source: 'kp' }
+  const von = (from: string) => ({ checkedInAt: from, intervals: [{ from }] })
+  const merge = (mine: object, theirs: object) => {
+    const conflicts: RecordConflict[] = []
+    const merged = mergeWorkspace({ attendance: { p1: base } }, { attendance: { p1: { ...base, ...mine } } },
+      serverRoundTrip({ attendance: { p1: { ...base, ...theirs } } }), (c) => conflicts.push(c)) as { attendance: Record<string, Record<string, unknown>> }
+    return { entry: merged.attendance.p1, conflicts }
+  }
+
+  it('a «von» on one device and a Bemerkung on the other both stand, and nothing is reported', () => {
+    const { entry, conflicts } = merge({ note: 'Fahrer TLF', noteAt: '2026-09-25T21:38:30Z' }, von('2026-09-25T21:38:00Z'))
+    expect(entry).toEqual({ ...base, ...von('2026-09-25T21:38:00Z'), note: 'Fahrer TLF', noteAt: '2026-09-25T21:38:30Z' })
+    expect(conflicts).toEqual([])
+  })
+
+  it('the Ort and the presence are separate facts too', () => {
+    const { entry, conflicts } = merge({ ort: 'station' }, { status: 'left', leftAt: '2026-09-25T23:00:00Z', intervals: [{ from: base.checkedInAt, to: '2026-09-25T23:00:00Z' }] })
+    expect(entry).toMatchObject({ ort: 'station', status: 'left', leftAt: '2026-09-25T23:00:00Z' })
+    expect(conflicts).toEqual([])
+  })
+
+  it('a Bemerkung cleared on one device stays cleared while the other moves the time', () => {
+    const withNote = { ...base, note: 'AS', noteAt: '2026-09-25T21:37:00Z' }
+    const merged = mergeWorkspace({ attendance: { p1: withNote } }, { attendance: { p1: { ...base } } },
+      { attendance: { p1: { ...withNote, ...von('2026-09-25T21:30:00Z') } } }) as { attendance: Record<string, Record<string, unknown>> }
+    expect(merged.attendance.p1).toEqual({ ...base, ...von('2026-09-25T21:30:00Z') })
+  })
+
+  it('presence is ONE fact: a «von» against a check-out keeps mine whole and reports only the times', () => {
+    const leaving = { status: 'left', leftAt: '2026-09-25T23:00:00Z', intervals: [{ from: base.checkedInAt, to: '2026-09-25T23:00:00Z' }] }
+    const { entry, conflicts } = merge({ ...leaving, note: 'Maschinist', noteAt: '2026-09-25T22:00:00Z' }, von('2026-09-25T21:30:00Z'))
+    // never status «left» with the other side's open block and first arrival
+    expect(entry).toMatchObject({ ...leaving, checkedInAt: base.checkedInAt, note: 'Maschinist' })
+    expect(conflicts).toHaveLength(1)
+    expect(conflictWhat(conflicts[0])).toBe('Status abweichend · unterschiedliche Zeiten')
+    // the two sides differ ONLY in the diverging fact — settling on either keeps the Bemerkung
+    expect(conflicts[0].mine).toEqual(entry)
+    expect(conflicts[0].theirs).toMatchObject({ ...von('2026-09-25T21:30:00Z'), status: 'present', note: 'Maschinist' })
+    expect((conflicts[0].theirs as Record<string, unknown>).leftAt).toBeUndefined()
+  })
+
+  it('two different Funktionen are still a divergence — named alone, even when a time moved beside it', () => {
+    const { entry, conflicts } = merge({ note: 'Maschinist TLF', noteAt: '2026-09-25T21:40:01Z' },
+      { note: 'Maschinist', noteAt: '2026-09-25T21:40:00Z', ...von('2026-09-25T21:42:00Z') })
+    expect(entry).toMatchObject({ note: 'Maschinist TLF', ...von('2026-09-25T21:42:00Z') })
+    expect(conflicts).toHaveLength(1)
+    expect(conflictWhat(conflicts[0])).toBe('zwei Funktionen – «Maschinist TLF» und «Maschinist»')
+  })
+
+  it('where the entry was last written is bookkeeping, never a divergence', () => {
+    const { entry, conflicts } = merge({ source: 'capture', note: 'AS' }, { source: 'kp', ...von('2026-09-25T21:30:00Z') })
+    expect(entry).toMatchObject({ source: 'capture', note: 'AS', ...von('2026-09-25T21:30:00Z') })
+    expect(conflicts).toEqual([])
+  })
+})
+
+describe('mergeWorkspace — Zeitplan shifts merge per field', () => {
+  const sh = { id: 'sh1', personId: 'p1', from: '2026-09-25T23:00:00Z', to: '2026-09-26T04:00:00Z', bandId: 'bd1' }
+  const merge = (mine: object, theirs: object, base: object = sh) =>
+    (mergeWorkspace({ shifts: [base] }, { shifts: [{ ...sh, ...mine }] }, serverRoundTrip({ shifts: [{ ...sh, ...theirs }] })).shifts as object[])
+
+  it('one device\'s «von» and the other\'s «bis» both stand', () => {
+    expect(merge({ from: '2026-09-26T01:00:00Z' }, { to: '2026-09-26T07:00:00Z' })).toEqual([{ ...sh, from: '2026-09-26T01:00:00Z', to: '2026-09-26T07:00:00Z' }])
+  })
+
+  it('«eingeteilt» and a moved end both stand; a field removed on one side stays removed', () => {
+    expect(merge({ confirmed: true }, { to: '2026-09-26T06:00:00Z' })).toEqual([{ ...sh, confirmed: true, to: '2026-09-26T06:00:00Z' }])
+    const loose = { ...sh }
+    delete (loose as { bandId?: string }).bandId
+    expect(mergeWorkspace({ shifts: [sh] }, { shifts: [loose] }, { shifts: [{ ...sh, confirmed: true }] }).shifts).toEqual([{ ...loose, confirmed: true }])
+  })
+
+  it('the same field on both sides stays last-writer-wins (mine)', () => {
+    expect(merge({ to: '2026-09-26T05:00:00Z' }, { to: '2026-09-26T07:00:00Z' })).toEqual([{ ...sh, to: '2026-09-26T05:00:00Z' }])
+  })
+
+  it('a start and an end that together would not make a block keep my pair', () => {
+    // I moved the whole shift to the morning; they stretched the old end. 07:00→04:00 is no shift.
+    const mine = { from: '2026-09-26T07:00:00Z', to: '2026-09-26T09:00:00Z' }
+    expect(merge(mine, { from: '2026-09-25T22:00:00Z' })).toEqual([{ ...sh, ...mine }])
+    expect(merge({ from: '2026-09-26T02:00:00Z' }, { to: '2026-09-26T01:00:00Z' })).toEqual([{ ...sh, from: '2026-09-26T02:00:00Z' }])
   })
 })

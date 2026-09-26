@@ -130,6 +130,10 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **Another device's Mittel entries are no longer deleted by this device's next save.** A merged
+  workspace refreshed every synced list on screen except Mittel, so this device kept its stale
+  list and saved it back, which the merge read as a deletion. The merge now applies every synced
+  field through a typed setter map, and a synced field with no setter fails `tsc`.
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched
@@ -163,6 +167,21 @@ so this file – not the log – is the record of what shipped up to that point.
   search placeholder.
 - **The «#N» badge leaves the marker, chip, pill and phone row** – the Trupp's name stands alone
   there, and the card carries the number.
+- **Another device's edit no longer loses the merge to an entry this device never touched.** The
+  server keeps the blob as JSONB, which hands every object back with its keys re-sorted, and the
+  merge compared entries as JSON strings – so an untouched shift, Verlauf row, Mittel, Beilage,
+  checklist, vehicle override, Rapport field or Gebäude read as «changed here», «both changed»
+  went to this device, and the other device's real edit was dropped. The same made a plan
+  correction lose to an untouched binding, raised «abweichende Angaben zusammengeführt» for
+  Anwesenheit entries with two identical sides (or differing only in when the Funktion was
+  written), and gave one divergence two «bitte prüfen» rows. Every comparison the sync makes now
+  ignores key order (`lib/jsonEqual`).
+- **Two devices saving different fields of one person or one shift in the same second both keep
+  their edit.** The second save merged against the same ancestor and the whole entry went to
+  one device: a «von» vanished under the other device's Bemerkung (with a false «zwei
+  Funktionen … bitte prüfen» row), a shift's «bis» under the other device's «von» (silently).
+  Anwesenheit entries and Zeitplan shifts now merge per field; only a field both devices changed
+  is an Abweichung, and its row names only that field.
 
 ### Security
 
