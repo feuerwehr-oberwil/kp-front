@@ -2557,19 +2557,24 @@ function TruppCard({
    *
    * «Entfernen» is last, behind a rule, and red. It is the reason the back control could move to
    * the other end of the header (see below). */
+  /* ⚠️ «Bearbeiten» in EVERY status, `raus` included (09.09., Feldentscheid). The other two
+   * gates below act on a LIVE deployment — placing a symbol for a crew that has come out, or
+   * handing it a hose — and keep theirs. This one edits the RECORD, and the record is exactly
+   * what stays wrong otherwise: a crew member never entered, a typo in the Auftrag, the wrong
+   * Gruppenführer — all of it prints on the Rapport, and the Trupp is `raus` by the time
+   * anybody reads it back. Correcting an Eingangsdruck here rewrites the finished run's entry
+   * reading, which is the point (useTruppActions · editTrupp · pressurePatch, and the form
+   * says so under the field). Everything it writes reaches the Verlauf exactly as a live edit
+   * does — one `logEditFields` row naming what changed.
+   * ⚠️ On the PHONE it is the LAST resort, not the first row (26.09.2026, phone card slim-down ⑤):
+   * every fact the form edits has its own chip and sheet on that card — the crew, the Auftrag,
+   * the Ziel, the Leitung, the Kanal, the Ausrüstung — so the form is left for what has no sheet,
+   * the Art and the Eingangsdruck-Korrektur. It stands after the jumps and the Suche's rows,
+   * above the rule that separates the closing actions; the tablet keeps it first, where the
+   * Kennzeile is a sentence and the form is still the way to change most of it. */
+  const editItem = canEdit ? [{ label: az.edit, onClick: () => onEdit() }] : []
   const menuItems = [
-    /* ⚠️ «Bearbeiten» in EVERY status, `raus` included (09.09., Feldentscheid). The other two
-     * gates below act on a LIVE deployment — placing a symbol for a crew that has come out, or
-     * handing it a hose — and keep theirs. This one edits the RECORD, and the record is exactly
-     * what stays wrong otherwise: a crew member never entered, a typo in the Auftrag, the wrong
-     * Gruppenführer — all of it prints on the Rapport, and the Trupp is `raus` by the time
-     * anybody reads it back. Correcting an Eingangsdruck here rewrites the finished run's entry
-     * reading, which is the point (useTruppActions · editTrupp · pressurePatch, and the form
-     * says so under the field). Everything it writes reaches the Verlauf exactly as a live edit
-     * does — one `logEditFields` row naming what changed. */
-    // the Suche's two doors (Tür 3): the radio report reaches the ASÜ or the plan person here
-    ...(canEdit && sucheItems ? sucheItems(t) : []),
-    ...(canEdit ? [{ label: az.edit, onClick: () => onEdit() }] : []),
+    ...(rowMode ? [] : editItem),
     ...(lite ? [] : (t.annoId || t.entityId)
       ? [{ label: t.entityId ? az.showOnMap : az.showOnPlan, onClick: () => onShowPlan(t.id) }]
       : canEdit && status !== 'raus' ? [{ label: az.place, onClick: () => onPlace(t.id) }] : []),
@@ -2577,6 +2582,9 @@ function TruppCard({
     // form's Ltg-Nr. quick-picks, from the line's own editor, or by snapping a hose end to the
     // Trupp's marker – never from an armed, invisible tap mode.
     ...(lite || !hasLine ? [] : [{ label: az.lineShow, onClick: () => onShowLine(t.id) }]),
+    // the Suche's two doors (Tür 3): the radio report reaches the ASÜ or the plan person here
+    ...(canEdit && sucheItems ? sucheItems(t) : []),
+    ...(rowMode ? editItem : []),
     // Only while the hand-set order is the one on screen: moving a card under any other sort
     // would rearrange something the sort is about to rearrange back.
     ...(onMove && canEdit && !lite ? [

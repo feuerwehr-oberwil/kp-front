@@ -753,6 +753,23 @@ describe('the mini sheets', () => {
       name: 'Steiner', members: ['Huber', 'Neu Nora'], leaderPersonId: 'g:Steiner', memberPersonIds: ['g:Huber', 'g:Neu Nora'] }))
   })
 
+  /* ⑤ — the ⋯ on the phone: the jumps, the Suche's rows, then «Bearbeiten» as the last resort
+   * above the rule; «Entfernen» stays last and red. The tablet keeps «Bearbeiten» first. */
+  it('puts «Bearbeiten» last before the rule on the phone, and keeps it first on the tablet', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const sucheItems = () => [{ label: 'Fund melden', onClick: noop }]
+    mount({ trupps: [{ ...withFacts(), entityId: 'e1' }], truppsWithLine: new Set(['tr1']), sucheItems })
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    fireEvent.click(within(document.querySelector('[data-az-open]') as HTMLElement).getByRole('button', { name: az.cardMenu }))
+    const items = (await screen.findAllByRole('menuitem')).map((m) => m.textContent)
+    expect(items).toEqual([az.showOnMap, az.lineShow, 'Fund melden', az.edit, az.remove])
+    cleanup()
+    vi.mocked(useIsPhone).mockReturnValue(false)
+    mount({ trupps: [{ ...withFacts(), entityId: 'e1' }], truppsWithLine: new Set(['tr1']), sucheItems })
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    expect((await screen.findAllByRole('menuitem')).map((m) => m.textContent)).toEqual([az.edit, az.showOnMap, az.lineShow, 'Fund melden', az.remove])
+  })
+
   it('a viewer has no doors: the facts are plain text', () => {
     mount({ trupps: [withFacts()], canEdit: false })
     expect(screen.queryByRole('button', { name: `${az.funkkanalUnit} 11` })).toBeNull()
