@@ -1945,9 +1945,19 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .pressureLocked { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; min-height: var(--tap);
   padding: 8px 14px; border-radius: var(--r-ctl); background: var(--fill-soft, rgba(0, 0, 0, .045)); }
 .pressureLocked b { font: 800 19px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
-.pressureLockedWhy { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 700; color: var(--ink-dim); }
-.pressureLockedWhy :global(.i) { width: 15px; height: 15px; }
-.pressureLockedExit { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+/* «300 bar 🔒» — the lock right after the number, one hint line below it (owner review 26.09.2026) */
+.pressureLockedIcon { width: 17px; height: 17px; color: var(--ink-dim); }
+
+/* «Nicht eingesetzt» on its OWN row, quiet, at the far edge (owner review 26.09.2026): visible,
+   a full 44 px, and never beside «Im Einsatz» — a text-weight button, no fill, no border, so it
+   reads as the secondary it is next to the filled primary on the row above. */
+.standDownRow { display: flex; justify-content: flex-end; margin-top: 6px; }
+.standDownBtn { display: inline-flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 12px;
+  border: none; background: none; border-radius: var(--r-ctl); cursor: pointer;
+  font: 700 13.5px var(--body); color: var(--ink-dim); }
+.standDownBtn :global(.i) { width: 16px; height: 16px; }
+.standDownBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .standDownBtn:hover { background: var(--hover-strong); color: var(--ink); } }
 
 /* The form's footer at 360px (pre-existing, #212 check): «Abbrechen · Bereitstellen · Im Einsatz»
    wrapped «Im Einsatz» onto two lines. On a phone the three buttons share the row BY THEIR WORDS

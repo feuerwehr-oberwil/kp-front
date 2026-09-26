@@ -54,8 +54,10 @@ so this file – not the log – is the record of what shipped up to that point.
   second walk-through fixed: every Gast from the Trupp form was filed twice in the Anwesenheit
   (and the Verlauf printed ids); a crew registered on the Atemschutz-Link never reached the
   Anwesenheit (an editor device now files it, once); «Entfernen» on a crew inside asks first and
-  every removal can be undone from its toast; «Nicht eingesetzt» moved into ⋮ and no longer logs
-  an «Austritt»; the Abschluss's paperwork list focuses «Zurück»; the phone board shows Trupp
+  every removal can be undone from its toast; «Nicht eingesetzt» is a quiet button on its own
+  row (no longer beside «Im Einsatz»), can be undone from its toast and no longer logs an
+  «Austritt»; the double-contact and low-Eingangsdruck questions are a title, one line and two
+  verbs; the Abschluss's paperwork list focuses «Zurück»; the phone board shows Trupp
   numbers, the Link opens on the most urgent crew inside, the Eintrag «+» no longer covers a
   crew's «Kontakt», and an edit row in the Verlauf names the whole crew. A third walk-through
   fixed: registering a Trupp with Gäste is one ↶ again (it used to undo only the crew's Funktion

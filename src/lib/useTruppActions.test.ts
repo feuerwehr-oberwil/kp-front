@@ -2478,6 +2478,36 @@ describe('useTruppActions — a removal says so and can be taken back from the t
   })
 })
 
+/* owner review 26.09.2026: «Nicht eingesetzt» is a visible button on the card again, so its tap
+ * answers with the confirm-with-undo toast — and the Abschluss's bulk stand-down does not */
+describe('useTruppActions — «Nicht eingesetzt» from the card says so and can be taken back', () => {
+  const waiting = () => baseTrupp({ no: 2, status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [{ t: '2026-07-06T09:50:00Z', bar: 300, kind: 'registered' }] })
+
+  it('«Trupp 2: nicht eingesetzt · Rückgängig» — the undo puts the Trupp back and drops the ↶ entry', () => {
+    ui.toasts.length = 0
+    const lines: string[] = []
+    const { actions, state, timeline } = timed(waiting(), (_i, t) => lines.push(t))
+    actions.setTruppStatus('T1', 'raus', undefined, { undoToast: true })
+    expect(state.trupps[0].status).toBe('raus')
+    expect(ui.toasts.map((t) => t.text)).toEqual([fillTemplate(appConfig.copy.atemschutz.notDeployedToast, { name: '2' })])
+    // the row is still «nicht eingesetzt», never «Austritt»
+    expect(lines[0]).toBe(fillTemplate(appConfig.copy.atemschutz.logNotDeployed, { name: '2 (Keller Anna)', bar: '' }))
+    ui.toasts[0].undo!()
+    expect(state.trupps[0].status).toBe('angemeldet')
+    expect(state.trupps[0].readings?.some((r) => r.kind === 'exit')).toBe(false)
+    expect(timeline.canUndo()).toBe(false)
+  })
+
+  it('writes no toast without the flag (the Abschluss closes several at once) or for a real Austritt', () => {
+    ui.toasts.length = 0
+    const a = timed(waiting())
+    a.actions.setTruppStatus('T1', 'raus')
+    const b = timed(baseTrupp({}))
+    b.actions.setTruppStatus('T1', 'raus', undefined, { undoToast: true })
+    expect(ui.toasts).toEqual([])
+  })
+})
+
 describe('useTruppActions — an edit row names the whole crew (staging r2, N27)', () => {
   it('«Trupp N (Leader / Member): …», like every other row about the people in it', () => {
     const lines: string[] = []

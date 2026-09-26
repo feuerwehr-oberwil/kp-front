@@ -960,7 +960,7 @@ export function useTruppActions(deps: Deps) {
    * did (the last known value, carried). Given, the exit row carries a MEASURED bar
    * (types · TruppReading.measured) and the Trupp's pressure state takes it like a Druckmeldung —
    * without touching the contact clock, which stops at the Austritt anyway. */
-  const setTruppStatus = (id: string, status: Trupp['status'], exitBar?: number) => {
+  const setTruppStatus = (id: string, status: Trupp['status'], exitBar?: number, opts?: { undoToast?: boolean }) => {
     const tr = trupps.find((t) => t.id === id)
     const measuredExit = status === 'raus' && exitBar != null && exitBar > 0 && !!tr?.entryTime
     const az = appConfig.copy.atemschutz
@@ -1055,7 +1055,21 @@ export function useTruppActions(deps: Deps) {
      * GLOBAL ↶ timeline (the door that does not expire, named per step, on the handed-over
      * Tafel too) — the confirm toast that used to double it went 09.09. with all the board's
      * popping confirmations. */
-    remember(id, line ?? (tr ? truppLogName(tr) : ''), tr, apply)
+    const drop = remember(id, line ?? (tr ? truppLogName(tr) : ''), tr, apply)
+    /* …with ONE exception, the card's own «Nicht eingesetzt» (owner review 26.09.2026): it is a
+     * visible button again, and a one-shot that closes a Trupp gets the confirm-with-undo toast
+     * (AGENTS.md). Its «Rückgängig» takes the step off the timeline and puts the Trupp back as it
+     * stood — the Verlauf keeps both lines. Not for the Abschluss's bulk stand-down (no opts). */
+    if (opts?.undoToast && neverDeployed && tr) {
+      const who = typeof tr.no === 'number' ? String(tr.no) : tr.name
+      undoToast(fillTemplate(az.notDeployedToast, { name: who }), () => {
+        drop()
+        if (!(liveTrupps?.() ?? trupps).some((x) => x.id === id)) return
+        recorded.delete(id)
+        setTrupps((ts) => ts.map((x) => (x.id === id ? keepCrewFiled(tr, x) : x)))
+        logStep('undo', line ?? truppLogName(tr), id)
+      })
+    }
   }
   // edit a Trupp's Auftrag / team mid-incident (job changed, moved floor, crew swapped). Never
   // touches the live CLOCK. Keeps the plan chip label in sync.

@@ -1047,8 +1047,11 @@ to prod.
     merged as a union, kept by every undo restore) records who was filed or already there, so a
     person somebody takes OFF the Anwesenheit is never written back by another device (the
     ghost-trail trap). «Entfernen» on a crew INSIDE asks first («Raus melden» focused), and
-    every removal raises the confirm-with-undo toast. «Nicht eingesetzt» is a row of the ⋮, never
-    the button beside «Im Einsatz», and its log row reads «Nicht eingesetzt», never «Austritt».
+    every removal raises the confirm-with-undo toast. «Nicht eingesetzt» is a VISIBLE quiet button
+    on its own row — never beside «Im Einsatz», not hidden in the ⋮ (owner review 26.09.2026) —
+    answered by a confirm-with-undo toast, and its log row reads «Nicht eingesetzt», never
+    «Austritt». A question dialog of the Tafel has a TITLE that states the fact, at most one short
+    body line, and the verbs on its buttons (recognition over reading, same review).
     The collapsed phone row carries the «#N» badge; the handed-over phone board opens on the most
     urgent crew inside; the Eintrag FAB is not drawn over the phone Trupps page (a floating button
     over a scrolling list of Kontakt buttons cannot be kept clear by an inset).
