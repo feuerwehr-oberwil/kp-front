@@ -69,6 +69,36 @@ doctor *args:
 restore *args:
     bash scripts/restore.sh {{args}}
 
+# (Read-only: the database session is switched to read-only before the first query. `id` is an
+# incident id, a unique prefix, or `latest`. Pass the Railway logs as `--logs app.jsonl --http
+# http.jsonl` and a post-mortem's JSON dumps as `--dump DIR`. Paths are relative to where you
+# are, like every file argument here. Exit 0 = clean, 1 = findings, 2 = could not run.)
+# The post-Einsatz check: crashes, HTTP errors, clock jumps, duplicates, PIN prompts, vehicles.
+[group('Operations')]
+[positional-arguments]
+postcheck id *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # "$@" keeps every argument whole (a path with a space stays one argument). The paths given
+    # to --logs / --http / --dump, as `--logs FILE` or `--logs=FILE`, are made absolute HERE,
+    # where you typed them, because the CLI runs from backend/ (its .env is read from there).
+    cd "{{invocation_directory()}}"
+    shift  # $1 is the incident
+    out=()
+    want_path=0
+    for a in "$@"; do
+      if [ "$want_path" = 1 ]; then
+        out+=("$(realpath -m -- "$a")"); want_path=0; continue
+      fi
+      case "$a" in
+        --logs|--http|--dump) out+=("$a"); want_path=1 ;;
+        --logs=*|--http=*|--dump=*) out+=("${a%%=*}=$(realpath -m -- "${a#*=}")") ;;
+        *) out+=("$a") ;;
+      esac
+    done
+    cd "{{justfile_directory()}}/backend"
+    uv run python -m app.admin_postcheck "{{id}}" ${out[@]+"${out[@]}"}
+
 # --- Development -------------------------------------------------------------
 
 # THE dev command: Postgres + backend + frontend in one terminal (Ctrl+C stops all).
@@ -200,10 +230,11 @@ test:
     pnpm test
     cd backend && uv run pytest -q
 
-# Type-check the frontend without emitting.
+# Type-check the frontend and the e2e specs without emitting.
 [group('Quality')]
 check:
     pnpm exec tsc --noEmit
+    pnpm exec tsc -p tsconfig.e2e.json
 
 # --- Build & release  (tag a green main commit — see CHANGELOG.md) ------------
 

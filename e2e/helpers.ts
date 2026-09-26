@@ -1,4 +1,8 @@
-import { expect, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { expect } from './guard'
+
+// Specs take `test` and `expect` from here: `test` carries the client-error guard (./guard.ts).
+export { test, expect, expectNoClientErrors, type ClientErrorReport } from './guard'
 
 // The login / open-an-incident steps every flow spec starts with — moved here verbatim from
 // smoke.spec.ts (23.09.2026) so workspace-flows.spec.ts reuses them instead of copying them.
@@ -6,7 +10,7 @@ import { expect, type Page } from '@playwright/test'
 
 // Seed kiosk PIN — the committed dev seed (backend/app/seed_users.json). Override
 // with E2E_PIN if a deployment seeds a different one.
-const PIN = process.env.E2E_PIN || '000000'
+export const PIN = process.env.E2E_PIN || '000000'
 
 // The ErrorBoundary render-throw fallback (copy/de.ts → errorBoundary.title). If this
 // is on screen a surface crashed on mount — the exact failure this smoke exists to catch.

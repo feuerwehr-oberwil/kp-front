@@ -1,5 +1,5 @@
-import { test, expect, type Page } from '@playwright/test'
-import { ensureIncidentOpen, expectNoCrash, login } from './helpers'
+import type { Page } from '@playwright/test'
+import { test, expect, ensureIncidentOpen, expectNoCrash, login } from './helpers'
 
 // Workflow e2e for the workspace split (23.09.2026): the handful of end-to-end paths that cross
 // the seams the IncidentWorkspace / Whiteboard extractions cut along — a gesture's one undo

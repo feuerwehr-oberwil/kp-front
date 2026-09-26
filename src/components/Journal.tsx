@@ -259,6 +259,17 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // the moment (`onSeekTo`).
   const [filterSel, setFilterSel] = useState<ReadonlySet<string>>(() => new Set())
   const filtering = filterSel.size > 0
+  // ⚠️ The phone sheet is `height: auto` (15-mobile · .journal-drawer), so narrowing the list
+  // SHRANK it: tick «Karte» and the sheet dropped half a screen under the finger still in its menu
+  // (24.09.2026). The height it had when the narrowing began is held until the list is whole
+  // again – measured in the handler, before the rows go, and capped by the same budget `.is-kb`
+  // gives the sheet, so a raised keyboard (the search) still wins.
+  const [drawerEl, setDrawerEl] = useState<HTMLDivElement | null>(null)
+  const [heldPx, setHeldPx] = useState<number | null>(null)
+  const holdHeight = () => { if (!filtering && !searching) setHeldPx(drawerEl?.offsetHeight ?? null) }
+  const heldStyle = (filtering || searching) && heldPx
+    ? { minHeight: `min(${heldPx}px, calc(100dvh - 70px - env(safe-area-inset-top) - var(--kb-inset, 0px)))` }
+    : undefined
   const categories = useMemo(() => journalCategories(events, plans), [events, plans])
   const [editTx, setEditTx] = useState<{ id: string; value: string } | null>(null)
   const saveTranscript = () => {
@@ -414,7 +425,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
    */
   // one marking for every piece of prose in the drawer — the row text and the transcript
   // subtitle lines mark the same vocabulary the composer marked while it was being typed
-  const marked = (text: string) => linkParts(text, vocab).map((p, pi) => {
+  // ⚠️ `subjectId`: a row ABOUT a Trupp links its «Trupp N» to that Trupp by id — after a
+  // renumbering (docs/trupp-naming.md §7) its early rows say a number another crew holds now
+  const marked = (text: string, subjectId?: string) => linkParts(text, vocab, { subjectId }).map((p, pi) => {
     if (!p.kind) return <span key={pi}>{p.text}</span>
     // ⚠️ An address is the one mark that DOES something, so it is the one that must not also do
     // what the row does. A row selects, seeks or opens a place under the finger; without the
@@ -426,7 +439,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
       )
     }
     return (
-      <b key={pi} className={`jr-link jr-link-${p.kind}`}>
+      <b key={pi} className={`jr-link jr-link-${p.kind}`} title={p.hint} data-trupp={p.truppId}>
         {p.text}
         {p.role && <i className="jr-link-role"> ({p.role})</i>}
       </b>
@@ -562,12 +575,12 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
    *  Menu), because a selection is several ticks in a row; «Alle zeigen» is an action and closes
    *  it — you asked to see everything, and the menu is in the way of seeing it. */
   const filterItems = () => {
-    const toggle = (key: string) => (on: boolean) => setFilterSel((sel) => {
+    const toggle = (key: string) => (on: boolean) => { holdHeight(); setFilterSel((sel) => {
       const next = new Set(sel)
       if (on) next.add(key)
       else next.delete(key)
       return next
-    })
+    }) }
     const group = (g: 'art' | 'bereich', head: string) => {
       const rows = facets.filter((f) => f.group === g)
       if (!rows.length) return []
@@ -606,7 +619,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
 
 
   return (
-    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false} grab>
+    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false} grab popupRef={setDrawerEl} style={heldStyle}>
         {/* ── the head STAYS while searching (22.09.2026) ──
             The field used to take the head's place – title · ⓘ · Replay · ✕ gone, a bare search
             box at the top – and with it went the answer to «where am I»: the drawer no longer said
@@ -629,7 +642,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           <button
             type="button" className={`journal-legend-btn${searching ? ' on' : ''}`}
             title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-pressed={searching}
-            onClick={() => { if (searching) { setSearch(null); return } setShowLegend(false); setSearch('') }}
+            onClick={() => { if (searching) { setSearch(null); return } holdHeight(); setShowLegend(false); setSearch('') }}
           ><Icon id="search" /></button>
           {/* the funnel (feat 37 · B): lit with a dot while anything is ticked, like the Anwesenheit's
               filter buttons — WHAT is ticked is in its name, in the menu and in the strip below,
@@ -934,7 +947,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 {/* ⚠️ `rowText`, not `e.text`: a picture row with no caption of its own reads
                     «Foto» (reversed 31.08. — a run of them was a column of bare timestamps). The
                     RECORD is untouched either way (lib/verlauf · rowText). */}
-                <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e))}</span>
+                <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e), e.subjectId)}</span>
                 <span className="jr-trail">
                   {/* Footnotes ABOUT the row — «Nachtrag», «korrigiert HH:MM», «6×». They say
                       that the append-only record holds more than the row shows, which is worth
@@ -1222,7 +1235,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 </div>
               )}
               {/* the row's own words, and — on a memo — what it says (the list's subtitle chrome) */}
-              <p className="jr-detail-text">{marked(rowText(e))}</p>
+              <p className="jr-detail-text">{marked(rowText(e), e.subjectId)}</p>
               {e.audioUrl && hasTx && (
                 <div className="jr-subs">
                   {e.transcript && <p><span>{marked(e.transcript)}</span></p>}

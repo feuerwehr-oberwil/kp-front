@@ -41,6 +41,10 @@ jobs:
       - name: Type-check (tsc --noEmit)
         run: pnpm exec tsc --noEmit
 
+      # The Playwright specs are Node code outside src/ — their own tsconfig (e2e/README.md).
+      - name: Type-check e2e (tsc -p tsconfig.e2e.json)
+        run: pnpm exec tsc -p tsconfig.e2e.json
+
       - name: Unit tests (vitest)
         run: pnpm test
 
@@ -200,6 +204,11 @@ jobs:
       # smoke can reach «Mitglieder & Zugriff» — the surface where a stacking-order regression
       # made every row action unclickable and shipped unnoticed in v0.6.0.
       ADMIN_SECRET: 'ci-only-admin-secret-not-a-credential'
+      # The field scenario (e2e/field-scenario.spec.ts) parks a fake TLF next to its Einsatz:
+      # the overlay switches the fake fleet on (TRACCAR_FAKE, never in the production file), and
+      # injecting needs the intake secret — a throwaway CI value, same as the two above.
+      COMPOSE_FILE: docker-compose.yml:e2e/compose.e2e.yml
+      ALARM_WEBHOOK_SECRET: 'ci-only-fleet-secret-not-a-credential'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -218,12 +227,15 @@ jobs:
             echo "COOKIE_SECURE=false"
             echo "SEED_PIN=$SEED_PIN"
             echo "ADMIN_SECRET=$ADMIN_SECRET"
+            echo "ALARM_WEBHOOK_SECRET=$ALARM_WEBHOOK_SECRET"
             # compose pulls ghcr.io/…:${KP_FRONT_TAG:-latest}; point it at the image built
             # below so the stack boots THIS commit instead of the last published release.
             echo "KP_FRONT_TAG=ci"
           } > .env
 
       - name: Validate compose config (base + tls profile)
+        env:
+          COMPOSE_FILE: docker-compose.yml  # the file stations run, without the e2e overlay
         run: |
           docker compose config -q
           DOMAIN=example.org docker compose --profile tls config -q
@@ -280,11 +292,12 @@ jobs:
       - name: Install Playwright Chromium and WebKit
         run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: E2E smoke (browser → running container)
+      - name: E2E smoke + field scenario (browser → running container)
         env:
           E2E_BASE_URL: http://localhost:8000
           E2E_PIN: ${{ env.SEED_PIN }}  # the browser login needs the same PIN the seed used
           E2E_ADMIN_SECRET: ${{ env.ADMIN_SECRET }}  # unlocks /admin for the row-menu spec
+          E2E_FLEET_SECRET: ${{ env.ALARM_WEBHOOK_SECRET }}  # parks the fake TLF (field scenario)
         run: pnpm exec playwright test
 
       - name: Upload Playwright report (on failure)
@@ -294,6 +307,13 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+      # Every spec fails when the app reports a client error or a render storm (e2e/guard.ts).
+      # The report is also ONE line in the container log — print those first, so a red run says
+      # why without digging through the full log below.
+      - name: Client errors reported by the app (on failure)
+        if: failure()
+        run: docker compose logs --no-color app | grep 'kpfront.clienterror' || echo "no client-error lines in the container log"
 
       - name: Container logs (on failure)
         if: failure()

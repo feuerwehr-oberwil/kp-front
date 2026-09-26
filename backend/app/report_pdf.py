@@ -422,6 +422,19 @@ class TruppCycleIn(BaseModel):
     changes: list[CrewChangeIn] = []
 
 
+def _trupp_heading(tr: TruppIn) -> str:
+    """«Trupp 1 – Meier Anna»; «Trupp 3 (zuerst Trupp 1) – Meier Anna» for a renumbered Trupp;
+    the bare name for a payload without a number (an older client)."""
+    if tr.no is None:
+        return tr.name
+    leader = tr.leader or tr.name
+    former = [n for n in tr.formerNos if n != tr.no]
+    if former:
+        nos = ", ".join(f"Trupp {n}" for n in former)
+        return L["truppHeadingFormer"].format(no=tr.no, former=nos, leader=leader)
+    return L["truppHeading"].format(no=tr.no, leader=leader)
+
+
 class TruppIn(BaseModel):
     name: str
     #: The Trupp's number and its Gruppenführer AT REGISTRATION (docs/trupp-naming.md §5) — the
@@ -429,6 +442,10 @@ class TruppIn(BaseModel):
     #: heading is the bare name as before.
     no: int | None = None
     leader: str | None = None
+    #: The numbers this Trupp carried before a merge renumbered it (25.09.2026, lib/truppNumbers):
+    #: the heading then reads «Trupp 3 (zuerst Trupp 1) – Meier Anna». Empty for every other Trupp
+    #: and on an older client's payload.
+    formerNos: list[int] = []
     #: The crew per deployment cycle, replacing the «AdF n» rows and the Eintritt/Austritt rows
     #: when present: each cycle names who went in, and the changes fall into the cycle they
     #: happened in. Empty on an older client's payload — the old rows print then.
@@ -709,6 +726,9 @@ L = {
     "notDeployed": "Nicht eingesetzt",
     # the heading of a numbered Trupp, and the per-cycle rows under it (docs/trupp-naming.md §5)
     "truppHeading": "Trupp {no} – {leader}",
+    # a Trupp a merge renumbered (two devices minted one number at once, docs/trupp-naming.md §7):
+    # its early Verlauf rows still say the old number, so the heading names it too
+    "truppHeadingFormer": "Trupp {no} (zuerst {former}) – {leader}",
     "cycle": "Einsatz {n}",
     "colTime": "Zeit",
     "colKind": "Art",
@@ -2308,7 +2328,7 @@ def compose_report_pdf(
             # a column of clocks with no crew name above it is unusable. A block taller than a
             # full frame still splits normally (KeepTogether hands its content back when it fits
             # nowhere), so a very long log is never made unprintable by this.
-            heading = L["truppHeading"].format(no=tr.no, leader=tr.leader or tr.name) if tr.no is not None else tr.name
+            heading = _trupp_heading(tr)
             block: list = [Paragraph(_esc(heading), st["h3"])]
             # A TABLE, not one Paragraph per line: as free lines each value started right after
             # its own label, so «AdF 1», «Auftrag / Ziel» and «Eintritt» put their values at three

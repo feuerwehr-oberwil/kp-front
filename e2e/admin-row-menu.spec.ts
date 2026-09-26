@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers'
 
 // Regression guard for a stacking-order bug that made EVERY row action in the admin
 // unreachable (shipped in v0.6.0): the kebab (⋮) menu opened, Base UI portalled its popup to

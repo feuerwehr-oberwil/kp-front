@@ -52,6 +52,9 @@ export type MarkKind = LinkKind | 'url' | 'phone'
 export interface MarkOptions {
   /** mark Swiss phone numbers as `tel:` links. Print only — see above. */
   phone?: boolean
+  /** the row's own subject (TimelineEvent.subjectId): a `trupp` term naming THAT Trupp wins over
+   *  an equally long one naming another — the row is linked by id, not by the number it says */
+  subjectId?: string
 }
 
 export interface JournalLink {
@@ -93,6 +96,16 @@ export interface JournalLink {
    * and on paper, and the marks stopped meaning anything.
    */
   plain?: boolean
+  /** The Trupp this term names, for a `trupp` term — what a row ABOUT a Trupp (`subjectId`) is
+   *  matched against, so its «Trupp 1» means that Trupp and not whichever holds 1 now. */
+  truppId?: string
+  /**
+   * A number this Trupp carried BEFORE a merge renumbered it (types · Trupp.formerNos,
+   * docs/trupp-naming.md §7). It marks ONLY in a row about that Trupp (`MarkOptions.subjectId`)
+   * — there it beats the term of whoever holds the number now — and it never completes: typing
+   * «Trupp 1» today means the Trupp that is called 1 today. `hint` then says what it is called now.
+   */
+  former?: boolean
 }
 
 /**
@@ -177,7 +190,14 @@ export function journalVocabulary(
     // and prints their Funktion there
     if (typeof t.no === 'number') {
       const name = fillTemplate(appConfig.copy.atemschutz.truppTerm, { name: String(t.no) })
-      if (!seenTeam.has(name)) { seenTeam.add(name); out.push({ name, kind: 'trupp', present, hint: lead || undefined }) }
+      if (!seenTeam.has(name)) { seenTeam.add(name); out.push({ name, kind: 'trupp', present, hint: lead || undefined, truppId: t.id }) }
+      // …and the numbers a merge took from it (docs/trupp-naming.md §7): its early rows say those,
+      // and in a row about THIS Trupp they are this Trupp — see JournalLink.former
+      const now = [name, lead].filter(Boolean).join(' · ')
+      for (const n of Array.isArray(t.formerNos) ? t.formerNos : []) {
+        if (typeof n !== 'number' || n === t.no) continue
+        out.push({ name: fillTemplate(appConfig.copy.atemschutz.truppTerm, { name: String(n) }), kind: 'trupp', present, hint: now, truppId: t.id, former: true })
+      }
     }
     // the legacy term, for every row written before 12.09. — two Trupps under the same
     // Gruppenführer (a re-registration) are one term, not two chips
@@ -305,6 +325,10 @@ export interface LinkRange {
    *  nothing for every other kind. Resolved here rather than at every render site, so a bare
    *  «www.…» gets its scheme and a spaced-out number its dialable form in exactly one place. */
   href?: string
+  /** the Trupp a `trupp` mark names (JournalLink.truppId) */
+  truppId?: string
+  /** what a FORMER number is called now («Trupp 3 · Meier Anna») — JournalLink.former */
+  hint?: string
 }
 
 /**
@@ -332,7 +356,12 @@ export function linkRanges(text: string, vocab: JournalLink[], opts?: MarkOption
   const overlaps = (a: number, b: number) => out.some((r) => a < r.end && r.start < b)
   if (opts?.phone) for (const r of phoneRanges(text)) if (!overlaps(r.start, r.end)) out.push(r)
   const hay = text.toLowerCase()
-  for (const l of [...vocab].sort((a, b) => b.name.length - a.name.length)) {
+  const subject = opts?.subjectId
+  // a Trupp's former number marks only in a row about that Trupp (JournalLink.former); longest
+  // first, and at equal length the row's own subject first — the row is linked by id
+  const own = (l: JournalLink) => (subject && l.truppId === subject ? 0 : 1)
+  const usable = vocab.filter((l) => !l.former || (!!subject && l.truppId === subject))
+  for (const l of usable.sort((a, b) => b.name.length - a.name.length || own(a) - own(b))) {
     // spelling help completes but never marks — see JournalLink.plain
     if (l.plain) continue
     const needle = l.name.trim().toLowerCase()
@@ -349,7 +378,7 @@ export function linkRanges(text: string, vocab: JournalLink[], opts?: MarkOption
       // Keller and Schnellangriff, and «Polizei» lit up inside «Kantonspolizei».
       if (isWordChar(hay[i - 1]) || isWordChar(hay[end])) { from = i + 1; continue }
       if (!overlaps(i, end)) {
-        out.push({ start: i, end, kind: l.kind, role: roleSaid ? undefined : l.role })
+        out.push({ start: i, end, kind: l.kind, role: roleSaid ? undefined : l.role, ...(l.former ? { hint: l.hint } : {}), ...(l.truppId ? { truppId: l.truppId } : {}) })
         roleSaid = true
       }
       from = end
@@ -485,6 +514,9 @@ export interface LinkPart {
   role?: string
   /** where a `url` or a `phone` part points (see LinkRange.href) */
   href?: string
+  /** see LinkRange.truppId / LinkRange.hint */
+  truppId?: string
+  hint?: string
 }
 
 /** The text split into plain stretches and marked ones — one shape the composer's backdrop, the
@@ -495,7 +527,7 @@ export function linkParts(text: string, vocab: JournalLink[], opts?: MarkOptions
   let at = 0
   for (const r of ranges) {
     if (r.start > at) parts.push({ text: text.slice(at, r.start) })
-    parts.push({ text: text.slice(r.start, r.end), kind: r.kind, role: r.role, href: r.href })
+    parts.push({ text: text.slice(r.start, r.end), kind: r.kind, role: r.role, href: r.href, truppId: r.truppId, hint: r.hint })
     at = r.end
   }
   if (at < text.length) parts.push({ text: text.slice(at) })
