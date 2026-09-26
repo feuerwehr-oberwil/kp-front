@@ -2049,6 +2049,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   .modal.miniSheet, .modal.miniSheet:global(.is-kb) {
     top: auto; bottom: 0; left: 0; transform: none; width: 100vw; height: auto;
     max-height: calc(100dvh - 24px - env(safe-area-inset-top)); border-radius: var(--r-hero) var(--r-hero) 0 0; }
+  /* the Kanal pad keeps its cap on the phone too — same weight as the rule above, or it loses */
+  .modal.miniSheet.miniSheetPad { max-height: min(60dvh, 520px); }
   /* the grab bar is the sheet's top gutter, and a head under a bar is the handle */
   .miniSheet .modalHead { padding-top: 2px; touch-action: none; }
   .miniSheet .modalHead button { touch-action: auto; }
