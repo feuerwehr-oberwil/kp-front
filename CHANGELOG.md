@@ -31,6 +31,15 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The morning after an Einsatz, one command lists what went wrong, even if nobody reported
+  it.** `admin_postcheck <incident|latest>` (`just postcheck`) lists the devices that worked the
+  incident. Per device it shows their crash reports and render storms, their HTTP errors and 409
+  bursts on the workspace, and their PIN prompts and expired sessions. It also lists Verlauf rows
+  whose own time is off the server's (the clock that jumped back to 20.09. during the Übung of
+  23.09.2026), the same event written by several devices, and the «vor Ort / verlassen» rows
+  against the vehicles' GPS track. It reads the Railway app and HTTP logs, or a post-mortem's
+  JSON dumps instead of a database, and it never writes. It exits 1 when it finds something, so
+  a cron job can run it. *No action needed.*
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the
@@ -144,6 +153,24 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **Three devices tapping «Neuer Trupp» at once no longer make three «Trupp 1».** Each device
+  drew the next number from its own view of the Einsatz, and the merge rightly kept all three
+  records under one number – on the Karte, in the Verlauf and on the Rapport. The merge now
+  settles the number: a Trupp that went in keeps it over one that did not, a registered Trupp
+  over a loose marker, then the one minted first; the others take the next free numbers, and the
+  Verlauf says so once («Trupp 1 (…) heisst jetzt Trupp 3», one move per Trupp, never a chain
+  through a number another crew ends up with) – from whichever device noticed,
+  including the one whose merge did it and the Atemschutz-Link. Every device reaches the same
+  answer without asking the server, offline devices included once they are back. Rows already
+  written keep the number they were written with; the Rapport's heading reads «Trupp 3 (zuerst
+  Trupp 1)», and in the Verlauf those rows' «Trupp 1» points at the right crew. A copied loose
+  marker (⌘D) takes the next number, a rename to a number somebody holds is refused, a revived
+  Spur whose number was handed out since comes back as the next one, and a deleted marker's Spur
+  keeps its number from being handed out again.
+- **Another device's Mittel entries are no longer deleted by this device's next save.** A merged
+  workspace refreshed every synced list on screen except Mittel, so this device kept its stale
+  list and saved it back, which the merge read as a deletion. The merge now applies every synced
+  field through a typed setter map, and a synced field with no setter fails `tsc`.
 - **No «Failed to fetch» counter in the server log after an offline spell.** While offline, every
   basemap tile the Karte could not load was counted as a client error. The reports themselves
   could not leave the device, but the repeat counter did once the network was back:
@@ -184,6 +211,21 @@ so this file – not the log – is the record of what shipped up to that point.
   search placeholder.
 - **The «#N» badge leaves the marker, chip, pill and phone row** – the Trupp's name stands alone
   there, and the card carries the number.
+- **Another device's edit no longer loses the merge to an entry this device never touched.** The
+  server keeps the blob as JSONB, which hands every object back with its keys re-sorted, and the
+  merge compared entries as JSON strings – so an untouched shift, Verlauf row, Mittel, Beilage,
+  checklist, vehicle override, Rapport field or Gebäude read as «changed here», «both changed»
+  went to this device, and the other device's real edit was dropped. The same made a plan
+  correction lose to an untouched binding, raised «abweichende Angaben zusammengeführt» for
+  Anwesenheit entries with two identical sides (or differing only in when the Funktion was
+  written), and gave one divergence two «bitte prüfen» rows. Every comparison the sync makes now
+  ignores key order (`lib/jsonEqual`).
+- **Two devices saving different fields of one person or one shift in the same second both keep
+  their edit.** The second save merged against the same ancestor and the whole entry went to
+  one device: a «von» vanished under the other device's Bemerkung (with a false «zwei
+  Funktionen … bitte prüfen» row), a shift's «bis» under the other device's «von» (silently).
+  Anwesenheit entries and Zeitplan shifts now merge per field; only a field both devices changed
+  is an Abweichung, and its row names only that field.
 
 ### Security
 
