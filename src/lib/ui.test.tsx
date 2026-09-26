@@ -320,3 +320,27 @@ describe('photo viewer download link', () => {
     closeViewer()
   })
 })
+
+describe('toast · a `kind` replaces its predecessor instead of stacking', () => {
+  // 3am test r4, 26.09.2026: three «+ OG» taps stacked three identical «Geschoss hinzugefügt ·
+  // Rückgängig» pills over the stack's own «+ UG»
+  it('the second toast of a kind takes the first one\'s place; other toasts are left alone', () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    act(() => { toast('Anderes') })
+    act(() => { toast('2. OG hinzugefügt', { kind: 'storey' }) })
+    act(() => { toast('3. OG hinzugefügt', { kind: 'storey' }) })
+    act(() => { vi.advanceTimersByTime(200) }) // the replaced pill's exit
+    expect(screen.queryByText('2. OG hinzugefügt')).toBeNull()
+    expect(screen.getByText('3. OG hinzugefügt')).toBeTruthy()
+    expect(screen.getByText('Anderes')).toBeTruthy()
+  })
+
+  it('without a kind, toasts still stack as before', () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    act(() => { toast('eins'); toast('zwei') })
+    expect(screen.getByText('eins')).toBeTruthy()
+    expect(screen.getByText('zwei')).toBeTruthy()
+  })
+})

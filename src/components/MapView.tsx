@@ -11,7 +11,8 @@ import { gateTouchRotation } from '../lib/mapTwist'
 import { Icon } from '../lib/icons'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { LockChip } from './LockChip'
-import { LINE_DASH_ML, ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
+import { LINE_DASH_ML } from '../lib/draw'
+import { MapImages } from './MapImages'
 import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, arrowEndIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
@@ -1109,32 +1110,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     }, 0)
   }, [fitPoints, initialBearing, initialZoom, mapReady])
 
-  // Register FireGIS point symbols (hydrant, valve…) as map icons, tinted to the layer
-  // colour, so the Leitungskataster point layers can render them via a symbol layer.
-  useEffect(() => {
-    const map = mapInst.current
-    if (!map || !mapReady) return
-    for (const l of layers) {
-      if (l.vectorKind !== 'point' || !l.symbol) continue
-      const raw = byName[l.symbol]
-      if (!raw) continue
-      // register the day-tinted icon and, when the layer has a nightColor, a brighter
-      // night-tinted variant (icon-<id>-night) so dark-map point symbols (hydrant/Schieber)
-      // stay legible — MapLayers swaps icon-image to the night variant in night mode
-      const variants: { id: string; color: string }[] = [{ id: `icon-${l.id}`, color: l.color ?? '#000' }]
-      if (l.nightColor) variants.push({ id: `icon-${l.id}-night`, color: l.nightColor })
-      for (const v of variants) {
-        if (map.hasImage(v.id)) continue
-        const svg = raw.replace(/#000000/gi, v.color).replace('<svg ', '<svg width="64" height="64" ')
-        const img = new Image(64, 64)
-        img.onload = () => {
-          const m = mapInst.current
-          if (m && !m.hasImage(v.id)) { m.addImage(v.id, img, { pixelRatio: 2 }); m.triggerRepaint() }
-        }
-        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
-      }
-    }
-  }, [mapReady, layers, byName])
+  // The point symbols (hydrant, Schieber …), the arrowheads and the Schraffur tiles are
+  // registered by <MapImages> — the first child of <Map>, because an effect waiting for
+  // `mapReady` ran after the first tile had already asked for them (lib/mapImages).
 
   // Keep the base raster(s) pinned BELOW the tactical drawings. react-map-gl appends every layer
   // without a `beforeId` and re-adds late-loading sources on each `styledata`, so a base raster
@@ -1162,68 +1140,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     return () => { map.off('styledata', keepBaseBelowDrawings) }
   }, [mapReady])
 
-  // Register a single tintable arrowhead icon (SDF) used by annotated polylines (Messpfeil /
-  // Rettungsachse). SDF lets `icon-color` recolour it to the line colour. The glyph points
-  // UP (north / bearing 0); the symbol layer rotates it via the feature's `bearing`.
-  useEffect(() => {
-    const map = mapInst.current
-    if (!map || !mapReady) return
-    // (re)register the SDF arrowhead. A map style RELOAD (day/night swap, base-layer change) clears
-    // all registered images, so the once-on-mount registration left the icon missing afterwards and
-    // the arrowheads silently vanished (the Pfeil preset "did nothing"). Re-add it on every
-    // styledata when it's gone, so the tip survives theme/base switches.
-    const ensureArrow = () => {
-      if (map.hasImage('draw-arrow') && map.hasImage('draw-arrow-stop')) return
-      const S = 48 // render at a higher resolution so the arrowhead stays crisp when scaled up
-      const head = (stop: boolean) => {
-        const cv = document.createElement('canvas'); cv.width = S; cv.height = S
-        const ctx = cv.getContext('2d'); if (!ctx) return null
-        ctx.fillStyle = '#fff'
-        // the «Stopp» variant carries the Entwicklungsgrenze bar just past the tip — the same
-        // statement the fire's bounded spread arrow makes, on a line
-        const top = stop ? 10 : 4
-        if (stop) ctx.fillRect(8, 0, S - 16, 5)
-        ctx.beginPath()
-        ctx.moveTo(S / 2, top)          // tip (top)
-        ctx.lineTo(S - 6, S - 8)        // bottom-right
-        ctx.lineTo(S / 2, S - 16)       // notch
-        ctx.lineTo(6, S - 8)            // bottom-left
-        ctx.closePath()
-        ctx.fill()
-        return ctx.getImageData(0, 0, S, S)
-      }
-      for (const [name, stop] of [['draw-arrow', false], ['draw-arrow-stop', true]] as const) {
-        if (map.hasImage(name)) continue
-        const data = head(stop)
-        if (data) map.addImage(name, { width: S, height: S, data: data.data }, { sdf: true, pixelRatio: 2 })
-      }
-      map.triggerRepaint()
-    }
-    // The Schraffur tiles ride the same style lifecycle, in a pass of their OWN. ⚠️ Deliberately
-    // not inside `ensureArrow`: that function returns early the moment both arrowheads exist, so
-    // a guard reading «the arrowheads are here» would be what decides whether a Fläche has a fill.
-    const ensureHatch = () => {
-      ensureHatchImages(map, appConfig.drawing.colors)
-      map.triggerRepaint()
-    }
-    // …and a colour outside the palette (a legacy drawing, a station that re-cut `drawing.colors`)
-    // asks for a tile nobody registered — a missing `fill-pattern` paints NOTHING, so that Fläche
-    // would simply be gone from the Karte. Mint it the moment the style asks for it.
-    const onMissing = (e: { id: string }) => {
-      const c = hatchImageColor(e.id)
-      if (c) { ensureHatchImage(map, e.id, c); map.triggerRepaint() }
-    }
-    ensureArrow()
-    ensureHatch()
-    map.on('styledata', ensureArrow)
-    map.on('styledata', ensureHatch)
-    map.on('styleimagemissing', onMissing)
-    return () => {
-      map.off('styledata', ensureArrow)
-      map.off('styledata', ensureHatch)
-      map.off('styleimagemissing', onMissing)
-    }
-  }, [mapReady])
 
   // canvas-level pointer gestures (freehand drawing + marquee multi-select) live in a
   // dedicated hook; they bind directly to the MapLibre instance and toggle dragPan.
@@ -2110,6 +2026,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       preserveDrawingBuffer={staticView}
     >
       <QuietAttributionControl />
+      <MapImages layers={layers} byName={byName} />
       <MapLayers layers={layers} preparedOverlays={preparedOverlays} isVisible={isVisible} mapReady={mapReady} />
 
       {/* Literal georeferenced Modul sheets are separate from their symbol projections. Ebenen

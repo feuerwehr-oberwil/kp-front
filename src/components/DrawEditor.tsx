@@ -22,7 +22,7 @@ import type { LineAttachment, LineContent, LineEndpoint, LngLat, LineRoutingMode
 
 // small glyph for the line-ending picker: plain · arrow · arrow with Entwicklungsgrenze · FKS
 // Teilstück "E"-fork.
-// ⚠️ Both arrows are the MAP's own arrowhead (MapView · the `draw-arrow` / `draw-arrow-stop` SDF
+// ⚠️ Both arrows are the MAP's own arrowhead (lib/mapImages · the `draw-arrow` / `draw-arrow-stop` SDF
 // sprite) scaled into this box: a FILLED, notched head and a SOLID bar just past the tip, in the
 // sprite's proportions — the bar is ~1/7 of the head's length thick and spans ~9/10 of its width.
 // Sketched as an outlined chevron with a hairline tick, the preview promised something far
