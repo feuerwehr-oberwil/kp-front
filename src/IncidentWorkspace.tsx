@@ -3203,7 +3203,15 @@ export function IncidentWorkspace({
     })
     patchEntity(entityId, { dockedTo: undefined })
     log('select', line, placard ? 'symbol' : 'team', undefined, entityId)
-    undoToast(line, () => patchEntity(entityId, { dockedTo: hostId }))
+    // the toast's ↶ re-docks only onto a host that still stands, and only a marker that is still
+    // loose — by the time it is tapped the host may have been deleted, or the marker docked
+    // elsewhere (CodeRabbit on #232); `objectsRef` is the store as it is NOW, not at the release
+    undoToast(line, () => {
+      const now = objectsRef.current
+      const hostStands = now.some((o) => o.entity?.id === hostId)
+      const stillLoose = now.find((o) => o.entity?.id === entityId)?.entity?.dockedTo == null
+      if (hostStands && stillLoose) patchEntity(entityId, { dockedTo: hostId })
+    })
   }
   /**
    * A live Fahrzeug was dragged on a Modul — «hier ist es wirklich».
