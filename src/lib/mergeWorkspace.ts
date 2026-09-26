@@ -20,7 +20,7 @@ import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentP
 import { landedClaims, resolveTruppNumbers, unwindUnlanded, type NumberScope } from './truppNumbers'
 import type { TruppTrail } from './truppTrails'
 import type { BoardDoc, Drawing, Entity, Trupp } from '../types'
-import type { Saved } from './workspace'
+import type { InitialState, Saved } from './workspace'
 import { unionCrewFiled } from './crewFiling'
 
 type Id = string
@@ -549,6 +549,16 @@ function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs:
   if (mineMachine && !theirsMachine) return theirs
   return mine
 }
+/** The `Saved` fields that merge (every row of MERGE_POLICY that is not `'local'`). */
+export type SyncedKey = { [K in keyof typeof MERGE_POLICY]: (typeof MERGE_POLICY)[K] extends 'local' ? never : K }[keyof typeof MERGE_POLICY]
+/* ⚠️ …and each of them must also REACH THE SCREEN: a merged blob only lands through
+ * deriveInitial → applyWorkspace, whose setters are typed against InitialState (lib/workspace ·
+ * WorkspaceAppliers). So every synced field needs an InitialState slot of the same name, or
+ * `entities`/`drawings`, which arrive as its `doc` view. A synced field without one fails `tsc`
+ * here (25.09.2026 — a merge that never reached the screen is saved back as a deletion). */
+type SyncedWithoutSlot = Exclude<SyncedKey, keyof InitialState | 'entities' | 'drawings'>
+const everySyncedFieldHasASlot: [SyncedWithoutSlot] extends [never] ? true : SyncedWithoutSlot = true
+void everySyncedFieldHasASlot
 
 /**
  * Three-way merge of whole workspace blobs, built for TASK-SCOPED multi-editor use: two operators
