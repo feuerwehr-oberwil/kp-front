@@ -1022,6 +1022,12 @@ to prod.
   **batch related changes and commit once the chunk of work is done** (a coherent unit), rather
   than after every small edit. The user tests on production, so a needed-for-testing change
   still ships promptly – just don't pepper `main` with partial commits.
+- **An idea that should not reach the station yet goes to staging, not `main`.** Push it to the
+  `staging` branch; it deploys to the Railway `staging` environment
+  (`https://kp-front-staging.up.railway.app`, a separate PWA on prod's data, with push and
+  webhooks cut). `just staging-refresh` re-copies prod into it and overwrites whatever was tested
+  there. Pass `--environment` explicitly to every `railway` command: the checkout is linked to
+  `production`. See `docs/DEPLOYMENT.md` §3a.
 - **The user keeps uncommitted WIP and commits in parallel.** Never `git add -A` / `git commit
   -a`; stage only the specific files you changed, and don't assume the tree is clean.
 - **Verification before prod (the CI gate).** Prod deploys from `main`, so a red `main` reaches
