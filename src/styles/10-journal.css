@@ -17,7 +17,7 @@
    (16px where every other neighbour has 8) — a slot with nothing in it takes no room */
 .tb-share:empty { display: none; }
 .tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer;
-  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-nested, var(--r-sm)); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
+  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
   font-weight: 700; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
 .tb-act .i { width: 15px; height: 15px; }
 /* ⚠️ The undo/redo glyphs (lib/icons · #undo/#redo) are NOT centred in their own 24×24 viewBox
@@ -42,7 +42,7 @@
    the bar's nested corner (AGENTS.md · buttons · radius). On a phone it is --tap tall, and a
    44px capsule next to the square-cornered Verlauf button read as a foreign object. The same
    goes for .tb-gps and .tb-mode below – the three status chips of the bar share one shape. */
-.tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-nested, var(--r-sm));
+.tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-sm);
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
   flex: 0 1 auto; min-width: 0; transition: background .14s var(--ease); }
 .tb-az .i { width: 15px; height: 15px; flex: none; }
@@ -126,7 +126,7 @@
    map (disappearing reads as «it has driven off», not as «the feed is gone»), so the freeze
    has to become visible here. Amber, not red: a frozen position is a caveat, not an alarm —
    and red belongs to the überfälliger Trupp. */
-.tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-nested, var(--r-sm));
+.tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-sm);
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
   flex: none; cursor: default;
   background: color-mix(in srgb, var(--amber, #b45309) 16%, transparent); color: var(--amber-strong, #b45309); }
@@ -139,7 +139,7 @@
    the head. Amber for the same reason .tb-gps is: a state to be aware of, not an alarm. Tapping
    it offers the two exits the banner used to carry (Zurück / Wieder öffnen), so nothing was lost
    with the banner; on a link session there are no exits and it is a plain, inert chip. */
-.tb-mode { display: inline-flex; align-items: center; gap: 6px; flex: none; border: none; border-radius: var(--r-nested, var(--r-sm));
+.tb-mode { display: inline-flex; align-items: center; gap: 6px; flex: none; border: none; border-radius: var(--r-sm);
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; white-space: nowrap;
   background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber-strong); }
 .tb-mode .i { width: 14px; height: 14px; flex: none; }
@@ -454,7 +454,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    too-tall popup is repositioned, never trimmed. */
 .jr-filter-menu { min-width: 250px; max-width: min(340px, 92vw);
   max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
-  padding: 6px; border-radius: var(--r-ctl);
+  padding: var(--bar-pad); border-radius: var(--r-bar);   /* hugs its rows — 01-tokens · «ONE corner» */
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); }
 /* skin only — radius, hover and press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .jr-filter-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--tap);

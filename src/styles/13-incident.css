@@ -10,7 +10,7 @@
 .ip-switch-glyph .i { width: 17px; height: 17px; }
 .ip-switch-btn {
   display: inline-flex; align-items: center; gap: 8px; max-width: 46vw; min-width: 0;
-  padding: 6px 12px; border: none; border-radius: var(--r-nested, var(--r-sm));   /* concentric with the bar — 01-tokens · --r-nested */
+  padding: 6px 12px; border: none; border-radius: var(--r-sm);   /* the bar around it is --r-bar — 01-tokens · «ONE corner» */
   background: var(--glass); box-shadow: var(--shadow-sm); color: var(--ink);
   font: 700 14px/1.1 var(--body); cursor: pointer;
 }
@@ -1370,7 +1370,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-split .rp-split-more { flex: none; width: var(--tap); padding: 0; justify-content: center;
   border-top-left-radius: 0; border-bottom-left-radius: 0;
   border-left: 1px solid color-mix(in srgb, var(--on-btn-primary) 35%, transparent); }
-.rp-print-menu { min-width: 240px; max-width: min(340px, 92vw); padding: 6px; border-radius: var(--r-ctl);
+.rp-print-menu { min-width: 240px; max-width: min(340px, 92vw); padding: var(--bar-pad); border-radius: var(--r-bar);
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — the radius, the hover/press wash and the red row live on `.ui-menu-item` /
    `.ui-menu-danger` (see «ONE menu row» below), which every row of this menu also wears. */
@@ -1669,7 +1669,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-ac { position: relative; }
 .ip-ac-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin-top: 4px;
   max-height: 220px; overflow-y: auto; background: var(--surface); border: 1px solid var(--glass-edge);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow); padding: 4px; }
+  border-radius: var(--r-bar); box-shadow: var(--shadow); padding: var(--bar-pad); }
 .ip-ac-row { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px; border: none;
   background: none; cursor: pointer; text-align: left; border-radius: var(--r-ctl);
   font: 500 13.5px var(--body); color: var(--ink); }
@@ -1873,7 +1873,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .esh-qr { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 8px;
   padding: 14px; border-radius: var(--r-ctl); background: var(--fill-soft); border: 1px solid var(--border-soft); }
 .esh-qr img { display: block; width: min(224px, 58vw); height: auto; aspect-ratio: 1;
-  padding: 8px; border-radius: 8px; background: #fff; }
+  padding: 8px; border-radius: var(--r-sm); background: #fff; }
 .esh-qr-cap { font: 600 12px var(--body); color: var(--ink-dim); }
 .esh-row { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; width: 100%; }
 /* The WHOLE address copies. A 12px «Kopieren» beside a URL is a miss waiting to happen with a

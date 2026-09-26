@@ -1128,7 +1128,7 @@ export const en: Localizable<Copy> = {
     // no longer asked in the Trupp form (04.09.) – still offered on the Lage/plan and in admin
     colorAuto: 'Automatic',
     // sync/clock status in the board header (see de.ts)
-    syncStand: '{status} – as of {t}',
+    syncStand: '{status} · {t}',
     clockSkewChip: 'Device clock is off ({d} min)',
     formCreateTitle: 'Register team',
     formEditTitle: 'Edit team',

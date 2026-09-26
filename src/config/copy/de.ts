@@ -1758,8 +1758,9 @@ export const de = {
     // Sync-/Uhr-Status im Tafelkopf (Sicherheitsreview 01.09.): die EINE Fläche, an der ein
     // Leben hängt, sagt selbst, ob ihr Stand gesichert und ihre Uhr richtig ist. Leise reicht
     // incidentSwitcher.savedAt; laut trägt der Chip das Kurzlabel des Zustands plus, wie alt
-    // der letzte gesicherte Stand ist.
-    syncStand: '{status} – Stand {t}',
+    // der letzte gesicherte Stand ist. Kurz (25.09.2026): der Kopf ist auf dem Telefon EINE Zeile,
+    // «– Stand» schnitt dort den Chip ab; der ganze Satz steht im title/aria-label.
+    syncStand: '{status} · {t}',
     // Geräteuhr-Chip (>3 Min. Abweichung, CLOCK_SKEW_WARN_MIN): jede Kontaktuhr auf der Tafel
     // ist Date.now() dieses Geräts. {d} trägt das Vorzeichen (+ = Gerät geht vor); die
     // Langfassung (Tooltip) ist incidentSwitcher.clockSkewToast – gleiche Formulierung wie die

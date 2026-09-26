@@ -27,7 +27,10 @@
 /* A read-only plan floats its zoom cluster in exactly this corner (09-whiteboard · .wb-zoom-float,
    rendered just before this chip) — the compass then takes the next line down instead of landing
    on it. */
-:global(.wb-zoom-float) ~ .chip { top: calc(72px + env(safe-area-inset-top)); }
+/* The cluster's height, from its parts (09-whiteboard): 40px buttons + the group's 2 × 3px + the
+   float's 2 × --bar-pad + 2 × 1px border — 56px until the one-gap pass (25.09.2026) made the pad
+   6px, when the literal 72/136 below left the dial 4px over the cluster's foot. */
+:global(.wb-zoom-float) ~ .chip { top: calc(16px + 48px + 2 * var(--bar-pad) + env(safe-area-inset-top)); }
 
 /* Below 860px the top bar runs the full width (15-mobile · «TopBar ⇄ top-right utilities»), so the
    chip drops under the bar — what the map's cluster does at the same width. The second half of the
@@ -39,7 +42,7 @@
 @media (max-width: 860px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .chip { top: calc(80px + env(safe-area-inset-top)); right: calc(var(--vrail-w, 60px) + 26px); }
   /* …the zoom cluster dropped to that same line (09-whiteboard), so the dial takes the next */
-  :global(.wb-zoom-float) ~ .chip { top: calc(136px + env(safe-area-inset-top)); }
+  :global(.wb-zoom-float) ~ .chip { top: calc(80px + 48px + 2 * var(--bar-pad) + env(safe-area-inset-top)); }
 }
 /* …but that line is ALSO where an object's editor (`.ctx`: right = the same rail inset, top 88px)
    opens, so at 820px the dial sat on the editor's corner and its ✕ — a press meant to close the

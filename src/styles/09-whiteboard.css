@@ -106,21 +106,21 @@
    over the sheet's top edge, right of the rail. Amber like the chip, never red – nothing is on
    fire on the Plan; something may merely be the neighbour's. */
 .wb-nearby-banner { position: absolute; left: calc(var(--rail-w) + 16px); right: 16px; top: 12px; z-index: var(--z-dock);
-  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--amber) 16%, var(--glass)); backdrop-filter: blur(10px);
-  border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); box-shadow: var(--shadow-sm);
-  font-size: 12.5px; line-height: 1.4; color: var(--ink); }
+  /* the message surface; the tone is its amber glyph (08-toasts.css · «ONE message surface», 25.09.2026) */
+  display: flex; align-items: center; gap: 10px; padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) 14px; border-radius: var(--r-sm);
+  background: var(--surface); border: none; box-shadow: var(--shadow);
+  font: 600 13px/1.35 var(--body); color: var(--ink); }
 .wb-nearby-banner > .i { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
 .wb-nearby-text { flex: 1 1 auto; min-width: 0; }
 .wb-nearby-text b { color: var(--amber-strong); }
-.wb-nearby-switch { flex: none; min-height: 44px; padding: 0 12px; border: none; border-radius: var(--r-sm);
+.wb-nearby-switch { flex: none; min-height: 44px; padding: 0 12px; border: none; border-radius: var(--r-msg-in);
   background: transparent; font: 700 12.5px var(--body); color: var(--blue); cursor: pointer; white-space: nowrap; }
-.wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-sm); cursor: pointer;
+.wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-msg-in); cursor: pointer;
   background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); display: grid; place-items: center; }
 .wb-nearby-x .i { width: 16px; height: 16px; }
 @media (max-width: 600px) {
   /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions */
-  .wb-nearby-banner { left: 12px; right: 12px; flex-wrap: wrap; }
+  .wb-nearby-banner { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
   .wb-nearby-text { flex-basis: calc(100% - 28px); }
 }
 /* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). On the
@@ -172,7 +172,7 @@
   /* ⚠️ Counted from what is ACTUALLY on screen, one lane at a time. The base is the nav bar
      alone — a viewer-only PDF renders no tool rail at all (`phoneTools` excludes it), so
      reserving two lanes there left the chip hanging a whole bar's height above nothing. */
-  .wb-botleft { position: fixed; left: 10px; right: calc(10px + var(--fab-safe, 0px)); max-width: none;
+  .wb-botleft { position: fixed; left: max(8px, env(safe-area-inset-left)); right: calc(max(8px, env(safe-area-inset-right)) + var(--fab-safe, 0px)); max-width: none;
     bottom: calc(var(--rail-h) + 20px + env(safe-area-inset-bottom)); }
   /* an editable surface adds the tool rail under it… */
   .app.phone-tools .wb-botleft {
@@ -226,7 +226,7 @@
 .pp-dist { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); }
 .pp-mods { font-size: 11px; font-weight: 700; color: var(--blue); }
 .pp-mods-none { color: var(--ink-faint); font-weight: 600; }
-.pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-cluster); overflow: hidden; border: 1px solid var(--glass-edge); }
+.pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--glass-edge); }
 .pp-map .maplibregl-map { width: 100%; height: 100%; }
 .pp-map-note { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 6px 9px; border-radius: var(--r-sm);
   background: rgba(27, 35, 48, .82); color: var(--on-accent-ink); font-size: 11px; font-weight: 600; text-align: center; pointer-events: none; }
@@ -267,14 +267,15 @@
 /* floating zoom — top-right of the canvas, matching the map's MapUtility cluster */
 .wb-zoom { display: flex; align-items: center; gap: 2px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; flex: none; }
 .wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: var(--z-map-util); background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-cluster); padding: 4px; }
+  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-cluster); padding: var(--bar-pad); }
 /* Below 860px the top bar runs the full width, so the cluster drops under it — what the Karte's
    own cluster does at the same width (MapUtility · .toputil). At 820 its «–» sat under the bar
    and a tap on it hit the bar (3am test r4, 26.09.2026). */
 @media (max-width: 860px) {
   .wb-zoom-float { top: calc(80px + env(safe-area-inset-top)); }
 }
-.wb-zoom button { min-width: 40px; height: 40px; padding: 0 10px; border: none; background: none; border-radius: var(--r-sm); display: grid; place-items: center;
+/* the zoom buttons are PARTS of the grouped control above (3px inside it), so their corner is the group's less that gap */
+.wb-zoom button { min-width: 40px; height: 40px; padding: 0 10px; border: none; background: none; border-radius: calc(var(--r-sm) - 3px); display: grid; place-items: center;
   color: var(--ink-dim); cursor: pointer; font-family: var(--body); font-size: 12.5px; font-weight: 700; transition: background .14s var(--ease); }
 @media (hover: hover) {
   .wb-zoom button:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }
@@ -578,7 +579,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* selected-team action bar — one compact toolbar under the pill, replacing the two
    corner orbs (mark top-left + delete top-right) that used to crowd the pill */
 .wb-pill-acts { position: absolute; top: calc(100% + 9px); left: 50%; transform: translateX(-50%); z-index: 6;
-  display: flex; gap: 6px; background: var(--ink-fill); border-radius: var(--r-ctl); padding: 5px; box-shadow: var(--shadow); }
+  display: flex; gap: 6px; background: var(--ink-fill); border-radius: calc(var(--r-sm) + var(--bar-pad)); padding: var(--bar-pad); box-shadow: var(--shadow); }
 /* …flipped ABOVE the marker when it would otherwise land under the phone's fixed bottom lanes or
    past the canvas edge. The decision is measured in components/TwinTeamPill (`data-flip`), which
    also writes the horizontal nudge as an inline transform — here we only restate the anchor. */

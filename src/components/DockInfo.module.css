@@ -21,10 +21,16 @@
    dropdown extends down into that band — at the old z-43 the dropdown covered the tip, so the hint
    read as clipped/obstructed. On top, the momentary tap-toggle hint is always fully readable. */
 .wb-dock-tip { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); right: auto; top: auto; transform: translateX(-50%);
-  width: max-content; max-width: min(440px, 90vw); background: var(--ink-fill); color: var(--on-accent-ink); font-size: 12.5px; font-weight: 500;
-  line-height: 1.4; text-align: center; padding: 9px 16px; border-radius: var(--r-surface); box-shadow: var(--shadow); z-index: var(--z-floating-tip); }
+  width: max-content; max-width: min(440px, 90vw); z-index: var(--z-floating-tip); box-sizing: border-box;
+  /* the one message surface (08-toasts.css · «ONE message surface») — it was the one dark pill
+     with its own corner and its own type */
+  display: flex; align-items: center; min-height: calc(var(--tap) + 2 * var(--msg-pad)); padding: var(--msg-pad) 14px;
+  background: var(--surface); color: var(--ink); border: none; border-radius: var(--r-sm);
+  box-shadow: var(--shadow); font: 600 13px/1.35 var(--body); text-align: left; }
 /* phones: clear ALL THREE bottom bars (nav + tool bar + the horizontal tool-option dock) so the
    hint sits above the dock, not under it — rail-h*3 (was *2, which collided with the dock) */
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  .wb-dock-tip { bottom: calc(var(--rail-h) * 3 + 26px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); }
+  /* in THE message lane, at the bars' width, like every other message (15-mobile · --msg-lane-bottom) */
+  .wb-dock-tip { bottom: var(--msg-lane-bottom); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+    transform: none; width: auto; max-width: none; }
 }

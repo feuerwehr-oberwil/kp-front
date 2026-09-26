@@ -30,21 +30,29 @@
      panel edge over dark aerial imagery where the white border alone vanishes */
   --shadow: 0 0 0 1px rgba(30, 45, 70, .08), 0 1px 2px rgba(30, 45, 70, .12), 0 14px 36px rgba(30, 45, 70, .16);
   --shadow-sm: 0 0 0 1px rgba(30, 45, 70, .07), 0 1px 2px rgba(30, 45, 70, .1), 0 6px 16px rgba(30, 45, 70, .12);
-  /* radius scale: control / button / surface / hero */
-  --r-ctl: 14px;
-  /* ⚠️ NOT a button radius, whatever the old name (`--r-btn`) claimed. Every button in the app
-     is --r-sm; this is the outer shell of a FLOATING GLASS CLUSTER (.toputil, .wb-zoom-float,
-     .phone-wx), which nests a --r-ctl group of --r-sm buttons inside it. The three radii are the
-     nesting. Renamed 27.08. after it had drifted onto one real button. */
-  --r-cluster: 16px;
-  --r-surface: 20px;
-  --r-hero: 22px;
-  /* ⚠️ A button that sits IN a bar's padding is not --r-sm (22.09.2026): its corner runs
-     concentric with the bar's — the bar's radius minus its padding — or the two curves fight
-     (a 10px card inside a 22px bar read as «way more angled than the container around it»).
-     Each bar states `--r-nested` beside its padding (.topbar, .rail and their phone rules), and
-     the buttons that sit directly in that padding read it, falling back to --r-sm anywhere else.
-     The .toputil cluster already IS this arithmetic: --r-cluster 16 − 6px = --r-sm. */
+  /* ── ONE corner (25.09.2026) ────────────────────────────────────────────────────────────
+     Every rectangle in the app wears --r-sm: a button, a field, a status box, a card, a row,
+     the page card, a sheet, a dialog, a message. The old scale (10 · 14 · 16 · 20 · 22, chosen per
+     element) put three different corners on three neighbouring buttons and read as a mess.
+     Only two things are NOT that one number, and both follow from a rule, never from taste:
+     · round things stay round (--r-pill / 50%: the ＋ button, dots, status chips), and anything
+       under ~32px tall wears --r-xs, which is the same SHAPE at that size (8/30 ≈ 12/44);
+     · a FLOATING BAR that hugs controls (top bar, nav bar, tool bar, glass clusters, messages)
+       keeps ONE even gap all round — --bar-pad plus its 1px border — and its corner is the
+       controls' corner plus that gap (--r-bar). Then the two curves run parallel, the way two
+       nested squares do; with 7px above a button and 11px beside it no radius could.
+     The role names below are kept so a rule still says what it is, but they are all --r-sm. */
+  --r-ctl: var(--r-sm);
+  --r-surface: var(--r-sm);
+  --r-hero: var(--r-sm);
+  --bar-pad: 6px;
+  --r-bar: calc(var(--r-sm) + var(--bar-pad) + 1px);
+  --r-cluster: var(--r-bar);
+  /* A MESSAGE (toast, instruction, tip) is not a bar: it stands beside cards and chips, so it wears
+     the one corner itself, and its buttons sit --msg-pad inside it with the corner less that gap
+     (08-toasts.css · «ONE message surface»). */
+  --msg-pad: 4px;
+  --r-msg-in: calc(var(--r-sm) - var(--msg-pad));
   --ease: cubic-bezier(.2, .7, .3, 1);
   /* THE app-wide :active wash — layered as a background-image overlay so it composes with
      any background underneath. Built on --ink, which flips for the night theme, so the wash
@@ -103,9 +111,9 @@
      the DrawEditor. Day = dark-on-light; night flips to light-on-dark. */
   --ink-tint: rgba(27, 35, 48, .15);
   --ink-tint-strong: rgba(27, 35, 48, .25);
-  /* small radius tier — chips, rows, badges, swatches (below the ctl/btn/surface scale) */
+  /* THE corner (see «ONE corner» above) and its small-size twin for chips/badges under ~32px */
   --r-xs: 8px;
-  --r-sm: 10px;
+  --r-sm: 12px;
   --r-pill: 999px;
   /* gloved tap target — small icon controls expand to this via a hit-pad or min-size */
   --tap: 44px;

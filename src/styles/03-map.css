@@ -331,7 +331,7 @@
   display: flex; flex-direction: column;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--shadow);
-  padding: 6px; animation: pop .16s var(--ease); }
+  padding: var(--bar-pad); animation: pop .16s var(--ease); }
 /* the selection bar (~230px, centred) and the coordinate readout (~330px, centred, ~84px tall)
    only meet the card on a viewport under ~1100px — there it stands above both, always */
 @media (max-width: 1100px) { .lgg:not(.lgg-phone) { bottom: calc(124px + env(safe-area-inset-bottom)); } }

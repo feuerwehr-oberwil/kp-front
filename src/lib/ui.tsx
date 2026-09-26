@@ -34,7 +34,10 @@ export interface ToastStep {
   state: 'done' | 'now' | 'future' | 'fail'
   icon?: 'check' | 'warn' | 'printer'
 }
-interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean; kind?: string }
+/** How long a toast that goes away by itself has, for the line that runs out along its foot
+ *  (08-toasts.css · .toast-life). `key` restarts that line when updateToast resets the clock. */
+interface ToastLife { ms: number; key: number }
+interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean; life?: ToastLife; kind?: string }
 /** A confirm that is on screen and waiting for its answer — the shared `ConfirmSpec` plus what
  *  only the pending state needs: which request it is, and the promise to settle. */
 interface ConfirmReq extends ConfirmSpec {
@@ -92,11 +95,12 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
   // Rückgängig» pills over the stack's own «+ UG»). The replaced toast's act stays on ↶.
   if (opts?.kind) for (const t of toasts) if (t.kind === opts.kind && !t.leaving) dismissToast(t.id)
   const id = seq++
-  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss, kind: opts?.kind }]
+  // sticky toasts stay until updateToast/dismissToast decides (live status, a mode's instruction).
+  // Otherwise an action (e.g. confirm-with-undo) needs time to be seen and tapped.
+  const ms = opts?.sticky ? undefined : opts?.duration ?? defaultToastDuration(text, !!opts?.action)
+  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss, life: ms ? { ms, key: seq++ } : undefined, kind: opts?.kind }]
   emit()
-  // sticky toasts stay until updateToast/dismissToast decides (live status). Otherwise an
-  // action (e.g. confirm-with-undo) needs time to be seen and tapped.
-  if (!opts?.sticky) scheduleDismiss(id, opts?.duration ?? defaultToastDuration(text, !!opts?.action))
+  if (ms) scheduleDismiss(id, ms)
   return id
 }
 
@@ -142,7 +146,9 @@ export function updateToast(id: number, text: string, opts?: { icon?: string; to
   const cur = toasts.find((t) => t.id === id)
   if (!cur || cur.leaving) return
   toasts = toasts.map((t) => t.id === id
-    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action ?? undefined, steps: opts?.steps ?? undefined }
+    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action ?? undefined, steps: opts?.steps ?? undefined,
+        // a new clock is a new line; no clock keeps whatever the toast already had
+        life: opts?.duration ? { ms: opts.duration, key: seq++ } : t.life }
     : t)
   emit()
   if (opts?.duration) scheduleDismiss(id, opts.duration)
@@ -392,6 +398,17 @@ function ToastRow({ t }: { t: Toast }) {
         </>
       )}
       {t.action && <ToastAction toast={t} />}
+      {/* ⚠️ Everything that goes away BY ITSELF says so (25.09.2026): a ✕ and a line that runs out
+          with its time. An instruction or a live status (sticky) has neither — it stays until its
+          mode or its job ends. The action cluster brings its own ✕. The pill-wide drag must not
+          arm under the ✕ (same reason as ToastAction's own stopPropagation). */}
+      {t.life && !t.action && (
+        <button type="button" className="toast-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); dismissToast(t.id) }}
+        ><Icon id="close" /></button>
+      )}
+      {t.life && <span key={t.life.key} className="toast-life" style={{ animationDuration: `${t.life.ms}ms` }} aria-hidden />}
     </div>
   )
 }

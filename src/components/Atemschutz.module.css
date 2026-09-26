@@ -271,7 +271,7 @@
    One framed object rather than three stacked full-bleed strips: «wie lange schon» and «jetzt
    Kontakt» belong together, and the Druck setter was the only input on the card, filed as the
    third of four rows in a table of numbers that are otherwise only read. */
-.block { margin: 0 12px; border: 1.5px solid var(--glass-edge); border-radius: 16px; overflow: hidden; }
+.block { margin: 0 12px; border: 1.5px solid var(--glass-edge); border-radius: var(--r-sm); overflow: hidden; }
 .blockWarn { border-color: color-mix(in srgb, var(--amber) 50%, transparent); }
 .blockCrit { border-color: color-mix(in srgb, var(--red) 55%, transparent); }
 
@@ -1174,7 +1174,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   /* ⚠️ ONE row of controls (3am test r2, 25.09.2026): «1 Alarm» arriving pushed the last square
      onto a second row and the whole board dropped ~56px under the finger at the moment the alarm
      fired. The squares sit 8px apart here (the badge + four 44px squares at the desktop's 16px
-     gaps is 346px, the 360px phone head has 316) and the row never wraps. */
+     gaps is 346px, the 360px phone head has 316) and the row never wraps — the 8px is also the
+     one-row head's gap, like the handed-over board's (#231, 25.09.2026). */
   .headActs { flex-wrap: nowrap; column-gap: 8px; }
   /* …and only when all FIVE controls stand (the archive square is up too) does the badge drop its
      word and keep «⚠ n» — the full sentence stays its aria-label, and the red is the message */
@@ -1482,6 +1483,22 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    «n Alarme» badge up it ran the last button off the card's right edge. Allowed to shrink to the
    head's width, it wraps inside itself and the last controls drop to a second row, right-aligned. */
 .head:not(.headCompact) .headActs { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+/* …the two rules below meet in ONE row (#231 + #232): the titles ask for no basis and keep 132px,
+   the group asks for its own width and may shrink to the head's. On a 390px phone «Trupps ·
+   Gespeichert um hh:mm» (132px) + QR, bell, «+ Trupp» (8px apart) fit one line; a control more
+   (the overdue badge, «Gelöschte») sends the group to its own row, where it wraps inside itself. */
+/* ONE ROW (25.09.2026) — the handed-over board has had it since 09.09.; the full app still spent a
+   second row on its controls under «Trupps» (phone head 123px → 69px, and the tablet's wrapped too).
+   The titles give up the shared 240px basis and take what the controls leave; 132px is «Trupps»
+   plus the short sync line, so the head only wraps when a control more joins it (the overdue badge,
+   «Gelöschte») — the state that earns the second row. */
+.head:not(.headCompact) .headTitles { flex: 1 1 0; min-width: 132px; }
+.head:not(.headCompact) :global(.az-syncline) { flex-wrap: nowrap; min-width: 0; }
+/* (`flex-shrink` too: the LOUD state is the switcher's `.ip-offline-chip`, which is `flex: none` — at
+   390px beside a worded «+ Trupp» (#232) it kept its full width and ran under the QR square) */
+.head:not(.headCompact) :global(.az-syncline) > * { flex-shrink: 1; min-width: 0; }
+.head:not(.headCompact) :global(.az-syncline) > * > span:last-child {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* «Ein Trupp, ein Bildschirm» — the handed-over board on a phone (AtemschutzView · focusMode).
    ⚠️ mock 03 (maintainer correction, 03.09.): the kicker is DROPPED here rather than shrunk —
@@ -1603,7 +1620,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    sooner, which `.tabNameWrap` has allowed since round 2. */
 .strip { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; }
 .tab { min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  padding: 5px 6px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+  padding: 5px 6px; border-radius: var(--r-sm); border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
 .tab:active { background-image: linear-gradient(var(--press), var(--press)); }
 .tabName { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .tabName :global(.i) { width: 14px; height: 14px; }
@@ -1862,6 +1879,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .cardPressBtn { width: 100%; justify-content: space-between; margin-top: 8px; padding: 0 14px; background: var(--surface);
   color: var(--ink); font-weight: 800; box-shadow: inset 0 0 0 1.5px var(--glass-edge); border-radius: var(--r-ctl); }
 .cardPressBtn b { font-family: var(--mono); font-weight: 800; }
+/* …and inside the Kontakt frame it is a ROW of the frame, like «Kontakt» above it (25.09.2026):
+   its own outline 1px inside the frame's drew a second ring with a second, tighter corner */
+.block .cardPressBtn { margin-top: 0; box-shadow: none; border-radius: 0; border-top: 1.5px solid var(--glass-edge); }
 
 /* the picker: a centred card at every width, like the place picker (never a full-screen sheet) */
 .pressureSheet { width: min(380px, calc(100vw - 24px)); height: auto; max-height: calc(100dvh - 24px); }
@@ -1872,7 +1892,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 }
 .pressureSheetHint { margin: 0 20px 4px; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
 .pressureGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 16px 6px; }
-.pressureCol { display: flex; flex-direction: column; gap: 7px; padding: 6px; border-radius: var(--r-ctl);
+.pressureCol { display: flex; flex-direction: column; gap: 7px; padding: 6px; border-radius: calc(var(--r-sm) + 6px);
   background: var(--fill-soft, rgba(0, 0, 0, .045)); }
 .pressureCell { min-height: 54px; border: none; cursor: pointer; border-radius: var(--r-sm); background: var(--surface);
   font: 800 21px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;

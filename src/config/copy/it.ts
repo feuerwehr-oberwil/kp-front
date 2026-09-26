@@ -1128,7 +1128,7 @@ export const it: Localizable<Copy> = {
     // no longer asked in the Trupp form (04.09.) – still offered on the Lage/plan and in admin
     colorAuto: 'Automatico',
     // stato sync/orologio nell'intestazione della tavola (vedi de.ts)
-    syncStand: '{status} – stato delle {t}',
+    syncStand: '{status} · {t}',
     clockSkewChip: 'Orologio del dispositivo sfasato ({d} min)',
     formCreateTitle: 'Annuncia squadra',
     formEditTitle: 'Modifica squadra',
