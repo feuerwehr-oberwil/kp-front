@@ -1577,6 +1577,10 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .rp-head { padding: 10px 14px; gap: 10px 12px; }
+  /* the actions take their own row WHOLE (owner, staging 26.09.2026): sized to their content and
+     pushed right, the row started ~40px in from the title's edge — the chip gives, so it takes
+     the rest and the row runs edge to edge under the title */
+  .rp-head-actions { flex: 1 1 100%; }
   .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }
   .report-pre-section { padding: 12px 13px; }
 

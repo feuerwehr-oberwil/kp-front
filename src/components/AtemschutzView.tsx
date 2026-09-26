@@ -1130,7 +1130,11 @@ export function AtemschutzView({
               is that this surface says ITSELF whether what it shows is saved; the mark still
               says it, at a glance, and so do the LOUD states below, which keep printing their
               Stand inline because they are the states that rule exists for. */}
-          {!focusMode && <span>{savedAtText}</span>}
+          {/* …and on the phone's full board the word without the time (owner, staging 26.09.2026):
+              beside «+ Trupp» the one-row head leaves ~138px, and «Gespeichert um 14:49» was cut
+              to «Gespeichert um …» — the time lost anyway, the sentence broken. The same rule as
+              the focus board above: the time stands in `title`. */}
+          {!focusMode && <span>{isPhone ? cpSync.saved : savedAtText}</span>}
         </span>
       ) : syncStatus ? (
         <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}
