@@ -645,3 +645,33 @@ describe('suggestNext · what usually comes next', () => {
     expect(next('', TIMELINE)).toEqual([])
   })
 })
+
+// A merge renumbered a Trupp (docs/trupp-naming.md §7): its early rows say «Trupp 1», which
+// another crew holds now. A row ABOUT the Trupp (subjectId) links that «Trupp 1» to it by id.
+describe('journal marks — a renumbered Trupp is linked by id, not by number', () => {
+  const trupps = [
+    { id: 'keeper', no: 1, name: 'Keller Andreas', members: [], status: 'angemeldet' },
+    { id: 'moved', no: 3, formerNos: [1], name: 'Meier Anna', members: [], status: 'angemeldet' },
+  ] as unknown as Trupp[]
+  const vocab = journalVocabulary([], {}, undefined, trupps)
+  const text = 'Trupp 1 (Meier Anna): angemeldet'
+
+  it('in a row about the renumbered Trupp, «Trupp 1» is THAT Trupp and says what it is called now', () => {
+    const [mark] = linkParts(text, vocab, { subjectId: 'moved' }).filter((p) => p.kind === 'trupp')
+    expect(mark).toMatchObject({ text: 'Trupp 1', truppId: 'moved', hint: 'Trupp 3 · Meier Anna' })
+  })
+
+  it('anywhere else «Trupp 1» is whoever holds 1 now', () => {
+    const [mark] = linkParts(text, vocab).filter((p) => p.kind === 'trupp')
+    expect(mark).toMatchObject({ text: 'Trupp 1', truppId: 'keeper' })
+    expect(mark.hint).toBeUndefined()
+    const [other] = linkParts(text, vocab, { subjectId: 'keeper' }).filter((p) => p.kind === 'trupp')
+    expect(other.truppId).toBe('keeper')
+  })
+
+  it('a former number never completes — typing «Trupp 1» today means today\'s Trupp 1', () => {
+    const offered = suggestLinks('Trupp 1', vocab).filter((l) => l.kind === 'trupp')
+    expect(offered.every((l) => !l.former)).toBe(true)
+    expect(offered.map((l) => l.truppId)).not.toContain('moved')
+  })
+})

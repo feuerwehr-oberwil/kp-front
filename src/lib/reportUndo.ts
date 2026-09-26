@@ -1,4 +1,5 @@
 import type { ReportMeta } from './workspace'
+import { jsonEqual } from './jsonEqual'
 
 /**
  * What ONE step back on the Einsatzrapport is.
@@ -54,7 +55,7 @@ export interface ReportStep {
   structural: boolean
 }
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+const same = (a: unknown, b: unknown) => jsonEqual(a ?? null, b ?? null)
 
 /** The `ReportMeta` fields this write moved — by value, so a re-serialised identical list is
  *  not a change (the sheet rebuilds its arrays on every render). */

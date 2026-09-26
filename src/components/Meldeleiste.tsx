@@ -106,7 +106,7 @@ function MeldungActions({ m }: { m: Meldung }) {
         <button
           key={a.label}
           type="button"
-          className={`ml-btn${a.primary ? ' prim' : ''}`}
+          className={`ml-btn${a.primary ? ' prim' : ''}${a.primary && a.go ? ' go' : ''}`}
           disabled={a.disabled}
           onClick={a.onClick}
         >

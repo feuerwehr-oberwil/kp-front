@@ -15,7 +15,10 @@
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    // no ambient @types: @types/node is there for e2e/ (tsconfig.e2e.json), and its globals
+    // (process, Buffer, a NodeJS.Timeout setTimeout) must not type-check in browser code
+    "types": []
   },
   "include": ["src"]
 }

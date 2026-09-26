@@ -7,6 +7,7 @@
 
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from './format'
+import { canonicalJson } from './jsonEqual'
 import type { RecordConflict } from './mergeWorkspace'
 import type { AttendanceEntry, AttendanceSource, TimelineEvent } from '../types'
 
@@ -21,9 +22,13 @@ import type { AttendanceEntry, AttendanceSource, TimelineEvent } from '../types'
  * two devices two different identities for one divergence, and the record got the same «bitte
  * prüfen» line twice (03.09., Probst Tristan, 08:15:02 and 08:15:10). What the row reports is
  * that two values existed, not which of them happened to win the merge.
+ *
+ * ⚠️ …and each side is serialised with its keys SORTED (staging r3 F11): «mine» is built on this
+ * device, «theirs» came back from the server's JSONB with its keys re-sorted, so the same value
+ * read as two different strings depending on which device held it.
  */
 export function conflictSignature(c: RecordConflict): string {
-  const sides = [JSON.stringify(c.mine), JSON.stringify(c.theirs)].sort()
+  const sides = [canonicalJson(c.mine), canonicalJson(c.theirs)].sort()
   return `${c.key}|${sides[0]}|${sides[1]}`
 }
 
@@ -56,7 +61,7 @@ const sides = (c: RecordConflict) => ({
 /** The times an entry asserts, as one comparable string. Blocks are the truth where they exist;
  *  the derived first/last pair carries entries written before blocks did (types.ts). */
 const timesOf = (e?: AttendanceEntry): string =>
-  JSON.stringify([e?.intervals ?? null, e?.checkedInAt ?? null, e?.leftAt ?? null])
+  canonicalJson([e?.intervals ?? null, e?.checkedInAt ?? null, e?.leftAt ?? null]) ?? ''
 
 /**
  * WHAT diverged, in the words the row prints.
@@ -157,7 +162,7 @@ function conflictSides(c: RecordConflict): { source?: AttendanceSource; entry: A
   return [c.mine, c.theirs]
     .filter((v): v is AttendanceEntry => !!v && typeof v === 'object')
     .map((entry) => ({ source: entry.source, entry }))
-    .sort((a, b) => JSON.stringify(a.entry).localeCompare(JSON.stringify(b.entry)))
+    .sort((a, b) => (canonicalJson(a.entry) ?? '').localeCompare(canonicalJson(b.entry) ?? ''))
 }
 
 /** `conflictRows` for the Anwesenheit: one row per affected person, carrying both values so it

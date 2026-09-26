@@ -523,6 +523,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // sheet and not only in the Verlauf's prose. The other Trupps are passed so a transfer can
       // be followed to where the person went. `members` above stays for an older backend.
       no: t.no,
+      // …and the numbers it carried before a merge renumbered it (lib/truppNumbers): its early
+      // Verlauf rows say that number, so the heading reads «Trupp 3 (zuerst Trupp 1) – …»
+      ...(t.formerNos?.length ? { formerNos: t.formerNos } : {}),
       ...(() => {
         const { leader, cycles } = truppCrewHistory(t, trupps)
         return {

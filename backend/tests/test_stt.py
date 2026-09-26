@@ -52,6 +52,16 @@ async def _upload_audio(client) -> str:
 
 
 async def _poll_done(client, media_id, tries=100):
+    # Let the in-flight job finish before the first poll. On the local SQLite harness every
+    # session shares ONE connection (StaticPool, conftest), so a poll that ran mid-job — its
+    # auth check's token-blocklist session closing with a ROLLBACK — rolled back the job's
+    # not-yet-committed UPDATE on that shared connection; the job's COMMIT then committed
+    # nothing, the row stayed 'running', and the orphan check reported «Serverneustart». On
+    # Postgres (CI, prod) each session has its own connection, so this wait changes nothing
+    # there. The poll below still has to see the job's own write land.
+    task = media_api._stt_tasks.get(media_id)
+    if task is not None:
+        await task
     for _ in range(tries):
         r = await client.get(f"/api/media/{media_id}/transcription")
         if r.json()["status"] in ("done", "failed"):
