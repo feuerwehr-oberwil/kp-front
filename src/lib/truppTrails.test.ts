@@ -166,3 +166,16 @@ describe('which surface draws which ghost', () => {
     expect(ghostRevival(removeGhostTrail(ghosted, ghosted[0].id, AT)[0])).toBeNull()
   })
 })
+
+// A ghost keeps a COPY of its Trupp's number, and a merge can renumber the Trupp afterwards
+// (lib/truppNumbers, docs/trupp-naming.md §7): the label reads through the Trupp while it exists.
+describe('ghostTrailLabel — the number its Trupp carries NOW', () => {
+  const g = { truppId: 'tr1', truppNo: 1, name: 'Meier A.' }
+  it('reads the live Trupp, not the copy taken when the marker went', () => {
+    expect(ghostTrailLabel(g, 'Trupp', [{ id: 'tr1', no: 3 }])).toBe('Trupp 3')
+  })
+  it('falls back to the copy once the Trupp is gone, and to the name for a loose chip', () => {
+    expect(ghostTrailLabel(g, 'Trupp', [])).toBe('Trupp 1')
+    expect(ghostTrailLabel({ name: 'Trupp 4' }, 'Trupp', [{ id: 'tr1', no: 3 }])).toBe('Trupp 4')
+  })
+})

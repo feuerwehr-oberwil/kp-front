@@ -1055,13 +1055,24 @@ export interface Trupp {
   /**
    * The Trupp's own number — «Trupp 3» — handed out at registration from ONE counter per Einsatz
    * that unlinked plan chips and map markers («Trupp N», lib/placedTrupps · nextTeamName) draw
-   * from too, so two things on the same incident are never both called Trupp 1. Never reused,
-   * never renumbered. Absent only on a record written before 12.09.; the load normaliser numbers
+   * from too, so two things on the same incident are never both called Trupp 1. Never reused.
+   * Changed ONLY by the merge, when two devices minted the same number at once (lib/truppNumbers,
+   * 25.09.2026 — one keeps it, the other takes the next, and the Verlauf says so); nothing else
+   * ever writes it after registration. Absent only on a record written before 12.09.; the load normaliser numbers
    * those by registration time (lib/workspace · numberTrupps) and the next write persists it.
    * Documentation, not identity: people call a Trupp by its Gruppenführer, so the leader stays
    * the face of the card and the marker, and this is the small badge beside it.
    */
   no?: number
+  /**
+   * The numbers this Trupp carried BEFORE a merge gave its number to another device's Trupp,
+   * oldest first (lib/truppNumbers · resolveTruppNumbers, 25.09.2026). Written by the resolver
+   * alone, deterministically, so every device computes the same list. The Rapport's heading reads
+   * «Trupp 3 (zuerst Trupp 1)» from it, because the rows written before the change still say
+   * «Trupp 1»; the Verlauf marks those rows' «Trupp 1» as THIS Trupp (journalLinks · subjectId).
+   * Absent on every Trupp that was never renumbered.
+   */
+  formerNos?: number[]
   /** group leader's name = the Trupp title (also the linked plan chip's label) */
   name: string
   /** other team members (for the board card; the chip shows only the leader) */

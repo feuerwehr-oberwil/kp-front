@@ -218,7 +218,7 @@ interface Props {
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
 export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail }: Props) {
-  const ghostLabel = (g: TruppTrail) => ghostTrailLabel(g, appConfig.copy.whiteboard.team)
+  const ghostLabel = (g: TruppTrail) => ghostTrailLabel(g, appConfig.copy.whiteboard.team, trupps ?? [])
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()

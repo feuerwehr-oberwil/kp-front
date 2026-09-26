@@ -281,6 +281,10 @@ interface Deps {
    *  can be tapped minutes later, and by then a merge may have taken the card away – that is the
    *  one case the entry has to decline instead of writing a ghost back. */
   liveTrupps?: () => Trupp[]
+  /** Every name the ONE counter reads beyond the Trupps (IncidentWorkspace · truppCounterNames:
+   *  every chip once, and every ghost trail — a deleted chip that left a Spur used its number).
+   *  Absent: the chips of `entities` and `board` alone, as before. */
+  counterNames?: () => (string | undefined)[]
 }
 
 /**
@@ -291,7 +295,7 @@ interface Deps {
  * persistence blob + hydrate + multiple components) and are passed in.
  */
 export function useTruppActions(deps: Deps) {
-  const { trupps, drawings, entities, objects, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing, undoTimeline, liveTrupps } = deps
+  const { trupps, drawings, entities, objects, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing, undoTimeline, liveTrupps, counterNames } = deps
 
   /** The Verlauf row + audit event a step owes the record — append-only, so a correction is a NEW
    *  row and never a rewritten one. Icon 'undo' with kind 'team' lands the row under «Atemschutz»
@@ -423,7 +427,7 @@ export function useTruppActions(deps: Deps) {
     // Its number — from the one counter per Einsatz (docs/trupp-naming.md §1): every Trupp ever
     // registered, removed ones included (a number is never reused), and every unlinked chip.
     const at = serverNowIso()
-    const t: Trupp = { ...t0, no: t0.no ?? nextTruppNo(liveTrupps?.() ?? trupps, placedNames()) }
+    const t: Trupp = { ...t0, no: t0.no ?? nextTruppNo(liveTrupps?.() ?? trupps, counterNames?.() ?? placedNames()) }
     // The Eingangsdruck IS a measurement, taken at the Tafel before anybody goes anywhere — so it
     // opens the Druckverlauf rather than sitting outside it. It used to be recorded only in
     // `entryPressureBar`, and the log started at «Eingerückt»: a Sicherungstrupp that was never

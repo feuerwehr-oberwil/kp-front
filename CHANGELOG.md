@@ -270,6 +270,20 @@ so this file – not the log – is the record of what shipped up to that point.
   a cut-back are one undo step with one Verlauf row, keep a plan-drawn hose on its sheet, and win
   over another device's GPS poll in the sync. The printed Kroki no longer pulls a paused end to
   wherever the vehicle is now.
+- **Three devices tapping «Neuer Trupp» at once no longer make three «Trupp 1».** Each device
+  drew the next number from its own view of the Einsatz, and the merge rightly kept all three
+  records under one number – on the Karte, in the Verlauf and on the Rapport. The merge now
+  settles the number: a Trupp that went in keeps it over one that did not, a registered Trupp
+  over a loose marker, then the one minted first; the others take the next free numbers, and the
+  Verlauf says so once («Trupp 1 (…) heisst jetzt Trupp 3», one move per Trupp, never a chain
+  through a number another crew ends up with) – from whichever device noticed,
+  including the one whose merge did it and the Atemschutz-Link. Every device reaches the same
+  answer without asking the server, offline devices included once they are back. Rows already
+  written keep the number they were written with; the Rapport's heading reads «Trupp 3 (zuerst
+  Trupp 1)», and in the Verlauf those rows' «Trupp 1» points at the right crew. A copied loose
+  marker (⌘D) takes the next number, a rename to a number somebody holds is refused, a revived
+  Spur whose number was handed out since comes back as the next one, and a deleted marker's Spur
+  keeps its number from being handed out again.
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched

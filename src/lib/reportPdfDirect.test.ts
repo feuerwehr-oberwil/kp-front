@@ -338,6 +338,14 @@ describe('buildDirectReportPayload · trupps', () => {
     // still running, or opened again: the sortie is open, as it is
     expect(build({ is_archived: false, closed_at: at }).exit).toBeUndefined()
   })
+
+  // a merge renumbered it (lib/truppNumbers): the heading names the first number too, and a Trupp
+  // never renumbered sends nothing extra
+  it('carries the numbers a renumbered Trupp had before, and nothing for any other', () => {
+    const out = payload([trupp({ id: 'a', no: 3, formerNos: [1], name: 'Meier' }), trupp({ id: 'b', no: 1, name: 'Keller' })]) as unknown as { trupps: { formerNos?: number[] }[] }
+    expect(out.trupps[0].formerNos).toEqual([1])
+    expect(out.trupps[1]).not.toHaveProperty('formerNos')
+  })
 })
 
 /* ⚠️ ONE list per sheet. The board view a sheet draws already contains the Karte's objects

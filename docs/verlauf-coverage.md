@@ -55,6 +55,13 @@ rows («bearbeitet», since 25.09.2026); housekeeping rows (platziert, Farbe, Le
 wiederhergestellt, nicht mehr gesetzt) name the leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
 that date keep their `Trupp {Gruppenführer}` wording – the log is append-only.
 
+A Trupp or loose «Trupp N» marker whose number a merge gave to another device's Trupp
+(two devices minted it at once, [`trupp-naming.md`](trupp-naming.md) §7) writes ONE row,
+«Trupp {name} heisst jetzt Trupp {no}» (`lib/truppNumbers` · `renumberRow`, copy
+`atemschutz.logRenumbered`; a chip «{from} heisst jetzt {to}», `logRenumberedChip`), under the
+derived id `trn-<id>-<from>-<to>`, so the devices that all noticed it – the resolving one and the
+Atemschutz-Link included – leave one row between them.
+
 A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
 (`useTruppActions.ts` · `logRegister`). Whoever thinks it's missing is usually just not looking
 at the Verlauf while registering: Atemschutz is its own view.

@@ -2173,6 +2173,12 @@ export const de = {
     // Eingangsdruck – dieselbe Regel gilt für den erneuten Eintritt weiter unten.
     logRegister: 'Trupp {name} angemeldet – Eingangsdruck {bar} bar',
     logRegisterPlain: 'Trupp {name} angemeldet',
+    // Zwei Geräte haben im selben Moment dieselbe Nummer vergeben; die Zusammenführung lässt sie
+    // einem und gibt den anderen die nächste freie (lib/truppNumbers). EINE Zeile pro Wechsel –
+    // die früheren Zeilen bleiben unter der alten Nummer stehen, diese verbindet die beiden.
+    logRenumbered: 'Trupp {name} heisst jetzt Trupp {no}',
+    // …und ein loser Trupp-Marker, mit den Namen, die er auf dem Bild trug
+    logRenumberedChip: '{from} heisst jetzt {to}',
     // Verlauf row for when somebody changes the safety values. WITH old and new values:
     // «geändert» alone doesn't say whether the threshold got stricter or looser.
     logSafety: 'Atemschutz-Sicherheitswerte geändert: {changes}',
@@ -2805,6 +2811,9 @@ export const de = {
     ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur entfernen?',
     ghostTrailRestore: 'Trupp wieder platzieren',
     ghostTrailRestored: '{name} wieder platziert – Spur übernommen',
+    // Umbenennen eines losen Trupp-Markers auf eine Nummer, die schon vergeben ist (ein Trupp,
+    // ein anderer Marker oder eine Spur trägt sie) – abgelehnt, der alte Name bleibt
+    teamNameTaken: '{name} ist schon vergeben – der Name bleibt',
     textPlaceholder: 'Notiz …',
     blankHint: 'Leeres Blatt – mit Linie, Fläche, Notiz, Symbol oder Trupp beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',

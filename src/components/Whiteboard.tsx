@@ -29,7 +29,7 @@ import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { buzz } from '../lib/haptics'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { markerTakesLineEnd, truppForLine, truppIdForAttachment, truppIsOut, truppLineTone, type LinkableLine } from '../lib/truppLines'
-import { nextTeamName } from '../lib/placedTrupps'
+import { freshTeamLabel, nextTeamName, teamNoTaken } from '../lib/placedTrupps'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
@@ -234,6 +234,10 @@ interface Props {
    *  plan — so a new generic «Trupp N» draws from the one counter the Atemschutz board numbers
    *  from too (lib/placedTrupps · nextTruppNo). Absent: this board's own chips count alone. */
   placedTeamNames?: () => (string | undefined)[]
+  /** Would renaming chip `id` to `label` say a «Trupp N» somebody holds? Then the rename pen
+   *  refuses it (docs/trupp-naming.md §7 — a duplicate one device could see coming is never left
+   *  for a merge to settle). Absent: this board's own chips are checked alone. */
+  teamNameTaken?: (id: string, label: string) => boolean
   /** link a placed chip to a tracked Trupp (chip ↔ Trupp; sets the Trupp's annoId/planId). */
   onLinkTrupp?: (annoId: string, truppId: string) => void
   /** jump to the Atemschutz board for a linked Trupp ("show the trupp"). */
@@ -335,7 +339,7 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -1094,8 +1098,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const id = newId(DUP_PREFIX[src.kind])
     // …and no «Gelöscht / erledigt» either: the copy is a new thing on the picture (lib/duplicate)
     const { done: _done, ...rest } = src
+    // ⚠️ a loose «Trupp 3» copied is not a second Trupp 3 (docs/trupp-naming.md §7): it takes the
+    // next number of the one counter, as a chip dropped with the Trupp tool would
+    const teamNames = () => [...annos.filter((a) => a.kind === 'resource').map((a) => a.text), ...(placedTeamNames?.() ?? [])]
     const copy: BoardAnno = {
       ...rest, id, trail: undefined,
+      ...(src.kind === 'resource' && !src.truppId ? { text: freshTeamLabel(src.text, teamNames()) } : {}),
       ...(src.pts ? { pts: src.pts.map(([x, y, floor]): BoardPoint => [x + DUP_OFFSET_N, y + DUP_OFFSET_N, floor ?? src.floor ?? 0]) } : {}),
       ...(src.x != null ? { x: src.x + DUP_OFFSET_N } : {}),
       ...(src.y != null ? { y: src.y + DUP_OFFSET_N } : {}),
@@ -3526,7 +3534,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       renaming={editId === a.id} onRenaming={(on) => setEditId(on ? a.id : null)}
                       acts={tool === 'pan' && !readOnly ? {
                         // an empty name keeps the old one — a blank chip is nobody
-                        rename: (name) => patchCommit(a.id, { text: name || a.text }),
+                        rename: (name) => {
+                          // a number somebody else holds is refused, not left for a merge to settle
+                          const taken = teamNameTaken
+                            ? teamNameTaken(a.id, name)
+                            : teamNoTaken(name, annos.filter((x) => x.kind === 'resource' && x.id !== a.id).map((x) => x.text))
+                          if (name && name !== a.text && taken) {
+                            toast(fillTemplate(appConfig.copy.whiteboard.teamNameTaken, { name }), { icon: 'warn', tone: 'warn' })
+                            return
+                          }
+                          patchCommit(a.id, { text: name || a.text })
+                        },
                         pick: onTeamTrupp && ((truppId) => onTeamTrupp(a.id, truppId)),
                         newTrupp: onTeamNewTrupp && (() => onTeamNewTrupp(a.id)),
                         mark: markPosition,
@@ -3696,7 +3714,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {ghostTrails.map((g) => {
               const pts = g.points ?? []
               const head = pts[pts.length - 1]
-              const label = ghostTrailLabel(g, appConfig.copy.whiteboard.team)
+              const label = ghostTrailLabel(g, appConfig.copy.whiteboard.team, trupps)
               return (
                 <Fragment key={g.id}>
                   {pts.map((p, i) => (
