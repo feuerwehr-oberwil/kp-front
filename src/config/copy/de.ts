@@ -2149,6 +2149,9 @@ export const de = {
     // die Leitung-Chips: «keine · Ltg 1 · Ltg 2 …»
     lineNone: 'keine',
     lineChip: 'Ltg {n}',
+    // der gestrichelte Chip auf der Handy-Karte, wo der Auftrag fehlt (die Tablet-Kennzeile behält
+    // «Auftrag offen»); das «+» gehört zum Wort – ein Chip, der etwas hinzufügt
+    auftragAdd: '+ Auftrag',
     // ⚠️ APP ONLY (09.09., Feldtest) – ein Trupp ohne Atemschutz meldet einen erledigten Auftrag,
     // keinen Funkkontakt. Die ausgehändigte Link-Tafel bleibt bei «Raus melden», für JEDEN
     // Trupp: das ist der eine Bildschirm, den eine externe Person bekommt, und er darf nicht

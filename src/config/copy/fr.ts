@@ -1278,6 +1278,7 @@ export const fr: Localizable<Copy> = {
     kanalSheetHint: 'Toucher choisit et ferme.',
     lineNone: 'aucune',
     lineChip: 'Cond. {n}',
+    auftragAdd: '+ Mission',
     actExitPlain: 'Mission terminée', // ⚠️ app only — see de.ts · actExitPlain
     actReenter: 'Réengager',
     actNotDeployed: 'Non engagée',

@@ -490,9 +490,9 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
     expect(within(card).getAllByRole('button', { name: az.actContact })).toHaveLength(1)
     expect(within(card).getAllByRole('button', { name: druckName })).toHaveLength(1)
     // the Trupp's number, gone from the row's line, stands small after the name on the opened
-    // card's head (slim-down 26.09.2026 — the Kennzeile is a strip of tappable facts now)
+    // card's head (slim-down 26.09.2026 — the facts are a strip of chips now, and carry no number)
     expect(card.querySelector(`.${s.trowHead}`)!.textContent).toContain('#2')
-    expect(card.querySelector(`.${s.kenn}`)!.textContent).not.toContain('#2')
+    expect(card.querySelector(`.${s.facts}`)!.textContent).not.toContain('#2')
     // …and the pair works the same from here
     fireEvent.click(within(card).getByRole('button', { name: az.actContact }))
     expect(props.recordContact).toHaveBeenCalledWith('tr1')
@@ -649,6 +649,56 @@ describe('the mini sheets', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(unlinkTruppLine).toHaveBeenCalledWith('tr2')
     expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ lineNo: 3 }))
+  })
+
+  /* ③ — the opened PHONE card's facts are chips (TruppCard · facts): each a door, the ⋯ last, the
+   * missing Auftrag a dashed «+ Auftrag», and nothing for a missing Leitung. */
+  it('lays the phone card\'s facts out as chips — crew · Auftrag · Ziel · Kanal · Kürzel · ⋯ — each a door', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const editTrupp = vi.fn()
+    mount({ trupps: [{ ...withFacts(), equipment: ['wbk'] }], editTrupp })
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    const card = document.querySelector('[data-az-open]') as HTMLElement
+    const chips = [...card.querySelectorAll(`.${s.facts} > *`)]
+    expect(chips.map((c) => c.textContent)).toEqual(['Huber', 'Löschen · Test', fillTemplate(az.lineChip, { n: 1 }), `${az.funkkanalUnit} 11`, 'WBK', ''])
+    // every chip but the ⋯ is a button; the ⋯ is the LAST one and it is the card's menu
+    expect(chips.every((c) => c.tagName === 'BUTTON')).toBe(true)
+    expect(chips[chips.length - 1].getAttribute('aria-label')).toBe(az.cardMenu)
+    // no colour, no labels: the Kennzeile's sentence classes are not in the strip
+    expect(card.querySelector(`.${s.kenn}`)).toBeNull()
+    // the Kanal chip opens the pad, the Auftrag chip the Auftrag sheet
+    fireEvent.click(within(card).getByRole('button', { name: `${az.funkkanalUnit} 11` }))
+    expect(screen.getByRole('dialog', { name: new RegExp(`^${az.funkkanalUnit}`) })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: az.cancel }))
+    fireEvent.click(within(card).getByRole('button', { name: 'Löschen · Test' }))
+    expect(screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })).toBeTruthy()
+  })
+
+  it('shows the missing Auftrag as the one dashed chip, and no chip for a missing Leitung', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...withFacts(), auftrag: undefined, ziel: undefined, lineNo: undefined }] })
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    const card = document.querySelector('[data-az-open]') as HTMLElement
+    const add = within(card).getByRole('button', { name: az.auftragAdd })
+    expect(add.className).toContain(s.factDash)
+    expect(within(card).queryByText(new RegExp(`^${az.lineField}`))).toBeNull()
+    fireEvent.click(add)
+    expect(screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })).toBeTruthy()
+  })
+
+  it('the drawn Leitung\'s chip still jumps to the hose; an undrawn one opens the Auftrag sheet', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const showTruppLine = vi.fn()
+    mount({ trupps: [withFacts()], showTruppLine, truppsWithLine: new Set(['tr1']) })
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    fireEvent.click(within(document.querySelector('[data-az-open]') as HTMLElement).getByRole('button', { name: fillTemplate(az.lineChip, { n: 1 }) }))
+    expect(showTruppLine).toHaveBeenCalledWith('tr1')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    cleanup()
+    mount({ trupps: [withFacts()] })
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    fireEvent.click(within(document.querySelector('[data-az-open]') as HTMLElement).getByRole('button', { name: fillTemplate(az.lineChip, { n: 1 }) }))
+    expect(screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })).toBeTruthy()
   })
 
   it('a viewer has no doors: the facts are plain text', () => {

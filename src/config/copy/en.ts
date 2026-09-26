@@ -1289,6 +1289,7 @@ export const en: Localizable<Copy> = {
     kanalSheetHint: 'Tap picks and closes.',
     lineNone: 'none',
     lineChip: 'Line {n}',
+    auftragAdd: '+ Task',
     actExitPlain: 'Task done', // ⚠️ app only — see de.ts · actExitPlain
     actReenter: 'Re-deploy',
     actNotDeployed: 'Not deployed',

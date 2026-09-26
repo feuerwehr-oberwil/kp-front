@@ -1015,7 +1015,7 @@ export function AtemschutzView({
       // …and on the phone the card's Druck is the same picker instead of the ± stepper
       onAskPressure={phoneMode ? (id) => setPressureAsk({ id, kind: 'pressure' }) : undefined}
       onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
-      onQuick={canEdit ? (kind) => setQuick({ id: t.id, kind }) : undefined}
+      onQuick={canEdit ? (kind) => (kind === 'trupp' ? openForm('edit', t) : setQuick({ id: t.id, kind })) : undefined}
       onDelete={deleteTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
       // ⚠️ never on a work squad. The arrows move one GLOBAL order while the board renders two
       // filtered sections, so a step can swap a Trupp past the section boundary and look like it
@@ -2268,8 +2268,9 @@ function TruppCard({
   t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onPressure, onStatus, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false, sucheItems,
 }: {
   /** the mini sheets (26.09.2026 — components/TruppSheets): a tap on the Kanal opens the Kanal
-   *  sheet, a tap on the Auftrag / Ziel / a missing Auftrag the Auftrag sheet. Absent for a viewer. */
-  onQuick?: (kind: 'kanal' | 'auftrag') => void
+   *  sheet, a tap on the Auftrag / Ziel / a missing Auftrag the Auftrag sheet, a tap on the crew or
+   *  the Ausrüstung the Trupp sheet. Absent for a viewer. */
+  onQuick?: (kind: 'kanal' | 'auftrag' | 'trupp') => void
   /** the Suche's rows at the head of the ⋯ menu (AtemschutzView · sucheItems) */
   sucheItems?: (t: Trupp) => { label: string; onClick: () => void }[]
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
@@ -2678,11 +2679,11 @@ function TruppCard({
   const timingShown = timesShown && lastContactAt != null && !lite
 
   // the zones BOTH arrangements draw (see the return) — one markup, never two drifting copies
-  const menu = menuItems.length > 0 && (
+  const menuAs = (cls: string, icon: 'more-vert' | 'more') => menuItems.length > 0 && (
     <Menu
       trigger={
-        <button type="button" className={s.headMenu} aria-label={az.cardMenu} title={az.cardMenu}>
-          <Icon id="more-vert" />
+        <button type="button" className={cls} aria-label={az.cardMenu} title={az.cardMenu}>
+          <Icon id={icon} />
         </button>
       }
       popupClassName="rp-print-menu"
@@ -2690,6 +2691,7 @@ function TruppCard({
       items={menuItems}
     />
   )
+  const menu = menuAs(s.headMenu, 'more-vert')
   const kennZone = (
     <>
       {/* ── 2 Kennzeile ────────────────────────────────────────────────────────────────────────
@@ -2703,7 +2705,9 @@ function TruppCard({
             turn-back pressure (alarmBarFor), so it must never be carried by colour alone. Only
             for the states the band does not already name. */}
         {monitored && status === 'rueckzug' && kennItem('state', <span className={s.kennState}>{statusLabel}</span>)}
-        {!!crewNames.length && kennItem('crew', <span className={s.kennCrew}>{crew}</span>)}
+        {!!crewNames.length && kennItem('crew', onQuick
+          ? <button type="button" className={cx(s.kennTap, s.kennCrew)} onClick={() => onQuick('trupp')}>{crew}</button>
+          : <span className={s.kennCrew}>{crew}</span>)}
         {/* ⚠️ The Auftrag is optional in the form (it must never hold a Trupp at the door), so its
             ABSENCE has to be visible — a Trupp with no job is a question the Überwacher has to be
             able to see, not one nobody thinks to ask. */}
@@ -2737,9 +2741,43 @@ function TruppCard({
           : <span>{az.funkkanalUnit} {t.funkkanal}</span>)}
         {/* the Ausrüstung as short tags at the end — RH · WBK — nothing when nothing was ticked;
             a station-defined id without a Kürzel shows its full label */}
-        {equipmentTags.map(({ id, tag }) => kennItem(`eq-${id}`, <span className={s.kennTag}>{tag}</span>))}
+        {equipmentTags.map(({ id, tag }) => kennItem(`eq-${id}`, onQuick
+          ? <button type="button" className={cx(s.kennTap, s.kennTag)} onClick={() => onQuick('trupp')}>{tag}</button>
+          : <span className={s.kennTag}>{tag}</span>))}
       </div>
     </>
+  )
+  /* ── The opened PHONE card's facts as CHIPS (26.09.2026 evening, phone card slim-down, ③) ────────
+   * The same entries as the Kennzeile above, each a 36px chip with one 1px edge and no colour of
+   * its own — a strip of things to TAP, where the sentence was a line to read: the crew → Trupp
+   * sheet, «Löschen · Test» → Auftrag sheet, «Kanal 11» → Kanal sheet, «Ltg 1» → the drawn hose
+   * (else the Auftrag sheet), the Ausrüstung → Trupp sheet, and the ⋯ as the LAST chip. The one
+   * thing allowed a colour is the GAP: a dashed amber «+ Auftrag» where the Auftrag is missing —
+   * a Trupp with no job is a question the Überwacher must be able to see. No chip for a missing
+   * Leitung (it lives in the Auftrag sheet), no small-caps labels, no «#N» (that is on the head).
+   * `chip(key, node, onTap, cls)`: a button when it has somewhere to go, a plain chip otherwise
+   * (a viewer's card, the lite board's jumps). */
+  const chip = (key: string, node: ReactNode, onTap?: () => void, cls?: string) => onTap
+    ? <button key={key} type="button" className={cx(s.fact, cls)} onClick={onTap}>{node}</button>
+    : <span key={key} className={cx(s.fact, cls)}>{node}</span>
+  const facts = rowMode && (
+    <div className={s.facts}>
+      {monitored && status === 'rueckzug' && chip('state', statusLabel, undefined, s.factState)}
+      {!!crewNames.length && chip('crew', <span className={s.factTxt}>{crew}</span>, onQuick && (() => onQuick('trupp')))}
+      {auftrag
+        ? chip('auftrag', <span className={s.factTxt}>{auftrag}{t.ziel ? ` · ${t.ziel}` : ''}</span>, onQuick && (() => onQuick('auftrag')))
+        : <>
+            {chip('auftrag', az.auftragAdd, () => (onQuick ? onQuick('auftrag') : onEdit('auftrag')), s.factDash)}
+            {t.ziel && chip('ziel', <span className={s.factTxt}>{t.ziel}</span>, onQuick && (() => onQuick('auftrag')))}
+          </>}
+      {dockedAt && chip('docked', <>{fillTemplate(az.dockedAt, { host: dockedAt })}{!lite && <Icon id="chevron" />}</>,
+        lite ? undefined : () => onShowPlan(t.id), s.factGo)}
+      {lineTag && chip('line', <>{fillTemplate(az.lineChip, { n: lineTag })}{hasLine && !lite && <Icon id="chevron" />}</>,
+        hasLine && !lite ? () => onShowLine(t.id) : onQuick && (() => onQuick('auftrag')), hasLine && !lite ? s.factGo : undefined)}
+      {t.funkkanal != null && chip('kanal', `${az.funkkanalUnit} ${t.funkkanal}`, onQuick && (() => onQuick('kanal')))}
+      {equipmentTags.map(({ id, tag }) => chip(`eq-${id}`, tag, onQuick && (() => onQuick('trupp'))))}
+      {menuAs(cx(s.fact, s.factMore), 'more')}
+    </div>
   )
   /* the opened phone card says in WORDS what its line and its Kontakt say in colour — one line
    * under the tile grid, red or amber with the tier (26.09.2026 — see `rowWord`) */
@@ -3018,10 +3056,7 @@ function TruppCard({
         {actZone}
         {stateLine}
         {noteZone}
-        <div className={s.kennRow}>
-          {kennZone}
-          {menu}
-        </div>
+        {facts}
         {footZone}
       </div>
     )
