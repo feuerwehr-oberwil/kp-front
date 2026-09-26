@@ -34,6 +34,7 @@ trap cleanup EXIT
 
 [ "${FAT_SKIP_BUILD:-}" = 1 ] || pnpm build >/dev/null
 
+status=0
 db_url="postgresql+asyncpg://kpfront:kpfront@localhost:${pg_port}/kpfront"
 # a throwaway key per run — the seeded PIN is hashed with it, and nothing outlives the run
 secret_key=$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')
@@ -52,8 +53,14 @@ for preset in "${presets[@]}"; do
   api_pid=$!
   until curl -sf "localhost:${port}/health" >/dev/null; do sleep 1; done
 
+  # a failed preset does not stop the others, but it does fail the recipe
+  set +e
   FAT_PRESET=$preset E2E_BASE_URL="http://localhost:${port}" E2E_PIN=${E2E_PIN:-000000} \
-    pnpm exec playwright test --project=perf --reporter=line | grep -v '^\s*$' || true
+    pnpm exec playwright test --project=perf --reporter=line | grep -v '^\s*$'
+  rc=${PIPESTATUS[0]}
+  set -e
+  [ "$rc" = 0 ] || { echo "✗ ${preset}: the measurement failed (playwright exit ${rc})" >&2; status=1; }
   printf 'snapshot storage       %s on disk for the %s saves actually sent\n\n' \
     "$(du -sh "$storage" | cut -f1)" "${FAT_SAVES:-120}"
 done
+exit "$status"

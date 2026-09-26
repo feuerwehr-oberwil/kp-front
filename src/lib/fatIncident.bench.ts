@@ -26,6 +26,8 @@ import { stateAt, type ReplayBundle } from './replay'
 globalThis.localStorage ??= { getItem: () => null, setItem: () => {}, removeItem: () => {} } as unknown as Storage
 
 const PRESETS = (process.env.FAT_PRESETS?.split(',') ?? Object.keys(FAT_PRESETS)) as FatPreset[]
+// a typo would otherwise bench the default size under the misspelled name
+for (const p of PRESETS) if (!(p in FAT_PRESETS)) throw new Error(`FAT_PRESETS: unknown preset «${p}» (${Object.keys(FAT_PRESETS).join(', ')})`)
 
 for (const preset of PRESETS) {
   const fat = fatIncident(FAT_PRESETS[preset])

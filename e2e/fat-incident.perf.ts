@@ -21,6 +21,7 @@ const SAMPLED_SAVES = Number(process.env.FAT_SAVES ?? 120)
 const CPU_THROTTLE = Number(process.env.FAT_CPU ?? 4)
 
 test.skip(!PRESET, 'measurement only — run through `just fat-perf <preset>`')
+if (PRESET && !(PRESET in FAT_PRESETS)) throw new Error(`FAT_PRESET: unknown preset «${PRESET}» (${Object.keys(FAT_PRESETS).join(', ')})`)
 test.describe.configure({ mode: 'serial' })
 test.setTimeout(30 * 60_000)
 
