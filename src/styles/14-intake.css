@@ -30,8 +30,8 @@
 .mp-map .maplibregl-map { position: absolute; inset: 0; }
 .mp-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none;
   /* the message surface (08-toasts.css · «ONE message surface»): an instruction, so no ✕ */
-  padding: 10px 14px; border-radius: var(--r-sm); background: var(--surface); border: none;
-  font: 600 13px/1.35 var(--body); color: var(--ink); box-shadow: var(--shadow); }
+  padding: 10px var(--float-pad-x); border-radius: var(--r-sm); background: var(--float-bg); backdrop-filter: var(--float-blur); border: none;
+  font: 600 13px/1.35 var(--body); color: var(--ink); box-shadow: var(--float-edge); }
 .mp-pin { display: grid; place-items: center; width: 30px; height: 30px; color: var(--red);
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .4)); }
 .mp-pin svg { width: 28px; height: 28px; }

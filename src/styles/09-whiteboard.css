@@ -60,9 +60,9 @@
    thing that changes once an Einsatz and is already right 99 times out of 100. It shouted, it
    invented a recipe nobody else used, and it sat on the corner of the plan that is looked at.
    Both are the Maßstab pill now — one recipe, one corner, and the top-left is plan again. */
-.wb-botleft { position: absolute; z-index: 8; left: calc(var(--rail-w) + 28px); bottom: 12px;
+.wb-botleft { position: absolute; z-index: 8; left: calc(var(--rail-w) + 28px); bottom: 16px;
   max-width: calc(100% - var(--rail-w) - 44px);
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  display: flex; align-items: center; gap: var(--float-gap); flex-wrap: wrap; }
 /* ⚠️ While «Karte verknüpfen» is armed this row IS the mode's instrument (GeorefMode ·
    GeorefInstrument), and it has to lie OVER the split's dashed seam. `z-index: 8` above makes
    the row a stacking context, so the bar's own z 34 only ever ordered it inside that row — the
@@ -84,31 +84,23 @@
 .wb-georef-armed .wb-lock-anchor,
 .wb-georef-armed .wb-trail-dot,
 .wb-georef-armed .wb-trail-mark { display: none; }
-/* the chips position themselves through the row now, not against the stage — `relative` is the
-   containing block for their touch pad below, nothing more */
-.wb-botleft > .wb-scale-chip { position: relative; }
-/* ⚠️ The pills are 12px type in 6px of padding — ~30px tall, well under the 44px touch floor, and
-   gloved fingers are the whole point of this app. A transparent pad restores the target without
-   touching the row's look or its geometry, and it grows ONLY vertically, so two pills 8px apart
-   can never steal each other's taps. */
-.wb-botleft > .wb-scale-chip::after { content: ''; position: absolute; left: 0; right: 0; top: 50%;
-  height: 44px; transform: translateY(-50%); }
+/* (The chips were ~30px tall until 24.09.2026 and carried a transparent 44px touch pad here; since
+   26.09.2026 they are the floating family's row height, --float-h, so the target IS the chip.) */
 /* the object's ADDRESS may take the room the Maßstab does not — it is the longer of the two,
    and the Maßstab is a handful of characters */
 .wb-object { min-width: 0; max-width: 100%; }
 /* the auto-surfaced object is only the NEAREST one with plans, not the Einsatzadresse – the
-   read-out is the warning itself (Whiteboard · objectChip), so it wears amber, tappable or not */
-.wb-object.wb-object-nearby, .wb-object.wb-object-nearby:disabled {
-  color: var(--amber-strong);
-  border-color: color-mix(in srgb, var(--amber) 55%, transparent);
-  background: color-mix(in srgb, var(--amber) 14%, var(--surface)); }
+   read-out is the warning itself (Whiteboard · objectChip), so its leading glyph is the warn
+   triangle in amber, tappable or not. The GLYPH, not an amber ring and fill (26.09.2026): a state
+   is a glyph colour inside the floating family's piece (01-tokens · --float-*), as in a toast. */
+.wb-object.wb-object-nearby > .i, .wb-object.wb-object-nearby:disabled > .i { color: var(--amber-strong); }
 /* …and the banner half of that warning (Whiteboard · nearbyBanner): once per Einsatz and object,
    over the sheet's top edge, right of the rail. Amber like the chip, never red – nothing is on
    fire on the Plan; something may merely be the neighbour's. */
 .wb-nearby-banner { position: absolute; left: calc(var(--rail-w) + 16px); right: 16px; top: 12px; z-index: var(--z-dock);
   /* the message surface; the tone is its amber glyph (08-toasts.css · «ONE message surface», 25.09.2026) */
-  display: flex; align-items: center; gap: 10px; padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) 14px; border-radius: var(--r-sm);
-  background: var(--surface); border: none; box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 10px; padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); border: none; box-shadow: var(--float-edge);
   font: 600 13px/1.35 var(--body); color: var(--ink); }
 .wb-nearby-banner > .i { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
 .wb-nearby-text { flex: 1 1 auto; min-width: 0; }
@@ -148,12 +140,6 @@
 /* a read-out with nowhere to go (a link-scoped viewer is bound to ONE object) is not greyed out
    — it is still the answer to «which building am I looking at», it simply cannot be tapped */
 .wb-object:disabled, .wb-building:disabled { cursor: default; opacity: 1; }
-@media (hover: hover) {
-  .wb-object:disabled:hover, .wb-building:disabled:hover { border-color: var(--glass-edge); color: var(--ink-dim); }
-  /* the warning keeps its tone under the pointer, tappable or not – hover must not read as «fine» */
-  .wb-object.wb-object-nearby:hover, .wb-object.wb-object-nearby:disabled:hover {
-    color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
-}
 /* ⚠️ 600px, not 720px. The old chip switched to its phone position at ≤720px while the NavRail
    only becomes a bottom BAR at ≤600px — so through the whole 601–720px band (iPad Split View,
    a landscape phone) the chip was pushed to left:8px and landed ON the vertical rail. The row
@@ -172,19 +158,15 @@
   /* ⚠️ Counted from what is ACTUALLY on screen, one lane at a time. The base is the nav bar
      alone — a viewer-only PDF renders no tool rail at all (`phoneTools` excludes it), so
      reserving two lanes there left the chip hanging a whole bar's height above nothing. */
+  /* ⚠️ …and since 26.09.2026 all three cases (nav bar only · + tool bar · + a tool's option dock,
+     and its hint row) are ONE baseline, THE floating row's (15-mobile · --float-bottom): the
+     chips, the Grundgerüst strip and the FAB are one family on one line, 8px above whatever bar
+     is highest. They stood 6px above the tool bar here while the FAB beside them stood 14px. */
   .wb-botleft { position: fixed; left: max(8px, env(safe-area-inset-left)); right: calc(max(8px, env(safe-area-inset-right)) + var(--fab-safe, 0px)); max-width: none;
-    bottom: calc(var(--rail-h) + 20px + env(safe-area-inset-bottom)); }
-  /* an editable surface adds the tool rail under it… */
-  .app.phone-tools .wb-botleft {
-    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
-  /* …and a third lane when the tool-SPECIFIC dock is out (a line/area tool's colours and widths).
-     That bar appears and disappears with the tool, so the chips move with it rather than being
-     covered by it half the time. Same `:has` idiom the FAB already uses to get out of its way. */
-  .app:has(.wb-dock) .wb-botleft {
-    bottom: calc(var(--rail-h) * 3 + 26px + env(safe-area-inset-bottom)); }
+    bottom: var(--float-bottom); }
   /* ⚠️ ONE line, always (owner, 18.09.2026). The row used to wrap, and on a 360px phone the two
      status pills dropped onto a second line over the plan — a whole extra band of chrome across
-     the sheet, budgeted for in the toast lane (15-mobile · --plan-row-reserve) and read by
+     the sheet, budgeted for in the toast lane (15-mobile · --float-row) and read by
      nobody. So on a phone Massstab and «⌖ Karte» give up their WORDS and keep their icon and
      their lamp: what they said («Ref. 25 m», «Verknüpft») was a state, and a state is exactly
      what an Ampel dot says in 9px. The words are still there for a screen reader and a
@@ -945,33 +927,36 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* Plan-Maßstab: trust chip — taps to (re)calibrate. Position comes from `.wb-botleft`, the row it
    shares with the Objekt read-out; clearing the rail is that row's job now, stated once.
    ⚠️ --r-sm, not a pill (24.09.2026): these are buttons, and on a touch screen they stand --tap
-   tall (20-touch-floors) – a row of 44px capsules along the plan's foot. */
-.wb-scale-chip { display: inline-flex; align-items: center; gap: 6px;
-  max-width: 100%; padding: 6px 10px; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--surface);
-  box-shadow: var(--shadow-sm); color: var(--ink-dim); font: 600 12px var(--body); cursor: pointer; }
-.wb-scale-chip svg { width: 14px; height: 14px; flex: none; }
+   tall (20-touch-floors) – a row of 44px capsules along the plan's foot.
+   ⚠️ …and since 26.09.2026 they are the FLOATING FAMILY (01-tokens · --float-*), at every width:
+   the bars' glass, one row height (--float-h), 14px before the glyph, 16px glyphs, ink words at
+   the compact button type. On a --surface card with a --glass-edge ring, 12px/600 dim, 44px tall,
+   beside a toast in glass at 52px and the Grundgerüst strip at 54, they read as a third thing. */
+.wb-scale-chip { display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box;
+  max-width: 100%; min-height: var(--float-h); padding: 0 var(--float-pad-x); border-radius: var(--r-sm); border: none;
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  color: var(--ink); font: 700 12.5px var(--body); cursor: pointer; }
+.wb-scale-chip svg { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
 .wb-scale-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-scale-chip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
-  .wb-scale-chip:hover:where(:not(:disabled)) { border-color: var(--blue); color: var(--ink); }
+  .wb-scale-chip:hover:where(:not(:disabled)) svg:not(.wb-chip-chev) { color: var(--ink); }
 }
 /* …and the same pills on a LOCKED plan are read-outs (Whiteboard · the Maßstab / «⌖ Karte»
    chips, `disabled`): the `.wb-object:disabled` recipe — full opacity, their own words and tone,
    no hover, no touch pad. The tone is the point: «ungemessen» amber must read as amber. */
 .wb-scale-chip:disabled { cursor: default; opacity: 1; }
-.wb-botleft > .wb-scale-chip:disabled::after { display: none; }
-.wb-scale-chip.on { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
+/* ⚠️ NO state ring (26.09.2026, owner: the calibrated Massstab wore a blue outline beside a green
+   dot, and read as «selected»). `.on` (calibrated / derived) and `.stale` stay as classes, but
+   what they say is said by the chip's LAMP (planScale · scaleLampTone) — the one glyph that
+   carries a state in this row, the same dot on a phone and a tablet. */
 /* A scale derived from the Karte link is a source/status, not another calibration affordance.
-   It deliberately has no expanded touch pad or hover reaction; correction lives behind the
-   adjacent Verknüpft control so there can never be two scale authorities for one sheet. */
+   It deliberately has no hover reaction; correction lives behind the adjacent Verknüpft control
+   so there can never be two scale authorities for one sheet. */
 .wb-scale-status { cursor: default; }
-.wb-botleft > .wb-scale-status::after { display: none; }
-@media (hover: hover) {
-  .wb-scale-status:hover:where(:not(:disabled)) { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
-}
-/* --warn was never declared, so this rendered the DAY amber literal in both themes */
-.wb-scale-chip.stale { color: var(--amber-strong); border-color: var(--amber-strong); }
-/* #3: persist-a-calibration bar, sits just above the Maßstab chip after a fresh calibration */
-.wb-scale-persist { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 52px; z-index: 9;
+/* #3: persist-a-calibration bar, sits just above the Maßstab chip after a fresh calibration — one
+   --float-gap over the chip row (26.09.2026: the row is --float-h tall, 16px up on a tablet) */
+.wb-scale-persist { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--float-h) + var(--float-gap)); z-index: 9;
   display: inline-flex; align-items: center; gap: 8px; max-width: min(94%, 520px); padding: 7px 8px 7px 12px;
   border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
   box-shadow: var(--shadow); animation: panelIn .16s var(--ease); }
@@ -985,17 +970,21 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-persist-x svg { width: 15px; height: 15px; }
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* clear the two bottom bars on phones, and hug the left edge (no side rail) */
-  .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--rail-h) * 2 + 62px + env(safe-area-inset-bottom));
+  .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap));
     max-width: none; flex-wrap: wrap; }
 }
-.wb-scale-chip.arm { border-color: var(--blue); color: var(--blue); }
+/* armed (calibrating, or its Passung open) = the chip is LIT, the way an armed tile of the tool
+   bar is: a quiet blue wash mixed INTO the glass (never a see-through tint — see below) and a
+   blue glyph. Not a ring (26.09.2026). */
+.wb-scale-chip.arm { background: color-mix(in srgb, var(--blue) 14%, var(--float-bg)); }
+.wb-scale-chip.arm svg:not(.wb-chip-chev) { color: var(--blue); }
 
 /* Passung — the georeference's reading, docked one row above the chip that opened it. Same
    recipe, same corner and the same arithmetic as `.wb-scale-persist` above: the Massstab's
    follow-up already lives there, and this is its sibling.
    ⚠️ A DOCK, not a popover. The board underneath stays live and un-dismissing, so a tap on a
    symbol is a tap on that symbol — not a press that the overlay swallows to close itself. */
-.wb-georef-dock { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 52px; z-index: 9;
+.wb-georef-dock { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--float-h) + var(--float-gap)); z-index: 9;
   border-radius: var(--r-surface); border: 1px solid var(--glass-line); background: var(--surface);
   box-shadow: var(--shadow); }
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
@@ -1005,26 +994,20 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
      variable-height bottom owners that push transient feedback to the top lane instead
      (15-mobile.css). Keep the two in step if this dock ever moves. */
   .wb-georef-dock { position: fixed; left: 10px; right: 10px;
-    bottom: calc(var(--rail-h) * 2 + 62px + env(safe-area-inset-bottom)); }
+    bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap)); }
 }
 /* «⌖ Karte» — the georeference's own two linked tones. Amber whenever a warning stands (two
    pairs is the commonest: exact by construction, therefore UNMEASURED — and an unmeasured fit
    must never look like a checked one); the green tone only once a third point has measured it.
    ⚠️ Tokens, not frozen literals — both have to survive the day/night swap. */
-.wb-scale-chip.wb-georef-ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
-.wb-scale-chip.wb-georef-warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 50%, var(--glass-edge)); }
-@media (hover: hover) {
-  .wb-scale-chip.wb-georef-ok:hover:where(:not(:disabled)), .wb-scale-chip.wb-georef-warn:hover:where(:not(:disabled)) { border-color: currentColor; }
-}
-/* the chip stays in its own tone while its Passung is open — «open» is a fill, not a recolour,
-   so the quality it reports is never overwritten by the state of a panel.
-   ⚠️ The fill is mixed INTO `--surface`, never `--fill-soft` on its own: that token is a 4.5 %
-   black wash, and setting it as the background REPLACED the chip's opaque white with an almost
-   transparent one — the plan showed straight through the open chip and amber text on a
-   Situationsplan is unreadable. A chip that states a fact has to be legible over anything. */
-.wb-scale-chip.wb-georef-ok.arm, .wb-scale-chip.wb-georef-warn.arm {
-  background: color-mix(in srgb, currentColor 10%, var(--surface));
-}
+/* ⚠️ Since 26.09.2026 the two tones live in the chip's LAMP only (georefMode · georefChipTone),
+   not in a green/amber ring and word as well — one glyph, one state, like the Massstab beside it.
+   «Open» stays a fill (`.arm` above), so the quality the lamp reports is never overwritten by the
+   state of a panel.
+   ⚠️ Every fill is mixed INTO the chip's own background, never `--fill-soft` on its own: that token
+   is a 4.5 % black wash, and setting it as the background REPLACED the chip's opaque white with an
+   almost transparent one — the plan showed straight through the open chip. A chip that states a
+   fact has to be legible over anything. */
 
 /* Vertex-editing handles for a selected line/area (board px, absolute on the board) — small dots
    visually, but with transparent hit pads (::after) like the map's handles; the vertex pad wins
