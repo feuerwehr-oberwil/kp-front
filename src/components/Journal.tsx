@@ -425,7 +425,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
    */
   // one marking for every piece of prose in the drawer — the row text and the transcript
   // subtitle lines mark the same vocabulary the composer marked while it was being typed
-  const marked = (text: string) => linkParts(text, vocab).map((p, pi) => {
+  // ⚠️ `subjectId`: a row ABOUT a Trupp links its «Trupp N» to that Trupp by id — after a
+  // renumbering (docs/trupp-naming.md §7) its early rows say a number another crew holds now
+  const marked = (text: string, subjectId?: string) => linkParts(text, vocab, { subjectId }).map((p, pi) => {
     if (!p.kind) return <span key={pi}>{p.text}</span>
     // ⚠️ An address is the one mark that DOES something, so it is the one that must not also do
     // what the row does. A row selects, seeks or opens a place under the finger; without the
@@ -437,7 +439,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
       )
     }
     return (
-      <b key={pi} className={`jr-link jr-link-${p.kind}`}>
+      <b key={pi} className={`jr-link jr-link-${p.kind}`} title={p.hint} data-trupp={p.truppId}>
         {p.text}
         {p.role && <i className="jr-link-role"> ({p.role})</i>}
       </b>
@@ -945,7 +947,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 {/* ⚠️ `rowText`, not `e.text`: a picture row with no caption of its own reads
                     «Foto» (reversed 31.08. — a run of them was a column of bare timestamps). The
                     RECORD is untouched either way (lib/verlauf · rowText). */}
-                <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e))}</span>
+                <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e), e.subjectId)}</span>
                 <span className="jr-trail">
                   {/* Footnotes ABOUT the row — «Nachtrag», «korrigiert HH:MM», «6×». They say
                       that the append-only record holds more than the row shows, which is worth
@@ -1233,7 +1235,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 </div>
               )}
               {/* the row's own words, and — on a memo — what it says (the list's subtitle chrome) */}
-              <p className="jr-detail-text">{marked(rowText(e))}</p>
+              <p className="jr-detail-text">{marked(rowText(e), e.subjectId)}</p>
               {e.audioUrl && hasTx && (
                 <div className="jr-subs">
                   {e.transcript && <p><span>{marked(e.transcript)}</span></p>}

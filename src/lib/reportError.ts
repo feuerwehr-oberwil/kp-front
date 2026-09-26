@@ -161,10 +161,27 @@ function pump(force = false): void {
   if (wake !== Infinity) timer = setTimeout(() => { timer = null; pump() }, Math.max(0, wake - now))
 }
 
+/** The fetch failure each engine throws when the network is gone (Chromium, Safari, Firefox). */
+const NETWORK_FAILURE = /^(Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?)$/
+
+/**
+ * A fetch that failed while the browser itself says it is offline is not a client error; it is the
+ * device being offline, which the app already shows (24.09.2026). On an offline tablet the Karte's
+ * basemap tiles fail one by one, and MapView reported each as «error: Failed to fetch». That is
+ * noise in the post-Einsatz check, where every `kpfront.clienterror` line should be something
+ * that broke. Deliberately narrow: only the bare network failure of an `error`/`unhandledrejection`,
+ * and only while `navigator.onLine` is false. A render throw is never noise. A dead WLAN the
+ * browser still calls online keeps reporting, because there the failure IS news.
+ */
+export function isOfflineNetworkNoise(kind: ErrorKind, message: string, onLine: boolean): boolean {
+  return !onLine && (kind === 'error' || kind === 'unhandledrejection') && NETWORK_FAILURE.test(message)
+}
+
 export function reportClientError(err: unknown, ctx: Ctx = {}): void {
   try {
     const kind = ctx.kind ?? 'error'
     const message = (err instanceof Error ? err.message : String(err ?? 'unknown')).slice(0, MAX_MESSAGE)
+    if (isOfflineNetworkNoise(kind, message, typeof navigator === 'undefined' || navigator.onLine !== false)) return
     const stack = err instanceof Error ? err.stack?.slice(0, MAX_STACK) : undefined
     const componentStack = ctx.componentStack?.slice(0, MAX_COMPONENT_STACK)
     const key = [kind, ctx.surface ?? '', message, stack?.slice(0, 200) ?? '', componentStack?.trim().slice(0, 200) ?? ''].join('|')
