@@ -508,8 +508,9 @@ export function mergeSuche(b: unknown, m: unknown, t: unknown): unknown {
     const base = list(b, k), mine = list(m, k), theirs = list(t, k)
     // ⚠️ A record BOTH sides added under one id has no ancestor — and mergeById then keeps mine
     // whole (a concurrent same-id add is LWW). For the Suche that is the ordinary case, not a
-    // collision: a storey's area has a DERIVED id (`sbg:<stack>:<n>`), both devices seed it, and
-    // both write rows onto it — so the other device's rows would be gone. Give such a record an
+    // collision: a place a Trupp's Ziel created has a DERIVED id (useSucheActions · observe; in
+    // step 1 also every storey's `sbg:<stack>:<n>`), both devices create it, and both write rows
+    // onto it — so the other device's rows would be gone. Give such a record an
     // EMPTY ancestor, and it merges field-wise with its log unioned like any other.
     const inBase = new Set(base.map((x) => x.id))
     const theirIds = new Set(theirs.map((x) => x.id))

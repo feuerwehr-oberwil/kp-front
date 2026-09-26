@@ -96,6 +96,10 @@ import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
+import { SucheToolButton } from './suche/SucheToolButton'
+import { SuchePinChip } from './suche/SuchePins'
+import sucheCss from './suche/Suche.module.css'
+import type { SuchePin } from '../lib/suche'
 
 const COLORS = appConfig.drawing.colors
 
@@ -169,11 +173,15 @@ interface Props {
   /** device pref «Beschriftung der Werkzeugleisten» (lib/prefs · railLabels) — the word under each glyph.
    *  The setting says «in den beiden Leisten», so the plan's rail has to be handed it too. */
   railLabels?: RailLabels
-  /** the Suche's dock stands beside the stack (components/suche · SucheDock): px it takes off the
-   *  right, so the fit and «centre on» measure the room that is actually left (tablet only) */
-  dockInset?: number
-  /** the Suche's progress per storey, worn on the storey's own label («1. OG 2/4») */
-  storeyBadges?: Record<number, { text: string; complete: boolean; active: boolean }>
+  /** the Suche's door at the end of the rail (components/suche · SucheToolButton, 26.09.2026) —
+   *  the same button the Karte carries beside Ebenen; the card it opens is the workspace's */
+  suche?: { on: boolean; count: number; onToggle: () => void }
+  /** the Suche's pins (lib/suche · suchePins) — the ones on THIS sheet are drawn on their storey */
+  suchePins?: readonly SuchePin[]
+  onSuchePin?: (pin: SuchePin) => void
+  /** the Suche hands the plan a pick (components/suche · SuchePick): the next TAP on the sheet is
+   *  a place's position — a drag still pans, two fingers still zoom */
+  suchePick?: { onPick: (p: { planId: string; x: number; y: number; floor: number }) => void } | null
   sym: SymbolsApi
   /** active Mannschaft names feeding the symbol detail comboboxes (Einsatzleiter / Fahrer …) */
   rosterNames?: string[]
@@ -347,7 +355,7 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, dockInset = 0, storeyBadges }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, suche, suchePins = [], onSuchePin, suchePick }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -750,10 +758,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // …and the rails: the WINDOW decides whether they are floating side rails or bottom bars, not
   // the canvas width — during the «Karte verknüpfen» split the canvas is half a screen wide with
   // both rails still in place (lib/whiteboard · sideInsets).
-  const side = useMemo(() => {
-    const base = sideInsets(vp.w, isPhone)
-    return dockInset > 0 && !isPhone ? { ...base, r: base.r + dockInset } : base
-  }, [vp.w, isPhone, dockInset])
+  const side = useMemo(() => sideInsets(vp.w, isPhone), [vp.w, isPhone])
   const fit = useMemo(() => {
     const w = Math.max(0, vp.w - side.l - side.r)
     const h = Math.max(0, vp.h - TOP_INSET - botRes - (stack ? 2 * STACK_VPAD : 0)); if (!w || !h) return { w: 0, h: 0 }
@@ -781,6 +786,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const toNorm = (clientX: number, clientY: number): [number, number] | null => {
     const r = boardRef.current?.getBoundingClientRect(); if (!r || !r.width) return null
     return [(clientX - r.left) / r.width, (clientY - r.top) / r.height]
+  }
+  // the Suche's pick (26.09.2026): a TAP — one finger, no travel — on the sheet is the position;
+  // anything else stays the board's own gesture (a pan, a pinch). Read in the capture phase, so
+  // the stage below still pans as ever; the transparent layer over the sheet keeps the tap off
+  // whatever stands there.
+  const pickTap = useRef<{ x: number; y: number; n: number } | null>(null)
+  const pickUp = (e: React.PointerEvent) => {
+    const t = pickTap.current
+    pickTap.current = null
+    if (!suchePick || !t || t.n > 1 || Math.hypot(e.clientX - t.x, e.clientY - t.y) > 8) return
+    const n = toNorm(e.clientX, e.clientY)
+    if (!n || n[0] < 0 || n[0] > 1 || n[1] < 0 || n[1] > 1) return
+    const floor = stack ? floorAt(n[1]) : 0
+    suchePick.onPick({ planId: activeId, x: n[0], y: stack ? localY(n[1], floor) : n[1], floor })
   }
 
   // --- Plan-Maßstab + Messen (calibration and ephemeral measurement) ---
@@ -2216,8 +2235,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const canvas = canvasRef.current?.getBoundingClientRect()
     if (!w || !h || !canvas) return
     const my = mapY(floor, y)
-    // …or, on a phone, the Suche's sheet pulled up over the stack (lib/overlays · DetentSheet)
-    const target = rectCenter(planWorkRect(canvas, document.querySelector('.ctx') ?? document.querySelector('.ui-detent')))
+    const target = rectCenter(planWorkRect(canvas, document.querySelector('.ctx')))
     const baseX = canvas.left + canvas.width / 2 + (side.l - side.r) / 2
     const baseY = canvas.top + canvas.height / 2 + vShift
     applyView(s, {
@@ -2911,12 +2929,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // root, so this capture handler runs BEFORE useArmedTransform's listener on this very
           // element and would dismiss the twin panel of the object the drag is about to move.
           onPointerDownCapture={(e) => {
+            if (suchePick) pickTap.current = { x: e.clientX, y: e.clientY, n: pickTap.current ? 2 : 1 }
             if (arm.armed && !(e.target as HTMLElement | null)?.closest?.('[data-arm-exempt]')) return
             if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setNotePanelId(null) }
             trackDown(e)
           }}
-          onPointerUpCapture={trackUp}
-          onPointerCancelCapture={trackUp}
+          onPointerUpCapture={(e) => { pickUp(e); trackUp(e) }}
+          onPointerCancelCapture={(e) => { pickTap.current = null; trackUp(e) }}
           onPointerDown={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setNotePanelId(null) } stageDown(e) }}
           onPointerMove={stageMove}
           onPointerUp={stageUp}
@@ -2969,15 +2988,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleFloor(f)}><Icon id="eye" /></button>
                     )}
                   </div>
-                  {/* the Suche's progress on this storey — the stack alone answers «wo waren wir».
-                      ⚠️ Its OWN line under the label, not in the label row (walk-through 25.09.2026,
-                      F9): on a narrow tile the row runs into the tile's top-right corner, where
-                      «Geschoss entfernen» stands, and a tap on «0/1» removed the storey. */}
-                  {storeyBadges?.[f] && (
-                    <span className="wb-floor-suche" data-complete={storeyBadges[f].complete || undefined} data-active={storeyBadges[f].active || undefined}>
-                      {storeyBadges[f].complete ? <Icon id="check" /> : null}{storeyBadges[f].text}
-                    </span>
-                  )}
                   {/* «Geschoss entfernen» — NOT in the label any more (3am test r2, 25.09.2026): an
                       18px ✕ right beside the fold eye, one tap took a storey away for everybody. It
                       stands alone in the tile's opposite corner now, a full --tap square, so a press
@@ -3788,6 +3798,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               )
             })}
 
+            {/* the Suche's pins on this sheet (their own layer: over the sheet's objects, under
+                every popup) — on a stack each on its storey band, and none on a folded storey */}
+            {suchePins.filter((p) => p.point.planId === activeId && p.point.x != null && p.point.y != null
+              && (!stack || floorsTTB.includes(p.point.floor ?? 0))).map((p) => (
+              <div key={`suche:${p.id}`} className={sucheCss.planPin}
+                style={{ left: `${p.point.x! * 100}%`, top: `${(stack ? mapY(p.point.floor ?? 0, p.point.y!) : p.point.y!) * 100}%` }}>
+                <SuchePinChip pin={p} onOpen={onSuchePin} />
+              </div>
+            ))}
+            {/* …and while the Suche waits for a position, one clear layer over all of it */}
+            {suchePick && <div className="wb-ink wb-suche-pick" style={{ zIndex: 9, cursor: 'crosshair' }} />}
+
             {/* create-tool capture layer */}
             {creating && (
               <div className="wb-ink" onPointerDown={inkDown} onPointerMove={inkMove} onPointerUp={inkUp} onPointerCancel={inkUp} />
@@ -3936,6 +3958,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // resolves that toggle, so a second tap on the armed Auswahl arrives here as 'lasso'
           // and a tap on the armed Mehrfach as 'pan' — both plain tool switches from here.
           onPick={(id) => {
+            // a tool picked puts the Suche's card away — as a tool on the Karte puts Ebenen away
+            if (suche?.on) suche.onToggle()
             if (id === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
             setTool(tool === id ? 'pan' : (id as BoardTool)); setPending(null)
           }}
@@ -3948,6 +3972,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               {/* «Einpassen» — where the map rail carries its compass / views button: the one
                   control that puts the whole surface back in front of you. */}
               <button className="vrail-nbtn vrail-fit" title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit} disabled={scale === 1 && pos.x === 0 && pos.y === 0} onClick={() => applyView(1, { x: 0, y: 0 })}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
+              {/* the Suche — at the END of the plan's bar on a phone (15-mobile · order), under
+                  «Einpassen» on the rail: the same door the Karte has beside Ebenen */}
+              {suche && <SucheToolButton on={suche.on} count={suche.count} onClick={suche.onToggle} />}
               {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px) — the plan pinches
                   on every touch form factor, and «Einpassen» above covers the one state that
                   matters. */}

@@ -86,8 +86,8 @@ describe('stateAt — fold over a snapshot anchor', () => {
 
   it('folds the Suche forward from its patches — row by row between two snapshots, and a ↶ takes its row back', async () => {
     // every Suche write emits the PATCH it made (lib/useSucheActions); the fold applies it
-    const before = addPerson(emptySuche(), { name: 'Tim Muster' }, { at: iso(500), newId: (p) => `${p}1`, floorName: (f) => String(f), stack: '' }).doc
-    const after = personGefunden(before, before.personen[0].id, {}, { at: iso(2500), newId: (p) => `${p}2`, floorName: (f) => String(f), stack: '' }).doc
+    const before = addPerson(emptySuche(), { name: 'Tim Muster' }, { at: iso(500), newId: (p) => `${p}1`, floorName: (f) => String(f) }).doc
+    const after = personGefunden(before, before.personen[0].id, {}, { at: iso(2500), newId: (p) => `${p}2`, floorName: (f) => String(f) }).doc
     const created = diffSuche(emptySuche(), before)
     const found = diffSuche(before, after)
     const events = [

@@ -492,55 +492,87 @@ to prod.
   history shortcut. Revisit external deletion evidence/retention policy before offering managed
   hosting; the current trust boundary is one station operating its own deployment.
 - **The Suche is ONE synced slice + append-only rows** (24.09.2026, step 1 — `lib/suche`,
-  `components/suche`). `suche = { personen, bereiche }`: a record says who or where, and what
-  happened to it is its own `log` — every state (vermisst → gefunden → übergeben / entwarnt; a
-  Bereich's offen / in Arbeit + Trupp / abgesucht / nicht zugänglich, «Fund») is FOLDED from it,
-  never stored. Each log row carries the Verlauf sentence it wrote, and the Verlauf row carries a
-  `suche` link back (Bereich «Suche», a tap opens the record). Rules that fall out of it:
+  `components/suche`; reworked 26.09.2026 to the owner's design «F»). `suche = { personen,
+  bereiche }`: a record says who or where, and what happened to it is its own `log` — every
+  state (vermisst → gefunden → übergeben / entwarnt; a Bereich's offen / in Arbeit + Trupp /
+  abgesucht / nicht zugänglich, «Fund») is FOLDED from it, never stored. Each log row carries the
+  Verlauf sentence it wrote, and the Verlauf row carries a `suche` link back (Bereich «Suche», a
+  tap opens the record). Rules that fall out of it:
+  - ⚠️ **NOTHING IS PRESET** (26.09.2026). A Bereich is a PLACE somebody typed — «Keller»,
+    «Wohnung 2. OG links», «Scheune» — never a storey the app made up: no seed on open, none on the
+    first «Absuchen», no storey badges on the Gebäude, no «Teilen». The list is empty until
+    somebody enters something, and the same list is a sweep with nobody missing at all. Places
+    are not tied to storeys (owner, F-d). Step-1 records still load: a storey row (`sbg:…`, no
+    `name`) reads «1. OG», a part «1. OG Trakt 3», and a storey row the machine seeded and nobody
+    ever touched is not shown (`sucheOrte · isShown`).
+  - **ONE list, by place** (`sucheOrte`): «Ort unbekannt» on top; then the places in entry order,
+    except that a place with somebody still missing sorts FIRST (red edge) and a place abgesucht
+    with nobody missing goes quiet and sinks to the END. A person stands under the place they were
+    last seen at — a found one where they were found. The link is `SuchePerson.bereichId` (kept
+    through a rename; the «＋ Vermisst» form always sets it, creating a NEW place in the same act —
+    one step, one ↶), else the person's words matched against the places' labels, case- and
+    accent-blind (`personPlace`) — for the composer's «… vermisst» and for step-1 records. Two
+    places never read the same (`renameBereich` refuses a clash; `addBereich` finds instead of
+    doubling).
   - It merges by id, and a record both sides changed merges field-wise with its log as a union
     by row id (`mergeWorkspace · mergeSuche`) — two devices booking two things about one person
     keep both; a row one side took back stays gone. A record BOTH sides added under one derived id
-    (a storey both seeded) gets an empty ancestor and merges the same way, never «mine wins».
-  - A storey's own area is `sbg:<stack>:<index>` — DERIVED from the Gebäude (`stackKeyOf`: the
-    pack's binding, else the footprint) and the storey, so every device seeds the same record and a
-    REPLACED building starts fresh. The seed on first open (and on the first Trupp sent in on
-    «Absuchen») is a machine write, idempotent and no undo step. An unseeded storey renders as a
-    virtual «ganzes Geschoss · offen» so read-only devices see the same gaps.
-  - A find is ONE row (`gefunden`, with «weiter an» and the area it happened in on it — the area
+    (a place both created from one Trupp's Ziel) gets an empty ancestor and merges the same way,
+    never «mine wins».
+  - **Fewer taps** (26.09.2026): the place's circle IS the button (one tap abgesucht, again offen —
+    a status row each time) and «Gefunden» / «+1» sit on a missing person's line (one tap, with the
+    place and the Trupp searching it on the row); both raise the confirm-with-undo toast, whose
+    «Rückgängig» takes the patch back AND drops the timeline entry (`useSucheActions · commit` →
+    `SucheTakeBack`). Everything else is on the record's own card: a place's status choices, its
+    Trupp, «Fund», «Umbenennen», its history; a person's «Gefunden …», «Übergeben …»,
+    «Entwarnen», «Korrigieren …» and — apart, at the foot — «Irrtümlich erfasst».
+  - A find is ONE row (`gefunden`, with «weiter an» and the place it happened in on it — the place
     wears «Fund» from it); «+ Gefunden» writes no «Vermisst». A person is corrected and withdrawn
     by rows too (`korrigiert`, `irrtuemlich`) — a withdrawn record counts nowhere and is not
     printed in «Personen» (the Einsatzjournal keeps both rows).
   - What a Trupp's save implies is OBSERVED on every editor device and written under ids derived
     from the Trupp, its SORTIE (`entryTime`) and its Ziel (`useSucheActions · observe`,
-    `lib/useSucheTrupps`): on the move into the field (or a new Ziel there) its Ziel's area turns
-    «in Arbeit · Trupp N» — a new name creating the part, a re-entry marking again; a new Ziel or a
-    removed Trupp releases the old area. A Trupp that never went in marks nothing.
+    `lib/useSucheTrupps`): on the move into the field (or a new Ziel there) the place its Ziel
+    names turns «in Arbeit · Trupp N» — a new name creating the place (somebody typed it: an
+    entry, not a preset), a re-entry marking again; a new Ziel or a removed Trupp releases the old
+    place. A Trupp that never went in marks nothing. The Trupp form's Ziel chips are the places.
   - «Trupp N raus – abgesucht? Ja / Teilweise / Nein» is NOT a dialog: it is derived
-    (`pendingAsks` — an area «in Arbeit» whose Trupp is out) and stands on the area's own row, on
+    (`pendingAsks` — a place «in Arbeit» whose Trupp is out) and stands on the place's own row, on
     every editor device (the Raus may come from a handed-over board), until somebody answers; an
-    unanswered question writes nothing. It is COUNTED where people look — the head chip, the
-    phone's peek line, the Bereiche tab — and each one is a Meldeleiste row
+    unanswered question writes nothing. It is COUNTED where people look — the head chip — and
+    each one is a Meldeleiste row
     (`components/suche/SucheAskMeldungen`, kind `suche`) that goes by itself once answered.
     «Teilweise» is its own status (`teilweise`, keeps the Trupp), never «offen», and counts as
     not done everywhere.
   - A group is never found «all at once» by accident: the composer's chip names the count
     («Klasse 4b · 2 von 5 gefunden», `composerFoundLink` — digits or a number word, never the
     name's own), and it is offered when the sentence NAMES the record anywhere («2 Kinder der
-    Klasse 4b») as well as while the name is being typed (`suggestSuchePersonen`), and «Fund melden» starts at ONE, on
-    the storey the Trupp is searching (`truppFloor`), never the group's «zuletzt gesehen».
-    «Korrigieren …» also corrects where somebody was FOUND (the latest find; the «Fund» mark
-    moves with it, `foundBereiche`).
-  - The Suche opens where you are (`sucheSurfaceFor`); the rail entry always opens, never
-    toggles a dock that is out of sight. What else stands on the surface keeps clear of the dock
-    and the peek line (Meldeleiste, Grundgerüst card/strip, the storey ✕ — the storey's badge
-    has its own line under the label).
+    Klasse 4b») as well as while the name is being typed (`suggestSuchePersonen`), and «Fund melden» starts at ONE, at
+    the place the Trupp is searching (`truppPlace`: its place in Arbeit, else its Ziel), never
+    the group's «zuletzt gesehen». «Korrigieren …» also corrects where somebody was FOUND (the
+    latest find; the «Fund» mark moves with it, `foundBereiche`).
+  - **Where it lives — like Ebenen** (26.09.2026, design «F»). ONE door: a tool-rail footer
+    button right beside Ebenen on the Karte (phone bar and tablet rail alike) and at the end of a
+    plan's rail (`components/suche/SucheToolButton`), with the red count of people still missing
+    in the rail's badge idiom. It opens a CARD in Ebenen's own slot (`.layers-card`, the SAME
+    `panel` state, so the two are exclusive by construction and every path that closes Ebenen —
+    a tool, a selection, Esc, a map tap, the composer / Verlauf — closes it too; the phone's
+    `mapctl-backdrop` catches a tap beside it, on a plan as well). You stay on the surface you are
+    on; only a door from elsewhere (the head chip «n vermisst», a Verlauf row, a Meldeleiste
+    question, the Abschluss) takes you to the Karte first. Forms replace the list inside the card.
+    Gone with step 1's surfaces: the NavRail entry, the phone chooser's row, the tablet dock, the
+    peek · half · full sheet, the Gebäude | Karte switch, the Personen | Bereiche tabs, the floor
+    chips.
   - A record that ENDS without a find («Entwarnen», «Irrtümlich erfasst») is never one tap: a
     short form asks why and who said so (both optional, both in the row), «Abbrechen» focused.
     The Abschluss asks about people still missing as its own question after the crews
     (`vermisstAbschlussMessage`), «Zur Suche» focused.
   - Undo is the WRITER's, as patches (`diffSuche` / `applySuchePatch`): a step takes back exactly
     the records, rows and fields it added — never a row the machine or another device wrote since,
-    which a whole-slice snapshot (`useUndoableSlice`) did. Its Verlauf row quotes each row it took
+    which a whole-slice snapshot (`useUndoableSlice`) did. A record the step CREATED stays when
+    somebody built on it since (a row of theirs on it, a person pointing at the place): only the
+    step's own rows leave it. A patch travels as JSON (audit → replay): an absent field is `null`
+    in it, and fields compare key-order-free (the server's JSONB re-sorts keys). Its Verlauf row quotes each row it took
     back («Zurückgenommen: …»). The composer's entry that changes a status IS that change's Verlauf
     row (`silent`) and says the change in its text («… · Suche: Tim Muster gefunden»).
   - Every write emits ONE audit event with its patch (`suche.step` / `suche.undo`), and replay
@@ -548,17 +580,29 @@ to prod.
   - EDITOR only in step 1 (`canEditIncident`): the `el` and viewers read; the record slice and the
     Atemschutz-Link routes do not carry `suche`, and «Fund melden» from a link session is not
     offered.
-  - Doors: the rail entry with the red count and the head chip «n vermisst» (phone: a row of the
-    «Einsatz» chooser, which OPENS it). No toggle in the tool rails — three doors to one thing.
-    Tablet: a DOCK beside the Gebäude or the Karte (the stack fits itself into the room left,
-    `Whiteboard · dockInset`), storey labels carry «2/4». Phone: `overlays/DetentSheet`, the one
-    NON-modal peek · half · full sheet — it stands on the nav bar and never covers it (on the
-    keyboard while that is up), the floor chips stand at every detent, and the tool bar steps
-    aside while it is up.
-  - ⚠️ Step 2 (not built): drawn areas and person markers on the plan/Karte, and the Rettung
-    symbol becoming a Person, fill the fields that are typed and empty today (`SuchePerson.point`,
-    `SucheBereich.shape`) — no migration. A drawn area is its own kind «Suchbereich», never a line,
-    so it can never be offered to a Trupp as its Leitung (the 23.09.2026 failure).
+  - **Places stand on the surface as PINS** (26.09.2026, owner). `SucheBereich.point` (and
+    `SuchePerson.point` for somebody missing with no place): a Karte `coord`, OR a plan sheet
+    (`planId`, `x`/`y`, `floor` — on its storey band). One position per record; a pin is shown
+    only on the surface it was put on (no projection between Karte and plans). A pin is the app's
+    chip (`components/suche/SuchePins`), 12.5px words, coloured like the list's circle, a RED ring
+    while somebody is still missing there; it stands over the tactical symbols / the sheet's
+    objects and under every popup; a tap opens the card on the record. Placing is OPTIONAL, from
+    the forms («📍 Auf Karte / Plan setzen») and the record's card (Zeigen · Verschieben ·
+    Position entfernen): the card hands the surface over for ONE tap (`SuchePick` →
+    IncidentWorkspace · `suchePick`; on the Karte through MapView's own `picking` path, which
+    comes before any drawing's selection, with the markers click-through (`.suche-picking`) — a
+    selection would close the card and lose the form; on a plan a clear layer over the sheet
+    takes the tap and lets a drag pan; the placement dock ✕ · 📍 · ⓘ plus a toast that STANDS for
+    the mode — swipe it and the pick is cancelled; the card steps aside keeping its form, and its
+    going away cancels the pick). A form's pin is written with the record in the SAME step; a
+    card's is its own step with an `ort` row (`setPlacePoint`). «＋ Vermisst» puts its point on
+    a new (or unplaced) place, on the person when there is no place, and offers none for a place
+    that stands already (`pointTarget`). The Karte's pins print on the Kroki as notes on the
+    tactical layer (`sucheKrokiNotes`) — not on a Kroki reconstructed for a past moment, and not
+    on the plan pages. Pins follow replay (they are the slice as it stood).
+  - ⚠️ Not built: drawn search AREAS (`SucheBereich.shape` stays typed and empty). A drawn area
+    is its own kind «Suchbereich», never a line, so it can never be offered to a Trupp as its
+    Leitung (the 23.09.2026 failure).
 - **A setting lives in one of three places – pick by who owns it, not by what is easiest to
   reach.** (1) *Device preference* – theme, symbol scale, rail words, offline radius, screen
   wake: cookie via `src/lib/prefs.ts`, surfaced in the **Einstellungen sheet**
@@ -1004,9 +1048,8 @@ to prod.
     — never a frame that is full-screen or centred there, like the Trupp form on a tablet or the
     handed-over Tafel; on the full app's PHONE board it IS a bottom sheet since 24.09.2026 and
     wears the bar, see the Atemschutz bullet), and the one
-    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026). The one
-    NON-modal bottom sheet is `DetentSheet` (peek · half · full over a live surface, 24.09.2026,
-    the Suche): no backdrop, no focus trap, never closed by a swipe — its owner's ✕ closes it. The
+    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026). (The one
+    NON-modal peek · half · full sheet the Suche had left with it on 26.09.2026.) The
     gesture needs the frame FLUSH with the bottom edge — which is why the phone Verlauf is a real
     bottom sheet now and no longer a card floating 8px off it.
   - **One menu row, one wash.** Every row `Menu`/`ContextMenu` renders wears `ui-menu-item`

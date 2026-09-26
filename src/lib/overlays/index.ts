@@ -6,8 +6,6 @@ export { Sheet, SheetClose, type SheetProps } from './Sheet'
 export { Overlay, type OverlayProps } from './Overlay'
 // for the ONE hand-rolled bottom sheet (components/Palette): the same bar, the same gesture
 export { SheetGrab } from './SheetGrab'
-// the one NON-modal phone sheet: peek · half · full over a live surface (the Suche)
-export { DetentSheet, type Detent } from './DetentSheet'
 export { useSwipeDismiss } from './swipeDismiss'
 export { ConfirmCard } from './ConfirmCard'
 export { Menu, type MenuActionItem } from './Menu'

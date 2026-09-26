@@ -150,13 +150,16 @@
   /* Ebenen plus one surface reset stay pinned instead of joining the scrolling tools: Karte uses
      its views/compass control, Plan uses Einpassen. Zoom remains a pinch gesture on both. */
   :is(.tool-rail, .wb-tools) .vrail-nav { flex: none; flex-direction: row; align-items: center; gap: 2px; }
-  :is(.tool-rail, .wb-tools) .vrail-nav > :not(.vrail-layers):not(.vrail-views):not(.vrail-fit) { display: none; }
-  :is(.tool-rail, .wb-tools) :is(.vrail-layers, .vrail-views, .vrail-fit) { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  :is(.tool-rail, .wb-tools) .vrail-nav > :not(.vrail-layers):not(.vrail-views):not(.vrail-fit):not(.vrail-suche) { display: none; }
+  :is(.tool-rail, .wb-tools) :is(.vrail-layers, .vrail-views, .vrail-fit, .vrail-suche) { width: 50px; min-width: 50px; flex: 0 0 auto; }
   /* Ebenen stays the OUTERMOST control — it is the one reached most often, so it keeps the
      corner the thumb finds without looking. `order` rather than a DOM swap: on every wider
      form factor this footer is a vertical column where the existing order is right. */
   :is(.tool-rail, .wb-tools) :is(.vrail-views, .vrail-fit) { order: 1; }
   :is(.tool-rail, .wb-tools) .vrail-layers { order: 2; }
+  /* …and the Suche's door beside it, at the very end of the bar on both surfaces (26.09.2026, the
+     owner's design «F»: «neben Ebenen», and «ganz rechts» on a plan, where there is no Ebenen) */
+  :is(.tool-rail, .wb-tools) .vrail-suche { order: 3; }
   /* the weather goes back into the top bar on a read-only surface: that bar carries no
      undo/redo and no Eintrag, which measures 96px free against the readout's 83px. */
   .slim-tools .topbar .tb-weather-wrap { display: inline-flex; }
@@ -185,7 +188,7 @@
      specificity from another file, which is how the desktop rule leaked onto the phone. */
   .vrail.labelled:not(.expanded):not(.dragging) {
     width: auto; padding: 5px 8px; }
-  :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) :is(.vrail-tool, .vrail-layers, .vrail-views, .vrail-fit) {
+  :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) :is(.vrail-tool, .vrail-layers, .vrail-views, .vrail-fit, .vrail-suche) {
     width: auto; min-width: 50px; padding: 0 7px; height: auto; min-height: 46px; }
   :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-glyph { height: 22px; }
   :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-label {
@@ -211,7 +214,11 @@
      two fifths of the bar and the Plan's one a quarter */
   :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav { flex: 0 0 25%; }
   :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav:has(.vrail-views) { flex-basis: 40%; }
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav > :is(.vrail-layers, .vrail-views, .vrail-fit) { flex: 1 1 0; width: auto; min-width: 44px; padding: 0; }
+  /* the Suche's door is one more tile of the same row: the Plan's two take two fifths, the Karte's
+     three half of a six-tile bar (~60px each at 390px — still well over the 44px floor) */
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav:has(.vrail-suche) { flex-basis: 40%; }
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav:has(.vrail-views):has(.vrail-suche) { flex-basis: 50%; }
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav > :is(.vrail-layers, .vrail-views, .vrail-fit, .vrail-suche) { flex: 1 1 0; width: auto; min-width: 44px; padding: 0; }
   /* the corner mark: «this tile holds more than one thing» — the two-state Auswahl ↔ Mehrfach
      here, and the nav bar's «Pläne» and «Einsatz».
      ⚠️ TOP right, not the conventional bottom right: with «Beschriftung · Wörter» on, the tile's
@@ -229,7 +236,7 @@
      when a busy tool (line/area) has more options than fit. */
   .phone-tools .wb-dock { position: fixed; left: 50%; right: auto; top: auto; transform: translateX(-50%);
     /* 6px above the tool bar — the SAME gap the tool bar has above the nav bar (both are +6 offsets) */
-    bottom: calc(var(--rail-h) * 2 + 20px + var(--suche-lift, 0px) + env(safe-area-inset-bottom));
+    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom));
     flex-direction: row; align-items: center; gap: 10px;
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
@@ -282,9 +289,9 @@
      a sheet is open; the sheet then covers both Plan rails as its Lage twin already does, while
      the top bar (z 56) and modal overlays remain above it. */
   .phone-tools .whiteboard:has(.ctx) { z-index: var(--z-chrome-raised); }
-  .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + var(--suche-lift, 0px) + env(safe-area-inset-bottom)); }
+  .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
   /* the Eintrag-FAB clears both bars on the drawing surfaces */
-  .phone-tools .fab-entry { bottom: calc(var(--rail-h) * 2 + 28px + var(--suche-lift, 0px) + env(safe-area-inset-bottom)); }
+  .phone-tools .fab-entry { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); }
 
   /* ── details as a bottom sheet ── the shared .ctx editors (ContextPanel / DrawEditor /
      ShapeEditor) become a drag-expandable bottom sheet: half-height default so the map and
@@ -640,8 +647,7 @@
      panel needs this lane (IncidentWorkspace · ggLaneFree). */
   .lgg.lgg-phone { left: max(8px, env(safe-area-inset-left)); width: auto;
     right: calc(max(16px, env(safe-area-inset-right)) + var(--fab-safe));
-    /* + the Suche's peek line when it stands on the tool bar (.suche-peek · --suche-lift, N25) */
-    bottom: calc(var(--rail-h) * 2 + 28px + var(--suche-lift, 0px) + env(safe-area-inset-bottom));
+    bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom));
     /* …and it stops under the wind chip (.phone-wx, top-right under the bar), not beside it */
     max-height: calc(100dvh - var(--rail-h) * 2 - 172px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     padding: 4px; }
@@ -885,13 +891,10 @@
      sibling of `.app`. (The strip is rendered at every width but only `display: block` here, so
      the selector has to name the PAGE, not merely the element.) */
   :root:has(.app.mode-rapport .rp-tabs) { --rp-tabs-safe: 60px; }
-  /* …and two things that stand ON the tool bar and lift everything above it: the Suche's peek line
-     (`--suche-lift`, declared on `.app` at the end of this file — the FAB, the dock, the plan's chip
-     row all step up by it) and the armed tool's hint row in the dock (ToolDock · hint, the 22px
-     `.wb-botleft` steps up by). The lane is computed on :root, which cannot read `.app`'s value, so
-     it restates both here — or the lane would sit on the peek line and under the lifted FAB. */
-  :root:has(.app.phone-tools.suche-peek) { --msg-suche-lift: 70px; }
-  :root:has(.app.phone-tools.suche-peek [data-suche-floorchips]) { --msg-suche-lift: 114px; }
+  /* …and the thing that stands ON the tool bar and lifts everything above it: the armed tool's
+     hint row in the dock (ToolDock · hint, the 22px `.wb-botleft` steps up by). The lane is
+     computed on :root, which cannot read `.app`'s value, so it restates it here. (The Suche's
+     peek line that lifted it too left with the Suche's phone sheet, 26.09.2026.) */
   :root:has(.phone-tools .wb-dock-hint) { --msg-dock-hint: 22px; }
   /* ── THE message lane (25.09.2026) ── one baseline for every message that floats over the
      foot of the screen: the toasts AND the instruction of a pick mode (OsmOutline ·
@@ -910,16 +913,16 @@
       var(--rail-h) + 18px + var(--rp-tabs-safe, 0px) + 58px + 8px) + env(safe-area-inset-bottom));
   }
   :root:has(.phone-tools) {
-    --msg-lane-bottom: calc(var(--rail-h) * 2 + 24px + var(--msg-suche-lift, 0px) + var(--plan-row-reserve, 0px) + var(--stack-foot-lift, 0px)
+    --msg-lane-bottom: calc(var(--rail-h) * 2 + 24px + var(--plan-row-reserve, 0px) + var(--stack-foot-lift, 0px)
       + env(safe-area-inset-bottom));
   }
   :root:has(.phone-tools .fab-entry) {
     --msg-lane-bottom: calc(max(var(--rail-h) * 2 + 24px + var(--plan-row-reserve, 0px) + var(--stack-foot-lift, 0px), var(--rail-h) * 2 + 28px + 58px + 8px)
-      + var(--msg-suche-lift, 0px) + env(safe-area-inset-bottom));
+      + env(safe-area-inset-bottom));
   }
   /* the tool-option dock hides the FAB and takes a third lane (declared last: same specificity) */
   :root:has(.phone-tools .wb-dock) {
-    --msg-lane-bottom: calc(var(--rail-h) * 3 + 30px + var(--msg-suche-lift, 0px) + var(--msg-dock-hint, 0px) + var(--plan-row-reserve, 0px)
+    --msg-lane-bottom: calc(var(--rail-h) * 3 + 30px + var(--msg-dock-hint, 0px) + var(--plan-row-reserve, 0px)
       + var(--stack-foot-lift, 0px) + env(safe-area-inset-bottom));
   }
   .toaster {
@@ -1102,16 +1105,3 @@
      AnwesenheitView): where the bar has no pair, the surface being tapped offers its own. */
   .topbar .tb-act-history { display: none; }
 }
-/* The Suche's phone sheet (components/suche · SuchePhoneSheet, 24.09.2026) stands where the tool bar
-   stands — directly on the nav bar, which it never covers. While it is open at HALF or FULL the
-   drawing tools, the FAB and the selection bar step aside: the sheet is for LOOKING at the plan
-   while the list is worked, and its ✕ gives all of them back. Only ever set on a phone
-   (IncidentWorkspace · sucheAppClass). */
-.app.suche-sheet :is(.tool-rail, .wb-tools, .fab-entry, .sel-bar) { display: none; }
-/* …but at PEEK it is one line, and the tool bar stays (walk-through 25.09.2026): placing a symbol
-   no longer means closing the Suche first. The line stands on the TOOL bar instead
-   (Suche.module.css), and what stands above the tool bar — the tool's own dock, the selection bar,
-   the FAB, the plan's chips — moves up by the line's height. The message lane restates the two
-   numbers on :root (--msg-suche-lift, above) — keep them in step. */
-.app.phone-tools.suche-peek { --suche-lift: 70px; }
-.app.phone-tools.suche-peek:has([data-suche-floorchips]) { --suche-lift: 114px; }
