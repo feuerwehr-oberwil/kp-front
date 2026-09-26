@@ -91,6 +91,11 @@
 .topbar.fit-9 .ip-switch-title { display: none; }
 .topbar.fit-9 .ip-switch-glyph { display: grid; }
 .topbar.fit-9:has(.ip-switch-btn > .ip-badge-exercise) .ip-switch-glyph { display: none; }
+/* …and the «Einsatz abgeschlossen» chip (#235: it now appears LIVE, when another device closes
+   the Einsatz) gives its words at the same step as the title — the lock stays, the sentence is
+   one tap away in its menu, exactly as on the phone bar */
+.topbar.fit-9 .tb-mode { padding: 5px 8px; font-size: 0; gap: 0; }
+.topbar.fit-9 .tb-mode .i { width: 16px; height: 16px; }
 .topbar.fit-10 .tb-suche-ask-n { display: none; }
 /* every chip in the bar is at least a tap wide, its glyph and its number together */
 .topbar :is(.tb-az, .tb-suche) { min-width: var(--tap); justify-content: center; }

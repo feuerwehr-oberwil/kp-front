@@ -168,6 +168,8 @@ describe('N12 · N23 · the head collapses by priority, and the Einsatz pill nev
     const order = [first('tb-weather-temp'), first('tb-weather-wrap'), first('tb-einsatzuhr'), first('tb-suche-full'), first('tb-az-name'), first('ip-switch-title')]
     expect(order).toEqual([...order].sort((a, b) => a - b))
     expect(order.every(Number.isFinite)).toBe(true)
+    // the closed/lock chip (#235) gives its words with the title, never before the weather
+    expect(first('tb-mode')).toBe(first('ip-switch-title'))
   })
 
   it('a squeezed pill counts as crowded: the ÜBUNG marker truncated, or the title below its floor', () => {

@@ -14,7 +14,8 @@ import { useEffect, useLayoutEffect, type RefObject } from 'react'
  * So the bar is MEASURED: from nothing collapsed, one step at a time, until it fits. The order is
  * the priority, lowest first — the weather, the Einsatzdauer, ↷ (grey and rarely wanted), the
  * gaps, the Verlauf word, the «vermisst» words, the alarm's name, the Einsatz title (the pill
- * stays, as its glyph and marker), and last the «1?» count (the «?» stays). The pill is never the
+ * stays, as its glyph and marker — and the «Einsatz abgeschlossen» chip keeps its lock but gives
+ * its words at the same step), and last the «1?» count (the «?» stays). The pill is never the
  * thing that gives: a pill squeezed below a readable width counts as «does not fit»
  * (`headCrowded`).
  * ⚠️ A chip NEVER loses its icon (final walk-through, R1): at 360 px a bare red «5» said nothing
