@@ -187,7 +187,10 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
    * caller cannot mark somebody present who is only about to be created, and the Verlauf line it
    * would write knows the id but not the name. One act, one row, one line.
    */
-  const addGuest = (name: string, note?: string): string | undefined => {
+  /* `quiet` (25.09.2026, staging N1): the Trupp form files its Gäste at the save and the crew's
+   * ONE «Unter AS: …» row names them all — a second «… als weitere Person erfasst» per person
+   * would say the same thing twice (IncidentWorkspace · fileTruppGuest). */
+  const addGuest = (name: string, note?: string, opts?: { quiet?: boolean }): string | undefined => {
     const display = name.trim()
     if (!display) return undefined
     // ⚠️ `Date.now()` alone collides: two people walking in together are entered in the same
@@ -200,6 +203,7 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
       ...cur,
       [id]: { ...openPresence(undefined, startedAt, display), ...(job ? { note: job } : {}) },
     }))
+    if (opts?.quiet) return id
     const A = appConfig.copy.anwesenheit
     log('people', job
       ? fillTemplate(A.logGuestAddedAs, { name: display, role: job })

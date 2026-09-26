@@ -35,6 +35,8 @@ import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions
 import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
+import { stampCrewFiled, unfiledTruppCrew } from './lib/crewFiling'
+import { registerMeldeleisteHost } from './lib/meldeleisteHost'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -120,7 +122,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, type AtemschutzAlarmState } from './lib/atemschutz'
+import { isAtemschutzTrupp, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -1838,9 +1840,20 @@ export function IncidentWorkspace({
   // «offen» for ever, while the identically-labelled path through the Rapport stamped and
   // counted. Two doors into one room are fine; two doors with the same sign into different rooms
   // are not. The confirm and the open-point count live HERE, above both of them.
+  /** «Als «nicht eingesetzt» schliessen» in the Abschluss (useAbschluss · standDownTrupps,
+   *  24.09.2026): the card's own stand-down, per Trupp. The Trupp actions are created much further
+   *  down, so the hook gets a stable door and the ref is pointed at them once they exist. */
+  const standDownRef = useRef<(ids: string[]) => void>(() => {})
+  const standDownTrupps = useCallback((ids: string[]) => standDownRef.current(ids), [])
+  // …and the row for a crew the Abschluss closes over (staging r3 F4), pointed the same way
+  const noteInsideRef = useRef<(ts: Trupp[]) => void>(() => {})
+  const noteInsideAtClose = useCallback((ts: Trupp[]) => noteInsideRef.current(ts), [])
   const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+    // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
+    standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
+    noteInsideAtClose: canWriteRecord ? noteInsideAtClose : undefined,
   })
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
@@ -3495,8 +3508,34 @@ export function IncidentWorkspace({
     undo: () => stepAttendanceRef.current('undo'),
     redo: () => stepAttendanceRef.current('redo'),
   })
-  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. */
-  const attSet: typeof attHist.set = (update) => { const laid = attHist.set(update); rememberAttendanceStep(); return laid }
+  /**
+   * A Trupp SAVE is one act (staging r3 F1): the Gäste its form files, the crew it marks present
+   * and the AS-Funktion it writes are part of «Trupp 2 … angemeldet» — ONE ↶ takes the Trupp and
+   * the people it filed back together, nothing half-done. Opened by the first write of a save
+   * (fileTruppGuest, or the create/edit/re-entry wrapper), it gathers every step pushed until the
+   * save's synchronous run ends (a microtask later) into one timeline entry, and folds the
+   * Anwesenheit writes of that run into ONE slice step.
+   * It used to leave «Rückgängig: Anwesenheit» on top, which stripped the crew's Funktion, kept
+   * them present, kept the Trupp — and wrote «Anwesenheit zurückgenommen» over it.
+   */
+  const truppSaveRef = useRef<{ laidAttendance: boolean } | null>(null)
+  const openTruppSave = () => {
+    if (truppSaveRef.current) return
+    const save = { laidAttendance: false }
+    truppSaveRef.current = save
+    const end = undoHist.group('trupps')
+    queueMicrotask(() => { if (truppSaveRef.current === save) truppSaveRef.current = null; end() })
+  }
+  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. Inside
+   *  a Trupp save the save's first write is its step and the rest fold into it. */
+  const attSet: typeof attHist.set = (update) => {
+    const save = truppSaveRef.current
+    if (save?.laidAttendance) return attHist.set(update, { coalesce: () => true })
+    const laid = attHist.set(update)
+    rememberAttendanceStep()
+    if (save && laid) save.laidAttendance = true
+    return laid
+  }
   /**
    * A Gebäude one-shot on the timeline. These own no stack at all — a storey added, a storey
    * removed, a building replaced — so the entry carries BOTH states itself, the way the
@@ -3513,6 +3552,26 @@ export function IncidentWorkspace({
     redo: () => { reapply(); logHistStep('redo', label, ''); return true },
   })
   rememberOneShotRef.current = rememberOneShot
+  // the Abschluss's «nicht eingesetzt» door (standDownTrupps above) — read only when the question
+  // is answered, long after this commit, so an effect is the place to point it
+  // ⚠️ Re-checked against the Trupps as they stand NOW: a Sicherungstrupp sent in while the
+  // Abschluss stood open is inside, and «raus» on it would be a real Austritt nobody reported.
+  useEffect(() => {
+    standDownRef.current = (ids) => {
+      for (const id of ids) {
+        const t = truppsRef.current.find((x) => x.id === id)
+        if (t && truppStillRegistered(t)) setTruppStatus(id, 'raus')
+      }
+    }
+  })
+  useEffect(() => {
+    noteInsideRef.current = (ts) => {
+      for (const t of ts) {
+        log('logout', fillTemplate(appConfig.copy.atemschutz.logInsideAtClose, { name: truppLogName(t) }), 'team',
+          undefined, undefined, { subjectId: t.id })
+      }
+    }
+  })
   const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) =>
     rememberOneShot('gebaeude', label, restore, reapply)
 
@@ -3973,13 +4032,18 @@ export function IncidentWorkspace({
   const ensurePresentForRole = (
     ids: (string | undefined)[], roleNote?: string, groupTemplate?: string,
     noteFor?: (id: string) => string | undefined,
+    /** Gäste the Trupp form filed a moment ago in the SAME act (fileTruppGuest): already present
+     *  — this render's `attendance` cannot know it yet — and named by the name they were filed
+     *  under, never by their id (staging N1: «Unter AS: g1790338070425-0etoa, …»). */
+    justFiled?: ReadonlyMap<string, string>,
   ) => {
     // Not on an Atemschutz-Link session: its Anwesenheit write is a no-op (the slice never
     // carries attendance), and a Verlauf row claiming «anwesend · AS» over a record that never
     // changed would be a lie on paper. The tablet marks the crew present when it takes the Trupp.
     if (!canWriteRecord) return
     const wanted = [...new Set(ids.filter(Boolean) as string[])]
-    const fresh = wanted.filter((id) => !isPresent(attendance[id]))
+    const fresh = wanted.filter((id) => !justFiled?.has(id) && !isPresent(attendance[id]))
+    const nameOf = (id: string) => justFiled?.get(id) ?? rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id
     // ⚠️ APPEND, don't fill-if-empty: one person routinely holds two jobs, and the Fahrer who
     // then goes under Atemschutz is «Fahrer Pio, AS». See lib/roleAssignment · mergeRoleNote for
     // when a part replaces an earlier one instead of joining it.
@@ -4018,7 +4082,7 @@ export function IncidentWorkspace({
     if (groupTemplate && roleNote) {
       const named = wanted
         .filter((id) => fresh.includes(id) || noted.has(id))
-        .map((id) => rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id)
+        .map(nameOf)
       if (named.length) log('people', fillTemplate(groupTemplate, { role: roleNote, list: named.join(', ') }), 'team')
       return
     }
@@ -4057,16 +4121,72 @@ export function IncidentWorkspace({
    *  picker (`leaderPersonId`) or the keyboard (the first name `unrecordedCrewNames` returns is
    *  `f.name`, which IS the leader — see types · Trupp.name). */
   const ensurePresentFromTrupp = (f: Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds' | 'kind'>) => {
+    /* ⚠️ Not on a session that cannot write the record (staging N2, 25.09.2026): on the
+       Atemschutz-Link every write below was a no-op while `addGuest` still logged «… als weitere
+       Person erfasst» — a line claiming a record that never changed. An editor device files that
+       crew when it SEES the Trupp (the observer effect below, lib/crewFiling). */
+    if (!canWriteRecord) { filedGuestsRef.current = new Map(); return }
     const { role, leaderRole, groupTemplate } = truppRoleNote(f)
+    // the Gäste the form's save filed a moment ago (fileTruppGuest) — this render's attendance
+    // does not hold them yet, and read from it they were filed a SECOND time (staging N1)
+    const filed = filedGuestsRef.current
+    filedGuestsRef.current = new Map()
     const ids = [f.leaderPersonId, ...(f.memberPersonIds ?? [])]
-    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined))
+    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined), filed)
     // 'presence': being in a Trupp contradicts nothing — the conflict check is about somebody
     // holding a SECOND job (lib/roleAssignment · roleConflictHint)
     const lead = f.name.trim()
-    for (const name of unrecordedCrewNames(f, (n) => personIdForName(rosterIdByName, n))) {
+    const filedIdOf = (n: string) => [...filed].find(([, nm]) => nm === n)?.[0]
+    for (const name of unrecordedCrewNames(f, (n) => filedIdOf(n) ?? personIdForName(rosterIdByName, n))) {
       assignTypedName(name, 'presence', name === lead ? leaderRole : role)
     }
   }
+  /** The Trupp form's Gast door (AtemschutzView · TruppForm · fileGuests), called at the SAVE.
+   *  A name the Mannschaft knows is that person; any other is a Gast row, filed QUIETLY — the
+   *  crew's one «Unter AS: …» row that `ensurePresentFromTrupp` writes right after names them
+   *  all — and remembered for that call (staging N1: one person, one row, one line). */
+  const filedGuestsRef = useRef<Map<string, string>>(new Map())
+  const fileTruppGuest = (name: string): string | undefined => {
+    openTruppSave()
+    const known = personIdForName(rosterIdByName, name)
+    if (known) return known
+    const id = addGuest(name, undefined, { quiet: true })
+    if (id) filedGuestsRef.current.set(id, name)
+    return id
+  }
+  /* ── A crew registered where the record cannot be written reaches it anyway (staging N2) ──
+     An Atemschutz-Link may write the Trupps and nothing else, so its crew — Gäste above all —
+     never reached the Anwesenheit. Every device that MAY write the record OBSERVES the Trupps and
+     files what is missing under ids every device derives the same way (lib/crewFiling), so two
+     tablets converge on one row per person and one Verlauf line per Trupp. A machine write: raw
+     `setAttendance`, never the undo timeline, and idempotent — once filed, nothing is left to
+     file (AGENTS.md · a machine writer writes nothing when nothing changed).
+     ⚠️ ONE-SHOT per (Trupp, person): the Trupp's `crewFiled` marker is stamped in the same pass,
+     for the people filed now AND those already on the list, so somebody taken OFF the Anwesenheit
+     later stays off on every device (types · Trupp.crewFiled). */
+  useEffect(() => {
+    if (!canWriteRecord || replayActive || incidentMeta.is_archived) return
+    const todo = unfiledTruppCrew(allTrupps, attendance, (n) => personIdForName(rosterIdByName, n))
+    if (!todo.length) return
+    const files = todo.filter((f) => f.entries.length)
+    if (files.length) {
+      setAttendance((cur) => {
+        let next = cur
+        for (const f of files) for (const e of f.entries) {
+          if (next[e.id]) continue
+          next = next === cur ? { ...cur } : next
+          next[e.id] = { ...openPresence(undefined, incidentMeta.started_at, e.name), note: e.note }
+        }
+        return next
+      })
+    }
+    setTrupps((ts) => stampCrewFiled(ts, todo))
+    for (const f of files) {
+      log('people', fillTemplate(f.groupTemplate, { role: f.role, list: f.entries.map((e) => e.name).join(', ') }), 'team',
+        undefined, undefined, { rowId: f.rowId })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTrupps, attendance, canWriteRecord, replayActive, incidentMeta.is_archived])
 
   /** Assign a role: presence + Bemerkung, and the hint if it contradicts the record (lib ·
    *  roleAssignment). The hint never blocks — it is shown after the assignment went through. */
@@ -4150,12 +4270,13 @@ export function IncidentWorkspace({
   // ⚠️ The CANONICALISED crew reaches the Anwesenheit too, not the raw form values: a Gast row is
   // opened under the name that is written down everywhere else, so «Hans Müller» typed into the
   // Trupp form cannot open a second row beside the roster's «Müller Hans».
-  const createTruppA = (t: Trupp) => { const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
-  const editTruppA = (id: string, f: TruppFields) => { const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
+  // ⚠️ Each is ONE step on the timeline with the crew filing it causes (openTruppSave).
+  const createTruppA = (t: Trupp) => { openTruppSave(); const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
+  const editTruppA = (id: string, f: TruppFields) => { openTruppSave(); const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
   // `standby` MUST be forwarded: this wrapper used to swallow it, so «Bereitstellen» ran the
   // «Wieder einrücken» path — a crew standing at the vehicle with a running contact clock, which
   // is exactly the case the standby fork exists to prevent (see useTruppActions · reactivateTrupp).
-  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
+  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { openTruppSave(); const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE
@@ -4247,7 +4368,7 @@ export function IncidentWorkspace({
       // this Einsatz) links that row instead of opening a second one beside it. No job
       // written here: the Trupp is not formed yet, and submitting it writes «AS» itself.
       // ⚠️ NOT for a link session: the Anwesenheit is not its slice, and the write would 403.
-      onAddGuest={canEditIncident ? (name) => assignTypedName(name, 'presence') : undefined}
+      onAddGuest={canEditIncident ? fileTruppGuest : undefined}
       createTrupp={createTruppA}
       placeTrupp={placeTrupp}
       placeTargets={placeTargets}
@@ -4325,7 +4446,7 @@ export function IncidentWorkspace({
    * Toasts + confirms are already mounted app-wide (App · Overlays), the icon sprite is not. */
   if (asLink) {
     return (
-      <div className="app as-link-shell">
+      <div className="app as-link-shell" ref={registerMeldeleisteHost}>
         <IconSprite />
         {/* ⚠️ Same tab-lock message as the full layout, WITHOUT its editor gate: an Atemschutz-
             Link session is role 'viewer' but genuinely writes, so losing the lock to another tab
@@ -4431,7 +4552,8 @@ export function IncidentWorkspace({
   )
 
   return (
-    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    // the Meldeleiste paints INSIDE this stacking context (lib/meldeleisteHost), under the top bar
+    <div ref={registerMeldeleisteHost} className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
@@ -6069,7 +6191,13 @@ export function IncidentWorkspace({
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
           always add a journal entry / photo / voice memo from the field — tap to compose,
           hold to record a voice memo (same gesture as the desktop TopBar Eintrag) */}
-      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && (
+      {/* ⚠️ …but NOT over the Atemschutz board (staging walk-through r2, 25.09.2026, N9). There it
+          sat on the third crew's «Kontakt» and on «Einsetzen»: a thumb at the right edge opened
+          the composer instead of confirming contact. A bottom inset cannot fix a button that
+          floats over a SCROLLING list, and a reserved 66px column would narrow every row's
+          Druck | Kontakt at 360px — the board's primary controls — to protect a secondary one.
+          The Verlauf stays one tap away in the phone's top bar. */}
+      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && mode !== 'atemschutz' && (
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}

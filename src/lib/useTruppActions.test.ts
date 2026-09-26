@@ -8,6 +8,7 @@ import { fillTemplate } from './format'
 import type { Doc } from './workspace'
 import { objectsFromLegacy } from './tacticalObjects'
 import { createUndoTimeline } from './undoTimeline'
+import { foreignContactAgo, resetOwnContacts } from './contactEcho'
 
 // Capture the confirm-with-undo toasts, so the undo the operator would tap can be tapped here.
 // `vi.hoisted` because vi.mock's factory is hoisted above the imports and would otherwise read
@@ -25,11 +26,19 @@ vi.mock('./ui', async (importOriginal) => ({
     ui.toasts.push({ text, undo: opts?.action?.onClick })
     return 0
   },
+  undoToast: (text: string, onUndo: () => void) => {
+    ui.toasts.push({ text, undo: onUndo })
+    return 0
+  },
   confirmDialog: (opts: { title?: string; message: string }) => {
     ui.confirms.push(opts)
     return Promise.resolve(ui.answer)
   },
 }))
+
+// ⚠️ This device's own contacts are module state (lib/contactEcho · recentOwnContact): a Kontakt on
+// «T1» in one test would read as the same tap again in the next
+beforeEach(resetOwnContacts)
 
 // useTruppActions has no React hooks inside — it's a closure factory over injected setters,
 // so the one-place invariant (map XOR plan) is testable without renderHook.
@@ -225,17 +234,36 @@ describe('recordPressure in the first minutes after the Eintritt', () => {
     actions.recordPressure('T1', 280)
     const t = state.trupps[0]
     expect(t.entryPressureBar).toBe(280)
-    expect(t.readings?.map((r) => r.kind)).toEqual(['entry']) // no `pressure` row was written
-    expect(t.readings?.[0].bar).toBe(280)
+    // no `pressure` row — but a `contact` one: the radio call happened (staging 25.09.2026)
+    expect(t.readings?.map((r) => r.kind)).toEqual(['entry', 'contact'])
+    expect(t.readings?.[0]).toMatchObject({ bar: 280, measured: true })
     expect(t.lastPressureBar).toBeUndefined()
     expect(t.lowestBar).toBe(280)
-    // …a correction, not a Funkkontakt: the safety clock stays where the Eintritt put it
-    expect(t.lastContactTime).toBe(t.entryTime)
+    // …and it IS a Funkkontakt: the sheet says «zählt als Kontakt», so the safety clock resets
+    expect(t.lastContactTime).not.toBe(t.entryTime)
     // the Schätzung then has ONE sample and falls back to the assumption — never a 'history' rate
     expect(estimatePressure(t, Date.now(), 7, 50)).toMatchObject({ source: 'assumption', sampleCount: 1 })
-    expect(lines).toEqual([fillTemplate(appConfig.copy.atemschutz.logEditFields, {
-      name: 'Keller Anna', changes: fillTemplate(appConfig.copy.atemschutz.changePressure, { from: '300', to: '280' }),
-    })])
+    expect(lines).toEqual([fillTemplate(appConfig.copy.atemschutz.logFirstPressure, { name: 'Keller Anna', bar: 280, from: 300 })])
+  })
+
+  it('never replaces an Eingangsdruck set on purpose — a measured 250 stays, the 280 is a reading', () => {
+    const entry = ago(60_000)
+    const { actions, state } = harness(fresh({ entryPressureBar: 250, lowestBar: 250,
+      readings: [{ t: entry, bar: 250, kind: 'registered', measured: true }, { t: entry, bar: 250, kind: 'entry' }] }))
+    actions.recordPressure('T1', 280)
+    const t = state.trupps[0]
+    expect(t.entryPressureBar).toBe(250)
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'pressure', bar: 280 })
+  })
+
+  it('a second Druck in the window is an ordinary reading — the first already set the baseline', () => {
+    const { actions, state } = harness(fresh())
+    actions.recordPressure('T1', 280)
+    // the next render's actions see the corrected Trupp
+    const h2 = harness(state.trupps[0])
+    h2.actions.recordPressure('T1', 270)
+    expect(h2.state.trupps[0].entryPressureBar).toBe(280)
+    expect(h2.state.trupps[0].readings?.[h2.state.trupps[0].readings!.length - 1]).toMatchObject({ kind: 'pressure', bar: 270 })
   })
 
   it('records an ordinary Druckmeldung at +5 min', () => {
@@ -291,6 +319,16 @@ describe('setTruppEquipment', () => {
     })])
     timeline.undo()
     expect(state.trupps[0].equipment).toBeUndefined()
+  })
+
+  it('an undo takes the edit back and KEEPS the crew-filing marker stamped since (a machine fact, crewFiling)', () => {
+    const { actions, state, timeline } = timed(baseTrupp({ no: 2, crewFiled: ['p1'] }))
+    actions.setTruppEquipment('T1', ['wbk'])
+    // an editor device's observer stamps a second key in between (IncidentWorkspace · crew filing)
+    state.trupps = state.trupps.map((t) => ({ ...t, crewFiled: ['p1', 'p2'] }))
+    timeline.undo()
+    expect(state.trupps[0].equipment).toBeUndefined()
+    expect(state.trupps[0].crewFiled).toEqual(['p1', 'p2'])
   })
 
   it('says «keine» when the last item is taken off, and writes nothing when nothing changed', () => {
@@ -904,7 +942,7 @@ describe('useTruppActions — what changed on the way back in', () => {
     })
     expect(lines).toEqual([
       'Trupp Bachmann Reto / Pfister Markus: erneuter Eintritt – Eingangsdruck 300 bar – Retten · Kanal 7',
-      'Trupp Bachmann Reto: Auftrag Retten, Funkkanal 5 → 7',
+      'Trupp Bachmann Reto / Pfister Markus: Auftrag Retten, Funkkanal 5 → 7',
     ])
   })
 
@@ -2340,5 +2378,111 @@ describe('useTruppActions — Raus with a Restdruck', () => {
     const t = state.trupps[0]
     expect(t.lastPressureBar).toBeUndefined()
     expect(lines).toEqual(['Trupp Keller Anna nicht eingesetzt'])
+  })
+})
+
+describe('useTruppActions — the Sicherungstrupp going in says so (24.09.2026, D1 ⑦)', () => {
+  const standing = (over: Partial<Trupp> = {}): Trupp =>
+    baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [], auftrag: 'sichern', ...over })
+
+  it('writes «Sicherungstrupp eingesetzt» for the first Eintritt of a Trupp on «Sichern»', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(standing(), undefined, (_i, t) => lines.push(t))
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(lines).toEqual(['Trupp Keller Anna: Sicherungstrupp eingesetzt'])
+    // the record is an ordinary Eintritt: the clock starts, the log opens the run
+    const t = state.trupps[0]
+    expect(t.status).toBe('aktiv')
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'entry', bar: 300 })
+  })
+
+  it('keeps the plain «Eintritt» for any other Auftrag, and for a work squad on «Sichern»', () => {
+    const lines: string[] = []
+    harness(standing({ auftrag: 'loeschen' }), undefined, (_i, t) => lines.push(t)).actions.setTruppStatus('T1', 'aktiv')
+    harness(standing({ kind: 'einfach', entryPressureBar: 0 }), undefined, (_i, t) => lines.push(t)).actions.setTruppStatus('T1', 'aktiv')
+    expect(lines).toEqual(['Trupp Keller Anna: Eintritt', 'Trupp Keller Anna: Eintritt – ohne Atemschutz'])
+  })
+
+  it('is undoable like every other Eintritt — ↶ puts the crew back at the Tafel', () => {
+    const { actions, state, timeline } = timed(standing())
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(state.trupps[0].status).toBe('aktiv')
+    timeline.undo()
+    expect(state.trupps[0]).toMatchObject({ status: 'angemeldet', entryTime: '' })
+  })
+})
+
+describe('useTruppActions — this device notes its own contacts (lib/contactEcho)', () => {
+  beforeEach(resetOwnContacts)
+  const lastAt = (t: Trupp) => Date.parse(t.readings![t.readings!.length - 1].t)
+
+  it('a Kontakt, a Druck and a Rückzug written here never read as «anderes Gerät»', () => {
+    const a = harness(baseTrupp({ readings: [] }))
+    a.actions.recordContact('T1')
+    expect(foreignContactAgo(a.state.trupps[0], lastAt(a.state.trupps[0]))).toBeNull()
+    const b = harness(baseTrupp({ readings: [] }))
+    b.actions.recordPressure('T1', 280)
+    expect(foreignContactAgo(b.state.trupps[0], lastAt(b.state.trupps[0]))).toBeNull()
+    const c = harness(baseTrupp({ readings: [] }))
+    c.actions.setTruppStatus('T1', 'rueckzug')
+    expect(foreignContactAgo(c.state.trupps[0], lastAt(c.state.trupps[0]))).toBeNull()
+  })
+
+  it('…while the same row arriving from elsewhere does', () => {
+    const now = Date.now()
+    const other = { id: 'T1', readings: [{ t: new Date(now - 5000).toISOString(), bar: 300, kind: 'contact' as const }] }
+    expect(foreignContactAgo(other, now)).toBe(5)
+  })
+})
+
+describe('useTruppActions — the same Kontakt tapped twice on this device', () => {
+  it('writes ONE contact and ONE Verlauf row for a double tap', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(baseTrupp({ readings: [] }), undefined, (_i, t) => lines.push(t))
+    actions.recordContact('T1')
+    actions.recordContact('T1')
+    expect(state.trupps[0].readings?.filter((r) => r.kind === 'contact')).toHaveLength(1)
+    expect(lines).toHaveLength(1)
+  })
+
+  it('still takes a Kontakt on ANOTHER Trupp at once', () => {
+    const { actions, state } = harness(baseTrupp({ readings: [] }), { trupps: [baseTrupp({ id: 'T2', readings: [] })] })
+    actions.recordContact('T1')
+    actions.recordContact('T2')
+    expect(state.trupps.map((t) => t.readings?.length)).toEqual([1, 1])
+  })
+})
+
+describe('useTruppActions — an Eingangsdruck set on purpose is logged as measured', () => {
+  it('re-entry with a dialled cylinder marks the entry row', () => {
+    const out = baseTrupp({ status: 'raus', exitTime: '2026-07-06T10:20:00Z', readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' }] })
+    const { actions, state } = harness(out)
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 250, pressureMeasured: true })
+    const rows = state.trupps[0].readings!
+    expect(rows.find((r) => r.kind === 'entry' && r.bar === 250)).toMatchObject({ measured: true })
+  })
+})
+
+describe('useTruppActions — a removal says so and can be taken back from the toast (staging N4)', () => {
+  it('shows ONE confirm-with-undo toast; its «Rückgängig» restores the card and drops the ↶ entry', () => {
+    ui.toasts.length = 0
+    const { actions, state, timeline } = timed(baseTrupp({ no: 3, members: ['Graf Eva'] }))
+    actions.deleteTrupp('T1')
+    expect(state.trupps[0].removedAt).toBeTruthy()
+    expect(ui.toasts).toHaveLength(1)
+    expect(ui.toasts[0].text).toBe(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: '3 (Keller Anna / Graf Eva)' }))
+    ui.toasts[0].undo!()
+    expect(state.trupps[0].removedAt).toBeUndefined()
+    // the delete is no longer on the timeline — it cannot be taken back a second time
+    expect(timeline.canUndo()).toBe(false)
+  })
+})
+
+describe('useTruppActions — an edit row names the whole crew (staging r2, N27)', () => {
+  it('«Trupp N (Leader / Member): …», like every other row about the people in it', () => {
+    const lines: string[] = []
+    const { actions } = harness(baseTrupp({ no: 4, members: ['Graf Eva'], auftrag: 'loeschen' }), undefined, (_i, t) => lines.push(t))
+    actions.editTrupp('T1', { name: 'Keller Anna', members: ['Graf Eva'], pressure: 300, auftrag: 'retten' })
+    expect(lines[0]).toMatch(/^Trupp 4 \(Keller Anna \/ Graf Eva\): /)
   })
 })

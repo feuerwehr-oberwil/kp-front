@@ -30,9 +30,9 @@ Nachalarm, automatic archival.
 
 Every Trupp row names the Trupp as `Trupp N (Gruppenführer …)` since 12.09.
 ([`trupp-naming.md`](trupp-naming.md) §4): safety rows (angemeldet, Eintritt, Kontakt, Druck,
-Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names; housekeeping rows
-(platziert, Farbe, Leitung, bearbeitet, gelöscht, wiederhergestellt, nicht mehr gesetzt) name the
-leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
+Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names, and so do the edit
+rows («bearbeitet», since 25.09.2026); housekeeping rows (platziert, Farbe, Leitung, gelöscht,
+wiederhergestellt, nicht mehr gesetzt) name the leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
 that date keep their `Trupp {Gruppenführer}` wording – the log is append-only.
 
 A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
@@ -46,6 +46,33 @@ Rapport as «Von Tafel entfernt».
 
 Everything else on the Atemschutz board is in the Verlauf: placing, radio contact, pressure
 report, status change, editing, returning, linking/unlinking a Leitung, alarm escalation.
+
+⚠️ **The Sicherungstrupp going in says so** (2026-09-24): the first Eintritt of an
+Atemschutz-Trupp on Auftrag «Sichern» writes «Trupp N (…): Sicherungstrupp eingesetzt»
+(`logSafetyEntry`) instead of the plain «Eintritt» – whether it came from the phone slot's
+«Einsetzen» or the card's «Im Einsatz». Derived from the Trupp, not from the button. The log row
+underneath is an ordinary `entry`, and ↶ takes it back like any Eintritt. The Abschluss's
+«Als «nicht eingesetzt» schliessen» writes the existing «Trupp … nicht eingesetzt» row, one per
+Trupp still angemeldet. «Sicherungstrupp bestimmen» on an existing Trupp is an ordinary edit
+(«Auftrag Sichern»). A double contact answered «OK» (another device confirmed it < 60 s ago)
+writes nothing at all.
+
+⚠️ **The first Druck after the Eintritt is a Kontakt that says what it replaced** (2026-09-25):
+within 3 min of the Eintritt, with no reading yet and an Eingangsdruck nobody set, a Druckmeldung
+writes ONE row — «Trupp N (…): Kontakt – erste Druckmeldung 260 bar ersetzt den Eingangsdruck 300
+bar» (`logFirstPressure`) — resets the contact clock and appends a `contact` log row beside the
+corrected baseline. It used to be only an edit row («Eingangsdruck 300 → 260 bar») with no Kontakt.
+A double tap on «Kontakt» writes one row, not two.
+
+⚠️ **The crew reaches the Anwesenheit once, and the row names people** (2026-09-25, staging r2):
+the Gäste a Trupp form files at its save are filed quietly and named in the crew's ONE «Unter AS:
+…» row (never twice, never by id). A crew registered on the Atemschutz-Link writes no «erfasst»
+row there (the link cannot write the Anwesenheit); an editor device that sees the Trupp files the
+crew under derived ids and writes that one row under a derived row id (`atc-<truppId>-…`,
+lib/crewFiling), so several devices write it once — and only once per (Trupp, person): the
+Trupp's `crewFiled` marker keeps a deliberate deletion from the Anwesenheit deleted. «Nicht eingesetzt» closes a Trupp with an
+`exit` log row that is LABELLED «Nicht eingesetzt» on the card and on the Rapport, never
+«Austritt» (lib/atemschutz · isStandDownExit).
 
 ⚠️ **Two contact kinds have been kinds of their own since 2026-08-19**, no longer «Kontakt»: the
 **exit** («Ausgerückt») and the **re-entry** after a Rückzug. The safety clock is untouched by

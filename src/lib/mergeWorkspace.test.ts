@@ -546,3 +546,39 @@ describe('mergeWorkspace — every field of the blob has a declared merge policy
     expect(mergeWorkspace({ future: 1 }, { future: 1 }, { future: 2 }).future).toBe(1)
   })
 })
+
+/* staging r3 F11: four tablets filed the same Link crew under the same derived id, and every
+ * person got «abweichende Angaben zusammengeführt – bitte prüfen» with two identical sides. The
+ * server hands JSONB back with its keys re-sorted; key order is not a difference, nor is the
+ * moment a device wrote the same Funktion. */
+describe('attendance conflicts — only when the two sides say something different', () => {
+  const entry = { status: 'present', displayNameSnapshot: 'Tst Jan', intervals: [{ from: '2026-09-25T17:09:00Z' }], checkedInAt: '2026-09-25T17:09:00Z', note: 'AS-GF' }
+  // the same entry as JSONB returns it: keys sorted by length, then bytewise
+  const sorted = (o: Record<string, unknown>) => Object.fromEntries(Object.keys(o).sort((a, b) => a.length - b.length || (a < b ? -1 : 1)).map((k) => [k, o[k]]))
+
+  it('two devices filing the same person under the same derived id collapse silently, whatever the key order', () => {
+    const conflicts: unknown[] = []
+    const merged = mergeWorkspace({ attendance: {} }, { attendance: { 'g-t1-x': entry } }, { attendance: { 'g-t1-x': sorted(entry) } },
+      (c) => conflicts.push(c)) as { attendance: Record<string, unknown> }
+    expect(conflicts).toEqual([])
+    expect(merged.attendance['g-t1-x']).toEqual(entry)
+  })
+
+  it('a difference only in noteAt is no divergence; a different Funktion still is', () => {
+    const conflicts: unknown[] = []
+    mergeWorkspace({ attendance: {} }, { attendance: { p1: { ...entry, noteAt: '2026-09-25T17:09:01Z' } } },
+      { attendance: { p1: { ...entry, noteAt: '2026-09-25T17:09:03Z' } } }, (c) => conflicts.push(c))
+    expect(conflicts).toEqual([])
+    mergeWorkspace({ attendance: {} }, { attendance: { p1: entry } }, { attendance: { p1: { ...entry, note: 'AS' } } }, (c) => conflicts.push(c))
+    expect(conflicts).toHaveLength(1)
+  })
+
+  it('an unchanged object that came back from the server with sorted keys yields to the other device\'s edit', () => {
+    // shifts merge whole-object (no field resolver): «both changed» there is LWW-mine, so reading
+    // a re-sorted ancestor as MY change would silently throw the other device's edit away
+    const sh = { id: 'sh1', personId: 'p1', from: '2026-09-25T17:00:00Z', to: '2026-09-25T19:00:00Z' }
+    const theirs = { ...sh, to: '2026-09-25T21:00:00Z' }
+    const merged = mergeWorkspace({ shifts: [sorted(sh)] }, { shifts: [sh] }, { shifts: [theirs] }) as { shifts: typeof sh[] }
+    expect(merged.shifts[0].to).toBe('2026-09-25T21:00:00Z')
+  })
+})

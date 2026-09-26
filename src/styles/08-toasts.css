@@ -69,6 +69,10 @@
    bar — the strip hangs 92px below it and never overlaps it — so it goes under, and everything
    the bar opens drops over the strip as it should. Above the rails (35/36) and the Replay bar
    (50), below the Verlauf's scrim and drawer (60/61) and every overlay at 80+.
+   ⚠️ …which holds only INSIDE `.app` (staging r5, N3). `.app` is position:fixed and so its own
+   stacking context; mounted beside it at App root, the strip outranked the whole of it and lay
+   over the open Einsatz menu's card («Zum Trupp» took the tap). So the strip PORTALS into the
+   open Einsatz's `.app` (lib/meldeleisteHost) and only paints at App root with no Einsatz open.
    ⚠️ There is no rule for the empty case, because there is no empty case: with nothing pending
    the component returns null and the map runs up under the top bar exactly as before.
    The rows remain equally direct, but the stack is bounded by the viewport. On a busy incident
@@ -165,6 +169,31 @@
 }
 .ml-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ml-x.ghost { visibility: hidden; pointer-events: none; }
+/* ── On the Trupp-Tafel: one row, a count, and the Tafel BELOW the strip (staging r3) ─────────
+   Two rows («wieder geöffnet» + «abgesucht?») took 207px at 360 and sat on the first crew's
+   contact clock; at 820 a single row covered the page title. On the Tafel — and nowhere else, the
+   rest of the app keeps every row open (Meldeleiste's header) — the strip shows its most urgent
+   row and folds the others into a count that opens them.
+   ⚠️ And EVERY full page stands below the strip, not only the Tafel (staging r4, W1: the alarm
+   row over the Anwesenheit's tabs turned a tap on «Zeitplan» into «Zum Trupp»). The strip
+   publishes its height as `--ml-h` (Meldeleiste · useLayoutEffect); `--ml-push` is how far the
+   shared shell moves down for it (Surface.module.css), measured so the page's top edge lands 8px
+   under the strip's bottom edge: the strip hangs at 92px (72px on a phone), the shell at 88px
+   (78px). The Karte and the plans are not pages — the strip floats over the map there, as ever. */
+.ml-more { display: none; }
+:root:has(.az-tafel) .ml-more { display: flex; align-items: center; width: 100%; min-height: 44px;
+  padding: 0 13px 0 16px; border: none; border-top: 1px solid var(--border-soft); background: none;
+  font: 600 13px var(--body); color: var(--ink-dim); text-align: left; cursor: pointer; }
+:root:has(.az-tafel) .ml:not(.ml-all) .ml-row ~ .ml-row { display: none; }
+:root:has(.az-tafel) .ml { max-height: min(40dvh, 320px); }
+:root:has(.ml):not(:has(.as-link-shell)) { --ml-push: calc(var(--ml-h, 0px) + 12px + env(safe-area-inset-top)); }
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  :root:has(.ml):not(:has(.as-link-shell)) { --ml-push: calc(var(--ml-h, 0px) + 2px); }
+}
+/* The handed-over Tafel has no top bar: the strip stands at the top of the screen and the shell's
+   column starts under it. */
+:root:has(.as-link-shell) .ml { top: max(8px, env(safe-area-inset-top)); }
+:root:has(.as-link-shell):has(.ml) .as-link-shell { padding-top: calc(max(8px, env(safe-area-inset-top)) + var(--ml-h, 0px) + 8px); }
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* the rails are gone from the sides here (the nav rail is the bottom bar), so the strip takes
      the full width — and the actions drop onto a second line per row, where they may shrink
@@ -388,10 +417,13 @@
    more of the same sentence */
 .confirm-note { margin: 0 0 18px; font: 500 12.5px/1.45 var(--body); color: var(--ink-faint); }
 .confirm-msg:last-of-type:not(:only-of-type) { margin-bottom: 18px; }
-.confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+/* ⚠️ …and it WRAPS on a wide screen too (staging walk-through 25.09.2026, N22): three long
+   answers («Trotzdem abschliessen · Zur Tafel · Abbrechen») pushed «Abbrechen» out past the
+   card's left edge at 1180px. A button that does not fit takes the next line, never the margin. */
+.confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 /* .ip-btn, the house family — `.btn` is the dense map-dock button (12.5px, flex:1, bounces on
    press) and using it here is what made the confirm read as another app's dialog. */
-.confirm-actions .ip-btn { flex: 0 0 auto; min-width: 96px; min-height: var(--tap); justify-content: center; }
+.confirm-actions .ip-btn { flex: 0 0 auto; min-width: 96px; max-width: 100%; min-height: var(--tap); justify-content: center; }
 .btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
 @media (hover: hover) {
   .btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }

@@ -18,7 +18,7 @@ import type { ReportDraft } from './report'
 import {
   annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
 } from './report'
-import { isAtemschutzTrupp } from './atemschutz'
+import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
@@ -361,6 +361,8 @@ export function einsatzleiterForPdf(
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
   const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
   const meta = draft.meta
+  // the moment a CLOSED Einsatz was closed — ends the sorties nobody reported out (see trupps)
+  const closedAt = incident.is_archived ? incident.closed_at ?? undefined : undefined
 
   // journal photos: send the server-relative media URL — the composer loads the bytes
   // from its own media store (session-only blob: URLs can't be resolved there and are
@@ -528,7 +530,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         return {
           leader,
           cycles: cycles.map((c) => ({
-            entry: formatDateTime(c.entry), exit: c.exit ? formatDateTime(c.exit) : undefined,
+            entry: formatDateTime(c.entry),
+            // ⚠️ A sortie still open when the Einsatz was CLOSED ends at the close, and says so
+            // (staging r3 F4): «19:37 – 19:52 (beim Abschluss noch drin)», not an open «19:37»
+            // that reads as a crew still inside today. No Austritt is invented — the words say
+            // nobody reported one. While the Einsatz is open (or open again) it stays open.
+            exit: c.exit ? formatDateTime(c.exit)
+              : closedAt ? fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime(closedAt) }) : undefined,
             crew: c.crew.join(' / '),
             changes: c.changes.map((ch) => ({ t: formatDateTime(ch.t), text: ch.text })),
           })),
@@ -563,9 +571,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         // ⚠️ no bar on a Kontakt/Rückzug row — that number was carried over, not read off a gauge
         // — and none on a row of 0, which is a Trupp that had no cylinder when it was written
         // (lib/report · readingBarShown)
-        .map((rr) => ({
+        .map((rr, i, all) => ({
           t: rr.t ? formatDateTime(rr.t) : '',
-          kindLabel: readingKindLabel(rr.kind),
+          kindLabel: readingKindLabel(rr.kind, isStandDownExit(all, i)),
           bar: rr.bar != null && readingBarShown(rr) ? String(rr.bar) : undefined,
         }))),
     })),

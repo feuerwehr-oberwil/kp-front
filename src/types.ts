@@ -884,7 +884,11 @@ export type TruppAuftrag = AtemschutzAuftrag | EinfachAuftrag
  *  while it is being edited, and asked again for each re-deployment — a crew that fought the fire
  *  under PA goes back in to clear up without it. `editTrupp` and `reactivateTrupp` each own what
  *  that change writes, because it starts or stops a safety watch (see Trupp.kind). */
-export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind; equipment?: string[] }
+export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind; equipment?: string[]
+  /** the Eingangsdruck was set ON PURPOSE in the form (dialled, typed, a bottle answer, a low value
+   *  confirmed) — its log row is marked `measured`, so the first Druckmeldung never «corrects» it
+   *  (lib/atemschutz · entryPressureConfirmed). Absent = the untouched default. */
+  pressureMeasured?: boolean }
 
 /**
  * One Beilage to the Einsatzrapport — a photo that belongs to the REPORT rather than to the
@@ -994,6 +998,19 @@ export interface Trupp {
    * alarms, markers, roster locks — can keep seeing it); the Rapport reads the unfiltered slice.
    * Cleared again by the delete's own «Rückgängig». */
   removedAt?: string
+  /**
+   * Whom of this crew the Anwesenheit has already been told about — the crew filing's one-shot
+   * marker (lib/crewFiling). One key per person: the roster id, or the derived Gast id
+   * `g-<truppId>-<hash>`. Sorted, grow-only, and MERGED AS A UNION (mergeWorkspace · mergeTrupp).
+   *
+   * ⚠️ Without it the filing was a reconciliation that wrote a deliberate deletion straight back:
+   * somebody takes a crew member off the Anwesenheit, and the next device that observes the Trupp
+   * files them again (the ghost-trail trap, AGENTS.md). A key here means «filed once, or already
+   * there when the Trupp was seen» — whatever happens to that entry afterwards is a person's
+   * decision, and no device undoes it. A machine field: undo restores keep it (useTruppActions ·
+   * remember / restoreTrupp), and a merge that differs only here is not a Trupp conflict.
+   */
+  crewFiled?: string[]
   /**
    * The Trupp's own number — «Trupp 3» — handed out at registration from ONE counter per Einsatz
    * that unlinked plan chips and map markers («Trupp N», lib/placedTrupps · nextTeamName) draw
