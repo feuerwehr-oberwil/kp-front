@@ -7,11 +7,13 @@ import s from './Suche.module.css'
  * area (lib/useSucheTrupps). Typing stays as it always was — a NEW name creates the area.
  * Rendered by the Trupp form only under «Absuchen»; the form owns nothing else of the Suche.
  */
-export function ZielChips({ choices, value, onPick }: { choices: readonly string[]; value: string; onPick: (v: string) => void }) {
+/** `bare` (27.09.2026): no «Bereich wählen» label — the Auftrag sheet already has «Ziel» over the
+ *  field the chips fill, and two labels for one thing was the first thing the owner struck */
+export function ZielChips({ choices, value, onPick, bare = false }: { choices: readonly string[]; value: string; onPick: (v: string) => void; bare?: boolean }) {
   const C = appConfig.copy.suche
   return (
     <div className={s.zielChips} role="group" aria-label={C.zielChoices}>
-      <span className={s.label}>{C.zielChoices}</span>
+      {!bare && <span className={s.label}>{C.zielChoices}</span>}
       <div className={s.chips}>
         {choices.map((c) => (
           <button key={c} type="button" className={s.chip} aria-pressed={value.trim() === c} onClick={() => onPick(c)}>{c}</button>

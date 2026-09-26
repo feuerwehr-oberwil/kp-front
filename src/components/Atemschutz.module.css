@@ -1890,7 +1890,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .stateLine { margin-top: 8px; font: 800 12.5px/1.35 var(--body); color: var(--amber-strong); }
 /* the Trupp's number after the name on the opened card's head (RowLine · no) — and «after the
    name» means beside its last letter, so the name gives up its stretch there */
-.trowNo { margin-left: 2px; }
+/* the opened phone card's «#N»: plain small text after the name, no tag fill (owner review
+   27.09.2026 — the filled tag read as one more button beside seven chips) */
+.trowNo { margin-left: 4px; padding: 0; min-width: 0; background: none; font-size: 12px; font-weight: 700; }
 .trowName:has(> .trowNo) > .trowNameTxt { flex: 0 1 auto; }
 /* the opened card's foot as ONE terse line: values with units, the Verlauf's chevron at the end,
    and the whole line is the tap (TruppCard · footZone, rowMode) */
@@ -1937,10 +1939,10 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 /* the missing Auftrag: dashed and amber, the one gap that stays visible on the card */
 .factDash { box-shadow: none; outline: 1.5px dashed color-mix(in srgb, var(--amber) 70%, transparent);
   outline-offset: -1.5px; color: var(--amber-strong); }
-/* a chip that JUMPS somewhere (the drawn Leitung, the docked symbol) wears the chevron in the blue
-   the Kennzeile's jumps wear */
-.factGo { color: var(--blue); }
-.factGo :global(.i) { color: var(--blue); }
+/* a chip that JUMPS somewhere (the drawn Leitung, the docked symbol) keeps a small chevron, in the
+   dim ink — NOT the Kennzeile's blue (owner review 27.09.2026): on the phone card no chip wears a
+   colour, every chip is a door, and the chevron alone says this one leads off the card */
+.factGo :global(.i) { width: 14px; height: 14px; color: var(--ink-dim); }
 /* the ⋯, the last chip: square, the glyph in the dim ink */
 .factMore { width: 36px; padding: 0; justify-content: center; color: var(--ink-dim); }
 .factMore :global(.i) { width: 18px; height: 18px; color: inherit; }
@@ -2012,6 +2014,9 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    with the keyboard up it stays at the bottom, lifted by the Overlay's margin). The body scrolls
    (a 99-key Kanal pad), head and foot stay. */
 .miniSheet { width: min(420px, calc(100vw - 24px)); height: auto; max-height: calc(100dvh - 24px); }
+/* the Kanal pad: never taller than ~60% of the phone — a 1–99 station otherwise filled the whole
+   screen with keys (27.09.2026); the body scrolls and opens on the current key */
+.miniSheetPad { max-height: min(60dvh, 520px); }
 .miniSheet h3 { line-height: 1.2; }
 /* the Trupp sheet carries the crew picker: wider on a tablet, the same bottom sheet on a phone */
 .miniSheetTall { width: min(520px, calc(100vw - 24px)); }

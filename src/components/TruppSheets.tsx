@@ -84,7 +84,7 @@ export function KanalSheet({ t, onSave, onClose }: {
   }
   const clamp = (v: number) => Math.max(dz.funkkanalMin, Math.min(dz.funkkanalMax, v))
   return (
-    <MiniSheet title={az.funkkanalUnit} sub={truppSheetSub(t)} ariaLabel={`${az.funkkanalUnit} · ${t.name}`} onClose={onClose}
+    <MiniSheet title={az.funkkanalUnit} sub={truppSheetSub(t)} ariaLabel={`${az.funkkanalUnit} · ${t.name}`} onClose={onClose} className={pad ? s.miniSheetPad : undefined}
       footer={pad ? undefined : (
         <SheetFoot className={s.modalFoot}>
           <button type="button" className="ip-btn primary" onClick={() => void pick(typed)}>{az.save}</button>
@@ -160,7 +160,7 @@ export function AuftragSheet({ t, zielChoices, leitungOptions, lite = false, onS
       </label>
       {/* the Suche's places as quick-picks — for EVERY Auftrag here (the form shows them under
           «Absuchen» only): a Löschtrupp sent to «2. OG» picks the storey the Suche already named */}
-      {zielChoices && zielChoices.length > 0 && <ZielChips choices={zielChoices} value={ziel} onPick={setZiel} />}
+      {zielChoices && zielChoices.length > 0 && <ZielChips choices={zielChoices} value={ziel} onPick={setZiel} bare />}
       {!lite && (
         <div className={s.field}>
           <span>{az.editFieldLabels.lineNo}</span>
