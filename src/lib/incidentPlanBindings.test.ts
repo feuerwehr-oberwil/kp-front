@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { addPlanBindings, effectiveBindingGeoref, fillBindingFloors, mergeIncidentPlanBindings, incidentBindingApproved, inheritPlanBinding, incidentGeorefForPlan, incidentGeorefKey, isIncidentPlanBinding, overridePlanBinding, registerIncidentPlanBindings, saveIncidentGeoref } from './incidentPlanBindings'
 import { mergeWorkspace } from './mergeWorkspace'
+import { serverRoundTrip } from './jsonb.test-utils'
 import { deriveInitial, sanitizeWorkspace } from './workspace'
 import { georefPlans, planAspect } from './georefTwins'
 import { projectOnto } from './planProjection'
@@ -77,6 +78,21 @@ describe('incident plan snapshots', () => {
     const corrected = overridePlanBinding([original], original.id, { pairs: [] })
     expect(mergeWorkspace({ planBindings: [original] }, { planBindings: corrected }, { planBindings: [original] }).planBindings).toEqual(corrected)
     expect(mergeWorkspace({ planBindings: corrected }, { planBindings: [original] }, { planBindings: corrected }).planBindings).toEqual([{ ...original, override: undefined }])
+  })
+
+  // staging r3 F11: the server's JSONB re-sorts every key (a pair's `lngLat` reads {lat, lng}),
+  // and a key-order-only difference made my untouched binding «a different snapshot»
+  it.each(['jsonb', 'alphabetical'] as const)('a correction survives the bound snapshot coming back from the server re-sorted (%s)', (order) => {
+    const original = binding()
+    const onServer = serverRoundTrip([original], order)
+    expect(JSON.stringify(onServer)).not.toBe(JSON.stringify([original]))
+    const override = { pairs: [{ plan: { x: 0.2, y: 0.2 }, lngLat: { lng: 7.5002, lat: 47.4998 }, kind: 'gesetzt' as const }, ...pairs] }
+    // my correction wins over the server's unchanged binding…
+    const corrected = overridePlanBinding([original], original.id, override)
+    expect(mergeWorkspace({ planBindings: onServer }, { planBindings: corrected }, { planBindings: onServer }).planBindings).toEqual(corrected)
+    // …and another device's correction wins over my unchanged one
+    const theirs = serverRoundTrip(overridePlanBinding([original], original.id, override), order)
+    expect(mergeWorkspace({ planBindings: onServer }, { planBindings: [original] }, { planBindings: theirs }).planBindings).toEqual(theirs)
   })
 
   it('preserves a legacy fit under existing annotations without inventing approval', () => {

@@ -6,6 +6,7 @@ import {
 } from './tacticalObjects'
 import type { Doc } from './workspace'
 import type { BoardDoc, Entity } from '../types'
+import { jsonEqual } from './jsonEqual'
 
 /**
  * THE tactical store: one collection of `TacticalObject`s, and the two legacy documents every
@@ -251,7 +252,7 @@ export function useObjectStore(
     const events: ForeignSheetEditEvent[] = []
     const current = new Map(store.current().map((o) => [o.id, o]))
     for (const { before, after } of foreignPending.current.values()) {
-      if (!after.sheet || current.get(after.id)?.sheet?.planId !== after.sheet.planId || JSON.stringify(before) === JSON.stringify(after)) continue
+      if (!after.sheet || current.get(after.id)?.sheet?.planId !== after.sheet.planId || jsonEqual(before, after)) continue
       // Full replacement preserves field removals through JSON transport as well.
       events.push({ op: 'board.edit', payload: { id: after.id, planId: after.sheet.planId, patch: after.sheet.anno, replace: true } })
       if (after.entity) events.push({ op: 'entity.edit', payload: { id: after.id, patch: after.entity, replace: true } })
@@ -305,7 +306,7 @@ export function useObjectStore(
         for (const before of out) {
           if (!before.sheet || before.sheet.planId === planId) continue
           const after = foldedById.get(before.id)
-          if (after && after.sheet?.planId === before.sheet.planId && JSON.stringify(before) !== JSON.stringify(after)) {
+          if (after && after.sheet?.planId === before.sheet.planId && !jsonEqual(before, after)) {
             changedOwners.set(before.id, { before: changedOwners.get(before.id)?.before ?? before, after })
           }
         }
