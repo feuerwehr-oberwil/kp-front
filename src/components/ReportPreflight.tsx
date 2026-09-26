@@ -311,7 +311,7 @@ export function ReportPreflight({
   /** the Suche (lib/suche): the Gerettete offer counts its Personen, and the print carries its
    *  «Personen» section */
   suche?: SucheDoc
-  /** the Gebäude as the Suche reads it — the Rapport counts the areas the screen counted */
+  /** how the Suche names an old record's storey — the Rapport counts the places the screen counted */
   sucheStack?: SucheStack
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
   captureUsage?: CaptureUsage | null

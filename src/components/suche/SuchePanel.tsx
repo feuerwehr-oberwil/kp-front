@@ -3,21 +3,17 @@ import { appConfig } from '../../config/appConfig'
 import { fillTemplate, formatTime } from '../../lib/format'
 import { Icon } from '../../lib/icons'
 import {
-  BEREICH_STATUSES, personenViews, sucheGroups, sucheProgress, truppShort, truppsOnStorey, vermisstCount,
-  type BereichView, type PersonView, type SucheGroup, type TruppHere,
+  BEREICH_STATUSES, foundWhere, personenViews, personWhere, placeKey, sucheOrte, truppAt, truppShort,
+  type BereichView, type OrtView, type PersonView, type TruppHere,
 } from '../../lib/suche'
-import type { SucheActions } from '../../lib/useSucheActions'
+import type { SucheActions, SucheTakeBack } from '../../lib/useSucheActions'
+import { undoToast } from '../../lib/ui'
 import type { SucheBereichStatus, SucheDoc } from '../../types'
-import { EmptyState } from '../EmptyState'
-import { OnOff } from '../Segmented'
 import { Stepper } from '../Stepper'
 import s from './Suche.module.css'
 
-export type SucheTab = 'personen' | 'bereiche'
-
 /** What the panel shows: the list, or one record / one form in its place. Forms live INSIDE the
- *  panel (F5 «+ Vermisst · ohne das Panel zu verlassen»): the plan beside it stays usable, and
- *  there is never a second sheet over the first. */
+ *  card (F5 «ohne das Panel zu verlassen»): there is never a second sheet over the first. */
 type View =
   | { kind: 'list' }
   | { kind: 'vermisst'; found?: boolean; preset?: FundPreset }
@@ -26,235 +22,233 @@ type View =
   | { kind: 'fund'; preset: FundPreset }
   | { kind: 'uebergeben'; id: string }
   | { kind: 'bereich'; id: string }
-  | { kind: 'teilen'; floor: number }
   | { kind: 'rename'; id: string }
   | { kind: 'addBereich' }
   | { kind: 'korrigieren'; id: string }
   | { kind: 'entwarnen' | 'irrtuemlich'; id: string }
 
-/** «Fund melden» on a Trupp (Tür 3): the Trupp and its storey, pre-filled into the find */
-export interface FundPreset { truppId: string; floor?: number }
+/** «Fund melden» on a Trupp (Tür 3): the Trupp, and the place it is searching now if any */
+export interface FundPreset { truppId: string; bereichId?: string }
 
 export interface SuchePanelProps {
   doc: SucheDoc
-  /** the Gebäude stack's storeys (empty = no Gebäude) */
-  floors: readonly number[]
+  /** how a step-1 record's storey is named («1. OG») */
   floorName: (floor: number) => string
-  /** which Gebäude those storeys are (lib/suche · stackKeyOf) */
-  stackKey: string
-  /** the areas whose Trupp is out and nobody has said yet whether they are abgesucht
-   *  (lib/suche · pendingAsks) — the question stands on the row itself */
+  /** the places whose Trupp is out and nobody has said yet whether they are abgesucht
+   *  (lib/suche · pendingAsks) — the question stands on the place's own row */
   asks?: readonly string[]
   /** the Trupps on the board, as the Suche names them */
   trupps: readonly TruppHere[]
-  /** which storey each placed Trupp marker stands on — «Gefunden…» pre-selects from it */
-  placed: readonly { truppId: string; floor: number }[]
   canEdit: boolean
   actions: SucheActions
-  tab: SucheTab
-  onTab: (t: SucheTab) => void
-  /** open one record straight away (a Verlauf row, the head chip) — keyed by `nonce` */
+  /** open one record straight away (a Verlauf row, a Meldeleiste question) — keyed by `nonce` */
   focus?: { personId?: string; bereichId?: string; fund?: FundPreset; nonce: number } | null
-  /** scroll the Gebäude to this storey (a row or a storey heading was tapped) */
-  onFloor?: (floor: number) => void
   /** «weiter an» — the station's short list */
   uebergabe: readonly string[]
   /** The panel hosts ONE flow and hands back when it is done (the «Fund melden» sheet over the
    *  Atemschutz board, N17): every «done» and every ‹ calls this instead of showing the list. */
   onExit?: () => void
+  /** the confirm-with-undo toast (lib/ui · undoToast) — a prop so a test can hold it */
+  onUndoable?: (text: string, takeBack: () => void) => void
 }
 
 const hhmm = (iso?: string) => (iso && Number.isFinite(Date.parse(iso)) ? formatTime(new Date(iso)) : '')
 
-/** The Suche's list and its flows — the same component in the tablet dock and the phone sheet. */
+/** The Suche's list and its flows — the same component in the card beside Ebenen and in the
+ *  «Fund melden» sheet. */
 export function SuchePanel(p: SuchePanelProps) {
   const C = appConfig.copy.suche
-  // a jump from outside (a Verlauf row, the head chip, «Fund melden») opens its record straight
-  // away — the frame remounts the panel per jump (`key` = the focus nonce), so this is its FIRST
-  // view rather than an effect that overwrites whatever was open
+  // a jump from outside (a Verlauf row, a Meldeleiste question, «Fund melden») opens its record
+  // straight away — the frame remounts the panel per jump (`key` = the focus nonce), so this is
+  // its FIRST view rather than an effect that overwrites whatever was open
   const [view, setView] = useState<View>(() => {
     const f = p.focus
     if (f?.fund) return { kind: 'fund', preset: f.fund }
     if (f?.personId && p.doc.personen.some((x) => x.id === f.personId)) return { kind: 'person', id: f.personId }
-    if (f?.bereichId) return { kind: 'bereich', id: f.bereichId }
+    if (f?.bereichId && p.doc.bereiche.some((x) => x.id === f.bereichId)) return { kind: 'bereich', id: f.bereichId }
     return { kind: 'list' }
   })
+  const orte = useMemo(() => sucheOrte(p.doc, p.floorName), [p.doc, p.floorName])
   const personen = useMemo(() => personenViews(p.doc), [p.doc])
-  const groups = useMemo(() => sucheGroups(p.doc, { key: p.stackKey, floors: p.floors, floorName: p.floorName }), [p.doc, p.stackKey, p.floors, p.floorName])
-  const progress = sucheProgress(groups)
-  const missing = vermisstCount(p.doc)
-
+  const bereiche = orte.orte.flatMap((o) => (o.bereich ? [o.bereich] : []))
+  const undoable = (r: SucheTakeBack | null, text: string) => { if (r) (p.onUndoable ?? ((t, fn) => { undoToast(t, fn) }))(text, r.takeBack) }
 
   // hosted as one flow (the «Fund melden» sheet): done is done — the host closes, never the list
   const go = (next: View) => (p.onExit ? p.onExit() : setView(next))
   const back = () => go({ kind: 'list' })
   const person = (id: string) => personen.find((x) => x.id === id)
-  const bereich = (id: string) => groups.flatMap((g) => [...g.units, ...(g.storeyRow ? [g.storeyRow] : [])]).find((u) => u.id === id)
+  const bereich = (id: string) => bereiche.find((u) => u.id === id)
+  const placeOf = (v: PersonView) => orte.orte.find((o) => o.personen.some((x) => x.id === v.id))?.bereich
+
+  /** «Gefunden» on a person's line (design «F»): ONE tap, with the Trupp searching that place and
+   *  the place itself on the row — and the house toast to take it back. A group gets one («＋1»). */
+  const foundNow = (v: PersonView) => {
+    const b = placeOf(v)
+    const t = truppAt(b)
+    const r = p.actions.gefunden(v.id, { n: v.group ? 1 : undefined, bereichId: b?.id, trupp: t?.label, truppId: t?.id })
+    undoable(r, v.group ? fillTemplate(C.toastGefundenGroup, { name: v.label }) : fillTemplate(C.toastGefunden, { name: v.label }))
+  }
+  /** the tick circle: abgesucht, and again back to offen — one row, one toast */
+  const tick = (b: BereichView) => {
+    const r = p.actions.toggleAbgesucht(b.id)
+    undoable(r, fillTemplate(b.status === 'abgesucht' ? C.toastOffen : C.toastAbgesucht, { name: b.label }))
+  }
+
+  if (view.kind === 'vermisst') return <VermisstForm {...p} places={bereiche} found={view.found} preset={view.preset} onDone={back} />
+  if (view.kind === 'addBereich') return <BereichForm {...p} onDone={back} />
+  if ((view.kind === 'entwarnen' || view.kind === 'irrtuemlich') && person(view.id)) {
+    return <WhyForm kind={view.kind} v={person(view.id)!} {...p} onCancel={() => setView({ kind: 'person', id: view.id })} onDone={back} />
+  }
+  if (view.kind === 'korrigieren' && person(view.id)) {
+    return <KorrigierenForm v={person(view.id)!} {...p} places={bereiche} onDone={() => setView({ kind: 'person', id: view.id })} />
+  }
+  if (view.kind === 'gefunden' && person(view.id)) {
+    return <GefundenForm v={person(view.id)!} {...p} places={bereiche} here={placeOf(person(view.id)!)} preset={view.preset} onDone={() => go({ kind: 'person', id: view.id })} />
+  }
+  if (view.kind === 'uebergeben' && person(view.id)) {
+    return <UebergebenForm v={person(view.id)!} {...p} onDone={() => setView({ kind: 'person', id: view.id })} />
+  }
+  if (view.kind === 'rename' && bereich(view.id)) {
+    return <RenameForm b={bereich(view.id)!} {...p} places={bereiche} onDone={() => setView({ kind: 'bereich', id: view.id })} />
+  }
 
   let body: ReactNode
   let foot: ReactNode = null
-  // the tabs belong to the LIST; a record's card has its own ‹ back instead
-  let inList = false
-  if (view.kind === 'vermisst') {
-    return <VermisstForm {...p} found={view.found} preset={view.preset} onDone={back} />
-  } else if (view.kind === 'fund') {
-    body = <FundPicker preset={view.preset} personen={personen} {...p} onBack={back}
+  if (view.kind === 'fund') {
+    body = <FundPicker preset={view.preset} personen={personen} {...p} places={bereiche} onBack={back}
       onPerson={(id) => setView({ kind: 'gefunden', id, preset: view.preset })}
       onOther={() => setView({ kind: 'vermisst', found: true, preset: view.preset })} />
   } else if (view.kind === 'person' && person(view.id)) {
-    body = <PersonCard v={person(view.id)!} {...p} onBack={back} onFound={() => setView({ kind: 'gefunden', id: view.id })}
+    const v = person(view.id)!
+    body = <PersonCard v={v} where={personWhere(p.doc, v, p.floorName)} {...p} onBack={back} onFound={() => setView({ kind: 'gefunden', id: view.id })}
       onHand={() => setView({ kind: 'uebergeben', id: view.id })} onFix={() => setView({ kind: 'korrigieren', id: view.id })}
       onWhy={(kind) => setView({ kind, id: view.id })} />
-  } else if ((view.kind === 'entwarnen' || view.kind === 'irrtuemlich') && person(view.id)) {
-    return <WhyForm kind={view.kind} v={person(view.id)!} {...p} onCancel={() => setView({ kind: 'person', id: view.id })} onDone={back} />
-  } else if (view.kind === 'korrigieren' && person(view.id)) {
-    return <KorrigierenForm v={person(view.id)!} {...p} onDone={() => setView({ kind: 'person', id: view.id })} />
-  } else if (view.kind === 'gefunden' && person(view.id)) {
-    return <GefundenForm v={person(view.id)!} {...p} preset={view.preset} onDone={() => go({ kind: 'person', id: view.id })} />
-  } else if (view.kind === 'uebergeben' && person(view.id)) {
-    return <UebergebenForm v={person(view.id)!} {...p} onDone={() => setView({ kind: 'person', id: view.id })} />
   } else if (view.kind === 'bereich' && bereich(view.id)) {
-    const b = bereich(view.id)!
-    body = <BereichCard b={b} group={groups.find((g) => g.units.includes(b) || g.storeyRow === b)} {...p} onBack={back}
-      onSplit={(f) => setView({ kind: 'teilen', floor: f })} onRename={() => setView({ kind: 'rename', id: b.id })} />
-  } else if (view.kind === 'teilen') {
-    return <TeilenForm floor={view.floor} group={groups.find((g) => g.floor === view.floor)} {...p} onDone={back} />
-  } else if (view.kind === 'rename' && bereich(view.id)) {
-    return <RenameForm b={bereich(view.id)!} {...p} onDone={() => setView({ kind: 'bereich', id: view.id })} />
-  } else if (view.kind === 'addBereich') {
-    return <BereichForm {...p} onDone={back} />
+    body = <BereichCard b={bereich(view.id)!} {...p} onBack={back} onRename={() => setView({ kind: 'rename', id: view.id })} />
   } else {
-    inList = true
-    body = p.tab === 'personen'
-      ? <PersonenList personen={personen} {...p} onOpen={(id) => setView({ kind: 'person', id })} />
-      : <BereicheList groups={groups} {...p} onOpen={(b) => { if (b.floor != null) p.onFloor?.(b.floor); setView({ kind: 'bereich', id: b.id }) }} />
+    const empty = !orte.unbekannt && !orte.orte.length
+    body = empty ? (
+      <div className={s.empty}>
+        <Icon id="search" />
+        <strong>{C.emptyTitle}</strong>
+        <span>{p.canEdit ? C.emptySub : C.emptySubReadOnly}</span>
+      </div>
+    ) : (
+      <div className={s.list}>
+        {orte.unbekannt && <OrtBlock o={orte.unbekannt} unknown {...p} onPerson={(id) => setView({ kind: 'person', id })} onFound={foundNow} />}
+        {orte.orte.map((o) => (
+          <OrtBlock key={o.key} o={o} {...p} ask={!!o.bereich && !!p.asks?.includes(o.bereich.id)}
+            onOpen={o.bereich ? () => setView({ kind: 'bereich', id: o.bereich!.id }) : undefined}
+            onTick={o.bereich ? () => tick(o.bereich!) : undefined}
+            onPerson={(id) => setView({ kind: 'person', id })} onFound={foundNow} />
+        ))}
+      </div>
+    )
+    // ⚠️ Two EQUAL doors (owner, 26.09.2026): the Suche is just as much a sweep with nobody
+    // missing as a search for somebody — «＋ Bereich» is never the lesser button.
     foot = p.canEdit ? (
-      p.tab === 'personen' ? (
-        <>
-          <button type="button" className="ip-btn" onClick={() => setView({ kind: 'vermisst' })}><Icon id="plus" />{C.addVermisst}</button>
-          <button type="button" className="ip-btn" onClick={() => setView({ kind: 'vermisst', found: true })}><Icon id="plus" />{C.addGefunden}</button>
-        </>
-      ) : (
-        <button type="button" className="ip-btn" onClick={() => setView({ kind: 'addBereich' })}><Icon id="plus" />{C.addBereich}</button>
-      )
+      <>
+        <button type="button" className={s.footBtn} onClick={() => setView({ kind: 'vermisst' })}><Icon id="plus" />{C.addVermisst}</button>
+        <button type="button" className={s.footBtn} onClick={() => setView({ kind: 'addBereich' })}><Icon id="plus" />{C.addBereich}</button>
+      </>
     ) : null
   }
 
   return (
     <div className={s.panel}>
-      {inList && (
-        <div className={s.tabs} role="tablist" aria-label={C.title}>
-          <button type="button" role="tab" aria-selected={p.tab === 'personen'} className={`${s.tab}${p.tab === 'personen' ? ` ${s.on}` : ''}`} onClick={() => p.onTab('personen')}>
-            {C.tabPersonen}
-            {missing > 0 && <span className={s.tabBadge}>{missing}</span>}
-          </button>
-          <button type="button" role="tab" aria-selected={p.tab === 'bereiche'} className={`${s.tab}${p.tab === 'bereiche' ? ` ${s.on}` : ''}`} onClick={() => p.onTab('bereiche')}>
-            {C.tabBereiche}
-            {progress.total > 0 && <span className={s.tabCount}>{fillTemplate(C.progress, progress)}</span>}
-            {/* the open «abgesucht?» questions, counted — the tab is where they are answered */}
-            {(p.asks?.length ?? 0) > 0 && <span className={s.askBadge} aria-label={fillTemplate(C.asksOpen, { n: p.asks!.length })}>{p.asks!.length}?</span>}
-          </button>
-        </div>
-      )}
       <div className={s.scroll}>{body}</div>
       {foot && <div className={s.foot}>{foot}</div>}
-      {!p.canEdit && inList && <div className={s.readOnly}>{C.readOnlyNote}</div>}
+      {!p.canEdit && view.kind === 'list' && <div className={s.readOnly}>{C.readOnlyNote}</div>}
     </div>
   )
 }
 
-// ── the lists ────────────────────────────────────────────────────────────────────────────────
+// ── the list ─────────────────────────────────────────────────────────────────────────────────
 
-const PERSON_TONE: Record<PersonView['status'], string> = { vermisst: 'red', gefunden: 'amber', uebergeben: 'green', entwarnt: 'grey', irrtuemlich: 'grey' }
-// «teilweise» wears its own colour AND a half-filled dot (N14): never the grey of «offen», never
+const PERSON_TONE: Record<PersonView['status'], string> = { vermisst: 'red', gefunden: 'green', uebergeben: 'green', entwarnt: 'grey', irrtuemlich: 'grey' }
+// «teilweise» wears its own colour AND a half-filled circle (N14): never the grey of «offen», never
 // the full green of «abgesucht»
 const BEREICH_TONE: Record<SucheBereichStatus, string> = { offen: 'grey', inArbeit: 'blue', teilweise: 'part', abgesucht: 'green', nichtZugaenglich: 'amber' }
 
-function personLine(v: PersonView, floorName: (f: number) => string, trupps: readonly TruppHere[], doc: SucheDoc): string {
-  const C = appConfig.copy.suche
-  const where = [v.floor != null ? floorName(v.floor) : '', v.wo ?? ''].filter(Boolean).join(' ')
-  if (v.status === 'vermisst' && !v.found) {
-    const searching = v.floor != null ? truppsOnStorey(doc, v.floor, trupps, [])[0] : undefined
-    return [where || C.storeyUnknown, fillTemplate(C.since, { t: hhmm(v.vermisstAt) }), searching ? fillTemplate(C.sucht, { trupp: truppShort(searching.label) }) : ''].filter(Boolean).join(' · ')
-  }
-  if (v.status === 'entwarnt') return [where, `${C.status.entwarnt} ${hhmm(v.entwarntAt)}`].filter(Boolean).join(' · ')
-  if (v.status === 'irrtuemlich') return `${C.status.irrtuemlich} ${hhmm(v.withdrawnAt)}`
-  const foundWhere = [v.foundFloor != null ? floorName(v.foundFloor) : '', v.foundWo ?? ''].filter(Boolean).join(' ')
-  return [foundWhere, v.foundTrupp ? truppShort(v.foundTrupp) : '', hhmm(v.foundAt), v.an ? `${C.an.toLowerCase()} ${v.an}` : ''].filter(Boolean).join(' · ')
-}
-
-function PersonenList({ personen, floorName, trupps, doc, onOpen, canEdit }: SuchePanelProps & { personen: PersonView[]; onOpen: (id: string) => void }) {
-  const C = appConfig.copy.suche
-  if (!personen.length) {
-    return <EmptyState icon="people" title={C.emptyPersonen} sub={canEdit ? C.emptyPersonenSub : undefined} className={s.empty} />
-  }
-  return (
-    <ul className={s.list}>
-      {personen.map((v) => (
-        <li key={v.id}>
-          <button type="button" className={s.row} onClick={() => onOpen(v.id)} data-tone={PERSON_TONE[v.status]} data-withdrawn={v.status === 'irrtuemlich' || undefined}>
-            <span className={s.rowMain}>
-              <span className={s.rowTitle}>{v.label}</span>
-              {/* a group's count leads its sub-line («0 / 22 gefunden · …») — beside the name it
-                  was cut off first, on the one line that has to be readable */}
-              <span className={s.rowSub}>
-                {v.group && <span className={s.count}>{fillTemplate(C.groupFound, { found: v.found, count: v.count })} · </span>}
-                {personLine(v, floorName, trupps, doc)}
-              </span>
-            </span>
-            <span className={s.pill} data-tone={PERSON_TONE[v.status]}>
-              {v.group && v.missing > 0 ? fillTemplate(C.groupMissing, { n: v.missing }) : C.status[v.status]}
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
+/** «T1 sucht» · «offen» · «abgesucht · T2 · 14:40» — what the place's row says beside its name */
 function bereichLine(b: BereichView): string {
   const C = appConfig.copy.suche
   if (b.status === 'inArbeit') return b.trupp ? fillTemplate(C.sucht, { trupp: truppShort(b.trupp) }) : C.bereichStatus.inArbeit
   return [C.bereichStatus[b.status], b.trupp ? truppShort(b.trupp) : '', b.status === 'offen' ? '' : hhmm(b.statusAt)].filter(Boolean).join(' · ')
 }
 
-function BereicheList({ groups, onOpen, onFloor, canEdit, asks, actions }: SuchePanelProps & { groups: SucheGroup[]; onOpen: (b: BereichView) => void }) {
+/** «vermisst seit 14:12 · Quelle Hauswart» · «gefunden 14:31 · T2 · an Rettungsdienst» */
+function personLine(v: PersonView): string {
   const C = appConfig.copy.suche
-  if (!groups.length) {
-    return <EmptyState icon="floors" title={C.emptyBereiche} sub={canEdit ? C.emptyBereicheSub : undefined} className={s.empty} />
+  if (v.status === 'vermisst') {
+    return [
+      v.vermisstAt ? fillTemplate(C.vermisstSeit, { t: hhmm(v.vermisstAt) }) : C.status.vermisst,
+      v.found > 0 ? fillTemplate(C.groupFoundShort, { n: v.found }) : '',
+      v.quelle ? fillTemplate(C.quelleLine, { quelle: v.quelle }) : '',
+    ].filter(Boolean).join(' · ')
   }
+  if (v.status === 'entwarnt') return `${C.status.entwarnt} ${hhmm(v.entwarntAt)}`
+  if (v.status === 'irrtuemlich') return `${C.status.irrtuemlich} ${hhmm(v.withdrawnAt)}`
+  return [fillTemplate(C.gefundenAt, { t: hhmm(v.foundAt) }), v.foundTrupp ? truppShort(v.foundTrupp) : '', v.an ? `${C.an.toLowerCase()} ${v.an}` : ''].filter(Boolean).join(' · ')
+}
+
+function OrtBlock({ o, unknown, ask, canEdit, actions, onOpen, onTick, onPerson, onFound }: SuchePanelProps & {
+  o: OrtView; unknown?: boolean; ask?: boolean
+  onOpen?: () => void; onTick?: () => void; onPerson: (id: string) => void; onFound: (v: PersonView) => void
+}) {
+  const C = appConfig.copy.suche
+  const b = o.bereich
+  const tone = b ? BEREICH_TONE[b.status] : 'grey'
+  const head = (
+    <>
+      <span className={s.ortName}>{o.label}</span>
+      {b && <span className={s.ortStatus} data-tone={tone}>{bereichLine(b)}</span>}
+      {b?.fund && <span className={s.fund}>{C.fund}</span>}
+    </>
+  )
   return (
-    <div className={s.groups}>
-      {groups.map((g) => (
-        <section key={g.key} className={s.group}>
-          <button type="button" className={s.groupHead} disabled={g.floor == null || !onFloor} onClick={() => g.floor != null && onFloor?.(g.floor)}
-            data-complete={g.complete || undefined}>
-            <span className={s.groupName}>{g.label}</span>
-            <span className={s.groupProg}>{fillTemplate(C.progress, { done: g.done, total: g.total })}{g.complete && <Icon id="check" />}</span>
+    <section className={s.ort} data-hot={o.hot || undefined} data-quiet={o.quiet || undefined} data-unknown={unknown || undefined} aria-label={o.label}>
+      {unknown ? <div className={s.ortLabel}>{o.label}</div> : (
+        <div className={s.ortHead}>
+          {onOpen
+            ? <button type="button" className={s.ortMain} onClick={onOpen}>{head}</button>
+            : <div className={s.ortMain}>{head}</div>}
+          {b && onTick && (
+            // ⚠️ The circle IS the button (design «F»): it looked like one in step 1 and did nothing.
+            // A read-only device sees the same circle, inert.
+            <button type="button" className={s.tick} data-tone={tone} aria-pressed={b.status === 'abgesucht'} disabled={!canEdit}
+              aria-label={fillTemplate(b.status === 'abgesucht' ? C.tickOffen : C.tickAbgesucht, { name: o.label })}
+              title={fillTemplate(b.status === 'abgesucht' ? C.tickOffen : C.tickAbgesucht, { name: o.label })}
+              onClick={onTick}>
+              <span className={s.tickRing} aria-hidden>{b.status === 'abgesucht' && <Icon id="check" />}</span>
+            </button>
+          )}
+        </div>
+      )}
+      {canEdit && ask && b && <AskRow u={b} actions={actions} />}
+      {o.personen.map((v) => (
+        <div key={v.id} className={s.person} data-tone={PERSON_TONE[v.status]} data-withdrawn={v.status === 'irrtuemlich' || undefined}>
+          <button type="button" className={s.personMain} onClick={() => onPerson(v.id)}>
+            <span className={s.personName}>
+              {v.label}
+              {v.group && <span className={s.count}>{fillTemplate(C.groupOf, { n: v.missing > 0 ? v.missing : v.found, count: v.count })}</span>}
+              {(v.status === 'gefunden' || v.status === 'uebergeben') && <Icon id="check" />}
+            </span>
+            <span className={s.personSub}>{personLine(v)}</span>
           </button>
-          <ul className={s.list}>
-            {g.units.map((u) => (
-              <li key={u.id}>
-                <button type="button" className={`${s.row} ${s.rowTight}`} onClick={() => onOpen(u)} data-tone={BEREICH_TONE[u.status]}>
-                  <span className={s.rowMain}>
-                    <span className={s.rowTitle}>{u.short}</span>
-                    <span className={s.rowSub}>{bereichLine(u)}</span>
-                  </span>
-                  {u.fund && <span className={s.fund}>{C.fund}</span>}
-                  <span className={s.dot} data-tone={BEREICH_TONE[u.status]} aria-hidden>{u.status === 'abgesucht' && <Icon id="check" />}</span>
-                </button>
-                {canEdit && asks?.includes(u.id) && <AskRow u={u} actions={actions} />}
-              </li>
-            ))}
-          </ul>
-        </section>
+          {canEdit && v.status === 'vermisst' && v.missing > 0 && (
+            v.group
+              ? <button type="button" className={s.foundBtn} onClick={() => onFound(v)} aria-label={fillTemplate(C.plusOneLabel, { name: v.label })} title={fillTemplate(C.plusOneLabel, { name: v.label })}>{C.plusOne}</button>
+              : <button type="button" className={s.foundBtn} onClick={() => onFound(v)} aria-label={fillTemplate(C.toastGefunden, { name: v.label })}>{C.gefundenList}</button>
+          )}
+        </div>
       ))}
-    </div>
+    </section>
   )
 }
 
 /**
- * «Trupp 4 raus – abgesucht? Ja / Teilweise / Nein» — on the area's own row, NOT a dialog: it waits
+ * «Trupp 4 raus – abgesucht? Ja / Teilweise / Nein» — on the place's own row, NOT a dialog: it waits
  * there for whoever runs the list, on every editor device (the Raus may have come from a
  * handed-over board), and a question nobody answers writes nothing.
  */
@@ -295,11 +289,10 @@ function CardHead({ title, tone, pill, onBack }: { title: string; tone: string; 
   )
 }
 
-function PersonCard({ v, floorName, canEdit, onBack, onFound, onHand, onFix, onWhy }: SuchePanelProps & { v: PersonView; onBack: () => void; onFound: () => void; onHand: () => void; onFix: () => void; onWhy: (kind: 'entwarnen' | 'irrtuemlich') => void }) {
+function PersonCard({ v, where, canEdit, onBack, onFound, onHand, onFix, onWhy }: SuchePanelProps & { v: PersonView; where: string; onBack: () => void; onFound: () => void; onHand: () => void; onFix: () => void; onWhy: (kind: 'entwarnen' | 'irrtuemlich') => void }) {
   const C = appConfig.copy.suche
-  const where = [v.floor != null ? floorName(v.floor) : '', v.wo ?? ''].filter(Boolean).join(' ')
   return (
-    <div className={s.card}>
+    <div className={s.rec}>
       <CardHead title={v.label} tone={PERSON_TONE[v.status]} onBack={onBack}
         pill={v.group ? fillTemplate(C.groupFound, { found: v.found, count: v.count }) : C.status[v.status]} />
       <p className={s.cardLine}>
@@ -307,14 +300,14 @@ function PersonCard({ v, floorName, canEdit, onBack, onFound, onHand, onFix, onW
       </p>
       {canEdit && (
         <div className={s.cardActions}>
-          {(v.status === 'vermisst') && <button type="button" className="ip-btn primary" onClick={onFound}>{C.gefundenBtn}</button>}
-          {(v.found > v.handed) && <button type="button" className="ip-btn" onClick={onHand}>{C.uebergebenBtn}</button>}
+          {v.status === 'vermisst' && <button type="button" className={s.btn} data-primary onClick={onFound}>{C.gefundenBtn}</button>}
+          {v.found > v.handed && <button type="button" className={s.btn} onClick={onHand}>{C.uebergebenBtn}</button>}
           {/* ⚠️ «Entwarnen» ends a missing-person record: it asks why and who said so first (N7) */}
           {v.status === 'vermisst' && v.found === 0 && (
-            <button type="button" className="ip-btn" onClick={() => onWhy('entwarnen')}>{C.entwarnenBtn}</button>
+            <button type="button" className={s.btn} onClick={() => onWhy('entwarnen')}>{C.entwarnenBtn}</button>
           )}
           {/* a wrong name, count or place is a row (lib/suche · korrigiert), one ↶ away */}
-          {v.status !== 'irrtuemlich' && <button type="button" className="ip-btn" onClick={onFix}>{C.korrigierenBtn}</button>}
+          {v.status !== 'irrtuemlich' && <button type="button" className={s.btn} onClick={onFix}>{C.korrigierenBtn}</button>}
         </div>
       )}
       <History rows={v.rows} />
@@ -322,32 +315,33 @@ function PersonCard({ v, floorName, canEdit, onBack, onFound, onHand, onFix, onW
           beside «Korrigieren …» and withdrew a person in one tap (walk-through 25.09.2026, N7) */}
       {canEdit && v.status !== 'irrtuemlich' && (
         <div className={s.cardFoot}>
-          <button type="button" className="ip-btn ip-btn-danger" onClick={() => onWhy('irrtuemlich')}>{C.irrtuemlichBtn}</button>
+          <button type="button" className={s.btn} data-danger onClick={() => onWhy('irrtuemlich')}>{C.irrtuemlichBtn}</button>
         </div>
       )}
     </div>
   )
 }
 
-function BereichCard({ b, group, trupps, canEdit, actions, onBack, onSplit, onRename }: SuchePanelProps & { b: BereichView; group?: SucheGroup; onBack: () => void; onSplit: (floor: number) => void; onRename: () => void }) {
+/** A place's own card: its status choices (the list's circle only says «abgesucht»), who searches
+ *  it, «Fund», its name, and what happened to it. */
+function BereichCard({ b, trupps, canEdit, actions, onBack, onRename }: SuchePanelProps & { b: BereichView; onBack: () => void; onRename: () => void }) {
   const C = appConfig.copy.suche
   const [pickTrupp, setPickTrupp] = useState(false)
   const set = (st: SucheBereichStatus, t?: TruppHere | null) => {
     actions.setStatus(b.id, st, t ? { label: t.label, id: t.id } : t === null ? { label: undefined } : undefined)
     setPickTrupp(false)
   }
-  const statuses = BEREICH_STATUSES
-  const restRow = b.storey && !!group?.hasParts
+  const pickable = trupps.filter((t) => t.status !== 'raus')
   return (
-    <div className={s.card}>
-      <CardHead title={b.full} tone={BEREICH_TONE[b.status]} pill={b.status === 'inArbeit' && b.trupp ? fillTemplate(C.statusInArbeit, { trupp: truppShort(b.trupp) }) : C.bereichStatus[b.status]} onBack={onBack} />
+    <div className={s.rec}>
+      <CardHead title={b.label} tone={BEREICH_TONE[b.status]} pill={b.status === 'inArbeit' && b.trupp ? fillTemplate(C.statusInArbeit, { trupp: truppShort(b.trupp) }) : C.bereichStatus[b.status]} onBack={onBack} />
       {canEdit && (
         <>
           <div className={s.label}>{C.statusTitle}</div>
           <div className={s.chips} role="group" aria-label={C.statusTitle}>
-            {statuses.map((st) => (
+            {BEREICH_STATUSES.map((st) => (
               <button key={st} type="button" className={s.chip} data-tone={BEREICH_TONE[st]} aria-pressed={b.status === st}
-                onClick={() => (st === 'inArbeit' && trupps.length ? setPickTrupp(true) : set(st))}>
+                onClick={() => (st === 'inArbeit' && pickable.length ? setPickTrupp(true) : set(st))}>
                 {st === 'inArbeit' && b.status === 'inArbeit' && b.trupp ? fillTemplate(C.statusInArbeit, { trupp: truppShort(b.trupp) }) : C.bereichStatus[st]}
               </button>
             ))}
@@ -357,31 +351,33 @@ function BereichCard({ b, group, trupps, canEdit, actions, onBack, onSplit, onRe
             <>
               <div className={s.label}>{C.truppPick}</div>
               <div className={s.chips}>
-                {trupps.map((t) => <button key={t.id} type="button" className={s.chip} onClick={() => set('inArbeit', t)}>{t.short}</button>)}
+                {pickable.map((t) => <button key={t.id} type="button" className={s.chip} onClick={() => set('inArbeit', t)}>{t.short}</button>)}
                 <button type="button" className={s.chip} onClick={() => set('inArbeit', null)}>{C.truppNone}</button>
               </div>
             </>
           )}
-          <div className={s.cardActions}>
-            {b.storey && b.floor != null && <button type="button" className="ip-btn" onClick={() => onSplit(b.floor!)}>{C.teilen}</button>}
-            {!b.storey && b.name && <button type="button" className="ip-btn" onClick={onRename}>{C.umbenennen}</button>}
-            {restRow && b.floor != null && <button type="button" className="ip-btn" onClick={() => { actions.setOhneRest(b.floor!, true); onBack() }}>{C.restEntfernen}</button>}
-          </div>
+          {/* a step-1 storey row has no name of its own to change */}
+          {b.name && b.floor == null && (
+            <div className={s.cardActions}>
+              <button type="button" className={s.btn} onClick={onRename}>{C.umbenennen}</button>
+            </div>
+          )}
         </>
       )}
-      <History rows={b.rows} />
+      {b.rows.length ? <History rows={b.rows} /> : <p className={s.cardLine}>{fillTemplate(C.erfasstAt, { t: hhmm(b.createdAt) })}</p>}
     </div>
   )
 }
 
 /** «Fund melden» from a Trupp: who was found — one of the missing, or somebody not on the list */
-function FundPicker({ preset, personen, trupps, floorName, onBack, onPerson, onOther }: SuchePanelProps & { preset: FundPreset; personen: PersonView[]; onBack: () => void; onPerson: (id: string) => void; onOther: () => void }) {
+function FundPicker({ preset, personen, trupps, places, onBack, onPerson, onOther }: SuchePanelProps & { preset: FundPreset; personen: PersonView[]; places: BereichView[]; onBack: () => void; onPerson: (id: string) => void; onOther: () => void }) {
   const C = appConfig.copy.suche
   const t = trupps.find((x) => x.id === preset.truppId)
-  const title = fillTemplate(C.fundTitle, { trupp: t?.label ?? '' }) + (preset.floor != null ? ` · ${floorName(preset.floor)}` : '')
+  const at = places.find((b) => b.id === preset.bereichId)
+  const title = fillTemplate(C.fundTitle, { trupp: t?.label ?? '' }) + (at ? ` · ${at.label}` : '')
   const missing = personen.filter((x) => x.status === 'vermisst')
   return (
-    <div className={s.card}>
+    <div className={s.rec}>
       <CardHead title={title} tone="red" pill={C.fund} onBack={onBack} />
       <div className={s.label}>{C.fundWer}</div>
       <div className={s.chips}>
@@ -413,24 +409,58 @@ function Form({ title, children, submit, submitLabel, disabled, onCancel, focusC
         </div>
       </div>
       <div className={s.foot}>
-        <button type="button" className="ip-btn" onClick={onCancel} autoFocus={focusCancel}>{appConfig.copy.suche.cancel}</button>
-        <button type="button" className={`ip-btn ${danger ? 'ip-btn-danger' : 'primary'}`} disabled={disabled} onClick={() => { if (!disabled) submit() }}>{submitLabel}</button>
+        <button type="button" className={s.footBtn} onClick={onCancel} autoFocus={focusCancel}>{appConfig.copy.suche.cancel}</button>
+        <button type="button" className={s.footBtn} data-primary={!danger || undefined} data-danger={danger || undefined} disabled={disabled}
+          onClick={() => { if (!disabled) submit() }}>{submitLabel}</button>
       </div>
     </div>
   )
 }
 
-/** Storey chips top to bottom, plus «unbekannt» — the one way a storey is picked in the Suche. */
-function StoreyChips({ floors, floorName, value, onChange, unknown = true, label }: { floors: readonly number[]; floorName: (f: number) => string; value: number | undefined; onChange: (f: number | undefined) => void; unknown?: boolean; label: string }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return <div className={s.field}><span className={s.label}>{label}{hint && <span className={s.hint}> {hint}</span>}</span>{children}</div>
+}
+
+/**
+ * The place, as words plus the places already on the list as chips (design «F»): a chip fills the
+ * words, so a person and a place — or a find — point at the SAME place instead of two spellings of
+ * it. Typing something new makes a new place when the form is sent (lib/suche · ensurePlace).
+ */
+function PlaceField({ label, hint, value, onChange, places, autoFocus }: { label: string; hint?: string; value: string; onChange: (v: string) => void; places: readonly BereichView[]; autoFocus?: boolean }) {
   const C = appConfig.copy.suche
-  if (!floors.length) return null
+  const k = placeKey(value)
   return (
-    <div className={s.chips} role="group" aria-label={label}>
-      {[...floors].sort((a, b) => b - a).map((f) => (
-        <button key={f} type="button" className={s.chip} aria-pressed={value === f} onClick={() => onChange(value === f ? undefined : f)}>{floorName(f)}</button>
-      ))}
-      {unknown && <button type="button" className={s.chip} aria-pressed={value == null} onClick={() => onChange(undefined)}>{C.unbekannt}</button>}
-    </div>
+    <Field label={label} hint={hint}>
+      <input className={s.input} value={value} onChange={(e) => onChange(e.target.value)} placeholder={C.woPlaceholder} aria-label={label} autoFocus={autoFocus} />
+      {places.length > 0 && (
+        <>
+          <span className={s.sublabel}>{C.schonErfasst}</span>
+          <div className={s.chips} role="group" aria-label={C.schonErfasst}>
+            {places.map((b) => (
+              <button key={b.id} type="button" className={s.chip} aria-pressed={k !== '' && placeKey(b.label) === k}
+                onClick={() => onChange(placeKey(b.label) === k ? '' : b.label)}>{b.label}</button>
+            ))}
+          </div>
+        </>
+      )}
+    </Field>
+  )
+}
+
+/** «Anzahl» stays OPTIONAL (owner, F-b): one person is the default and asks nothing; «mehrere?»
+ *  opens the stepper for a group. */
+function CountField({ count, onChange }: { count: number | null; onChange: (n: number | null) => void }) {
+  const C = appConfig.copy.suche
+  if (count == null) {
+    return <button type="button" className={`${s.chip} ${s.quietChip}`} onClick={() => onChange(2)}><Icon id="people" />{C.mehrere}</button>
+  }
+  return (
+    <Field label={C.anzahl}>
+      <div className={s.row2}>
+        <Stepper value={count} min={2} max={999} onChange={onChange} ariaLabel={C.anzahl} />
+        <button type="button" className={`${s.chip} ${s.quietChip}`} onClick={() => onChange(null)}>{C.einePerson}</button>
+      </div>
+    </Field>
   )
 }
 
@@ -440,77 +470,10 @@ function TruppChips({ trupps, value, onChange, other, onOther }: { trupps: reado
     <>
       <div className={s.chips} role="group" aria-label={C.von}>
         {trupps.map((t) => <button key={t.id} type="button" className={s.chip} aria-pressed={value === t.id} onClick={() => onChange(value === t.id ? null : t.id)}>{t.short}</button>)}
-        <button type="button" className={s.chip} aria-pressed={value === '' } onClick={() => onChange(value === '' ? null : '')}>{C.andere}</button>
+        <button type="button" className={s.chip} aria-pressed={value === ''} onClick={() => onChange(value === '' ? null : '')}>{C.andere}</button>
       </div>
-      {value === '' && <input className="ip-input" value={other} onChange={(e) => onOther(e.target.value)} aria-label={C.von} autoFocus />}
+      {value === '' && <input className={s.input} value={other} onChange={(e) => onOther(e.target.value)} aria-label={C.von} autoFocus />}
     </>
-  )
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <div className={s.field}><span className={s.label}>{label}</span>{children}</div>
-}
-
-function VermisstForm({ floors, floorName, trupps, placed, doc, actions, uebergabe, found, preset, onDone }: SuchePanelProps & { found?: boolean; preset?: FundPreset; onDone: () => void }) {
-  const C = appConfig.copy.suche
-  const [name, setName] = useState('')
-  const [group, setGroup] = useState(false)
-  const [count, setCount] = useState(2)
-  const [floor, setFloor] = useState<number | undefined>(preset?.floor)
-  const [wo, setWo] = useState('')
-  const [quelle, setQuelle] = useState('')
-  // «+ Gefunden» (somebody found who was never reported): the same form, with Von + weiter an
-  const here = truppsOnStorey(doc, floor, trupps, placed)
-  const [truppId, setTruppId] = useState<string | null | undefined>(preset?.truppId)
-  const chosen = truppId === undefined ? (here[0]?.id ?? null) : truppId
-  const [other, setOther] = useState('')
-  const [an, setAn] = useState<string | undefined>(undefined)
-  const submit = () => {
-    const input = { name, count: group ? count : undefined, floor, wo, quelle }
-    if (!found) { actions.addPerson(input); onDone(); return }
-    const t = chosen ? trupps.find((x) => x.id === chosen) : undefined
-    actions.addFound(input, { trupp: t?.label ?? (chosen === '' ? other.trim() || undefined : undefined), truppId: t?.id, floor, wo, an })
-    onDone()
-  }
-  return (
-    <Form title={found ? C.addGefunden : C.formVermisst} submit={submit} submitLabel={found ? C.submitGefunden : C.submitVermisst} onCancel={onDone}>
-      <Field label={C.wer}>
-        <input className="ip-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={C.werPlaceholder} aria-label={C.wer} autoFocus />
-        <div className={s.row2}>
-          <OnOffWords value={group} onChange={setGroup} off={C.einePerson} on={C.gruppe} label={`${C.einePerson} / ${C.gruppe}`} />
-          {group && <Stepper value={count} min={2} max={999} onChange={setCount} ariaLabel={C.anzahl} />}
-        </div>
-      </Field>
-      <Field label={found ? C.wo : C.zuletzt}>
-        <StoreyChips floors={floors} floorName={floorName} value={floor} onChange={setFloor} label={found ? C.wo : C.zuletzt} />
-        <input className="ip-input" value={wo} onChange={(e) => setWo(e.target.value)} placeholder={C.woPlaceholder} aria-label={C.woGenau} />
-      </Field>
-      {found ? (
-        <>
-          <Field label={C.von}>
-            <TruppChips trupps={[...here, ...trupps.filter((t) => !here.includes(t))]} value={chosen} onChange={setTruppId} other={other} onOther={setOther} />
-          </Field>
-          <Field label={C.weiterAn}>
-            <AnChips uebergabe={uebergabe} value={an} onChange={setAn} optional />
-          </Field>
-        </>
-      ) : (
-        <Field label={C.quelle}>
-          <input className="ip-input" value={quelle} onChange={(e) => setQuelle(e.target.value)} placeholder={C.quellePlaceholder} aria-label={C.quelle} />
-        </Field>
-      )}
-    </Form>
-  )
-}
-
-/** A two-answer choice worded by its answers («Eine Person · Gruppe») — the OnOff pair's control
- *  with words that say what each side IS. */
-function OnOffWords({ value, onChange, off, on, label }: { value: boolean; onChange: (v: boolean) => void; off: string; on: string; label: string }) {
-  return (
-    <div className="useg" role="group" aria-label={label}>
-      <button type="button" className={`useg-btn${!value ? ' on' : ''}`} aria-pressed={!value} onClick={() => onChange(false)}>{off}</button>
-      <button type="button" className={`useg-btn${value ? ' on' : ''}`} aria-pressed={value} onClick={() => onChange(true)}>{on}</button>
-    </div>
   )
 }
 
@@ -524,26 +487,98 @@ function AnChips({ uebergabe, value, onChange, optional }: { uebergabe: readonly
   )
 }
 
-function GefundenForm({ v, floors, floorName, trupps, placed, doc, actions, uebergabe, preset, onDone }: SuchePanelProps & { v: PersonView; preset?: FundPreset; onDone: () => void }) {
+/** «＋ Vermisst» — Wer?, Wo zuletzt gesehen?, and (only when asked for) how many. «Gefunden» for
+ *  somebody not on the list (from «Fund melden») is the same form with Von and «weiter an». */
+function VermisstForm({ trupps, actions, uebergabe, places, found, preset, onDone }: SuchePanelProps & { places: BereichView[]; found?: boolean; preset?: FundPreset; onDone: () => void }) {
   const C = appConfig.copy.suche
-  // ⚠️ from a Trupp's «Fund melden» the place is the TRUPP's (F7): its storey, or «unbekannt» —
-  // never the group's «zuletzt gesehen», which put a find on the wrong floor in two taps
-  const [floor, setFloor] = useState<number | undefined>(preset ? preset.floor : v.floor)
-  const [wo, setWo] = useState(preset && preset.floor !== v.floor ? '' : (v.wo ?? ''))
-  // the Trupp on that storey is pre-selected — the radio report came from somebody who is there
-  const here = truppsOnStorey(doc, floor, trupps, placed)
+  const [name, setName] = useState('')
+  const [count, setCount] = useState<number | null>(null)
+  const [wo, setWo] = useState(() => places.find((b) => b.id === preset?.bereichId)?.label ?? '')
+  const [quelle, setQuelle] = useState('')
+  const [truppId, setTruppId] = useState<string | null>(preset?.truppId ?? null)
+  const [other, setOther] = useState('')
+  const [an, setAn] = useState<string | undefined>(undefined)
+  const submit = () => {
+    const input = { name, count: count ?? undefined, wo, quelle }
+    if (!found) { actions.addPerson(input); onDone(); return }
+    const t = truppId ? trupps.find((x) => x.id === truppId) : undefined
+    actions.addFound(input, { trupp: t?.label ?? (truppId === '' ? other.trim() || undefined : undefined), truppId: t?.id, wo, an })
+    onDone()
+  }
+  return (
+    <Form title={found ? C.formGefundenAndere : C.formVermisst} submit={submit} submitLabel={found ? C.submitGefunden : C.submitVermisst} onCancel={onDone}>
+      <Field label={C.wer}>
+        <input className={s.input} value={name} onChange={(e) => setName(e.target.value)} placeholder={C.werPlaceholder} aria-label={C.wer} autoFocus />
+      </Field>
+      <PlaceField label={found ? C.wo : C.woZuletzt} hint={found ? undefined : C.woZuletztHint} value={wo} onChange={setWo} places={places} />
+      <CountField count={count} onChange={setCount} />
+      {found ? (
+        <>
+          <Field label={C.von}>
+            <TruppChips trupps={trupps} value={truppId} onChange={setTruppId} other={other} onOther={setOther} />
+          </Field>
+          <Field label={C.weiterAn}>
+            <AnChips uebergabe={uebergabe} value={an} onChange={setAn} optional />
+          </Field>
+        </>
+      ) : (
+        <Field label={C.quelle}>
+          <input className={s.input} value={quelle} onChange={(e) => setQuelle(e.target.value)} placeholder={C.quellePlaceholder} aria-label={C.quelle} />
+        </Field>
+      )}
+    </Form>
+  )
+}
+
+/** «＋ Bereich» — Wo?, and optionally who searches it, from the Trupps on the board. «noch
+ *  niemand» is the default: a place entered is not yet a place anybody was sent to. */
+function BereichForm({ trupps, actions, onDone }: SuchePanelProps & { onDone: () => void }) {
+  const C = appConfig.copy.suche
+  const [name, setName] = useState('')
+  const [truppId, setTruppId] = useState<string | null>(null)
+  // a Trupp already out cannot be the one searching now — it would stand there as «raus –
+  // abgesucht?» the moment it was picked
+  const pickable = trupps.filter((t) => t.status !== 'raus')
+  const submit = () => {
+    const t = truppId ? pickable.find((x) => x.id === truppId) : undefined
+    actions.addBereich({ name, trupp: t ? { label: t.label, id: t.id } : undefined })
+    onDone()
+  }
+  return (
+    <Form title={C.formBereich} submit={submit} submitLabel={C.submitBereich} disabled={!name.trim()} onCancel={onDone}>
+      <Field label={C.bereichWo}>
+        <input className={s.input} value={name} onChange={(e) => setName(e.target.value)} placeholder={C.bereichWoPlaceholder} aria-label={C.bereichWo} autoFocus />
+      </Field>
+      <Field label={C.werSucht}>
+        <div className={s.chips} role="group" aria-label={C.werSucht}>
+          {pickable.map((t) => <button key={t.id} type="button" className={s.chip} aria-pressed={truppId === t.id} onClick={() => setTruppId(truppId === t.id ? null : t.id)}>{t.short}</button>)}
+          <button type="button" className={s.chip} aria-pressed={truppId == null} onClick={() => setTruppId(null)}>{C.nochNiemand}</button>
+        </div>
+      </Field>
+    </Form>
+  )
+}
+
+function GefundenForm({ v, trupps, actions, uebergabe, places, here, preset, onDone }: SuchePanelProps & { v: PersonView; places: BereichView[]; here?: BereichView; preset?: FundPreset; onDone: () => void }) {
+  const C = appConfig.copy.suche
+  // ⚠️ from a Trupp's «Fund melden» the place is the TRUPP's (F7) — or open, never the person's
+  // «zuletzt gesehen», which put a find in the wrong place in two taps
+  const start = preset ? places.find((b) => b.id === preset.bereichId) : here
+  const [wo, setWo] = useState(start?.label ?? '')
+  // the Trupp searching that place is pre-selected — the radio report came from somebody there
+  const at = places.find((b) => placeKey(b.label) === placeKey(wo))
   const [truppId, setTruppId] = useState<string | null | undefined>(preset?.truppId)
-  const chosen = truppId === undefined ? (here[0]?.id ?? null) : truppId
+  const chosen = truppId === undefined ? (truppAt(at)?.id ?? null) : truppId
   const [other, setOther] = useState('')
   const [an, setAn] = useState<string | undefined>(undefined)
   // …and a Trupp reports what it has in front of it: the count starts at ONE, not at everybody
   const [n, setN] = useState(preset ? 1 : v.count - v.found)
   const submit = () => {
     const t = chosen ? trupps.find((x) => x.id === chosen) : undefined
-    actions.gefunden(v.id, { n: v.group ? n : undefined, trupp: t?.label ?? (chosen === '' ? other.trim() || undefined : undefined), truppId: t?.id, floor, wo, an })
+    const hit = at && placeKey(at.label) === placeKey(wo) ? at.id : undefined
+    actions.gefunden(v.id, { n: v.group ? n : undefined, trupp: t?.label ?? (chosen === '' ? other.trim() || undefined : undefined), truppId: t?.id, bereichId: hit, wo: hit ? undefined : wo, an })
     onDone()
   }
-  const ordered = [...here, ...trupps.filter((t) => !here.includes(t))]
   return (
     <Form title={fillTemplate(C.formGefunden, { name: v.label })} submit={submit} submitLabel={C.submitGefunden} onCancel={onDone}>
       {v.group && (
@@ -552,12 +587,9 @@ function GefundenForm({ v, floors, floorName, trupps, placed, doc, actions, uebe
         </Field>
       )}
       <Field label={C.von}>
-        <TruppChips trupps={ordered} value={chosen} onChange={setTruppId} other={other} onOther={setOther} />
+        <TruppChips trupps={trupps} value={chosen} onChange={setTruppId} other={other} onOther={setOther} />
       </Field>
-      <Field label={`${C.wo}${floor === v.floor && wo === (v.wo ?? '') && (v.floor != null || v.wo) ? ` ${C.woTaken}` : ''}`}>
-        <StoreyChips floors={floors} floorName={floorName} value={floor} onChange={setFloor} label={C.wo} />
-        <input className="ip-input" value={wo} onChange={(e) => setWo(e.target.value)} placeholder={C.woPlaceholder} aria-label={C.woGenau} />
-      </Field>
+      <PlaceField label={C.wo} value={wo} onChange={setWo} places={places} />
       <Field label={C.weiterAn}>
         <AnChips uebergabe={uebergabe} value={an} onChange={setAn} optional />
       </Field>
@@ -581,86 +613,30 @@ function UebergebenForm({ v, actions, uebergabe, onDone }: SuchePanelProps & { v
       )}
       <Field label={C.an}>
         <AnChips uebergabe={uebergabe} value={an} onChange={(x) => { setAn(x); if (x) setFree('') }} />
-        <input className="ip-input" value={free} onChange={(e) => { setFree(e.target.value); setAn(undefined) }} aria-label={C.an} />
+        <input className={s.input} value={free} onChange={(e) => { setFree(e.target.value); setAn(undefined) }} aria-label={C.an} />
       </Field>
     </Form>
   )
 }
 
-function TeilenForm({ floor, group, floorName, actions, onDone }: SuchePanelProps & { floor: number; group?: SucheGroup; onDone: () => void }) {
-  const C = appConfig.copy.suche
-  const have = new Set((group?.units ?? []).filter((u) => !u.storey).map((u) => u.short.toLowerCase()))
-  const [picked, setPicked] = useState<string[]>([])
-  const [extra, setExtra] = useState<string[]>([])
-  const [draft, setDraft] = useState('')
-  // the storey's current answer: its own row still counts unless the parts were said to cover it
-  const [keepRest, setKeepRest] = useState(() => !group?.hasParts || group.units.some((u) => u.storey))
-  const toggle = (n: string) => setPicked((l) => (l.includes(n) ? l.filter((x) => x !== n) : [...l, n]))
-  const addDraft = () => {
-    const n = draft.trim()
-    if (!n) return
-    if (!extra.includes(n) && !C.teilenChips.includes(n)) setExtra((l) => [...l, n])
-    if (!picked.includes(n)) setPicked((l) => [...l, n])
-    setDraft('')
-  }
-  const all = [...C.teilenChips, ...extra]
-  const names = [...picked, ...(draft.trim() && !picked.includes(draft.trim()) ? [draft.trim()] : [])]
-  return (
-    <Form title={fillTemplate(C.teilenTitle, { floor: floorName(floor) })}
-      submit={() => { actions.split(floor, names, keepRest); onDone() }}
-      submitLabel={names.length === 1 ? C.teilenSubmitOne : fillTemplate(C.teilenSubmit, { n: names.length })}
-      disabled={!names.length} onCancel={onDone}>
-      <div className={s.chips}>
-        {[...(group?.units ?? []).filter((u) => !u.storey)].map((u) => (
-          <span key={u.id} className={`${s.chip} ${s.chipDone}`}>{u.short}<Icon id="check" /></span>
-        ))}
-        {all.filter((n) => !have.has(n.toLowerCase())).map((n) => (
-          <button key={n} type="button" className={s.chip} aria-pressed={picked.includes(n)} onClick={() => toggle(n)}>{n}</button>
-        ))}
-      </div>
-      <div className={s.row2}>
-        <input className="ip-input" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={C.teilenPlaceholder} aria-label={C.teilenAdd}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDraft() } }} />
-        <button type="button" className="ip-btn" onClick={addDraft} disabled={!draft.trim()}><Icon id="plus" />{C.teilenAdd}</button>
-      </div>
-      <Field label={C.teilenRest}>
-        <OnOff value={keepRest} onChange={setKeepRest} ariaLabel={C.teilenRest} />
-      </Field>
-    </Form>
-  )
-}
-
-function KorrigierenForm({ v, floors, floorName, actions, onDone }: SuchePanelProps & { v: PersonView; onDone: () => void }) {
+function KorrigierenForm({ v, doc, floorName, actions, places, onDone }: SuchePanelProps & { v: PersonView; places: BereichView[]; onDone: () => void }) {
   const C = appConfig.copy.suche
   const [name, setName] = useState(v.name ?? '')
-  const [group, setGroup] = useState(v.group)
-  const [count, setCount] = useState(v.group ? v.count : 2)
-  const [floor, setFloor] = useState<number | undefined>(v.floor)
-  const [wo, setWo] = useState(v.wo ?? '')
+  const [count, setCount] = useState<number | null>(v.group ? v.count : null)
+  const [wo, setWo] = useState(() => personWhere(doc, v, floorName))
   // where the person was FOUND can be wrong too (walk-through 25.09.2026) — once somebody was found
   const found = v.found > 0
-  const [foundFloor, setFoundFloor] = useState<number | undefined>(v.foundFloor)
-  const [foundWo, setFoundWo] = useState(v.foundWo ?? '')
+  const rec = doc.personen.find((x) => x.id === v.id)
+  const [foundWo, setFoundWo] = useState(() => (rec ? foundWhere(doc, rec, v, floorName) : ''))
   return (
     <Form title={fillTemplate(C.formKorrigieren, { name: v.label })} submitLabel={C.submitKorrigieren} onCancel={onDone}
-      submit={() => { actions.korrigieren(v.id, { name, count: group ? count : undefined, floor, wo, ...(found ? { foundFloor, foundWo } : {}) }); onDone() }}>
+      submit={() => { actions.korrigieren(v.id, { name, count: count ?? undefined, wo, ...(found ? { foundWo } : {}) }); onDone() }}>
       <Field label={C.wer}>
-        <input className="ip-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={C.werPlaceholder} aria-label={C.wer} />
-        <div className={s.row2}>
-          <OnOffWords value={group} onChange={setGroup} off={C.einePerson} on={C.gruppe} label={`${C.einePerson} / ${C.gruppe}`} />
-          {group && <Stepper value={count} min={2} max={999} onChange={setCount} ariaLabel={C.anzahl} />}
-        </div>
+        <input className={s.input} value={name} onChange={(e) => setName(e.target.value)} placeholder={C.werPlaceholder} aria-label={C.wer} />
       </Field>
-      <Field label={C.zuletzt}>
-        <StoreyChips floors={floors} floorName={floorName} value={floor} onChange={setFloor} label={C.zuletzt} />
-        <input className="ip-input" value={wo} onChange={(e) => setWo(e.target.value)} placeholder={C.woPlaceholder} aria-label={C.woGenau} />
-      </Field>
-      {found && (
-        <Field label={C.korrigierenGefunden}>
-          <StoreyChips floors={floors} floorName={floorName} value={foundFloor} onChange={setFoundFloor} label={C.korrigierenGefunden} />
-          <input className="ip-input" value={foundWo} onChange={(e) => setFoundWo(e.target.value)} placeholder={C.woPlaceholder} aria-label={`${C.korrigierenGefunden} – ${C.woGenau}`} />
-        </Field>
-      )}
+      <CountField count={count} onChange={setCount} />
+      <PlaceField label={C.woZuletzt} hint={C.woZuletztHint} value={wo} onChange={setWo} places={places} />
+      {found && <PlaceField label={C.korrigierenGefunden} value={foundWo} onChange={setFoundWo} places={places} />}
     </Form>
   )
 }
@@ -689,46 +665,29 @@ function WhyForm({ kind, v, actions, onCancel, onDone }: SuchePanelProps & { kin
         <div className={s.chips} role="group" aria-label={C.grund}>
           {gruende.map((g) => <button key={g} type="button" className={s.chip} aria-pressed={grund === g} onClick={() => setGrund(grund === g ? '' : g)}>{g}</button>)}
         </div>
-        <input className="ip-input" value={grund} onChange={(e) => setGrund(e.target.value)} placeholder={C.grundPlaceholder} aria-label={C.grund} />
+        <input className={s.input} value={grund} onChange={(e) => setGrund(e.target.value)} placeholder={C.grundPlaceholder} aria-label={C.grund} />
       </Field>
       <Field label={C.werSagt}>
         <div className={s.chips} role="group" aria-label={C.werSagt}>
           {C.whyQuellen.map((q) => <button key={q} type="button" className={s.chip} aria-pressed={quelle === q} onClick={() => setQuelle(quelle === q ? '' : q)}>{q}</button>)}
         </div>
-        <input className="ip-input" value={quelle} onChange={(e) => setQuelle(e.target.value)} placeholder={C.werSagtPlaceholder} aria-label={C.werSagt} />
+        <input className={s.input} value={quelle} onChange={(e) => setQuelle(e.target.value)} placeholder={C.werSagtPlaceholder} aria-label={C.werSagt} />
       </Field>
     </Form>
   )
 }
 
-function RenameForm({ b, actions, onDone }: SuchePanelProps & { b: BereichView; onDone: () => void }) {
+function RenameForm({ b, actions, places, onDone }: SuchePanelProps & { b: BereichView; places: BereichView[]; onDone: () => void }) {
   const C = appConfig.copy.suche
   const [name, setName] = useState(b.name ?? '')
+  // two places that read the same would be one place to everybody reading the list
+  const clash = places.some((x) => x.id !== b.id && placeKey(x.label) === placeKey(name))
   return (
     <Form title={C.umbenennen} submit={() => { actions.rename(b.id, name); onDone() }} submitLabel={C.umbenennenSubmit}
-      disabled={!name.trim() || name.trim() === b.name} onCancel={onDone}>
-      <Field label={C.bereichName}>
-        <input className="ip-input" value={name} onChange={(e) => setName(e.target.value)} aria-label={C.bereichName} autoFocus />
+      disabled={!name.trim() || name.trim() === b.name || clash} onCancel={onDone}>
+      <Field label={C.bereichWo} hint={clash ? C.nameTaken : undefined}>
+        <input className={s.input} value={name} onChange={(e) => setName(e.target.value)} aria-label={C.bereichWo} autoFocus />
       </Field>
-    </Form>
-  )
-}
-
-function BereichForm({ floors, floorName, actions, onDone }: SuchePanelProps & { onDone: () => void }) {
-  const C = appConfig.copy.suche
-  const [name, setName] = useState('')
-  const [floor, setFloor] = useState<number | undefined>(undefined)
-  return (
-    <Form title={C.formBereich} submit={() => { actions.addBereich({ name, floor }); onDone() }} submitLabel={C.submitBereich}
-      disabled={!name.trim()} onCancel={onDone}>
-      <Field label={C.bereichName}>
-        <input className="ip-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={C.bereichNamePlaceholder} aria-label={C.bereichName} autoFocus />
-      </Field>
-      {floors.length > 0 && (
-        <Field label={C.geschoss}>
-          <StoreyChips floors={floors} floorName={floorName} value={floor} onChange={setFloor} unknown={false} label={C.geschoss} />
-        </Field>
-      )}
     </Form>
   )
 }

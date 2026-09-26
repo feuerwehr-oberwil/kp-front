@@ -30,7 +30,7 @@ function SucheAskMeldung({ u, actions, onOpen }: { u: BereichView; actions: Such
     kind: 'suche',
     tone: 'warn',
     icon: 'search',
-    title: fillTemplate(C.askMeldung, { trupp: u.trupp ?? '', bereich: u.full }),
+    title: fillTemplate(C.askMeldung, { trupp: u.trupp ?? '', bereich: u.label }),
     onOpen: { label: C.askMeldungOpen, onClick: () => onOpen(u.id) },
     actions: [
       { label: C.rausJa, onClick: () => { actions.setStatus(u.id, 'abgesucht', trupp) } },

@@ -12,7 +12,7 @@ import { JournalComposer } from '../JournalComposer'
 
 afterEach(cleanup)
 let n = 0
-const cx = (): SucheCx => ({ at: '2026-09-25T19:10:00.000Z', newId: (p) => `${p}${++n}`, floorName: floorLabel, stack: 'k1' })
+const cx = (): SucheCx => ({ at: '2026-09-25T19:10:00.000Z', newId: (p) => `${p}${++n}`, floorName: floorLabel })
 function world() {
   let d = addPerson(emptySuche(), { name: 'Klasse 4b', count: 5 }, cx()).doc
   d = addPerson(d, { name: 'Eva Beispiel' }, cx()).doc

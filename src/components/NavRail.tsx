@@ -101,16 +101,6 @@ interface Props {
   openCount?: number
   /** PHONE only: how many distinct Mittel positions are recorded — the Material row's read-out */
   mittelCount?: number
-  /** the Suche (24.09.2026): open it beside the Gebäude or the Karte. It is not a surface of its
-   *  own — it docks beside one — so it is a door on the rail, lit while the dock is open. On the
-   *  folded phone bar (five tiles, no sixth) it is a row of the «Einsatz» chooser instead. */
-  onSuche?: () => void
-  /** the phone chooser's row: it OPENS the Suche, never closes it (a list row that toggled the
-   *  thing it names would close it for somebody who came to open it) */
-  onSucheOpen?: () => void
-  sucheOn?: boolean
-  /** people still missing — the red count on the door */
-  sucheCount?: number
 }
 
 // The single left navigation rail: it switches the whole surface (Karte · the
@@ -173,14 +163,6 @@ export function NavRail(p: Props) {
       meta: (p.mittelCount ?? 0) > 0 ? fillTemplate(P.mittel.summary, { lines: p.mittelCount ?? 0 }) : undefined,
     },
   }[page]))
-  // …and the Suche, as the chooser's last row on the phone (see `onSuche`): not one of the three
-  // pages, so not part of ⌘[ / ⌘] either — a door, with the one number that matters on it
-  if (p.fold && p.onSuche) {
-    pageRows.push({
-      id: 'suche', glyph: <Icon id="search" />, title: P.suche.title,
-      meta: (p.sucheCount ?? 0) > 0 ? fillTemplate(P.suche.chooserMeta, { n: p.sucheCount ?? 0 }) : undefined,
-    })
-  }
   // …and the second way into the list, for the hand that has learned press-and-hold everywhere
   // else in this app: a hold opens the chooser wherever you are standing, so reaching another
   // document never costs the trip through the one that happens to be loaded.
@@ -318,16 +300,6 @@ export function NavRail(p: Props) {
           <span className="nav-label">{appConfig.copy.modes.atemschutz}</span>
           <span className="nav-key" aria-hidden>{SURFACE_KEY.atemschutz}</span>
         </button>
-        {/* the Suche's door (see `onSuche`) — beside the Trupps it works with, red count of the
-            people still missing */}
-        {!p.fold && p.onSuche && (
-          <button className={`nav-item${p.sucheOn ? ' on' : ''}`} aria-pressed={!!p.sucheOn}
-            aria-label={(p.sucheCount ?? 0) > 0 ? `${P.suche.rail} · ${fillTemplate(P.suche.vermisstChip, { n: p.sucheCount ?? 0 })}` : P.suche.rail}
-            onClick={p.onSuche}>
-            <span className="nav-glyph"><Icon id="search" />{(p.sucheCount ?? 0) > 0 ? <span className="nav-live nav-count nav-vermisst" aria-hidden>{(p.sucheCount ?? 0) > 99 ? '99+' : p.sucheCount}</span> : null}</span>
-            <span className="nav-label">{P.suche.rail}</span>
-          </button>
-        )}
         {/* ⚠️ Anwesenheit and Material have no tile of their OWN on the folded phone bar — the
             «Rapport» tile below is the door to all three (see `fold`). They are still separate
             full pages there; a second tap or a hold on that tile chooses between them. Everywhere
@@ -400,7 +372,7 @@ export function NavRail(p: Props) {
           rows={pageRows}
           // from outside the group (a hold on Karte) the marked row is the one a tap would open
           activeId={rapportOn ? p.mode : rapportGo}
-          onPick={(id) => (id === 'suche' ? (p.onSucheOpen ?? p.onSuche)?.() : p.onMode(id as RapportPage))}
+          onPick={(id) => p.onMode(id as RapportPage)}
           onClose={() => setPageChooser(false)}
         />
       )}

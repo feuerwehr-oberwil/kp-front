@@ -3,7 +3,8 @@ import { buildDirectReportPayload } from './reportPdfDirect'
 import type { SucheDoc } from '../types'
 
 /** The Suche's «Personen» (24.09.2026): one line per person, then the one Bereiche line — from
- *  the same slice the app lists, with the building's own storey names. */
+ *  the same slice the app lists, with the building's own storey names (a step-1 record carries
+ *  a storey; the places entered since are words). */
 describe('buildDirectReportPayload · personen', () => {
   const suche: SucheDoc = {
     personen: [{ id: 'p1', name: 'Tim Muster', floor: 1, createdAt: '2026-09-03T10:08:00.000Z', log: [
@@ -18,15 +19,15 @@ describe('buildDirectReportPayload · personen', () => {
     trupps: [], attendance: {}, events: [], plans: [], suche,
     building: { ring: [], ringAspect: 1, floors: [0, 1], floorNames: { 1: 'Hauptgeschoss' } },
     // the app's own reading of the Gebäude (IncidentWorkspace · sucheStack) — the paper counts what it counts
-    sucheStack: { key: 'k1', floors: [0, 1], floorName: (f) => (f === 1 ? 'Hauptgeschoss' : f === 0 ? 'EG' : `${f}`) },
+    sucheStack: { floorName: (f) => (f === 1 ? 'Hauptgeschoss' : f === 0 ? 'EG' : `${f}`) },
   }) as { personen: { name: string; gefunden?: string }[]; sucheLine?: string }
 
   it('prints the person with its times and the Bereiche line, in the building\'s own storey names', () => {
     const out = payload(true)
     expect(out.personen.map((p) => p.name)).toEqual(['Tim Muster'])
     expect(out.personen[0].gefunden).toContain('Hauptgeschoss')
-    expect(out.sucheLine).toContain('2 Bereiche')
-    expect(out.sucheLine).toContain('EG')
+    // the one place that was ever touched — no storey nobody entered (the EG is not on the list)
+    expect(out.sucheLine).toMatch(/^Suche: 1 Bereich, abgesucht \d\d:39$/)
   })
 
   it('prints nothing of it when the section is switched off', () => {

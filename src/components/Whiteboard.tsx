@@ -92,6 +92,7 @@ import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
+import { SucheToolButton } from './suche/SucheToolButton'
 
 const COLORS = appConfig.drawing.colors
 
@@ -165,11 +166,9 @@ interface Props {
   /** device pref «Beschriftung der Werkzeugleisten» (lib/prefs · railLabels) — the word under each glyph.
    *  The setting says «in den beiden Leisten», so the plan's rail has to be handed it too. */
   railLabels?: RailLabels
-  /** the Suche's dock stands beside the stack (components/suche · SucheDock): px it takes off the
-   *  right, so the fit and «centre on» measure the room that is actually left (tablet only) */
-  dockInset?: number
-  /** the Suche's progress per storey, worn on the storey's own label («1. OG 2/4») */
-  storeyBadges?: Record<number, { text: string; complete: boolean; active: boolean }>
+  /** the Suche's door at the end of the rail (components/suche · SucheToolButton, 26.09.2026) —
+   *  the same button the Karte carries beside Ebenen; the card it opens is the workspace's */
+  suche?: { on: boolean; count: number; onToggle: () => void }
   sym: SymbolsApi
   /** active Mannschaft names feeding the symbol detail comboboxes (Einsatzleiter / Fahrer …) */
   rosterNames?: string[]
@@ -328,7 +327,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, dockInset = 0, storeyBadges }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, suche }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -726,10 +725,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // …and the rails: the WINDOW decides whether they are floating side rails or bottom bars, not
   // the canvas width — during the «Karte verknüpfen» split the canvas is half a screen wide with
   // both rails still in place (lib/whiteboard · sideInsets).
-  const side = useMemo(() => {
-    const base = sideInsets(vp.w, isPhone)
-    return dockInset > 0 && !isPhone ? { ...base, r: base.r + dockInset } : base
-  }, [vp.w, isPhone, dockInset])
+  const side = useMemo(() => sideInsets(vp.w, isPhone), [vp.w, isPhone])
   const fit = useMemo(() => {
     const w = Math.max(0, vp.w - side.l - side.r)
     const h = Math.max(0, vp.h - TOP_INSET - (stack ? 2 * STACK_VPAD : 0)); if (!w || !h) return { w: 0, h: 0 }
@@ -2132,8 +2128,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const canvas = canvasRef.current?.getBoundingClientRect()
     if (!w || !h || !canvas) return
     const my = mapY(floor, y)
-    // …or, on a phone, the Suche's sheet pulled up over the stack (lib/overlays · DetentSheet)
-    const target = rectCenter(planWorkRect(canvas, document.querySelector('.ctx') ?? document.querySelector('.ui-detent')))
+    const target = rectCenter(planWorkRect(canvas, document.querySelector('.ctx')))
     const baseX = canvas.left + canvas.width / 2 + (side.l - side.r) / 2
     const baseY = canvas.top + canvas.height / 2 + TOP_INSET / 2
     applyView(s, {
@@ -2880,15 +2875,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFloor(f)}><Icon id="close" /></button>
                     )}
                   </div>
-                  {/* the Suche's progress on this storey — the stack alone answers «wo waren wir».
-                      ⚠️ Its OWN line under the label, not in the label row (walk-through 25.09.2026,
-                      F9): on a narrow tile the row runs into the tile's top-right corner, where
-                      «Geschoss entfernen» stands, and a tap on «0/1» removed the storey. */}
-                  {storeyBadges?.[f] && (
-                    <span className="wb-floor-suche" data-complete={storeyBadges[f].complete || undefined} data-active={storeyBadges[f].active || undefined}>
-                      {storeyBadges[f].complete ? <Icon id="check" /> : null}{storeyBadges[f].text}
-                    </span>
-                  )}
                   {/* (the north dial used to be drawn on this tile, top-right. It now floats in
                       the viewport's corner — see <PlanCompass> below the board: inside the tile
                       it panned and zoomed away with the paper, taking the rotation control with
@@ -3822,6 +3808,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // resolves that toggle, so a second tap on the armed Auswahl arrives here as 'lasso'
           // and a tap on the armed Mehrfach as 'pan' — both plain tool switches from here.
           onPick={(id) => {
+            // a tool picked puts the Suche's card away — as a tool on the Karte puts Ebenen away
+            if (suche?.on) suche.onToggle()
             if (id === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
             setTool(tool === id ? 'pan' : (id as BoardTool)); setPending(null)
           }}
@@ -3834,6 +3822,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               {/* «Einpassen» — where the map rail carries its compass / views button: the one
                   control that puts the whole surface back in front of you. */}
               <button className="vrail-nbtn vrail-fit" title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit} disabled={scale === 1 && pos.x === 0 && pos.y === 0} onClick={() => applyView(1, { x: 0, y: 0 })}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
+              {/* the Suche — at the END of the plan's bar on a phone (15-mobile · order), under
+                  «Einpassen» on the rail: the same door the Karte has beside Ebenen */}
+              {suche && <SucheToolButton on={suche.on} count={suche.count} onClick={suche.onToggle} />}
               {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px) — the plan pinches
                   on every touch form factor, and «Einpassen» above covers the one state that
                   matters. */}

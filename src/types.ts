@@ -1233,7 +1233,7 @@ export interface ShiftBand {
   to: string
 }
 
-/* ── «Suche» — Personen + Bereiche (step 1, 24.09.2026) ──────────────────────────────────────
+/* ── «Suche» — Personen + Orte (step 1 24.09.2026, reworked 26.09.2026) ─────────────────────
  *
  * Übung 23.09.2026: the missing and the found existed only in eleven free-text notes, names spelt
  * differently each time, and at 20:15 no screen could answer «wer fehlt noch, was ist abgesucht».
@@ -1242,8 +1242,10 @@ export interface ShiftBand {
  * Bereich's offen / in Arbeit / abgesucht) is FOLDED from it — never a mutable status field. Each
  * row carries the sentence it wrote into the Verlauf («a row carries what was said»).
  *
- * Step 2 (drawn areas, person markers on the plan/Karte) adds `point` / `shape` — present in the
- * type now and always empty in step 1, so that step needs no migration. */
+ * Since 26.09.2026 (the owner's design «F») a Bereich is a PLACE somebody typed — «Keller»,
+ * «Wohnung 2. OG links» — never a storey the app made up; people are listed under the place they
+ * were last seen at. Step-1 records (a storey `floor`, a derived `sbg:` id) keep loading and read
+ * as «1. OG» / «1. OG Trakt 3». A place may carry a `point`: a pin on the Karte or on a plan. */
 
 /** One thing that happened to a Person or a Bereich. Append-only: a correction is a ↶ of the step
  *  (the slice's own undo), never an edit of a row. */
@@ -1252,8 +1254,10 @@ export interface SucheRow {
   /** ISO instant (the shared clock, lib/serverClock) */
   at: string
   /** Person: vermisst · gefunden · uebergeben · entwarnt · korrigiert · irrtuemlich. Bereich:
-   *  status · fund · geteilt · umbenannt. */
-  op: 'vermisst' | 'gefunden' | 'uebergeben' | 'entwarnt' | 'korrigiert' | 'irrtuemlich' | 'status' | 'fund' | 'geteilt' | 'umbenannt'
+   *  angelegt · status · fund · umbenannt. Both: ort (put on / moved on / taken off the Karte or a
+   *  plan). `geteilt` is step 1's (a storey split into parts, or an area created) — still read,
+   *  never written. An op this build does not know is kept and folds to nothing. */
+  op: 'vermisst' | 'gefunden' | 'uebergeben' | 'entwarnt' | 'korrigiert' | 'irrtuemlich' | 'angelegt' | 'status' | 'fund' | 'geteilt' | 'umbenannt' | 'ort'
   /** the Verlauf sentence this row wrote — what the ↶ names, what the Rapport can quote */
   text: string
   /** a group's gefunden / übergeben row: how many people this row covers (absent = 1) */
@@ -1261,7 +1265,7 @@ export interface SucheRow {
   /** the Trupp that found / searches, as the row said it («T3») — and its id when it was picked */
   trupp?: string
   truppId?: string
-  /** gefunden: the storey (Gebäude stack index) and the place in words */
+  /** gefunden: the place in words — and, step 1 only, the storey (Gebäude stack index) */
   floor?: number
   wo?: string
   /** übergeben an («Rettungsdienst», «Sammelplatz», …) — also on a `gefunden` row that handed
@@ -1269,8 +1273,9 @@ export interface SucheRow {
   an?: string
   /** `gefunden`: the area the person was found in — the area wears «Fund» because of it */
   bereichId?: string
-  /** `korrigiert`: the values that replace the record's (null floor = «unbekannt») */
-  set?: { name?: string; count?: number; floor?: number | null; wo?: string
+  /** `korrigiert`: the values that replace the record's (null = «unbekannt»; `floor` is step 1's
+   *  and is only ever cleared now) */
+  set?: { name?: string; count?: number; floor?: number | null; wo?: string; bereichId?: string | null
     /** where the person was FOUND (the latest find), and the area that then wears «Fund» */
     foundFloor?: number | null; foundWo?: string; foundBereichId?: string | null }
   /** Bereich `status` row: the new status */
@@ -1286,7 +1291,9 @@ export interface SucheRow {
  *  «offen» read the same as never searched; it counts as NOT done in every progress figure. */
 export type SucheBereichStatus = 'offen' | 'inArbeit' | 'teilweise' | 'abgesucht' | 'nichtZugaenglich'
 
-/** Step 2: a position on a plan sheet or the Karte. Never written in step 1. */
+/** Where a place (or a person) stands: on the Karte (`coord`) OR on a plan sheet (`planId`, `x`/`y`
+ *  as sheet fractions, and the storey `floor` on a Gebäude stack, so the pin sits on its band).
+ *  One position per record — the surface it was put on. */
 export interface SuchePoint {
   planId?: string
   x?: number
@@ -1302,33 +1309,45 @@ export interface SuchePerson {
   name?: string
   /** a GROUP: how many people it stands for (≥ 2). Absent = one person. */
   count?: number
-  /** zuletzt gesehen: storey index on the Gebäude stack; absent = unbekannt */
+  /** zuletzt gesehen: storey index on the Gebäude stack — step 1 only; never written now */
   floor?: number
-  /** zuletzt gesehen, in words («Technikraum», «Z102») */
+  /** zuletzt gesehen, in words («Keller», «Wohnung 2. OG links») — the place's label when it was
+   *  reported; absent = unbekannt */
   wo?: string
+  /**
+   * zuletzt gesehen, as the PLACE on the list (a SucheBereich id) — so person and place stay one
+   * thing through a rename of the place (26.09.2026). Linking decision: the id where the report
+   * named a place (the «＋ Vermisst» form always does: it picks one or creates one in the same
+   * act); a record without it (the Verlauf composer's «… vermisst», step 1) is matched by its words
+   * against the places' labels, case- and accent-blind (lib/suche · personPlace). Optional and
+   * additive: an older document loads unchanged, and an older build ignores it.
+   */
+  bereichId?: string
   /** who reported it («Schulleitung», «Anrufer 144») */
   quelle?: string
   createdAt: string
-  /** step 2 — a marker on the plan/Karte; absent in step 1 */
+  /** a pin of its own on the Karte or a plan (a person with a position and no place) */
   point?: SuchePoint
   log: SucheRow[]
 }
 
-/** A search area: a whole storey (`sbg<index>`, created by itself), a named part of one
- *  («Trakt 3», «Technikraum»), or — with no Gebäude — a named area of its own. */
+/** A place to search («Ort»): whatever somebody typed — «Keller», «Wohnung 2. OG links», «Scheune».
+ *  Step 1 also wrote a whole storey (`sbg:<stack>:<index>`, no `name`) and named parts of one
+ *  (`floor` + `name`); those still load and read «1. OG» / «1. OG Trakt 3». */
 export interface SucheBereich {
   id: string
-  /** storey index on the Gebäude stack; absent = an area without storeys (no Gebäude) */
+  /** step 1 only: the storey index on the Gebäude stack. Never written now (owner, F-d) */
   floor?: number
-  /** a part's name; ABSENT on a storey's own row («ganzes Geschoss» / «übriges Geschoss») */
+  /** the typed name; ABSENT only on a step-1 storey's own row */
   name?: string
   createdAt: string
-  /** the storey row only: its parts cover the whole storey, so no «übriges Geschoss» is left */
+  /** step 1 only (a split storey without its «übriges Geschoss») — read by nothing now */
   ohneRest?: boolean
-  /** which Gebäude stack the storey belongs to (lib/suche · stackKeyOf) — a replaced building's
-   *  storeys are other records and never lend it their state */
+  /** step 1 only: which Gebäude stack a storey row belonged to */
   stack?: string
-  /** step 2 — a drawn box/polygon on the storey or the Karte; absent in step 1 */
+  /** a pin on the Karte or a plan, where somebody put the place (lib/suche · setPlacePoint) */
+  point?: SuchePoint
+  /** a drawn box/polygon — not built; kept so a later step needs no migration */
   shape?: { planId?: string; pts?: BoardPoint[]; ring?: LngLat[] }
   log: SucheRow[]
 }

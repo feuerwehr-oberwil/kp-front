@@ -1,177 +1,212 @@
-/* The Suche (24.09.2026): one list — Personen · Bereiche — docked beside the Gebäude or the Karte
-   on a tablet, pulled up over them on a phone. Tokens only (day/night flip with the theme). */
+/* The Suche (step 1 24.09.2026, reworked 26.09.2026 — the owner's design «F»): ONE card built like
+   the Ebenen panel, beside it on the Karte and at the end of the plan's tool bar; one list, by
+   place. Tokens only (day/night flip with the theme).
 
-/* ── the frame the dock gives it on a tablet ─────────────────────────────────────────────────── */
-/* ⚠️ A DOCK, not a sheet: no backdrop, nothing modal — the plan beside it is fully usable. It
-   stands where the context panel stands (left of the tool rail, tracking --vrail-w) but runs the
-   full height, and yields its lane to an open `.ctx` by stepping left of it. */
-.dock {
-  position: absolute; z-index: var(--z-chrome);
-  right: calc(var(--vrail-w, 60px) + 26px); top: 88px; bottom: 16px; width: var(--suche-dock-w, 340px);
-  display: flex; flex-direction: column; overflow: hidden;
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow);
+   The panel is drawn in two places — the dark card (.card, the Ebenen dock's --ink-fill in both
+   themes) and the light «Fund melden» sheet over the Atemschutz board — so its colours are a small
+   PALETTE of custom properties: the light defaults on .panel, the dark ones on .card. Nothing
+   below names a colour directly. */
+
+/* ── the card: `.layers-card` gives the place and the chrome (05-navrail · 15-mobile) ────────── */
+/* A flex column instead of the Ebenen card's one scrolling box: the list scrolls, the head and the
+   two buttons at the foot never do. Wider than Ebenen's 264px on a tablet — a place, a person and
+   «Gefunden» share one row. */
+.card:global(.layers-card) { display: flex; flex-direction: column; padding: 0; overflow: hidden;
+  width: 344px; height: min(640px, calc(100dvh - 120px)); }
+/* ⚠️ Wider than Ebenen, so on a tablet it would lie over the Lage-Grundgerüst card beside the
+   nav rail (its «hier setzen» and «ausblenden» went under it at 820 px): while the Suche is up,
+   that card stops a 12px channel short of it — the step-1 dock's rule, for the card. */
+:global(.app:has([data-suche-card])) :global(.lgg:not(.lgg-phone)) {
+  width: auto; max-width: 340px;
+  right: calc(var(--vrail-w, 60px) + 26px + 344px + 12px); }
+/* phone: the full-width sheet Ebenen is there (15-mobile · .layers-card), but at its full height —
+   the list is the one thing on screen while it is open, and a card that grew with each entry
+   jumped under the thumb. The height is the Ebenen sheet's own cap, over one or two bars. */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .card:global(.layers-card) { width: auto;
+    height: calc(100dvh - var(--rail-h) - 94px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  :global(.phone-tools) .card:global(.layers-card) {
+    height: calc(100dvh - var(--rail-h) * 2 - 102px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
-:global(.app:has(.ctx)) .dock { right: calc(var(--vrail-w, 60px) + 36px + 360px); }
-.dockHead { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 10px 6px 18px; }
-.dockTitle { margin: 0; flex: 1 1 auto; font: 800 17px var(--body); color: var(--ink); display: flex; align-items: center; gap: 8px; }
-.dockTitle :global(.i) { width: 18px; height: 18px; color: var(--ink-dim); }
+.head:global(.lc-title) { position: static; margin: 0; flex: none; padding: 12px 10px 8px 18px; border-radius: 0; }
+/* «1 vermisst · 1/3 abgesucht» in the head — the one line that answers «wer fehlt, was ist
+   abgesucht» without a scroll. Not small caps: it is a sentence, not a title. */
+.headLine { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12.5px; letter-spacing: 0; text-transform: none; font-weight: 700; color: rgba(255, 255, 255, .8); }
+.headLine[data-hot] { color: color-mix(in srgb, var(--red) 55%, #fff); }
 
-/* ── the panel ───────────────────────────────────────────────────────────────────────────────── */
-.panel { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; height: 100%; }
-.scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 4px 12px 12px; }
-.foot { flex: none; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--border-soft); }
-.foot :global(.ip-btn) { min-height: var(--tap); }
-.readOnly { flex: none; padding: 10px 16px 14px; font: 500 12.5px var(--body); color: var(--ink-faint); }
-
-.tabs { flex: none; display: flex; gap: 4px; margin: 4px 12px 6px; padding: 3px; border-radius: var(--r-ctl); background: var(--fill-soft); }
-.tab { flex: 1 1 0; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 0; background: none;
-  border-radius: var(--r-sm); font: 700 14px var(--body); color: var(--ink-dim); cursor: pointer; }
-.tab.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(20, 40, 80, .14); }
-.tab:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.tabBadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--red); color: var(--on-fill);
-  font: 800 12px var(--body); display: inline-grid; place-items: center; flex: none; }
-.tabCount { font: 600 12.5px var(--mono); color: var(--ink-faint); }
-
-.empty { padding: 28px 12px; }
-
-/* ── rows ────────────────────────────────────────────────────────────────────────────────────── */
-.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.row { width: 100%; min-height: 56px; display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; text-align: left;
-  border: 1px solid transparent; border-radius: var(--r-ctl); background: var(--surface-2); color: var(--ink); cursor: pointer;
-  border-left: 4px solid var(--tone, var(--border)); }
-.rowTight { min-height: 48px; }
-@media (hover: hover) { .row:hover { background: var(--hover-strong); } }
-.row:active { background-image: linear-gradient(var(--press), var(--press)); }
-.rowMain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.rowTitle { font: 700 14.5px var(--body); display: flex; align-items: baseline; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rowSub { font: 500 12.5px var(--body); color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.count { font: 600 12.5px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
-
-.panel [data-tone="red"] { --tone: var(--red); --tone-strong: var(--red-strong); }
-.panel [data-tone="amber"] { --tone: var(--amber); --tone-strong: var(--amber-strong); }
-.panel [data-tone="green"] { --tone: var(--green); --tone-strong: var(--green-strong); }
-.panel [data-tone="blue"] { --tone: var(--blue); --tone-strong: var(--blue-strong); }
-.panel [data-tone="grey"] { --tone: var(--border); --tone-strong: var(--ink-dim); }
+/* ── the palette ─────────────────────────────────────────────────────────────────────────────── */
+.panel {
+  --sx-ink: var(--ink); --sx-dim: var(--ink-dim); --sx-faint: var(--ink-faint);
+  --sx-tile: var(--fill-soft); --sx-line: var(--border-soft); --sx-edge: var(--glass-edge);
+  --sx-field: var(--surface); --sx-chip: var(--surface); --sx-btn: var(--surface); --sx-btn-ink: var(--ink);
+  --sx-on: var(--blue); --sx-on-ink: var(--on-fill);
+  --sx-primary: var(--btn-primary); --sx-primary-ink: var(--on-btn-primary);
+  --sx-red: var(--red-strong); --sx-green: var(--green-strong); --sx-blue: var(--blue-strong); --sx-amber: var(--amber-strong);
+  --sx-red-wash: color-mix(in srgb, var(--red) 10%, transparent);
+  --sx-green-wash: color-mix(in srgb, var(--green) 12%, transparent);
+  display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; height: 100%; color: var(--sx-ink); }
+.card .panel {
+  --sx-ink: var(--on-accent-ink); --sx-dim: rgba(255, 255, 255, .72); --sx-faint: rgba(255, 255, 255, .52);
+  --sx-tile: rgba(255, 255, 255, .07); --sx-line: rgba(255, 255, 255, .12); --sx-edge: rgba(255, 255, 255, .16);
+  --sx-field: rgba(0, 0, 0, .24); --sx-chip: rgba(255, 255, 255, .1); --sx-btn: rgba(255, 255, 255, .14); --sx-btn-ink: var(--on-accent-ink);
+  --sx-on: var(--on-accent-ink); --sx-on-ink: var(--ink-fill);
+  --sx-primary: var(--on-accent-ink); --sx-primary-ink: var(--ink-fill);
+  --sx-red: color-mix(in srgb, var(--red) 60%, #fff); --sx-green: color-mix(in srgb, var(--green) 62%, #fff);
+  --sx-blue: color-mix(in srgb, var(--blue) 55%, #fff); --sx-amber: color-mix(in srgb, var(--amber) 70%, #fff);
+  --sx-red-wash: color-mix(in srgb, var(--red) 24%, transparent);
+  --sx-green-wash: color-mix(in srgb, var(--green) 20%, transparent);
+}
+.panel [data-tone="red"] { --tone: var(--red); --tone-ink: var(--sx-red); }
+.panel [data-tone="amber"] { --tone: var(--amber); --tone-ink: var(--sx-amber); }
+.panel [data-tone="green"] { --tone: var(--green); --tone-ink: var(--sx-green); }
+.panel [data-tone="blue"] { --tone: var(--blue); --tone-ink: var(--sx-blue); }
+.panel [data-tone="grey"] { --tone: var(--sx-faint); --tone-ink: var(--sx-dim); }
 /* «teilweise abgesucht» (N14): its own colour, between the blue of «in Arbeit» and the green of
-   «abgesucht» — and a HALF-filled dot, so it reads apart from both even without colour */
-.panel [data-tone="part"] { --tone: color-mix(in srgb, var(--green) 55%, var(--blue)); --tone-strong: color-mix(in srgb, var(--green-strong) 55%, var(--blue-strong)); }
+   «abgesucht» — and a HALF-filled circle, so it reads apart from both even without colour */
+.panel [data-tone="part"] { --tone: color-mix(in srgb, var(--green) 55%, var(--blue)); --tone-ink: color-mix(in srgb, var(--sx-green) 55%, var(--sx-blue)); }
 
-.pill { flex: none; padding: 4px 9px; border-radius: var(--r-pill); font: 700 12.5px var(--body); white-space: nowrap;
-  color: var(--tone-strong); background: color-mix(in srgb, var(--tone) 14%, transparent); }
-.fund { flex: none; padding: 3px 8px; border-radius: var(--r-pill); font: 800 12px var(--body); color: var(--red-strong);
-  background: color-mix(in srgb, var(--red) 12%, transparent); }
-.dot { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
-  border: 2px solid var(--tone); color: var(--on-fill); }
-.dot[data-tone="green"] { background: var(--green); }
-.dot[data-tone="blue"] { background: color-mix(in srgb, var(--blue) 25%, transparent); }
-.dot[data-tone="part"] { background: linear-gradient(90deg, var(--tone) 50%, transparent 50%); }
-.dot :global(.i) { width: 14px; height: 14px; }
+.scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 2px 10px 12px; }
+.foot { flex: none; display: flex; gap: 8px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--sx-line); }
+.card .foot { padding-bottom: 10px; }
+.readOnly { flex: none; padding: 10px 16px 14px; font: 500 12.5px var(--body); color: var(--sx-faint); }
 
-/* ── Bereiche: one group per storey ──────────────────────────────────────────────────────────── */
-.groups { display: flex; flex-direction: column; gap: 12px; }
-.group { display: flex; flex-direction: column; gap: 4px; }
-.groupHead { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 6px; border: 0; background: none; cursor: pointer;
-  border-radius: var(--r-sm); color: var(--ink); text-align: left; }
-.groupHead:disabled { cursor: default; }
-.groupHead:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.groupName { flex: 1 1 auto; font: 800 13px var(--body); letter-spacing: .02em; }
-.groupProg { font: 700 13px var(--mono); color: var(--ink-dim); display: inline-flex; align-items: center; gap: 4px; }
-.groupHead[data-complete] .groupProg { color: var(--green-strong); }
-.groupProg :global(.i) { width: 14px; height: 14px; }
+/* the two doors, EQUAL (owner, 26.09.2026): a sweep with nobody missing is not the lesser case */
+.footBtn { flex: 1 1 0; min-width: 0; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 0 10px; border: 1px solid transparent; border-radius: var(--r-sm); background: var(--sx-btn); color: var(--sx-btn-ink);
+  font: 700 14px var(--body); cursor: pointer; }
+.card .footBtn { border-color: transparent; }
+.panel:not(.card .panel) .footBtn { border-color: var(--sx-edge); }
+.footBtn :global(.i) { width: 16px; height: 16px; flex: none; }
+.footBtn[data-primary] { background: var(--sx-primary); color: var(--sx-primary-ink); border-color: var(--sx-primary); }
+.footBtn[data-danger] { background: var(--red); color: var(--on-fill); border-color: var(--red); }
+.footBtn:disabled { opacity: var(--disabled, .45); cursor: default; }
+.footBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+
+/* ── empty: what the card is for, in one sentence ─────────────────────────────────────────────── */
+.empty { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  padding: 24px 18px; text-align: center; color: var(--sx-dim); font: 500 13px/1.45 var(--body); }
+.empty :global(.i) { width: 26px; height: 26px; color: var(--sx-faint); margin-bottom: 2px; }
+.empty strong { font: 800 15px var(--body); color: var(--sx-ink); }
+.empty span { max-width: 30ch; }
+
+/* ── the list: one block per place ───────────────────────────────────────────────────────────── */
+.list { display: flex; flex-direction: column; gap: 8px; }
+.ort { display: flex; flex-direction: column; gap: 4px; padding: 4px; border-radius: var(--r-sm); background: var(--sx-tile);
+  border-left: 3px solid transparent; }
+/* somebody is still missing here: a red edge, and it sorts first (lib/suche · sucheOrte) */
+.ort[data-hot] { border-left-color: var(--red); }
+/* abgesucht, nobody missing: quiet, at the end */
+.ort[data-quiet] { opacity: .62; }
+.ort[data-unknown] { background: none; padding: 0; border-left: 0; }
+.ortLabel { padding: 6px 4px 2px; font: 700 12.5px var(--body); color: var(--sx-dim); }
+.ortHead { display: flex; align-items: center; gap: 4px; }
+.ortMain { flex: 1 1 auto; min-width: 0; min-height: 44px; display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 8px; row-gap: 2px;
+  padding: 8px 8px; border: 0; background: none; border-radius: var(--r-sm); color: var(--sx-ink); text-align: left; font: inherit; }
+button.ortMain { cursor: pointer; }
+button.ortMain:active { background-image: linear-gradient(var(--press), var(--press)); }
+.ortName { font: 800 14.5px var(--body); overflow-wrap: anywhere; }
+.ortStatus { font: 600 12.5px var(--body); color: var(--tone-ink); }
+.fund { flex: none; align-self: center; padding: 2px 8px; border-radius: var(--r-pill); font: 800 12px var(--body); color: var(--sx-red);
+  background: var(--sx-red-wash); }
+
+/* the tick circle IS the button: 44px to hit, a 30px ring to read */
+.tick { flex: none; width: 48px; height: 48px; display: grid; place-items: center; border: 0; background: none; border-radius: var(--r-sm);
+  cursor: pointer; color: var(--on-fill); }
+.tick:disabled { cursor: default; }
+.tick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.tickRing { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--tone); }
+.tick[data-tone="grey"] .tickRing { border-color: var(--sx-faint); }
+.tick[data-tone="blue"] .tickRing { border-style: dashed; border-color: var(--sx-blue); }
+.tick[data-tone="green"] .tickRing { background: var(--green); border-color: var(--green); }
+.tick[data-tone="part"] .tickRing { background: linear-gradient(90deg, var(--tone) 50%, transparent 50%); }
+.tick[data-tone="amber"] .tickRing { border-color: var(--amber); }
+.tickRing :global(.i) { width: 16px; height: 16px; stroke-width: 3; }
+
+/* a person under their place */
+.person { display: flex; align-items: center; gap: 6px; padding: 2px 4px 2px 0; border-radius: var(--r-sm); background: var(--sx-tile); }
+.person[data-tone="red"] { background: var(--sx-red-wash); }
+.person[data-tone="green"] { background: var(--sx-green-wash); }
+.personMain { flex: 1 1 auto; min-width: 0; min-height: 48px; display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  padding: 6px 8px 6px 10px; border: 0; background: none; border-radius: var(--r-sm); color: var(--sx-ink); text-align: left; font: inherit; cursor: pointer; }
+.personMain:active { background-image: linear-gradient(var(--press), var(--press)); }
+.personName { display: flex; align-items: center; gap: 6px; min-width: 0; font: 700 14px var(--body); }
+.personName :global(.i) { width: 14px; height: 14px; flex: none; color: var(--sx-green); stroke-width: 3; }
+.person[data-tone="green"] .personName { color: var(--sx-green); }
+.personSub { font: 500 12.5px var(--body); color: var(--sx-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person[data-tone="red"] .personSub { color: var(--sx-red); }
+.count { font: 700 12.5px var(--body); color: var(--sx-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* a record withdrawn as «irrtümlich erfasst»: still on the list (the record is not ours to hide),
+   struck through and quiet */
+.person[data-withdrawn] .personName { text-decoration: line-through; color: var(--sx-faint); }
+.foundBtn { flex: none; min-width: 48px; min-height: 44px; padding: 0 13px; border: 0; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--red) 55%, transparent); color: var(--on-fill); font: 800 13px var(--body); cursor: pointer; }
+.panel:not(.card .panel) .foundBtn { background: var(--red); }
+/* on the dark card the ink that belongs on it — in both themes (--on-fill turns dark at night) */
+.card .foundBtn, .card .tick { color: var(--on-accent-ink); }
+.foundBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
+
+/* «Trupp 4 raus – abgesucht? Ja / Teilweise / Nein» — under the place's head, never a dialog */
+.ask { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 8px; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--amber) 16%, transparent); }
+.askText { flex: 1 1 100%; font: 700 12.5px var(--body); color: var(--sx-amber); }
+.askBtn { flex: 1 1 0; min-height: var(--tap); border-radius: var(--r-sm); border: 1px solid var(--sx-edge); background: var(--sx-btn);
+  color: var(--sx-btn-ink); font: 700 13px var(--body); cursor: pointer; }
+.askBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ── one record ──────────────────────────────────────────────────────────────────────────────── */
-.card { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+.rec { display: flex; flex-direction: column; gap: 10px; padding-top: 2px; }
 .cardHead { display: flex; align-items: center; gap: 8px; }
 .back { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center; border: 0; background: none;
-  border-radius: var(--r-sm); color: var(--ink); cursor: pointer; margin-left: -8px; }
+  border-radius: var(--r-sm); color: var(--sx-ink); cursor: pointer; margin-left: -6px; }
 .back:active { background-image: linear-gradient(var(--press), var(--press)); }
 .back :global(.i) { width: 20px; height: 20px; }
 .cardTitle { margin: 0; flex: 1 1 auto; min-width: 0; font: 800 16px var(--body); overflow: hidden; text-overflow: ellipsis; }
-.cardLine { margin: 0; font: 500 13px var(--body); color: var(--ink-dim); }
+.cardLine { margin: 0; font: 500 13px var(--body); color: var(--sx-dim); }
 .cardActions { display: flex; flex-wrap: wrap; gap: 8px; }
-.cardActions :global(.ip-btn) { min-height: var(--tap); }
 /* the one act that withdraws a record stands apart, under its history (N7) */
-.cardFoot { display: flex; justify-content: flex-start; padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--border); }
-.cardFoot :global(.ip-btn) { min-height: var(--tap); }
-.history { list-style: none; margin: 4px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border-soft);
-  display: flex; flex-direction: column; gap: 6px; font: 500 12.5px var(--body); color: var(--ink-dim); }
+.cardFoot { display: flex; justify-content: flex-start; padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--sx-line); }
+.pill { flex: none; padding: 4px 9px; border-radius: var(--r-pill); font: 700 12.5px var(--body); white-space: nowrap;
+  color: var(--tone-ink); background: color-mix(in srgb, var(--tone) 18%, transparent); }
+.btn { min-height: var(--tap); display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid var(--sx-edge);
+  border-radius: var(--r-sm); background: var(--sx-btn); color: var(--sx-btn-ink); font: 700 13.5px var(--body); cursor: pointer; }
+.btn[data-primary] { background: var(--sx-primary); color: var(--sx-primary-ink); border-color: var(--sx-primary); }
+.btn[data-danger] { color: var(--sx-red); border-color: color-mix(in srgb, var(--red) 45%, transparent); background: none; }
+.btn:active { background-image: linear-gradient(var(--press), var(--press)); }
+.history { list-style: none; margin: 4px 0 0; padding: 10px 0 0; border-top: 1px solid var(--sx-line);
+  display: flex; flex-direction: column; gap: 6px; font: 500 12.5px var(--body); color: var(--sx-dim); }
 .history li { display: flex; gap: 10px; }
-.histT { flex: none; font-family: var(--mono); color: var(--ink-faint); }
+.histT { flex: none; font-family: var(--mono); color: var(--sx-faint); }
 
 /* ── forms ───────────────────────────────────────────────────────────────────────────────────── */
 .form { display: flex; flex-direction: column; gap: 14px; padding-top: 6px; }
 .formTitle { margin: 0; font: 800 16px var(--body); }
 .field { display: flex; flex-direction: column; gap: 7px; }
-.label { font: 700 12.5px var(--body); color: var(--ink-dim); }
+.label { font: 700 12.5px var(--body); color: var(--sx-dim); }
+.hint { font-weight: 500; color: var(--sx-faint); }
+.sublabel { font: 500 12.5px var(--body); color: var(--sx-faint); margin-top: 2px; }
+.input { width: 100%; min-width: 0; min-height: var(--tap); padding: 0 12px; border-radius: var(--r-sm); border: 1px solid var(--sx-edge);
+  background: var(--sx-field); color: var(--sx-ink); font: 600 15px var(--body); }
+.input::placeholder { color: var(--sx-faint); font-weight: 500; }
+.input:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 .row2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.row2 :global(.ip-input) { flex: 1 1 140px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { min-height: var(--tap); display: inline-flex; align-items: center; gap: 6px; padding: 0 13px; border-radius: var(--r-ctl);
-  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink); font: 700 13px var(--body); cursor: pointer; }
+.chip { min-height: var(--tap); display: inline-flex; align-items: center; gap: 6px; padding: 0 13px; border-radius: var(--r-sm);
+  border: 1px solid var(--sx-edge); background: var(--sx-chip); color: var(--sx-ink); font: 700 13px var(--body); cursor: pointer; }
 .chip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+.chip[aria-pressed="true"] { background: var(--sx-on); border-color: var(--sx-on); color: var(--sx-on-ink); }
 .chip[data-tone][aria-pressed="true"] { background: var(--tone); border-color: var(--tone); color: var(--on-fill); }
-.chip[data-tone="grey"][aria-pressed="true"] { background: var(--ink-dim); border-color: var(--ink-dim); }
+.chip[data-tone="grey"][aria-pressed="true"] { background: var(--sx-dim); border-color: var(--sx-dim); color: var(--sx-on-ink); }
 .chip:disabled { cursor: default; }
-.chipDone { color: var(--green-strong); border-style: dashed; background: none; cursor: default; }
-.chipDone :global(.i) { width: 14px; height: 14px; }
+.chip :global(.i) { width: 15px; height: 15px; }
+/* «mehrere?» — an offer, not a field: quieter than a chip that answers something */
+.quietChip { align-self: flex-start; background: none; border-style: dashed; color: var(--sx-dim); }
+/* the Stepper's global chrome is drawn for light surfaces; on the dark card it takes the palette */
+.card .panel :global(.step) { background: var(--sx-chip); border-color: var(--sx-edge); color: var(--sx-ink); }
+.card .panel :global(.step button) { color: var(--sx-ink); }
 
-/* ── the phone sheet ─────────────────────────────────────────────────────────────────────────── */
-/* ⚠️ It sits ABOVE the nav bar, never on it (the user's explicit ask): the bar is at
-   8px + safe area from the bottom and --rail-h tall, so the sheet's floor is 14px over its top. */
-.sheet:global(.ui-detent) { --detent-bottom: calc(var(--rail-h) + 14px + env(safe-area-inset-bottom));
-  --detent-top: calc(58px + env(safe-area-inset-top)); left: 6px; right: 6px; border-radius: var(--r-hero); border-bottom: 1px solid var(--glass-line); }
-.peekRow { display: flex; align-items: center; gap: 8px; padding: 0 6px 8px 14px; min-height: 40px; }
-.peekText { flex: 1 1 auto; min-width: 0; border: 0; background: none; padding: 6px 0; text-align: left; cursor: pointer;
-  font: 700 14px var(--body); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
-.peekText :global(.i) { width: 16px; height: 16px; flex: none; }
-.peekMissing { color: var(--red-strong); }
-/* the line gives way with an ellipsis before the «1?» and the chevron do */
-.peekLine { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.x { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: 0; background: none; border-radius: var(--r-sm); color: var(--ink-dim); cursor: pointer; }
-.x :global(.i) { width: 18px; height: 18px; }
-.x:active { background-image: linear-gradient(var(--press), var(--press)); }
-.sheetTop { display: flex; align-items: center; gap: 8px; padding: 0 6px 6px 12px; }
-.sheetTop :global(.useg) { flex: none; }
-.sheetTitle { flex: 1 1 auto; font: 800 15px var(--body); }
-.floorChips { display: flex; gap: 6px; overflow-x: auto; padding: 0 12px 8px; scrollbar-width: none; }
-.floorChips::-webkit-scrollbar { display: none; }
-.floorChip { flex: none; min-height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border-radius: var(--r-ctl);
-  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink); font: 700 12.5px var(--body); cursor: pointer; }
-.floorChip:active { background-image: linear-gradient(var(--press), var(--press)); }
-.floorChip b { font: 700 12.5px var(--mono); color: var(--ink-dim); }
-.floorChip[data-complete] b { color: var(--green-strong); }
-.floorChip[data-active] { border-color: var(--blue); }
-
-/* the Suche's areas under a Trupp's Ziel field (SucheTrupp · ZielChips) */
+/* the places, offered under a Trupp's Ziel field (SucheTrupp · ZielChips) — on the Trupp form */
 .zielChips { display: flex; flex-direction: column; gap: 6px; margin-top: -4px; }
-
-/* a record withdrawn as «irrtümlich erfasst»: still on the list (the record is not ours to hide),
-   struck through and quiet */
-.row[data-withdrawn] .rowTitle { text-decoration: line-through; color: var(--ink-dim); }
-/* «?» on the Bereiche tab while a question stands on one of its rows */
-.askBadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--amber); color: var(--on-fill);
-  font: 800 12px var(--body); display: inline-grid; place-items: center; flex: none; }
-/* «Trupp 4 raus – abgesucht? Ja / Teilweise / Nein» — under the area's row, never a dialog */
-.ask { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px 12px; padding: 6px 8px;
-  border-radius: var(--r-ctl); background: color-mix(in srgb, var(--amber) 12%, transparent); }
-.askText { flex: 1 1 100%; font: 700 12.5px var(--body); color: var(--amber-strong); }
-.askBtn { flex: 1 1 0; min-height: var(--tap); border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--surface);
-  color: var(--ink); font: 700 13px var(--body); cursor: pointer; }
-.askBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* at peek the floor chips stand under the one line — the sheet is that much taller */
-.sheet.withChips:global(.ui-detent) { --detent-peek: 108px; }
-/* at peek the tool bar stays (15-mobile.css · .suche-peek): the one line stands on IT */
-:global(.app.phone-tools.suche-peek) .sheet:global(.ui-detent) { --detent-bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
-
-/* ⚠️ What else stands on the surface keeps clear of the dock (walk-through 25.09.2026): the
-   Meldeleiste ended over the dock's ✕ at 820 px (N13), and the Grundgerüst card's «hier setzen»
-   and «ausblenden» ran under it (N25). Both stop at the dock's left edge — the dock's own geometry
-   (.dock above: right = vrail + 26px, width = --suche-dock-w) plus a 12px channel. */
-:global(:root:has([data-suche-dock])) :global(.ml) {
-  right: calc(var(--vrail-w, 60px) + 26px + var(--suche-dock-w, 340px) + 12px); }
-:global(.app:has([data-suche-dock])) :global(.lgg:not(.lgg-phone)) {
-  width: auto; max-width: 340px;
-  right: calc(var(--vrail-w, 60px) + 26px + var(--suche-dock-w, 340px) + 12px); }
+.zielChips .label { color: var(--ink-dim); }
+.zielChips .chip { border-color: var(--glass-edge); background: var(--surface); color: var(--ink); }
+.zielChips .chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }

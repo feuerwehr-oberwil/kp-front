@@ -32,7 +32,7 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
-import { personPrintRows, stackKeyOf, sucheGroups, sucheLine, type SucheStack } from './suche'
+import { personPrintRows, sucheLine, type SucheStack } from './suche'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them).
@@ -324,8 +324,8 @@ export interface DirectReportArgs {
   building?: BuildingDoc | null
   /** the Suche (lib/suche): one line per person with its times, and the one «Suche: …» line */
   suche?: SucheDoc
-  /** the Gebäude as the app's Suche reads it (IncidentWorkspace · sucheStack) — the same storeys
-   *  and the same building key, so the paper counts the areas the screen counted */
+  /** how the app's Suche names an old record's storey (IncidentWorkspace · sucheStack) — so the
+   *  paper names and counts the places the screen does */
   sucheStack?: SucheStack
   /** alternate endpoint/auth (capture view: poster token instead of the kiosk cookie) */
   transport?: import('./reportPdf').ReportTransport
@@ -396,9 +396,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   // the one line about the Bereiche. Same midnight rule as every other clock on the sheet.
   const sucheClock = spanAwareClock({ alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? incident.closed_at ?? null })
   const clockOf = (iso: string) => sucheClock(iso) ?? ''
-  const stack: SucheStack = sucheStack ?? { key: stackKeyOf(building), floors: [], floorName: (f: number) => building?.floorNames?.[String(f)] ?? floorLabel(f) }
+  const stack: SucheStack = sucheStack ?? { floorName: (f: number) => building?.floorNames?.[String(f)] ?? floorLabel(f) }
   const personen = personPrintRows(suche, clockOf, stack.floorName)
-  const sucheSummaryLine = sucheLine(suche, sucheGroups(suche ?? { personen: [], bereiche: [] }, stack), clockOf)
+  const sucheSummaryLine = sucheLine(suche, stack.floorName, clockOf)
 
   const kroki = draft.options.kroki && scene
     ? buildKrokiPayload({

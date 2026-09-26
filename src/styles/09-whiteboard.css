@@ -176,12 +176,12 @@
     bottom: calc(var(--rail-h) + 20px + env(safe-area-inset-bottom)); }
   /* an editable surface adds the tool rail under it… */
   .app.phone-tools .wb-botleft {
-    bottom: calc(var(--rail-h) * 2 + 20px + var(--suche-lift, 0px) + env(safe-area-inset-bottom)); }
+    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
   /* …and a third lane when the tool-SPECIFIC dock is out (a line/area tool's colours and widths).
      That bar appears and disappears with the tool, so the chips move with it rather than being
      covered by it half the time. Same `:has` idiom the FAB already uses to get out of its way. */
   .app:has(.wb-dock) .wb-botleft {
-    bottom: calc(var(--rail-h) * 3 + 26px + var(--suche-lift, 0px) + env(safe-area-inset-bottom)); }
+    bottom: calc(var(--rail-h) * 3 + 26px + env(safe-area-inset-bottom)); }
   /* ⚠️ ONE line, always (owner, 18.09.2026). The row used to wrap, and on a 360px phone the two
      status pills dropped onto a second line over the plan — a whole extra band of chrome across
      the sheet, budgeted for in the toast lane (15-mobile · --plan-row-reserve) and read by
@@ -334,17 +334,6 @@
 .wb-floor-idx.zero { color: var(--on-fill); background: var(--blue); }
 /* never wraps: on a zoomed-out stack the tile is ~330px or less and «1. OG» broke after «1.» */
 .wb-floor-name { font-weight: 600; flex: none; white-space: nowrap; }
-/* the Suche's progress on the storey (lib/suche · storeyBadges, 24.09.2026): «2/4», green with a
-   tick once the storey is abgesucht, a blue edge while a Trupp is searching it */
-.wb-floor-suche { display: inline-flex; align-items: center; gap: 3px; flex: none; padding: 2px 6px; border-radius: 5px;
-  /* its own line under the label, at the label's left edge — never in the row that runs into the
-     tile's top-right corner and «Geschoss entfernen» (F9) */
-  position: absolute; z-index: 1; top: 40px; left: calc(var(--wb-floor-inset) - var(--wb-floor-plate-pad));
-  font: 700 12px var(--mono, ui-monospace, Menlo, monospace); font-variant-numeric: tabular-nums;
-  color: var(--ink-dim); background: var(--fill-soft); box-shadow: inset 0 0 0 1px transparent; }
-.wb-floor-suche[data-active] { box-shadow: inset 0 0 0 1.5px var(--blue); color: var(--blue-strong); }
-.wb-floor-suche[data-complete] { color: var(--on-fill); background: var(--green); }
-.wb-floor-suche .i { width: 11px; height: 11px; stroke-width: 3; }
 .wb-floor-svg polygon { fill: color-mix(in srgb, var(--blue) 5%, transparent); stroke: var(--ink-faint); stroke-width: 1.5; stroke-linejoin: round; }
 /* the storey's Geschossplan page under the outline – quiet, the outline stays legible over it */
 .wb-floor-page { opacity: 1; }
