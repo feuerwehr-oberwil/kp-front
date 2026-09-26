@@ -29,7 +29,7 @@ const face = (m: Meldung): string => [
   // whether the title is a way in at all is READ from the row (underlined words vs plain text),
   // so a message that gains or loses its `onOpen` has to repaint
   m.onOpen ? `open·${m.onOpen.label}` : '',
-  ...(m.actions ?? []).map((a) => `${a.label}·${a.icon ?? ''}·${a.primary ? 1 : 0}·${a.disabled ? 1 : 0}·${a.busy ? 1 : 0}`),
+  ...(m.actions ?? []).map((a) => `${a.label}·${a.icon ?? ''}·${a.primary ? 1 : 0}·${a.go ? 1 : 0}·${a.disabled ? 1 : 0}·${a.busy ? 1 : 0}`),
 ].join('')
 
 /**

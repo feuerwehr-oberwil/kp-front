@@ -16,6 +16,7 @@
 // mine) apart from "I never had X" (absent in both base and mine). Without it a naive union
 // can't honor deletes and would resurrect everything the other device removed.
 
+import { followerOnlyChange } from './gpsReturn'
 import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
 import { landedClaims, resolveTruppNumbers, unwindUnlanded, type NumberScope } from './truppNumbers'
@@ -569,6 +570,20 @@ const everySyncedFieldHasASlot: [SyncedWithoutSlot] extends [never] ? true : Syn
 void everySyncedFieldHasASlot
 
 /**
+ * Both sides changed the same tactical object: whole-object last-writer-wins (mine) — EXCEPT where
+ * one side's change is only the live-GPS follower's (traced coords, `lastSafe`, a pause) and the
+ * other's is not. Then the hand's change wins, whichever side it came from (24.09.2026, D3):
+ * another device polling the same vehicle feed would otherwise write its follower sample over a
+ * «Zurück auf Stand am Einsatzort» or an «Am Einsatzort lösen», and the drive came back.
+ */
+function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs: TacticalObject): TacticalObject {
+  const mineMachine = followerOnlyChange(ancestor, mine)
+  const theirsMachine = followerOnlyChange(ancestor, theirs)
+  if (mineMachine && !theirsMachine) return theirs
+  return mine
+}
+
+/**
  * Three-way merge of whole workspace blobs, built for TASK-SCOPED multi-editor use: two operators
  * working DIFFERENT domains of one incident (e.g. Atemschutz on one device, Lage/Plan/report on
  * another) must both keep their work. Every operational domain is merged so a save in one domain
@@ -622,7 +637,7 @@ export function mergeWorkspace(
           asList(ws.drawings) as Drawing[],
           asBoard(ws.board) as BoardDoc,
         )
-  const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs))
+  const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs), resolveTactical)
   const cx: MergeCx = { objects, views: viewsOf(objects), onAttendanceConflict, onTruppConflict }
   const out: Record<string, unknown> = { ...mine } // the 'local' rows (and keys this build doesn't know)
   for (const [k, policy] of Object.entries(MERGE_POLICY) as [keyof Saved, FieldPolicy][]) {
