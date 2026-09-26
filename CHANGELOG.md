@@ -31,6 +31,15 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The morning after an Einsatz, one command lists what went wrong, even if nobody reported
+  it.** `admin_postcheck <incident|latest>` (`just postcheck`) lists the devices that worked the
+  incident. Per device it shows their crash reports and render storms, their HTTP errors and 409
+  bursts on the workspace, and their PIN prompts and expired sessions. It also lists Verlauf rows
+  whose own time is off the server's (the clock that jumped back to 20.09. during the Übung of
+  23.09.2026), the same event written by several devices, and the «vor Ort / verlassen» rows
+  against the vehicles' GPS track. It reads the Railway app and HTTP logs, or a post-mortem's
+  JSON dumps instead of a database, and it never writes. It exits 1 when it finds something, so
+  a cron job can run it. *No action needed.*
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the

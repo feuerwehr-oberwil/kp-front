@@ -26,16 +26,19 @@ import os
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 if TYPE_CHECKING:
     import httpx
 
 
-def fail(message: str) -> None:
-    """Print an error to stderr and exit non-zero (nothing written)."""
+def fail(message: str, *, code: int = 1) -> NoReturn:
+    """Print an error to stderr and exit non-zero (nothing written).
+
+    ``code`` is 1 for the five station CLIs. ``admin_postcheck`` exits 2 here, because its 1
+    already means «the check ran and found something» to the cron job reading it."""
     print(message, file=sys.stderr)
-    raise SystemExit(1)
+    raise SystemExit(code)
 
 
 def add_base_arg(parser: argparse.ArgumentParser) -> None:
