@@ -169,3 +169,24 @@ describe('createLongPollLoop', () => {
     expect(onSuspend).not.toHaveBeenCalled()
   })
 })
+
+describe('createLongPollLoop · minDelayMs (staging r3: the Atemschutz-Link of a closed Einsatz)', () => {
+  it('spaces the rounds by the floor while it says so — once a minute, not a 403 every few seconds', async () => {
+    let slow = true
+    const round = vi.fn(async () => false) // every request refused
+    makeLoop({ round, minDelayMs: () => (slow ? 60_000 : 0) })
+    loop!.start(0)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(round).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(59_000)
+    expect(round).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(round).toHaveBeenCalledTimes(2)
+    // …and back to the ordinary cadence once it no longer applies (the reopen)
+    slow = false
+    await vi.advanceTimersByTimeAsync(60_000)
+    const n = round.mock.calls.length
+    await vi.advanceTimersByTimeAsync(MAX_MS) // the ordinary ease-off ceiling, far under a minute
+    expect(round.mock.calls.length).toBeGreaterThan(n)
+  })
+})

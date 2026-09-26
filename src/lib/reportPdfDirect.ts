@@ -14,6 +14,7 @@ import { circleRing, clipConvex, clipStroke, edgeMarkSvg, markDeg, rectPoly, thi
 import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import { packFrameRing } from './stackFit'
 import type { IncidentMeta } from './incidents'
+import { closeTimeOf } from './api/incidents'
 import type { ReportDraft } from './report'
 import {
   annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
@@ -389,6 +390,8 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // a corrected line prints its first wording beside the latest — the paper says the same
       // thing the «korrigiert»-chip says on screen
       correctedAt: r.correctedAt, textOriginal: r.textOriginal,
+      // …and a row that reached the record after the Einsatzende says so on paper (D4)
+      nachtrag: r.nachtrag || undefined,
       // only pictures the SERVER can fetch — a blob: URL is one that never finished uploading
       photoUrls: r.photoUrls?.filter((u) => u.startsWith('/')),
     }))
@@ -465,7 +468,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // the plain name when it never did — see einsatzleiterForPdf above
       einsatzleiter: einsatzleiterForPdf(
         meta.einsatzleiter, events,
-        { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at },
+        { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? closeTimeOf(incident) },
         meta.startedAt ?? incident.started_at,
       ),
       // «Entfällt» travels as the answer it is: the sheet prints the word on the line, where a
@@ -475,7 +478,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       kommandant: cfg.identity?.kommandant ?? undefined,
       // the same bounds the Personalblatt uses, so every clock on the sheet follows one
       // midnight rule instead of two
-      ...metaExtrasForPdf(meta, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at }),
+      ...metaExtrasForPdf(meta, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? closeTimeOf(incident) }),
       alarmiertAt: formatDateTime(meta.alarmiertAt ?? incident.started_at),
       ausgeruecktAt: meta.ausgeruecktAt ? formatDateTime(meta.ausgeruecktAt) : undefined,
       endedAt: meta.endedAt ? formatDateTime(meta.endedAt) : undefined,
@@ -489,12 +492,12 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       ? attachments.filter((a) => a.url.startsWith('/')).map((a) => ({ url: a.url, caption: a.caption || undefined }))
       : [],
     ...mittelFormForPdf(mittel, catalogue),
-    ...personalForPdf(roster, attendance, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at }),
+    ...personalForPdf(roster, attendance, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? closeTimeOf(incident) }),
     // Anwesende + Einsatzstunden as ONE line under the roster. Computed here, where the ISO
     // timestamps live: the printed rows carry «19:12 – 21:40», and re-deriving minutes from
     // formatted clock text on the server would be a second, disagreeing answer.
     personalSummary: (() => {
-      const bounds = { alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? incident.closed_at ?? null }
+      const bounds = { alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? closeTimeOf(incident) }
       const cfgRule = cfg.report?.hoursRounding
       const rule = {
         stepMin: cfgRule?.stepMin ?? DEFAULT_HOURS_ROUNDING.stepMin,

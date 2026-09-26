@@ -8,7 +8,7 @@ import { newId } from '../lib/ids'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay, Popover, SheetGrab } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -94,6 +94,9 @@ function plainWords(t: Trupp, lite: boolean) {
 // — one big glanceable card per Trupp whose dominant element is TIME SINCE LAST FUNKKONTAKT, a
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
+/** the tier every Trupp has on a CLOSED Einsatz — silent (R3) */
+const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
+
 export function AtemschutzView({
   trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
@@ -401,9 +404,13 @@ export function AtemschutzView({
    * ⚠️ The card, the row, the header badge and the sort all read THIS — not the contact clock.
    * They used to read the clock alone, so a Trupp at the Alarmdruck with a fresh Funkkontakt had
    * the whole app alarming beside a green, unbadged, unsorted card. One number, one board. */
+  /* ⚠️ A CLOSED Einsatz alarms nothing (R3, staging 25.09.2026): its clocks stand at the close,
+   * and a crew that was overdue then read as a red «1 Alarm» and a red clock on every phone —
+   * at 3am, an alarm still running. Frozen, every tier is silent: no badge, no red card, and the
+   * band says what the clock shows (the state at the close), in the neutral tone. */
   const alarms = useMemo(
-    () => new Map(trupps.map((t) => [t.id, truppAlarm(t, live.get(t.id)!, intervalMin, graceSec, { alarmBar, alarmBarRueckzug })] as const)),
-    [trupps, live, intervalMin, graceSec, alarmBar, alarmBarRueckzug],
+    () => new Map(trupps.map((t) => [t.id, frozenAt != null ? FROZEN_ALARM : truppAlarm(t, live.get(t.id)!, intervalMin, graceSec, { alarmBar, alarmBarRueckzug })] as const)),
+    [trupps, live, intervalMin, graceSec, alarmBar, alarmBarRueckzug, frozenAt],
   )
   const sevOf = (id: string): 0 | 1 | 2 => alarms.get(id)?.sev ?? 0
 
@@ -971,7 +978,7 @@ export function AtemschutzView({
     // slot (and those arrows are separately known to move the wrong card).
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
-      intervalMin={intervalMin}
+      intervalMin={intervalMin} frozen={frozenAt != null}
       focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
       onContact={(id) => { void contactTap(id) }}
       onPressure={(id, bar) => { freezeOrder(); recordPressure(id, bar) }}
@@ -1188,7 +1195,7 @@ export function AtemschutzView({
   return (
     // `az-tafel`: the global hook the Meldeleiste folds itself to one row for, and moves the
     // Tafel below itself on (08-toasts · staging r3)
-    <div className={cx(s.surface, lite && s.surfaceLite, 'az-tafel')} onPointerDownCapture={primeOnFirstTap}>
+    <div className={cx(s.surface, lite && s.surfaceLite, frozenAt != null && s.surfaceFrozen, 'az-tafel')} onPointerDownCapture={primeOnFirstTap}>
       <header className={cx(s.head, focusMode && s.headCompact)}>
         <div className={cx(s.headTitles, focusMode && s.headTitlesCompact)}>
           {focusMode ? (
@@ -2153,7 +2160,7 @@ function TruppRow({
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onPressure, onStatus, onAskExit, onAskPressure, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false, sucheItems,
+  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onPressure, onStatus, onAskExit, onAskPressure, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false, sucheItems,
 }: {
   /** the Suche's rows at the head of the ⋯ menu (AtemschutzView · sucheItems) */
   sucheItems?: (t: Trupp) => { label: string; onClick: () => void }[]
@@ -2162,6 +2169,8 @@ function TruppCard({
   alarm: TruppAlarm
   /** the Funkkontakt-Intervall (min) — the Verlauf's timing head names the next due time */
   intervalMin: number
+  /** the Einsatz is closed: the clock stands at the close and the band says so (R3) */
+  frozen?: boolean
   /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors) — set for
    *  every Trupp, automatic ones included */
   color?: string
@@ -2310,6 +2319,7 @@ function TruppCard({
   const breakClock = out && monitored && !neverDeployed && live.outSec != null
   const bandWord = out || preEntry || !monitored
     ? (preEntry ? az.bandPreEntry : statusLabel)
+    : frozen ? az.clockFrozen
     : pressureCrit ? az.clockAlarmPressure
     : sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
   const bandSub = neverDeployed ? (registeredAt != null ? az.bandRegisteredAt : '')
@@ -2473,9 +2483,10 @@ function TruppCard({
    * read when somebody asks that question again. */
   const sockelLine: { key: string; label: string; value: string; alarm?: boolean; dim?: boolean; title?: string }[] = [
     ...(monitored && t.entryTime
-      ? [{ key: 'elapsed', label: az.elapsed, value: fmtElapsedFull(live.elapsedSec) }] : []),
+      // a DURATION that says so — «23:39» read at 23:58 was taken for a clock time (staging r4)
+      ? [{ key: 'elapsed', label: az.elapsed, value: fmtDuration(live.elapsedSec) }] : []),
     ...(live.outSec != null && !out
-      ? [{ key: 'out', label: words.outFor, value: fmtElapsedFull(live.outSec) }] : []),
+      ? [{ key: 'out', label: words.outFor, value: fmtDuration(live.outSec) }] : []),
     ...(monitored && !(canEdit && inField)
       ? [{ key: 'bar', label: az.currentPressure, value: `${live.currentBar} bar`, alarm: pressureLow }] : []),
     ...(estimate

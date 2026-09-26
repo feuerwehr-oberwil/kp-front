@@ -81,7 +81,15 @@ export interface LongPollLoopOpts {
   /** The device came back online. The loop already restarts itself (pull side); this is where a
    *  caller retries its own outbox (push side). */
   onOnline?: () => void
+  /** A floor under the spacing between rounds, read per round. For a follower that is only
+   *  refused while a state lasts — the Atemschutz-Link of a CLOSED Einsatz answers 403 to every
+   *  request until somebody reopens it (staging r3): once a minute notices the reopen, every few
+   *  seconds only hammers the gate. Omitted → no floor. */
+  minDelayMs?: () => number
 }
+
+/** The cadence of a follower that is refused until a state changes (see `minDelayMs`). */
+export const SLOW_FOLLOW_MS = 60_000
 
 export interface LongPollLoop {
   /** (Re)start after `delay` ms, invalidating any round in flight — including one the server is
@@ -105,7 +113,7 @@ export interface LongPollLoop {
  * Listeners are registered on creation; nothing polls until `start()`. Always `stop()` on
  * teardown — a held 20 s request must not outlive the loop that issued it.
  */
-export function createLongPollLoop({ round, baseMs, maxMs, hiddenMs, onSuspend, onOnline }: LongPollLoopOpts): LongPollLoop {
+export function createLongPollLoop({ round, baseMs, maxMs, hiddenMs, onSuspend, onOnline, minDelayMs }: LongPollLoopOpts): LongPollLoop {
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | null = null
   let quiet = 0    // consecutive rounds that fetched nothing (failed / skipped) → ease-off
@@ -136,6 +144,7 @@ export function createLongPollLoop({ round, baseMs, maxMs, hiddenMs, onSuspend, 
       delay = nextPollDelay({ baseMs, maxMs, quietRounds: quiet, hidden, hiddenMs: hiddenMs() })
       quiet += 1
     }
+    delay = Math.max(delay, minDelayMs?.() ?? 0)
     timer = setTimeout(() => void tick(myGen), delay)
   }
 

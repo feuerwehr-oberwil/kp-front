@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, MittelEntry, Trupp } from '../types'
-import type { IncidentMeta } from './api/incidents'
+import { closeTimeOf, isIncidentRunning, type IncidentMeta } from './api/incidents'
 import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { missingSteps, type AbschlussStep } from './abschluss'
@@ -16,7 +16,7 @@ interface Args {
   mittel: MittelEntry[]
   /** the board's Trupps (removed ones already filtered out) */
   trupps: Trupp[]
-  incidentMeta: Pick<IncidentMeta, 'is_archived' | 'closed_at'>
+  incidentMeta: Pick<IncidentMeta, 'is_archived' | 'status' | 'closed_at' | 'last_closed_at'>
   replayActive: boolean
   media: MediaQueueApi
   /** App's handover: stamp report_done_at + close. TRUE only when the close really happened. */
@@ -43,6 +43,9 @@ interface Args {
    *  Abschluss closes over is SAID in the Verlauf, without inventing an Austritt. Absent (a caller
    *  that may not write the record) ⇒ nothing is written. */
   noteInsideAtClose?: (trupps: Trupp[]) => void
+  /** drain the Verlauf and audit outboxes — run after the media, before the handover, so what
+   *  this device recorded before the close is not judged against the closed Einsatz */
+  flushOutboxes?: () => Promise<void>
 }
 
 /**
@@ -57,7 +60,7 @@ interface Args {
  */
 export function useAbschluss({
   reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
-  setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche,
+  setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche, flushOutboxes,
 }: Args) {
   const abschlussMissing = useMemo(
     () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
@@ -79,18 +82,24 @@ export function useAbschluss({
    *  ⚠️ The EINSATZENDE, not `closed_at`: the record is often closed the morning after, and
    *  freezing on that would have counted the night as Einsatzzeit — the very number this fixes.
    *  `closed_at` is the fallback for an Einsatz archived without one ever being entered. */
+  // ⚠️ «closed» is `isIncidentRunning`, the backend's `is_open` — and it flips LIVE when another
+  // device closes the Einsatz (N3, 25.09.2026): the clocks freeze and the alarm stops on every
+  // device, not only on the one that pressed «Abschliessen».
+  const running = isIncidentRunning(incidentMeta)
+  const closeAt = closeTimeOf(incidentMeta)
   const azFrozenAt = useMemo(() => {
-    if (!incidentMeta.is_archived) return undefined
-    const at = Date.parse(reportMeta.endedAt ?? incidentMeta.closed_at ?? '')
+    if (running) return undefined
+    // the CURRENT close, not the first (D2)
+    const at = Date.parse(reportMeta.endedAt ?? closeAt ?? '')
     return Number.isFinite(at) ? at : undefined
-  }, [incidentMeta.is_archived, incidentMeta.closed_at, reportMeta.endedAt])
+  }, [running, closeAt, reportMeta.endedAt])
   /* ⚠️ …and the ALARM stops with the clocks. It is not a display: it plays a tone and posts an OS
      notification, and it ran off the live clock regardless of the Einsatz's state — so opening a
      closed Akte with a Trupp that was never reported out started an überfällig alarm about a
      crew that went home hours ago. `active: false` stops the tone and reports a silent state, so
      the TopBar chip and the NavRail dot go quiet with it. Replay was already excluded for the
      same reason: a read-only past does not alarm. */
-  const azMonitoring = !replayActive && !incidentMeta.is_archived
+  const azMonitoring = !replayActive && running
   /** Resolves TRUE when the Einsatz was actually handed over for closing — the Rapport uses that
    *  to decide whether to forget its scroll position, and a cancelled confirm must not. */
   const confirmAndComplete = useCallback(async (): Promise<boolean> => {
@@ -221,12 +230,13 @@ export function useAbschluss({
     // Verlauf row's blob: URL to the server one (useMediaQueue · onUploaded), which needs this
     // workspace and its journal store, both gone after the handover.
     await media.flush().catch(() => {})
+    await flushOutboxes?.().catch(() => {})
     // …and the answer is the REAL outcome, not the firing of the request: App reports whether
     // the close went through, so the Rapport's kept scroll position survives a failed Abschluss
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport()
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche, flushOutboxes])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

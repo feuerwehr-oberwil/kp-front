@@ -187,6 +187,10 @@ class JournalRowIn(BaseModel):
     #: store keeps them all, the paper shows where it started and where it ended, 19.08.).
     correctedAt: str | None = None  # client-formatted HH:MM of the LAST correction
     textOriginal: str | None = None
+    #: the row reached the record after the Einsatzende — written after the close, or written
+    #: before it and received after it (src/lib/report · journalRows, `receivedAfterClose`). The
+    #: paper marks it the way the app does (D4, 25.09.2026: the flag was computed and dropped).
+    nachtrag: bool = False
     photoKey: str | None = None  # legacy: figure key of a client-uploaded photo
     photoUrl: str | None = None  # single photo — the shape rows written before 2026-08-06 carry
     #: several photos on one row (one damage is rarely one picture). Readers take both.
@@ -799,6 +803,8 @@ L = {
     # the printed counterpart of the app's «korrigiert HH:MM»-chip + «Der ursprüngliche
     # Wortlaut bleibt im Protokoll»
     "correctedLine": "korrigiert {t} · ursprünglich: «{text}»",
+    # a row that reached the record after the Einsatzende — under its time, like the app's badge
+    "nachtrag": "Nachtrag",
     # sub-line under «Was» when an Auftrag / eine Pendenz carried a timed Erinnerung
     "pendenzDue": "fällig {t}",
     "noEntries": "Keine Einträge.",
@@ -2089,7 +2095,10 @@ def compose_report_pdf(
                 )
                 entry_cells.append(Spacer(1, 2))
                 entry_cells.append(shot_tbl)
-            body.append([Paragraph(_esc(r.timeLabel), st["cell"]), Paragraph(_esc(r.area), st["cell"]), entry_cells])
+            time_cell: list = [Paragraph(_esc(r.timeLabel), st["cell"])]
+            if r.nachtrag:
+                time_cell.append(Paragraph(_esc(L["nachtrag"]), st["muted"]))
+            body.append([time_cell, Paragraph(_esc(r.area), st["cell"]), entry_cells])
         # ⚠️ 29mm: the longest label «16.08.2026 15:35» measures 24.7mm at 9pt Helvetica, plus the
         # 3.5mm of cell padding — so it never wraps onto a second line, which would inflate EVERY
         # journal row. It was 36mm, sized for a label that still carried a comma between the date

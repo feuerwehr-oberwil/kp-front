@@ -15,9 +15,10 @@ import type { TimelineEvent } from '../types'
  *  server clock is UTC — the client localises); legacy rows fall back to their baked t. */
 export const rowTime = (e: TimelineEvent): string => (e.at ? formatTime(new Date(e.at)) : e.t)
 
-/** appended after the Einsatzende (closed_at) → renders as a Nachtrag */
+/** appended after the Einsatzende (closed_at) → renders as a Nachtrag — and so does a row the
+ *  server received while the Einsatz was closed, whatever time it carries (`receivedAfterClose`) */
 export const isNachtrag = (e: TimelineEvent, closedAt?: string | null): boolean =>
-  !!closedAt && !!e.at && Date.parse(e.at) > Date.parse(closedAt)
+  !!e.receivedAfterClose || (!!closedAt && !!e.at && Date.parse(e.at) > Date.parse(closedAt))
 
 export interface DayGroup {
   /** localized date label for the separator — null for today's rows (no separator) */

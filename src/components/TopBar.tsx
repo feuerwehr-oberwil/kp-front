@@ -396,7 +396,8 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
   const label = <><Icon id="lock" />{C.title}</>
-  if (!onBack && !onReactivate) return <span className="tb-mode" title={C.hint}>{label}</span>
+  // no exits = a link session: its holder can neither correct nor reopen anything (staging r3)
+  if (!onBack && !onReactivate) return <span className="tb-mode" title={C.hintViewOnly}>{label}</span>
   return (
     <Popover side="bottom" align="start" popupClassName="tb-uhr-menu" ariaLabel={C.title}
       open={open} onOpenChange={(next) => { if (!busy) setOpen(next) }}

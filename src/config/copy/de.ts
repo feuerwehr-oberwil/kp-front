@@ -1321,6 +1321,12 @@ export const de = {
       refusedTitleOne: '1 Protokollereignis für diese Rolle nicht vorgesehen',
       refusedTitle: '{n} Protokollereignisse für diese Rolle nicht vorgesehen',
       refusedBody: 'Der Server nimmt diese Ereignisse von dieser Anmeldung nicht an. Sie bleiben auf diesem Gerät und können gesichert werden; der Verlauf ist davon nicht betroffen.',
+      // 25.09.2026 (N3): was nach dem Abschluss des Einsatzes noch ankam — nicht übernommen, gesichert
+      closedTitleOne: '1 Eintrag nach dem Abschluss nicht übernommen',
+      closedTitle: '{n} Einträge nach dem Abschluss nicht übernommen',
+      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge den Server erreichten. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und können gesichert werden. Wird der Einsatz wieder geöffnet, werden sie nachgesendet.',
+      // die Statusleuchte, solange solche Einträge nur auf dem Gerät liegen
+      closedShort: 'Einträge nach dem Abschluss nicht übernommen – sichern',
     },
     open: 'Verlauf',
     add: 'Eintrag',
@@ -2076,6 +2082,8 @@ export const de = {
     readingNoAs: '{what} – ohne Atemschutz',
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
+    // R3: ein abgeschlossener Einsatz alarmiert nicht – die Uhr steht beim Abschluss
+    clockFrozen: 'Stand beim Abschluss',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
     // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
@@ -2498,6 +2506,8 @@ export const de = {
     /** Fallback, wenn die letzte Messung nichts hergibt – der Alarm ist trotzdem beendet, und
      *  eine Zeile, die das sagt, ist mehr wert als gar keine. */
     alarmClearedOther: 'Kontakt wiederhergestellt',
+    // …und wenn die Kontaktuhr durch «Wieder öffnen» neu lief: kein Funkkontakt, sondern das (D5)
+    alarmClearedByReopen: 'Kontaktuhr neu gestartet (wieder geöffnet)',
     // The Alarmdruck used to be visible only on the card – the record was missing the moment the
     // Trupp had to turn back. Only on CROSSING it, not on every value below it.
     //
@@ -2517,6 +2527,9 @@ export const de = {
     // wird NICHT erfunden. Auf dem Rapport endet der Einsatz des Trupps mit dem Zusatz unten.
     logInsideAtClose: 'Trupp {name} beim Abschluss noch drin',
     cycleEndAtClose: '{t} (beim Abschluss noch drin)',
+    // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
+    // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
+    logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
@@ -4179,9 +4192,34 @@ export const de = {
   // was es beschreibt: die Liste.
   archived: {
     title: 'Einsatz abgeschlossen',
-    hint: 'Nur ansehen – zum Bearbeiten wieder öffnen.',
+    // r3, F10: der Rapport bleibt nach dem Abschluss korrigierbar (Nachträge) – alles andere nicht
+    hint: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    // …und wer gar nichts wieder öffnen kann (Link-Sitzungen)
+    hintViewOnly: 'Nur ansehen.',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
+    // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
+    // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
+    closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
+    closedElsewhereSub: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    // …und was dieses Gerät danach noch schicken wollte (ein Kontakt, eine Tafel-Änderung von
+    // offline): nicht übernommen, aber nicht verloren.
+    closedRefusedOne: '1 Eintrag dieses Geräts kam nach dem Abschluss und wurde nicht mehr übernommen. Er bleibt auf diesem Gerät gespeichert.',
+    closedRefused: '{n} Einträge dieses Geräts kamen nach dem Abschluss und wurden nicht mehr übernommen. Sie bleiben auf diesem Gerät gespeichert.',
+    closedExport: 'Einträge sichern',
+    closedDismiss: 'Hinweis ausblenden',
+    // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
+    reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
+    // r3, F10: der Rapport eines abgeschlossenen Einsatzes bleibt korrigierbar – und sagt es
+    rapportClosedHint: 'Einsatz abgeschlossen – Änderungen am Rapport erscheinen als Nachträge.',
+    // …und die Atemschutz-Link-Tafel, deren Halter nichts wieder öffnen kann
+    linkClosedTitle: 'Einsatz abgeschlossen – diese Tafel zeigt nur noch an',
+    // D1: der Link wurde für seinen eigenen Einsatz abgelehnt (widerrufen) – nichts mehr annehmen
+    linkRefusedTitle: 'Dieser Link gilt nicht mehr – diese Tafel zeigt nur noch an',
+    reopenedElsewhereSub: 'Wieder bearbeitbar – spätere Einträge erscheinen als Nachträge.',
+    // was beim Abschluss zurückgestellt wurde, geht jetzt raus – als Nachtrag
+    reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt nachgesendet – als Nachtrag.',
+    reopenedParked: 'Wieder bearbeitbar. {n} Einträge dieses Geräts, die nach dem Abschluss nicht übernommen wurden, werden jetzt nachgesendet – als Nachträge.',
   },
   // Einsätze history list
   history: {

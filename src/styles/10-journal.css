@@ -148,6 +148,11 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
      is one tap away in the chip's own menu */
   .tb-mode { padding: 5px 8px; font-size: 0; gap: 0; }
   .tb-mode .i { width: 16px; height: 16px; }
+  /* …and it is the phone's only door to «Wieder öffnen» (staging r4): the glyph stays 32×26 in
+     the bar, the TAP area is the house 44 px — grown invisibly around it, never pushing the bar */
+  button.tb-mode { position: relative; }
+  button.tb-mode::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px);
+    height: max(100%, 44px); transform: translate(-50%, -50%); }
 }
 /* compact wind readout folded into the bar on a phone — downwind arrow + speed, no temp */
 .tb-wind { display: inline-flex; align-items: center; gap: 4px; border: none; cursor: pointer; background: transparent;

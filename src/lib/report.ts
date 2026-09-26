@@ -438,7 +438,9 @@ export function journalRows(
               ...e.transcriptSections.map((s) => `${fmtDuration(s.at)}  ${s.text}`),
             ]
           : undefined,
-        nachtrag: Number.isFinite(closedMs) && iso != null && Date.parse(iso) > closedMs,
+        // …or received by the server while the Einsatz was closed, whatever time it carries: a
+        // Kontakt from before the close that arrived after it is late on paper (staging r3)
+        nachtrag: !!e.receivedAfterClose || (Number.isFinite(closedMs) && iso != null && Date.parse(iso) > closedMs),
         repeats: repeats.counts.get(e.id),
         correctedAt: e.correctedAt && e.textOriginal ? hhmm(new Date(e.correctedAt)) : undefined,
         // the original through the same prefix-strip as the latest text, or the two would

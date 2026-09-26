@@ -41,6 +41,12 @@ describe('isNachtrag', () => {
     expect(isNachtrag(row('after', '2026-07-20T10:00:00Z'), null)).toBe(false) // never closed
     expect(isNachtrag(row('no-at'), closed)).toBe(false) // legacy rows can't be judged
   })
+
+  it('flags a row the server RECEIVED after the close, whatever time it carries (staging r3)', () => {
+    // a Kontakt from 17:55 that reached the server at 18:05, after an 18:00 close: in its time
+    // order — and late on paper
+    expect(isNachtrag({ ...row('late', '2026-07-02T17:55:00Z'), receivedAfterClose: true }, closed)).toBe(true)
+  })
 })
 
 describe('rowTime', () => {

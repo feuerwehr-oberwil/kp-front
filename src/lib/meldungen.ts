@@ -27,36 +27,40 @@ export const MELDUNG_RANK = {
   atemschutz: 1,
   /** a fresh dispatch, or an Einsatz that appeared without a human in the loop */
   alarm: 2,
+  /** the Einsatz on screen was closed — or reopened — on ANOTHER device (N3, 25.09.2026): the
+   *  screen just changed from live to read-only (or back) under the operator's hands, and the row
+   *  says why — above everything that belongs to the Einsatz itself */
+  lifecycle: 3,
   /** a Wiedervorlage that has come due — persists until erledigt, never expires silently */
-  reminder: 3,
+  reminder: 4,
   /** the wind has turned (≥ 45° at ≥ 10 km/h, held over two readings) — the server observed it
    *  and wrote the Verlauf row; this is that row, once per device (24.09.2026, D2). Above the
    *  GPS-follow row: a Lüfter blowing the wrong way is about the crew inside. */
-  wind: 4,
+  wind: 5,
   /** a Trupp came out of an area it was searching and nobody has said yet whether it is
    *  abgesucht (lib/suche · pendingAsks, walk-through 25.09.2026 N13) — one row per question,
    *  gone when somebody answers, never waved away: the answer IS the dismissal. Below the wind:
    *  the «abgesucht?» ask is bookkeeping that waits, a Lüfter blowing the wrong way is not. */
-  suche: 5,
+  suche: 6,
   /** a vehicle a drawn Leitung is attached to has driven off; its anchor is off-screen */
-  gps: 6,
+  gps: 7,
   /** the alarm source's guesses have not been checked yet */
-  review: 7,
+  review: 8,
   /** another tab of this browser holds the edit lock */
-  tabLock: 8,
+  tabLock: 9,
   /** the tactical symbol pack failed to load — Karte and Kroki run without glyphs */
-  symbols: 9,
+  symbols: 10,
   /** offline with no cached basemap for this view — the map is a flat colour */
-  basemap: 10,
+  basemap: 11,
   /** the device has been offline past the grace window — edits are piling up locally
    *  (syncAlert · createOfflinePresence); stands until the link is back */
-  offline: 11,
+  offline: 12,
   /** the session cookie expired — the sync is standing still until the operator signs in again */
-  session: 12,
+  session: 13,
   /** a new build is waiting for the next app start */
-  update: 13,
+  update: 14,
   /** «KP Front als App installieren» */
-  install: 14,
+  install: 15,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK
@@ -99,6 +103,11 @@ export interface Meldung {
   /** the ✕. Present only where waving the message away is legitimate: a due Wiedervorlage can
    *  be erledigt or verschoben, never dismissed. */
   dismiss?: { label: string; onClick: () => void }
+  /** Title and sub-line WRAP instead of ellipsizing — for a row whose whole sentence is the
+   *  message and whose point sits at its end («… abgeschlossen (14:45)»): cut at 360px it read
+   *  «Einsatz wurde auf einem ander…», which says nothing (N3, 25.09.2026). Every other row keeps
+   *  its one line; a strip of wrapping rows would push the surface down. */
+  wrap?: boolean
 }
 
 /**

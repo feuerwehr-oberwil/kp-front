@@ -512,6 +512,13 @@ export interface TimelineEvent {
    *  at display time and hides the patch row itself — rows are never edited in place
    *  (append-only record; same pattern as the reminder lifecycle above). */
   patchOf?: string
+  /** Stamped by the SERVER on a row it accepted while the Einsatz was closed (api/journal,
+   *  staging r3): a Kontakt from 14:44 that arrived at 14:47, after a 14:45 close, keeps its
+   *  place in time — and still prints as a Nachtrag, because it reached the record late. */
+  receivedAfterClose?: boolean
+  /** A server boundary row: the Einsatz was closed or reopened here (backend · append_system_row).
+   *  What the clients key the reopen's clock restart on — never the German sentence. */
+  lifecycle?: 'closed' | 'reopened'
   /** patch payload only: corrected text for the target row. Patch rows carry a filler
    *  `text: ''`, so a text correction needs its own field — the store folds it onto the
    *  target's `text` at display time (append-only correction, same as transcript). */
@@ -1129,6 +1136,18 @@ export interface Trupp {
    *  pressure update; seeded to entryTime on Eingerückt. Empty while `angemeldet`. The contact
    *  clock (now − this) is the safety signal: overdue past the interval ⇒ überfällig alarm. */
   lastContactTime: string
+  /** The contact clock was RESTARTED here by «Wieder öffnen», not by a Kontakt (lib/reopenClocks,
+   *  D5): equal to `lastContactTime` while that restart is the last thing that moved the clock.
+   *  What lets the alarm's «beendet» row name the reopen instead of claiming a Funkkontakt. */
+  contactRestartedAt?: string
+  /** …and when the Einsatz had been CLOSED before that reopen: `[pausedFrom, contactRestartedAt]`
+   *  is time spent closed, which the pressure estimate does not count as breathing (staging r4:
+   *  every crew inside read «Alarmdruck … laut Schätzung erreicht» right after the reopen). */
+  pausedFrom?: string
+  /** …and the contact time the restart REPLACED: an alarm opened on that contact was still running
+   *  at the reopen (the restart ends it); one opened on an older contact had already been ended
+   *  by this one (N4, staging 26.09.2026). */
+  contactBeforeRestart?: string
   /** last recorded cylinder pressure (bar) + when (ISO) — logged for the record, never predicted */
   lastPressureBar?: number
   lastPressureTime?: string

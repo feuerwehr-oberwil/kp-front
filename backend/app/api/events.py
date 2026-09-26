@@ -17,7 +17,7 @@ from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, IncidentEvent
 from ..schemas import EventBatchIn, EventOut, SnapshotOut, VehicleSampleOut
-from .incidents import INCIDENT_NOT_FOUND
+from .incidents import INCIDENT_NOT_FOUND, happened_after_close, incident_closed, incident_lifecycle
 
 router = APIRouter(prefix="/incidents", tags=["events"])
 
@@ -111,6 +111,35 @@ async def ingest_events(
         raise _Denied()
     if not link and user.role == "el" and any(not _el_event_ok(e.op_type) for e in body.events):
         raise _Denied()
+    # A CLOSED Einsatz takes the record vocabulary and nothing else — the same line as the `el`
+    # role's (N3, 25.09.2026; see api/incidents · `incident_closed`): no `atemschutz.contact`, no
+    # `atemschutz.alarm`, no Karte edit lands in it after the Abschluss. Checked under the row
+    # lock the chain append takes next, and only for a batch that holds such an op.
+    # An event that HAPPENED before the close is recorded, and one the chain already holds (a
+    # retry) is the idempotent answer it always was; only a new one from after the close is not.
+    live = [e for e in body.events if not _el_event_ok(e.op_type)]
+    if live:
+        lifecycle = await incident_lifecycle(db, incident_id, lock=True)
+        if not lifecycle.is_open:
+            ids = [e.client_id for e in live if e.client_id]
+            stored = (
+                set(
+                    (
+                        await db.execute(
+                            select(IncidentEvent.client_id).where(
+                                IncidentEvent.incident_id == incident_id, IncidentEvent.client_id.in_(ids)
+                            )
+                        )
+                    ).scalars()
+                )
+                if ids
+                else set()
+            )
+            if any(
+                not (e.client_id and e.client_id in stored) and happened_after_close(e.occurred_at, lifecycle.closed_at)
+                for e in live
+            ):
+                raise incident_closed(lifecycle.closed_at)
     # A batch is one transaction, and `audit.append_event` takes the incident row before it
     # computes a seq — so this flush landing at the same moment as another appender (a second
     # device flushing, a status webhook) waits for it instead of colliding on

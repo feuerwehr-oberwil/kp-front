@@ -99,6 +99,59 @@ to prod.
   journal has its own copy. The stores' own timers go through `run()` and request nothing. It is
   one re-run per request and never after an answer (401, refused, exhausted merge), so an offline
   device does not spin (`outboxReconnect.soak.test.ts`).
+  ⚠️ **A closed Einsatz keeps its RECORD, not its operation, and every device hears the close**
+  (25.09.2026, staging N3: two devices ran a closed Einsatz for minutes and wrote a Kontakt and
+  two «Überfällig» rows into it). Server (`api/incidents · incident_closed`): once `is_open` is
+  false, a live write MADE AFTER THE CLOSE is 409 `{code: 'incident_closed', closed_at}` — judged
+  by when it happened (rows `at`, events `occurred_at`, saves `edited_at`, all on the
+  server-aligned clock, +120 s tolerance; no stamp ⇒ by arrival), never by when it arrived: a
+  Kontakt from before the close is a true fact and prints as a Nachtrag. Live = events outside
+  the record vocabulary (`EL_EVENT_PREFIXES`), Verlauf rows of kind `team`/`symbol`/`layer`/
+  `vehicle` without a `conflict` payload, the trupps slice, and a full save that changes a key
+  outside `RECORD_WORKSPACE_KEYS` and `VIEW_WORKSPACE_KEYS` (the revision check runs FIRST, and an
+  entry the server already holds is the idempotent success, not a refusal). The record slice,
+  record events, Meldungen/patch rows, `PATCH`, media and «Wieder öffnen» are untouched. Every
+  workspace read — the 304 too — carries `X-Incident-Open`/`X-Incident-Closed-At`; a lifecycle
+  `PATCH` and the auto-archive sweep wake the parked followers, and a poll carrying `open=` that
+  no longer matches is answered at once. Client (`lib/incidentClosed`): the poll header, a
+  refusal and the list watch (a suspicion, verified) all `reportIncidentClosed`; App flips the
+  meta IN PLACE (`closedMetaFor`, never for the Einsatz this device is closing, never a jump
+  elsewhere), and `IncidentWorkspace` derives `readOnly` from `isIncidentRunning` live, so the
+  alarm, the GPS pass, the presence log, the weather stamp and the Wiedervorlagen stop, with one
+  Meldeleiste row («… auf einem anderen Gerät abgeschlossen (hh:mm)»). The closing device drains
+  its Verlauf and audit outboxes before the archive `PATCH`. The outboxes keep DELIVERING on a
+  closed view (`outboxReadOnly`), and a refused write is parked — journal `refused`, audit
+  `closed` (apart from the role bucket `refused`), the workspace's `::__refused__` slots, whose
+  record part is re-saved at once through the record route and whose ancestor goes straight
+  back on screen. Parked entries are exported by «Einträge sichern», keep the lamp amber until
+  then, and are SENT again once the Einsatz runs again. A plain 409 on the workspace is still
+  the revision conflict: test the code first. «Wieder öffnen» elsewhere comes back the same way
+  (`X-Incident-Open: 1`, the same wake, the list watch, `reopenedMetaFor`) on EVERY device that
+  shows the Einsatz closed, however it came to (a close signal, its own close, «Alle Einsätze» —
+  forceReadOnly goes too), with its own row naming the reopen row's time. The live poll claims
+  `open=` from the server's last `X-Incident-Open`, never only from the view, and a held poll that
+  answers at once with nothing new eases off — a closed view must never spin (it did, 3.4/s). «Anhängen» is never offered onto a closed Einsatz.
+  After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
+  … erscheinen als Nachträge»); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
+  until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped
+  `receivedAfterClose` and prints as a Nachtrag whatever its time. A reopen clears
+  `report_done_at` (a running Einsatz is not «Rapport fertig»), keeps `closed_at` (the first
+  Einsatzende, which marks the Nachträge — so the Einsatzuhr ignores it while the Einsatz runs),
+  and writes its boundary row with `lifecycle: 'reopened'`; every crew still inside restarts its
+  contact clock at that row's `at`, one `azro-<row>-<Trupp>` row each, and the alarm holds until
+  the row has arrived (`lib/reopenClocks`); the alarm that restart ends names the reopen
+  (`contactRestartedAt`), never a Funkkontakt, and the pressure estimate skips the closed
+  interval (`pausedFrom` → `contactRestartedAt`, `atemschutz · estimatePressure`). The Atemschutz-Link of a closed Einsatz says «diese
+  Tafel zeigt nur noch an» and follows once a minute (`pollBackoff · minDelayMs`): a link
+  session on a closed Einsatz is answered 409 `incident_closed` + `X-Incident-Open: 0` on the
+  Einsatz's own routes (before any key check — every close, the second too), and a link page
+  refused 403 on its workspace/Verlauf/events freezes read-only (`api · LINK_REFUSED_EVENT`). The
+  link KEY is not revoked by a close, on purpose: the QR panel shows it standing and a reopen
+  revives it. `closed_at` is the FIRST close (Nachträge only); `last_closed_at` is stamped on
+  every close and is the Einsatzende the clock, the Rapport and the Anwesenheit ends default to
+  (`api/incidents · closeTimeOf`); the PDF prints the Nachtrag mark under the row's time. A
+  closed Tafel alarms nothing (no badge, no red; «Stand beim Abschluss»), the lifecycle row
+  expires after two minutes and never covers the Rapport.
   A disposed journal store must never publish a late snapshot over its replacement.
   A Web Lock request rejected before a grant must not immediately requeue: an inactive
   document can reject forever and prevent navigation. Requeue only after a held lock is lost,

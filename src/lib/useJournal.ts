@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { JournalStore } from './journalStore'
-import { createLongPollLoop } from './pollBackoff'
+import { createLongPollLoop, SLOW_FOLLOW_MS } from './pollBackoff'
 import type { TimelineEvent } from '../types'
 
 /**
@@ -9,13 +9,20 @@ import type { TimelineEvent } from '../types'
  * keyed by incident id upstream). Pulls new rows + retries the outbox on the same long-poll
  * loop as the workspace live-follow, flushes on reconnect, and re-renders via a change nonce.
  */
-export function useJournal({ incidentId, readOnly, legacy }: {
+export function useJournal({ incidentId, readOnly, legacy, slowFollow = false }: {
   incidentId: string
   readOnly: boolean
+  /** follow once a minute (the Atemschutz-Link of a closed Einsatz — see useIncidentSync) */
+  slowFollow?: boolean
   /** the blob's timeline at open (newest-first) — legacy display + migration input */
   legacy: TimelineEvent[]
 }) {
   const [nonce, setNonce] = useState(0)
+  const slowFollowRef = useRef(slowFollow)
+  useEffect(() => { slowFollowRef.current = slowFollow }, [slowFollow])
+  // rows the CLOSED Einsatz refused (journalStore · refused) — for the notice that says why.
+  // Carried as state, set from the store's change callback, never read off the store in render.
+  const [refusedCount, setRefusedCount] = useState(0)
   const storeRef = useRef<JournalStore | null>(null)
   if (!storeRef.current) storeRef.current = new JournalStore(incidentId, readOnly)
   const store = storeRef.current
@@ -26,7 +33,7 @@ export function useJournal({ incidentId, readOnly, legacy }: {
     // store drops every `append` on the floor without a word. In dev that meant: the composer
     // closed, the toast said «gespeichert», and no Verlaufszeile ever reached the server.
     if (store.isDisposed) store.revive()
-    store.onChange = () => setNonce((n) => n + 1)
+    store.onChange = () => { setNonce((n) => n + 1); setRefusedCount(store.refusedCount) }
     void store.init(legacy)
 
     // Same live-follow loop as the workspace sync — literally the same one (pollBackoff ·
@@ -39,6 +46,7 @@ export function useJournal({ incidentId, readOnly, legacy }: {
     const loop = createLongPollLoop({
       baseMs: appConfig.sync.livePollMs,
       maxMs: appConfig.sync.livePollMaxMs,
+      minDelayMs: () => (slowFollowRef.current ? SLOW_FOLLOW_MS : 0),
       hiddenMs: () => appConfig.sync.hiddenPollMs,
       round: async ({ hidden, signal }) => {
         // Push BEFORE the pull, not only after it: a visible tab's pull is a long poll the server
@@ -89,10 +97,12 @@ export function useJournal({ incidentId, readOnly, legacy }: {
   const ingestLegacy = useCallback((tl: TimelineEvent[]) => store.ingestLegacy(tl), [store])
 
   const retry = useCallback(() => store.retry(), [store])
+  const flush = useCallback(() => store.flush(), [store])
+  const requeueRefused = useCallback(() => store.requeueRefused(), [store])
   const recoveryData = useCallback(() => store.recoveryData(), [store])
   const getStatus = useCallback(() => store.syncStatus, [store])
 
   return { rows, blobTimeline, append, appendPatch, overlaySession, swapPhoto, ingestLegacy,
-    retry, recoveryData, getStatus, syncStatus: store.syncStatus,
-    pendingCount: store.pendingCount, rejectedCount: store.rejectedCount }
+    retry, flush, requeueRefused, recoveryData, getStatus, syncStatus: store.syncStatus,
+    pendingCount: store.pendingCount, rejectedCount: store.rejectedCount, refusedCount }
 }
