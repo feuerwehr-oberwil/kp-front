@@ -1987,12 +1987,18 @@ export function IncidentWorkspace({
   // «offen» for ever, while the identically-labelled path through the Rapport stamped and
   // counted. Two doors into one room are fine; two doors with the same sign into different rooms
   // are not. The confirm and the open-point count live HERE, above both of them.
+  // What the Abschluss writes on its way to the close is part of the close (staging r6, F3):
+  // `pushEvent` marks every row made between the confirm and the close's answer `atClose`, so it
+  // never prints as a Nachtrag for being stamped a moment past the server's `closed_at`.
+  const closingRowsRef = useRef(false)
+  const markClosing = useCallback((on: boolean) => { closingRowsRef.current = on }, [])
   const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // the Verlauf rows and audit events still queued go up BEFORE the close (review of #235) —
     // after it they would be judged against a closed Einsatz
     flushOutboxes: flushRecordOutboxes,
+    markClosing,
   })
   // --- the Atemschutz clocks across «Wieder öffnen» (staging r3, F4; lib/reopenClocks) ----------
   // The newest close/reopen boundary in the Verlauf, the server's own rows. Right after a reopen
@@ -2204,7 +2210,7 @@ export function IncidentWorkspace({
     // ⚠️ Two rows in the same millisecond must never share an id — the server's idempotency skip
     // silently swallows the second (legal record). A per-mount counter kept ONE device's rows
     // apart but not two devices' (post-mortem 23.09.2026): newRowId adds the random tail (lib/ids).
-    journal.append({ id: id ?? newRowId(), t: formatTime(new Date(at)), at, ...rest })
+    journal.append({ id: id ?? newRowId(), t: formatTime(new Date(at)), at, ...rest, ...(closingRowsRef.current ? { atClose: true } : {}) })
   }
   // map events keep the positional signature, so every existing call site is unchanged
   // `opts` carries the two things a row may need that are not part of its sentence: `rowId`

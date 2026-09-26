@@ -8,7 +8,7 @@ import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
 import { truppNeverDeployed } from './atemschutz'
 import { atemschutzEquipment, attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
-import { repeatRuns, rowPhotos, rowText } from './verlauf'
+import { isNachtrag, repeatRuns, rowPhotos, rowText } from './verlauf'
 import { linkMarkup, type JournalLink } from './journalLinks'
 
 export interface KrokiView {
@@ -360,7 +360,6 @@ export function journalRows(
    *  existed simply keeps every suffix, which is what it printed yesterday. */
   opts?: { includeBookkeeping?: boolean; vocab?: JournalLink[]; truppIds?: ReadonlySet<string> },
 ): JournalPrintRow[] {
-  const closedMs = closedAt ? Date.parse(closedAt) : NaN
   // …and a line the app repeated while nothing changed prints ONCE, with its count — the same
   // rule the Verlauf reads by, so paper and screen tell the same story (lib/verlauf).
   const repeats = repeatRuns(events)
@@ -407,7 +406,8 @@ export function journalRows(
           : undefined,
         // …or received by the server while the Einsatz was closed, whatever time it carries: a
         // Kontakt from before the close that arrived after it is late on paper (staging r3)
-        nachtrag: !!e.receivedAfterClose || (Number.isFinite(closedMs) && iso != null && Date.parse(iso) > closedMs),
+        // …and a row the Abschluss itself wrote is part of the close (lib/verlauf · isNachtrag)
+        nachtrag: isNachtrag(iso != null && iso !== e.at ? { ...e, at: iso } : e, closedAt),
         repeats: repeats.counts.get(e.id),
         correctedAt: e.correctedAt && e.textOriginal ? hhmm(new Date(e.correctedAt)) : undefined,
         // the original through the same prefix-strip as the latest text, or the two would

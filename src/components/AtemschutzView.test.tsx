@@ -387,6 +387,9 @@ describe('an abgeschlossener Einsatz (frozenAt)', () => {
     const css = readFileSync(`${process.cwd()}/src/components/Atemschutz.module.css`, 'utf8')
     expect(css).toMatch(/\.surfaceFrozen \.st-aktiv, \.surfaceFrozen \.st-rueckzug, \.surfaceFrozen \.st-ueberfaellig \{ border-top-color: var\(--ink-faint\); \}/)
     expect(css).toMatch(/\.surfaceFrozen \.bandVal, \.surfaceFrozen \.trowClockVal, \.surfaceFrozen \.tabClock \{ color: var\(--ink-dim\)/)
+    // …the empty Sicherungstrupp slot included — no dashed amber on a closed Tafel (r6, F3)
+    expect(css).toMatch(/\.surfaceFrozen \.safetyNone \{ border-color: var\(--glass-edge\); background: var\(--surface\); \}/)
+    expect(css).toMatch(/\.surfaceFrozen \.safetyNoneTxt b \{ color: var\(--ink-dim\); \}/)
   })
 })
 

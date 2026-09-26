@@ -64,6 +64,34 @@ describe('useAbschluss', () => {
     expect(order).toEqual(['outboxes', 'complete'])
   })
 
+  it('marks the rows written between the confirm and the close as the Abschluss\'s own (staging r6, F3)', async () => {
+    vi.mocked(confirmDialog).mockResolvedValueOnce(true)
+    const marks: boolean[] = []
+    const seen: string[] = []
+    const a = args({
+      markClosing: (on) => { marks.push(on) },
+      flushOutboxes: vi.fn(async () => { seen.push(`flush:${marks[marks.length - 1]}`) }),
+      onCompleteRapport: vi.fn(async () => { seen.push(`close:${marks[marks.length - 1]}`); return true }),
+    })
+    const r = renderHook(() => useAbschluss(a)).result.current
+    await expect(r.confirmAndComplete()).resolves.toBe(true)
+    expect(seen).toEqual(['flush:true', 'close:true'])
+    expect(marks).toEqual([true, false])
+    // a failed close lifts the mark as well, and a cancelled confirm never sets it
+    vi.mocked(confirmDialog).mockResolvedValueOnce(true)
+    marks.length = 0
+    const failing = renderHook(() => useAbschluss(args({
+      markClosing: (on) => { marks.push(on) },
+      onCompleteRapport: vi.fn(async () => { throw new Error('offline') }),
+    }))).result.current
+    await expect(failing.confirmAndComplete()).rejects.toThrow('offline')
+    expect(marks).toEqual([true, false])
+    vi.mocked(confirmDialog).mockResolvedValueOnce(false)
+    marks.length = 0
+    await renderHook(() => useAbschluss(args({ markClosing: (on) => { marks.push(on) } }))).result.current.confirmAndComplete()
+    expect(marks).toEqual([])
+  })
+
   it('a cancelled confirm hands nothing over and drains nothing', async () => {
     vi.mocked(confirmDialog).mockResolvedValueOnce(false)
     const a = args()

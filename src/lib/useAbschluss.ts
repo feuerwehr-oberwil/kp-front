@@ -31,6 +31,9 @@ interface Args {
   /** drain the Verlauf and audit outboxes — run after the media, before the handover, so what
    *  this device recorded before the close is not judged against the closed Einsatz */
   flushOutboxes?: () => Promise<void>
+  /** on at the operator's confirm, off once the close has answered: rows written in between are
+   *  the Abschluss's own (`TimelineEvent.atClose`, staging r6 F3) */
+  markClosing?: (on: boolean) => void
 }
 
 /**
@@ -45,7 +48,7 @@ interface Args {
  */
 export function useAbschluss({
   reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
-  setMode, setPanel, setOfflineReadyOpen, requestReportStep, flushOutboxes,
+  setMode, setPanel, setOfflineReadyOpen, requestReportStep, flushOutboxes, markClosing,
 }: Args) {
   const abschlussMissing = useMemo(
     () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
@@ -120,6 +123,10 @@ export function useAbschluss({
       confirmLabel: anyOpen ? A.confirmAnyway : A.confirmBtn,
     })
     if (!ok) return false
+    // From the confirm to the close's answer, every row this device writes is the Abschluss's
+    // own (staging r6, F3): marked so, it prints as part of the close, not as a Nachtrag. (The
+    // two drains below cannot throw; the close's own answer lifts the mark either way.)
+    markClosing?.(true)
     // ⚠️ Drain the media queue FIRST, from here. The Abschluss closes the incident and App then
     // drops what has already gone up (clearUploadedMedia) — and an upload also has to patch its
     // Verlauf row's blob: URL to the server one (useMediaQueue · onUploaded), which needs this
@@ -129,9 +136,9 @@ export function useAbschluss({
     // …and the answer is the REAL outcome, not the firing of the request: App reports whether
     // the close went through, so the Rapport's kept scroll position survives a failed Abschluss
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
-    return onCompleteRapport()
+    return onCompleteRapport().finally(() => markClosing?.(false))
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, flushOutboxes])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, flushOutboxes, markClosing])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

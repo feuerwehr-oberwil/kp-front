@@ -2283,6 +2283,9 @@ export const en: Localizable<Copy> = {
     errorTitle: 'The server is not responding.',
     errorHint: 'Please try again. If it persists, tell the incident commander.',
     retry: 'Try again',
+    closedTitle: 'Incident closed',
+    closedAt: 'Closed at {time}.',
+    closedHint: 'If the incident is reopened, the board comes back here by itself.',
     unavailable: 'This incident is not reachable right now. Reload the page once you have signal again.',
   },
   standingLink: {

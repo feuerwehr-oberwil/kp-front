@@ -1481,18 +1481,40 @@ async def test_atemschutz_link_stays_scoped_to_its_own_incident(client, editor, 
     assert r.json()["detail"] == DENIED_DETAIL
 
 
-async def test_an_atemschutz_link_to_a_closed_einsatz_answers_404(client, editor, incident, db_session):
-    """«Noch nicht / nicht mehr verfügbar» — the alarm link's answer, because it is the alarm
-    link's lifetime. A revoked or unknown secret stays the 401 instead."""
+async def test_an_atemschutz_link_to_a_closed_einsatz_says_closed(client, editor, incident, db_session):
+    """A closed Einsatz is said as CLOSED to the holder of its own secret (staging r6, F2): the
+    same 409 `incident_closed` a running session gets, so the reloaded page shows the closed card
+    and follows the reopen instead of «eben erst eingetroffen» → «nicht abrufbar». Still no
+    session; a revoked or unknown secret stays the 401."""
     token = await _mint_atemschutz_link(client, editor, incident)
     inc = await db_session.get(Incident, incident.id)
-    inc.is_archived = True
+    closed_at = datetime(2026, 9, 26, 3, 12, tzinfo=UTC)
+    inc.status = "geschlossen"
+    inc.closed_at = closed_at
     await db_session.commit()
 
     r = await client.post("/api/incident-link/session", json={"token": token})
-    assert r.status_code == 404, r.text
-    assert r.json()["detail"] == NOT_AVAILABLE_DETAIL
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["code"] == "incident_closed"
+    assert r.json()["detail"]["closed_at"] == closed_at.isoformat()
+    assert r.headers["X-Incident-Open"] == "0"
     assert LINK_COOKIE not in r.cookies
+
+    # archived is closed all the same
+    inc.status = "offen"
+    inc.is_archived = True
+    await db_session.commit()
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 409, r.text
+    assert LINK_COOKIE not in r.cookies
+
+    # …and «Wieder öffnen» opens the same link again — nothing to re-mint
+    inc.is_archived = False
+    await db_session.commit()
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 200, r.text
+    assert LINK_COOKIE in r.cookies
+    _forget_link(client)
 
     for probe in ("anope-not-a-real-secret", "a"):
         r = await client.post("/api/incident-link/session", json={"token": probe})

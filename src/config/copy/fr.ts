@@ -2279,6 +2279,9 @@ export const fr: Localizable<Copy> = {
     errorTitle: 'Le serveur ne répond pas.',
     errorHint: 'Merci de réessayer. Si cela persiste, avertir le commandant d\'intervention.',
     retry: 'Réessayer',
+    closedTitle: 'Intervention clôturée',
+    closedAt: 'Clôturée à {time}.',
+    closedHint: 'Si l’intervention est rouverte, le tableau réapparaît ici tout seul.',
     unavailable: 'Cette intervention n\'est pas accessible pour le moment. Recharge la page dès que tu as du réseau.',
   },
   standingLink: {

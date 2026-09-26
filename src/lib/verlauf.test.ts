@@ -47,6 +47,19 @@ describe('isNachtrag', () => {
     // order — and late on paper
     expect(isNachtrag({ ...row('late', '2026-07-02T17:55:00Z'), receivedAfterClose: true }, closed)).toBe(true)
   })
+
+  it('a row the Abschluss itself wrote is part of the close, not a Nachtrag (staging r6, F3)', () => {
+    // «Trupp 2 beim Abschluss noch drin», stamped 0.6 s past the server's closed_at
+    const own = { ...row('inside', '2026-07-02T18:00:00.600Z'), atClose: true }
+    expect(isNachtrag(own, closed)).toBe(false)
+    // …delivered after the close as well
+    expect(isNachtrag({ ...own, receivedAfterClose: true }, closed)).toBe(false)
+    // the same row WITHOUT the mark is late, as before
+    expect(isNachtrag(row('inside', '2026-07-02T18:00:00.600Z'), closed)).toBe(true)
+    // …and the mark carries nothing off the paper that happened later than the close's tolerance
+    expect(isNachtrag({ ...row('later', '2026-07-02T18:05:00Z'), atClose: true }, closed)).toBe(true)
+    expect(isNachtrag({ ...row('undated'), atClose: true, receivedAfterClose: true }, closed)).toBe(true)
+  })
 })
 
 describe('rowTime', () => {
