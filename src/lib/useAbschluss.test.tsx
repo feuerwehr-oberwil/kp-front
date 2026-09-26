@@ -253,6 +253,7 @@ describe('useAbschluss', () => {
       await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(false)
       expect(ask.mock.calls[0][0].message).toContain('Trupp ist noch drin')
       expect(ask.mock.calls[1][0]).toMatchObject({
+        title: appConfig.copy.suche.abschlussAskTitle,
         message: suche.ask,
         altLabel: appConfig.copy.suche.abschlussToSuche,
         confirmLabel: appConfig.copy.abschluss.insideClose,

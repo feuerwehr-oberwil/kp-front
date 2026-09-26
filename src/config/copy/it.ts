@@ -5407,6 +5407,7 @@ export const it: Localizable<Copy> = {
     abschlussVermisst: '{n} persone ancora disperse',
     abschlussVermisstOne: '1 persona ancora dispersa',
     abschlussBereiche: 'Non perlustrati: {list}',
+    abschlussAskTitle: 'Persone ancora disperse',
     abschlussAskOne: '1 persona ancora dispersa: {list}.',
     abschlussAskMany: '{n} persone ancora disperse: {list}.',
     abschlussAskGroup: '{name} ({n})',

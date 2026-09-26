@@ -131,6 +131,8 @@ export function useAbschluss({
     const vermisstAsk = suche?.ask
     if (vermisstAsk) {
       const answer = await confirmDialog({
+        // titled like the crews' question («Trupps noch drin») — the two stand in one sequence
+        title: appConfig.copy.suche.abschlussAskTitle,
         message: vermisstAsk,
         confirmLabel: A.insideClose,
         altLabel: appConfig.copy.suche.abschlussToSuche,

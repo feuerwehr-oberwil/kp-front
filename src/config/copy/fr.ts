@@ -5408,6 +5408,7 @@ export const fr: Localizable<Copy> = {
     abschlussVermisst: '{n} personnes encore disparues',
     abschlussVermisstOne: '1 personne encore disparue',
     abschlussBereiche: 'Non fouillés: {list}',
+    abschlussAskTitle: 'Personnes toujours disparues',
     abschlussAskOne: '1 personne toujours disparue: {list}.',
     abschlussAskMany: '{n} personnes toujours disparues: {list}.',
     abschlussAskGroup: '{name} ({n})',
