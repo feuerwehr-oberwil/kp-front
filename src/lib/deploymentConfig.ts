@@ -147,6 +147,8 @@ export interface DeploymentDoctrine {
   contactIntervalMin?: number | null
   contactGraceSec?: number | null
   defaultPressureBar?: number | null
+  /** the lowest Eingangsdruck taken without a question; 0 = never ask (AtemschutzView · TruppForm) */
+  entryPressureMin?: number | null
   pressureStep?: number | null
   pressureMax?: number | null
   cylinderLiters?: number | null
@@ -618,6 +620,7 @@ export function atemschutzDoctrine() {
     pressureStep: d.pressureStep ?? a.pressureStep,
     pressureMax: d.pressureMax ?? a.pressureMax,
     defaultPressureBar: d.defaultPressureBar ?? a.defaultPressureBar,
+    entryPressureMin: d.entryPressureMin ?? a.entryPressureMin,
     alarmBar,
     alarmBarRueckzug,
     contactIntervalMin: d.contactIntervalMin ?? a.contactIntervalMin,

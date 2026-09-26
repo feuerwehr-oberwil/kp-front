@@ -232,7 +232,7 @@ export const de = {
         id: 'atemschutz', title: 'Trupps & Atemschutzüberwachung', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Lückenlose Überwachung jedes Atemschutztrupps nach FKS – das Sicherheitssignal ist die **Zeit seit dem letzten Funkkontakt**, nicht eine geschätzte Restzeit.' },
-          { kind: 'sub', text: 'Trupp erstellen' },
+          { kind: 'sub', text: 'Trupp anmelden' },
           { kind: 'list', items: [
             '**Wer geht rein**: drei Slots, der oberste ist der **GF** – die ganze Zeile antippen macht jemanden zum Gruppenführer, das **✕** entfernt ihn. Ein grösserer Trupp hängt einfach weitere Zeilen an.',
             'Über die **Personensuche** wird das ganze Personal gefunden, nicht nur die Anwesenden; neben jedem Namen steht, was dagegen spricht (nicht anwesend, Magazin, schon in einem Trupp). **(+)** erfasst einen Gast (Nachbarwehr) – der landet zugleich in der Anwesenheit und gilt dort als derselbe Mensch.',
@@ -1671,7 +1671,7 @@ export const de = {
     asMark: 'AS',
     empty: 'Noch kein Trupp in Überwachung.',
     emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
-    newTrupp: 'Trupp erstellen',
+    newTrupp: 'Trupp anmelden',
     // «Überwachung abgeben» — der QR neben der Glocke: die Tafel dieses Einsatzes auf ein
     // fremdes Handy geben, damit jemand ohne Login nur den Atemschutz bedient. Nur für
     // Bearbeiter, und nicht auf der abgegebenen Tafel selbst.
@@ -1715,7 +1715,7 @@ export const de = {
     // Erfassungs-App (capture.clockSkew).
     clockSkewChip: 'Geräteuhr weicht ab ({d} Min.)',
     // create / edit / re-deploy form (one shared form, section labels + per-mode titles)
-    formCreateTitle: 'Trupp erstellen',
+    formCreateTitle: 'Trupp anmelden',
     formEditTitle: 'Trupp bearbeiten',
     // «in den Einsatz», nie «einrücken» (09.09.) – siehe die Notiz bei entryAskTitle
     formRedeployTitle: 'Wieder in den Einsatz',
@@ -1771,8 +1771,8 @@ export const de = {
     orderManual: 'Wie gesetzt',
     orderAuftrag: 'Auftrag',
     orderName: 'Name',
-    moveBack: 'Karte nach vorne schieben',
-    moveForward: 'Karte nach hinten schieben',
+    moveBack: 'Nach oben holen',
+    moveForward: 'Nach unten stellen',
     leaderLabel: 'Gruppenführer',
     // (`guestNamePlaceholder` / `teamAdd` / `typeName` sind mit dem zweiten Feld weg, zu dem sie
     //  gehörten – siehe `teamGuestAdd` unten. Seit 11.09. gilt das auch für PersonField: dort
@@ -2201,6 +2201,11 @@ export const de = {
      * er ist der Normalfall, und sein Eingangsdruck sagt es ohnehin.
      */
     logEntryNoAs: 'Trupp {name}: Eintritt – ohne Atemschutz',
+    /** …und der Sicherungstrupp, der hineingeht (24.09.2026, D1 ⑦): er wird nur geschickt, wenn
+     *  drinnen etwas schiefgeht – die Zeile, nach der eine Rekonstruktion zuerst sucht. Abgeleitet
+     *  vom Trupp (Auftrag «Sichern», erster Eintritt), nicht vom Knopf (useTruppActions ·
+     *  setTruppStatus). */
+    logSafetyEntry: 'Trupp {name}: Sicherungstrupp eingesetzt',
     logContact: 'Trupp {name}: Kontakt bestätigt',
     logPressure: 'Trupp {name}: Druck {bar} bar',
     // Rückzug and Fortsetzen reset the contact clock; that has to be in the Verlauf, otherwise
@@ -2341,6 +2346,54 @@ export const de = {
     safetyNoneHint: 'Ein Trupp ist drin',
     safetyNoneHintMany: '{n} Trupps sind drin',
     safetyPick: 'Bestimmen',
+    /* ── Handy-Tafel, zweite Runde (24.09.2026, D1 ⑥ ⑦ ⑧a, Punkt 2) ─────────────────────────── */
+    // der leere Platz, solange noch niemand drin ist – ruhig, nicht amber
+    safetyNoneExpected: 'Ab dem 1. Trupp drin wird er erwartet',
+    // «Bestimmen» mit bereiten Trupps: einen davon nehmen oder einen neuen anmelden
+    safetyPickTitle: 'Sicherungstrupp bestimmen',
+    safetyPickNew: 'Neuen Trupp anmelden (Sichern)',
+    // die fälligen Trupps über dem Anmelde-Sheet (Bereichsname für Screenreader)
+    pinnedLabel: 'Fällige Trupps',
+    // Kontakt, den ein ANDERES Gerät vor weniger als 60 s schon bestätigt hat (lib/contactEcho)
+    contactEchoMsg: '{name}: Kontakt wurde vor {s} s schon bestätigt (anderes Gerät).',
+    contactEchoAgain: 'Nochmals',
+    contactEchoOk: 'OK',
+    /* ── Staging-Durchgang 25.09.2026 ── */
+    // Bearbeiten als Patch: ein Feld, das inzwischen ein anderes Gerät geändert hat
+    editConflictOne: '{field} wurde inzwischen auf einem anderen Gerät geändert: {now} – trotzdem überschreiben?',
+    editConflictMany: '{fields} wurden inzwischen auf einem anderen Gerät geändert – trotzdem überschreiben?',
+    editConflictOverwrite: 'Überschreiben',
+    editConflictBack: 'Zurück zum Formular',
+    editFieldLabels: { crew: 'Mannschaft', auftrag: 'Auftrag', ziel: 'Ziel', lineNo: 'Leitung', funkkanal: 'Funkkanal', pressure: 'Eingangsdruck', kind: 'Art des Trupps', equipment: 'Ausrüstung' },
+    // die erste Druckmeldung nach dem Eintritt: ersetzt einen Eingangsdruck, den niemand gesetzt hat, und ist ein Kontakt
+    logFirstPressure: 'Trupp {name}: Kontakt – erste Druckmeldung {bar} bar ersetzt den Eingangsdruck {from} bar',
+    logFirstPressureSame: 'Trupp {name}: Kontakt – erste Druckmeldung {bar} bar (wie Eingangsdruck)',
+    pressureSheetFirst: 'Erste Druckmeldung – ersetzt den Eingangsdruck {bar} bar, zählt als Kontakt',
+    // der Knopf im Kopf der Tafel trägt auch am Handy sein Wort
+    newTruppShort: 'Trupp',
+    // kleine Marke am Sicherungstrupp, auch nachdem er eingesetzt ist
+    safetyChip: 'SiTr',
+    /* ── Staging-Durchgang 2, 25.09.2026 ── */
+    // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, AGENTS.md)
+    removedToast: 'Trupp {name} entfernt',
+    // «Entfernen» auf einem Trupp, der DRIN ist: zuerst fragen, «Raus melden» ist die sichere Antwort
+    removeInsideTitle: 'Trupp {name} ist drin – erst rausmelden?',
+    removeInsideMsg: 'Entfernen nimmt den Trupp von der Tafel und aus jedem Alarm. Meist ist gemeint: Der Trupp ist draussen.',
+    // der Weg hinein für einen Trupp, der nie drin war («Wieder» wäre falsch)
+    actEnterFirst: 'In den Einsatz',
+    contactDone: 'Bestätigt',
+    // Eingangsdruck eines Trupps, der schon raus ist: gesperrt (Punkt 2)
+    pressureLockedLabel: 'Eingangsdruck ({t})',
+    pressureLockedLabelPlain: 'Eingangsdruck',
+    pressureLocked: 'Trupp ist raus',
+    pressureLockedExit: 'Restdruck beim Austritt ({t}): {bar} bar',
+    pressureLockedHint: 'Nach dem Austritt gesperrt. Eine Korrektur gehört als Eintrag in den Verlauf.',
+    // …und die EINE Plausibilitätsfrage: ein Eingangsdruck unter dem Stationsminimum
+    // (doctrine.entryPressureMin). Die Zahl steht auf dem Knopf.
+    entryLowMsg: '{bar} bar ist für einen Eintritt tief (Station: ab {min}). Stimmt das, meldet der Trupp gleich einen Alarm bei ≤{alarm}.',
+    entryLowMsgNoAlarm: '{bar} bar ist für einen Eintritt tief (Station: ab {min}).',
+    entryLowConfirm: '{bar} bestätigen',
+    entryLowChange: 'Ändern',
     bottleAsk: 'Vor {min} min raus, zuletzt {bar} bar. Welche Flasche?',
     bottleAskNow: 'Gerade raus, zuletzt {bar} bar. Welche Flasche?',
     bottleSame: 'Gleiche Flasche',
@@ -2408,6 +2461,11 @@ export const de = {
     // all – the toast was gone and the Trupp had never existed.
     logRemoved: 'Trupp {name} entfernt',
     logRestored: 'Trupp {name} wiederhergestellt',
+    // Der Einsatz wird abgeschlossen, während ein Trupp noch als drin geführt ist (staging r3 F4):
+    // eine Zeile pro Trupp, damit der Verlauf sagt, was beim Abschluss offen war – ein Austritt
+    // wird NICHT erfunden. Auf dem Rapport endet der Einsatz des Trupps mit dem Zusatz unten.
+    logInsideAtClose: 'Trupp {name} beim Abschluss noch drin',
+    cycleEndAtClose: '{t} (beim Abschluss noch drin)',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
@@ -3383,6 +3441,11 @@ export const de = {
   // Wörter sind für Screenreader und Tooltips da, nicht für die Zeile selbst.
   meldeleiste: {
     region: 'Meldungen',
+    // Auf der Trupp-Tafel steht nur die dringendste Meldung offen (staging r3): zwei Zeilen
+    // deckten am Telefon die Uhr des ersten Trupps zu. Der Rest ist eine Zahl, die aufklappt.
+    more: '+{n} weitere Meldung',
+    moreMany: '+{n} weitere Meldungen',
+    less: 'Weniger anzeigen',
   },
   // single-editor tab lock: a second browser tab on the SAME incident is read-only
   // the session cookie expired mid-Einsatz (api.ts · SESSION_EXPIRED_EVENT): every request 401s
@@ -4118,6 +4181,23 @@ export const de = {
     // …und wenn noch etwas offen ist, sagt es der Knopf. Abschliessen ist erlaubt – das ist der
     // Ort, an dem das ausgesprochen wird, statt hinter einem gleich beschrifteten Knopf.
     confirmAnyway: 'Trotzdem abschliessen',
+    /* Ein Atemschutz-Trupp, der beim Abschluss noch ANGEMELDET ist (24.09.2026, D1 ⑦): typisch
+       der Sicherungstrupp, der bereitstand und nie hinein musste. Vor der eigentlichen Frage
+       gestellt; «nicht eingesetzt» ist derselbe Abschluss wie auf der Karte (Trupp … nicht
+       eingesetzt). */
+    registeredOne: '1 Trupp noch angemeldet ({list}).',
+    registeredMany: '{n} Trupps noch angemeldet ({list}).',
+    registeredSafety: '{name}, Sicherungstrupp',
+    registeredToBoard: 'Zur Tafel',
+    registeredStandDown: 'Als «nicht eingesetzt» schliessen',
+    // Trupps, die beim Abschluss noch DRIN sind: eine eigene, erste Frage
+    insideOne: '1 Trupp ist noch drin: {list}.',
+    insideMany: '{n} Trupps sind noch drin: {list}.',
+    insideTrupp: 'Trupp {name}',
+    insideClose: 'Trotzdem abschliessen',
+    insideTitle: 'Trupps noch drin',
+    // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
+    confirmBack: 'Zurück',
     done: 'Rapport abgeschlossen',
     doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
     failed: 'Abschluss fehlgeschlagen',
@@ -6101,6 +6181,8 @@ export const de = {
       alarmBarRueckzugInvalid: 'Wert noch nicht gespeichert – erwartet wird eine ganze Zahl über 0 und höchstens {max} (nicht über dem Alarmdruck; die Rückzugslinie meldet sich früher, nicht später).',
       defaultPressure: 'Eingangsdruck (bar)',
       defaultPressureTip: 'Fülldruck, mit dem der Trupp-Assistent startet (z. B. 300-bar-Flasche im Dienst).',
+      entryPressureMin: 'Eingangsdruck mindestens (bar)',
+      entryPressureMinTip: 'Ein Eingangsdruck darunter – bei der Anmeldung, beim Wiedereintritt mit neuer Flasche oder beim Korrigieren – wird einmal nachgefragt («180 bar ist für einen Eintritt tief»). Keine Obergrenze. 0 schaltet die Rückfrage ab. Ohne Eintrag gilt {n} bar.',
       pressureStep: 'Druck-Schrittweite (bar)',
       pressureStepTip: 'Schrittweite der ±Druckregler; Eingaben rasten auf dieses Raster ein.',
       pressureMax: 'Druck-Maximum (bar)',

@@ -204,6 +204,8 @@ EXAMPLE_CONFIG: dict[str, Any] = {
         "contactGraceSec": 60,
         "alarmBar": 100,
         "alarmBarRueckzug": 50,
+        # below this Eingangsdruck the Trupp form asks once («… ist für einen Eintritt tief»)
+        "entryPressureMin": 270,
     },
     "roster": {
         "source": "manual",

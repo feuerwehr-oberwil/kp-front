@@ -1136,6 +1136,12 @@ class DoctrineConfig(BaseModel):
     contactIntervalMin: int | None = None
     contactGraceSec: int | None = None
     defaultPressureBar: int | None = None
+    #: The lowest Eingangsdruck the Trupp form takes without asking once (24.09.2026): below it,
+    #: registering, re-entering on a new cylinder or correcting asks «180 bar ist für einen Eintritt
+    #: tief (Station: ab 270)» with the value on the confirm button. ``0`` switches the question
+    #: off; unset is the shipped 270. No upper bound on purpose. A frontend-only question — the
+    #: server never refuses a reading over it (a low entry is sometimes simply true).
+    entryPressureMin: int | None = None
     pressureStep: int | None = None
     pressureMax: int | None = None
     #: The two numbers behind the Atemschutz air estimate («noch ≈ 246 bar»): the cylinder's
@@ -1185,6 +1191,17 @@ class DoctrineConfig(BaseModel):
                 self.alarmBarRueckzug,
             )
             self.alarmBarRueckzug = None
+        # The Eingangsdruck minimum only decides whether the form ASKS, so 0 («never ask») is a
+        # legitimate station choice here, unlike on the two alarm lines. Same stored-vs-fresh
+        # split as above: a hand-edited file row out of range degrades to the shipped value.
+        if self.entryPressureMin is not None and not (0 <= self.entryPressureMin <= 300):
+            if not stored:
+                raise ValueError(f"doctrine.entryPressureMin ({self.entryPressureMin}) must be between 0 and 300")
+            logger.warning(
+                "doctrine.entryPressureMin %r is out of range — serving the shipped minimum",
+                self.entryPressureMin,
+            )
+            self.entryPressureMin = None
         return self
 
     @model_validator(mode="after")

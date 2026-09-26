@@ -57,7 +57,7 @@ const STATION = {
   },
 }
 
-/** The doctrine number boxes in DOM order: Funk (4), Druck (5), Kontakt (2), Luft (2). */
+/** The doctrine number boxes in DOM order: Funk (4), Druck (6), Kontakt (2), Luft (2). */
 const nums = () => Array.from(document.querySelectorAll<HTMLInputElement>('input[type="number"]'))
 const autoButtons = () => screen.getAllByText(AUTO)
 
@@ -70,7 +70,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function open() {
   await act(async () => { render(<ConfigProvider><DoctrineSection /></ConfigProvider>) })
-  await waitFor(() => expect(nums().length).toBe(13))
+  await waitFor(() => expect(nums().length).toBe(14))
 }
 
 describe('Auftrag-Farben — «Automatisch» is the default state, not a null value', () => {
@@ -155,7 +155,7 @@ describe('the doctrine numbers are integers on the backend, so a fraction never 
 // autosave for all five Station pages with it.
 describe('Alarmdruck im Rückzug — the lower line, bounded by the bare Alarmdruck', () => {
   /** the third box in the Druck group */
-  const rueckzug = () => nums()[6]
+  const rueckzug = () => nums()[7]
 
   it('stores a value at or below the Alarmdruck', async () => {
     await open()
@@ -185,8 +185,8 @@ describe('Alarmdruck im Rückzug — the lower line, bounded by the bare Alarmdr
 
 describe('Alarmdruck — zero belongs to the public demo only', () => {
   /** the middle box in the Druck group */
-  const alarm = () => nums()[5]
-  const rueckzug = () => nums()[6]
+  const alarm = () => nums()[6]
+  const rueckzug = () => nums()[7]
 
   it('holds 0 back on an ordinary station', async () => {
     await open()
@@ -274,7 +274,7 @@ describe('Alarmdruck — zero belongs to the public demo only', () => {
 
 describe('the air estimate — the two decimals with hard bounds', () => {
   /** cylinderLiters, estConsumptionLPerMin — the last two boxes on the page. */
-  const cylinder = () => nums()[11]
+  const cylinder = () => nums()[12]
 
   it('takes a 9-litre cylinder, which is the point of the field', async () => {
     await open()
@@ -305,5 +305,31 @@ describe('the air estimate — the two decimals with hard bounds', () => {
     await settle()
     expect(sent()?.doctrine?.cylinderLiters).toBe(6.8)
     expectAccepted(sent())
+  })
+})
+
+// The Eingangsdruck minimum (24.09.2026): the one number behind the Trupp form's plausibility
+// question. Edited here and nowhere else (AGENTS.md · doctrine lives in /admin › Doktrin).
+describe('Eingangsdruck mindestens — the minimum behind the one plausibility question', () => {
+  /** right under the Eingangsdruck it is read against */
+  const minimum = () => nums()[5]
+
+  it('stores a station minimum, and 0 — «never ask» — as a real value', async () => {
+    await open()
+    await type(minimum(), '250')
+    await settle()
+    expect(sent()?.doctrine?.entryPressureMin).toBe(250)
+    expectAccepted(sent())
+    await type(minimum(), '0')
+    await settle()
+    expect(sent()?.doctrine?.entryPressureMin).toBe(0)
+    expectAccepted(sent())
+  })
+
+  it('holds a value past the API maximum back', async () => {
+    await open()
+    await type(minimum(), '400')
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
   })
 })

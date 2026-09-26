@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { act, render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { getMeldeleisteHost, registerMeldeleisteHost } from '../lib/meldeleisteHost'
+import { readFileSync } from 'node:fs'
 import { Meldeleiste } from './Meldeleiste'
 import { useMeldung } from '../lib/useMeldung'
 import type { Meldung } from '../lib/meldungen'
@@ -135,5 +137,83 @@ describe('Meldeleiste', () => {
     expect(alarmRow.querySelector('button.ml-x')).not.toBeNull()
     expect(reminderRow.querySelector('button.ml-x')).toBeNull()
     expect(reminderRow.querySelector('.ml-x.ghost')).not.toBeNull()
+  })
+})
+
+/* staging r3: on the Trupp-Tafel two rows sat on the first crew's clock. There the strip folds to
+ * its most urgent row plus a COUNT (CSS, 08-toasts · .az-tafel), and publishes its height so the
+ * Tafel can stand below it. What is pinned here is the markup that CSS reads. */
+describe('the count the Tafel folds the rest into', () => {
+  it('is a button naming how many more, that opens them all and closes them again', () => {
+    render(<Host items={[alarm, reminder([]), update]} />)
+    const more = screen.getByRole('button', { name: '+2 weitere Meldungen' })
+    expect(more.getAttribute('aria-expanded')).toBe('false')
+    expect(document.querySelector('.ml')!.classList.contains('ml-all')).toBe(false)
+    fireEvent.click(more)
+    expect(document.querySelector('.ml')!.classList.contains('ml-all')).toBe(true)
+    expect(screen.getByRole('button', { name: 'Weniger anzeigen' }).getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('is not there for a single row, and the strip publishes its height while it stands', () => {
+    const { unmount } = render(<Host items={[alarm]} />)
+    expect(document.querySelector('.ml-more')).toBeNull()
+    expect(document.documentElement.style.getPropertyValue('--ml-h')).toMatch(/px$/)
+    unmount()
+    expect(document.documentElement.style.getPropertyValue('--ml-h')).toBe('')
+  })
+})
+
+/* staging r4 W1: at 820 an alarm row lay over the Anwesenheit's tabs — a tap on «Zeitplan» landed
+ * on «Zum Trupp». Every full page stands BELOW the strip: the shared shell moves down by
+ * `--ml-push`, which the strip's own stylesheet derives from its height while it stands. The
+ * geometry itself is the browser's; what is pinned here is that no shell rule forgets the push. */
+describe('the pages stand below the strip', () => {
+  const css = (path: string) => readFileSync(`${process.cwd()}/${path}`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  it('every inset of the shared shell includes --ml-push', () => {
+    const insets = [...css('src/components/Surface.module.css').matchAll(/:where\(\.shell\)\s*\{([^}]*)\}/g)]
+      .map(([, body]) => body).filter((b) => /\binset\s*:/.test(b))
+    expect(insets.length).toBeGreaterThanOrEqual(2) // the tablet one and the phone one
+    for (const b of insets) expect(b).toContain('var(--ml-push')
+  })
+
+  it('the push is derived from the strip\'s measured height, and only while a strip stands', () => {
+    const rules = [...css('src/styles/08-toasts.css').matchAll(/([^{}]+)\{([^{}]*--ml-push[^{}]*)\}/g)]
+    expect(rules.length).toBeGreaterThanOrEqual(2)
+    for (const [, sel, body] of rules) {
+      expect(sel).toContain(':root:has(.ml)')
+      expect(body).toContain('var(--ml-h')
+    }
+  })
+})
+
+/* staging r5 N3: at 820 the alarm row lay over the open Einsatz menu's card — a tap on the card
+ * landed on «Zum Trupp». `.app` is position:fixed, so it is its own stacking context, and a strip
+ * beside it at App root outranked everything in it, the top bar's menus included. The strip paints
+ * INSIDE the open Einsatz's `.app` (lib/meldeleisteHost), where its 54 sits under the top bar's 56. */
+describe('the strip paints inside the open Einsatz', () => {
+  it('portals into the registered host, and comes back to where it is mounted when the host goes', () => {
+    const app = document.createElement('div')
+    app.className = 'app'
+    document.body.appendChild(app)
+    const { container } = render(<Host items={[alarm]} />)
+    expect(container.querySelector('.ml')).not.toBeNull() // no Einsatz open: inline
+    let release: (() => void) | undefined
+    act(() => { release = registerMeldeleisteHost(app) })
+    expect(app.querySelector('.ml')).not.toBeNull()
+    expect(container.querySelector('.ml')).toBeNull()
+    act(() => { release?.() })
+    expect(container.querySelector('.ml')).not.toBeNull()
+    app.remove()
+  })
+
+  it('a cleanup of an element that is no longer the host does not unregister its successor', () => {
+    const a = document.createElement('div')
+    const b = document.createElement('div')
+    const releaseA = registerMeldeleisteHost(a)
+    const releaseB = registerMeldeleisteHost(b)
+    releaseA?.()
+    expect(getMeldeleisteHost()).toBe(b)
+    releaseB?.()
+    expect(getMeldeleisteHost()).toBeNull()
   })
 })

@@ -26,6 +26,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [1d. `report.links` – the station's own forms, on the Rapport](#1d-reportlinks--the-stations-own-forms-on-the-rapport)
   - [1e. `lageGrundgeruest` – what every Lage needs in its first minutes](#1e-lagegrundgeruest--what-every-lage-needs-in-its-first-minutes)
   - [`doctrine.alarmBarRueckzug` – the quieter line on Rückzug](#doctrinealarmbarrueckzug--the-quieter-line-for-a-trupp-on-rückzug)
+  - [`doctrine.entryPressureMin` – the one question about a low Eingangsdruck](#doctrineentrypressuremin--the-one-question-about-a-low-eingangsdruck)
 - [2. Reference / Werkleitungs layers – station-supplied](#2-reference--werkleitungs-layers--station-supplied-nothing-bundled)
   - [2a. Raster layer (WMS / WMTS)](#2a-raster-layer-wms--wmts--paste-a-url-template) ·
     [2b. Vector layer (GeoJSON)](#2b-vector-layer-geojson--for-pointslines-you-own)
@@ -261,6 +262,8 @@ both now have browser pages – §9e and §9f.
     "contactIntervalMin": 5,                      // SCBA contact interval – "Kontakt fällig" (amber)
     "contactGraceSec": 60,                        // Nachfrist after the interval before the überfällig alarm
     "defaultPressureBar": 300, "pressureStep": 10, "pressureMax": 320,
+    "entryPressureMin": 270,                      // below this Eingangsdruck the Trupp form asks
+                                                  // once; 0 = never ask – see below
     "cylinderLiters": 7,                          // the two numbers behind the air estimate
     "estConsumptionLPerMin": 50,                  // («noch ≈ N bar») on the Trupp card
     "equipment": [                                // Ausrüstung a Trupp can take in – short labels,
@@ -416,6 +419,32 @@ until 2026-08-30, so a station configured entirely in the browser before that ne
 on the fallback while a CLI-template station adopted a 50-bar Rückzug line it never chose – worth
 one look at the field if that describes you. Either way, write the number down in your own
 doctrine: it is a safety threshold, not a preference.
+
+### `doctrine.entryPressureMin` – the one question about a low Eingangsdruck
+
+On the Übung of 2026-09-23 the Restdruck had nowhere to go, so it was typed into «Eingangsdruck
+korrigieren» after the Austritt, and the Rapport shows crews going in with 60, 170 and 180 bar.
+The exit has its own Restdruck since then, the Eingangsdruck of a Trupp that is out is locked,
+and an Eingangsdruck **below `entryPressureMin`** earns exactly one question in the Trupp form –
+at the Anmeldung, on a re-entry with a *new* cylinder, or when corrected while the Trupp is
+inside or registered: «180 bar ist für einen Eintritt tief (Station: ab 270). Stimmt das, meldet
+der Trupp gleich einen Alarm bei ≤100.» with «Ändern» / «180 bestätigen». Nothing is refused,
+and there is deliberately no upper bound: a low entry is sometimes simply true.
+
+| | |
+| --- | --- |
+| Range | integer, `0`–`300`; `0` switches the question off |
+| Unset in the config | the shipped `270` applies |
+| Shipped value | `270`, in the CLI template (`admin_config example`) and the frontend defaults (`src/config/appConfig.ts`) |
+| Never asked for | the station's own `defaultPressureBar`, and «Gleiche Flasche» on a re-entry (that bar is the Restdruck) |
+
+⚠️ **A station on 200-bar cylinders lowers it** – to about `180` – or sets `0`. The shipped 270 is
+sized for 300-bar bottles; left there, every full 200-bar cylinder typed in by hand would be
+questioned (the station's own `defaultPressureBar` is exempt, a corrected 190 is not), and a
+question asked every time is one nobody reads.
+
+Frontend only – the server stores it and never checks a reading against it. Set it on **Station ›
+Doktrin**, under the Eingangsdruck, or in the config file; read through `atemschutzDoctrine()`.
 
 ### ⚠️ `alarms.groups[].color` is not a colour
 

@@ -54,6 +54,30 @@ describe('confirmDialog (Base UI AlertDialog)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Entfernen' }))
     await expect(p).resolves.toBe('alt')
   })
+
+  /* staging r3 F5: a chain of questions (the Abschluss) reused ONE dialog node, so the focus of
+   * the button tapped in question 1 stayed on the same-placed button in question 2 — and Enter
+   * closed the Einsatz through «5 Personen noch vermisst». Every question mounts fresh and lands
+   * on its own safe answer. (The next question is asked in the SAME batch as the answer, the way
+   * the browser runs it — in jsdom a render between the two would hide the bug.) */
+  it('a chained question mounts fresh: tap «Trotzdem» on Q1, and Q2 has the focus on ITS safe answer', async () => {
+    render(<Overlays />)
+    let second!: Promise<boolean>
+    act(() => { void confirmDialog({ title: 'Q1', message: 'Noch drin', confirmLabel: 'Trotzdem abschliessen', cancelLabel: 'Zur Tafel', safeAnswer: 'cancel' }) })
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Zur Tafel' })))
+    // the tap moves the focus onto «Trotzdem» — exactly what used to be carried over
+    const go = screen.getByRole('button', { name: 'Trotzdem abschliessen' })
+    go.focus()
+    act(() => {
+      fireEvent.click(go)
+      second = confirmDialog({ title: 'Q2', message: 'Vermisst', confirmLabel: 'Trotzdem abschliessen', cancelLabel: 'Zur Suche', safeAnswer: 'cancel' })
+    })
+    expect(screen.getByRole('alertdialog').textContent).toContain('Vermisst')
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Zur Suche' })))
+    // …so Enter (a click on the focused button) answers the SAFE way
+    fireEvent.click(document.activeElement as HTMLElement)
+    await expect(second).resolves.toBe(false)
+  })
 })
 
 describe('toast with an action (confirm-with-undo)', () => {

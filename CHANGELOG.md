@@ -84,6 +84,45 @@ so this file – not the log – is the record of what shipped up to that point.
   ever means an extinguished fire; rows already written keep their wording. Removing a single
   object on a plan finally writes that row too. On the Übung of 23.09.2026 the extinguished EG fire was deleted, and the
   Rapport's plan no longer showed there had been a fire at all.
+- **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the
+  phone no longer hides the clocks: the form is a bottom sheet, and the due and overdue Trupps
+  (at most two, most urgent first) stand above it with a live «Kontakt» that confirms without
+  leaving the form – which keeps every entry, also when pushed away. The Sicherungstrupp has one
+  fixed place, quiet until the first crew is inside and amber after; «Bestimmen» picks a waiting
+  Trupp or registers a new one on «Sichern», its Eintritt reads «Sicherungstrupp eingesetzt», and
+  «Einsatz abschliessen» asks about a Trupp still angemeldet («Zur Tafel» / «Als «nicht
+  eingesetzt» schliessen»). A Kontakt another device confirmed less than a minute ago asks
+  «… schon bestätigt (anderes Gerät). Nochmals / OK» instead of writing a second one – on the
+  tablet and the handed-over Tafel as well, with «OK» (writes nothing) as the default. A kept
+  form draft now belongs to one sortie: an abandoned re-entry no longer hands its bottle answer
+  to the next one. After a walk-through on staging (25.09.2026): an edit saves only the fields it
+  touched and says so when one of them changed on another device meanwhile; a Gast typed into the
+  Trupp form reaches the Anwesenheit only when the Trupp is saved (Enter no longer creates one,
+  «Abbrechen» leaves nothing behind); the first Druck after the Eintritt counts as a Kontakt, says
+  on the sheet that it replaces the Eingangsdruck, and never replaces one set on purpose; a double
+  tap on «Kontakt» writes one contact; «Einsatz abschliessen» asks about crews still inside first,
+  by name, with «Zur Tafel» as the default, and afterwards stays on the closed Einsatz instead of
+  opening another; the empty board has its own «Trupp anmelden», the phone head button carries a
+  word, a Sicherungstrupp wears «SiTr», and «Ändern» and a chip's ✕ are full 44 px targets. A
+  second walk-through fixed: every Gast from the Trupp form was filed twice in the Anwesenheit
+  (and the Verlauf printed ids); a crew registered on the Atemschutz-Link never reached the
+  Anwesenheit (an editor device now files it, once); «Entfernen» on a crew inside asks first and
+  every removal can be undone from its toast; «Nicht eingesetzt» moved into ⋮ and no longer logs
+  an «Austritt»; the Abschluss's paperwork list focuses «Zurück»; the phone board shows Trupp
+  numbers, the Link opens on the most urgent crew inside, the Eintrag «+» no longer covers a
+  crew's «Kontakt», and an edit row in the Verlauf names the whole crew. A third walk-through
+  fixed: registering a Trupp with Gäste is one ↶ again (it used to undo only the crew's Funktion
+  and leave people and Trupp standing); the Abschluss questions each land on their own safe
+  answer, so Enter no longer closes through «vermisst»; closing over a crew inside writes «beim
+  Abschluss noch drin» and the Rapport ends that sortie at the close; identical Anwesenheit
+  entries from several tablets no longer raise «abweichende Angaben»; «Trupp anmelden» is the
+  one word for registering, and the Trupp menu says «Nach oben holen»; on the Tafel the
+  Meldeleiste folds to one row, and every full page (Tafel, Anwesenheit, Rapport …) stands below
+  the strip instead of under it. The
+  Eingangsdruck of a Trupp that is out is locked in «Bearbeiten», and one below the new
+  `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
+  value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.
+  *Automatic: no config change needed; the new doctrine value is optional.*
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the

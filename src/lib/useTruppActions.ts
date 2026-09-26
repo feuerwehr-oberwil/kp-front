@@ -5,7 +5,7 @@ import type { TacticalObject } from './tacticalObjects'
 import type { ObjectStore, SetBoard } from './useObjectStore'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
-import { confirmDialog, toast } from './ui'
+import { confirmDialog, toast, undoToast } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
@@ -20,9 +20,11 @@ import { alarmBarFor, currentRunStart, earlyEntryCorrection, isAtemschutzTrupp, 
 // `serverNowIso()` is the device clock, so a station that has never reached the server is
 // unaffected.
 import { serverNowIso } from './serverClock'
+import { noteOwnContact, recentOwnContact } from './contactEcho'
 import { nextTruppNo, resolveMarkerJoin } from './placedTrupps'
 import { floorLabel } from './whiteboard'
 import type { UndoTimeline } from './undoTimeline'
+import { keepCrewFiled } from './crewFiling'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
@@ -334,7 +336,8 @@ export function useTruppActions(deps: Deps) {
     return undoTimeline.push({
       domain: 'trupps',
       label,
-      undo: () => step('undo', () => before),
+      // the crew-filing marker is a machine fact, not part of the edit — it stays (crewFiling)
+      undo: () => step('undo', (cur) => keepCrewFiled(before, cur)),
       redo: () => step('redo', apply),
     })
   }
@@ -831,6 +834,9 @@ export function useTruppActions(deps: Deps) {
    *     corrected entry cannot leave a «tiefster Druck» that was never measured,
    *   · it does NOT set lastContactTime. This is a correction of what was written down, not a
    *     Druckmeldung — a measured Druck is what resets the safety clock.
+   *   · it marks that row `measured` (25.09.2026): whoever corrected it read a gauge, and a
+   *     later first Druckmeldung must not «correct» it again (lib/atemschutz ·
+   *     entryPressureConfirmed).
    * Empty when nothing changes, so a caller can spread it unconditionally.
    */
   const correctEntryPressure = (t: Trupp, bar: number): Partial<Trupp> => {
@@ -841,7 +847,7 @@ export function useTruppActions(deps: Deps) {
     // and measured «tiefster Druck» across both.
     const from = currentRunStart(t.readings)
     const readings = (t.readings ?? []).map((r, i) =>
-      (i === from && (r.kind === 'entry' || r.kind === 'registered') ? { ...r, bar } : r))
+      (i === from && (r.kind === 'entry' || r.kind === 'registered') ? { ...r, bar, measured: true as const } : r))
     // the lowest pressure of the running deployment: the corrected entry, plus every reading
     // actually taken since. Recomputed rather than min()'d against the old lowestBar, which
     // may itself be the wrong entry value.
@@ -853,8 +859,16 @@ export function useTruppActions(deps: Deps) {
   const recordContact = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
     const now = serverNowIso()
+    /* ⚠️ The SAME tap twice is one Kontakt (staging walk-through 25.09.2026: a double tap wrote two
+     * contacts and two Verlauf rows). A repeat on the same Trupp from this device within
+     * OWN_REPEAT_MS writes nothing — on every board, because it is decided here, where the
+     * contact is written. Another device's contact is the echo question (lib/contactEcho). */
+    if (recentOwnContact(id, Date.parse(now))) return
     const apply = (t: Trupp): Trupp => ({ ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    // this device's own confirmation — what lets a second device's tap within a minute ask first
+    // instead of writing a second contact (lib/contactEcho, 24.09.2026)
+    noteOwnContact(id, now)
     const line = fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr ? truppLogName(tr) : '' })
     log('radio', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.contact', { id })
@@ -887,17 +901,26 @@ export function useTruppActions(deps: Deps) {
      * field writes (correctEntryPressure): baseline replaced, no `pressure` row, no contact
      * stamp — the trend starts from the corrected number. Never for a value at or below the
      * Alarmdruck: that IS the emergency, and the crossing row above has to name it. */
+    /* ⚠️ …and it IS a Kontakt (staging walk-through 25.09.2026). The sheet says «zählt als
+     * Kontakt», and the radio call happened: the correction used to leave lastContactTime at the
+     * Eintritt, so the Trupp fell due five minutes after going in although the operator had just
+     * spoken to it — and the Rapport had no Kontakt at that minute. Now it stamps the clock and
+     * appends a `contact` row carrying the new bar, beside the corrected baseline, in ONE Verlauf
+     * row that says both. It never touches an Eingangsdruck set on purpose
+     * (earlyEntryCorrection → entryPressureConfirmed); the PressureSheet names the rule. */
     if (tr && !crossed && earlyEntryCorrection(tr, Date.parse(now))) {
-      const apply = (t: Trupp): Trupp => ({ ...t, ...correctEntryPressure(t, bar) })
-      if (bar === tr.entryPressureBar) return // the same number again — nothing to correct
+      const apply = (t: Trupp): Trupp => {
+        const c = { ...t, ...correctEntryPressure(t, bar) }
+        return { ...c, lastContactTime: now, readings: [...(c.readings ?? []), { t: now, bar, kind: 'contact' as const }] }
+      }
       setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+      noteOwnContact(id, now)
       const az = appConfig.copy.atemschutz
-      const line = fillTemplate(az.logEditFields, {
-        name: truppLogName(tr, 'leader'),
-        changes: fillTemplate(az.changePressure, { from: String(tr.entryPressureBar), to: String(bar) }),
-      })
-      log('pen', line, 'team', undefined, undefined, { subjectId: id })
-      emit('atemschutz.edit', { id })
+      const line = fillTemplate(bar === tr.entryPressureBar ? az.logFirstPressureSame : az.logFirstPressure,
+        { name: truppLogName(tr), bar, from: tr.entryPressureBar })
+      log('radio', line, 'team', undefined, undefined, { subjectId: id })
+      emit('atemschutz.contact', { id })
+      if (bar !== tr.entryPressureBar) emit('atemschutz.edit', { id })
       remember(id, line, tr, apply)
       return
     }
@@ -906,6 +929,7 @@ export function useTruppActions(deps: Deps) {
     const apply = (t: Trupp): Trupp => ({ ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
       readings: [...(t.readings ?? []), { t: now, bar, kind: crossed ? 'alarm' : 'pressure' }] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    noteOwnContact(id, now) // a Druckmeldung confirms the contact too (lib/contactEcho)
     const line = fillTemplate(
       crossed ? appConfig.copy.atemschutz.logPressureAlarm : appConfig.copy.atemschutz.logPressure,
       { name: tr ? truppLogName(tr) : '', bar },
@@ -991,6 +1015,8 @@ export function useTruppActions(deps: Deps) {
       return { ...t, status }
     }
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    // a Rückzug and a Fortsetzen are radio answers — this device's own (lib/contactEcho)
+    if (impliesContact) noteOwnContact(id, now)
     // «draussen» on a Trupp that never went in is a false statement about where people were —
     // a Sicherungstrupp that was stood down gets its own line (see atemschutz · truppNeverDeployed)
     const neverDeployed = status === 'raus' && !tr?.entryTime
@@ -999,7 +1025,14 @@ export function useTruppActions(deps: Deps) {
      * that went in was wearing masks). Only the entry rows carry it: they are the moment the
      * question is asked, and repeating it on every Kontakt would be wallpaper. An Atemschutz
      * Eintritt is unchanged — it is the norm, and its Eingangsdruck already says so. */
-    const entryTpl = tr && !isAtemschutzTrupp(tr) ? az.logEntryNoAs : az.logEntry
+    /* ⚠️ …and a SICHERUNGSTRUPP going in says that it did (24.09.2026, D1 ⑦): «Sicherungstrupp
+     * eingesetzt» rather than a bare «Eintritt». The crew that stood ready for the others is only
+     * ever sent in because something went wrong inside, and that is the one row a reconstruction
+     * of the Einsatz looks for first. Derived from the Trupp — Auftrag «Sichern», under PA, its
+     * FIRST Eintritt of this run — not from which button was pressed: the phone's «Einsetzen»
+     * and the card's «Im Einsatz» put the same crew into the same building. */
+    const safetyEntry = !!tr && status === 'aktiv' && !tr.entryTime && tr.auftrag === 'sichern' && isAtemschutzTrupp(tr)
+    const entryTpl = tr && !isAtemschutzTrupp(tr) ? az.logEntryNoAs : safetyEntry ? az.logSafetyEntry : az.logEntry
     const tpl = status === 'aktiv' ? (isResume ? az.logContinue : entryTpl)
       : status === 'rueckzug' ? az.logRueckzug
       : status === 'raus' ? (neverDeployed ? az.logNotDeployed : measuredExit ? az.logExitBar : az.logExit) : null
@@ -1103,7 +1136,7 @@ export function useTruppActions(deps: Deps) {
      * event still fires: that stream records the action, not the sentence. */
     const changes = truppEditChanges(tr, f)
     const line = changes.length
-      ? fillTemplate(appConfig.copy.atemschutz.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name }, 'leader'), changes: changes.join(', ') })
+      ? fillTemplate(appConfig.copy.atemschutz.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name, members: f.members }), changes: changes.join(', ') })
       : null
     if (line) log('pen', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.edit', { id })
@@ -1142,7 +1175,7 @@ export function useTruppActions(deps: Deps) {
     const az = appConfig.copy.atemschutz
     const labels = truppEquipmentLabels(next)
     const line = fillTemplate(az.logEditFields, {
-      name: truppLogName(tr, 'leader'),
+      name: truppLogName(tr),
       changes: labels.length ? fillTemplate(az.changeEquipment, { list: labels.join(', ') }) : az.changeEquipmentNone,
     })
     log('pen', line, 'team', undefined, undefined, { subjectId: id })
@@ -1264,7 +1297,10 @@ export function useTruppActions(deps: Deps) {
           // measured, positive value prints (report · readingBarShown).
           // …and the crew going back in, as its own row (crewRow): the re-entry is a new cycle,
           // and the Rapport reads each cycle's crew off the log
-          readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry' },
+          // `measured` when the form's Eingangsdruck was set on purpose (a bottle answer, a
+          // dialled value) — the first Druckmeldung then never «corrects» it (entryPressureConfirmed)
+          readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry',
+            ...(f.pressureMeasured && nowPa ? { measured: true as const } : {}) },
             crewRow({ name: f.name, members: f.members, entryPressureBar: f.pressure }, now)] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
@@ -1312,7 +1348,7 @@ export function useTruppActions(deps: Deps) {
      * in the list, for the reason documented there: it is the only entry that turns a safety
      * watch on or off. */
     const changes = truppEditChanges(tr, f, { pressure: false, crew: false })
-    if (changes.length) log('pen', fillTemplate(az.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name }, 'leader'), changes: changes.join(', ') }), 'team', undefined, undefined, { subjectId: id })
+    if (changes.length) log('pen', fillTemplate(az.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name, members: f.members }), changes: changes.join(', ') }), 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.status', { id, status: standby ? 'angemeldet' : 'aktiv' })
   }
   /**
@@ -1639,15 +1675,19 @@ export function useTruppActions(deps: Deps) {
     // card never left the record and putting it back is un-stamping it — a fresh Trupp would be a
     // second registration of a crew that only ever registered once. The placement refs stay gone
     // (see restoreTrupp): the chip on the plan cannot be resurrected faithfully.
-    // ⚠️ Two doors, one act: this ↶ timeline entry, and the non-expiring «Entfernte Trupps»
-    // menu. (The delete's own «Rückgängig» toast was the third and went 09.09. with all the
-    // board's confirm toasts.)
+    // ⚠️ Three doors, one act: this ↶ timeline entry, the non-expiring «Entfernte Trupps» menu,
+    // and — back since 25.09.2026 (staging N4) — the confirm-with-undo toast AGENTS.md asks of a
+    // one-shot that DESTROYS something (the 09.09. sweep took it with the Kontakt/Druck toasts,
+    // but a removal is not a Kontakt). The toast's «Rückgängig» restores through `restoreTrupp`
+    // and drops this timeline entry, so the act is never undoable twice.
     // ⚠️ …and the placement refs are STRIPPED on the way back, exactly as `restoreTrupp` strips
     // them: `dropPlacements` above took the plan chip and the map marker with it, and they cannot
     // be resurrected faithfully. Restoring the card verbatim would point it at an annotation id
     // that no longer exists — the Trupp comes back and «auf Plan zeigen» leads nowhere. It is
     // re-placed via «Platzieren», which is what the other two doors already leave the operator to.
-    return remember(id, line, tr && { ...tr, annoId: undefined, planId: undefined, entityId: undefined }, apply)
+    const drop = remember(id, line, tr && { ...tr, annoId: undefined, planId: undefined, entityId: undefined }, apply)
+    if (tr) undoToast(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: truppLogName(tr) }), () => { drop(); restoreTrupp(tr) })
+    return drop
   }
   // undo for deleteTrupp (the delete-now + Rückgängig toast): re-add the captured Trupp with
   // its full monitoring record (readings, times, pressures). The plan chip / map marker was
@@ -1662,7 +1702,7 @@ export function useTruppActions(deps: Deps) {
       if (cur) {
         if (!cur.removedAt) return ts // already back — a double tap on «Rückgängig»
         restored = true
-        return ts.map((x) => (x.id === t.id ? { ...t, removedAt: undefined, annoId: undefined, planId: undefined, entityId: undefined } : x))
+        return ts.map((x) => (x.id === t.id ? keepCrewFiled({ ...t, removedAt: undefined, annoId: undefined, planId: undefined, entityId: undefined }, x) : x))
       }
       // …and a Trupp from a workspace written before the stamp existed is genuinely gone: re-add it
       restored = true

@@ -13118,6 +13118,17 @@
             ],
             "title": "Defaultpressurebar"
           },
+          "entryPressureMin": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entrypressuremin"
+          },
           "pressureStep": {
             "anyOf": [
               {

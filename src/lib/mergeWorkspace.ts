@@ -17,6 +17,7 @@ import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } fro
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
 import type { BoardDoc, Drawing, Entity } from '../types'
 import type { Saved } from './workspace'
+import { unionCrewFiled } from './crewFiling'
 
 type Id = string
 interface HasId {
@@ -38,8 +39,29 @@ const asBoard = (v: unknown): Record<string, HasId[]> =>
 
 /** Structural equality for plain JSON data (the only thing the blob holds). Used to tell "I
  *  changed this field" from "I left it as the ancestor" in the three-way field/record merges.
- *  Key order is stable here because every value is produced by the same buildPayload code. */
-const eq = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a) === JSON.stringify(b)
+ *
+ *  ⚠️ KEY ORDER DOES NOT COUNT (staging r3 F11). The server keeps the blob as JSONB, which hands
+ *  every object back with its keys re-sorted, while this device's own values keep the order the
+ *  code built them in — so a JSON.stringify comparison called two identical entries different.
+ *  Four tablets filing the same Link crew under the same derived id each got «abweichende Angaben
+ *  zusammengeführt – bitte prüfen» for a divergence whose two sides were the same. Compared as
+ *  JSON compares them: arrays in order, objects by their keys, an `undefined` value the same as
+ *  an absent key (JSON.stringify drops both). */
+function eq(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false
+    // JSON writes an undefined array slot as null
+    return a.every((x, i) => eq(x === undefined ? null : x, b[i] === undefined ? null : b[i]))
+  }
+  if (isObj(a) && isObj(b)) {
+    const ka = Object.keys(a).filter((k) => a[k] !== undefined)
+    const kb = Object.keys(b).filter((k) => b[k] !== undefined)
+    if (ka.length !== kb.length) return false
+    return ka.every((k) => b[k] !== undefined && eq(a[k], b[k]))
+  }
+  return false
+}
 
 /** Three-way merge of ONE non-collection value: if the resolver (mine) left it at the common
  *  ancestor it yields to the server's value (so the other device's concurrent change survives);
@@ -224,7 +246,7 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
   const t = theirs as unknown as Record<string, unknown>
   const out: Record<string, unknown> = {}
   for (const k of new Set([...Object.keys(m), ...Object.keys(t)])) {
-    if (k === 'readings') continue // merged below
+    if (k === 'readings' || k === 'crewFiled') continue // merged below
     const inA = k in a, inM = k in m, inT = k in t
     if (inA && (!inM || !inT)) continue // a shared field removed on either side → delete wins
     if (!inM) { out[k] = t[k]; continue } // their new field
@@ -269,7 +291,27 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
     const rows = (v: unknown): Readingish[] => (Array.isArray(v) ? (v.filter(isObj) as unknown as Readingish[]) : [])
     out.readings = mergeReadings(rows(a.readings), rows(m.readings), rows(t.readings))
   }
+  // The crew filing's one-shot marker (types · Trupp.crewFiled) is GROW-ONLY: a union of all
+  // three, never a delete — a key lost here would let a device file again somebody a person took
+  // off the Anwesenheit.
+  const filed = unionCrewFiled(asStrings(a.crewFiled), asStrings(m.crewFiled), asStrings(t.crewFiled))
+  if (filed) out.crewFiled = filed
   return out as unknown as HasId
+}
+
+const withoutNoteAt = (v: unknown): unknown => {
+  if (!isObj(v) || !('noteAt' in v)) return v
+  const { noteAt: _t, ...rest } = v
+  return rest
+}
+
+const asStrings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+
+/** A Trupp minus its machine-only fields — what a human edited. Two devices that differ only in
+ *  the crew-filing marker did not both CHANGE the Trupp in any sense a person should check. */
+const humanTrupp = (o: HasId): unknown => {
+  const { crewFiled: _m, ...rest } = o as HasId & { crewFiled?: unknown }
+  return rest
 }
 
 /**
@@ -355,7 +397,10 @@ export const MERGE_POLICY = {
   timeline: byId,
   // field-level, not whole-object LWW: see mergeTrupp for why trupps are the exception
   trupps: (b, m, t, cx) => mergeById(asList(b), asList(m), asList(t), (ancestor, mi, th) => {
-    cx.onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
+    // reported only when both sides changed what a person edits — a marker stamped on each side
+    // (the crew filing, a machine write) is no conflict
+    const [ha, hm, ht] = [humanTrupp(ancestor), humanTrupp(mi), humanTrupp(th)]
+    if (!eq(hm, ht) && !eq(hm, ha) && !eq(ht, ha)) cx.onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
     return mergeTrupp(ancestor, mi, th)
   }),
   mittel: byId, // append-only material-use events — merge by event id like timeline
@@ -381,7 +426,12 @@ export const MERGE_POLICY = {
   checklists: byKey, // by template id
   // records/singletons that ALSO need three-way merging so a concurrent edit in another domain
   // (the "task-scoped multi-editor" case) isn't clobbered by the resolver's whole blob:
-  attendance: (b, m, t, cx) => mergeRecord(asRecord(b), asRecord(m), asRecord(t), cx.onAttendanceConflict), // per-Person presence — a prime parallel-editor surface
+  // per-Person presence — a prime parallel-editor surface. A divergence is REPORTED only when the
+  // two sides say something different: `noteAt` is when a device wrote the Funktion, not what
+  // it says, and two tablets giving the same crew the same «AS-GF» a second apart agree
+  // (staging r3 F11). The value itself stays LWW-mine either way.
+  attendance: (b, m, t, cx) => mergeRecord(asRecord(b), asRecord(m), asRecord(t),
+    cx.onAttendanceConflict && ((c) => { if (!eq(withoutNoteAt(c.mine), withoutNoteAt(c.theirs))) cx.onAttendanceConflict!(c) })),
   planScale: byKey, // per-plan calibration (planId → scale)
   settings: byKey, // per-incident operational settings (Atemschutz doctrine …)
   reportMeta: (b, m, t) => mergeReportMeta(asRecord(b), asRecord(m), asRecord(t)), // Einsatzrapport bookkeeping text

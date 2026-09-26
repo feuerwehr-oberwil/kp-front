@@ -753,7 +753,9 @@ to prod.
     on a control. ONE grab bar (`overlays/SheetGrab` → `.ui-sheet-grab`, the same 40×5px pill as the
     `.ctx` editors' `.sheet-grip`): `Sheet` draws it by default, a bespoke `Overlay` frame that IS
     a bottom sheet on a phone opts in with `grab` (composer, Verlauf, PlanPicker, audio player, …
-    — never a frame that is full-screen or centred there, like the Trupp form), and the one
+    — never a frame that is full-screen or centred there, like the Trupp form on a tablet or the
+    handed-over Tafel; on the full app's PHONE board it IS a bottom sheet since 24.09.2026 and
+    wears the bar, see the Atemschutz bullet), and the one
     hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026). The
     gesture needs the frame FLUSH with the bottom edge — which is why the phone Verlauf is a real
     bottom sheet now and no longer a card floating 8px off it.
@@ -1104,6 +1106,93 @@ to prod.
   - Tried and thrown out the same day, so nobody rebuilds them: a «Zeichnen» tile with a flyout, the
     same tile opening the GroupChooser behind a last-used first tap, and a «Karte» tile folding
     Ansichten + Ebenen. The vertical rails (tablet/desktop) are unchanged throughout.
+- **The Atemschutz phone board of the full app** (`AtemschutzView · phoneMode` = phone and not the
+  handed-over Tafel; PR #212 and its follow-up, 24./25.09.2026, Übung 23.09.): sections Drin ·
+  Sicherungstrupp · Bereit · Draussen, «Drin» by urgency with the 2 s freeze, «Druck | Kontakt»
+  with words, one `PressureSheet`. The tablet grid and the Tafel are NOT this board, except where
+  a rule below says «every board». The rules:
+  - *The Trupp form is a bottom sheet there, with the due clocks above it* (D1 ⑥): at most two
+    due/overdue Trupps, most urgent first, each with a live «Kontakt» that confirms without
+    leaving the form. The pinned set holds 2 s after a tap and the row just confirmed reads
+    «✓ Bestätigt», disabled — it stays under the finger. The rows sit INSIDE the popup (under the
+    scrim they would be outside presses). Grab bar + swipe-to-close, which is «not now».
+  - *A kept draft belongs to ONE state of the Trupp* (`draftKeep`, every width): only «Abbrechen»
+    and a save the board CONFIRMED drop it (a «Zurück» on any question in front of the save
+    returns to a filled form), but an edit / re-entry draft is keyed on the Trupp as the form
+    opened it (sortie + every field the form writes, `truppDraftStamp`) — a new sortie, or a
+    Leitung linked on the Karte meanwhile, opens a fresh form. «Gleiche / Neue Flasche» is never
+    kept. A door that answers a field (`presetAuftrag`: «Bestimmen» → «Sichern») beats a draft.
+  - *An edit is a PATCH* (every width, 25.09.2026): only the field groups the form touched
+    (`truppFieldGroupsChanged` against the form's own untouched values) are written, onto the
+    Trupp as it stands NOW (`truppEditPatch`); a touched group another device changed since the
+    form opened is said in one line first, «Zurück zum Formular» focused. A Gast typed into the
+    form reaches the Anwesenheit only at the save (`fileGuests`, after every question) — never
+    from the picker, and Enter in «Person suchen» only takes a listed person.
+  - *Every Kontakt tap is ONE Kontakt*: a repeat on the same Trupp from this device within 3 s
+    writes nothing (`contactEcho · recentOwnContact`, in `recordContact`, so every board). The
+    first Druck within 3 min of the Eintritt replaces an Eingangsdruck NOBODY SET (the log's
+    run-start row carries `measured` when the form's value was dialled, a bottle answered, a low
+    value confirmed or a correction made — `entryPressureConfirmed`) and is still a Kontakt:
+    clock reset, `contact` row, one Verlauf row that says both; the sheet says so in words.
+  - *The Sicherungstrupp has ONE place* (D1 ⑦): between Drin and the rest while anybody is in or
+    waiting — a quiet dashed slot while nobody is inside, amber from the first crew in, gone once
+    every Trupp is out. «Bestimmen» = a waiting Trupp's Auftrag becomes «Sichern» (an ordinary
+    edit) or a new one registered on «Sichern». Its first Eintritt writes «Sicherungstrupp
+    eingesetzt». The Abschluss (every width) asks about every Atemschutz-Trupp still angemeldet
+    that was never inside (a Reserve after earlier sorties was — read the log, `entryTime` is
+    cleared on a re-park): «Zur Tafel» (focused) / «Als «nicht eingesetzt» schliessen». Not while
+    a crew is still inside, and the stand-down runs only after the FINAL «Abschliessen», re-checked
+    against the Trupps as they stand then — a crew sent in meanwhile never gets an Austritt.
+    Crews still INSIDE are the Abschluss's own FIRST question, by name («2 Trupps sind noch drin:
+    Trupp 1 (…), Trupp 2 (…).»), «Zur Tafel» focused, closing anyway the quiet answer — and after
+    the Abschluss the app stays on the closed Einsatz (App · completeRapport), never opens another.
+    A Sicherungstrupp wears «SiTr» on its row and card at every width, sent in or not.
+  - *The record is kept whole* (staging walk-through r2, 25.09.2026): the Gäste the form files at
+    its save are filed QUIETLY and named once in the crew's «Unter AS: …» row — the crew filing
+    knows them (`IncidentWorkspace · fileTruppGuest`) instead of reading a render-old Anwesenheit
+    and filing them again. A session that cannot write the record (the Atemschutz-Link) files and
+    logs nothing; every device that can OBSERVES the Trupps and files a missing crew under derived
+    ids (`lib/crewFiling`) — ONCE per (Trupp, person): the Trupp's `crewFiled` marker (grow-only,
+    merged as a union, kept by every undo restore) records who was filed or already there, so a
+    person somebody takes OFF the Anwesenheit is never written back by another device (the
+    ghost-trail trap). «Entfernen» on a crew INSIDE asks first («Raus melden» focused), and
+    every removal raises the confirm-with-undo toast. «Nicht eingesetzt» is a row of the ⋮, never
+    the button beside «Im Einsatz», and its log row reads «Nicht eingesetzt», never «Austritt».
+    The collapsed phone row carries the «#N» badge; the handed-over phone board opens on the most
+    urgent crew inside; the Eintrag FAB is not drawn over the phone Trupps page (a floating button
+    over a scrolling list of Kontakt buttons cannot be kept clear by an inset).
+  - *A Kontakt another device confirmed < 60 s ago asks* (D1 ⑧a, `lib/contactEcho`) — on EVERY
+    board, tablet grid and handed-over Tafel included: it guards the act, not a layout. A
+    confirmation this JS realm did not write is «anderes Gerät» — no device names; a stamp more
+    than 5 s in the future (a skewed device) is not an echo. «OK» is the filled, focused default;
+    it and every dismissal write nothing. «Überwachung abgeben makes the giver read-only» (⑧b)
+    was DECIDED AGAINST (25.09.2026) — do not build it.
+  - *The Eingangsdruck is guarded, once* (item 2, every width): locked in «Bearbeiten» once the
+    Trupp is raus (pointing at the exit's Restdruck); below `doctrine.entryPressureMin` (default
+    270, `/admin › Doktrin`) the form asks ONE question with the value on the button and «Ändern»
+    focused. No upper bound, no second plausibility rule.
+  A question whose «yes» WRITES something a reflex must not (these three) puts the safe answer
+  first: `ConfirmSpec · safeAnswer` ('cancel' | 'alt') fills and focuses it, not red. Every
+  question MOUNTS FRESH (`Overlays` keys the card per request, staging r3 F5): a chain answered
+  and re-asked in one render batch kept the node, and the focus of the «Trotzdem abschliessen»
+  just tapped stood on the next question's same button — Enter closed through «vermisst».
+  - *One act, one ↶* (staging r3 F1): a Trupp save — create, edit, re-entry — is ONE timeline
+    step with the Gäste it files and the Funktion it writes (`undoTimeline · group`,
+    `IncidentWorkspace · openTruppSave`, the save's Anwesenheit writes folded into one slice
+    step). ↶ reads «Trupp N … angemeldet» and takes the Trupp and its filing back together.
+  - *Closing over a crew inside is said* (staging r3 F4): the final «Trotzdem abschliessen»
+    writes «Trupp N (…) beim Abschluss noch drin» per crew and no Austritt; the Rapport ends
+    that sortie at the close with the same words while the Einsatz is closed.
+  - *No page is ever under the Meldeleiste* (staging r3 + r4 W1): every full page (the shared
+    shell — Tafel, Anwesenheit, Mittel, Checklisten, Rapport) starts below the strip
+    (`--ml-h` → `--ml-push`, Surface.module.css); only the Karte and the plans let it float over
+    the map. On the Tafel the strip also folds to its most urgent row plus a count (`.az-tafel`);
+    everywhere else every row stays open. Everything the top bar opens paints OVER the strip: the
+    strip portals into the open Einsatz's `.app` (`lib/meldeleisteHost`, staging r5 N3), because
+    `.app` is its own stacking context and from App root the strip outranked all of it.
+  - *Merges compare JSON, not key order* (staging r3 F11): the server's JSONB re-sorts keys, so
+    `mergeWorkspace · eq` ignores key order; an Anwesenheit divergence is reported only when the
+    sides differ in more than `noteAt`.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for
