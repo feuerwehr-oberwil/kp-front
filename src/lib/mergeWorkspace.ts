@@ -8,7 +8,9 @@
 //     pressure reading to a concurrent radio contact, and Anwesenheit entries and Zeitplan
 //     shifts, which merge per field (mergeFields) so two devices saving different fields of one
 //     record in the same second both keep their edit;
-//   - a delete BEATS a concurrent edit — the object stays gone, no resurrection.
+//   - a delete BEATS a concurrent edit — the object stays gone, no resurrection;
+//   - two devices that minted the same «Trupp N» at once end with ONE holder of the number, the
+//     others renumbered from the one counter (lib/truppNumbers — the last step of mergeWorkspace).
 //
 // The `base` ancestor is the crux: it lets us tell "I deleted X" (present in base, absent in
 // mine) apart from "I never had X" (absent in both base and mine). Without it a naive union
@@ -16,7 +18,9 @@
 
 import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
-import type { BoardDoc, Drawing, Entity } from '../types'
+import { landedClaims, resolveTruppNumbers, unwindUnlanded, type NumberScope } from './truppNumbers'
+import type { TruppTrail } from './truppTrails'
+import type { BoardDoc, Drawing, Entity, Trupp } from '../types'
 import type { InitialState, Saved } from './workspace'
 import { jsonEqual } from './jsonEqual'
 
@@ -593,6 +597,9 @@ void everySyncedFieldHasASlot
  * buildPayload and clean, the other two are whatever the server and the cached ancestor hold.
  * A collection that is not an array merges as empty rather than throwing — the throw used to
  * wedge sync silently and forever (badge stuck on «ausstehend», no toast, re-thrown every retry).
+ *
+ * `opts.numbers` — which «Trupp N» collisions this merge settles (lib/truppNumbers · NumberScope):
+ * `all` by default; a slice session passes what its push can carry (WorkspaceSync · numberScope).
  */
 export function mergeWorkspace(
   base: Record<string, unknown>,
@@ -600,6 +607,7 @@ export function mergeWorkspace(
   theirs: Record<string, unknown>,
   onAttendanceConflict?: (c: RecordConflict) => void,
   onTruppConflict?: (c: RecordConflict) => void,
+  opts: { numbers?: NumberScope } = {},
 ): Record<string, unknown> {
   // The unified objects (schema 2) are the authoritative tactical collection: each side
   // unifies FIRST (a legacy side — an un-updated device's save — derives its objects from
@@ -619,6 +627,30 @@ export function mergeWorkspace(
   const out: Record<string, unknown> = { ...mine } // the 'local' rows (and keys this build doesn't know)
   for (const [k, policy] of Object.entries(MERGE_POLICY) as [keyof Saved, FieldPolicy][]) {
     if (policy !== 'local') out[k] = policy(base[k], mine[k], theirs[k], cx)
+  }
+  // ⚠️ Two devices that minted the same «Trupp N» at the same moment (25.09.2026): the merge kept
+  // both records, as it must, and now settles the NUMBER — one keeps it, the others take the next
+  // ones (lib/truppNumbers). A chip that lost is relabelled in the objects, so the three legacy
+  // views are derived again from them.
+  // Two things first (N16, 25.09.2026): this side's own un-landed renumberings are taken back
+  // (a re-merge after a 409 starts from its own last result), and the claims the other side
+  // already holds are passed along — a number on the server stays with its holder at equal weight.
+  const scope = opts.numbers ?? 'all'
+  if (scope !== 'off') out.trupps = unwindUnlanded(out.trupps as Trupp[], theirs.trupps)
+  const renumbered = resolveTruppNumbers(out.trupps as Trupp[], objects, {
+    trails: out.trails as TruppTrail[],
+    scope,
+    landed: landedClaims({ trupps: theirs.trupps, objects: objectsOf(theirs) }),
+  })
+  if (renumbered) {
+    out.trupps = renumbered.trupps
+    if (renumbered.objects.some((o, i) => o !== objects[i])) {
+      const views = viewsOf(renumbered.objects)
+      out.objects = renumbered.objects
+      out.entities = views.entities
+      out.drawings = views.drawings
+      out.board = views.board
+    }
   }
   return out
 }
