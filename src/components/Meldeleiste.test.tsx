@@ -137,3 +137,26 @@ describe('Meldeleiste', () => {
     expect(reminderRow.querySelector('.ml-x.ghost')).not.toBeNull()
   })
 })
+
+/* staging r3: on the Trupp-Tafel two rows sat on the first crew's clock. There the strip folds to
+ * its most urgent row plus a COUNT (CSS, 08-toasts · .az-tafel), and publishes its height so the
+ * Tafel can stand below it. What is pinned here is the markup that CSS reads. */
+describe('the count the Tafel folds the rest into', () => {
+  it('is a button naming how many more, that opens them all and closes them again', () => {
+    render(<Host items={[alarm, reminder([]), update]} />)
+    const more = screen.getByRole('button', { name: '+2 weitere Meldungen' })
+    expect(more.getAttribute('aria-expanded')).toBe('false')
+    expect(document.querySelector('.ml')!.classList.contains('ml-all')).toBe(false)
+    fireEvent.click(more)
+    expect(document.querySelector('.ml')!.classList.contains('ml-all')).toBe(true)
+    expect(screen.getByRole('button', { name: 'Weniger anzeigen' }).getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('is not there for a single row, and the strip publishes its height while it stands', () => {
+    const { unmount } = render(<Host items={[alarm]} />)
+    expect(document.querySelector('.ml-more')).toBeNull()
+    expect(document.documentElement.style.getPropertyValue('--ml-h')).toMatch(/px$/)
+    unmount()
+    expect(document.documentElement.style.getPropertyValue('--ml-h')).toBe('')
+  })
+})

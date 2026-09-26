@@ -12,7 +12,7 @@
 // The view layer (AtemschutzView) feeds it a Trupp + the current wall-clock time and renders
 // the derived live numbers + the contact-clock alarm tier.
 
-import type { Trupp, TruppKind, TruppReading } from '../types'
+import type { Trupp, TruppFields, TruppKind, TruppReading } from '../types'
 import { pad2 } from './format'
 
 /**
@@ -243,6 +243,92 @@ export function truppAwaitsEntry(t: Trupp): boolean {
 }
 
 /**
+ * An Atemschutz-Trupp still standing at the Tafel when the Einsatz is closed — registered, never
+ * sent in, never stood down (24.09.2026, D1 ⑦). On 23.09. the Sicherungstrupp T6 stayed
+ * «angemeldet» to the end, and the Abschluss asked only about the crews INSIDE. The Abschluss now
+ * asks about these too (useAbschluss): the honest close-out is «nicht eingesetzt», the same one
+ * the card offers, and the record then says a crew stood ready rather than leaving it pending.
+ *
+ * Under Atemschutz only, like the card's «Nicht eingesetzt»: a work squad waiting at the vehicle
+ * has no such close-out, and nothing about it is being watched.
+ */
+export function truppStillRegistered(t: Trupp): boolean {
+  return isAtemschutzTrupp(t) && !t.removedAt && t.status === 'angemeldet'
+    // ⚠️ …and never inside at all. A crew parked as Reserve after earlier sorties is angemeldet
+    // with an EMPTY entryTime (useTruppActions · reactivateTrupp · standby clears it), so the
+    // field cannot tell; its log can. «Nicht eingesetzt» on a crew that was in twice is false.
+    && !(t.readings ?? []).some((r) => r.kind === 'entry')
+}
+
+/**
+ * The form's fields AS the Trupp stands — what an edit that changes ONE thing sends, so
+ * `editTrupp` writes exactly that one change (its Verlauf row, its undo) and nothing else.
+ * Used by «Sicherungstrupp bestimmen» (AtemschutzView), which turns a waiting Trupp's Auftrag to
+ * «Sichern». `color` stays undefined («no change»), and `kind` is passed as stored (absent =
+ * Atemschutz), so neither can read as a change it is not.
+ */
+export function truppFieldsOf(t: Trupp, over: Partial<TruppFields> = {}): TruppFields {
+  return {
+    name: t.name, members: t.members, auftrag: t.auftrag, ziel: t.ziel, lineNo: t.lineNo,
+    funkkanal: t.funkkanal, pressure: t.entryPressureBar, leaderPersonId: t.leaderPersonId,
+    memberPersonIds: t.memberPersonIds, kind: t.kind, equipment: t.equipment,
+    ...over,
+  }
+}
+
+/**
+ * The questions the Trupp form asks, as the groups a save can change — one group per thing the
+ * operator can touch (the crew is ONE: its name, members and their ids move together).
+ */
+export type TruppFieldGroup = 'crew' | 'auftrag' | 'ziel' | 'lineNo' | 'funkkanal' | 'pressure' | 'kind' | 'equipment'
+export const TRUPP_FIELD_GROUPS: readonly TruppFieldGroup[] = ['crew', 'auftrag', 'ziel', 'lineNo', 'funkkanal', 'pressure', 'kind', 'equipment']
+const GROUP_KEYS: Record<TruppFieldGroup, (keyof TruppFields)[]> = {
+  crew: ['name', 'members', 'leaderPersonId', 'memberPersonIds'],
+  auftrag: ['auftrag'], ziel: ['ziel'], lineNo: ['lineNo'], funkkanal: ['funkkanal'],
+  pressure: ['pressure'], kind: ['kind'], equipment: ['equipment'],
+}
+/** One group's value as something `===` can compare: absent, empty and whitespace are one thing;
+ *  an absent Art is Atemschutz (types · TruppKind); ids do not decide whether the crew changed —
+ *  the form re-links typed names to the roster on its own, and that is not an edit. */
+function groupValue(f: TruppFields, g: TruppFieldGroup): string {
+  const norm = (v: unknown): unknown => (typeof v === 'string' ? v.trim() || null
+    : Array.isArray(v) ? (v.length ? v.map((x) => (typeof x === 'string' ? x.trim() : x)) : null)
+    : v ?? null)
+  if (g === 'crew') return JSON.stringify([norm(f.name), norm(f.members)])
+  if (g === 'kind') return f.kind ?? 'atemschutz'
+  return JSON.stringify(norm(f[GROUP_KEYS[g][0]]))
+}
+
+/** Which groups differ between two sets of form fields — «what did the operator touch» (form
+ *  against its own untouched values) and «what changed elsewhere» (the Trupp now against the Trupp
+ *  as the form opened it). */
+export function truppFieldGroupsChanged(a: TruppFields, b: TruppFields): TruppFieldGroup[] {
+  return TRUPP_FIELD_GROUPS.filter((g) => groupValue(a, g) !== groupValue(b, g))
+}
+
+/**
+ * An edit as a PATCH (staging walk-through 25.09.2026, two phones on one Trupp): the Trupp as it
+ * stands NOW, with only the groups this form touched taken from the form. A form opened before
+ * somebody else's save used to write every field back and quietly undo that save.
+ */
+export function truppEditPatch(current: Trupp, form: TruppFields, touched: readonly TruppFieldGroup[]): TruppFields {
+  const out: TruppFields = truppFieldsOf(current)
+  for (const g of touched) for (const k of GROUP_KEYS[g]) (out as Record<string, unknown>)[k] = form[k]
+  return out
+}
+
+/**
+ * Does this Eingangsdruck earn the ONE plausibility question (24.09.2026, item 2)? Below the
+ * station's minimum (`doctrine.entryPressureMin`), and never for the station's own default — a
+ * doctrine that sets its minimum above its own fill pressure would otherwise ask on every
+ * Anmeldung, which is how a question stops being read. `min` 0 switches it off; 0 bar is not an
+ * entry at all (the form refuses it on its own). No upper bound, on purpose.
+ */
+export function entryPressureAsks(bar: number, d: { entryPressureMin: number; defaultPressureBar: number }): boolean {
+  return d.entryPressureMin > 0 && bar > 0 && bar < d.entryPressureMin && bar !== d.defaultPressureBar
+}
+
+/**
  * Registered, then closed WITHOUT ever going under PA — the Sicherungstrupp that was never needed.
  *
  * It shares the `raus` state (2026-08-09): the crew is finished, off the active board, and can be
@@ -254,6 +340,24 @@ export function truppAwaitsEntry(t: Trupp): boolean {
  * Derived from the absence of an `entryTime` rather than stored, so no old record has to be
  * migrated and no two fields can disagree about whether somebody went in.
  */
+/**
+ * Is the `exit` row at `index` a STAND-DOWN — the close of a run that never had an Eintritt
+ * (staging walk-through 25.09.2026, N8)? «Nicht eingesetzt» writes an `exit` row like any Austritt
+ * (useTruppActions · setTruppStatus), and every place that labels a row by its kind printed
+ * «Austritt» for a crew that never went in: the card's «zuletzt», its log, the Rapport's sheet.
+ * Read off the log: the last run-opening row before it is an Anmeldung, not an Eintritt.
+ */
+export function isStandDownExit(readings: readonly TruppReading[], index: number): boolean {
+  if (readings[index]?.kind !== 'exit') return false
+  for (let i = index - 1; i >= 0; i--) {
+    const k = readings[i].kind
+    if (k === 'entry') return false
+    if (k === 'registered') return true
+    if (k === 'exit') return false
+  }
+  return false
+}
+
 export function truppNeverDeployed(t: Trupp): boolean {
   return t.status === 'raus' && !t.entryTime
 }
@@ -328,12 +432,38 @@ export const EARLY_PRESSURE_CORRECTION_MS = 3 * 60_000
  * `editTrupp` writes; a reading at or below the Alarmdruck is never a correction.
  */
 export function earlyEntryCorrection(t: Trupp, atMs: number): boolean {
-  if (!isAtemschutzTrupp(t)) return false
+  if (!isAtemschutzTrupp(t) || entryPressureConfirmed(t)) return false
   const entry = ms(t.entryTime)
   if (!entry || t.exitTime || atMs < entry || atMs - entry > EARLY_PRESSURE_CORRECTION_MS) return false
   const readings = t.readings ?? []
   const measuredSince = readings.slice(currentRunStart(readings)).some((r) => r.kind === 'pressure' || r.kind === 'alarm')
   return !measuredSince && t.lastPressureBar == null
+}
+
+/**
+ * Was the RUNNING deployment's Eingangsdruck set on purpose — typed or dialled in the form, a
+ * low value confirmed, a correction in «Bearbeiten», or the first Druckmeldung that already
+ * replaced it? (staging walk-through 25.09.2026: a confirmed 250 was silently «corrected» to 280
+ * by the first reading.) Only an Eingangsdruck nobody touched — the form's default — may be
+ * replaced by the first reading (earlyEntryCorrection).
+ *
+ * Read off the log, never a Trupp field: the run-start row (`registered` / `entry`) carries
+ * `measured: true`, and an Eintritt straight after a measured Anmeldung is the same cylinder —
+ * the entry row copies the bar, so the flag is looked for on the registered row just before it.
+ */
+export function entryPressureConfirmed(t: Pick<Trupp, 'readings'>): boolean {
+  const readings = t.readings ?? []
+  const from = currentRunStart(readings)
+  const start = readings[from]
+  if (!start || (start.kind !== 'entry' && start.kind !== 'registered')) return false
+  if (start.measured) return true
+  if (start.kind !== 'entry') return false
+  for (let i = from - 1; i >= 0; i--) {
+    const r = readings[i]
+    if (r.kind === 'crew') continue
+    return r.kind === 'registered' && !!r.measured
+  }
+  return false
 }
 
 export function contactSeverity(sinceContactSec: number | null, contactIntervalMin: number, contactGraceSec: number): 0 | 1 | 2 {

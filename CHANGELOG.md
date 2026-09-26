@@ -31,6 +31,98 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The Suche, step 1: who is still missing, and what is abgesucht (Übung 23.09.2026).** One list
+  of Personen (vermisst → gefunden → übergeben, or entwarnt; groups with a count) and Bereiche
+  (every storey of the Gebäude by itself, split by names; offen · in Arbeit + Trupp · abgesucht ·
+  nicht zugänglich · Fund), synced across devices and written into the Verlauf change by change.
+  On a tablet it docks beside the Gebäude or the Karte and the storey labels carry the progress
+  («1. OG 2/4»); on a phone it is a peek · half · full sheet over the plan that never covers the
+  nav bar, with floor chips and a Gebäude | Karte switch. Doors: the rail entry with the red count,
+  the «2 vermisst» head chip for everyone, the Verlauf composer («Name · vermisst → gefunden»),
+  and «Fund melden» / «Bereich abgesucht» on a Trupp. A Trupp's Ziel picks an area and marks it
+  «in Arbeit» on its way in; once it is out, «Trupp N raus – abgesucht? Ja / Teilweise / Nein»
+  stands on the area's row, on the head chip («9 vermisst · 1 Frage»), in the phone's peek line
+  and as a Meldeleiste row until somebody answers; «Teilweise» is its own status («teilweise
+  abgesucht · T1 · 14:19»), never the «offen» of an area nobody touched. A person can be corrected;
+  «Entwarnen» and «Irrtümlich erfasst» ask why and who said so first, with «Abbrechen» focused. ↶
+  takes back exactly one act. «Fund melden» opens as a sheet over the board it was asked from. The
+  Rapport counts the Gerettete from the list and prints a «Personen» section with one line per
+  person and «Suche: 8 Bereiche, alle abgesucht 20:39»; the Abschluss asks about people still
+  missing as its own question, naming them, with «Zur Suche» focused. A group is never found all
+  at once by accident: the composer's chip names the count («Klasse 4b · 2 von 5 gefunden»,
+  taken from the sentence — «3 von Klasse 4b gefunden», «zwei Kinder der Klasse 4b» — the group
+  found by its name anywhere in it) and
+  «Fund melden» starts at one, on the storey the Trupp is searching. «Korrigieren …» also corrects
+  where somebody was found. The Suche opens beside the Karte or plan you are on, and the rail entry
+  always opens it. The Meldeleiste, the Lage-Grundgerüst card and strip, and the storey ✕ keep
+  clear of the dock, the peek line and the storey's progress badge.
+- **The top bar collapses by priority, measured.** When a bar runs out of room, it gives up the
+  weather first, then the Einsatzdauer, ↷, the spacing, the Verlauf word, the Suche's words, the
+  alarm's name and the Einsatz title — one step at a time, only as far as needed. The Einsatz
+  pill never shrinks below a readable width (it was 20 px at 360 px with all chips up), no chip
+  is ever a bare number without its icon, and the weather stays on a 1180 px bar with an alarm
+  and the Suche chip up.
+  Editors only; the Einsatzleiter and viewers read. Station config: `suche.uebergabe`.
+
+- **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the
+  phone no longer hides the clocks: the form is a bottom sheet, and the due and overdue Trupps
+  (at most two, most urgent first) stand above it with a live «Kontakt» that confirms without
+  leaving the form – which keeps every entry, also when pushed away. The Sicherungstrupp has one
+  fixed place, quiet until the first crew is inside and amber after; «Bestimmen» picks a waiting
+  Trupp or registers a new one on «Sichern», its Eintritt reads «Sicherungstrupp eingesetzt», and
+  «Einsatz abschliessen» asks about a Trupp still angemeldet («Zur Tafel» / «Als «nicht
+  eingesetzt» schliessen»). A Kontakt another device confirmed less than a minute ago asks
+  «… schon bestätigt (anderes Gerät). Nochmals / OK» instead of writing a second one – on the
+  tablet and the handed-over Tafel as well, with «OK» (writes nothing) as the default. A kept
+  form draft now belongs to one sortie: an abandoned re-entry no longer hands its bottle answer
+  to the next one. After a walk-through on staging (25.09.2026): an edit saves only the fields it
+  touched and says so when one of them changed on another device meanwhile; a Gast typed into the
+  Trupp form reaches the Anwesenheit only when the Trupp is saved (Enter no longer creates one,
+  «Abbrechen» leaves nothing behind); the first Druck after the Eintritt counts as a Kontakt, says
+  on the sheet that it replaces the Eingangsdruck, and never replaces one set on purpose; a double
+  tap on «Kontakt» writes one contact; «Einsatz abschliessen» asks about crews still inside first,
+  by name, with «Zur Tafel» as the default, and afterwards stays on the closed Einsatz instead of
+  opening another; the empty board has its own «Trupp anmelden», the phone head button carries a
+  word, a Sicherungstrupp wears «SiTr», and «Ändern» and a chip's ✕ are full 44 px targets. A
+  second walk-through fixed: every Gast from the Trupp form was filed twice in the Anwesenheit
+  (and the Verlauf printed ids); a crew registered on the Atemschutz-Link never reached the
+  Anwesenheit (an editor device now files it, once); «Entfernen» on a crew inside asks first and
+  every removal can be undone from its toast; «Nicht eingesetzt» moved into ⋮ and no longer logs
+  an «Austritt»; the Abschluss's paperwork list focuses «Zurück»; the phone board shows Trupp
+  numbers, the Link opens on the most urgent crew inside, the Eintrag «+» no longer covers a
+  crew's «Kontakt», and an edit row in the Verlauf names the whole crew. A third walk-through
+  fixed: registering a Trupp with Gäste is one ↶ again (it used to undo only the crew's Funktion
+  and leave people and Trupp standing); the Abschluss questions each land on their own safe
+  answer, so Enter no longer closes through «vermisst»; closing over a crew inside writes «beim
+  Abschluss noch drin» and the Rapport ends that sortie at the close; identical Anwesenheit
+  entries from several tablets no longer raise «abweichende Angaben»; «Trupp anmelden» is the
+  one word for registering, and the Trupp menu says «Nach oben holen»; on the Tafel the
+  Meldeleiste folds to one row and the board stands below it. The
+  Eingangsdruck of a Trupp that is out is locked in «Bearbeiten», and one below the new
+  `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
+  value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.
+  *Automatic: no config change needed; the new doctrine value is optional.*
+
+- **Lage-Grundgerüst: the Karte asks for the handful of things every Lage needs.** A small card
+  on the Karte («Lage-Grundgerüst 2 / 6») lists them for the incident's Einsatzart – for a Brand:
+  KP · Zufahrt · Wasserbezug · Sammelplatz · Absperrung · Bereitstellungsraum. A row ticks itself
+  when its symbol (or line) exists on the Karte or on any plan; «+ Wasserbezug» arms the ordinary
+  place tool, and where the data has an answer the row suggests one – «Hydrant Nr. 17 · 38 m ·
+  hier setzen» from the station's hydrant layer, «Wind aus W · Vorschlag westlich, 80 m» from the
+  incident's weather. Taking a suggestion is an ordinary placement (undoable, its usual Verlauf
+  row), selected and ready to drag. The card can be hidden (remembered on that device for that
+  Einsatz), disappears once complete, and comes
+  back from the tool rail («Grundgerüst»; on a phone it is a strip above the tool bar and the
+  entry sits in the «+» sheet). Post-mortem 23.09.2026: after 65 minutes that Karte had no
+  Zufahrt, Absperrung, Wasserbezug or Bereitstellungsraum. Station doctrine, not a device
+  setting: the new `lageGrundgeruest` config section names a shipped preset (`fks-standard`, the
+  default, or `minimal`) and may replace single Einsatzarten; edited in `/admin › Lage-Grundgerüst`
+  or through `admin_config` (`presets lageGrundgeruest`, `example --section lageGrundgeruest
+  --preset …`). Symbols and line presets are validated with a did-you-mean
+  (docs/CONFIGURATION.md §1e).
+- **A «Zufahrt» line preset**, modelled on the Rettungsachse (an arrow with a «Z» along it,
+  solid): the Verlauf says «Zufahrt gezeichnet» and the Rapport legend «Zufahrt».
+
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the
@@ -129,6 +221,14 @@ so this file – not the log – is the record of what shipped up to that point.
   and coordinate both stand.
 
 ### Fixed
+
+- **A new synced slice survives an older device.** A build that does not know a top-level key
+  of the workspace now carries it through its load, its save and its merge, and the server keeps
+  a stored `suche` a save leaves out — one tablet that had not updated could erase the slice.
+
+- **Mittel from another device no longer vanish after a merge.** A remote merge refreshed every
+  synced slice except the Mittel log, so this device's next save deleted the other device's
+  entries.
 
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB

@@ -8,7 +8,7 @@
 // stubs for everything not (yet) recorded digitally — printing never blocks on missing data.
 
 import { appConfig } from '../config/appConfig'
-import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, SucheDoc, TimelineEvent, Trupp } from '../types'
 import { floorLabel, floorSections, pdfPageOf, tileAspectOf } from './whiteboard'
 import { circleRing, clipConvex, clipStroke, edgeMarkSvg, markDeg, rectPoly, thinMarks, type EdgeMark, type Pt } from './storeyClip'
 import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
@@ -18,7 +18,7 @@ import type { ReportDraft } from './report'
 import {
   annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
 } from './report'
-import { isAtemschutzTrupp } from './atemschutz'
+import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
@@ -32,6 +32,7 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
+import { personPrintRows, stackKeyOf, sucheGroups, sucheLine, type SucheStack } from './suche'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them).
@@ -321,6 +322,11 @@ export interface DirectReportArgs {
   board?: BoardDoc
   /** the picked Gebäude (floor stack) — exports as blank-base plan pages when present */
   building?: BuildingDoc | null
+  /** the Suche (lib/suche): one line per person with its times, and the one «Suche: …» line */
+  suche?: SucheDoc
+  /** the Gebäude as the app's Suche reads it (IncidentWorkspace · sucheStack) — the same storeys
+   *  and the same building key, so the paper counts the areas the screen counted */
+  sucheStack?: SucheStack
   /** alternate endpoint/auth (capture view: poster token instead of the kiosk cookie) */
   transport?: import('./reportPdf').ReportTransport
 }
@@ -359,8 +365,10 @@ export function einsatzleiterForPdf(
 /** The ONE payload builder — shared by the PDF download and the station-printer enqueue
  *  (src/lib/printRelay.ts), so both always produce the identical document. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
-  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
+  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building, suche, sucheStack } = args
   const meta = draft.meta
+  // the moment a CLOSED Einsatz was closed — ends the sorties nobody reported out (see trupps)
+  const closedAt = incident.is_archived ? incident.closed_at ?? undefined : undefined
 
   // journal photos: send the server-relative media URL — the composer loads the bytes
   // from its own media store (session-only blob: URLs can't be resolved there and are
@@ -384,6 +392,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
 
   // Aufträge / Pendenzen — derived from the same rows, printed as a section right after them
   const pendenzen = pendenzRows(events, meta.startedAt ?? incident.started_at)
+  // …and the Suche's Personen after them (24.09.2026): one line per person with its times, plus
+  // the one line about the Bereiche. Same midnight rule as every other clock on the sheet.
+  const sucheClock = spanAwareClock({ alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? incident.closed_at ?? null })
+  const clockOf = (iso: string) => sucheClock(iso) ?? ''
+  const stack: SucheStack = sucheStack ?? { key: stackKeyOf(building), floors: [], floorName: (f: number) => building?.floorNames?.[String(f)] ?? floorLabel(f) }
+  const personen = personPrintRows(suche, clockOf, stack.floorName)
+  const sucheSummaryLine = sucheLine(suche, sucheGroups(suche ?? { personen: [], bereiche: [] }, stack), clockOf)
 
   const kroki = draft.options.kroki && scene
     ? buildKrokiPayload({
@@ -463,7 +478,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       endedAt: meta.endedAt ? formatDateTime(meta.endedAt) : undefined,
       partnerContacts: meta.partnerContacts,
     },
-    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, krokiLandscape: draft.options.krokiLandscape },
+    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, personen: draft.options.personen, krokiLandscape: draft.options.krokiLandscape },
     // Beilagen: only the ones actually ON the server. A blob: URL is a photo that has not
     // finished uploading, and the server cannot fetch it — printing would silently drop it, so
     // it is left out here and the preflight says so beside the row.
@@ -528,7 +543,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         return {
           leader,
           cycles: cycles.map((c) => ({
-            entry: formatDateTime(c.entry), exit: c.exit ? formatDateTime(c.exit) : undefined,
+            entry: formatDateTime(c.entry),
+            // ⚠️ A sortie still open when the Einsatz was CLOSED ends at the close, and says so
+            // (staging r3 F4): «19:37 – 19:52 (beim Abschluss noch drin)», not an open «19:37»
+            // that reads as a crew still inside today. No Austritt is invented — the words say
+            // nobody reported one. While the Einsatz is open (or open again) it stays open.
+            exit: c.exit ? formatDateTime(c.exit)
+              : closedAt ? fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime(closedAt) }) : undefined,
             crew: c.crew.join(' / '),
             changes: c.changes.map((ch) => ({ t: formatDateTime(ch.t), text: ch.text })),
           })),
@@ -563,14 +584,16 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         // ⚠️ no bar on a Kontakt/Rückzug row — that number was carried over, not read off a gauge
         // — and none on a row of 0, which is a Trupp that had no cylinder when it was written
         // (lib/report · readingBarShown)
-        .map((rr) => ({
+        .map((rr, i, all) => ({
           t: rr.t ? formatDateTime(rr.t) : '',
-          kindLabel: readingKindLabel(rr.kind),
+          kindLabel: readingKindLabel(rr.kind, isStandDownExit(all, i)),
           bar: rr.bar != null && readingBarShown(rr) ? String(rr.bar) : undefined,
         }))),
     })),
     journal: draft.options.journal ? journal : [],
     pendenzen: draft.options.pendenzen ? pendenzen : [],
+    personen: draft.options.personen ? personen : [],
+    ...(draft.options.personen && sucheSummaryLine ? { sucheLine: sucheSummaryLine } : {}),
   }
   return forPaper(payload) as Record<string, unknown>
 }

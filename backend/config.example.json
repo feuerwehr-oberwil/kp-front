@@ -153,7 +153,8 @@
     "contactIntervalMin": 5,
     "contactGraceSec": 60,
     "alarmBar": 100,
-    "alarmBarRueckzug": 50
+    "alarmBarRueckzug": 50,
+    "entryPressureMin": 270
   },
   "roster": {
     "source": "manual",
@@ -280,5 +281,8 @@
     "staleIncidentDays": 30,
     "captureWindowHours": 12,
     "webhooks": []
+  },
+  "lageGrundgeruest": {
+    "preset": "fks-standard"
   }
 }

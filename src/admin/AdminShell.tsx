@@ -26,6 +26,7 @@ import { SystemView } from './SystemView'
 import { BackupView } from './BackupView'
 import { IncidentHistoryView } from './IncidentHistoryView'
 import { ChecklistsView } from './ChecklistsView'
+import { LageGrundgeruestSection } from './LageGrundgeruestSection'
 import { CredentialsView } from './CredentialsView'
 
 // Every admin destination. The sidebar is the ONE navigation surface — no in-page
@@ -34,7 +35,7 @@ import { CredentialsView } from './CredentialsView'
 // (see ConfigContext); everything else is one self-contained page per entry.
 type SectionId =
   | 'identitaet' | 'doktrin' | 'rapport' | 'alarme' | 'fahrzeuge' | 'material' | 'ebenen' | 'objektplaene'
-  | 'checklisten'
+  | 'checklisten' | 'grundgeruest'
   | 'mitglieder' | 'mannschaft'
   | 'einsaetze' | 'divera' | 'traccar' | 'arbeitsmappe'
   | 'zugaenge' | 'links'
@@ -88,6 +89,8 @@ const NAV: NavGroup[] = [
       { id: 'ebenen', icon: 'layers' },
       { id: 'objektplaene', icon: 'doc' },
       { id: 'checklisten', icon: 'checklist' },
+      // beside Checklisten: both are what the Einsatz is handed to work through
+      { id: 'grundgeruest', icon: 'grundgeruest' },
     ],
   },
   {
@@ -147,14 +150,14 @@ function initialSection(): SectionId {
 // Station pages that read the shared config document — they get the ConfigGate (draft-loading state).
 // 'mannschaft' is on the list for ONE config field (the station's name order); the rest of that
 // page talks to the personnel API directly.
-const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'rapport', 'alarme', 'fahrzeuge', 'material', 'ebenen', 'objektplaene', 'mannschaft'])
+const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'rapport', 'alarme', 'fahrzeuge', 'material', 'ebenen', 'objektplaene', 'mannschaft', 'grundgeruest'])
 // Of those, only the genuinely-editable pages get the sticky autosave bar. Objektpläne is a
 // read-only viewer — edited via the CLI — so no save bar. 'fahrzeuge' IS on the list: its vehicle
 // list is edited in place (ConfigSections · FleetVehiclesEditor), and a page that autosaves
 // without saying so is a page nobody can tell has saved. 'ebenen' likewise, since its raster
 // layers (WMS/WMTS) became editable (ConfigSections · ReferenceRasterEditor) — the overview
 // above them stays a viewer.
-const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'rapport', 'alarme', 'fahrzeuge', 'ebenen', 'mannschaft'])
+const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'rapport', 'alarme', 'fahrzeuge', 'ebenen', 'mannschaft', 'grundgeruest'])
 
 /** A page's «go there» callback, narrowed by a real lookup rather than a cast: the pages that
  *  link out name their target as a plain string (they have no business importing this union),
@@ -183,6 +186,7 @@ function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
     // Not a CONFIG_SECTION: checklist templates are reference datasets, not config-document
     // fields, so this page needs no draft and must not sit behind the ConfigGate.
     case 'checklisten': return <ChecklistsView />
+    case 'grundgeruest': return <LageGrundgeruestSection />
     case 'mitglieder': return <MembersView />
     case 'mannschaft': return <RosterView />
     case 'einsaetze': return <IncidentHistoryView />

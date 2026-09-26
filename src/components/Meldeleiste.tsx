@@ -1,4 +1,5 @@
-import { useSyncExternalStore } from 'react'
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { rankMeldungen, type Meldung } from '../lib/meldungen'
@@ -33,6 +34,11 @@ import { getMeldungen, subscribeMeldungen } from '../lib/useMeldung'
 // There is no cap on the number of rows: four at once make a tall strip for a moment. Adding a
 // max-height or a collapse rule would bring back exactly the disclosure this deleted — do it
 // only if the field shows the pile-up is real.
+// ⚠️ …ONE exception, and it is the field's (staging r3, 25.09.2026): on the Trupp-Tafel two rows
+// («wieder geöffnet» + «abgesucht?») took 207px at 360 and sat on the first crew's contact clock,
+// and at 820 one row covered the page title. There, and only there, the strip shows the most
+// urgent row and a COUNT that opens the rest (08-toasts · `.az-tafel`), and the Tafel moves down
+// by the strip's height instead of being painted over — the strip publishes it as `--ml-h`.
 //
 // A message that has a PLACE stays out of here: ShiftConflictNotice sits inside the Zeitplan it
 // is about, CaptureUsageChip inside the capture surface. Both are uncoverable by construction —
@@ -44,6 +50,21 @@ export function Meldeleiste() {
   const C = appConfig.copy.meldeleiste
 
   const rows = rankMeldungen(items)
+  const shown = rows.length > 0
+  const [all, setAll] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  // the strip's height, for the surfaces that must stand BELOW it rather than under it (the Tafel)
+  useLayoutEffect(() => {
+    const el = box.current
+    const rootStyle = document.documentElement.style
+    if (!el) { rootStyle.removeProperty('--ml-h'); return }
+    const put = () => rootStyle.setProperty('--ml-h', `${Math.ceil(el.getBoundingClientRect().height)}px`)
+    put()
+    if (typeof ResizeObserver === 'undefined') return () => rootStyle.removeProperty('--ml-h')
+    const ro = new ResizeObserver(put)
+    ro.observe(el)
+    return () => { ro.disconnect(); rootStyle.removeProperty('--ml-h') }
+  }, [shown])
   if (rows.length === 0) return null
   // The ✕ column is held open only when a ✕ exists to hold it open FOR. Reserving it
   // unconditionally straightened the right edge but left every row of a strip that carries no
@@ -54,7 +75,7 @@ export function Meldeleiste() {
     // ONE live region for the whole layer, and a polite one: the strip is persistent content that
     // stays until it is handled, not an event that flies past. Four assertive regions talking
     // over each other is what this replaces.
-    <div className="ml" role="status" aria-live="polite" aria-label={C.region}>
+    <div ref={box} className={all ? 'ml ml-all' : 'ml'} role="status" aria-live="polite" aria-label={C.region}>
       {rows.map((m) => (
         <div key={m.id} className={`ml-row t-${m.tone}`}>
           <Icon id={m.icon} className="ml-ic" />
@@ -66,6 +87,12 @@ export function Meldeleiste() {
           <MeldungDismiss m={m} column={anyDismiss} />
         </div>
       ))}
+      {/* the count the Tafel folds the rest into — drawn only there (08-toasts · .ml-more) */}
+      {rows.length > 1 && (
+        <button type="button" className="ml-more" aria-expanded={all} onClick={() => setAll((v) => !v)}>
+          {all ? C.less : fillTemplate(rows.length - 1 === 1 ? C.more : C.moreMany, { n: String(rows.length - 1) })}
+        </button>
+      )}
     </div>
   )
 }

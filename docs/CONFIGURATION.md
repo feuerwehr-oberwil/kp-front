@@ -24,7 +24,9 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [1b. `report.hoursRounding` – Einsatzstunden on the printed rapport](#1b-reporthoursrounding--einsatzstunden-on-the-printed-rapport)
   - [1c. `report.attendanceMergeGapMin` – two ticks that are one arrival](#1c-reportattendancemergegapmin--two-ticks-that-are-one-arrival)
   - [1d. `report.links` – the station's own forms, on the Rapport](#1d-reportlinks--the-stations-own-forms-on-the-rapport)
+  - [1e. `lageGrundgeruest` – what every Lage needs in its first minutes](#1e-lagegrundgeruest--what-every-lage-needs-in-its-first-minutes)
   - [`doctrine.alarmBarRueckzug` – the quieter line on Rückzug](#doctrinealarmbarrueckzug--the-quieter-line-for-a-trupp-on-rückzug)
+  - [`doctrine.entryPressureMin` – the one question about a low Eingangsdruck](#doctrineentrypressuremin--the-one-question-about-a-low-eingangsdruck)
 - [2. Reference / Werkleitungs layers – station-supplied](#2-reference--werkleitungs-layers--station-supplied-nothing-bundled)
   - [2a. Raster layer (WMS / WMTS)](#2a-raster-layer-wms--wmts--paste-a-url-template) ·
     [2b. Vector layer (GeoJSON)](#2b-vector-layer-geojson--for-pointslines-you-own)
@@ -98,6 +100,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `modules` (the Objektplan-Modul catalogue) | ❌ | **file only** – the Objektpläne page lists the catalogue read-only; the objects and their PDFs are what you edit there ([`objektplaene-architecture.md`](objektplaene-architecture.md)) |
 | `doctrine.*` | ✅ | Station › **Doktrin** |
 | `journal.*` | ✅ | Station › **Journal** |
+| `suche.uebergabe` (the Suche's «weiter an» list) | ❌ | file only – empty = the national default «Rettungsdienst · Sammelplatz · Angehörige»; the operator can always type another |
 | `report.hoursRounding`, `.attendanceMergeGapMin`, `.reversePrintOrder`, `.links` | ✅ | Station › **Rapport** (§1b–§1d) |
 | `report.partnerOrgs` | ✅ | Station › **Rapport** – **and** the Arbeitsmappe (§9h) |
 | `alarms.autoArchiveDays`, `.staleIncidentDays`, `.captureWindowHours`, `.webhooks`, `.groups` | ✅ | Station › **Alarme & Einsätze** |
@@ -113,6 +116,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `roster.ranks` | ✅ | the CSV import's «Grade zuordnen» → `adopt` (§4b) – **and** the Arbeitsmappe (§9h). There is no rank *form* |
 | `mittel.units` | ❌ | **file only** – the Arbeitsmappe does not carry it |
 | `alarmKeywords` | ❌ | **file only** – it is a paste-a-document, not a fill-a-form (§1a) |
+| `lageGrundgeruest.preset`, `.kategorien` | ✅ | Station › **Lage-Grundgerüst** (§1e) – and the file, which `admin_config example --section lageGrundgeruest` starts |
 | `sharepoint.intervalMinutes`, `.sources` | ❌ | **file only** – which folders the station pulls from is set up once and then wants to be reviewable and reproducible (§6c). The four Azure **credentials** are in the browser, at `/admin` → Zugangsdaten › SharePoint; System › SharePoint-Anbindung is the read-out |
 
 Two things that are **not** part of this document and are managed on their own pages: the
@@ -259,6 +263,8 @@ both now have browser pages – §9e and §9f.
     "contactIntervalMin": 5,                      // SCBA contact interval – "Kontakt fällig" (amber)
     "contactGraceSec": 60,                        // Nachfrist after the interval before the überfällig alarm
     "defaultPressureBar": 300, "pressureStep": 10, "pressureMax": 320,
+    "entryPressureMin": 270,                      // below this Eingangsdruck the Trupp form asks
+                                                  // once; 0 = never ask – see below
     "cylinderLiters": 7,                          // the two numbers behind the air estimate
     "estConsumptionLPerMin": 50,                  // («noch ≈ N bar») on the Trupp card
     "equipment": [                                // Ausrüstung a Trupp can take in – short labels,
@@ -414,6 +420,32 @@ until 2026-08-30, so a station configured entirely in the browser before that ne
 on the fallback while a CLI-template station adopted a 50-bar Rückzug line it never chose – worth
 one look at the field if that describes you. Either way, write the number down in your own
 doctrine: it is a safety threshold, not a preference.
+
+### `doctrine.entryPressureMin` – the one question about a low Eingangsdruck
+
+On the Übung of 2026-09-23 the Restdruck had nowhere to go, so it was typed into «Eingangsdruck
+korrigieren» after the Austritt, and the Rapport shows crews going in with 60, 170 and 180 bar.
+The exit has its own Restdruck since then, the Eingangsdruck of a Trupp that is out is locked,
+and an Eingangsdruck **below `entryPressureMin`** earns exactly one question in the Trupp form –
+at the Anmeldung, on a re-entry with a *new* cylinder, or when corrected while the Trupp is
+inside or registered: «180 bar ist für einen Eintritt tief (Station: ab 270). Stimmt das, meldet
+der Trupp gleich einen Alarm bei ≤100.» with «Ändern» / «180 bestätigen». Nothing is refused,
+and there is deliberately no upper bound: a low entry is sometimes simply true.
+
+| | |
+| --- | --- |
+| Range | integer, `0`–`300`; `0` switches the question off |
+| Unset in the config | the shipped `270` applies |
+| Shipped value | `270`, in the CLI template (`admin_config example`) and the frontend defaults (`src/config/appConfig.ts`) |
+| Never asked for | the station's own `defaultPressureBar`, and «Gleiche Flasche» on a re-entry (that bar is the Restdruck) |
+
+⚠️ **A station on 200-bar cylinders lowers it** – to about `180` – or sets `0`. The shipped 270 is
+sized for 300-bar bottles; left there, every full 200-bar cylinder typed in by hand would be
+questioned (the station's own `defaultPressureBar` is exempt, a corrected 190 is not), and a
+question asked every time is one nobody reads.
+
+Frontend only – the server stores it and never checks a reading against it. Set it on **Station ›
+Doktrin**, under the Eingangsdruck, or in the config file; read through `atemschutzDoctrine()`.
 
 ### ⚠️ `alarms.groups[].color` is not a colour
 
@@ -683,6 +715,104 @@ open to whoever has the address.
   app offers the tick once, when the operator **comes back** from the form – offered at the press
   it would expire on a tab that had just lost focus. The tick is per-incident, lives in the
   workspace blob, and merges per link id, so two devices ticking two different forms keep both.
+
+---
+
+## 1e. `lageGrundgeruest` – what every Lage needs in its first minutes
+
+In the Einsatz, a small card on the Karte lists the handful of things every Lage needs for the
+incident's Einsatzart – «Lage-Grundgerüst 2 / 6» – and each row places one of them. A row ticks
+itself as soon as its symbol (or line) exists **on the Karte or on any plan**; an open row arms
+the ordinary place tool, and where data the app already has gives an answer it suggests a spot:
+the nearest hydrant of the station's hydrant layer, or a point upwind of the Einsatzort from the
+incident's weather. Taking the suggestion is an ordinary placement (one undo step, the usual
+Verlauf row); it is only ever a starting point to drag. Nothing is written until somebody places
+something, the card can be hidden, and it disappears once complete (the Karte's tool rail brings
+it back). Post-mortem 23.09.2026: after 65 minutes that Karte had no Zufahrt, Absperrung,
+Wasserbezug or Bereitstellungsraum.
+
+**Like the alarm vocabulary, a shipped default applies until the station says otherwise.** The
+defaults are presets – files in
+[`backend/app/data/lage_grundgeruest/`](../backend/app/data/lage_grundgeruest/):
+
+| Preset | What it carries |
+|--------|-----------------|
+| `fks-standard` (default) | Brand: KP · Zufahrt · Wasserbezug · Sammelplatz · Absperrung · Bereitstellungsraum. BMA: KP · Schlüsseldepot · Brandmeldezentrale/Tableau · Zufahrt. Strassenrettung: KP · Absperrung beidseitig · Patientensammelstelle · Bereitstellungsraum · Helilandeplatz (optional). Chemie- and Ölwehr: KP upwind · Absperrkreis (the Gefahrentafel, whose UN-Nr. draws the ERG rings) · Dekon · Bereitstellungsraum upwind · Wasserbezug. Elementar: KP · Materialdepot · Absperrung · Bereitstellungsraum |
+| `minimal` | KP · Zufahrt · Sammelplatz for every Einsatzart |
+
+`"preset": "fks-standard"` alone is a whole, valid block. `kategorien` **replaces single
+Einsatzarten** of the preset – per Einsatzart, never per row, so «what does our BMA list say» has
+one answer. An empty list there means «no Grundgerüst for this Einsatzart». An empty
+`kategorien` object means «every Einsatzart follows the preset» – a value, so the refuse-to-empty
+guard (§1, point 3) does not count it as emptied when the last adapted Einsatzart is reset.
+
+```jsonc
+"lageGrundgeruest": {
+  "preset": "fks-standard",
+  "kategorien": {                                 // keys: the alarm keyword categories (§1a)
+    "brandbekaempfung": [
+      { "id": "kp",    "label": "KP · Einsatzleitung",
+        "symbol": "VKF KP Front",       "vorschlag": { "wind": "auf", "m": 40 } },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "wasser", "label": "Wasserbezug",
+        "symbol": "SI Wasserbezugsort", "vorschlag": { "naechster": "hydrant" } },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" },
+      { "id": "absperr", "label": "Absperrung", "symbol": "FW Absperrung" },
+      { "id": "bereit", "label": "Bereitstellungsraum",
+        "symbol": "FW Warteraum",       "vorschlag": { "wind": "auf", "m": 80 } }
+    ],
+    "strassenrettung": [
+      { "id": "heli", "label": "Helilandeplatz", "symbol": "VKF Helilandeplatz", "optional": true }
+    ]
+  }
+}
+```
+
+One row (a «slot»):
+
+- `id` – lower-case, unique in its list (`^[a-z0-9][a-z0-9_-]*$`); `label` – what the row says.
+- **Exactly one of** `symbol` – a name from the symbol pack (`public/tactical-symbols.json`,
+  e.g. `GB Schluesseldepot` – the names spell «ue» for «ü») – or `linie` – a line preset by its
+  label: `Zufahrt`, `Rettungsachse`, `Pfeil`.
+- `vorschlag` (optional, symbols only): `{ "naechster": "hydrant" }` – the nearest point of the
+  station's hydrant layer (§2b; straight line, at most 300 m – further out the row says «Kein
+  Hydrant im Umkreis von 300 m»; the placed symbol is labelled with the hydrant's
+  number when the layer carries one), or `{ "wind": "auf", "m": N }` – N metres (5–2000) upwind
+  of the Einsatzort. No weather reading, a calm, or no hydrant layer ⇒ no suggestion; the row
+  still arms the tool.
+- `optional: true` – shown, never counted: the list is complete without it.
+
+**Which list an Einsatz gets.** The incident's Einsatzart (its stored category) picks the list,
+and a corrected Einsatzart in the Einsatzdaten re-picks it. An Einsatz with **no** known
+Einsatzart – or «Diverse Einsätze», the server's word for «no keyword matched» – gets the Brand
+list and says so on the card, unless the station gave «Diverse Einsätze» a list of its own. A
+known Einsatzart without a list (a Tierrettung under `fks-standard`) shows no card.
+
+**Refused at the door, with what was meant.** `admin_config validate|load|push` and
+`PUT /api/config` refuse an unknown symbol, line preset, Einsatzart or preset, each with a
+did-you-mean («symbol 'GB Schlüsseldepot' is not in the symbol pack — did you mean
+'GB Schluesseldepot'?»); a misspelled row key comes back as an «ignored» warning. A **stored**
+document a newer rule refuses (a symbol renamed in a later pack) drops that one row and logs it,
+rather than taking the station's whole config down.
+
+```bash
+uv run python -m app.admin_config presets lageGrundgeruest      # the shipped presets, per Einsatzart
+uv run python -m app.admin_config example --section lageGrundgeruest --preset fks-standard > gg.json
+# edit gg.json, paste the block into the station's config file, then the usual loop:
+uv run python -m app.admin_config validate <station>.config.json
+uv run python -m app.admin_config diff <station>.config.json
+uv run python -m app.admin_config push <station>.config.json
+```
+
+⚠️ `example --section` prints ONE block: a file holding only it would empty every other section
+(`push` and `load` refuse that – §9b). `validate`, `diff`, `load` and `push` print which preset
+runs and which Einsatzarten the file replaces. `GET /api/config` serves the shipped presets beside
+the document (`lageGrundgeruestPresets`, response-only), which is what the field app resolves an
+Einsatzart against and what «Auf Preset zurücksetzen» goes back to.
+
+In the browser: `/admin › Lage-Grundgerüst` – one tab per Einsatzart, «Preset: fks-standard ·
+1 Einsatzart angepasst», rows to edit, reorder and remove, «+ Element», and «Auf Preset
+zurücksetzen» per Einsatzart.
 
 ---
 

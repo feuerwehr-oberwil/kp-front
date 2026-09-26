@@ -1,12 +1,12 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, MittelEntry, Trupp } from '../types'
 import type { IncidentMeta } from './api/incidents'
 import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { missingSteps, type AbschlussStep } from './abschluss'
-import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen } from './abschlussOpen'
-import { truppStillDeployed } from './atemschutz'
+import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen, insideAbschlussMessage, registeredAbschlussMessage } from './abschlussOpen'
+import { truppStillDeployed, truppStillRegistered } from './atemschutz'
 import { mittelLineCount } from './mittel'
 import { confirmDialog } from './ui'
 
@@ -28,6 +28,21 @@ interface Args {
   /** open the Rapport ON one Mindestangabe (IncidentWorkspace · requestReportStep, a stable
    *  module-level loader of the lazy ReportPreflight chunk) */
   requestReportStep: (step: AbschlussStep) => void
+  /** the Suche's state for the confirm: people still missing and the Bereiche not abgesucht (a
+   *  hint) — and where to answer them. `ask` is the missing people's OWN question
+   *  (lib/suche · vermisstAbschlussMessage), null when nobody is missing. */
+  suche?: { vermisst: number; openBereiche: string[]; ask?: string | null }
+  openSuche?: () => void
+  /** Close these Trupps as «nicht eingesetzt» — the card's own stand-down (useTruppActions ·
+   *  setTruppStatus(id, 'raus') on a Trupp that never went in), one undo step each. The caller
+   *  re-checks every id against the Trupps as they stand THEN (a Sicherungstrupp sent in while the
+   *  confirm stood open must never get an Austritt). Absent (a caller that may not write the
+   *  Tafel) ⇒ the registered question is not asked. */
+  standDownTrupps?: (ids: string[]) => void
+  /** Write «Trupp N (…) beim Abschluss noch drin» for each of these (staging r3 F4) — a crew the
+   *  Abschluss closes over is SAID in the Verlauf, without inventing an Austritt. Absent (a caller
+   *  that may not write the record) ⇒ nothing is written. */
+  noteInsideAtClose?: (trupps: Trupp[]) => void
 }
 
 /**
@@ -42,7 +57,7 @@ interface Args {
  */
 export function useAbschluss({
   reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
-  setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+  setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche,
 }: Args) {
   const abschlussMissing = useMemo(
     () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
@@ -53,6 +68,10 @@ export function useAbschluss({
    *  Einsatz rather than an empty field — it rides beside them in the confirm, the way pending
    *  media does. */
   const truppsStillOut = useMemo(() => trupps.filter(truppStillDeployed).length, [trupps])
+  // the Trupps as they stand NOW, for the one question asked at the moment of the Abschluss — a ref,
+  // so the confirm is not re-created on every Kontakt somebody writes while the Rapport is open
+  const truppsRef = useRef(trupps)
+  useEffect(() => { truppsRef.current = trupps }, [trupps])
   /** The moment every Trupp clock is read against once the Einsatz is abgeschlossen — after that
    *  no more time passes on this Einsatz, and a board that kept counting was describing a
    *  situation that had ended (see AtemschutzView · `frozenAt`).
@@ -77,6 +96,69 @@ export function useAbschluss({
   const confirmAndComplete = useCallback(async (): Promise<boolean> => {
     const A = appConfig.copy.abschluss
     const P = appConfig.copy.preflight
+    /* ⚠️ Crews still INSIDE are their own, FIRST question (staging walk-through 25.09.2026). They
+       were the 7th grey row of the paperwork list under a filled, focused «Trotzdem abschliessen»,
+       and an Enter closed the Einsatz over three crews under PA who never got an Austritt. Now the
+       sentence names them, «Zur Tafel» is the filled, focused answer, and closing anyway is the
+       quiet one — and still writes nothing: an Austritt nobody reported is never invented. */
+    const inside = truppsRef.current.filter(truppStillDeployed)
+    if (inside.length > 0) {
+      const answer = await confirmDialog({
+        title: A.insideTitle,
+        message: insideAbschlussMessage(inside),
+        confirmLabel: A.insideClose,
+        altLabel: A.registeredToBoard,
+        cancelLabel: appConfig.copy.cancel,
+        safeAnswer: 'alt',
+      })
+      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
+      if (answer !== true) return false
+    }
+    /* ⚠️ People still MISSING are their own question too, right after the crews (walk-through
+       25.09.2026, N6). «8 Personen noch vermisst» was the first grey row of nine under a filled,
+       focused «Trotzdem abschliessen», and an Enter closed the Einsatz over them. The sentence
+       names the count and the first names; «Zur Suche» is the filled, focused answer, closing
+       anyway the quiet one — and the paperwork list below then does not repeat it. */
+    const vermisstAsk = suche?.ask
+    if (vermisstAsk) {
+      const answer = await confirmDialog({
+        // titled like the crews' question («Trupps noch drin») — the two stand in one sequence
+        title: appConfig.copy.suche.abschlussAskTitle,
+        message: vermisstAsk,
+        confirmLabel: A.insideClose,
+        altLabel: appConfig.copy.suche.abschlussToSuche,
+        cancelLabel: appConfig.copy.cancel,
+        safeAnswer: 'alt',
+      })
+      if (answer === 'alt') { openSuche?.(); return false }
+      if (answer !== true) return false
+    }
+    /* ⚠️ A Trupp still ANGEMELDET is asked about FIRST, on its own (24.09.2026, D1 ⑦). On 23.09.
+       the Sicherungstrupp T6 stood «angemeldet» to the end, and the confirm below counted only
+       the crews inside, so the record closed with a crew neither sent in nor stood down. Three
+       answers: «Zur Tafel» (the focused, safe one) goes there and closes nothing; «Als «nicht
+       eingesetzt» schliessen» is the SAME close-out the card offers (Trupp … nicht eingesetzt,
+       undoable per Trupp); dismissing does nothing at all.
+       ⚠️ The answer is only RECORDED here (review 25.09.2026). The stand-down runs after the
+       final «Abschliessen» below — «schliessen» and then «Abbrechen» on the next question must
+       leave every Trupp exactly as it was.
+       ⚠️ Not while a crew is still recorded inside: that is the question that matters, and the
+       confirm below asks it («Noch im Einsatz …»). Closing the waiting crews first would put
+       «nicht eingesetzt» rows beside a Trupp nobody has reported out. */
+    const registered = standDownTrupps && truppsStillOut === 0 ? truppsRef.current.filter(truppStillRegistered) : []
+    let standDown: string[] = []
+    if (registered.length > 0) {
+      const answer = await confirmDialog({
+        message: registeredAbschlussMessage(registered),
+        confirmLabel: A.registeredStandDown,
+        altLabel: A.registeredToBoard,
+        cancelLabel: appConfig.copy.cancel,
+        safeAnswer: 'alt',
+      })
+      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
+      if (answer !== true) return false
+      standDown = registered.map((t) => t.id)
+    }
     // ⚠️ Pending media belongs in this list. The Abschluss closes the incident, and a Foto or a
     // Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
     // about to walk away, so that is part of what they are confirming.
@@ -89,7 +171,10 @@ export function useAbschluss({
        ⚠️ Pending media belongs here too. The Abschluss closes the incident, and a Foto or a
        Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
        about to walk away, so that is part of what they are confirming. */
-    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount)
+    // …and the Suche (24.09.2026): «2 Personen noch vermisst» makes the button «Trotzdem
+    // abschliessen»; an area nobody searched is only named
+    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount,
+      suche && vermisstAsk ? { ...suche, vermisst: 0 } : suche)
     // …and it counts as an open point for the WORDING, the way a missing Angabe does: the message
     // and the button both have to say that something is being closed over.
     const anyOpen = points.some(countsAsOpen)
@@ -104,13 +189,35 @@ export function useAbschluss({
         step: (st) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
         trupps: () => { setMode('atemschutz'); setPanel(null) },
         media: () => setOfflineReadyOpen(true),
+        suche: openSuche,
       }),
       note: anyOpen ? A.confirmMsg : undefined,
       // the button names what is actually about to happen — closing an Einsatz with open points
       // is allowed, and the label is where that is said out loud
       confirmLabel: anyOpen ? A.confirmAnyway : A.confirmBtn,
+      /* ⚠️ …and with open points the SAFE answer is the focused, filled one (staging r2, N6,
+         25.09.2026): after the crews question, an Enter on this list closed the Einsatz with
+         people still missing. «Zurück» is the default, «Trotzdem abschliessen» the quiet
+         choice. With nothing open, «Abschliessen» stays the primary — that is what the operator
+         came here to do. (The Suche's own first question sits above this one, in its PR.) */
+      ...(anyOpen ? { cancelLabel: A.confirmBack, safeAnswer: 'cancel' as const } : {}),
     })
     if (!ok) return false
+    if (standDown.length && standDownTrupps) {
+      standDownTrupps(standDown)
+      // one task for React to commit the Trupps, so the save queue holds the stand-down before
+      // the handover flushes it (App · completeRapport flushes the sync, then archives)
+      await new Promise((r) => setTimeout(r, 0))
+    }
+    /* ⚠️ Closing over a crew still inside wrote NOTHING (staging r3 F4): the record ended with two
+       open sorties and no word that the Abschluss had gone over them. One row per crew, read off
+       the Trupps as they stand NOW — the Rapport ends each open sortie at the close with the same
+       words (reportPdfDirect · cycleEndAtClose). Still no Austritt: nobody reported one. */
+    const insideNow = truppsRef.current.filter(truppStillDeployed)
+    if (insideNow.length && noteInsideAtClose) {
+      noteInsideAtClose(insideNow)
+      await new Promise((r) => setTimeout(r, 0)) // committed before the handover flushes
+    }
     // ⚠️ Drain the media queue FIRST, from here. The Abschluss closes the incident and App then
     // drops what has already gone up (clearUploadedMedia) — and an upload also has to patch its
     // Verlauf row's blob: URL to the server one (useMediaQueue · onUploaded), which needs this
@@ -121,7 +228,7 @@ export function useAbschluss({
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport()
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

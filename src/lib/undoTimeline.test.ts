@@ -156,3 +156,80 @@ describe('undoTimeline', () => {
     expect(seen).toHaveBeenCalledTimes(4)
   })
 })
+
+/* staging r3 F1: a Trupp registration files Gäste and writes their AS-Funktion in the Anwesenheit.
+ * Those are parts of ONE act, and ↶ names and takes back the act — not «Anwesenheit» alone. */
+describe('group — one act across domains is one step', () => {
+  const part = (domain: UndoDomain, label: string, log: string[]): UndoEntry => ({
+    domain, label, undo: () => { log.push(`undo ${label}`) }, redo: () => { log.push(`redo ${label}`) },
+  })
+
+  it('gathers the parts under the primary part\'s label; undo runs newest first, redo in order', () => {
+    const tl = createUndoTimeline()
+    const log: string[] = []
+    const end = tl.group('trupps')
+    tl.push(part('anwesenheit', 'Anwesenheit', log)) // the Gäste, filed first
+    tl.push(part('trupps', 'Trupp 2 angemeldet', log))
+    tl.push(part('anwesenheit', 'Anwesenheit', log)) // the Funktion, written after
+    expect(tl.canUndo()).toBe(false) // nothing recorded while the act is still running
+    end()
+    expect(tl.peekUndo()?.label).toBe('Trupp 2 angemeldet')
+    expect(tl.undo().status).toBe('done')
+    expect(log).toEqual(['undo Anwesenheit', 'undo Trupp 2 angemeldet', 'undo Anwesenheit'])
+    expect(tl.canUndo()).toBe(false)
+    log.length = 0
+    tl.redo()
+    expect(log).toEqual(['redo Anwesenheit', 'redo Trupp 2 angemeldet', 'redo Anwesenheit'])
+  })
+
+  it('one part is pushed as it is, none pushes nothing, a nested group joins the open one', () => {
+    const tl = createUndoTimeline()
+    const log: string[] = []
+    tl.group()()
+    expect(tl.canUndo()).toBe(false)
+    const end = tl.group('trupps')
+    const inner = tl.group('anwesenheit')
+    tl.push(part('trupps', 'T', log))
+    inner() // does nothing — the outer group is still open
+    expect(tl.canUndo()).toBe(false)
+    end()
+    expect(tl.peekUndo()?.label).toBe('T')
+  })
+
+  it('a part whose target is gone makes the step «lost», and the others still act', () => {
+    const tl = createUndoTimeline()
+    const log: string[] = []
+    const end = tl.group('trupps')
+    tl.push(part('anwesenheit', 'A', log))
+    tl.push({ domain: 'trupps', label: 'T', undo: () => false, redo: () => false })
+    end()
+    expect(tl.undo().status).toBe('lost')
+    expect(log).toEqual(['undo A'])
+  })
+
+  it('dropping a part after the group closed drops the recorded step (a toast used its undo)', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('trupps')
+    const drop = tl.push({ domain: 'trupps', label: 'T', undo: () => {}, redo: () => {} })
+    tl.push({ domain: 'anwesenheit', label: 'A', undo: () => {}, redo: () => {} })
+    end()
+    drop()
+    expect(tl.canUndo()).toBe(false)
+  })
+
+  // both halves together (merge of #222's named steps and the grouped Trupp save): a writer names
+  // its step once it knows its words — inside a group, or after the group closed
+  it('a grouped part can still be named: in the open group, and on the recorded step when it is the head', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('karte')
+    const h = tl.push({ domain: 'karte', label: 'Änderung', undo: () => {}, redo: () => {} })
+    const other = tl.push({ domain: 'trupps', label: 'T', undo: () => {}, redo: () => {} })
+    h.rename('KP gesetzt')
+    end()
+    expect(tl.peekUndo()?.label).toBe('KP gesetzt')
+    other.rename('nicht der Kopf') // a non-head part does not rename the step
+    expect(tl.peekUndo()?.label).toBe('KP gesetzt')
+    h.rename('KP verschoben')
+    expect(tl.peekUndo()?.label).toBe('KP verschoben')
+  })
+})

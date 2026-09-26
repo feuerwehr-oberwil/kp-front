@@ -16,6 +16,7 @@ import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { fillTemplate } from '../lib/format'
 import { clearAllDrafts } from '../lib/draftKeep'
 import type { AttendanceState, Trupp, TruppFields, TruppReading } from '../types'
+import { noteOwnContact, resetOwnContacts } from '../lib/contactEcho'
 
 afterEach(cleanup)
 // ⚠️ …and the kept DRAFTS with it (lib/draftKeep is a module-level store): a form that was
@@ -32,6 +33,10 @@ beforeAll(() => {
 })
 
 const az = appConfig.copy.atemschutz
+/** «Trupp anmelden» names the door AND the form's own button (staging r3 N19, one word) — the
+ *  door is the first on the page, the form's submit the last */
+const firstBtn = (name: string) => screen.getAllByRole('button', { name })[0]
+const lastBtn = (name: string) => { const all = screen.getAllByRole('button', { name }); return all[all.length - 1] }
 // the doctrine the form starts a fresh cylinder at — the number a closed «Luft & Funk» prints
 const dz = atemschutzDoctrine()
 const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString()
@@ -340,10 +345,14 @@ describe('the lifecycle row: in the order the Einsatz runs', () => {
    * Einsatz runs — deploying is what usually happens to a waiting Trupp, so «Einrücken» leads and
    * the stand-down sits right, where «Raus melden» also lives. The width flip is CSS
    * (`.actions:has(> .actEnter:first-child)`), so «Einrücken» still takes the room. */
-  it('leads the pre-entry row with «Einrücken», the stand-down on the right', () => {
+  // «Nicht eingesetzt» left the row for the ⋮ (staging r2, N8): an equal button one tap beside
+  // «Im Einsatz» was a reflex away from closing the wrong way
+  it('leads the pre-entry row with «Im Einsatz» alone — the stand-down is a row of the ⋮', async () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'angemeldet' }] })
     const labels = [...document.querySelectorAll(`.${s.actions} .${s.actBtn}`)].map((b) => b.textContent)
-    expect(labels).toEqual([az.actEnter, az.actNotDeployed])
+    expect(labels).toEqual([az.actEnter])
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    expect(await screen.findByRole('menuitem', { name: az.actNotDeployed })).toBeTruthy()
   })
 })
 
@@ -590,10 +599,10 @@ describe('the handed-over board on a phone (focus mode)', () => {
       )
     }
     render(<Board />)
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Meier Anna')
     pickAuftrag()
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(lastBtn(az.start))
     await waitFor(() => {
       expect(screen.getByRole('tab', { name: /Meier Anna/ }).getAttribute('aria-selected')).toBe('true')
     })
@@ -604,7 +613,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
     mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp()], createTrupp })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     // no sections since 08.09.: the Mannschaft, the Auftrag and the folded Standard line all
     // stand in one scroll — nothing is behind a chevron
     expect(screen.getByLabelText(az.teamSearchPlaceholder)).toBeTruthy()
@@ -617,7 +626,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
     // …only the final submit is gated on a valid Trupp — `aria-disabled`, not the native
     // attribute, so a blocked tap still reaches attemptSubmit and can explain itself
-    const submitBtn = screen.getByRole('button', { name: az.start })
+    const submitBtn = lastBtn(az.start)
     expect(submitBtn.getAttribute('aria-disabled')).toBe('true')
     // the roster is still empty, so the blocked tap POINTS at the Mannschaft (ring + scroll)
     fireEvent.click(submitBtn)
@@ -672,7 +681,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
     // ⚠️ «+ Trupp» is the LAST CELL OF THE STRIP'S OWN GRID (05.09.), not a 44px square in a
     // column beside it: same width and same row height as a Trupp chip, so it can neither
     // out-size them nor take the width their names need.
-    const addBtn = screen.getByRole('button', { name: az.newTrupp })
+    const addBtn = firstBtn(az.newTrupp)
     expect(document.querySelector(`.${s.strip}`)?.lastElementChild).toBe(addBtn)
     expect(addBtn.classList.contains(s.tab)).toBe(true)
   })
@@ -794,6 +803,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
    * keep its controls in reach. It has something to open (its Verlauf), and a footprint that
    * means «platzieren» is exactly the knowledge that is gone after six months without practice. */
   it('puts bearbeiten · platzieren · entfernen behind the same ⋯ as every other card', async () => {
+    render(<Overlays />)
     const deleteTrupp = vi.fn()
     mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' }, deleteTrupp })
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
@@ -801,7 +811,9 @@ describe('the board with Trupps that are not under Atemschutz', () => {
       expect(await screen.findByRole('menuitem', { name: label })).toBeTruthy()
     }
     fireEvent.click(await screen.findByRole('menuitem', { name: az.remove }))
-    expect(deleteTrupp).toHaveBeenCalledWith('tr9')
+    // the work squad is out there — removing it asks first (staging r2, N4)
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: az.remove }))
+    await waitFor(() => expect(deleteTrupp).toHaveBeenCalledWith('tr9'))
   })
 
   // The handed-over Tafel operates the Atemschutzüberwachung and nothing else — that is what the
@@ -811,7 +823,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(screen.queryByText('Gerber')).toBeNull()
     expect(document.querySelector(`.${s.cardPlain}`)).toBeNull()
     expect(screen.queryByText(az.sectionPlain)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     expect(screen.queryByRole('radiogroup', { name: az.kindLabel })).toBeNull()
   })
 
@@ -884,7 +896,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
   it('creates a Trupp «ohne Atemschutz» with the kind stamped and no Eingangsdruck', () => {
     const createTrupp = vi.fn()
     mount({ createTrupp, personnel: [], trupps: [] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     // the Druck field is behind the Standard line on a create (08.09.) — and there for Atemschutz…
     fireEvent.click(screen.getByText(az.luftChange))
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
@@ -893,7 +905,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
     typeGuest('Gerber Urs')
     pickAuftrag('Verkehr')
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(lastBtn(az.start))
     expect(createTrupp).toHaveBeenCalledTimes(1)
     const made = createTrupp.mock.calls[0][0] as Trupp
     expect(made.kind).toBe('einfach')
@@ -906,7 +918,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
    * and the tiles swap with the «Art des Trupps» answer above them. */
   it('offers the Auftrag list belonging to the chosen Art des Trupps', () => {
     mount({ trupps: [] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     const tiles = () => within(screen.getByRole('group', { name: az.auftragLabel }))
       .getAllByRole('button').map((b) => b.textContent)
     expect(tiles()).toEqual(['Retten', 'Löschen', 'Absuchen', 'Sichern', 'Erkunden', 'Anderes'])
@@ -935,14 +947,14 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     'holds the save until «Anderes» has a Ziel (%s)', (_kind, kindLabel) => {
       const createTrupp = vi.fn()
       mount({ createTrupp, trupps: [] })
-      fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+      fireEvent.click(firstBtn(az.newTrupp))
       fireEvent.click(screen.getByRole('radio', { name: kindLabel }))
       typeGuest('Gerber Urs')
       fireEvent.click(within(screen.getByRole('group', { name: az.auftragLabel })).getByText('Anderes'))
-      fireEvent.click(screen.getByRole('button', { name: az.start }))
+      fireEvent.click(lastBtn(az.start))
       expect(createTrupp).not.toHaveBeenCalled()
       fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: 'Zufahrt sperren' } })
-      fireEvent.click(screen.getByRole('button', { name: az.start }))
+      fireEvent.click(lastBtn(az.start))
       expect(createTrupp).toHaveBeenCalledTimes(1)
     })
 
@@ -951,10 +963,10 @@ describe('the board with Trupps that are not under Atemschutz', () => {
   it('writes no kind at all for a Trupp under Atemschutz', () => {
     const createTrupp = vi.fn()
     mount({ createTrupp, trupps: [] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Meier Thomas')
     pickAuftrag()
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(lastBtn(az.start))
     expect('kind' in (createTrupp.mock.calls[0][0] as object)).toBe(false)
   })
 })
@@ -972,9 +984,9 @@ describe('a Trupp may be registered without an Auftrag', () => {
   it('registers a Trupp with no Auftrag, and its card then shows «Auftrag offen»', () => {
     const createTrupp = vi.fn()
     mount({ createTrupp, trupps: [] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Meier Thomas')
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(lastBtn(az.start))
     expect(createTrupp).toHaveBeenCalledTimes(1)
     const created = createTrupp.mock.calls[0][0] as Trupp
     expect(created.auftrag).toBeUndefined()
@@ -989,10 +1001,10 @@ describe('a Trupp may be registered without an Auftrag', () => {
   it('still records the Auftrag when one is picked', () => {
     const createTrupp = vi.fn()
     mount({ createTrupp, trupps: [] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Meier Thomas')
     pickAuftrag()
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(lastBtn(az.start))
     expect((createTrupp.mock.calls[0][0] as Trupp).auftrag).toBe('retten')
   })
 
@@ -1000,11 +1012,11 @@ describe('a Trupp may be registered without an Auftrag', () => {
   it('takes the Ziel text on its own', () => {
     const createTrupp = vi.fn()
     mount({ createTrupp, trupps: [] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Meier Thomas')
     fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: '2OG links' } })
     expect(screen.queryByRole('status')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(lastBtn(az.start))
     expect(createTrupp).toHaveBeenCalledTimes(1)
     expect((createTrupp.mock.calls[0][0] as Trupp).ziel).toBe('2OG links')
   })
@@ -1014,10 +1026,10 @@ describe('a Trupp may be registered without an Auftrag', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
     mount({ createTrupp, trupps: [] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Meier Thomas')
     pickAuftrag(az.auftragLabels.anderes)
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(lastBtn(az.start))
     expect(createTrupp).not.toHaveBeenCalled()
     expect(screen.getByText(az.saveBlockedAuftrag)).toBeTruthy()
     // flat form (08.09.): the tiles are already on screen, the block rings them and moves focus
@@ -1088,7 +1100,7 @@ describe('the Trupp form on the main board’s phone layout', () => {
   it('puts the Ltg-Nr. in «Auftrag & Leitung» and asks for no colour at all', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     // flat form: the Auftrag block stands open from the first moment
     expect(screen.getByText(az.auftragLabel)).toBeTruthy()
     expect(screen.getByText(az.zielLabel)).toBeTruthy()
@@ -1109,7 +1121,7 @@ describe('the Trupp form on the main board’s phone layout', () => {
     mount({ trupps: [aktivTrupp()], personnel: [
       { id: 'p1', displayName: 'Muster Anna', active: true, updatedAt: '2026-09-05T06:00:00.000Z' },
     ] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     expect(screen.queryByRole('listbox', { name: az.sectionTeam })).toBeNull()
     expect(document.querySelector(`.${s.teamChips}`)?.children.length).toBe(0)
     typeGuest('Frei Nadja')
@@ -1123,7 +1135,7 @@ describe('the Trupp form on the main board’s phone layout', () => {
   it('runs Art → Mannschaft → Auftrag → Standard-Zeile, all on one flat screen', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     // the Art rides its own row above the fields it governs
     expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
     // …and everything else stands in one column, in reading order
@@ -1161,7 +1173,7 @@ describe('the Trupp form on the main board’s phone layout', () => {
 
   it('a tablet keeps the single screen — the stack is for 375px, not for touch', () => {
     mount({ trupps: [aktivTrupp()] }) // useIsPhone false
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     expect(document.querySelector(`.${s.stack}`)).toBeNull() // no phone column on a tablet
     // …the Art leads the RIGHT column as its own labelled section (08.09.), with the folded
     // Standard row at the column's end — after the Leitung
@@ -1231,12 +1243,12 @@ describe('the Reihenfolge menu', () => {
   it('keeps the same flat form for a Trupp without Atemschutz, minus the Druck', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     fireEvent.click(screen.getByRole('radio', { name: az.kindPlain }))
     // the form is unchanged by the tap: chooser, Auftrag and Mannschaft all still standing
     expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
     expect(screen.getByText(az.auftragLabel)).toBeTruthy()
-    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+    expect(within(screen.getByRole('dialog')).getByText(az.sectionTeam)).toBeTruthy()
     // …and «Ändern» unfolds the Kanal, minus the one field a Verkehrstrupp has no cylinder for
     fireEvent.click(screen.getByText(az.luftChange))
     expect(screen.getByText(az.funkkanalSection)).toBeTruthy()
@@ -1250,9 +1262,9 @@ describe('the Reihenfolge menu', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
     mount({ trupps: [aktivTrupp()], createTrupp })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     fireEvent.click(screen.getByRole('radio', { name: az.kindPlain }))
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(lastBtn(az.start))
     expect(createTrupp).not.toHaveBeenCalled()
     // flat form: the block RINGS the Mannschaft instead of opening a section
     expect(document.querySelector(`.${s.formFlash}`)?.textContent).toContain(az.sectionTeam)
@@ -1267,8 +1279,8 @@ describe('the Reihenfolge menu', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
     mount({ trupps: [aktivTrupp()], createTrupp })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(firstBtn(az.newTrupp))
+    fireEvent.click(lastBtn(az.start))
     expect(createTrupp).not.toHaveBeenCalled()
     const bar = document.querySelector(`.${s.formBlocked}`)
     expect(bar?.textContent).toContain(az.saveBlockedTeam)
@@ -1333,7 +1345,7 @@ describe('the Reihenfolge menu', () => {
    * Verkehrstrupp, so the generic sentence is now the only one. */
   it('uses the same Auftrag/Ziel placeholder whichever Auftrag is picked', () => {
     mount({ trupps: [aktivTrupp()] }) // tablet: one screen, everything is on it
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     const ziel = () => screen.getByPlaceholderText(az.zielPlaceholder)
     expect(ziel()).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: az.auftragLabels.anderes }))
@@ -1355,7 +1367,7 @@ describe('the Gast door in the person picker', () => {
 
   it('takes a Gast straight out of the search, with no second field to find', () => {
     mount({ trupps: [aktivTrupp()], personnel: roster })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     const list = screen.getByRole('listbox', { name: az.sectionTeam })
 
     // at rest the list is the Mannschaft and nothing else — no permanent Gast row
@@ -1428,13 +1440,31 @@ describe('«Entfernen» on a never-deployed Trupp offers «nicht eingesetzt» fi
     expect(setTruppStatus).not.toHaveBeenCalled()
   })
 
-  it('removes a Trupp that went in straight away — no dialog', () => {
+  /* A crew INSIDE is asked about first (staging walk-through r2, N4): one tap on «Entfernen»
+     took a crew under PA off the board and out of every alarm. «Raus melden» is the focused,
+     filled answer; removing anyway is the quiet one. */
+  it('asks before removing a crew that is inside — «Raus melden» is the safe, focused answer', async () => {
     render(<Overlays />)
     const deleteTrupp = vi.fn()
     mount({ trupps: [aktivTrupp()], deleteTrupp })
     openRemove()
-    expect(screen.queryByRole('alertdialog')).toBeNull()
-    expect(deleteTrupp).toHaveBeenCalledWith('tr1')
+    const ask = await screen.findByRole('alertdialog')
+    const out = within(ask).getByRole('button', { name: az.actExit })
+    await waitFor(() => expect(document.activeElement).toBe(out))
+    expect(out.className).toContain('primary')
+    fireEvent.click(out)
+    // «Raus melden» asks the Restdruck, exactly as the card's own button does
+    await waitFor(() => expect(screen.getByRole('button', { name: az.exitNoBar })).toBeTruthy())
+    expect(deleteTrupp).not.toHaveBeenCalled()
+  })
+
+  it('removes a crew that is inside only when «Entfernen» is chosen in that question', async () => {
+    render(<Overlays />)
+    const deleteTrupp = vi.fn()
+    mount({ trupps: [aktivTrupp()], deleteTrupp })
+    openRemove()
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: az.remove }))
+    await waitFor(() => expect(deleteTrupp).toHaveBeenCalledWith('tr1'))
   })
 })
 
@@ -1448,12 +1478,12 @@ describe('the Ausrüstung of an Atemschutz-Trupp', () => {
   it('registers a new Trupp with the two ticked items, in the station’s list order', () => {
     const createTrupp = vi.fn()
     mount({ createTrupp })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Meier Anna')
     fireEvent.click(chip(az.equipmentLabels.wbk))
     fireEvent.click(chip(az.equipmentLabels.retthaube))
     expect(chip(az.equipmentLabels.wbk).getAttribute('aria-checked')).toBe('true')
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(lastBtn(az.start))
     expect(createTrupp).toHaveBeenCalledTimes(1)
     expect((createTrupp.mock.calls[0][0] as Trupp).equipment).toEqual(['retthaube', 'wbk'])
   })
@@ -1645,5 +1675,545 @@ describe('re-entry right after an Austritt asks which cylinder', () => {
     mount({ trupps: [justOut(25)] })
     fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
     expect(screen.queryByRole('button', { name: new RegExp(az.bottleSame) })).toBeNull()
+  })
+})
+
+/* ── The phone board, second round (24.09.2026, D1 ⑥ ⑦ ⑧a, item 2) ───────────────────────────── */
+describe('the phone Trupp form keeps the due clocks in view (D1 ⑥)', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const inField = (id: string, name: string, contactAgoMin: number): Trupp => ({
+    ...aktivTrupp(), id, name, lastContactTime: iso(contactAgoMin * 60_000),
+  })
+  const openCreate = () => fireEvent.click(firstBtn(az.newTrupp))
+  const pinnedNames = () => Array.from(document.querySelectorAll(`.${s.formPinned} .${s.pinNameTxt}`)).map((el) => el.textContent)
+
+  it('pins the due and overdue Trupps above the sheet — the most urgent first, at most two', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [inField('f', 'Fresh Fritz', 1), inField('w', 'Warn Wanda', 5.5), inField('o', 'Over Otto', 7), inField('x', 'Very Late Xaver', 9)] })
+    openCreate()
+    expect(screen.getByRole('region', { name: az.pinnedLabel })).toBeTruthy()
+    expect(pinnedNames()).toEqual(['Very Late Xaver', 'Over Otto'])
+    // it IS a bottom sheet now: the frame wears the grab bar
+    expect(document.querySelector(`.${s.modalSheet} .ui-sheet-grab`)).toBeTruthy()
+  })
+
+  it('«Kontakt» on a pinned row confirms without leaving the form, and the form keeps its entries', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const props = mount({ trupps: [inField('o', 'Over Otto', 7)] })
+    openCreate()
+    typeGuest('Neu Nina')
+    const pinned = screen.getByRole('region', { name: az.pinnedLabel })
+    fireEvent.click(within(pinned).getByRole('button', { name: `${az.actContact}: Over Otto` }))
+    expect(props.recordContact).toHaveBeenCalledWith('o')
+    // still the form, still Nina
+    expect(screen.getByRole('dialog', { name: az.formCreateTitle })).toBeTruthy()
+    expect(screen.getByText('Neu Nina')).toBeTruthy()
+  })
+
+  it('pins nothing when nobody is due — and nothing at all on the tablet', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [inField('f', 'Fresh Fritz', 1)] })
+    openCreate()
+    expect(screen.queryByRole('region', { name: az.pinnedLabel })).toBeNull()
+    cleanup()
+    vi.mocked(useIsPhone).mockReturnValue(false)
+    mount({ trupps: [inField('o', 'Over Otto', 7)] })
+    openCreate()
+    expect(screen.queryByRole('region', { name: az.pinnedLabel })).toBeNull()
+    expect(document.querySelector(`.${s.modalSheet}`)).toBeNull()
+  })
+
+  it('keeps the Kanal when the sheet is put away — only «Abbrechen» drops it', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [inField('f', 'Fresh Fritz', 1)] })
+    openCreate()
+    fireEvent.click(screen.getByRole('button', { name: az.luftChange }))
+    fireEvent.pointerDown(screen.getByLabelText(az.funkkanalUp))
+    // the ✕ in the head — «not now», like pushing the sheet down
+    fireEvent.click(document.querySelector(`.${s.modalHead} .${s.iconBtn}`)!)
+    expect(screen.queryByRole('dialog', { name: az.formCreateTitle })).toBeNull()
+    openCreate()
+    expect(document.querySelector(`.${s.luftDefaultsText}`)?.textContent).toContain(fillTemplate(az.stackFunk, { n: dz.defaultFunkkanal + 1 }))
+    // …and «Abbrechen» throws it away
+    fireEvent.click(screen.getByText(az.cancel, { selector: 'button.ip-btn' }))
+    openCreate()
+    expect(document.querySelector(`.${s.luftDefaultsText}`)?.textContent).toContain(fillTemplate(az.stackFunk, { n: dz.defaultFunkkanal }))
+  })
+})
+
+describe('a Kontakt another device just confirmed asks first (D1 ⑧a)', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false); resetOwnContacts() })
+  const confirmedElsewhere = (secAgo: number): Trupp => ({
+    ...aktivTrupp(), lastContactTime: iso(secAgo * 1000),
+    readings: [...aktivTrupp().readings!, { t: iso(secAgo * 1000), bar: 240, kind: 'contact' }],
+  })
+
+  it('«OK» writes nothing; «Nochmals» writes the second contact', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    render(<Overlays />)
+    const props = mount({ trupps: [confirmedElsewhere(20)] })
+    fireEvent.click(screen.getByRole('button', { name: az.actContact }))
+    const ask = await screen.findByRole('alertdialog')
+    expect(within(ask).getByText(/Steiner: Kontakt wurde vor 2\d s schon bestätigt \(anderes Gerät\)\./)).toBeTruthy()
+    fireEvent.click(within(ask).getByRole('button', { name: az.contactEchoOk }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(props.recordContact).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: az.actContact }))
+    fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: az.contactEchoAgain }))
+    await waitFor(() => expect(props.recordContact).toHaveBeenCalledWith('tr1'))
+  })
+
+  it('asks nothing about this device’s own contact, or about one a minute old', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    render(<Overlays />)
+    const own = confirmedElsewhere(10)
+    noteOwnContact('tr1', own.readings![own.readings!.length - 1].t)
+    const a = mount({ trupps: [own] })
+    fireEvent.click(screen.getByRole('button', { name: az.actContact }))
+    expect(a.recordContact).toHaveBeenCalledWith('tr1')
+    cleanup()
+    render(<Overlays />)
+    const b = mount({ trupps: [confirmedElsewhere(75)] })
+    fireEvent.click(screen.getByRole('button', { name: az.actContact }))
+    expect(b.recordContact).toHaveBeenCalledWith('tr1')
+  })
+
+  // it guards the ACT, not a layout: the 23.09. case was an iPad and a phone (25.09.2026)
+  it('asks on the tablet grid and on the handed-over Tafel too', async () => {
+    for (const over of [{}, { lite: { subtitle: 'Brand' } }]) {
+      render(<Overlays />)
+      const props = mount({ trupps: [confirmedElsewhere(20)], ...over })
+      fireEvent.click(screen.getByRole('button', { name: az.actContact }))
+      const ask = await screen.findByRole('alertdialog')
+      fireEvent.click(within(ask).getByRole('button', { name: az.contactEchoOk }))
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+      expect(props.recordContact).not.toHaveBeenCalled()
+      cleanup()
+    }
+  })
+
+  it('makes «OK» — which writes nothing — the filled, focused answer', async () => {
+    render(<Overlays />)
+    mount({ trupps: [confirmedElsewhere(20)] })
+    fireEvent.click(screen.getByRole('button', { name: az.actContact }))
+    const ask = await screen.findByRole('alertdialog')
+    const ok = within(ask).getByRole('button', { name: az.contactEchoOk })
+    await waitFor(() => expect(document.activeElement).toBe(ok))
+    expect(ok.className).toContain('primary')
+    expect(within(ask).getByRole('button', { name: az.contactEchoAgain }).className).not.toContain('primary')
+    // answer it: the pending confirm is module state (lib/ui) and would open in the next test
+    fireEvent.click(ok)
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  })
+})
+
+describe('the Sicherungstrupp slot, complete (D1 ⑦)', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const ready = (id: string, name: string, over: Partial<Trupp> = {}): Trupp => ({
+    ...aktivTrupp(), id, name, members: ['Beispiel Ina'], status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [], ...over,
+  })
+  const slot = () => screen.getByText(az.safetyNone).closest(`.${s.safetyNone}`)!
+
+  it('stands quiet in its place while nobody is inside, and turns amber with the first crew in', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [ready('r', 'Ready Rita')] })
+    expect(slot().classList.contains(s.safetyNoneDue)).toBe(false)
+    expect(screen.getByText(az.safetyNoneExpected)).toBeTruthy()
+    cleanup()
+    mount({ trupps: [ready('r', 'Ready Rita'), { ...aktivTrupp(), id: 'i', name: 'In Ida' }] })
+    expect(slot().classList.contains(s.safetyNoneDue)).toBe(true)
+  })
+
+  it('«Bestimmen» takes a Trupp standing ready — its Auftrag becomes «Sichern», nothing else', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const editTrupp = vi.fn()
+    mount({ editTrupp, trupps: [ready('r', 'Ready Rita', { auftrag: 'loeschen', funkkanal: 11 }), { ...aktivTrupp(), id: 'i', name: 'In Ida' }] })
+    fireEvent.click(screen.getByRole('button', { name: az.safetyPick }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Ready Rita / Beispiel Ina' }))
+    expect(editTrupp).toHaveBeenCalledWith('r', expect.objectContaining({ name: 'Ready Rita', members: ['Beispiel Ina'], auftrag: 'sichern', funkkanal: 11, pressure: 300 }))
+  })
+
+  it('…or registers a new one on «Sichern»', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [ready('r', 'Ready Rita'), { ...aktivTrupp(), id: 'i', name: 'In Ida' }] })
+    fireEvent.click(screen.getByRole('button', { name: az.safetyPick }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.safetyPickNew }))
+    const sichern = within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: 'Sichern' })
+    expect(sichern.getAttribute('aria-pressed')).toBe('true')
+  })
+})
+
+describe('the Eingangsdruck is guarded (item 2)', () => {
+  const outWithRest = (): Trupp => ({
+    ...aktivTrupp(), status: 'raus', exitTime: iso(60_000),
+    readings: [...aktivTrupp().readings!, { t: iso(60_000), bar: 60, kind: 'exit', measured: true }],
+  })
+  const openEdit = async () => {
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+  }
+  /** type a bar into the form's Eingangsdruck stepper (tap the value, type, Enter) */
+  const typePressure = (bar: number, label: string) => {
+    const field = within(screen.getByRole('dialog')).getByText(label).closest(`.${s.field}`) as HTMLElement
+    fireEvent.click(within(field).getByTitle(appConfig.copy.stepper.typeToEnter))
+    const input = field.querySelector<HTMLInputElement>(`.${s.stepInput}`)!
+    fireEvent.change(input, { target: { value: String(bar) } })
+    fireEvent.blur(input)
+  }
+
+  it('locks it once the Trupp is out, points at the Restdruck, and saves the stored value', async () => {
+    const editTrupp = vi.fn()
+    mount({ trupps: [outWithRest()], editTrupp })
+    await openEdit()
+    expect(screen.getByText(az.pressureLocked)).toBeTruthy()
+    expect(screen.getByText(new RegExp(fillTemplate(az.pressureLockedExit, { t: '.*', bar: 60 }).replace(/[()]/g, '.')))).toBeTruthy()
+    expect(within(screen.getByRole('dialog')).queryByLabelText(fillTemplate(az.pressureDown, { step: dz.pressureStep }))).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 300 }))
+  })
+
+  it('stays open while the Trupp is inside', async () => {
+    mount()
+    await openEdit()
+    expect(screen.queryByText(az.pressureLocked)).toBeNull()
+    expect(within(screen.getByRole('dialog')).getByLabelText(fillTemplate(az.pressureDown, { step: dz.pressureStep }))).toBeTruthy()
+  })
+
+  it('asks ONCE below the station minimum, with the value on the button', async () => {
+    render(<Overlays />)
+    const createTrupp = vi.fn()
+    mount({ trupps: [], createTrupp })
+    fireEvent.click(firstBtn(az.newTrupp))
+    typeGuest('Tief Theo')
+    fireEvent.click(screen.getByRole('button', { name: az.luftChange }))
+    typePressure(180, az.pressureLabel)
+    fireEvent.click(lastBtn(az.start))
+    let ask = await screen.findByRole('alertdialog')
+    expect(within(ask).getByText(fillTemplate(az.entryLowMsg, { bar: 180, min: dz.entryPressureMin, alarm: dz.alarmBar }))).toBeTruthy()
+    // «Ändern» goes back to the number and registers nothing
+    fireEvent.click(within(ask).getByRole('button', { name: az.entryLowChange }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(createTrupp).not.toHaveBeenCalled()
+    fireEvent.click(lastBtn(az.start))
+    ask = await screen.findByRole('alertdialog')
+    fireEvent.click(within(ask).getByRole('button', { name: fillTemplate(az.entryLowConfirm, { bar: 180 }) }))
+    await waitFor(() => expect(createTrupp).toHaveBeenCalledWith(expect.objectContaining({ entryPressureBar: 180 })))
+  })
+
+  it('asks a correction made while inside, and never an edit that leaves the number alone', async () => {
+    render(<Overlays />)
+    const editTrupp = vi.fn()
+    mount({ editTrupp })
+    await openEdit()
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    expect(editTrupp).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await openEdit()
+    typePressure(200, az.editPressureLabel)
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    const ask = await screen.findByRole('alertdialog')
+    fireEvent.click(within(ask).getByRole('button', { name: fillTemplate(az.entryLowConfirm, { bar: 200 }) }))
+    await waitFor(() => expect(editTrupp).toHaveBeenLastCalledWith('tr1', expect.objectContaining({ pressure: 200 })))
+  })
+})
+
+/* ── Review of PR #227 (25.09.2026) ───────────────────────────────────────────────────────────── */
+describe('review fixes: drafts belong to one state of the Trupp', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const sortie = (exitMinAgo: number, bar: number, runs = 1): Trupp => {
+    const readings: TruppReading[] = []
+    for (let i = runs; i >= 1; i--) {
+      readings.push({ t: iso((exitMinAgo + i * 20) * 60_000), bar: 300, kind: 'entry' })
+      readings.push({ t: iso((exitMinAgo + (i - 1) * 20) * 60_000), bar: i === 1 ? bar : 150, kind: 'exit', measured: true })
+    }
+    return { ...aktivTrupp(), status: 'raus', exitTime: iso(exitMinAgo * 60_000), readings }
+  }
+  const closeForm = () => fireEvent.click(document.querySelector(`.${s.modalHead} .${s.iconBtn}`)!)
+
+  it('a «Gleiche Flasche» from an abandoned re-entry is not handed to the next sortie', () => {
+    const reactivateTrupp = vi.fn()
+    const props = propsFor({ trupps: [sortie(2, 180)], reactivateTrupp })
+    const view = render(<AtemschutzView {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.bottleSame) }))
+    closeForm()
+    // …the Trupp goes in again on another device and comes out a second time, with 90 bar
+    view.rerender(<AtemschutzView {...props} trupps={[sortie(1, 90, 2)]} />)
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    // nothing chosen: the question stands, and «Im Einsatz» waits for it
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    expect(reactivateTrupp).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.bottleSame) }))
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    expect(reactivateTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 90 }), false)
+  })
+
+  it('an edit draft does not write back a Leitung that was changed elsewhere meanwhile', async () => {
+    const editTrupp = vi.fn()
+    const props = propsFor({ trupps: [{ ...aktivTrupp(), lineNo: 1 }], editTrupp })
+    const view = render(<AtemschutzView {...props} />)
+    const openEdit = async () => {
+      fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+    }
+    await openEdit()
+    fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: 'Keller' } })
+    closeForm()
+    // the Leitung is linked to hose 4 on the Karte while the draft sits there
+    view.rerender(<AtemschutzView {...props} trupps={[{ ...aktivTrupp(), lineNo: 4 }]} />)
+    await openEdit()
+    expect((screen.getByLabelText(az.zielLabel) as HTMLInputElement).value).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ lineNo: 4 }))
+  })
+
+  it('«Bestimmen» opens on «Sichern» even over a kept create draft with another Auftrag', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), id: 'i', name: 'In Ida' }] })
+    fireEvent.click(firstBtn(az.newTrupp))
+    pickAuftrag('Retten')
+    closeForm()
+    fireEvent.click(screen.getByRole('button', { name: az.safetyPick }))
+    const sichern = within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: 'Sichern' })
+    expect(sichern.getAttribute('aria-pressed')).toBe('true')
+  })
+})
+
+describe('review fixes: the phone board', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+
+  it('a pinned row just confirmed says «Bestätigt» and takes no second tap', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const props = mount({ trupps: [{ ...aktivTrupp(), id: 'o', name: 'Over Otto', lastContactTime: iso(7 * 60_000) }] })
+    fireEvent.click(firstBtn(az.newTrupp))
+    const pinned = screen.getByRole('region', { name: az.pinnedLabel })
+    fireEvent.click(within(pinned).getByRole('button', { name: `${az.actContact}: Over Otto` }))
+    const done = within(pinned).getByRole('button', { name: `${az.contactDone}: Over Otto` }) as HTMLButtonElement
+    expect(done.disabled).toBe(true)
+    fireEvent.click(done)
+    expect(props.recordContact).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers no Sicherungstrupp slot once every Trupp is out', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000) }] })
+    expect(screen.queryByText(az.safetyNone)).toBeNull()
+    expect(screen.queryByRole('button', { name: az.safetyPick })).toBeNull()
+  })
+})
+
+describe('review fixes: the low Eingangsdruck on a re-entry', () => {
+  const justOut = (): Trupp => ({
+    ...aktivTrupp(), status: 'raus', exitTime: iso(2 * 60_000),
+    readings: [...aktivTrupp().readings!, { t: iso(2 * 60_000), bar: 120, kind: 'exit', measured: true }],
+  })
+  const typePressure = (bar: number) => {
+    const field = within(screen.getByRole('dialog')).getByText(az.newPressureLabel).closest(`.${s.field}`) as HTMLElement
+    fireEvent.click(within(field).getByTitle(appConfig.copy.stepper.typeToEnter))
+    const input = field.querySelector<HTMLInputElement>(`.${s.stepInput}`)!
+    fireEvent.change(input, { target: { value: String(bar) } })
+    fireEvent.blur(input)
+  }
+
+  it('«Neue Flasche» with a low value asks once, with «Ändern» focused', async () => {
+    render(<Overlays />)
+    const reactivateTrupp = vi.fn()
+    mount({ trupps: [justOut()], reactivateTrupp })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.bottleNew) }))
+    typePressure(200)
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    const ask = await screen.findByRole('alertdialog')
+    const change = within(ask).getByRole('button', { name: az.entryLowChange })
+    await waitFor(() => expect(document.activeElement).toBe(change))
+    expect(change.className).toContain('primary')
+    fireEvent.click(within(ask).getByRole('button', { name: fillTemplate(az.entryLowConfirm, { bar: 200 }) }))
+    await waitFor(() => expect(reactivateTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 200 }), false))
+  })
+
+  it('«Gleiche Flasche» is never asked about — its bar is the Restdruck', () => {
+    render(<Overlays />)
+    const reactivateTrupp = vi.fn()
+    mount({ trupps: [justOut()], reactivateTrupp })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.bottleSame) }))
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(reactivateTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 120 }), false)
+  })
+})
+
+/* ── Staging walk-through, 25.09.2026 ─────────────────────────────────────────────────────────── */
+describe('staging: an edit writes only what it touched (two devices, one Trupp)', () => {
+  const openEdit = async () => {
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+  }
+
+  it('keeps a change another device saved to a field this form did not touch', async () => {
+    const editTrupp = vi.fn()
+    const props = propsFor({ trupps: [{ ...aktivTrupp(), auftrag: 'loeschen', ziel: 'UG Nord' }], editTrupp })
+    const view = render(<AtemschutzView {...props} />)
+    await openEdit()
+    fireEvent.click(screen.getByRole('checkbox', { name: new RegExp(az.equipmentLabels.wbk) }))
+    // phone A saves a new Ziel meanwhile
+    view.rerender(<AtemschutzView {...props} trupps={[{ ...aktivTrupp(), auftrag: 'loeschen', ziel: 'UG West' }]} />)
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    expect(editTrupp).toHaveBeenCalledTimes(1)
+    expect(editTrupp.mock.calls[0][1]).toMatchObject({ ziel: 'UG West', equipment: ['wbk'] })
+  })
+
+  it('says it in one line when a touched field changed elsewhere — «Zurück» is the safe answer', async () => {
+    render(<Overlays />)
+    const editTrupp = vi.fn()
+    const props = propsFor({ trupps: [{ ...aktivTrupp(), ziel: 'UG Nord' }], editTrupp })
+    const view = render(<AtemschutzView {...props} />)
+    await openEdit()
+    fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: 'UG Süd' } })
+    view.rerender(<AtemschutzView {...props} trupps={[{ ...aktivTrupp(), ziel: 'UG West' }]} />)
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    let ask = await screen.findByRole('alertdialog')
+    expect(within(ask).getByText(fillTemplate(az.editConflictOne, { field: az.editFieldLabels.ziel, now: 'UG West' }))).toBeTruthy()
+    const back = within(ask).getByRole('button', { name: az.editConflictBack })
+    await waitFor(() => expect(document.activeElement).toBe(back))
+    fireEvent.click(back)
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(editTrupp).not.toHaveBeenCalled()
+    // «Zurück» returns to the form as it was — the typed Ziel is still there
+    expect((screen.getByLabelText(az.zielLabel) as HTMLInputElement).value).toBe('UG Süd')
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    ask = await screen.findByRole('alertdialog')
+    fireEvent.click(within(ask).getByRole('button', { name: az.editConflictOverwrite }))
+    await waitFor(() => expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ ziel: 'UG Süd' })))
+  })
+})
+
+describe('staging: a Gast typed into the form belongs to the form', () => {
+  it('«Abbrechen» files nobody on the Anwesenheit', () => {
+    const onAddGuest = vi.fn(() => 'g1')
+    mount({ trupps: [], onAddGuest })
+    fireEvent.click(firstBtn(az.newTrupp))
+    typeGuest('Neu Nina')
+    fireEvent.click(screen.getByText(az.cancel, { selector: 'button.ip-btn' }))
+    expect(onAddGuest).not.toHaveBeenCalled()
+  })
+
+  it('«Trupp anmelden» files the Gast and writes the id into the Trupp', () => {
+    const onAddGuest = vi.fn(() => 'g1')
+    const createTrupp = vi.fn()
+    mount({ trupps: [], onAddGuest, createTrupp })
+    fireEvent.click(firstBtn(az.newTrupp))
+    typeGuest('Neu Nina')
+    fireEvent.click(lastBtn(az.start))
+    expect(onAddGuest).toHaveBeenCalledWith('Neu Nina')
+    expect(createTrupp).toHaveBeenCalledWith(expect.objectContaining({ name: 'Neu Nina', leaderPersonId: 'g1' }))
+  })
+})
+
+describe('staging: the first Druckmeldung says what it does', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const justIn = (over: Partial<Trupp> = {}): Trupp => ({
+    ...aktivTrupp(), entryTime: iso(60_000), lastContactTime: iso(60_000), lastPressureBar: undefined, lastPressureTime: undefined,
+    lowestBar: 300, readings: [{ t: iso(60_000), bar: 300, kind: 'entry' }], ...over,
+  })
+
+  it('names the replaced Eingangsdruck on the sheet within the first minutes', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [justIn()] })
+    fireEvent.click(screen.getByRole('button', { name: az.actPressure }))
+    expect(screen.getByText(new RegExp(fillTemplate(az.pressureSheetFirst, { bar: 300 })))).toBeTruthy()
+  })
+
+  it('keeps the ordinary line for an Eingangsdruck set on purpose', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [justIn({ readings: [{ t: iso(60_000), bar: 300, kind: 'entry', measured: true }] })] })
+    fireEvent.click(screen.getByRole('button', { name: az.actPressure }))
+    expect(screen.queryByText(new RegExp(fillTemplate(az.pressureSheetFirst, { bar: 300 })))).toBeNull()
+    expect(screen.getByText(new RegExp(az.pressureSheetHint))).toBeTruthy()
+  })
+
+  it('a dialled Eingangsdruck is registered as measured', () => {
+    const createTrupp = vi.fn()
+    mount({ trupps: [], createTrupp })
+    fireEvent.click(firstBtn(az.newTrupp))
+    typeGuest('Neu Nina')
+    fireEvent.click(screen.getByRole('button', { name: az.luftChange }))
+    fireEvent.pointerDown(screen.getByLabelText(fillTemplate(az.pressureDown, { step: dz.pressureStep })))
+    fireEvent.click(lastBtn(az.start))
+    expect(createTrupp.mock.calls[0][0].readings).toEqual([expect.objectContaining({ kind: 'registered', measured: true })])
+  })
+})
+
+describe('staging: the empty board, the SiTr chip, the held pinned row', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+
+  it('an empty board offers «Trupp anmelden» itself', () => {
+    mount({ trupps: [] })
+    const door = screen.getAllByRole('button', { name: new RegExp(az.start) }).find((b) => b.className.includes(s.emptyAct))!
+    fireEvent.click(door)
+    expect(screen.getByRole('dialog', { name: az.formCreateTitle })).toBeTruthy()
+  })
+
+  it('the phone head button carries a word, not a bare «+»', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [] })
+    expect(firstBtn(az.newTrupp).textContent).toContain(az.newTruppShort)
+  })
+
+  it('a Sicherungstrupp keeps its «SiTr» mark once it is in — card and row', () => {
+    mount({ trupps: [{ ...aktivTrupp(), auftrag: 'sichern' }] })
+    expect(screen.getByLabelText(az.safetyTitle).textContent).toBe(az.safetyChip)
+    cleanup()
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), auftrag: 'sichern' }] })
+    expect(screen.getByLabelText(az.safetyTitle).textContent).toBe(az.safetyChip)
+    cleanup()
+    mount({ trupps: [{ ...aktivTrupp(), auftrag: 'loeschen' }] })
+    expect(screen.queryByLabelText(az.safetyTitle)).toBeNull()
+  })
+
+  it('while held, a confirmed pinned row says «Kontakt ok» — no due wording left beside it', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), id: 'w', name: 'Warn Wanda', lastContactTime: iso(5.5 * 60_000) }] })
+    fireEvent.click(firstBtn(az.newTrupp))
+    const pinned = screen.getByRole('region', { name: az.pinnedLabel })
+    fireEvent.click(within(pinned).getByRole('button', { name: `${az.actContact}: Warn Wanda` }))
+    expect(within(pinned).getByText(az.clockOk)).toBeTruthy()
+    expect(within(pinned).queryByText(az.clockWarn)).toBeNull()
+  })
+})
+
+/* ── Staging walk-through r2, 25.09.2026 ──────────────────────────────────────────────────────── */
+describe('staging r2: numbers, the Link\'s first Trupp, and «nicht eingesetzt»', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+
+  it('the collapsed phone row carries the Trupp number beside the leader (N15)', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), no: 4 }] })
+    const row = screen.getByText('Steiner').closest(`.${s.trow}`) as HTMLElement
+    expect(within(row).getByText('#4')).toBeTruthy()
+  })
+
+  it('the handed-over phone board opens on the most urgent crew inside, not on a Trupp that is out (N18)', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ lite: { subtitle: 'Brand' }, trupps: [
+      { ...aktivTrupp(), id: 'o', name: 'Out Otto', status: 'raus', exitTime: iso(60_000), order: 0 },
+      { ...aktivTrupp(), id: 'i', name: 'In Ida', lastContactTime: iso(4.5 * 60_000), order: 1 },
+    ] })
+    const card = document.querySelector(`.${s.focusCard}`) as HTMLElement
+    expect(within(card).getByText('In Ida')).toBeTruthy()
+    expect(within(card).queryByRole('button', { name: az.actReenter })).toBeNull()
+  })
+
+  it('a stood-down Trupp reads «Nicht eingesetzt», never «Austritt», and goes «In den Einsatz» (N8)', () => {
+    const stoodDown: Trupp = {
+      ...aktivTrupp(), status: 'raus', entryTime: '', exitTime: iso(60_000),
+      readings: [{ t: iso(5 * 60_000), bar: 300, kind: 'registered' }, { t: iso(60_000), bar: 300, kind: 'exit' }],
+    }
+    mount({ trupps: [stoodDown] })
+    const preview = document.querySelector(`.${s.vrowLast}`)?.textContent ?? ''
+    expect(preview).toContain(az.statusNotDeployed)
+    expect(preview).not.toContain(az.readingKind.exit)
+    expect(screen.getByRole('button', { name: az.actEnterFirst })).toBeTruthy()
   })
 })

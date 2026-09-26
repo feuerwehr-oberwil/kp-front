@@ -507,9 +507,14 @@ export default function App() {
         : appConfig.copy.abschluss.done, { icon: stillQueued ? 'warn' : 'check', tone: stillQueued ? 'warn' : 'success' })
       if (id === activeId) {
         if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
-        const list = await refreshList()
-        setActiveId(null); setActiveMeta(null)
-        if (list[0]) await selectIncident(list[0].id, { meta: list[0] })
+        await refreshList()
+        /* ⚠️ STAY on the Einsatz just closed, read-only (staging walk-through 25.09.2026). This
+           used to open the first OTHER open Einsatz in the list — silently, so the phone that had
+           just closed an Übung stood inside somebody else's live Einsatz with its GPS banner, and
+           the next tap drew in it. The closed one shows what was closed (its ArchivedBanner
+           carries «Wieder öffnen»); «Zurück» goes to the list, never into another Einsatz. */
+        await selectIncident(id, { readOnly: true }).catch(() => { setActiveId(null); setActiveMeta(null) })
+        archiveReturnRef.current = null
       } else {
         await refreshList()
       }

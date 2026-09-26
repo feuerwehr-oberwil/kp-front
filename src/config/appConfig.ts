@@ -631,6 +631,12 @@ const base = {
       { id: 'freihand', label: 'Freihand', defaults: { arrow: false, marker: '', showDistance: false } },
       { id: 'pfeil', label: 'Pfeil', defaults: { arrow: true, marker: '', showDistance: false, dashed: false } },
       { id: 'rettungsachse', label: 'Rettungsachse', defaults: { arrow: true, marker: 'R', showDistance: false, dashed: true } },
+      // The Lage-Grundgerüst's Zufahrt (24.09.2026): modelled on the Rettungsachse — an arrow
+      // with its own letter along it, SOLID so the two never read alike on the Kroki. Its label
+      // is a compatibility key: station config names it (`lageGrundgeruest` · `linie: "Zufahrt"`,
+      // backend lage_grundgeruest · LINE_PRESETS), and the Verlauf says «Zufahrt gezeichnet».
+      // ⚠️ After «Pfeil»: linePresetLabel keeps the LAST preset a line matches.
+      { id: 'zufahrt', label: 'Zufahrt', defaults: { arrow: true, marker: 'Z', showDistance: false, dashed: false } },
     ] as { id: string; label: string; defaults: { arrow?: boolean; marker?: string; showDistance?: boolean; dashed?: boolean; color?: string } }[],
     /** subtle ink casing under a selected drawing — markers/symbols instead pop on select */
     selectColor: '#1b2330',
@@ -659,6 +665,11 @@ const base = {
     pressureMax: 320,
     /** Eingangsdruck the wizard starts on (6.8 L / 300 bar cylinder in service) */
     defaultPressureBar: 300,
+    /** the lowest Eingangsdruck taken without a question (24.09.2026, Übung 23.09.: 60 and 180 bar
+     *  went through as entries). Below it, registering, re-entering on a new cylinder or correcting
+     *  asks ONCE, with the value on the button (AtemschutzView · TruppForm). No upper bound on
+     *  purpose. 0 switches the question off. */
+    entryPressureMin: 270,
     /** Alarmdruck (bar) – at or below it the Trupp turns back, and the card says so on the
      *  logged Druck AND on the expected-pressure Schätzung. The single pressure threshold there
      *  is; 0 switches it off. Visual only: it never touches the contact-clock alarm, which

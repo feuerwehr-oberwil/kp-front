@@ -1136,6 +1136,12 @@ class DoctrineConfig(BaseModel):
     contactIntervalMin: int | None = None
     contactGraceSec: int | None = None
     defaultPressureBar: int | None = None
+    #: The lowest Eingangsdruck the Trupp form takes without asking once (24.09.2026): below it,
+    #: registering, re-entering on a new cylinder or correcting asks «180 bar ist für einen Eintritt
+    #: tief (Station: ab 270)» with the value on the confirm button. ``0`` switches the question
+    #: off; unset is the shipped 270. No upper bound on purpose. A frontend-only question — the
+    #: server never refuses a reading over it (a low entry is sometimes simply true).
+    entryPressureMin: int | None = None
     pressureStep: int | None = None
     pressureMax: int | None = None
     #: The two numbers behind the Atemschutz air estimate («noch ≈ 246 bar»): the cylinder's
@@ -1185,6 +1191,17 @@ class DoctrineConfig(BaseModel):
                 self.alarmBarRueckzug,
             )
             self.alarmBarRueckzug = None
+        # The Eingangsdruck minimum only decides whether the form ASKS, so 0 («never ask») is a
+        # legitimate station choice here, unlike on the two alarm lines. Same stored-vs-fresh
+        # split as above: a hand-edited file row out of range degrades to the shipped value.
+        if self.entryPressureMin is not None and not (0 <= self.entryPressureMin <= 300):
+            if not stored:
+                raise ValueError(f"doctrine.entryPressureMin ({self.entryPressureMin}) must be between 0 and 300")
+            logger.warning(
+                "doctrine.entryPressureMin %r is out of range — serving the shipped minimum",
+                self.entryPressureMin,
+            )
+            self.entryPressureMin = None
         return self
 
     @model_validator(mode="after")
@@ -1365,6 +1382,15 @@ class JournalConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
     quickPhrases: list[str] = Field(default_factory=list)
+
+
+class SucheConfig(BaseModel):
+    """The Suche (24.09.2026): `uebergabe` is the short list «weiter an» offers when a found
+    person is handed over (Rettungsdienst · Sammelplatz · Angehörige). Empty = the app's national
+    default; the operator can always type another."""
+
+    model_config = ConfigDict(extra="ignore")
+    uebergabe: list[str] = Field(default_factory=list)
 
 
 class ReportConfig(BaseModel):
@@ -1759,6 +1785,154 @@ class SetupConfig(BaseModel):
     acknowledged: list[str] = Field(default_factory=list)
 
 
+class LageVorschlag(BaseModel):
+    """Where the Grundgerüst card suggests putting a slot's symbol — a starting point to drag.
+
+    Exactly one kind: ``{"naechster": "hydrant"}`` (the nearest point of the station's hydrant
+    layer, straight-line) or ``{"wind": "auf", "m": N}`` (N metres upwind of the Einsatzort, off
+    the incident's current weather). Absent = no suggestion; the row then only arms the tool.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    naechster: Literal["hydrant"] | None = None
+    wind: Literal["auf"] | None = None
+    m: int | None = Field(default=None, ge=5, le=2000)
+
+    @model_validator(mode="after")
+    def _one_kind(self) -> "LageVorschlag":
+        if (self.naechster is None) == (self.wind is None):
+            raise ValueError("vorschlag: exactly one of «naechster» ('hydrant') or «wind» ('auf', with «m»)")
+        if self.wind is not None and self.m is None:
+            raise ValueError("vorschlag: «wind» needs «m», the metres upwind of the Einsatzort")
+        if self.naechster is not None:
+            # a distance means nothing to «the nearest hydrant»; dropped rather than refused
+            self.m = None
+        return self
+
+
+_LAGE_SLOT_KEYS = ("id", "label", "symbol", "linie", "vorschlag", "optional")
+
+
+class LageSlot(BaseModel):
+    """One row of a Lage-Grundgerüst: a thing the Karte should carry, and how to place it.
+
+    ``symbol`` (a name from public/tactical-symbols.json) XOR ``linie`` (a line preset label) —
+    checked against both vocabularies in ``lage_grundgeruest.check_slot_target``, with a
+    did-you-mean. ``optional`` rows are shown but never counted towards «fertig».
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    label: str = Field(min_length=1, max_length=80)
+    symbol: str | None = None
+    linie: str | None = None
+    vorschlag: LageVorschlag | None = None
+    optional: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _misspelled_target(cls, raw: Any) -> Any:
+        # A slot with neither target is refused below; when the reason is a misspelled KEY
+        # («symbl»), say so here, where the raw keys are still visible.
+        if isinstance(raw, dict) and not raw.get("symbol") and not raw.get("linie"):
+            from .lage_grundgeruest import did_you_mean
+
+            for key in raw:
+                if key in _LAGE_SLOT_KEYS:
+                    continue
+                guess = did_you_mean(str(key), _LAGE_SLOT_KEYS)
+                if guess:
+                    raise ValueError(f"unknown key {key!r} — did you mean {guess!r}?")
+        return raw
+
+    @model_validator(mode="after")
+    def _placeable(self) -> "LageSlot":
+        from .lage_grundgeruest import check_slot_target
+
+        if not self.label.strip():
+            raise ValueError("label: must not be blank")
+        check_slot_target(self.symbol, self.linie)
+        if self.linie is not None and self.vorschlag is not None:
+            # a suggestion is a POINT; a line is drawn from the Zufahrt's start to its end
+            raise ValueError("vorschlag: a «linie» slot takes no suggestion — a line is drawn, not set")
+        return self
+
+
+class LageGrundgeruestConfig(BaseModel):
+    """`lageGrundgeruest` — which shipped preset runs, and the Einsatzarten the station replaced.
+
+    ``{"preset": "fks-standard"}`` alone is a whole, valid answer (and the default). A key under
+    ``kategorien`` (an alarm keyword category, e.g. ``brandbekaempfung``) REPLACES that one
+    Einsatzart of the preset; an empty list there means «no Grundgerüst for this Einsatzart».
+    Presets: app/data/lage_grundgeruest/*.json; docs/CONFIGURATION.md §1e.
+
+    A STORED document is read leniently (``context={"stored": True}``): a slot today's rules
+    refuse — a symbol renamed in a newer pack — is dropped and logged rather than taking the whole
+    station config down, like every other rule grown since a row was written (load_stored_config).
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    preset: str = "fks-standard"
+    kategorien: dict[str, list[LageSlot]] = Field(default_factory=dict)
+
+    @field_validator("kategorien", mode="before")
+    @classmethod
+    def _stored_drops_what_it_cannot_read(cls, raw: Any, info: ValidationInfo) -> Any:
+        if not (info.context or {}).get("stored") or not isinstance(raw, dict):
+            return raw
+        from pydantic import ValidationError
+
+        from .divera import CATEGORY_LABELS
+
+        kept: dict[str, list[Any]] = {}
+        for category, slots in raw.items():
+            if category not in CATEGORY_LABELS or not isinstance(slots, list):
+                logger.warning("lageGrundgeruest.kategorien.%s: not a known category list — ignored", category)
+                continue
+            rows: list[Any] = []
+            seen: set[str] = set()
+            for i, slot in enumerate(slots):
+                try:
+                    ok = LageSlot.model_validate(slot)
+                except ValidationError as e:
+                    logger.warning("lageGrundgeruest.kategorien.%s[%d] dropped: %s", category, i, e.errors()[0]["msg"])
+                    continue
+                if ok.id in seen:
+                    continue
+                seen.add(ok.id)
+                rows.append(slot)
+            kept[category] = rows
+        return kept
+
+    @model_validator(mode="after")
+    def _known_names(self, info: ValidationInfo) -> "LageGrundgeruestConfig":
+        from .divera import CATEGORY_LABELS
+        from .lage_grundgeruest import DEFAULT_PRESET, PRESETS, hint
+
+        if self.preset not in PRESETS:
+            if (info.context or {}).get("stored"):
+                logger.warning(
+                    "lageGrundgeruest.preset %r is not shipped by this build — using %s", self.preset, DEFAULT_PRESET
+                )
+                self.preset = DEFAULT_PRESET
+            else:
+                raise ValueError(
+                    f"preset {self.preset!r} is not a shipped preset{hint(self.preset, PRESETS)} "
+                    f"(shipped: {', '.join(sorted(PRESETS))})"
+                )
+        for category, slots in self.kategorien.items():
+            if category not in CATEGORY_LABELS:
+                raise ValueError(
+                    f"kategorien.{category}: not an Einsatzart{hint(category, CATEGORY_LABELS)} "
+                    f"(the alarm keyword categories: {', '.join(CATEGORY_LABELS)})"
+                )
+            ids = [s.id for s in slots]
+            dupes = sorted({i for i in ids if ids.count(i) > 1})
+            if dupes:
+                raise ValueError(f"kategorien.{category}: slot id(s) used twice: {', '.join(dupes)}")
+        return self
+
+
 class DeploymentConfigIn(BaseModel):
     """The full config document an admin PUTs. All sections optional → `{}` is valid.
 
@@ -1783,6 +1957,7 @@ class DeploymentConfigIn(BaseModel):
     # docs/CONFIGURATION.md says why, and says to copy the shipped file to add one keyword).
     alarmKeywords: AlarmKeywordsConfig | None = None
     report: ReportConfig = Field(default_factory=ReportConfig)
+    suche: SucheConfig = Field(default_factory=SucheConfig)
     # ⚠️ Declared HERE or it does not survive a save: every model in this document is
     # `extra="ignore"`, so an undeclared section is dropped on the next round-trip and the
     # station's folders vanish the first time anybody presses save in /admin.
@@ -1790,6 +1965,9 @@ class DeploymentConfigIn(BaseModel):
     # Same reason as sharepoint above: declared here or the hand ticks on the «Einrichtung»
     # card are dropped on the next save (see SetupConfig).
     setup: SetupConfig = Field(default_factory=SetupConfig)
+    # The Lage-Grundgerüst card on the Karte: a shipped preset plus the Einsatzarten the station
+    # replaced (LageGrundgeruestConfig, app/lage_grundgeruest.py). Default = «fks-standard».
+    lageGrundgeruest: LageGrundgeruestConfig = Field(default_factory=LageGrundgeruestConfig)
     # Accepted on input but not authoritative (kept loose; not echoed from the document).
     # Future asset-upload slice: validate that identity.assets.* reference existing entries in
     # asset storage. Skipped while assets are still provisioned outside this document.
@@ -1897,6 +2075,10 @@ class DeploymentConfigOut(DeploymentConfigIn):
     # Derived from the document, not stored: a one-glance answer to "shipped or ours?" that
     # does not require reading (or understanding) the whole `alarmKeywords` block above.
     alarmVocabulary: AlarmVocabularyStatus = Field(default_factory=AlarmVocabularyStatus)
+    # The shipped Lage-Grundgerüst presets, name → {beschreibung, kategorien} — what
+    # `lageGrundgeruest.preset` points at. Served, not stored: the field app resolves an
+    # Einsatzart against them (src/lib/lageGrundgeruest · slotsFor) and /admin resets to them.
+    lageGrundgeruestPresets: dict[str, dict[str, Any]] = Field(default_factory=dict)
     # Opaque version token of the stored document — hand it back on the next PUT and a write
     # against a document somebody else has since changed is refused (409) instead of silently
     # winning. See app/api/config · put_config. NOT part of the document; `DeploymentConfigIn`

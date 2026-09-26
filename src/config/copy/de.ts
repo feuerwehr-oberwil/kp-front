@@ -232,7 +232,7 @@ export const de = {
         id: 'atemschutz', title: 'Trupps & Atemschutzüberwachung', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Lückenlose Überwachung jedes Atemschutztrupps nach FKS – das Sicherheitssignal ist die **Zeit seit dem letzten Funkkontakt**, nicht eine geschätzte Restzeit.' },
-          { kind: 'sub', text: 'Trupp erstellen' },
+          { kind: 'sub', text: 'Trupp anmelden' },
           { kind: 'list', items: [
             '**Wer geht rein**: drei Slots, der oberste ist der **GF** – die ganze Zeile antippen macht jemanden zum Gruppenführer, das **✕** entfernt ihn. Ein grösserer Trupp hängt einfach weitere Zeilen an.',
             'Über die **Personensuche** wird das ganze Personal gefunden, nicht nur die Anwesenden; neben jedem Namen steht, was dagegen spricht (nicht anwesend, Magazin, schon in einem Trupp). **(+)** erfasst einen Gast (Nachbarwehr) – der landet zugleich in der Anwesenheit und gilt dort als derselbe Mensch.',
@@ -705,6 +705,11 @@ export const de = {
    *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf
    *  bekommen hat); Karte und Plan führen ein Dokument, das viele kleine Schritte kennt. */
   undoDomains: {
+    /** a Karte placement names what it placed (placeSymbolAt, the Lage-Grundgerüst) */
+    symbolPlaced: '{name} gesetzt',
+    symbolToKarte: '{name} auf die Karte übernommen',
+    objectChanged: '{name} geändert',
+    objectsChanged: '{n} Objekte geändert',
     /** Die Passung eines Plans wurde korrigiert — ein Schritt für alle neu verorteten Objekte. */
     reference: 'Referenz angepasst',
     /** ⚠️ Dieselbe Rückverortung, aber NIEMAND hat die Referenz angefasst: die App hat das
@@ -722,6 +727,8 @@ export const de = {
     rapport: 'Rapport',
     zeitplan: 'Zeitplan',
     ansicht: 'Ansicht',
+    /** Suche: eine Person oder ein Bereich — Meldung, Fund, Status, Teilung. */
+    suche: 'Suche',
   },
   play: 'Abspielen',
   clear: 'Suche löschen',
@@ -746,6 +753,11 @@ export const de = {
     { id: 'note', icon: 'type', label: 'Notiz', kind: 'tool' },
     { id: 'team', icon: 'flag', label: 'Trupp', kind: 'tool' },
     { id: 'measure', icon: 'measure', label: 'Messen', kind: 'tool' },
+    // Not a tool: it shows the Lage-Grundgerüst card again (IncidentWorkspace · pick intercepts
+    // it, the rail lights it while the card is open). On a phone it lives in the «+» sheet
+    // (lib/toolFold · ADD_TOOLS) — everything on that sheet puts something on the Karte, and so
+    // does every row of the card.
+    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Grundgerüst' },
   ],
   // Plan/whiteboard tool list — mirrors mapTools' ordering (Auswahl · Symbol · then the create
   // tools) so the two shared tool rails read the same. Symbol leads the create group as a plain
@@ -811,6 +823,11 @@ export const de = {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
+    /** …per input mode, because the two take different gestures: «Freihand» draws only with a
+     *  drag (a tap does nothing), «Punkte» only with taps and ✓. The Lage-Grundgerüst row armed
+     *  for a line says the Punkte sentence's first half word for word (lageGrundgeruest.armedLine). */
+    lineFreehand: 'Auf der Karte ziehen, um eine Linie zu zeichnen. Für einzelne Punkte: «Punkte». Farbe, Breite und Stil danach im Editor.',
+    lineNodes: 'Punkte auf die Karte tippen, mit ✓ abschliessen. Farbe, Breite und Stil danach im Editor.',
     area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -1079,6 +1096,8 @@ export const de = {
   log: {
     audioNote: 'Audionotiz',
     symbolPlaced: 'Symbol «{name}» gesetzt',
+    /** «auf die Karte übernehmen» — a plan-anchored object re-anchored onto the Karte (Lage-Grundgerüst) */
+    symbolToKarte: '«{name}» vom Plan auf die Karte übernommen',
     shapePlaced: '{name} platziert',
     notePlaced: 'Notiz gesetzt',
     teamPlaced: '{name} auf der Karte gesetzt',
@@ -1608,7 +1627,7 @@ export const de = {
     asMark: 'AS',
     empty: 'Noch kein Trupp in Überwachung.',
     emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
-    newTrupp: 'Trupp erstellen',
+    newTrupp: 'Trupp anmelden',
     // «Überwachung abgeben» — der QR neben der Glocke: die Tafel dieses Einsatzes auf ein
     // fremdes Handy geben, damit jemand ohne Login nur den Atemschutz bedient. Nur für
     // Bearbeiter, und nicht auf der abgegebenen Tafel selbst.
@@ -1652,7 +1671,7 @@ export const de = {
     // Erfassungs-App (capture.clockSkew).
     clockSkewChip: 'Geräteuhr weicht ab ({d} Min.)',
     // create / edit / re-deploy form (one shared form, section labels + per-mode titles)
-    formCreateTitle: 'Trupp erstellen',
+    formCreateTitle: 'Trupp anmelden',
     formEditTitle: 'Trupp bearbeiten',
     // «in den Einsatz», nie «einrücken» (09.09.) – siehe die Notiz bei entryAskTitle
     formRedeployTitle: 'Wieder in den Einsatz',
@@ -1708,8 +1727,8 @@ export const de = {
     orderManual: 'Wie gesetzt',
     orderAuftrag: 'Auftrag',
     orderName: 'Name',
-    moveBack: 'Karte nach vorne schieben',
-    moveForward: 'Karte nach hinten schieben',
+    moveBack: 'Nach oben holen',
+    moveForward: 'Nach unten stellen',
     leaderLabel: 'Gruppenführer',
     // (`guestNamePlaceholder` / `teamAdd` / `typeName` sind mit dem zweiten Feld weg, zu dem sie
     //  gehörten – siehe `teamGuestAdd` unten. Seit 11.09. gilt das auch für PersonField: dort
@@ -2138,6 +2157,11 @@ export const de = {
      * er ist der Normalfall, und sein Eingangsdruck sagt es ohnehin.
      */
     logEntryNoAs: 'Trupp {name}: Eintritt – ohne Atemschutz',
+    /** …und der Sicherungstrupp, der hineingeht (24.09.2026, D1 ⑦): er wird nur geschickt, wenn
+     *  drinnen etwas schiefgeht – die Zeile, nach der eine Rekonstruktion zuerst sucht. Abgeleitet
+     *  vom Trupp (Auftrag «Sichern», erster Eintritt), nicht vom Knopf (useTruppActions ·
+     *  setTruppStatus). */
+    logSafetyEntry: 'Trupp {name}: Sicherungstrupp eingesetzt',
     logContact: 'Trupp {name}: Kontakt bestätigt',
     logPressure: 'Trupp {name}: Druck {bar} bar',
     // Rückzug and Fortsetzen reset the contact clock; that has to be in the Verlauf, otherwise
@@ -2278,6 +2302,54 @@ export const de = {
     safetyNoneHint: 'Ein Trupp ist drin',
     safetyNoneHintMany: '{n} Trupps sind drin',
     safetyPick: 'Bestimmen',
+    /* ── Handy-Tafel, zweite Runde (24.09.2026, D1 ⑥ ⑦ ⑧a, Punkt 2) ─────────────────────────── */
+    // der leere Platz, solange noch niemand drin ist – ruhig, nicht amber
+    safetyNoneExpected: 'Ab dem 1. Trupp drin wird er erwartet',
+    // «Bestimmen» mit bereiten Trupps: einen davon nehmen oder einen neuen anmelden
+    safetyPickTitle: 'Sicherungstrupp bestimmen',
+    safetyPickNew: 'Neuen Trupp anmelden (Sichern)',
+    // die fälligen Trupps über dem Anmelde-Sheet (Bereichsname für Screenreader)
+    pinnedLabel: 'Fällige Trupps',
+    // Kontakt, den ein ANDERES Gerät vor weniger als 60 s schon bestätigt hat (lib/contactEcho)
+    contactEchoMsg: '{name}: Kontakt wurde vor {s} s schon bestätigt (anderes Gerät).',
+    contactEchoAgain: 'Nochmals',
+    contactEchoOk: 'OK',
+    /* ── Staging-Durchgang 25.09.2026 ── */
+    // Bearbeiten als Patch: ein Feld, das inzwischen ein anderes Gerät geändert hat
+    editConflictOne: '{field} wurde inzwischen auf einem anderen Gerät geändert: {now} – trotzdem überschreiben?',
+    editConflictMany: '{fields} wurden inzwischen auf einem anderen Gerät geändert – trotzdem überschreiben?',
+    editConflictOverwrite: 'Überschreiben',
+    editConflictBack: 'Zurück zum Formular',
+    editFieldLabels: { crew: 'Mannschaft', auftrag: 'Auftrag', ziel: 'Ziel', lineNo: 'Leitung', funkkanal: 'Funkkanal', pressure: 'Eingangsdruck', kind: 'Art des Trupps', equipment: 'Ausrüstung' },
+    // die erste Druckmeldung nach dem Eintritt: ersetzt einen Eingangsdruck, den niemand gesetzt hat, und ist ein Kontakt
+    logFirstPressure: 'Trupp {name}: Kontakt – erste Druckmeldung {bar} bar ersetzt den Eingangsdruck {from} bar',
+    logFirstPressureSame: 'Trupp {name}: Kontakt – erste Druckmeldung {bar} bar (wie Eingangsdruck)',
+    pressureSheetFirst: 'Erste Druckmeldung – ersetzt den Eingangsdruck {bar} bar, zählt als Kontakt',
+    // der Knopf im Kopf der Tafel trägt auch am Handy sein Wort
+    newTruppShort: 'Trupp',
+    // kleine Marke am Sicherungstrupp, auch nachdem er eingesetzt ist
+    safetyChip: 'SiTr',
+    /* ── Staging-Durchgang 2, 25.09.2026 ── */
+    // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, AGENTS.md)
+    removedToast: 'Trupp {name} entfernt',
+    // «Entfernen» auf einem Trupp, der DRIN ist: zuerst fragen, «Raus melden» ist die sichere Antwort
+    removeInsideTitle: 'Trupp {name} ist drin – erst rausmelden?',
+    removeInsideMsg: 'Entfernen nimmt den Trupp von der Tafel und aus jedem Alarm. Meist ist gemeint: Der Trupp ist draussen.',
+    // der Weg hinein für einen Trupp, der nie drin war («Wieder» wäre falsch)
+    actEnterFirst: 'In den Einsatz',
+    contactDone: 'Bestätigt',
+    // Eingangsdruck eines Trupps, der schon raus ist: gesperrt (Punkt 2)
+    pressureLockedLabel: 'Eingangsdruck ({t})',
+    pressureLockedLabelPlain: 'Eingangsdruck',
+    pressureLocked: 'Trupp ist raus',
+    pressureLockedExit: 'Restdruck beim Austritt ({t}): {bar} bar',
+    pressureLockedHint: 'Nach dem Austritt gesperrt. Eine Korrektur gehört als Eintrag in den Verlauf.',
+    // …und die EINE Plausibilitätsfrage: ein Eingangsdruck unter dem Stationsminimum
+    // (doctrine.entryPressureMin). Die Zahl steht auf dem Knopf.
+    entryLowMsg: '{bar} bar ist für einen Eintritt tief (Station: ab {min}). Stimmt das, meldet der Trupp gleich einen Alarm bei ≤{alarm}.',
+    entryLowMsgNoAlarm: '{bar} bar ist für einen Eintritt tief (Station: ab {min}).',
+    entryLowConfirm: '{bar} bestätigen',
+    entryLowChange: 'Ändern',
     bottleAsk: 'Vor {min} min raus, zuletzt {bar} bar. Welche Flasche?',
     bottleAskNow: 'Gerade raus, zuletzt {bar} bar. Welche Flasche?',
     bottleSame: 'Gleiche Flasche',
@@ -2345,6 +2417,11 @@ export const de = {
     // all – the toast was gone and the Trupp had never existed.
     logRemoved: 'Trupp {name} gelöscht',
     logRestored: 'Trupp {name} wiederhergestellt',
+    // Der Einsatz wird abgeschlossen, während ein Trupp noch als drin geführt ist (staging r3 F4):
+    // eine Zeile pro Trupp, damit der Verlauf sagt, was beim Abschluss offen war – ein Austritt
+    // wird NICHT erfunden. Auf dem Rapport endet der Einsatz des Trupps mit dem Zusatz unten.
+    logInsideAtClose: 'Trupp {name} beim Abschluss noch drin',
+    cycleEndAtClose: '{t} (beim Abschluss noch drin)',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
@@ -3283,6 +3360,11 @@ export const de = {
   // Wörter sind für Screenreader und Tooltips da, nicht für die Zeile selbst.
   meldeleiste: {
     region: 'Meldungen',
+    // Auf der Trupp-Tafel steht nur die dringendste Meldung offen (staging r3): zwei Zeilen
+    // deckten am Telefon die Uhr des ersten Trupps zu. Der Rest ist eine Zahl, die aufklappt.
+    more: '+{n} weitere Meldung',
+    moreMany: '+{n} weitere Meldungen',
+    less: 'Weniger anzeigen',
   },
   // single-editor tab lock: a second browser tab on the SAME incident is read-only
   // the session cookie expired mid-Einsatz (api.ts · SESSION_EXPIRED_EVENT): every request 401s
@@ -3316,6 +3398,42 @@ export const de = {
     title: 'Standort auf Karte setzen',
     hint: 'Auf die Karte tippen, um den Standort zu setzen',
     confirm: 'Standort übernehmen',
+  },
+  // The Lage-Grundgerüst card on the Karte (components/LageGrundgeruestCard, lib/lageGrundgeruest).
+  lageGrundgeruest: {
+    title: 'Lage-Grundgerüst',
+    /** the phone strip's word — the rail entry's word, so the two doors read as one thing */
+    short: 'Grundgerüst',
+    /** «2 / 6» — optional rows count in neither half */
+    count: '{done} / {total}',
+    hide: 'ausblenden',
+    hideAria: 'Lage-Grundgerüst ausblenden',
+    expand: 'Lage-Grundgerüst aufklappen',
+    collapse: 'Lage-Grundgerüst zuklappen',
+    /** the card opened from the rail with everything in place */
+    complete: 'Alles gesetzt.',
+    /** a known Einsatzart the station gave no list */
+    empty: 'Für diese Einsatzart ist kein Grundgerüst eingerichtet.',
+    /** no Einsatzart known — the Brand list stands in (lib/lageGrundgeruest · slotsFor) */
+    fallback: 'Einsatzart unbekannt – Grundgerüst Brand',
+    optional: 'optional',
+    /** a row whose place tool is armed: the next Karte tap places it */
+    armed: 'Auf die Karte tippen',
+    armedLine: 'Punkte auf die Karte tippen, mit ✓ abschliessen',
+    placeHere: 'hier setzen',
+    hydrant: 'Hydrant Nr. {nr} · {dist}',
+    hydrantNoNr: 'Nächster Hydrant · {dist}',
+    wind: 'Wind {from} · Vorschlag {dir}, {m} m',
+    /** where an upwind suggestion lies, by the same eight sectors as `weather.cardinals` */
+    directions: ['nördlich', 'nordöstlich', 'östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich'] as string[],
+    /** ticked by an object that exists only on a plan with no Karte fit */
+    toKarte: 'auf die Karte übernehmen',
+    /** the label a Wasserbezugsort set at a hydrant carries (the layer's own number) */
+    hydrantLabel: 'Hydrant {nr}',
+    planOnly: 'auf dem Plan',
+    noHydrant: 'Kein Hydrant im Umkreis von {m} m',
+    windAt: '{from} ({time})',
+    noLocation: 'Vorschläge folgen, sobald der Einsatzort gesetzt ist.',
   },
   // weather badge + popover (TopBar · WeatherBadge) — condition labels, cardinals, readout rows
   weather: {
@@ -3978,6 +4096,23 @@ export const de = {
     // …und wenn noch etwas offen ist, sagt es der Knopf. Abschliessen ist erlaubt – das ist der
     // Ort, an dem das ausgesprochen wird, statt hinter einem gleich beschrifteten Knopf.
     confirmAnyway: 'Trotzdem abschliessen',
+    /* Ein Atemschutz-Trupp, der beim Abschluss noch ANGEMELDET ist (24.09.2026, D1 ⑦): typisch
+       der Sicherungstrupp, der bereitstand und nie hinein musste. Vor der eigentlichen Frage
+       gestellt; «nicht eingesetzt» ist derselbe Abschluss wie auf der Karte (Trupp … nicht
+       eingesetzt). */
+    registeredOne: '1 Trupp noch angemeldet ({list}).',
+    registeredMany: '{n} Trupps noch angemeldet ({list}).',
+    registeredSafety: '{name}, Sicherungstrupp',
+    registeredToBoard: 'Zur Tafel',
+    registeredStandDown: 'Als «nicht eingesetzt» schliessen',
+    // Trupps, die beim Abschluss noch DRIN sind: eine eigene, erste Frage
+    insideOne: '1 Trupp ist noch drin: {list}.',
+    insideMany: '{n} Trupps sind noch drin: {list}.',
+    insideTrupp: 'Trupp {name}',
+    insideClose: 'Trotzdem abschliessen',
+    insideTitle: 'Trupps noch drin',
+    // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
+    confirmBack: 'Zurück',
     done: 'Rapport abgeschlossen',
     doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
     failed: 'Abschluss fehlgeschlagen',
@@ -4141,6 +4276,8 @@ export const de = {
     areaMittel: 'Material',
     areaChecklist: 'Checkliste',
     areaRapport: 'Rapport',
+    // Personen und Bereiche der Suche (lib/suche) — jede Statusänderung ist eine eigene Zeile
+    areaSuche: 'Suche',
     // ⚠️ Die Zeilen, die der SERVER selbst schreibt (Rapport abgeschlossen, Einsatz
     // abgeschlossen, Einsatz wiedereröffnet). Sie tragen weder `kind` noch `surface`, fielen
     // deshalb bis 04.09. ans Ende der Kette durch und standen im gedruckten Journal unter
@@ -4158,6 +4295,7 @@ export const de = {
     drawAreaLabeled: 'Abschnitt «{label}»',
     drawArea: 'Fläche',
     drawRescueAxis: 'Rettungsachse',
+    drawAccessRoute: 'Zufahrt',
     drawMeasureArrow: 'Masspfeil',
     drawLine: 'Linie',
   },
@@ -4291,6 +4429,7 @@ export const de = {
     toggleMittel: 'Material ({n})',
     toggleJournal: 'Einsatzjournal',
     togglePendenzen: 'Aufträge / Pendenzen ({n})',
+    togglePersonen: 'Personen ({n})',
     toggleAttachments: 'Fotos ({n})',
     // the Beilagen in ORIGINAL quality as one ZIP + manifest — for the digital Ablage
     archiveZip: 'Beilagen herunterladen (ZIP)',
@@ -4982,6 +5121,205 @@ export const de = {
     editEntry: 'Bearbeiten …',
     scrollHint: 'Waagrecht rollen für weitere Schichten',
   },
+  // «Suche» (24.09.2026, Schritt 1): Personen (vermisst → gefunden → übergeben) und Bereiche
+  // (offen / in Arbeit / abgesucht) in EINER Liste neben dem Gebäude oder der Karte. Jede
+  // Änderung schreibt eine Verlaufszeile mit ihren eigenen Worten (lib/suche).
+  suche: {
+    title: 'Suche',
+    // Rail, Werkzeugleiste, Kopfchip
+    rail: 'Suche',
+    close: 'Suche schliessen',
+    vermisstChip: '{n} vermisst',
+    vermisstChipHint: 'Personen öffnen',
+    tabPersonen: 'Personen',
+    tabBereiche: 'Bereiche',
+    // die eine Zeile des zugeklappten Handy-Blatts
+    peek: 'Suche · {vermisst} · Bereiche {done}/{total}',
+    peekNobody: 'niemand vermisst',
+    peekVermisst: '{n} vermisst',
+    peekNoBereiche: 'Suche · {vermisst}',
+    sheetExpand: 'Liste aufziehen',
+    sheetCollapse: 'Liste zuklappen',
+    surfaceGebaeude: 'Gebäude',
+    surfaceKarte: 'Karte',
+    surfaceSwitch: 'Unterlage',
+    // Zustände
+    status: { vermisst: 'vermisst', gefunden: 'gefunden', uebergeben: 'übergeben', entwarnt: 'entwarnt', irrtuemlich: 'irrtümlich' },
+    bereichStatus: { offen: 'offen', inArbeit: 'in Arbeit', teilweise: 'teilweise abgesucht', abgesucht: 'abgesucht', nichtZugaenglich: 'nicht zugänglich' },
+    fund: 'Fund',
+    sucht: '{trupp} sucht',
+    ganzesGeschoss: 'ganzes Geschoss',
+    uebrigesGeschoss: 'übriges Geschoss',
+    unbekannt: 'unbekannt',
+    unnamed: 'Person ohne Namen',
+    groupUnnamed: 'Gruppe ohne Namen',
+    groupPersons: '{n} Pers.',
+    groupFound: '{found} / {count} gefunden',
+    groupMissing: '{n} vermisst',
+    since: 'seit {t}',
+    progress: '{done}/{total}',
+    storeyUnknown: 'Geschoss unbekannt',
+    ohneGeschoss: 'Ohne Geschoss',
+    // Liste
+    addVermisst: 'Vermisst',
+    addGefunden: 'Gefunden',
+    addBereich: 'Bereich',
+    emptyPersonen: 'Niemand vermisst',
+    emptyPersonenSub: 'Wer vermisst gemeldet wird, steht hier – mit Geschoss, Quelle und Zeit. Jede Änderung schreibt der Verlauf mit.',
+    emptyBereiche: 'Noch keine Bereiche',
+    emptyBereicheSub: 'Mit einem Gebäude wird jedes Geschoss von selbst ein Bereich. Ohne Gebäude: «+ Bereich» mit einem Namen (Gelände, Ufer, Waldstück …).',
+    readOnlyNote: 'Nur ansehen – die Suche führt die Einsatzleitung am Plan.',
+    // + Vermisst
+    formVermisst: 'Vermisst melden',
+    wer: 'Wer',
+    werPlaceholder: 'Name oder Beschreibung',
+    einePerson: 'Eine Person',
+    gruppe: 'Gruppe',
+    anzahl: 'Anzahl',
+    zuletzt: 'Zuletzt gesehen',
+    woGenau: 'Wo genau (optional)',
+    woPlaceholder: 'z. B. Technikraum',
+    quelle: 'Quelle (optional)',
+    quellePlaceholder: 'z. B. Schulleitung',
+    cancel: 'Abbrechen',
+    submitVermisst: 'Als vermisst melden',
+    // Person-Karte
+    back: 'Zurück zur Liste',
+    zuletztLine: 'zuletzt {wo}',
+    quelleLine: 'Quelle {quelle}',
+    gefundenBtn: 'Gefunden …',
+    uebergebenBtn: 'Übergeben …',
+    entwarnenBtn: 'Entwarnen',
+    // Gefunden …
+    formGefunden: '{name} gefunden',
+    von: 'Von',
+    andere: 'anderer',
+    wo: 'Wo',
+    woTaken: '(übernommen)',
+    wieViele: 'Wie viele',
+    weiterAn: 'Weiter an (optional)',
+    bleibtVorOrt: 'bleibt vor Ort',
+    submitGefunden: 'Gefunden',
+    formUebergeben: '{name} übergeben',
+    an: 'An',
+    submitUebergeben: 'Übergeben',
+    // Bereiche
+    formBereich: 'Bereich anlegen',
+    bereichName: 'Name',
+    bereichNamePlaceholder: 'z. B. Aula, Ufer Nord',
+    geschoss: 'Geschoss',
+    submitBereich: 'Anlegen',
+    teilen: 'Teilen',
+    teilenTitle: '{floor} · teilen in',
+    teilenAdd: 'Name',
+    teilenPlaceholder: 'Eigener Name',
+    teilenRest: 'Übriges Geschoss bleibt ein Bereich',
+    teilenSubmit: '{n} Bereiche anlegen',
+    teilenSubmitOne: '1 Bereich anlegen',
+    umbenennen: 'Umbenennen',
+    umbenennenSubmit: 'Übernehmen',
+    statusTitle: 'Status',
+    statusInArbeit: 'in Arbeit · {trupp}',
+    truppPick: 'Welcher Trupp?',
+    truppNone: 'ohne Trupp',
+    // wie die Suche einen Trupp nennt: in der Zeile auf Papier, und kurz auf dem Chip
+    truppLabel: 'Trupp {n}',
+    truppChip: 'T{n} {name}',
+    restEntfernen: 'Kein übriges Geschoss',
+    // die Namen, die «Teilen» als Chips anbietet — jeder andere Name ist frei tippbar
+    teilenChips: ['Trakt 1', 'Trakt 2', 'Trakt 3', 'links', 'rechts', 'Treppenhaus', 'Keller', 'Dach'] as string[],
+    // «weiter an» — die kurze Liste; eine Station ersetzt sie mit `suche.uebergabe` (Stationskonfiguration)
+    uebergabeZiele: ['Rettungsdienst', 'Sammelplatz', 'Angehörige'] as string[],
+    // Verlaufszeilen — der Satz, den der Verlauf, der Rapport und die Liste lesen
+    // Trupps (Tür 3) und die Frage beim Rausgehen
+    fundMelden: 'Fund melden',
+    bereichAbgesucht: 'Bereich abgesucht',
+    fundTitle: 'Fund · {trupp}',
+    fundWer: 'Wen?',
+    fundAndere: 'andere Person',
+    zielChoices: 'Bereich wählen',
+    rausJa: 'Ja',
+    rausTeilweise: 'Teilweise',
+    rausNein: 'Nein',
+    // Warum/Wer bei «Entwarnen» und «Irrtümlich erfasst» (N7) — beides freiwillig, «Abbrechen» ist vorgewählt
+    formEntwarnen: '{name} entwarnen',
+    formIrrtuemlich: '{name} als irrtümlich erfasst streichen',
+    grund: 'Warum? (optional)',
+    grundPlaceholder: 'z. B. telefonisch zu Hause erreicht',
+    werSagt: 'Wer sagt das? (optional)',
+    werSagtPlaceholder: 'z. B. Angehörige',
+    entwarnenGruende: ['telefonisch erreicht', 'zu Hause', 'selbst gemeldet', 'am Sammelplatz'] as string[],
+    irrtuemlichGruende: ['doppelt erfasst', 'Falschmeldung', 'war nie im Gebäude'] as string[],
+    whyQuellen: ['Angehörige', 'Polizei', 'Rettungsdienst', 'Person selbst'] as string[],
+    submitEntwarnen: 'Entwarnen',
+    submitIrrtuemlich: 'Streichen',
+    rowGrund: ' · {grund}',
+    // offene Fragen «abgesucht?» — Kopfchip, Handy-Zeile, Meldeleiste (N13)
+    asksOne: '1 Frage',
+    asksMany: '{n} Fragen',
+    askMeldung: '{trupp} raus – {bereich} abgesucht?',
+    askMeldungOpen: 'In der Suche beantworten',
+    rowVermisst: 'Vermisst: {name}',
+    rowZuletzt: ' · zuletzt {wo}',
+    rowQuelle: ' · Quelle {quelle}',
+    rowGefunden: 'Gefunden: {name}',
+    rowGefundenGroup: 'Gefunden: {n} von {name}',
+    rowWo: ' · {wo}',
+    rowTrupp: ' · {trupp}',
+    rowUebergeben: 'Übergeben: {name} an {an}',
+    rowUebergebenGroup: 'Übergeben: {n} von {name} an {an}',
+    rowEntwarnt: 'Entwarnung: {name}',
+    rowBereich: '{bereich} {status}',
+    rowFund: 'Fund: {bereich}',
+    rowGeteilt: '{floor} geteilt: {names}',
+    rowUmbenannt: 'Bereich umbenannt: {from} → {to}',
+    rowOhneRest: '{floor}: kein übriges Geschoss mehr',
+    rowMitRest: '{floor}: übriges Geschoss wieder als Bereich',
+    rowUndone: 'Zurückgenommen: {text}',
+    rowAn: ' · an {an}',
+    rowKorrigiert: 'Korrigiert: {from} → {to}',
+    rowIrrtuemlich: 'Irrtümlich erfasst: {name}',
+    rowAngelegt: 'Bereich angelegt: {name}',
+    composerRowSuffix: ' · Suche: {change}',
+    composerChangeGefunden: '{name} gefunden',
+    composerChangeNeu: '{name} vermisst',
+    composerKnownGroup: '{name} · {n} von {of} gefunden',
+    composerChangeGefundenGroup: '{n} von {name} gefunden',
+    // Zahlwörter 1 … 12, so wie der Abgleich sie liest (klein, ohne Umlaute: «funf», «zwolf»)
+    countWords: ['eins', 'zwei', 'drei', 'vier', 'funf', 'sechs', 'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwolf'] as string[],
+    rowGefundenOrt: ' · gefunden {wo}',
+    korrigierenGefunden: 'Gefunden (wo)',
+    korrigierenBtn: 'Korrigieren …',
+    formKorrigieren: '{name} korrigieren',
+    submitKorrigieren: 'Übernehmen',
+    irrtuemlichBtn: 'Irrtümlich erfasst',
+    askInline: '{trupp} raus – abgesucht?',
+    asksOpen: '{n} Fragen offen',
+    rowPart: '{floor} {name}',
+    // Verlauf schreiben (Tür 2)
+    composerKnown: '{name} · {from} → {to}',
+    composerNew: 'Neue Person «{name}» vermisst',
+    composerTitle: 'Status in der Suche mitändern',
+    composerKeyword: 'vermisst',
+    // Einsatz-Seitenwahl am Handy
+    chooserMeta: '{n} vermisst',
+    showInSuche: 'In der Suche zeigen',
+    // die Verlaufszeile einer Person oder eines Bereichs führt dorthin zurück
+    // Rapport
+    gerettetStrip: 'Aus Personen: {n}',
+    suchLineAll: 'Suche: {n} Bereiche, alle abgesucht {t}',
+    suchLineOpen: 'Suche: {n} Bereiche, {done} abgesucht · nicht abgesucht: {list}',
+    // Abschluss
+    abschlussVermisst: '{n} Personen noch vermisst',
+    abschlussVermisstOne: '1 Person noch vermisst',
+    abschlussBereiche: 'Nicht abgesucht: {list}',
+    // die eigene Frage vor dem Abschluss (N6)
+    abschlussAskTitle: 'Personen noch vermisst',
+    abschlussAskOne: '1 Person noch vermisst: {list}.',
+    abschlussAskMany: '{n} Personen noch vermisst: {list}.',
+    abschlussAskGroup: '{name} ({n})',
+    abschlussToSuche: 'Zur Suche',
+  },
   // Mittel surface (MittelView) — manual material capture for Rapport / resupply
   mittel: {
     title: 'Material',
@@ -5251,6 +5589,12 @@ export const de = {
         title: 'Checklisten',
         lede: 'Die Vorlagen hinter der Checkliste-Ansicht: Aufgabenlisten, Lagerapport und Merkblätter zum Nachschlagen – Letztere ohne Häkchen, nur zum Lesen.',
         tip: 'Eine Vorlage ist eine JSON-Datei mit einer eigenen «id» – die entscheidet, welche Vorlage ersetzt wird. Wird eine Vorlage unter neuem Namen hochgeladen, bleibt die alte bestehen und wird weiter an alle Geräte ausgeliefert, bis sie hier gelöscht wird.',
+      },
+      grundgeruest: {
+        label: 'Lage-Grundgerüst',
+        title: 'Lage-Grundgerüst',
+        lede: 'Was in den ersten Minuten jedes Einsatzes auf die Karte gehört – pro Einsatzart.',
+        tip: 'Im Einsatz erscheint auf der Karte eine kleine Liste: KP, Zufahrt, Wasserbezug … Jede Zeile setzt ein Symbol oder eine Linie, wo möglich mit Vorschlag (nächster Hydrant, gegen den Wind), und hakt sich selbst ab, sobald das Symbol auf der Karte oder einem Plan steht. Nichts ist Pflicht, nichts wird ohne Tipp gesetzt.',
       },
       mitglieder: { label: 'Mitglieder & Zugriff', title: 'Mitglieder & Zugriff', lede: 'Wer sich anmelden darf, mit welcher Rolle und welcher PIN.' },
       mannschaft: {
@@ -5786,6 +6130,77 @@ export const de = {
       reverseOrder: 'Seiten in umgekehrter Reihenfolge senden',
       reverseOrderHint: 'Für Drucker, die das Blatt mit der bedruckten Seite nach oben auswerfen: der Stapel liegt sonst verkehrt herum und muss von Hand sortiert werden. Wirft dein Drucker nach unten aus, schalte es ab.',
     },
+    // /admin › Lage-Grundgerüst (admin/LageGrundgeruestSection)
+    lageGrundgeruest: {
+      presetTitle: 'Preset',
+      presetTip: 'Das mitgelieferte Grundgerüst gilt für jede Einsatzart, die hier nicht angepasst ist. «fks-standard» ist nach Einsatzart unterschieden, «minimal» setzt überall nur KP, Zufahrt und Sammelplatz.',
+      presetLabel: 'Mitgeliefertes Preset',
+      presetLabelTip: 'Eine angepasste Einsatzart ersetzt die Liste des Presets für diese eine Einsatzart; alle anderen folgen dem Preset.',
+      status: 'Preset: {preset} · {n}',
+      customizedNone: 'keine Einsatzart angepasst',
+      customizedOne: '1 Einsatzart angepasst',
+      customizedMany: '{n} Einsatzarten angepasst',
+      customizedMark: 'angepasst',
+      listTitle: 'Lage-Grundgerüst · {kategorie}',
+      listTip: 'Jede Zeile setzt im Einsatz ein Symbol oder eine Linie auf die Karte. «Vorschlag» bestimmt, wo die Karte das Symbol vorschlägt: beim nächsten Hydranten der Hydrantenebene oder so viele Meter gegen den Wind. Ein Vorschlag ist immer nur ein Startpunkt zum Verschieben.',
+      recordLabel: 'Element',
+      categoriesAria: 'Einsatzart',
+      fromPreset: 'Aus dem Preset «{preset}» – die erste Änderung übernimmt die Liste als eigene.',
+      customized: 'Angepasst – gilt für diese Einsatzart statt des Presets.',
+      reset: 'Auf Preset zurücksetzen',
+      resetConfirm: 'Die eigene Liste verwerfen und wieder dem Preset folgen?',
+      emptyList: 'Keine Elemente – im Einsatz erscheint für diese Einsatzart kein Grundgerüst.',
+      add: 'Element',
+      addCategory: 'Einsatzart hinzufügen …',
+      edit: 'Bearbeiten',
+      done: 'Fertig',
+      up: 'Nach oben',
+      down: 'Nach unten',
+      remove: 'Entfernen',
+      removeConfirm: 'Dieses Element entfernen?',
+      newLabel: 'Neues Element',
+      fieldLabel: 'Bezeichnung',
+      fieldLabelTip: 'So steht die Zeile im Einsatz auf der Karte: «+ Wasserbezug».',
+      fieldLabelPlaceholder: 'z. B. Wasserbezug',
+      fieldTarget: 'Symbol / Linie',
+      fieldTargetTip: 'Was die Zeile setzt – ein Symbol aus dem Symbolsatz oder eine Linie wie die Zufahrt. Abgehakt wird die Zeile, sobald genau dieses Symbol (oder diese Linie) auf der Karte oder einem Plan steht.',
+      targetPick: 'Symbol oder Linie wählen …',
+      targetLine: 'Linie · {linie}',
+      fieldVorschlag: 'Vorschlag',
+      fieldVorschlagTip: '«nächster Hydrant» schlägt den nächsten Punkt der Hydrantenebene vor (Luftlinie, das Symbol trägt dessen Nummer). «Wind aufwärts» schlägt einen Punkt so viele Meter gegen den aktuellen Wind vor. Ohne Wind- oder Hydrantendaten bleibt nur das Setzen von Hand.',
+      vorschlagNone: 'keiner',
+      vorschlagHydrant: 'nächster Hydrant',
+      vorschlagWind: 'Wind aufwärts',
+      fieldMetres: 'Meter gegen den Wind',
+      fieldMetresTip: 'Abstand vom Einsatzort, gegen die Windrichtung.',
+      fieldOptional: 'Optional',
+      fieldOptionalTip: 'Wird angezeigt, zählt aber nicht mit – die Liste gilt ohne sie als vollständig (z. B. Helilandeplatz).',
+      metaLine: 'Linie «{linie}»',
+      metaHydrant: 'Vorschlag: nächster Hydrant',
+      metaWind: 'Vorschlag: Wind aufwärts, {m} m',
+      metaOptional: 'optional',
+      metresInvalid: 'Meter: {min} bis {max} – noch nicht gespeichert.',
+      /** the tabs' short words, keyed by category */
+      tabShort: {
+        brandbekaempfung: 'Brand',
+        bma_unechte_alarme: 'BMA',
+        strassenrettung: 'Strassenrettung',
+        chemiewehr: 'Chemie',
+        oelwehr: 'Öl',
+        elementarereignis: 'Elementar',
+        technische_hilfeleistung: 'THL',
+        strahlenwehr: 'Strahlen',
+        einsatz_bahnanlagen: 'Bahn',
+        dienstleistungen: 'Dienstleistungen',
+        gerettete_tiere: 'Tiere',
+        diverse_einsaetze: 'Diverse',
+      } as Record<string, string>,
+      incomplete: 'Bezeichnung und Symbol/Linie fehlen – noch nicht gespeichert.',
+      incompleteLabel: 'Die Bezeichnung fehlt – noch nicht gespeichert.',
+      incompleteTarget: 'Symbol oder Linie fehlt – noch nicht gespeichert.',
+      labelTooLong: 'Bezeichnung: höchstens {max} Zeichen – noch nicht gespeichert.',
+      rejectedSlot: 'Element {n} ({kategorie})',
+    },
     // Alarme & Einsätze: die drei Uhren am Lebenslauf eines Einsatzes plus die Webhooks,
     // über die ein zweites System (z. B. der Zettel-Drucker von kp-rück) überhaupt erst
     // von einem neuen Einsatz erfährt.
@@ -5865,6 +6280,8 @@ export const de = {
       alarmBarRueckzugInvalid: 'Wert noch nicht gespeichert – erwartet wird eine ganze Zahl über 0 und höchstens {max} (nicht über dem Alarmdruck; die Rückzugslinie meldet sich früher, nicht später).',
       defaultPressure: 'Eingangsdruck (bar)',
       defaultPressureTip: 'Fülldruck, mit dem der Trupp-Assistent startet (z. B. 300-bar-Flasche im Dienst).',
+      entryPressureMin: 'Eingangsdruck mindestens (bar)',
+      entryPressureMinTip: 'Ein Eingangsdruck darunter – bei der Anmeldung, beim Wiedereintritt mit neuer Flasche oder beim Korrigieren – wird einmal nachgefragt («180 bar ist für einen Eintritt tief»). Keine Obergrenze. 0 schaltet die Rückfrage ab. Ohne Eintrag gilt {n} bar.',
       pressureStep: 'Druck-Schrittweite (bar)',
       pressureStepTip: 'Schrittweite der ±Druckregler; Eingaben rasten auf dieses Raster ein.',
       pressureMax: 'Druck-Maximum (bar)',

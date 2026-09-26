@@ -1,0 +1,177 @@
+/* The Suche (24.09.2026): one list — Personen · Bereiche — docked beside the Gebäude or the Karte
+   on a tablet, pulled up over them on a phone. Tokens only (day/night flip with the theme). */
+
+/* ── the frame the dock gives it on a tablet ─────────────────────────────────────────────────── */
+/* ⚠️ A DOCK, not a sheet: no backdrop, nothing modal — the plan beside it is fully usable. It
+   stands where the context panel stands (left of the tool rail, tracking --vrail-w) but runs the
+   full height, and yields its lane to an open `.ctx` by stepping left of it. */
+.dock {
+  position: absolute; z-index: var(--z-chrome);
+  right: calc(var(--vrail-w, 60px) + 26px); top: 88px; bottom: 16px; width: var(--suche-dock-w, 340px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow);
+}
+:global(.app:has(.ctx)) .dock { right: calc(var(--vrail-w, 60px) + 36px + 360px); }
+.dockHead { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 10px 6px 18px; }
+.dockTitle { margin: 0; flex: 1 1 auto; font: 800 17px var(--body); color: var(--ink); display: flex; align-items: center; gap: 8px; }
+.dockTitle :global(.i) { width: 18px; height: 18px; color: var(--ink-dim); }
+
+/* ── the panel ───────────────────────────────────────────────────────────────────────────────── */
+.panel { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; height: 100%; }
+.scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 4px 12px 12px; }
+.foot { flex: none; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border-soft); }
+.foot :global(.ip-btn) { min-height: var(--tap); }
+.readOnly { flex: none; padding: 10px 16px 14px; font: 500 12.5px var(--body); color: var(--ink-faint); }
+
+.tabs { flex: none; display: flex; gap: 4px; margin: 4px 12px 6px; padding: 3px; border-radius: var(--r-ctl); background: var(--fill-soft); }
+.tab { flex: 1 1 0; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 0; background: none;
+  border-radius: var(--r-sm); font: 700 14px var(--body); color: var(--ink-dim); cursor: pointer; }
+.tab.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(20, 40, 80, .14); }
+.tab:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.tabBadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--red); color: var(--on-fill);
+  font: 800 12px var(--body); display: inline-grid; place-items: center; flex: none; }
+.tabCount { font: 600 12.5px var(--mono); color: var(--ink-faint); }
+
+.empty { padding: 28px 12px; }
+
+/* ── rows ────────────────────────────────────────────────────────────────────────────────────── */
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.row { width: 100%; min-height: 56px; display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; text-align: left;
+  border: 1px solid transparent; border-radius: var(--r-ctl); background: var(--surface-2); color: var(--ink); cursor: pointer;
+  border-left: 4px solid var(--tone, var(--border)); }
+.rowTight { min-height: 48px; }
+@media (hover: hover) { .row:hover { background: var(--hover-strong); } }
+.row:active { background-image: linear-gradient(var(--press), var(--press)); }
+.rowMain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rowTitle { font: 700 14.5px var(--body); display: flex; align-items: baseline; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowSub { font: 500 12.5px var(--body); color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.count { font: 600 12.5px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+
+.panel [data-tone="red"] { --tone: var(--red); --tone-strong: var(--red-strong); }
+.panel [data-tone="amber"] { --tone: var(--amber); --tone-strong: var(--amber-strong); }
+.panel [data-tone="green"] { --tone: var(--green); --tone-strong: var(--green-strong); }
+.panel [data-tone="blue"] { --tone: var(--blue); --tone-strong: var(--blue-strong); }
+.panel [data-tone="grey"] { --tone: var(--border); --tone-strong: var(--ink-dim); }
+/* «teilweise abgesucht» (N14): its own colour, between the blue of «in Arbeit» and the green of
+   «abgesucht» — and a HALF-filled dot, so it reads apart from both even without colour */
+.panel [data-tone="part"] { --tone: color-mix(in srgb, var(--green) 55%, var(--blue)); --tone-strong: color-mix(in srgb, var(--green-strong) 55%, var(--blue-strong)); }
+
+.pill { flex: none; padding: 4px 9px; border-radius: var(--r-pill); font: 700 12.5px var(--body); white-space: nowrap;
+  color: var(--tone-strong); background: color-mix(in srgb, var(--tone) 14%, transparent); }
+.fund { flex: none; padding: 3px 8px; border-radius: var(--r-pill); font: 800 12px var(--body); color: var(--red-strong);
+  background: color-mix(in srgb, var(--red) 12%, transparent); }
+.dot { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  border: 2px solid var(--tone); color: var(--on-fill); }
+.dot[data-tone="green"] { background: var(--green); }
+.dot[data-tone="blue"] { background: color-mix(in srgb, var(--blue) 25%, transparent); }
+.dot[data-tone="part"] { background: linear-gradient(90deg, var(--tone) 50%, transparent 50%); }
+.dot :global(.i) { width: 14px; height: 14px; }
+
+/* ── Bereiche: one group per storey ──────────────────────────────────────────────────────────── */
+.groups { display: flex; flex-direction: column; gap: 12px; }
+.group { display: flex; flex-direction: column; gap: 4px; }
+.groupHead { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 6px; border: 0; background: none; cursor: pointer;
+  border-radius: var(--r-sm); color: var(--ink); text-align: left; }
+.groupHead:disabled { cursor: default; }
+.groupHead:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.groupName { flex: 1 1 auto; font: 800 13px var(--body); letter-spacing: .02em; }
+.groupProg { font: 700 13px var(--mono); color: var(--ink-dim); display: inline-flex; align-items: center; gap: 4px; }
+.groupHead[data-complete] .groupProg { color: var(--green-strong); }
+.groupProg :global(.i) { width: 14px; height: 14px; }
+
+/* ── one record ──────────────────────────────────────────────────────────────────────────────── */
+.card { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+.cardHead { display: flex; align-items: center; gap: 8px; }
+.back { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center; border: 0; background: none;
+  border-radius: var(--r-sm); color: var(--ink); cursor: pointer; margin-left: -8px; }
+.back:active { background-image: linear-gradient(var(--press), var(--press)); }
+.back :global(.i) { width: 20px; height: 20px; }
+.cardTitle { margin: 0; flex: 1 1 auto; min-width: 0; font: 800 16px var(--body); overflow: hidden; text-overflow: ellipsis; }
+.cardLine { margin: 0; font: 500 13px var(--body); color: var(--ink-dim); }
+.cardActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cardActions :global(.ip-btn) { min-height: var(--tap); }
+/* the one act that withdraws a record stands apart, under its history (N7) */
+.cardFoot { display: flex; justify-content: flex-start; padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--border); }
+.cardFoot :global(.ip-btn) { min-height: var(--tap); }
+.history { list-style: none; margin: 4px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border-soft);
+  display: flex; flex-direction: column; gap: 6px; font: 500 12.5px var(--body); color: var(--ink-dim); }
+.history li { display: flex; gap: 10px; }
+.histT { flex: none; font-family: var(--mono); color: var(--ink-faint); }
+
+/* ── forms ───────────────────────────────────────────────────────────────────────────────────── */
+.form { display: flex; flex-direction: column; gap: 14px; padding-top: 6px; }
+.formTitle { margin: 0; font: 800 16px var(--body); }
+.field { display: flex; flex-direction: column; gap: 7px; }
+.label { font: 700 12.5px var(--body); color: var(--ink-dim); }
+.row2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row2 :global(.ip-input) { flex: 1 1 140px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { min-height: var(--tap); display: inline-flex; align-items: center; gap: 6px; padding: 0 13px; border-radius: var(--r-ctl);
+  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink); font: 700 13px var(--body); cursor: pointer; }
+.chip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+.chip[data-tone][aria-pressed="true"] { background: var(--tone); border-color: var(--tone); color: var(--on-fill); }
+.chip[data-tone="grey"][aria-pressed="true"] { background: var(--ink-dim); border-color: var(--ink-dim); }
+.chip:disabled { cursor: default; }
+.chipDone { color: var(--green-strong); border-style: dashed; background: none; cursor: default; }
+.chipDone :global(.i) { width: 14px; height: 14px; }
+
+/* ── the phone sheet ─────────────────────────────────────────────────────────────────────────── */
+/* ⚠️ It sits ABOVE the nav bar, never on it (the user's explicit ask): the bar is at
+   8px + safe area from the bottom and --rail-h tall, so the sheet's floor is 14px over its top. */
+.sheet:global(.ui-detent) { --detent-bottom: calc(var(--rail-h) + 14px + env(safe-area-inset-bottom));
+  --detent-top: calc(58px + env(safe-area-inset-top)); left: 6px; right: 6px; border-radius: var(--r-hero); border-bottom: 1px solid var(--glass-line); }
+.peekRow { display: flex; align-items: center; gap: 8px; padding: 0 6px 8px 14px; min-height: 40px; }
+.peekText { flex: 1 1 auto; min-width: 0; border: 0; background: none; padding: 6px 0; text-align: left; cursor: pointer;
+  font: 700 14px var(--body); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.peekText :global(.i) { width: 16px; height: 16px; flex: none; }
+.peekMissing { color: var(--red-strong); }
+/* the line gives way with an ellipsis before the «1?» and the chevron do */
+.peekLine { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.x { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: 0; background: none; border-radius: var(--r-sm); color: var(--ink-dim); cursor: pointer; }
+.x :global(.i) { width: 18px; height: 18px; }
+.x:active { background-image: linear-gradient(var(--press), var(--press)); }
+.sheetTop { display: flex; align-items: center; gap: 8px; padding: 0 6px 6px 12px; }
+.sheetTop :global(.useg) { flex: none; }
+.sheetTitle { flex: 1 1 auto; font: 800 15px var(--body); }
+.floorChips { display: flex; gap: 6px; overflow-x: auto; padding: 0 12px 8px; scrollbar-width: none; }
+.floorChips::-webkit-scrollbar { display: none; }
+.floorChip { flex: none; min-height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border-radius: var(--r-ctl);
+  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink); font: 700 12.5px var(--body); cursor: pointer; }
+.floorChip:active { background-image: linear-gradient(var(--press), var(--press)); }
+.floorChip b { font: 700 12.5px var(--mono); color: var(--ink-dim); }
+.floorChip[data-complete] b { color: var(--green-strong); }
+.floorChip[data-active] { border-color: var(--blue); }
+
+/* the Suche's areas under a Trupp's Ziel field (SucheTrupp · ZielChips) */
+.zielChips { display: flex; flex-direction: column; gap: 6px; margin-top: -4px; }
+
+/* a record withdrawn as «irrtümlich erfasst»: still on the list (the record is not ours to hide),
+   struck through and quiet */
+.row[data-withdrawn] .rowTitle { text-decoration: line-through; color: var(--ink-dim); }
+/* «?» on the Bereiche tab while a question stands on one of its rows */
+.askBadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--amber); color: var(--on-fill);
+  font: 800 12px var(--body); display: inline-grid; place-items: center; flex: none; }
+/* «Trupp 4 raus – abgesucht? Ja / Teilweise / Nein» — under the area's row, never a dialog */
+.ask { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px 12px; padding: 6px 8px;
+  border-radius: var(--r-ctl); background: color-mix(in srgb, var(--amber) 12%, transparent); }
+.askText { flex: 1 1 100%; font: 700 12.5px var(--body); color: var(--amber-strong); }
+.askBtn { flex: 1 1 0; min-height: var(--tap); border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--surface);
+  color: var(--ink); font: 700 13px var(--body); cursor: pointer; }
+.askBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* at peek the floor chips stand under the one line — the sheet is that much taller */
+.sheet.withChips:global(.ui-detent) { --detent-peek: 108px; }
+/* at peek the tool bar stays (15-mobile.css · .suche-peek): the one line stands on IT */
+:global(.app.phone-tools.suche-peek) .sheet:global(.ui-detent) { --detent-bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
+
+/* ⚠️ What else stands on the surface keeps clear of the dock (walk-through 25.09.2026): the
+   Meldeleiste ended over the dock's ✕ at 820 px (N13), and the Grundgerüst card's «hier setzen»
+   and «ausblenden» ran under it (N25). Both stop at the dock's left edge — the dock's own geometry
+   (.dock above: right = vrail + 26px, width = --suche-dock-w) plus a 12px channel. */
+:global(:root:has([data-suche-dock])) :global(.ml) {
+  right: calc(var(--vrail-w, 60px) + 26px + var(--suche-dock-w, 340px) + 12px); }
+:global(.app:has([data-suche-dock])) :global(.lgg:not(.lgg-phone)) {
+  width: auto; max-width: 340px;
+  right: calc(var(--vrail-w, 60px) + 26px + var(--suche-dock-w, 340px) + 12px); }

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { abschlussOpenItems, abschlussOpenLabel, abschlussOpenPoints, controlChipLabel, countsAsOpen } from './abschlussOpen'
+import { abschlussOpenItems, abschlussOpenLabel, abschlussOpenPoints, controlChipLabel, countsAsOpen, insideAbschlussMessage, registeredAbschlussMessage } from './abschlussOpen'
+import type { Trupp } from '../types'
 import { ABSCHLUSS_STEPS } from './abschluss'
 import { appConfig } from '../config/appConfig'
 
@@ -68,6 +69,31 @@ describe('every open point is a link', () => {
   })
 })
 
+describe('abschlussOpenPoints — the Suche (24.09.2026)', () => {
+  it('asks about people still missing FIRST, and makes the Abschluss a «trotzdem»', () => {
+    const pts = abschlussOpenPoints(['zeiten'], 0, 0, { vermisst: 2, openBereiche: [] })
+    expect(pts[0]).toEqual({ kind: 'vermisst', n: 2 })
+    expect(abschlussOpenLabel(pts[0])).toBe('2 Personen noch vermisst')
+    expect(abschlussOpenLabel({ kind: 'vermisst', n: 1 })).toBe('1 Person noch vermisst')
+    expect(countsAsOpen(pts[0])).toBe(true)
+  })
+
+  it('names an area not abgesucht as a HINT only — it never turns the button into «trotzdem»', () => {
+    const pts = abschlussOpenPoints([], 0, 0, { vermisst: 0, openBereiche: ['1. OG Trakt 3', '2. OG'] })
+    expect(pts).toEqual([{ kind: 'bereiche', names: ['1. OG Trakt 3', '2. OG'] }])
+    expect(abschlussOpenLabel(pts[0])).toBe('Nicht abgesucht: 1. OG Trakt 3, 2. OG')
+    expect(pts.some(countsAsOpen)).toBe(false)
+  })
+
+  it('both rows lead to the Suche; nothing is said without one', () => {
+    const go = { step: vi.fn(), trupps: vi.fn(), media: vi.fn(), suche: vi.fn() }
+    const items = abschlussOpenItems(abschlussOpenPoints([], 0, 0, { vermisst: 1, openBereiche: ['EG'] }), go)
+    items.forEach((i) => i.onClick())
+    expect(go.suche).toHaveBeenCalledTimes(2)
+    expect(abschlussOpenPoints([], 0, 0, { vermisst: 0, openBereiche: [] })).toEqual([])
+  })
+})
+
 describe('controlChipLabel — the Rapport head\'s one Kontrolle chip', () => {
   it('counts the open steps and the warnings each in its own words', () => {
     expect(controlChipLabel(4, 0)).toBe('4 noch offen')
@@ -75,5 +101,33 @@ describe('controlChipLabel — the Rapport head\'s one Kontrolle chip', () => {
     expect(controlChipLabel(0, 3)).toBe('3 Hinweise')
     expect(controlChipLabel(4, 2)).toBe('4 noch offen · 2 Hinweise')
     expect(controlChipLabel(1, 1)).toBe('1 noch offen · 1 Hinweis')
+  })
+})
+
+describe('registeredAbschlussMessage — who is still angemeldet', () => {
+  const t = (over: Partial<Trupp>): Trupp => ({
+    id: 'x', name: 'Muster Leo', entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'angemeldet', ...over,
+  })
+
+  it('names one Trupp by number and Gruppenführer, and says it is the Sicherungstrupp', () => {
+    expect(registeredAbschlussMessage([t({ no: 6, auftrag: 'sichern' })]))
+      .toBe('1 Trupp noch angemeldet (#6 Muster Leo, Sicherungstrupp).')
+  })
+
+  it('counts several, and leaves out a number the record does not have', () => {
+    expect(registeredAbschlussMessage([t({ no: 6, auftrag: 'sichern' }), t({ id: 'y', name: 'Meier', auftrag: 'loeschen' })]))
+      .toBe('2 Trupps noch angemeldet (#6 Muster Leo, Sicherungstrupp · Meier).')
+  })
+})
+
+describe('insideAbschlussMessage — the crews still inside, by name', () => {
+  const t = (over: Partial<Trupp>): Trupp => ({
+    id: 'x', name: 'Muster Leo', entryPressureBar: 300, entryTime: '2026-09-25T10:00:00Z', lastContactTime: '', status: 'aktiv', ...over,
+  })
+  it('names each Trupp with its number and whole crew', () => {
+    expect(insideAbschlussMessage([t({ no: 1, members: ['Graf Eva'] })]))
+      .toBe('1 Trupp ist noch drin: Trupp 1 (Muster Leo / Graf Eva).')
+    expect(insideAbschlussMessage([t({ no: 1 }), t({ id: 'y', no: 2, name: 'Frei Nora' })]))
+      .toBe('2 Trupps sind noch drin: Trupp 1 (Muster Leo), Trupp 2 (Frei Nora).')
   })
 })

@@ -30,9 +30,9 @@ Nachalarm, automatic archival.
 
 Every Trupp row names the Trupp as `Trupp N (Gruppenführer …)` since 12.09.
 ([`trupp-naming.md`](trupp-naming.md) §4): safety rows (angemeldet, Eintritt, Kontakt, Druck,
-Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names; housekeeping rows
-(platziert, Farbe, Leitung, bearbeitet, gelöscht, wiederhergestellt, nicht mehr gesetzt) name the
-leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
+Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names, and so do the edit
+rows («bearbeitet», since 25.09.2026); housekeeping rows (platziert, Farbe, Leitung, gelöscht,
+wiederhergestellt, nicht mehr gesetzt) name the leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
 that date keep their `Trupp {Gruppenführer}` wording – the log is append-only.
 
 A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
@@ -46,6 +46,33 @@ Rapport as «Von Tafel entfernt».
 
 Everything else on the Atemschutz board is in the Verlauf: placing, radio contact, pressure
 report, status change, editing, returning, linking/unlinking a Leitung, alarm escalation.
+
+⚠️ **The Sicherungstrupp going in says so** (2026-09-24): the first Eintritt of an
+Atemschutz-Trupp on Auftrag «Sichern» writes «Trupp N (…): Sicherungstrupp eingesetzt»
+(`logSafetyEntry`) instead of the plain «Eintritt» – whether it came from the phone slot's
+«Einsetzen» or the card's «Im Einsatz». Derived from the Trupp, not from the button. The log row
+underneath is an ordinary `entry`, and ↶ takes it back like any Eintritt. The Abschluss's
+«Als «nicht eingesetzt» schliessen» writes the existing «Trupp … nicht eingesetzt» row, one per
+Trupp still angemeldet. «Sicherungstrupp bestimmen» on an existing Trupp is an ordinary edit
+(«Auftrag Sichern»). A double contact answered «OK» (another device confirmed it < 60 s ago)
+writes nothing at all.
+
+⚠️ **The first Druck after the Eintritt is a Kontakt that says what it replaced** (2026-09-25):
+within 3 min of the Eintritt, with no reading yet and an Eingangsdruck nobody set, a Druckmeldung
+writes ONE row — «Trupp N (…): Kontakt – erste Druckmeldung 260 bar ersetzt den Eingangsdruck 300
+bar» (`logFirstPressure`) — resets the contact clock and appends a `contact` log row beside the
+corrected baseline. It used to be only an edit row («Eingangsdruck 300 → 260 bar») with no Kontakt.
+A double tap on «Kontakt» writes one row, not two.
+
+⚠️ **The crew reaches the Anwesenheit once, and the row names people** (2026-09-25, staging r2):
+the Gäste a Trupp form files at its save are filed quietly and named in the crew's ONE «Unter AS:
+…» row (never twice, never by id). A crew registered on the Atemschutz-Link writes no «erfasst»
+row there (the link cannot write the Anwesenheit); an editor device that sees the Trupp files the
+crew under derived ids and writes that one row under a derived row id (`atc-<truppId>-…`,
+lib/crewFiling), so several devices write it once — and only once per (Trupp, person): the
+Trupp's `crewFiled` marker keeps a deliberate deletion from the Anwesenheit deleted. «Nicht eingesetzt» closes a Trupp with an
+`exit` log row that is LABELLED «Nicht eingesetzt» on the card and on the Rapport, never
+«Austritt» (lib/atemschutz · isStandDownExit).
 
 ⚠️ **Two contact kinds have been kinds of their own since 2026-08-19**, no longer «Kontakt»: the
 **exit** («Ausgerückt») and the **re-entry** after a Rückzug. The safety clock is untouched by
@@ -244,6 +271,32 @@ version of this file:
 **Partially closed:** corrections to the alarm time, address, Stichwort (dispatch keyword) and
 priority create an audit event (`meta.change`, `_TRACKED_META` in `backend/app/api/incidents.py`) –
 but still **no Verlauf row**. Whoever reads the Verlauf does not see the correction.
+
+## The Suche: every change is a row (2026-09-24)
+
+The Suche (`lib/suche`, step 1) keeps no status field anywhere: each Person and Bereich carries its
+own append-only `log`, and every entry of it wrote ONE Verlauf row with the same sentence, linked
+back to its record (`TimelineEvent.suche` — the Bereich column prints «Suche», the filter has it,
+a tap opens the Suche on that record):
+
+| Act | Row |
+|---|---|
+| + Vermisst | «Vermisst: {Name} · zuletzt {Geschoss Ort} · Quelle {…}» |
+| Gefunden… (with «weiter an» or not) | ONE row: «Gefunden: {Name} · {Ort} · Trupp N · an Rettungsdienst» (a group: «Gefunden: 5 von {Gruppe} …»); it names the area it happened in, which then wears «Fund» — no row of its own |
+| + Gefunden (never reported) | ONE row «Gefunden: …» — no «Vermisst» with a time nobody reported |
+| Übergeben… | «Übergeben: {Name} an {Rettungsdienst}» |
+| Entwarnen (asks why and who said so first; «Abbrechen» holds the focus) | «Entwarnung: {Name} · {Grund} · Quelle {Wer}» — both parts optional |
+| Korrigieren… | «Korrigiert: {before} → {after}» (name, group size, zuletzt gesehen, and — once found — «gefunden {Ort}») |
+| Irrtümlich erfasst (the same short form) | «Irrtümlich erfasst: {Name} · {Grund} · Quelle {Wer}» — the record counts nowhere from here on |
+| an area's status | «1. OG Trakt 3 abgesucht · Trupp 4» / «in Arbeit» / «teilweise abgesucht» / «nicht zugänglich» / «offen»; «Fund: {Bereich}» for the area's own mark |
+| Teilen, Umbenennen, + Bereich | «1. OG geteilt: Trakt 1, Trakt 2» · «Bereich umbenannt: … → …» · «Bereich angelegt: Ufer Nord» |
+| a Trupp's Ziel under «Absuchen», on its way in | «{Bereich} in Arbeit · Trupp N» — written under an id derived from the Trupp, its sortie and its Ziel, so every editor device observing the same save writes the one row; a new Ziel or a removed Trupp writes «{old Bereich} offen» |
+| «Trupp N raus – abgesucht?» on the area's row or its Meldeleiste row | Ja → «… abgesucht · Trupp N», Teilweise → «… teilweise abgesucht · Trupp N» (its own status, not «offen»), Nein → «… offen»; a question nobody answers writes NOTHING |
+| ↶ / ↷ of any of these | «Zurückgenommen: {the row's own sentence}» for exactly the rows that step added / the sentence again |
+| Verlauf composer (Tür 2) | the WRITTEN sentence is the row, and it says the change: «… · Suche: {Name} gefunden» (a group: «… · Suche: 2 von {Gruppe} gefunden» — the count the chip named) |
+
+Deliberately silent: the storeys becoming «ganzes Geschoss» on first open (a machine seed, no
+act of anybody's), and opening/closing the dock or the sheet.
 
 ## Gaps – known, not yet closed
 

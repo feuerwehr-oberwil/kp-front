@@ -37,10 +37,10 @@ const PHONE_HITS = 4
  * print, so «who leads» is never stored twice and cannot disagree with itself.
  */
 export function TruppTeam({
-  value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById, onAddGuest,
+  value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById,
   phone = false, wanted = false, searchInputRef,
 }: {
-  /** this form is here to NAME a Trupp and has nobody in it yet («Trupp erstellen»): the search
+  /** this form is here to NAME a Trupp and has nobody in it yet («Trupp anmelden»): the search
    *  wears the ring until the first person stands in the list – who is going in matters more than
    *  what they will do there, and the field looked exactly as optional as the rest (20.09.2026) */
   wanted?: boolean
@@ -61,9 +61,6 @@ export function TruppTeam({
   assignedIds: Set<string>
   /** the job somebody already holds on this Einsatz (Anwesenheits-Bemerkung) — a soft note */
   rolesById?: Map<string, string>
-  /** record a hand-typed Gast on the Anwesenheit too. Absent for a session that may not write. */
-  /** records the Gast on the Anwesenheit and hands back the id it filed them under */
-  onAddGuest?: (name: string) => string | undefined
   /** THE PHONE SKIN (05.09.). Same control, same words, same record — a wrapping row of chips
    *  instead of three full-width slot rows, and the Mannschaft appears only under a typed query
    *  (at most `PHONE_HITS` of it). On 375px the old block was three slot rows plus a 38dvh
@@ -209,27 +206,29 @@ export function TruppTeam({
    * to everything downstream: the roster row locks and wears the PA badge, the picker says «in
    * einem Trupp», and «einer, ein Trupp» holds for a Nachbarwehr too. Added by name only, the
    * Gast was two unrelated entries that happened to read alike. */
+  /* ⚠️ …but NOT here any more (staging walk-through 25.09.2026). The Gast used to be filed on the
+   * Anwesenheit the moment the chip appeared, so «Abbrechen» left a person on the Rapport who was
+   * never at the Einsatz. The chip belongs to the FORM until «Trupp anmelden» / «Speichern»: the
+   * form files it then and writes the id it comes back with into the Trupp (AtemschutzView ·
+   * TruppForm · submit), so the Trupp and the Personalblatt are still the same person. */
   const addGuest = () => {
     if (!guestOffer) return
-    add({ name: guestOffer, personId: onAddGuest?.(guestOffer) })
+    add({ name: guestOffer })
   }
 
   /* Enter keeps the keyboard flow one step, and it never has to be aimed: with matches on screen
    * it takes the first one that can be taken (the list is already sorted the way the hand
    * expects — present first, then alphabetical; confirmed 09.09. against the field ask for rank
-   * order); with NO matches the query can only have been a
-   * name, so it becomes the Gast. A list whose every match is already in another Trupp does
-   * nothing: those rows are shown greyed for a reason, and inventing a Gast with the same name is
-   * the one outcome nobody meant. */
+   * order). A list whose every match is already in another Trupp does nothing: those rows are
+   * shown greyed for a reason.
+   * ⚠️ With NO match, Enter does nothing either (staging walk-through 25.09.2026). It used to take
+   * the query as a Gast — the keyboard's «Go» on a half-remembered name made a person. A Gast is
+   * the list's own last row, tapped on purpose. */
   const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
     e.preventDefault()
-    if (visible.length) {
-      const first = visible.find((o) => !o.taken)
-      if (first) add({ name: first.name, personId: first.personId })
-      return
-    }
-    addGuest()
+    const first = visible.find((o) => !o.taken)
+    if (first) add({ name: first.name, personId: first.personId })
   }
 
   /* THE TWO SKINS of one control (05.09.). Full-width rows on a tablet, a wrapping row of chips

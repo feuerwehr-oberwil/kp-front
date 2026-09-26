@@ -230,7 +230,7 @@
      when a busy tool (line/area) has more options than fit. */
   .phone-tools .wb-dock { position: fixed; left: 50%; right: auto; top: auto; transform: translateX(-50%);
     /* 6px above the tool bar — the SAME gap the tool bar has above the nav bar (both are +6 offsets) */
-    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom));
+    bottom: calc(var(--rail-h) * 2 + 20px + var(--suche-lift, 0px) + env(safe-area-inset-bottom));
     flex-direction: row; align-items: center; gap: 10px;
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
@@ -271,9 +271,9 @@
      a sheet is open; the sheet then covers both Plan rails as its Lage twin already does, while
      the top bar (z 56) and modal overlays remain above it. */
   .phone-tools .whiteboard:has(.ctx) { z-index: var(--z-chrome-raised); }
-  .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
+  .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + var(--suche-lift, 0px) + env(safe-area-inset-bottom)); }
   /* the Eintrag-FAB clears both bars on the drawing surfaces */
-  .phone-tools .fab-entry { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); }
+  .phone-tools .fab-entry { bottom: calc(var(--rail-h) * 2 + 28px + var(--suche-lift, 0px) + env(safe-area-inset-bottom)); }
 
   /* ── details as a bottom sheet ── the shared .ctx editors (ContextPanel / DrawEditor /
      ShapeEditor) become a drag-expandable bottom sheet: half-height default so the map and
@@ -485,7 +485,11 @@
      bar's own menu the moment the alarm ends, and the chip beside it is itself a ticking clock. */
   .tb-az-name { display: none; }
   .tb-az { gap: 5px; padding: 6px 9px; }
-  .topbar:has(.tb-az) .tb-einsatzuhr { display: none; }
+  /* (the Einsatzuhr yields by MEASURE now, not by rule — lib/useHeadFit, step 3: on a 390 px
+     phone it left the bar the moment the Suche's chip came up although there was room) */
+  /* the Suche's chip keeps its glyph and the COUNT here, like the Atemschutz chip keeps its clock */
+  .tb-suche .tb-suche-full { display: none; }
+  .tb-suche .tb-suche-short { display: inline; }
 
   /* ── Chrome stays on the SCREEN while the keyboard is up ──
      The document cannot scroll any more (02-base.css · fixed body), but iOS still PANS the
@@ -615,6 +619,29 @@
 
   /* coordinate readout + selection bar sit above the bottom bar + home indicator */
   :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
+
+  /* The Lage-Grundgerüst as a STRIP (03-map · .lgg): one row above the tool bar, in the lane
+     the FAB shares — so it stops short of the FAB's corner (--fab-safe) and never reaches down
+     over either bar. Folded it is the one pill with the count; opened, the list grows UPWARD from
+     it, capped under the top bar. The host drops it while a tool dock, the selection bar or a
+     panel needs this lane (IncidentWorkspace · ggLaneFree). */
+  .lgg.lgg-phone { left: max(8px, env(safe-area-inset-left)); width: auto;
+    right: calc(max(16px, env(safe-area-inset-right)) + var(--fab-safe));
+    /* + the Suche's peek line when it stands on the tool bar (.suche-peek · --suche-lift, N25) */
+    bottom: calc(var(--rail-h) * 2 + 28px + var(--suche-lift, 0px) + env(safe-area-inset-bottom));
+    /* …and it stops under the wind chip (.phone-wx, top-right under the bar), not beside it */
+    max-height: calc(100dvh - var(--rail-h) * 2 - 172px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding: 4px; }
+  .lgg.lgg-phone.lgg-folded { right: auto; max-width: calc(100vw - 24px - var(--fab-safe)); }
+  .lgg-phone .lgg-head { min-height: var(--tap); padding: 0; }
+  .lgg-toggle { min-height: var(--tap); padding: 0 10px; border: none; background: transparent; border-radius: var(--r-ctl);
+    cursor: pointer; font: inherit; color: inherit; }
+  .lgg-toggle:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+  .lgg-chev { width: 16px; height: 16px; flex: none; color: var(--ink-dim); transform: rotate(180deg); }
+  .lgg-toggle[aria-expanded="true"] .lgg-chev { transform: none; }
+  .lgg-phone .lgg-hide-row { height: var(--tap); width: 100%; margin-top: 2px; border-top: 1px solid var(--border-soft);
+    border-radius: 0 0 var(--r-ctl) var(--r-ctl); }
+  .lgg-phone .lgg-sug { padding-left: 35px; }
 
   /* journal drawer → full-width bottom sheet (was a right-edge column too narrow on a
      phone); body scrolls, capped to the viewport with safe-area room top + bottom. The
@@ -1036,3 +1063,15 @@
      AnwesenheitView): where the bar has no pair, the surface being tapped offers its own. */
   .topbar .tb-act-history { display: none; }
 }
+/* The Suche's phone sheet (components/suche · SuchePhoneSheet, 24.09.2026) stands where the tool bar
+   stands — directly on the nav bar, which it never covers. While it is open at HALF or FULL the
+   drawing tools, the FAB and the selection bar step aside: the sheet is for LOOKING at the plan
+   while the list is worked, and its ✕ gives all of them back. Only ever set on a phone
+   (IncidentWorkspace · sucheAppClass). */
+.app.suche-sheet :is(.tool-rail, .wb-tools, .fab-entry, .sel-bar) { display: none; }
+/* …but at PEEK it is one line, and the tool bar stays (walk-through 25.09.2026): placing a symbol
+   no longer means closing the Suche first. The line stands on the TOOL bar instead
+   (Suche.module.css), and what stands above the tool bar — the tool's own dock, the selection bar,
+   the FAB, the plan's chips — moves up by the line's height. */
+.app.phone-tools.suche-peek { --suche-lift: 70px; }
+.app.phone-tools.suche-peek:has([data-suche-floorchips]) { --suche-lift: 114px; }

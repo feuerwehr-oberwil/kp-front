@@ -29,7 +29,7 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel, ValidationError
 
 from .config_history import emptied_sections
-from .schemas import DeploymentConfigIn
+from .schemas import DeploymentConfigIn, LageSlot, LageVorschlag
 
 __all__ = [
     "RESPONSE_ONLY_FIELDS",
@@ -61,7 +61,13 @@ RUNTIME_SECTIONS: tuple[str, ...] = ("referenceLayers",)
 #: does on every autosave — hands them straight back, and `extra="ignore"` drops them. So they
 #: are not typos and must not be reported as dropped keys: four bogus warnings on every save is
 #: how a report nobody reads is made.
-RESPONSE_ONLY_FIELDS: tuple[str, ...] = ("integrations", "alarmVocabulary", "version", "warnings")
+RESPONSE_ONLY_FIELDS: tuple[str, ...] = (
+    "integrations",
+    "alarmVocabulary",
+    "lageGrundgeruestPresets",
+    "version",
+    "warnings",
+)
 
 
 def carry_runtime_sections(
@@ -176,6 +182,34 @@ def ignored_keys(raw: dict[str, Any]) -> list[str]:
                 continue
             suggestion = _did_you_mean(sub, subs)
             out.append(f"{key}.{sub}{f' — did you mean {key}.{suggestion}?' if suggestion else ''}")
+    out.extend(_lage_slot_keys(raw.get("lageGrundgeruest")))
+    return out
+
+
+def _lage_slot_keys(block: Any) -> list[str]:
+    """The one list whose ENTRIES are checked too: a Grundgerüst slot is four or five keys a
+    station types by hand, and ``"vorschlg"`` would silently lose the suggestion. (A misspelled
+    ``symbol``/``linie`` is refused outright by ``schemas.LageSlot`` — this is the quiet rest.)"""
+    if not isinstance(block, dict) or not isinstance(block.get("kategorien"), dict):
+        return []
+    slot_keys, hint_keys = set(LageSlot.model_fields), set(LageVorschlag.model_fields)
+    out: list[str] = []
+    for category, slots in block["kategorien"].items():
+        if not isinstance(slots, list):
+            continue
+        for i, slot in enumerate(slots):
+            if not isinstance(slot, dict):
+                continue
+            at = f"lageGrundgeruest.kategorien.{category}[{i}]"
+            for k in slot:
+                if k not in slot_keys:
+                    guess = _did_you_mean(k, slot_keys)
+                    out.append(f"{at}.{k}{f' — did you mean {guess}?' if guess else ''}")
+            vorschlag = slot.get("vorschlag")
+            for k in vorschlag if isinstance(vorschlag, dict) else ():
+                if k not in hint_keys:
+                    guess = _did_you_mean(k, hint_keys)
+                    out.append(f"{at}.vorschlag.{k}{f' — did you mean {guess}?' if guess else ''}")
     return out
 
 

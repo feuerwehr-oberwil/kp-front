@@ -542,6 +542,9 @@ export interface TimelineEvent {
    * something that no longer exists.
    */
   subjectId?: string
+  /** a «Suche» row (lib/suche): the Person or Bereich it is about — the Verlauf's Bereich column
+   *  reads «Suche» off it, and a tap opens the Suche on that record */
+  suche?: { personId?: string; bereichId?: string }
   // --- plan jump target ---
   planId?: string        // plan document the event belongs to
   px?: number            // plan-space x (0..1) to recenter on
@@ -884,7 +887,11 @@ export type TruppAuftrag = AtemschutzAuftrag | EinfachAuftrag
  *  while it is being edited, and asked again for each re-deployment — a crew that fought the fire
  *  under PA goes back in to clear up without it. `editTrupp` and `reactivateTrupp` each own what
  *  that change writes, because it starts or stops a safety watch (see Trupp.kind). */
-export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind; equipment?: string[] }
+export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind; equipment?: string[]
+  /** the Eingangsdruck was set ON PURPOSE in the form (dialled, typed, a bottle answer, a low value
+   *  confirmed) — its log row is marked `measured`, so the first Druckmeldung never «corrects» it
+   *  (lib/atemschutz · entryPressureConfirmed). Absent = the untouched default. */
+  pressureMeasured?: boolean }
 
 /**
  * One Beilage to the Einsatzrapport — a photo that belongs to the REPORT rather than to the
@@ -994,6 +1001,19 @@ export interface Trupp {
    * alarms, markers, roster locks — can keep seeing it); the Rapport reads the unfiltered slice.
    * Cleared again by the delete's own «Rückgängig». */
   removedAt?: string
+  /**
+   * Whom of this crew the Anwesenheit has already been told about — the crew filing's one-shot
+   * marker (lib/crewFiling). One key per person: the roster id, or the derived Gast id
+   * `g-<truppId>-<hash>`. Sorted, grow-only, and MERGED AS A UNION (mergeWorkspace · mergeTrupp).
+   *
+   * ⚠️ Without it the filing was a reconciliation that wrote a deliberate deletion straight back:
+   * somebody takes a crew member off the Anwesenheit, and the next device that observes the Trupp
+   * files them again (the ghost-trail trap, AGENTS.md). A key here means «filed once, or already
+   * there when the Trupp was seen» — whatever happens to that entry afterwards is a person's
+   * decision, and no device undoes it. A machine field: undo restores keep it (useTruppActions ·
+   * remember / restoreTrupp), and a merge that differs only here is not a Trupp conflict.
+   */
+  crewFiled?: string[]
   /**
    * The Trupp's own number — «Trupp 3» — handed out at registration from ONE counter per Einsatz
    * that unlinked plan chips and map markers («Trupp N», lib/placedTrupps · nextTeamName) draw
@@ -1211,6 +1231,111 @@ export interface ShiftBand {
   from: string
   /** ISO end */
   to: string
+}
+
+/* ── «Suche» — Personen + Bereiche (step 1, 24.09.2026) ──────────────────────────────────────
+ *
+ * Übung 23.09.2026: the missing and the found existed only in eleven free-text notes, names spelt
+ * differently each time, and at 20:15 no screen could answer «wer fehlt noch, was ist abgesucht».
+ * One synced slice now holds both lists (lib/suche). Records merge by id like Mittel; what HAPPENED
+ * to a record is its own append-only `log`, and every state (vermisst → gefunden → übergeben, a
+ * Bereich's offen / in Arbeit / abgesucht) is FOLDED from it — never a mutable status field. Each
+ * row carries the sentence it wrote into the Verlauf («a row carries what was said»).
+ *
+ * Step 2 (drawn areas, person markers on the plan/Karte) adds `point` / `shape` — present in the
+ * type now and always empty in step 1, so that step needs no migration. */
+
+/** One thing that happened to a Person or a Bereich. Append-only: a correction is a ↶ of the step
+ *  (the slice's own undo), never an edit of a row. */
+export interface SucheRow {
+  id: string
+  /** ISO instant (the shared clock, lib/serverClock) */
+  at: string
+  /** Person: vermisst · gefunden · uebergeben · entwarnt · korrigiert · irrtuemlich. Bereich:
+   *  status · fund · geteilt · umbenannt. */
+  op: 'vermisst' | 'gefunden' | 'uebergeben' | 'entwarnt' | 'korrigiert' | 'irrtuemlich' | 'status' | 'fund' | 'geteilt' | 'umbenannt'
+  /** the Verlauf sentence this row wrote — what the ↶ names, what the Rapport can quote */
+  text: string
+  /** a group's gefunden / übergeben row: how many people this row covers (absent = 1) */
+  n?: number
+  /** the Trupp that found / searches, as the row said it («T3») — and its id when it was picked */
+  trupp?: string
+  truppId?: string
+  /** gefunden: the storey (Gebäude stack index) and the place in words */
+  floor?: number
+  wo?: string
+  /** übergeben an («Rettungsdienst», «Sammelplatz», …) — also on a `gefunden` row that handed
+   *  the person on in the same breath («weiter an»): ONE act, ONE row */
+  an?: string
+  /** `gefunden`: the area the person was found in — the area wears «Fund» because of it */
+  bereichId?: string
+  /** `korrigiert`: the values that replace the record's (null floor = «unbekannt») */
+  set?: { name?: string; count?: number; floor?: number | null; wo?: string
+    /** where the person was FOUND (the latest find), and the area that then wears «Fund» */
+    foundFloor?: number | null; foundWo?: string; foundBereichId?: string | null }
+  /** Bereich `status` row: the new status */
+  status?: SucheBereichStatus
+  /** `entwarnt` / `irrtuemlich`: why, and who said so — both optional, both in the row's text */
+  grund?: string
+  quelle?: string
+  /** Bereich `fund` row: the Person found there, when the find was reported through the list */
+  personId?: string
+}
+
+/** `teilweise`: a Trupp came out and said «partly» (walk-through 25.09.2026) — its own state, since
+ *  «offen» read the same as never searched; it counts as NOT done in every progress figure. */
+export type SucheBereichStatus = 'offen' | 'inArbeit' | 'teilweise' | 'abgesucht' | 'nichtZugaenglich'
+
+/** Step 2: a position on a plan sheet or the Karte. Never written in step 1. */
+export interface SuchePoint {
+  planId?: string
+  x?: number
+  y?: number
+  floor?: number
+  coord?: LngLat
+}
+
+/** A missing person — or a group of them («Klasse 3c + Lehrerin», 22). */
+export interface SuchePerson {
+  id: string
+  /** «Tim Muster» · «Klasse 3c + Lehrerin» · «Mann, ca. 40» — free text, optional */
+  name?: string
+  /** a GROUP: how many people it stands for (≥ 2). Absent = one person. */
+  count?: number
+  /** zuletzt gesehen: storey index on the Gebäude stack; absent = unbekannt */
+  floor?: number
+  /** zuletzt gesehen, in words («Technikraum», «Z102») */
+  wo?: string
+  /** who reported it («Schulleitung», «Anrufer 144») */
+  quelle?: string
+  createdAt: string
+  /** step 2 — a marker on the plan/Karte; absent in step 1 */
+  point?: SuchePoint
+  log: SucheRow[]
+}
+
+/** A search area: a whole storey (`sbg<index>`, created by itself), a named part of one
+ *  («Trakt 3», «Technikraum»), or — with no Gebäude — a named area of its own. */
+export interface SucheBereich {
+  id: string
+  /** storey index on the Gebäude stack; absent = an area without storeys (no Gebäude) */
+  floor?: number
+  /** a part's name; ABSENT on a storey's own row («ganzes Geschoss» / «übriges Geschoss») */
+  name?: string
+  createdAt: string
+  /** the storey row only: its parts cover the whole storey, so no «übriges Geschoss» is left */
+  ohneRest?: boolean
+  /** which Gebäude stack the storey belongs to (lib/suche · stackKeyOf) — a replaced building's
+   *  storeys are other records and never lend it their state */
+  stack?: string
+  /** step 2 — a drawn box/polygon on the storey or the Karte; absent in step 1 */
+  shape?: { planId?: string; pts?: BoardPoint[]; ring?: LngLat[] }
+  log: SucheRow[]
+}
+
+export interface SucheDoc {
+  personen: SuchePerson[]
+  bereiche: SucheBereich[]
 }
 
 /** One append-only Mittel (material-use) event: the running TOTAL used for a material+unit, from

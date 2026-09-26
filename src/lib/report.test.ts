@@ -364,6 +364,12 @@ describe('journalArea · one glyph, one Bereich — without breaking the record'
   const ev = (over: Partial<TimelineEvent>): TimelineEvent =>
     ({ id: 'x', t: '22:00', at, icon: 'type', text: 'Zeile', ...over })
 
+  it('files a Suche row under «Suche» by its link — the list\'s own row, its ↶ and a composer entry alike', () => {
+    expect(journalArea(ev({ icon: 'search', text: 'Gefunden: Tim Muster', suche: { personId: 'p1' } }), plans)).toBe('Suche')
+    expect(journalArea(ev({ icon: 'undo', kind: 'history', text: 'Zurückgenommen: EG abgesucht', suche: { bereichId: 'sbg0' } }), plans)).toBe('Suche')
+    expect(journalArea(ev({ kind: 'journal', text: 'Eva Beispiel beim Notausgang', suche: { personId: 'p2' } }), plans)).toBe('Suche')
+  })
+
   it('reads the poster’s Beilage rows under both glyphs — the new one and the one in the record', () => {
     expect(journalArea(ev({ icon: 'attach', text: 'Beilage hinzugefügt' }), plans)).toBe('Rapport')
     expect(journalArea(ev({ icon: 'photo', text: 'Beilage hinzugefügt' }), plans)).toBe('Rapport')
@@ -464,6 +470,9 @@ describe('report proof and Atemschutz labels', () => {
     expect(readingKindLabel('entry')).toBe('Eintritt')
     expect(readingKindLabel('contact')).toBe('Kontakt')
     expect(readingKindLabel('pressure')).toBe('Druck')
+    // a stand-down prints «Nicht eingesetzt», never «Austritt» (staging r2, N8)
+    expect(readingKindLabel('exit', true)).toBe(appConfig.copy.atemschutz.statusNotDeployed)
+    expect(readingKindLabel('exit')).toBe(appConfig.copy.atemschutz.readingKind.exit)
     /* ⚠️ …and the CARD's mini-log says the same words (04.09., Feldtest Manuel). It read
      * «Angemeldet · Eingerückt · Austritt» — one row in the button's language between two in the
      * record's. The buttons stay «Einrücken»/«Raus melden»: those are pressed by somebody

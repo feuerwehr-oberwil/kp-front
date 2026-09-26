@@ -11,6 +11,8 @@ import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
+import { useHeadFit } from '../lib/useHeadFit'
+import { asksWords } from '../lib/suche'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
  * The wind/condition maths, kept beside its only reader. It used to live in a `WindBadge`
@@ -116,6 +118,14 @@ interface Props {
   /** app-wide Atemschutz alarm state — drives the conditional chip (only shown when a Trupp is
    *  fällig/überfällig, so it never crowds the bar in the normal case) */
   azAlarm?: AtemschutzAlarmState
+  /** People still missing in the Suche (lib/suche · vermisstCount). The «2 vermisst» chip stands
+   *  in every head, for everyone, from the first vermisst until the last is found — like the
+   *  Atemschutz chip, it is only there while it has something to say. */
+  sucheMissing?: number
+  /** the Suche's open «abgesucht?» questions (lib/suche · pendingAsks) — counted on the chip (N13) */
+  sucheAsks?: number
+  /** tap on that chip: the Suche, on its Personen tab */
+  onOpenSuche?: () => void
   /** Live GPS feed has gone silent — the vehicles on the map are frozen. */
   gpsStale?: boolean
   /** Age of the last successful GPS poll, for the chip's readout. */
@@ -141,7 +151,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, sucheMissing = 0, sucheAsks = 0, onOpenSuche, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -193,8 +203,15 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
     onHoldPhoto,
   })
 
+  // the bar's priority ladder (lib/useHeadFit): measured, one step at a time, until it fits
+  const barRef = useRef<HTMLDivElement>(null)
+  useHeadFit(barRef, [
+    incident.title, clockText.length, hasWind, sucheMissing, sucheAsks, gpsStale ? 1 : 0, archived ? 1 : 0,
+    azAlarm?.urgent ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
+  ].join('|'))
+
   return (
-    <div className="topbar">
+    <div className="topbar" ref={barRef}>
       {titleSlot ?? (
         <>
           <div className="ename">{incident.title}</div>
@@ -245,7 +262,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
                 selectors would have picked the wrong buttons, because the mapNav action ahead of
                 them is a .tb-act.icon too and comes and goes with the surface. */}
             <button className="tb-act icon tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /></button>
-            <button className="tb-act icon tb-act-history" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
+            <button className="tb-act icon tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
           </>
         )}
         {/* ⚠️ `has-rem` tints the BUTTON, not just its corner. The count badge alone is 17px of amber
@@ -309,6 +326,23 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             )}
           </span>
         )}
+        {/* the Suche's chip (24.09.2026): «2 vermisst», red, for everyone while anybody is — the
+            one question the Übung on 23.09. could not answer from any screen at 20:15 */}
+        {(sucheMissing > 0 || sucheAsks > 0) && (() => {
+          const S = appConfig.copy.suche
+          // …and the questions a Trupp's Raus left open («abgesucht?»), where everybody looks (N13)
+          const words = [sucheMissing > 0 ? fillTemplate(S.vermisstChip, { n: sucheMissing }) : '', sucheAsks > 0 ? asksWords(sucheAsks) : ''].filter(Boolean).join(' · ')
+          return (
+            <button className={`tb-az ${sucheMissing > 0 ? 'crit' : 'warn'} tb-suche`} onClick={onOpenSuche} title={S.vermisstChipHint}
+              aria-label={`${S.title}: ${words}`}>
+              <Icon id="people" />
+              {/* the words on a wide bar, the bare count on a phone's (15-mobile.css) — the bar there
+                  also carries the Atemschutz chip, and two worded chips pushed the title under ↶ */}
+              <span className="tb-suche-full">{words}</span>
+              <span className="tb-suche-short" aria-hidden>{sucheMissing > 0 ? sucheMissing : ''}{sucheAsks > 0 && <b className="tb-suche-ask"><span className="tb-suche-ask-n">{sucheAsks}</span>?</b>}</span>
+            </button>
+          )
+        })()}
         {/* Atemschutz chip — pinned at the far right so it never shifts the other controls.
             AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first
             the top bar said anything was the red alarm), RED once a Trupp is überfällig or at

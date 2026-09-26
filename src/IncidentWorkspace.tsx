@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
@@ -12,8 +12,8 @@ import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
-import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
-import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
+import { autoActivateLayers, carriedWorkspaceKeys, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit, type TacticalObject } from './lib/tacticalObjects'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
@@ -23,11 +23,16 @@ import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays 
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
 import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from './lib/docking'
-import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
+import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, Shift, ShiftBand, SucheDoc, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newId, newRowId } from './lib/ids'
-import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode, lageGrundgeruestConfig, sucheUebergabe } from './lib/deploymentConfig'
+import { grundgeruestProgress, grundgeruestRows, isHydrantLayer, linePresetIdFor, ownLocation, panClearOf, placeable, slotsFor, takeOverKind, type GrundgeruestRow } from './lib/lageGrundgeruest'
+import { useHydrantPoints } from './lib/useHydrantPoints'
+import { resolveLinePreset } from './lib/lineStyle'
+import { LageGrundgeruestCard } from './components/LageGrundgeruestCard'
+import { karteStepLabel } from './lib/karteStepLabel'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, fmtFileSize, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
@@ -35,6 +40,7 @@ import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions
 import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
+import { stampCrewFiled, unfiledTruppCrew } from './lib/crewFiling'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -59,9 +65,9 @@ import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
-import { Overlay } from './lib/overlays'
+import { Overlay, Sheet } from './lib/overlays'
 import { apiDelete } from './lib/api'
-import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
+import { grundgeruestHidden, hideGrundgeruest, initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useMittelActions } from './lib/useMittelActions'
@@ -120,7 +126,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, type AtemschutzAlarmState } from './lib/atemschutz'
+import { isAtemschutzTrupp, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -188,6 +194,14 @@ import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
 import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
+import { SUCHE_DOCK_INSET, composerRowSuffix, type SucheComposerLink, bereichStatusOf, emptySuche, openBereiche, pendingAsks, personenViews, sanitizeSuche, stackKeyOf, storeyBadges, storeyBereichId, sucheAppClass, sucheFocusFor, sucheGroups, sucheSurfaceFor, truppFloor, vermisstAbschlussMessage, vermisstCount, type SucheFocus, type SucheStack, type TruppHere } from './lib/suche'
+import { SucheDock, SuchePhoneSheet } from './components/suche/SucheSurface'
+import { SuchePanel, type FundPreset, type SucheTab } from './components/suche/SuchePanel'
+import { SucheAskMeldungen } from './components/suche/SucheAskMeldungen'
+import { useSucheTrupps } from './lib/useSucheTrupps'
+import type { Detent } from './lib/overlays'
+import { useSucheActions, type SucheActions } from './lib/useSucheActions'
+
 import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
 import { whenIdle } from './lib/idle'
@@ -447,6 +461,17 @@ export function IncidentWorkspace({
   /** the caption the NEXT store checkpoint carries, when its writer knows a better word than
    *  the domain's — see `onCheckpoint` below */
   const stepLabel = useRef<string | null>(null)
+  /**
+   * The Karte step laid in THIS task that still wears the domain word, waiting to be named
+   * (lib/karteStepLabel): by the Verlauf row the same act writes (`log` renames it), else — once
+   * the task is over — by what changed in the store. `rowBefore` is a row written in this task
+   * BEFORE the commit, for the writers that log first.
+   */
+  const karteNaming = useRef<{ rename: (label: string) => void; before: TacticalObject[] } | null>(null)
+  const rowBefore = useRef<string | null>(null)
+  /** a Karte step was laid in this task already — a later row is not a «row before» anything */
+  const steppedThisTask = useRef(false)
+
   // On open, fit the map to the incident's existing map content (symbols + drawings) instead of
   // zooming onto the bare Einsatzort point — so a pre-filled Lage is framed ("eingepasst"). One
   // snapshot per incident (mirrors `init`), so it never snaps the view back while you draw.
@@ -571,8 +596,8 @@ export function IncidentWorkspace({
   // all of them would be a different change. The Tafel, Mittel and the Checklisten name their
   // action exactly, because there the timeline entry is written by hand anyway.
   const {
-    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
-    undo: undoDoc, redo: redoDoc, replaceObjects,
+    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, reanchorToKarte, beginDrag, endDrag, gestureOpen, rebake,
+    undo: undoDoc, redo: redoDoc, replaceObjects, current: currentObjects,
   } = useObjectStore(
     init.objects,
     readOnly,
@@ -584,15 +609,30 @@ export function IncidentWorkspace({
        *  saying «Änderung auf der Karte» for a corrected georeference described the wrong act
        *  entirely. One-shot: a writer sets it just before its checkpoint, everything else keeps
        *  the domain word, which for a store step is honest (the object IS the Karte's). */
-      onCheckpoint: () => {
-        const label = stepLabel.current ?? C_HIST.undoDomains.karte
-        stepLabel.current = null
-        undoHist.push({
+      onCheckpoint: (before) => {
+        // Named, in this order (lib/karteStepLabel): by the writer (`stepLabel`), by the Verlauf
+        // row the same act writes, else by what changed. `step.label` is read when ↶ / ↷ run, so
+        // the «… rückgängig gemacht» row carries the name too (R3-3, 25.09.2026).
+        const explicit = stepLabel.current ?? rowBefore.current
+        stepLabel.current = null; rowBefore.current = null
+        if (!steppedThisTask.current) { steppedThisTask.current = true; setTimeout(() => { steppedThisTask.current = false }, 0) }
+        const step = { label: explicit ?? C_HIST.undoDomains.karte }
+        const handle = undoHist.push({
           domain: 'karte',
-          label,
-          undo: () => histStep(undoDocRef.current(), 'undo', label, ''),
-          redo: () => histStep(redoDocRef.current(), 'redo', label, ''),
+          label: step.label,
+          undo: () => histStep(undoDocRef.current(), 'undo', step.label, ''),
+          redo: () => histStep(redoDocRef.current(), 'redo', step.label, ''),
         })
+        if (explicit) return
+        const pending = { rename: (l: string) => { step.label = l; handle.rename(l) }, before }
+        karteNaming.current = pending
+        setTimeout(() => {
+          if (karteNaming.current !== pending) return
+          karteNaming.current = null
+          // `currentObjects` reads the store's live ref — safe to call from here, a task later
+          const named = karteStepLabel(pending.before, currentObjects())
+          if (named) pending.rename(named)
+        }, 0)
       },
       /**
        * An object changed SURFACE, and the audit stream is told both halves of it.
@@ -727,7 +767,7 @@ export function IncidentWorkspace({
   // is a view of the tactical store above.
   const {
     incidentSettings, setIncidentSettings, checklists, setChecklists,
-    trupps: allTrupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, trails, setTrails, attachments, setAttachments,
+    trupps: allTrupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, trails, setTrails, attachments, setAttachments, suche, setSuche,
     planScale, setPlanScale, reportMeta, setReportMeta, building, setBuilding,
     planBindings, setPlanBindings,
     activePlanId, setActivePlanId, pickedObjectId, setPickedObjectId,
@@ -1493,6 +1533,13 @@ export function IncidentWorkspace({
   /** the Pendenz the composer is writing a Meldung on — set by tapping its row in the Verlauf.
    *  Cleared whenever the composer closes, so the next ordinary «Eintrag» is never still linked. */
   const [noteOn, setNoteOn] = useState<{ id: string; text: string } | null>(null)
+  /** the Suche status change the entry being written carries (Tür 2, components/JournalComposer) */
+  const [sucheLink, setSucheLink] = useState<SucheComposerLink | null>(null)
+  /** the Suche's writers, built far below (they need the slice's undo) — read at submit time */
+  const sucheActionsRef = useRef<SucheActions | null>(null)
+  /** a remote hydrate replaced the slices — the Trupp status changes it brought are somebody
+   *  else's to ask about at Raus (lib/useSucheTrupps) */
+  const sucheRemoteRef = useRef(false)
   // the moment the Eintrag composer opened — used as the entry timestamp (the info was usually
   // relevant / the order given then, not when Erfassen is finally pressed)
   const composerOpenedAt = useRef<string | null>(null)
@@ -1576,6 +1623,60 @@ export function IncidentWorkspace({
     window.open(url, '_blank', 'noopener,noreferrer')
   }, [incidentView.center])
 
+  // --- Lage-Grundgerüst (lib/lageGrundgeruest, components/LageGrundgeruestCard) ----------------
+  // The list follows the incident's Einsatzart as it stands NOW. ⚠️ Off the FRESHER of two copies:
+  // `incidentMeta` is replaced only on open and on this device's own PATCH, so a correction made
+  // on the el's phone reached this tablet only through the 30 s incidents watch (`qrMeta`) — and
+  // the card kept the old list. Whichever copy the server stamped later wins.
+  const ggMeta = (qrMeta.updated_at ?? '') > (incidentMeta.updated_at ?? '') ? qrMeta : incidentMeta
+  // Read off the config singleton every render (not memoised), so a config that lands after
+  // first paint is picked up like every other read site.
+  const ggSel = (() => {
+    const { config, presets } = lageGrundgeruestConfig()
+    return slotsFor(config, presets, ggMeta.type)
+  })()
+  // ⚠️ The incident's OWN location, never `incidentView.center`: that falls back to the station's
+  // default map centre, and «Hydrant Nr. 17 · 38 m» measured from the Feuerwehrmagazin is a
+  // confident answer about the wrong place. No location ⇒ no suggestions, the rows only arm the
+  // tool, and the card says why. The weather is the reading AT the incident, so it only counts
+  // while the map is centred where the incident is (a location set on another device is not yet).
+  const ggCenter = ownLocation(ggMeta.lng, ggMeta.lat)
+  const ggWeather = ggCenter && incidentView.center[0] === ggCenter[0] && incidentView.center[1] === ggCenter[1] ? displayWeather : null
+  // 'auto' = shown until complete; 'hidden' = «ausblenden»; 'shown' = asked for from the rail.
+  // «ausblenden» is remembered per DEVICE and per Einsatz (lib/prefs · grundgeruestHidden) — a
+  // device preference, never the synced workspace: one tablet putting the list away must not
+  // take it off another device. The rail / «+» entry brings it back and clears the flag.
+  const [ggMode, setGgModeState] = useState<'auto' | 'shown' | 'hidden'>(
+    () => (grundgeruestHidden(loadPrefs(), incidentMeta.id) ? 'hidden' : 'auto'))
+  const setGgMode = (next: 'auto' | 'shown' | 'hidden', remember = true) => {
+    setGgModeState(next)
+    if (!remember) return
+    const prefs = loadPrefs()
+    const updated = hideGrundgeruest(prefs, incidentMeta.id, next === 'hidden')
+    if (updated !== prefs) savePrefs(updated)
+  }
+  // a surface that cannot place anything gets no card: viewer, `el`, Führungsansicht, a link, replay
+  const ggUsable = !tacticalLocked && !asLink && !replayActive
+  const ggBaseRows = grundgeruestRows(ggSel.slots, objects, { center: ggCenter, weather: ggWeather, hydrants: null })
+  const ggProgress = grundgeruestProgress(ggBaseRows)
+  const ggVisible = ggUsable && (ggMode === 'shown' || (ggMode === 'auto' && ggSel.slots.length > 0 && !ggProgress.complete))
+  // «nächster Hydrant» — fetched only while the card is up AND a hydrant row is still open
+  const ggHydrantLayer = layers.find(isHydrantLayer)
+  const ggHydrantUrls = ggHydrantLayer?.geojson
+    ? (online ? [ggHydrantLayer.geojson, withGeoBbox(ggHydrantLayer.geojson)] : [withGeoBbox(ggHydrantLayer.geojson), ggHydrantLayer.geojson])
+    : null
+  const ggWantsHydrant = ggVisible && !!ggCenter && ggBaseRows.some((r) => !r.match.done && r.slot.vorschlag?.naechster === 'hydrant')
+  const ggHydrants = useHydrantPoints(ggHydrantUrls, ggWantsHydrant)
+  const ggRows = ggHydrants
+    ? grundgeruestRows(ggSel.slots, objects, { center: ggCenter, weather: ggWeather, hydrants: ggHydrants })
+    : ggBaseRows
+  /** the row whose place tool is armed — it lights while its tool is the live one */
+  const [ggArmedId, setGgArmedId] = useState<string | null>(null)
+  /** a plan object waiting for the Karte tap that takes it over («auf die Karte übernehmen») */
+  const [ggTakeOverId, setGgTakeOverId] = useState<string | null>(null)
+  /** PHONE: bumped by every «Grundgerüst» from the «+» sheet — the strip remounts OPEN */
+  const [ggOpenSeq, setGgOpenSeq] = useState(0)
+
   // Honest reporting for the workspace load gate — once per incident mount, so a persistently
   // malformed server blob (re-applied on every poll) nudges the operator once, not endlessly.
   const gateWarned = useRef(false)
@@ -1605,17 +1706,22 @@ export function IncidentWorkspace({
    * device reads on its first open (lib/workspace · deriveInitial). So: never written from the
    * live layers, never wiped — whatever the record already says goes back unchanged. */
   const syncedLayerState = useRef<Saved['layerState']>(bootGate.ws?.layerState ?? [])
+  /** …and the same for every top-level key this BUILD does not know (a slice a newer build added):
+   *  carried out of the blob it came in and echoed into every save, so this device can never erase
+   *  it (lib/workspace · carriedWorkspaceKeys, AGENTS.md · «a newer slice survives an older build»). */
+  const carriedKeys = useRef<Record<string, unknown>>(carriedWorkspaceKeys(bootGate.ws))
   const applyWorkspace = useCallback((ws: Saved) => {
     const gate = sanitizeWorkspace(ws)
     reportGate(gate)
     syncedLayerState.current = gate.ws?.layerState ?? []
+    carriedKeys.current = carriedWorkspaceKeys(gate.ws)
     const next = deriveInitial(gate.ws, incidentMeta.id, prefs, incidentMeta.type)
     // replaceObjects swaps the whole store — the Karte AND every sheet, they are one collection
     // now — AND drops undo history (the local stacks no longer apply to remote/merged state:
     // undoing into it would resurrect remotely-deleted content).
     replaceObjects(next.objects); setLayers(next.layers); journal.ingestLegacy(next.timeline)
     setRecent(next.recent); setBuilding(next.building)
-    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setTrails(next.trails); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPlanBindings(next.planBindings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
+    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setMittel(next.mittel); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setTrails(next.trails); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setSuche(next.suche); sucheRemoteRef.current = true; setIncidentSettings(next.settings); setPlanBindings(next.planBindings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
     // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
     // list that no longer exists, and stepping into one would write this device's rows back over
     // what another device just merged in. The Plan's stacks go too — they now outlive the board's
@@ -1656,9 +1762,14 @@ export function IncidentWorkspace({
     const persisted = objects.filter((o) => o.entity?.kind !== 'photo')
     const views = viewsOf(persisted)
     return {
+    // FIRST, so nothing this build knows can be shadowed by a carried key
+    ...carriedKeys.current,
     objects: persisted,
     entities: views.entities,
     drawings: views.drawings, recent, board: views.board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, settings: incidentSettings, planBindings, intakeReviewedAt,
+    // ALWAYS carried, empty or not: an absent key cannot say «emptied», and the server keeps a
+    // stored `suche` a save leaves out (api/incidents · CARRIED_WORKSPACE_KEYS)
+    suche,
     // ⚠️ NOT `layers` — the Ebenen this device is looking at stay on this device (see
     // syncedLayerState above and lib/layerPrefs). The record's own value goes back unchanged.
     layerState: syncedLayerState.current,
@@ -1667,7 +1778,7 @@ export function IncidentWorkspace({
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
   }
-  }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, incidentSettings, planBindings, intakeReviewedAt])
+  }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, suche, incidentSettings, planBindings, intakeReviewedAt])
 
   // …and they are remembered here instead, per incident, on this device only. Written on every
   // change (not just on a deliberate toggle) so the set derived at boot — including the
@@ -1838,9 +1949,35 @@ export function IncidentWorkspace({
   // «offen» for ever, while the identically-labelled path through the Rapport stamped and
   // counted. Two doors into one room are fine; two doors with the same sign into different rooms
   // are not. The confirm and the open-point count live HERE, above both of them.
+  /** what the Abschluss asks about the Suche: people still missing, areas not abgesucht */
+  /** the Gebäude as the Suche reads it — ONE derivation, used by the list, the Abschluss and the
+   *  Rapport alike: storeys only where the stack is a surface of this Einsatz */
+  const sucheStack = useMemo<SucheStack>(() => ({
+    key: stackKeyOf(building),
+    floors: planDocs.some((d) => d.floorStack) ? building?.floors ?? [] : [],
+    floorName: (f: number) => building?.floorNames?.[String(f)] ?? floorLabel(f),
+  }), [building, planDocs])
+  const sucheAbschluss = useMemo(() => ({
+    vermisst: vermisstCount(suche), openBereiche: openBereiche(suche, sucheGroups(suche, sucheStack)),
+    ask: vermisstAbschlussMessage(suche),
+  }), [suche, sucheStack])
+  /** the Suche's door for the confirm's rows — `openSuche` is built further down */
+  const openSucheRef = useRef<() => void>(() => {})
+  /** «Als «nicht eingesetzt» schliessen» in the Abschluss (useAbschluss · standDownTrupps,
+   *  24.09.2026): the card's own stand-down, per Trupp. The Trupp actions are created much further
+   *  down, so the hook gets a stable door and the ref is pointed at them once they exist. */
+  const standDownRef = useRef<(ids: string[]) => void>(() => {})
+  const standDownTrupps = useCallback((ids: string[]) => standDownRef.current(ids), [])
+  // …and the row for a crew the Abschluss closes over (staging r3 F4), pointed the same way
+  const noteInsideRef = useRef<(ts: Trupp[]) => void>(() => {})
+  const noteInsideAtClose = useCallback((ts: Trupp[]) => noteInsideRef.current(ts), [])
   const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+    // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
+    standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
+    noteInsideAtClose: canWriteRecord ? noteInsideAtClose : undefined,
+    suche: sucheAbschluss, openSuche: useCallback(() => openSucheRef.current(), []),
   })
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
@@ -2052,8 +2189,14 @@ export function IncidentWorkspace({
   // logTruppAlarm), `subjectId` names the object it is ABOUT without making it a jump target
   // (see types · TimelineEvent.subjectId).
   const log = (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string,
-    opts?: { rowId?: string; subjectId?: string }) =>
-    pushEvent({ icon, text, kind, audioUrl, entityId, subjectId: opts?.subjectId, surface: 'map' }, opts?.rowId)
+    opts?: { rowId?: string; subjectId?: string; suche?: TimelineEvent['suche'] }) => {
+    // the Karte step this act just laid takes the row's words as its name (lib/karteStepLabel)…
+    const naming = karteNaming.current
+    if (naming) { karteNaming.current = null; naming.rename(text) }
+    // …and a row written BEFORE its commit is kept for the step that follows in this task
+    else if (!steppedThisTask.current) { rowBefore.current = text; setTimeout(() => { if (rowBefore.current === text) rowBefore.current = null }, 0) }
+    pushEvent({ icon, text, kind, audioUrl, entityId, subjectId: opts?.subjectId, ...(opts?.suche ? { suche: opts.suche } : {}), surface: 'map' }, opts?.rowId)
+  }
   // plan events carry document + (optional) team / coordinate context for jump-back
   const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) =>
     pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor })
@@ -2081,6 +2224,8 @@ export function IncidentWorkspace({
     // the Plan makes from its own magnet (Whiteboard · onLineAttached)
     onLineAttached: (lineId, attachment) => { linkLineToAttachedTrupp(lineId, attachment) },
     onLineDetached: (lineId, previous) => { unlinkLineFromDetachedTrupp(lineId, previous) },
+    // a drawn line/Fläche/Absperrkreis names its ↶ step the way its Verlauf row does
+    nameStep: (label) => { stepLabel.current = label },
   })
   const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing = selectedDrawing) => {
     if (!drawing) return
@@ -2241,7 +2386,7 @@ export function IncidentWorkspace({
     // settleDraft, not setDraft([]): leaving the map (or opening a dock) mid-draft used to be a
     // silent discard — a committable draft auto-commits with an undo toast, a fragment says so
     // (useMapDrawing · settleDraft; Escape stays the explicit discard).
-    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null)
+    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null); setGgTakeOverId(null)
     // the palette IS the arming UI for the symbol tool, so it goes with the tool it arms —
     // otherwise leaving the map with it open silently re-opened it on the way back
     setPanel(null); setViewsOpen(false); setPaletteOpen(false)
@@ -2296,6 +2441,12 @@ export function IncidentWorkspace({
   useEffect(() => { if (!replayActive) setReplayAtMs(null) }, [replayActive])
 
   const focusEvent = (e: TimelineEvent) => {
+    // a Suche row opens the Suche on its person / area (beside the Gebäude, else the Karte)
+    if (e.suche) {
+      setJournalOpen(false)
+      openSuche({ personId: e.suche.personId, bereichId: e.suche.bereichId, tab: e.suche.personId ? 'personen' : 'bereiche' })
+      return
+    }
     if (e.surface === 'plan' && e.planId) {
       if (e.planId === gebaeudeDoc.id && !building) { setJournalOpen(false); return } // floor-stack gone
       setMode('plans'); setPanel(null); setActivePlanId(e.planId)
@@ -2347,6 +2498,14 @@ export function IncidentWorkspace({
     // the `reminder.note` event never fired: the one feature this change adds, corrupting the
     // record it is supposed to keep.
     const pendenzId = !d.noteFor && (d.pendenz || d.dueAt) ? newId('pnd') : undefined
+    // ── the Suche (Tür 2) — the status changes on the way, and THIS row is its Verlauf row: the
+    // record's own row stays in the person's log («Gefunden: Eva Beispiel»), but the Verlauf gets
+    // one line, the one that was written, linked to the person ──
+    const sucheRef = sucheLink && canEditSuche
+      ? (sucheLink.kind === 'gefunden'
+        ? (sucheActionsRef.current?.gefunden(sucheLink.personId, { n: sucheLink.n }, { silent: true }) ? { personId: sucheLink.personId } : undefined)
+        : ((id) => (id ? { personId: id } : undefined))(sucheActionsRef.current?.addPerson({ name: sucheLink.name }, { silent: true }) ?? null))
+      : undefined
     const reminder: TimelineEvent['reminder'] = d.noteFor
       // ⚠️ A Meldung with a due time RE-DATES the item it reports on — «Werkhof meldet 20 Minuten»
       // is exactly the moment to move the Wiedervorlage. It stays op `note`, NOT `snoozed`: the
@@ -2367,7 +2526,11 @@ export function IncidentWorkspace({
       // Verlauf, Rapport and the hash chain all read this one string, and a row whose meaning
       // lived in a side field would read differently in the app than it does on paper. The
       // structured fields travel along for filtering, not for display.
-      icon, text: composeJournalText(body, d), kind, entryType: d.entryType, reminder,
+      // …and the status change it carried says so IN the row («… · Suche: Tim Muster gefunden»),
+      // unless the sentence already says it (lib/suche · composerRowSuffix)
+      icon, text: composeJournalText(body, d) + (sucheRef && sucheLink ? composerRowSuffix(body, sucheLink) : ''),
+      kind, entryType: d.entryType, reminder,
+      ...(sucheRef ? { suche: sucheRef } : {}),
       audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,
       // …already SERVER urls (a generic Beilage is uploaded during save, never queued), so
       // nothing here has to be swapped later the way a photo's blob: URL is
@@ -2394,6 +2557,7 @@ export function IncidentWorkspace({
     // map they were working on, for a save the toast has already confirmed.
     setComposerOpen(false)
     setNoteOn(null)
+    setSucheLink(null)
     const C = appConfig.copy.journal
     // ⚠️ The due time wins the confirmation. «Pendenz gesetzt» on a row that will ring in ten
     // minutes tells the smaller half of what was just decided — and the clock is the half that
@@ -2520,6 +2684,15 @@ export function IncidentWorkspace({
   // so dismissing the palette without picking used to reveal the stale panel again.
   const pick = (id: string) => {
     if (id === 'symbol') { clearMapUi(); setPaletteOpen(true); return }
+    // Not a tool: it shows the Lage-Grundgerüst. ⚠️ No clearMapUi — showing a list must neither end
+    // the selection nor commit a half-drawn line. TABLET: the rail entry toggles the card (lit
+    // while shown). PHONE: the entry sits in the «+» sheet, which covers the strip, so a toggle
+    // there HID the folded strip nobody could see — it always shows, and remounts open.
+    if (id === 'grundgeruest') {
+      if (isPhone) { setPaletteOpen(false); setGgMode('shown'); setGgOpenSeq((n) => n + 1) }
+      else setGgMode(ggVisible ? 'hidden' : 'shown', !(ggVisible && ggProgress.complete))
+      return
+    }
     // Auswahl (select) is the default navigate state: one finger pans the map, a tap
     // selects, a drag on an object moves it. There is no separate pan mode any more —
     // panning is always available.
@@ -2545,6 +2718,37 @@ export function IncidentWorkspace({
     setSelectedDrawIds([]); setSelectedEntityIds([])
     setNotePanelId(null); setEditNoteId(null)
   }
+  /**
+   * Put a symbol on the Karte — THE placement, for a Karte tap with the symbol tool armed and for
+   * the Lage-Grundgerüst's «hier setzen» alike, so a suggestion taken is an ordinary placement:
+   * one undo step, the same Verlauf row, the same audit event, the new symbol selected to drag.
+   * `label` overrides the seeded one (a Wasserbezugsort set at a hydrant carries its number).
+   * `keepArmed` is the Karte tap's «Mehrfach setzen» (placeLock), passed in rather than read off
+   * `tool`: «hier setzen» disarms first, and this render's `tool` would still say the old one.
+   */
+  const placeSymbolAt = (s: string, c: LngLat, opts?: { label?: string; keepArmed?: boolean }) => {
+    const id = newId('p')
+    // shared seeding (label / subtitle / fields / vehicle rotation) — identical to
+    // the Plan placement path so a symbol carries the same structure on both surfaces
+    // A driven vehicle is stored on the Fahrzeuge layer, so it toggles with the live GPS
+    // glyphs rather than sitting among the tactical symbols. (Old incidents are handled by
+    // effectiveLayer at read time — this just means new data needs no shim.)
+    const layer = VEHICLE_SYMBOLS.has(s) ? appConfig.gps.layerId : appConfig.defaults.operationalLayerId
+    const entity: Entity = { id, kind: 'symbol', layer, coord: c, ...seedSymbolProps(s, sym.symbols), ...(opts?.label ? { label: opts.label } : {}) }
+    // the ↶ names what it takes back («Rückgängig: KP Front gesetzt»), not «Änderung auf der Karte»
+    stepLabel.current = fillTemplate(C_HIST.undoDomains.symbolPlaced, { name: formatSymbolName(s) })
+    commit((d) => ({ ...d, entities: [...d.entities, entity] }))
+    addRecent(s)
+    setSelectedDrawIds([]); setSelectedEntityIds([])
+    if (opts?.keepArmed) { setSelectedId(null); setSelectedDrawingId(null) }
+    else { setPending(null); setTool('select'); setSelectedId(id); setSelectedDrawingId(null) }
+    // a label given here is a DETAIL of what was placed («Hydrant H-7»), so the row still names
+    // the symbol first: «Symbol «Wasserbezugsort · Hydrant H-7» gesetzt»
+    const name = opts?.label ? `${formatSymbolName(s)} · ${opts.label}` : entity.label || formatSymbolName(s)
+    log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name }), 'symbol', undefined, id)
+    emit('entity.add', { id, symbol: s, entity })
+  }
+
   const onMapClick = (c: LngLat) => {
     // a map tap dismisses an open Ebenen panel first (parity with the phone backdrop) —
     // the panel is map chrome, so tapping the map behind it should just close it
@@ -2556,6 +2760,9 @@ export function IncidentWorkspace({
       setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
       return
     }
+    // the Lage-Grundgerüst's «auf die Karte übernehmen» for a plan symbol with no ground position:
+    // THIS tap is where it stands — the same record moves over, nothing new is placed
+    if (ggTakeOverId && tool === 'select') { ggTakeOverAt(ggTakeOverId, c); return }
     if (tool === 'shape' && pendingShape) {
       const id = newId('sh'); const def = SHAPE_DEFS[pendingShape]
       const name = appConfig.copy.shapes.names[pendingShape]
@@ -2590,21 +2797,7 @@ export function IncidentWorkspace({
       log('area', fillTemplate(appConfig.copy.log.shapePlaced, { name }), 'symbol', undefined, id)
       emit('entity.add', { id, kind: 'shape', entity: { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, shape: pendingShape, color: def.defaultColor, label: name, ...geom } })
     } else if (tool === 'symbol' && pending) {
-      const id = newId('p'); const s = pending
-      // shared seeding (label / subtitle / fields / vehicle rotation) — identical to
-      // the Plan placement path so a symbol carries the same structure on both surfaces
-      // A driven vehicle is stored on the Fahrzeuge layer, so it toggles with the live GPS
-      // glyphs rather than sitting among the tactical symbols. (Old incidents are handled by
-      // effectiveLayer at read time — this just means new data needs no shim.)
-      const layer = VEHICLE_SYMBOLS.has(s) ? appConfig.gps.layerId : appConfig.defaults.operationalLayerId
-      const entity: Entity = { id, kind: 'symbol', layer, coord: c, ...seedSymbolProps(s, sym.symbols) }
-      commit((d) => ({ ...d, entities: [...d.entities, entity] }))
-      addRecent(s)
-      setSelectedDrawIds([]); setSelectedEntityIds([])
-      if (placeLock) { setSelectedId(null); setSelectedDrawingId(null) }
-      else { setPending(null); setTool('select'); setSelectedId(id); setSelectedDrawingId(null) }
-      log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: entity.label || formatSymbolName(s) }), 'symbol', undefined, id)
-      emit('entity.add', { id, symbol: s, entity })
+      placeSymbolAt(pending, c, { keepArmed: placeLock })
     } else if (tool === 'note') {
       const id = newId('n')
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
@@ -3112,9 +3305,10 @@ export function IncidentWorkspace({
       const map = mapRef.current
       let dockPatch: { dockedTo: string | undefined } | null = null
       let dockHost: Entity | undefined
-      if (isDockable(ent) && map) {
+      // an explicit `dock` from the Karte's closed ring needs no map; only the nearest-host search does
+      if (isDockable(ent) && (map || dock)) {
         const others = doc.entities.filter((e) => e.id !== id)
-        const near = () => nearestDockHost(c, others, (p) => map.project(p), dockRadiusFor(ent)) ?? undefined
+        const near = () => (map ? nearestDockHost(c, others, (p) => map.project(p), dockRadiusFor(ent)) ?? undefined : undefined)
         // a Trupp marker docks only through a CLOSED ring (MapView · trackDockAim); with the ring
         // still open the drop keeps an existing bond while it is in reach and lets go beyond it
         dockHost = dock === undefined ? near()
@@ -3495,8 +3689,34 @@ export function IncidentWorkspace({
     undo: () => stepAttendanceRef.current('undo'),
     redo: () => stepAttendanceRef.current('redo'),
   })
-  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. */
-  const attSet: typeof attHist.set = (update) => { const laid = attHist.set(update); rememberAttendanceStep(); return laid }
+  /**
+   * A Trupp SAVE is one act (staging r3 F1): the Gäste its form files, the crew it marks present
+   * and the AS-Funktion it writes are part of «Trupp 2 … angemeldet» — ONE ↶ takes the Trupp and
+   * the people it filed back together, nothing half-done. Opened by the first write of a save
+   * (fileTruppGuest, or the create/edit/re-entry wrapper), it gathers every step pushed until the
+   * save's synchronous run ends (a microtask later) into one timeline entry, and folds the
+   * Anwesenheit writes of that run into ONE slice step.
+   * It used to leave «Rückgängig: Anwesenheit» on top, which stripped the crew's Funktion, kept
+   * them present, kept the Trupp — and wrote «Anwesenheit zurückgenommen» over it.
+   */
+  const truppSaveRef = useRef<{ laidAttendance: boolean } | null>(null)
+  const openTruppSave = () => {
+    if (truppSaveRef.current) return
+    const save = { laidAttendance: false }
+    truppSaveRef.current = save
+    const end = undoHist.group('trupps')
+    queueMicrotask(() => { if (truppSaveRef.current === save) truppSaveRef.current = null; end() })
+  }
+  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. Inside
+   *  a Trupp save the save's first write is its step and the rest fold into it. */
+  const attSet: typeof attHist.set = (update) => {
+    const save = truppSaveRef.current
+    if (save?.laidAttendance) return attHist.set(update, { coalesce: () => true })
+    const laid = attHist.set(update)
+    rememberAttendanceStep()
+    if (save && laid) save.laidAttendance = true
+    return laid
+  }
   /**
    * A Gebäude one-shot on the timeline. These own no stack at all — a storey added, a storey
    * removed, a building replaced — so the entry carries BOTH states itself, the way the
@@ -3513,6 +3733,26 @@ export function IncidentWorkspace({
     redo: () => { reapply(); logHistStep('redo', label, ''); return true },
   })
   rememberOneShotRef.current = rememberOneShot
+  // the Abschluss's «nicht eingesetzt» door (standDownTrupps above) — read only when the question
+  // is answered, long after this commit, so an effect is the place to point it
+  // ⚠️ Re-checked against the Trupps as they stand NOW: a Sicherungstrupp sent in while the
+  // Abschluss stood open is inside, and «raus» on it would be a real Austritt nobody reported.
+  useEffect(() => {
+    standDownRef.current = (ids) => {
+      for (const id of ids) {
+        const t = truppsRef.current.find((x) => x.id === id)
+        if (t && truppStillRegistered(t)) setTruppStatus(id, 'raus')
+      }
+    }
+  })
+  useEffect(() => {
+    noteInsideRef.current = (ts) => {
+      for (const t of ts) {
+        log('logout', fillTemplate(appConfig.copy.atemschutz.logInsideAtClose, { name: truppLogName(t) }), 'team',
+          undefined, undefined, { subjectId: t.id })
+      }
+    }
+  })
   const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) =>
     rememberOneShot('gebaeude', label, restore, reapply)
 
@@ -3761,6 +4001,137 @@ export function IncidentWorkspace({
     return laid
   }
   reportSetRef.current = reportSet
+  /**
+   * The Suche (24.09.2026, lib/suche) joins the timeline like Mittel: one slice, whole-slice
+   * snapshots, a delegating entry per act. ⚠️ EDITOR only in step 1 (`canEditIncident`): the `el`
+   * reads, a link session reads — the backend's record slice does not carry `suche`, and an
+   * Atemschutz-Link writes exactly three routes (AGENTS.md · role gating).
+   * The step's rows are the records' own log rows, so ↶ says «Zurückgenommen: Gefunden: …» in
+   * the words the act wrote and ↷ writes them again (`movedRows`) — the Checklisten pattern.
+   * ⚠️ `keepSeeds`: the storeys the machine seeded after a checkpoint are no step of anybody's,
+   * so a ↶ keeps them (they would only come back on the next open, as the same derived ids).
+   */
+  const canEditSuche = canEditIncident
+  const sucheFloorName = sucheStack.floorName
+  // ⚠️ NOT useUndoableSlice: a whole-slice snapshot put back took with it every row the machine
+  // or another device wrote since, and said «Zurückgenommen» about them. The writer keeps its
+  // own history as PATCHES and a step takes back exactly what it added (lib/suche · diffSuche).
+  const sucheActions = useSucheActions({
+    suche,
+    setRaw: setSuche,
+    remember: (label, undo, redo) => { undoHist.push({ domain: 'suche', label, undo, redo }) },
+    canEdit: canEditSuche,
+    log,
+    emit,
+    floorName: sucheFloorName,
+    stack: sucheStack.key,
+  })
+  useLayoutEffect(() => { sucheActionsRef.current = sucheActions })
+  /* ── where the Suche is open (E5): a DOCK beside the Gebäude or the Karte on a tablet, a sheet
+   *    over them on a phone. Device state — which list somebody is looking at is not the record. */
+  const [sucheOpen, setSucheOpen] = useState(false)
+  const [sucheTab, setSucheTab] = useState<SucheTab>('personen')
+  const [sucheFocus, setSucheFocus] = useState<SucheFocus | null>(null)
+  /** «Fund melden» from a Trupp (N17): a sheet OVER the surface it was asked from — the Atemschutz
+   *  board stays where it is, and closing the sheet is being back there */
+  const [sucheFund, setSucheFund] = useState<{ preset: FundPreset; nonce: number } | null>(null)
+  const [sucheDetent, setSucheDetent] = useState<Detent>('half')
+  /** replay shows the search as it stood (lib/suche · sucheAt folds the anchor's slice) */
+  const effSuche = useMemo<SucheDoc>(
+    () => (replayActive ? sanitizeSuche(replayWs?.suche) ?? emptySuche() : suche),
+    [replayActive, replayWs, suche],
+  )
+  const stackPlanId = planDocs.find((d) => d.floorStack)?.id
+  const sucheFloors = sucheStack.floors
+  const sucheHasGebaeude = sucheFloors.length > 0
+  const sucheMissing = vermisstCount(effSuche)
+  /** the Trupps as the Suche names them: «Trupp 3» on paper, «T3 Muster» on a chip */
+  const sucheTrupps = useMemo<TruppHere[]>(() => trupps.map((t) => {
+    const S = appConfig.copy.suche
+    return typeof t.no === 'number'
+      ? { id: t.id, label: fillTemplate(S.truppLabel, { n: t.no }), short: fillTemplate(S.truppChip, { n: t.no, name: t.name ?? '' }).trim() }
+      : { id: t.id, label: t.name, short: t.name }
+  }), [trupps])
+  /** which storey each Trupp's chip stands on in the Gebäude — «Gefunden…» pre-selects from it */
+  const sucheTruppFloors = useMemo(() => (stackPlanId ? (board[stackPlanId] ?? []) : [])
+    .filter((a) => a.kind === 'resource' && !!a.truppId)
+    .map((a) => ({ truppId: a.truppId!, floor: a.floor ?? 0 })), [board, stackPlanId])
+  const sucheGroupsNow = useMemo(() => sucheGroups(effSuche, sucheStack), [effSuche, sucheStack])
+  /** «Trupp 4 raus – abgesucht?»: the areas whose Trupp is out and nobody has answered yet — on the
+   *  area's row, on the head chip, in the peek line and in the Meldeleiste (N13) */
+  const sucheAskUnits = useMemo(() => pendingAsks(sucheGroupsNow, (id) => {
+    const t = allTrupps.find((x) => x.id === id)
+    return !t || t.status === 'raus' || !!t.removedAt
+  }), [sucheGroupsNow, allTrupps])
+  const sucheBadges = useMemo(() => (sucheOpen || effSuche.personen.length || effSuche.bereiche.some((b) => b.log.length) ? storeyBadges(sucheGroupsNow) : undefined), [sucheOpen, effSuche, sucheGroupsNow])
+  /**
+   * Open the Suche — from every door (the rail, the head chip, a Verlauf row, a Meldeleiste
+   * question) the same way: beside the Karte or plan you are on, else beside the Gebäude, or the
+   * Karte when there is none (lib/suche · sucheSurfaceFor). Opening is also the moment every
+   * storey becomes its «ganzes Geschoss» (E6 «von selbst»).
+   */
+  const openSuche = (opts?: { tab?: SucheTab; personId?: string; bereichId?: string }) => {
+    setSucheOpen(true)
+    if (opts?.tab) setSucheTab(opts.tab)
+    // a jump opens its record; a plain open is the LIST — never a form left over from before (N17)
+    setSucheFocus((f) => sucheFocusFor(f, opts))
+    if (isPhone) setSucheDetent('half')
+    const to = sucheSurfaceFor(mode, sucheHasGebaeude)
+    if (to) sucheSurface(to)
+    sucheActions.seed(sucheFloors)
+  }
+  useLayoutEffect(() => { openSucheRef.current = () => openSuche({ tab: 'personen' }) })
+  /** the surface under the Suche — the phone sheet's Gebäude | Karte switch and every door */
+  const sucheSurface = (to: 'gebaeude' | 'karte') => {
+    if (to === 'gebaeude' && stackPlanId) {
+      if (mode === 'plans' && activePlanId === stackPlanId) return
+      if (mode !== 'plans') clearMapUi()
+      setMode('plans'); setActivePlanId(stackPlanId)
+    } else if (to === 'karte' && mode !== 'map') setMode('map')
+  }
+  /** a row or a storey chip was tapped: the stack scrolls there (markers are step 2) */
+  const sucheToFloor = (floor: number) => {
+    if (!stackPlanId || mode !== 'plans' || activePlanId !== stackPlanId) return
+    setPlanFocus({ x: 0.5, y: 0.5, floor, nonce: Date.now() })
+  }
+  const sucheSurfaceOn = sucheOpen && (mode === 'map' || mode === 'plans')
+  const suchePanelProps = {
+    doc: effSuche, floors: sucheFloors, floorName: sucheFloorName, stackKey: sucheStack.key, trupps: sucheTrupps, placed: sucheTruppFloors,
+    // «Trupp 4 raus – abgesucht?» stands on the area's own row while its Trupp is out
+    asks: sucheAskUnits.map((u) => u.id),
+    canEdit: canEditSuche, actions: sucheActions, tab: sucheTab, onTab: setSucheTab, focus: sucheFocus,
+    onFloor: sucheToFloor, uebergabe: sucheUebergabe(),
+  }
+  /* ── the Trupps' half (Tür 3, E6 «Aus dem Trupp») — lib/useSucheTrupps owns it: the storeys on
+   *    the first «Absuchen», a Ziel's area «in Arbeit · Trupp 4», and «abgesucht?» at Raus ── */
+  useSucheTrupps({
+    trupps: allTrupps, canEdit: canEditSuche && !replayActive, actions: sucheActions, stack: sucheStack,
+    placed: sucheTruppFloors, truppsHere: sucheTrupps, remoteRef: sucheRemoteRef,
+  })
+  /** «Fund melden» (storey + Trupp pre-filled) and «Bereich abgesucht» on a Trupp's ⋯ menu */
+  const sucheTruppItems = (t: Trupp) => {
+    // a Trupp that has not gone in yet has found nothing and searched nothing
+    if (t.status === 'angemeldet') return []
+    const S = appConfig.copy.suche
+    // the storey the Trupp is searching NOW — its area, its Ziel, its marker (F7), never the
+    // missing person's «zuletzt gesehen»
+    const floor = truppFloor(suche, t.id, sucheStack, t.ziel, sucheTruppFloors.find((p) => p.truppId === t.id)?.floor)
+    const mine = suche.bereiche.filter((b) => { const st = bereichStatusOf(b); return st.status === 'inArbeit' && st.truppId === t.id })
+    const label = sucheTrupps.find((x) => x.id === t.id)?.label ?? t.name
+    return [
+      // a sheet over the board, not a trip to the Suche (N17): the clocks stay in sight
+      { label: S.fundMelden, onClick: () => setSucheFund({ preset: { truppId: t.id, floor }, nonce: Date.now() }) },
+      {
+        label: S.bereichAbgesucht,
+        // the one area it searches is marked straight away (↶ takes it back); otherwise the
+        // Bereiche open on its storey, to say which
+        onClick: () => (mine.length === 1 ? void sucheActions.setStatus(mine[0].id, 'abgesucht', { label, id: t.id })
+          : openSuche({ tab: 'bereiche', bereichId: mine[0]?.id ?? (floor != null ? storeyBereichId(floor, sucheStack.key) : undefined) })),
+      },
+    ]
+  }
+  /** every area by its full label, for the Trupp form's Ziel chips */
+  const sucheZielChoices = useMemo(() => sucheGroupsNow.flatMap((g) => g.units.map((u) => u.full)).filter(Boolean), [sucheGroupsNow])
   const { saveMittel } = useMittelActions({ mittel, setMittel: mittelSet, authorName: user?.display_name, log })
   // Symbol→Mittel moved OUT of the symbol's card (28.08.): the Material surface itself now shows
   // the «Gesetzt, aber nicht erfasst» strip, fed with every symbol standing on Lage + all plans.
@@ -3973,13 +4344,18 @@ export function IncidentWorkspace({
   const ensurePresentForRole = (
     ids: (string | undefined)[], roleNote?: string, groupTemplate?: string,
     noteFor?: (id: string) => string | undefined,
+    /** Gäste the Trupp form filed a moment ago in the SAME act (fileTruppGuest): already present
+     *  — this render's `attendance` cannot know it yet — and named by the name they were filed
+     *  under, never by their id (staging N1: «Unter AS: g1790338070425-0etoa, …»). */
+    justFiled?: ReadonlyMap<string, string>,
   ) => {
     // Not on an Atemschutz-Link session: its Anwesenheit write is a no-op (the slice never
     // carries attendance), and a Verlauf row claiming «anwesend · AS» over a record that never
     // changed would be a lie on paper. The tablet marks the crew present when it takes the Trupp.
     if (!canWriteRecord) return
     const wanted = [...new Set(ids.filter(Boolean) as string[])]
-    const fresh = wanted.filter((id) => !isPresent(attendance[id]))
+    const fresh = wanted.filter((id) => !justFiled?.has(id) && !isPresent(attendance[id]))
+    const nameOf = (id: string) => justFiled?.get(id) ?? rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id
     // ⚠️ APPEND, don't fill-if-empty: one person routinely holds two jobs, and the Fahrer who
     // then goes under Atemschutz is «Fahrer Pio, AS». See lib/roleAssignment · mergeRoleNote for
     // when a part replaces an earlier one instead of joining it.
@@ -4018,7 +4394,7 @@ export function IncidentWorkspace({
     if (groupTemplate && roleNote) {
       const named = wanted
         .filter((id) => fresh.includes(id) || noted.has(id))
-        .map((id) => rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id)
+        .map(nameOf)
       if (named.length) log('people', fillTemplate(groupTemplate, { role: roleNote, list: named.join(', ') }), 'team')
       return
     }
@@ -4057,16 +4433,72 @@ export function IncidentWorkspace({
    *  picker (`leaderPersonId`) or the keyboard (the first name `unrecordedCrewNames` returns is
    *  `f.name`, which IS the leader — see types · Trupp.name). */
   const ensurePresentFromTrupp = (f: Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds' | 'kind'>) => {
+    /* ⚠️ Not on a session that cannot write the record (staging N2, 25.09.2026): on the
+       Atemschutz-Link every write below was a no-op while `addGuest` still logged «… als weitere
+       Person erfasst» — a line claiming a record that never changed. An editor device files that
+       crew when it SEES the Trupp (the observer effect below, lib/crewFiling). */
+    if (!canWriteRecord) { filedGuestsRef.current = new Map(); return }
     const { role, leaderRole, groupTemplate } = truppRoleNote(f)
+    // the Gäste the form's save filed a moment ago (fileTruppGuest) — this render's attendance
+    // does not hold them yet, and read from it they were filed a SECOND time (staging N1)
+    const filed = filedGuestsRef.current
+    filedGuestsRef.current = new Map()
     const ids = [f.leaderPersonId, ...(f.memberPersonIds ?? [])]
-    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined))
+    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined), filed)
     // 'presence': being in a Trupp contradicts nothing — the conflict check is about somebody
     // holding a SECOND job (lib/roleAssignment · roleConflictHint)
     const lead = f.name.trim()
-    for (const name of unrecordedCrewNames(f, (n) => personIdForName(rosterIdByName, n))) {
+    const filedIdOf = (n: string) => [...filed].find(([, nm]) => nm === n)?.[0]
+    for (const name of unrecordedCrewNames(f, (n) => filedIdOf(n) ?? personIdForName(rosterIdByName, n))) {
       assignTypedName(name, 'presence', name === lead ? leaderRole : role)
     }
   }
+  /** The Trupp form's Gast door (AtemschutzView · TruppForm · fileGuests), called at the SAVE.
+   *  A name the Mannschaft knows is that person; any other is a Gast row, filed QUIETLY — the
+   *  crew's one «Unter AS: …» row that `ensurePresentFromTrupp` writes right after names them
+   *  all — and remembered for that call (staging N1: one person, one row, one line). */
+  const filedGuestsRef = useRef<Map<string, string>>(new Map())
+  const fileTruppGuest = (name: string): string | undefined => {
+    openTruppSave()
+    const known = personIdForName(rosterIdByName, name)
+    if (known) return known
+    const id = addGuest(name, undefined, { quiet: true })
+    if (id) filedGuestsRef.current.set(id, name)
+    return id
+  }
+  /* ── A crew registered where the record cannot be written reaches it anyway (staging N2) ──
+     An Atemschutz-Link may write the Trupps and nothing else, so its crew — Gäste above all —
+     never reached the Anwesenheit. Every device that MAY write the record OBSERVES the Trupps and
+     files what is missing under ids every device derives the same way (lib/crewFiling), so two
+     tablets converge on one row per person and one Verlauf line per Trupp. A machine write: raw
+     `setAttendance`, never the undo timeline, and idempotent — once filed, nothing is left to
+     file (AGENTS.md · a machine writer writes nothing when nothing changed).
+     ⚠️ ONE-SHOT per (Trupp, person): the Trupp's `crewFiled` marker is stamped in the same pass,
+     for the people filed now AND those already on the list, so somebody taken OFF the Anwesenheit
+     later stays off on every device (types · Trupp.crewFiled). */
+  useEffect(() => {
+    if (!canWriteRecord || replayActive || incidentMeta.is_archived) return
+    const todo = unfiledTruppCrew(allTrupps, attendance, (n) => personIdForName(rosterIdByName, n))
+    if (!todo.length) return
+    const files = todo.filter((f) => f.entries.length)
+    if (files.length) {
+      setAttendance((cur) => {
+        let next = cur
+        for (const f of files) for (const e of f.entries) {
+          if (next[e.id]) continue
+          next = next === cur ? { ...cur } : next
+          next[e.id] = { ...openPresence(undefined, incidentMeta.started_at, e.name), note: e.note }
+        }
+        return next
+      })
+    }
+    setTrupps((ts) => stampCrewFiled(ts, todo))
+    for (const f of files) {
+      log('people', fillTemplate(f.groupTemplate, { role: f.role, list: f.entries.map((e) => e.name).join(', ') }), 'team',
+        undefined, undefined, { rowId: f.rowId })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTrupps, attendance, canWriteRecord, replayActive, incidentMeta.is_archived])
 
   /** Assign a role: presence + Bemerkung, and the hint if it contradicts the record (lib ·
    *  roleAssignment). The hint never blocks — it is shown after the assignment went through. */
@@ -4150,12 +4582,13 @@ export function IncidentWorkspace({
   // ⚠️ The CANONICALISED crew reaches the Anwesenheit too, not the raw form values: a Gast row is
   // opened under the name that is written down everywhere else, so «Hans Müller» typed into the
   // Trupp form cannot open a second row beside the roster's «Müller Hans».
-  const createTruppA = (t: Trupp) => { const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
-  const editTruppA = (id: string, f: TruppFields) => { const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
+  // ⚠️ Each is ONE step on the timeline with the crew filing it causes (openTruppSave).
+  const createTruppA = (t: Trupp) => { openTruppSave(); const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
+  const editTruppA = (id: string, f: TruppFields) => { openTruppSave(); const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
   // `standby` MUST be forwarded: this wrapper used to swallow it, so «Bereitstellen» ran the
   // «Wieder einrücken» path — a crew standing at the vehicle with a running contact clock, which
   // is exactly the case the standby fork exists to prevent (see useTruppActions · reactivateTrupp).
-  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
+  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { openTruppSave(); const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE
@@ -4184,6 +4617,91 @@ export function IncidentWorkspace({
   }
 
   const mapUI = mode === 'map'
+
+  // --- Lage-Grundgerüst: the card's four acts ----------------------------------------------------
+  // Three of them arm or perform an ORDINARY act — the same place tool, the same line tool, the
+  // same placement a Karte tap makes — with that act's own undo, Verlauf row and sync path. The
+  // fourth, «auf die Karte übernehmen», is the anchor flip a Karte drag makes, as one store step
+  // (useObjectStore · reanchorToKarte). Nothing is written until the operator acts.
+  const ggArmedSlot = ggRows.find((r) => r.slot.id === ggArmedId)?.slot
+  const ggArmedLive = !!ggArmedSlot && (
+    ggTakeOverId ? ggRows.some((r) => r.slot.id === ggArmedId && r.match.onPlan?.id === ggTakeOverId)
+      : ggArmedSlot.symbol ? tool === 'symbol' && pending === ggArmedSlot.symbol : tool === 'line')
+  /** «+ Wasserbezug»: arm the place tool (symbol) or the Linie with the slot's preset — the next
+   *  Karte tap places it. A second tap on the lit row puts the tool away again. */
+  const ggArm = (row: GrundgeruestRow) => {
+    if (tacticalLocked) return
+    const { slot } = row
+    if (ggArmedLive && ggArmedId === slot.id) { clearMapUi(); return }
+    clearMapUi()
+    if (slot.symbol) {
+      setTool('symbol'); setPending(slot.symbol)
+    } else if (slot.linie) {
+      // the preset's bundle seeds the next line, exactly as the line style the dock remembers
+      const p = resolveLinePreset(linePresetIdFor(slot.linie) ?? 'freihand', drawDashed)
+      setDrawArrow(!!p.arrow); setDrawMarker(p.marker ?? ''); setDrawDashed(!!p.dashed)
+      // ⚠️ «Punkte», not the remembered mode: a Zufahrt is laid along a road tap by tap, and the
+      // row says «Punkte … tippen» — in «Freihand» those taps did nothing (staging 3am, 25.09.)
+      setLineMode('nodes'); setDraft([])
+      setTool('line')
+    }
+    setGgArmedId(slot.id)
+  }
+  /** «hier setzen»: the symbol goes where the suggestion says — an ordinary placement, selected
+   *  and ready to drag, because a suggestion is only ever a starting point. */
+  const ggPlace = (row: GrundgeruestRow) => {
+    const { slot, suggestion } = row
+    if (tacticalLocked || !slot.symbol || !placeable(suggestion)) return
+    clearMapUi()
+    const label = suggestion.kind === 'hydrant' && suggestion.nr
+      ? fillTemplate(appConfig.copy.lageGrundgeruest.hydrantLabel, { nr: suggestion.nr })
+      : undefined
+    placeSymbolAt(slot.symbol, suggestion.coord, { label })
+    // a suggestion off-screen is placed where nobody is looking — bring it into view; one UNDER
+    // the card is placed where nobody can see it either (staging 3am V5) — pan it clear
+    const map = mapRef.current?.getMap()
+    if (!map) return
+    if (!map.getBounds().contains(suggestion.coord)) { map.easeTo({ center: suggestion.coord, duration: 400 }); return }
+    const card = document.querySelector('section.lgg')?.getBoundingClientRect()
+    if (!card) return
+    const box = map.getContainer().getBoundingClientRect()
+    const at = map.project(suggestion.coord)
+    const pan = panClearOf({ x: box.left + at.x, y: box.top + at.y }, card)
+    if (pan) map.panBy(pan, { duration: 400 })
+  }
+  /** Take a plan object over onto the Karte — the same record (no twin). One store step; the
+   *  flip's audit pair is reported by the store like a drag's, the Verlauf row is ours. */
+  const ggTakeOverAt = (id: string, coord?: LngLat) => {
+    const o = objects.find((x) => x.id === id)
+    setGgTakeOverId(null)
+    if (!o || tacticalLocked) return
+    const a = o.sheet?.anno
+    const name = o.entity?.label || a?.label || (a?.symbol ? formatSymbolName(a.symbol) : '') || appConfig.copy.lageGrundgeruest.title
+    stepLabel.current = fillTemplate(C_HIST.undoDomains.symbolToKarte, { name })
+    // nothing changed ⇒ no step was laid, so the label must not wait for the next one
+    if (!reanchorToKarte(id, coord)) { stepLabel.current = null; return }
+    log('hex', fillTemplate(appConfig.copy.log.symbolToKarte, { name }), 'symbol', undefined, id)
+    setSelectedDrawIds([]); setSelectedEntityIds([])
+    if (o.drawing) { setSelectedDrawingId(id); setSelectedId(null) } else { setSelectedId(id); setSelectedDrawingId(null) }
+  }
+  /** «auf die Karte übernehmen»: a baked body flips in place; a symbol on an unlinked sheet waits
+   *  for the Karte tap that says where it really is. A second tap on the waiting row cancels. */
+  const ggTakeOver = (row: GrundgeruestRow) => {
+    const o = row.match.onPlan
+    const kind = takeOverKind(o)
+    if (tacticalLocked || !o || !kind) return
+    if (kind === 'inPlace') { ggTakeOverAt(o.id); return }
+    if (ggTakeOverId === o.id) { setGgTakeOverId(null); return }
+    clearMapUi()
+    setGgTakeOverId(o.id); setGgArmedId(row.slot.id)
+  }
+  // PHONE: the strip shares its lane with the tool docks, the selection bar, the coordinate
+  // readout and the Ebenen sheet — it steps aside while any of them is up, rather than covering it
+  const ggLaneFree = !isPhone || (tool === 'select' && !selectedId && !selectedDrawingId
+    && selectedDrawIds.length === 0 && selectedEntityIds.length === 0 && panel === null && !coord.readout && !paletteOpen)
+  // the coordinate readout owns the bottom-centre lane too: the card stands above it (03-map ·
+  // .lgg), and stacked above Messen (much higher) it steps aside until the readout is closed
+  const ggCoordUp = !!coord.readout && !replayActive
 
   /* ── one fault line per view (SurfaceBoundary, 02.09.) ─────────────────────────────────────
    * A throw in ANY panel — a Mittel row without a label, a Verlauf text, a building without
@@ -4247,7 +4765,7 @@ export function IncidentWorkspace({
       // this Einsatz) links that row instead of opening a second one beside it. No job
       // written here: the Trupp is not formed yet, and submitting it writes «AS» itself.
       // ⚠️ NOT for a link session: the Anwesenheit is not its slice, and the write would 403.
-      onAddGuest={canEditIncident ? (name) => assignTypedName(name, 'presence') : undefined}
+      onAddGuest={canEditIncident ? fileTruppGuest : undefined}
       createTrupp={createTruppA}
       placeTrupp={placeTrupp}
       placeTargets={placeTargets}
@@ -4288,6 +4806,9 @@ export function IncidentWorkspace({
       // its Stand is saved and its clock is right — on the handed-over board there is no
       // top-bar pill to say it, and on the tablet nobody watching Trupps watches the top bar
       syncStatus={syncStatus} lastSyncedAt={lastSyncedAt} clockSkewMs={clockSkewMs}
+      // the Suche's two doors on a Trupp (Tür 3) and its areas under the Ziel — editor only
+      sucheItems={canEditSuche && !replayActive ? sucheTruppItems : undefined}
+      zielChoices={canEditSuche && !replayActive ? sucheZielChoices : undefined}
       // «Tafel pur»: the whole app for this session, so the subtitle has to name the Einsatz —
       // nothing else on that screen does.
       // …and the two halves apart as well: the phone's one-row head cuts the joined line and
@@ -4431,7 +4952,7 @@ export function IncidentWorkspace({
   )
 
   return (
-    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${sucheAppClass(isPhone, sucheSurfaceOn, sucheDetent)}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
@@ -4666,6 +5187,11 @@ export function IncidentWorkspace({
           setMode('atemschutz'); setPanel(null)
           if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
         }}
+        // «2 vermisst» for everyone, and the tap lands on the Personen tab (E5)
+        sucheMissing={sucheMissing}
+        sucheAsks={canEditSuche && !replayActive ? sucheAskUnits.length : 0}
+        // with a question open the chip goes where it is answered
+        onOpenSuche={() => openSuche({ tab: canEditSuche && sucheAskUnits.length ? 'bereiche' : 'personen' })}
         // Only on the map surface: the chip is a caveat about what the MAP is showing, and on
         // Plan/Atemschutz there are no vehicle symbols for it to qualify. During replay the
         // positions are historical by definition, so a staleness warning would be nonsense.
@@ -4876,6 +5402,14 @@ export function IncidentWorkspace({
         activePlanId={activePlanId}
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}
+        // the Suche's door (a dock, not a surface): toggles where it stands
+        // ⚠️ the rail entry always OPENS (F12): a toggle closed a dock left open on another
+        // surface, out of sight, and the tap seemed to do nothing. The dock's ✕ closes it.
+        onSuche={() => openSuche()}
+        // the phone chooser's row OPENS it — a list row that closed what it names would be a trap
+        onSucheOpen={() => openSuche()}
+        sucheOn={sucheSurfaceOn}
+        sucheCount={sucheMissing}
       />
 
       {findTruppOpen && (
@@ -4917,6 +5451,26 @@ export function IncidentWorkspace({
             <div className="phone-wx">
               <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} popAlignOffset={-5} />
             </div>
+          )}
+
+          {/* the Lage-Grundgerüst — bottom-left on a tablet, a strip over the tool bar on a phone */}
+          {ggVisible && ggLaneFree && !(ggCoordUp && tool === 'measure') && (
+            <LageGrundgeruestCard
+              // PHONE: a fresh mount per «Grundgerüst» from the «+» sheet, so it arrives open
+              key={`gg-${ggOpenSeq}`}
+              rows={ggRows}
+              progress={ggProgress}
+              fallback={ggSel.fallback}
+              noLocation={!ggCenter}
+              armedSlotId={ggArmedLive ? ggArmedId : null}
+              phone={isPhone}
+              startOpen={ggMode === 'shown'}
+              onArm={ggArm}
+              onPlace={ggPlace}
+              onToKarte={ggTakeOver}
+              // a complete card is gone by itself and needs no flag
+              onHide={() => setGgMode('hidden', !ggProgress.complete)}
+            />
           )}
 
           {/* coordinate readout — bottom-centre; aiming follows the cursor, set is locked.
@@ -5313,7 +5867,9 @@ export function IncidentWorkspace({
           // «D pur» (09.09.): no colour/width/style here — the finished line lands selected in
           // the DrawEditor (useMapDrawing · one-shot to Select), which is where the styling
           // lives; new lines inherit the last-used style (the editor writes the defaults back)
-          [{ type: 'info', text: appConfig.copy.dockHints.line }],
+          // the hint for the mode that is ON: «Freihand» draws only with a drag, «Punkte» only
+          // with taps and ✓ — one sentence for both promised a tap that did nothing (staging 3am)
+          [{ type: 'info', text: lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
         ]} />
       )}
       {mapUI && tool === 'area' && (
@@ -5418,6 +5974,7 @@ export function IncidentWorkspace({
              already stated where it is started: the TopBar +Eintrag button, and the FabEntry on a
              phone. */
           active={tool}
+          lit={ggVisible ? ['grundgeruest'] : undefined}
           onPick={pick}
           footer={(() => {
             const c = appConfig.copy.nav
@@ -5718,6 +6275,10 @@ export function IncidentWorkspace({
           fitRef={planFit}
           keysRef={planKeys}
           focus={planFocus}
+          // the Suche docked beside the stack takes its width off the fit (tablet only), and the
+          // storey labels carry its progress («1. OG 2/4»)
+          dockInset={sucheSurfaceOn && !isPhone ? SUCHE_DOCK_INSET : 0}
+          storeyBadges={sucheBadges}
           trupps={effTrupps}
           // the Karte's markers and the other plans' chips, for the one Trupp counter
           placedTeamNames={() => [
@@ -5775,6 +6336,27 @@ export function IncidentWorkspace({
       {mode === 'anwesenheit' && guarded('anwesenheit', anwesenheitSurface)}
 
       {mode === 'mittel' && guarded('mittel', mittelSurface)}
+
+      {/* the Suche (24.09.2026): docked beside the Gebäude or the Karte on a tablet, a peek · half ·
+          full sheet over them on a phone — standing on the nav bar, never over it */}
+      {sucheSurfaceOn && guarded('suche', isPhone ? (
+        <SuchePhoneSheet {...suchePanelProps} onClose={() => setSucheOpen(false)}
+          detent={sucheDetent} onDetent={setSucheDetent}
+          surface={mode === 'plans' && activePlanId === stackPlanId ? 'gebaeude' : 'karte'}
+          onSurface={sucheSurface} hasGebaeude={sucheHasGebaeude} />
+      ) : (
+        <SucheDock {...suchePanelProps} onClose={() => setSucheOpen(false)} />
+      ), false)}
+      {/* «Fund melden» (N17): over whatever surface asked for it, and back there when done */}
+      {sucheFund && canEditSuche && !replayActive && guarded('suche-fund', (
+        <Sheet open onClose={() => setSucheFund(null)} title={appConfig.copy.suche.fundMelden} sheetClassName="suche-fund-sheet" fit>
+          <SuchePanel key={sucheFund.nonce} {...suchePanelProps} focus={{ fund: sucheFund.preset, nonce: sucheFund.nonce }} onExit={() => setSucheFund(null)} />
+        </Sheet>
+      ), false)}
+      {/* the open «abgesucht?» questions in the Meldeleiste (N13) — editor devices only */}
+      {canEditSuche && !replayActive && (
+        <SucheAskMeldungen asks={sucheAskUnits} actions={sucheActions} onOpen={(id) => openSuche({ tab: 'bereiche', bereichId: id })} />
+      )}
 
       {/* time-travel replay scrubber — read-only past view, owns the playhead + fold */}
       {replayActive && (
@@ -5836,6 +6418,8 @@ export function IncidentWorkspace({
           scene={{ entities, drawings, layers: mapLayers, byName: sym.byName, center: incidentView.center, view: { center: view.center, zoom: view.zoom }, captionMode: symbolCaptions ?? 'auto' }}
           board={board}
           building={effBuilding}
+          suche={effSuche}
+          sucheStack={sucheStack}
           captureUsage={captureUsage}
           attachments={attachments}
           onAddAttachments={canEditRecord ? addAttachments : undefined}
@@ -5947,7 +6531,7 @@ export function IncidentWorkspace({
           // that are actually being used tonight (lib/startChips)
           timeline={timeline}
           onSubmit={addJournal}
-          onClose={() => { setComposerOpen(false); setNoteOn(null) }}
+          onClose={() => { setComposerOpen(false); setNoteOn(null); setSucheLink(null) }}
           noteOn={noteOn ?? undefined}
           onClearNote={() => setNoteOn(null)}
           // …and the same list the Verlauf pins, so an entry being written can be attached to an
@@ -5955,6 +6539,10 @@ export function IncidentWorkspace({
           // sentence already names, and holds a picker for the rest.
           openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent }))}
           onLinkPendenz={(pdz) => setNoteOn(pdz)}
+          // Tür 2: a sentence naming somebody missing can find them on its way (editor only)
+          suchePersonen={canEditSuche ? personenViews(suche) : undefined}
+          sucheLink={sucheLink}
+          onSucheLink={setSucheLink}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
           // generic Beilagen (PDF & Co.) ride the same endpoint under kind 'file' — the server
@@ -6069,7 +6657,13 @@ export function IncidentWorkspace({
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
           always add a journal entry / photo / voice memo from the field — tap to compose,
           hold to record a voice memo (same gesture as the desktop TopBar Eintrag) */}
-      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && (
+      {/* ⚠️ …but NOT over the Atemschutz board (staging walk-through r2, 25.09.2026, N9). There it
+          sat on the third crew's «Kontakt» and on «Einsetzen»: a thumb at the right edge opened
+          the composer instead of confirming contact. A bottom inset cannot fix a button that
+          floats over a SCROLLING list, and a reserved 66px column would narrow every row's
+          Druck | Kontakt at 360px — the board's primary controls — to protect a secondary one.
+          The Verlauf stays one tap away in the phone's top bar. */}
+      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && mode !== 'atemschutz' && (
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}
