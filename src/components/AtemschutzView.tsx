@@ -1805,14 +1805,6 @@ function fieldNow(t: Trupp, g: TruppFieldGroup): string {
  *  the live clock, and a worded «Kontakt» that confirms without leaving the form. ONE line, not
  *  the board row's two: the form needs the height, and these rows carry exactly one action. Not a
  *  button as a whole — opening a card from here would close the form over a half-typed Trupp. */
-/** «SiTr» — a Sicherungstrupp (Auftrag «Sichern», under PA) on its row and card at every width,
- *  so the crew sent in for the others is still recognisable once it is one card among many
- *  (staging walk-through 25.09.2026). The word in full rides in `title` and the a11y name. */
-function SafetyChip() {
-  const az = appConfig.copy.atemschutz
-  return <span className={s.safetyChip} title={az.safetyTitle} aria-label={az.safetyTitle}>{az.safetyChip}</span>
-}
-
 function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
   t: Trupp; live: TruppLive; alarm: TruppAlarm; color?: string
   /** confirmed a moment ago on this form — the button says so and takes no second tap */
@@ -2081,15 +2073,10 @@ function TruppRow({
         <span className={s.trowName}>
           <span className={s.trowDot} style={color ? { background: color } : undefined} />
           <span className={s.trowNameTxt}>{t.name}</span>
-          {/* ⚠️ The «#N» badge IS on the collapsed row (staging walk-through r2, 25.09.2026,
-              N15 — following the 14.09. decision, which keeps the badge on the card head, the
-              phone row and the map, and off the Link's tab chips only): radio traffic, the
-              Verlauf and «heisst jetzt Trupp 4» all speak in numbers, and matching one to a
-              row meant opening every card.
-              Beside the leader's name, never instead of it (AGENTS.md · trupp-naming). */}
-          <TruppNo no={t.no} className={s.trowNo} />
-          {/* the crew that stands ready for the others keeps saying so once it is sent in */}
-          {isAtemschutzTrupp(t) && t.auftrag === 'sichern' && <SafetyChip />}
+          {/* ⚠️ Name only — no «#N», no «SiTr» (owner, staging 26.09.2026): the two marks pushed a
+              two-word name onto a second line, and «SiTr» was not recognised at all. The number
+              stays on the opened card and the map; a Sicherungstrupp still stands in its own
+              section while it is ready. */}
         </span>
         {team && <span className={s.trowTeam}>{team}</span>}
       </span>
@@ -2562,7 +2549,7 @@ function TruppCard({
             ⚠️ NOT on the lite board: a link session never sees the Lage or the plan, so the
             colour carries no identity there — it read as an arbitrary dot on somebody's phone. */}
         {color && !lite && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
-        <span className={s.nameStatic}>{t.name}<TruppNo no={t.no} />{monitored && t.auftrag === 'sichern' && <SafetyChip />}</span>
+        <span className={s.nameStatic}>{t.name}<TruppNo no={t.no} /></span>
         {menuItems.length > 0 && (
           <Menu
             trigger={

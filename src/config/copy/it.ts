@@ -1359,7 +1359,6 @@ export const it: Localizable<Copy> = {
     logFirstPressureSame: 'Squadra {name}: contatto – prima pressione {bar} bar (come la pressione d’entrata)',
     pressureSheetFirst: 'Prima pressione – sostituisce la pressione d’entrata {bar} bar, conta come contatto',
     newTruppShort: 'Squadra',
-    safetyChip: 'Sicur.',
     removedToast: 'Squadra {name} rimossa',
     removeInsideTitle: 'La squadra {name} è dentro – annunciarla fuori prima?',
     removeInsideMsg: 'Rimuovere toglie la squadra dalla lavagna e da ogni allarme. Di solito si intende: la squadra è uscita.',

@@ -1542,9 +1542,16 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   .rp-head-actions .rp-btn-label { display: none; }
   .rp-head-actions .ip-btn { width: var(--tap); padding: 0; justify-content: center; }
   .rp-head-actions .rp-split .rp-split-main { width: var(--tap); }
-  /* «Ausdrucken» keeps its offline reason, so it is the one that may stay wider than a square */
-  .rp-head-actions .ip-btn.print-send.offline { width: auto; padding: 0 10px; }
-  .rp-head-actions .print-send-main { gap: 5px; }
+  /* ⚠️ «Ausdrucken» is a square like its neighbours in EVERY state (owner, staging 26.09.2026). It
+     used to keep its offline reason as a second line and grow to fit it: «Stationsdrucker offline»
+     took two thirds of a phone's row, stood twice as tall as the squares, and squeezed the
+     Kontrolle chip to a clipped ⚠. The relay's dot is now a badge on the printer's corner (amber
+     = offline), and the reason is said where it matters: a press asks «Stationsdrucker offline»
+     before it queues anything (ReportPreflight · startOutput), and it is the button's name. */
+  .rp-head-actions .ip-btn.print-send.offline { flex-direction: row; align-items: center; padding: 0; }
+  .rp-head-actions .print-send-off { display: none; }
+  .rp-head-actions .print-send-main { position: relative; }
+  .rp-head-actions .print-relay-dot { position: absolute; top: -3px; right: -6px; box-shadow: 0 0 0 2px var(--surface); }
   /* ⚠️ The row no longer WRAPS here (05.09. fix). At this width the archive/print squares and the
      split pair are fixed, so the only thing that ever grows is the chip with counted text — the
      Kontrolle chip («4 noch offen · 2 Hinweise»; until 20.09. a second «N offen» menu beside it)
