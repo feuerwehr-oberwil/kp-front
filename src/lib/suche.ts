@@ -944,7 +944,10 @@ export interface SuchePatch {
   fields: { kind: Kind; id: string; before: Record<string, unknown>; after: Record<string, unknown> }[]
 }
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+// ⚠️ An ABSENT field travels as `null` (26.09.2026): the patch goes over the wire as JSON (the
+// audit event replay folds), where `undefined` simply vanishes — «the pin was taken off» arrived
+// as an empty `after` and replay kept the pin. No record field is ever null, so null = absent.
+const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
 
 /** What turned `a` into `b`: the records added, the rows appended, the fields changed. */
 export function diffSuche(a: SucheDoc, b: SucheDoc): SuchePatch {
@@ -962,7 +965,7 @@ export function diffSuche(a: SucheDoc, b: SucheDoc): SuchePatch {
       const n = rec as unknown as Record<string, unknown>
       for (const k of new Set([...Object.keys(o), ...Object.keys(n)])) {
         if (k === 'log' || same(o[k], n[k])) continue
-        f0[k] = o[k]; f1[k] = n[k]
+        f0[k] = o[k] ?? null; f1[k] = n[k] ?? null
       }
       if (Object.keys(f1).length) out.fields.push({ kind, id: rec.id, before: f0, after: f1 })
     }
@@ -979,7 +982,7 @@ export function patchRows(p: SuchePatch): SucheRow[] {
 
 const setFields = <T extends object>(rec: T, vals: Record<string, unknown>): T => {
   const out = { ...rec } as Record<string, unknown>
-  for (const [k, v] of Object.entries(vals)) { if (v === undefined) delete out[k]; else out[k] = v }
+  for (const [k, v] of Object.entries(vals)) { if (v == null) delete out[k]; else out[k] = v }
   return out as T
 }
 

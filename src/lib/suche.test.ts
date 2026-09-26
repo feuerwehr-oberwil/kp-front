@@ -294,6 +294,10 @@ describe('Orte: nothing is preset, and one list is by place', () => {
     // the ↶ of a move puts the old position back
     const back = applySuchePatch(moved.doc, diffSuche(d, moved.doc), 'undo')
     expect(back.bereiche[0].point).toEqual({ coord: [7.5, 47.5] })
+    // …and a removal survives the wire (replay folds the patch from JSON, where undefined vanishes)
+    const wire = JSON.parse(JSON.stringify(diffSuche(moved.doc, gone.doc)))
+    expect(applySuchePatch(moved.doc, wire, 'redo').bereiche[0]).not.toHaveProperty('point')
+    expect(applySuchePatch(gone.doc, wire, 'undo').bereiche[0].point).toEqual({ planId: 'gebaeude', x: 0.4, y: 0.3, floor: 1 })
   })
 })
 
