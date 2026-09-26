@@ -53,7 +53,7 @@
    pressed state, not just a pill. The 44px floor is the house rule for anything a gloved
    finger aims at, and this is the one control on the board somebody reaches for in a hurry. */
 .overdueBadge { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px;
-  min-height: 44px; border: none; border-radius: var(--r-pill); cursor: pointer;
+  min-height: 44px; border: none; border-radius: var(--r-sm); cursor: pointer;
   background: var(--red); color: var(--on-accent-ink); font-size: 13px; font-weight: 800; letter-spacing: .02em;
   font-family: inherit; -webkit-tap-highlight-color: transparent;
   animation: az-pulse 1.2s infinite; }

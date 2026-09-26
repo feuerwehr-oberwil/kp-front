@@ -88,3 +88,24 @@ describe('LayerPanel · quick-taps', () => {
     expect(container.querySelector('.lc-quick')).toBeNull()
   })
 })
+
+// On a phone the map's own ⓘ is hidden (15-mobile.css · .app .maplibregl-ctrl-attrib), so the
+// panel's foot is the one place the tile providers are credited – for what is actually ON the
+// map, each provider once.
+describe('LayerPanel · Kartenquellen', () => {
+  const carto: LayerDef = { id: 'base-carto', group: 'Basis', label: 'Carto', icon: 'map', base: true, visible: true, opacity: 100, attribution: '© CARTO, © OpenStreetMap-Mitwirkende' }
+  const osm: LayerDef = { id: 'base-osm', group: 'Basis', label: 'OpenStreetMap', icon: 'map', base: true, visible: false, opacity: 100, attribution: '© OpenStreetMap-Mitwirkende' }
+  const topo: LayerDef = { id: 'hydr', group: 'Wasser', label: 'Hydranten', icon: 'layers', visible: true, attribution: '© OpenStreetMap-Mitwirkende, © swisstopo' }
+  const credits = () => document.querySelector('.lc-credits')?.textContent
+
+  it('names every visible layer\'s provider once', () => {
+    render(<LayerPanel layers={[carto, osm, topo]} onToggle={noop} onOpacity={noop} />)
+    // the © is glued to its name with a no-break space, so a line never ends on a bare «©»
+    expect(credits()).toBe('©\u00a0CARTO, ©\u00a0OpenStreetMap-Mitwirkende, ©\u00a0swisstopo')
+  })
+
+  it('leaves out what is hidden, and the line itself when nothing is credited', () => {
+    render(<LayerPanel layers={[{ ...carto, visible: false }, plan]} onToggle={noop} onOpacity={noop} />)
+    expect(document.querySelector('.lc-credits')).toBeNull()
+  })
+})

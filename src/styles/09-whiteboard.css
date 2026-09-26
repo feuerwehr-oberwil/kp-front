@@ -928,9 +928,11 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-cal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
 
 /* Plan-Maßstab: trust chip — taps to (re)calibrate. Position comes from `.wb-botleft`, the row it
-   shares with the Objekt read-out; clearing the rail is that row's job now, stated once. */
+   shares with the Objekt read-out; clearing the rail is that row's job now, stated once.
+   ⚠️ --r-sm, not a pill (24.09.2026): these are buttons, and on a touch screen they stand --tap
+   tall (20-touch-floors) – a row of 44px capsules along the plan's foot. */
 .wb-scale-chip { display: inline-flex; align-items: center; gap: 6px;
-  max-width: 100%; padding: 6px 10px; border-radius: var(--r-pill); border: 1px solid var(--glass-edge); background: var(--surface);
+  max-width: 100%; padding: 6px 10px; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--surface);
   box-shadow: var(--shadow-sm); color: var(--ink-dim); font: 600 12px var(--body); cursor: pointer; }
 .wb-scale-chip svg { width: 14px; height: 14px; flex: none; }
 .wb-scale-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

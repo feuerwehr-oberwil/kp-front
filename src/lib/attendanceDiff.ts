@@ -1,4 +1,5 @@
 import type { AttendanceState, Person } from '../types'
+import { jsonEqual } from './jsonEqual'
 
 /**
  * Who moved between two states of the Anwesenheit.
@@ -23,7 +24,7 @@ export function changedAttendanceNames(
     // identity first: every write copies the map and replaces exactly the entries it touches, so
     // an untouched person is the SAME object on both sides. The value compare is the safety net
     // for a snapshot that came in through another path.
-    if (a === b || (a && b && JSON.stringify(a) === JSON.stringify(b))) continue
+    if (a === b || (a && b && jsonEqual(a, b))) continue
     names.push(roster.get(id)?.displayName ?? b?.displayNameSnapshot ?? a?.displayNameSnapshot ?? id)
   }
   return names.sort((x, y) => x.localeCompare(y, 'de'))

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { mergeWorkspace, type RecordConflict } from './mergeWorkspace'
 import { attendanceConflictRows, conflictResolvedRow, conflictSignature, conflictWhat, openConflicts, sideLabel } from './attendanceConflict'
 import type { AttendanceEntry, TimelineEvent } from '../types'
+import { serverRoundTrip } from './jsonb.test-utils'
 
 const entry = (status: AttendanceEntry['status'], name = 'Meier Anna', extra: Partial<AttendanceEntry> = {}): AttendanceEntry =>
   ({ status, displayNameSnapshot: name, ...extra })
@@ -109,6 +110,17 @@ describe('attendanceConflictRows — journal rows with signature dedupe', () => 
     expect(b[0].id).toBe(a[0].id)
   })
 
+  // staging r3 F11: each device holds its own half as it built it and the other half as the
+  // server's JSONB handed it back — keys re-sorted. Still one divergence, one identity.
+  it('⚠️ …and whichever key order each device holds the two halves in', () => {
+    const onA: RecordConflict = { ...conflict, theirs: serverRoundTrip(conflict.theirs) }
+    const onB: RecordConflict = { ...conflict, mine: serverRoundTrip(conflict.theirs), theirs: serverRoundTrip(conflict.mine, 'alphabetical') }
+    expect(JSON.stringify(onA.theirs)).not.toBe(JSON.stringify(conflict.theirs)) // really re-sorted
+    expect(conflictSignature(onA)).toBe(conflictSignature(conflict))
+    expect(conflictSignature(onB)).toBe(conflictSignature(conflict))
+    expect(attendanceConflictRows([onB], new Set())[0].id).toBe(attendanceConflictRows([onA], new Set())[0].id)
+  })
+
   it('⚠️ the row id comes from the divergence, not from the clock that happened to report it', () => {
     const early = attendanceConflictRows([conflict], new Set(), new Date('2026-09-03T08:15:02Z'))
     const late = attendanceConflictRows([conflict], new Set(), new Date('2026-09-03T08:15:10Z'))
@@ -173,6 +185,14 @@ describe('conflictWhat — what the row actually says', () => {
   // divergence against every entry written since
   it('treats a missing Ort as «am Einsatzort»', () => {
     expect(conflictWhat(c({ ort: 'scene', note: 'x' }, { note: 'x' }))).toBe('abweichende Angaben zusammengeführt')
+  })
+
+  // staging r3 F11: the same blocks, one side as the server's JSONB handed them back
+  it('does not call the same times «unterschiedlich» because their keys came back re-sorted', () => {
+    const intervals = [{ from: '2026-09-25T17:09:00Z', to: '2026-09-25T19:00:00Z' }]
+    const withKeys = { key: 'p1', mine: entry('present', 'Martina Marco', { intervals, note: 'AS' }), theirs: entry('present', 'Martina Marco', { note: 'TF' }) }
+    const reordered = { ...withKeys, theirs: { ...withKeys.theirs, intervals: [{ to: '2026-09-25T19:00:00Z', from: '2026-09-25T17:09:00Z' }] } }
+    expect(conflictWhat(reordered)).toBe('zwei Funktionen – «AS» und «TF»')
   })
 })
 

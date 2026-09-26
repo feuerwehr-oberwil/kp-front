@@ -208,7 +208,7 @@ export function IncidentSwitcher({
             work is safely cached on this device, this one means it is not saved ANYWHERE. */}
         {active && syncStatus === 'storage' ? (
           <span className="ip-offline-chip ip-error-chip" title={savedText} aria-label={savedText}>
-            <Icon id="warn" />{cp.storageShort}
+            <Icon id="warn" /><span className="ip-chip-word">{cp.storageShort}</span>
           </span>
         ) : active && syncStatus === 'offline' ? (
           <span className="ip-offline-chip" title={savedText} aria-label={savedText}>
@@ -216,7 +216,7 @@ export function IncidentSwitcher({
           </span>
         ) : active && syncStatus === 'error' ? (
           <span className="ip-offline-chip ip-error-chip" title={savedText} aria-label={savedText}>
-            <Icon id="warn" />{cp.errorShort}
+            <Icon id="warn" /><span className="ip-chip-word">{cp.errorShort}</span>
           </span>
         ) : active && (
           <span className={`ip-status ip-status-${syncStatus}`} title={savedText} aria-label={savedText}>

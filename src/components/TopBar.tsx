@@ -9,6 +9,7 @@ import type { Incident, ReactivateResult, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
+import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
@@ -401,6 +402,8 @@ export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset
   /** the phone's glass cluster wraps the chip in 5px of its own (padding + border) – see Popover · alignOffset */
   popAlignOffset?: number }) {
   const cond = condition(weather.weather_code)
+  // turns with the finger while the Karte is being rotated, not only once it is let go
+  const liveBearing = useLiveBearing(bearing)
   if (weather.wind_dir_deg == null) return null
   return (
     <div className="tb-weather-wrap">
@@ -419,7 +422,7 @@ export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset
             {cond && <span className="tb-weather-cond" aria-hidden><Icon id={cond.icon} /></span>}
             {weather.temp_c != null && <b className="tb-weather-temp">{Math.round(weather.temp_c)}°</b>}
             {/* arrow points DOWNWIND (where the wind/smoke is going); follows the map rotation */}
-            <span className="tb-wind-arr" style={{ transform: `rotate(${windArrowRotation(weather.wind_dir_deg, bearing)}deg)` }} aria-hidden>
+            <span className="tb-wind-arr" style={{ transform: `rotate(${windArrowRotation(weather.wind_dir_deg, liveBearing)}deg)` }} aria-hidden>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 L12 21" /><path d="M6 15 L12 21 L18 15" /></svg>
             </span>
             {weather.wind_speed_kmh != null && <b>{Math.round(weather.wind_speed_kmh)} km/h</b>}

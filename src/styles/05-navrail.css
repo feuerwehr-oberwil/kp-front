@@ -259,6 +259,8 @@ html.rail-dragging .layers-card { transition: none; }
   .lc-quick button:hover { background: color-mix(in srgb, var(--on-accent-ink) 24%, transparent); }
 }
 .lgroup { font-size: 11px; font-weight: 700; color: rgba(255, 255, 255, .7); padding: 13px 8px 5px; }
+/* the map's credits at the panel's foot – a footnote, not a control: the quietest text in the dock */
+.lc-credits { margin: 0; padding: 14px 8px 4px; font-size: 11px; line-height: 1.4; color: rgba(255, 255, 255, .5); }
 /* Basiskarte tiles — one row for a one-of-three choice. auto-fit so a deployment with a
    different number of bases still lays out; 70px is the floor a glyph + short name needs. */
 .lbases { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 6px; padding: 0 4px 2px; }
@@ -348,8 +350,11 @@ html.rail-dragging .layers-card { transition: none; }
 .group-choose-list .pp-row-main { flex: 1 1 auto; }
 .group-choose-list .pp-row-meta { flex-direction: row; align-items: center; gap: 7px; }
 /* ⚠️ 44px, not the 34px a digit needs: the column is as wide as the WIDEST chip it can hold, so
-   every row's name starts on one line whether its chip is «1» or «WAS2». */
-.group-choose-glyph { width: 44px; min-width: 44px; display: grid; place-items: center;
+   every row's name starts on one line whether its chip is «1» or «WAS2».
+   ⚠️ …and as TALL as the chip, whatever the row carries (24.09.2026): the 30px monogram chip set
+   the height of a Modul row, the 20px icon of «Gebäude» / «Tafel» did not, so those two rows stood
+   ~11px shorter in the same list. */
+.group-choose-glyph { width: 44px; min-width: 44px; height: 30px; display: grid; place-items: center;
   font-size: 14px; font-weight: 800; color: var(--ink-dim); }
 .group-choose-glyph .i { width: 20px; height: 20px; }
 /* The chip is what the rail tile wears on a wide screen (.nav-glyph.mono[data-mono-len], above),

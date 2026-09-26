@@ -11,7 +11,7 @@ import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
-import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { applyInitialState, autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
@@ -48,6 +48,7 @@ import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
 import { useObjectStore } from './lib/useObjectStore'
 import { useGpsFollow } from './lib/useGpsFollow'
+import { fmtAway, freshBefore, gpsLineName, gpsReleaseRow, gpsRevertWords, hasTraced, onSiteAnchor, onSiteKnown, routingPatch, useGpsNotices, type GpsEnd } from './lib/gpsReturn'
 import { useUndoTimeline } from './lib/useUndoTimeline'
 import type { UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
@@ -177,7 +178,7 @@ import { flushSync } from 'react-dom'
 import type { NoteSize } from './types'
 import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
 import { TruppFinder } from './components/TruppFinder'
-import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
+import { counterNames, freshTeamLabel, markerOptions, markerSite, placedTrupps, teamNoTaken, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
 import { useGhostTrails } from './lib/useGhostTrails'
 import { ghostRevival, ghostTrailLabel, mapGhostTrails, planGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
@@ -756,6 +757,14 @@ export function IncidentWorkspace({
    *  out of `trupps` while very much still in the record; asking the filtered list would make
    *  «Löschen rückgängig» decline itself as pointing at something gone. */
   const truppsRef = useRef(allTrupps); truppsRef.current = allTrupps
+  /** Every name the ONE Trupp counter reads (docs/trupp-naming.md §1, lib/placedTrupps ·
+   *  counterNames): each chip once, each ghost trail, and every Trupp ever registered — removed
+   *  ones included, which the board's `trupps` are not. `exceptId` leaves out the chip being
+   *  renamed or revived. Every door that mints or changes a «Trupp N» reads this and nothing else. */
+  const truppCounterNames = (exceptId?: string) => counterNames(objects, trails, allTrupps, exceptId)
+  /** A hand rename of chip `id` to `label` would say a number somebody holds — refuse it at the
+   *  source; a duplicate one device could see coming is never left for a merge to settle. */
+  const teamNameTaken = (id: string, label: string) => teamNoTaken(label, truppCounterNames(id))
 
   // --- time-travel replay (read-only past view) — state/reconstruction owned by useReplay ---
   // enterReplay lives further down, next to clearMapUi, whose reset list it shares.
@@ -1608,9 +1617,13 @@ export function IncidentWorkspace({
     // replaceObjects swaps the whole store — the Karte AND every sheet, they are one collection
     // now — AND drops undo history (the local stacks no longer apply to remote/merged state:
     // undoing into it would resurrect remotely-deleted content).
-    replaceObjects(next.objects); setLayers(next.layers); journal.ingestLegacy(next.timeline)
-    setRecent(next.recent); setBuilding(next.building)
-    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setTrails(next.trails); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPlanBindings(next.planBindings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
+    // ⚠️ One setter per slice, typed (lib/workspace · WorkspaceAppliers): a synced slice without
+    // a line here fails tsc. This was a hand-kept list until 25.09.2026, and it had lost `mittel`.
+    applyInitialState(next, {
+      objects: replaceObjects, layers: setLayers, timeline: journal.ingestLegacy,
+      recent: setRecent, building: setBuilding,
+      vehicleOverrides: setVehicleOverrides, checklists: setChecklists, trupps: setTrupps, attendance: setAttendance, mittel: setMittel, shifts: setShifts, bands: setBands, cameraViews: setCameraViews, trails: setTrails, planScale: setPlanScale, reportMeta: setReportMeta, attachments: setAttachments, settings: setIncidentSettings, planBindings: setPlanBindings, pickedObjectId: setPickedObjectId, intakeReviewedAt: setIntakeReviewedAt,
+    })
     // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
     // list that no longer exists, and stepping into one would write this device's rows back over
     // what another device just merged in. The Plan's stacks go too — they now outlive the board's
@@ -1688,6 +1701,9 @@ export function IncidentWorkspace({
     // deliberately not a 422), and a refused row at the head of the outbox would block the
     // Kontakt rows queued behind it. Attendance conflicts are not that session's business.
     appendJournal: canWriteRecord ? journal.append : undefined,
+    // …but the renumbering row (two devices minted one «Trupp N», lib/truppNumbers) IS a «team»
+    // row, and a Link's own Trupp is as likely to lose its number as anybody's
+    appendTeamRow: readOnly ? undefined : journal.append,
     // a ringing device polls fast even when hidden — the Funkkontakt that ends its alarm is
     // usually entered on another device and arrives via this very poll
     alarmUrgent: azAlarm.peak >= 2,
@@ -2067,7 +2083,7 @@ export function IncidentWorkspace({
     draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
+    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   } = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
@@ -2129,24 +2145,57 @@ export function IncidentWorkspace({
   // noticed — all five vehicles «vor Ort» at 19:43 in the Übung, when a tablet woke up; GPS said
   // 19:23–19:28. The server observes; devices never write observations.
 
-  const pausedGpsConnections = useMemo(() => drawings.flatMap((drawing) => (['start', 'end'] as const).flatMap((endpoint) => {
-    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
-    return attachment?.gps?.state === 'paused' ? [{ drawing, endpoint, attachment }] : []
-  })), [drawings])
-  const setGpsRouting = (drawing: Drawing, endpoint: 'start' | 'end', routing: 'direct' | 'trace') => {
-    const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
-    const attachment = drawing[key]
-    if (!attachment) return
-    const target = attachment.target.kind === 'object' ? entities.find((e) => e.id === attachment.target.id) : null
-    const state = routing === 'trace' ? 'continuous' : attachment.gps?.state === 'continuous' ? 'paused' : 'guarded'
-    patchDrawingById(drawing.id, { [key]: { ...attachment, routing, ...(attachment.gps ? { gps: { ...attachment.gps, state, ...(target && state === 'guarded' ? { confirmedAt: target.coord, lastSafe: target.coord } : {}) } } : {}) } })
-  }
-  const detachGpsHere = (drawing: Drawing, endpoint: 'start' | 'end') => {
-    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
-    if (!attachment) return
+  // The GPS ends the Meldeleiste speaks about (lib/gpsReturn · gpsNotices) — ONE row per vehicle
+  // and question: drove off, following stopped, back on site while its Leitungen still follow.
+  const gpsMeld = useGpsNotices(drawings, entities)
+  /** The end as the SCREEN shows it now — on a paused coupling that is the on-site point. */
+  const resolvedEndOf = (drawing: Drawing, endpoint: 'start' | 'end'): LngLat => {
     const resolved = resolvedMapDrawings.find((d) => d.id === drawing.id)
-    const fallback = resolved?.coords[endpoint === 'start' ? 0 : resolved.coords.length - 1] ?? drawing.coords[endpoint === 'start' ? 0 : drawing.coords.length - 1]
-    setDrawingAttachment(drawing.id, endpoint, undefined, fallback)
+    return resolved?.coords[endpoint === 'start' ? 0 : resolved.coords.length - 1] ?? drawing.coords[endpoint === 'start' ? 0 : drawing.coords.length - 1]
+  }
+  const vehicleOf = (drawing: Drawing, endpoint: 'start' | 'end'): string | undefined => {
+    const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+    return a?.target.kind === 'object' ? entities.find((e) => e.id === a.target.id)?.label : undefined
+  }
+  /** «Weiter folgen» / «Spur» on a GPS end photographs the on-site line first (gps.before), once. */
+  const routingOf = (drawing: Drawing, endpoint: 'start' | 'end', routing: 'direct' | 'trace') => {
+    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+    if (!attachment) return null
+    const target = attachment.target.kind === 'object' ? entities.find((e) => e.id === attachment.target.id) : null
+    return routingPatch(drawing, endpoint, routing, { resolvedEnd: resolvedEndOf(drawing, endpoint), targetCoord: target?.coord, at: serverNowIso() })
+  }
+  const setGpsRouting = (drawing: Drawing, endpoint: 'start' | 'end', routing: 'direct' | 'trace') => {
+    const patch = routingOf(drawing, endpoint, routing)
+    if (patch) patchDrawingById(drawing.id, patch)
+  }
+  /** …on every end of one vehicle at once (the Meldung's «Weiter folgen») — one undo step. */
+  const followAll = (ends: readonly GpsEnd[]) => patchDrawingsById(ends.flatMap((e) => {
+    const patch = routingOf(e.drawing, e.endpoint, 'trace')
+    return patch ? [{ id: e.drawing.id, patch }] : []
+  }))
+  /** «Am Einsatzort lassen» / «Am Einsatzort lösen»: never at the vehicle's current position — a
+   *  followed trace is cut back to its snapshot (gpsReturn · onSiteCoords), in one step, with a
+   *  Verlauf row when that removed a drive. */
+  const releaseOnSite = (ends: readonly GpsEnd[]) => {
+    if (!ends.length) return
+    const vehicle = vehicleOf(ends[0].drawing, ends[0].endpoint)
+    releaseGpsOnSite(ends.map((e) => ({ id: e.drawing.id, endpoint: e.endpoint, fallback: resolvedEndOf(e.drawing, e.endpoint) })), (lines) => gpsReleaseRow(lines, vehicle))
+  }
+  /** «Hier lösen (Spur behalten)»: the end lets go where it stands now; the drive stays as the hose. */
+  const releaseHere = (drawing: Drawing, endpoint: 'start' | 'end') => {
+    setDrawingAttachment(drawing.id, endpoint, undefined, resolvedEndOf(drawing, endpoint))
+  }
+  /** «Zurück auf Stand am Einsatzort (hh:mm)»: one ↶ (named), one Verlauf row, snapshots cleared. */
+  const revertAll = (ends: readonly GpsEnd[]) => {
+    const kept = ends.filter((e) => e.before)
+    if (!kept.length) return
+    const words = gpsRevertWords(kept, vehicleOf(kept[0].drawing, kept[0].endpoint))
+    stepLabel.current = words.step
+    if (!revertGpsFollow(kept.map((e) => ({ id: e.drawing.id, endpoint: e.endpoint })), words.row)) stepLabel.current = null
+  }
+  const gpsEndOf = (drawing: Drawing, endpoint: 'start' | 'end'): GpsEnd => {
+    const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+    return { drawing, endpoint, before: freshBefore(a?.gps) }
   }
 
   const toggleLayer = (id: LayerId) => {
@@ -2747,7 +2796,10 @@ export function IncidentWorkspace({
       const src = doc.entities.find((e) => e.id === selectedId)
       if (!src || src.live || !Array.isArray(src.coord)) return
       const id = newId('p')
-      const copy = duplicateEntity(src, id)
+      const dup = duplicateEntity(src, id)
+      // ⚠️ a loose «Trupp 3» copied is not a second Trupp 3 (docs/trupp-naming.md §7): it takes the
+      // next number of the one counter, as a new chip dropped from the tool would
+      const copy = dup.kind === 'team' && !dup.truppId ? { ...dup, label: freshTeamLabel(dup.label, truppCounterNames()) } : dup
       commit((d) => ({ ...d, entities: [...d.entities, copy] }))
       setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
       log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('entity.add', { id, entity: copy })
@@ -3292,10 +3344,11 @@ export function IncidentWorkspace({
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({
     entities, commit, log, emit, setSelectedId, setSelectedDrawingId,
-    // every plan's chips and every registered Trupp count into the numbering: ONE counter per
-    // Einsatz (docs/trupp-naming.md §1)
-    placedTeamNames: () => Object.values(board).flat().filter((a) => a.kind === 'resource').map((a) => a.text),
+    // every chip, every ghost trail and every registered Trupp count into the numbering: ONE
+    // counter per Einsatz (docs/trupp-naming.md §1)
+    placedTeamNames: () => truppCounterNames(),
     trupps: () => truppsRef.current,
+    teamNameTaken,
   })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
   const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } =
@@ -3309,6 +3362,7 @@ export function IncidentWorkspace({
       // ⚠️ …and reads the CURRENT trupps when a step is finally pressed, not the render that
       // recorded it. A merge between the tap and the ↶ is exactly the case that has to decline.
       liveTrupps: () => truppsRef.current,
+      counterNames: () => truppCounterNames(),
       // An Atemschutz-Link session syncs the trupps slice and nothing else: a chip removed or
       // recoloured here would change only on this phone and be undone by the next poll, while
       // the tablet keeps the old one. So the placement half of every Trupp action is a no-op
@@ -3573,7 +3627,7 @@ export function IncidentWorkspace({
     if (tacticalLocked) return
     const g = trails.find((t) => t.id === id)
     if (!g || g.removedAt) return
-    const name = ghostTrailLabel(g, appConfig.copy.whiteboard.team)
+    const name = ghostTrailLabel(g, appConfig.copy.whiteboard.team, allTrupps)
     const message = fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name, n: trailPointCount(g) })
     // ⚠️ offered for EVERY ghost that has somewhere to return to, not only one with a live Trupp
     // behind it (first cut, 20.09.2026 – and the field's first try was a loose «Trupp 1» chip,
@@ -3591,16 +3645,20 @@ export function IncidentWorkspace({
       })
       if (answer === true) {
         const revive = { id: back.markerId, trail: back.trail }
+        // ⚠️ A loose chip comes back under its own label only while nobody else holds that number:
+        // «Trupp 2» went, and a new chip may have been handed 2 since (docs/trupp-naming.md §7).
+        // Then it comes back as the next number, and its row says which.
+        const looseName = liveTruppId ? name : (freshTeamLabel(g.name || name, truppCounterNames(back.markerId)) ?? name)
         // (the Trupp's own placement writes its «platziert» row; the loose marker gets this one)
-        if (!liveTruppId) log('flag', fillTemplate(appConfig.copy.whiteboard.ghostTrailRestored, { name }))
+        if (!liveTruppId) log('flag', fillTemplate(appConfig.copy.whiteboard.ghostTrailRestored, { name: looseName }))
         if (liveTruppId) {
           if (back.surface === 'plan') placeTruppOnPlan(liveTruppId, back.planId, back.at, { id: back.markerId, trail: back.trail })
           else placeTruppOnMap(liveTruppId, back.coord, { id: back.markerId, trail: back.trail })
         } else if (back.surface === 'plan') {
-          const chip: BoardAnno = { id: revive.id, kind: 'resource', ...back.at, text: g.name || name, t: formatTime(new Date()), color: g.color, trail: back.trail }
+          const chip: BoardAnno = { id: revive.id, kind: 'resource', ...back.at, text: looseName, t: formatTime(new Date()), color: g.color, trail: back.trail }
           setBoard((b) => ({ ...b, [back.planId]: [...(b[back.planId] ?? []).filter((a) => a.id !== chip.id), chip] }))
         } else {
-          const marker: Entity = { id: revive.id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: back.coord, label: g.name || name, t: formatTime(new Date()), color: g.color, trail: back.trail }
+          const marker: Entity = { id: revive.id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: back.coord, label: looseName, t: formatTime(new Date()), color: g.color, trail: back.trail }
           setDocRaw((d) => ({ ...d, entities: [...d.entities.filter((e) => e.id !== marker.id), marker] }))
         }
         return
@@ -4774,14 +4832,19 @@ export function IncidentWorkspace({
         }}
       />
 
-      {/* one row per paused GPS attachment — they queue behind each other instead of stacking */}
-      {mapUI && !tacticalLocked && pausedGpsConnections.map(({ drawing, endpoint, attachment }) => (
+      {/* one row per GPS end with something to say — they queue behind each other instead of
+          stacking (lib/gpsReturn · gpsNotices: drove off, following stopped, back on site) */}
+      {mapUI && !tacticalLocked && gpsMeld.notices.map((n) => (
         <GpsFollowMeldung
-          key={`${drawing.id}:${endpoint}`}
-          id={`${drawing.id}:${endpoint}`}
-          label={entities.find((e) => e.id === attachment.target.id)?.label ?? drawing.label ?? appConfig.copy.drawingEditor.drawing}
-          onContinue={() => setGpsRouting(drawing, endpoint, 'trace')}
-          onDetach={() => detachGpsHere(drawing, endpoint)}
+          key={n.key}
+          notice={n}
+          label={n.vehicle?.label ?? n.ends[0].drawing.label ?? appConfig.copy.drawingEditor.drawing}
+          onKeep={() => releaseOnSite(n.ends)}
+          onRevert={() => revertAll(n.ends)}
+          // on a «back» row, «Weiter folgen» changes nothing on the Karte: it answers the
+          // question for this return, on this device (gpsReturn · useGpsNotices)
+          onFollow={() => (n.kind === 'back' ? gpsMeld.answerBack(n) : followAll(n.ends))}
+          onDismiss={() => gpsMeld.dismissStopped(n)}
         />
       ))}
 
@@ -5255,9 +5318,35 @@ export function IncidentWorkspace({
             return [[endpoint, label]]
           }))}
           onRouting={tacticalLocked ? undefined : (endpoint, routing) => setGpsRouting(selectedDrawing, endpoint, routing)}
+          // the GPS block at the head of the editor while an end follows or has followed (D3):
+          // how long, how far, and the way back — read off the same snapshot the Meldung reads
+          gpsInfo={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
+            const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
+            if (a?.target.kind !== 'object' || !a.gps || !hasTraced(a.gps)) return []
+            const vehicle = entities.find((e) => e.id === a.target.id)
+            const before = freshBefore(a.gps)
+            return [[endpoint, {
+              line: gpsLineName(selectedDrawing),
+              vehicle: vehicle?.label ?? a.target.id,
+              since: before ? formatTime(new Date(before.at)) : undefined,
+              distance: vehicle ? fmtAway(haversineM(onSiteAnchor(a.gps), vehicle.coord)) : undefined,
+              stopped: a.gps.state === 'paused',
+              onSite: onSiteKnown(a.gps),
+            }]]
+          }))}
+          onRevertGps={tacticalLocked ? undefined : (endpoint) => revertAll([gpsEndOf(selectedDrawing, endpoint)])}
+          onDetachHere={tacticalLocked ? undefined : (endpoint) => releaseHere(selectedDrawing, endpoint)}
           onDetach={tacticalLocked ? undefined : (endpoint) => {
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
             if (!a) return
+            // ⚠️ a GPS end lets go ON SITE where that point is known — never at the vehicle's
+            // current position, which is what this used to do and drew the depot into the hose
+            // line (23.09.2026). Where it is not known the editor offers «Hier lösen» instead.
+            if (a.gps) {
+              if (onSiteKnown(a.gps)) releaseOnSite([gpsEndOf(selectedDrawing, endpoint)])
+              else releaseHere(selectedDrawing, endpoint)
+              return
+            }
             const fallback: LngLat = a.target.kind === 'object'
               ? entities.find((e) => e.id === a.target.id)?.coord ?? (endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1])
               : (() => { const target = drawings.find((d) => d.id === a.target.id); return target ? (a.target.endpoint === 'start' ? target.coords[0] : target.coords[target.coords.length - 1]) : (endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1]) })()
@@ -5717,11 +5806,10 @@ export function IncidentWorkspace({
           keysRef={planKeys}
           focus={planFocus}
           trupps={effTrupps}
-          // the Karte's markers and the other plans' chips, for the one Trupp counter
-          placedTeamNames={() => [
-            ...entities.filter((e) => e.kind === 'team').map((e) => e.label),
-            ...Object.values(board).flat().filter((a) => a.kind === 'resource').map((a) => a.text),
-          ]}
+          // the Karte's markers, the other plans' chips, the ghost trails and every Trupp ever
+          // registered (its `trupps` prop leaves the removed ones out), for the one Trupp counter
+          placedTeamNames={() => truppCounterNames()}
+          teamNameTaken={teamNameTaken}
           truppSeverities={azAlarm.severities}
           // the plan's Trupp tool placed a chip FOR a Trupp — same ask as every other placement:
           // the picture now says the crew is there, so «einrücken?» belongs here (askTruppEntry)

@@ -49,6 +49,13 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
     </div>
   )
   const bases = layers.filter((l) => l.base)
+  // What the map on screen is made of, credited: every VISIBLE layer's attribution, split at its
+  // commas so «© OpenStreetMap-Mitwirkende» from two layers is named once. On a phone this is
+  // the only place the credits show – the map's own ⓘ is hidden there (15-mobile.css).
+  const credits = [...new Set(layers.filter((l) => l.visible && l.attribution)
+    .flatMap((l) => l.attribution!.split(/,\s*/)).map((c) => c.trim()).filter(Boolean))]
+    // …and a «©» never ends a line on its own: it is glued to the name it belongs to
+    .map((c) => c.replace(/^©\s+/, '©\u00a0'))
   const groups = layers.filter((l) => !l.base).reduce<Record<string, LayerDef[]>>((acc, l) => {
     (acc[l.group] ??= []).push(l)
     return acc
@@ -171,6 +178,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
 
       {!twinsAnchored && twinBlocks}
 
+      {credits.length > 0 && <p className="lc-credits">{credits.join(', ')}</p>}
     </div>
   )
 }

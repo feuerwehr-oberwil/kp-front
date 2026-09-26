@@ -54,6 +54,7 @@ import { QuietAttributionControl } from './MapAttribution'
 import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { setLiveBearing } from '../lib/liveBearing'
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
@@ -930,6 +931,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     if (!placeMagnet) clearPlaceMagnet()
   }, [placeMagnet])
   useEffect(() => () => { if (placeDwellTimer.current) clearTimeout(placeDwellTimer.current) }, [])
+  // no Karte, no live bearing – the readers fall back to the settled one (lib/liveBearing)
+  useEffect(() => () => setLiveBearing(null), [])
   const trackPlaceMagnet = (at: LngLat) => {
     const map = mapInst.current
     if (!map) return
@@ -2016,7 +2019,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         setTimeout(() => { try { m.resize() } catch { /* map gone */ } }, 400)
       }}
       onMoveEnd={(e) => {
-        setZoom(e.viewState.zoom); setBearing(e.viewState.bearing); bumpLabelFrame((n) => n + 1)
+        setZoom(e.viewState.zoom); setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing); bumpLabelFrame((n) => n + 1)
         viewRef.current = { center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom, bearing: e.viewState.bearing }
         onView({ bearing: e.viewState.bearing, center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom })
       }}
@@ -2024,8 +2027,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // −bearing offset so they stay geographically pinned). Deliberately NOT calling onView here:
       // that re-renders all of IncidentWorkspace every frame of a two-finger rotate. onMoveEnd
       // fires at the end of the gesture and updates App's view state then — the App-level compass /
-      // coord readout just settle on release instead of tracking every frame.
-      onRotate={(e) => setBearing(e.viewState.bearing)}
+      // coord readout just settle on release instead of tracking every frame. The wind arrow is
+      // the exception – it turns WITH the finger, through its own store (lib/liveBearing).
+      onRotate={(e) => { setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing) }}
       // MapLibre says a genuine pan began. That (a) opens the pan gesture the trailing click is
       // measured against (see panGesture), (b) peeks the phone detail sheet down for as long as
       // the map moves — the same shrink a dragged object already gets (lib/sheetPeek), for the
