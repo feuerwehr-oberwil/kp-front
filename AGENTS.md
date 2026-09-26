@@ -44,6 +44,12 @@ pnpm test    # vitest
 pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when you fix some, never raise it
 ```
 
+**Large / long incidents** (26.09.2026): `pnpm bench` times the pure hot paths and `just fat-perf
+[preset …]` plays a synthetic fat incident (`src/lib/fatIncident.ts`) into a throwaway backend and
+opens it on a CPU-throttled browser. Measurements, not gates. Run them when you change the save
+path, the Karte's rendering, the Verlauf or the Replay, and compare against the recorded run in
+[`docs/testing/fat-incident.md`](docs/testing/fat-incident.md).
+
 **Sourcemaps are hidden** (24.09.2026): `build.sourcemap: 'hidden'` writes a `.map` beside every
 chunk. No bundle references it, and the service worker's precache excludes `*.map`.
 `scripts/check-sourcemaps.mjs` checks all of this in CI. Never switch to `true`, and never
