@@ -701,6 +701,9 @@ function builtinAndConfigLayers(): LayerDef[] {
   const seen = new Set(initialLayers.map((l) => l.id))
   return [...initialLayers, ...referenceLayersFromConfig().filter((l) => !seen.has(l.id))]
     .map(keyCartoTileTemplates)
+    // the Suche's row says its word in the deployment's language (read here, after the locale is
+    // applied — the data module is evaluated before it)
+    .map((l) => (l.id === appConfig.defaults.sucheLayerId ? { ...l, label: appConfig.copy.suche.layerLabel } : l))
 }
 
 /** The layer list an Einsatz of this category opens with when no device/blob state exists —

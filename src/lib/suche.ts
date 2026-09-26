@@ -376,6 +376,10 @@ export function findPlace(doc: SucheDoc, text: string, floorName: (f: number) =>
 
 /** The place a typed text means, CREATED when it is new — no row of its own: the act it is part of
  *  («Vermisst: … · zuletzt Keller») already says it, and its ↶ takes the place back with it. */
+// ⚠️ Two devices typing the same new name at the same moment make TWO records (owner, 26.09.2026:
+// accepted as is). No auto-merge: folding two places' logs, pins and people into one is less
+// predictable than seeing the name twice — and the next «＋ Bereich» / «＋ Vermisst» with that
+// name reuses the first (`findPlace`).
 export function ensurePlace(doc: SucheDoc, text: string, cx: SucheCx): { doc: SucheDoc; id: string | null } {
   const name = text.trim().replace(/\s+/g, ' ')
   if (!name) return { doc, id: null }
@@ -1123,7 +1127,7 @@ export function suchePins(doc: SucheDoc, floorName: (f: number) => string): Such
 
 /** The pins that stand on the Karte, as the Kroki's notes (lib/reportPdfDirect): the printed map
  *  says what the screen said — «Suche: Keller · abgesucht» — in the status colour. They ride the
- *  tactical layer, so they print exactly when the tactical symbols do. */
+ *  Ebenen row «Suche», so they print exactly when the screen shows them. */
 export function sucheKrokiNotes(doc: SucheDoc | undefined, floorName: (f: number) => string, layer: LayerId): Entity[] {
   if (!doc) return []
   const C = appConfig.copy.suche

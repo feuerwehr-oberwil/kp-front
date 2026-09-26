@@ -43,6 +43,7 @@ const base = {
   defaults: {
     operationalLayerId: 'taktisch' as LayerId,   // placed symbols
     drawingLayerId: 'markup' as LayerId,          // freehand/area drawings, notes, photos
+    sucheLayerId: 'suche' as LayerId,             // the Suche's pins, on the Karte and the plans
     snapshotFilePrefix: 'incident-map-snapshot',
     /** undo-history depth, shared by the Lage map doc and the Plan board (one cap
      *  instead of the map's old 60 vs the plan's old 80) */

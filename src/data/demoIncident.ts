@@ -54,6 +54,10 @@ export const layers: LayerDef[] = [
   // it stays empty until somebody actually opts in on their phone, and the whole point is to
   // notice the Wassertransport without going looking for a layer toggle first.
   { id: 'personen', group: 'Inhalte', label: 'Personen (live)', icon: 'people', visible: true },
+  // The Suche's pins (26.09.2026, owner): on by default, one row like the others — remembered per
+  // device, in «Alle ein / Alle aus / Standard». Its word is the locale's (lib/workspace ·
+  // builtinAndConfigLayers); the card and its door stay whether the row is on or off.
+  { id: 'suche', group: 'Inhalte', label: 'Suche', icon: 'search', visible: true },
   { id: 'markup', group: 'Inhalte', label: 'Skizzen & Notizen', icon: 'area', visible: true },
 
   // Per-station REFERENCE layers (hydrants, Leitungskataster, canton WMS, …) are NOT bundled

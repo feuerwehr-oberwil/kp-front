@@ -240,6 +240,9 @@ button.ortMain:active { background-image: linear-gradient(var(--press), var(--pr
 .pinText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* on a plan: stood on its spot by the board (Whiteboard · suchePins), bottom-centre on the point */
 .planPin { position: absolute; z-index: 6; transform: translate(-50%, -100%); }
+/* a storey band on a phone is ~130px wide: a long name gives way to its ellipsis before the pin
+   covers the whole band (the storey's name and the Trupp chips on it) */
+.planPin .pin { max-width: 150px; }
 
 /* «📍» on a list row: the place stands somewhere — a tap brings it into view */
 .show { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none;

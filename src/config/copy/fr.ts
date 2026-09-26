@@ -5317,6 +5317,8 @@ export const fr: Localizable<Copy> = {
     pickHintKarteAny: 'Touche la carte à l’endroit voulu',
     pickHintPlanAny: 'Touche le plan à l’endroit voulu',
     pinShow: 'Afficher {name}',
+    layerLabel: 'Recherche',
+    layerOn: 'Couche «Recherche» réactivée',
   },
   mittel: {
     title: 'Matériel',
