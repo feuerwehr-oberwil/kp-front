@@ -410,6 +410,10 @@ export interface TimelineEvent {
   t: string             // HH:MM
   /** absolute timestamp for reports/exports. Older saved rows may only have `t`. */
   at?: string
+  /** When the SERVER wrote the row, where that differs from `at` — an observer's row is dated
+   *  by the fact it records (a wind reading, a GPS time) and may arrive long after it
+   *  (backend · app/observations). Read for «is this still news», never for ordering. */
+  writtenAt?: string
   icon: string
   text: string
   kind?: 'audio' | 'symbol' | 'vehicle' | 'layer' | 'note' | 'photo' | 'snapshot' | 'journal' | 'team' | 'history' | 'reminder'

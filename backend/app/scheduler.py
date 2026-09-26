@@ -6,6 +6,7 @@ advisory lock runs jobs; standby replicas retry and take over after leader failu
 
 import asyncio
 import logging
+import time
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -15,7 +16,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncConnection
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from .config import settings
 from .database import async_session_maker, engine, execute_dml
@@ -68,10 +69,11 @@ async def _poll_divera() -> None:
     successful delivery (api/divera · webhook) — the webhook is the primary intake and the poll
     is the fallback, so a station whose webhook is healthy must not read as stale here.
     """
+    global _divera_backoff_s, _divera_backoff_until
     from . import connector_state
     from .credentials import get as credential
     from .credentials import load as load_credentials
-    from .divera import fetch_and_upsert
+    from .divera import DiveraApiError, fetch_and_upsert
 
     async with async_session_maker() as db:
         # Re-read every tick: the key may have been set in the browser since boot, and may
@@ -85,12 +87,69 @@ async def _poll_divera() -> None:
                 db, connector_state.DIVERA_ALARMS, ok=True, detail={"trigger": "poll", "new": new}
             )
             await db.commit()
+            _divera_backoff_s = 0.0
             if new:
                 logger.info("Divera poll: %d new alarm(s)", new)
         except Exception as e:  # never let diagnostics wedge the scheduler
             await db.rollback()
-            logger.exception("Divera poll failed")
+            if isinstance(e, DiveraApiError) and e.status_code == 429:
+                # Divera says we poll too hard: back off, doubling, capped — the webhook is the
+                # primary intake and keeps delivering meanwhile.
+                _divera_backoff_s = min(
+                    DIVERA_BACKOFF_MAX_SECONDS, (_divera_backoff_s * 2) or DIVERA_BACKOFF_BASE_SECONDS
+                )
+                _divera_backoff_until = _divera_now() + _divera_backoff_s
+                logger.warning("Divera poll rate-limited (429); next poll in %ds", int(_divera_backoff_s))
+            else:
+                logger.exception("Divera poll failed")
             await connector_state.record_failure(db, connector_state.DIVERA_ALARMS, e)
+
+
+#: The Divera poll's two cadences (24.09.2026, D2). Every editor device used to POST
+#: `/divera/pool/refresh` every 30 s, even with no Einsatz open — 469 Divera calls in one Übung.
+#: The devices now only READ the pool, and the server alone polls: every 30 s while NO Einsatz is
+#: running (the fallback that brings a dispatch the webhook missed within half a minute), at the
+#: configured `divera_poll_interval_seconds` (120 s) while one is — the dispatch is in, and the
+#: webhook, which stays the primary intake, carries the rest.
+DIVERA_IDLE_POLL_SECONDS = 30
+#: On a 429 the poll waits BASE, then doubles per further 429, up to MAX; a success resets it.
+DIVERA_BACKOFF_BASE_SECONDS = 60.0
+DIVERA_BACKOFF_MAX_SECONDS = 900.0
+
+_divera_last_poll: float | None = None
+_divera_backoff_s = 0.0
+_divera_backoff_until = 0.0
+
+
+def _divera_now() -> float:
+    """The cadence's clock (monotonic; a module function so a test can move it)."""
+    return time.monotonic()
+
+
+def divera_tick_seconds() -> int:
+    return max(1, min(DIVERA_IDLE_POLL_SECONDS, settings.divera_poll_interval_seconds))
+
+
+async def _divera_tick() -> None:
+    """Decide whether this tick polls Divera: backed off, or not due at the current cadence."""
+    global _divera_last_poll
+    from .vehicle_presence import running_incident_exists
+
+    clock = _divera_now()
+    if clock < _divera_backoff_until:
+        return
+    async with async_session_maker() as db:
+        try:
+            running = await running_incident_exists(db, datetime.now(UTC))
+        except Exception:  # noqa: BLE001 — unsure is «running»: the slower, cheaper cadence
+            logger.warning("Divera cadence check failed; polling at the running cadence", exc_info=True)
+            running = True
+    due = max(settings.divera_poll_interval_seconds, DIVERA_IDLE_POLL_SECONDS) if running else DIVERA_IDLE_POLL_SECONDS
+    # a tick's own jitter must not skip a due poll: «due» means «within a second of it»
+    if _divera_last_poll is not None and clock - _divera_last_poll < due - 1:
+        return
+    _divera_last_poll = clock
+    await _poll_divera()
 
 
 async def _push_sweep() -> None:
@@ -301,6 +360,12 @@ async def _vehicle_samples_sweep() -> None:
     nowhere else on a timer. ⚠️ Those writes are THROTTLED (``TRACCAR_THROTTLE_SECONDS``): this
     job ticks every 30 s, and «still working» is not a fact that changes twice a minute. A
     transition is never throttled, so the first failure after a run of successes lands at once.
+
+    And since 24.09.2026 it is where «vor Ort» / «hat den Einsatzort verlassen» are OBSERVED
+    (`app.vehicle_presence`) — once, by the server, on the GPS fix time — instead of by whichever
+    device happened to be awake. The feed is `traccar.fleet_positions`: Traccar, or the injected
+    fake fleet on a dev/demo deployment (which never reached this job before, so none of this
+    could be exercised without real trackers).
     """
     from sqlalchemy import select
 
@@ -308,14 +373,19 @@ async def _vehicle_samples_sweep() -> None:
     from .credentials import load as load_credentials
     from .geo_util import haversine_m
     from .models import Incident, VehicleSample
-    from .traccar import traccar_client
+    from .traccar import fleet_positions, fleet_source
 
     async with async_session_maker() as db:
         # ⚠️ The configured-check moved INSIDE the job (it used to gate registration in
         # `start_scheduler`). A station that connects Traccar from the browser gets its
         # vehicle track from the next tick instead of the next restart.
         await load_credentials(db)
-        if not traccar_client.is_configured:
+        source = fleet_source()
+        now = datetime.now(UTC)
+        if source is None:
+            # no feed — but an Einsatz that closed may still owe its vehicles' last departures,
+            # and a quiet one its «observation ended» row (the feed may have been switched off)
+            await _observe_presence(db, [], now)
             return
         try:
             open_ids = list(
@@ -329,20 +399,26 @@ async def _vehicle_samples_sweep() -> None:
                 ).scalars()
             )
             if not open_ids:
-                return  # nothing was asked of Traccar, so there is nothing to report about it
-            positions = await traccar_client.get_vehicle_positions()
-            # The feed answered — that is the health question, whether or not any tracker had
-            # something to say. The count goes on the card so «connected but nobody reporting»
-            # is legible as itself rather than as a green tick with an empty map.
-            await connector_state.record(
-                db,
-                connector_state.TRACCAR,
-                ok=True,
-                detail={"vehicles": len(positions)},
-                throttle_seconds=connector_state.TRACCAR_THROTTLE_SECONDS,
-            )
+                # nothing was asked of Traccar, so there is nothing to report about it — but an
+                # Einsatz that just closed may still owe its vehicles' last departures
+                await _observe_presence(db, [], now)
+                return
+            positions = await fleet_positions()
+            if source == "traccar":
+                # The feed answered — that is the health question, whether or not any tracker
+                # had something to say. The count goes on the card so «connected but nobody
+                # reporting» is legible as itself rather than as a green tick with an empty map.
+                # (The fake fleet is not Traccar and says nothing about it.)
+                await connector_state.record(
+                    db,
+                    connector_state.TRACCAR,
+                    ok=True,
+                    detail={"vehicles": len(positions)},
+                    throttle_seconds=connector_state.TRACCAR_THROTTLE_SECONDS,
+                )
             if not positions:
                 await db.commit()
+                await _observe_presence(db, [], now)
                 return
 
             live = {str(i) for i in open_ids}
@@ -407,9 +483,53 @@ async def _vehicle_samples_sweep() -> None:
         except Exception as e:
             await db.rollback()
             logger.exception("Vehicle sample sweep failed")
-            await connector_state.record_failure(
-                db, connector_state.TRACCAR, e, throttle_seconds=connector_state.TRACCAR_THROTTLE_SECONDS
-            )
+            if source == "traccar":
+                await connector_state.record_failure(
+                    db, connector_state.TRACCAR, e, throttle_seconds=connector_state.TRACCAR_THROTTLE_SECONDS
+                )
+            return
+        # After the samples are committed, in its own transaction: a presence failure must not
+        # cost the replay its track.
+        await _observe_presence(db, positions, now)
+
+
+async def _observe_presence(db: AsyncSession, positions: list, now: datetime) -> None:
+    """«vor Ort» / «verlassen» for every vehicle at every active Einsatz (app.vehicle_presence).
+    ⚠️ The scheduler's advisory lock makes this ONE writer per deployment; the derived ids
+    (`vp:<device>:<n>`, `vps-<n>-<zone>-gps-<device>`) make a second one harmless anyway.
+    ⚠️ The tick's memory is applied only AFTER the commit (`Tick.commit`): a failed tick leaves
+    both the database and the memory where they were, so the next tick writes what it missed."""
+    from .vehicle_presence import observe
+
+    try:
+        tick = await observe(db, positions, now)
+        await db.commit()
+        tick.commit()
+        if tick.written:
+            logger.info("Vehicle presence: %d record(s) written", tick.written)
+    except Exception:
+        await db.rollback()
+        logger.exception("Vehicle presence sweep failed")
+
+
+async def _weather_sweep() -> None:
+    """The weather at every active Einsatz, observed once per reading, and the wind shift it
+    implies (app.observations). Registered unconditionally; a no-op without an active Einsatz
+    with a coordinate, or with the weather providers unconfigured."""
+    from .observations import observe_weather
+    from .weather import weather_client
+
+    if not weather_client.is_configured:
+        return
+    async with async_session_maker() as db:
+        try:
+            n = await observe_weather(db, datetime.now(UTC))
+            await db.commit()
+            if n:
+                logger.info("Weather observations: %d record(s) written", n)
+        except Exception:
+            await db.rollback()
+            logger.exception("Weather observation sweep failed")
 
 
 POSITION_SWEEP_SECONDS = 3600
@@ -581,6 +701,12 @@ def _start_scheduler_jobs() -> None:
 
     if _scheduler is not None:
         return
+    # A new leader (boot, or taking over from another replica) must not trust memory from an
+    # earlier leadership of its own: the other replica wrote in between. The observers rebuild
+    # from the record.
+    from .vehicle_presence import reset_state
+
+    reset_state()
     jobs: list[str] = []
     _scheduler = AsyncIOScheduler()
     # ⚠️ EVERY CREDENTIAL-DRIVEN JOB BELOW IS REGISTERED UNCONDITIONALLY, and each no-ops on a
@@ -591,14 +717,19 @@ def _start_scheduler_jobs() -> None:
     # precedent. The cost is a handful of timers ticking on a station that uses none of them,
     # each one a dictionary lookup against a cached snapshot.
     _scheduler.add_job(
-        _poll_divera,
+        _divera_tick,
         "interval",
-        seconds=settings.divera_poll_interval_seconds,
+        seconds=divera_tick_seconds(),
         id="divera_poll",
         max_instances=1,
         coalesce=True,
+        # late rather than skipped — see the vehicle sweep below
+        misfire_grace_time=divera_tick_seconds() // 2,
     )
-    jobs.append(f"divera poll ({settings.divera_poll_interval_seconds}s, idle without a key)")
+    jobs.append(
+        f"divera poll ({DIVERA_IDLE_POLL_SECONDS}s idle / {settings.divera_poll_interval_seconds}s "
+        "while an Einsatz runs, idle without a key)"
+    )
     _scheduler.add_job(
         _push_sweep,
         "interval",
@@ -624,8 +755,27 @@ def _start_scheduler_jobs() -> None:
         id="vehicle_samples",
         max_instances=1,
         coalesce=True,
+        # ⚠️ APScheduler SKIPS a run that starts more than 1 s late (its default grace), and a
+        # busy event loop makes that routine: 9 of 55 ticks were dropped on the live check
+        # (24.09.2026). Late is fine for an observer; skipped is a hole in the track.
+        misfire_grace_time=VEHICLE_SAMPLE_SECONDS // 2,
     )
-    jobs.append(f"vehicle samples ({VEHICLE_SAMPLE_SECONDS}s, idle without Traccar)")
+    jobs.append(f"vehicle samples + presence ({VEHICLE_SAMPLE_SECONDS}s, idle without Traccar or a fake fleet)")
+    from .observations import WEATHER_OBSERVE_SECONDS
+
+    _scheduler.add_job(
+        _weather_sweep,
+        "interval",
+        seconds=WEATHER_OBSERVE_SECONDS,
+        id="weather_observe",
+        max_instances=1,
+        coalesce=True,
+        # a skipped run is a 20-minute hole in the weather record (two were, on the live check)
+        misfire_grace_time=WEATHER_OBSERVE_SECONDS // 2,
+        # the first reading shortly after boot, not ten minutes into a running Einsatz
+        next_run_time=datetime.now(UTC) + timedelta(seconds=20),
+    )
+    jobs.append(f"weather observations ({WEATHER_OBSERVE_SECONDS}s, idle without an active Einsatz)")
     _scheduler.add_job(_heartbeat, "interval", seconds=60, id="heartbeat", max_instances=1, coalesce=True)
     jobs.append("heartbeat (60s, idle without a ping URL)")
     _scheduler.add_job(
