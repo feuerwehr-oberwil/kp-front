@@ -2110,6 +2110,12 @@ export const de = {
     // Eingangsdruck – dieselbe Regel gilt für den erneuten Eintritt weiter unten.
     logRegister: 'Trupp {name} angemeldet – Eingangsdruck {bar} bar',
     logRegisterPlain: 'Trupp {name} angemeldet',
+    // Zwei Geräte haben im selben Moment dieselbe Nummer vergeben; die Zusammenführung lässt sie
+    // einem und gibt den anderen die nächste freie (lib/truppNumbers). EINE Zeile pro Wechsel –
+    // die früheren Zeilen bleiben unter der alten Nummer stehen, diese verbindet die beiden.
+    logRenumbered: 'Trupp {name} heisst jetzt Trupp {no}',
+    // …und ein loser Trupp-Marker, mit den Namen, die er auf dem Bild trug
+    logRenumberedChip: '{from} heisst jetzt {to}',
     // Verlauf row for when somebody changes the safety values. WITH old and new values:
     // «geändert» alone doesn't say whether the threshold got stricter or looser.
     logSafety: 'Atemschutz-Sicherheitswerte geändert: {changes}',
@@ -2684,6 +2690,9 @@ export const de = {
     ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur löschen?',
     ghostTrailRestore: 'Trupp wieder platzieren',
     ghostTrailRestored: '{name} wieder platziert – Spur übernommen',
+    // Umbenennen eines losen Trupp-Markers auf eine Nummer, die schon vergeben ist (ein Trupp,
+    // ein anderer Marker oder eine Spur trägt sie) – abgelehnt, der alte Name bleibt
+    teamNameTaken: '{name} ist schon vergeben – der Name bleibt',
     textPlaceholder: 'Notiz …',
     blankHint: 'Leeres Blatt – mit Linie, Fläche, Notiz, Symbol oder Trupp beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',
@@ -2859,9 +2868,10 @@ export const de = {
     stopSharing: 'Standort entfernen',
     stopSharingTitle: 'Selbstgemeldete Position dieser Person entfernen. Sie kann danach jederzeit wieder teilen.',
     stopSharingFailed: 'Standort konnte nicht entfernt werden.',
-    // Driver of a LIVE Fahrzeug: the GPS feed knows where it is, never who is at the wheel.
+    // Driver of a LIVE Fahrzeug: the GPS feed knows where it is, never who is at the wheel. The
+    // placeholder is one word (24.09.2026) – the long one ran past the phone sheet's field.
     driverLabel: 'Fahrer',
-    driverPlaceholder: 'Name aus dem Personalstamm',
+    driverPlaceholder: 'Name',
     rotateHint: 'Griff ziehen zum Ausrichten',
     // on-canvas caption override for this one symbol (Standard = follow the device default)
     caption: 'Beschriftung',

@@ -1,6 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
-import { confirmDialog } from './ui'
+import { confirmDialog, toast } from './ui'
 import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
 import { nextTeamName } from './placedTrupps'
@@ -20,6 +20,10 @@ interface TeamMarkerActionsDeps {
   placedTeamNames?: () => (string | undefined)[]
   /** the registered Trupps — their numbers count into the same counter */
   trupps?: () => { no?: number }[]
+  /** Would renaming marker `id` to `label` say a «Trupp N» somebody holds (IncidentWorkspace ·
+   *  teamNameTaken)? Then the rename is refused: a duplicate one device could see coming is never
+   *  left for a merge to settle (docs/trupp-naming.md §7). */
+  teamNameTaken?: (id: string, label: string) => boolean
 }
 
 /**
@@ -28,7 +32,7 @@ interface TeamMarkerActionsDeps {
  * Marking is the ONLY way a position is recorded (moving a marker never breadcrumbs), so the
  * recorded dots ARE the Truppverfolgung; clearing them is confirm-gated.
  */
-export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId, placedTeamNames, trupps }: TeamMarkerActionsDeps) {
+export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId, placedTeamNames, trupps, teamNameTaken }: TeamMarkerActionsDeps) {
   const placeGenericTeam = (c: LngLat) => {
     const teams = entities.filter((e) => e.kind === 'team')
     const id = newId('trupp')
@@ -53,6 +57,10 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
     if (!e || e.kind !== 'team' || e.truppId) return
     const label = name.trim()
     if (!label || label === e.label) return
+    if (teamNameTaken?.(id, label)) {
+      toast(fillTemplate(appConfig.copy.whiteboard.teamNameTaken, { name: label }), { icon: 'warn', tone: 'warn' })
+      return
+    }
     commit((d) => ({ ...d, entities: d.entities.map((x) => (x.id === id ? { ...x, label } : x)) }))
     emit('entity.edit', { id, patch: { label } })
   }

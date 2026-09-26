@@ -39,6 +39,7 @@
  * deliberately deleted trail as «never ghosted» and write it straight back, and the undo is then
  * un-stamping rather than a re-creation.
  */
+import { appConfig } from '../config/appConfig'
 import type { GeoTrailPoint, TrailPoint } from '../types'
 import type { TacticalObject } from './tacticalObjects'
 
@@ -101,8 +102,35 @@ export const mapGhostTrails = (trails: TruppTrail[] | undefined): TruppTrail[] =
  * true after the crew went home, so it wins over the leader's name the marker wore. A loose chip
  * that was never joined to a Trupp keeps its own label.
  */
-export const ghostTrailLabel = (t: Pick<TruppTrail, 'truppNo' | 'name'>, teamWord: string): string =>
-  t.truppNo != null ? `${teamWord} ${t.truppNo}` : t.name
+export const ghostTrailLabel = (
+  t: Pick<TruppTrail, 'truppNo' | 'name'> & { truppId?: string },
+  teamWord: string,
+  /** every Trupp of the Einsatz — the ghost takes the number its Trupp carries NOW */
+  trupps: readonly { id: string; no?: number }[] = [],
+): string => {
+  // ⚠️ The ghost keeps a COPY of the number (`truppNo`, taken when the marker went), and a merge
+  // can renumber the Trupp after that (lib/truppNumbers, 25.09.2026). Read through the Trupp when
+  // it still exists, or the Spur would carry the number another crew now holds.
+  const live = t.truppId ? trupps.find((x) => x.id === t.truppId)?.no : undefined
+  const no = typeof live === 'number' ? live : t.truppNo
+  return no != null ? `${teamWord} ${no}` : t.name
+}
+
+/**
+ * Every name a ghost trail holds a number under — what the ONE counter reads beside the Trupps
+ * and the standing chips (placedTrupps · nextTruppNo). A deleted chip that left a Spur still used
+ * its number, and so did the Trupp a ghost was ghosted under; a number is never handed out twice.
+ * Deleted ghosts (`removedAt`) count too, for the same reason.
+ */
+export function ghostCounterNames(trails: readonly TruppTrail[] | undefined, teamWord = appConfig.copy.whiteboard.team): string[] {
+  const out: string[] = []
+  for (const g of Array.isArray(trails) ? trails : []) {
+    if (!g || typeof g !== 'object') continue
+    if (typeof g.name === 'string') out.push(g.name)
+    if (typeof g.truppNo === 'number') out.push(`${teamWord} ${g.truppNo}`)
+  }
+  return out
+}
 
 /** A live marker's trail, turned into the ghost it leaves behind. `dropped` is «Marker und Spur
  *  löschen» (18.09.2026): the ghost is born already stamped, so the searched area goes with the

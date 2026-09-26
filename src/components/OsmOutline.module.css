@@ -62,5 +62,13 @@
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* ⚠️ ONE rail height, not two (23.08.): this surface is select-only, so it shows no tool bar
      and the phone reserves a single lane for it (IncidentWorkspace · activePlanNoTools). */
-  .wb-osm-barwrap { bottom: calc(var(--rail-h) + 62px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); }
+  /* ⚠️ …and above whatever stands highest at the foot (24.09.2026): the chip row
+     («Zurück zum Gebäude», 09-whiteboard · .wb-botleft at rail-h + 20px, --tap tall on a touch
+     screen – +62px put the hint 2px INTO it) or the Eintrag FAB beside it (bottom rail-h + 18px,
+     and as tall as the --fab-safe it reserves sideways, 58 + an 8px channel). `width: max-content`
+     because a box centred with `left: 50%` only gets the right HALF of the screen to lay out in –
+     the one-line hint wrapped into a three-line column over the chip. */
+  .wb-osm-barwrap {
+    bottom: calc(var(--rail-h) + max(20px + var(--tap) + 8px, 18px + var(--fab-safe, 0px)) + env(safe-area-inset-bottom));
+    width: max-content; max-width: calc(100vw - 20px); }
 }

@@ -50,9 +50,11 @@ export function composeJournalText(
  * was written for was the only one it covered. fuzzyScore still RANKS what survives (a prefix
  * of the whole term wins, then contiguity), it just no longer decides what qualifies.
  */
-export function suggestLinks(text: string, vocab: JournalLink[], limit = 4): JournalLink[] {
+export function suggestLinks(text: string, all: JournalLink[], limit = 4): JournalLink[] {
   const word = currentWord(text)
   if (word.length < MIN_NAME_FRAGMENT) return []
+  // a number a Trupp USED to carry is read back, never written anew — see JournalLink.former
+  const vocab = all.filter((l) => !l.former)
   const written = text.toLowerCase()
   const matched = vocab.filter((l) => startsAWord(word, l.name))
   // ⚠️ Only when nothing matched at all — see `nearMiss`. A tier that ran alongside the exact

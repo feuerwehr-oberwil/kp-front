@@ -10,6 +10,7 @@ import { atemschutzEquipment, attendanceMergeGapMin, getDeploymentConfig } from 
 import { mittelReportRows } from './mittel'
 import { repeatRuns, rowPhotos, rowText } from './verlauf'
 import { linkMarkup, type JournalLink } from './journalLinks'
+import { jsonEqual } from './jsonEqual'
 
 export interface KrokiView {
   center: LngLat
@@ -1040,7 +1041,7 @@ export function changedReportMetaLines(prev: ReportMeta, next: ReportMeta): Repo
   // in that grid persists both. Logged separately they printed the same fact twice in one row —
   // «Ausgerückt «10.08.2026, 14:05», Fahrzeugzeiten» — so when the vehicles moved, the vehicles
   // are the statement and the derived header is not.
-  const fahrzeugeMoved = JSON.stringify(prev.fahrzeuge ?? null) !== JSON.stringify(next.fahrzeuge ?? null)
+  const fahrzeugeMoved = !jsonEqual(prev.fahrzeuge ?? null, next.fahrzeuge ?? null)
   for (const k of keys) {
     if (META_QUIET.has(k)) continue
     if (k === 'ausgeruecktAt' && fahrzeugeMoved) continue
@@ -1048,7 +1049,7 @@ export function changedReportMetaLines(prev: ReportMeta, next: ReportMeta): Repo
     const b = (next as Record<string, unknown>)[k]
     // structural compare: gruppen/fahrzeuge/partnerContacts are arrays of objects, and an
     // identity check would report a change on every re-render that rebuilt them
-    if (JSON.stringify(a ?? null) === JSON.stringify(b ?? null)) continue
+    if (jsonEqual(a ?? null, b ?? null)) continue
     // the structured fields write their own sentences — see `_structuredMetaLines`
     const structured = _structuredMetaLines(k, a, b)
     if (structured) { statements.push(...structured); continue }

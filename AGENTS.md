@@ -229,12 +229,51 @@ to prod.
     has not seen that merge — the resolver re-bases it onto the merge before merging again
     (`lastMerged`), or the next attempt reads the remote objects it lacks as local deletes
     (the three-device load test lost 7–14 % of edits that way, `workspaceSync.load.test.ts`).
+  - ⚠️ **Key order is never a change** (25.09.2026). The server stores the blob as JSONB, which
+    hands every object back with its keys RE-SORTED, while this device's own objects keep the
+    order the code built them in. Anything that decides «changed / unchanged / same divergence»
+    on synced data compares with `jsonEqual` or `canonicalJson` (`lib/jsonEqual`), never
+    `JSON.stringify(a) === JSON.stringify(b)`: in `mergeById` an untouched entry read as «mine
+    changed» against its re-sorted ancestor, and the other device's real edit lost the
+    «both changed» LWW. Round-trip tests re-sort the server copy (`jsonb.test-utils ·
+    serverRoundTrip`).
+  - **Anwesenheit entries and Zeitplan shifts merge PER FIELD** (staging r4 D3, 25.09.2026):
+    two saves in the same second share one ancestor, and whole-object LWW dropped one device's
+    field. `mergeWorkspace · mergeFields` resolves unit by unit — an entry's presence
+    (`status`/`intervals`/`checkedInAt`/`leftAt`) is ONE unit, the Funktion (`note` + `noteAt`)
+    another, `source`/`displayNameSnapshot` are quiet bookkeeping. Only a unit both sides
+    changed differently is a divergence; it is reported as two whole entries differing only in
+    that unit, so the row names only it and settling either side keeps the other edits. A shift
+    whose merged from/to would not be a block keeps mine's pair. Reproduced end-to-end with two
+    engines on the 409 path (`workspaceSync.sameSecond.test.ts`).
 - **A Trupp is `Trupp N` on paper and its Gruppenführer in person** (12.09.,
   [`docs/trupp-naming.md`](docs/trupp-naming.md)). The number comes from ONE counter per Einsatz
   that unlinked «Trupp N» chips draw from too, is never reused, and is a badge beside the leader's
   name – never the primary label. Every Verlauf row about a Trupp is `Trupp N (crew …)` through
   `truppLogName`, and the crew's history is `crew` rows in the Trupp's own log, which is what the
   Rapport prints per cycle. Add a crew-changing action ⇒ it writes a `crew` row.
+  - ⚠️ **Two devices that mint the same number at once are settled by the MERGE** (25.09.2026,
+    `lib/truppNumbers`, trupp-naming §7). Every device derives the next number from its own view,
+    so three online devices tapping «Neuer Trupp» in one second all minted «Trupp 1». At the end
+    of `mergeWorkspace`, every contested number stays with ONE claimant (on the board and went in
+    > on the board > taken off the board > an unlinked «Trupp N» chip, then the one the server
+    already holds under it, then registration time, then id), and the others take the next
+    numbers of the one counter (`formerNos` keeps what they lost). ⚠️ One move per collision
+    (N16): a re-merge after a 409 first takes back its OWN un-landed renumberings
+    (`unwindUnlanded`) — a number it just handed out is not a claim. It is pure over the merge's
+    INPUTS: the same inputs give the same numbers on every device, nothing is left to ping-pong —
+    but which merge lands first can decide the keeper. A
+    session settles only what its push carries (`WorkspaceSync · numberScope`: the Link Trupps
+    only, `el` nothing). It is NOT an act: it reaches the view by a hydrate (which drops the undo
+    timeline) and writes ONE Verlauf row, «Trupp 1 (…) heisst jetzt Trupp 3», under the DERIVED
+    id `trn-<id>-<from>-<to>` — said against the view's content that 409'd AND its latest save,
+    against every adopted revision, and by the resolving device after its push; the Link writes
+    it too (`appendTeamRow`). Rows written under the old number stay as they are; the Rapport
+    heading reads «Trupp 3 (zuerst Trupp 1)», and a row's `subjectId` links its «Trupp 1» by id.
+    `Trupp.no` changes nowhere else — don't add a second writer. A duplicate ONE device could see
+    coming (⌘D, a rename, a revived Spur) is refused or re-minted at the source
+    (`placedTrupps · counterNames / freshTeamLabel`), never left for a merge; the counter reads
+    every chip, every ghost trail and every Trupp ever registered.
   - **A Trupp's marker says which STOREY it is on** (18.09.2026): the Gebäude chip — at rest
     (`.team-dot`) and selected (`TwinTeamPill`) — and the Karte marker whose body was baked off
     that chip wear the same signed badge a Leitung's `floorTag` wears (`.team-floor`,
