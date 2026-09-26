@@ -2430,8 +2430,6 @@ export const de = {
     pressureSheetFirst: 'Erste Druckmeldung – ersetzt den Eingangsdruck {bar} bar, zählt als Kontakt',
     // der Knopf im Kopf der Tafel trägt auch am Handy sein Wort
     newTruppShort: 'Trupp',
-    // kleine Marke am Sicherungstrupp, auch nachdem er eingesetzt ist
-    safetyChip: 'SiTr',
     /* ── Staging-Durchgang 2, 25.09.2026 ── */
     // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, AGENTS.md)
     removedToast: 'Trupp {name} entfernt',

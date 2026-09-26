@@ -1537,15 +1537,16 @@ export function ReportPreflight({
             )}
             {printStatus?.available && (
               <button className={`ip-btn print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
-                onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : R.send}
+                onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
                 title={printStatus.online ? R.online : R.offline}>
                 <span className="print-send-main">
                   <Icon id="printer" />
                   <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
                   <span className="rp-btn-label">{printBusy ? R.sending : R.send}</span>
                 </span>
-                {/* the offline reason is the whole point of the taller button — it stays when the
-                    label goes, because «it will print later» is not guessable from a printer icon */}
+                {/* the offline reason in words where the row has them (above 1080px); on the
+                    icon row it is the dot's colour, the button's name and the confirm a press
+                    raises (13-incident.css · the ≤1080 block) */}
                 {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
               </button>
             )}

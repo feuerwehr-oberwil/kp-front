@@ -1985,12 +1985,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 }
 
 /* ── Staging walk-through 25.09.2026 ─────────────────────────────────────────────────────────── */
-/* «SiTr» beside the name of a Sicherungstrupp (AtemschutzView · SafetyChip): a small mark, the
-   green of the slot it came from, never a control */
-.safetyChip { flex: none; display: inline-block; margin-left: 7px; padding: 1px 6px; border-radius: var(--r-pill);
-  font: 800 11px var(--body); letter-spacing: .02em; vertical-align: 2px;
-  color: var(--green-strong); background: color-mix(in srgb, var(--green) 14%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 35%, transparent); }
 /* the empty board's own door (AtemschutzView · empty state) */
 .emptyAct { margin-top: 14px; min-height: 48px; justify-content: center; }
 /* its «+» is a button glyph, not the empty state's big grey warning mark above it */
@@ -2006,9 +2000,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      apart — the app's one gap between neighbours (AGENTS.md · the top bar) — so all four fit. */
   .head:not(.headCompact) .headActs { gap: 8px; }
 }
-/* the Trupp number on the collapsed phone row (N15): the badge the card head wears, a little
-   quieter, never shrinking the name to make room */
-.trowNo { flex: none; font-size: 11.5px; }
 
 /* ⚠️ A CLOSED Einsatz (N5, staging 26.09.2026): every clock stands at the close and nothing is
    running. The tiers are already silent there (AtemschutzView · FROZEN_ALARM), but the colours

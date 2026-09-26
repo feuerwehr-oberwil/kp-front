@@ -2181,16 +2181,12 @@ describe('staging: the empty board, the SiTr chip, the held pinned row', () => {
     expect(firstBtn(az.newTrupp).textContent).toContain(az.newTruppShort)
   })
 
-  it('a Sicherungstrupp keeps its «SiTr» mark once it is in — card and row', () => {
-    mount({ trupps: [{ ...aktivTrupp(), auftrag: 'sichern' }] })
-    expect(screen.getByLabelText(az.safetyTitle).textContent).toBe(az.safetyChip)
-    cleanup()
+  it('the collapsed phone row is the name alone — no «#N», no «SiTr» (owner, 26.09.2026)', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
-    mount({ trupps: [{ ...aktivTrupp(), auftrag: 'sichern' }] })
-    expect(screen.getByLabelText(az.safetyTitle).textContent).toBe(az.safetyChip)
-    cleanup()
-    mount({ trupps: [{ ...aktivTrupp(), auftrag: 'loeschen' }] })
-    expect(screen.queryByLabelText(az.safetyTitle)).toBeNull()
+    mount({ trupps: [{ ...aktivTrupp(), no: 4, auftrag: 'sichern' }] })
+    const row = screen.getByText('Steiner').closest(`.${s.trow}`) as HTMLElement
+    expect(within(row).queryByText('#4')).toBeNull()
+    expect(within(row).queryByText('SiTr')).toBeNull()
   })
 
   it('while held, a confirmed pinned row says «Kontakt ok» — no due wording left beside it', () => {
@@ -2207,13 +2203,6 @@ describe('staging: the empty board, the SiTr chip, the held pinned row', () => {
 /* ── Staging walk-through r2, 25.09.2026 ──────────────────────────────────────────────────────── */
 describe('staging r2: numbers, the Link\'s first Trupp, and «nicht eingesetzt»', () => {
   afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
-
-  it('the collapsed phone row carries the Trupp number beside the leader (N15)', () => {
-    vi.mocked(useIsPhone).mockReturnValue(true)
-    mount({ trupps: [{ ...aktivTrupp(), no: 4 }] })
-    const row = screen.getByText('Steiner').closest(`.${s.trow}`) as HTMLElement
-    expect(within(row).getByText('#4')).toBeTruthy()
-  })
 
   it('the handed-over phone board opens on the most urgent crew inside, not on a Trupp that is out (N18)', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
