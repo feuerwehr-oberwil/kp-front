@@ -147,9 +147,9 @@
 .wb-lamp[data-tone='green'] { background: var(--green); }
 /* a read-out with nowhere to go (a link-scoped viewer is bound to ONE object) is not greyed out
    — it is still the answer to «which building am I looking at», it simply cannot be tapped */
-.wb-object:disabled { cursor: default; opacity: 1; }
+.wb-object:disabled, .wb-building:disabled { cursor: default; opacity: 1; }
 @media (hover: hover) {
-  .wb-object:disabled:hover { border-color: var(--glass-edge); color: var(--ink-dim); }
+  .wb-object:disabled:hover, .wb-building:disabled:hover { border-color: var(--glass-edge); color: var(--ink-dim); }
   /* the warning keeps its tone under the pointer, tappable or not – hover must not read as «fine» */
   .wb-object.wb-object-nearby:hover, .wb-object.wb-object-nearby:disabled:hover {
     color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
@@ -268,6 +268,12 @@
 .wb-zoom { display: flex; align-items: center; gap: 2px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; flex: none; }
 .wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: var(--z-map-util); background: var(--glass);
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-cluster); padding: 4px; }
+/* Below 860px the top bar runs the full width, so the cluster drops under it — what the Karte's
+   own cluster does at the same width (MapUtility · .toputil). At 820 its «–» sat under the bar
+   and a tap on it hit the bar (3am test r4, 26.09.2026). */
+@media (max-width: 860px) {
+  .wb-zoom-float { top: calc(80px + env(safe-area-inset-top)); }
+}
 .wb-zoom button { min-width: 40px; height: 40px; padding: 0 10px; border: none; background: none; border-radius: var(--r-sm); display: grid; place-items: center;
   color: var(--ink-dim); cursor: pointer; font-family: var(--body); font-size: 12.5px; font-weight: 700; transition: background .14s var(--ease); }
 @media (hover: hover) {
@@ -360,15 +366,19 @@
   flex-wrap: nowrap; white-space: nowrap;
   font-family: var(--body); font-weight: 700; font-size: 13px; line-height: 1; color: var(--ink-dim);
   background: var(--label-soft); border-radius: var(--r-xs); padding: var(--wb-floor-plate-pad); user-select: none; -webkit-user-select: none; }
-.wb-floor-x { position: relative; width: 18px; height: 18px; border: none; background: none; color: var(--ink-faint); cursor: pointer;
+/* «Geschoss entfernen»: its own --tap square in the tile's top-RIGHT corner, on the label's plate
+   colour — the opposite end of the tile from the name and the fold eye (3am test r2, 25.09.2026:
+   an 18px ✕ beside the eye removed a storey for everybody on one stray tap). */
+.wb-floor-x { position: absolute; top: 2px; right: 2px; z-index: 1; width: var(--tap); height: var(--tap);
+  border: none; background: var(--label-soft); color: var(--ink-dim); cursor: pointer;
   display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
-.wb-floor-x::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
 @media (hover: hover) {
   .wb-floor-x:hover { background: var(--fill-soft); color: var(--red); }
 }
-.wb-floor-x .i { width: 12px; height: 12px; stroke-width: 2.4; }
-/* fold a storey away – device-local, so it is deliberately the QUIET control of the pair: the ✕
-   beside it deletes the Geschoss for everybody, this one only stops drawing it here. */
+.wb-floor-x:active { background-image: linear-gradient(var(--press), var(--press)); }
+.wb-floor-x .i { width: 16px; height: 16px; stroke-width: 2.2; }
+/* fold a storey away – device-local, so it is deliberately the QUIET control: the ✕ in the
+   tile's other corner removes the Geschoss for everybody, this one only stops drawing it here. */
 .wb-floor-eye { position: relative; width: 18px; height: 18px; border: none; background: none; color: var(--ink-faint); cursor: pointer;
   display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
 .wb-floor-eye::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
@@ -420,7 +430,8 @@
 /* add-storey control (mirrors the floating zoom) */
 /* add-storey pills positioned like a real building section: OG above the stack, UG below */
 .wb-floor-add { position: absolute; left: 50%; transform: translateX(-50%); z-index: 8;
-  display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 5px 12px 5px 9px; border-radius: var(--r-pill);
+  /* a full --tap tall (3am test r3, 25.09.2026: they were 34px); still straddling the edge, by half */
+  display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 5px 14px 5px 11px; border-radius: var(--r-pill);
   border: 1px solid var(--glass-line); background: var(--glass); box-shadow: var(--shadow-sm);
   color: var(--ink-dim); font: 700 12px var(--body); line-height: 1; cursor: pointer;
   user-select: none; -webkit-user-select: none; }
@@ -428,8 +439,8 @@
   .wb-floor-add:hover { background: var(--surface); color: var(--ink); }
 }
 .wb-floor-add .i { width: 13px; height: 13px; stroke-width: 2.4; }
-.wb-floor-add-up { top: -17px; }     /* straddle the top edge of the stack */
-.wb-floor-add-down { bottom: -17px; } /* straddle the bottom edge of the stack */
+.wb-floor-add-up { top: calc(var(--tap) / -2); }     /* straddle the top edge of the stack */
+.wb-floor-add-down { bottom: calc(var(--tap) / -2); } /* straddle the bottom edge of the stack */
 
 /* (.wb-north-dial / -btn / -ring / -needle / -n are gone, 30.08.: the north dial was drawn ON the
    topmost storey tile, so it panned and zoomed with the paper. It is a fixed chip in the viewport's
@@ -737,6 +748,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   .wb-dock-tog, .wb-dock-go { height: 30px; }
 }
 .wb-dock .wb-style-sep { width: 22px; height: 1px; } /* horizontal divider in the vertical stack */
+/* the armed mode's one-line hint (ToolDock · hint) is a PHONE row (15-mobile); the column dock
+   of a tablet has no room for a sentence and keeps ⓘ */
+.wb-dock-hint { display: none; }
 .wb-dock-ic { display: grid; place-items: center; height: 30px; color: rgba(255, 255, 255, .85); }
 .wb-dock-ic .i { width: 18px; height: 18px; }
 /* ⚠️ The ✕ STAYS on screen while the dock scrolls. It is the first item of the first group, so on
@@ -948,8 +962,13 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-chip svg { width: 14px; height: 14px; flex: none; }
 .wb-scale-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (hover: hover) {
-  .wb-scale-chip:hover { border-color: var(--blue); color: var(--ink); }
+  .wb-scale-chip:hover:where(:not(:disabled)) { border-color: var(--blue); color: var(--ink); }
 }
+/* …and the same pills on a LOCKED plan are read-outs (Whiteboard · the Maßstab / «⌖ Karte»
+   chips, `disabled`): the `.wb-object:disabled` recipe — full opacity, their own words and tone,
+   no hover, no touch pad. The tone is the point: «ungemessen» amber must read as amber. */
+.wb-scale-chip:disabled { cursor: default; opacity: 1; }
+.wb-botleft > .wb-scale-chip:disabled::after { display: none; }
 .wb-scale-chip.on { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 /* A scale derived from the Karte link is a source/status, not another calibration affordance.
    It deliberately has no expanded touch pad or hover reaction; correction lives behind the
@@ -957,7 +976,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-status { cursor: default; }
 .wb-botleft > .wb-scale-status::after { display: none; }
 @media (hover: hover) {
-  .wb-scale-status:hover { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
+  .wb-scale-status:hover:where(:not(:disabled)) { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 }
 /* --warn was never declared, so this rendered the DAY amber literal in both themes */
 .wb-scale-chip.stale { color: var(--amber-strong); border-color: var(--amber-strong); }
@@ -1005,7 +1024,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-chip.wb-georef-ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
 .wb-scale-chip.wb-georef-warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 50%, var(--glass-edge)); }
 @media (hover: hover) {
-  .wb-scale-chip.wb-georef-ok:hover, .wb-scale-chip.wb-georef-warn:hover { border-color: currentColor; }
+  .wb-scale-chip.wb-georef-ok:hover:where(:not(:disabled)), .wb-scale-chip.wb-georef-warn:hover:where(:not(:disabled)) { border-color: currentColor; }
 }
 /* the chip stays in its own tone while its Passung is open — «open» is a fill, not a recolour,
    so the quality it reports is never overwritten by the state of a panel.

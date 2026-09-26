@@ -118,6 +118,25 @@ async def engine(database_url: str):
 
 
 @pytest.fixture(autouse=True)
+def _clean_overpass_caches():
+    """Overpass answers and the parsed station snapshot are cached process-wide (app/overpass ·
+    _cache/_inflight, app/reference_buildings · _cache): one test's answer must not be the next
+    one's cache hit."""
+    from app import overpass, reference_buildings
+
+    def reset() -> None:
+        overpass._cache.clear()
+        overpass._inflight.clear()
+        reference_buildings._cache = None
+        reference_buildings._live = None
+        reference_buildings._live_load = None
+
+    reset()
+    yield
+    reset()
+
+
+@pytest.fixture(autouse=True)
 def _clean_credential_cache():
     """The integration-credential store caches its DB rows process-wide (app/credentials).
 

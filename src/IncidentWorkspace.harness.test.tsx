@@ -38,6 +38,7 @@ const rec = vi.hoisted(() => ({
   answers: [] as (boolean | 'alt')[],
   confirms: 0,
   mittel: [] as Record<string, unknown>[],
+  report: null as null | { events: { text?: string }[] },
 }))
 type MapProps = Record<string, unknown> & {
   entities: Entity[]; drawings: Drawing[]; onSelect: (e: Entity) => void; onFreehand: (c: [number, number][]) => void
@@ -82,7 +83,12 @@ vi.mock('./components/MittelView', () => ({
   },
 }))
 // the Rapport's own chunk, prefetched on idle — not part of any contract here
-vi.mock('./components/ReportPreflight', () => ({ ReportPreflight: () => null, requestReportStep: () => {} }))
+// …recording its props: `events` is the Verlauf as the workspace holds it, which is how (e) reads
+// the rows an act wrote without mounting the Verlauf drawer
+vi.mock('./components/ReportPreflight', () => ({
+  ReportPreflight: (p: { events: { text?: string }[] }) => { rec.report = p; return null },
+  requestReportStep: () => {},
+}))
 vi.mock('./lib/ui', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/ui')>()
   return { ...mod, confirmDialog: () => { rec.confirms++; return Promise.resolve(rec.answers.length ? rec.answers.shift()! : rec.answer) } }
@@ -100,6 +106,7 @@ import { georefDispatch } from './lib/georefMode'
 import { appConfig } from './config/appConfig'
 import { getMeldeleisteHost } from './lib/meldeleisteHost'
 import { loadPrefs, savePrefs } from './lib/prefs'
+import { fillTemplate } from './lib/format'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -111,7 +118,7 @@ beforeAll(() => {
 })
 beforeEach(() => {
   rec.map.length = 0; rec.board.length = 0; rec.order.length = 0; rec.boardDoc = null; rec.mittel.length = 0
-  rec.answer = false; rec.answers.length = 0; rec.confirms = 0
+  rec.answer = false; rec.answers.length = 0; rec.confirms = 0; rec.report = null
   vi.clearAllMocks()
   // every request the workspace makes (journal, audit, alignments, weather …) is simply absent
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -418,6 +425,41 @@ describe('(d) the render budget', () => {
     render(tree)
     await settle(60); await settle(60); await settle(60)
     expect(commits).toBeLessThanOrEqual(MOUNT_IDLE_COMMITS)
+  })
+})
+
+describe('(e) acts on the picture that the Verlauf used to miss (3am test r3, 25.09.2026)', () => {
+  const rows = async () => { key('r'); await settle(60); return (rec.report?.events ?? []).map((e) => e.text) }
+
+  it('«+ OG» names the storey on its ↶ (its Verlauf row comes with #226)', async () => {
+    const stack = {
+      src: [[[0, 0], [1, 0], [1, 1], [0, 1]]], orientDeg: 0, northUp: false,
+      rings: [[[0, 0], [1, 0], [1, 1], [0, 1]]], ring: [[0, 0], [1, 0], [1, 1], [0, 1]], ringAspect: 1,
+      floors: [0, 1, 2],
+    }
+    const { tree } = workspaceTree(meta(), { workspace: { entities: [truck], building: stack } as unknown as Saved })
+    render(tree)
+    await settle()
+    await openPlan('gebaeude')
+    act(() => (lastBoard() as BoardProps & { onAddFloor: (dir: 1 | -1) => void }).onAddFloor(1))
+    await settle()
+    expect((lastBoard() as BoardProps & { building: { floors: number[] } }).building.floors).toEqual([0, 1, 2, 3])
+    // 3am test r4, 26.09.2026: three adds read «Geschoss hinzugefügt» ×3, naming no storey
+    expect(screen.getByRole('button', { name: new RegExp(fillTemplate(appConfig.copy.whiteboard.floorAddedToast, { floor: '3. OG' })) })).toBeTruthy()
+  })
+
+  it('«Lösen» on a docked Gefahrentafel writes «… von «TLF» gelöst»', async () => {
+    const host = { id: 'h1', kind: 'symbol', symbol: 'VKF Fahrzeug', label: 'TLF', coord: [7.6, 47.5] } as Entity
+    const placard = { id: 'pl1', kind: 'symbol', symbol: appConfig.symbols.placardName, label: 'Tafel', coord: [7.6, 47.5], dockedTo: 'h1' } as Entity
+    const { tree } = workspaceTree(meta(), { workspace: { entities: [host, placard] } as unknown as Saved })
+    render(tree)
+    await settle()
+    act(() => lastMap().onSelect(placard))
+    await settle()
+    fireEvent.click(screen.getAllByText(appConfig.copy.contextPanel.dockedRelease)[0])
+    await settle()
+    expect(lastMap().entities.find((e) => e.id === 'pl1')?.dockedTo).toBeUndefined()
+    expect(await rows()).toContain(fillTemplate(appConfig.copy.log.placardUndocked, { name: 'Tafel', host: 'TLF' }))
   })
 })
 

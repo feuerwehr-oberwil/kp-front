@@ -443,6 +443,12 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .vrowLast { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-weight: 600; color: var(--ink-faint); }
 .logChev { color: var(--ink-faint); }
+/* An OPENED card on the phone list is parked at the top of the port (AtemschutzView · the
+   `--az-open-pad` effect), and a card about a port tall comes to rest with this row in the FAB's
+   corner: the circle sat on the chevron and the end of «zuletzt: …» (field checks 24.09.2026).
+   The effect measures where the row stands and marks the ROW itself; it then keeps the FAB's
+   column free, so the preview ellipsises a little earlier and the chevron stays tappable. */
+.vrow[data-az-fab-foot] { padding-right: calc(14px + var(--fab-safe, 0px)); }
 /* the expanded per-Trupp contact/pressure log, inside the footer */
 /* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
    first reading butts straight against «Schätzung …» and the two read as one list. `:first-child`
@@ -1165,7 +1171,18 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .newBtn span { display: none; }
   /* the overdue badge is critical — keep it fully informative; the title truncates to make room */
   .overdueBadge { flex: none; padding: 7px 11px; }
+  /* ⚠️ ONE row of controls (3am test r2, 25.09.2026): «1 Alarm» arriving pushed the last square
+     onto a second row and the whole board dropped ~56px under the finger at the moment the alarm
+     fired. The squares sit 8px apart here (the badge + four 44px squares at the desktop's 16px
+     gaps is 346px, the 360px phone head has 316) and the row never wraps. */
+  .headActs { flex-wrap: nowrap; column-gap: 8px; }
+  /* …and only when all FIVE controls stand (the archive square is up too) does the badge drop its
+     word and keep «⚠ n» — the full sentence stays its aria-label, and the red is the message */
+  .headActs:has(> :nth-child(5)) .overdueWord { display: none; }
+  .headActs:has(> :nth-child(5)) .overdueShort { display: inline; }
+  .headActs:has(> :nth-child(5)) .overdueBadge { padding: 7px 10px; gap: 5px; }
 }
+.overdueShort { display: none; }
 
 /* respect reduced-motion: the überfällig signal is carried by colour + the state WORD + the
    badge, so dropping the pulse loses no information for users who opt out of animation */
@@ -1460,7 +1477,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    be as wide as the head and no wider, its own `flex-wrap` puts the last button on a second line.
    NOT the compact head (the handed-over phone board): there the group shares one row with the
    Einsatz title, and a shrinkable group wrapped ↶ ↷ 🔔 into a column of three (caught in r4). */
-.head:not(.headCompact) .headActs { flex: 0 1 auto; max-width: 100%; }
+/* ⚠️ …and `min-width: 0` (#232, 3am test 25.09.2026): a group that may not shrink is as wide as
+   all its controls in one line, so its own `flex-wrap` never fired — on the 820px tablet with the
+   «n Alarme» badge up it ran the last button off the card's right edge. Allowed to shrink to the
+   head's width, it wraps inside itself and the last controls drop to a second row, right-aligned. */
+.head:not(.headCompact) .headActs { flex: 0 1 auto; min-width: 0; max-width: 100%; }
 
 /* «Ein Trupp, ein Bildschirm» — the handed-over board on a phone (AtemschutzView · focusMode).
    ⚠️ mock 03 (maintainer correction, 03.09.): the kicker is DROPPED here rather than shrunk —

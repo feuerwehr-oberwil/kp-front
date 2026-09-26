@@ -204,11 +204,22 @@ describe('the «Karte verknüpfen» chip', () => {
     expect(screen.queryByRole('button', { name: /Automatisch ausrichten/ })).toBeNull()
   })
 
+  // A locked session (el, Führungsansicht, viewer, replay) keeps the READING — tone and words —
+  // with no tap: an unchecked automatic fit must never look like a checked one, whoever looks.
   it('a viewer sees the reading but is given no way to arm it', () => {
     store.pairs = TWO
     renderBoard('modul2', true)
     const chip = screen.getByText('Verknüpft').closest('button')
     expect(chip?.disabled).toBe(true)
+  })
+
+  it('…and the Massstab beside it is a read-out too: «Ref. auto», disabled, no Passung behind it', () => {
+    store.pairs = TWO
+    renderBoard('modul2', true)
+    const scale = screen.getByRole('button', { name: 'Ref. auto' }) as HTMLButtonElement
+    expect(scale.disabled).toBe(true)
+    fireEvent.click(scale)
+    expect(screen.queryByRole('group', { name: /Passung/ })).toBeNull()
   })
 })
 

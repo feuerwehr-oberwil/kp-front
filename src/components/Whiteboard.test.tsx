@@ -203,10 +203,24 @@ describe('the door between the two faces of the Gebäude tile', () => {
     expect(onBuildingFace).toHaveBeenCalledWith('stack')
   })
 
-  // Pure navigation between two surfaces — it mutates nothing, so a locked/viewer session keeps it.
-  it('stays for a locked session', () => {
+  // ⚠️ Reversed 25.09.2026 (3am test): the picker is NOT interactive for a locked session, so
+  // «Anderes Gebäude wählen» led an `el` to outlines it could not tap and no «Übernehmen».
+  // Locked, the stack's pill is only the building's name, read-only — and with no name, nothing.
+  it('is no door for a locked session: the name stays as a read-out, the verb goes', () => {
+    renderBoard('gebaeude', [], true, aBuilding, 'Mühlemattstrasse 8')
+    expect(screen.queryByRole('button', { name: OTHER })).toBeNull()
+    const pill = screen.getByRole('button', { name: 'Mühlemattstrasse 8' }) as HTMLButtonElement
+    expect(pill.disabled).toBe(true)
+  })
+
+  it('…and with no name to read, a locked stack shows no pill at all', () => {
     renderBoard('gebaeude', [], true, aBuilding)
-    expect(screen.getByRole('button', { name: OTHER })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: OTHER })).toBeNull()
+  })
+
+  it('the picker face keeps its way OUT for a locked session', () => {
+    renderBoard('osm', [], true, aBuilding)
+    expect(screen.getByRole('button', { name: BACK })).toBeTruthy()
   })
 })
 
