@@ -12,7 +12,7 @@ import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
-import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { applyInitialState, autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
@@ -1613,9 +1613,13 @@ export function IncidentWorkspace({
     // replaceObjects swaps the whole store — the Karte AND every sheet, they are one collection
     // now — AND drops undo history (the local stacks no longer apply to remote/merged state:
     // undoing into it would resurrect remotely-deleted content).
-    replaceObjects(next.objects); setLayers(next.layers); journal.ingestLegacy(next.timeline)
-    setRecent(next.recent); setBuilding(next.building)
-    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setTrails(next.trails); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPlanBindings(next.planBindings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
+    // ⚠️ One setter per slice, typed (lib/workspace · WorkspaceAppliers): a synced slice without
+    // a line here fails tsc. This was a hand-kept list until 25.09.2026, and it had lost `mittel`.
+    applyInitialState(next, {
+      objects: replaceObjects, layers: setLayers, timeline: journal.ingestLegacy,
+      recent: setRecent, building: setBuilding,
+      vehicleOverrides: setVehicleOverrides, checklists: setChecklists, trupps: setTrupps, attendance: setAttendance, mittel: setMittel, shifts: setShifts, bands: setBands, cameraViews: setCameraViews, trails: setTrails, planScale: setPlanScale, reportMeta: setReportMeta, attachments: setAttachments, settings: setIncidentSettings, planBindings: setPlanBindings, pickedObjectId: setPickedObjectId, intakeReviewedAt: setIntakeReviewedAt,
+    })
     // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
     // list that no longer exists, and stepping into one would write this device's rows back over
     // what another device just merged in. The Plan's stacks go too — they now outlive the board's

@@ -130,6 +130,10 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **Another device's Mittel entries are no longer deleted by this device's next save.** A merged
+  workspace refreshed every synced list on screen except Mittel, so this device kept its stale
+  list and saved it back, which the merge read as a deletion. The merge now applies every synced
+  field through a typed setter map, and a synced field with no setter fails `tsc`.
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched

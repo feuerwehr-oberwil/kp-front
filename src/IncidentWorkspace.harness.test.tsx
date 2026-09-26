@@ -3,7 +3,8 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Profiler, useState } from 'react'
-import type { BoardAnno, Drawing, Entity } from './types'
+import type { BoardAnno, Drawing, Entity, MittelEntry } from './types'
+import type { MittelDraft } from './components/MittelView'
 
 /*
  * The workspace as ONE component, mounted whole (23.09.2026) — the safety net for splitting
@@ -18,6 +19,8 @@ import type { BoardAnno, Drawing, Entity } from './types'
  *   (d) the render budget: how many commits mount + idle cost, against a recorded baseline — a
  *       move that adds a memo, a state or an effect-order change shows up here first.
  *   (e) the two-device loop: a merge that changes nothing must write nothing back.
+ *   (f) a merge reaches the screen: what another device wrote shows here, and this device's next
+ *       save carries it — a slice the merge never handed to its setter is saved back as a delete.
  *
  * The two heavy surfaces are prop recorders. The Plan's stand-in runs the REAL useBoardDoc, so
  * a plan step is exactly the checkpoint the Whiteboard lays down.
@@ -32,6 +35,7 @@ const rec = vi.hoisted(() => ({
   order: [] as string[],
   answer: false,
   confirms: 0,
+  mittel: [] as Record<string, unknown>[],
 }))
 type MapProps = Record<string, unknown> & {
   entities: Entity[]; drawings: Drawing[]; onSelect: (e: Entity) => void; onFreehand: (c: [number, number][]) => void
@@ -68,6 +72,13 @@ vi.mock('./components/Whiteboard', async () => {
   }
   return { Whiteboard: FakeBoard }
 })
+// the Mittel surface as a prop recorder: the entries it is handed, and its save door
+vi.mock('./components/MittelView', () => ({
+  MittelView: (p: Record<string, unknown> & { entries: MittelEntry[] }) => {
+    rec.mittel.push(p)
+    return <ul data-testid="mittel">{p.entries.map((e) => <li key={e.id}>{e.label}</li>)}</ul>
+  },
+}))
 // the Rapport's own chunk, prefetched on idle — not part of any contract here
 vi.mock('./components/ReportPreflight', () => ({ ReportPreflight: () => null, requestReportStep: () => {} }))
 vi.mock('./lib/ui', async (importOriginal) => {
@@ -85,6 +96,7 @@ import type { IncidentMeta } from './lib/api/incidents'
 import type { Saved } from './lib/workspace'
 import { georefDispatch } from './lib/georefMode'
 import { appConfig } from './config/appConfig'
+import { loadPrefs, savePrefs } from './lib/prefs'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -95,7 +107,7 @@ beforeAll(() => {
   })) as unknown as typeof window.matchMedia
 })
 beforeEach(() => {
-  rec.map.length = 0; rec.board.length = 0; rec.order.length = 0; rec.boardDoc = null
+  rec.map.length = 0; rec.board.length = 0; rec.order.length = 0; rec.boardDoc = null; rec.mittel.length = 0
   rec.answer = false; rec.confirms = 0
   vi.clearAllMocks()
   // every request the workspace makes (journal, audit, alignments, weather …) is simply absent
@@ -319,6 +331,41 @@ describe('(e) a hydrate that changes nothing writes nothing', () => {
     await settle(60)
     expect(save).not.toHaveBeenCalled()
     expect(sync.hasUnsynced).toBe(false)
+  })
+})
+
+describe('(f) a merge reaches the screen', () => {
+  // Live on production until 25.09.2026: applyWorkspace handed every synced slice to its setter
+  // except `mittel`. Another device's Mittel line never showed here, and this device's next save
+  // — whose ancestor DID hold it — carried the stale list, which the three-way merge reads as a
+  // local delete (delete wins). The line vanished from every device.
+  const row = (id: string, label: string): MittelEntry => ({ id, label, unit: 'Stk', menge: 1, at: '2026-09-25T08:00:00Z' })
+  const lastMittel = () => rec.mittel[rec.mittel.length - 1] as { entries: MittelEntry[]; onSave: (d: MittelDraft) => void }
+  const shown = () => Array.from(screen.getByTestId('mittel').querySelectorAll('li')).map((li) => li.textContent)
+
+  it('another device’s Mittel line shows after the merge, and the next save keeps it', async () => {
+    const m = meta()
+    savePrefs({ ...loadPrefs(), mode: 'mittel', modeIncidentId: m.id }) // open straight on Mittel
+    const sync = new WorkspaceSync(m.id)
+    const mine = row('m-mine', 'Schlauch 55')
+    const { tree } = workspaceTree(m, { sync, workspace: { entities: [truck], mittel: [mine] } as unknown as Saved })
+    render(tree)
+    await settle(60); await settle(60)
+    expect(shown()).toEqual(['Schlauch 55'])
+
+    const theirs = row('m-theirs', 'Ölbinder')
+    const merged = { entities: [truck], mittel: [mine, theirs] } as unknown as Parameters<NonNullable<typeof sync.onApplyMerged>>[0]
+    act(() => sync.onApplyMerged!(merged, 1))
+    await settle(60)
+    expect(shown()).toEqual(['Schlauch 55', 'Ölbinder'])
+
+    // this device records its own line — the save must carry the other device's too
+    const save = vi.spyOn(sync, 'save')
+    act(() => lastMittel().onSave({ label: 'Absperrband', unit: 'Rolle', menge: 2 }))
+    await settle(60)
+    expect(save).toHaveBeenCalled()
+    const saved = save.mock.calls[save.mock.calls.length - 1][0] as unknown as Saved
+    expect(saved.mittel?.map((e) => e.label)).toEqual(['Schlauch 55', 'Ölbinder', 'Absperrband'])
   })
 })
 
