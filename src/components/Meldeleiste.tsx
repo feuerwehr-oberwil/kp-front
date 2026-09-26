@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { createPortal } from 'react-dom'
+import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
@@ -50,6 +52,8 @@ export function Meldeleiste() {
   const items = useSyncExternalStore(subscribeMeldungen, getMeldungen, getMeldungen)
   const C = appConfig.copy.meldeleiste
 
+  // the open Einsatz's `.app`, so the strip stacks UNDER its top bar and menus (lib/meldeleisteHost)
+  const host = useSyncExternalStore(subscribeMeldeleisteHost, getMeldeleisteHost, () => null)
   const rows = rankMeldungen(items)
   const shown = rows.length > 0
   const [all, setAll] = useState(false)
@@ -65,14 +69,14 @@ export function Meldeleiste() {
     const ro = new ResizeObserver(put)
     ro.observe(el)
     return () => { ro.disconnect(); rootStyle.removeProperty('--ml-h') }
-  }, [shown])
+  }, [shown, host])
   if (rows.length === 0) return null
   // The ✕ column is held open only when a ✕ exists to hold it open FOR. Reserving it
   // unconditionally straightened the right edge but left every row of a strip that carries no
   // dismissible message ending 44px short of its own border — empty space with nothing in it.
   const anyDismiss = rows.some((m) => m.dismiss != null)
 
-  return (
+  const strip = (
     // ONE live region for the whole layer, and a polite one: the strip is persistent content that
     // stays until it is handled, not an event that flies past. Four assertive regions talking
     // over each other is what this replaces.
@@ -96,6 +100,7 @@ export function Meldeleiste() {
       )}
     </div>
   )
+  return host ? createPortal(strip, host) : strip
 }
 
 /** The row's title — plain text, or the message's own way in where it has one (`onOpen`).

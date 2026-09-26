@@ -1078,7 +1078,9 @@ to prod.
     shell — Tafel, Anwesenheit, Mittel, Checklisten, Rapport) starts below the strip
     (`--ml-h` → `--ml-push`, Surface.module.css); only the Karte and the plans let it float over
     the map. On the Tafel the strip also folds to its most urgent row plus a count (`.az-tafel`);
-    everywhere else every row stays open.
+    everywhere else every row stays open. Everything the top bar opens paints OVER the strip: the
+    strip portals into the open Einsatz's `.app` (`lib/meldeleisteHost`, staging r5 N3), because
+    `.app` is its own stacking context and from App root the strip outranked all of it.
   - *Merges compare JSON, not key order* (staging r3 F11): the server's JSONB re-sorts keys, so
     `mergeWorkspace · eq` ignores key order; an Anwesenheit divergence is reported only when the
     sides differ in more than `noteAt`.

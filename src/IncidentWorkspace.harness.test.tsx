@@ -87,6 +87,7 @@ import type { IncidentMeta } from './lib/api/incidents'
 import type { Saved } from './lib/workspace'
 import { georefDispatch } from './lib/georefMode'
 import { appConfig } from './config/appConfig'
+import { getMeldeleisteHost } from './lib/meldeleisteHost'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -466,5 +467,16 @@ describe('(h) the phone FAB never sits over the Atemschutz board', () => {
     } finally {
       window.matchMedia = before
     }
+  })
+})
+
+/* staging r5 N3: the Meldeleiste paints INSIDE the open Einsatz's `.app` (lib/meldeleisteHost) —
+   beside it, at App root, it outranked the whole stacking context and lay over the Einsatz menu. */
+describe('(i) the workspace is where the Meldeleiste paints', () => {
+  it('registers its .app as the strip\'s host, and lets go when it unmounts', async () => {
+    const { unmount } = await mount()
+    expect(getMeldeleisteHost()?.classList.contains('app')).toBe(true)
+    unmount()
+    expect(getMeldeleisteHost()).toBeNull()
   })
 })

@@ -69,6 +69,10 @@
    bar — the strip hangs 92px below it and never overlaps it — so it goes under, and everything
    the bar opens drops over the strip as it should. Above the rails (35/36) and the Replay bar
    (50), below the Verlauf's scrim and drawer (60/61) and every overlay at 80+.
+   ⚠️ …which holds only INSIDE `.app` (staging r5, N3). `.app` is position:fixed and so its own
+   stacking context; mounted beside it at App root, the strip outranked the whole of it and lay
+   over the open Einsatz menu's card («Zum Trupp» took the tap). So the strip PORTALS into the
+   open Einsatz's `.app` (lib/meldeleisteHost) and only paints at App root with no Einsatz open.
    ⚠️ There is no rule for the empty case, because there is no empty case: with nothing pending
    the component returns null and the map runs up under the top bar exactly as before.
    The rows remain equally direct, but the stack is bounded by the viewport. On a busy incident

@@ -662,6 +662,9 @@ export default function App() {
           ⚠️ Mounted at APP root, not in IncidentWorkspace: `NewIncidentBanner` publishes when a
           colleague takes an Einsatz or one auto-opens, and that can happen with NO incident open
           — inside the workspace the strip would not be mounted and the message would vanish.
+          ⚠️ …but while an Einsatz IS open it paints inside that workspace's `.app` (a portal,
+          lib/meldeleisteHost): `.app` is its own stacking context, and from out here the strip
+          lay over the top bar's menus (staging r5, N3).
           ⚠️ It replaced five top banners on one axis and four bottom cards on one coordinate.
           Do not add a sixth floating card: either the message has a PLACE — then it belongs in
           that surface, the way ShiftConflictNotice does — or it belongs in this strip. */}

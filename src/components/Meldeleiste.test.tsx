@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { act, render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { getMeldeleisteHost, registerMeldeleisteHost } from '../lib/meldeleisteHost'
 import { readFileSync } from 'node:fs'
 import { Meldeleiste } from './Meldeleiste'
 import { useMeldung } from '../lib/useMeldung'
@@ -182,5 +183,37 @@ describe('the pages stand below the strip', () => {
       expect(sel).toContain(':root:has(.ml)')
       expect(body).toContain('var(--ml-h')
     }
+  })
+})
+
+/* staging r5 N3: at 820 the alarm row lay over the open Einsatz menu's card — a tap on the card
+ * landed on «Zum Trupp». `.app` is position:fixed, so it is its own stacking context, and a strip
+ * beside it at App root outranked everything in it, the top bar's menus included. The strip paints
+ * INSIDE the open Einsatz's `.app` (lib/meldeleisteHost), where its 54 sits under the top bar's 56. */
+describe('the strip paints inside the open Einsatz', () => {
+  it('portals into the registered host, and comes back to where it is mounted when the host goes', () => {
+    const app = document.createElement('div')
+    app.className = 'app'
+    document.body.appendChild(app)
+    const { container } = render(<Host items={[alarm]} />)
+    expect(container.querySelector('.ml')).not.toBeNull() // no Einsatz open: inline
+    let release: (() => void) | undefined
+    act(() => { release = registerMeldeleisteHost(app) })
+    expect(app.querySelector('.ml')).not.toBeNull()
+    expect(container.querySelector('.ml')).toBeNull()
+    act(() => { release?.() })
+    expect(container.querySelector('.ml')).not.toBeNull()
+    app.remove()
+  })
+
+  it('a cleanup of an element that is no longer the host does not unregister its successor', () => {
+    const a = document.createElement('div')
+    const b = document.createElement('div')
+    const releaseA = registerMeldeleisteHost(a)
+    const releaseB = registerMeldeleisteHost(b)
+    releaseA?.()
+    expect(getMeldeleisteHost()).toBe(b)
+    releaseB?.()
+    expect(getMeldeleisteHost()).toBeNull()
   })
 })

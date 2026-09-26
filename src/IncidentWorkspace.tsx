@@ -36,6 +36,7 @@ import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midC
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
 import { stampCrewFiled, unfiledTruppCrew } from './lib/crewFiling'
+import { registerMeldeleisteHost } from './lib/meldeleisteHost'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -4445,7 +4446,7 @@ export function IncidentWorkspace({
    * Toasts + confirms are already mounted app-wide (App · Overlays), the icon sprite is not. */
   if (asLink) {
     return (
-      <div className="app as-link-shell">
+      <div className="app as-link-shell" ref={registerMeldeleisteHost}>
         <IconSprite />
         {/* ⚠️ Same tab-lock message as the full layout, WITHOUT its editor gate: an Atemschutz-
             Link session is role 'viewer' but genuinely writes, so losing the lock to another tab
@@ -4551,7 +4552,8 @@ export function IncidentWorkspace({
   )
 
   return (
-    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    // the Meldeleiste paints INSIDE this stacking context (lib/meldeleisteHost), under the top bar
+    <div ref={registerMeldeleisteHost} className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
