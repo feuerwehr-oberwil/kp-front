@@ -110,7 +110,7 @@ export function SuchePanel(p: SuchePanelProps) {
   }
 
   if (view.kind === 'vermisst') return <VermisstForm {...p} places={bereiche} found={view.found} preset={view.preset} onDone={back} />
-  if (view.kind === 'addBereich') return <BereichForm {...p} onDone={back} />
+  if (view.kind === 'addBereich') return <BereichForm {...p} places={bereiche} onDone={back} />
   if ((view.kind === 'entwarnen' || view.kind === 'irrtuemlich') && person(view.id)) {
     return <WhyForm kind={view.kind} v={person(view.id)!} {...p} onCancel={() => setView({ kind: 'person', id: view.id })} onDone={back} />
   }
@@ -614,7 +614,7 @@ function VermisstForm({ trupps, actions, uebergabe, places, found, preset, pick,
 
 /** «＋ Bereich» — Wo?, and optionally who searches it, from the Trupps on the board. «noch
  *  niemand» is the default: a place entered is not yet a place anybody was sent to. */
-function BereichForm({ trupps, actions, pick, onDone }: SuchePanelProps & { onDone: () => void }) {
+function BereichForm({ trupps, actions, pick, places, onDone }: SuchePanelProps & { places: BereichView[]; onDone: () => void }) {
   const C = appConfig.copy.suche
   const [name, setName] = useState('')
   const [point, setPoint] = useState<SuchePoint | undefined>(undefined)
@@ -624,7 +624,8 @@ function BereichForm({ trupps, actions, pick, onDone }: SuchePanelProps & { onDo
   const pickable = trupps.filter((t) => t.status !== 'raus')
   const submit = () => {
     const t = truppId ? pickable.find((x) => x.id === truppId) : undefined
-    actions.addBereich({ name, trupp: t ? { label: t.label, id: t.id } : undefined, point })
+    const there = places.find((b) => placeKey(b.label) === placeKey(name))
+    actions.addBereich({ name, trupp: t ? { label: t.label, id: t.id } : undefined, point: there?.point ? undefined : point })
     onDone()
   }
   return (
@@ -632,7 +633,10 @@ function BereichForm({ trupps, actions, pick, onDone }: SuchePanelProps & { onDo
       <Field label={C.bereichWo}>
         <input className={s.input} value={name} onChange={(e) => setName(e.target.value)} placeholder={C.bereichWoPlaceholder} aria-label={C.bereichWo} autoFocus />
       </Field>
-      <PickField pick={pick} name={name.trim()} point={point} onPoint={setPoint} />
+      {/* a name the list has already is THAT place (lib/suche · addBereich) — standing somewhere,
+          it offers no second pin */}
+      <PickField pick={pick} name={name.trim()} point={point} onPoint={setPoint}
+        already={!!places.find((b) => placeKey(b.label) === placeKey(name))?.point} />
       <Field label={C.werSucht}>
         <div className={s.chips} role="group" aria-label={C.werSucht}>
           {pickable.map((t) => <button key={t.id} type="button" className={s.chip} aria-pressed={truppId === t.id} onClick={() => setTruppId(truppId === t.id ? null : t.id)}>{t.short}</button>)}

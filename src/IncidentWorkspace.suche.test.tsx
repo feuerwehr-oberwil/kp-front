@@ -106,7 +106,7 @@ async function mount(opts: { workspace?: Partial<Saved> } = {}) {
   />)
   await settle()
 }
-const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: [number, number]) => void; overlay?: { props: { pins: { id: string; label: string; point: unknown }[] } } }
+const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: [number, number]) => void; onPick: (c: [number, number]) => void; picking?: boolean; overlay?: { props: { pins: { id: string; label: string; point: unknown }[] } } }
 const door = () => document.querySelector<HTMLButtonElement>('.tool-rail .vrail-suche')
 const ebenen = () => document.querySelector<HTMLButtonElement>('.tool-rail .vrail-layers')
 const sucheCard = () => document.querySelector('[data-suche-card]')
@@ -186,7 +186,10 @@ describe('putting a place on the Karte from the card', () => {
     await click(screen.getByRole('button', { name: new RegExp(C.pickKarte) }))
     expect(sucheCard()!.hasAttribute('data-picking')).toBe(true)
     expect(screen.getByRole('button', { name: fillTemplate(C.pickHintKarte, { name: 'Scheune' }) })).toBeTruthy()
-    act(() => lastMap().onMapClick([7.61, 47.51]))
+    // MapView's own pick path: it comes before a drawing's selection, and the symbols let it through
+    expect(lastMap().picking).toBe(true)
+    expect(document.querySelector('.app')!.classList.contains('suche-picking')).toBe(true)
+    act(() => lastMap().onPick([7.61, 47.51]))
     await settle()
     // the card is back, with its words and the position
     expect(sucheCard()!.hasAttribute('data-picking')).toBe(false)

@@ -414,10 +414,11 @@ export function personPlace(doc: SucheDoc, v: Pick<PersonView, 'bereichId' | 'fl
   return part?.id ?? onStorey.find((b) => !b.name)?.id ?? null
 }
 
-/** «zuletzt gesehen» in words: the place's label when there is one, else what the record says. */
+/** «zuletzt gesehen» in words: the place's CURRENT label where the person points at it (a
+ *  rename follows), else what the record says — a step-1 person grouped under its storey keeps
+ *  «1. OG Technikraum», never just «1. OG» (review 26.09.2026). */
 export function personWhere(doc: SucheDoc, v: PersonView, floorName: (f: number) => string): string {
-  const id = personPlace(doc, v, floorName)
-  const b = id ? doc.bereiche.find((x) => x.id === id) : undefined
+  const b = v.bereichId ? doc.bereiche.find((x) => x.id === v.bereichId) : undefined
   return b ? placeLabel(b, floorName) : whereText(v.floor, v.wo, floorName)
 }
 
@@ -456,10 +457,14 @@ export interface SucheOrte {
   total: number
 }
 
-/** Is this record a place somebody entered? Everything is — except a step-1 storey row the
- *  machine seeded that nobody ever touched: that was never anybody's entry (nothing preset). */
+/** Is this record a place somebody entered? Everything is — except a step-1 storey row nobody
+ *  ever booked anything on: the machine seeded it (nothing preset), a «geteilt» row alone is no
+ *  booking, and a split «ohne Rest» took the storey out of the count for good (its parts are the
+ *  places). A storey somebody was last seen or found on stays, whatever it carries. */
 function isShown(doc: SucheDoc, b: SucheBereich, used: ReadonlySet<string>): boolean {
-  return !isStoreyRow(b) || b.log.length > 0 || used.has(b.id)
+  if (!isStoreyRow(b) || used.has(b.id)) return true
+  if (b.ohneRest && doc.bereiche.some((x) => x.floor === b.floor && !!x.name && (x.stack ?? '') === (b.stack ?? ''))) return false
+  return b.log.some((r) => r.op !== 'geteilt')
 }
 
 /** The group a person stands in: a person still missing where they were last seen, a found one
@@ -882,6 +887,13 @@ export function addBereich(doc: SucheDoc, input: { name: string; trupp?: { label
   let d = doc
   let id = found
   const rows: SucheRow[] = []
+  // …a place that is there already takes the pin the form set, where it has none (the form says
+  // so where it has one) — never silently dropped (review 26.09.2026)
+  if (found && input.point && pointTarget(doc, found) === 'bereich') {
+    const r = setPlacePoint(d, 'bereiche', found, input.point, cx)
+    d = r.doc
+    rows.push(...r.rows)
+  }
   if (!found) {
     const row: SucheRow = { id: cx.newId('sr'), at: cx.at, op: 'angelegt', text: fillTemplate(appConfig.copy.suche.rowAngelegt, { name }) }
     const b: SucheBereich = { id: cx.newId('sb'), name, createdAt: cx.at, ...(input.point ? { point: input.point } : {}), log: [row] }
@@ -947,7 +959,12 @@ export interface SuchePatch {
 // ⚠️ An ABSENT field travels as `null` (26.09.2026): the patch goes over the wire as JSON (the
 // audit event replay folds), where `undefined` simply vanishes — «the pin was taken off» arrived
 // as an empty `after` and replay kept the pin. No record field is ever null, so null = absent.
-const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+// …and it compares in a KEY-ORDER-free form: the patch comes back from the server's JSONB, which
+// re-sorts an object's keys, and a moved plan pin ({x, y, floor, planId} vs the load gate's
+// {planId, x, y, floor}) no longer matched — replay kept the pin where it was (review 26.09.2026).
+const canon = (v: unknown): unknown => (Array.isArray(v) ? v.map(canon)
+  : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon((v as Record<string, unknown>)[k])])) : v)
+const same = (a: unknown, b: unknown) => JSON.stringify(canon(a ?? null)) === JSON.stringify(canon(b ?? null))
 
 /** What turned `a` into `b`: the records added, the rows appended, the fields changed. */
 export function diffSuche(a: SucheDoc, b: SucheDoc): SuchePatch {
@@ -998,9 +1015,19 @@ export function applySuchePatch(doc: SucheDoc, p: SuchePatch, dir: 'undo' | 'red
     const created = p.created.filter((c) => c.kind === kind)
     const rows = p.rows.filter((r) => r.kind === kind)
     const fields = p.fields.filter((f) => f.kind === kind)
+    const createdById = new Map(created.map((c) => [c.rec.id, c.rec]))
     if (dir === 'undo') {
-      const gone = new Set(created.map((c) => c.rec.id))
-      const drop = new Set(rows.map((r) => r.row.id))
+      // ⚠️ A record the step created goes with it — UNLESS somebody has built on it since (review
+      // 26.09.2026): a place created by «＋ Vermisst» on which a Trupp's Ziel then wrote «in
+      // Arbeit», or that a person reported later points at. Then it stays, and only the step's
+      // own rows leave it — never a row the machine or another device wrote since.
+      const refs = kind === 'bereiche' ? placeRefs(next.personen) : new Set<string>()
+      const keep = (x: SuchePerson | SucheBereich) => {
+        const own = new Set(createdById.get(x.id)!.log.map((r) => r.id))
+        return x.log.some((r) => !own.has(r.id)) || refs.has(x.id)
+      }
+      const gone = new Set(list.filter((x) => createdById.has(x.id) && !keep(x)).map((x) => x.id))
+      const drop = new Set([...rows.map((r) => r.row.id), ...created.flatMap((c) => c.rec.log.map((r) => r.id))])
       list = list.filter((x) => !gone.has(x.id)).map((x) => {
         const f = fields.find((ff) => ff.id === x.id)
         let rec = x.log.some((r) => drop.has(r.id)) ? { ...x, log: x.log.filter((r) => !drop.has(r.id)) } : x
@@ -1014,7 +1041,9 @@ export function applySuchePatch(doc: SucheDoc, p: SuchePatch, dir: 'undo' | 'red
       const have = new Set(list.map((x) => x.id))
       list = [...list, ...created.filter((c) => !have.has(c.rec.id)).map((c) => c.rec)]
       list = list.map((x) => {
-        const mine = rows.filter((r) => r.owner === x.id && !x.log.some((l) => l.id === r.row.id)).map((r) => r.row)
+        // a created record the ↶ kept (somebody had built on it) gets its own rows back
+        const back = createdById.get(x.id)?.log ?? []
+        const mine = [...rows.filter((r) => r.owner === x.id).map((r) => r.row), ...back].filter((r) => !x.log.some((l) => l.id === r.id))
         const f = fields.find((ff) => ff.id === x.id)
         let rec = mine.length ? { ...x, log: [...x.log, ...mine] } : x
         if (f) {
@@ -1027,6 +1056,20 @@ export function applySuchePatch(doc: SucheDoc, p: SuchePatch, dir: 'undo' | 'red
     ;(next as unknown as Record<Kind, unknown[]>)[kind] = list
   }
   return next
+}
+
+/** Every place some person points at — as their place, the place of a find, or a correction's. */
+function placeRefs(personen: readonly SuchePerson[]): Set<string> {
+  const out = new Set<string>()
+  for (const p of personen) {
+    if (p.bereichId) out.add(p.bereichId)
+    for (const r of p.log) {
+      if (r.bereichId) out.add(r.bereichId)
+      if (r.set?.bereichId) out.add(r.set.bereichId)
+      if (r.set?.foundBereichId) out.add(r.set.foundBereichId)
+    }
+  }
+  return out
 }
 
 /** The record a row belongs to — the Verlauf row's `suche` link. */

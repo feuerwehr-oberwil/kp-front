@@ -259,7 +259,7 @@ describe('Orte: nothing is preset, and one list is by place', () => {
     expect(o.orte.map((x) => x.personen.map((p) => p.label))).toEqual([['Tim Muster'], ['Ada Probe'], []])
     expect(placeLabel(clean.bereiche[2], floorLabel)).toBe('1. OG Trakt 3')
     expect(findPlace(clean, '1. og trakt 3', floorLabel)).toBe('sb9')
-    expect(personPrintRows(clean, clock, floorLabel)[0].detail).toBe('zuletzt 1. OG Trakt 3')
+    expect(personPrintRows(clean, clock, floorLabel)[0].detail).toBe('zuletzt 1. OG Trakt 3 Büro')
     expect(sucheLine(clean, floorLabel, clock)).toBe('Suche: 3 Bereiche, 1 abgesucht · nicht abgesucht: 1. OG Trakt 3, EG')
     // a write on the old records works as on any other place
     const w = world()
@@ -592,5 +592,63 @@ describe('pins: places where somebody put them, and a missing person without a p
     const notes = sucheKrokiNotes(d, floorLabel, 'taktisch')
     expect(notes).toEqual([expect.objectContaining({ kind: 'note', layer: 'taktisch', coord: karte.coord, label: 'Suche: Scheune · offen · Person vermisst' })])
     expect(sucheKrokiNotes(undefined, floorLabel, 'taktisch')).toEqual([])
+  })
+})
+
+describe('the review of 26.09.2026', () => {
+  it('a moved plan pin replays from the server\'s JSONB, whose keys come back in another order', () => {
+    const w = world()
+    let d = addBereich(emptySuche(), { name: 'Keller', point: { planId: 'gebaeude', x: 0.2, y: 0.3, floor: 1 } }, w.cx()).doc
+    d = sanitizeSuche(JSON.parse(JSON.stringify(d)))!
+    const moved = setPlacePoint(d, 'bereiche', d.bereiche[0].id, { planId: 'gebaeude', x: 0.6, y: 0.5, floor: 2 }, w.cx()).doc
+    const patch = diffSuche(d, moved)
+    // what JSONB hands back: keys sorted by length, then bytes
+    const reorder = (pt: Record<string, unknown>) => Object.fromEntries(Object.entries(pt).sort(([a], [b]) => a.length - b.length || (a < b ? -1 : 1)))
+    const wire = JSON.parse(JSON.stringify(patch)) as typeof patch
+    for (const f of wire.fields) { f.before.point = reorder(f.before.point as Record<string, unknown>); f.after.point = reorder(f.after.point as Record<string, unknown>) }
+    expect(applySuchePatch(d, wire, 'redo').bereiche[0].point).toEqual({ planId: 'gebaeude', x: 0.6, y: 0.5, floor: 2 })
+    expect(applySuchePatch(moved, wire, 'undo').bereiche[0].point).toEqual({ planId: 'gebaeude', x: 0.2, y: 0.3, floor: 1 })
+  })
+
+  it('↶ of «＋ Vermisst» keeps the place it created once somebody built on it — only the step\'s own rows go', () => {
+    const w = world()
+    const start = emptySuche()
+    const a = addPerson(start, { name: 'Muster Tim', wo: 'Keller' }, w.cx())
+    const placeId = a.doc.bereiche[0].id
+    const patch = diffSuche(start, a.doc)
+    // meanwhile a Trupp's Ziel marks the new place «in Arbeit», and a second report points at it
+    let live = setBereichStatus(a.doc, placeId, 'inArbeit', { label: 'Trupp 1', id: 't1' }, w.cx()).doc
+    const undone = applySuchePatch(live, patch, 'undo')
+    expect(undone.personen).toEqual([])
+    expect(shownBereiche(undone, floorLabel)).toEqual([expect.objectContaining({ id: placeId, status: 'inArbeit' })])
+    live = addPerson(a.doc, { name: 'Beispiel Anna', wo: 'Keller' }, w.cx()).doc
+    expect(applySuchePatch(live, patch, 'undo').bereiche.map((b) => b.id)).toEqual([placeId])
+    // …and ↷ puts the step back whole
+    expect(applySuchePatch(undone, patch, 'redo').personen.map((p) => p.name)).toEqual(['Muster Tim'])
+  })
+
+  it('step 1: a storey split «ohne Rest» (or only split) is no place; a step-1 person keeps its words', () => {
+    const d: SucheDoc = {
+      bereiche: [
+        { id: 'sbg:k1:1', floor: 1, stack: 'k1', ohneRest: true, createdAt: '', log: [{ id: 'g', op: 'geteilt', at: t('19:40'), text: '1. OG geteilt: Trakt 1' }, { id: 's', op: 'status', status: 'abgesucht', at: t('19:50'), text: '1. OG abgesucht' }] },
+        { id: 'sb1', floor: 1, name: 'Trakt 1', stack: 'k1', createdAt: '', log: [{ id: 's2', op: 'status', status: 'abgesucht', at: t('19:55'), text: '1. OG Trakt 1 abgesucht' }] },
+        { id: 'sbg:k1:2', floor: 2, stack: 'k1', createdAt: '', log: [{ id: 'g2', op: 'geteilt', at: t('19:41'), text: '2. OG geteilt: Aula' }] },
+        { id: 'sb2', floor: 2, name: 'Aula', stack: 'k1', createdAt: '', log: [] },
+        { id: 'sbg:k1:3', floor: 3, stack: 'k1', createdAt: '', log: [] },
+      ],
+      personen: [{ id: 'p1', name: 'Tim Muster', floor: 3, wo: 'Technikraum', createdAt: t('20:00'), log: [{ id: 'v', op: 'vermisst', at: t('20:00'), text: 'Vermisst: Tim Muster' }] }],
+    }
+    expect(orte(d).orte.map((o) => o.label)).toEqual(['3. OG', '2. OG Aula', '1. OG Trakt 1'])
+    expect(orte(d)).toMatchObject({ done: 1, total: 3 })
+    expect(personPrintRows(d, clock, floorLabel)[0].detail).toBe('zuletzt 3. OG Technikraum')
+  })
+
+  it('«＋ Bereich» with a name the list has puts the pin on THAT place when it has none', () => {
+    const w = world()
+    const d = addBereich(emptySuche(), { name: 'Keller' }, w.cx()).doc
+    const r = addBereich(d, { name: 'keller', point: { coord: [7.6, 47.5] } }, w.cx())
+    expect(r.doc.bereiche).toHaveLength(1)
+    expect(r.doc.bereiche[0].point).toEqual({ coord: [7.6, 47.5] })
+    expect(r.rows.map((x) => x.op)).toEqual(['ort'])
   })
 })

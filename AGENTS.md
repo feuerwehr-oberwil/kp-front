@@ -378,7 +378,10 @@ to prod.
     (`vermisstAbschlussMessage`), «Zur Suche» focused.
   - Undo is the WRITER's, as patches (`diffSuche` / `applySuchePatch`): a step takes back exactly
     the records, rows and fields it added — never a row the machine or another device wrote since,
-    which a whole-slice snapshot (`useUndoableSlice`) did. Its Verlauf row quotes each row it took
+    which a whole-slice snapshot (`useUndoableSlice`) did. A record the step CREATED stays when
+    somebody built on it since (a row of theirs on it, a person pointing at the place): only the
+    step's own rows leave it. A patch travels as JSON (audit → replay): an absent field is `null`
+    in it, and fields compare key-order-free (the server's JSONB re-sorts keys). Its Verlauf row quotes each row it took
     back («Zurückgenommen: …»). The composer's entry that changes a status IS that change's Verlauf
     row (`silent`) and says the change in its text («… · Suche: Tim Muster gefunden»).
   - Every write emits ONE audit event with its patch (`suche.step` / `suche.undo`), and replay
@@ -395,7 +398,10 @@ to prod.
     objects and under every popup; a tap opens the card on the record. Placing is OPTIONAL, from
     the forms («📍 Auf Karte / Plan setzen») and the record's card (Zeigen · Verschieben ·
     Position entfernen): the card hands the surface over for ONE tap (`SuchePick` →
-    IncidentWorkspace · `suchePick`; the placement dock ✕ · 📍 · ⓘ plus a toast that STANDS for
+    IncidentWorkspace · `suchePick`; on the Karte through MapView's own `picking` path, which
+    comes before any drawing's selection, with the markers click-through (`.suche-picking`) — a
+    selection would close the card and lose the form; on a plan a clear layer over the sheet
+    takes the tap and lets a drag pan; the placement dock ✕ · 📍 · ⓘ plus a toast that STANDS for
     the mode — swipe it and the pick is cancelled; the card steps aside keeping its form, and its
     going away cancels the pick). A form's pin is written with the record in the SAME step; a
     card's is its own step with an `ort` row (`setPlacePoint`). «＋ Vermisst» puts its point on

@@ -2757,9 +2757,6 @@ export function IncidentWorkspace({
   }
 
   const onMapClick = (c: LngLat) => {
-    // the Suche waits for a position: this tap IS it (before the panel's own tap-away below, which
-    // would close the very card that asked)
-    if (suchePick) { const k = suchePick; setSuchePick(null); k.done({ coord: c }); return }
     // a map tap dismisses an open Ebenen panel first (parity with the phone backdrop) —
     // the panel is map chrome, so tapping the map behind it should just close it
     if (panel !== null) { setPanel(null); return }
@@ -4975,7 +4972,7 @@ export function IncidentWorkspace({
   )
 
   return (
-    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''}${suchePick ? ' suche-picking' : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
@@ -5105,9 +5102,14 @@ export function IncidentWorkspace({
           }}
           onView={setView}
           onBasemapUnavailable={onBasemapUnavailable}
-          picking={coord.mode === 'aim'}
-          onCursor={coord.setAim}
+          // the Suche's pick rides MapView's own pick path (26.09.2026, review): it comes before any
+          // drawing's selection, so «Keller» can be put INSIDE the Fläche it is — a selection there
+          // would close the card, cancel the pick and lose its form. The symbols step aside too
+          // (`.suche-picking`, Suche.module.css).
+          picking={coord.mode === 'aim' || !!suchePick}
+          onCursor={suchePick ? undefined : coord.setAim}
           onPick={(c) => {
+            if (suchePick) { const k = suchePick; setSuchePick(null); k.done({ coord: c }); return }
             coord.setPicked(c); coord.setAim(null)
             coord.setMode('set')
           }}
