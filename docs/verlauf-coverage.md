@@ -177,7 +177,7 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
 
 | Act | Verlauf row | Audit | ↶ |
 |---|---|---|---|
-| «Gelöscht / erledigt» (a row of a symbol's editor sheet – first on damage/hazard symbols, near the bottom elsewhere) | «Feuer EG gelöscht» – a Feuer is «gelöscht», every other symbol «erledigt» (`objectDone.logDone`), with the storey it stands on | `entity.edit` **and** `board.edit` with `{ done: {at, by?} }` – both views, see below | yes – one prop-edit step; the ↶ writes its own «… rückgängig gemacht» |
+| «Gelöscht / erledigt» (the first row of the editor sheet of a damage/hazard symbol – never offered for a Fahrzeug, a KP, a Hydrant) | «Feuer EG gelöscht» – a Feuer is «gelöscht», every other symbol «erledigt» (`objectDone.logDone`), with the storey it stands on | `entity.edit` **and** `board.edit` with `{ done: {at, by?} }` – both views, see below | yes – one prop-edit step; the ↶ writes its own «… rückgängig gemacht» |
 | «Wieder aktiv» | «Feuer EG wieder aktiv» (`objectDone.logReopened`) | the same op with `{ done: null }` – `null`, because JSON drops `undefined` and the replay would fold an empty patch and keep the symbol grey | yes |
 | «Entfernen» (single object) on the **Plan** | «Feuer entfernt» – the Karte's own `log.objectDeleted`, named the way the Karte names it (`drawingEdit · annoLogName`), carried as `subjectId` | `board.delete` | yes, as before |
 

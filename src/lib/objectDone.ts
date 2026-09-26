@@ -18,8 +18,9 @@ import type { ObjectDone, SymbolProps } from '../types'
  * legend line and the printed badge all read it from here.
  */
 
-/** Which kinds can be «erledigt». Symbols only: a Fläche/Absperrkreis would need greyed INK on
- *  the Karte's GL layers, the board, the Kroki and the plan pages — not a prop and a badge. */
+/** Which kinds can carry `done` at all. Symbols only: a Fläche/Absperrkreis would need greyed INK
+ *  on the Karte's GL layers, the board, the Kroki and the plan pages — not a prop and a badge.
+ *  WHICH symbols may newly be marked is `offersDone`. */
 export const canBeDone = (kind: string | undefined): boolean => kind === 'symbol'
 
 /** The record's `done`, or null — tolerant of a malformed value from an older/foreign blob, so a
@@ -40,12 +41,13 @@ export function markDone(atIso: string, by?: string): ObjectDone {
 export const isFireFamily = (symbol: string | undefined): boolean =>
   !!symbol && appConfig.symbols.fireFamily.includes(symbol)
 
-/** Does this symbol's editor offer «Gelöscht / erledigt» FIRST? Damage and hazard categories
- *  (appConfig.symbols.doneFirstCategories) and the fire family — elsewhere the row sits near the
- *  bottom, where a reflex tap on a freshly opened editor cannot reach it. `cat` is the PACK's
- *  category (useSymbols), never the symbol's editable subtitle. */
-export const doneFirst = (symbol: string | undefined, cat: string | undefined): boolean =>
-  isFireFamily(symbol) || (!!cat && appConfig.symbols.doneFirstCategories.includes(cat))
+/** May this symbol be MARKED «Gelöscht / erledigt»? Only the damage and hazard categories
+ *  (appConfig.symbols.doneCategories) and the fire family — a Fahrzeug, a KP Front, a Hydrant is
+ *  never «over» (owner's sign-off on #226, 26.09.2026). `cat` is the PACK's category (useSymbols),
+ *  never the symbol's editable subtitle. A symbol of another type that already CARRIES `done`
+ *  (an older record) keeps rendering it and may be reopened — see `doneAct`. */
+export const offersDone = (symbol: string | undefined, cat: string | undefined): boolean =>
+  isFireFamily(symbol) || (!!cat && appConfig.symbols.doneCategories.includes(cat))
 
 /** The ONE word, by family (copy · objectDone.word). `title` opens a line, `inline` sits in one. */
 export function doneWord(symbol: string | undefined, form: 'title' | 'inline' = 'title'): string {
@@ -119,9 +121,12 @@ export function doneRowText(name: string, place: string, symbol: string | undefi
 export function doneAct(
   props: Pick<SymbolProps, 'done' | 'label' | 'symbol'> & { id: string; kind: string },
   on: boolean,
-  opts: { atIso: string; by?: string; place: string; sheetPlanId?: string },
+  /** `cat`: the pack's category, which decides whether the symbol may be MARKED (`offersDone`);
+   *  «Wieder aktiv» is always allowed, so nothing already recorded is stuck grey */
+  opts: { atIso: string; by?: string; place: string; sheetPlanId?: string; cat?: string },
 ): { done: ObjectDone | undefined; text: string; events: [op: string, payload: Record<string, unknown>][] } | null {
   if (!canBeDone(props.kind) || on === !!doneOf(props)) return null
+  if (on && !offersDone(props.symbol, opts.cat)) return null
   const done = on ? markDone(opts.atIso, opts.by) : undefined
   const name = doneName(props)
   const text = done ? doneRowText(name, opts.place, props.symbol) : reopenedRowText(name, opts.place)

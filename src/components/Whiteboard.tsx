@@ -36,7 +36,7 @@ import { ApiError } from '../lib/api'
 import { Overlay, Popover } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
-import { doneAct, doneBadge, doneFirst, donePlace } from '../lib/objectDone'
+import { doneAct, doneBadge, doneOf, donePlace, offersDone } from '../lib/objectDone'
 import { annoLogName } from '../lib/drawingEdit'
 import { serverNowIso } from '../lib/serverClock'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -2023,6 +2023,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // this sheet's view — a projected Karte symbol has no anno in the recorded board, and the
       // event folds to nothing there, while its `entity.edit` greys the map view (lib/objectDone)
       sheetPlanId: activeId,
+      cat: sym.symbols.find((x) => x.name === a.symbol)?.cat,
     })
     if (!act) return
     onStepLabel?.(act.text) // the ↶ says «Feuer EG gelöscht», the Karte's way, not «Plan …»
@@ -4012,8 +4013,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({ id: a.id, label: lineLabel(a) }))}
           onFocusLine={(id) => setSelId(id)}
           onDelete={() => void removeWithConnections(selSymbol)}
-          onDone={!readOnly ? (on) => setAnnoDone(selSymbol, on) : undefined}
-          doneFirst={doneFirst(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
+          // only where being over means something (lib/objectDone · offersDone) — the Karte's rule
+          onDone={!readOnly && (offersDone(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat) || !!doneOf(selSymbol))
+            ? (on) => setAnnoDone(selSymbol, on) : undefined}
         />
       )}
 

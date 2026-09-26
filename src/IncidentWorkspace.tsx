@@ -186,7 +186,7 @@ import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
-import { canBeDone, doneAct, doneFirst, donePlace } from './lib/objectDone'
+import { canBeDone, doneAct, doneOf, donePlace, offersDone } from './lib/objectDone'
 import { createPlanStepLink, type PlanStepLink } from './lib/planStepLink'
 import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
@@ -3333,6 +3333,7 @@ export function IncidentWorkspace({
       place: donePlace(ent.floorFrom ?? ent.floor, ent.floorTo),
       // the sheet that draws it natively, if any — its view gets the event too (lib/objectDone)
       sheetPlanId: objectsRef.current.find((o) => o.id === ent.id)?.sheet?.planId,
+      cat: sym.symbols.find((x) => x.name === ent.symbol)?.cat,
     })
     if (!act) return
     stepLabel.current = act.text // the ↶ names the act, not «Änderung auf der Karte»
@@ -5167,8 +5168,12 @@ export function IncidentWorkspace({
           fieldHints={rosterFieldHints(selected)}
           protectedKeys={selected.kind === 'symbol' ? new Set(symbolPresetFieldKeys(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)) : undefined}
           onDelete={() => deleteEntity(selected.id)}
-          onDone={canBeDone(selected.kind) && !selected.live && !tacticalLocked ? (on) => setEntityDone(selected, on) : undefined}
-          doneFirst={doneFirst(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)}
+          // «Gelöscht / erledigt» only where being OVER means something — a Feuer, a Rauch, a
+          // Gefahr — never a Fahrzeug (lib/objectDone · offersDone); an older `done` elsewhere may
+          // still be reopened, so nothing recorded is stuck grey
+          onDone={canBeDone(selected.kind) && !selected.live && !tacticalLocked
+            && (offersDone(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat) || !!doneOf(selected))
+            ? (on) => setEntityDone(selected, on) : undefined}
           hasOverride={vehicleOverrides[selected.id] != null}
           // Vehicles only. «GPS» undoes an operator's drag/rotate of a live symbol — a person
           // dot has neither (both are blocked in MapMarkers), so the button sat there

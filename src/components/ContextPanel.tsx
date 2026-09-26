@@ -194,9 +194,6 @@ export interface ContextPanelProps {
    *  is wired, the footer's delete reads «Entfernen»: next to a «gelöschtes» Feuer, «Löschen»
    *  would say the opposite of what the button does. */
   onDone?: (done: boolean) => void
-  /** the row is the FIRST thing in the body — only for damage/hazard symbols, where «done» is the
-   *  next act (lib/objectDone · doneFirst). Absent ⇒ it sits near the bottom, above «Entfernen». */
-  doneFirst?: boolean
   /** Clear a crew member's self-reported position (Selbstauskunft) from the command post.
    *  Editor-only, and offered ONLY on a live `person` dot: somebody drives home with sharing
    *  still on, or a phone dies holding its last fix, and the dot then claims a crew is
@@ -272,7 +269,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, doneFirst = false, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -767,7 +764,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
       )}
 
       <div className="ctx-body">
-        {doneFirst && doneRow}
+        {doneRow}
         {/* ── Notiz ── the same three settings the armed-tool dock offers while writing, plus the
             one that changes the note's state: Form. Deliberately short — every extra control here
             is one more thing to reason about at 3am, and each would have to be carried through
@@ -1214,9 +1211,6 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
           <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connectedLines.length))}</span>
           {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><span className="ctx-conn-go" aria-hidden>›</span></button>)}
         </div>}
-        {/* …and for every other symbol near the bottom, right above «Entfernen»: its editor opens
-            by itself after placing, and the first row is where a reflex tap lands */}
-        {!doneFirst && doneRow}
         <div className="ctx-footer-inline">{caprow}{actions}</div>
       </div>
 

@@ -1693,6 +1693,21 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     expect(log.mock.calls[0][2]).toEqual({ subjectId: 'f1' })
   })
 
+  // owner's sign-off on #226: «we don't need "erledigt" for cars»
+  it('offers no row on a Fahrzeug — its editor has only «Entfernen»', () => {
+    const car: BoardAnno = { id: 'v1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Fahrzeug', label: 'TLF' }
+    open([car])
+    expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
+  })
+
+  it('…but a Fahrzeug that already carries `done` (an older record) can still be reopened', () => {
+    const car: BoardAnno = { id: 'v1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Fahrzeug', label: 'TLF', done: { at: '2026-09-23T18:40:00.000Z' } }
+    const { onChange } = open([car])
+    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(O.reopen) })[0])
+    expect(lastSaved(onChange)[0].done).toBeUndefined()
+  })
+
   it('offers nothing on a read-only board — but still states that it is done', () => {
     open([{ ...feuer, done: { at: '2026-09-23T18:40:00.000Z' } }], { readOnly: true })
     expect(screen.queryByRole('button', { name: new RegExp(O.reopen) })).toBeNull()
