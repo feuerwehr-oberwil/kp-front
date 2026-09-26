@@ -5,7 +5,9 @@
 //   - independent additions to different objects all survive (ordered by server appearance);
 //   - edits to the SAME object are last-writer-wins (the device flushing later wins) — except
 //     Trupps, which merge field-level (mergeTrupp) because an SCBA record must never lose a
-//     pressure reading to a concurrent radio contact;
+//     pressure reading to a concurrent radio contact, and Anwesenheit entries and Zeitplan
+//     shifts, which merge per field (mergeFields) so two devices saving different fields of one
+//     record in the same second both keep their edit;
 //   - a delete BEATS a concurrent edit — the object stays gone, no resurrection;
 //   - two devices that minted the same «Trupp N» at once end with ONE holder of the number, the
 //     others renumbered from the one counter (lib/truppNumbers — the last step of mergeWorkspace).
@@ -22,6 +24,7 @@ import type { TruppTrail } from './truppTrails'
 import type { BoardDoc, Drawing, Entity, Trupp } from '../types'
 import type { InitialState, Saved } from './workspace'
 import { unionCrewFiled } from './crewFiling'
+import { jsonEqual } from './jsonEqual'
 
 type Id = string
 interface HasId {
@@ -44,28 +47,13 @@ const asBoard = (v: unknown): Record<string, HasId[]> =>
 /** Structural equality for plain JSON data (the only thing the blob holds). Used to tell "I
  *  changed this field" from "I left it as the ancestor" in the three-way field/record merges.
  *
- *  ⚠️ KEY ORDER DOES NOT COUNT (staging r3 F11). The server keeps the blob as JSONB, which hands
- *  every object back with its keys re-sorted, while this device's own values keep the order the
- *  code built them in — so a JSON.stringify comparison called two identical entries different.
- *  Four tablets filing the same Link crew under the same derived id each got «abweichende Angaben
- *  zusammengeführt – bitte prüfen» for a divergence whose two sides were the same. Compared as
- *  JSON compares them: arrays in order, objects by their keys, an `undefined` value the same as
- *  an absent key (JSON.stringify drops both). */
-function eq(a: unknown, b: unknown): boolean {
-  if (a === b) return true
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false
-    // JSON writes an undefined array slot as null
-    return a.every((x, i) => eq(x === undefined ? null : x, b[i] === undefined ? null : b[i]))
-  }
-  if (isObj(a) && isObj(b)) {
-    const ka = Object.keys(a).filter((k) => a[k] !== undefined)
-    const kb = Object.keys(b).filter((k) => b[k] !== undefined)
-    if (ka.length !== kb.length) return false
-    return ka.every((k) => b[k] !== undefined && eq(a[k], b[k]))
-  }
-  return false
-}
+ *  ⚠️ KEY ORDER DOES NOT COUNT (staging r3 F11). This used to say key order was stable because
+ *  buildPayload writes every value — but `base` and `theirs` come back from the server's JSONB,
+ *  which re-sorts every object's keys. An entry this device never touched read as «changed
+ *  here» against its re-sorted ancestor, so when another device changed it for real, «both
+ *  changed» went LWW-mine and the other device's edit was thrown away (a Zeitplan shift, any
+ *  whole-object collection). See lib/jsonEqual. */
+const eq = jsonEqual
 
 /** Three-way merge of ONE non-collection value: if the resolver (mine) left it at the common
  *  ancestor it yields to the server's value (so the other device's concurrent change survives);
@@ -145,12 +133,16 @@ export interface RecordConflict {
  *  last-writer-wins (mine). Crucially, a key the resolver left untouched takes the server's value
  *  — so a value another device changed in a different domain is not silently reverted.
  *  `onConflict` (optional) fires for every key BOTH sides changed to different values — the
- *  LWW result is unchanged, the divergence is merely reported. */
+ *  LWW result is unchanged, the divergence is merely reported.
+ *  `resolveBoth` (optional) replaces that LWW for a key both sides changed against a real
+ *  ancestor — the per-field merge of an Anwesenheit entry. It reports its own divergences, so
+ *  `onConflict` does not fire for a key it resolved. A concurrent same-key ADD stays LWW-mine. */
 export function mergeRecord<V>(
   base: Record<string, V>,
   mine: Record<string, V>,
   theirs: Record<string, V>,
   onConflict?: (c: RecordConflict) => void,
+  resolveBoth?: (ancestor: V, mine: V, theirs: V, key: string) => V,
 ): Record<string, V> {
   const out: Record<string, V> = {}
   base = base ?? {}
@@ -163,15 +155,127 @@ export function mergeRecord<V>(
     if (inMine && (!inBase || !eq(mine[k], base[k]))) {
       // I added/changed it → mine wins. If THEIRS also moved off the ancestor to something
       // different, that's a genuine both-sides divergence — report it (LWW stays).
-      if (onConflict && inTheirs && !eq(mine[k], theirs[k]) && (!inBase || !eq(theirs[k], base[k]))) {
-        onConflict({ key: k, mine: mine[k], theirs: theirs[k] })
-      }
+      const bothChanged = inTheirs && !eq(mine[k], theirs[k]) && (!inBase || !eq(theirs[k], base[k]))
+      if (bothChanged && inBase && resolveBoth) { out[k] = resolveBoth(base[k], mine[k], theirs[k], k); continue }
+      if (onConflict && bothChanged) onConflict({ key: k, mine: mine[k], theirs: theirs[k] })
       out[k] = mine[k]
     }
     else if (inTheirs) out[k] = theirs[k] // I left it at the ancestor → take theirs (their change or unchanged)
     else out[k] = mine[k]
   }
   return out
+}
+
+// --- Per-field merge of ONE record both sides changed (Anwesenheit entries, Zeitplan shifts) ---
+//
+// ⚠️ staging r4 D3 (25.09.2026): two devices saving DIFFERENT fields of the same person or the
+// same shift within one second both build on the same revision; the first lands, the second
+// 409s and merges against that shared ancestor. As whole objects that is «both changed» →
+// LWW-mine, so the phone's «von 23:38» vanished under the tablet's Bemerkung (and the tablet's
+// untouched Funktion read as a second one in a «zwei Funktionen … bitte prüfen» row), and a
+// shift's «bis 07:00» vanished under the other device's «von 01:00» without any row at all.
+// Merged per field against the ancestor, edits to different fields both survive; only a field
+// BOTH sides changed to different values is a divergence, and it keeps the old rule (mine).
+
+/** Fields that are ONE fact and resolve from one side together. `ignore` lists fields that
+ *  ride along but do not by themselves make the two sides differ; a `quiet` unit resolves like
+ *  any other but is never reported as a divergence (bookkeeping, not a statement). */
+interface FieldUnit {
+  keys: readonly string[]
+  ignore?: readonly string[]
+  quiet?: boolean
+}
+
+/**
+ * Three-way merge of one plain record, unit by unit (`units`; every other field is a unit of
+ * its own). A unit only one side changed takes that side's values; a unit both sides changed
+ * takes MINE (LWW, as the whole-object merge did) and, if the two differ, is returned in
+ * `diverged`. An absent field is a value like any other: a field one side removed stays
+ * removed unless the other side changed it too.
+ */
+function mergeFields(
+  a: Record<string, unknown>,
+  m: Record<string, unknown>,
+  t: Record<string, unknown>,
+  units: readonly FieldUnit[] = [],
+): { merged: Record<string, unknown>; diverged: FieldUnit[] } {
+  const keys = [...new Set([...Object.keys(m), ...Object.keys(t), ...Object.keys(a)])]
+  const unitOf = new Map<string, FieldUnit>()
+  for (const u of units) for (const k of u.keys) unitOf.set(k, u)
+  const pick = new Map<FieldUnit, Record<string, unknown>>()
+  const diverged: FieldUnit[] = []
+  for (const k of keys) {
+    const unit = unitOf.get(k) ?? { keys: [k] }
+    if (unitOf.has(k) && pick.has(unit)) continue
+    const changedM = unit.keys.some((f) => !eq(m[f], a[f]))
+    const changedT = unit.keys.some((f) => !eq(t[f], a[f]))
+    pick.set(unit, !changedM ? t : m)
+    if (changedM && changedT && !unit.quiet &&
+      unit.keys.some((f) => !unit.ignore?.includes(f) && !eq(m[f], t[f]))) diverged.push(unit)
+    if (!unitOf.has(k)) unitOf.set(k, unit)
+  }
+  const merged: Record<string, unknown> = {}
+  for (const k of keys) {
+    const side = pick.get(unitOf.get(k)!)!
+    if (side[k] !== undefined) merged[k] = side[k]
+  }
+  return { merged, diverged }
+}
+
+/** `into` with the fields of `units` taken from `from` — one side of a divergence as a whole
+ *  entry, everything else as merged. */
+function withUnits(into: Record<string, unknown>, from: Record<string, unknown>, units: readonly FieldUnit[]) {
+  const out = { ...into }
+  for (const u of units) for (const k of u.keys) {
+    if (from[k] !== undefined) out[k] = from[k]
+    else delete out[k]
+  }
+  return out
+}
+
+/** How an Anwesenheit entry divides into facts (types.AttendanceEntry). */
+const ATTENDANCE_UNITS: readonly FieldUnit[] = [
+  // presence is ONE fact: the blocks are the truth and status + the checkedInAt/leftAt pair are
+  // derived from them — resolved from two sides they would describe two different people
+  { keys: ['status', 'intervals', 'checkedInAt', 'leftAt'] },
+  // the Funktion; `noteAt` is when a device wrote it, not what it says (staging r3 F11)
+  { keys: ['note', 'noteAt'], ignore: ['noteAt'] },
+  // bookkeeping: where the entry was last written, and the name as it stood then
+  { keys: ['source'], quiet: true },
+  { keys: ['displayNameSnapshot'], quiet: true },
+]
+
+/**
+ * One Anwesenheit entry both sides changed, merged per fact. A divergence is reported as two
+ * WHOLE entries that differ only in the diverging facts — the merged entry (what now stands) and
+ * the same with the other device's values for those facts — so the row names only what actually
+ * diverged, and settling it on either side keeps every other device's edit.
+ */
+function mergeAttendanceEntry(ancestor: unknown, mine: unknown, theirs: unknown, key: string,
+  report?: (c: RecordConflict) => void): unknown {
+  if (!isObj(ancestor) || !isObj(mine) || !isObj(theirs)) {
+    report?.({ key, mine, theirs })
+    return mine
+  }
+  const { merged, diverged } = mergeFields(ancestor, mine, theirs, ATTENDANCE_UNITS)
+  if (diverged.length) report?.({ key, mine: merged, theirs: withUnits(merged, theirs, diverged) })
+  return merged
+}
+
+/** One Zeitplan shift both sides changed, merged per field. From and to are separate fields (one
+ *  device moves the start, another the end — both stand), but a pair assembled from two sides
+ *  must still be a block: one that would end before it starts takes MY from/to together. */
+function mergeShift(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
+  const m = mine as unknown as Record<string, unknown>
+  const { merged } = mergeFields(ancestor as unknown as Record<string, unknown>, m, theirs as unknown as Record<string, unknown>)
+  const from = Date.parse(String(merged.from)), to = Date.parse(String(merged.to))
+  if (Number.isFinite(from) && Number.isFinite(to) && from >= to) {
+    for (const k of ['from', 'to']) {
+      if (m[k] !== undefined) merged[k] = m[k]
+      else delete merged[k]
+    }
+  }
+  return merged as unknown as HasId
 }
 
 // --- Trupp merge: field-level three-way, because whole-object LWW loses safety data --------
@@ -301,12 +405,6 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
   const filed = unionCrewFiled(asStrings(a.crewFiled), asStrings(m.crewFiled), asStrings(t.crewFiled))
   if (filed) out.crewFiled = filed
   return out as unknown as HasId
-}
-
-const withoutNoteAt = (v: unknown): unknown => {
-  if (!isObj(v) || !('noteAt' in v)) return v
-  const { noteAt: _t, ...rest } = v
-  return rest
 }
 
 const asStrings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
@@ -450,6 +548,13 @@ interface MergeCx {
  *    stands in its blob, so possibly malformed or absent); its result is always written. */
 type FieldPolicy = 'local' | ((b: unknown, m: unknown, t: unknown, cx: MergeCx) => unknown)
 
+/** An attendance entry minus `noteAt` — WHEN a device wrote the Funktion, not what it says. */
+const withoutNoteAt = (v: unknown): unknown => {
+  if (!isObj(v) || !('noteAt' in v)) return v
+  const { noteAt: _t, ...rest } = v
+  return rest
+}
+
 const byId = (b: unknown, m: unknown, t: unknown) => mergeById(asList(b), asList(m), asList(t))
 const byKey = (b: unknown, m: unknown, t: unknown) => mergeRecord(asRecord(b), asRecord(m), asRecord(t))
 
@@ -471,7 +576,9 @@ export const MERGE_POLICY = {
     return mergeTrupp(ancestor, mi, th)
   }),
   mittel: byId, // append-only material-use events — merge by event id like timeline
-  shifts: byId, // Schichtenplanung: planned availability blocks, merged by shift id
+  // Schichtenplanung: planned availability blocks, merged by shift id — and PER FIELD when both
+  // sides changed one shift (mergeShift, staging r4 D3)
+  shifts: (b, m, t) => mergeById(asList(b), asList(m), asList(t), mergeShift),
   // the Schichten grid's columns. They merge by id like any other collection, which gives exactly
   // the semantics the surface needs for free: a band the AdFU creates at the desk appears on the
   // EL's phone seconds later, two devices each creating one keep both, and a delete beats a
@@ -497,11 +604,16 @@ export const MERGE_POLICY = {
   // records/singletons that ALSO need three-way merging so a concurrent edit in another domain
   // (the "task-scoped multi-editor" case) isn't clobbered by the resolver's whole blob:
   // per-Person presence — a prime parallel-editor surface. A divergence is REPORTED only when the
-  // two sides say something different: `noteAt` is when a device wrote the Funktion, not what
-  // it says, and two tablets giving the same crew the same «AS-GF» a second apart agree
-  // (staging r3 F11). The value itself stays LWW-mine either way.
-  attendance: (b, m, t, cx) => mergeRecord(asRecord(b), asRecord(m), asRecord(t),
-    cx.onAttendanceConflict && ((c) => { if (!eq(withoutNoteAt(c.mine), withoutNoteAt(c.theirs))) cx.onAttendanceConflict!(c) })),
+  // two sides say something different: `noteAt` is when a device wrote the Funktion, not what it
+  // says, and two tablets giving the same crew the same «AS-GF» a second apart agree (staging r3
+  // F11). An entry BOTH sides changed merges per fact (mergeAttendanceEntry, staging r4 D3); a
+  // concurrent same-person ADD (no ancestor) stays LWW-mine.
+  attendance: (b, m, t, cx) => {
+    const report = cx.onAttendanceConflict &&
+      ((c: RecordConflict) => { if (!eq(withoutNoteAt(c.mine), withoutNoteAt(c.theirs))) cx.onAttendanceConflict!(c) })
+    return mergeRecord(asRecord(b), asRecord(m), asRecord(t), report,
+      (ancestor, mi, th, key) => mergeAttendanceEntry(ancestor, mi, th, key, report))
+  },
   planScale: byKey, // per-plan calibration (planId → scale)
   settings: byKey, // per-incident operational settings (Atemschutz doctrine …)
   reportMeta: (b, m, t) => mergeReportMeta(asRecord(b), asRecord(m), asRecord(t)), // Einsatzrapport bookkeeping text
@@ -573,8 +685,8 @@ void everySyncedFieldHasASlot
  * Only genuinely LOCAL view/device state stays mine (the `'local'` rows of MERGE_POLICY:
  * activePlanId, activeModule, layerState, recent, weather, schemaVersion). A key this build does
  * not know at all rides with mine too, as it always has.
- * (Same-object field-level edits remain LWW-mine for every collection except trupps — see the
- * documented limitation in the tests, and mergeTrupp for why trupps are the exception.)
+ * (Same-object field-level edits remain LWW-mine for every collection except trupps, attendance and
+ * shifts — see the documented limitation in the tests, mergeTrupp and mergeFields.)
  *
  * `onAttendanceConflict` (optional) reports every attendance key BOTH sides changed to different
  * values (same person, divergent entries — e.g. QR capture vs. KP tablet). The merge result is

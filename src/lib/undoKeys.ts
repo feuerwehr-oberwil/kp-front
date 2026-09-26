@@ -1,6 +1,7 @@
 import type { Saved } from './workspace'
 import { GEBAEUDE_PLAN_ID } from './whiteboard'
 import type { UndoEntry, UndoTimeline } from './undoTimeline'
+import { jsonEqual } from './jsonEqual'
 
 /**
  * WHICH RECORDS an undo step writes, and which ones a remote merge changed — the two halves of
@@ -71,24 +72,10 @@ const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v ==
  * as an absent one (JSON drops both). A record that went out and came back through a merge is a
  * fresh object with its keys in whatever order the server kept them, and reading that as «the
  * merge changed it» would drop every step on every hydrate.
+ * ⚠️ THE one comparison the merge uses too (lib/jsonEqual, #236): «did the merge change this
+ * record» and «did this side change it» must never disagree about a re-sorted value.
  */
-export function sameValue(a: unknown, b: unknown): boolean {
-  if (a === b) return true
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false
-    for (let i = 0; i < a.length; i++) if (!sameValue(a[i], b[i])) return false
-    return true
-  }
-  if (!isPlain(a) || !isPlain(b)) return false
-  let n = 0
-  for (const k in a) {
-    if (a[k] === undefined) continue
-    n++
-    if (!sameValue(a[k], b[k])) return false
-  }
-  for (const k in b) if (b[k] !== undefined) n--
-  return n === 0
-}
+export const sameValue = jsonEqual
 
 /**
  * How a value is made of records — the one thing both the merge diff and a history's re-laying
