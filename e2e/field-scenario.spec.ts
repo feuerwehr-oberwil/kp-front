@@ -12,8 +12,8 @@ import { test, expect, expectNoClientErrors, login, PIN, type ClientErrorReport 
 // account on the iPad, the Android and the iPhone, every one of them running the GPS pass, and
 // their saves meeting in 409s and merges). The three place their Trupps concurrently, and every
 // Trupp has to be on every device and on the server afterwards: the edit lost in a re-merge
-// (#204) is the bug that would show here. A third test pins a known bug by asserting today's
-// behaviour: three devices that tap «Neuer Trupp» at the same moment (see the note there).
+// (#204) is the bug that would show here. A third test has three devices tap «Neuer Trupp» at
+// the same moment: they must end up with three different numbers (see the note there).
 //
 // The vehicle is the backend's fake fleet (`POST /api/traccar/fake`, TRACCAR_FAKE=1 plus the
 // ALARM_WEBHOOK_SECRET — CI's Image job sets both through e2e/compose.e2e.yml). It serves the
@@ -304,14 +304,15 @@ test.describe('field scenario · live GPS, a coupled Leitung, a tapped Trupp', (
     for (const [i, d] of devices.entries()) await d.screenshot({ path: test.info().outputPath(`field-scenario-3-devices-${i + 1}.png`) })
   })
 
-  // ⚠️ KNOWN BUG, pinned by asserting TODAY's behaviour (24.09.2026). Three devices that tap «Neuer
-  // Trupp» at the same moment all name it «Trupp 1»: each draws the next number from ITS OWN view
-  // of the Einsatz before the others' saves arrive (lib/placedTrupps · nextTeamName), and the
-  // merge keeps all three. docs/trupp-naming.md §1 says two things on one Einsatz are never both
-  // «Trupp 1»; its «Out of scope» accepts the same race only for devices that are OFFLINE. The
-  // assertion below fails the day the numbering is fixed — then flip it to `.toBe(3)`. A crash is
-  // never mistaken for the bug: the guard and the check before it stay red on their own.
-  test('three devices tapping «Neuer Trupp» at the same moment (known bug: same number)', async ({ page, openDevice, baseURL, clientErrors }) => {
+  // ⚠️ Three devices that tap «Neuer Trupp» at the same moment each draw the next number from
+  // THEIR OWN view of the Einsatz before the others' saves arrive (lib/placedTrupps ·
+  // nextTeamName), so all three mint «Trupp 1» (found here on 24.09.2026). The merge keeps all
+  // three records and settles the number (lib/truppNumbers · resolveTruppNumbers, the last step of
+  // mergeWorkspace, 25.09.2026): one keeps it, the others take the next ones. A blob holding all
+  // three can only reach the server through such a merge, so once the server holds three they
+  // carry three names (docs/trupp-naming.md §1 and §7). A crash still fails this on its own: the
+  // guard and the check before the names.
+  test('three devices tapping «Neuer Trupp» at the same moment get three numbers', async ({ page, openDevice, baseURL, clientErrors }) => {
     test.setTimeout(180_000)
     const devices = [page, await openDevice('device 2'), await openDevice('device 3')]
     const api = await stationApi(baseURL!)
@@ -326,8 +327,7 @@ test.describe('field scenario · live GPS, a coupled Leitung, a tapped Trupp', (
       await page.waitForTimeout(STORM_SETTLE_MS) // lib/useRenderStorm needs its 2 s window
       expectNoClientErrors(clientErrors, 'placing three Trupps at once')
       const names = (await serverView(api, incident.id)).truppNames
-      expect(new Set(names).size,
-        `KNOWN BUG — when this fails the numbering was fixed: change to toBe(3). Names now: ${names.join(', ')}`).toBeLessThan(3)
+      expect(new Set(names).size, `three concurrent «Neuer Trupp» must get three numbers. Names now: ${names.join(', ')}`).toBe(3)
     } finally {
       await api.dispose()
     }

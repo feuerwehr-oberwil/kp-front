@@ -147,9 +147,9 @@ so this file – not the log – is the record of what shipped up to that point.
   `kpfront.clienterror` lines printed from the container log; until now those reports only ever
   reached the server log. CI-only: the fake fleet is switched on by an overlay
   (`e2e/compose.e2e.yml`), never in `docker-compose.yml`. The scenario runs without retries, so
-  an intermittent crash cannot pass as «flaky». A third test pins a bug the scenario turned up
-  by asserting today's behaviour: three devices that tap «Neuer Trupp» at the same moment all
-  name it «Trupp 1». The assertion flips once the numbering is fixed.
+  an intermittent crash cannot pass as «flaky». A third test has three devices tap «Neuer
+  Trupp» at the same moment and requires three different numbers (the duplicate it first turned
+  up is fixed, see «Three devices tapping «Neuer Trupp» at once» below).
 
 ### Fixed
 
