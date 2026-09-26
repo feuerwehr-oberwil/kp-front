@@ -371,8 +371,11 @@ export function einsatzleiterForPdf(
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
   const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building, suche, sucheStack } = args
   const meta = draft.meta
-  // the moment a CLOSED Einsatz was closed — ends the sorties nobody reported out (see trupps)
-  const closedAt = incident.is_archived ? incident.closed_at ?? undefined : undefined
+  // the moment a CLOSED Einsatz was closed — ends the sorties nobody reported out (see trupps).
+  // ⚠️ The LATEST close (closeTimeOf): after a reopen and a second close the crew was still in
+  // until the second one, like every other open span on the sheet. `closed_at` stays the FIRST
+  // close below, where it marks what reached the record afterwards as Nachtrag (journalRows).
+  const closedAt = incident.is_archived ? closeTimeOf(incident) ?? undefined : undefined
 
   // journal photos: send the server-relative media URL — the composer loads the bytes
   // from its own media store (session-only blob: URLs can't be resolved there and are
