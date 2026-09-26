@@ -243,8 +243,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // ── the search (mock verlauf-02, 14.09.) ──
   // `null` = closed; a string (even '') = the field has REPLACED the head row. Per-opening like
   // the legend: the drawer remounts on each open, so closing it is what resets the search.
-  // ⚠️ The Overlay keeps `dismissEscape={false}`: Escape in the field closes the SEARCH, not the
-  // drawer – the same «own the key» rule the transcript editors below follow.
+  // Escape closes ONE thing, innermost first (Overlay · onEscape, 26.09.2026): an open search or
+  // inline editor, and only then the drawer. It used to be `dismissEscape={false}` — the drawer
+  // owned the key and never closed on it, so on a tablet Esc did nothing at all.
   const [search, setSearch] = useState<string | null>(null)
   const query = useMemo(() => (search == null ? null : journalQuery(search)), [search])
   const searching = search != null
@@ -615,9 +616,19 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     ]
   }
 
+  /** Escape, innermost first (Overlay · onEscape): an inline editor, then the search, and only
+   *  when neither is open does the drawer close. A field's own Esc handler may already have closed
+   *  its layer in this same keydown — this still reads the render's state, so it answers «consumed»
+   *  and the drawer stays. */
+  const escapeInner = (): boolean => {
+    if (editTx) { setEditTx(null); return true }
+    if (editRow) { setEditRow(null); return true }
+    if (search != null) { setSearch(null); return true }
+    return false
+  }
 
   return (
-    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false} grab popupRef={setDrawerEl} style={heldStyle}>
+    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} onEscape={escapeInner} grab popupRef={setDrawerEl} style={heldStyle}>
         {/* ── the head STAYS while searching (22.09.2026) ──
             The field used to take the head's place – title · ⓘ · Replay · ✕ gone, a bare search
             box at the top – and with it went the answer to «where am I»: the drawer no longer said

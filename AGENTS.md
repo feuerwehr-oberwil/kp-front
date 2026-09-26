@@ -670,6 +670,9 @@ to prod.
     surface registers while it is open (`overlays/popoverGuard` · `usePopoverGuard`; `Menu`,
     `Popover` and `ComboMenu` already do), and `Sheet`/`Overlay` veto an `outside-press`/
     `escape-key` dismissal while the register is warm. Add a hand-rolled popover ⇒ register it.
+    A surface with its own INNER layers (a search, an inline editor) answers Esc through
+    `Overlay · onEscape` — true = «I closed my layer» — never through `dismissEscape={false}`,
+    which only vetoes and left the Verlauf drawer deaf to Esc on the tablet (26.09.2026).
   - **A phone bottom sheet is closed by pushing it down.** `overlays/swipeDismiss`, spread on the
     popup by `Sheet` and `Overlay` (`swipeToClose`, on by default) — never a per-surface copy. It
     measures that the popup IS a bottom sheet, leaves a scrolled body its own gesture, never starts
