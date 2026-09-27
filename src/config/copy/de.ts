@@ -1772,7 +1772,9 @@ export const de = {
     // «in den Einsatz», nie «einrücken» (09.09.) – siehe die Notiz bei entryAskTitle
     formRedeployTitle: 'Wieder in den Einsatz',
     sectionTeam: 'Trupp',
-    auftragLabel: 'Art',
+    // «Auftrag» über den sechs Kacheln (27.09.2026, slim sweep 6) – nicht mehr «Art»: das Wort stand
+    // direkt unter «Art des Trupps», und die Karte sagt schon «Auftrag» (editFieldLabels)
+    auftragLabel: 'Auftrag',
     auftragOpen: 'Auftrag offen',
     // DISPLAY labels for the Auftrag types, keyed by the auftrag `id`. ONE flat map over BOTH
     // lists (appConfig.atemschutz.auftrag = unter Atemschutz, .auftragEinfach = ohne) — which is
@@ -1809,13 +1811,16 @@ export const de = {
       wbk: 'WBK',
       multiwarn: 'MW',
     } as Record<string, string>,
-    zielLabel: 'Auftrag / Ziel',
+    // «Ziel» (27.09.2026, slim sweep 6): der Auftrag ist die Kachelzeile darüber, das Feld ist das
+    // Ziel – wie auf der Karte und im Auftrag-Sheet (editFieldLabels.ziel)
+    zielLabel: 'Ziel',
     // EIN Platzhalter für jede Art – bis 03.09. stand hier «z. B. 2OG links» und nur bei Art
     // «Anderes» der allgemeine Satz. Ein Stockwerk ist Atemschutz-Vokabular: unter Art «Verkehr»
-    // oder «Sanität» schlug das Beispiel einen Ort vor, den es dort gar nicht gibt. Der
-    // allgemeine Satz stimmt für beide Arten von Trupp und für jeden Eintrag beider Auftragslisten.
-    zielPlaceholder: 'Auftrag beschreiben',
-    zielClear: 'Auftrag / Ziel löschen',
+    // oder «Sanität» schlug das Beispiel einen Ort vor, den es dort gar nicht gibt. «Wo / was …»
+    // stimmt für beide Arten von Trupp und für jeden Eintrag beider Auftragslisten – und fragt
+    // nicht mehr, den Auftrag zu beschreiben, der gerade gewählt wurde.
+    zielPlaceholder: 'Wo / was …',
+    zielClear: 'Ziel löschen',
     // Order of the cards on the board. Überfällige Trupps ALWAYS sit at the top – that is not a
     // setting, it is the reason this board exists.
     orderLabel: 'Reihenfolge',
@@ -1874,9 +1879,12 @@ export const de = {
     teamGuestAdd: '«{name}» als Gast hinzufügen',
     // Leitung: the same number as on the drawn Leitung (Karte/Plan) — that is how Trupp and
     // Schlauchleitung find each other, without anybody typing anything twice.
-    lineNoLabel: 'Leitung Nr.',
+    // «Leitung» über den Chips «keine · Ltg 1 · …» (27.09.2026; vorher «Leitung Nr.» über einem
+    // Stepper mit «Gezeichnet:»-Zeile) – dieselben Chips wie im Auftrag-Sheet (lineNone / lineChip)
+    lineNoLabel: 'Leitung',
     lineLegacyNote: 'Früher erfasst: «{value}»',
-    lineOptsLabel: 'Gezeichnet:',
+    // der letzte Chip: eine Nummer, die noch nicht gezeichnet ist, tippt man im alten Stepper ein
+    lineTyped: 'Nr. …',
     lineTakeTitle: 'Leitung {n} ist vergeben',
     lineTakeMsg: 'Auf Leitung {n} ist Trupp {from}. Neu Trupp {to} darauf?',
     lineTakeConfirm: 'Übernehmen',
@@ -1963,11 +1971,13 @@ export const de = {
     // später über «Bearbeiten»; die Karte führt die Lücke als «Auftrag offen». Nur «Anderes»
     // braucht sein Wort, weil die Kachel allein nichts sagt.
     auftragMissingHint: 'Auftrag fehlt – der Trupp wird mit «Auftrag offen» angemeldet.',
-    saveBlockedAuftrag: '«Anderes» braucht einen Auftrag/Ziel-Text.',
+    saveBlockedAuftrag: '«Anderes» braucht ein Ziel.',
     saveBlockedPressure: 'Eingangsdruck fehlt.',
     cancel: 'Abbrechen',
     save: 'Speichern',
-    start: 'Trupp anmelden',
+    // der Fuss des Formulars: ein Verb – der Titel «Trupp anmelden» steht darüber (27.09.2026);
+    // der Knopf auf der leeren Tafel sagt weiter newTrupp
+    start: 'Anmelden',
     reenterSubmit: 'Im Einsatz',
     // Second path when re-entering: new cylinder, new Auftrag, but not under PA yet – the Trupp
     // waits as a Sicherungstrupp and is started later with «Im Einsatz».

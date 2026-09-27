@@ -806,21 +806,9 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* NOT --accent on hover: that token is this deployment's brand red, so the whole chip lit up
    red — which reads as an error, not as "you can tap this". Blue is the app's interactive ink. */
 
-/* Leitung Nr.: stepper and the drawn Leitungen on ONE line, wrapping only when they must */
-.lineRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-/* the Leitungen that are actually drawn, as one-tap chips beside the stepper */
-.lineOpts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
-.lineOptsLabel { font-size: 11.5px; font-weight: 700; color: var(--ink-faint); }
-.lineOpt { border: 1px solid var(--glass-edge); border-radius: var(--r-pill); padding: 5px 10px;
-  background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
-@media (hover: hover) { .lineOpt:hover { border-color: var(--ink-dim); } }
-/* SELECTED — the app's selection blue, not the accent: the accent is this deployment's brand red,
-   and a red chip reads as "blocked / not available", which is the opposite of what it means. */
-.lineOpt.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface));
-  border-color: var(--blue); color: var(--blue); }
-/* already worn by another Trupp — still pickable (corrections happen), but it says so */
-.lineOpt.taken { color: var(--ink-dim); border-style: dashed; }
-.lineOpt.taken.on { color: var(--blue); }
+/* (The «Leitung Nr.» stepper row with its «Gezeichnet:» pills — `.lineRow` / `.lineOpts` /
+   `.lineOpt` — went on 27.09.2026, slim sweep 6: the Leitung is the Auftrag sheet's chips now,
+   `.miniChips` below, drawn by TruppSheets · LeitungChips for the form and the sheet alike.) */
 /* Truppfarbe: «Automatisch» + the team palette. Gloved-size dots (28px + a 44px pad), so the row
    is usable with the same finger that just typed the names. */
 /* ONE row that scrolls, not a wrapped block: eleven targets wrapped into two rows read as a
@@ -1797,25 +1785,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   border-radius: 0; box-shadow: none; }
 
 /* ── Ausrüstung (14.09., mock «chips + Kennzeile») ───────────────────────────────────────────
-   Multi-select chips in the form: the same row shape as the Art tiles, but pills with a tick
-   box, so «several go» is visible before the first tap. On = ink fill, the box inverts. */
-/* ⚠️ Sized so the three default chips (Retthaube · WBK · Multiwarn) stand on ONE line on a
-   360px phone (18.09.2026). Measured: the sheet is 100vw there with 20px of body padding, so
-   320px are free, and 10px of chip padding + the 16px box + a 6px inner gap + 12.5px labels
-   comes to ~300px. 12.5/700 is also the app's compact button type (AGENTS.md · buttons) — the
-   13.5px here was off-spec and cost the line ~15px. `flex-wrap: wrap` stays: a station may list
-   more (or longer) equipment than the three defaults, and then wrapping is the right answer.
-   `white-space: nowrap` only says a single label never breaks mid-word. */
-.eqChips { display: flex; flex-wrap: wrap; gap: 6px; }
-.eqChip { display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 10px;
-  border: 1.5px solid var(--glass-edge); border-radius: 999px; background: var(--surface);
-  font: 700 12.5px var(--body); color: var(--ink); cursor: pointer; white-space: nowrap; }
-.eqChip:active { background-image: linear-gradient(var(--press), var(--press)); }
-.eqChipOn { background: var(--ink); border-color: var(--ink); color: var(--surface); }
-.eqBox { display: grid; place-items: center; width: 16px; height: 16px; flex: none;
-  border: 1.5px solid currentColor; border-radius: 4px; }
-.eqChipOn > .eqBox { background: var(--surface); border-color: var(--surface); color: var(--ink); }
-.eqBox :global(.i) { width: 11px; height: 11px; stroke-width: 3; }
+   The form's multi-select chips are the Trupp sheet's `.miniChip` since 27.09.2026 (slim sweep 6):
+   the tick box (`.eqBox`) was a second state mark inside a chip whose fill already is one, and the
+   three default chips (Retthaube · WBK · Multiwarn) stand on one 360px line either way. */
 /* the Kürzel on the card's Kennzeile — small, rounded, a soft ink fill: a fact, not a state */
 .kennTag { padding: 1px 6px; border-radius: 6px; font: 800 11px var(--body); letter-spacing: .04em;
   color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); }

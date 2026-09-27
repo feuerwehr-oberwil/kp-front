@@ -16,7 +16,7 @@ import { ortOf } from '../lib/attendanceOrt'
 import { readingBarShown, truppAuftragLabel, truppEquipmentLabels, truppStatusLabel } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields, TruppKind, TruppReading } from '../types'
-import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
+import { assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import { markerHolderNote, type MarkerOption } from '../lib/placedTrupps'
 import { ClearableInput } from './ClearableInput'
@@ -33,7 +33,7 @@ import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
 import { TruppNo } from './TruppNo'
 import { ZielChips } from './suche/SucheTrupp'
-import { AuftragSheet, KanalSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
+import { AuftragSheet, KanalSheet, LeitungChips, TeamConflictRow, TruppSheet } from './TruppSheets'
 import { fileGuestSlots, teamConflict } from '../lib/truppQuickEdit'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
@@ -1448,7 +1448,8 @@ export function AtemschutzView({
                 bottom rail's own cell, so it is not repeated here. */}
             {canEdit && !focusMode && (
               <button type="button" className={cx('ip-btn primary', s.emptyAct)} onClick={() => openForm('create')}>
-                <Icon id="plus-bold" /><span>{az.start}</span>
+                {/* the whole «Trupp anmelden» (newTrupp): `start` is the form's one-verb footer since 27.09.2026 */}
+                <Icon id="plus-bold" /><span>{az.newTrupp}</span>
               </button>
             )}
           </div>
@@ -3310,6 +3311,17 @@ function TruppForm({
   // were plain state. Only «Abbrechen» and the save drop a draft (`dropDraft`).
   const [lineNo, setLineNo, clearLineNo] = useKeptState<number | null>(`${draftKey}:lineNo`, initial?.lineNo ?? null)
   const legacyLine = initial?.lineNo == null ? initial?.lineNumber?.trim() : undefined
+  // «Nr. …» (27.09.2026): the Leitung is chips from what is drawn (TruppSheets · LeitungChips); a
+  // number nobody has drawn yet is still allowed — the hose may be laid before anybody draws it —
+  // and is typed in the old stepper, revealed by the last chip. Open by itself while the value IS
+  // such a number (a kept draft, an edit), so the stepper never hides the number it holds.
+  const lineDrawn = lineNo == null || leitungOptions.some((o) => o.no === lineNo)
+  const [lineTyping, setLineTyping] = useState(!lineDrawn)
+  const lineChoices = useMemo(() => {
+    const out = [...leitungOptions]
+    if (lineNo != null && !out.some((o) => o.no === lineNo)) out.push({ no: lineNo, onPlan: false })
+    return out.sort((a, b) => a.no - b.no)
+  }, [leitungOptions, lineNo])
   const [funkkanal, setFunkkanal, clearFunkkanal] = useKeptState<number>(`${draftKey}:funkkanal`, initial?.funkkanal ?? defaultFunkkanal)
   // ⚠️ Read, never written (04.09.): the picker is gone from every layout. `null` means
   // «automatic» — the station colour for this Auftrag, else the next free palette colour (see
@@ -3708,7 +3720,10 @@ function TruppForm({
    * Sicherungstrupp and therefore under PA by definition. */
   /* A compact pair at the HEAD's right since 08.09. (field ask): the two big tiles with their
      explainer subtitles said what every AdF already knows, and cost the form its first row.
-     The words alone carry it — and the buttons keep the TILE chrome the form has always worn
+     The words alone carry it — since 27.09.2026 without the «Art des Trupps» label over them
+     (slim sweep 6): «Unter Atemschutz / Ohne Atemschutz» name themselves, and the label stood
+     directly over «Art», two «Art»s in a row. It stays the radiogroup's NAME for a screen reader.
+     The buttons keep the TILE chrome the form has always worn
      (bordered `--surface` cards, ink outline + faint ink wash on the chosen one), just at a
      header's size. Deliberately NOT the Segmented track: the Art is which of two THINGS is
      being registered, not a property toggle — the same argument the original tiles made.
@@ -3856,21 +3871,21 @@ function TruppForm({
       {zielChoices && zielChoices.length > 0 && auftrag === 'absuchen' && (
         <ZielChips choices={zielChoices} value={ziel} onPick={setZiel} />
       )}
-      {/* Ausrüstung — multi-select chips with a tick box, so it reads as «several go» next to the
-          single-choice Art tiles above (mock 14.09.). Only under Atemschutz: a work squad takes no
-          Retthaube in. The list comes from the station (deploymentConfig · atemschutzEquipment). */}
+      {/* Ausrüstung — multi-select chips: selected = filled, unselected = framed, the SAME chip the
+          Trupp sheet draws (TruppSheets · TruppSheet, `.miniChip`). The tick box they wore until
+          27.09.2026 (mock 14.09.) was a second state mark inside a chip that already has one; the
+          checkbox ROLE stays, because «several go» is what a screen reader has to hear. Only under
+          Atemschutz: a work squad takes no Retthaube in. The list comes from the station
+          (deploymentConfig · atemschutzEquipment). */}
       {isPa && (
         <div className={s.field}>
           <span>{az.equipmentLabel}</span>
-          <div className={s.eqChips} role="group" aria-label={az.equipmentLabel}>
+          <div className={s.miniChips} role="group" aria-label={az.equipmentLabel}>
             {atemschutzEquipment().map((e) => {
               const on = equipment.includes(e.id)
               return (
-                <button
-                  key={e.id} type="button" role="checkbox" aria-checked={on}
-                  className={cx(s.eqChip, on && s.eqChipOn)} onClick={() => toggleEquipment(e.id)}
-                >
-                  <span className={s.eqBox} aria-hidden>{on && <Icon id="check" />}</span>
+                <button key={e.id} type="button" role="checkbox" aria-checked={on}
+                  className={cx(s.miniChip, on && s.miniChipOn)} onClick={() => toggleEquipment(e.id)}>
                   {az.equipmentLabels[e.id] ?? e.label}
                 </button>
               )
@@ -3893,35 +3908,25 @@ function TruppForm({
       {!lite && (
         <div className={cx(s.field, s.lineField)}>
           <span>{az.lineNoLabel}</span>
-          {/* stepper and the drawn Leitungen share ONE row: the stepper is for a number that
-              isn't drawn yet, the chips are the common case, and stacking them cost three rows
-              of a form that has to fit on a tablet in one glance */}
-          <div className={s.lineRow}>
+          {/* ONE row of chips (27.09.2026, slim sweep 6): «keine», then the Leitungen that are
+              actually DRAWN («Ltg 1 · Müller H.»), the same chips as the Auftrag sheet — typing a
+              number blind is how the two sides end up disagreeing; the hose usually exists long
+              before anyone registers the Trupp. The stepper survives behind the last chip, «Nr. …»,
+              for a number nobody has drawn yet (the save's takeover confirm applies either way). */}
+          <LeitungChips value={lineNo} options={lineChoices} onChange={setLineNo} ariaLabel={az.lineNoLabel}>
+            {/* a door, not a value: it opens the stepper and steps aside (a filled «Nr. …» beside a
+                filled «keine» read as two answers); the number typed then stands as its own chip */}
+            {!lineTyping && (
+              <button type="button" className={s.miniChip} onClick={() => setLineTyping(true)}>{az.lineTyped}</button>
+            )}
+          </LeitungChips>
+          {lineTyping && (
             <Stepper
               value={lineNo} min={1} max={99} placeholder="–"
               onChange={setLineNo} onClear={() => setLineNo(null)} canClear={lineNo != null}
-              ariaLabel={az.lineNoLabel}
+              ariaLabel={az.lineTyped}
             />
-            {/* The Leitungen that are actually DRAWN. Typing a number blind is how the two sides
-                end up disagreeing — the hose usually exists long before anyone registers the
-                Trupp. A number someone else is on stays pickable (real incidents need
-                corrections) but says whose it is. */}
-            {leitungOptions.length > 0 && (
-              <div className={s.lineOpts}>
-                <span className={s.lineOptsLabel}>{az.lineOptsLabel}</span>
-                {leitungOptions.map((o) => (
-                  <button
-                    key={o.no} type="button"
-                    className={cx(s.lineOpt, lineNo === o.no && s.on, !!o.takenBy && s.taken)}
-                    title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
-                    onClick={() => setLineNo(o.no)}
-                  >
-                    {o.no}{o.onPlan ? ' · P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
           {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
         </div>
       )}
@@ -3946,7 +3951,7 @@ function TruppForm({
              Auftrag / Ziel / Leitung, the folded Standard row last. */
           <div className={s.stack}>
             {teamFields}
-            {kindChooser && <div className={cx(s.field, s.kindField)}><span>{az.kindLabel}</span>{kindChooser}</div>}
+            {kindChooser && <div className={cx(s.field, s.kindField)}>{kindChooser}</div>}
             {auftragFields}
             {luftFields}
           </div>
@@ -3958,7 +3963,7 @@ function TruppForm({
               not typed, sit after everything that is actually asked. */}
           <div className={s.formCol}>{teamFields}</div>
           <div className={s.formCol}>
-            {kindChooser && <div className={cx(s.field, s.kindField)}><span>{az.kindLabel}</span>{kindChooser}</div>}
+            {kindChooser && <div className={cx(s.field, s.kindField)}>{kindChooser}</div>}
             {auftragFields}
             {luftFields}
           </div>

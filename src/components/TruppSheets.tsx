@@ -164,21 +164,45 @@ export function AuftragSheet({ t, zielChoices, leitungOptions, lite = false, onS
       {!lite && (
         <div className={s.field}>
           <span>{az.editFieldLabels.lineNo}</span>
-          <div className={s.miniChips} role="group" aria-label={az.editFieldLabels.lineNo}>
-            <button type="button" aria-pressed={lineNo == null} className={cx(s.miniChip, lineNo == null && s.miniChipOn)}
-              onClick={() => setLineNo(null)}>{az.lineNone}</button>
-            {lines.map((o) => (
-              <button key={o.no} type="button" aria-pressed={lineNo === o.no}
-                className={cx(s.miniChip, lineNo === o.no && s.miniChipOn, !!o.takenBy && lineNo !== o.no && s.miniChipTaken)}
-                title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
-                onClick={() => setLineNo(o.no)}>
-                {fillTemplate(az.lineChip, { n: o.no })}{o.onPlan ? ' · P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
-              </button>
-            ))}
-          </div>
+          <LeitungChips value={lineNo} options={lines} onChange={setLineNo} />
         </div>
       )}
     </MiniSheet>
+  )
+}
+
+/**
+ * «keine · Ltg 1 · Ltg 2 · Müller H.» — the Leitung as chips from what is actually DRAWN, the
+ * selected one filled. ONE component for the Auftrag sheet and the big form (27.09.2026, slim
+ * sweep item 6: the form had a «Leitung Nr.» stepper with a «Gezeichnet:» line under it), so the
+ * two never disagree about what a Leitung looks like. A number another Trupp is on stays pickable
+ * (corrections happen) but wears the dashed edge and says whose it is; the one-Leitung-one-Trupp
+ * question is asked at the save (AtemschutzView · confirmLineTake). `children` is the form's
+ * trailing «Nr. …» chip — a number nobody has drawn yet.
+ */
+export function LeitungChips({ value, options, onChange, ariaLabel, children }: {
+  value: number | null
+  /** lowest number first, the current value among them (lib/truppQuickEdit · leitungChoices) */
+  options: readonly LeitungOption[]
+  onChange: (n: number | null) => void
+  ariaLabel?: string
+  children?: ReactNode
+}) {
+  const az = appConfig.copy.atemschutz
+  return (
+    <div className={s.miniChips} role="group" aria-label={ariaLabel ?? az.editFieldLabels.lineNo}>
+      <button type="button" aria-pressed={value == null} className={cx(s.miniChip, value == null && s.miniChipOn)}
+        onClick={() => onChange(null)}>{az.lineNone}</button>
+      {options.map((o) => (
+        <button key={o.no} type="button" aria-pressed={value === o.no}
+          className={cx(s.miniChip, value === o.no && s.miniChipOn, !!o.takenBy && value !== o.no && s.miniChipTaken)}
+          title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
+          onClick={() => onChange(o.no)}>
+          {fillTemplate(az.lineChip, { n: o.no })}{o.onPlan ? ' · P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
+        </button>
+      ))}
+      {children}
+    </div>
   )
 }
 
