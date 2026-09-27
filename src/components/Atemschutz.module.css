@@ -1491,6 +1491,23 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .head:not(.headCompact) :global(.az-syncline) > * { flex-shrink: 1; min-width: 0; }
 .head:not(.headCompact) :global(.az-syncline) > * > span:last-child {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ⚠️ ONE SHAPE on the phone, whatever the alarm state (27.09.2026 evening, owner screenshots
+   r2-2 / r2-3). The two rules above let the cluster share the title's row when it fit (QR · bell ·
+   «+ Trupp») and sent it under the title, right-aligned, the moment the ⚠ tile joined — so the
+   head changed shape with the alarm, and «+ Trupp» stood in two places on one evening. The full
+   head on a phone is now the Rapport head's (mockup 1; `.rp-head-actions { flex: 1 1 100% }`
+   since 26.09.2026): the title line, then the tile row on its own line, left-aligned from the
+   title's x, the filled «+ Trupp» last; with fewer tiles the row is simply shorter. The ⚠ tile
+   arriving ADDS a tile to that row instead of a row to the head — which is also what the one-row
+   rule of 25.09.2026 (the phone block above, `flex-wrap: nowrap`) was protecting: the board does
+   not drop under the finger when the alarm fires. The handed-over board's compact head keeps its
+   one line — there the Einsatz title shares the row by design (`.headCompact`, below). The tablet
+   is untouched: there the row fits beside the title.
+   Same three-class weight as the shrink rule above and declared after it, so it wins; the
+   title block then has the first row to itself (its `flex: 1 1 0` fills it). */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .head:not(.headCompact) .headActs { flex: 1 1 100%; margin-left: 0; justify-content: flex-start; }
+}
 
 /* «Ein Trupp, ein Bildschirm» — the handed-over board on a phone (AtemschutzView · focusMode).
    ⚠️ mock 03 (maintainer correction, 03.09.): the kicker is DROPPED here rather than shrunk —
@@ -1854,6 +1871,17 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .trowCard .actRueckzug.actAlarm { color: var(--amber-strong);
   background: color-mix(in srgb, var(--amber) 10%, var(--surface));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 42%, transparent); }
+/* ⚠️ The card's ONE filled tile (27.09.2026, owner screenshot r2-1): «Wieder in den Einsatz» /
+   «In den Einsatz» on a Trupp that is out, «Im Einsatz» on one still waiting. The tile rule above
+   repaints every `.actBtn` in `--surface`, but `.actReenter` / `.actEnter` kept the tablet's
+   `--on-accent-ink` word for their green fill — white on white, so the opened DRAUSSEN card
+   showed an EMPTY framed box where its only action stood. In the tile family the one primary
+   action is the ink-filled tile («+ Trupp» in the head, `.newBtn`; «Anmelden» in the form), never
+   a green band, so it is that recipe here — and it reads by night too (`--ink` / `--surface`). */
+.trowCard :is(.actEnter, .actReenter) { color: var(--surface); background: var(--ink); box-shadow: none; }
+@media (hover: hover) {
+  .trowCard :is(.actEnter, .actReenter):hover { background: var(--ink); background-image: linear-gradient(var(--press), var(--press)); }
+}
 /* the tier as WORDS, one line under the tiles (TruppCard · stateLine); amber for «fällig», red for
    overdue / Alarmdruck (`.kennCrit`), grey for a stopped clock or a work squad (`.kennQuiet`) */
 .stateLine { margin-top: 8px; font: 800 12.5px/1.35 var(--body); color: var(--amber-strong); }
