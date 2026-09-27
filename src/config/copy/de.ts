@@ -919,13 +919,16 @@ export const de = {
     addressPlaceholder: 'Strasse Nr, PLZ Ort',
     addressSearching: 'Wird gesucht …',
     addressNoHits: 'Keine Adresse gefunden',
-    objectButton: 'Objekt aus Feuerwehrplänen',
+    // «Aus Plänen» · «Auf Karte» (27.09.2026, slim sweep · mockup 4a): the app's last two-line
+    // buttons. The verb «setzen» is where the buttons sit (under the address); «Feuerwehrpläne»
+    // is the only source of objects the app has, and the list that folds open says so.
+    objectButton: 'Aus Plänen',
     objectSearchPlaceholder: 'Objekt oder Adresse suchen …',
     objectNear: 'In der Nähe',
     objectNoHits: 'Keine Objekte gefunden',
     objectPlans: (n: number) => (n === 1 ? '1 Plan' : `${n} Pläne`),
     objectNoPlans: 'keine Pläne',
-    mapPickButton: 'Auf Karte setzen',
+    mapPickButton: 'Auf Karte',
     hereButton: 'Hier',
     hereFailed: 'Standort nicht verfügbar',
     coordSet: 'Koordinate gesetzt',
