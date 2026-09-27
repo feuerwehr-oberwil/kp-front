@@ -876,8 +876,11 @@
      1px border top and bottom = 54px, and 6px of channel above it → 60px. Everything pinned to
      a `--rail-h + …` baseline adds it: the Rapport surface (Surface.module.css · .shell, so
      its own «Drucken / Abschliessen» row clears the strip), the FAB and the toaster lane. Keep
-     the four in step if the shell's padding ever changes. */
-  .app.mode-rapport { --rp-tabs-safe: 60px; }
+     the four in step if the shell's padding ever changes.
+     ⚠️ Keyed on the STRIP being rendered, not on the Rapport (27.09.2026): the Anwesenheit's
+     three readings dock in the same strip (PhoneTabBar), and there it exists only once a Zeitplan
+     is wired up — so the reserve follows the element, on whichever page shows one. */
+  .app:has(.rp-tabs) { --rp-tabs-safe: 60px; }
   .rp-tabs {
     position: fixed; z-index: var(--z-chrome);
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
@@ -924,11 +927,11 @@
      reserve already clears the chips, so the lift is only the pill's own band. On :root, like the
      other reserves, because THE message lane below is computed there. */
   :root:has(.wb-floor-add-down) { --stack-foot-lift: 70px; }
-  /* …and the Rapport's docked tab strip is one more fixed piece of bottom chrome, on exactly the
-     one page that shows one. `:has`, like every other lane state here, because the host is a root
-     sibling of `.app`. (The strip is rendered at every width but only `display: block` here, so
-     the selector has to name the PAGE, not merely the element.) */
-  :root:has(.app.mode-rapport .rp-tabs) { --rp-tabs-safe: 60px; }
+  /* …and the docked tab strip (Rapport · Anwesenheit, PhoneTabBar) is one more fixed piece of
+     bottom chrome, on whichever page shows one. `:has`, like every other lane state here, because
+     the host is a root sibling of `.app`. Inside this media query a rendered strip is always
+     shown (13-incident.css turns it on here), so the element itself is the whole condition. */
+  :root:has(.app .rp-tabs) { --rp-tabs-safe: 60px; }
   /* …and the thing that stands ON the tool bar and lifts everything above it: the armed tool's
      hint row in the dock (ToolDock · hint, the 22px `.wb-botleft` steps up by). The lane is
      computed on :root, which cannot read `.app`'s value, so it restates it here. (The Suche's
