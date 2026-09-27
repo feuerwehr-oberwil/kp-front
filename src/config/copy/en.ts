@@ -2937,14 +2937,12 @@ export const en: Localizable<Copy> = {
     shareRevokeConfirm: 'Yes, revoke',
     shareRevokeFailed: 'Revoking the link failed',
     shareKindLabel: 'What the link opens',
-    shareKindFull: 'Whole incident',
-    shareKindFullSub: 'read only',
-    shareKindAtem: 'Teams only',
-    shareKindAtemSub: 'operate',
+    shareKindFull: 'Incident · read',
+    shareKindAtem: 'Teams · operate',
     shareAsLede: 'Whoever opens the link sees only this incident’s team board – the SCBA '
       + 'monitoring – and operates it: register a team, contact, pressure, withdrawal, out. No '
       + 'map, no log. Valid until the incident is closed.',
-    shareAsLiveLede: 'Valid until the incident is closed – or until you revoke it.',
+    shareAsLiveLede: 'Valid until the incident is closed.',
     shareAsWarn: 'Whatever is entered there appears in the report’s SCBA log. Give the link only '
       + 'to the person doing the monitoring.',
     shareAsRevokeTitle: 'Revoke the link to the team board?',

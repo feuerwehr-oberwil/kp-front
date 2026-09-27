@@ -39,7 +39,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('«Ganzer Einsatz – nur lesen»', () => {
+describe('«Einsatz · lesen»', () => {
   it('mints nothing on open: the address appears only after «Link erstellen»', async () => {
     render(<ShareIncident incidentId="i1" />)
     await screen.findByText(C.shareCreate)
@@ -91,7 +91,7 @@ describe('«Ganzer Einsatz – nur lesen»', () => {
   })
 })
 
-describe('… und «Nur Atemschutz – bedienen»', () => {
+describe('… und «Trupps · bedienen»', () => {
   it('opens on the door the entry point meant, with that door’s sentences', async () => {
     render(<ShareIncident incidentId="i1" initialKind="atemschutz" />)
     await screen.findByText(C.shareAsLede)

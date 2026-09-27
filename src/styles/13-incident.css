@@ -1842,19 +1842,14 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    while the Rapport was the only door; it is an Einsatz thing, so it lives with the Einsatz card
    now. `.rp-share` itself stays in 17-rapport.css — that is the SECTION around it, not this. */
 .esh { display: flex; flex-direction: column; gap: 11px; align-items: flex-start; }
-/* The chooser — and it IS the chooser (03.09.): «Ganzer Einsatz / nur lesen» ↔ «Nur Atemschutz /
-   bedienen», with no menu in front of the sheet. The shared `.useg` track carries one nowrap
-   line per option, and the second line is exactly what makes the choice readable at 3am — so
-   this stacks it. Full width, because two options over a 520px sheet centred on nothing read as
-   a stray toggle rather than the sheet's first question. */
+/* The chooser — and it IS the chooser (03.09.): «Einsatz · lesen» ↔ «Trupps · bedienen», with no
+   menu in front of the sheet. ONE line per option since 27.09.2026 (slim sweep 4b) — it was the
+   app's only stacked segment («Ganzer Einsatz» over «nur lesen»). The shared `.useg` track as it
+   is, at the tap height; full width, because two options over a 520px sheet centred on nothing
+   read as a stray toggle rather than the sheet's first question. */
 .esh-kind { width: 100%; }
 .esh-kind .useg { display: flex; width: 100%; }
-.esh-kind .useg-btn { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 1px;
-  min-height: var(--tap); padding: 6px 10px; line-height: 1.2; }
-.esh-kind .useg-btn b { font: 700 12.5px var(--body); }
-/* the differentiator, one notch quieter — it is a qualifier of the label above it, not a
-   second label. Inherits the segment's colour, so the active pill keeps its contrast. */
-.esh-kind .useg-btn small { font: 600 11px var(--body); opacity: .8; }
+.esh-kind .useg-btn { flex: 1 1 0; min-width: 0; min-height: var(--tap); padding: 6px 10px; }
 .esh-lede { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); }
 /* The window before the link's state is known. Deliberately the quietest thing this sheet can
    draw — the alternative was the whole «Link erstellen» block for a link that may already exist

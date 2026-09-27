@@ -4806,18 +4806,20 @@ export const de = {
     // ⚠️ «Link», nie «Code» (02.09.): geteilt wird eine Adresse – QR ist nur einer der Wege,
     // sie aufs andere Gerät zu bringen, und der ganze übrige Abschnitt sagt schon «Link».
     shareKindLabel: 'Was der Link freigibt',
-    shareKindFull: 'Ganzer Einsatz',
-    shareKindFullSub: 'nur lesen',
-    // ⚠️ «Nur Trupps» (04.09.), wie der Bereich jetzt heisst (copy.modes) — der Reiter benennt die
-    // TÜR, und die Tür führt auf die Trupp-Tafel. Was hinter ihr bedient wird, ist trotzdem die
+    // EINZEILIG seit 27.09.2026 (slim sweep, 4b): «Ganzer Einsatz / nur lesen» und «Nur Trupps /
+    // bedienen» waren die einzigen zweizeiligen Segmente der App. Was «Ganzer» und «Nur» trugen,
+    // sagen «lesen / bedienen» deutlicher – ein Schlüssel pro Reiter, der «·» gehört zum String.
+    shareKindFull: 'Einsatz · lesen',
+    // ⚠️ «Trupps» (04.09.), wie der Bereich heisst (copy.modes) — der Reiter benennt die TÜR, und
+    // die Tür führt auf die Trupp-Tafel. Was hinter ihr bedient wird, ist trotzdem die
     // Atemschutzüberwachung, und genau das muss der Lauftext darunter weiterhin sagen: der Link
     // gibt eine Sicherheitsaufgabe aus der Hand, nicht eine Liste.
-    shareKindAtem: 'Nur Trupps',
-    shareKindAtemSub: 'bedienen',
+    shareKindAtem: 'Trupps · bedienen',
     shareAsLede: 'Wer den Link öffnet, sieht nur die Trupp-Tafel dieses Einsatzes – die '
       + 'Atemschutzüberwachung – und bedient sie mit: Trupp anmelden, Kontakt, Druck, Rückzug, '
       + 'Draussen. Keine Karte, kein Verlauf. Gilt, bis der Einsatz abgeschlossen ist.',
-    shareAsLiveLede: 'Gilt, bis der Einsatz abgeschlossen ist – oder bis du ihn aufhebst.',
+    // «… oder bis du ihn aufhebst» sagt der rote Knopf «Link aufheben» direkt darunter (27.09.2026)
+    shareAsLiveLede: 'Gilt bis zum Abschluss.',
     shareAsWarn: 'Was hier eingetragen wird, steht im Atemschutz-Journal des Rapports. Gib den '
       + 'Link nur an die Person, die überwacht.',
     // …und heisst wie der Reiter darüber («Nur Trupps»), dieselbe Regel wie bei shareRevokeTitle:

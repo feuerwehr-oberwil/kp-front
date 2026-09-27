@@ -2932,14 +2932,12 @@ export const it: Localizable<Copy> = {
     shareRevokeConfirm: 'Sì, revoca',
     shareRevokeFailed: 'Revoca del link non riuscita',
     shareKindLabel: 'Cosa apre il link',
-    shareKindFull: 'Intero intervento',
-    shareKindFullSub: 'sola lettura',
-    shareKindAtem: 'Solo squadre',
-    shareKindAtemSub: 'operare',
+    shareKindFull: 'Intervento · leggere',
+    shareKindAtem: 'Squadre · operare',
     shareAsLede: 'Chi apre il link vede solo la lavagna delle squadre di questo intervento – la '
       + 'sorveglianza APR – e la usa: annunciare una squadra, contatto, pressione, ripiegamento, '
       + 'fuori. Nessuna carta, nessun diario. Vale finché l’intervento non è chiuso.',
-    shareAsLiveLede: 'Vale finché l’intervento non è chiuso – o finché non lo revochi.',
+    shareAsLiveLede: 'Vale fino alla chiusura.',
     shareAsWarn: 'Quanto viene inserito lì compare nel diario APR del rapporto. Dai il link '
       + 'solo alla persona che sorveglia.',
     shareAsRevokeTitle: 'Revocare il link alla lavagna delle squadre?',

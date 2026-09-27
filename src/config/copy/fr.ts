@@ -2933,15 +2933,12 @@ export const fr: Localizable<Copy> = {
     shareRevokeConfirm: 'Oui, révoquer',
     shareRevokeFailed: 'La révocation du lien a échoué.',
     shareKindLabel: 'Ce que le lien donne',
-    shareKindFull: 'Intervention entière',
-    shareKindFullSub: 'lecture seule',
-    shareKindAtem: 'Binômes uniquement',
-    shareKindAtemSub: 'utiliser',
+    shareKindFull: 'Intervention · lire',
+    shareKindAtem: 'Binômes · utiliser',
     shareAsLede: 'Qui ouvre le lien ne voit que le tableau des binômes de cette intervention – la '
       + 'surveillance ARI – et l’utilise : annoncer un binôme, contact, pression, repli, sorti. '
       + 'Pas de carte, pas de journal. Valable jusqu’à la clôture de l’intervention.',
-    shareAsLiveLede: 'Valable jusqu’à la clôture de l’intervention – ou jusqu’à ce que vous le '
-      + 'révoquiez.',
+    shareAsLiveLede: 'Valable jusqu’à la clôture.',
     shareAsWarn: 'Ce qui y est saisi figure au journal ARI du rapport. Ne donnez le lien qu’à la '
       + 'personne qui surveille.',
     shareAsRevokeTitle: 'Révoquer le lien vers le tableau des binômes ?',
