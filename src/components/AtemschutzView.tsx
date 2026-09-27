@@ -1312,7 +1312,9 @@ export function AtemschutzView({
               card the app-wide TopBar chip points at (the most overdue one, which is also the
               one sortTrupps floats to the top), and a repeat press points again. */
           <button
-            type="button" className={s.overdueBadge}
+            /* muted (27.09.2026): the same tile in plain grey — the count still counts, the
+               head just does not shout a tone it has promised not to play */
+            type="button" className={cx(s.overdueBadge, muted && s.overdueQuiet)}
             aria-live="assertive"
             title={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
