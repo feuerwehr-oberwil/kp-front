@@ -601,6 +601,35 @@
 @media (hover: hover) {
   .ip-btn.danger:hover { background: color-mix(in srgb, var(--red) 10%, transparent); }
 }
+
+/* ═══ ONE TILE FAMILY for the controls of a page head (27.09.2026, slim sweep · mockups 2 + 10) ═══
+   The Rapport head wore three recipes on one row — an amber OUTLINE pill, two framed squares and
+   a light-FILLED split button — and the Einsatz card in the switcher menu a fourth (three bare
+   words in a row). One recipe now, the phone Trupp card's tile (Atemschutz.module · .trowActs):
+   --tap tall, the one corner, a 1px edge, bold 13.5px. MEANING is the text colour plus a faint
+   tint of it (`.amber` = something waits for the operator) — never an outline of its own, never
+   a fill. `.sq` is the --tap square a glyph-only control takes; `.sm` is the 36px a tile takes
+   INSIDE a card, where --tap would out-weigh the card's own text.
+   Composed onto the classes the controls already wear (.ip-btn, .rp-state, .ip-card-act), so
+   what they DO is untouched — only their coat is shared. ⚠️ Declared AFTER .ip-btn: same
+   specificity, so this is the one that has to be later for its font and padding to win. */
+.head-tile { display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: var(--tap); padding: 0 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: 700 13.5px var(--body); white-space: nowrap;
+  cursor: pointer; }
+.head-tile.sq { width: var(--tap); min-width: var(--tap); padding: 0; flex: none; }
+.head-tile.sm { min-height: 36px; padding: 0 8px; font-size: 12.5px; }
+/* one glyph size, centred by the flex line — no baseline offsets to fix per glyph */
+.head-tile svg, .head-tile .i { width: 16px; height: 16px; flex: none; }
+.head-tile.amber { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
+@media (hover: hover) {
+  .head-tile:hover:not(:disabled) { background: var(--hover-strong); }
+  .head-tile.amber:hover:not(:disabled) { background: color-mix(in srgb, var(--amber) 16%, var(--surface)); }
+}
+.head-tile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.head-tile:disabled { opacity: var(--disabled); cursor: default; }
+
 .ip-note { color: var(--ink-faint); font: 500 13px var(--body); }
 /* ⚠️ THIS RULE DID NOT EXIST. `.ip-hint` is rendered in the Gast dialog (and read as the
    house hint class), so that paragraph fell through to the UA default: 16px in full --ink
@@ -1342,12 +1371,20 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    `nowrap` block below). The rule above levels both halves (it matches however deep they sit);
    what is overridden here is only the SEAM between them, and that is what says this is one
    control rather than two that happen to touch. The outer silhouette keeps the row's --r-sm. */
+/* ⚠️ FRAMED, not filled (27.09.2026, slim sweep · mockup 2): the split pair was the row's one
+   light-filled control, and a fourth recipe beside the amber pill and the grey squares. It wears
+   the head's tile now — the halves share ONE frame and meet on a hairline seam (the main half
+   gives up its right edge, the ▾ keeps its left one), so the pair still reads as one control with
+   two doors and never as two buttons that happen to touch. What each half does is unchanged. */
 .rp-split { display: inline-flex; align-items: stretch; min-width: 0; max-width: 100%; }
-.rp-split .rp-split-main { min-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0;
+.rp-split .rp-split-main { min-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: none;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-split .rp-split-more { flex: none; width: var(--tap); padding: 0; justify-content: center;
-  border-top-left-radius: 0; border-bottom-left-radius: 0;
-  border-left: 1px solid color-mix(in srgb, var(--on-btn-primary) 35%, transparent); }
+  border-top-left-radius: 0; border-bottom-left-radius: 0; }
+/* the phone's word for the main half — «PDF», where the full «Einsatzrapport (PDF)» is the
+   tablet's (.rp-btn-label, hidden ≤1080 below); the doc glyph goes with the long label, so the
+   phone tile is the word and the ▾, as in the mockup, and the busy spinner still takes its place */
+.rp-btn-short { display: none; }
 .rp-print-menu { min-width: 240px; max-width: min(340px, 92vw); padding: var(--bar-pad); border-radius: var(--r-bar);
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — the radius, the hover/press wash and the red row live on `.ui-menu-item` /
@@ -1415,13 +1452,11 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    a phone the chip takes the row's slack (below · `flex: 1 1 auto`), and with its glyph and words
    hugging the left it stood as a wide box with 12px on one side and ~120px on the other — a text
    field, not a button. Centred, the air is even; on a wide head it hugs its content anyway. */
-.rp-state { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; cursor: pointer;
-  min-width: 0; border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
-  font: 700 12.5px var(--body); }
-.rp-state svg { width: 15px; height: 15px; flex: none; }
-.rp-state.ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
-.rp-state.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
-  background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
+/* (27.09.2026) The chip IS a head tile — `.head-tile.amber` above carries its whole coat (the
+   amber text + faint tint that says «something waits», 13.5px like its neighbours; it was 12.5px
+   and read as a pill among buttons). What is left here is only what the chip does that a tile
+   does not: it may shrink, and its label gives before its neighbours do. */
+.rp-state { min-width: 0; }
 /* the count is the one part of the chip allowed to give — its text is the most variable in the
    row («4 noch offen · 2 Hinweise»), so it ellipsizes before it pushes a neighbour. */
 .rp-state-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1523,7 +1558,11 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 @media (max-width: 1080px) {
   .rp-head-actions .rp-btn-label { display: none; }
   .rp-head-actions .ip-btn { width: var(--tap); padding: 0; justify-content: center; }
-  .rp-head-actions .rp-split .rp-split-main { width: var(--tap); }
+  /* the PDF half is the one that keeps a WORD on the phone («PDF», mockup 2 — a bare doc glyph
+     beside a ▾ was a control «whose meaning you have to know»), so it is as wide as that word */
+  .rp-head-actions .rp-split .rp-split-main { width: auto; padding: 0 12px; }
+  .rp-head-actions .rp-split .rp-btn-short { display: inline; }
+  .rp-head-actions .rp-split .rp-pdf-glyph { display: none; }
   /* ⚠️ «Ausdrucken» is a square like its neighbours in EVERY state (owner, staging 26.09.2026). It
      used to keep its offline reason as a second line and grow to fit it: «Stationsdrucker offline»
      took two thirds of a phone's row, stood twice as tall as the squares, and squeezed the

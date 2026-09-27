@@ -2969,6 +2969,7 @@ export const it: Localizable<Copy> = {
     framingDiscOut: 'Non finirà nella legenda – il disco non sta interamente sul foglio.',
     controlHead: 'Controlli',
     controlOpen: '{n} in sospeso',
+    pdfShort: 'PDF',
     controlHint: '1 nota',
     controlHints: '{n} note',
     controlOpenHead: 'In sospeso',

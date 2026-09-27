@@ -2971,6 +2971,7 @@ export const fr: Localizable<Copy> = {
     framingDiscOut: 'N’apparaîtra pas dans la légende – la pastille ne tient pas entièrement sur la feuille.',
     controlHead: 'Contrôle',
     controlOpen: '{n} en suspens',
+    pdfShort: 'PDF',
     controlHint: '1 remarque',
     controlHints: '{n} remarques',
     controlOpenHead: 'En suspens',

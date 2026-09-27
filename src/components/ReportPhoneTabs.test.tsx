@@ -81,7 +81,7 @@ describe('Einsatzrapport · phone tabs', () => {
   // `display: none` element lands nowhere at all, silently. So the row has to change tabs first.
   it('a «Noch offen» row carries the tab with it', async () => {
     const { body } = setup()
-    fireEvent.click(screen.getByRole('button', { name: /noch offen/ }))
+    fireEvent.click(screen.getByRole('button', { name: /\d+ offen/ }))
     const list = await waitFor(() => {
       const el = document.querySelector('.rp-control-open') as HTMLElement | null
       if (!el) throw new Error('popover not open')
@@ -96,7 +96,7 @@ describe('Einsatzrapport · phone tabs', () => {
   it('draws no «noch offen» chips under the title — the one chip counts them', () => {
     setup()
     expect(document.querySelector('.rp-head-open-go')).toBeNull()
-    expect(screen.getByRole('button', { name: /^\d+ noch offen$/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^\d+ offen$/ })).toBeTruthy()
   })
 
   // ── the strip moved to the FOOT of the page on phones (19.09.2026) ──

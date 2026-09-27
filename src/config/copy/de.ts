@@ -4873,7 +4873,13 @@ export const de = {
     // THE chip in the Rapport head (23.09.2026 — the separate «noch offen» chips under the title
     // are gone at every width): what is still open, and the warnings about the record, each
     // counted in its own words (lib/abschlussOpen · controlChipLabel). «Hinweis(e)» said both.
-    controlOpen: '{n} noch offen',
+    // «{n} offen», not «{n} noch offen» (27.09.2026, slim sweep · mockup 2): the number keeps
+    // its unit and nothing else — the chip is amber and counts, «noch» said what amber says.
+    // ONE wording for ONE number: the phone's «Einsatz» tile and the page chooser take the
+    // same words through controlChipLabel, so they lose the «noch» with it.
+    controlOpen: '{n} offen',
+    // the phone's word on the PDF tile («PDF ▾»); the tablet shows pdfFull
+    pdfShort: 'PDF',
     controlHint: '1 Hinweis',
     controlHints: '{n} Hinweise',
     // the heading of the open steps inside the chip's popover

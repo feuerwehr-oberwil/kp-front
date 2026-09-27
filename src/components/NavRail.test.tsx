@@ -227,7 +227,7 @@ describe('the open count on the Rapport tile', () => {
     const badge = rapport().querySelector('.nav-count')
     expect(badge?.textContent).toBe('6')
     expect(badge?.classList.contains('nav-open')).toBe(true)
-    expect(rapport().getAttribute('aria-label')).toBe('Einsatz · 6 noch offen')
+    expect(rapport().getAttribute('aria-label')).toBe('Einsatz · 6 offen')
   })
 
   // nothing open is nothing to say — and the head count never stands in for it
@@ -346,7 +346,7 @@ describe('the page chooser behind the Rapport tile', () => {
   it('carries each page\'s live count', () => {
     setup({ fold: true, mode: 'rapport', openCount: 3, presentCount: 12, mittelCount: 5 })
     fireEvent.click(rapport())
-    expect(screen.getByRole('option', { name: /^Rapport/ }).textContent).toContain('3 noch offen')
+    expect(screen.getByRole('option', { name: /^Rapport/ }).textContent).toContain('3 offen')
     expect(screen.getByRole('option', { name: /^Anwesenheit/ }).textContent).toContain('12 anwesend')
     expect(screen.getByRole('option', { name: /^Material/ }).textContent).toContain('5 Positionen')
   })
