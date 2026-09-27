@@ -5953,6 +5953,7 @@ export function IncidentWorkspace({
               key={`gg-${ggOpenSeq}`}
               rows={ggRows}
               progress={ggProgress}
+              category={ggSel.category}
               fallback={ggSel.fallback}
               noLocation={!ggCenter}
               armedSlotId={ggArmedLive ? ggArmedId : null}
@@ -5963,6 +5964,9 @@ export function IncidentWorkspace({
               onToKarte={ggTakeOver}
               // a complete card is gone by itself and needs no flag
               onHide={() => setGgMode('hidden', !ggProgress.complete)}
+              // the head's Einsatzart chip opens the Einsatzdaten — the one place the Einsatzart
+              // is set — for whoever may correct them (the ReviewBanner's «Bearbeiten» door)
+              onEinsatzart={canEditMeta ? onEditMeta : undefined}
             />
           )}
 

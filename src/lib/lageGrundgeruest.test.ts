@@ -211,7 +211,7 @@ describe('where the card suggests a thing', () => {
     expect(near.nr).toBe('17')
     const s = suggestionFor(WASSER, { center: CENTER, weather: null, hydrants: points })!
     expect(s.kind).toBe('hydrant')
-    expect(suggestionText(s)).toMatch(/^Hydrant Nr\. 17 · \d+ m$/)
+    expect(suggestionText(s)).toMatch(/^Hydrant 17 · \d+ m$/)
   })
 
   it('a hydrant without a number is still the nearest hydrant', () => {

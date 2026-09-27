@@ -335,10 +335,29 @@
 /* the selection bar (~230px, centred) and the coordinate readout (~330px, centred, ~84px tall)
    only meet the card on a viewport under ~1100px — there it stands above both, always */
 @media (max-width: 1100px) { .lgg:not(.lgg-phone) { bottom: calc(124px + env(safe-area-inset-bottom)); } }
-.lgg-head { display: flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 0 0 6px; }
-.lgg-heading, .lgg-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.lgg-head { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 0 0 6px; }
+.lgg-heading, .lgg-toggle { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
 .lgg-ic { width: 18px; height: 18px; flex: none; color: var(--ink-dim); }
 .lgg-title { font: 700 13.5px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ── the head, one line (slim sweep 27.09.2026, item 3): glyph · «Grundgerüst» · the Einsatzart
+   as a CHIP · the count · ⌄ (phone) or «ausblenden» (tablet). The chip is what chose the list and
+   the door to change it (the Einsatzdaten); unknown it asks, «Einsatzart?» in amber — the sentence
+   it replaced took a whole line under the head. 30px tall in a 44px head (the head's own height
+   is the target: ::before pads the hit box to 44), the one corner, a 1px inset edge, meaning by
+   text colour + a faint tint — the Trupp card's chip family. Its word is cut before the head
+   wraps: «Strassenrettung» would otherwise push the count off a 360px strip. */
+.lgg-art { position: relative; flex: none; display: inline-flex; align-items: center; gap: 3px; min-height: 30px;
+  padding: 0 8px 0 9px; border: 0; border-radius: var(--r-sm); background: var(--fill-soft);
+  box-shadow: inset 0 0 0 1px var(--glass-edge); color: var(--ink); font: 700 12px var(--body); cursor: pointer; }
+.lgg-art::before { content: ''; position: absolute; inset: -7px -3px; }
+.lgg-art-ro { cursor: default; padding-right: 9px; }
+.lgg-art-t { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lgg-art-chev { width: 14px; height: 14px; flex: none; color: var(--ink-dim); }
+.lgg-art-ask { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 45%, transparent); }
+.lgg-art-ask .lgg-art-chev { color: inherit; }
+button.lgg-art:active { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { button.lgg-art:hover { background-image: linear-gradient(var(--fill-soft), var(--fill-soft)); } }
 /* the count is the card's one number — the tabular mono the Einsatzuhr reads in */
 .lgg-count { flex: none; font: 700 12.5px var(--mono); color: var(--ink-dim);
   padding: 2px 7px; border-radius: var(--r-pill); background: var(--fill-soft); }
@@ -376,7 +395,13 @@
 .lgg-sug:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { .lgg-sug:hover { background-color: color-mix(in srgb, var(--blue) 8%, transparent); } }
 .lgg-sug-t { flex: 1; min-width: 0; font: 500 12.5px var(--body); color: var(--ink-dim); line-height: 1.3; text-wrap: pretty; }
-.lgg-sug-act { flex: none; font: 700 12.5px var(--body); color: var(--blue); }
+/* «Setzen» — a small framed tile at the row's right (34px, the one corner, a 1px inset edge), not
+   a blue ghost link (27.09.2026). The whole row is still the button: a tap on the value places too. */
+.lgg-sug-act { flex: none; display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px;
+  border-radius: var(--r-sm); background: var(--fill-soft); box-shadow: inset 0 0 0 1px var(--glass-edge);
+  font: 700 12.5px var(--body); color: var(--ink); }
+/* armed («Auf die Karte tippen»): the slot says what the next tap does — a hint, never a tile */
+.lgg-sug-armed { flex: none; font: 600 12px var(--body); color: var(--ink-dim); }
 /* a suggestion that is only SAID («Kein Hydrant im Umkreis von 300 m») — no action beside it */
 .lgg-sug.lgg-sug-info { margin: 0; cursor: default; }
 .lgg-row.armed .lgg-sug .lgg-sug-act { color: var(--ink); }

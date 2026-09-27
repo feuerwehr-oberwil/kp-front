@@ -1277,8 +1277,10 @@ export const de = {
       fire: { title: 'Gelöscht', inline: 'gelöscht' },
       other: { title: 'Erledigt', inline: 'erledigt' },
     },
-    /** die Aktion oben im Symbol-Editor – die Worte der Entscheidung, für jede Familie gleich */
-    action: 'Gelöscht / erledigt',
+    /** die Kachel im Fuss des Symbol-Editors – EIN Wort für jede Familie (D8, 27.09.2026: das
+     *  Feuer ist gelöscht, das Symbol erledigt; der Doppelname «Gelöscht / erledigt» war die
+     *  Brücke vom alten «Löschen» und ist gefallen). `actionHint` ist ihr title. */
+    action: 'Erledigt',
     actionHint: 'bleibt grau sichtbar',
     /** der gesetzte Zustand im Editor und auf dem Rapport: «Erledigt 20:40» */
     state: '{word} {time}',
@@ -3101,13 +3103,19 @@ export const de = {
     captionAll: 'Alle',
     notes: 'Notizen',
     notesPlaceholder: 'Allgemeine Notizen …',
+    /** the «+ Feld» tile's label (aria/title) and its word */
     addField: 'Feld hinzufügen',
+    addFieldShort: 'Feld',
     removeField: 'Feld löschen',
-    // ⇄ between the Einsatzleiter glyph's two rows. Says what HAPPENS, not what the button is:
-    // an Ablösung is «übergeben», and both Anwesenheits-Bemerkungen follow the swap by themselves.
-    swapEl: 'Führung übergeben (EL ⇄ Stv.)',
+    // the ⇄ square at the end of the Einsatzleiter glyph's EL row (title/aria). Says what HAPPENS,
+    // not what the button is: an Ablösung is «übergeben», and both Anwesenheits-Bemerkungen follow
+    // the swap by themselves.
+    swapEl: 'Führung übergeben',
     fieldKeyPlaceholder: 'Bezeichnung',
-    fieldValuePlaceholder: 'Wert',
+    /** an empty box (27.09.2026 — it said «Wert»): a person field asks for a name, any other
+     *  repeats its own label ({label}) with an ellipsis */
+    fieldNamePlaceholder: 'Name …',
+    fieldValuePlaceholder: '{label} …',
     // ⚠️ A field whose value needs a UNIT has to say so in the box. «Kapazität: 80» is ambiguous
     // between litres and cubic metres on the one number a Wasserversorgung is planned from —
     // and the placeholder is the cheapest place to settle it, since it costs nothing to ignore.
@@ -3590,8 +3598,13 @@ export const de = {
     title: 'Lage-Grundgerüst',
     /** the phone strip's word — the rail entry's word, so the two doors read as one thing */
     short: 'Grundgerüst',
-    /** «2 / 6» — optional rows count in neither half */
-    count: '{done} / {total}',
+    /** «2/6» — optional rows count in neither half; one number, no air (slim sweep 27.09.2026) */
+    count: '{done}/{total}',
+    /** the head's chip while no Einsatzart is known — the Brand list stands in, and the chip asks
+     *  (it replaced the sentence «Einsatzart unbekannt – Grundgerüst Brand», 27.09.2026) */
+    einsatzartUnknown: 'Einsatzart?',
+    /** the chip's title — it opens the Einsatzdaten */
+    einsatzartAria: 'Einsatzart ändern',
     hide: 'ausblenden',
     hideAria: 'Lage-Grundgerüst ausblenden',
     expand: 'Lage-Grundgerüst aufklappen',
@@ -3600,20 +3613,19 @@ export const de = {
     complete: 'Alles gesetzt.',
     /** a known Einsatzart the station gave no list */
     empty: 'Für diese Einsatzart ist kein Grundgerüst eingerichtet.',
-    /** no Einsatzart known — the Brand list stands in (lib/lageGrundgeruest · slotsFor) */
-    fallback: 'Einsatzart unbekannt – Grundgerüst Brand',
     optional: 'optional',
     /** a row whose place tool is armed: the next Karte tap places it */
     armed: 'Auf die Karte tippen',
     armedLine: 'Punkte auf die Karte tippen, mit ✓ abschliessen',
-    placeHere: 'hier setzen',
-    hydrant: 'Hydrant Nr. {nr} · {dist}',
+    /** the suggestion row's tile — one verb; the value beside it says where */
+    placeHere: 'Setzen',
+    hydrant: 'Hydrant {nr} · {dist}',
     hydrantNoNr: 'Nächster Hydrant · {dist}',
     wind: 'Wind {from} · Vorschlag {dir}, {m} m',
     /** where an upwind suggestion lies, by the same eight sectors as `weather.cardinals` */
     directions: ['nördlich', 'nordöstlich', 'östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich'] as string[],
-    /** ticked by an object that exists only on a plan with no Karte fit */
-    toKarte: 'auf die Karte übernehmen',
+    /** ticked by an object that exists only on a plan with no Karte fit — the tile beside «auf dem Plan» */
+    toKarte: 'Übernehmen',
     /** the label a Wasserbezugsort set at a hydrant carries (the layer's own number) */
     hydrantLabel: 'Hydrant {nr}',
     planOnly: 'auf dem Plan',
@@ -5578,8 +5590,12 @@ export const de = {
     werSuchtCard: 'Wer sucht?',
     niemand: 'niemand',
     keinTrupp: 'Noch kein Trupp auf der Tafel',
-    statusSeg: { offen: 'offen', teilweise: 'teilweise', abgesucht: 'abgesucht', nichtZugaenglich: 'nicht zugänglich' },
+    /** the segment's four words — ONE line each: «gesperrt» is the short form of «nicht zugänglich»
+     *  (owner's decision D2, 27.09.2026); the rows and the Rapport keep the full word (bereichStatus) */
+    statusSeg: { offen: 'offen', teilweise: 'teilweise', abgesucht: 'abgesucht', nichtZugaenglich: 'gesperrt' },
     zeigen: 'Zeigen',
+    /** the card head's ⋯ — Umbenennen and the position live behind it (27.09.2026) */
+    menu: 'Weitere Aktionen',
     pickAgain: 'Neu setzen',
     nameTakenTitle: 'Diesen Ort gibt es schon',
   },
