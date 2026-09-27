@@ -363,6 +363,20 @@ export function placeLabel(b: Pick<SucheBereich, 'floor' | 'name'>, floorName: (
   return b.name ? fillTemplate(appConfig.copy.suche.rowPart, { floor: floorName(b.floor), name: b.name }) : floorName(b.floor)
 }
 
+/** A place's row on ITS OWN card drops the place's name — you are on that place (slim sweep
+ *  27.09.2026, item 7): «Keller in Arbeit · Trupp 2» reads «in Arbeit · Trupp 2», «Fund: Keller»
+ *  reads «Fund», «Keller: Position entfernt» reads «Position entfernt». The stored text (what the
+ *  Verlauf and the Rapport print) is untouched; a row written under an earlier name keeps its
+ *  words, since nothing here can tell that name was this place. */
+export function detailRowText(text: string, label: string): string {
+  const l = label.trim()
+  if (!l) return text
+  if (text.startsWith(`${l}: `)) return text.slice(l.length + 2)
+  if (text.startsWith(`${l} `)) return text.slice(l.length + 1)
+  if (text.endsWith(`: ${l}`)) return text.slice(0, -(l.length + 2))
+  return text
+}
+
 /** Two spellings of one place are one place: case, accents and spacing do not make a second
  *  «Keller» (the same folding the name suggestions use). */
 export const placeKey = (text: string) => norm(text.trim().replace(/\s+/g, ' '))

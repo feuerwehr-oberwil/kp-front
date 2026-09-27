@@ -2,8 +2,9 @@ import { useMemo, useState, type PointerEvent, type ReactNode } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate, formatTime } from '../../lib/format'
 import { Icon } from '../../lib/icons'
+import { Menu } from '../../lib/overlays'
 import {
-  foundWhere, personenViews, personPlace, personWhere, placeKey, sucheOrte, truppAt, truppShort,
+  detailRowText, foundWhere, personenViews, personPlace, personWhere, placeKey, sucheOrte, truppAt, truppShort,
   type BereichView, type OrtView, type PersonView, type TruppHere,
 } from '../../lib/suche'
 import type { SucheActions, SucheTakeBack } from '../../lib/useSucheActions'
@@ -19,15 +20,17 @@ type View =
   | { kind: 'vermisst'; found?: boolean; preset?: FundPreset }
   | { kind: 'person'; id: string }
   | { kind: 'gefunden'; id: string; preset?: FundPreset }
-  | { kind: 'fund'; preset: FundPreset }
+  /** `from`: the place's card that opened «Fund» — ‹ goes back there, not to the list */
+  | { kind: 'fund'; preset: FundPreset; from?: string }
   | { kind: 'uebergeben'; id: string }
   | { kind: 'bereich'; id: string }
   | { kind: 'addBereich' }
   | { kind: 'korrigieren'; id: string }
   | { kind: 'entwarnen' | 'irrtuemlich'; id: string }
 
-/** «Fund melden» on a Trupp (Tür 3): the Trupp, and the place it is searching now if any */
-export interface FundPreset { truppId: string; bereichId?: string }
+/** «Fund melden» on a Trupp (Tür 3): the Trupp, and the place it is searching now if any. From a
+ *  place's own card (27.09.2026) the Trupp may be unknown — the form then picks the one at the place. */
+export interface FundPreset { truppId?: string; bereichId?: string }
 
 /**
  * Putting a place on the surface you are on (26.09.2026): the card hands the surface over to a
@@ -138,7 +141,8 @@ export function SuchePanel(p: SuchePanelProps) {
   let body: ReactNode
   let foot: ReactNode = null
   if (view.kind === 'fund') {
-    body = <FundPicker preset={view.preset} personen={personen} {...p} places={bereiche} onBack={back}
+    body = <FundPicker preset={view.preset} personen={personen} {...p} places={bereiche}
+      onBack={view.from ? () => setView({ kind: 'bereich', id: view.from! }) : back}
       onPerson={(id) => setView({ kind: 'gefunden', id, preset: view.preset })}
       onOther={() => setView({ kind: 'vermisst', found: true, preset: view.preset })} />
   } else if (view.kind === 'person' && person(view.id)) {
@@ -147,7 +151,9 @@ export function SuchePanel(p: SuchePanelProps) {
       onHand={() => setView({ kind: 'uebergeben', id: view.id })} onFix={() => setView({ kind: 'korrigieren', id: view.id })}
       onWhy={(kind) => setView({ kind, id: view.id })} />
   } else if (view.kind === 'bereich' && bereich(view.id)) {
-    body = <BereichCard key={view.id} b={bereich(view.id)!} {...p} places={bereiche} onBack={back} />
+    body = <BereichCard key={view.id} b={bereich(view.id)!} {...p} places={bereiche} onBack={back}
+      // «Fund» on the place: the Fund-melden flow, with the place and the Trupp searching it
+      onFund={() => setView({ kind: 'fund', preset: { truppId: bereich(view.id)!.truppId, bereichId: view.id }, from: view.id })} />
   } else {
     const empty = !orte.unbekannt && !orte.orte.length
     body = empty ? (
@@ -281,12 +287,13 @@ function ShowButton({ name, onClick }: { name: string; onClick: () => void }) {
 }
 
 /**
- * Where a record stands on the surface, on its own card — ONE row (owner 26.09.2026, «toooooo
- * much going on»): «📍 Auf Karte setzen» while it stands nowhere; once it does, «📍 Zeigen» and
+ * Where a PERSON stands on the surface, on their own card — ONE row (owner 26.09.2026, «toooooo
+ * much going on»): «📍 Auf Karte setzen» while they stand nowhere; once they do, «📍 Zeigen» and
  * one quiet «Neu setzen» (a pick on the surface you are on). Each is an ordinary step with its
  * row and its ↶ (lib/suche · setPlacePoint). No «Position entfernen» any more: a pin put in the
  * wrong spot is one ↶ away, or «Neu setzen»; a place without a position was never required, so
  * nothing asks to take one off again (the action stays in the writer, `setPoint(…, null)`).
+ * (A place's card has the same three doors as two tiles and a ⋯ — BereichCard, 27.09.2026.)
  */
 function PlaceActions({ kind, id, name, point, pick, onShow, actions }: { kind: 'bereiche' | 'personen'; id: string; name: string; point?: SuchePoint
   pick?: SuchePick; onShow?: (p: SuchePoint) => void; actions: SucheActions }) {
@@ -389,27 +396,43 @@ const SET_STATUSES = ['offen', 'teilweise', 'abgesucht', 'nichtZugaenglich'] as 
 /**
  * A place's own card — calm (owner 26.09.2026, «toooooo much going on»: six status chips, four
  * buttons and the history had one weight). Top to bottom, each thing once:
- * - the NAME, with a small ✎ that renames it in place (no «Umbenennen» form);
+ * - the NAME, with a ⋯ at the right (slim sweep 27.09.2026, item 7 — it was a ✎): «Umbenennen»
+ *   renames in place, «Neu setzen» re-picks the position. The rare things, behind one door;
  * - «Wer sucht?» — the Trupps on the board and «niemand»: picking one IS «in Arbeit · T1», and
  *   writes the Trupp's Ziel too (useSucheActions · assign — the same act as linking the Trupp's
  *   marker to this place's pin on the Karte or a plan);
- * - «Status» — one segmented control of four: offen · teilweise · abgesucht · nicht zugänglich.
+ * - «Status» — one segmented control of four: offen · teilweise · abgesucht · gesperrt (the
+ *   segment's short word for «nicht zugänglich», D2; the rows and the Rapport keep the full one).
  *   All four earn their place: «offen» is the way back, «teilweise» is the Raus answer's own
- *   state (N14), «nicht zugänglich» is what a crew reports at a locked door. No «Fund» here: a
- *   find is booked on a PERSON («Gefunden»), and the place wears the «Fund» mark from that row;
- * - the position, one row (PlaceActions);
- * - what happened to it, quiet, below.
+ *   state (N14), «gesperrt» is what a crew reports at a locked door;
+ * - two tiles, the two things done while searching: «Zeigen» (or «Auf Karte setzen» while it
+ *   stands nowhere) and «Fund» — the Fund-melden flow, with this place and its Trupp preset. A
+ *   find is still booked on a PERSON; the place wears the «Fund» mark from that row;
+ * - what happened to it, quiet, below — without the place's own name (you are on that place).
  */
-function BereichCard({ b, trupps, canEdit, actions, pick, onShow, onBack, places, asks }: SuchePanelProps & { b: BereichView; places: readonly BereichView[]; onBack: () => void }) {
+function BereichCard({ b, trupps, canEdit, actions, pick, onShow, onBack, onFund, places, asks }: SuchePanelProps & { b: BereichView; places: readonly BereichView[]; onBack: () => void; onFund: () => void }) {
   const C = appConfig.copy.suche
   // a Trupp already out is not offered (it would stand there as «raus – abgesucht?» at once) —
   // unless it IS the one this place names, whose chip has to show as chosen
   const here = b.status === 'inArbeit' ? b.truppId : undefined
   const pickable = trupps.filter((t) => t.status !== 'raus' || t.id === here)
   const setStatus = (st: SucheBereichStatus) => { if (st !== b.status) actions.setStatus(b.id, st) }
+  // a pick on the surface you are on — the first tile while the place stands nowhere, «Neu
+  // setzen» behind the ⋯ once it does (lib/suche · setPlacePoint: one step, one ↶)
+  const put = canEdit && pick ? () => pick.start(b.label, (pt) => { actions.setPoint('bereiche', b.id, pt) }) : undefined
+  const tiles = (
+    <>
+      {b.point && onShow && (
+        <button type="button" className={s.btn} onClick={() => onShow(b.point!)} aria-label={fillTemplate(C.pinShow, { name: b.label })}><Icon id="pin" />{C.zeigen}</button>
+      )}
+      {!b.point && put && <button type="button" className={s.btn} onClick={put}><Icon id="pin" />{pick!.surface === 'plan' ? C.pickPlan : C.pickKarte}</button>}
+      {canEdit && <button type="button" className={s.btn} onClick={onFund} aria-label={C.fundMelden} title={C.fundMelden}><Icon id="people" />{C.fund}</button>}
+    </>
+  )
+  const anyTile = (b.point && onShow) || (!b.point && put) || canEdit
   return (
     <div className={s.rec}>
-      <PlaceHead b={b} canEdit={canEdit} places={places} actions={actions} onBack={onBack} />
+      <PlaceHead b={b} canEdit={canEdit} places={places} actions={actions} onBack={onBack} onRepick={b.point ? put : undefined} />
       {canEdit && !!asks?.includes(b.id) && <AskRow u={b} actions={actions} />}
       {canEdit ? (
         <>
@@ -436,33 +459,38 @@ function BereichCard({ b, trupps, canEdit, actions, pick, onShow, onBack, places
               ))}
             </div>
           </div>
-          <PlaceActions kind="bereiche" id={b.id} name={b.label} point={b.point} pick={pick} onShow={onShow} actions={actions} />
         </>
       ) : (
-        <>
-          <p className={s.cardLine}><span className={s.pill} data-tone={BEREICH_TONE[b.status]}>{bereichLine(b)}</span></p>
-          <PlaceActions kind="bereiche" id={b.id} name={b.label} point={b.point} onShow={onShow} actions={actions} />
-        </>
+        <p className={s.cardLine}><span className={s.pill} data-tone={BEREICH_TONE[b.status]}>{bereichLine(b)}</span></p>
       )}
-      {b.rows.length ? <History rows={b.rows} /> : <p className={s.cardLine}>{fillTemplate(C.erfasstAt, { t: hhmm(b.createdAt) })}</p>}
+      {anyTile && <div className={s.tiles}>{tiles}</div>}
+      {b.rows.length
+        ? <History rows={b.rows.map((r) => ({ ...r, text: detailRowText(r.text, b.label) }))} />
+        : <p className={s.cardLine}>{fillTemplate(C.erfasstAt, { t: hhmm(b.createdAt) })}</p>}
     </div>
   )
 }
 
 /**
- * The place's name as the card's title, with a small ✎ that turns it into a field right there
- * (26.09.2026 — «Umbenennen» was a button and a form of its own). Enter or ✓ takes it, Esc or ✕
+ * The place's name as the card's title, with a ⋯ at the right (27.09.2026 — it was a ✎ after the
+ * name): «Umbenennen» turns the title into a field right there (26.09.2026 — it was a button and
+ * a form of its own), «Neu setzen» re-picks the position. Enter or ✓ takes a name, Esc or ✕
  * leaves it; a name another place already carries is refused with a word, never taken (two
  * places that read the same would be one place to everybody reading the list). A step-1 storey
- * row has no name of its own to change, so it has no ✎.
+ * row has no name of its own to change, so it offers no «Umbenennen»; a head with nothing behind
+ * the ⋯ has no ⋯. The menu is the app's one (lib/overlays · Menu, the Trupp card's skin).
  */
-function PlaceHead({ b, canEdit, places, actions, onBack }: { b: BereichView; canEdit: boolean; places: readonly BereichView[]; actions: SucheActions; onBack: () => void }) {
+function PlaceHead({ b, canEdit, places, actions, onBack, onRepick }: { b: BereichView; canEdit: boolean; places: readonly BereichView[]; actions: SucheActions; onBack: () => void; onRepick?: () => void }) {
   const C = appConfig.copy.suche
   const [name, setName] = useState<string | null>(null)
   const clash = name != null && places.some((x) => x.id !== b.id && placeKey(x.label) === placeKey(name))
   const valid = name != null && !!name.trim() && name.trim() !== b.name && !clash
   const take = () => { if (valid) actions.rename(b.id, name!); setName(null) }
   const renamable = canEdit && !!b.name && b.floor == null
+  const items = [
+    ...(renamable ? [{ label: C.umbenennen, onClick: () => setName(b.name ?? '') }] : []),
+    ...(onRepick ? [{ label: C.pickAgain, onClick: onRepick }] : []),
+  ]
   // ⚠️ the ✓ / ✕ take the press BEFORE the field's blur (TwinTeamPill's pen, same trap): a blur
   // that commits first would leave the ✕ nothing to cancel
   const hold = (e: PointerEvent) => e.preventDefault()
@@ -474,8 +502,10 @@ function PlaceHead({ b, canEdit, places, actions, onBack }: { b: BereichView; ca
           <>
             <h3 className={s.cardTitle}>{b.label}</h3>
             {b.fund && <span className={s.fund}>{C.fund}</span>}
-            {renamable && (
-              <button type="button" className={s.pen} aria-label={C.umbenennen} title={C.umbenennen} onClick={() => setName(b.name ?? '')}><Icon id="pen" /></button>
+            {items.length > 0 && (
+              <Menu
+                trigger={<button type="button" className={s.menuBtn} aria-label={C.menu} title={C.menu}><Icon id="more" /></button>}
+                popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'} items={items} />
             )}
           </>
         ) : (
@@ -501,7 +531,8 @@ function FundPicker({ preset, personen, trupps, places, onBack, onPerson, onOthe
   const C = appConfig.copy.suche
   const t = trupps.find((x) => x.id === preset.truppId)
   const at = places.find((b) => b.id === preset.bereichId)
-  const title = fillTemplate(C.fundTitle, { trupp: t?.label ?? '' }) + (at ? ` · ${at.label}` : '')
+  // from a place with nobody searching it there is no Trupp to name — «Fund · Keller»
+  const title = (t ? fillTemplate(C.fundTitle, { trupp: t.label }) : C.fund) + (at ? ` · ${at.label}` : '')
   const missing = personen.filter((x) => x.status === 'vermisst')
   return (
     <div className={s.rec}>

@@ -167,27 +167,37 @@ button.ortMain:active { background-image: linear-gradient(var(--press), var(--pr
 .back:active { background-image: linear-gradient(var(--press), var(--press)); }
 .back :global(.i) { width: 20px; height: 20px; }
 .cardTitle { margin: 0; flex: 0 1 auto; min-width: 0; font: 800 16px var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* the small ✎ right after the name (and ✓ / ✕ while it is a field): quiet, but a full target */
+/* the ✓ / ✕ while the title is a field: quiet, but a full target */
 .pen { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center; border: 0; background: none;
   border-radius: var(--r-sm); color: var(--sx-dim); cursor: pointer; }
 .pen :global(.i) { width: 17px; height: 17px; }
 .pen:disabled { opacity: var(--disabled, .45); cursor: default; }
 .pen:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* the place head's ⋯ at the right edge (27.09.2026): the Trupp card's head menu — a 44px square,
+   an 18px glyph, no frame; the rows it opens wear the app's one menu skin (.rp-print-menu) */
+.menuBtn { flex: none; margin-left: auto; width: var(--tap); height: var(--tap); display: grid; place-items: center; border: 0;
+  background: none; border-radius: var(--r-sm); color: var(--sx-dim); cursor: pointer; }
+.menuBtn :global(.i) { width: 18px; height: 18px; }
+.menuBtn:active, .menuBtn[data-popup-open] { background-image: linear-gradient(var(--press), var(--press)); }
 .cardHead .fund { margin-left: 2px; }
 .titleInput { flex: 1 1 auto; font: 800 15px var(--body); }
 .titleInput[aria-invalid] { border-color: var(--sx-amber); }
 .titleHint { margin: -6px 0 0 calc(var(--tap) - 6px); font: 600 12.5px var(--body); color: var(--sx-amber); }
 .note { font: 500 12.5px var(--body); color: var(--sx-faint); }
 /* «Status»: the shared segmented control (.useg), four options stretched over the card's width,
-   each in its status colour when chosen. «nicht zugänglich» may wrap to two lines on a phone —
-   it stays one tap target rather than turning into a fifth chip. */
+   each in its status colour when chosen. One line each since «gesperrt» (D2, 27.09.2026); a
+   locale's longer word may still wrap rather than turn into a fifth chip. */
 .seg:global(.useg) { display: flex; width: 100%; background: var(--sx-tile); flex-wrap: nowrap; }
 .seg :global(.useg-btn) { flex: 1 1 0; min-width: 0; padding: 4px 6px; white-space: normal; line-height: 1.15; text-align: center;
   color: var(--sx-dim); font-size: 12.5px; }
 .seg :global(.useg-btn.on) { background: var(--tone); color: var(--on-fill); }
 .seg :global(.useg-btn.on[data-tone="grey"]) { background: var(--sx-dim); color: var(--sx-on-ink); }
-/* the position, ONE row: «📍 Zeigen» and a quiet «Neu setzen» beside it */
+/* a person's position, ONE row: «📍 Zeigen» and a quiet «Neu setzen» beside it */
 .posRow { display: flex; flex-wrap: wrap; gap: 8px; }
+/* the place card's two tiles (27.09.2026): «Zeigen» · «Fund» — one family (44px, the one corner,
+   a 1px edge), equal, words centred; one tile alone takes the row */
+.tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.tiles .btn { justify-content: center; padding: 0 10px; }
 .quietBtn { background: none; color: var(--sx-dim); border-style: dashed; }
 .cardLine { margin: 0; font: 500 13px var(--body); color: var(--sx-dim); }
 .cardActions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -197,6 +207,7 @@ button.ortMain:active { background-image: linear-gradient(var(--press), var(--pr
   color: var(--tone-ink); background: color-mix(in srgb, var(--tone) 18%, transparent); }
 .btn { min-height: var(--tap); display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid var(--sx-edge);
   border-radius: var(--r-sm); background: var(--sx-btn); color: var(--sx-btn-ink); font: 700 13.5px var(--body); cursor: pointer; }
+.btn :global(.i) { width: 16px; height: 16px; flex: none; }
 .btn[data-primary] { background: var(--sx-primary); color: var(--sx-primary-ink); border-color: var(--sx-primary); }
 .btn[data-danger] { color: var(--sx-red); border-color: color-mix(in srgb, var(--red) 45%, transparent); background: none; }
 .btn:active { background-image: linear-gradient(var(--press), var(--press)); }

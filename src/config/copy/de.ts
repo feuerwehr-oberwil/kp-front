@@ -5552,8 +5552,12 @@ export const de = {
     werSuchtCard: 'Wer sucht?',
     niemand: 'niemand',
     keinTrupp: 'Noch kein Trupp auf der Tafel',
-    statusSeg: { offen: 'offen', teilweise: 'teilweise', abgesucht: 'abgesucht', nichtZugaenglich: 'nicht zugänglich' },
+    /** the segment's four words — ONE line each: «gesperrt» is the short form of «nicht zugänglich»
+     *  (owner's decision D2, 27.09.2026); the rows and the Rapport keep the full word (bereichStatus) */
+    statusSeg: { offen: 'offen', teilweise: 'teilweise', abgesucht: 'abgesucht', nichtZugaenglich: 'gesperrt' },
     zeigen: 'Zeigen',
+    /** the card head's ⋯ — Umbenennen and the position live behind it (27.09.2026) */
+    menu: 'Weitere Aktionen',
     pickAgain: 'Neu setzen',
     nameTakenTitle: 'Diesen Ort gibt es schon',
   },

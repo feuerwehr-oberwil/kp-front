@@ -208,10 +208,12 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     render(<Harness initial={start} />)
     expect(sections()).toEqual(['1. OG Trakt 3', '1. OG'])
     expect(within(screen.getByRole('region', { name: '1. OG Trakt 3' })).getByText('Tim Muster')).toBeTruthy()
-    // a storey row has no name of its own: its card offers no ✎
+    // a storey row has no name of its own: its card offers no «Umbenennen» — and with nothing else
+    // behind it, no ⋯ at all; its own rows drop the place's name (you are on that place)
     fireEvent.click(within(screen.getByRole('region', { name: '1. OG' })).getByText('1. OG'))
+    expect(screen.queryByRole('button', { name: C.menu })).toBeNull()
     expect(screen.queryByRole('button', { name: C.umbenennen })).toBeNull()
-    expect(screen.getByText('1. OG in Arbeit · Trupp 1')).toBeTruthy()
+    expect(screen.getByText('in Arbeit · Trupp 1')).toBeTruthy()
   })
 
   it('«＋ Bereich»: Wo? and who searches it, «noch niemand» by default — a Trupp already out is not offered', () => {
@@ -242,12 +244,14 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     expect(tick.getAttribute('data-tone')).toBe('part')
   })
 
-  it('a place\'s own card is calm: name + ✎, «Wer sucht?», four statuses, one position row, the history — nothing else', () => {
+  it('a place\'s own card is calm: name + ⋯, «Wer sucht?», four statuses, two tiles, the history — nothing else', () => {
     render(<Harness initial={{ personen: [], bereiche: [place('b1', 'Keller', [row('s1', 'status', '20:05', 'Keller abgesucht', { status: 'abgesucht' })])] }}
       pick={{ surface: 'karte', start: vi.fn() }} />)
     fireEvent.click(within(screen.getByRole('region', { name: 'Keller' })).getByText('Keller'))
     expect(screen.getByRole('heading', { name: 'Keller' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: C.umbenennen })).toBeTruthy()
+    // no ✎ after the name any more — «Umbenennen» lives behind the ⋯ (checked at the end: the
+    // open menu is modal and hides the rest of the card from the queries)
+    expect(screen.queryByRole('button', { name: C.umbenennen })).toBeNull()
     // «Wer sucht?»: the Trupps on the board (never one already out) and «niemand»
     const who = screen.getByRole('group', { name: C.werSuchtCard })
     expect(within(who).getAllByRole('button').map((b) => b.textContent)).toEqual(['T1 Muster', 'T3 Beispiel', C.niemand])
@@ -256,13 +260,17 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     const st = screen.getByRole('group', { name: C.statusTitle })
     expect(within(st).getAllByRole('button').map((b) => b.textContent)).toEqual([C.statusSeg.offen, C.statusSeg.teilweise, C.statusSeg.abgesucht, C.statusSeg.nichtZugaenglich])
     expect(within(st).getByRole('button', { name: C.statusSeg.abgesucht }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.queryByRole('button', { name: C.fund })).toBeNull()
     expect(screen.queryByRole('button', { name: C.bereichStatus.inArbeit })).toBeNull()
-    // the position: ONE button while it stands nowhere
+    // the tiles: «Auf Karte setzen» while it stands nowhere (no «Neu setzen» anywhere), and «Fund»
+    // — the Fund-melden flow, not a status
     expect(screen.getByRole('button', { name: new RegExp(C.pickKarte) })).toBeTruthy()
+    expect(screen.getByRole('button', { name: C.fundMelden })).toBeTruthy()
     expect(screen.queryByRole('button', { name: C.pickAgain })).toBeNull()
-    // the history stays
-    expect(screen.getByText('Keller abgesucht')).toBeTruthy()
+    // the history stays — without the place's own name
+    expect(screen.getByRole('list').textContent).toMatch(/^\d\d:\d\dabgesucht$/)
+    // the ⋯ holds «Umbenennen» and nothing else while the place has no position
+    fireEvent.click(screen.getByRole('button', { name: C.menu }))
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual([C.umbenennen])
   })
 
   it('picking a Trupp in «Wer sucht?» IS «in Arbeit · T1» — and its Ziel reads the place; one step, one ↶', () => {
@@ -299,6 +307,23 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     expect(board.t3).toEqual({ auftrag: 'absuchen', ziel: undefined })
   })
 
+  it('«Fund» on the place opens the Fund-melden flow for THAT place and its Trupp — and ‹ comes back to the place', () => {
+    render(<Harness initial={{
+      personen: [person('p1', 'Tim Muster', { bereichId: 'b1' })],
+      bereiche: [place('b1', 'Keller', [row('s1', 'status', '20:05', 'Keller in Arbeit · Trupp 1', { status: 'inArbeit', trupp: 'Trupp 1', truppId: 't1' })])],
+    }} />)
+    fireEvent.click(within(screen.getByRole('region', { name: 'Keller' })).getByText('Keller'))
+    fireEvent.click(screen.getByRole('button', { name: C.fundMelden }))
+    expect(screen.getByRole('heading', { name: `${fillTemplate(C.fundTitle, { trupp: 'Trupp 1' })} · Keller` })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Tim Muster/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: C.back }))
+    expect(screen.getByRole('heading', { name: 'Keller' })).toBeTruthy()
+    // …and with nobody searching it, the flow still opens — «Fund · Keller», the form picks the Trupp
+    fireEvent.click(within(screen.getByRole('group', { name: C.werSuchtCard })).getByRole('button', { name: C.niemand }))
+    fireEvent.click(screen.getByRole('button', { name: C.fundMelden }))
+    expect(screen.getByRole('heading', { name: `${C.fund} · Keller` })).toBeTruthy()
+  })
+
   it('a status is one tap on the segmented control; «offen» lets a Trupp in Arbeit go', () => {
     let last: SucheDoc = emptySuche()
     render(<Harness initial={{ personen: [], bereiche: [place('b1', 'Keller', [row('s1', 'status', '20:05', 'Keller in Arbeit · Trupp 1', { status: 'inArbeit', trupp: 'Trupp 1', truppId: 't1' })])] }}
@@ -313,11 +338,12 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     expect(shownBereiche(last, floorLabel)[0]).toMatchObject({ status: 'offen', trupp: undefined })
   })
 
-  it('the ✎ renames in place — Enter takes it, a name two places would share is refused, Esc leaves it', () => {
+  it('⋯ → «Umbenennen» renames in place — Enter takes it, a name two places would share is refused, Esc leaves it', () => {
     let last: SucheDoc | null = null
     render(<Harness initial={{ personen: [], bereiche: [place('b1', 'Keller'), place('b2', 'Dachstock')] }} onDoc={(d) => { last = d }} />)
     fireEvent.click(within(screen.getByRole('region', { name: 'Keller' })).getByText('Keller'))
-    fireEvent.click(screen.getByRole('button', { name: C.umbenennen }))
+    const rename = () => { fireEvent.click(screen.getByRole('button', { name: C.menu })); fireEvent.click(screen.getByRole('menuitem', { name: C.umbenennen })) }
+    rename()
     const input = screen.getByRole('textbox', { name: C.umbenennen })
     fireEvent.change(input, { target: { value: 'dachstock' } })
     expect(screen.getByText(C.nameTakenTitle)).toBeTruthy()
@@ -325,7 +351,7 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(screen.getByRole('heading', { name: 'Keller' })).toBeTruthy()
     expect(last).toBeNull() // nothing written
-    fireEvent.click(screen.getByRole('button', { name: C.umbenennen }))
+    rename()
     fireEvent.change(screen.getByRole('textbox', { name: C.umbenennen }), { target: { value: 'Keller Nord' } })
     fireEvent.keyDown(screen.getByRole('textbox', { name: C.umbenennen }), { key: 'Enter' })
     expect(last!.bereiche[0].name).toBe('Keller Nord')
@@ -459,10 +485,12 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     act(() => done!({ planId: 'gebaeude', x: 0.5, y: 0.4, floor: 1 }))
     expect(last.bereiche[0].point).toEqual({ planId: 'gebaeude', x: 0.5, y: 0.4, floor: 1 })
     expect(last.bereiche[0].log.slice(-1)[0]).toMatchObject({ op: 'ort', text: 'Keller auf dem Plan gesetzt' })
-    // with a pin: «📍 Zeigen» and «Neu setzen» — and no «Position entfernen» (↶ covers a wrong pin)
+    // with a pin: «📍 Zeigen» as the tile, «Neu setzen» behind the ⋯ — and no «Position
+    // entfernen» (↶ covers a wrong pin)
     expect(screen.queryByRole('button', { name: new RegExp(C.pickPlan) })).toBeNull()
     expect(screen.queryByRole('button', { name: /entfernen/ })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: C.pickAgain }))
+    fireEvent.click(screen.getByRole('button', { name: C.menu }))
+    fireEvent.click(screen.getByRole('menuitem', { name: C.pickAgain }))
     act(() => done!({ planId: 'gebaeude', x: 0.2, y: 0.3, floor: 0 }))
     expect(last.bereiche[0].point).toEqual({ planId: 'gebaeude', x: 0.2, y: 0.3, floor: 0 })
     fireEvent.click(screen.getByRole('button', { name: fillTemplate(C.pinShow, { name: 'Keller' }) }))

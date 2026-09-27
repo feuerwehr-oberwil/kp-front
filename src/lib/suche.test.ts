@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  detailRowText,
   addBereich, addFoundPerson, addPerson, applySuchePatch, bereichStatusOf, diffSuche, emptySuche, findPlace,
   geretteteFromSuche, markFund, newPersonFromText, openBereiche, patchRows, pendingAsks, personEntwarnt, personGefunden,
   personIrrtuemlich, personKorrigiert, personPlace, personPrintRows, personUebergeben, personView, personenViews, placeLabel,
@@ -676,5 +677,20 @@ describe('the review of 26.09.2026', () => {
     expect(r.doc.bereiche).toHaveLength(1)
     expect(r.doc.bereiche[0].point).toEqual({ coord: [7.6, 47.5] })
     expect(r.rows.map((x) => x.op)).toEqual(['ort'])
+  })
+})
+
+describe('the place card\'s own rows (slim sweep 27.09.2026, item 7)', () => {
+  it('drops the place\'s name — before a status, before a colon, after one — and nothing else', () => {
+    expect(detailRowText('Keller in Arbeit · Trupp 2', 'Keller')).toBe('in Arbeit · Trupp 2')
+    expect(detailRowText('Keller: Position entfernt', 'Keller')).toBe('Position entfernt')
+    expect(detailRowText('Fund: Keller', 'Keller')).toBe('Fund')
+    expect(detailRowText('Bereich angelegt: Keller', 'Keller')).toBe('Bereich angelegt')
+    expect(detailRowText('1. OG Keller auf dem Plan gesetzt', '1. OG Keller')).toBe('auf dem Plan gesetzt')
+  })
+  it('a row written under an earlier name keeps its words; a name inside another is not cut', () => {
+    expect(detailRowText('Bereich umbenannt: Keller → Keller Nord', 'Keller Nord')).toBe('Bereich umbenannt: Keller → Keller Nord')
+    expect(detailRowText('Kellerabgang abgesucht', 'Keller')).toBe('Kellerabgang abgesucht')
+    expect(detailRowText('Keller abgesucht', '')).toBe('Keller abgesucht')
   })
 })
