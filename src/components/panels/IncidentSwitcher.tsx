@@ -274,14 +274,15 @@ export function IncidentSwitcher({
                   Einsatz one line above, so «Einsatz abschliessen» would say it twice — the full
                   wording rides along as the button's title/aria-label.
                   ⚠️ ONE LINE, always (decision 01.09.): three verbs that wrap to a second row
-                  stop reading as one set of choices. The label is its own <span> so the row can
-                  ellipsise instead of wrap when it truly cannot fit — see .ip-card-acts, which
-                  carries the measured widths.
+                  stop reading as one set of choices. The label is its own <span> (the badge is
+                  the tile's other child) — see .ip-card-acts, which carries the measured widths.
                   Order is Bearbeiten · Teilen · Abschliessen. Abschliessen goes LAST because it
                   is the one that ends the Einsatz; a terminal action sitting between two
                   everyday ones is a mis-tap waiting for a gloved thumb.
-                  Three EQUAL tiles of the head's family since 27.09.2026 (slim sweep · mockup
-                  10) — Abschliessen amber, its count on the tile's corner (.ip-card-acts).
+                  Three tiles of the head's family since 27.09.2026 (slim sweep · mockup 10) —
+                  Abschliessen amber, its count on the tile's corner. Content-sized and NEVER
+                  truncated since the same evening (owner screenshot r2-6: «Abschliess…» — the
+                  equal thirds ellipsised the verb on a 390px phone; .ip-card-acts).
                   A wrong ADDRESS is noticed while looking at the map, long before anybody opens
                   the Rapport — whose «Bearbeiten» link was once the only way into the mask. */}
               {(onEditMeta || onArchive || onShare) && (

@@ -141,19 +141,29 @@
    267.1px, against 297px on a 360px phone and 325px on a 390px one. Only a 320px viewport
    (260px of row) falls 7px short, and there the label ellipsises rather than wrapping — which
    is the whole reason it is its own <span>. */
-/* ⚠️ THREE EQUAL TILES, not three bare words (27.09.2026, slim sweep · mockup 10): this was the
-   only place in the app with naked text buttons side by side. Each is a `.head-tile.sm` (the
-   family above — 36px inside a card, the one corner, the 1px edge); a 3-column grid gives them
-   the same width whatever their word, so the row is one set of choices at a glance. The sums
-   above still hold for the WORDS; the tiles simply ellipsise inside their third when a locale
-   is longer. «Abschliessen» is the amber one — it ends the Einsatz — and its open count sits on
-   the tile's CORNER (below), because «Abschliessen» alone fills a third of a 320px card. */
-.ip-card-acts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
-.ip-card-act { position: relative; min-width: 0; }
-/* three classes, so it outranks `.head-tile.sm` (declared later, same two-class weight) for its
-   padding: the third of a 360px phone is 97px and «Abschliessen» wants 83 of them at 12px */
-.ip-card .ip-card-acts .ip-card-act { padding: 0 6px; }
-.ip-card-act > span:not(.ip-badge) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ⚠️ THREE TILES, not three bare words (27.09.2026, slim sweep · mockup 10): this was the only
+   place in the app with naked text buttons side by side. Each is a `.head-tile.sm` (the family
+   above — 36px inside a card, the one corner, the 1px edge). «Abschliessen» is the amber one — it
+   ends the Einsatz — and its open count sits on the tile's CORNER (below), because «Abschliessen»
+   alone fills a third of a 320px card.
+   ⚠️ CONTENT-SIZED, never truncated (owner screenshot 27.09.2026 evening, r2-6): the first build
+   made them three EQUAL thirds with an ellipsis for the word that did not fit — and on the
+   owner's phone that word was the verb itself, «Abschliess…». The sums above were also wrong
+   about the row: inside the phone's ÜBUNG menu it MEASURES 308px at 390 and ~278px at 360 (menu
+   inset + card edge + card padding), so a third is 97px, and «Abschliessen» plus the family's
+   padding wants 103. A verb never ellipsises: each tile is as wide as its word plus 8px each side,
+   and the row's slack is added to all three alike (`flex-grow` on top of the content width, so
+   «Abschliessen» stays the widest, «Teilen» the narrowest, and the row still runs edge to edge).
+   `min-width: max-content` is the no-truncation rule in one property — a tile can never be
+   squeezed under its word; if a locale ever outgrows the row, the row overflows visibly instead of
+   lying. Measured 27.09.2026 (Sora, 12px, 8px padding): de 248px, fr «Modifier · Transmettre ·
+   Clore» and it «Modifica · Condividi · Chiudi» shorter, en shortest — all inside 278px at 360. */
+.ip-card-acts { display: flex; gap: 6px; margin-top: 10px; }
+.ip-card-act { position: relative; flex: 1 1 auto; min-width: max-content; }
+/* three classes, so it outranks `.head-tile.sm` (declared later, same two-class weight): the
+   family's 8px is the floor a tile keeps inside the card — 6px read as a chip, not a tile */
+.ip-card .ip-card-acts .ip-card-act { padding: 0 8px; }
+.ip-card-act > span:not(.ip-badge) { white-space: nowrap; }
 @media (max-width: 479px) {
   .ip-card .ip-card-acts .ip-card-act { font-size: 12px; }
   .ip-card-act svg { display: none; }
