@@ -3934,6 +3934,9 @@ export const de = {
     partnerOrg: 'Organisation',
     partnerNote: 'Bemerkung',
     partnerAdd: 'Organisation hinzufügen',
+    // the field's placeholder — the verb is the «+» beside it (27.09.2026, slim sweep · mockup 5:
+    // «hinzufügen» rows lose the word; partnerAdd stays the name of the button and the field)
+    partnerPlaceholder: 'Organisation …',
     partnerRemove: 'Organisation entfernen',
     // header of the collapsible sections — says while collapsed whether anything is in there yet
     partnerCount: '{n} erfasst',
@@ -4730,6 +4733,9 @@ export const de = {
     partnerNoteShort: 'Bemerkung',
     partnersNone: 'keine erfasst',
     partnerAdd: 'Organisation hinzufügen',
+    // the field's placeholder — the verb is the framed «+» beside it (27.09.2026, slim sweep ·
+    // mockup 5); partnerAdd stays the accessible name of both
+    partnerPlaceholder: 'Organisation …',
     // Ein «Bereich Polizei» auf dem Kroki ist bereits die Antwort auf «war die da?» – der
     // Streifen sagt, was auf der Karte steht, und kreuzt die Zeilen erst auf Tipp an. Gleiche
     // Form und gleiches Versprechen wie bei den Geretteten (geretteteLageStrip): der Rapport

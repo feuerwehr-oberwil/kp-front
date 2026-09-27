@@ -65,17 +65,20 @@
   background: var(--blue); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
 .iconBtnOn .filterDot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 14%, var(--surface)); }
 
-/* «Weitere Person» / «Anderes Mittel» — a square + at the end of the line. Dashed, because it
-   adds something the list does not have, which is not the same act as the solid controls
-   beside it. The words are in the tooltip: they cost ~160px of a row that has a field and two
-   filters to fit as well, and what is added is named in the dialog it opens. */
+/* «Weitere Person» / «Anderes Mittel» — a square + at the end of the line. FRAMED like the
+   filters beside it (27.09.2026, slim sweep · mockup 5): it was dashed «because it adds something
+   the list does not have», but a dashed edge in this app means «missing / hidden / placeholder»
+   (the empty Auftrag, a hidden storey, «Entfällt»), and read here as the one control that was not
+   quite there. Adding is an ordinary action; it wears the row's ordinary tile. The words are in
+   the tooltip: they cost ~160px of a row that has a field and two filters to fit as well, and what
+   is added is named in the dialog it opens. */
 .addBtn {
   display: flex; align-items: center; justify-content: center; flex: none;
   width: var(--tap); min-width: var(--tap); min-height: var(--tap); padding: 0; cursor: pointer;
-  border: 1px dashed var(--glass-edge); background: none; border-radius: var(--r-ctl);
+  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
   color: var(--ink-dim);
 }
-@media (hover: hover) { .addBtn:hover { border-color: var(--ink-faint); color: var(--ink); background: var(--surface); } }
+@media (hover: hover) { .addBtn:hover { border-color: var(--ink-faint); color: var(--ink); } }
 .addBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .addBtn svg { width: 18px; height: 18px; }
 /* a control WITH its word, on a wide screen (22.09.2026): rides on .iconBtn / .addBtn, which

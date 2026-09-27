@@ -2436,7 +2436,7 @@ export function ReportPreflight({
                   <div className="report-partner-add">
                     <ClearableInput
                       className="ip-input" value={partnerDraft}
-                      placeholder={P.partnerAdd} aria-label={P.partnerAdd}
+                      placeholder={P.partnerPlaceholder} aria-label={P.partnerAdd}
                       clearLabel={P.partnerOrgShort} maxLength={80}
                       onChange={(v) => setPartnerDraft(stripUnprintable(v))}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitPartner() } }}
