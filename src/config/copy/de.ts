@@ -919,13 +919,16 @@ export const de = {
     addressPlaceholder: 'Strasse Nr, PLZ Ort',
     addressSearching: 'Wird gesucht …',
     addressNoHits: 'Keine Adresse gefunden',
-    objectButton: 'Objekt aus Feuerwehrplänen',
+    // «Aus Plänen» · «Auf Karte» (27.09.2026, slim sweep · mockup 4a): the app's last two-line
+    // buttons. The verb «setzen» is where the buttons sit (under the address); «Feuerwehrpläne»
+    // is the only source of objects the app has, and the list that folds open says so.
+    objectButton: 'Aus Plänen',
     objectSearchPlaceholder: 'Objekt oder Adresse suchen …',
     objectNear: 'In der Nähe',
     objectNoHits: 'Keine Objekte gefunden',
     objectPlans: (n: number) => (n === 1 ? '1 Plan' : `${n} Pläne`),
     objectNoPlans: 'keine Pläne',
-    mapPickButton: 'Auf Karte setzen',
+    mapPickButton: 'Auf Karte',
     hereButton: 'Hier',
     hereFailed: 'Standort nicht verfügbar',
     coordSet: 'Koordinate gesetzt',
@@ -3931,6 +3934,9 @@ export const de = {
     partnerOrg: 'Organisation',
     partnerNote: 'Bemerkung',
     partnerAdd: 'Organisation hinzufügen',
+    // the field's placeholder — the verb is the «+» beside it (27.09.2026, slim sweep · mockup 5:
+    // «hinzufügen» rows lose the word; partnerAdd stays the name of the button and the field)
+    partnerPlaceholder: 'Organisation …',
     partnerRemove: 'Organisation entfernen',
     // header of the collapsible sections — says while collapsed whether anything is in there yet
     partnerCount: '{n} erfasst',
@@ -4131,7 +4137,10 @@ export const de = {
   incidentSwitcher: {
     noIncident: 'Kein Einsatz',
     savedAt: 'Gespeichert um {t}',
-    startedRow: 'Einsatzbeginn {t} · {d}',
+    // the card's clock pill (27.09.2026, slim sweep · mockup 10): the glyph is the label, the
+    // full sentence is its title (startedFull)
+    startedRow: '{t} · {d}',
+    startedFull: 'Einsatzbeginn {t} · {d}',
     saved: 'Gespeichert',
     badgePending: 'Nicht synchronisiert – wird gespeichert',
     badgeOffline: 'Offline – lokal gespeichert, wird synchronisiert sobald wieder verbunden',
@@ -4727,6 +4736,9 @@ export const de = {
     partnerNoteShort: 'Bemerkung',
     partnersNone: 'keine erfasst',
     partnerAdd: 'Organisation hinzufügen',
+    // the field's placeholder — the verb is the framed «+» beside it (27.09.2026, slim sweep ·
+    // mockup 5); partnerAdd stays the accessible name of both
+    partnerPlaceholder: 'Organisation …',
     // Ein «Bereich Polizei» auf dem Kroki ist bereits die Antwort auf «war die da?» – der
     // Streifen sagt, was auf der Karte steht, und kreuzt die Zeilen erst auf Tipp an. Gleiche
     // Form und gleiches Versprechen wie bei den Geretteten (geretteteLageStrip): der Rapport
@@ -4873,7 +4885,13 @@ export const de = {
     // THE chip in the Rapport head (23.09.2026 — the separate «noch offen» chips under the title
     // are gone at every width): what is still open, and the warnings about the record, each
     // counted in its own words (lib/abschlussOpen · controlChipLabel). «Hinweis(e)» said both.
-    controlOpen: '{n} noch offen',
+    // «{n} offen», not «{n} noch offen» (27.09.2026, slim sweep · mockup 2): the number keeps
+    // its unit and nothing else — the chip is amber and counts, «noch» said what amber says.
+    // ONE wording for ONE number: the phone's «Einsatz» tile and the page chooser take the
+    // same words through controlChipLabel, so they lose the «noch» with it.
+    controlOpen: '{n} offen',
+    // the phone's word on the PDF tile («PDF ▾»); the tablet shows pdfFull
+    pdfShort: 'PDF',
     controlHint: '1 Hinweis',
     controlHints: '{n} Hinweise',
     // the heading of the open steps inside the chip's popover

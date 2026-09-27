@@ -96,11 +96,11 @@ describe('abschlussOpenPoints — the Suche (24.09.2026)', () => {
 
 describe('controlChipLabel — the Rapport head\'s one Kontrolle chip', () => {
   it('counts the open steps and the warnings each in its own words', () => {
-    expect(controlChipLabel(4, 0)).toBe('4 noch offen')
+    expect(controlChipLabel(4, 0)).toBe('4 offen')
     expect(controlChipLabel(0, 1)).toBe('1 Hinweis')
     expect(controlChipLabel(0, 3)).toBe('3 Hinweise')
-    expect(controlChipLabel(4, 2)).toBe('4 noch offen · 2 Hinweise')
-    expect(controlChipLabel(1, 1)).toBe('1 noch offen · 1 Hinweis')
+    expect(controlChipLabel(4, 2)).toBe('4 offen · 2 Hinweise')
+    expect(controlChipLabel(1, 1)).toBe('1 offen · 1 Hinweis')
   })
 })
 
