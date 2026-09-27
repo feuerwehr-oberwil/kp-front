@@ -2531,7 +2531,8 @@ export const it: Localizable<Copy> = {
     logoutUnsyncedChanges: 'Alcune modifiche non sono ancora state trasmesse. Restano su questo dispositivo e saranno inviate appena accedi di nuovo.',
     appVersion: 'Versione app (build)',
 
-    startedRow: 'Inizio dell\'intervento {t} · {d}',
+    startedRow: '{t} · {d}',
+    startedFull: 'Inizio dell\'intervento {t} · {d}',
     offlineShort: 'Offline',
     errorShort: 'Errore di sync',
     syncErrorToast: 'Sincronizzazione non riuscita – le modifiche sono salvate localmente.',

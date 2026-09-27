@@ -153,6 +153,10 @@ export function IncidentSwitcher({
   const savedText = syncStatus === 'synced'
     ? (lastSyncedAt != null ? fillTemplate(cp.savedAt, { t: fmtClock(lastSyncedAt) }) : cp.saved)
     : syncDetail ?? badgeTitle[syncStatus]
+  // The CARD's pill says «Gespeichert» without the time (27.09.2026, slim sweep · decision D1):
+  // one wording for one fact, the same the Trupps head shows; the time stays in the title (it
+  // was «Gespeichert um 23:16»). The other states keep their words — they are warnings.
+  const savedPill = syncStatus === 'synced' ? cp.saved : savedText
   const statusMark = syncStatus === 'synced'
     ? <Icon id="check" />
     : syncStatus === 'error' || syncStatus === 'storage'
@@ -256,9 +260,11 @@ export function IncidentSwitcher({
               </div>
               {active.address && <span className="ip-card-sub">{active.address}</span>}
               <div className="ip-card-pills">
-                <span className={`ip-card-pill ip-status-${syncStatus}`} title={savedText}>{statusMark}<span>{savedText}</span></span>
+                <span className={`ip-card-pill ip-status-${syncStatus}`} title={savedText}>{statusMark}<span>{savedPill}</span></span>
+                {/* «🕓 21:22 · 1 h 54» — the clock glyph is the label; «Einsatzbeginn» is the title */}
                 {active.started_at && (
-                  <span className="ip-card-pill">
+                  <span className="ip-card-pill"
+                    title={fillTemplate(cp.startedFull, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(now - Date.parse(active.started_at)) })}>
                     <Icon id="clock" />
                     <span>{fillTemplate(cp.startedRow, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(now - Date.parse(active.started_at)) })}</span>
                   </span>
@@ -274,24 +280,26 @@ export function IncidentSwitcher({
                   Order is Bearbeiten · Teilen · Abschliessen. Abschliessen goes LAST because it
                   is the one that ends the Einsatz; a terminal action sitting between two
                   everyday ones is a mis-tap waiting for a gloved thumb.
+                  Three EQUAL tiles of the head's family since 27.09.2026 (slim sweep · mockup
+                  10) — Abschliessen amber, its count on the tile's corner (.ip-card-acts).
                   A wrong ADDRESS is noticed while looking at the map, long before anybody opens
                   the Rapport — whose «Bearbeiten» link was once the only way into the mask. */}
               {(onEditMeta || onArchive || onShare) && (
                 <div className="ip-card-acts">
                   {onEditMeta && (
-                    <button className="ip-card-act" title={cp.editMeta} aria-label={cp.editMeta}
+                    <button className="ip-card-act head-tile sm" title={cp.editMeta} aria-label={cp.editMeta}
                       onClick={onEditMeta}>
                       <Icon id="pen" /><span>{cp.editMetaShort}</span>
                     </button>
                   )}
                   {onShare && (
-                    <button className="ip-card-act" title={cp.share} aria-label={cp.share}
+                    <button className="ip-card-act head-tile sm" title={cp.share} aria-label={cp.share}
                       onClick={onShare}>
                       <Icon id="external" /><span>{cp.shareShort}</span>
                     </button>
                   )}
                   {onArchive && (
-                    <button className="ip-card-act" title={cp.archive} aria-label={cp.archive}
+                    <button className="ip-card-act head-tile sm amber" title={cp.archive} aria-label={cp.archive}
                       onClick={onArchive}>
                       <Icon id="archive" /><span>{cp.archiveShort}</span>
                       {/* The counter BEFORE the press, not only in the dialog after it. Bare

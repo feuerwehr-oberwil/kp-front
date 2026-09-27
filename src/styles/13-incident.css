@@ -116,6 +116,9 @@
   color: var(--ink-dim); background: color-mix(in srgb, var(--ink-faint) 14%, transparent); }
 .ip-card-pill > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ip-card-pill svg, .ip-card-pill .i { width: 12px; height: 12px; flex: none; }
+/* (27.09.2026, slim sweep · mockup 10, decision D1) the pills say «✓ Gespeichert» — the Trupps
+   head's words for the same fact, the time in the title — and «🕓 21:22 · 1 h 54», where the
+   clock glyph is the label and «Einsatzbeginn» rides along as the title. */
 /* the sync pill wears its state — same colours as the mark in the top bar (.ip-status-*),
    spelled out here because the pill's own rule would otherwise win on order */
 .ip-card-pill.ip-status-synced { color: var(--green-strong); background: color-mix(in srgb, var(--green) 14%, transparent); }
@@ -138,21 +141,30 @@
    267.1px, against 297px on a 360px phone and 325px on a 390px one. Only a 320px viewport
    (260px of row) falls 7px short, and there the label ellipsises rather than wrapping — which
    is the whole reason it is its own <span>. */
-.ip-card-acts { display: flex; align-items: center; flex-wrap: nowrap; gap: 3px;
-  margin: 8px -6px -4px; padding-top: 6px; border-top: 1px solid var(--glass-edge); }
-.ip-card-act { display: inline-flex; align-items: center; gap: 5px; min-height: 40px; min-width: 0;
-  padding: 6px 9px; border: none; background: none; border-radius: var(--r-sm);
-  color: var(--ink); cursor: pointer; font: 600 12.5px var(--body); }
+/* ⚠️ THREE EQUAL TILES, not three bare words (27.09.2026, slim sweep · mockup 10): this was the
+   only place in the app with naked text buttons side by side. Each is a `.head-tile.sm` (the
+   family above — 36px inside a card, the one corner, the 1px edge); a 3-column grid gives them
+   the same width whatever their word, so the row is one set of choices at a glance. The sums
+   above still hold for the WORDS; the tiles simply ellipsise inside their third when a locale
+   is longer. «Abschliessen» is the amber one — it ends the Einsatz — and its open count sits on
+   the tile's CORNER (below), because «Abschliessen» alone fills a third of a 320px card. */
+.ip-card-acts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.ip-card-act { position: relative; min-width: 0; }
+/* three classes, so it outranks `.head-tile.sm` (declared later, same two-class weight) for its
+   padding: the third of a 360px phone is 97px and «Abschliessen» wants 83 of them at 12px */
+.ip-card .ip-card-acts .ip-card-act { padding: 0 6px; }
 .ip-card-act > span:not(.ip-badge) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 479px) {
-  .ip-card-act { font-size: 12px; padding: 6px 7px; }
+  .ip-card .ip-card-acts .ip-card-act { font-size: 12px; }
   .ip-card-act svg { display: none; }
 }
-@media (hover: hover) {
-  .ip-card-act:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
-}
-.ip-card-act:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-card-act svg { width: 15px; height: 15px; opacity: .65; flex: none; }
+/* the open count as a CORNER badge — the phone nav's amber count (05-navrail · .nav-count.nav-open),
+   same fill, same digits, same 16px — riding the tile's top-right corner instead of taking a
+   word's width inside it */
+.ip-card-act > .ip-badge-todo { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;
+  box-sizing: border-box; padding: 0 4px; border-radius: var(--r-xs); background: var(--amber); color: var(--on-fill);
+  font: 800 10px/16px var(--body); letter-spacing: 0; text-align: center; }
 /* «Jetzt synchronisieren» at the title row's right edge — pinned there at every width, so the
    Einsatz's connection state and the button that refreshes it sit on the same line. Pulled
    slightly out of the card's padding so the ICON, not the button's box, lines up with the

@@ -4137,7 +4137,10 @@ export const de = {
   incidentSwitcher: {
     noIncident: 'Kein Einsatz',
     savedAt: 'Gespeichert um {t}',
-    startedRow: 'Einsatzbeginn {t} · {d}',
+    // the card's clock pill (27.09.2026, slim sweep · mockup 10): the glyph is the label, the
+    // full sentence is its title (startedFull)
+    startedRow: '{t} · {d}',
+    startedFull: 'Einsatzbeginn {t} · {d}',
     saved: 'Gespeichert',
     badgePending: 'Nicht synchronisiert – wird gespeichert',
     badgeOffline: 'Offline – lokal gespeichert, wird synchronisiert sobald wieder verbunden',

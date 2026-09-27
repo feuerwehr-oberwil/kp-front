@@ -2450,7 +2450,8 @@ export const en: Localizable<Copy> = {
   incidentSwitcher: {
     noIncident: 'No incident',
     savedAt: 'Saved at {t}',
-    startedRow: 'Started {t} · {d}',
+    startedRow: '{t} · {d}',
+    startedFull: 'Started {t} · {d}',
     saved: 'Saved',
     badgePending: 'Not synced – saving',
     badgeOffline: 'Offline – saved locally, syncs as soon as reconnected',
