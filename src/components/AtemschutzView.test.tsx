@@ -2533,3 +2533,55 @@ describe('staging r2: numbers, the Link\'s first Trupp, and «nicht eingesetzt»
     expect(screen.getByRole('button', { name: az.actEnterFirst })).toBeTruthy()
   })
 })
+
+/* ── The opened phone card outside the field (27.09.2026, owner screenshot r2-1) ───────────────
+ * A Trupp that was «raus» opened to an EMPTY framed box above its chips: the tile rule painted
+ * every action tile `--surface`, and «Wieder in den Einsatz» kept the tablet's white word for a
+ * green fill it no longer had. The DOM cannot see a colour, but it can see the shape the fix
+ * pins: the action row of a card outside the field is the one re-enter tile (or «Im Einsatz» /
+ * «Raus melden»), and NO state leaves a tile container with nothing in it. */
+describe('the opened phone card of a Trupp outside the field', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const out = (over: Partial<Trupp> = {}): Trupp => ({ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000), ...over })
+  const openFirstRow = (over: Partial<Parameters<typeof AtemschutzView>[0]>) => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount(over)
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    return document.querySelector('[data-az-open]') as HTMLElement
+  }
+  /** every tile container on the card — the pair's grid and each lifecycle row — with what it holds */
+  const tileBoxes = (card: HTMLElement) =>
+    [...card.querySelectorAll(`.${s.trowActs}, .${s.actions}`)].map((box) => ({
+      tiles: [...box.children].map((b) => (b.textContent ?? '').trim()).filter(Boolean),
+    }))
+  const actionWords = (card: HTMLElement) =>
+    [...card.querySelectorAll(`.${s.actZone} button`)].map((b) => (b.textContent ?? '').trim())
+
+  it('a Trupp that came out: the one re-enter tile, no pair, no empty container', () => {
+    const card = openFirstRow({ trupps: [out()] })
+    expect(card.querySelector(`.${s.trowActs}`)).toBeNull()
+    expect(actionWords(card)).toEqual([az.actReenter])
+    const btn = within(card).getByRole('button', { name: az.actReenter })
+    expect(btn.classList.contains(s.actReenter)).toBe(true)
+    expect(tileBoxes(card)).toEqual([{ tiles: [az.actReenter] }])
+  })
+
+  it.each<[string, Partial<Trupp>, string]>([
+    ['never deployed', { entryTime: '', lastContactTime: '', readings: [{ t: iso(5 * 60_000), bar: 300, kind: 'registered' }] }, az.actEnterFirst],
+    ['still waiting', { status: 'angemeldet', entryTime: '', lastContactTime: '', exitTime: undefined, readings: [] }, az.actEnter],
+    ['without Atemschutz, in the field', { status: 'aktiv', kind: 'einfach', exitTime: undefined }, az.actExitPlain],
+    ['without Atemschutz, out', { kind: 'einfach' }, az.actReenter],
+  ])('%s: one worded action row and nothing empty', (_label, over, word) => {
+    const card = openFirstRow({ trupps: [out(over)] })
+    expect(actionWords(card)).toEqual([word])
+    for (const box of tileBoxes(card)) expect(box.tiles.length).toBeGreaterThan(0)
+  })
+
+  it('a viewer sees no action row at all — the zone is empty, so it takes no room', () => {
+    const card = openFirstRow({ trupps: [out()], canEdit: false })
+    expect(card.querySelector(`.${s.trowActs}`)).toBeNull()
+    expect(card.querySelector(`.${s.actions}`)).toBeNull()
+    // `:empty` is the CSS that drops the zone's padding — it needs NO child nodes, whitespace included
+    expect(card.querySelector(`.${s.actZone}`)?.childNodes.length ?? 0).toBe(0)
+  })
+})
