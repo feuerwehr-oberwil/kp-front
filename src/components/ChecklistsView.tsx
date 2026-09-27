@@ -105,7 +105,16 @@ export function ChecklistsView({
       {railNarrow && !railOpen ? (
         <button className={s['cl-rail-toggle']} onClick={() => setRailOpen(true)} aria-expanded={false} aria-label={CL.showList}>
           <Icon id="search" />
-          <span>{selTitle}</span>
+          <span className={s['cl-rail-toggle-title']}>{selTitle}</span>
+          {/* the Stichwort's category as a word in the head (27.09.2026, owner-r2-5): it was a
+              filled «BRAND» pill inside the document card, over a title the chooser had just
+              shown — the card is gone on a phone (Checklists.module.css), so its two facts moved
+              up here: the title is the chooser's, the category is this chip. */}
+          {activeEntry?.hazardColor && (
+            <span className={cx(s['cl-head-hz'], s[`hz-${activeEntry.hazardColor}`])}>
+              <i className={s['cl-ref-chip']} />{CL.hazardLabels[activeEntry.hazardColor] ?? activeEntry.hazardColor}
+            </span>
+          )}
           <Icon id="chevron-down" />
         </button>
       ) : (

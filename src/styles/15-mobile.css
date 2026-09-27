@@ -824,6 +824,25 @@
   .modal-backdrop:not(.confirm-backdrop) { place-items: end center; }
   .sym-modal { width: 100%; max-width: none; height: 92dvh;
     border-radius: var(--r-hero) var(--r-hero) 0 0; }
+  /* FOUR columns, not auto-fill (owner, 27.09.2026: «maybe change the symbol selection to 4
+     columns?»). The tablet's `minmax(94px, 1fr)` gave a 390px phone three 114px cells with the
+     glyph lost in the middle of each; four cells are ~86px at 390 and ~77px at 360 — still
+     nearly twice the tap floor, with a 40px glyph that reads at that size. The label gives
+     instead: 11px, and the part between two seams is what has to fit (lib/symbolWrap —
+     «Beobachtungs-» is 82px at 12px and 75px at 11px), so the seams do the wrapping and
+     `overflow-wrap` is left with only «Dekontaminations-», which no phone width holds whole.
+     ⚠️ TWO lines and an ellipsis on the third. A three-part compound («Angehörigen-sammel-
+     stelle») needs three lines at this width, and a cell that grows past its row put its
+     neighbours' glyphs on different heights; the first component is the one the eye recognises
+     the symbol by (symbolWrap), so it is the last part that goes behind the «…». */
+  .sym-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 4px; }
+  .sym-cell { padding: 10px 1px 8px; }
+  .sym-cell small { font-size: 11px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    line-clamp: 2; overflow: hidden;
+    /* ⚠️ 1.25, not the 1.1 the tablet label keeps: the clamp's `overflow: hidden` cuts whatever
+       stands above the first line box, and at 1.1 that was the dieresis — «Überschwemmung»
+       read «Uber-». */
+    line-height: 1.25; }
 
   /* incident switcher dropdown caps to the viewport so it can't run off the bottom */
   .ip-menu { max-height: calc(100dvh - 80px - env(safe-area-inset-top)); }
@@ -857,8 +876,11 @@
      1px border top and bottom = 54px, and 6px of channel above it → 60px. Everything pinned to
      a `--rail-h + …` baseline adds it: the Rapport surface (Surface.module.css · .shell, so
      its own «Drucken / Abschliessen» row clears the strip), the FAB and the toaster lane. Keep
-     the four in step if the shell's padding ever changes. */
-  .app.mode-rapport { --rp-tabs-safe: 60px; }
+     the four in step if the shell's padding ever changes.
+     ⚠️ Keyed on the STRIP being rendered, not on the Rapport (27.09.2026): the Anwesenheit's
+     three readings dock in the same strip (PhoneTabBar), and there it exists only once a Zeitplan
+     is wired up — so the reserve follows the element, on whichever page shows one. */
+  .app:has(.rp-tabs) { --rp-tabs-safe: 60px; }
   .rp-tabs {
     position: fixed; z-index: var(--z-chrome);
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
@@ -905,11 +927,11 @@
      reserve already clears the chips, so the lift is only the pill's own band. On :root, like the
      other reserves, because THE message lane below is computed there. */
   :root:has(.wb-floor-add-down) { --stack-foot-lift: 70px; }
-  /* …and the Rapport's docked tab strip is one more fixed piece of bottom chrome, on exactly the
-     one page that shows one. `:has`, like every other lane state here, because the host is a root
-     sibling of `.app`. (The strip is rendered at every width but only `display: block` here, so
-     the selector has to name the PAGE, not merely the element.) */
-  :root:has(.app.mode-rapport .rp-tabs) { --rp-tabs-safe: 60px; }
+  /* …and the docked tab strip (Rapport · Anwesenheit, PhoneTabBar) is one more fixed piece of
+     bottom chrome, on whichever page shows one. `:has`, like every other lane state here, because
+     the host is a root sibling of `.app`. Inside this media query a rendered strip is always
+     shown (13-incident.css turns it on here), so the element itself is the whole condition. */
+  :root:has(.app .rp-tabs) { --rp-tabs-safe: 60px; }
   /* …and the thing that stands ON the tool bar and lifts everything above it: the armed tool's
      hint row in the dock (ToolDock · hint, the 22px `.wb-botleft` steps up by). The lane is
      computed on :root, which cannot read `.app`'s value, so it restates it here. (The Suche's

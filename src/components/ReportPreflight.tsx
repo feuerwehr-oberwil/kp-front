@@ -44,7 +44,7 @@ import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Enti
 import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
 import { PersonField } from './PersonField'
-import { Segmented } from './Segmented'
+import { PhoneTabBar } from './PhoneTabBar'
 import { useIsPhone } from '../lib/useIsPhone'
 import { journalVocabulary } from '../lib/journalLinks'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
@@ -1681,21 +1681,19 @@ export function ReportPreflight({
             surface, like the head, so it cannot scroll away from under the thumb. The dot marks
             a tab holding a Mindestangabe that is still open — the same amber the head's chips
             use, so «noch offen» means one thing on this page. */}
-        <div className="rp-tabs">
-          <Segmented<PhoneTab>
-            ariaLabel={P.tabsLabel}
-            value={phoneTab}
-            onChange={pickTab}
-            options={PHONE_TABS.map((t) => {
-              const open = missing.some((s) => STEP_TAB[s] === t)
-              return {
-                value: t,
-                title: open ? `${P.tabs[t]} – ${P.headStillOpen}` : P.tabs[t],
-                label: <>{P.tabs[t]}{open && <span className="rp-tab-dot" aria-hidden />}</>,
-              }
-            })}
-          />
-        </div>
+        <PhoneTabBar<PhoneTab>
+          ariaLabel={P.tabsLabel}
+          value={phoneTab}
+          onChange={pickTab}
+          options={PHONE_TABS.map((t) => {
+            const open = missing.some((s) => STEP_TAB[s] === t)
+            return {
+              value: t,
+              title: open ? `${P.tabs[t]} – ${P.headStillOpen}` : P.tabs[t],
+              label: <>{P.tabs[t]}{open && <span className="rp-tab-dot" aria-hidden />}</>,
+            }
+          })}
+        />
         <div className="ip-body report-preflight-body" data-phone-tab={phoneTab} ref={bodyRef}>
           {/* TWO columns on a wide screen (one below 1080px, see app.css), because the rapport is
               worked in two different ways and they interleave: the FORM is typed straight through

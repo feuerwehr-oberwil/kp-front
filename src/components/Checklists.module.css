@@ -263,7 +263,13 @@
     background: var(--surface); border-bottom: 1px solid var(--glass-edge);
     font: 700 14px var(--body); color: var(--ink); }
   .cl-rail-toggle :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
-  .cl-rail-toggle span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cl-rail-toggle-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* the open Stichwort's category, as a quiet word beside its title (ChecklistsView): the dot the
+     rail's rows carry, then the word — ink-dim on the soft fill, the small shape's corner. The
+     colour stays in the dot, as everywhere (a tone is a glyph's colour, never a fill). */
+  .cl-head-hz { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px;
+    border-radius: var(--r-xs); background: var(--fill-soft);
+    font: 700 11px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
   .cl-rail-group { gap: 2px; }
   .cl-rail-label { padding: 2px 6px 2px; }
   .cl-rail-item { padding: 8px 10px; }
@@ -281,9 +287,28 @@
   .cl-runner-titles h2 { font-size: 18px; }
   .cl-runner-titles p { font-size: 12px; margin-top: 2px; }
   .cl-overall-num { font-size: 19px; }
-  /* the playbook reader's doc shouldn't force horizontal scroll on a narrow screen */
+  /* ONE level (owner-r2-5, 27.09.2026: «drop the multiple nested cards»). The page was a card
+     (the shell) holding a white chooser row, holding a white document card with a red top edge,
+     a filled «BRAND» pill and the title the chooser row had just shown — three surfaces deep
+     before the first line of content. Now the chooser IS the page head, in the head's type and
+     with the category as a word beside the title (.cl-head-hz), and the content sits directly on
+     the page as flat sections under the Rapport's eyebrow heads (17-rapport.css ·
+     .report-pre-section h3), a hairline between them. The tablet keeps its document card: there
+     the rail stands beside it and the card is what separates the two. */
+  .cl-rail-toggle { padding: 12px 14px; font: var(--head-title); color: var(--ink); }
   .cl-ref { flex-direction: column; }
-  .cl-ref-doc { padding: 18px 16px; }
-  /* runner head stacks so the big progress number doesn't crowd the title */
-  .cl-overall { flex-basis: auto; }
+  .cl-ref-doc { max-width: none; padding: 0; background: none; box-shadow: none; border-top: 0; border-radius: 0; }
+  /* the title is the chooser's, the category is the chip beside it — nothing to say twice */
+  .cl-ref-doc-head { display: none; }
+  .cl-ref-h { margin: 18px 0 8px; padding-top: 14px; border-top: 1px solid var(--glass-edge);
+    font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+  .cl-ref-h:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+  /* the runner the same way: its h2 repeated the chooser, so the head is the progress line —
+     the number, the bar and «0/8 erledigt» on one row, the subtitle above them */
+  .cl-runner-titles { flex: 1 1 100%; }
+  .cl-runner-titles h2 { display: none; }
+  .cl-runner-titles p { margin: 0; }
+  .cl-runner-titles:not(:has(p)) { display: none; }
+  .cl-overall { flex: 1 1 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
+  .cl-phase-titles h3 { font: 700 11px/1.5 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
 }
