@@ -836,7 +836,7 @@ export const en: Localizable<Copy> = {
       fire: { title: 'Extinguished', inline: 'extinguished' },
       other: { title: 'Done', inline: 'done' },
     },
-    action: 'Extinguished / done',
+    action: 'Done',
     actionHint: 'stays visible in grey',
     state: '{word} {time}',
     reopen: 'Active again',
@@ -1835,9 +1835,11 @@ export const en: Localizable<Copy> = {
     notes: 'Notes',
     notesPlaceholder: 'General notes …',
     addField: 'Add field',
+    addFieldShort: 'Field',
     removeField: 'Delete field',
     fieldKeyPlaceholder: 'Label',
-    fieldValuePlaceholder: 'Value',
+    fieldNamePlaceholder: 'Name …',
+    fieldValuePlaceholder: '{label} …',
     duplicateField: '«{key}» already exists – only the last value is kept.',
     // unField/stoffField are intentionally NOT translated — they are the detail-row DATA keys
     // the UN→substance lookup matches against the (language-independent) preset fields
@@ -1904,7 +1906,7 @@ export const en: Localizable<Copy> = {
     stopSharing: 'Remove location',
     stopSharingTitle: 'Remove this person\'s self-reported position. They can share again at any time afterwards.',
     stopSharingFailed: 'The location could not be removed.',
-    swapEl: 'Hand over command (IC ⇄ deputy)',
+    swapEl: 'Hand over command',
     fieldPlaceholders: {
       'Kapazität': 'e.g. 80 m³',
     },

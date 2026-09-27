@@ -382,6 +382,7 @@
      double-count the home indicator and float the row off the edge. */
   .ctx > .ctx-actions { border-top: 1px solid var(--border-soft); padding: 10px 14px; }
   .ctx > .ctx-actions > .btn { flex: 1 1 auto; }
+  .ctx > .ctx-actions > .btn.btn-sq { flex: 0 0 var(--tap); }
   /* compact sheet header: ONE handle, then the title row.
      ⚠️ The bar hangs at the BOTTOM of its band, not in the middle of it. Centred in a 20px band it
      landed inside the sheet's own 22px top radius (--r-hero) — pinched between the two corner

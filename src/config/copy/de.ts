@@ -1274,8 +1274,10 @@ export const de = {
       fire: { title: 'Gelöscht', inline: 'gelöscht' },
       other: { title: 'Erledigt', inline: 'erledigt' },
     },
-    /** die Aktion oben im Symbol-Editor – die Worte der Entscheidung, für jede Familie gleich */
-    action: 'Gelöscht / erledigt',
+    /** die Kachel im Fuss des Symbol-Editors – EIN Wort für jede Familie (D8, 27.09.2026: das
+     *  Feuer ist gelöscht, das Symbol erledigt; der Doppelname «Gelöscht / erledigt» war die
+     *  Brücke vom alten «Löschen» und ist gefallen). `actionHint` ist ihr title. */
+    action: 'Erledigt',
     actionHint: 'bleibt grau sichtbar',
     /** der gesetzte Zustand im Editor und auf dem Rapport: «Erledigt 20:40» */
     state: '{word} {time}',
@@ -3088,13 +3090,19 @@ export const de = {
     captionAll: 'Alle',
     notes: 'Notizen',
     notesPlaceholder: 'Allgemeine Notizen …',
+    /** the «+ Feld» tile's label (aria/title) and its word */
     addField: 'Feld hinzufügen',
+    addFieldShort: 'Feld',
     removeField: 'Feld löschen',
-    // ⇄ between the Einsatzleiter glyph's two rows. Says what HAPPENS, not what the button is:
-    // an Ablösung is «übergeben», and both Anwesenheits-Bemerkungen follow the swap by themselves.
-    swapEl: 'Führung übergeben (EL ⇄ Stv.)',
+    // the ⇄ square at the end of the Einsatzleiter glyph's EL row (title/aria). Says what HAPPENS,
+    // not what the button is: an Ablösung is «übergeben», and both Anwesenheits-Bemerkungen follow
+    // the swap by themselves.
+    swapEl: 'Führung übergeben',
     fieldKeyPlaceholder: 'Bezeichnung',
-    fieldValuePlaceholder: 'Wert',
+    /** an empty box (27.09.2026 — it said «Wert»): a person field asks for a name, any other
+     *  repeats its own label ({label}) with an ellipsis */
+    fieldNamePlaceholder: 'Name …',
+    fieldValuePlaceholder: '{label} …',
     // ⚠️ A field whose value needs a UNIT has to say so in the box. «Kapazität: 80» is ambiguous
     // between litres and cubic metres on the one number a Wasserversorgung is planned from —
     // and the placeholder is the cheapest place to settle it, since it costs nothing to ignore.

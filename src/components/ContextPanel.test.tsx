@@ -387,7 +387,7 @@ describe('ContextPanel — Stoff → UN-Nr. (Gas/Chemie substance search)', () =
     entity: { id: 'c1', symbol: 'FW Gefahr C', fields } as SymbolView,
     protectedKeys: new Set(['Stoff', 'UN-Nr.']),
   })
-  const openStoff = () => fireEvent.click(screen.getByRole('button', { name: /Wert/ }))
+  const openStoff = () => fireEvent.click(screen.getByRole('button', { name: /^Stoff …/ }))
 
   it('a common substance is one pick away and fills its UN number', () => {
     const onFields = vi.fn()
@@ -509,7 +509,7 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
     protectedKeys: new Set(['Name', 'Stv.']),
     fieldOptions: { Name: ['Widmer Céline', 'Müller Hans'], 'Stv.': ['Widmer Céline', 'Müller Hans'] },
   })
-  const SWAP = 'Führung übergeben (EL ⇄ Stv.)'
+  const SWAP = appConfig.copy.contextPanel.swapEl
 
   it('labels the rows by the JOB, not by «Name»', () => {
     setup(el({ Name: 'Widmer Céline', 'Stv.': 'Müller Hans' }))
@@ -682,25 +682,33 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
   const O = appConfig.copy.objectDone
   const AT = '2026-09-23T18:40:00.000Z'
 
-  it('offers the action as the first row on a damage symbol, and the delete reads «Entfernen»', () => {
-    const p = setup({ onDone: vi.fn(), doneFirst: true })
-    const row = screen.getAllByRole('button', { name: new RegExp(O.action) })[0]
-    // the first thing in the body — above every property
-    expect(row.closest('.ctx-body')?.firstElementChild).toBe(row)
-    fireEvent.click(row)
+  // slim sweep 27.09.2026 (D8): the press is the foot's middle tile, «Erledigt», on every symbol —
+  // it was a full-width row in the body, first on a damage symbol and last elsewhere. The 3am
+  // walk-through of 25.09.2026 (a reflex tap on the first row greyed a fresh KP Front) holds: the
+  // foot is never the first thing under the finger.
+  it('offers «Erledigt» as a tile in the foot — between «Zentrieren» and the bin — and the delete is the «Entfernen» square', () => {
+    const p = setup({ onDone: vi.fn(), doneFirst: true, onCenter: vi.fn() })
+    const tile = screen.getAllByRole('button', { name: O.action })[0]
+    expect(tile.closest('.ctx-actions')).toBeTruthy()
+    expect(tile.title).toBe(O.actionHint)
+    expect(tile.closest('.ctx-body')?.firstElementChild?.contains(tile)).toBe(false)
+    const foot = tile.closest('.ctx-actions')!
+    expect([...foot.querySelectorAll('button')].map((b) => b.textContent || b.getAttribute('aria-label')))
+      .toEqual([appConfig.copy.contextPanel.center, O.action, appConfig.copy.remove])
+    fireEvent.click(tile)
     expect(p.onDone).toHaveBeenCalledWith(true)
-    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
+    const bin = screen.getAllByRole('button', { name: appConfig.copy.remove })[0]
+    expect(bin.classList.contains('btn-sq')).toBe(true)
+    expect(bin.title).toContain(O.removeHint)
     expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
   })
 
-  // 3am walk-through 25.09.2026: a placed KP Front opens its editor by itself, and a reflex tap on
-  // the first row greyed it. Everything that is not damage or hazard keeps the row near the bottom.
-  it('on any other symbol the row sits at the bottom of the body, right above the footer', () => {
+  it('on any other symbol the tile is the same one, in the same place', () => {
     setup({ onDone: vi.fn(), entity: { id: 'k1', symbol: 'VKF KP Front', label: 'KP Front' } })
-    const row = screen.getAllByRole('button', { name: new RegExp(O.action) })[0]
-    const body = row.closest('.ctx-body')!
-    expect(body.firstElementChild).not.toBe(row)
-    expect(row.nextElementSibling?.classList.contains('ctx-footer-inline')).toBe(true)
+    const tile = screen.getAllByRole('button', { name: O.action })[0]
+    expect(tile.closest('.ctx-actions')).toBeTruthy()
+    // …and no row in the body any more (the phone's inline copy of the foot is not a row)
+    expect(document.querySelector('.de-action.ctx-done')).toBeNull()
   })
 
   it('states a set one — «Gelöscht 20:40 · Wieder aktiv» — and «Wieder aktiv» takes it back', () => {
