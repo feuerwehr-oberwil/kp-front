@@ -81,6 +81,13 @@ export const CATEGORY_LABELS: Record<string, string> = {
   diverse_einsaetze: 'Diverse Einsätze',
 }
 
+/** The Einsatzart's SHORT word for the card's head chip («Brand», «THL») — the admin's tab words,
+ *  which are the one place the station already reads these lists by a short name; an unknown key
+ *  falls back to the stored label. */
+export function categoryShort(key: string): string {
+  return appConfig.copy.admin.lageGrundgeruest.tabShort[key] ?? CATEGORY_LABELS[key] ?? key
+}
+
 /** The category key of an incident's stored `type`, or null when it names none we know. */
 export function categoryKey(type: string | null | undefined): string | null {
   const t = type?.trim()

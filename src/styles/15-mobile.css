@@ -658,19 +658,21 @@
     padding: var(--msg-pad); border: none; border-radius: var(--r-sm);
     background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); }
   .lgg.lgg-phone.lgg-folded { right: auto; max-width: calc(100vw - 16px - var(--fab-safe)); }
-  .lgg-phone .lgg-head { min-height: var(--tap); padding: 0; }
-  .lgg-toggle { min-height: var(--tap); padding: 0 calc(var(--float-pad-x) - var(--msg-pad)); border: none; background: transparent; border-radius: var(--r-msg-in);
-    cursor: pointer; font: inherit; color: inherit; }
-  .lgg-toggle:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+  /* the whole head folds (the header carries the tap; the button inside — glyph + word — is its
+     accessible half, the chip stops the tap for its own door): one press wash over the head */
+  .lgg-phone .lgg-head { min-height: var(--tap); padding: 0 calc(var(--float-pad-x) - var(--msg-pad)) 0 0;
+    border-radius: var(--r-msg-in); cursor: pointer; }
+  .lgg-phone .lgg-head:active { background-image: linear-gradient(var(--press), var(--press)); }
+  .lgg-toggle { min-height: var(--tap); padding: 0 0 0 calc(var(--float-pad-x) - var(--msg-pad)); border: none; background: transparent;
+    border-radius: var(--r-msg-in); cursor: pointer; font: inherit; color: inherit; text-align: left; }
   /* the family's glyph and type: 16px, the compact button's 12.5/700 */
   .lgg-phone .lgg-ic { width: 16px; height: 16px; }
   .lgg-phone .lgg-title { font-size: 12.5px; }
+  /* the ⌄ stands in the head beside the toggle (not inside it): folded it points up, open down */
   .lgg-chev { width: 16px; height: 16px; flex: none; color: var(--ink-dim); transform: rotate(180deg); }
-  .lgg-toggle[aria-expanded="true"] .lgg-chev { transform: none; }
+  .lgg-phone:not(.lgg-folded) .lgg-chev { transform: none; }
   /* the rows inside run parallel to the one corner, --msg-pad in (the message rule, 01-tokens) */
-  .lgg-phone :is(.lgg-add, .lgg-line, .lgg-sug, .lgg-hide) { border-radius: var(--r-msg-in); }
-  .lgg-phone .lgg-hide-row { height: var(--tap); width: 100%; margin-top: 2px; border-top: 1px solid var(--border-soft);
-    border-radius: 0 0 var(--r-msg-in) var(--r-msg-in); }
+  .lgg-phone :is(.lgg-add, .lgg-line, .lgg-sug) { border-radius: var(--r-msg-in); }
   .lgg-phone .lgg-sug { padding-left: 35px; }
 
   /* journal drawer → full-width bottom sheet (was a right-edge column too narrow on a
@@ -1115,6 +1117,11 @@
    which meant closing the phone block early, and that silently re-parented everything below it
    (the whole NavRail → bottom bar section included) into this 359px query. The nav rail then
    stayed a vertical sidebar on every phone. A media query in the middle of a block is a scissor. */
+/* The Grundgerüst strip's head (03-map · .lgg-art): «Einsatzart?» and the count do not both fit
+   a 360px strip beside the word (measured 27.09.2026: 296px of content in a 276px head) — the
+   question is the one that matters, the count comes back once the Einsatzart is set. After the
+   phone block for the reason above. */
+@media (max-width: 374px) { .lgg-phone .lgg-art-ask ~ .lgg-count { display: none; } }
 @media (max-width: 359px) {
   .tb-az-clock { display: none; }
   /* …and a trade of the same shape: below 360px the bar's three gloved 44px actions leave the

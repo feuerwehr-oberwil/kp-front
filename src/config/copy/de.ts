@@ -3577,8 +3577,13 @@ export const de = {
     title: 'Lage-Grundgerüst',
     /** the phone strip's word — the rail entry's word, so the two doors read as one thing */
     short: 'Grundgerüst',
-    /** «2 / 6» — optional rows count in neither half */
-    count: '{done} / {total}',
+    /** «2/6» — optional rows count in neither half; one number, no air (slim sweep 27.09.2026) */
+    count: '{done}/{total}',
+    /** the head's chip while no Einsatzart is known — the Brand list stands in, and the chip asks
+     *  (it replaced the sentence «Einsatzart unbekannt – Grundgerüst Brand», 27.09.2026) */
+    einsatzartUnknown: 'Einsatzart?',
+    /** the chip's title — it opens the Einsatzdaten */
+    einsatzartAria: 'Einsatzart ändern',
     hide: 'ausblenden',
     hideAria: 'Lage-Grundgerüst ausblenden',
     expand: 'Lage-Grundgerüst aufklappen',
@@ -3587,20 +3592,19 @@ export const de = {
     complete: 'Alles gesetzt.',
     /** a known Einsatzart the station gave no list */
     empty: 'Für diese Einsatzart ist kein Grundgerüst eingerichtet.',
-    /** no Einsatzart known — the Brand list stands in (lib/lageGrundgeruest · slotsFor) */
-    fallback: 'Einsatzart unbekannt – Grundgerüst Brand',
     optional: 'optional',
     /** a row whose place tool is armed: the next Karte tap places it */
     armed: 'Auf die Karte tippen',
     armedLine: 'Punkte auf die Karte tippen, mit ✓ abschliessen',
-    placeHere: 'hier setzen',
-    hydrant: 'Hydrant Nr. {nr} · {dist}',
+    /** the suggestion row's tile — one verb; the value beside it says where */
+    placeHere: 'Setzen',
+    hydrant: 'Hydrant {nr} · {dist}',
     hydrantNoNr: 'Nächster Hydrant · {dist}',
     wind: 'Wind {from} · Vorschlag {dir}, {m} m',
     /** where an upwind suggestion lies, by the same eight sectors as `weather.cardinals` */
     directions: ['nördlich', 'nordöstlich', 'östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich'] as string[],
-    /** ticked by an object that exists only on a plan with no Karte fit */
-    toKarte: 'auf die Karte übernehmen',
+    /** ticked by an object that exists only on a plan with no Karte fit — the tile beside «auf dem Plan» */
+    toKarte: 'Übernehmen',
     /** the label a Wasserbezugsort set at a hydrant carries (the layer's own number) */
     hydrantLabel: 'Hydrant {nr}',
     planOnly: 'auf dem Plan',
