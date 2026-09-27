@@ -824,6 +824,25 @@
   .modal-backdrop:not(.confirm-backdrop) { place-items: end center; }
   .sym-modal { width: 100%; max-width: none; height: 92dvh;
     border-radius: var(--r-hero) var(--r-hero) 0 0; }
+  /* FOUR columns, not auto-fill (owner, 27.09.2026: «maybe change the symbol selection to 4
+     columns?»). The tablet's `minmax(94px, 1fr)` gave a 390px phone three 114px cells with the
+     glyph lost in the middle of each; four cells are ~86px at 390 and ~77px at 360 — still
+     nearly twice the tap floor, with a 40px glyph that reads at that size. The label gives
+     instead: 11px, and the part between two seams is what has to fit (lib/symbolWrap —
+     «Beobachtungs-» is 82px at 12px and 75px at 11px), so the seams do the wrapping and
+     `overflow-wrap` is left with only «Dekontaminations-», which no phone width holds whole.
+     ⚠️ TWO lines and an ellipsis on the third. A three-part compound («Angehörigen-sammel-
+     stelle») needs three lines at this width, and a cell that grows past its row put its
+     neighbours' glyphs on different heights; the first component is the one the eye recognises
+     the symbol by (symbolWrap), so it is the last part that goes behind the «…». */
+  .sym-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 4px; }
+  .sym-cell { padding: 10px 1px 8px; }
+  .sym-cell small { font-size: 11px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    line-clamp: 2; overflow: hidden;
+    /* ⚠️ 1.25, not the 1.1 the tablet label keeps: the clamp's `overflow: hidden` cuts whatever
+       stands above the first line box, and at 1.1 that was the dieresis — «Überschwemmung»
+       read «Uber-». */
+    line-height: 1.25; }
 
   /* incident switcher dropdown caps to the viewport so it can't run off the bottom */
   .ip-menu { max-height: calc(100dvh - 80px - env(safe-area-inset-top)); }
