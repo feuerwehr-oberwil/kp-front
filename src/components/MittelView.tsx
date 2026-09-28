@@ -21,6 +21,7 @@ import {
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import s from './Mittel.module.css'
 import { useIsPhone } from '../lib/useIsPhone'
+import { usePageHeadFit } from '../lib/pageHeadFit'
 import c from './SurfaceControls.module.css'
 
 /** What the sheet hands back on every save: the material+unit+source identity plus the new
@@ -327,18 +328,26 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
     </button>
   ) : null
 
+  // ONE ROW (lib/pageHeadFit)
+  const headRef = useRef<HTMLElement>(null)
+  usePageHeadFit(headRef, [lines, captureUsage?.writes, captureUsage?.lastAt].join('|'))
+
   return (
     <>
       {/* opaque backdrop so the Mittel surface reads as its own screen, not a card over the map */}
       <div className={s.backdrop} aria-hidden />
       <div className={s.surface}>
-      <header className={s.head}>
+      <header ref={headRef} className={s.head}>
         <div className={s.headTitles}>
           <h2>{M.title}</h2>
-          <p>{lines ? fillTemplate(M.summary, { lines }) : M.summaryEmpty}</p>
+          <p data-fit-check>{lines ? fillTemplate(M.summary, { lines }) : M.summaryEmpty}</p>
         </div>
         <div className={s.headActions}>
-          <CaptureUsageChip usage={captureUsage} />
+          {/* the poster read-out: a footnote, so the first (and only) thing the head's ladder takes
+              away when the one row runs out (lib/pageHeadFit) */}
+          <span className={s.headQr} data-fold={1}>
+            <span className="fold-long"><CaptureUsageChip usage={captureUsage} /></span>
+          </span>
         </div>
       </header>
 

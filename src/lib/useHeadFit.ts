@@ -48,28 +48,43 @@ export function headCrowded(bar: HTMLElement): boolean {
   return false
 }
 
-/** Collapse step by step until the bar fits; returns the step it stopped at (0 = nothing). */
-export function fitHead(bar: HTMLElement, crowded: (bar: HTMLElement) => boolean = headCrowded): number {
-  for (let i = 1; i <= HEAD_FIT_STEPS.length; i++) bar.classList.remove(`fit-${i}`)
+/**
+ * THE ladder, shared by the top bar and the page heads (lib/pageHeadFit): from nothing collapsed,
+ * one step at a time, until `crowded` says it fits or the steps run out. `apply(step)` puts the
+ * element into that step (0 = nothing collapsed) and must be idempotent — every fit starts again
+ * from 0, so a head that got WIDER gives its words back. Returns the step it stopped at.
+ */
+export function climbLadder(steps: number, apply: (step: number) => void, crowded: () => boolean): number {
   let step = 0
-  while (step < HEAD_FIT_STEPS.length && crowded(bar)) {
-    step++
-    bar.classList.add(`fit-${step}`)
-  }
+  apply(0)
+  while (step < steps && crowded()) apply(++step)
   return step
 }
 
+/** Collapse step by step until the bar fits; returns the step it stopped at (0 = nothing). */
+export function fitHead(bar: HTMLElement, crowded: (bar: HTMLElement) => boolean = headCrowded): number {
+  return climbLadder(HEAD_FIT_STEPS.length, (step) => {
+    for (let i = 1; i <= HEAD_FIT_STEPS.length; i++) bar.classList.toggle(`fit-${i}`, i <= step)
+  }, () => crowded(bar))
+}
+
 /**
- * Keep the bar fitted: whenever what it carries changes (`key`) and whenever the window resizes.
+ * Keep the element fitted: whenever what it carries changes (`key`) and whenever the window resizes.
  * Classes are set on the DOM directly — measuring needs the layout of every step, and a React
  * state per step would render the bar ten times for one answer.
+ * `fit` is the top bar's ladder by default; a page head passes `fitPageHead`. `observeSize` also
+ * refits when the element's own WIDTH changes (a page head narrows when the rail expands or the
+ * Checkliste's picker stands beside it — no window resize says so).
  */
-export function useHeadFit(ref: RefObject<HTMLElement | null>, key: string) {
+export function useHeadFit(
+  ref: RefObject<HTMLElement | null>, key: string,
+  fit: (el: HTMLElement) => unknown = fitHead, observeSize = false,
+) {
   useLayoutEffect(() => {
-    if (ref.current) fitHead(ref.current)
-  }, [ref, key])
+    if (ref.current) fit(ref.current)
+  }, [ref, key, fit])
   useEffect(() => {
-    const on = () => { if (ref.current) fitHead(ref.current) }
+    const on = () => { if (ref.current) fit(ref.current) }
     window.addEventListener('resize', on)
     // fonts arriving late change every width in the bar
     void document.fonts?.ready.then(on)
@@ -77,6 +92,15 @@ export function useHeadFit(ref: RefObject<HTMLElement | null>, key: string) {
     // bar's own renders do not see those. Child lists only — the clock's text ticks every second.
     const mo = typeof MutationObserver === 'undefined' || !ref.current ? null : new MutationObserver(on)
     if (ref.current) mo?.observe(ref.current, { childList: true, subtree: true })
-    return () => { window.removeEventListener('resize', on); mo?.disconnect() }
-  }, [ref])
+    // width only: the ladder's own last step (a second row) changes the HEIGHT, and refitting on
+    // that would be a loop that settles on the same answer every time
+    let width = -1
+    const ro = !observeSize || typeof ResizeObserver === 'undefined' || !ref.current ? null
+      : new ResizeObserver(([e]) => {
+        const w = Math.round(e.contentRect.width)
+        if (w !== width) { width = w; on() }
+      })
+    if (ref.current) ro?.observe(ref.current)
+    return () => { window.removeEventListener('resize', on); mo?.disconnect(); ro?.disconnect() }
+  }, [ref, fit, observeSize])
 }

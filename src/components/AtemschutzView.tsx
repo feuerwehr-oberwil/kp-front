@@ -15,6 +15,7 @@ import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { readingBarShown, truppAuftragLabel, truppEquipmentLabels, truppStatusLabel } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
+import { usePageHeadFit } from '../lib/pageHeadFit'
 import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields, TruppKind, TruppReading } from '../types'
 import { assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
@@ -98,6 +99,13 @@ function plainWords(t: Trupp, lite: boolean) {
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 /** the tier every Trupp has on a CLOSED Einsatz — silent (R3) */
 const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
+
+/** The Trupps head's ladder (lib/pageHeadFit, 28.09.2026): what gives first when the one row runs
+ *  out — the quiet line's time, then the tiles' words, lowest priority first (a way of LOOKING at
+ *  the board before the handover, the handover before the way back to a deleted card, the alarm's
+ *  word before the bell's honest state — the ⚠ and its count stay), then «Trupp anmelden» → «Trupp»,
+ *  and last «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
+const HEAD_FOLD = { saved: 1, order: 2, share: 3, restore: 4, overdue: 5, bell: 6, newTrupp: 7, savedMark: 8 } as const
 
 export function AtemschutzView({
   trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
@@ -1111,16 +1119,19 @@ export function AtemschutzView({
   // two copies that could drift.
   const bellButton = (
     <button
-      className={cx(s.muteBtn, !isPhone && s.wordBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
+      className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
+      data-fold={HEAD_FOLD.bell}
       onClick={audioBlocked ? onUnlockAudio : onToggleMuted}
       aria-pressed={muted}
       aria-label={bellLabel} title={bellLabel}
     >
       <Icon id={muted ? 'bell-off' : 'bell'} />
-      {/* the WORD on a wide head (22.09.2026): three unlabelled squares beside «Trupp anmelden»
-          were a guess for anybody who had not held them. A phone keeps the square — its bar has
-          no room, and the hold-tooltip is the phone's way of asking. */}
-      {!isPhone && <span>{muted ? az.alarmMutedWord : audioBlocked ? az.alarmBlockedWord : az.alarmWord}</span>}
+      {/* the WORD wherever the head has room (22.09.2026; measured since 28.09.2026 — the head's
+          ladder, `HEAD_FOLD`): three unlabelled squares beside «Trupp anmelden» were a guess for
+          anybody who had not held them. Where the row runs out the bell gives it up last of the
+          tiles — it is its honest state — and the hold-tooltip is the way of asking. The focus
+          board keeps the square: its row belongs to the Einsatz name. */}
+      {!focusMode && <span className="fold-long">{muted ? az.alarmMutedWord : audioBlocked ? az.alarmBlockedWord : az.alarmWord}</span>}
     </button>
   )
 
@@ -1147,9 +1158,10 @@ export function AtemschutzView({
    * title's popover trigger, and a <button> may only contain phrasing content. `.az-syncline` is
    * `display: flex`, which a span wears exactly as a div does — the tablet header is unchanged. */
   const syncLine = (syncStatus || skewLoud) && (
-    <span className="az-syncline">
+    <span className="az-syncline" data-fit-check>
       {syncStatus === 'synced' || syncStatus === 'pending' ? (
         <span className={cx('az-sync-quiet', syncStatus === 'pending' && 'az-sync-pending')}
+          data-fold={focusMode ? undefined : `${HEAD_FOLD.saved} ${HEAD_FOLD.savedMark}`}
           title={syncStatus === 'pending' ? cpSync.badgePending : savedAtText}>
           {syncStatus === 'synced' ? <Icon id="check" /> : <span className="ip-status-dot" />}
           {/* ⚠️ On the phone focus board the QUIET state is the mark ALONE — no «18:05» beside
@@ -1162,11 +1174,16 @@ export function AtemschutzView({
               is that this surface says ITSELF whether what it shows is saved; the mark still
               says it, at a glance, and so do the LOUD states below, which keep printing their
               Stand inline because they are the states that rule exists for. */}
-          {/* …and on the phone's full board the word without the time (owner, staging 26.09.2026):
-              beside «+ Trupp» the one-row head leaves ~138px, and «Gespeichert um 14:49» was cut
-              to «Gespeichert um …» — the time lost anyway, the sentence broken. The same rule as
-              the focus board above: the time stands in `title`. */}
-          {!focusMode && <span>{isPhone ? cpSync.saved : savedAtText}</span>}
+          {/* …and on the full board the word loses its time FIRST when the head runs out of room
+              (owner, staging 26.09.2026: «Gespeichert um 14:49» was cut to «Gespeichert um …» —
+              the time lost anyway, the sentence broken). Measured since 28.09.2026: the first rung
+              of the head's ladder (`HEAD_FOLD.saved`); the time stands in `title` either way. */}
+          {!focusMode && (
+            <span>
+              <span className="fold-long">{savedAtText}</span>
+              <span className="fold-short">{cpSync.saved}</span>
+            </span>
+          )}
         </span>
       ) : syncStatus ? (
         <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}
@@ -1228,11 +1245,19 @@ export function AtemschutzView({
     </div>
   )
 
+  // ONE ROW (lib/pageHeadFit): the head folds words — the quiet line's time, the tiles' words,
+  // «Trupp anmelden» → «Trupp» — until it fits, re-measured whenever what it carries changes
+  const headRef = useRef<HTMLElement>(null)
+  usePageHeadFit(headRef, [
+    focusMode, overdueCount > 0 && overdueCount, removedTrupps.length > 0, trupps.length > 1, muted, audioBlocked,
+    shareLinkActive, syncStatus, lastSyncedAt, skewLoud, canEdit,
+  ].join('|'))
+
   return (
     // `az-tafel`: the global hook the Meldeleiste folds itself to one row for, and moves the
     // Tafel below itself on (08-toasts · staging r3)
     <div className={cx(s.surface, lite && s.surfaceLite, frozenAt != null && s.surfaceFrozen, 'az-tafel')} onPointerDownCapture={primeOnFirstTap}>
-      <header className={cx(s.head, focusMode && s.headCompact)}>
+      <header ref={headRef} className={cx(s.head, focusMode && s.headCompact)}>
         <div className={cx(s.headTitles, focusMode && s.headTitlesCompact)}>
           {focusMode ? (
             /* mock 03: the kicker is GONE here — «Atemschutzüberwachung» cost a whole row's
@@ -1247,7 +1272,8 @@ export function AtemschutzView({
                   cut has to be reachable, and the truncated title is the one place anybody would
                   look for it. It opens the same three facts the two-row head used to print in
                   full: Stichwort, Adresse, und ob der Stand gespeichert ist. */}
-              <h2 className={s.headTitleH}>
+              {/* the one title that is SUPPOSED to be cut — its door opens the rest */}
+              <h2 className={s.headTitleH} data-fit-free>
                 <Popover
                   side="bottom" align="start" popupClassName="az-head-detail"
                   ariaLabel={az.headDetailTitle}
@@ -1286,22 +1312,33 @@ export function AtemschutzView({
                   session sees only the Atemschutz, so for it the old title stays TRUE — and it
                   is the one screen whose holder has nothing else telling them what they are
                   looking at. */}
-              <h2>{lite ? az.title : az.boardTitle}</h2>
-              {/* ⚠️ The second line exists only on the handed-over Tafel, and it is the EINSATZ.
-                  Nothing else on that screen names it, and «welcher Einsatz ist das» is the first
-                  question somebody scanning a code from a stranger's tablet has.
-                  In the full app there is no second line: it used to carry a sentence about what
-                  the board is for («Lückenlose Überwachung jedes Atemschutztrupps»), which is a
-                  claim the operator standing at the board has already made — dropped 04.09. */}
-              {lite && <p>{lite.subtitle}</p>}
-              {syncLine}
+              {lite ? (
+                /* the handed-over Tafel: the kicker and the sync state share the quiet top line, the
+                   Einsatz its own below — two lines, like every other head (28.09.2026; it stood three) */
+                <>
+                  <span className={s.liteKicker}><h2>{az.title}</h2>{syncLine}</span>
+                  {/* ⚠️ The second line exists only on the handed-over Tafel, and it is the EINSATZ.
+                      Nothing else on that screen names it, and «welcher Einsatz ist das» is the first
+                      question somebody scanning a code from a stranger's tablet has.
+                      In the full app there is no second line: it used to carry a sentence about what
+                      the board is for («Lückenlose Überwachung jedes Atemschutztrupps»), which is a
+                      claim the operator standing at the board has already made — dropped 04.09. */}
+                  <p title={lite.subtitle}>{lite.subtitle}</p>
+                </>
+              ) : (
+                <>
+                  <h2>{az.boardTitle}</h2>
+                  {syncLine}
+                </>
+              )}
             </>
           )}
         </div>
-        {/* ⚠️ ONE group, not four siblings. `.head` wraps, and as direct children the badge, the
-            sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
-            filter stayed up beside the title while the other two dropped to a second row and
-            left-aligned under it. Grouped, they wrap as a block and stay together. */}
+        {/* ⚠️ ONE group, not four siblings. `.head` used to wrap, and as direct children the badge,
+            the sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
+            filter stayed up beside the title while the other two dropped to a second row. Grouped,
+            they stand as one block at the right end of the one row, and on the ladder's last step
+            (lib/pageHeadFit) they move to the second row together. */}
         <div className={s.headActs}>
         {/* not in focus mode: the red tab and the red card already say it, and the badge cost the
             header a whole extra row on a phone */}
@@ -1314,15 +1351,15 @@ export function AtemschutzView({
           <button
             /* muted (27.09.2026): the same tile in plain grey — the count still counts, the
                head just does not shout a tone it has promised not to play */
-            type="button" className={cx(s.overdueBadge, muted && s.overdueQuiet)}
+            type="button" className={cx(s.overdueBadge, muted && s.overdueQuiet)} data-fold={HEAD_FOLD.overdue}
             aria-live="assertive"
             title={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             onClick={() => setSelfFocus({ id: mostOverdue.id, nonce: Date.now(), markAll: true })}
           >
-            <Icon id="warn" /><span className={s.overdueWord}>{az.overdueBadge(overdueCount)}</span>
-            {/* the phone's crowded head keeps only the number (Atemschutz.module.css) */}
-            <span className={s.overdueShort} aria-hidden="true">{overdueCount}</span>
+            <Icon id="warn" /><span className="fold-long">{az.overdueBadge(overdueCount)}</span>
+            {/* a crowded head keeps the ⚠ and the number (the head's ladder, `HEAD_FOLD`) */}
+            <span className="fold-short" aria-hidden="true">{overdueCount}</span>
           </button>
         )}
         {/* ⚠️ The way back that does not expire. Deleting a Trupp raises a «Rückgängig» toast for six
@@ -1339,8 +1376,8 @@ export function AtemschutzView({
         {canEdit && removedTrupps.length > 0 && (
           <Menu
             trigger={
-              <button type="button" className={cx(s.orderBtn, !isPhone && s.wordBtn)} aria-label={az.restoreMenu} title={az.restoreMenu}>
-                <Icon id="archive" />{!isPhone && <span>{az.restoreMenu}</span>}
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.restore} aria-label={az.restoreMenu} title={az.restoreMenu}>
+                <Icon id="archive" /><span className="fold-long">{az.restoreMenu}</span>
               </button>
             }
             popupClassName="rp-print-menu"
@@ -1384,8 +1421,8 @@ export function AtemschutzView({
         {trupps.length > 1 && onOrder && !lite && !phoneMode && (
           <Menu
             trigger={
-              <button type="button" className={cx(s.orderBtn, !isPhone && s.wordBtn)} aria-label={az.orderLabel} title={az.orderLabel}>
-                <Icon id="filter" />{!isPhone && <span>{az.orderLabel}</span>}
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.order} aria-label={az.orderLabel} title={az.orderLabel}>
+                <Icon id="filter" /><span className="fold-long">{az.orderLabel}</span>
               </button>
             }
             popupClassName="rp-print-menu"
@@ -1413,11 +1450,11 @@ export function AtemschutzView({
         {onShareLink && (
           <button
             type="button"
-            className={cx(s.orderBtn, !isPhone && s.wordBtn, shareLinkActive && s.shareOn)}
+            className={cx(s.orderBtn, shareLinkActive && s.shareOn)} data-fold={HEAD_FOLD.share}
             onClick={onShareLink}
             aria-label={shareLabel} title={shareLabel}
           >
-            <Icon id="qr" />{!isPhone && <span>{az.shareLink}</span>}
+            <Icon id="qr" /><span className="fold-long">{az.shareLink}</span>
           </button>
         )}
         {/* ⚠️ Stays HERE even on the lite/phone focus board (maintainer correction, 03.09.): an
@@ -1427,10 +1464,10 @@ export function AtemschutzView({
         {bellButton}
         {/* in focus mode «+ Trupp» lives in the rail beside the strip — not a second one up here */}
         {canEdit && !focusMode && (
-          <button className={s.newBtn} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
-            {/* the full word on a wide head, the short one on a phone — never a bare «+»
-                (AGENTS.md: every button on the ASÜ board has a word) */}
-            <Icon id="plus-bold" /><span>{isPhone ? az.newTruppShort : az.newTrupp}</span>
+          <button className={s.newBtn} data-fold={HEAD_FOLD.newTrupp} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
+            {/* the full word where it fits, the short one where the head's ladder has run out of
+                everything else — never a bare «+» (AGENTS.md: every button on the ASÜ board has a word) */}
+            <Icon id="plus-bold" /><span className="fold-long">{az.newTrupp}</span><span className="fold-short">{az.newTruppShort}</span>
           </button>
         )}
         </div>

@@ -33,21 +33,44 @@
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
 }
 
-/* THE surface header (tokens · --head-*). Its proportions come from the Rapport head: it is the
-   one that had already worked out both problems — a titles block that takes its own row rather
-   than squeezing, and a summary allowed to wrap — so the others were levelled to it.
-   It WRAPS: nowrap meant the badge and the primary button were squeezed rather than moved, and
-   on a narrow tablet panel the title had nowhere to go. */
+/* THE surface header (tokens · --head-*) — ONE ROW at every width (28.09.2026, owner: «fix the
+   headers, especially the one from the trupps, which occupies way too much vertical space»). The
+   titles block (the <h2> and at most one quiet line under it) on the left, the tiles on the right,
+   centred on each other: `--tap` + `--head-pad-y` above and below — 60px on a phone, 68 above.
+   What does not fit gives up WORDS, measured, never a row (lib/pageHeadFit · usePageHeadFit): the
+   quiet line's time, then each tile's word lowest priority first (the icon stays), then the
+   primary tile's long word — and only as the last resort (≤ 359px, a locale that cannot fit) the
+   tiles take a second row (`data-fit-wrap`, below).
+   ⚠️ It used to WRAP (a 240px titles basis, the tiles on a row of their own once they did not fit
+   beside it): the Trupps head was 190px on the 820 tablet and 121 on a phone, the Checkliste 150,
+   beside 78 on the Anwesenheit — a page that is one tap from the next changed shape with an alarm.
+   ⚠️ The hairline is an INSET shadow, not a border: a border is one more pixel in a height that is
+   the whole point of this rule. */
 :where(.head) {
-  display: flex; align-items: center; gap: var(--head-gap); padding: var(--head-pad); flex-wrap: wrap;
-  background: var(--surface); border-bottom: 1px solid var(--glass-edge);
+  flex: none; display: flex; align-items: center; gap: var(--head-gap); padding: var(--head-pad); flex-wrap: nowrap;
+  min-height: calc(var(--tap) + 2 * var(--head-pad-y));
+  background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge);
 }
-/* A real flex BASIS, not `auto`: the actions are asked to wrap before the title is squeezed to
-   nothing. Without it a head full of controls took its width out of the <h2>, which then painted
-   straight out of its collapsed box. */
-:where(.headTitles) { flex: 1 1 var(--head-titles-min); min-width: 0; }
-/* the control cluster at the right end — levelled to --tap by 20-touch-floors */
-:where(.headActions) { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+/* The titles take what the tiles leave, and their text never wraps — a title that no longer fits
+   is what tells the ladder to take the next step (pageHeadCrowded), and the ellipsis is only the
+   safety net under it. */
+:where(.headTitles) { flex: 1 1 auto; min-width: 0; }
+:where(.headTitles) > :where(h2, p) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the quiet line at 16px: 25px of title + 2 + 16 stays inside the 44px row the tiles set */
+:where(.headTitles) > :where(p, span) { line-height: 16px; }
+/* the tile cluster at the right end — levelled to --tap by 20-touch-floors; one 8px gap between
+   neighbours, the app's one gap (AGENTS.md · the top bar) */
+:where(.headActions) { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-left: auto; }
+/* the step before last: the tiles close up (6px apart; a worded tile 8px inside — the module's
+   tile rule, Atemschutz.module.css / 13-incident.css). The top bar's «gaps» rung. */
+:where(.head[data-fit-tight]) :where(.headActions) { gap: 6px; }
+/* the LAST step of the ladder: the titles take the first row whole, the tiles the second, still
+   at the right end where the thumb already knows them */
+:where(.head[data-fit-wrap]) { flex-wrap: wrap; }
+:where(.head[data-fit-wrap]) > :where(.headTitles) { flex-basis: 100%; }
+/* …where the quiet line may wrap: it is never cut (the Anwesenheit's counts are the reason) */
+:where(.head[data-fit-wrap]) > :where(.headTitles) > :where(p) { white-space: normal; }
+:where(.head[data-fit-wrap]) :where(.headActions) { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
 
 /* Phone (and a short landscape tablet): the surface takes the full width below the floating top
    bar — 78px clears it with a visible gap, at 64px the header sat glued under it — and the

@@ -7,11 +7,15 @@ import { appConfig } from '../config/appConfig'
  *  blue-filled active segment, wrapping for longer sets. Longer lists / the Mannschaft roster keep
  *  the Combo dropdown instead. The caller owns toggle semantics: it decides which value to commit on
  *  click (e.g. a detail field clears when its active option is tapped again). */
-export function Segmented<T extends string | number | boolean>({ options, value, onChange, ariaLabel, explain }: {
+export function Segmented<T extends string | number | boolean>({ options, value, onChange, ariaLabel, explain, tabs }: {
   options: readonly { value: T; label: ReactNode; disabled?: boolean; title?: string }[]
   value: T | undefined
   onChange: (value: T) => void
   ariaLabel?: string
+  /** The options are PAGES of one surface (the phone's docked tab strip, the Anwesenheit's
+   *  readings): the chosen one is «where you are», so it wears the nav's ink pill, not the
+   *  blue choice fill (AGENTS.md · Buttons · Selected, 28.09.2026). */
+  tabs?: boolean
   /**
    * The options carry an EXPLANATION rather than a name, delivered through the app's own bubble —
    * hold on touch, hover on mouse (lib/holdTooltip · `data-holdexplain`). Use it where the segment
@@ -24,7 +28,7 @@ export function Segmented<T extends string | number | boolean>({ options, value,
   explain?: boolean
 }) {
   return (
-    <div className="useg" role="group" aria-label={ariaLabel}>
+    <div className={tabs ? 'useg useg-tabs' : 'useg'} role="group" aria-label={ariaLabel}>
       {options.map((o) => {
         const on = value === o.value
         return (

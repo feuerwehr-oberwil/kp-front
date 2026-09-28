@@ -2,6 +2,8 @@ import { Icon } from '../lib/icons'
 import type { ChecklistTemplate, Item, Phase, TemplateState } from '../lib/checklists'
 import { phaseItems, phaseProgress, templateProgress } from '../lib/checklists'
 import { cx } from '../lib/cx'
+import { useRef } from 'react'
+import { usePageHeadFit } from '../lib/pageHeadFit'
 import { Segmented } from './Segmented'
 import { formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
@@ -157,17 +159,27 @@ export function ChecklistRunner({
 }) {
   const CL = appConfig.copy.checklists
   const overall = templateProgress(template, state)
+  // ONE ROW, like every page head (28.09.2026 — it stood 150px on the 820 tablet: a 21px title, a
+  // subtitle wrapping to two lines, then «0%», the bar and «0/8 erledigt» stacked in a column of
+  // their own). The title and its one quiet line left, the progress right on one line; what does
+  // not fit gives up words (lib/pageHeadFit): «erledigt», then the «%» the bar already draws.
+  const headRef = useRef<HTMLElement>(null)
+  usePageHeadFit(headRef, `${template.id}|${overall.done}|${overall.total}`)
   return (
     <div className={s['cl-runner']}>
-      <header className={s['cl-runner-head']}>
+      <header ref={headRef} className={s['cl-runner-head']}>
         <div className={s['cl-runner-titles']}>
           <h2>{template.title}</h2>
-          {template.subtitle && <p>{template.subtitle}</p>}
+          {/* the quiet line: ONE line, cut where the progress begins — free text of any length,
+              whole in `title` */}
+          {template.subtitle && <p title={template.subtitle}>{template.subtitle}</p>}
         </div>
         <div className={s['cl-overall']}>
-          <span className={s['cl-overall-num']}>{overall.pct}%</span>
+          <span className={s['cl-overall-num']} data-fold={2}><span className="fold-long">{overall.pct}%</span></span>
           <Bar {...overall} />
-          <span className={s['cl-overall-sub']}>{overall.done}/{overall.total} {CL.done}</span>
+          <span className={s['cl-overall-sub']} data-fold={1}>
+            {overall.done}/{overall.total}<span className="fold-long"> {CL.done}</span>
+          </span>
         </div>
       </header>
       {(template.phases ?? []).map((p) => (

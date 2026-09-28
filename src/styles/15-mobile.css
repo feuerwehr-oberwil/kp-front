@@ -133,6 +133,9 @@
      stylesheet and the Rapport never did, so «Einsatzrapport» stood 19px beside «Anwesenheit» at
      17 on two pages that are one tap apart (field report 19.09.2026). */
   :root { --head-title: 800 17px/1.3 var(--body); }
+  /* …and the phone's page head: 8px above and below the 44px tiles (a 60px head), 14px from the
+     card's edge, the one 8px gap between the titles and the tiles (tokens · --head-*, Surface.module.css) */
+  :root { --head-pad-y: 8px; --head-pad-x: 14px; --head-gap: 8px; }
 
   /* ── Phone editing ── the tool rail is ALWAYS there on the drawing surfaces (no edit
      mode): a horizontal bar stacked above the surface bar, so tools and view switching are

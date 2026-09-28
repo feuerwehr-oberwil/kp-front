@@ -1,18 +1,18 @@
 /* Anwesenheit surface — mirrors the Atemschutz surface shell (inset card + head), then a
    dense grid of name buttons. Each button tap-cycles frei → anwesend → gegangen → frei, so
    many crew fit on screen without scrolling and the whole board edits in place. */
-/* geometry + header: the shell every full surface shares (Surface.module.css). This head carries
-   ONE row more than the others (the QR read-out), which is what a surface with more to say is
-   allowed to do — it does not get different metrics for it. */
+/* geometry + header: the shell every full surface shares (Surface.module.css) — ONE row, like
+   every page head (28.09.2026): the QR read-out stood on a row of its own under the counts and is
+   now the first thing in the tiles cluster, the first to step aside when the row runs out
+   (AnwesenheitView · HEAD_FOLD). */
 .surface { composes: shell from './Surface.module.css'; flex-direction: column; }
 .head { composes: head from './Surface.module.css'; }
 /* the counts, under the title inside the titles block — see AnwesenheitView */
 .headSummary { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); color: var(--ink-dim); }
-/* …and the QR read-out under THAT: same idea, one step quieter, and on a row of its own because
-   it answers a different question. Empty until the first poster write, and an empty <p> must not
-   draw a gap. */
-.headQr { flex: 1 0 100%; order: 5; margin: 0; line-height: 1; }
-.headQr:empty { display: none; }
+/* …and the QR read-out at the head of the tiles: a read-out, not a tile, so it is the first thing
+   the ladder takes away (it is still on the Rapport). Empty until the first poster write. */
+.headQr { display: inline-flex; align-items: center; }
+.headQr:not(:has(:global(.capture-usage-chip))) { display: none; }
 .headTitles { composes: headTitles from './Surface.module.css'; }
 .headActions { composes: headActions from './Surface.module.css'; }
 /* ONE height and ONE corner for every control on this line. They had three: the printer button is
@@ -30,16 +30,16 @@
    width. Tablet and desk only: on a phone the same three are the docked strip above the nav bar
    (AnwesenheitView · PhoneTabBar, 27.09.2026) and this slot is not rendered at all. */
 .headTabs { flex: none; order: 2; }
-/* ⚠️ No ellipsis, unlike the Rapport's h2 — that one carries an arbitrary Einsatz name and has
-   to truncate; these three are fixed strings the layout is sized for («Atemschutzüberwachung» is
-   the longest, and --head-titles-min is wide enough for it). A fixed title that truncates is a
-   bug, not a graceful degradation. Font and spacing are the shared spec; wrapping is not. */
+/* ⚠️ A fixed title that truncates is a bug, not a graceful degradation: these are fixed strings,
+   and the head's ladder (lib/pageHeadFit) checks every <h2> — a cut one makes the tiles give up
+   their words, and last the tiles take a second row. The shared ellipsis (Surface.module.css) is
+   only the safety net under it. Font and spacing are the shared spec. */
 .headTitles h2 { margin: 0; font: var(--head-title); color: var(--ink); }
 
 
 .reload {
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  cursor: pointer; min-height: var(--tap);
+  cursor: pointer; min-height: var(--tap); min-width: var(--tap);
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
   border-radius: var(--r-sm); padding: 0 13px; font: 700 12.5px var(--body);
 }
@@ -206,27 +206,14 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* (the full-width inset is the shared shell's — Surface.module.css) */
-  .head { padding: 10px 14px; gap: 10px; align-items: center; }
-  /* keep the counts on a single line so the header stays short (was wrapping to 4 lines and
-     ballooning the header); the action buttons collapse to icons to free the width for it */
-  /* ⚠️ The counts are never cut. «13 anwesend · 2 gegange…» is the one line this panel exists
-     to give at a glance, and an ellipsis through it answers nothing — so they wrap rather than
-     truncate. (They sit under the title inside the titles block now, so the `order` they used to
-     carry as a direct child of `.head` is gone with it.) The QR read-out steps aside on a phone:
-     it is a footnote about the poster being used, which nobody acts on, and it is still on the
-     Rapport. */
-  .headSummary { font-size: 12px; line-height: 1.35; }
-  .headQr { order: 5; }
-  .headActions { gap: 6px; }
-  .reload { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
-  .reloadLabel { display: none; }
-  /* ONE row. The title used to claim a full line of its own and the actions the next one — and
-     until 27.09.2026 the tabs a third, full width. The tabs are the docked strip above the nav bar
-     now (PhoneTabBar), so the head is title + summary | printer + reload, and the list starts
-     another ~60px sooner than it did with the tabs in here. */
-  .head { flex-wrap: wrap; }
-  .headTitles { flex: 1 1 120px; }
-  .headActions { flex: none; }
+  /* The counts are never cut: «13 anwesend · 2 gegange…» answers nothing. They are
+     `data-fit-check` (AnwesenheitView), so a cut line makes the head's ladder fold the tiles'
+     words and, last, give the titles a row of their own where the line may wrap
+     (Surface.module.css · the wrap). ONE row otherwise (27.09.2026 on the phone, every page head
+     since 28.09.2026): the tabs are the docked strip above the nav bar (PhoneTabBar), so the head
+     is title + summary | printer + reload; the reload's word is the ladder's to fold, not a
+     breakpoint's. */
+  .headSummary { font-size: 12px; }
   .horizon { flex: 0 1 auto; gap: 4px; }
   .horizonLabel { display: none; }
   .horizonValue { min-width: 2.6rem; }
