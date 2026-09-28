@@ -682,7 +682,17 @@ to prod.
   `data-holdaction`, or the app-wide hold-tooltip eats its release.
 - **The editor sheets have one control per kind of question** (decided 01.09., same sweep). A
   yes/no property is the `OnOff` Segmented pair (`components/Segmented`) – never a single chip
-  whose text or glyph flips, which said «An» on one row and showed a state on the next. A number
+  whose text or glyph flips, which said «An» on one row and showed a state on the next.
+  That holds app-wide, not only in the editor sheets (28.09.2026): the Einstellungen, the Übung
+  on the Einsatz form and the Kroki's «Folgt der Karte» are `OnOff` rows too, always «Aus | An»
+  in that order (a row's own «Ein | Aus» with «on» on the left reversed the thumb position). A
+  **«none of these»** answer that stands in for a list (Material «Nichts verwendet») is a
+  CHOICE chip: one fixed text, picked = the choice fill, and no «✓» growing into the label. A
+  single option on a sheet is a yes/no too (PersonnelSync «… ausblenden» is an `OnOff` row, not
+  a native checkbox). Only a control that picks ITEMS in a list is multi-select. The
+  head-bar status buttons (bell, share QR, the menu's Standort row) name the state that is TRUE
+  now and are not yes/no properties.
+  A number
   is the shared `Stepper`; where the two surfaces cannot agree on a unit (a Form's size is metres
   on the Karte and a share of the sheet on a Plan) it is `ScaleStepper`, the same chrome handing
   the caller a ×-factor. A one-press action is a `.de-action` row, in the grammar «Verbindung
@@ -1364,6 +1374,69 @@ to prod.
     chips, the Journal's Auftrag/Sofort) fills in that tone, same shape; colour swatches keep
     their ring (their fill is the colour). Never an outline-only «selected», never `--ink` as a
     choice fill (at night it is the primary button's light grey).
+  - *Primary (28.09.2026):* the single action of a surface is `--btn-primary` / `--on-btn-primary`,
+    14px/800 — never `--blue` (blue is «chosen», `--sel`), never `--ink-fill` directly (at night it
+    is a 1.14:1 patch on the sheet), never green. On a surface that is dark in BOTH themes (a
+    tool dock, the Suche card) the primary is the LIGHT fill: `--on-accent-ink` with `--ink-fill`
+    ink (`.wb-dock-go`, `--sx-primary`). The documented green «go» (`.ml-btn.prim.go`, Atemschutz
+    «Eintritt») is a tone, not the primary, and stays.
+  - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
+    (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
+    word (a rare delete may be a square bin, still outlined). Red never fills it (`.btn.warn`,
+    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, Suche `[data-danger]`, `.wb-pa-del`,
+    `.wb-floor-x` all wear it; `.btn.warn-solid` is gone). ✕ only ever closes or clears — a ✕ that
+    deletes is a bug.
+  - *Close:* every sheet/dialog ✕ IS the global `.ip-x` in the TSX (36px, 18px glyph, grey fill);
+    a module class may position it, never restyle it. 44px only beside a 44px search field
+    (Palette, Verlauf search, TruppFinder — `.x:global(.ip-x)`). A dark card keeps its on-ink ✕
+    (`.lc-x`, `.wb-dock-x`).
+  - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
+    its word's width, never a ghost word; the primary takes the rest of the row, same height (on a
+    phone `[role=dialog] .ui-sheet-foot > .ip-btn.primary` flexes). The Suche's EQUAL split is
+    its list's two «+» doors only — a Suche form's cancel is framed and content-wide too.
+  - *Text actions (28.09.2026, owner pick A):* no bare blue word as an action. A verb that ends a
+    row makes the WHOLE row the button — `.row-go` (13-incident): ink text, the verb in
+    `--ink-dim` 12.5/700 + a 16px `chevron`, one press wash, ≥44px, `aria-label` «Verb: row text».
+    A fact that jumps inside a sentence is ink + › (`.kennGo`); anything else is a framed compact
+    button (`.wb-nearby-switch`, `.de-conn-reveal`).
+  - *Fields, titles, eyebrows, warnings — one look each (28.09.2026, owner: «remove what
+    contradicts»).* (1) **Focus** on anything you type into is `--focus-edge` + `--focus-halo`
+    (01-tokens), the `.ip-field` look: a half-blue edge and a soft 3px halo. It is never solid ink,
+    solid blue, a blue wash or an underline. A borderless field draws the edge as an inset ring
+    (`box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo)`). Where a box wraps a bare
+    input (a search pill), the BOX takes it (`:focus-within`) and the input wears nothing. (2) A
+    **sheet or dialog title** is `--sheet-title` (800/17). The page head's `--head-title` (19) is
+    for surfaces, so a sheet never out-shouts the page it opens over. A **field label** is
+    `--field-label` (700/12) in `--ink-dim`, sentence case. (3) An **eyebrow**, the small
+    uppercase label over a section or a menu group, is `font: var(--eyebrow); letter-spacing:
+    var(--eyebrow-track); text-transform: uppercase` in `--ink-faint`. When the colour carries a
+    meaning (the amber Sicherungstrupp head, the red alarm kicker, a head that inherits its tone),
+    it keeps that colour and only takes the type. Badges, state words in a row, brand wordmarks
+    and the Kroki paper facsimile are not eyebrows. (4) A **warning inside a form** is one surface:
+    a rounded `--r-sm` box, ink text 13/700, the leading glyph in the tone (`--red-strong` blocks,
+    `--amber-strong` does not) over a 10% tint of it. It is never a full-width band, never red
+    body text. An action inside it is a compact framed danger outline (12.5/700, the
+    `.ip-btn-danger` border), never 800 and never filled. A press on its sentence is the `--press`
+    wash, never an opacity drop.
+  - *Small roles – one look each (28.09.2026, owner: «remove contradicting UI»).*
+    (1) **Add** is a framed «+ word» button: 1px `--glass-edge`, `--surface`, ink 14/700, `--tap`
+    tall, the one corner — the `.cv-btn-add` look (13-incident). Dashed means «missing», never
+    «add»; the ONE dashed add is «Foto hinzufügen» (`.cv-beilagen-add`, `.report-att-add`,
+    decision D6 — it is the placeholder for a file). Icon-only where a column has no room (the
+    Schichten ＋), still a framed --tap square. Floating over a plan it keeps the glass, not the
+    shape (`.wb-floor-add`). Never a grey disc, a pill or a sub-44 tile.
+    (2) **Count badge**: 16px tall, min-width 16, 11px/800, `--r-xs`, padding 0 4px. Fill is the
+    meaning: ink (`--ink-fill` + `--on-accent-ink`) = a plain count, amber = open, red =
+    missing/alarm — NEVER the station `--accent`, never blue, never a round pill (`.nav-count`
+    in 05-navrail is the reference).
+    (3) **Disabled** = `opacity: var(--disabled)` + `cursor: default` and nothing else — no
+    repainted fill, no colour swap, no `not-allowed`, no inlined number (also not as a `var()`
+    fallback). **Gone** (a person who left, a Trupp raus, a layer off) = `opacity:
+    var(--done-opacity)` only; a strike-through may carry the word, a second dim may not. A
+    read-only control that is NOT unavailable (`opacity: 1` on purpose) says so in a comment.
+    (4) **Tag** (ÜBUNG, a status word): the `.ip-badge` recipe — 10px/700 uppercase .03em,
+    padding 2px 7px, `--r-xs`; ÜBUNG is amber 16% + `--amber-strong` wherever it stands (top bar,
+    lists, the poster's `.cv-badge-exercise` shares the selectors).
 - **Touch vocabulary – one beat, one buzz, one wash.** The primary devices are gloved tablets;
   a new gesture reuses these or it teaches a second language. Any new touch interaction must:
   - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip
