@@ -943,7 +943,9 @@ export const de = {
     categoryLabel: 'Kategorie',
     // Übungen stay fully operable, but do not feed the statistics and are the only ones
     // that can be deleted (Alle Einsätze)
-    exerciseToggle: 'Übung – zählt nicht zur Einsatzstatistik',
+    // an OnOff row since 28.09.2026: the name on the row, the consequence under it
+    exerciseLabel: 'Übung',
+    exerciseSub: 'Zählt nicht zur Einsatzstatistik',
     detailsLabel: 'Meldungstext (optional)',
     // «Hier» moves the Einsatzort to the device's location. On a running Einsatz it always asks
     // first – the form is usually opened in the Magazin to correct an address, and a mis-tap
@@ -3698,8 +3700,6 @@ export const de = {
     symbolCaptionsSub: 'Kennwert unter dem Symbol',
     railLabels: 'Beschriftung der Werkzeugleisten',
     railLabelsSub: 'Wort unter jedem Zeichen in den beiden Leisten',
-    railLabelsOff: 'Aus',
-    railLabelsOn: 'Wörter',
     captionsOff: 'Aus',
     captionsAuto: 'Auto',
     captionsAll: 'Alle',
@@ -3709,19 +3709,13 @@ export const de = {
     // only). Two states — see lib/prefs · offlineAuto for why there is no «nur WLAN» tier.
     offlineAuto: 'Offline-Vorbereitung',
     offlineAutoSub: 'Lädt Karte und Pläne kurz nach dem Öffnen des Einsatzes automatisch herunter',
-    offlineAutoOn: 'Automatisch',
-    offlineAutoOff: 'Nur manuell',
     keepScreenOn: 'Bildschirm eingeschaltet lassen',
     keepScreenOnSub: 'Verhindert das Abdunkeln während des Einsatzes',
-    keepScreenOnOn: 'Ein',
-    keepScreenOnOff: 'Aus',
     // Used to be called «Einsatzleiter-Ansicht»: the mode locks the tactical layer and names no
     // role – Kdt, Fourier and whoever reads along on the beamer use it just the same. The code
     // identifier stays `elView` so stored device settings keep working.
     elView: 'Führungsansicht',
     elViewSub: 'Sperrt die taktische Bearbeitung – Journal & Symbol-Details bleiben verfügbar',
-    elViewOn: 'Ein',
-    elViewOff: 'Aus',
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
     incidentGroup: 'Einsatz',
     contactInterval: 'Atemschutz-Funkkontakt',
@@ -4144,8 +4138,6 @@ export const de = {
     settingsLabel: 'Standort verwenden',
     settingsHint: 'Erlaubt diesem Gerät, deinen Standort zu verwenden. Geteilt wird erst, wenn du es auf der Karte einschaltest.',
     settingsAs: 'Als {name}',
-    settingsOn: 'Erlaubt',
-    settingsOff: 'Aus',
   },
   // Anwesenheit list: live position next to the name. Deliberately neutral – far away is the
   // normal case (Wassertransport), not a warning.
@@ -4325,7 +4317,6 @@ export const de = {
     bis: 'bis',
     mittelCount: '{n} Positionen',
     mittelNone: 'Nichts verwendet',
-    mittelNoneOn: 'Nichts verwendet ✓',
     complete: 'Einsatz abschliessen',
     backToRapport: 'Zurück zum Rapport',
     confirmTitle: 'Einsatz abschliessen',
@@ -4886,12 +4877,10 @@ export const de = {
     // more – which is also why there is nothing left to «übernehmen».
     krokiHead: 'Kroki-Ausschnitt',
     framingHint: 'Karte verschieben und zoomen – gedruckt wird genau dieser Ausschnitt.',
-    framingFit: 'Auf Einsatz zoomen',
     // Until 09.08. the crop did not follow along: picked once at 22:20, printed unchanged at
     // 01:30 — with everything added since then outside it, and nobody saying so.
     framingFollows: 'Folgt der Karte',
     framingFollowOn: 'Der Ausschnitt wächst mit der Karte mit. Verschieben schaltet das ab.',
-    framingFollowOff: 'Ausschnitt an die Karte anpassen – und mitwachsen lassen',
     // An arrow instead of zooming out: what lies outside is usually a Hydrant two streets away,
     // and shrinking half the picture for that costs more than it gains.
     framingOutside: '{n} ausserhalb – antippen zum Anpassen',

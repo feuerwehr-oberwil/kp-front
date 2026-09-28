@@ -21,6 +21,7 @@
 .search { flex: 1 1 240px; display: flex; align-items: center; gap: 8px; min-width: 0;
   border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl); padding: 0 12px; min-height: var(--tap); }
 .search svg { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
+.search:focus-within { border-color: var(--focus-edge); box-shadow: var(--focus-halo); } /* the one field focus, 28.09.2026 */
 .search input { flex: 1 1 auto; min-width: 0; border: none; background: none; outline: none; color: var(--ink); font: 500 15px var(--body); padding: 10px 0; }
 .searchClear { border: none; background: none; cursor: pointer; color: var(--ink-faint); padding: 4px; display: grid; place-items: center; }
 @media (hover: hover) { .searchClear:hover { color: var(--ink); } }

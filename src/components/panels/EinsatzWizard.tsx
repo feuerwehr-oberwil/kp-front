@@ -6,6 +6,7 @@ import { useGeoPosition } from '../../lib/useGeoPosition'
 import { MapPicker } from '../MapPicker'
 import { DateTimeField } from '../TimeField'
 import { Combo } from '../Combo'
+import { OnOff } from '../Segmented'
 import { appConfig } from '../../config/appConfig'
 import { dtLocalValue, dtLocalToIso, fillTemplate } from '../../lib/format'
 import { fmtDistance, haversineM } from '../../lib/geo'
@@ -461,20 +462,14 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           }}
         />
       </div>
-      {/* ⚠️ A toggle CHIP, not a native `<input type="checkbox">` (05.09. fix) — this surface's
-          other controls already keep the house rule of no native form chrome (AGENTS.md · «the
-          editor sheets have one control per kind of question»), and a bare checkbox was the one
-          exception nobody had caught. `aria-pressed` (not `role="checkbox"`): it is a button that
-          DOES something on tap, in the same idiom as the Segmented/`jc-due-chip` toggles
-          elsewhere, not an input inside a form that gets submitted. */}
-      <button
-        type="button" className={`ip-ex-toggle${isExercise ? ' on' : ''}`}
-        aria-pressed={isExercise}
-        onClick={() => setIsExercise((v) => !v)}
-      >
-        <span className="ip-ex-toggle-box" aria-hidden><Icon id="check" /></span>
-        {ix.exerciseToggle}
-      </button>
+      {/* Übung is a yes/no property, so it is the ONE binary idiom – an `OnOff` row, «Aus | An»
+          (28.09.2026). It was a tick-box CHIP (05.09., itself the fix for a native checkbox):
+          a third look for the same question the Einstellungen and every editor sheet ask with
+          the pair. Label left, pair right, like a `.set-row`. */}
+      <div className="ip-onoff-row">
+        <span className="ip-onoff-l">{ix.exerciseLabel}<small>{ix.exerciseSub}</small></span>
+        <OnOff ariaLabel={ix.exerciseLabel} value={isExercise} onChange={setIsExercise} />
+      </div>
       {/* create: free-text Meldungstext stays under the keyword section */}
       {!edit && (
         <label className="ip-field"><span>{ix.detailsLabel}</span>

@@ -270,7 +270,7 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 
 /* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
 .horizon { flex: none; display: flex; align-items: center; gap: 6px; }
-.horizonLabel { font: 700 11px var(--body); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+.horizonLabel { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .horizonValue { min-width: 3.4rem; text-align: center; font: 700 12.5px var(--mono); color: var(--ink); }
 /* «bis 18:01» — at a constant px-per-hour a wider window is pixel-identical, so this is the only
    visible answer to what widening it bought you */

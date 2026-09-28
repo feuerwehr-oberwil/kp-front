@@ -88,34 +88,32 @@
    cannot be aimed — which is the whole point of the activity ticks under it. */
 .kf-panel .kf-at { flex: 1 1 100%; }
 .kf-panel .kf-at-track { max-width: none; }
-/* «Auf Einsatz zoomen» + ± are one cluster at the bar's right end; the Stand slider takes the
+/* «Folgt der Karte» + ± are one cluster at the bar's right end; the Stand slider takes the
    slack. Levelled to --tap like every other control that a gloved hand aims at.
    ⚠️ The cluster is a real element and it may NOT wrap: side by side in the bar, the ± pair
    dropped onto a second line as soon as the row got narrow (a phone, minus the --fab-safe
    column this bar reserves) and the two controls read as two ragged rows at two heights. Inside
-   the cluster the button is the one that gives up width — its label truncates, the ± stay 44px. */
+   the cluster the follow NAME is the one that gives up width — it wraps, the ± stay 44px. */
 .kf-ctl-cluster {
   flex: 1 1 auto; min-width: 0; margin-left: auto;
   display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: nowrap;
 }
-.kf-ctl-fit { flex: 0 1 auto; min-width: 0; min-height: var(--tap); white-space: nowrap; }
-.kf-ctl-fit > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* ⚠️ On a phone the three still share ONE row, and the label still reads in full (20.09.2026).
-   Beside the ± pair and the FAB's column the button has ~150px; at the standard 14px with its
-   glyph «Folgt der Karte» needs ~165, which is where «Folgt der …» came from. A line of its own
-   was tried the same day and read as a control group that had fallen apart. So the button goes
-   to the COMPACT size this row is entitled to (12.5px/700 – AGENTS.md · buttons: dense rows),
-   drops the glyph, which says nothing the word does not, and the gaps close up. Measured:
-   «Auf Einsatz zoomen», the longer of its two labels, fits 248px with the ± pair at 44px. */
+/* «Folgt der Karte» — its name + the `OnOff` pair (28.09.2026; it was one button whose words
+   flipped between the action and the state). The NAME is what gives up width: it may wrap to two
+   lines, the pair and the ± never shrink. Compact type (12.5px/700 – a dense row). */
+.kf-ctl-follow { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.kf-ctl-follow-l { min-width: 0; font: 700 12.5px/1.2 var(--body); color: var(--ink-dim); text-align: right; }
+/* ⚠️ On a phone the pair and the ± still share ONE row (20.09.2026: a line of its own read as a
+   control group that had fallen apart). Beside the ± pair and the FAB's column there are ~150px
+   — the pair fits, its name beside it does not (it broke into three lines of one word). So the
+   name stands OVER the pair, as a field label does over its field, and the ± sit on the pair's
+   baseline. */
 @media (max-width: 600px) {
-  .kf-ctl-cluster { gap: 6px; }
-  .kf-ctl-fit { flex: 1 1 auto; justify-content: center; padding: 0 8px; font-size: 12.5px; gap: 0; }
-  .kf-ctl-fit > .i { display: none; }
+  .kf-ctl-cluster { gap: 6px; align-items: flex-end; }
+  .kf-ctl-follow { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .kf-ctl-follow-l { font: var(--field-label); white-space: nowrap; text-align: left; }
   .kf-zoom { gap: 4px; }
 }
-/* «folgt der Lage» is a MODE, not a press — it stays lit while it is on */
-.kf-ctl-follow { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, transparent);
-  background: color-mix(in srgb, var(--green) 12%, transparent); }
 
 /* Something is placed outside the crop. A pill parked at the frame edge in the direction the
    content lies — it says «there is more, that way» and offers the fit rather than taking it

@@ -191,6 +191,8 @@
 .pp-search { display: flex; align-items: center; height: var(--tap); gap: 10px; margin: 0 20px 12px; padding: 0 6px 0 14px;
   background: var(--fill-soft); border-radius: var(--r-ctl); color: var(--ink-dim); }
 .pp-search .i { width: 19px; height: 19px; flex: none; }
+/* the one field focus on the pill (--focus-*, 28.09.2026), same as the Journal and Symbol search */
+.pp-search:focus-within { background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
 .pp-search input { flex: 1; min-width: 0; align-self: stretch; border: none; background: transparent; outline: none; font-family: var(--body); font-size: 16px; color: var(--ink); padding: 0; }
 .pp-clear { border: none; background: none; border-radius: var(--r-sm); width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; flex: none; }
 .pp-clear .i { width: 15px; height: 15px; }
