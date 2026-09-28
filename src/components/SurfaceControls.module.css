@@ -45,11 +45,7 @@
 .iconBtn svg { width: 16px; height: 16px; }
 /* a filter that is ON must never look like a filter that is off: the list underneath is a SUBSET
    of the whole, and mistaking it for the whole thing is the one costly error here */
-.iconBtnOn {
-  border-color: color-mix(in srgb, var(--blue) 50%, transparent);
-  background: color-mix(in srgb, var(--blue) 14%, transparent);
-  color: var(--blue-strong);
-}
+.iconBtnOn { border-color: var(--sel); background: var(--sel); color: var(--on-sel); }
 @media (hover: hover) {
   .iconBtnOn:hover {
     border-color: color-mix(in srgb, var(--blue) 70%, transparent);

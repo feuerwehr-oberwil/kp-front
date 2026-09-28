@@ -116,7 +116,7 @@
 @media (hover: hover) {
   .useg-btn:hover:not(.on):not(:disabled) { color: var(--ink); }
 }
-.useg-btn.on { background: var(--blue); color: var(--on-fill); box-shadow: 0 1px 2px rgba(20, 40, 80, .22); }
+.useg-btn.on { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 .useg-btn:disabled { opacity: var(--disabled); cursor: default; }
 /* ⚠️ FIVE OR MORE OPTIONS STOP BEING A TRACK. A segmented control is a track with a pill sliding
    in it, and that reading only survives while the options fit on one line. At six — «Überdruck ·
@@ -131,7 +131,9 @@
    38px, so the same control was 6px shorter as chips than as a track — which is why the rank
    filter beside the Anwesenheit search sat lower than the search field it belongs to. The chip
    IS the control here, so it carries the whole tap target. */
-.useg:has(> :nth-child(5)) > .useg-btn { border: 1px solid var(--glass-edge); background: var(--surface); min-height: var(--tap); }
+/* a chip is an option standing on its own: ink, like every other option chip (the track's dim
+   words are dim because the well around them already says «options») */
+.useg:has(> :nth-child(5)) > .useg-btn { border: 1px solid var(--glass-edge); background: var(--surface); min-height: var(--tap); color: var(--ink); }
 @media (hover: hover) {
   .useg:has(> :nth-child(5)) > .useg-btn:hover:not(.on):not(:disabled) { border-color: var(--ink-faint); }
 }
@@ -139,12 +141,11 @@
    `.useg-btn.on`, so the active chip lost the blue fill but KEPT `color: var(--on-fill)` — white
    text on a white chip. The selected Auftrag («Retten», six options, therefore chips) was a blank
    outlined box: the one thing on that form the operator had chosen was the one thing they could
-   not read. So the active chip states its own colours rather than inheriting half of each rule —
-   a blue ring, a blue tint and blue text, which is «selected» without a fill this shape cannot
-   carry. */
+   not read. So the active chip states its own colours rather than inheriting half of each rule.
+   Since 28.09.2026 that is the SAME blue fill as the track's pill (01-tokens · --sel): a ring +
+   tint here and a fill two rows up was one of the four «selected» the Trupp form wore. */
 .useg:has(> :nth-child(5)) > .useg-btn.on {
-  border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue);
-  background: color-mix(in srgb, var(--blue) 12%, var(--surface)); color: var(--blue);
+  border-color: var(--sel); background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow);
 }
 /* press wash BELOW the chip rules: their `background:` shorthand resets background-image at the
    same specificity, so source order is what keeps the wash alive on a chip */
@@ -253,7 +254,7 @@
   .combo-opt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 }
 .combo-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.combo-opt.on { background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue); }
+.combo-opt.on { background: var(--sel-wash); color: var(--blue-strong); }
 /* The Dienstgrad chip, the option's name cell and the sticky search row are the SKINLESS parts
    of this control — identical here and in the Atemschutz copy, so ComboMenu draws them from
    ComboMenu.module.css and neither stylesheet names them any more. */
@@ -279,7 +280,7 @@
 /* ⚠️ --blue, not --accent. `.on` is literally «this one is selected», and --accent is the brand
    red — painting a selection alarm-red is the one thing the token rule forbids, and this control
    sits in a roster where red already means something. */
-.combo-toggle.on { color: var(--ink); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.combo-toggle.on { color: var(--ink); background: var(--sel-wash); }
 .combo-toggle .i { width: 14px; height: 14px; color: var(--blue); }
 .combo-empty { padding: 8px 10px; font-size: 12px; color: var(--ink-faint); }
 .combo-group { list-style: none; }
@@ -358,7 +359,7 @@
   .spread-btn:hover:not(:disabled):not(.on) { background: var(--surface); border-color: var(--border); }
 }
 .spread-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.spread-btn.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+.spread-btn.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
 .spread-btn:disabled { opacity: var(--disabled); cursor: default; }
 
 /* general free-text notes */

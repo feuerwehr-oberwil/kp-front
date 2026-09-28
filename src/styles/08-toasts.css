@@ -737,7 +737,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-presets { display: inline-flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 .draw-editor .de-preset { padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
   font-size: 12px; font-weight: 600; color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; }
-.draw-editor .de-preset.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+.draw-editor .de-preset.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
 /* line-ending glyph picker (plain · arrow · Teilstück fork) uses the shared <Segmented> */
 
 /* shape editor — the tile that previews the picked Form */

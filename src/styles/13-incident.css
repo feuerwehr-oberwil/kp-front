@@ -573,8 +573,7 @@
   .ip-ex-toggle:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--glass-edge)); }
 }
 .ip-ex-toggle:active { background-image: linear-gradient(var(--press), var(--press)); }
-.ip-ex-toggle.on { background: color-mix(in srgb, var(--blue) 12%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 50%, transparent); color: var(--blue-strong); }
+.ip-ex-toggle.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
 /* the box: an empty outline until pressed, then the same tick every other confirm chip draws —
    recognisable as «a checkbox» at a glance without being a checkbox */
 .ip-ex-toggle-box { flex: none; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid currentColor;
@@ -1725,7 +1724,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    and 12px of padding gives «Dai piani» its icon at 360px. */
 .ip-ix-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .ip-ix-methods .ip-btn { justify-content: center; min-width: 0; min-height: var(--tap); padding: 0 12px; white-space: nowrap; }
-.ip-btn.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
+.ip-btn.on { background: var(--sel); color: var(--on-sel); border-color: var(--sel); }
 
 /* address autocomplete */
 .ip-ac { position: relative; }
