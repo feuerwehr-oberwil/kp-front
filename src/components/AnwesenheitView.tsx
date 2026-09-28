@@ -782,7 +782,7 @@ export function AnwesenheitView({
             you are looking at sits where the thumb already is, and the list starts ~60px sooner. */}
         {!empty && planAvailable && !isPhone && (
           <div className={s.headTabs}>
-            <Segmented<AnwesenheitTab> ariaLabel={A.viewLabel} value={view} onChange={pickView}
+            <Segmented<AnwesenheitTab> tabs ariaLabel={A.viewLabel} value={view} onChange={pickView}
               options={viewOptions} />
           </div>
         )}

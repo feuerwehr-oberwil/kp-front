@@ -1663,7 +1663,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   /* the same amber the head's «noch offen» chips carry — one page, one meaning for «offen» */
   .rp-tab-dot { position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%;
     background: var(--amber); }
-  .useg-btn.on .rp-tab-dot { background: var(--on-fill); }
 
   /* One rule per tab: everything carrying a DIFFERENT tab is off screen. Blocks with no
      `data-tab` at all (the fieldset, the columns) are structure and are not addressed here —
