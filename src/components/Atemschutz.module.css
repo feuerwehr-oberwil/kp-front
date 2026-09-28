@@ -7,10 +7,10 @@
 .surface { composes: shell from './Surface.module.css'; flex-direction: column; }
 .head { composes: head from './Surface.module.css'; }
 .headTitles { composes: headTitles from './Surface.module.css'; }
-/* ⚠️ No ellipsis, unlike the Rapport's h2 — that one carries an arbitrary Einsatz name and has
-   to truncate; these three are fixed strings the layout is sized for («Atemschutzüberwachung» is
-   the longest, and --head-titles-min is wide enough for it). A fixed title that truncates is a
-   bug, not a graceful degradation. Font and spacing are the shared spec; wrapping is not. */
+/* ⚠️ A fixed title that truncates is a bug, not a graceful degradation: these are fixed strings,
+   and the head's ladder (lib/pageHeadFit) checks every <h2> — a cut one makes the tiles give up
+   their words, and last the tiles take a second row. The shared ellipsis (Surface.module.css) is
+   only the safety net under it. Font and spacing are the shared spec. */
 .headTitles h2 { margin: 0; font: var(--head-title); color: var(--ink); }
 .headTitles p { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); color: var(--ink-dim); }
 /* ── ONE tile family in the head (27.09.2026, slim sweep item 1) ─────────────────────────────
@@ -43,8 +43,6 @@
   background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 /* the board's arrangement, behind its own icon; the archive menu, the QR and the lite ↶ ↷ wear it too */
 .orderBtn { composes: headTile; }
-/* the same tile with its word beside the glyph — wide heads only (AtemschutzView · isPhone) */
-.wordBtn { width: auto; }
 /* «Überwachung abgeben», while a link IS live. Green = a running, healthy state, the same
    reading the contact clock gives — not an alarm and not the primary action of the header.
    Tokens only, so it survives the day/night flip and a station's own accent. */
@@ -1175,24 +1173,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      FAB's step-back on scroll is for. */
   .body { padding: 14px; padding-bottom: calc(14px + var(--fab-safe, 0px)); }
   .grid { grid-template-columns: 1fr; }
-  /* header: tighter, the title truncates instead of running under the create button, and
-     the button shrinks to an icon-only circle so the two never collide on a narrow screen */
-  .head { padding: 12px 14px; gap: 10px; }
-  .headTitles h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* ⚠️ ONE row of controls (3am test r2, 25.09.2026): «1 Alarm» arriving pushed the last square
-     onto a second row and the whole board dropped ~56px under the finger at the moment the alarm
-     fired. The squares sit 8px apart here (the badge + four 44px squares at the desktop's 16px
-     gaps is 346px, the 360px phone head has 316) and the row never wraps — the 8px is also the
-     one-row head's gap, like the handed-over board's (#231, 25.09.2026). */
-  .headActs { flex-wrap: nowrap; column-gap: 8px; }
-  /* …and the badge is «⚠ n» on EVERY phone head (27.09.2026, slim sweep item 1; it dropped the
-     word only once five controls stood): the ⚠ and the red say «Alarm», the full sentence stays
-     its aria-label, and the row reads as one family of 44px tiles */
-  .overdueBadge .overdueWord { display: none; }
-  .overdueBadge .overdueShort { display: inline; }
-  .overdueBadge { gap: 5px; }
+  /* (the head's phone paddings are the shared tokens — 15-mobile · --head-pad-*) */
 }
-.overdueShort { display: none; }
 
 /* respect reduced-motion: the überfällig signal is carried by colour + the state WORD + the
    badge, so dropping the pulse loses no information for users who opt out of animation */
@@ -1472,63 +1454,36 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .rowListOpen { padding-bottom: var(--az-open-pad, 0px); }
 
 /* The surface header's controls, as one block. They used to be direct children of `.head`, which
-   wraps — so each one wrapped on its own and they scattered across two rows at phone width. As a
-   group they move together and hug the right edge, which is also where they sit on a tablet, so
-   the arrangement does not change identity between devices. */
-.headActs { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end;
-  gap: var(--head-gap); flex: 0 0 auto; margin-left: auto; }
-/* ⚠️ The FULL head's group may shrink to the head's width (staging r3, 820): it never shrank, so on
-   its own row it ran past the surface's edge and «+ Trupp anmelden» was cut in half; allowed to
-   be as wide as the head and no wider, its own `flex-wrap` puts the last button on a second line.
-   NOT the compact head (the handed-over phone board): there the group shares one row with the
-   Einsatz title, and a shrinkable group wrapped ↶ ↷ 🔔 into a column of three (caught in r4). */
-/* ⚠️ …and `min-width: 0` (#232, 3am test 25.09.2026): a group that may not shrink is as wide as
-   all its controls in one line, so its own `flex-wrap` never fired — on the 820px tablet with the
-   «n Alarme» badge up it ran the last button off the card's right edge. Allowed to shrink to the
-   head's width, it wraps inside itself and the last controls drop to a second row, right-aligned. */
-.head:not(.headCompact) .headActs { flex: 0 1 auto; min-width: 0; max-width: 100%; }
-/* …the two rules below meet in ONE row (#231 + #232): the titles ask for no basis and keep 132px,
-   the group asks for its own width and may shrink to the head's. On a 390px phone «Trupps ·
-   Gespeichert um hh:mm» (132px) + QR, bell, «+ Trupp» (8px apart) fit one line; a control more
-   (the overdue badge, «Gelöschte») sends the group to its own row, where it wraps inside itself. */
-/* ONE ROW (25.09.2026) — the handed-over board has had it since 09.09.; the full app still spent a
-   second row on its controls under «Trupps» (phone head 123px → 69px, and the tablet's wrapped too).
-   The titles give up the shared 240px basis and take what the controls leave; 132px is «Trupps»
-   plus the short sync line, so the head only wraps when a control more joins it (the overdue badge,
-   «Gelöschte») — the state that earns the second row. */
-.head:not(.headCompact) .headTitles { flex: 1 1 0; min-width: 132px; }
+   wrapped — so each one wrapped on its own and they scattered across two rows at phone width. As a
+   group they move together and hug the right edge, on every width.
+   ONE ROW with the title (28.09.2026): the shared head never wraps, and what does not fit gives up
+   words (lib/pageHeadFit — the ranks are on the tiles in AtemschutzView). The 27.09. phone shape —
+   the title line, then this row on a line of its own — is GONE: it cost 121px of a phone for a
+   head that fits in 60, and «the ⚠ tile arriving adds a tile, not a row» holds on one row too. */
+.headActs { composes: headActions from './Surface.module.css'; }
+/* the ladder's «close up» step (lib/pageHeadFit): a worded tile 8px inside — still ≥ a tap wide */
+.head[data-fit-tight] .headTile { padding: 0 8px; }
+/* the sync line under the title is ONE line: the quiet state gives its time to the ladder first,
+   and the LOUD one (the switcher's `.ip-offline-chip`, `flex: none` elsewhere) may shrink rather
+   than run under the tiles — its text ellipsizes, which the ladder reads as «does not fit»
+   (`data-fit-check`) and answers with the tiles' words, then the second row */
 .head:not(.headCompact) :global(.az-syncline) { flex-wrap: nowrap; min-width: 0; }
-/* (`flex-shrink` too: the LOUD state is the switcher's `.ip-offline-chip`, which is `flex: none` — at
-   390px beside a worded «+ Trupp» (#232) it kept its full width and ran under the QR square) */
 .head:not(.headCompact) :global(.az-syncline) > * { flex-shrink: 1; min-width: 0; }
 .head:not(.headCompact) :global(.az-syncline) > * > span:last-child {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* ⚠️ ONE SHAPE on the phone, whatever the alarm state (27.09.2026 evening, owner screenshots
-   r2-2 / r2-3). The two rules above let the cluster share the title's row when it fit (QR · bell ·
-   «+ Trupp») and sent it under the title, right-aligned, the moment the ⚠ tile joined — so the
-   head changed shape with the alarm, and «+ Trupp» stood in two places on one evening. The full
-   head on a phone is now the Rapport head's (mockup 1; `.rp-head-actions { flex: 1 1 100% }`
-   since 26.09.2026): the title line, then the tile row on its own line, left-aligned from the
-   title's x, the filled «+ Trupp» last; with fewer tiles the row is simply shorter. The ⚠ tile
-   arriving ADDS a tile to that row instead of a row to the head — which is also what the one-row
-   rule of 25.09.2026 (the phone block above, `flex-wrap: nowrap`) was protecting: the board does
-   not drop under the finger when the alarm fires. The handed-over board's compact head keeps its
-   one line — there the Einsatz title shares the row by design (`.headCompact`, below). The tablet
-   is untouched: there the row fits beside the title.
-   Same three-class weight as the shrink rule above and declared after it, so it wins; the
-   title block then has the first row to itself (its `flex: 1 1 0` fills it). */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  .head:not(.headCompact) .headActs { flex: 1 1 100%; margin-left: 0; justify-content: flex-start; }
-}
 
 /* «Ein Trupp, ein Bildschirm» — the handed-over board on a phone (AtemschutzView · focusMode).
    ⚠️ mock 03 (maintainer correction, 03.09.): the kicker is DROPPED here rather than shrunk —
    the head is just the Einsatz title plus the shrunk sync state, sharing one row with the bell
    (unchanged position — a second correction put it back after an earlier pass moved it to the
-   bottom rail). The tablet «Tafel pur» (lite but not compact) is unaffected and keeps its own
-   two-line kicker/title stack, unchanged. */
+   bottom rail). The tablet «Tafel pur» (lite but not compact) keeps its kicker/title stack — as
+   TWO lines since 28.09.2026 (the page head is one row): the kicker with the sync state beside it,
+   then the Einsatz. It stood three, the sync line on a row of its own under the name. */
 .surfaceLite .headTitles h2 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.surfaceLite .headTitles p { font-size: 17px; font-weight: 800; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.surfaceLite .headTitles p { font-size: 17px; font-weight: 800; line-height: 1.3; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.liteKicker { display: flex; align-items: center; gap: 10px; min-width: 0; line-height: 16px; }
+.liteKicker > h2 { flex: none; white-space: nowrap; }
+.liteKicker > :global(.az-syncline) { margin-top: 0; min-width: 0; }
 /* Tighter than the phone default (`.head { padding: 12px 14px }`) — the compound selector
    (2 classes) beats that single-class rule regardless of source order, so this wins without
    depending on where either happens to sit in the file. Only the head's OWN padding shrinks;
@@ -2169,14 +2124,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 /* its «+» is a button glyph, not the empty state's big grey warning mark above it */
 .empty .emptyAct :global(.i) { width: 16px; height: 16px; margin: 0; color: currentColor; opacity: 1; }
 .empty .emptyAct span { font-size: 14px; }
-/* the head's «+ Trupp» keeps its word on the phone too (it was a bare square; since 27.09.2026
-   it is the head's one filled tile — `.headTile` at the top of the file — on every width) */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  /* …and with its word the head is one button wider: at 360px beside «2 Alarme», the QR and the
-     bell it was cut at the card's edge (reshoot, 25.09.2026). The phone head's controls sit 8px
-     apart — the app's one gap between neighbours (AGENTS.md · the top bar) — so all four fit. */
-  .head:not(.headCompact) .headActs { gap: 8px; }
-}
+/* (the head's «+ Trupp» keeps its word on every width — the ladder only ever SHORTENS it to
+   «+ Trupp», lib/pageHeadFit; it is the head's one filled tile, `.headTile` at the top of the file) */
 
 /* ⚠️ A CLOSED Einsatz (N5, staging 26.09.2026): every clock stands at the close and nothing is
    running. The tiers are already silent there (AtemschutzView · FROZEN_ALARM), but the colours

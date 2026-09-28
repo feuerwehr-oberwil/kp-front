@@ -655,6 +655,16 @@
 }
 .head-tile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .head-tile:disabled { opacity: var(--disabled); cursor: default; }
+/* an icon-only head tile is still a tap wide (the page head's ladder folds a tile to its glyph) */
+.head-tile:not(.sm) { min-width: var(--tap); }
+/* ── fold: what a page head gives up, measured (lib/pageHeadFit) ──────────────────────────────
+   A part that can give wears `data-fold="<rank>"`; the ladder sets `data-folded` on it when its
+   rank's turn comes. Inside it, `.fold-long` shows until then and `.fold-short` after — the word
+   a tile drops (no short: the glyph stays alone), the time the quiet line drops, «Trupp anmelden»
+   → «Trupp». The word is always the tile's aria-label / title too, so the hold-tooltip says it.
+   A part that folds twice (`data-fold="1 8"`) loses its short word too at its second rank and
+   keeps only its glyph — the quiet «✓ Gespeichert» becoming «✓». */
+[data-fold]:not([data-folded]) .fold-short, [data-folded] .fold-long, [data-folded="2"] .fold-short { display: none; }
 
 .ip-note { color: var(--ink-faint); font: 500 13px var(--body); }
 /* ⚠️ THIS RULE DID NOT EXIST. `.ip-hint` is rendered in the Gast dialog (and read as the
@@ -1362,7 +1372,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    page you arrive at from three different places the only one that did not look like the others.
    Same paddings/typography as .head in Anwesenheit.module.css — kept here rather than moved into
    a module because every other class on this surface already lives in app.css. */
-/* ⚠️ The head WRAPS. Four controls plus their gaps want ~756px; on a 1024px iPad in portrait —
+/* (history — superseded 28.09.2026 by the one-row head below) The head WRAPPED. Four controls plus their gaps want ~756px; on a 1024px iPad in portrait —
    a primary orientation — the head has 876px of content box, and the title was handed 104px of
    it. `.rp-head-actions` was `flex: none`, which pins a flex item at its max-content width and
    makes its own `flex-wrap` unreachable: nothing could ever constrain it enough to wrap. So the
@@ -1374,26 +1384,33 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    actions are asked to wrap before the title is squeezed to nothing, the actions may shrink, and
    the head itself may become two rows. A second row costs ~52px of a surface that scrolls; a
    clipped print button costs the paper. */
-/* THE surface header (tokens · --head-*) — the same object as the Anwesenheit, Atemschutz and
-   Mittel heads. This one's proportions became the shared spec: it is the head that had already
-   worked out both problems (a titles block that takes its own row rather than squeezing, and a
-   summary allowed to wrap), so the other three were levelled to it rather than the other way. */
-.rp-head { flex: none; display: flex; align-items: center; gap: var(--head-gap); flex-wrap: wrap;
-  padding: var(--head-pad);
-  background: var(--surface); border-bottom: 1px solid var(--glass-edge); }
-.rp-head-titles { flex: 1 1 var(--head-titles-min); min-width: 0; }
+/* THE surface header (tokens · --head-*) — the same object as the Trupps, Anwesenheit, Material
+   and Checkliste heads (components/Surface.module.css · .head, restated here because every other
+   class on this surface lives in app.css): ONE ROW at every width since 28.09.2026 — the title
+   and its quiet line left, the tiles right. What does not fit gives up words, measured
+   (lib/pageHeadFit · ReportPreflight `RP_FOLD`); a second row (`data-fit-wrap`) is the last
+   resort. The squeeze the old wrap answered is now the ladder's: a cut <h2> or chip count is
+   «does not fit», so the words go before the title is ever squeezed. */
+.rp-head { flex: none; display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap;
+  padding: var(--head-pad); min-height: calc(var(--tap) + 2 * var(--head-pad-y));
+  background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge); }
+.rp-head-titles { flex: 1 1 auto; min-width: 0; }
+.rp-head[data-fit-wrap] { flex-wrap: wrap; }
+.rp-head[data-fit-wrap] > .rp-head-titles { flex-basis: 100%; }
+/* on the second row the chip may give again (its label ellipsizes) — the row is then all there is */
+.rp-head[data-fit-wrap] .rp-head-actions { flex: 0 1 auto; max-width: 100%; }
 /* it truncates, exactly as the line under it always did — an <h2> that does not is an <h2> that
    paints over whatever is beside it */
 .rp-head-titles h2 { margin: 0; font: var(--head-title); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the verdict line — only «alle Angaben erfasst» since 23.09.2026; what is still open is the
    Kontrolle chip's business (ReportPreflight · openInControl) */
-.rp-head-sum { margin: var(--head-sub-gap) 0 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
-  font-size: var(--head-sub); color: var(--ink-dim); min-width: 0; }
+.rp-head-sum { margin: var(--head-sub-gap) 0 0; display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 10px;
+  font-size: var(--head-sub); line-height: 16px; color: var(--ink-dim); min-width: 0; overflow: hidden; }
 .rp-head-done { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .rp-head-done svg { width: 13px; height: 13px; }
-.rp-head-actions { flex: 0 1 auto; min-width: 0; margin-left: auto;
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.rp-head-actions { flex: none; margin-left: auto;
+  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-content: flex-end; }
 /* Each control keeps its own width when the cluster wraps — only the print split may give, and
    it gives by truncating its label, never by dropping its ▾. The readiness chip is NOT allowed
    to become icon-only here: it is the one control on this row that reports a problem, and the
@@ -1425,10 +1442,9 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-split .rp-split-more { flex: none; width: var(--tap); padding: 0; justify-content: center;
   border-top-left-radius: 0; border-bottom-left-radius: 0; }
-/* the phone's word for the main half — «PDF», where the full «Einsatzrapport (PDF)» is the
-   tablet's (.rp-btn-label, hidden ≤1080 below); the doc glyph goes with the long label, so the
-   phone tile is the word and the ▾, as in the mockup, and the busy spinner still takes its place */
-.rp-btn-short { display: none; }
+/* the short word for the main half — «PDF», where the full «Einsatzrapport (PDF)» does not fit
+   (`.fold-short`, lib/pageHeadFit); the doc glyph goes with the long label, so the folded tile is
+   the word and the ▾, as in mockup 2, and the busy spinner still takes its place */
 .rp-print-menu { min-width: 240px; max-width: min(340px, 92vw); padding: var(--bar-pad); border-radius: var(--r-bar);
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — the radius, the hover/press wash and the red row live on `.ui-menu-item` /
@@ -1595,44 +1611,27 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    padding put the content 38px in from each edge — on a 390px screen that is a fifth of the
    screen spent on margin, and the rapport visibly ran narrower than the surface beside it in the
    rail. Anwesenheit's grid is at 14px here, so this is. */
-/* ⚠️ Icons from the two-column breakpoint DOWN, not only on a phone. Three labelled buttons want
-   ~600px, so anywhere below ~1080 the head wrapped them onto a second row — and the surface that
-   is one column below 1080 is exactly the one that has no width to spare. The split is clean:
-   two columns and words, or one column and a toolbar. The naming survives in aria-label/title
-   (see the component); what is dropped is a word the surface's own title already says. Square,
-   so they read as a toolbar rather than as buttons whose text failed to load. */
-@media (max-width: 1080px) {
-  .rp-head-actions .rp-btn-label { display: none; }
-  .rp-head-actions .ip-btn { width: var(--tap); padding: 0; justify-content: center; }
-  /* the PDF half is the one that keeps a WORD on the phone («PDF», mockup 2 — a bare doc glyph
-     beside a ▾ was a control «whose meaning you have to know»), so it is as wide as that word */
-  .rp-head-actions .rp-split .rp-split-main { width: auto; padding: 0 12px; }
-  .rp-head-actions .rp-split .rp-btn-short { display: inline; }
-  .rp-head-actions .rp-split .rp-pdf-glyph { display: none; }
-  /* ⚠️ «Ausdrucken» is a square like its neighbours in EVERY state (owner, staging 26.09.2026). It
-     used to keep its offline reason as a second line and grow to fit it: «Stationsdrucker offline»
-     took two thirds of a phone's row, stood twice as tall as the squares, and squeezed the
-     Kontrolle chip to a clipped ⚠. The relay's dot is now a badge on the printer's corner (amber
-     = offline), and the reason is said where it matters: a press asks «Stationsdrucker offline»
-     before it queues anything (ReportPreflight · startOutput), and it is the button's name. */
-  .rp-head-actions .ip-btn.print-send.offline { flex-direction: row; align-items: center; padding: 0; }
-  .rp-head-actions .print-send-off { display: none; }
-  .rp-head-actions .print-send-main { position: relative; }
-  .rp-head-actions .print-relay-dot { position: absolute; top: -3px; right: -6px; box-shadow: 0 0 0 2px var(--surface); }
-  /* ⚠️ The row no longer WRAPS here (05.09. fix). At this width the archive/print squares and the
-     split pair are fixed, so the only thing that ever grows is the chip with counted text — the
-     Kontrolle chip («4 noch offen · 2 Hinweise»; until 20.09. a second «N offen» menu beside it)
-     — and wrapping used to move the split PDF button (the one with a distinct fill, the one action
-     a glance has to find) onto a second line whenever a count changed. That chip gives: it
-     keeps `flex: none` everywhere else in this row (see above), but here it takes the squeeze and
-     ellipsizes instead of pushing its neighbours down. The archive/print squares and the split
-     pair stay pinned at their exact widths (`flex: none`) so none of them can be squeezed into a
-     clipped icon by the same rule — the surface shell clips overflow, so a control that cannot
-     shrink and cannot wrap would run off the edge instead. */
-  .rp-head-actions { flex-wrap: nowrap; }
-  .rp-head-actions > .rp-state { flex: 1 1 auto; min-width: 0; }
-  .rp-head-actions > .rp-split { flex: none; }
-}
+/* A FOLDED tile is a square (lib/pageHeadFit): the word it gave up survives as aria-label/title,
+   what is dropped is a word the surface's own title already says. Measured since 28.09.2026 — it
+   was «icons below 1080px», which dropped every word on an 820 tablet that had room for two. The
+   PDF half is the one that keeps a WORD when folded («PDF», mockup 2 — a bare doc glyph beside a
+   ▾ was a control «whose meaning you have to know»), so it is as wide as that word. */
+.rp-head-actions .ip-btn[data-folded]:not(.rp-split-main) { width: var(--tap); padding: 0; justify-content: center; }
+/* folded, the chip («⚠ 4») and the PDF half («PDF») sit 10px in: on a 390 phone that is what lets
+   «Rapport» share the one row with all four tiles (it came to 2px short at 12) */
+.rp-head-actions .rp-split .rp-split-main[data-folded], .rp-head-actions .rp-state[data-folded] { padding: 0 10px; }
+/* the ladder's «close up» step: 6px apart, 8px inside */
+.rp-head[data-fit-tight] .rp-head-actions { gap: 6px; }
+.rp-head[data-fit-tight] .rp-head-actions :is(.rp-state, .rp-split-main)[data-folded] { padding: 0 8px; }
+/* ⚠️ «Ausdrucken» is ONE line in every state (owner, staging 26.09.2026). It used to keep its
+   offline reason as a second line and grow to fit it: «Stationsdrucker offline» took two thirds of
+   a phone's row and stood twice as tall as the squares. The relay's dot says it (amber = offline) —
+   beside the glyph while the word stands, as a badge on the printer's corner once the tile is a
+   square — and the reason is said where it matters: a press asks «Stationsdrucker offline» before
+   it queues anything (ReportPreflight · startOutput), and it is the button's name. */
+.rp-head-actions .ip-btn.print-send.offline { flex-direction: row; align-items: center; padding-block: 0; }
+.rp-head-actions .print-send-main { position: relative; }
+.rp-head-actions .print-send[data-folded] .print-relay-dot { position: absolute; top: -3px; right: -6px; box-shadow: 0 0 0 2px var(--surface); }
 /* ⚠️ Rendered on every width, hidden everywhere but the phone — so the tab STATE is always
    there (a resize cannot land on a surface with no tab chosen) while the layout above 600px
    never sees it. Declared BEFORE the media query below, which turns it back on.
@@ -1643,11 +1642,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-tabs { display: none; }
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  .rp-head { padding: 10px 14px; gap: 10px 12px; }
-  /* the actions take their own row WHOLE (owner, staging 26.09.2026): sized to their content and
-     pushed right, the row started ~40px in from the title's edge — the chip gives, so it takes
-     the rest and the row runs edge to edge under the title */
-  .rp-head-actions { flex: 1 1 100%; }
+  /* (the head is one row here too — the paddings are the shared phone tokens, 15-mobile ·
+     --head-pad-*; the 26.09. «actions on their own row, edge to edge» is superseded) */
   .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }
   .report-pre-section { padding: 12px 13px; }
 
