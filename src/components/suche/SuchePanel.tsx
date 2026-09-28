@@ -382,7 +382,7 @@ function PersonCard({ v, where, canEdit, doc, floorName, pick, onShow, actions, 
           beside «Korrigieren …» and withdrew a person in one tap (walk-through 25.09.2026, N7) */}
       {canEdit && v.status !== 'irrtuemlich' && (
         <div className={s.cardFoot}>
-          <button type="button" className={s.btn} data-danger onClick={() => onWhy('irrtuemlich')}>{C.irrtuemlichBtn}</button>
+          <button type="button" className={s.btn} data-danger onClick={() => onWhy('irrtuemlich')}><Icon id="trash" />{C.irrtuemlichBtn}</button>
         </div>
       )}
     </div>
@@ -567,9 +567,9 @@ function Form({ title, children, submit, submitLabel, disabled, onCancel, focusC
         </div>
       </div>
       <div className={s.foot}>
-        <button type="button" className={s.footBtn} onClick={onCancel} autoFocus={focusCancel}>{appConfig.copy.suche.cancel}</button>
+        <button type="button" className={s.footBtn} data-cancel onClick={onCancel} autoFocus={focusCancel}>{appConfig.copy.suche.cancel}</button>
         <button type="button" className={s.footBtn} data-primary={!danger || undefined} data-danger={danger || undefined} disabled={disabled}
-          onClick={() => { if (!disabled) submit() }}>{submitLabel}</button>
+          onClick={() => { if (!disabled) submit() }}>{danger && <Icon id="trash" />}{submitLabel}</button>
       </div>
     </div>
   )

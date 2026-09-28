@@ -527,7 +527,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           modal
           footer={
             <>
-              <button type="button" className="ip-btn ghost" onClick={cancelEmptyGuard}>
+              <button type="button" className="ip-btn" onClick={cancelEmptyGuard}>
                 {appConfig.copy.admin.common2.cancel}
               </button>
               <button type="button" className="ip-btn ip-btn-danger" onClick={() => confirmEmptyGuard(save.doc)}>

@@ -2052,10 +2052,10 @@ describe('the phone Trupp form keeps the due clocks in view (D1 ⑥)', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [inField('f', 'Fresh Fritz', 1)] })
     openCreate()
-    fireEvent.click(screen.getByRole('button', { name: az.luftChange }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${az.luftChange}:`) }))
     fireEvent.pointerDown(screen.getByLabelText(az.funkkanalUp))
     // the ✕ in the head — «not now», like pushing the sheet down
-    fireEvent.click(document.querySelector(`.${s.modalHead} .${s.iconBtn}`)!)
+    fireEvent.click(document.querySelector(`.${s.modalHead} .ip-x`)!)
     expect(screen.queryByRole('dialog', { name: az.formCreateTitle })).toBeNull()
     openCreate()
     expect(document.querySelector(`.${s.luftDefaultsText}`)?.textContent).toContain(fillTemplate(az.stackFunk, { n: dz.defaultFunkkanal + 1 }))
@@ -2211,7 +2211,7 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     mount({ trupps: [], createTrupp })
     fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Tief Theo')
-    fireEvent.click(screen.getByRole('button', { name: az.luftChange }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${az.luftChange}:`) }))
     typePressure(180, az.pressureLabel)
     fireEvent.click(lastBtn(az.start))
     let ask = await screen.findByRole('alertdialog')
@@ -2254,7 +2254,7 @@ describe('review fixes: drafts belong to one state of the Trupp', () => {
     }
     return { ...aktivTrupp(), status: 'raus', exitTime: iso(exitMinAgo * 60_000), readings }
   }
-  const closeForm = () => fireEvent.click(document.querySelector(`.${s.modalHead} .${s.iconBtn}`)!)
+  const closeForm = () => fireEvent.click(document.querySelector(`.${s.modalHead} .ip-x`)!)
 
   it('a «Gleiche Flasche» from an abandoned re-entry is not handed to the next sortie', () => {
     const reactivateTrupp = vi.fn()
@@ -2463,7 +2463,7 @@ describe('staging: the first Druckmeldung says what it does', () => {
     mount({ trupps: [], createTrupp })
     fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Neu Nina')
-    fireEvent.click(screen.getByRole('button', { name: az.luftChange }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${az.luftChange}:`) }))
     fireEvent.pointerDown(screen.getByLabelText(fillTemplate(az.pressureDown, { step: dz.pressureStep })))
     fireEvent.click(lastBtn(az.start))
     expect(createTrupp.mock.calls[0][0].readings).toEqual([expect.objectContaining({ kind: 'registered', measured: true })])

@@ -105,8 +105,11 @@
 .wb-nearby-banner > .i { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
 .wb-nearby-text { flex: 1 1 auto; min-width: 0; }
 .wb-nearby-text b { color: var(--amber-strong); }
-.wb-nearby-switch { flex: none; min-height: 44px; padding: 0 12px; border: none; border-radius: var(--r-msg-in);
-  background: transparent; font: 700 12.5px var(--body); color: var(--blue); cursor: pointer; white-space: nowrap; }
+/* ⚠️ a framed compact button, like every message's own (08-toasts · .ml-btn) — it was a bare
+   blue word (28.09.2026, owner pick A: no bare blue word as an action) */
+.wb-nearby-switch { flex: none; min-height: 44px; padding: 0 13px; border: 1px solid var(--glass-edge); border-radius: var(--r-msg-in);
+  background: var(--surface); font: 700 12.5px var(--body); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.wb-nearby-switch:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-msg-in); cursor: pointer;
   background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); display: grid; place-items: center; }
 .wb-nearby-x .i { width: 16px; height: 16px; }
@@ -344,12 +347,14 @@
   background: var(--label-soft); border-radius: var(--r-xs); padding: var(--wb-floor-plate-pad); user-select: none; -webkit-user-select: none; }
 /* «Geschoss entfernen»: its own --tap square in the tile's top-RIGHT corner, on the label's plate
    colour — the opposite end of the tile from the name and the fold eye (3am test r2, 25.09.2026:
-   an 18px ✕ beside the eye removed a storey for everybody on one stray tap). */
+   an 18px ✕ beside the eye removed a storey for everybody on one stray tap).
+   ⚠️ 28.09.2026: it is a DELETE, so it wears THE delete look (01-tokens · --del-*) and the bin —
+   a grey ✕ said «close» (✕ only ever closes or clears). */
 .wb-floor-x { position: absolute; top: 2px; right: 2px; z-index: 1; width: var(--tap); height: var(--tap);
-  border: none; background: var(--label-soft); color: var(--ink-dim); cursor: pointer;
+  border: 1px solid var(--del-edge); background: var(--surface); color: var(--del-ink); cursor: pointer;
   display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
 @media (hover: hover) {
-  .wb-floor-x:hover { background: var(--fill-soft); color: var(--red); }
+  .wb-floor-x:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 }
 .wb-floor-x:active { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-floor-x .i { width: 16px; height: 16px; stroke-width: 2.2; }
@@ -571,9 +576,11 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 @media (hover: hover) {
   .wb-pa-mark:hover { background: var(--blue); filter: brightness(1.08); }
 }
-.wb-pa-del { background: var(--red); }
+/* ⚠️ the bin was a red FILL (28.09.2026: red never fills an action) — THE delete outline, lifted
+   for the dark bar: the red edge and a light red ink, on the bar's own wash (as the Suche card) */
+.wb-pa-del { color: color-mix(in srgb, var(--red) 60%, #fff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 55%, transparent); }
 @media (hover: hover) {
-  .wb-pa-del:hover { background: var(--red); filter: brightness(1.06); }
+  .wb-pa-del:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 22%, transparent); }
 }
 .wb-pa-edit { background: var(--blue); }
 @media (hover: hover) {
@@ -748,12 +755,16 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 }
 .wb-dock-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-dock-x .i { width: 16px; height: 16px; stroke-width: 2.4; }
-/* confirm action inside the dark dock (e.g. area "Fertig") — green check, enabled
-   only once the action is valid (≥3 area points) */
-.wb-dock-go { width: 38px; height: 34px; display: grid; place-items: center; background: var(--green);
-  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--on-accent-ink); padding: 0; }
+/* confirm action inside the dark dock (e.g. area "Fertig") — enabled only once the action is
+   valid (≥3 area points).
+   ⚠️ 28.09.2026: it was a GREEN fill; the one action of a surface is the primary, never green.
+   The dock is --ink-fill in BOTH themes, so --btn-primary (ink by day) would vanish into it: on a
+   dark surface the primary is the LIGHT fill with dock-ink glyph — the Suche dark card's
+   --sx-primary, same pair (≥ 11:1 day and night). */
+.wb-dock-go { width: 38px; height: 34px; display: grid; place-items: center; background: var(--on-accent-ink);
+  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--ink-fill); padding: 0; }
 @media (hover: hover) {
-  .wb-dock-go:hover:not(:disabled) { filter: brightness(1.08); }
+  .wb-dock-go:hover:not(:disabled) { background: color-mix(in srgb, var(--on-accent-ink) 86%, var(--ink-fill)); }
 }
 .wb-dock-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-dock-go:disabled { opacity: var(--disabled); cursor: default; background: rgba(255, 255, 255, .12); }
@@ -926,6 +937,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   font: 700 24px var(--mono); color: var(--ink); letter-spacing: -.5px; }
 .wb-cal-unit { flex: none; font: 700 14px var(--body); color: var(--ink-dim); }
 .wb-cal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+/* ⚠️ one family (28.09.2026, owner pick A): framed «Abbrechen» at its word's width, the primary
+   takes the rest — it was a ghost `.ip-btn` beside a 12.5px dock `.btn`, two families in one row */
+.wb-cal-actions > .ip-btn { min-height: var(--tap); justify-content: center; }
+.wb-cal-actions > .ip-btn.primary { flex: 1 1 auto; }
 
 /* Plan-Maßstab: trust chip — taps to (re)calibrate. Position comes from `.wb-botleft`, the row it
    shares with the Objekt read-out; clearing the rail is that row's job now, stated once.

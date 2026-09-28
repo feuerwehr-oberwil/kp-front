@@ -28,7 +28,9 @@ describe('OfflineReadinessSheet · Abbrechen', () => {
     render(<OfflineReadinessSheet {...base} onCancel={onCancel} loading progress={{ done: 38, total: 100 }} />)
     expect(screen.getByText('38 %')).toBeTruthy()
     const cancel = screen.getByRole('button', { name: appConfig.copy.offline.cancel })
-    expect(cancel.className).toMatch(/ghost/)
+    // a framed secondary since 28.09.2026 (owner pick A) — never the ghost word, never the primary
+    expect(cancel.className).toMatch(/\bip-btn\b/)
+    expect(cancel.className).not.toMatch(/ghost|primary/)
     fireEvent.click(cancel)
     expect(onCancel).toHaveBeenCalledOnce()
   })

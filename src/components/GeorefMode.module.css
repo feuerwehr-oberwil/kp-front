@@ -428,11 +428,9 @@
 .quality { width: min(92vw, 400px); max-width: 100%; display: grid; gap: 10px; padding: 12px; }
 .qHead { display: flex; align-items: center; gap: 8px;
   font: 700 11px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
-.qX { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center;
-  border: none; background: transparent; color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; }
-@media (hover: hover) { .qX:hover { background: var(--fill-soft); color: var(--ink); } }
-.qX:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.qX svg { width: 15px; height: 15px; }
+/* the ✕ IS the global `.ip-x` (28.09.2026 — it was a 30px bare ✕ with a 15px glyph); this only
+   pushes it to the end of the head */
+.qX { margin-left: auto; flex: none; }
 /* ⚠️ The row WRAPS (18.09.2026). Its left column used to be `nowrap` — written when it held a
    count («3 Paare») — and then grew sentences: «Automatisch ausgerichtet», «Von der Station
    freigegeben». At 15px mono that is ~240px of unbreakable text beside the value column, in a
@@ -613,12 +611,9 @@
 .chooser { display: grid; gap: 8px; width: 320px; max-width: calc(100vw - 24px); padding: 12px 12px 12px 16px; }
 .chooserHeadRow { display: flex; align-items: center; gap: 8px; }
 .chooserHead { flex: 1; min-width: 0; font-size: 14px; }
-.chooserX {
-  flex: none; width: var(--tap); height: var(--tap); border: 0; border-radius: var(--r-sm);
-  background: var(--fill-soft); color: var(--ink-dim); display: grid; place-items: center;
-  cursor: pointer; padding: 0; margin-right: -2px;
-}
-.chooserX svg { width: 15px; height: 15px; }
+/* the ✕ IS the global `.ip-x` (28.09.2026 — a 44px tile with a 15px glyph, beside a title and no
+   search field); this only keeps it out of the row's flex */
+.chooserX { flex: none; margin-right: -2px; }
 /* one way in per row: icon, the verb, and what happens next — an option list, not a form */
 .chooserOpt {
   display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;

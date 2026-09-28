@@ -40,8 +40,8 @@
    this kind of action (see .ip-btn-danger in app.css). It also must not be the loudest thing
    on a card that is mostly a read-out: on the «kommt nicht an» state the honest advice is to
    wait, so a full-bleed red bar was telling people to do the opposite. */
-.danger { background: transparent; color: var(--red); border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); }
-@media (hover: hover) { .danger:hover { background: color-mix(in srgb, var(--red) 10%, transparent); } }
+.danger { background: var(--surface); color: var(--del-ink); border: 1px solid var(--del-edge); } /* THE delete look, 01-tokens */
+@media (hover: hover) { .danger:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); } }
 .danger:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* --- the name picker -------------------------------------------------------------------- */

@@ -9,7 +9,7 @@ export function DemoWelcome({ onClose }: { onClose: () => void }) {
   const C = appConfig.copy.demo.welcome
   return (
     <Overlay open onClose={onClose} className="dw-card" backdropClassName="modal-backdrop dw-scrim" ariaLabel={C.title}>
-        <button className="dw-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+        <button className="ip-x dw-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         <div className="dw-head">
           <span className="dw-badge">{appConfig.copy.demo.ribbon}</span>
           <h2 className="dw-title">{C.title}</h2>

@@ -56,7 +56,7 @@ export function TruppFinder({ trupps, onPick, onClose }: {
           onChange={(e) => { setQ(e.target.value); setCursor(0) }}
           onKeyDown={onKeyDown}
         />
-        <button type="button" className={s.x} onClick={onClose} aria-label={appConfig.copy.closeDialog}>
+        <button type="button" className={`ip-x ${s.x}`} onClick={onClose} aria-label={appConfig.copy.closeDialog}>
           <Icon id="close" />
         </button>
       </div>

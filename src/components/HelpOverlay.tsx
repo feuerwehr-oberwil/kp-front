@@ -152,7 +152,7 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
           <div className="help-head-tt">
             <h2>{C.title}</h2>
           </div>
-          <button className="help-x" onClick={onClose} aria-label={C.close}><Icon id="close" /></button>
+          <button className="ip-x" onClick={onClose} aria-label={C.close}><Icon id="close" /></button>
         </div>
         {/* the search lives in the HEADER, not above the TOC: the TOC is hidden on a phone,
             and that is exactly where someone is standing with one question and no patience */}

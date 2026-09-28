@@ -261,6 +261,14 @@
   --on-sel: var(--on-fill);
   --sel-shadow: 0 1px 2px rgba(20, 40, 80, .22);
   --sel-wash: color-mix(in srgb, var(--blue) 14%, transparent);
+  /* THE delete look (28.09.2026, owner pick A): a destructive action is a red OUTLINE — red ink,
+     a red edge, the surface it stands on — with the bin and the word. Never a red fill: red never
+     fills an action, and a filled red button beside a filled primary read as two primaries. The
+     ink is --red-strong, not --red: #e8392b on white is 3.9:1, too thin for a 14px label. Night
+     follows by itself (--red / --red-strong are re-declared there). */
+  --del-ink: var(--red-strong);
+  --del-edge: color-mix(in srgb, var(--red) 40%, transparent);
+  --del-wash: color-mix(in srgb, var(--red) 10%, transparent);
   /* sticky-note pills (map note + plan text). Day = warm paper yellow; night re-declares
      to a deep amber so the note still reads AS a note on the dark map/board instead of
      glaring as a bright daylight sticky. */

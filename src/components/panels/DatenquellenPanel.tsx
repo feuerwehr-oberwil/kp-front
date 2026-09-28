@@ -170,7 +170,7 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
               <button type="button" className="ip-btn" disabled={!nf || !nLabel.trim() || busy} onClick={() => void addLayer()}>
                 {busy ? ds.adding : ds.add}
               </button>
-              <button type="button" className="ip-btn ghost" disabled={busy} onClick={resetAdd}>{appConfig.copy.cancel}</button>
+              <button type="button" className="ip-btn" disabled={busy} onClick={resetAdd}>{appConfig.copy.cancel}</button>
             </div>
             <div className="ip-ds-note">{ds.geojsonNoteBefore}<code>geo:…</code>{ds.geojsonNoteAfter}</div>
           </div>
