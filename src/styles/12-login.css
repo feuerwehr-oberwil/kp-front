@@ -31,7 +31,8 @@
 .eb-warn { margin: 0; color: var(--ink-faint); font-size: 12.5px; line-height: 1.4; }
 /* «Lokale Kopie verwerfen» while offline: the button disabled, and the REASON under it in the
    warning's register — amber glyph, the sentence beside it, read left to right like prose */
-.eb-actions .ip-btn:disabled { opacity: var(--disabled); cursor: default; background: var(--surface); }
+/* the ONE disabled (28.09.2026): the dim alone — the extra `background: var(--surface)` repainted the fill */
+.eb-actions .ip-btn:disabled { opacity: var(--disabled); cursor: default; }
 .eb-blocked { display: flex; gap: 8px; align-items: flex-start; text-align: left; color: var(--ink-dim); }
 .eb-blocked .i { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--amber-strong); }
 /* SurfaceBoundary — the same card, INSIDE one view. Not the fixed .login cover: it fills the
@@ -150,9 +151,10 @@
 }
 .pin-key-fn .i { width: 22px; height: 22px; color: var(--ink-faint); }
 /* the ✓ — a digit-key body (same 76px target), its mark green once the PIN is long enough
-   to submit. Greying the ICON, not the key: a whole key fading in and out beside the digits
-   read as the pad itself becoming unavailable. */
+   to submit. Dimming the ICON, not the key: a whole key fading in and out beside the digits
+   read as the pad itself becoming unavailable. 28.09.2026: dimmed by the ONE disabled
+   (--disabled), not repainted grey — a colour-only «off» was the last one in the app. */
 .pin-key-ok .i { width: 26px; height: 26px; color: var(--green-strong); }
 .pin-key-ok:disabled { opacity: 1; }
-.pin-key-ok:disabled .i { color: var(--ink-tint); }
+.pin-key-ok:disabled .i { opacity: var(--disabled); }
 .pin-key-spacer { width: 76px; height: 76px; }

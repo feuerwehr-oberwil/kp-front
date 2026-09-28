@@ -87,7 +87,7 @@
 .footBtn :global(.i) { width: 16px; height: 16px; flex: none; }
 .footBtn[data-primary] { background: var(--sx-primary); color: var(--sx-primary-ink); border-color: var(--sx-primary); }
 .footBtn[data-danger] { background: var(--red); color: var(--on-fill); border-color: var(--red); }
-.footBtn:disabled { opacity: var(--disabled, .45); cursor: default; }
+.footBtn:disabled { opacity: var(--disabled); cursor: default; }
 .footBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ── empty: what the card is for, in one sentence ─────────────────────────────────────────────── */
@@ -173,7 +173,7 @@ button.ortMain:active { background-image: linear-gradient(var(--press), var(--pr
 .pen { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center; border: 0; background: none;
   border-radius: var(--r-sm); color: var(--sx-dim); cursor: pointer; }
 .pen :global(.i) { width: 17px; height: 17px; }
-.pen:disabled { opacity: var(--disabled, .45); cursor: default; }
+.pen:disabled { opacity: var(--disabled); cursor: default; }
 .pen:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the place head's ⋯ at the right edge (27.09.2026): the Trupp card's head menu — a 44px square,
    an 18px glyph, no frame; the rows it opens wear the app's one menu skin (.rp-print-menu) */

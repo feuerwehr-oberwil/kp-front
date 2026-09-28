@@ -406,10 +406,13 @@
 /* add-storey control (mirrors the floating zoom) */
 /* add-storey pills positioned like a real building section: OG above the stack, UG below */
 .wb-floor-add { position: absolute; left: 50%; transform: translateX(-50%); z-index: 8;
-  /* a full --tap tall (3am test r3, 25.09.2026: they were 34px); still straddling the edge, by half */
-  display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 5px 14px 5px 11px; border-radius: var(--r-pill);
+  /* a full --tap tall (3am test r3, 25.09.2026: they were 34px); still straddling the edge, by half.
+     28.09.2026: the ONE «add» look (13-incident `.cv-btn-add`) — framed «+ word», the one corner
+     (it was the last --r-pill add), ink, 12.5/700 compact; it keeps the glass because it floats
+     over the plan. */
+  display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 5px 14px 5px 11px; border-radius: var(--r-sm);
   border: 1px solid var(--glass-line); background: var(--glass); box-shadow: var(--shadow-sm);
-  color: var(--ink-dim); font: 700 12px var(--body); line-height: 1; cursor: pointer;
+  color: var(--ink); font: 700 12.5px var(--body); line-height: 1; cursor: pointer;
   user-select: none; -webkit-user-select: none; }
 @media (hover: hover) {
   .wb-floor-add:hover { background: var(--surface); color: var(--ink); }
@@ -491,9 +494,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* selection now reads as a coloured ring (in the team's own colour) + lift */
 .wb-anno.sel .wb-resource-pill { box-shadow: 0 0 0 2px var(--team), 0 6px 16px rgba(30, 45, 70, .28); }
 /* a Trupp marked «raus» (Atemschutz board): dim the chip + strike the name, and show a
-   small grey raus tag so the plan reflects that the team is out */
-.wb-resource-pill.raus { opacity: .5; }
-.wb-resource-pill.raus b { text-decoration: line-through; color: var(--ink-dim); }
+   small grey raus tag so the plan reflects that the team is out. «raus» is GONE, not disabled:
+   the ONE done dim (01-tokens · --done-opacity, 28.09.2026 — it was .5 plus a greyed name) */
+.wb-resource-pill.raus { opacity: var(--done-opacity); }
+.wb-resource-pill.raus b { text-decoration: line-through; }
 .wb-resource-raus { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--ink-dim); background: var(--fill-soft); border-radius: var(--r-xs); padding: 2px 6px; }
 
@@ -648,8 +652,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   border: 2px solid #fff; box-shadow: 0 1px 3px rgba(15, 22, 34, .4); flex: none; }
 .team-dot b { font-size: 11.5px; font-weight: 700; color: var(--ink); background: var(--label-bg);
   border-radius: var(--r-xs); padding: 1px 6px; white-space: nowrap; box-shadow: 0 1px 3px rgba(15, 22, 34, .25); }
-.team-dot.raus { opacity: .5; }
-.team-dot.raus b { text-decoration: line-through; color: var(--ink-dim); }
+.team-dot.raus { opacity: var(--done-opacity); }
+.team-dot.raus b { text-decoration: line-through; }
 .wb-resource-input { border: none; outline: none; background: color-mix(in srgb, var(--blue) 8%, transparent); border-radius: var(--r-xs); font-family: var(--body);
   font-size: 12.5px; font-weight: 700; color: var(--ink); width: 76px; padding: 2px 5px; }
 /* the ✕ that empties the name field — pill-sized (the form's 44px ClearableInput would be
@@ -756,7 +760,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   .wb-dock-go:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .wb-dock-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-dock-go:disabled { opacity: var(--disabled); cursor: default; background: rgba(255, 255, 255, .12); }
+/* the ONE disabled (28.09.2026): the dim alone, no repainted fill */
+.wb-dock-go:disabled { opacity: var(--disabled); cursor: default; }
 .wb-dock-go .i { width: 18px; height: 18px; stroke-width: 2.4; }
 /* (.wb-dock-info / .wb-dock-ibtn / .wb-dock-tip migrated → DockInfo.module.css) */
 /* toggle inside the dock (e.g. "keep placing" lock) — lights up white when engaged */

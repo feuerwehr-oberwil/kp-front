@@ -28,7 +28,7 @@ import {
  *
  * Every row is a record row – index · name · its state as WORDS – and the SELECTED one expands in
  * place into its inspector, so what is being edited stands where it was read. The COLUMN owns
- * everything that is not one floor's business: the dashed row at its foot adds the next storey
+ * everything that is not one floor's business: the add row at its foot adds the next storey
  * BELOW the lowest (which is how a building is read downwards), the kebab in its head holds what
  * concerns the whole list («Wie im PDF», «Umkehren», «Zurücksetzen»), and reordering is the grip.
  *
