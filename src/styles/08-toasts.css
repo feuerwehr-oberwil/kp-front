@@ -21,9 +21,9 @@
   width: min(424px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-hero);
   box-shadow: var(--shadow); padding: 20px 20px 16px; animation: panelIn .16s var(--ease); }
-.dw-x { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; border-radius: var(--r-sm);
-  border: none; background: var(--fill-soft); color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; }
-.dw-x .i { width: 16px; height: 16px; }
+/* the ✕ IS the global `.ip-x` (28.09.2026 — it was a 44px copy with a 16px glyph); this only
+   pins it to the card's corner */
+.dw-x { position: absolute; top: 12px; right: 12px; }
 .dw-head { display: flex; align-items: center; gap: 10px; margin: 0 40px 10px 0; }
 .dw-badge { flex: none; background: var(--amber); color: var(--on-fill); font-size: 10px; font-weight: 800;
   letter-spacing: 1.5px; padding: 3px 8px; border-radius: var(--r-pill); }
@@ -461,10 +461,8 @@
 @media (hover: hover) {
   .btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 }
-.btn.warn-solid { background: var(--red); border-color: var(--red); color: var(--on-fill); }
-@media (hover: hover) {
-  .btn.warn-solid:hover { background: var(--red-solid-hover); border-color: var(--red-solid-hover); }
-}
+/* (.btn.warn-solid — a red-FILLED button — removed 28.09.2026: no caller, and red never fills an
+   action; a delete is the outline, 06-contextpanel · .btn.warn) */
 
 
 /* ⚠️ The in-workspace splash stands in for the MAP, not for the app. It used to be a

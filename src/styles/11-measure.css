@@ -202,7 +202,13 @@
 .draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
 .draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 6px; font-size: 12px; color: var(--ink-dim); }
 .draw-editor .de-conn-note.warn { color: var(--red); font-weight: 600; }
-.draw-editor .de-conn-reveal { color: var(--blue); font-family: inherit; font-size: 12px; font-weight: 600; text-decoration: underline; }
+/* ⚠️ a framed compact button at the note's end (28.09.2026, owner pick A) — it was an underlined
+   blue word, 12px, a hyperlink in a command app */
+.draw-editor .de-conn-reveal { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
+  font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.draw-editor .de-conn-reveal:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (pointer: coarse) { .draw-editor .de-conn-reveal { min-height: var(--tap); } }
 /* also a row: the 28px height and the 2px/4px margins made the last line of the panel sit tighter
    than everything above it, and its text started 4px in from the left edge the labels hold. */
 .draw-editor .de-conn-detach { display: inline-flex; align-items: center; margin: 0; min-height: 48px; padding: 2px 0;

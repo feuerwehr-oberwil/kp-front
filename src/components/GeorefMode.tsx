@@ -548,7 +548,7 @@ export function GeorefLinkChooser({ busyStep, onAuto, onManual, onClose }: {
       <div className={s.chooserHeadRow}>
         {/* ONE title: while the matcher runs, what the card IS is the running alignment */}
         <strong className={s.chooserHead}>{busyStep ? C.autoBusy : C.linkTitle}</strong>
-        <button type="button" className={s.chooserX} onClick={onClose} aria-label={C.closeMode} title={C.closeMode}>
+        <button type="button" className={`ip-x ${s.chooserX}`} onClick={onClose} aria-label={C.closeMode} title={C.closeMode}>
           <Icon id="close" />
         </button>
       </div>

@@ -47,7 +47,7 @@
   --sx-field: var(--surface); --sx-chip: var(--surface); --sx-btn: var(--surface); --sx-btn-ink: var(--ink);
   --sx-on: var(--sel); --sx-on-ink: var(--on-sel);
   --sx-primary: var(--btn-primary); --sx-primary-ink: var(--on-btn-primary);
-  --sx-red: var(--red-strong); --sx-green: var(--green-strong); --sx-blue: var(--blue-strong); --sx-amber: var(--amber-strong);
+  --sx-red: var(--red-strong); --sx-del-edge: var(--del-edge); --sx-green: var(--green-strong); --sx-blue: var(--blue-strong); --sx-amber: var(--amber-strong);
   --sx-red-wash: color-mix(in srgb, var(--red) 10%, transparent);
   --sx-green-wash: color-mix(in srgb, var(--green) 12%, transparent);
   display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; height: 100%; color: var(--sx-ink); }
@@ -59,7 +59,7 @@
      was the card's primary button's look */
   --sx-on: var(--sel); --sx-on-ink: var(--on-sel);
   --sx-primary: var(--on-accent-ink); --sx-primary-ink: var(--ink-fill);
-  --sx-red: color-mix(in srgb, var(--red) 60%, #fff); --sx-green: color-mix(in srgb, var(--green) 62%, #fff);
+  --sx-red: color-mix(in srgb, var(--red) 60%, #fff); --sx-del-edge: color-mix(in srgb, var(--red) 55%, transparent); --sx-green: color-mix(in srgb, var(--green) 62%, #fff);
   --sx-blue: color-mix(in srgb, var(--blue) 55%, #fff); --sx-amber: color-mix(in srgb, var(--amber) 70%, #fff);
   --sx-red-wash: color-mix(in srgb, var(--red) 24%, transparent);
   --sx-green-wash: color-mix(in srgb, var(--green) 20%, transparent);
@@ -86,7 +86,13 @@
 .panel:not(.card .panel) .footBtn { border-color: var(--sx-edge); }
 .footBtn :global(.i) { width: 16px; height: 16px; flex: none; }
 .footBtn[data-primary] { background: var(--sx-primary); color: var(--sx-primary-ink); border-color: var(--sx-primary); }
-.footBtn[data-danger] { background: var(--red); color: var(--on-fill); border-color: var(--red); }
+/* ⚠️ THE delete look (28.09.2026, owner pick A): red outline on the button's own surface, never
+   a red fill — «Streichen» was the one red slab in the app */
+.footBtn[data-danger], .card .footBtn[data-danger] { background: var(--sx-btn); color: var(--sx-red); border-color: var(--sx-del-edge); }
+/* ⚠️ a FORM's foot is not the two doors above (28.09.2026, owner pick A): «Abbrechen» is framed —
+   on the dark card too, where a door wears no edge — and stays at its word's width; the answer
+   takes the rest of the row. The EQUAL split is the list's two «+» doors only. */
+.footBtn[data-cancel], .card .footBtn[data-cancel] { flex: 0 0 auto; padding: 0 16px; border-color: var(--sx-edge); }
 .footBtn:disabled { opacity: var(--disabled); cursor: default; }
 .footBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
@@ -211,7 +217,7 @@ button.ortMain:active { background-image: linear-gradient(var(--press), var(--pr
   border-radius: var(--r-sm); background: var(--sx-btn); color: var(--sx-btn-ink); font: 700 13.5px var(--body); cursor: pointer; }
 .btn :global(.i) { width: 16px; height: 16px; flex: none; }
 .btn[data-primary] { background: var(--sx-primary); color: var(--sx-primary-ink); border-color: var(--sx-primary); }
-.btn[data-danger] { color: var(--sx-red); border-color: color-mix(in srgb, var(--red) 45%, transparent); background: none; }
+.btn[data-danger] { color: var(--sx-red); border-color: var(--sx-del-edge); background: var(--sx-btn); }
 .btn:active { background-image: linear-gradient(var(--press), var(--press)); }
 .history { list-style: none; margin: 4px 0 0; padding: 10px 0 0; border-top: 1px solid var(--sx-line);
   display: flex; flex-direction: column; gap: 6px; font: 500 12.5px var(--body); color: var(--sx-dim); }

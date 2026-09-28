@@ -88,7 +88,7 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
     <div className={s.quality}>
       <div className={s.qHead}>
         <span>{C.qualityTitle}</span>
-        <button className={s.qX} onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+        <button className={`ip-x ${s.qX}`} onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className={s.qSummary}>
         {/* the value column stays SHORT — «· 1 Punkt» in the head plus «ungemessen» beside it

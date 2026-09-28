@@ -210,9 +210,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .wx-pop-row dd { margin: 0; font: 700 12.5px var(--body); color: var(--ink); text-align: right; }
 .wx-pop-link { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; margin-top: 14px;
   padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--fill-soft);
-  color: var(--blue); font: 700 12.5px var(--body); cursor: pointer; }
+  color: var(--ink); font: 700 12.5px var(--body); cursor: pointer; } /* ink, not blue: 28.09.2026 — blue means «chosen» */
 @media (hover: hover) {
-  .wx-pop-link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
+  .wx-pop-link:hover { background: var(--hover-strong); }
 }
 .wx-pop-link:active { background-image: linear-gradient(var(--press), var(--press)); }
 .wx-pop-link svg { width: 16px; height: 16px; }
@@ -959,10 +959,12 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 /* a due time that has already gone by would fire the moment it is saved — said in words, in red,
    and «Übernehmen» is disabled until the day or the time moves */
 .jc-exact-preview.is-past { color: var(--red); font-family: var(--body); font-size: 13px; }
-.jc-exact-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* ⚠️ owner pick A (28.09.2026): the framed «Abbrechen» at its word's width, «Übernehmen» takes
+   the rest (they were two equal halves, the cancel a dim word on the glass) */
+.jc-exact-actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
 .jc-exact-cancel, .jc-exact-ok { display: flex; align-items: center; justify-content: center; gap: 7px;
   height: var(--tap); border-radius: var(--r-sm); font: 700 14px var(--body); cursor: pointer; font-family: inherit; }
-.jc-exact-cancel { border: 1px solid var(--glass-edge); background: var(--surface-2); color: var(--ink-dim); }
+.jc-exact-cancel { padding: 0 16px; border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink); }
 .jc-exact-ok { font-weight: 800; }
 /* the primary fill, never --blue: blue is a CHOSEN answer (01-tokens · --sel) since 28.09.2026 */
 .jc-exact-ok { border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); }
@@ -1010,7 +1012,8 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .ig-why { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }
 .ig-install { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px;
   border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm);
-  font: 650 15px var(--body); cursor: pointer; }
+  font: 800 14px var(--body); cursor: pointer; } /* 28.09.2026: 650/15 was a 13th combo — the single action is 14/800, the
+  50px height is what makes it the card's main one */
 @media (hover: hover) {
   .ig-install:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 }

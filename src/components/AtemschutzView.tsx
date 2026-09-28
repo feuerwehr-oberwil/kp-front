@@ -1722,7 +1722,7 @@ export function AtemschutzView({
         return (
         <Overlay open onClose={() => setPlacePick(null)} className={cx(s.modal, s.placeModal)} ariaLabel={az.placeWhere}>
           <div className={s.modalHead}><h3>{az.placeWhere}</h3>
-            <button className={s.iconBtn} aria-label={az.cancel} onClick={() => setPlacePick(null)}><Icon id="close" /></button>
+            <button className="ip-x" aria-label={az.cancel} onClick={() => setPlacePick(null)}><Icon id="close" /></button>
           </div>
           <div className={s.placeOpts}>
             {placeTargets.map((tgt) => (
@@ -1799,7 +1799,7 @@ function PressureSheet({ title, hint, last, alarmBar, onPick, onClose, footer }:
   return (
     <Overlay open onClose={onClose} className={cx(s.modal, s.pressureSheet)} ariaLabel={title}>
       <div className={s.modalHead}><h3>{title}</h3>
-        <button className={s.iconBtn} aria-label={az.cancel} onClick={onClose}><Icon id="close" /></button>
+        <button className="ip-x" aria-label={az.cancel} onClick={onClose}><Icon id="close" /></button>
       </div>
       {hint && <p className={s.pressureSheetHint}>{hint} · {fillTemplate(az.pressureSheetLast, { bar: last })}</p>}
       <div className={s.pressureGrid}>
@@ -3822,11 +3822,13 @@ function TruppForm({
     </>
   ) : (
     <div ref={pressureRef} className={s.luftDefaults}>
-      <span className={s.luftDefaultsText}>
-        {luftIsDefault ? fillTemplate(az.luftDefaults, { v: luftValue }) : luftValue}
-      </span>
-      <button type="button" className={s.luftDefaultsChange} onClick={() => setDefaultsOpen(true)}>
-        {az.luftChange}
+      {/* the whole row is the button (13-incident · .row-go): the values, then «Ändern ›» */}
+      <button type="button" className="row-go" onClick={() => setDefaultsOpen(true)}
+        aria-label={`${az.luftChange}: ${luftIsDefault ? fillTemplate(az.luftDefaults, { v: luftValue }) : luftValue}`}>
+        <span className={cx('row-go-text', s.luftDefaultsText)}>
+          {luftIsDefault ? fillTemplate(az.luftDefaults, { v: luftValue }) : luftValue}
+        </span>
+        <span className="row-go-word">{az.luftChange}<Icon id="chevron" /></span>
       </button>
     </div>
   )
@@ -3939,7 +3941,7 @@ function TruppForm({
     <>
       <div className={s.modalHead}>
         <h3>{title}</h3>
-        <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
+        <button className="ip-x" aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
       </div>
       <div className={s.modalBody}>
         {stack ? (
@@ -4008,7 +4010,7 @@ function TruppForm({
         {/* the house button family — three private classes here were the last of this modal's
             own design system (see Atemschutz.module.css · .modal) */}
         {/* the ONLY control that throws the draft away — ✕ and the backdrop keep it */}
-        <button className="ip-btn ghost" onClick={() => { dropDraft(); onCancel() }}>{az.cancel}</button>
+        <button className={cx('ip-btn', s.footCancel)} onClick={() => { dropDraft(); onCancel() }}>{az.cancel}</button>
         {/* Re-deploy forks here: a re-equipped Trupp is just as often held back as
             Sicherungstrupp as it is sent straight in. Both buttons take the same filled-in form,
             so the choice costs nothing — and «Bereitstellen» is the one that must NOT start a
