@@ -108,8 +108,10 @@
    (AtemschutzView · `sectioned`), so an ordinary Einsatz never pays a heading for a distinction
    it does not make. */
 .sect { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
-.sectTitle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800;
-  letter-spacing: .07em; text-transform: uppercase; color: var(--ink-dim); }
+.sectTitle {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .sectTitle :global(.i) { width: 15px; height: 15px; color: var(--ink-faint); }
 .sectCount { font: 800 11px var(--mono); color: var(--ink-faint); background: var(--fill-soft, rgba(0, 0, 0, .045));
   border-radius: 999px; padding: 2px 8px; }
@@ -596,7 +598,7 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    frame is sized to a tablet. The chrome pays for that line, not the fields. 800/17 keeps the
    app-wide heading cut (a lighter weight reads as a different typeface, not a smaller heading). */
 .modalHead { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 20px 6px; }
-.modalHead h3 { margin: 0; flex: 1 1 auto; font: 800 17px var(--body); color: var(--ink); }
+.modalHead h3 { margin: 0; flex: 1 1 auto; font: var(--sheet-title); color: var(--ink); }
 
 /* two columns (Trupp · Druck + Weitere Angaben) so the create form fits without scrolling on a
    tablet; warnings span the full width. Collapses to one column on a phone, in the order that
@@ -735,49 +737,51 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .placeOptCap { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px;
   vertical-align: baseline; }
 
-/* ⚠️ `flex-direction: row` is not the default here, it is a CORRECTION. The Zuteilungs-Warnung is
-   the one element wearing `.formColWide` AND this class (AtemschutzView · assignedConflict), and
-   `.formColWide` is a flex COLUMN — so without this the ⚠️ sat centred ABOVE its sentence instead
-   of beside it, which reads as a heading rather than as a warning about the line under it. */
-/* ⚠️ …and it is a BUTTON since 05.09. (it opens the Mannschaft, which is the only place the
-   double assignment can be undone), so it also has to un-inherit the button chrome the browser
-   gives it: no border, the row's own text-align, the app's press wash. `--tap` because it is now
-   a real target under a glove. */
-.formWarn { margin: 0; display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--red-strong);
-  background: color-mix(in srgb, var(--red) 9%, transparent); border-radius: var(--r-ctl); padding: 10px 12px;
-  border: 0; width: 100%; min-height: var(--tap); text-align: left; font-family: var(--body); }
-.formWarn :global(.i) { width: 16px; height: 16px; flex: none; }
+/* ── ONE warning surface on the Trupp form (28.09.2026) ───────────────────────────────────
+   The conflict row inside the form (`.formWarn`) and the «why the save did not happen» line
+   over the footer (`.formBlocked`) can stand on screen together, and they wore two recipes: a
+   rounded red tint with red text, and a full-width band with a red hairline — two kinds of
+   warning to the eye where there is one. Both are now the rounded box, because it is the one
+   that belongs to a phone sheet: it sits in the form's own 20px gutter and the one corner like
+   every field around it, where the band read as a second footer on top of the real one. The
+   tone is the LEADING GLYPH's colour over a light tint of it (the message family's rule,
+   08-toasts · «ONE message surface»); the sentence is ink, so a red paragraph no longer has to
+   be read at 3am. `--warn-tone` / `--warn-glyph` switch it; amber = «not blocking» (.formHint). */
+.formWarn, .formBlocked { --warn-tone: var(--red); --warn-glyph: var(--red-strong);
+  margin: 0; display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 10px 12px; min-height: var(--tap);
+  border: 0; border-radius: var(--r-sm); background: color-mix(in srgb, var(--warn-tone) 10%, transparent);
+  font: 700 13px var(--body); color: var(--ink); text-align: left; }
+.formWarn :global(.i), .formBlocked :global(.i) { width: 16px; height: 16px; flex: none; color: var(--warn-glyph); }
+/* ⚠️ `flex-direction: row` above is a CORRECTION, not the default: the Zuteilungs-Warnung is the
+   one element wearing `.formColWide` AND this class (AtemschutzView · assignedConflict), and
+   `.formColWide` is a flex COLUMN — without it the ⚠️ sat centred ABOVE its sentence. */
+.formWarn { width: 100%; }
 /* ⚠️ The warn field is a FIELD again (11.09.), not one big button: it now holds two actions —
    the sentence, which still jumps to the Mannschaft (05.09.), and «In diesen Trupp verschieben»,
    which is the fix itself. A button inside a button is not markup a browser will render, so the
    two live side by side inside it and the wrapper keeps only the look. The sentence takes the
    room that is left so the action button never drifts away from the right edge. */
 .formWarnText { flex: 1 1 auto; min-width: 0; align-self: stretch; margin: 0; padding: 0; border: 0;
-  background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.formWarnText:active { opacity: .65; }
-/* …and the action, in the warning's own red rather than the form's ink: it is the one thing on
-   this row that CHANGES something, and it has to read as belonging to the sentence beside it. */
-.formWarnAct { flex: none; min-height: 36px; padding: 6px 12px; border-radius: var(--r-ctl);
-  border: 1.5px solid color-mix(in srgb, var(--red) 42%, transparent);
-  background: color-mix(in srgb, var(--red) 14%, var(--surface));
-  font: 800 12.5px var(--body); color: var(--red-strong); cursor: pointer; }
+  border-radius: var(--r-xs); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+/* the app's press wash (28.09.2026) — an opacity drop was the one press on this form that looked
+   like the text fading out rather than like a tap landing */
+.formWarnText:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* …and the action: a COMPACT framed button (12.5/700 – a dense row) in the danger outline, the
+   warning's own red, since it is the one thing on this row that CHANGES something. Framed, not
+   filled – red never fills an action. It was 800, the weight kept for a surface's single action. */
+.formWarnAct { flex: none; min-height: 36px; padding: 0 12px; border-radius: var(--r-sm);
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); background: var(--surface);
+  font: 700 12.5px var(--body); color: var(--red); cursor: pointer; }
 .formWarnAct:active { background-image: linear-gradient(var(--press), var(--press)); }
-@media (hover: hover) { .formWarnAct:hover { background: color-mix(in srgb, var(--red) 22%, var(--surface)); } }
+/* the `.ip-btn-danger` outline and hover (13-incident.css), at the compact size */
+@media (hover: hover) { .formWarnAct:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); } }
 /* «Auftrag fehlt.» and friends — the reason the save did not happen, snug above the actions it
    is about (05.09.). It used to be a toast, i.e. a pill floating in the sheet's own empty space
-   AND eating the taps of whatever field it happened to cover (see TruppForm · `blocked`). Full
-   width, on the footer's own hairline, so it reads as part of the footer rather than as a
-   fourth thing on the form. */
-.formBlocked { margin: 0; flex: none; display: flex; align-items: center; gap: 8px;
-  padding: 8px 20px; font-size: 13px; font-weight: 700; color: var(--red-strong);
-  background: color-mix(in srgb, var(--red) 10%, var(--glass));
-  border-top: 1px solid color-mix(in srgb, var(--red) 28%, transparent); }
-.formBlocked :global(.i) { width: 16px; height: 16px; flex: none; }
-/* the non-blocking variant: the Auftrag is missing, the save still goes through
-   (⚠️ not .formWarn – that is the rounded conflict row inside the form) */
-.formHint { color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 12%, var(--glass));
-  border-top-color: color-mix(in srgb, var(--amber) 32%, transparent); }
+   AND eating the taps of whatever field it happened to cover (see TruppForm · `blocked`). The
+   last row before the footer, inset by the body's own gutter. */
+.formBlocked { flex: none; margin: 0 20px 10px; }
+/* the non-blocking variant: the Auftrag is missing, the save still goes through */
+.formHint { --warn-tone: var(--amber); --warn-glyph: var(--amber-strong); }
 .field { display: flex; flex-direction: column; gap: 5px; }
 /* flash-ring: the module-local copy of ui-flash-ring — see the .cardFlash comment below */
 .formFlash { border-radius: var(--r-ctl); animation: flash-ring 1.9s ease-out 1; }
@@ -786,7 +790,7 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 }
 /* a labelled field that CONTAINS the flexing Trupp block passes the room through */
 .formCol > .field:has(> .team) { flex: 1 1 0; min-height: 0; }
-.field > span { font-size: 12px; font-weight: 700; color: var(--ink-dim); }
+.field > span { font: var(--field-label); color: var(--ink-dim); }
 /* what an older Trupp record had typed in the free-text Leitung field, shown as entered — the
    record is never rewritten, so the Überwacher can still read what they wrote */
 .fieldNote { margin: 0; font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
@@ -834,7 +838,9 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .slotRemove:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .field input { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 11px 12px;
   background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink); outline: none; }
-.field input:focus { border-color: var(--ink); }
+/* the app's ONE field focus (01-tokens · --focus-*, 28.09.2026) — it was a solid ink edge, the
+   only form in the app that did not answer «where am I typing» in blue */
+.field input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* Auftrag picker uses the shared <Segmented>, but with gloved-size tap targets in the wizard
    (the canonical .useg-btn is 34px; here we keep the ≥46px 2-up grid the wizard had). */
 .field :global(.useg) { display: flex; flex-wrap: wrap; width: 100%; }
@@ -1123,10 +1129,14 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .teamSearch :global(.i) { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
 /* «Trupp erstellen» with nobody in it yet: the one field that has to be answered first says so,
    in the focus ring's own colour – it is where the form starts, with or without the keyboard */
-.teamSearchWant { border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent); }
+.teamSearchWant { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 .teamSearchWant :global(.i) { color: var(--blue); }
 .teamSearch input { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
   font-family: var(--body); font-size: 15px; color: var(--ink); padding: 0; }
+/* the BOX is the field, so the box wears the one field focus (--focus-*, 28.09.2026) and the bare
+   input inside it does not — `.field input:focus` would ring it a second time */
+.teamSearch:focus-within { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
+.teamSearch input:focus { box-shadow: none; }
 .teamSearchClear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
   background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
 @media (hover: hover) { .teamSearchClear:hover { background: var(--fill-soft); color: var(--ink); } }
@@ -1252,6 +1262,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .modalStack:global(.is-kb) .modalHead { padding-bottom: 2px; }
   .modalStack:global(.is-kb) .modalBody { padding: 2px 14px 8px; }
   .modalStack:global(.is-kb) .modalFoot { padding: 8px 14px; }
+  .modalStack:global(.is-kb) .formBlocked { margin: 0 14px 8px; } /* the body's keyboard gutter */
   /* `.stack`'s first child is ALWAYS the Mannschaft block (AtemschutzView · TruppForm renders
      `teamFields` first, on every mode) — everything after it is «Art des Trupps», Auftrag/Ziel/
      Leitung and the folded Standard row. The `assignedConflict` warning and the `blocked` line
@@ -1516,7 +1527,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    (unchanged position — a second correction put it back after an earlier pass moved it to the
    bottom rail). The tablet «Tafel pur» (lite but not compact) is unaffected and keeps its own
    two-line kicker/title stack, unchanged. */
-.surfaceLite .headTitles h2 { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.surfaceLite .headTitles h2 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .surfaceLite .headTitles p { font-size: 17px; font-weight: 800; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Tighter than the phone default (`.head { padding: 12px 14px }`) — the compound selector
    (2 classes) beats that single-class rule regardless of source order, so this wins without

@@ -1481,7 +1481,7 @@ export function IncidentWorkspace({
   // browser tab's cache is evicted too readily to call it «bereit». Re-armed when what there is
   // to warm changes (another Objekt's plans, a new Leitungs-Ebene), so a plan attached mid-
   // incident still gets pulled; the signature keeps one warm per state, not one per minute.
-  // «Nur manuell» (device pref) switches all of this off; the button always stays.
+  // Offline-Vorbereitung «Aus» (device pref) switches all of this off; the button always stays.
   // …and re-armed when the operator grows the offline radius (29.08.): the readiness probe
   // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
   // «nicht geladen» forever. Centre and raster-reference ids are explicit too: a corrected

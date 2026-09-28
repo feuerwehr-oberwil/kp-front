@@ -258,7 +258,7 @@
 .sheet { max-width: 460px; }
 .field { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 /* Sora — a label, not a figure (see Anwesenheit.module.css · .sheetLabel) */
-.fieldLabel { font: 700 11px var(--body); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+.fieldLabel { font: var(--field-label); color: var(--ink-dim); } /* the one field label (28.09.2026; was an uppercase eyebrow) */
 .text {
   min-height: var(--tap); padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink); font: 600 15px var(--body);
@@ -354,7 +354,7 @@
 
 /* what the answer will cut, named before the press */
 .splitBox { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--r-ctl); background: var(--fill-soft); }
-.splitBox h4 { margin: 0 0 6px; font: 700 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase; }
+.splitBox h4 { margin: 0 0 6px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .splitItem + .splitItem { margin-top: 8px; }
 .splitItem > b { font: 700 13px var(--mono); color: var(--ink); }
 /* the bar. Each piece keeps enough width for the clock reading that hangs under its left edge;

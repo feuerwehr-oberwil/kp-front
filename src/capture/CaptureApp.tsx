@@ -1121,12 +1121,16 @@ export default function CaptureApp() {
               {/* «Nichts verwendet» — the same tick the tablet's Rapport carries (lib/abschluss ·
                   stepDone). Without it the Material chip in the «noch offen» list could not be
                   cleared from this page at all: an Einsatz where nothing was used is a legitimate
-                  rapport, but only once somebody has SAID so. */}
+                  rapport, but only once somebody has SAID so.
+                  A CHOICE, not a yes/no switch (28.09.2026): it is the «none of these» answer to
+                  the list under it and goes away with the first line, so it keeps ONE text and
+                  shows «picked» by its fill – it used to grow a «✓» into its label, a chip whose
+                  words flipped (AGENTS.md · one control per kind of question). */}
               {lines.length === 0 && (
                 <button type="button" className={`cv-none${rm?.mittelConfirmedNone ? ' on' : ''}`} disabled={busy}
                   aria-pressed={!!rm?.mittelConfirmedNone}
                   onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: !rm?.mittelConfirmedNone } }).then((ok) => { if (ok) savedToast() }) }}>
-                  {rm?.mittelConfirmedNone ? AB.mittelNoneOn : AB.mittelNone}
+                  {AB.mittelNone}
                 </button>
               )}
               {shownGroups.map(([cat, items]) => (

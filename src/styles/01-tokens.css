@@ -228,6 +228,12 @@
   /* the titles block yields to the tools down to here, then takes a row of its own instead of
      squeezing a summary into a column too narrow to read it */
   --head-titles-min: 240px;
+  /* THE title of a SHEET or dialog (28.09.2026) — one step under the page's --head-title, so a
+     sheet never out-shouts the surface it opens over. It was 19 on .ip-head and the confirm, 17 on
+     the Trupp sheets, 16 in the Suche, 15 on the Uhrzeit dialog, 18 on the Hilfe. Field labels
+     inside it: --field-label in --ink-dim, sentence case (uppercase is the eyebrow's, below). */
+  --sheet-title: 800 17px var(--body);
+  --field-label: 700 12px var(--body);
   /* THE dimming for a disabled control. It was six different numbers (.34–.6) across ~40 rules:
      at .35 a label is unreadable in daylight on a tablet, so you cannot see which action is
      coming back; at .55 it still looks tappable and you press it. .45 is the one that reads as
@@ -276,6 +282,20 @@
   /* VKF hazard-placard yellow (Gefahrentafel) — a fixed doctrinal semaphore colour,
      intentionally the same in both themes so the placard reads true */
   --hazard-yellow: #d4b106;
+  /* THE focus of a text field (28.09.2026) — the `.ip-field` look, everywhere a caret goes: the
+     edge turns half-blue and a soft 3px halo rings it. The Trupp form went solid ink, the
+     ContextPanel solid blue or a blue wash, the sheet title a blue underline — four answers to
+     «which field am I typing in». A borderless field draws the edge as an inset ring:
+     `box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo)`. Night follows --blue. */
+  --focus-edge: color-mix(in srgb, var(--blue) 50%, transparent);
+  --focus-halo: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent);
+  /* THE eyebrow — the small uppercase label over a section (28.09.2026). It came in 11/700,
+     12/800, 10.5/700 and .04–.1em of tracking across the sheets. Colour --ink-faint; where the
+     colour CARRIES a meaning (the amber Sicherungstrupp head, a red/amber state head) that colour
+     stays and only the type follows. `font: var(--eyebrow); letter-spacing: var(--eyebrow-track);
+     text-transform: uppercase`. */
+  --eyebrow: 700 11px/1.3 var(--body);
+  --eyebrow-track: .06em;
 }
 
 /* ---------------------------------------------------------------------------

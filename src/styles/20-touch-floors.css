@@ -8,8 +8,8 @@
   .ip-objrow { min-height: var(--tap); }
   .ip-loc-clear { width: var(--tap); height: var(--tap); display: grid; place-items: center; }
   .ip-ix-methods .ip-btn { min-height: var(--tap); }
-  /* .ip-ex-toggle (the «Übung» chip) already carries `min-height: var(--tap)` unconditionally
-     (13-incident.css) — it is a real button now, not a native checkbox with a ~16px hit box. */
+  /* the «Übung» row is an `OnOff` pair (28.09.2026) — `.useg` is tap-tall unconditionally,
+     so it needs no floor here (it was a native checkbox with a ~16px hit box once). */
 }
 
 /* ---- Rapport: the gloved floor ------------------------------------------------------------

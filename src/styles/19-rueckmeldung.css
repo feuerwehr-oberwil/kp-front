@@ -11,7 +11,7 @@
 .ip-emptyapp-card .fb-prompt { margin-bottom: 18px; }
 .fb-prompt-head { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); }
 .fb-prompt-head svg { width: 15px; height: 15px; flex: none; }
-.fb-prompt-kicker { font: 700 11px var(--body); text-transform: uppercase; letter-spacing: .06em; }
+.fb-prompt-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .fb-prompt-what { font: 600 11px var(--body); color: var(--ink-faint); margin-left: auto;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* `p.fb-prompt-q`, not `.fb-prompt-q`: this card mounts inside `.ip-emptyapp-card`, whose
@@ -30,8 +30,9 @@ p.fb-prompt-q { margin: 0; font: 600 14px var(--body); color: var(--ink); }
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
   color: var(--ink); font: 400 14px var(--body); }
 /* --blue, not --accent: focus is a system signal, not brand. A station whose accent is its own
-   red would otherwise ring this one field in the danger colour. */
-.fb-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+   red would otherwise ring this one field in the danger colour. Since 28.09.2026 it is the app's
+   one field focus (--focus-*) instead of a 2px outline of its own. */
+.fb-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* Character count, shown only in the last tenth before the server's cap. Tabular so it doesn't
    jitter while typing. */
 .fb-count { margin: -6px 0 0; text-align: right; font: 400 12px var(--body);

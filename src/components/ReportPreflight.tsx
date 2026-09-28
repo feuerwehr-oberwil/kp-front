@@ -2260,12 +2260,15 @@ export function ReportPreflight({
               )}
               {mittelCount === 0 && onComplete && (
                 <div className="rp-check-extra">
+                  {/* the «none of these» CHOICE, same as the QR-Bogen's (28.09.2026): one text,
+                      picked = the choice fill. It was a primary button whose label grew a «✓». */}
                   <button
                     type="button"
-                    className={`ip-btn${meta.mittelConfirmedNone ? ' primary' : ''}`}
+                    className={`ip-btn${meta.mittelConfirmedNone ? ' on' : ''}`}
+                    aria-pressed={!!meta.mittelConfirmedNone}
                     onClick={() => persist({ mittelConfirmedNone: !meta.mittelConfirmedNone })}
                   >
-                    {meta.mittelConfirmedNone ? A.mittelNoneOn : A.mittelNone}
+                    {A.mittelNone}
                   </button>
                 </div>
               )}

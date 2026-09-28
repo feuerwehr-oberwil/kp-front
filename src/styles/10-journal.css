@@ -416,6 +416,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .journal-search input { flex: 1; min-width: 0; border: none; background: transparent; outline: none;
   font: 600 14px var(--body); color: var(--ink); }
 .journal-search input::placeholder { color: var(--ink-faint); }
+/* the pill IS the field: it wears the one field focus (--focus-*, 28.09.2026) around the glyph
+   and the input together — the input's own outline is off, so it had no focus look at all */
+.journal-search:focus-within { background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
 /* the live «2 von 42» — read at a glance, never wrapped */
 .journal-search-count { flex: none; font: 700 12px var(--body); color: var(--ink-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* ⚠️ …and beside the 44px field it is 44px too (20.09.2026): at its 28px it hung beside the pill
@@ -627,8 +630,10 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    40-letter street name has to break somewhere, and that is what it is for. */
 .jr-text { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
 /* calendar-day separator: the Verlauf can span days (Hochwasser) or weeks (Nachträge) */
-.jr-day-sep { display: flex; align-items: center; gap: 10px; margin: 10px 2px 4px; font-size: 11px;
-  font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
+.jr-day-sep {
+  display: flex; align-items: center; gap: 10px; margin: 10px 2px 4px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .jr-day-sep::before, .jr-day-sep::after { content: ''; flex: 1; height: 1px; background: var(--glass-edge); }
 
 /* quick-add composer — centred card over the modal backdrop */
@@ -819,7 +824,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
   background: transparent; }
 /* the field's own fill lives on the wrapper, so the marks sit between it and the text */
 .jc-text-wrap { background: var(--surface-2); border-radius: var(--r-ctl); }
-.jc-text:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent); }
+.jc-text:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* ---- one rhythm for every control in the composer ----
    The two modes are the same dialog, so they should be the same shape: a fixed grid of
    equal-height rows instead of buttons that wrap wherever they happen to run out of room. It
@@ -902,8 +907,10 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    row was deleted, which turned the one field the hard start-confirm gate forces the operator to
    confirm into an unlabelled stepper (23.08.). Its own line in the .jc-import-start row, so the
    words sit above the ± rather than fighting the confirm chip for the width. */
-.jc-due-label { flex-basis: 100%; font-size: 12px; font-weight: 700; letter-spacing: .04em;
-  text-transform: uppercase; color: var(--ink-faint); }
+.jc-due-label {
+  flex-basis: 100%;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .jc-due-chip { display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-edge); background: var(--surface-2);
   color: var(--ink); border-radius: var(--r-sm); padding: 9px 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
   height: var(--tap); min-width: 0; white-space: nowrap; }
@@ -943,7 +950,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    before you can say what is wrong with it. */
 .jc-exact { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px;
   width: min(320px, 92vw); }
-.jc-exact-title { margin: 0; text-align: center; font: 800 15px var(--body); color: var(--ink); }
+.jc-exact-title { margin: 0; text-align: center; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 15) */
 /* the day, stepped: ‹ Heute · Di 18.08. › — its buttons are the same 44px squares the time
    stepper uses, so the dialog has ONE control idiom rather than two */
 .jc-exact-day { display: flex; align-items: center; gap: 8px; padding: 4px 6px;
@@ -1016,7 +1023,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .ig-install:disabled { opacity: var(--disabled); cursor: default; }
 .ig-install .i { width: 17px; height: 17px; }
 .ig-native-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-dim); text-align: center; }
-.ig-or { margin: 18px 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
+.ig-or { margin: 18px 0 10px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .ig-intro { margin: 0 0 10px; font-size: 13.5px; font-weight: 650; color: var(--ink); }
 .ig-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; counter-reset: ig; }
 .ig-steps li { display: flex; align-items: center; gap: 11px; counter-increment: ig; }

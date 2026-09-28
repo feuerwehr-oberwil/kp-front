@@ -426,8 +426,10 @@
 /* Technical language on purpose: Restfehler, Grundlinie, Drehung. The people who open this are
    asking whether the link can be trusted, and vague words cannot answer that. */
 .quality { width: min(92vw, 400px); max-width: 100%; display: grid; gap: 10px; padding: 12px; }
-.qHead { display: flex; align-items: center; gap: 8px;
-  font: 700 11px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
+.qHead {
+  display: flex; align-items: center; gap: 8px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .qX { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center;
   border: none; background: transparent; color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; }
 @media (hover: hover) { .qX:hover { background: var(--fill-soft); color: var(--ink); } }
