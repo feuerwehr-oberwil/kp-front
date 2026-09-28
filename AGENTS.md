@@ -1352,6 +1352,18 @@ to prod.
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
     broken, act now; blue/grey = normal status and in-progress.
   - *Disabled:* `opacity: var(--disabled)` + `cursor: default`. Never inline the number.
+  - *Selected – three roles, one look each (28.09.2026, owner: «all buttons have different
+    selected states» — the Trupp form alone wore four: ink outline, blue ring, ink fill, blue
+    segment).* (1) A **choice** — a segment, a chip, an option tile, a toggle chip, single or
+    multi — is `--sel` filled with `--on-sel` text and `--sel-shadow` (01-tokens), whether it
+    sits in a Segmented track, stands as chips (the Segmented's ≥5 mode too) or is a module's
+    own class. (2) A **row** in a list or menu (a combo option, a picker row, an option card
+    with a radio mark) is picked by `--sel-wash`, never filled — a filled row is a slab. (3)
+    **Where you are** — the nav rail, the armed tool, a Trupp tab — keeps the ink pill
+    (`--ink-fill`): a place, not an answer. A chip whose tone IS its meaning (the Suche's status
+    chips, the Journal's Auftrag/Sofort) fills in that tone, same shape; colour swatches keep
+    their ring (their fill is the colour). Never an outline-only «selected», never `--ink` as a
+    choice fill (at night it is the primary button's light grey).
 - **Touch vocabulary – one beat, one buzz, one wash.** The primary devices are gloved tablets;
   a new gesture reuses these or it teaches a second language. Any new touch interaction must:
   - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip

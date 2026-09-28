@@ -582,7 +582,7 @@
 .adm-swatch-auto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--border-soft); border-radius: var(--r-pill);
   padding: 5px 10px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer;
   box-shadow: 6px 0 6px -4px var(--surface); }
-.adm-swatch-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
+.adm-swatch-auto.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
 
 /* a comfortably tall textarea (Journal Bausteine) — big enough to see the whole list */
 .adm-textarea-tall { min-height: 360px; max-height: 72vh; overflow-y: auto; scrollbar-gutter: stable; }
@@ -1890,8 +1890,9 @@ p.adm-sys-path { margin: 3px 0 0; }
 }
 .adm-pick-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-pick-opt:disabled { opacity: var(--disabled); cursor: not-allowed; }
-.adm-pick-opt.on { background: color-mix(in srgb, var(--blue) 12%, var(--surface));
-  border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); box-shadow: var(--shadow-sm); }
+/* an option CARD with its radio mark: the row wash (01-tokens · --sel-wash), not the chip fill */
+.adm-pick-opt.on { background: color-mix(in srgb, var(--blue) 14%, var(--surface));
+  border-color: var(--sel); box-shadow: var(--shadow-sm); }
 .adm-pick-head { display: flex; align-items: center; gap: 8px; font: 700 14px var(--body); }
 .adm-pick-mark { width: 18px; height: 18px; flex: none; border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 60%, transparent);

@@ -254,7 +254,7 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 .adm-floor-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .adm-floors .adm-floor-acts .btn { flex: 1 1 auto; min-height: var(--tap); }
 .adm-floor-acts .i { width: 15px; height: 15px; }
-.adm-floor-mode[aria-pressed="true"] { color: var(--blue-strong); border-color: var(--blue-strong); background: color-mix(in srgb, var(--blue) 8%, var(--surface)); }
+.adm-floor-mode[aria-pressed="true"] { color: var(--on-sel); border-color: var(--sel); background: var(--sel); }
 
 /* below the list: «hier kommt das nächste Geschoss dazu», then the Ablage */
 .adm-floors .adm-floors-add { margin: 0; }

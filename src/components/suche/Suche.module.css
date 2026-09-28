@@ -45,7 +45,7 @@
   --sx-ink: var(--ink); --sx-dim: var(--ink-dim); --sx-faint: var(--ink-faint);
   --sx-tile: var(--fill-soft); --sx-line: var(--border-soft); --sx-edge: var(--glass-edge);
   --sx-field: var(--surface); --sx-chip: var(--surface); --sx-btn: var(--surface); --sx-btn-ink: var(--ink);
-  --sx-on: var(--blue); --sx-on-ink: var(--on-fill);
+  --sx-on: var(--sel); --sx-on-ink: var(--on-sel);
   --sx-primary: var(--btn-primary); --sx-primary-ink: var(--on-btn-primary);
   --sx-red: var(--red-strong); --sx-green: var(--green-strong); --sx-blue: var(--blue-strong); --sx-amber: var(--amber-strong);
   --sx-red-wash: color-mix(in srgb, var(--red) 10%, transparent);
@@ -55,7 +55,9 @@
   --sx-ink: var(--on-accent-ink); --sx-dim: rgba(255, 255, 255, .72); --sx-faint: rgba(255, 255, 255, .52);
   --sx-tile: rgba(255, 255, 255, .07); --sx-line: rgba(255, 255, 255, .12); --sx-edge: rgba(255, 255, 255, .16);
   --sx-field: rgba(0, 0, 0, .24); --sx-chip: rgba(255, 255, 255, .1); --sx-btn: rgba(255, 255, 255, .14); --sx-btn-ink: var(--on-accent-ink);
-  --sx-on: var(--on-accent-ink); --sx-on-ink: var(--ink-fill);
+  /* a chosen chip is THE choice fill on the dark card too (01-tokens · --sel) — a white chip here
+     was the card's primary button's look */
+  --sx-on: var(--sel); --sx-on-ink: var(--on-sel);
   --sx-primary: var(--on-accent-ink); --sx-primary-ink: var(--ink-fill);
   --sx-red: color-mix(in srgb, var(--red) 60%, #fff); --sx-green: color-mix(in srgb, var(--green) 62%, #fff);
   --sx-blue: color-mix(in srgb, var(--blue) 55%, #fff); --sx-amber: color-mix(in srgb, var(--amber) 70%, #fff);
@@ -247,7 +249,7 @@ button.ortMain:active { background-image: linear-gradient(var(--press), var(--pr
 .zielChips { display: flex; flex-direction: column; gap: 6px; margin-top: -4px; }
 .zielChips .label { color: var(--ink-dim); }
 .zielChips .chip { border-color: var(--glass-edge); background: var(--surface); color: var(--ink); }
-.zielChips .chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+.zielChips .chip[aria-pressed="true"] { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
 
 /* ── pins on the Karte and the plans (SuchePins) ─────────────────────────────────────────────── */
 /* The app's chip: a light pill in both themes (a pin sits on a map or a sheet, never on the dark
