@@ -148,9 +148,13 @@
    phone's «Einsatz» tile wears it with what the Rapport still has OPEN (26.09.2026 — the head
    count until then, which read as «open» and disagreed with the Rapport's own chip; NavRail ·
    openCount). */
-.nav-live.nav-count { top: 2px; right: 2px; width: auto; min-width: 16px; height: 16px; padding: 0 3px;
-  box-sizing: border-box; border-radius: var(--r-xs); background: var(--accent); color: var(--on-accent-ink);
-  font: 800 10px var(--body); line-height: 12px; text-align: center; }
+/* ONE count badge (28.09.2026): 16px tall, min 16 wide, 11/800, --r-xs, 0 4px — and the fill is
+   the meaning, never the station --accent (a station may have set it to anything; in Oberwil it
+   is alarm red). A plain count is INK; .nav-open amber, .nav-vermisst red below. The 2px ring
+   eats 4px of the 16, hence line-height 12px. */
+.nav-live.nav-count { top: 2px; right: 2px; width: auto; min-width: 16px; height: 16px; padding: 0 4px;
+  box-sizing: border-box; border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
+  font: 800 11px var(--body); line-height: 12px; text-align: center; }
 /* the Suche's count (on its tool-rail door, components/suche · SucheToolButton) is the people still
    MISSING — semantic red, never the station accent (which a station may have set to anything) */
 .nav-live.nav-count.nav-vermisst { background: var(--red); color: var(--on-fill); }
@@ -312,7 +316,9 @@ html.rail-dragging .layers-card { transition: none; }
 }
 /* …and the same --press wash every other list row in the app answers a finger with. */
 .lrow:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.lrow.off { opacity: .55; }
+/* a layer switched off is «gone», not disabled: the ONE done dim (01-tokens · --done-opacity,
+   28.09.2026 — it was .55) */
+.lrow.off { opacity: var(--done-opacity); }
 .lrow .ic { font-size: 15px; color: rgba(255, 255, 255, .75); display: grid; place-items: center; }
 .lrow .name { flex: 1; font-size: 13px; font-weight: 600; }
 /* second line on a Georeferenz twin row: which fit it mirrors through («aus 2 Punkten» / «⌀ x m»).

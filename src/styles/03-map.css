@@ -90,12 +90,13 @@
    colour, so it reads on any glyph and in both themes: tinting it with the symbol's own colour
    (the white chip was meant to carry that) made a yellow symbol's storey yellow on white. */
 .sym-floor { position: absolute; top: calc(var(--badge-out, 7px) * -1); right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-sm); background: var(--surface); color: var(--ink); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
+  border-radius: var(--r-xs); background: var(--surface); color: var(--ink); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
   box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
 /* quantity badge — bottom-right counterpart to the floor badge; an ink chip so it
-   reads as a count distinct from the (white, symbol-coloured) floor badge */
+   reads as a count distinct from the (white, symbol-coloured) floor badge. The ONE count badge
+   (05-navrail · .nav-count, 28.09.2026): --r-xs at 16px, like every other chip that size. */
 .sym-count { position: absolute; bottom: calc(var(--badge-out, 7px) * -1); right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-sm); background: var(--ink-fill); color: var(--on-accent-ink); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
+  border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800;
   box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
 /* «angedockt», von der Seite des HOSTS aus (lib/docking, 15.09.2026): the same `link` glyph the
    Trupp marker wears, so the bond reads from either end. Top-LEFT — the only corner left: the
@@ -106,7 +107,7 @@
    round glyph the old top-left corner floated off in empty space. */
 .sym-dock { position: absolute; bottom: calc(var(--badge-out, 7px) * -1); left: -9px; z-index: 6;
   display: grid; place-items: center; width: 16px; height: 16px; box-sizing: border-box;
-  border-radius: var(--r-sm); background: var(--surface); color: var(--ink-dim);
+  border-radius: var(--r-xs); background: var(--surface); color: var(--ink-dim);
   box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
 .sym-dock .i { width: 12px; height: 12px; }
 /* «Gelöscht / erledigt» (lib/objectDone, 24.09.2026): the glyph, its composite part and its FKS

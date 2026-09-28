@@ -101,7 +101,7 @@ type PlanFacts = ReturnType<typeof planFacts>
  * ⚠️ It reads the admin's shared grammar and adds none of its own: `.adm-table` for BOTH tables
  * — the object list (name, plans, status, one action) and one object's Modulpläne —
  * `SettingsSheet`/`SettingRow` for the object's fields, StatusBadge for every status,
- * EmptyState for empty/loading/failed, the dashed `.adm-formlink-add` row for «Objekt
+ * EmptyState for empty/loading/failed, the framed `.adm-formlink-add` row for «Objekt
  * hinzufügen» (ui.tsx). Nothing nests. A sub-slot itself (`modul5-pv`) is never created here —
  * it arrives from a pull (Planspeicher/SharePoint) or the `admin_objects` CLI; this page only
  * uploads or replaces the PDF sitting in a slot that already exists.

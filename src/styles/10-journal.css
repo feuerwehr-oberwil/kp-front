@@ -989,9 +989,10 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 
 /* open-reminders count badge on the Verlauf button */
 .tb-rem-count { z-index: 2; }
-.tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-sm); background: var(--amber); color: var(--on-fill); line-height: 17px; text-align: center;
-  font-size: 11px; font-weight: 800; letter-spacing: -.2px; }
+/* the ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px, 11/800, --r-xs; amber = open */
+.tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: var(--r-xs); background: var(--amber); color: var(--on-fill); line-height: 16px; text-align: center;
+  font: 800 11px var(--body); }
 
 /* ⚠️ TOMBSTONE, 23.08. — the whole banner layer that stood here is gone.
    Removed: `.reminder-banner` + 9 `rb-*` rules (the due Wiedervorlage, a 440px card at z-45 that

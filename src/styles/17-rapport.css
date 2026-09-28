@@ -389,10 +389,12 @@
 .report-partner-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .report-partner-go .i { width: 18px; height: 18px; }
 
-/* «+ Zeile» under a repeating block (Beilage) */
-.report-row-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; cursor: pointer;
-  border: 1px dashed var(--border); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
-  font: 700 13px var(--body); }
+/* «+ Zeile» under a repeating block (Beilage). The ONE «add» look (28.09.2026 · 13-incident
+   `.cv-btn-add`): framed, --tap tall, the one corner, 14/700 ink. It was dashed and 40px — but
+   dashed means «missing» (27.09. sweep), and an add is an action, not a gap. */
+.report-row-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 14px; cursor: pointer;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
+  font: 700 14px var(--body); }
 @media (hover: hover) {
   .report-row-add:hover { border-color: var(--ink-faint); }
 }
@@ -528,6 +530,10 @@
 .report-att-x .i { width: 16px; height: 16px; }
 /* the file input itself is invisible — the label IS the button (see .report-row-add) */
 .report-att-add input { display: none; }
+/* «Foto hinzufügen» STAYS dashed (owner decision D6, 28.09.2026 re-confirmed): the one add that
+   is a placeholder for a file — the same look as the poster's .cv-beilagen-add (13-incident), so
+   the two «Foto hinzufügen» are one control. Every other add is framed (.report-row-add). */
+.report-att-add { border: 1px dashed var(--glass-edge); background: none; }
 
 /* (the Abschnitte tile grid is gone — the sections are checkbox rows in the print menu now,
    see lib/overlays · Menu and .rp-print-menu) */
