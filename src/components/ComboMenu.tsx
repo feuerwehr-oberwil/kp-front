@@ -357,7 +357,9 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
         </li>
       )}
       {groups
-        ? groups.map((g) => (
+        // a group with no match under the query draws nothing — its head alone read as a list of
+        // empty sections above the «no hits» line (29.09.2026)
+        ? groups.filter((g) => g.options.some(match)).map((g) => (
           <li key={g.label} className={classes.group}>
             <div className={classes.groupHead}>{g.label}</div>
             <ul>{g.options.filter(match).map(row)}</ul>
