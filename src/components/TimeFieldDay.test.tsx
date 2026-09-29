@@ -69,7 +69,7 @@ describe('TimeField · the day a stamp lands on', () => {
       <TimeBlockSheet
         title="Schicht" subject="Müller Hans" sectionTitle="Zeiten" emptyLabel="keine"
         onClose={() => {}} days={DAYS}
-        labels={{ from: 'von', to: 'bis', done: 'beendet', remove: 'entfernen',
+        labels={{ from: 'von', to: 'bis', remove: 'entfernen',
                   fromStart: 'ab Beginn', reopen: 'noch da', flip: 'umschalten' }}
         blocks={[{
           key: 'a', from: '22:15', to: '06:00',

@@ -457,6 +457,7 @@ export const it: Localizable<Copy> = {
   clearSearch: 'Svuota la ricerca',
   clearField: 'Svuota: {field}',
   noHits: 'Nessun risultato per «{q}».',
+  savedLive: 'Tutto viene salvato man mano.',
   mapTools: [
     { id: 'select', icon: 'select', label: 'Selezione', kind: 'tool', alt: { id: 'lasso', icon: 'marquee', label: 'Multiplo' } },
     { id: 'symbol-slot', slot: true, icon: '', label: '' },
@@ -3130,7 +3131,6 @@ export const it: Localizable<Copy> = {
     running: 'in corso',
     ended: 'terminato',
     flip: 'commuta',
-    done: 'Fatto',
     viewList: 'Presenza',
     viewPlan: 'Pianificazione',
     viewBands: 'Turni',

@@ -782,6 +782,7 @@ export const de = {
   // THE «no hits» line (29.09.2026) — says what was searched; a list keeps a noun of its own only
   // where the noun helps («Kein Trupp gefunden»). Drawn as `.no-hits` (13-incident.css).
   noHits: 'Keine Treffer für «{q}».',
+  savedLive: 'Alles wird laufend gespeichert.',
   // kind drives how the tool-rail button reads & behaves:
   //   'tool'   — modal, sticky (flat, lights up while active)
   //   'action' — one-shot, fires & gives toast feedback (push-button look)
@@ -5177,7 +5178,6 @@ export const de = {
     ended: 'beendet',
     // on the head of the Zeitplan card, on hover: it looks like a heading
     flip: 'umschalten',
-    done: 'Fertig',
     // Switch over the same Mannschaft, three views: who is HERE, who can be there WHEN
     // (continuous time, person-major), and who staffs WHICH window (discrete time, Schicht-major).
     // «Anwes.» and not «Anwesenheit»: only abbreviated do three segments fit on 390 px (~278 px

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
+import { appConfig } from '../config/appConfig'
 import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
 import s from './TimeBlockSheet.module.css'
@@ -103,14 +104,16 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
   /** an additional read-only section under the blocks (the Zeitplan's «tatsächlich anwesend») */
   extra?: ReactNode
   onClose: () => void
-  labels: { from: string; to: string; done: string; remove: string; fromStart: string; reopen: string; flip: string }
+  labels: { from: string; to: string; remove: string; fromStart: string; reopen: string; flip: string }
   /** the incident's own days — the picker shows a day wheel only when there is more than one */
   days?: Date[]
 }) {
   return (
-    <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title}
-      footer={<button type="button" className="ip-btn primary" onClick={onClose}>{labels.done}</button>}
-    >
+    // NO footer (29.09.2026, owner: «everything should be auto-saved without manual
+    // confirmations»): every change here is live the moment it is made, so a primary «Fertig»
+    // was only a second ✕ promising an action. ✕ and the swipe close it; the one quiet line
+    // at the end says the edits are already kept.
+    <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title}>
       <div className={s.group}>
         <h4 className={s.groupTitle}>{sectionTitle}</h4>
         {blocks.length === 0 && <p className={s.note}>{emptyLabel}</p>}
@@ -201,6 +204,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
         {note && <p className={s.note}>{note}</p>}
       </div>
       {extra}
+      <p className={s.saved}><Icon id="check" />{appConfig.copy.savedLive}</p>
     </Sheet>
   )
 }
