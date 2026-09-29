@@ -235,11 +235,13 @@ button.ortMain:active { background-image: linear-gradient(var(--press), var(--pr
 /* «mehrere?» — an offer, not a field: quieter than a chip that answers something */
 .quietChip { align-self: flex-start; background: none; border-style: dashed; color: var(--sx-dim); }
 
-/* the places, offered under a Trupp's Ziel field (SucheTrupp · ZielChips) — on the Trupp form */
+/* the places, offered under a Trupp's Ziel field (SucheTrupp · ZielChips) — the form and the
+   Auftrag sheet. Shortcuts that fill the field, so never a «chosen» fill (29.09.2026, T12). */
 .zielChips { display: flex; flex-direction: column; gap: 6px; margin-top: -4px; }
-.zielChips .label { color: var(--ink-dim); }
-.zielChips .chip { border-color: var(--glass-edge); background: var(--surface); color: var(--ink); }
-.zielChips .chip[aria-pressed="true"] { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
+/* …and the same chip as the «Leitung» row under it (Atemschutz.module.css · .miniChip): 12.5/700,
+   the edge as an inset ring — the 13px chip with its hairline border read as a second kind of chip */
+.zielChips .chip { padding: 0 12px; border-color: transparent; box-shadow: inset 0 0 0 1px var(--glass-edge);
+  background: var(--surface); color: var(--ink); font: 700 12.5px var(--body); }
 
 /* ── pins on the Karte and the plans (SuchePins) ─────────────────────────────────────────────── */
 /* The app's chip: a light pill in both themes (a pin sits on a map or a sheet, never on the dark

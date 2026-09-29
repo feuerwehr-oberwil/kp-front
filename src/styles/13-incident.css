@@ -2030,9 +2030,10 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .esh-pending { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-faint); }
 .esh-pending .i { width: 15px; height: 15px; }
 /* The QR is the handover: the Nachbarwehr's phone scans the tablet instead of typing an
-   address. Black on white in BOTH themes — it is a machine target, not a surface. */
-.esh-qr { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 14px; border-radius: var(--r-ctl); background: var(--fill-soft); border: 1px solid var(--border-soft); }
+   address. Black on white in BOTH themes — it is a machine target, not a surface.
+   The white tile IS the frame (29.09.2026, sweep 3 T14): the grey box with its own border around
+   it framed the QR a second time and said nothing; the caption stays under it. */
+.esh-qr { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .esh-qr img { display: block; width: min(224px, 58vw); height: auto; aspect-ratio: 1;
   padding: 8px; border-radius: var(--r-sm); background: #fff; }
 .esh-qr-cap { font: 600 12px var(--body); color: var(--ink-dim); }
@@ -2053,11 +2054,13 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 /* Red never FILLS an action — it means danger, and revoking is the danger here. */
 .esh-revoke { flex: none; color: var(--red); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 40%, transparent); }
 /* Under the address, not behind a tooltip: it is the one thing somebody has to have read
-   BEFORE sending the link on. */
+   BEFORE sending the link on. The ONE warning look (AGENTS · «Fields, titles, eyebrows, warnings»,
+   29.09.2026 — it was dim 12.5 text in a 13% tint): ink 13/700, the glyph in the tone
+   (`--amber-strong`, it does not block) over a 10% tint of it, the one corner. */
 .esh-warn { display: flex; align-items: flex-start; gap: 8px; margin: 0; width: 100%;
-  padding: 9px 11px; border-radius: var(--r-sm); font-size: 12.5px; line-height: 1.45;
-  background: color-mix(in srgb, var(--amber) 13%, transparent); color: var(--ink-dim); }
-.esh-warn .i { flex: none; width: 15px; height: 15px; margin-top: 1px; color: var(--amber); }
+  padding: 10px 12px; border-radius: var(--r-sm); font: 700 13px/1.45 var(--body);
+  background: color-mix(in srgb, var(--amber) 10%, transparent); color: var(--ink); }
+.esh-warn .i { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--amber-strong); }
 
 /* ── «Tafel pur»: the Atemschutz-Link shell (IncidentWorkspace · asLink) ────────────────────
    The board handed to somebody's own phone is the whole app for that session, so the shell is

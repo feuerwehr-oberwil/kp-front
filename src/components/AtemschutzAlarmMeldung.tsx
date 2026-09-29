@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
-import { deriveTruppLive, truppAlarm } from '../lib/atemschutz'
+import { alarmRowKey, deriveTruppLive, truppAlarm } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import { fillTemplate } from '../lib/format'
 import { useMeldung } from '../lib/useMeldung'
@@ -43,6 +43,11 @@ import type { Trupp } from '../types'
 //    The board shows the alarm in full and the strip only covered its controls (the same reason
 //    «Zum Trupp» dismisses). The tone logic is untouched by this — the device still sounds until
 //    acknowledged, and the withheld rows return the moment the operator leaves the board.
+//  · The TopBar chip steps aside for a row that names ITS alarm (29.09.2026, sweep 3 T1): the chip
+//    and the row were two red doors to the same card, one right above the other. `onShown`
+//    reports which Trupps the strip names right now (lib/atemschutz · `alarmRowKey`), and
+//    `azChipRedundant` there decides. The chip comes back the moment «Zum Trupp» takes the row down, and never hides for
+//    the amber lead, which has no row.
 
 /** One alarming Trupp, reduced to what the row has to say about it. */
 export interface AtemschutzAlarmRow {
@@ -116,7 +121,7 @@ export function atemschutzAlarmRows(
  * Publish one Meldeleiste row per alarm REASON, naming the Trupps in it. Renders nothing itself
  * (the strip paints) — mount it wherever the alarm state lives, beside the other publishers.
  */
-export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, graceSec, onAcknowledge, onGoToTrupp, onBoard = false, canEdit = true }: {
+export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, graceSec, onAcknowledge, onGoToTrupp, onBoard = false, canEdit = true, onShown }: {
   trupps: readonly Trupp[]
   /** per-Trupp tier from the alarm fold; only `2` is published (see the header) */
   severities: Record<string, 1 | 2>
@@ -135,6 +140,9 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
   /** this device can enter the Funkkontakt / Druckmeldung that ends the alarm. False for a
    *  viewer / the Führungsansicht: the row gains «Zur Kenntnis genommen» (see the header). */
   canEdit?: boolean
+  /** which Trupps the strip names right now, as `alarmRowKey`s (empty while withheld) — the TopBar
+   *  chip hides while its own alarm is among them (`azChipRedundant`) */
+  onShown?: (keys: string[]) => void
 }) {
   // No 1 Hz tick here, deliberately: the row carries no running clock (that is the TopBar chip's
   // job). The wall clock is only re-read when something about the Trupps changes, and every event
@@ -159,13 +167,22 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rows is derived; liveKey IS its identity
   }, [liveKey])
+  // the bookkeeping stays PER TRUPP: a group whose members were all jumped to is silent, and a
+  // Trupp that crosses later brings the group's row back naming only what is new
+  const open = rows.filter((r) => visited[r.id] !== r.reason)
+  const shownKey = onBoard ? '' : open.map((r) => alarmRowKey(r.id, r.reason)).join('|')
+  useEffect(() => {
+    onShown?.(shownKey ? shownKey.split('|') : [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- report on a CHANGE of what is shown; the callback is rebuilt per render
+  }, [shownKey])
+  // …and nothing once unmounted (a replay, the Einsatz closing), or the chip would stay hidden
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount only
+  useEffect(() => () => onShown?.([]), [])
   // withheld, not acknowledged: the publishers below simply unmount, so their rows retract —
   // and remount unchanged when the operator leaves the board (after the hooks, so the visited
   // pruning above never skips a beat)
   if (onBoard) return null
-  // the bookkeeping stays PER TRUPP: a group whose members were all jumped to is silent, and a
-  // Trupp that crosses later brings the group's row back naming only what is new
-  const groups = groupAlarmRows(rows.filter((r) => visited[r.id] !== r.reason))
+  const groups = groupAlarmRows(open)
   const markVisited = (g: AtemschutzAlarmGroup) =>
     setVisited((v) => ({ ...v, ...Object.fromEntries(g.rows.map((r) => [r.id, r.reason])) }))
   return <>{groups.map((g) => (
@@ -218,12 +235,17 @@ function AtemschutzAlarmMeldung({ group, onAcknowledge, onGo, onAck }: {
     // secondary and hides the row here only.
     actions: [
       ...(onAck ? [{ label: az.alarmRowAck, onClick: () => { onAcknowledge?.(); onAck() } }] : []),
-      { label: az.alarmRowGo, icon: 'gauge', primary: true, onClick: go },
+      // no glyph (29.09.2026, T13): the row already LEADS with the gauge / Manometer, and two
+      // reasons stacked two identical «⌚ Zum Trupp» under two copies of it
+      { label: az.alarmRowGo, primary: true, onClick: go },
     ],
     // …and the Trupp's name is the way there too, like every other row whose message has a place
     // (Meldeleiste · MeldungTitle). The filled button STAYS: this is the loudest row the app can
     // show, and it has to read as actionable at a glance, from across the Kommandoraum — the
     // tappable title is the shortcut for the hand that is already on the name, not a replacement.
+    // Since the label is the button's, the strip draws the title WITHOUT its underline (T13,
+    // 29.09.2026): a link look on the loudest words, beside a button saying the same, was a
+    // second door drawn twice.
     onOpen: { label: az.alarmRowGo, onClick: go },
   })
   return null

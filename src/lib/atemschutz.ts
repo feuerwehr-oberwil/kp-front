@@ -624,6 +624,25 @@ export function peakAtemschutzAlarm(
   return { peak, urgent, severities }
 }
 
+/** «Trupp a is on the strip for reason r» — the unit the Meldeleiste's
+ *  `onShown` reports (AtemschutzAlarmMeldungen) and the TopBar chip reads. */
+export const alarmRowKey = (id: string, reason: 'contact' | 'pressure') => `${id}:${reason}`
+
+/**
+ * Is the TopBar's Atemschutz chip saying what another door on screen already says (T1)? Only a
+ * RED chip can be: on the Trupps board the head's «⚠ n» badge points at the same card (the board
+ * holds its rows back), and elsewhere a Meldeleiste row that names the chip's Trupp for the
+ * chip's reason. The amber «Kontakt fällig» has neither, so it always stands.
+ */
+export function azChipRedundant(
+  alarm: { peak: 0 | 1 | 2; urgent: { id: string; reason: 'contact' | 'pressure' } | null },
+  onBoard: boolean,
+  shownKeys: readonly string[],
+): boolean {
+  if (alarm.peak < 2 || !alarm.urgent) return false
+  return onBoard || shownKeys.includes(alarmRowKey(alarm.urgent.id, alarm.urgent.reason))
+}
+
 export interface PressureEstimate {
   bar: number
   /** measured pressure loss, or the configured assumed-rate fallback before enough history exists */

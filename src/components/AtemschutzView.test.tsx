@@ -736,8 +736,9 @@ describe('the mini sheets', () => {
     mount({ trupps: [{ ...withFacts(), equipment: ['wbk'] }], editTrupp })
     fireEvent.click(document.querySelector(`.${s.trow}`)!)
     fireEvent.click(within(document.querySelector('[data-az-open]') as HTMLElement).getByRole('button', { name: 'Huber' }))
-    const sheet = screen.getByRole('dialog', { name: new RegExp(`^${fillTemplate(az.quickTrupp, { no: 2 })}`) })
-    expect(within(sheet).getByText(az.editFieldLabels.crew)).toBeTruthy()
+    // the question is the title, whose the line under it (T5, 29.09.2026) — like its three siblings
+    const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.crew} · Steiner`) })
+    expect(within(sheet).getByRole('heading').textContent).toBe(`${az.editFieldLabels.crew}Steiner · ${fillTemplate(az.quickTrupp, { no: 2 })}`)
     expect(within(sheet).getByText(az.equipmentLabel)).toBeTruthy()
     fireEvent.click(within(sheet).getByRole('button', { name: fillTemplate(az.teamRemove, { name: 'Huber' }) }))
     fireEvent.click(within(sheet).getByRole('button', { name: az.save }))

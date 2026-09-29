@@ -130,7 +130,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
+import { azChipRedundant, isAtemschutzTrupp, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -1940,6 +1940,9 @@ export function IncidentWorkspace({
   // App — that repainted the whole tree every second a Trupp was in the field (battery drain).
   // Declared up here (not with the Atemschutz block) because the sync loop below reads it.
   const [azAlarm, setAzAlarm] = useState<AtemschutzAlarmState>({ peak: 0, urgent: null, severities: {} })
+  // which Trupps the Meldeleiste names right now (AtemschutzAlarmMeldungen · onShown) — the TopBar
+  // chip steps aside while a row or the board's own badge already says its alarm (T1, 29.09.2026)
+  const [azRowsShown, setAzRowsShown] = useState<string[]>([])
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
@@ -5667,6 +5670,10 @@ export function IncidentWorkspace({
         onOpenWeather={openWeatherDetails}
         bearing={view.bearing}
         azAlarm={azAlarm}
+        // ONE red door per alarm on screen (29.09.2026, sweep 3 T1): on the Trupps board the head's
+        // «⚠ n» badge is it, elsewhere the Meldeleiste row naming the same Trupp; the chip comes
+        // back once «Zum Trupp» took that row down, and the amber lead always keeps it
+        azChipHidden={azChipRedundant(azAlarm, mode === 'atemschutz', azRowsShown)}
         // …and the chip lands ON the urgent Trupp's card, like every other way in (Meldeleiste,
         // Anwesenheit, the notification tap) — the chip names a Trupp, so the tap must find it.
         onOpenAtemschutz={(truppId) => {
@@ -5791,6 +5798,7 @@ export function IncidentWorkspace({
         // withheld while the board itself is on screen — it shows the alarm in full and the
         // strip only covered its controls (see AtemschutzAlarmMeldung's header)
         onBoard={mode === 'atemschutz'}
+        onShown={setAzRowsShown}
         // Reaching the named card is acknowledgement enough to stop the room's tone and tray
         // re-notifications. The row itself stays until a real contact/pressure event clears it.
         onAcknowledge={muteAtemschutz}
@@ -6440,7 +6448,8 @@ export function IncidentWorkspace({
           // things that gesture can mean. Disabled rather than hidden while nothing is placed:
           // on the tool's own dock, its absence would read as a tool that lost a button.
           [{
-            type: 'action', icon: 'search', label: appConfig.copy.truppFinder.title,
+            // its OWN glyph (29.09.2026, T8), not the lens the Suche's tile wears right below
+            type: 'action', icon: 'trupp-find', label: appConfig.copy.truppFinder.title,
             disabled: placed.length === 0, onClick: () => setFindTruppOpen(true),
           }],
           [{ type: 'info', text: appConfig.copy.dockHints.team }],
