@@ -81,7 +81,8 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     // back on the list: the new place sorts first (somebody is missing there), with a red edge
     expect(sections()).toEqual(['Wohnung 2. OG links', 'Keller'])
     expect(screen.getByRole('region', { name: 'Wohnung 2. OG links' }).hasAttribute('data-hot')).toBe(true)
-    expect(screen.getByText(fillTemplate(C.vermisstChip, { n: 1 }) + ' · ' + fillTemplate(C.headAbgesucht, { done: 0, total: 2 }))).toBeTruthy()
+    // the head says how far the sweep is — never «1 vermisst» (29.09.2026, K1: the top bar's chip is that alarm)
+    expect(screen.getByText(fillTemplate(C.headAbgesucht, { done: 0, total: 2 }))).toBeTruthy()
     // ONE step: its ↶ takes the person and the new place
     act(() => { timeline.undo() })
     expect(last).toEqual(start)
@@ -442,13 +443,13 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     expect((screen.getByRole('button', { name: fillTemplate(C.tickAbgesucht, { name: 'Keller' }) }) as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('the card\'s head says who is missing and how far the sweep is — nobody missing says nothing about it', () => {
+  it('the card\'s head says how far the sweep is — and never «n vermisst» (sweep K1, 29.09.2026)', () => {
     const { unmount } = render(<Harness card initial={{ personen: [], bereiche: [place('b1', 'Scheune', [row('s1', 'status', '20:10', 'Scheune abgesucht', { status: 'abgesucht' })]), place('b2', 'Wohnhaus')] }} />)
     expect(screen.getByText(fillTemplate(C.headAbgesucht, { done: 1, total: 2 }))).toBeTruthy()
     expect(screen.queryByText(/vermisst/)).toBeNull()
     unmount()
     render(<Harness card initial={{ personen: [person('p1', 'A')], bereiche: [] }} />)
-    expect(screen.getByText(fillTemplate(C.vermisstChip, { n: 1 })).hasAttribute('data-hot')).toBe(true)
+    expect(screen.queryByText(fillTemplate(C.vermisstChip, { n: 1 }))).toBeNull()
   })
 
   it('«📍 Auf Karte setzen» in «＋ Bereich» hands the surface over and gets the tap back; the pin is born with the place — one step', () => {
