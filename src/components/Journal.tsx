@@ -690,9 +690,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
         {deliveryNotice}
         {searching && (
           <div className="journal-search-row">
-            {/* the live count rides in the field's count slot, only once there is a query */}
+            {/* the live count rides in the field's count slot, only once there is a query. ONE ✕
+                (`noClear`, 29.09.2026, owner): the row's close beside it ends the search, query and all */}
             <SearchField
-              className="journal-search" value={search ?? ''} onChange={setSearch}
+              className="journal-search" value={search ?? ''} onChange={setSearch} noClear
               autoFocus inputMode="search" maxLength={80}
               placeholder={C.searchPlaceholder} aria-label={C.search}
               onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setSearch(null) } }}

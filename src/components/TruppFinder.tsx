@@ -52,9 +52,10 @@ export function TruppFinder({ trupps, onPick, onClose }: {
     <Overlay open onClose={onClose} className={cx(s.finder, 'ui-dialog')} ariaLabel={C.title} initialFocus={inputRef}>
       <div className={s.head}>
         {/* the head IS the search — THE search field in its one documented modifier (`head`), wearing
-            the door's own glyph (#trupp-find, 29.09.2026 T8): the card says it is the one that was tapped */}
+            the door's own glyph (#trupp-find, 29.09.2026 T8): the card says it is the one that was tapped.
+            No inner ✕ (`noClear`, 29.09.2026): the finder IS the search, so its close ✕ ends it */}
         <SearchField
-          ref={inputRef} variant="head" icon="trupp-find" value={q} placeholder={C.placeholder} aria-label={C.title}
+          ref={inputRef} variant="head" icon="trupp-find" value={q} placeholder={C.placeholder} aria-label={C.title} noClear
           onChange={(v) => { setQ(v); setCursor(0) }}
           onKeyDown={onKeyDown}
         />

@@ -18,6 +18,11 @@ import { cx } from '../lib/cx'
  * close the phone keyboard on the way to an empty field the user is about to type into). It is a
  * full 44px square at the pill's right end, shown only while there is something to clear.
  *
+ * `noClear` (29.09.2026, owner: «one ✕ only»): no inner ✕, for a search whose own CLOSE ✕ stands
+ * right beside it and already ends the search — the Verlauf's search row, the TruppFinder's head.
+ * Two ✕ a thumb apart, one emptying and one closing, is a coin toss at 3am; there the close is the
+ * one, and Escape closes too. A prop, not CSS hiding, so the button is not in the tab order either.
+ *
  * `variant="head"`: the ONE documented modifier — a card whose whole head IS the search
  * (TruppFinder): no pill of its own (the card is the surface), the query 18/700 because it is
  * what the overlay is for.
@@ -36,8 +41,10 @@ export const SearchField = forwardRef<HTMLInputElement, {
   variant?: 'head'
   /** the leading glyph — the lens unless a surface has a glyph of its own */
   icon?: string
+  /** no inner ✕ — the caller's own close ✕ beside the field ends the search (see above) */
+  noClear?: boolean
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'className'>>(
-  function SearchField({ value, onChange, clearLabel, onClear, count, className, variant, icon = 'search', ...rest }, ref) {
+  function SearchField({ value, onChange, clearLabel, onClear, count, className, variant, icon = 'search', noClear = false, ...rest }, ref) {
     const label = clearLabel ?? appConfig.copy.clearSearch
     return (
       <label className={cx('ui-search', variant === 'head' && 'ui-search-head', className)}>
@@ -51,7 +58,7 @@ export const SearchField = forwardRef<HTMLInputElement, {
           {...rest}
         />
         {count != null && <span className="ui-search-count" aria-live="polite">{count}</span>}
-        {value !== '' && !rest.disabled && (
+        {value !== '' && !rest.disabled && !noClear && (
           <button
             type="button" className="ui-search-x" title={label} aria-label={label}
             onMouseDown={(e) => e.preventDefault()}

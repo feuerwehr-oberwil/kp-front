@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { deploymentDefaultCenter } from '../lib/deploymentConfig'
-import { Overlay } from '../lib/overlays'
+import { Overlay, SheetFoot } from '../lib/overlays'
 import type { LngLat } from '../types'
 import { cartoRasterTiles } from '../lib/carto'
 
@@ -33,7 +33,7 @@ export function MapPicker({ initial, onCancel, onConfirm }: {
   const center = initial ?? station ?? COUNTRY_CENTER
   const mp = appConfig.copy.mapPicker
   return (
-    <Overlay open onClose={onCancel} className="mp-sheet ui-dialog" backdropClassName="mp-backdrop" ariaLabel={mp.title}>
+    <Overlay open onClose={onCancel} className="mp-sheet ui-dialog" backdropClassName="mp-backdrop" ariaLabel={mp.title} grab>
         <div className="mp-head">
           <span>{mp.title}</span>
           <button className="ip-x" onClick={onCancel} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
@@ -53,12 +53,13 @@ export function MapPicker({ initial, onCancel, onConfirm }: {
           </Map>
           {!pt && <div className="mp-hint">{mp.hint}</div>}
         </div>
-        <div className="mp-act">
+        {/* on a phone the sheet's bottom edge (15-mobile · .mp-sheet): the footer takes the inset */}
+        <SheetFoot className="mp-act">
           <button className="ip-btn" onClick={onCancel}>{appConfig.copy.cancel}</button>
           <button className="ip-btn primary" disabled={!pt} onClick={() => pt && onConfirm(pt)}>
             <Icon id="flag" /> {mp.confirm}
           </button>
-        </div>
+        </SheetFoot>
     </Overlay>
   )
 }

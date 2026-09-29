@@ -2588,8 +2588,6 @@ export const it: Localizable<Copy> = {
     reactivateConfirmMsg: 'L\u2019intervento viene riaperto ed è modificabile. Le modifiche successive appaiono nel diario e nel rapporto come aggiunte.',
     reactivateConfirmBtn: 'Riapri',
     statusArchived: 'Chiuso',
-    statusOpen: 'Aperto',
-    statusInProgress: 'In corso',
 
     emptySub: 'Gli interventi aperti e chiusi appaiono qui.',
     archiveConfirmTitle: 'Chiudi l\'intervento',

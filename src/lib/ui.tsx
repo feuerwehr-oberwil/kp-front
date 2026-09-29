@@ -18,7 +18,7 @@ type Tone = 'default' | 'warn' | 'success'
  * changes that are safe on the device — read as an alarm, and the app has real alarms (the
  * Atemschutz clock, the Meldeleiste) that must keep that register to themselves. The live print
  * job wore the edge first, for the same reason. `success` stays a fill: it is short and calm.
- * Same idea as the Meldeleiste's `.ml-row.t-*`. */
+ * (The Meldeleiste's rows wore the same edge until 29.09.2026; there the glyph alone carries the tone now.) */
 type ToneStyle = 'fill' | 'edge'
 const defaultToneStyle = (tone: Tone): ToneStyle => (tone === 'warn' ? 'edge' : 'fill')
 /** Is this toast a FAILURE, as opposed to a live status that wears the warn edge? A step chain is
