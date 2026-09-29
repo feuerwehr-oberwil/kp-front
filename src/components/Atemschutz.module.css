@@ -739,50 +739,27 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
   vertical-align: baseline; }
 
 /* ── ONE warning surface on the Trupp form (28.09.2026) ───────────────────────────────────
-   The conflict row inside the form (`.formWarn`) and the «why the save did not happen» line
-   over the footer (`.formBlocked`) can stand on screen together, and they wore two recipes: a
-   rounded red tint with red text, and a full-width band with a red hairline — two kinds of
-   warning to the eye where there is one. Both are now the rounded box, because it is the one
-   that belongs to a phone sheet: it sits in the form's own 20px gutter and the one corner like
-   every field around it, where the band read as a second footer on top of the real one. The
-   tone is the LEADING GLYPH's colour over a light tint of it (the message family's rule,
-   08-toasts · «ONE message surface»); the sentence is ink, so a red paragraph no longer has to
-   be read at 3am. `--warn-tone` / `--warn-glyph` switch it; amber = «not blocking» (.formHint). */
-.formWarn, .formBlocked { --warn-tone: var(--red); --warn-glyph: var(--red-strong);
-  margin: 0; display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 10px 12px; min-height: var(--tap);
-  border: 0; border-radius: var(--r-sm); background: color-mix(in srgb, var(--warn-tone) 10%, transparent);
-  font: 700 13px var(--body); color: var(--ink); text-align: left; }
-.formWarn :global(.i), .formBlocked :global(.i) { width: 16px; height: 16px; flex: none; color: var(--warn-glyph); }
-/* ⚠️ `flex-direction: row` above is a CORRECTION, not the default: the Zuteilungs-Warnung is the
-   one element wearing `.formColWide` AND this class (AtemschutzView · assignedConflict), and
+   The conflict row inside the form (`.formWarn`) and the «why the save did not happen» line over
+   the footer (`.formBlocked`) wear THE form warning — the global `.form-warn` (13-incident.css,
+   lifted from here 29.09.2026 so the Rapport, QR-Bogen, Georef, Demo and Zeitplan wear it too).
+   These two classes only PLACE it now (and are the test hooks). */
+/* ⚠️ `flex-direction: row` is a CORRECTION, not the default: the Zuteilungs-Warnung is the one
+   element wearing `.formColWide` AND this class (AtemschutzView · assignedConflict), and
    `.formColWide` is a flex COLUMN — without it the ⚠️ sat centred ABOVE its sentence. */
-.formWarn { width: 100%; }
-/* ⚠️ The warn field is a FIELD again (11.09.), not one big button: it now holds two actions —
-   the sentence, which still jumps to the Mannschaft (05.09.), and «In diesen Trupp verschieben»,
-   which is the fix itself. A button inside a button is not markup a browser will render, so the
-   two live side by side inside it and the wrapper keeps only the look. The sentence takes the
-   room that is left so the action button never drifts away from the right edge. */
-.formWarnText { flex: 1 1 auto; min-width: 0; align-self: stretch; margin: 0; padding: 0; border: 0;
+.formWarn { width: 100%; flex-direction: row; flex-wrap: nowrap; }
+/* ⚠️ The warn field is a FIELD again (11.09.), not one big button: it holds two actions — the
+   sentence, which still jumps to the Mannschaft (05.09.), and «In diesen Trupp verschieben», which
+   is the fix itself (`.form-warn-act`). A button inside a button is not markup a browser renders,
+   so the two live side by side and the wrapper keeps only the look. */
+.formWarnText { align-self: stretch; margin: 0; padding: 0; border: 0; min-width: 0;
   border-radius: var(--r-xs); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-/* the app's press wash (28.09.2026) — an opacity drop was the one press on this form that looked
-   like the text fading out rather than like a tap landing */
+/* the app's press wash (28.09.2026), not an opacity drop */
 .formWarnText:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* …and the action: a COMPACT framed button (12.5/700 – a dense row) in the danger outline, the
-   warning's own red, since it is the one thing on this row that CHANGES something. Framed, not
-   filled – red never fills an action. It was 800, the weight kept for a surface's single action. */
-.formWarnAct { flex: none; min-height: 36px; padding: 0 12px; border-radius: var(--r-sm);
-  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); background: var(--surface);
-  font: 700 12.5px var(--body); color: var(--red); cursor: pointer; }
-.formWarnAct:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* the `.ip-btn-danger` outline and hover (13-incident.css), at the compact size */
-@media (hover: hover) { .formWarnAct:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); } }
 /* «Auftrag fehlt.» and friends — the reason the save did not happen, snug above the actions it
    is about (05.09.). It used to be a toast, i.e. a pill floating in the sheet's own empty space
    AND eating the taps of whatever field it happened to cover (see TruppForm · `blocked`). The
    last row before the footer, inset by the body's own gutter. */
 .formBlocked { flex: none; margin: 0 20px 10px; }
-/* the non-blocking variant: the Auftrag is missing, the save still goes through */
-.formHint { --warn-tone: var(--amber); --warn-glyph: var(--amber-strong); }
 .field { display: flex; flex-direction: column; gap: 5px; }
 /* flash-ring: the module-local copy of ui-flash-ring — see the .cardFlash comment below */
 .formFlash { border-radius: var(--r-ctl); animation: flash-ring 1.9s ease-out 1; }
@@ -1122,23 +1099,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    plus a second sentence read as «blabla» in the field. */
 .teamHint { margin: 0; font: 600 11.5px var(--body); color: var(--ink-faint); }
 
-.teamSearch { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: var(--tap);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
-.teamSearch :global(.i) { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
+/* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026 — it was a framed
+   white box with a 28px ✕). `.teamSearch` stays as the NAME the phone's keyboard takeover finds it
+   by (`:has(.teamSearch input:focus)` below) and carries no look of its own. */
+.teamSearch { flex: none; }
 /* «Trupp erstellen» with nobody in it yet: the one field that has to be answered first says so,
-   in the focus ring's own colour – it is where the form starts, with or without the keyboard */
-.teamSearchWant { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
-.teamSearchWant :global(.i) { color: var(--blue); }
-.teamSearch input { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
-  font-family: var(--body); font-size: 15px; color: var(--ink); padding: 0; }
-/* the BOX is the field, so the box wears the one field focus (--focus-*, 28.09.2026) and the bare
-   input inside it does not — `.field input:focus` would ring it a second time */
-.teamSearch:focus-within { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
-.teamSearch input:focus { box-shadow: none; }
-.teamSearchClear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
-  background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
-@media (hover: hover) { .teamSearchClear:hover { background: var(--fill-soft); color: var(--ink); } }
-.teamSearchClear :global(.i) { width: 14px; height: 14px; }
+   in the focus ring's own colour – it is where the form starts, with or without the keyboard.
+   Doubled with the global class so it outranks the pill's resting look. */
+.teamSearchWant:global(.ui-search) { background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
+.teamSearchWant > :global(.i) { color: var(--blue); }
 
 /* Bounded, so the Auftrag column beside it stays reachable without scrolling the whole modal.
    ~5 rows: enough that the search is usually unnecessary, short enough to keep the footer in

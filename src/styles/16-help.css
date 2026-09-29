@@ -21,23 +21,13 @@
 .help-head .ip-x { margin-left: auto; flex: none; }
 /* one search row spanning the full width under the header — it filters BOTH columns, so it
    belongs to neither of them (and the TOC it would otherwise sit in is gone on a phone) */
-.help-search { display: flex; align-items: center; gap: 9px; flex: none; padding: 10px 20px;
-  border-bottom: 1px solid var(--border); }
-.help-search > .i { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
-.help-search input { flex: 1; min-width: 0; border: none; outline: none; background: transparent;
-  font: 600 13.5px var(--body); color: var(--ink); }
-.help-search input::placeholder { color: var(--ink-faint); font-weight: 500; }
-/* the native search clear is unstyled and inconsistent across browsers — ours is the button */
-.help-search input::-webkit-search-cancel-button { display: none; }
-.help-search-x { flex: none; width: 30px; height: 30px; display: grid; place-items: center; cursor: pointer;
-  border: none; border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); }
-@media (hover: hover) {
-  .help-search-x:hover { background: var(--hover-strong); color: var(--ink); }
-}
-.help-search-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.help-search-x .i { width: 14px; height: 14px; }
+/* the band keeps its rule; the field in it is THE search (components/SearchField, 29.09.2026) */
+.help-search { flex: none; padding: 10px 20px; border-bottom: 1px solid var(--border); }
+.help-search > .ui-search { width: 100%; }
+/* «no hits» is the shared `.no-hits` line; the way out sits under it, as quiet */
 .help-empty { padding: 26px 0 0; }
-.help-empty .help-sub { margin-top: 0; }
+.help-empty .no-hits { padding-bottom: 4px; }
+.help-empty-hint { margin: 0; text-align: center; font: 500 13px/1.45 var(--body); color: var(--ink-faint); }
 
 .help-body { flex: 1 1 auto; min-height: 0; display: flex; }
 

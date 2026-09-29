@@ -107,25 +107,38 @@
 .ap-draft-play { width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px dashed color-mix(in srgb, var(--blue) 55%, transparent);
   background: none; color: var(--amber); display: grid; place-items: center; cursor: pointer; flex: none; }
 .ap-draft-play .i { width: 11px; height: 11px; }
+/* 28px to the eye, 44 to the finger (29.09.2026 · «nothing under 44» on these rows) */
+.ap-draft-play { position: relative; }
+.ap-draft-play::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .ap-draft-tx { flex: 1; min-width: 0; border: none; background: none; font: inherit; font-size: 13px; font-style: italic;
   color: var(--ink-dim); padding: 4px 6px; border-radius: var(--r-xs); }
 .ap-draft-tx:focus { outline: none; background: var(--surface); color: var(--ink); font-style: normal;
   box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
-.ap-d-btn { width: 32px; height: 32px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
-  display: grid; place-items: center; cursor: pointer; flex: none; }
-.ap-d-btn .i { width: 13px; height: 13px; }
-.ap-d-ok { color: var(--green); }
-.ap-d-no { color: var(--ink-faint); }
+/* the in-place editors' pair (29.09.2026, owner pick: icon pair): ✕ = THE close (`.ip-x`, 36px
+   with its 44px pad, 13-incident / 02-base) and ✓ = the same square in the PRIMARY fill — the
+   save. It was a 32px framed pair with the ✓ in green, the «go» tone, not the primary. */
+.ap-d-no { flex: none; }
+.ap-d-ok { position: relative; flex: none; width: 36px; height: 36px; padding: 0; border: none; border-radius: var(--r-sm);
+  background: var(--btn-primary); color: var(--on-btn-primary); display: grid; place-items: center; cursor: pointer; }
+.ap-d-ok::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+@media (hover: hover) { .ap-d-ok:hover { background: var(--btn-primary-hover); } }
+.ap-d-ok:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.ap-d-ok .i { width: 18px; height: 18px; }
 /* marker-row in-place edit (mirrors the Verlauf pencil; suggestions themselves vanish
    once übernommen — the entry lives on here and stays correctable) */
-.ap-row-edit { width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
-  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; opacity: 0; }
+.ap-row-edit { position: relative; width: 36px; height: 36px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
+  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; opacity: 0; padding: 0; }
+/* the 44px floor under the 36px square (29.09.2026 — they were 28px beside a destructive one) */
+.ap-row-edit::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.ap-row-edit:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* the row's remove is THE delete look: a bin, --del-ink in the --del-edge outline */
+.ap-row-del { color: var(--del-ink); border-color: var(--del-edge); }
 .ap-row:focus-within .ap-row-edit { opacity: 1; }
 @media (hover: hover) {
   .ap-row:hover .ap-row-edit { opacity: 1; }
 }
 @media (hover: none) { .ap-row-edit { opacity: 1; } }
-.ap-row-edit .i { width: 12px; height: 12px; }
+.ap-row-edit .i { width: 16px; height: 16px; }
 .ap-row-editing { cursor: default; }
 .ap-row-input { flex: 1; min-width: 0; border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
   padding: 7px 10px; font: inherit; font-size: 13px; color: var(--ink); }

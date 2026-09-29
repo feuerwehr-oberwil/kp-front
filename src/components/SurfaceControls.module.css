@@ -18,15 +18,10 @@
    square buttons reads as separate controls rather than one cluster. */
 .controls { display: flex; align-items: center; gap: 8px; padding: 12px 22px; flex-wrap: wrap; }
 
-.search { flex: 1 1 240px; display: flex; align-items: center; gap: 8px; min-width: 0;
-  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl); padding: 0 12px; min-height: var(--tap); }
-.search svg { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
-.search:focus-within { border-color: var(--focus-edge); box-shadow: var(--focus-halo); } /* the one field focus, 28.09.2026 */
-.search input { flex: 1 1 auto; min-width: 0; border: none; background: none; outline: none; color: var(--ink); font: 500 15px var(--body); padding: 10px 0; }
-.searchClear { border: none; background: none; cursor: pointer; color: var(--ink-faint); padding: 4px; display: grid; place-items: center; }
-@media (hover: hover) { .searchClear:hover { color: var(--ink); } }
-.searchClear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.searchClear svg { width: 15px; height: 15px; }
+/* the search takes the slack — placement only: the field itself is THE search (components/
+   SearchField, `.ui-search` in 13-incident.css, 29.09.2026). It was a framed white box here with
+   a ~23px ✕ of its own, on the two busiest tablet lists. */
+.search { flex: 1 1 240px; }
 
 /* a filter button: one glyph, --tap square, opening a Menu */
 .iconBtn {
@@ -53,14 +48,9 @@
     background: color-mix(in srgb, var(--blue) 20%, transparent);
   }
 }
-/* ⚠️ A DOT, not a label. Printing the active filter on the button changes its width, which
-   shoves every control after it along the line and re-anchors the dropdown — the menu jumped
-   sideways the moment you picked something in it. Absolutely positioned, so the button measures
-   the same filtered or not; WHAT is filtered is in the tooltip and, more usefully, ticked in the
-   menu itself. A ring in the button's own fill keeps it readable on the tinted ON state. */
-.filterDot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--blue); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
-.iconBtnOn .filterDot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 14%, var(--surface)); }
+/* ONE channel for «filter is on» (29.09.2026, owner pick A): the choice fill above. A blue dot
+   rode on it until today — designed for the old tinted ON state, it had become blue-on-blue and
+   said the same bit twice. WHAT is filtered is in the tooltip and ticked in the menu itself. */
 
 /* «Weitere Person» / «Anderes Mittel» — a square + at the end of the line. FRAMED like the
    filters beside it (27.09.2026, slim sweep · mockup 5): it was dashed «because it adds something

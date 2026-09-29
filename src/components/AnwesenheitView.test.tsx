@@ -120,7 +120,7 @@ describe('the search field records somebody who is not on the Mannschaftsliste',
     mount({ canEdit: false })
     fireEvent.change(search(), { target: { value: 'Muster Felix' } })
     expect(screen.queryByRole('button', { name: offer('Muster Felix') })).toBeNull()
-    expect(screen.getByText(A.noMatches)).toBeTruthy()
+    expect(screen.getByText(fillTemplate(appConfig.copy.noHits, { q: 'Muster Felix' }))).toBeTruthy()
   })
 })
 
@@ -206,7 +206,7 @@ describe('«Nur Anwesende» — the one-tap quick filter', () => {
     // «Meier» alone answers Anna AND Beat; Beat has gone home, so the ✓ takes him out
     expect(names()).toEqual(['Meier Anna'])
     fireEvent.change(screen.getByPlaceholderText(A.searchPlaceholder), { target: { value: 'Muster' } })
-    expect(screen.getByText(A.noMatches)).toBeTruthy()
+    expect(screen.getByText(fillTemplate(appConfig.copy.noHits, { q: 'Muster' }))).toBeTruthy()
   })
 
   it('is offered on the crew list, not only while planning', () => {

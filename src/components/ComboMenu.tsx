@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
-import { appConfig } from '../config/appConfig'
+import { SearchField } from './SearchField'
 import { cx } from '../lib/cx'
 import { fillTemplate } from '../lib/format'
 import { rankAbbr, rankLabel } from '../lib/rank'
@@ -337,19 +337,14 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
       style={{ left: pos.left, width: pos.width, maxHeight: pos.maxH, ...(pos.up ? { top: 'auto', bottom: window.innerHeight - pos.top + 4 } : { top: pos.top + 4 }) }}>
       {searchShown && (
         <li className={c.searchRow}>
-          <span className={c.searchIcon} aria-hidden><Icon id="search" /></span>
-          <input
+          <SearchField
             className={c.search} value={state.search} inputMode="search"
             placeholder={copy.search} aria-label={copy.search}
-            onChange={(e) => state.setSearch(e.target.value)}
+            onChange={state.setSearch}
             // a stray Enter in a picker must not submit the form the picker sits in — but in
             // Gast mode an Enter on a query nothing matches IS the commit (mirrors TruppTeam)
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!anyHit) commitTyped() } }}
           />
-          {state.search && (
-            <button type="button" className={c.searchClear} aria-label={appConfig.copy.clear}
-              onMouseDown={(e) => e.preventDefault()} onClick={() => state.setSearch('')}><Icon id="close" /></button>
-          )}
         </li>
       )}
       {toggle && (
@@ -362,14 +357,20 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
         </li>
       )}
       {groups
-        ? groups.map((g) => (
+        // a group with no match under the query draws nothing — its head alone read as a list of
+        // empty sections above the «no hits» line (29.09.2026)
+        ? groups.filter((g) => g.options.some(match)).map((g) => (
           <li key={g.label} className={classes.group}>
             <div className={classes.groupHead}>{g.label}</div>
             <ul>{g.options.filter(match).map(row)}</ul>
           </li>
         ))
         : (limit ? listed.slice(0, limit) : listed).map(row)}
-      {!anyHit && <li className={classes.empty}>{needle ? copy.noMatches : copy.empty}</li>}
+      {/* a search that came back empty is the app's one «no hits» line (`.no-hits`, 29.09.2026);
+          `copy.noMatches` is a «{q}» template */}
+      {!anyHit && (needle
+        ? <li className="no-hits">{fillTemplate(copy.noMatches, { q: state.search.trim() })}</li>
+        : <li className={classes.empty}>{copy.empty}</li>)}
       {/* The free-type door, LAST under the matches like the Gast row on the Trupp picker: it
           exists only while something is typed and carries the query in its own label, so the row
           states what pressing it will do instead of opening a second field to say it again. */}

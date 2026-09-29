@@ -107,6 +107,9 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 .add { margin-top: 8px; gap: 6px; }
 
 .note { margin: 10px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
+/* «Alles wird laufend gespeichert.» — where the footer's «Fertig» stood (29.09.2026) */
+.saved { display: flex; align-items: center; gap: 6px; margin: 14px 0 0; font: 600 12px var(--body); color: var(--ink-faint); }
+.saved :global(.i) { width: 14px; height: 14px; flex: none; color: var(--green-strong); }
 
 /* ---- phone ---------------------------------------------------------------------------- */
 

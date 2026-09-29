@@ -66,9 +66,8 @@ export function PersonnelSyncDialog({ provider, onClose, onSynced }: { provider:
             <li>{fillTemplate(ps.resultUnchanged, { n: result.unchanged })}</li>
             <li>{fillTemplate(ps.resultDeactivated, { n: result.deactivated })}</li>
           </ul>
-          <div className="ip-actions">
-            <button className="ip-btn primary" onClick={onClose}><Icon id="check" /> {appConfig.copy.done}</button>
-          </div>
+          {/* no «✓ Fertig» (29.09.2026): the sync is DONE, the line above says so with its ✓, and a
+              primary that only closes was a second ✕ — the sheet's ✕ and swipe close it */}
         </>
       ) : preview ? (
         <>
