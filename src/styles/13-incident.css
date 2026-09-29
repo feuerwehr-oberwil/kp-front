@@ -574,12 +574,14 @@
 :where(.ui-search) { flex: none; }
 .ui-search > .i { flex: none; width: 17px; height: 17px; }
 .ui-search:focus-within { background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
-.ui-search input { flex: 1 1 auto; min-width: 0; align-self: stretch; margin: 0; padding: 0 12px 0 0;
+/* the bare input: TWO classes, so a host form's `.field input` (one class + one element) cannot
+   draw a second box inside the pill — the Trupp form did */
+.ui-search .ui-search-input { flex: 1 1 auto; min-width: 0; align-self: stretch; margin: 0; padding: 0 12px 0 0;
   border: none; border-radius: 0; background: transparent; outline: none; box-shadow: none;
   font: 500 16px var(--body); color: var(--ink); }
-.ui-search input:focus { box-shadow: none; }
-.ui-search input::placeholder { color: var(--ink-faint); }
-.ui-search input::-webkit-search-cancel-button { display: none; }
+.ui-search .ui-search-input:focus, .ui-search .ui-search-input:focus-visible { border: none; outline: none; box-shadow: none; }
+.ui-search .ui-search-input::placeholder { color: var(--ink-faint); }
+.ui-search .ui-search-input::-webkit-search-cancel-button { display: none; }
 /* the live «2 von 42» — read at a glance, never wrapped; the ✕ (or the pill's end) follows it */
 .ui-search-count { flex: none; padding-right: 12px; font: 700 12px var(--body); color: var(--ink-faint);
   white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -596,8 +598,8 @@
 .ui-search-head { flex: 1 1 auto; height: auto; min-height: var(--tap); padding: 0; background: none; }
 .ui-search-head:focus-within { background: none; box-shadow: none; }
 .ui-search-head > .i { width: 19px; height: 19px; }
-.ui-search-head input { font: 700 18px var(--body); }
-.ui-search-head input::placeholder { font-weight: 600; }
+.ui-search-head .ui-search-input { font: 700 18px var(--body); }
+.ui-search-head .ui-search-input::placeholder { font-weight: 600; }
 
 /* ── THE ⓘ toggle (components/InfoToggle, 29.09.2026 · sweep C2) ─────────────────────────
    It had four «open» looks in three sizes: white 14→28% (dark docks), an accent-red frame

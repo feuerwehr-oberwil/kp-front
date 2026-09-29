@@ -44,6 +44,7 @@ export const SearchField = forwardRef<HTMLInputElement, {
         <Icon id={icon} />
         <input
           ref={ref}
+          className="ui-search-input"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           autoComplete="off"
