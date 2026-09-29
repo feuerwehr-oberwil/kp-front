@@ -162,7 +162,7 @@ export function NavRail(p: Props) {
     rapport: {
       id: page, glyph: <Icon id="doc" />, title: P.modes.rapport,
       meta: (p.openCount ?? 0) > 0 ? openWords(p.openCount ?? 0) : undefined,
-      metaTone: 'open',
+      metaTone: 'open' as const,
     },
     anwesenheit: {
       id: page, glyph: <Icon id="people" />, title: P.modes.anwesenheit,

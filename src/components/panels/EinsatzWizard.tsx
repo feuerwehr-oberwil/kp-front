@@ -487,9 +487,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       <label className="ip-field"><span>{ix.alarmMessage}</span>
         {/* editing: disabled while the existing Meldungstext could not be read — editing it
             would mean typing over something invisible, and saving would blank it */}
-        <textarea className="ip-textarea" rows={edit ? 3 : 2} value={text} disabled={edit && !textReady}
+        <textarea className="ip-textarea" rows={edit ? 3 : 2} value={text} disabled={!textReady}
           onChange={(e) => setText(e.target.value)}
-          placeholder={edit && textFailed ? ix.alarmTextUnavailable : ix.detailsPlaceholder} />
+          placeholder={textFailed ? ix.alarmTextUnavailable : ix.detailsPlaceholder} />
       </label>
 
       {demoBlocked && <p className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
