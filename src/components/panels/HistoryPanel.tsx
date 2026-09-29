@@ -18,19 +18,14 @@ import {
 import { Modal, fmtWhen } from './_shared'
 
 // --- History (Phase 5) --------------------------------------------------------------
-const statusLabel = (i: IncidentMeta): string => {
-  const h = appConfig.copy.history
-  return i.is_archived ? h.statusArchived : i.status === 'offen' ? h.statusOpen : i.status === 'in_arbeit' ? h.statusInProgress : i.status
-}
-const statusKey = (i: IncidentMeta): string => (i.is_archived ? 'arch' : i.status === 'in_arbeit' ? 'work' : 'open')
-
 // All incidents in one list — active and archived together, so you can switch to any of them.
 // Clicking opens it (archived → read-only); a reactivate restores edit. An open incident gets a
 // compact «Abschliessen» here too, for closing one that is not the active Einsatz (the active
 // one also has it in the Einsatz menu card and the Rapport head; the caller confirms + archives).
-// The status tag is shown only where it tells rows apart (29.09.2026): under the «Offen» heading
-// an «Offen» tag repeated its own section title on every card, so it goes — «In Arbeit» stays,
-// the heading does not say it — and archived rows keep «Abgeschlossen».
+// ONE status tag, and only on a closed Einsatz: «Abgeschlossen» (29.09.2026, owner: «we just need
+// tags to say an emergency is closed. open is the default state»). «Offen» and «In Arbeit» are
+// gone — the backend's two ACTIVE statuses (lib/api/incidents · INCIDENT_ACTIVE_STATUSES) are one
+// state to the operator, and nothing here sorted or grouped by the difference.
 export function HistoryPanel({ onClose, onOpen, onArchive }: {
   onClose: () => void
   onOpen: (id: string, readOnly: boolean) => void
@@ -110,7 +105,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
                 <div className="ip-hist-title">
                   <span className="ip-hist-name">{i.title}</span>
                   {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
-                  {statusKey(i) !== 'open' && <span className={`ip-badge ip-badge-${statusKey(i)}`}>{statusLabel(i)}</span>}
+                  {i.is_archived && <span className="ip-badge ip-badge-arch">{h.statusArchived}</span>}
                 </div>
                 <div className="ip-hist-sub">{shortAddress(i.address) ?? h.noLocation} · {fmtWhen(i.started_at)}</div>
               </button>

@@ -4306,8 +4306,6 @@ export const de = {
     reactivateConfirmMsg: 'Der Einsatz wird wieder geöffnet und ist bearbeitbar. Spätere Änderungen erscheinen im Verlauf und Rapport als Nachträge.',
     reactivateConfirmBtn: 'Wieder öffnen',
     statusArchived: 'Abgeschlossen',
-    statusOpen: 'Offen',
-    statusInProgress: 'In Arbeit',
     archiveConfirmTitle: 'Einsatz abschliessen',
     archiveConfirmMsg: 'Der Einsatz wird abgeschlossen und das Einsatzende festgehalten. Spätere Ergänzungen erscheinen im Verlauf und Rapport als Nachträge.',
     archiveConfirmBtn: 'Abschliessen',

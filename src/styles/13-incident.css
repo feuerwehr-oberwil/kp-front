@@ -804,10 +804,9 @@
    it was a 10.5/800 pill beside the tablet's 10/700 corner for the same word. */
 .ip-badge, .cv-badge-exercise { font: 700 10px var(--body); letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--r-xs); white-space: nowrap; }
 .ip-badge { flex: none; }
-/* «In Arbeit» is the blue status tone, not red (29.09.2026): a running Einsatz is normal
-   progress, and red means danger / act now. (The Alle-Einsätze list no longer shows «Offen» — its
-   heading says it — so the two never stand side by side there.) */
-.ip-badge-open, .ip-badge-work { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
+/* ONE status tag, «Abgeschlossen» (29.09.2026, owner: «we just need tags to say an emergency is
+   closed. open is the default state»). «Offen» and «In Arbeit» (a blue pill until today) are gone
+   from every list: a running Einsatz is the normal case, and a tag on the normal case is noise. */
 .ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
 /* a good-news tag («empfohlen») — the green of «done», never a fill */
 .ip-badge-ok { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green-strong); }

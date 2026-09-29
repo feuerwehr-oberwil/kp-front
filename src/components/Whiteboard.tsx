@@ -75,7 +75,7 @@ import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, principalAngleDeg, 
 import { usePlanMeasure } from './usePlanMeasure'
 import { useMeasuredSheet } from './useMeasuredSheet'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
-import { GeorefBoardLayer, GeorefInstrument, GeorefLinkChooser, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
+import { GeorefBoardLayer, GeorefDock, GeorefInstrument, GeorefLinkChooser, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
 import { GeorefQuality } from './GeorefQuality'
 import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
 import { fitSimilarity, hasAutoPairs, realPairCount } from '../lib/georef'
@@ -950,6 +950,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // into a proposal review nobody is waiting for.
   const autoRunRef = useRef(0)
   useEffect(() => { autoRunRef.current++; setLinkChoice(false); setAutoStep(null) }, [activeId])
+  // the chooser's ✕ and the phone sheet's push-down: the answer of a run still in flight is orphaned
+  const closeLinkChoice = () => { autoRunRef.current++; setAutoStep(null); setLinkChoice(false) }
   // Warm «Plan rendern» — the matcher raster (usually the resident bake, encoded) and the
   // printed-scale read — the moment the chooser opens, so the seconds the operator spends
   // reading the card cover whatever little work remains.
@@ -4572,7 +4574,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           selecting it. src/lib/overlays/Popover.tsx says exactly this in its own header: for
           surfaces that must stay live underneath, keep the hand-rolled dock. */}
       {georefQuality && georefFit && !georefArmed && !readOnly && (
-        <div className="wb-georef-dock" role="group" aria-label={appConfig.copy.whiteboard.georef.qualityTitle}>
+        <GeorefDock label={appConfig.copy.whiteboard.georef.qualityTitle} onClose={() => setQualityFor(null)}>
           <GeorefQuality
             fit={georefFit}
             auto={hasAutoPairs(georefPairs)}
@@ -4586,21 +4588,21 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             onTransfer={georefTransferTargets.length ? () => setGeorefTransferOpen(true) : undefined}
             onReset={() => { setQualityFor(null); resetGeorefPlan(activeGeorefKey); toast(appConfig.copy.whiteboard.georef.resetDone) }}
           />
-        </div>
+        </GeorefDock>
       )}
 
       {/* the unlinked chip's chooser — «Automatisch ausrichten» / «Punkte selbst setzen». Same
           dock (and the same stay-live rule) as the Passung above; only offered when the matcher
           can actually be asked (canAutoAlign), else the chip arms the point flow directly. */}
       {linkChoice && !georefArmed && georefState.kind !== 'linked' && !readOnly && (
-        <div className="wb-georef-dock" role="group" aria-label={appConfig.copy.whiteboard.georef.linkTitle}>
+        <GeorefDock label={appConfig.copy.whiteboard.georef.linkTitle} onClose={closeLinkChoice}>
           <GeorefLinkChooser
             busyStep={autoStep}
             onAuto={() => void runAutoAlign()}
             onManual={() => { setLinkChoice(false); beginGeoref() }}
-            onClose={() => { autoRunRef.current++; setAutoStep(null); setLinkChoice(false) }}
+            onClose={closeLinkChoice}
           />
-        </div>
+        </GeorefDock>
       )}
 
       {georefTransferOpen && active && georefTransferTargets.length > 0 && (

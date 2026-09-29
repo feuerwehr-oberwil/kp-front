@@ -2592,8 +2592,6 @@ export const en: Localizable<Copy> = {
     reactivateConfirmMsg: 'The incident is reopened and editable. Later changes appear in the log and report as addenda.',
     reactivateConfirmBtn: 'Reopen',
     statusArchived: 'Closed',
-    statusOpen: 'Open',
-    statusInProgress: 'In progress',
     deleteExercise: 'Delete',
     deleteConfirmTitle: 'Delete exercise',
     deleteConfirmMsg: 'The exercise and all its data (log, photos, report) are deleted permanently. This cannot be undone.',

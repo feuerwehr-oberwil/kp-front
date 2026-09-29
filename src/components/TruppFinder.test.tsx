@@ -58,4 +58,14 @@ describe('TruppFinder', () => {
     open([])
     expect(screen.getByText('Noch kein Trupp platziert.')).toBeTruthy()
   })
+
+  // ONE ✕ (29.09.2026, owner): the finder IS the search, so the field has no clear-✕ of its own
+  // beside the card's close — the close is the only ✕, and it closes
+  it('shows one ✕ only, and it closes', () => {
+    const { input, onClose } = open()
+    fireEvent.change(input, { target: { value: 'weber' } })
+    expect(document.querySelector('.ui-search-x')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Schliessen' }))
+    expect(onClose).toHaveBeenCalled()
+  })
 })
