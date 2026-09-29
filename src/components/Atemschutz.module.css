@@ -79,19 +79,12 @@
    bottoms `stretch` was once chosen against (the clocks the board is compared BY stay
    top-aligned either way). */
 /* ⚠️ 288px, not 270. 270 was chosen to fit three cards on a landscape tablet (300 fitted only
-   two); 288 is what the lifecycle row needs to stay ONE row — below it the pair breaks and the
-   loudest button lands alone under the quiet one. Since 04.09. that row is inset (24px of card
-   padding + an 8px gap), so 256px reach the two buttons at the floor: enough for the row, and at
-   the very floor a long primary label («Rückzug melden») wraps to two lines rather than the pair
-   breaking apart. The tablet never sees it — three columns there are ~350px each. */
-/* ⚠️ `subgrid` is GONE (04.09.) — it aligned all seven zones across a row, and it paid for that
-   by making every row as tall as the tallest card in it. What that looked like on a real board:
-   a Trupp that is «Draussen» has no Kontakt button and no Druck-Setter, so its framed block was
-   stretched into an empty grey box the height of a neighbour's; a Trupp with no Verlauf got a
-   blank strip across its foot. The alignment that was actually WORTH having is the one the eye
-   compares by — the clocks — and that one is bought by a two-line reserve on the Kennzeile
-   (`.kenn`) over a fixed-height head, not by coupling the whole card. Everything below the band
-   is now free: each card ends where its content ends. */
+   two). Since 29.09.2026 the card is the phone's (TruppCard): its tiles are a 2×2 grid of equal
+   keys, and 288 keeps «Rückzug» and «Raus» on one line each with the glyph beside the word. */
+/* ⚠️ `subgrid` is GONE (04.09.) — it made every row as tall as the tallest card in it (a Draussen
+   card stretched into an empty box the height of a neighbour's). Each card ends where its content
+   ends; what lines up across a row is the first line — name and clock — which every card opens
+   with at the same height. */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
   gap: 16px; align-items: start; }
 /* ⚠️ The «Raus»-Abschnitt this separated is GONE (17.08.) — a Trupp that came back keeps its slot
@@ -116,25 +109,24 @@
 .sectCount { display: inline-block; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
   font: 800 11px/16px var(--body); text-align: center; font-variant-numeric: tabular-nums; }
-/* the rule itself: whatever width the title leaves */
-.sect::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--glass-edge); }
+/* (the hairline rule that ran from the count to the edge — «DRIN 4 ────» — went on 29.09.2026,
+   T6: it was the divider between Atemschutz and ohne Atemschutz, then every section wore one,
+   between cards that already have their own frames and left edges, and in the SICHERUNGSTRUPP
+   head it ran into «Bestimmen». A group boundary is spacing (18.09. rule): the eyebrow, the count
+   and the air above the head — `.sectSecond`'s 26px, the Sicherungstrupp's own margins.) */
 .sectSecond { margin-top: 26px; }
 .sectEmpty { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
 
 
 /* --- monitoring card --- */
-.card { background: var(--surface); border-radius: var(--r-surface); overflow: hidden;
-  box-shadow: 0 0 0 1px var(--border-soft), var(--shadow-sm); display: flex; flex-direction: column;
-  border-top: 5px solid var(--ink-faint); }
+/* (`.card` — the tablet card's own frame with its 5px status top edge — went on 29.09.2026: the card
+   on every board is the phone's `.trow.trowCard`, left edge and wash by tier. See TruppCard.) */
 
 
 /* (.iconBtn — a bare 44px ✕ with a 17px glyph and no fill — removed 28.09.2026: it was only ever
    a sheet's close, and every close is THE ✕, the global `.ip-x` (13-incident · 36px/18px, grey) */
 
 
-.nameStatic :global(.trupp-no) { margin-left: 7px; }
-.nameStatic { display: block; font-size: 19px; font-weight: 800; color: var(--ink); padding: 2px 4px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 
 /* the big primary action — reset the contact clock on Funkkontakt. Filled + ringed so it reads
@@ -180,155 +172,35 @@
 .metaLine > span + span::before { content: '·'; margin-right: 4px; color: var(--ink-faint); opacity: .7; }
 .metaLine i { font-style: normal; }
 .metaLine b { font: 700 12.5px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
-/* the expected-pressure Schätzung: mono for alignment with the real Druck, but dimmed + lighter
-   so it reads as a subordinate estimate, never mistaken for a logged reading. */
-.metaEst { color: var(--ink-dim) !important; font-weight: 500 !important; }
+/* (`.metaEst`, the Schätzung's dimmed + lighter value, went on 29.09.2026, T2: the owner wants the
+   Schätzung CLEARLY visible, so it keeps full ink and its WORD — «Schätzung ≈ 0 bar» — and the word
+   is what keeps it from being read as a logged Druck. TruppCard · sockelLine `labelled`.) */
 /* (`.metaEstimate` / `.metaEstLabel` / `.metaEstSource` retired 09.09. with the stacked Sockel
    row they dressed. The Schätzung's number lives on `.metaLine`, its provenance is the value of
    a `.zonePanelRow` in the opened Verlauf — `.zoneNote` — where it sits against the label it
    explains instead of floating under two of them.) */
-/* Alarmdruck on a pressure value. Declared AFTER .metaEst so it wins over that rule's dimmed
-   !important when the Schätzung itself has crossed the threshold. */
-.metaEst.metaAlarm { font-weight: 700 !important; }
 
-/* The Schätzung's turn-back note, directly under the contact clock: the PROJECTION has reached
-   the Alarmdruck while the last logged Druck has not. The measured crossing is no longer here —
-   it is the alarm, and it took over the clock block above (AtemschutzView · clockState), which is
-   the card's loudest element. What is left is the Planungshilfe, which must never raise the tier
-   or read as a logged reading. Colour is never the only signal: the row spells out the limit and
-   names the Schätzung as the source, so it survives night mode and colourblindness. */
-.airNote { display: flex; align-items: center; gap: 8px; padding: 9px 11px;
-  border-radius: var(--r-sm); font-size: 12.5px; font-weight: 700; color: var(--red-strong);
-  background: color-mix(in srgb, var(--red) 13%, transparent);
-  border: 1px solid color-mix(in srgb, var(--red) 45%, transparent); }
-.airNote :global(.i) { width: 17px; height: 17px; flex: none; color: var(--red); }
+/* The Schätzung's turn-back note: the PROJECTION has reached the Alarmdruck while the last logged
+   Druck has not. The measured crossing is the alarm and lives on the clock and the Kontakt tile;
+   this is the Planungshilfe, which must never raise the tier or read as a logged reading. The row
+   spells out the limit and names the Schätzung as the source, so colour is never the only signal.
+   ⚠️ The ONE form-warning look since 29.09.2026 (T3; `.formWarn` below, 08-toasts · «ONE message
+   surface»): ink 13/700, the ⚠ alone in --red-strong, a 10% red tint, no border. It was red
+   12.5/700 text in a red-bordered box — the loudest block on the card after the clock, for an
+   estimate. Still a filled row with its glyph, so it stays clearly visible (owner). */
+.airNote { display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  border-radius: var(--r-sm); background: color-mix(in srgb, var(--red) 10%, transparent);
+  font: 700 13px/1.35 var(--body); color: var(--ink); }
+.airNote :global(.i) { width: 16px; height: 16px; flex: none; color: var(--red-strong); }
 
-/* ══ The card, zone by zone (03.09.) ═══════════════════════════════════════════════════════════
-   ONE arrangement at every width and on every board — see TruppCard for the zone list. The zones
-   that can be empty (`.noteZone`, `.actZone`, `.vfoot`) drop their own padding and
-   rules when they are, so a zone with nothing to say costs nothing: since 04.09. the cards no
-   longer share grid rows, so it takes no height either. */
-
-/* ── 1 Kopf: the name, the ⋯, and the collapse chevron at the far right ───────────────────────
-   ⚠️ The chevron sits where the CLOSED row's chevron sits (04.09.). It was on the left until then,
-   which meant the toggle changed ends between its two states and the pixel that had just opened
-   the card became the ⋯ — the one control up here whose menu can delete the Trupp. See TruppCard. */
-.cardHead { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 8px 8px 8px 14px; }
-/* the chevron is the LAST child and the ⋯ sits inside it — order in the markup, so nothing here
-   has to re-sort them */
-.cardHead .nameStatic { flex: 1 1 auto; min-width: 0; padding: 0; }
-.headMenu { flex: none; display: grid; place-items: center; width: 44px; height: 44px;
-  border: none; background: transparent; color: var(--ink-faint); border-radius: var(--r-sm); cursor: pointer; }
-.headMenu :global(.i) { width: 19px; height: 19px; }
-@media (hover: hover) { .headMenu:hover { background: var(--fill-soft, rgba(0, 0, 0, .045)); color: var(--ink); } }
-.headMenu:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* (no pull of its own any more: since 04.09. the chevron sits at the head's trailing edge, where
-   the ⋯ used to, and the head's own 8px right padding is the inset both of them want) */
-
-/* ── 2 Kennzeile: Mannschaft · Auftrag · Ziel · Leitung · Kanal, in ONE grey ─────────────────
-   Five pill-shaped chips in four colours were louder than the name above them, and the crew line
-   under the name paid for a whole extra row to say something that fits here. Two entries stay
-   buttons, because they are the two that go somewhere: the missing Auftrag, and a Leitung that
-   has actually been drawn. */
-/* ⚠️ The two-line RESERVE is the whole of what is left of the old cross-card alignment (04.09.,
-   Mockup B). The head is a fixed 56px, so reserving two Kennzeilen-Zeilen here makes the band —
-   the clock the board is compared BY — start at the same height on every card in a row, without
-   coupling a single zone below it. `line-height` is set explicitly so the reserve is arithmetic
-   and not whatever the font happens to resolve `normal` to: 8px padding + 2 × 17.5px + the 4px
-   row gap = 47px, plus 2px so that the dashed «Auftrag offen» pill — the one item here that is
-   taller than a text line — does not push a two-line Kennzeile out of its own reserve.
-   ⚠️ The padding under it is 8px, the same air the head keeps under the name (14.09., screenshot:
-   at 12px the Kennzeile stood visibly further from the block than from the name above it, and
-   the buttons' zone below the block answers with 8px too — see `.actZone`). One rhythm down the
-   card: name · 8 · Kennzeile · 8 · block · 8 · buttons.
-   `align-content: flex-start` keeps a ONE-line Kennzeile at the top of that
-   reserve instead of centring it in the empty space and pushing the text out of line with its
-   neighbours. A Kennzeile that genuinely runs to three lines still pushes its own band down —
-   deliberate: clipping a Trupp's Auftrag or Ziel to keep a row tidy is the wrong trade.
-   ⚠️ …and the reserve is dropped on the focus board (`.focusCard .kenn`, 09.09.): one card on
-   screen has no neighbour to line its band up with, so there the 53px is simply blank card. */
-.kenn { display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start;
-  gap: 4px 0; padding: 0 14px 8px; min-height: 49px; line-height: 1.4;
-  font-size: 12.5px; color: var(--ink-dim); }
-/* One entry with ITS separator in front of it (14.09.): the «·» used to be its own flex child,
-   so a wrap could fall between the dot and the entry and the next line opened with a stray dot.
-   Bound into the entry it can only wrap WITH it; the 7px column gap the line used to carry is
-   now the gap on either side of the dot, so nothing moved for an entry that does not wrap. The
-   entry's text still wraps inside itself (`min-width: 0`) — a long Ziel is not forced onto one
-   line, only the dot is forced to stay with its first word. */
-.kennItem { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 100%; }
-.kennItem > .kennSep { flex: none; }
-.kennItem:first-child > .kennSep { display: none; }
-.kennCrew { font-weight: 700; }
-/* «Rückzug» — a fact the band does not name (see the Kennzeile in TruppCard). Amber and in the
-   card's own voice, never a second alarm colour: the tier lives in the band and only there. */
-.kennState { font-weight: 800; color: var(--amber-strong); }
-.kennSep { color: var(--ink-faint); }
-.kennAuftrag { font-weight: 700; color: var(--blue); }
-/* the ABSENT Auftrag — dashed and amber, because a Trupp with no job is a question to be asked */
-.kennOpen { border: 1.5px dashed var(--amber); border-radius: 999px; background: transparent;
-  padding: 1px 9px; font: 700 12px var(--body); color: var(--amber-strong); cursor: pointer; }
-/* a fact that JUMPS (Leitung 2 ›, an TLF ›): ink, the › in --ink-dim — never a blue word
-   (28.09.2026, owner pick A: blue means «chosen»; the › is what says «this goes somewhere») */
-.kennGo { display: inline-flex; align-items: center; gap: 2px; border: none; background: transparent;
-  padding: 0; font: 700 12.5px var(--body); color: var(--ink); cursor: pointer; }
-.kennGo :global(.i) { width: 14px; height: 14px; color: var(--ink-dim); }
-/* a fact that opens its sheet (26.09.2026, phone card slim-down): the sentence's own words as a
-   button — no look of its own on the tablet's Kennzeile, the phone dresses them as chips */
-.kennTap { display: inline-flex; align-items: center; gap: 7px; border: none; background: transparent; padding: 0;
-  font: inherit; color: inherit; cursor: pointer; text-align: left; min-width: 0; }
-@media (pointer: coarse) { .kennTap { padding: 14px 4px; margin: -14px -4px; } }
-/* an inline link in a sentence: 16px of text, so under a finger it wears a transparent pad
-   (padding paid back by margin — the line's layout does not move) up to the floor (22.09.2026) */
-@media (pointer: coarse) { .kennGo { padding: 14px 4px; margin: -14px -4px; } }
-
-/* ── 3 Block: the band, «Kontakt» and the Druck setter — everything one ENTERS ────────────────
-   One framed object rather than three stacked full-bleed strips: «wie lange schon» and «jetzt
-   Kontakt» belong together, and the Druck setter was the only input on the card, filed as the
-   third of four rows in a table of numbers that are otherwise only read. */
-.block { margin: 0 12px; border: 1.5px solid var(--glass-edge); border-radius: var(--r-sm); overflow: hidden; }
-.blockWarn { border-color: color-mix(in srgb, var(--amber) 50%, transparent); }
-.blockCrit { border-color: color-mix(in srgb, var(--red) 55%, transparent); }
-
-/* the state, said ONCE, beside the number it is about. The word carries the tier as TEXT, so
-   colour is never the only signal (night mode, colourblindness, a muted alarm). */
-.band { display: flex; align-items: center; gap: 12px; padding: 11px 14px;
-  background: var(--fill-soft, rgba(0, 0, 0, .045)); }
-.bandTxt { flex: 1 1 auto; min-width: 0; }
-.bandWord { display: block; font-size: 13px; font-weight: 800; letter-spacing: .04em;
-  text-transform: uppercase; color: var(--ink-dim); }
-.bandSub { display: block; margin-top: 2px; font-size: 10.5px; font-weight: 600; line-height: 1.3;
-  color: var(--ink-faint); }
-.bandVal { flex: none; font-family: var(--mono); font-size: 40px; font-weight: 800; line-height: 1;
-  color: var(--ink); font-variant-numeric: tabular-nums; }
-/* ⚠️ The band of a Trupp that is OUT (04.09.). The 40px bold number is the loudest thing on this
-   board and it belongs to the crews that are INSIDE — that is the whole reading order of the
-   surface. A break clock in the same weight put a Trupp nobody is watching at the top of the eye's
-   list, and on «Nicht eingesetzt», where the number is a static Anmeldezeit, it shouted a fact
-   that asks for nothing at all. Same facts, quiet type — no tint, no pulse, no urgency: those are
-   the alarm tiers' own (.bandWarn / .bandCrit), and an out Trupp never carries one (sev is 0 once
-   the contact clock stops). Declared BEFORE the tier rules so nothing here can outrank them. */
-.bandQuiet { padding-top: 9px; padding-bottom: 9px; }
-.bandQuiet .bandVal { font-size: 19px; font-weight: 700; color: var(--ink-dim); }
-.bandQuiet .bandWord { color: var(--ink-faint); }
-
-.bandWarn { background: color-mix(in srgb, var(--amber) 12%, transparent); }
-.bandWarn .bandWord { color: var(--amber-strong); }
-.bandWarn .bandVal { color: var(--amber); }
-.bandCrit { background: color-mix(in srgb, var(--red) 14%, transparent); }
-.bandCrit .bandWord { color: var(--red); }
-.bandCrit .bandVal { color: var(--red); animation: az-pulse 1s infinite; }
-/* ⚠️ The band is a DISPLAY again. It used to be a button that folded the timing rows in and out,
-   findable only by knowing that five grey characters at its edge meant «tap me»; those rows are
-   now the head of the Verlauf, behind a word. Nothing on the loudest element of a safety board
-   should be a control that a gloved thumb can hit by accident. */
-
-/* inside the frame the big button and the setter lose their own outlines — the frame is the ring */
-.block .kontaktBtn { width: 100%; box-shadow: none; border-top: 1.5px solid var(--glass-edge); }
-.block .kontaktWarn { border-top-color: color-mix(in srgb, var(--amber) 42%, transparent); }
-.block .kontaktCrit { border-top-color: color-mix(in srgb, var(--red) 46%, transparent); }
-.block .pressureBlock { padding: 10px 12px; background: var(--surface);
-  border-top: 1px solid var(--glass-edge); }
+/* ══ The card, zone by zone ═══════════════════════════════════════════════════════════════════
+   ONE card on every board since 29.09.2026 (TruppCard's zone list): the line, the tiles, the state
+   words, the note, the facts, the foot. The zones that can be empty (`.noteZone`, `.actZone`) drop
+   their own padding when they are, so a zone with nothing to say costs nothing.
+   (Gone with the tablet card, 29.09.2026: `.cardHead` + `.headMenu` — the ⋯ is the facts' last
+   chip; the Kennzeile `.kenn*` — a grey sentence with a blue Auftrag, now the chips; the framed
+   `.block` with its `.band` and the 40px clock — the clock is the first line's; the ± stepper
+   `.pressureBlock`/`.pBtn`/`.pConfirm` — the pressure tile opens the PressureSheet.) */
 
 /* ── 4 Hinweis — usually empty, and then it costs nothing ────────────────────────────────────
    Rendered even when there is nothing to say: one card, one zone list, on every board (see
@@ -338,99 +210,24 @@
    Trupp still at the door. It is a hint, so it lives in the hint zone — and only on a card where
    it is true, which is one under Atemschutz. */
 .preHint { font-size: 12px; line-height: 1.35; color: var(--ink-dim); }
-.noteZone { padding: 10px 14px 0; }
+.noteZone { padding: 8px 0 0; }
 .noteZone:empty { padding: 0; }
 
-/* ── 5 Aktionen ─────────────────────────────────────────────────────────────────────────────
-   ⚠️ Not a full-bleed strip any more (04.09.). Edge to edge, «Wieder einrücken» read as a green
-   BAND across the foot of the card rather than as a button somebody presses, and the two-button
-   row read as a segmented control. They are buttons, so they now sit in the card's own 12px
-   gutter — the same gutter the framed block above uses — with a real radius and a gap between
-   them. They stay outside that frame: the block is what one ENTERS, these change what is TRUE
-   about a Trupp. */
-/* ⚠️ The gutter BELOW the buttons belongs to this zone, not to the Sockel under it. It used to be
-   the Sockel's `margin-top`, which is right until the Sockel is empty — a Trupp without
-   Atemschutz has nothing to look up — and then the Verlauf sat straight against the button with
-   no gap at all. The zone that owns the buttons owns the air around them. */
-/* 8px above (the card's one vertical rhythm — see `.kenn`), the 12px gutter on the other sides */
-.actZone { padding: 8px 12px 12px; }
-/* ⚠️ Empty is not zero (22.09., screenshot): a read-only card has no buttons, and with no padding
-   here nothing else puts air under the framed block — its border sat flush on the Verlauf's
-   hairline. The gutter stays; only the buttons' own 8px above goes. */
-.actZone:empty { padding: 12px 0 0; }
+/* ── 5 Aktionen: the second row of the tile grid (see `.actions` below) ─────────────────────── */
+.actZone { padding: 8px 0 0; }
+.actZone:empty { padding: 0; }
 
-/* ── 6 Sockel: everything one LOOKS UP ──────────────────────────────────────────────────────
-   The quiet end of the card, on the same dimmed ground as the Verlauf below it: same small rows
-   the card has always used (`.metaRow`), no separators, nothing competing with the band. */
-/* The 12px above it is the gutter under the framed block — the dimmed ground starts below it,
-   not against it. When there ARE buttons that gutter is already theirs (`.actZone`'s padding),
-   so the Sockel drops its own and the two never add up to 24px. */
-/* (`.plinth` retired 09.09. — the Sockel folded into the Verlauf block below it. Its rows live
-   on: the two that must stay readable as `.metaLine` at the head of that block, the rest inside
-   `.vopen`. There is no standing look-up strip on the card any more, at any width.) */
-
+/* ── 6 Sockel und Verlauf: ONE terse line (09.09. fold; 26.09. terse on the phone, every board
+   29.09.2026) — `.vrowTerse` below. There is no standing look-up strip on the card, at any width. */
 /* ── 7 Verlauf: the log, with the contact times as its head ─────────────────────────────────── */
 .vopen { padding-bottom: 2px; }
 /* (`.readHead` — the «ABLESUNGEN» title — retired 09.09.: the fold holds exactly one list and
    every row of it is a time and a bar. The RULE it carried moved to `.logList` below, which is
    the part that was doing the work.) */
 
-/* ── A Trupp WITHOUT Atemschutz ──────────────────────────────────────────────────────────────
-   Same card, same zones, same footprint — what says «nobody is monitoring this one» is what the
-   card does NOT have: no contact clock, no Kontakt button, no Druck, no Schätzung, and never an
-   alarm colour. Specificity, not source order, keeps this ahead of the `.st-*` lifecycle tints:
-   «Im Einsatz» green on a work squad would read as «contact ok». */
-.card.cardPlain { border-top-color: var(--ink-faint); }
-
-/* INLINE Druck control on a live card — ± adjust a PENDING value; nothing commits until the
-   explicit Bestätigen, so a misclick never logs a reading or resets the contact clock. Kept quiet
-   so the contact clock stays the hero; the grid columns are fixed so the buttons never shift as
-   the value's digit count changes (60 ↔ 300 bar). */
-.pressureBlock { display: flex; flex-direction: column; gap: 8px; }
-.pressureRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.pressureLbl { font-size: 12.5px; font-weight: 700; color: var(--ink-dim); }
-.pressureCtl { display: grid; grid-template-columns: 44px 70px 44px; align-items: center; gap: 6px; }
-.pBtn { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--glass-edge);
-  background: var(--surface); border-radius: var(--r-sm); cursor: pointer; color: var(--ink-dim); }
-.pBtn :global(.i) { width: 16px; height: 16px; }
-@media (hover: hover) { .pBtn:hover { border-color: var(--blue); color: var(--blue); } }
-.pBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.pVal { display: inline-flex; align-items: baseline; gap: 4px; justify-content: center;
-  font: 800 19px/1 var(--mono); color: var(--ink); }
-.pVal span { font-size: 11px; font-weight: 700; color: var(--ink-faint); }
-/* tap-to-type: the value as a button (reset native chrome) + the inline numeric input */
-button.pValBtn { border: none; background: transparent; cursor: pointer; padding: 2px 4px; border-radius: var(--r-sm); }
-/* the value sits between two 44px ± keys; under a finger it is as tall as they are (22.09.2026) */
-@media (pointer: coarse) { button.pValBtn { min-height: var(--tap); } }
-@media (hover: hover) { button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); } }
-button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.pInput { width: 44px; box-sizing: border-box; text-align: center; border: none; background: transparent; outline: none;
-  font: 800 19px/1 var(--mono); color: var(--blue); padding: 0; }
-/* pending (unconfirmed) value — visually distinct from the saved reading */
-.pPending { color: var(--blue); }
-.pPending span { color: var(--blue); }
-/* «Höher als zuletzt» — a hint, not a barrier: it sits above the confirm row and never disables
-   it. Amber, because the sheet's red is reserved for the two things that mean turn round now
-   (überfällig, Alarmdruck) and a probable typo is neither. */
-.pressureWarn { display: flex; align-items: center; gap: 7px;
-  border-radius: var(--r-sm); padding: 6px 9px;
-  border: 1px solid color-mix(in srgb, var(--amber) 35%, var(--glass-edge));
-  background: color-mix(in srgb, var(--amber) 9%, var(--surface));
-  font: 600 12.5px var(--body); color: var(--ink-dim); }
-.pressureWarn :global(.i) { width: 15px; height: 15px; flex: none; color: var(--amber-strong); }
-/* explicit confirm row, shown only while a pending change is open */
-.pressureConfirm { display: grid; grid-template-columns: 1fr 44px; gap: 8px; }
-.pConfirm { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
-  background: var(--green); color: var(--on-accent-ink); font: 800 14px var(--body); min-height: 44px; border-radius: var(--r-sm); }
-.pConfirm :global(.i) { width: 17px; height: 17px; }
-@media (hover: hover) { .pConfirm:hover { background: var(--green-solid-hover); } }
-.pConfirm:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.pCancel { display: grid; place-items: center; border: 1px solid var(--glass-edge); background: var(--surface);
-  color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; min-height: 44px; }
-.pCancel :global(.i) { width: 16px; height: 16px; }
-@media (hover: hover) { .pCancel:hover { color: var(--ink); border-color: var(--ink-faint); } }
-.pCancel:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-
+/* (A Trupp WITHOUT Atemschutz wears the same card; what says «nobody is monitoring this one» is
+   what it does NOT have — no contact clock, no Kontakt, no Druck, no Schätzung, never an alarm
+   tone: `rowTone` gives it `.trowPlain`. The tablet's `.cardPlain` top edge went on 29.09.2026.) */
 
 /* the timing rows, now the head of the expanded Verlauf */
 .zonePanel { background: var(--surface); padding: 9px 14px 10px; display: flex; flex-direction: column; gap: 4px; }
@@ -454,15 +251,12 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
   font: 700 12.5px var(--body); color: var(--ink-dim); -webkit-tap-highlight-color: transparent; }
 .vrow:active { background-image: linear-gradient(var(--press), var(--press)); }
 .vrow :global(.i) { width: 14px; height: 14px; flex: none; }
-.vrowLbl { flex: none; }
-.vrowLast { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  font-weight: 600; color: var(--ink-faint); }
 .logChev { color: var(--ink-faint); }
 /* An OPENED card on the phone list is parked at the top of the port (AtemschutzView · the
    `--az-open-pad` effect), and a card about a port tall comes to rest with this row in the FAB's
-   corner: the circle sat on the chevron and the end of «zuletzt: …» (field checks 24.09.2026).
-   The effect measures where the row stands and marks the ROW itself; it then keeps the FAB's
-   column free, so the preview ellipsises a little earlier and the chevron stays tappable. */
+   corner: the circle sat on the chevron (field checks 24.09.2026). The effect measures where the
+   row stands and marks the ROW itself; it then keeps the FAB's column free, so the chevron stays
+   tappable. */
 .vrow[data-az-fab-foot] { padding-right: calc(14px + var(--fab-safe, 0px)); }
 /* the expanded per-Trupp contact/pressure log, inside the footer */
 /* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
@@ -489,70 +283,41 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .logBar { font-family: var(--mono); font-weight: 700; color: var(--ink); }
 .logKind { color: var(--ink-dim); font-weight: 600; }
 
-/* ⚠️ Hierarchy by WIDTH, not by equal thirds (04.09.). The row used to be equal-width cells over
-   a 1px grid — which drew two buttons of identical weight and let the quiet «Raus melden» claim
-   exactly as much of the card as the decision beside it. Here the card's own action takes the
-   room (`1fr`, filled) and the quiet way out takes only its words (`auto`, no fill, no border) —
-   still a full 48px target, still a real button, just not one that competes.
-   ⚠️ The default markup order is QUIET first, LOUD second (see TruppCard) — except the
-   pre-entry row, which since 07.09. (Feldtest Manuel) leads with «Einrücken»: rows read in the
-   order the Einsatz runs, and the exit lives in the right-hand column on every card. The
-   :has() rule below flips the widths for that row, so the primary keeps at least half the row
-   either way and a long secondary label («Nicht eingesetzt») can never end up the widest thing
-   in it. */
-.actions { display: grid; grid-auto-flow: column; grid-template-columns: minmax(0, auto) minmax(50%, 1fr);
-  gap: 8px; }
-/* the pre-entry row leads with the loud «Einrücken» — wide column first, words-only second */
-.actions:has(> .actEnter:first-child:not(:only-child)) {
-  grid-template-columns: minmax(50%, 1fr) minmax(0, auto); }
-/* a single action («Wieder einrücken») owns the whole row rather than half of it */
-.actions:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+/* ── The lifecycle tiles (26.09.2026 evening on the phone, EVERY board since 29.09.2026) ─────────
+   «Rückzug» | «Raus», «Im Einsatz», «Wieder in den Einsatz» — the second row of the card's tile
+   grid, the same shape as «⌓ 240 bar | Kontakt» above them (`.trowPressBtn`, `.kontaktBtn`):
+   48px, the one corner, ONE 1px inset edge, 800/14. Four tiles under one clock are read as a
+   keypad, and a keypad has equal keys.
+   ⚠️ The tablet's weights (04.09.: a loud amber-worded, framed «Rückzug melden» in `1fr` beside a
+   ghost «Raus melden» in `auto`) went on 29.09.2026 (T11): amber means «warning», and on a Trupp
+   at 300 bar nothing is wrong. Colour is state and nothing else — «Rückzug» turns amber only at or
+   under the Trupp's Alarmdruck (`.actAlarm`), the one moment the tile is the answer. */
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* a single action («Im Einsatz», «Wieder in den Einsatz», a work squad's «Raus melden») owns the row */
+.actions:has(> :only-child) { grid-template-columns: 1fr; }
 .actBtn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
-  background: transparent; font-family: var(--body); font-size: 14px; font-weight: 700; color: var(--ink-dim);
-  padding: 12px; min-height: 48px; min-width: 0; border-radius: var(--r-sm); }
+  min-height: 48px; min-width: 0; padding: 0 12px; border-radius: var(--r-sm);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--glass-edge);
+  font: 800 14px var(--body); color: var(--ink-dim); }
 .actBtn :global(.i) { width: 16px; height: 16px; }
 /* press wash for the whole lifecycle row — every variant below rides on .actBtn */
 .actBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.actEnter { color: var(--on-accent-ink); background: var(--green); font-weight: 800; }
-@media (hover: hover) { .actEnter:hover { background: var(--green-solid-hover); } }
-/* ⚠️ The loud half of the in-field row is loud through WIDTH, WEIGHT and an outline — never
-   through a filled area (decided 04.09.). A tint was tried and dropped: amber as a SURFACE is
-   this card's warn tier (`.bandWarn`, `.blockWarn`), so a permanently amber-filled button would
-   put a second amber field on every card in the field, and two of them on a card that is actually
-   warning. The colour stays in the word; the fill stays the band's. */
-.actRueckzug { color: var(--amber-strong); font-weight: 800;
-  box-shadow: inset 0 0 0 1px var(--glass-edge); }
-@media (hover: hover) { .actRueckzug:hover { background: color-mix(in srgb, var(--amber) 10%, transparent); } }
-/* call off a Rückzug — back into the field (forward/positive). Same restraint, same reason: green
-   as a surface means «in field, contact fresh» here. */
-.actContinue { color: var(--green-strong); font-weight: 800;
-  box-shadow: inset 0 0 0 1px var(--glass-edge); }
-@media (hover: hover) { .actContinue:hover { background: color-mix(in srgb, var(--green) 9%, transparent); } }
-/* end monitoring — neutral, not a reassuring green check (green = "in field, contact fresh").
-   This is the quiet half: no fill and no outline, so the row has exactly one loud button. */
-.actExit { color: var(--ink-dim); }
-@media (hover: hover) { .actExit:hover { background: var(--fill-soft); color: var(--ink); } }
-/* «Nicht eingesetzt» sits beside the green «Einrücken» and must not compete with it: entering
-   the field is the action this card exists for, standing the Trupp down is the quiet one. Same
-   weight as «Raus», which is the same kind of decision. */
-.actStandDown { color: var(--ink-dim); }
-@media (hover: hover) { .actStandDown:hover { background: var(--fill-soft); color: var(--ink); } }
-/* A quiet button that is ALONE in the row has nothing to be quiet against — a Trupp without
-   Atemschutz in the field only ever offers «Raus melden». It keeps its restraint (no fill, never
-   green) but gets an outline, so it still reads as a button rather than as a line of text. */
-.actions > .actExit:only-child, .actions > .actStandDown:only-child {
-  box-shadow: inset 0 0 0 1px var(--glass-edge); }
-/* re-deploy an exited Trupp — the only action on that card, so it takes the whole row */
-.actReenter { color: var(--on-accent-ink); background: var(--green); font-weight: 800; }
-@media (hover: hover) { .actReenter:hover { background: var(--green-solid-hover); } }
-/* Status colour on the card's TOP BORDER, and only there. The tint and the word that used to
-   repeat it in a banner are gone: the state is said once, in the band (.band / .bandWarn /
-   .bandCrit), whose tier rules are written at higher specificity so they cannot be overridden
-   here by a lifecycle status that happens to be declared later in this file. */
-.st-aktiv { border-top-color: var(--green); }
-.st-rueckzug { border-top-color: var(--amber); }
-.st-ueberfaellig { border-top-color: var(--red); }
-.st-raus { border-top-color: var(--ink-faint); opacity: .86; }
+@media (hover: hover) { .actRueckzug:hover, .actContinue:hover, .actExit:hover { background: var(--fill-soft); } }
+/* amber ONLY at or under the Alarmdruck: that is the moment the tile is the answer */
+.actRueckzug.actAlarm { color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 10%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 42%, transparent); }
+/* ⚠️ The card's ONE filled tile (27.09.2026, owner screenshot r2-1): «Wieder in den Einsatz» /
+   «In den Einsatz» on a Trupp that is out, «Im Einsatz» on one still waiting. In the tile family
+   the one primary action is the ink-filled tile («+ Trupp» in the head, `.newBtn`; «Anmelden» in
+   the form), never a green band — and it reads by night too (`--ink` / `--surface`). */
+.actEnter, .actReenter { color: var(--surface); background: var(--ink); box-shadow: none; }
+@media (hover: hover) {
+  .actEnter:hover, .actReenter:hover { background: var(--ink); background-image: linear-gradient(var(--press), var(--press)); }
+}
+/* (`.st-aktiv` … `.st-raus`, the tablet card's status TOP EDGE, went on 29.09.2026: the card's tone
+   is the phone row's LEFT edge and wash by tier — `rowTone`, `.trowWarn` / `.trowCrit` / `.trowIdle`
+   / `.trowOut`.) */
 
 @keyframes az-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 
@@ -841,9 +606,6 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* second, equally valid submit (Wieder einrücken → «Bereitstellen»): outlined rather than ghost,
    because it commits the form just like the primary does – a ghost would read as «abbrechen». */
 
-/* angemeldet (registered, not yet entered): neutral blue border, no alarm */
-.st-angemeldet { border-top-color: var(--blue); }
-
 
 /* «this one» — the card a locked Anwesenheits-Zeile just sent you to. A ring that fades, not a
    state that stays: pointing is a gesture (same rule as the map's flashDrawingId).
@@ -1066,7 +828,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    ⚠️ COLOUR ONLY, and that is a rule rather than an accident: the crown moves with a tap, so
    anything this state adds to the chip's BOX — a badge, a thicker border, more padding — is a
    size change under a finger and re-wraps the row around it. A marker that needs weight uses an
-   inset `box-shadow` (the way `.tabOn` rings a Trupp tab), never geometry. */
+   inset `box-shadow` or a fill, never geometry. */
 .chipLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
   background: color-mix(in srgb, var(--amber) 12%, var(--surface)); }
 /* ⚠️ The house target, 44px wide against the chip's full height (staging walk-through
@@ -1388,10 +1150,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .trowName { font-size: 15.5px; gap: 7px; }
 }
 
-/* An opened card inside the row list. It was built to sit in a ~290–370px grid column; dropped
-   into a full-width list it stretched to the viewport, so the clock floated in the middle of a
-   2000px box and Rückzug/Raus became metre-wide bars. Hold it to a card's natural width. */
-.rowList .card { max-width: 440px; width: 100%; }
 
 
 /* Opening a row: the card grows out of the line that was tapped rather than appearing on top of
@@ -1404,12 +1162,12 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   from { opacity: 0; transform: scale(.97) translateY(-6px); }
   to   { opacity: 1; transform: none; }
 }
-.rowList :is(.card, .trowCard) { animation: az-cardOpen .17s var(--ease) both; transform-origin: top center; }
+.rowList .trowCard { animation: az-cardOpen .17s var(--ease) both; transform-origin: top center; }
 /* the chevron turns with the state instead of cutting to it */
 .trowChevron :global(.i) { transition: transform .17s var(--ease); }
 
 @media (prefers-reduced-motion: reduce) {
-  .rowList :is(.card, .trowCard) { animation: none; }
+  .rowList .trowCard { animation: none; }
 }
 
 /* (The opened card's header can no longer wrap into a second row and change the card's height
@@ -1592,116 +1350,32 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tabWarn .tabClock { color: var(--amber-strong); }
 .tabCrit { background: color-mix(in srgb, var(--red) 12%, var(--surface)); border-color: var(--red); }
 .tabCrit .tabClock { color: var(--red); }
-.tabOn { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink) inset; }
+/* the chosen tab is «where you are» — the nav's ink pill (29.09.2026, T9; the page tabs' rule of
+   28.09.): --ink-fill with --on-accent-ink, never an outline-only «selected». On a red or amber
+   tab the FILL wins — the card above already shows the tier, and the other tabs keep theirs.
+   Doubled class so it outranks `.tabWarn` / `.tabCrit` (and their clocks) wherever they stand. */
+.tab.tabOn { border-color: var(--ink-fill); background: var(--ink-fill); color: var(--on-accent-ink); box-shadow: none; }
+.tab.tabOn .tabClock { color: var(--on-accent-ink); }
 /* «+ Trupp» — one more cell of the SAME grid, so it is exactly as wide as a chip and as tall as
    its row (05.09.). Before this it was a 44px square in a fixed column of its own beside the
    strip: the only thing on the rail that matched neither the width nor the height of a tab, and
    it took the width the Trupp names needed. It carries the tab's chrome and only drops what a
    tab has and it does not — the two text lines. */
 .tabAdd { color: var(--ink-dim); }
-.tabAdd :global(.i) { width: 20px; height: 20px; }
+/* «+ Trupp» — the glyph and its word on one line (29.09.2026, T9: a full cell, so the word fits) */
+.tabAdd :global(.i) { width: 16px; height: 16px; }
 @media (hover: hover) { .tabAdd:hover { color: var(--ink); border-color: var(--ink-faint); } }
-/* As tall as its content, never stretched: the card should fit the screen with Druck and the
-   actions in view, and only scroll when it truly cannot. Nothing shrinks under its content
-   (sections overlapped when they did). */
-.focusCard .card { flex: none; width: 100%; max-height: 100%; display: flex; flex-direction: column; overflow-y: auto; }
-.focusCard .card > * { flex: 0 0 auto; }
-
-/* ── ONE CARD FITS ONE PHONE (09.09., two passes) ────────────────────────────────────────────
-   The rule above says the card only scrolls «when it truly cannot» fit. On a normal Trupp it
-   truly could not: an in-field Atemschutz card plus a three-Trupp rail measured ~736px against
-   the ~744px Safari leaves of an 844pt screen, so a Kennzeile that ran to three lines, a
-   `.airNote`, or a Trupp name that wrapped in the rail was enough to put the card's foot and the
-   rail in competition — you scrolled to see one or the other.
-   Pass 1 (field shot, iPhone 390×844) took air, one type step on two numbers, and the reserve
-   `.kenn` keeps for a card GRID this board does not have. Pass 2 (09.09. evening, maintainer
-   pick) is aimed a size lower — 375×667, the SE and the 13 mini, where pass 1 still overran —
-   and it is the first one that MOVES something: the Sockel folds into the Verlauf under it
-   (AtemschutzView · `sockelLine`), leaving one compact line of the two numbers that may not go
-   behind a tap. Stacked, at 390×844 (safe areas 0 in a Safari tab, ~100px chrome ⇒ 744px):
-
-     .head.headCompact          8 + 44 + 8 + 1px hairline           61      (was  93 — see below)
-     .focusCard padding-top                                          6      (was  12, then 10)
-     .card border-top                                                5
-     .cardHead                  2 + 44 + 2                          48      (was  60, then 52)
-     .kenn                      two lines 2×17.5 + 8                43      (was  53, a fixed
-                                                                             reserve — see below)
-     .block borders             2 × 1.5                              3
-       .band                    9 + 34 + 9                          52      (was  62)
-       .kontaktBtn              1.5 + 48                            49.5    (was  51.5)
-       .pressureBlock           1 + 8 + 44 + 8                      61      (was  65)
-     .actZone                   8 + 48 + 6                          62      (was  82 — «Rückzug
-                                                                             melden» wrapped)
-     .vfoot   hairline           1                                          (was 72 + 45: a
-              .metaLine          6 + 17 + 0                         68       standing `.plinth`
-              .vrow              44 (tap floor, untouched)                   above this row)
-     .focusCard padding-bottom                                       6      (was  12, then 10)
-     .bottomRail                1 + 8 + 48 + 16                     73      (was 143 — «+» on a
-                                                                             second row)
-     ────────────────────────────────────────────────────────────────────────────────────────
-                                                                   537.5    (was 736.5 → 602.5)
-
-   ⚠️ MEASURED, not only counted (Chromium, the real built CSS, the test fixture's one-line
-   Kennzeile): 582.1px before pass 2, 527.0px after it, 521.0px after the padding review that
-   followed — −61.1px in all. At 375×667 the usable band is ~567px, so the same card went from
-   15px OVER to 46px of reserve. The 537.5 above is the same card with the table's two-line
-   Kennzeile, which is the honest worst case.
-   ~204px of margin at 390×844, which is what pays for the cases that used to break the fit: an
-   `.airNote` (~51), a three-line Kennzeile (+17.5), a rail whose names wrap to two lines (+10).
-   ⚠️ The head's 61 was the one line of this table that was NOT yet true when it was written
-   (09.09.): `.head` wrapped, so the three controls stood on a second row of their own and the
-   head measured 8 + 20 + 12 + 44 + 8 + 1 = 93. The one-row head further up this file
-   (`.head.headCompact { flex-wrap: nowrap }`, mock 01) is what makes the number above the
-   number on screen — and it is 32px of the margin quoted here, not a saving on top of it.
-   ⚠️ SCOPED to `.focusCard`. `.cardHead`, `.kenn`, `.band`, `.kontaktBtn`, `.actZone` and
-   `.metaLine` are the SAME classes the tablet's card grid and the phone's opened row wear — an
-   opened row on a non-lite phone renders its card inside `.rowList`, not inside `.focusCard`, so
-   neither of them sees any of this. (`.strip` / `.tab` above need no such scoping: the bottom
-   rail is rendered in focus mode and nowhere else.)
-   ⚠️ …with ONE deliberate exception, and it is pass 2's whole shape: the Sockel fold is NOT
-   scoped. A phone-only arrangement of a safety card is a second thing to keep in step with the
-   first (see AtemschutzView.test · «same six zones, in the same order»), so the card lost its
-   standing look-up strip on every board and at every width.
-   ⚠️ Touch floors are NOT part of the saving: the ± buttons, the Verlauf row and the ⋯/⌃ stay at
-   44px, «Kontakt» keeps the 48px a card's main action is owed, and so does each lifecycle
-   button. What shrinks around them is padding — and, in pass 2, four look-up rows that became
-   one line plus a tap. Nothing that ticks and nothing that alarms moved behind that tap. */
-/* ⚠️ 4 → 2 top/bottom (09.09., second fit pass): `min-height: 48px` already holds the row open
-   for its 44px control, so this padding was only ever air AROUND a floor that does not move.
-   The row still measures 48; it stops measuring 52. */
-.focusCard .cardHead { min-height: 48px; padding: 2px 8px 2px 12px; }
-/* ⚠️ The two-line reserve goes, and only here. It exists so the band — the clock the board is
-   compared BY — starts at the same height on every card in a GRID ROW (see `.kenn`). Focus mode
-   shows exactly one card, so there is nothing to align it with and the reserve is 27px of blank
-   card between the Kennzeile and the clock. */
-.focusCard .kenn { min-height: 0; padding-bottom: 8px; }
-.focusCard .band { padding: 9px 12px; }
-/* 40 → 34px. Still the loudest thing on the screen by a wide margin (the next number up is the
-   14px rail clock), and still the mono tabular face the whole board reads its times in.
-   ⚠️ `:not(.bandQuiet)` — an out Trupp's band is deliberately 19px (`.bandQuiet .bandVal`), and
-   this selector is both later in the file and one class heavier, so without the guard it would
-   put the break clock back at the top of the eye's list. */
-.focusCard .band:not(.bandQuiet) .bandVal { font-size: 34px; }
-.focusCard .block .kontaktBtn { min-height: 48px; padding: 11px 10px; }
-.focusCard .block .pressureBlock { padding: 8px 10px; }
-/* ⚠️ `:not(:empty)` on the zone that collapses. `.actZone:empty` trims its own padding to the
-   gutter under the block, and a pseudo-class weighs the same as a class — so a plain
-   `.focusCard .actZone` ties with it and, being later in the file, would win: a viewer's card
-   (no action row) would grow back the padding of a row it does not have. */
-/* ⚠️ Asymmetric since 09.09. (field review): the bottom 8 sat directly above the Verlauf
-   block's own hairline and its 6px, so ~14px of air crossed a rule that is there to separate,
-   not to space. Six below the buttons, and the block underneath brings its own. */
-.focusCard .actZone:not(:empty) { padding: 8px 12px 6px; }
-/* «Rückzug melden» on ONE line. The row gives its left column whatever the right one does not
-   need (`minmax(0, auto)` against `minmax(50%, 1fr)`), which at 390px is ~165px — and at 14px/800
-   plus a 16px icon, a 7px gap and 12px of padding either side the label needed ~168 and wrapped,
-   taking the whole row to two lines. At the house's COMPACT type step (12.5px/700 — the same one
-   the docks and dense rows use; not a third size) with tighter padding it needs ~145. The
-   HEIGHT is untouched: these buttons commit a status on a safety board. */
-.focusCard .actBtn { padding: 8px 6px; gap: 5px; font-size: 12.5px; }
-.focusCard .actBtn :global(.i) { width: 15px; height: 15px; }
-/* (`.focusCard .plinth` retired with the Sockel on 09.09. — `.metaLine` is compact by
-   construction and needs no board-specific squeeze.) */
+/* As tall as its content, never stretched: the card should fit the screen with the tiles in view,
+   and only scroll when it truly cannot. Nothing shrinks under its content. */
+.focusCard .trowCard { flex: none; width: 100%; max-height: 100%; overflow-y: auto; }
+.focusCard .trowCard > * { flex: 0 0 auto; }
+/* «Ein Trupp, ein Bildschirm»: the one card on the screen keeps the clock as large as it allows
+   (02.09.) — the same line as every other card (RowLine), one type step up. 34px was the band's
+   size here; `:not(.trowOut, .trowIdle)` so a Trupp out or still waiting keeps its quiet 17px.
+   (29.09.2026: the rest of the 09.09. fit passes — `.focusCard .cardHead / .kenn / .band / .block
+   / .actBtn` and their 375×667 arithmetic — went with the tablet card this board used to wear. The
+   phone card is ~200px shorter than that card was, so the fit they bought now holds by itself.) */
+.focusCard .trowCard:not(.trowOut, .trowIdle) .trowHead .trowClockVal { font-size: 34px; }
 
 
 /* «Art des Trupps» as its own compact pair (08.09., field ask — the two labelled tiles with
@@ -1741,9 +1415,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    The form's multi-select chips are the Trupp sheet's `.miniChip` since 27.09.2026 (slim sweep 6):
    the tick box (`.eqBox`) was a second state mark inside a chip whose fill already is one, and the
    three default chips (Retthaube · WBK · Multiwarn) stand on one 360px line either way. */
-/* the Kürzel on the card's Kennzeile — small, rounded, a soft ink fill: a fact, not a state */
-.kennTag { padding: 1px 6px; border-radius: 6px; font: 800 11px var(--body); letter-spacing: .04em;
-  color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); }
 
 /* ── Phone board, pressure picker, bottle question (24.09.2026, Übung 23.09.) ─────────────────── */
 
@@ -1793,31 +1464,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    board; red at or under this Trupp's line, the colour the band's «Alarmdruck» wore. */
 .pairBar { font: 800 14px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pairBarLow { color: var(--red); }
-/* …the second row of the grid: the lifecycle buttons, in the tile shape. The tablet card's
-   weights (loud Rückzug, quiet Raus, `auto` + `1fr`) do not apply here — four tiles under one
-   clock are read as a keypad, and a keypad has equal keys. */
-.trowCard .actions { grid-template-columns: 1fr 1fr; gap: 8px; }
-.trowCard .actions:has(> :only-child) { grid-template-columns: 1fr; }
-.trowCard .actBtn { min-height: 48px; padding: 0 12px; border-radius: var(--r-sm); font-size: 14px; font-weight: 800;
-  background: var(--surface); box-shadow: inset 0 0 0 1px var(--glass-edge); }
-.trowCard .actBtn :global(.i) { width: 16px; height: 16px; }
-.trowCard :is(.actRueckzug, .actContinue, .actExit, .actStandDown) { color: var(--ink-dim); }
-@media (hover: hover) { .trowCard :is(.actRueckzug, .actContinue, .actExit):hover { background: var(--fill-soft); } }
-/* amber ONLY at or under the Alarmdruck: that is the moment the tile is the answer */
-.trowCard .actRueckzug.actAlarm { color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 10%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 42%, transparent); }
-/* ⚠️ The card's ONE filled tile (27.09.2026, owner screenshot r2-1): «Wieder in den Einsatz» /
-   «In den Einsatz» on a Trupp that is out, «Im Einsatz» on one still waiting. The tile rule above
-   repaints every `.actBtn` in `--surface`, but `.actReenter` / `.actEnter` kept the tablet's
-   `--on-accent-ink` word for their green fill — white on white, so the opened DRAUSSEN card
-   showed an EMPTY framed box where its only action stood. In the tile family the one primary
-   action is the ink-filled tile («+ Trupp» in the head, `.newBtn`; «Anmelden» in the form), never
-   a green band, so it is that recipe here — and it reads by night too (`--ink` / `--surface`). */
-.trowCard :is(.actEnter, .actReenter) { color: var(--surface); background: var(--ink); box-shadow: none; }
-@media (hover: hover) {
-  .trowCard :is(.actEnter, .actReenter):hover { background: var(--ink); background-image: linear-gradient(var(--press), var(--press)); }
-}
+/* (…the second row of the grid, the lifecycle tiles, is `.actions` / `.actBtn` above — the base
+   rules since 29.09.2026, when the tablet card took the phone's tiles.) */
 /* the tier as WORDS, one line under the tiles (TruppCard · stateLine); amber for «fällig», red for
    overdue / Alarmdruck (`.kennCrit`), grey for a stopped clock or a work squad (`.kennQuiet`) */
 .stateLine { margin-top: 8px; font: 800 12.5px/1.35 var(--body); color: var(--amber-strong); }
@@ -1827,8 +1475,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    27.09.2026 — the filled tag read as one more button beside seven chips) */
 .trowNo { margin-left: 4px; padding: 0; min-width: 0; background: none; font-size: 12px; font-weight: 700; }
 .trowName:has(> .trowNo) > .trowNameTxt { flex: 0 1 auto; }
-/* the opened card's foot as ONE terse line: values with units, the Verlauf's chevron at the end,
-   and the whole line is the tap (TruppCard · footZone, rowMode) */
+/* the card's foot as ONE terse line: values with units (the Schätzung and «Draussen seit» with
+   their word), the Verlauf's chevron at the end, and the whole line is the tap (TruppCard · footZone) */
 .vrowTerse { padding: 0 11px; gap: 8px; }
 .vrowTerse .metaLine { flex: 1 1 auto; min-width: 0; padding: 0; }
 .trowCard .vrowTerse .metaLine { padding: 0; }
@@ -1840,8 +1488,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    opening a Trupp moves nothing that was there; it only adds the Kennzeile, the note, the
    lifecycle buttons and the Verlauf below. The zones keep their own markup; here they drop the
    card's 12–14px gutters for the row's 11px, so everything hangs from one left edge. */
-.trow.trowCard { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding-top: 0; padding-bottom: 12px;
+.trow.trowCard { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0 11px 12px;
   cursor: auto; overflow: hidden; }
+/* ⚠️ the side padding is PINNED (29.09.2026): the tablet grid renders this card too, and above 760px
+   `.trow`'s own 13px would have left the line's and the foot's −11px bleeds 2px short of the frame */
 /* the whole line is the toggle, as the whole row was: it spans the frame's top and side padding so
    its target is the row's own top band (10 + the chevron's 44px), and the chevron stays in the
    pixel that opened the card */
@@ -1849,6 +1499,18 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   margin: 0 -11px; padding: 10px 11px 0; border: none; background: transparent; color: inherit;
   font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .trowHead .trowChevron { width: 24px; }
+/* the tablet grid and the handed-over Tafel: every card stands open, nothing collapses — the same
+   line without the toggle and its chevron track (TruppCard · `head`) */
+.trowHeadStatic { grid-template-columns: minmax(0, 1fr) auto; cursor: auto; }
+/* the crew line and the clock's caption stand on the wide ROW's tracks only (hidden ≤ 1023px): on
+   a card the crew is the first chip and the tiles say what the clock is about */
+.trowHead :is(.trowTeam, .trowSub) { display: none; }
+/* ONE type on every board (29.09.2026): the phone's 25px clock and a name that wraps once rather
+   than ellipsising — a 4-column desktop grid cut «Brunner Thomas» to «Brunner Tho…» beside the
+   row's wide-screen 28px. (The Tafel's focus card keeps its 34px — `.focusCard` above.) */
+.trowCard:not(.trowOut, .trowIdle) .trowHead .trowClockVal { font-size: 25px; }
+.trowHead .trowNameTxt { white-space: normal; overflow-wrap: break-word;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; line-height: 1.2; }
 .trowCard > .trowActs { margin-top: 9px; }
 /* ── The facts as chips (26.09.2026 evening, phone card slim-down, ③ — TruppCard · facts) ────────
    A wrapping strip of 36px chips: one 1px inset edge, the one corner, 700/12.5 ink, no colour —
@@ -1881,9 +1543,6 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .factMore :global(.i) { width: 18px; height: 18px; color: inherit; }
 .kennQuiet { color: var(--ink-dim); }
 .kennCrit { color: var(--red); }
-.trowCard .noteZone { padding: 8px 0 0; }
-.trowCard .actZone { padding: 8px 0 0; }
-.trowCard .noteZone:empty, .trowCard .actZone:empty { padding: 0; }
 /* the Verlauf keeps its full-bleed foot (hairline + wash), flush with the frame's bottom edge */
 .trowCard .vfoot { margin: 12px -11px -12px; }
 .trowCard .vfoot:empty { margin: 0; }
@@ -1900,14 +1559,13 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   border-radius: var(--r-ctl); background: var(--green); color: var(--on-accent-ink); font: 800 14px var(--body); }
 .safetyDeploy:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* The SICHERUNGSTRUPP head (26.09.2026, phone card slim-down): a section head like DRIN / DRAUSSEN,
-   its rule, and «Bestimmen» at the row's right — a 36px pill of the count badge's family, so the
+   and «Bestimmen» at the row's right — a 36px pill of the count badge's family, so the
    head reads as a head with a door in it, not as a box. The dashed «Kein Sicherungstrupp» slot
    (D1 ⑦, 24.09.2026) went with the slim-down: an empty section under its own head says the same
    in no words. `.sectDue`: a crew is inside and nobody stands ready — the title wears the warn
    tone, a hint (the alarm rules do not know it), never a fill. */
 .sectSafety { margin-bottom: 8px; }
-.sect::after { order: 1; }
-.sectAct { order: 2; flex: none; min-height: 36px; padding: 0 14px; border: none; cursor: pointer; border-radius: var(--r-sm);
+.sectAct { margin-left: auto; flex: none; min-height: 36px; padding: 0 14px; border: none; cursor: pointer; border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink); font: 800 13px var(--body); box-shadow: inset 0 0 0 1px var(--glass-edge); }
 .sectAct:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .sectDue .sectTitle { color: var(--amber-strong); }
@@ -2102,11 +1760,9 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    green numbers that read «Kontakt ok». Frozen, every state wears the one neutral tone that
    «Stand beim Abschluss» means. Last in the file and scoped to the surface, so it outranks the
    status and tier rules above without touching the live board. */
-.surfaceFrozen .st-aktiv, .surfaceFrozen .st-rueckzug, .surfaceFrozen .st-ueberfaellig { border-top-color: var(--ink-faint); }
 .surfaceFrozen .trow { border-left-color: var(--ink-faint); background: var(--surface); }
-.surfaceFrozen .bandVal, .surfaceFrozen .trowClockVal, .surfaceFrozen .tabClock { color: var(--ink-dim); animation: none; }
-.surfaceFrozen .band { background: var(--fill-soft, rgba(0, 0, 0, .045)); }
-.surfaceFrozen .bandWord, .surfaceFrozen .trowState { color: var(--ink-faint); }
+.surfaceFrozen .trowClockVal, .surfaceFrozen .tabClock { color: var(--ink-dim); animation: none; }
+.surfaceFrozen .trowState { color: var(--ink-faint); }
 /* …and the SICHERUNGSTRUPP head (staging r6, F3; a head since 26.09.2026): a missing
    Sicherungstrupp is a fact about the board at the close, not a call to act — the amber title was
    the one coloured warning left on a neutral closed Tafel. Same word, the frozen tone. */
