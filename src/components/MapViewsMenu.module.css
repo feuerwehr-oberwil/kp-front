@@ -1,10 +1,11 @@
-/* Saved map views popover — opened from the multi-purpose compass. Wears the same dark "dock"
-   chrome as the measure/draw ToolDock (solid --ink-fill pill, white controls, a round close
-   button and an info ⓘ), so it reads as one of the map tool utilities. Portalled to <body>.
-   No backdrop scrim — the map stays draggable/clickable underneath, like the tool docks. */
+/* Saved map views popover — opened from the multi-purpose compass, a close button and an info ⓘ.
+   Portalled to <body>. No backdrop scrim — the map stays draggable/clickable underneath.
+   ⚠️ The floating family's material (29.09.2026, owner K8): light glass by day, dark by night —
+   it wore the tool docks' solid --ink-fill in both themes. A menu you pick from is not an armed
+   mode; dark in both themes is the docks' and the Trupp marker bar's alone. Tokens only below. */
 .pop { z-index: var(--z-floating-card); width: 232px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
-  background: var(--ink-fill); color: var(--on-accent-ink); border-radius: var(--r-surface);
-  box-shadow: var(--shadow); padding: 10px; }
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  color: var(--ink); border-radius: var(--r-surface); padding: 10px; }
 /* No entry animation: the `animation: popIn` this rule used to carry never ran (a module
    localizes the name, so the global keyframes were unreachable), and the menu is opened dozens
    of times an Einsatz — 150 ms before it is usable, every time, is not worth the flourish. */
@@ -29,10 +30,10 @@
 
 .head { display: flex; align-items: center; justify-content: flex-end; padding: 0 0 6px; }
 /* close button — the house ✕ (36px, 18px glyph — AGENTS.md · Buttons), like the Ebenen panel's .lc-x */
-.close { flex: none; width: 36px; height: 36px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
-  color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0;
+.close { flex: none; width: 36px; height: 36px; border-radius: var(--r-sm); border: none; background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; padding: 0;
   transition: background .14s var(--ease); }
-@media (hover: hover) { .close:hover { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); } }
+@media (hover: hover) { .close:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); } }
 .close:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .close :global(.i) { width: 18px; height: 18px; }
 
@@ -43,18 +44,17 @@
 /* a row, not a button: `--r-ctl` (AGENTS.md · Buttons) — the same radius the Ebenen rows
    beside this dock carry. */
 .row { display: flex; align-items: center; gap: 2px; width: 100%; min-height: 44px; border-radius: var(--r-ctl); margin-bottom: 4px; }
-.row.on { background: color-mix(in srgb, var(--blue) 30%, transparent); }
+.row.on { background: var(--sel-wash); }
 /* the tap-to-fly target fills the row; mini actions sit to its right */
 .go, .north, .save { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0;
   min-height: 44px; padding: 0 8px; border: none; background: transparent; border-radius: var(--r-ctl);
-  color: var(--on-accent-ink); cursor: pointer; text-align: left; font: inherit; transition: background .12s var(--ease); }
-/* the same mix the Ebenen rows use on this same --ink-fill dock, via the token rather than a
-   frozen white (AGENTS.md · Theming) — .lrow:hover in 05-navrail.css. */
-@media (hover: hover) { .go:hover, .north:hover, .save:hover { background: color-mix(in srgb, var(--on-accent-ink) 12%, transparent); } }
+  color: var(--ink); cursor: pointer; text-align: left; font: inherit; transition: background .12s var(--ease); }
+/* the same mix the Ebenen rows use on the same glass — .lrow:hover in 05-navrail.css */
+@media (hover: hover) { .go:hover, .north:hover, .save:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); } }
 .go:active:not(:disabled), .north:active:not(:disabled), .save:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .row.on .go { font-weight: 600; }
 
-.ico { flex: none; display: grid; place-items: center; width: 22px; height: 22px; color: var(--on-accent-ink); transition: transform .15s ease; }
+.ico { flex: none; display: grid; place-items: center; width: 22px; height: 22px; color: var(--ink-dim); transition: transform .15s ease; }
 .ico :global(.i) { width: 18px; height: 18px; }
 .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 14px; }
 
@@ -77,21 +77,22 @@
 .hasNote .ico { margin-top: 2px; }
 
 .mini { flex: none; width: 40px; height: 44px; display: grid; place-items: center; border: none;
-  background: transparent; border-radius: var(--r-sm); color: rgba(255, 255, 255, .6); cursor: pointer;
+  background: transparent; border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer;
   transition: background .12s var(--ease), color .12s var(--ease); }
-@media (hover: hover) { .mini:hover { background: color-mix(in srgb, var(--on-accent-ink) 12%, transparent); color: var(--on-accent-ink); } }
+@media (hover: hover) { .mini:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); } }
 .mini:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .mini :global(.i) { width: 16px; height: 16px; }
 
-.sep { height: 1px; background: rgba(255, 255, 255, .15); margin: 5px 4px; }
+.sep { height: 1px; background: var(--border-soft); margin: 5px 4px; }
 /* ⚠️ 8px, the same inset the row labels carry (.go/.north/.save) — and the same the inline
    help text below carries (DockInfo · .wb-dock-tip-inline). The two prose blocks in this
    popover sat at 10px and 2px, so one paragraph started six pixels right of the other. */
 
 .editing { padding: 0 8px; gap: 10px; }
 .input { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 8px; font: inherit; font-size: 14px;
-  color: var(--on-accent-ink); background: rgba(255, 255, 255, .1);
-  border: 1px solid rgba(255, 255, 255, .3); border-radius: var(--r-sm); outline: none; }
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); outline: none; }
+.input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 
 /* the ⓘ sits bottom-right, like the dock's trailing info affordance — flush to the popover's
    own padding, exactly as the close button does at the head (.head). No `.sep` above it either

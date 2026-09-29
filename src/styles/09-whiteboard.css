@@ -563,7 +563,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-ghost-label .i { width: 12px; height: 12px; }
 
 /* selected-team action bar — one compact toolbar under the pill, replacing the two
-   corner orbs (mark top-left + delete top-right) that used to crowd the pill */
+   corner orbs (mark top-left + delete top-right) that used to crowd the pill.
+   ⚠️ DARK in both themes on purpose (29.09.2026, owner K8): with the tool docks it is the ARMED
+   material — «this marker is in hand» — which the light floating family (Ebenen, Ansichten, the
+   Suche card) must never be mistaken for. Its inks are the on-ink tokens, never frozen white. */
 .wb-pill-acts { position: absolute; top: calc(100% + 9px); left: 50%; transform: translateX(-50%); z-index: 6;
   display: flex; gap: 6px; background: var(--ink-fill); border-radius: calc(var(--r-sm) + var(--bar-pad)); padding: var(--bar-pad); box-shadow: var(--shadow); }
 /* …flipped ABOVE the marker when it would otherwise land under the phone's fixed bottom lanes or
@@ -584,7 +587,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 }
 /* ⚠️ the bin was a red FILL (28.09.2026: red never fills an action) — THE delete outline, lifted
    for the dark bar: the red edge and a light red ink, on the bar's own wash (as the Suche card) */
-.wb-pa-del { color: color-mix(in srgb, var(--red) 60%, #fff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 55%, transparent); }
+.wb-pa-del { color: color-mix(in srgb, var(--red) 60%, var(--on-accent-ink)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 55%, transparent); }
 @media (hover: hover) {
   .wb-pa-del:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 22%, transparent); }
 }
