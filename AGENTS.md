@@ -749,34 +749,7 @@ to prod.
   auto-saved without manual confirmations»): ✕ and swipe close it, and one quiet «Alles wird
   laufend gespeichert.» line (`copy.savedLive`) says so (TimeBlockSheet, PersonnelSync result).
   «Speichern» stays only where something is CREATED (Trupp anmelden, Einsatz eröffnen, Eintrag /
-  Mittel erfassen, a new Schichtband). **An edit sheet whose typed value would write a record per
-  keystroke SAVES WHEN IT CLOSES** (29.09.2026, owner: «Yes, all three»): ✕, swipe-down, backdrop
-  and Escape all write — the Trupp's Auftrag sheet (Art · Ziel · Leitung, and the Kanal stepper of a
-  range too wide for a pad), the Schichtband edit, the Mittel pencil. Its footer has no Speichern /
-  Abbrechen (a removal button may stay), the ✕ is named «Schliessen», and one quiet line says what
-  closing does (`SavedCue`, `copy.savedOnClose`, the look of `copy.savedLive`). Rules:
-  - **Untouched ⇒ nothing written** — no row, no ↶ step, no toast (compare against the values the
-    sheet OPENED with; a tile tapped and tapped back is no change).
-  - **One close = one write**: one Verlauf/journal line and one ↶ step, the same shape the old
-    Speichern wrote; only the fields the sheet touched go onto the record as it stands NOW
-    (`truppEditPatch`), so another device's change to an untouched field survives. A second close
-    while a question from the save is up (the Leitung take-over) is ignored.
-  - **The confirm-with-undo toast after the close is the way to throw the edit away** («… gespeichert
-    · Rückgängig», `copy.savedToast` / `schichten.savedBand`); no extra «Verwerfen». On the Tafel its
-    Rückgängig IS the ↶ step (`useTruppActions · remember → takeBack`: same inverse, same counter-row,
-    the entry comes off the timeline, guarded by `standing`). A one-question pad (Kanal, Druck)
-    writes on the tap and raises no toast — a tap is an unambiguous answer, a close is not.
-  - **Invalid on close** is decided per sheet and never traps the thumb: the Mittel pencil with an
-    emptied Material/Einheit shows the field message while open and on close writes NOTHING and
-    says so in a toast (`mittel.lineNotSaved`); a declined question (Leitung) keeps the sheet open.
-  - A sheet open when the Einsatz closes goes away unwritten (`canEdit`); the sync path is the
-    ordinary one (`editTrupp`, the zeitplan slice, `saveMittel`), so «Saved means every operational
-    queue is acknowledged» holds unchanged.
-  The Mannschaft sheet keeps its Speichern (a held save: incomplete / double-booked crew; it files
-  Gäste into the Anwesenheit).
-  ⚠️ A Mittel line coming back from a removal is a CHANGE even when its count/remark/Bestand equal
-  the tombstone's (`useMittelActions`) — it compared «unchanged», so the removal toast's «Rückgängig»
-  wrote nothing; it now writes and logs «… wiederhergestellt» (`mittel.logRestored`).
+  Mittel erfassen) or where a typed value would otherwise write a record per keystroke.
   **A symbol's context sheet is headed by its TYPE**, for every symbol, the generic Fahrzeug too
   («Fahrzeug» / the pack's name; 29.09.2026). A user-given name lives in its field
   («Bezeichnung») only — never twice, never an underlined head that jumps to a field. The foot's
