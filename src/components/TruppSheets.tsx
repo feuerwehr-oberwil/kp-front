@@ -8,6 +8,7 @@ import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { abbreviateName, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { atemschutzEquipment } from '../lib/deploymentConfig'
 import type { TruppTransferState } from '../lib/atemschutz'
+import { truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, type TruppFieldGroup } from '../lib/atemschutz'
 import { auftragSheetFields, fileGuestSlots, kanalPad, kanalSheetFields, leitungChoices, quickAuftragTypes, teamConflict, truppSheetFields, type CrewSlot } from '../lib/truppQuickEdit'
 import type { LeitungOption } from '../lib/truppLines'
 import type { Person, Trupp, TruppAuftrag, TruppFields } from '../types'
@@ -16,6 +17,7 @@ import { ClearableInput } from './ClearableInput'
 import { Stepper } from './Stepper'
 import { TruppTeam } from './TruppTeam'
 import { ZielChips } from './suche/SucheTrupp'
+import { SavedCue } from './SavedCue'
 import s from './Atemschutz.module.css'
 
 /**
@@ -28,9 +30,20 @@ import s from './Atemschutz.module.css'
  * The frame is the `.modal` head with the ✕, grown a grab bar and the push-down-to-close gesture,
  * because on a phone these ARE bottom sheets (lib/overlays · Overlay, `.miniSheet` in
  * Atemschutz.module.css); on a tablet the same frame is a centred card. The pressure picker was
- * the one sheet built otherwise (a centred card at every width) and joined them on 29.09.2026. ✕, backdrop and the swipe are «not now»: a mini sheet holds one to three
- * answers, and re-typing a Ziel costs less than a draft store for it would (the big form keeps
- * drafts — TruppForm · draftKeep — because it holds a whole crew).
+ * the one sheet built otherwise (a centred card at every width) and joined them on 29.09.2026.
+ *
+ * ONE rule for when a mini sheet writes (29.09.2026, owner: «everything auto-saved, no manual
+ * confirmations» → «save when the sheet closes»): it writes ONCE, when its answer is complete. A
+ * one-question sheet (the Kanal pad, the Druck grid) is complete on the tap — tap, write, close,
+ * as before. The Auftrag sheet asks three questions (Art · Ziel · Leitung), so its answer is
+ * complete when it CLOSES — ✕, swipe, backdrop, Escape all write, one Verlauf row and one ↶ step
+ * for the three together, nothing when nothing changed, and a confirm-with-undo toast after it is
+ * the way to throw the edit away (AtemschutzView · saveQuick). A tile that wrote on its own would
+ * be two rows for «Retten, 2. OG» or a sheet that shut before the Ziel was typed. The Kanal
+ * STEPPER (a range too wide for a pad) is the same case as the Auftrag and writes on close too.
+ * The Mannschaft sheet keeps its Speichern: its save is held while the crew is incomplete or
+ * double-booked, and it files Gäste into the Anwesenheit — there ✕ is still «not now» (the big
+ * form keeps drafts — TruppForm · draftKeep — because it holds a whole crew).
  *
  * Every save goes through the ONE write path (useTruppActions · editTrupp), handed the Trupp as it
  * stands now with only this sheet's fields changed (lib/truppQuickEdit): same Verlauf row, same
@@ -46,8 +59,10 @@ function truppSheetSub(t: Trupp): string {
   return t.no != null ? `${t.name} · ${fillTemplate(az.quickTrupp, { no: t.no })}` : t.name
 }
 
-function MiniSheet({ title, sub, ariaLabel, onClose, children, footer, className }: {
+function MiniSheet({ title, sub, ariaLabel, onClose, children, footer, className, closeLabel }: {
   title: ReactNode; sub?: string; ariaLabel: string; onClose: () => void; children: ReactNode; footer?: ReactNode; className?: string
+  /** the ✕'s name: «Abbrechen» where closing throws the answer away, «Schliessen» where it saves */
+  closeLabel?: string
 }) {
   const az = appConfig.copy.atemschutz
   return (
@@ -55,12 +70,37 @@ function MiniSheet({ title, sub, ariaLabel, onClose, children, footer, className
       <SheetGrab />
       <div className={s.modalHead}>
         <h3>{title}{sub && <small className={s.miniSub}>{sub}</small>}</h3>
-        <button type="button" className="ip-x" aria-label={az.cancel} onClick={onClose}><Icon id="close" /></button>
+        <button type="button" className="ip-x" aria-label={closeLabel ?? az.cancel} onClick={onClose}><Icon id="close" /></button>
       </div>
       <div className={s.miniBody}>{children}</div>
       {footer}
     </Overlay>
   )
+}
+
+/**
+ * The save-on-close door of a mini sheet (29.09.2026): `close` is what ✕, swipe, backdrop and
+ * Escape all call. Nothing the sheet asks changed ⇒ it just closes and writes nothing. Otherwise
+ * only the groups THIS sheet touched go onto the Trupp as it stands NOW (lib/atemschutz ·
+ * truppEditPatch — another device's change to a field the sheet did not touch survives), through
+ * `onSave` with `closing`, so the write raises the confirm-with-undo toast. A save the operator
+ * declined (the Leitung question's «Abbrechen») keeps the sheet open with everything still picked;
+ * a second close while that question is up is ignored, so one close is at most one write.
+ */
+function useSaveOnClose(t: Trupp, groups: readonly TruppFieldGroup[], what: string,
+  onSave: (f: TruppFields, closing?: { what: string }) => Promise<boolean> | boolean, onClose: () => void) {
+  // the Trupp as the sheet OPENED it — what «did the operator change anything» is measured against
+  const [opened] = useState(() => truppFieldsOf(t))
+  const busy = useRef(false)
+  return async (mine: TruppFields) => {
+    if (busy.current) return
+    const touched = truppFieldGroupsChanged(opened, mine).filter((g) => groups.includes(g))
+    if (!touched.length) { onClose(); return }
+    busy.current = true
+    try {
+      if (await onSave(truppEditPatch(t, mine, touched), { what })) onClose()
+    } finally { busy.current = false }
+  }
 }
 
 /**
@@ -123,12 +163,14 @@ export function PressureSheet({ t, title, hint, last, alarmBar, onPick, onClose,
 /**
  * «Kanal» — a pad of the station's channel range, the current one marked; ONE tap picks, writes
  * and closes (the hint under the pad says so, because the sheet has no Speichern). A range too
- * wide for a pad (lib/truppQuickEdit · KANAL_PAD_MAX) gets the form's stepper and a Speichern.
+ * wide for a pad (lib/truppQuickEdit · KANAL_PAD_MAX) gets the form's stepper, which writes when
+ * the sheet closes (29.09.2026 — it had a Speichern; see the rule at the top of this file).
  */
 export function KanalSheet({ t, onSave, onClose }: {
   t: Trupp
-  /** the one write (AtemschutzView · saveQuick → editTrupp); resolves once written */
-  onSave: (f: TruppFields) => Promise<boolean> | boolean
+  /** the one write (AtemschutzView · saveQuick → editTrupp); resolves once written. `closing` =
+   *  written by a close, which raises the confirm-with-undo toast */
+  onSave: (f: TruppFields, closing?: { what: string }) => Promise<boolean> | boolean
   onClose: () => void
 }) {
   const az = appConfig.copy.atemschutz
@@ -144,13 +186,12 @@ export function KanalSheet({ t, onSave, onClose }: {
     if (await onSave(kanalSheetFields(t, n))) onClose()
   }
   const clamp = (v: number) => Math.max(dz.funkkanalMin, Math.min(dz.funkkanalMax, v))
+  const saveOnClose = useSaveOnClose(t, ['funkkanal'], `${az.funkkanalUnit} · ${t.name}`, onSave, onClose)
+  // the pad's ✕ is «not now» (a tap is the answer); the stepper's ✕ is the save
+  const close = pad ? onClose : () => void saveOnClose(kanalSheetFields(t, typed))
   return (
-    <MiniSheet title={az.funkkanalUnit} sub={truppSheetSub(t)} ariaLabel={`${az.funkkanalUnit} · ${t.name}`} onClose={onClose} className={pad ? s.miniSheetPad : undefined}
-      footer={pad ? undefined : (
-        <SheetFoot className={s.modalFoot}>
-          <button type="button" className="ip-btn primary" onClick={() => void pick(typed)}>{az.save}</button>
-        </SheetFoot>
-      )}>
+    <MiniSheet title={az.funkkanalUnit} sub={truppSheetSub(t)} ariaLabel={`${az.funkkanalUnit} · ${t.name}`} onClose={close} className={pad ? s.miniSheetPad : undefined}
+      closeLabel={pad ? undefined : appConfig.copy.closeDialog}>
       {pad ? (
         <>
           <div className={s.pad} role="group" aria-label={az.funkkanalUnit}>
@@ -169,6 +210,7 @@ export function KanalSheet({ t, onSave, onClose }: {
             <b className={s.padValue}>{typed}</b>
             <button type="button" className={s.padKey} aria-label={az.funkkanalUp} onClick={() => setTyped(clamp(typed + 1))}><Icon id="plus" /></button>
           </div>
+          <SavedCue />
         </div>
       )}
     </MiniSheet>
@@ -178,9 +220,12 @@ export function KanalSheet({ t, onSave, onClose }: {
 /**
  * «Auftrag» — the six tiles of the Trupp's Art (the sheet's title is their label), «Ziel» over a
  * text field with the Suche's places as quick-picks under it, «Leitung» over «keine · Ltg 1 · … · Nr. …»
- * from the hoses actually drawn, and one Speichern. The one-Leitung-one-Trupp question is the
- * board's (AtemschutzView · confirmLineTake, the same helper the form's save goes through), so
- * `onSave` resolves false when the operator said no and the sheet simply stays open.
+ * from the hoses actually drawn — and no Speichern: closing the sheet writes the three together
+ * (29.09.2026, see the rule at the top of this file), and says so in one quiet line under them.
+ * The one-Leitung-one-Trupp question is the board's (AtemschutzView · confirmLineTake, the same
+ * helper the form's save goes through), so `onSave` resolves false when the operator said no and
+ * the sheet simply stays open. Nothing here can be invalid — every answer may be empty — so a
+ * close never has a reason to refuse.
  */
 export function AuftragSheet({ t, zielChoices, leitungOptions, lite = false, onSave, onClose }: {
   t: Trupp
@@ -190,7 +235,8 @@ export function AuftragSheet({ t, zielChoices, leitungOptions, lite = false, onS
   leitungOptions: readonly LeitungOption[]
   /** the handed-over Tafel has no picture to read a hose number off — no Leitung row (as the form) */
   lite?: boolean
-  onSave: (f: TruppFields) => Promise<boolean> | boolean
+  /** `closing` = written by a close, which raises the confirm-with-undo toast (saveQuick) */
+  onSave: (f: TruppFields, closing?: { what: string }) => Promise<boolean> | boolean
   onClose: () => void
 }) {
   const az = appConfig.copy.atemschutz
@@ -198,16 +244,11 @@ export function AuftragSheet({ t, zielChoices, leitungOptions, lite = false, onS
   const [ziel, setZiel] = useState(t.ziel ?? '')
   const [lineNo, setLineNo] = useState<number | null>(t.lineNo ?? null)
   const types = quickAuftragTypes(t)
-  const save = async () => {
-    if (await onSave(auftragSheetFields(t, { auftrag, ziel, lineNo }))) onClose()
-  }
+  const saveOnClose = useSaveOnClose(t, ['auftrag', 'ziel', 'lineNo'], `${az.editFieldLabels.auftrag} · ${t.name}`, onSave, onClose)
+  const close = () => void saveOnClose(auftragSheetFields(t, { auftrag, ziel, lineNo }))
   return (
-    <MiniSheet title={az.editFieldLabels.auftrag} sub={truppSheetSub(t)} ariaLabel={`${az.editFieldLabels.auftrag} · ${t.name}`} onClose={onClose}
-      footer={(
-        <SheetFoot className={s.modalFoot}>
-          <button type="button" className="ip-btn primary" onClick={() => void save()}>{az.save}</button>
-        </SheetFoot>
-      )}>
+    <MiniSheet title={az.editFieldLabels.auftrag} sub={truppSheetSub(t)} ariaLabel={`${az.editFieldLabels.auftrag} · ${t.name}`} onClose={close}
+      closeLabel={appConfig.copy.closeDialog}>
       {/* the same control as the form's «Art» — three tiles a row inside `.field` */}
       <div className={s.field}>
         <Segmented ariaLabel={az.editFieldLabels.auftrag} value={auftrag ?? undefined} onChange={(v) => setAuftrag(v)}
@@ -223,6 +264,7 @@ export function AuftragSheet({ t, zielChoices, leitungOptions, lite = false, onS
           already named */}
       {zielChoices && zielChoices.length > 0 && <ZielChips choices={zielChoices} onPick={setZiel} />}
       {!lite && <LeitungField label={az.editFieldLabels.lineNo} value={lineNo} options={leitungOptions} onChange={setLineNo} />}
+      <SavedCue />
     </MiniSheet>
   )
 }

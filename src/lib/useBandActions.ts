@@ -1,11 +1,14 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from './format'
+import { fillTemplate, hhmm } from './format'
 import { confirmDialog, undoToast } from './ui'
 import { recordKey } from './undoKeys'
 import type { Person, Shift, ShiftBand } from '../types'
 import { bandAssignWindow, bandCell, mergePersonShifts, splitShiftAtBand } from './shifts'
 import { newId } from './ids'
+
+/** «07:00–12:00» — what an unnamed band is called in a toast (BandGrid · bandTitle, same clock) */
+const fmtClockRange = (from: string, to: string): string => `${hhmm(new Date(from))}–${hhmm(new Date(to))}`
 
 interface BandActionsDeps {
   bands: ShiftBand[]
@@ -236,5 +239,44 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
     setBandTimes(id, from, to, move)
   }
 
-  return { addBand, renameBand, setBandTimes, askAndSetBandTimes, bandFollowerCount, removeBand, cycleCell, setCellState, putCellState }
+  /**
+   * The band edit sheet's save — which happens when the sheet CLOSES (29.09.2026, owner: «save when
+   * the sheet closes»; ✕, swipe, backdrop and Escape all land here, BandGrid · BandSheet).
+   *
+   * Nothing changed ⇒ nothing is written: a sheet opened to read a band's hours and closed again
+   * must not leave a step on the ↶ nor a toast. Otherwise the «Zeiten mitziehen?» question comes
+   * FIRST and then the rename, the new times and the dragged shifts are written in the same breath,
+   * so the whole edit is ONE Zeitplan step (the zeitplan slice folds a synchronous burst —
+   * IncidentWorkspace · zeitplanWrite; renaming before the question used to make it two).
+   *
+   * The confirm-with-undo toast after it is the way to throw the edit away: it puts the band's name
+   * and times back and returns exactly the shifts this save dragged along (not a shift somebody
+   * moved by hand since), guarded by those records like the removal's toast above.
+   */
+  const saveBand = async (id: string, label: string, from: string, to: string) => {
+    const prev = bands.find((b) => b.id === id)
+    if (!prev) return
+    const renamed = label !== prev.label
+    const moved = from !== prev.from || to !== prev.to
+    if (!renamed && !moved) return
+    const n = moved ? bandFollowerCount(id, prev.from, prev.to) : 0
+    const dragged = shifts.filter((s) => s.bandId === id && s.from === prev.from && s.to === prev.to).map((s) => s.id)
+    const move = n > 0 && await confirmDialog({
+      title: S().moveTitle,
+      message: fillTemplate(S().moveMsg, { n }),
+      confirmLabel: S().moveYes,
+      cancelLabel: S().moveNo,
+    })
+    if (renamed) renameBand(id, label)
+    if (moved) setBandTimes(id, from, to, move)
+    const back = new Set(move ? dragged : [])
+    undoToast(fillTemplate(S().savedBand, { label: label.trim() || prev.label.trim() || fmtClockRange(from, to) }), () => {
+      setBands((cur) => cur.map((b) => (b.id === id ? { ...b, label: prev.label, from: prev.from, to: prev.to } : b)))
+      if (back.size) {
+        setShifts((cur) => cur.map((s) => (back.has(s.id) && s.from === from && s.to === to ? { ...s, from: prev.from, to: prev.to } : s)))
+      }
+    }, [recordKey('bands', id), ...[...back].map((sid) => recordKey('shifts', sid))])
+  }
+
+  return { addBand, renameBand, setBandTimes, askAndSetBandTimes, bandFollowerCount, removeBand, saveBand, cycleCell, setCellState, putCellState }
 }

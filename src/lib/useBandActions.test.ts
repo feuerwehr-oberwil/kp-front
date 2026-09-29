@@ -1,10 +1,21 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useState } from 'react'
 import { useBandActions } from './useBandActions'
 import { bandCell } from './shifts'
 import type { Person, Shift, ShiftBand } from '../types'
+import { appConfig } from '../config/appConfig'
+import { fillTemplate } from './format'
+
+// the toasts and the «Zeiten mitziehen?» answer, captured (the save-on-close tests below)
+const ui = vi.hoisted(() => ({ toasts: [] as { text: string; undo: () => void }[], asks: 0, answer: true }))
+vi.mock('./ui', async (importOriginal) => ({
+  ...await importOriginal<typeof import('./ui')>(),
+  undoToast: (text: string, onUndo: () => void) => { ui.toasts.push({ text, undo: onUndo }); return 0 },
+  confirmDialog: () => { ui.asks++; return Promise.resolve(ui.answer) },
+}))
+beforeEach(() => { ui.toasts = []; ui.asks = 0; ui.answer = true })
 
 const T = (h: number, m = 0) => `2026-07-26T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`
 const person = (id: string): Person => ({ id, displayName: id, active: true, updatedAt: T(0) })
@@ -215,5 +226,59 @@ describe('a band-scoped answer stops at the band', () => {
     const { result } = renderHook(() => useHarness([spät], [away]))
     act(() => { result.current.setCellState(spät, p1, 'available') })
     expect(result.current.shifts).toEqual([away])
+  })
+})
+
+/* The edit sheet saves when it CLOSES (29.09.2026, BandGrid · BandSheet → saveBand): nothing
+ * changed ⇒ nothing written and no toast; a change is ONE write burst with the confirm-with-undo
+ * toast after it, whose «Rückgängig» puts the band back and returns exactly the shifts it dragged. */
+describe('saving a band from its edit sheet (save on close)', () => {
+  const staffed = () => renderHook(() => useHarness([früh], [
+    { id: 'sh1', personId: 'p1', from: T(7), to: T(12), bandId: 'bd1', confirmed: true },
+    { id: 'sh2', personId: 'p2', from: T(9), to: T(14), bandId: 'bd1', confirmed: true }, // hatched
+  ]))
+
+  it('an untouched band writes nothing and raises no toast', async () => {
+    const { result } = staffed()
+    const before = result.current.bands
+    await act(async () => { await result.current.saveBand('bd1', 'Früh', T(7), T(12)) })
+    expect(result.current.bands).toBe(before)
+    expect(ui.toasts).toHaveLength(0)
+    expect(ui.asks).toBe(0)
+  })
+
+  it('a rename writes once, asks nothing, and its toast puts the old name back', async () => {
+    const { result } = staffed()
+    await act(async () => { await result.current.saveBand('bd1', 'Morgen', T(7), T(12)) })
+    expect(result.current.bands[0].label).toBe('Morgen')
+    expect(ui.asks).toBe(0)
+    expect(ui.toasts.map((t) => t.text)).toEqual([fillTemplate(appConfig.copy.schichten.savedBand, { label: 'Morgen' })])
+    act(() => { ui.toasts[0].undo() })
+    expect(result.current.bands[0]).toEqual(früh)
+  })
+
+  it('a re-time asks first, then writes name, times and the dragged shifts; the undo returns exactly those', async () => {
+    const { result } = staffed()
+    await act(async () => { await result.current.saveBand('bd1', 'Früh 2', T(8), T(13)) })
+    expect(ui.asks).toBe(1)
+    expect(result.current.bands[0]).toMatchObject({ label: 'Früh 2', from: T(8), to: T(13) })
+    expect(result.current.shifts.find((x) => x.id === 'sh1')).toMatchObject({ from: T(8), to: T(13) })
+    expect(result.current.shifts.find((x) => x.id === 'sh2')).toMatchObject({ from: T(9), to: T(14) })
+    expect(ui.toasts).toHaveLength(1)
+    act(() => { ui.toasts[0].undo() })
+    expect(result.current.bands[0]).toEqual(früh)
+    expect(result.current.shifts.find((x) => x.id === 'sh1')).toMatchObject({ from: T(7), to: T(12) })
+    expect(result.current.shifts.find((x) => x.id === 'sh2')).toMatchObject({ from: T(9), to: T(14) })
+  })
+
+  it('«nicht mitziehen» moves only the band, and the undo touches no shift', async () => {
+    ui.answer = false
+    const { result } = staffed()
+    const shifts = result.current.shifts
+    await act(async () => { await result.current.saveBand('bd1', 'Früh', T(8), T(13)) })
+    expect(result.current.shifts).toEqual(shifts)
+    act(() => { ui.toasts[0].undo() })
+    expect(result.current.bands[0]).toEqual(früh)
+    expect(result.current.shifts).toEqual(shifts)
   })
 })

@@ -178,7 +178,6 @@ describe('correcting a stamp from an earlier day, on a multi-day Einsatz', () =>
   it('Schichten: re-timing a band does not drag the whole column to today', () => {
     wednesdayMorning()
     const onSaveBand = vi.fn()
-    const S = appConfig.copy.schichten
     const band: ShiftBand = { id: 'bd1', label: 'Nacht', from: at(MON, 22), to: at(TUE, 6) }
     render(
       <BandGrid
@@ -190,7 +189,9 @@ describe('correcting a stamp from an earlier day, on a multi-day Einsatz', () =>
     )
     fireEvent.click(screen.getByText(band.label).closest('button')!)
     confirmPicker(`${appConfig.copy.zeitplan.to} – ${band.label}`)
-    fireEvent.click(screen.getByRole('button', { name: S.save }))
+    // the edit sheet saves when it closes (29.09.2026), and only a change — so a change it gets
+    fireEvent.change(screen.getByDisplayValue(band.label), { target: { value: 'Nacht 2' } })
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
     expect(onSaveBand).toHaveBeenCalledTimes(1)
     // (id, label, von, bis) — the bis is the one that went through the picker
     expect(dayOf(onSaveBand.mock.calls[0][3])).toBe(TUE.toDateString())

@@ -800,6 +800,12 @@ export const de = {
   // where the noun helps («Kein Trupp gefunden»). Drawn as `.no-hits` (13-incident.css).
   noHits: 'Keine Treffer für «{q}».',
   savedLive: 'Alles wird laufend gespeichert.',
+  // An edit sheet with no Speichern (29.09.2026, owner: «alles automatisch gespeichert»): closing it
+  // IS the save — ✕, swipe, backdrop, Escape — and the toast after it is the way to throw the edit
+  // away. The line says so where the button used to stand (TruppSheets · AuftragSheet, BandGrid ·
+  // BandSheet, MittelView · MittelLineDialog).
+  savedOnClose: 'Wird beim Schliessen gespeichert.',
+  savedToast: '{what} gespeichert',
   // kind drives how the tool-rail button reads & behaves:
   //   'tool'   — modal, sticky (flat, lights up while active)
   //   'action' — one-shot, fires & gives toast feedback (push-button look)
@@ -5340,6 +5346,8 @@ export const de = {
     // This is the one path on which real planning would otherwise vanish silently.
     removeBandHint: 'Gelöscht wird nur die Spalte – die eingeteilten Zeiten bleiben als freihändige im Zeitplan stehen.',
     removedBand: 'Schicht «{label}» gelöscht',
+    // the edit sheet saves when it closes (29.09.2026) — this toast is its way back
+    savedBand: 'Schicht «{label}» gespeichert',
     // When a band is moved: no silent coupling in either direction.
     moveTitle: 'Zeiten mitziehen?',
     moveMsg: '{n} Personen sind auf die alten Zeiten eingeteilt. Sollen ihre Zeiten mitziehen?',
@@ -5674,6 +5682,8 @@ export const de = {
     logSet: '{label}: {menge} {unit}',
     logRemoved: '{label} auf 0 gesetzt',
     logDeleted: '{label} gelöscht',
+    // an un-delete (the removal's or the pencil dialog's «Rückgängig») is its own sentence
+    logRestored: '{label} wiederhergestellt',
     logNote: '{label} – Bemerkung: {note}',
     logStock: '{label} – Bestand: {stock}',
     // Angehängt an eine gesetzte Menge: WOHER die Zahl kommt. Ohne sie sagt die Zeile nur,
@@ -5688,6 +5698,10 @@ export const de = {
     stockLabel: 'Bestand',
     stockPlaceholder: 'optional',
     deleteLine: 'Eintrag löschen',
+    // the pencil dialog saves when it closes (29.09.2026): a hand-added line whose Material or
+    // Einheit was emptied cannot be written — the field says so while open, the toast on close
+    lineRequired: 'Material und Einheit brauchen einen Wert.',
+    lineNotSaved: 'Nicht gespeichert – Material und Einheit fehlen.',
     // Symbol→Mittel: the reconciliation strip above the list. Third home of this offer
     // (28.08.): as a toast it was missed, as a row in the symbol's card it was only seen by
     // whoever re-opened the symbol. Now the SHEET says what stands on Karte/Plan and is not
