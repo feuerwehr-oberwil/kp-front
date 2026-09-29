@@ -166,10 +166,9 @@
 .rz-derived { align-items: baseline; gap: 10px; }
 .rz-derived b { font: 700 15px var(--body); color: var(--ink); }
 /* an impossible clock is SAID, not enforced — the field keeps the value, the print keeps going.
-   Amber, not --accent: this is «schau nochmal hin», not an error the app is refusing over. */
-.rz-warn { display: flex; align-items: center; gap: 6px; margin-top: 5px;
-  font: 600 12px var(--body); color: var(--amber-strong); }
-.rz-warn svg { width: 14px; height: 14px; flex: none; }
+   THE form warning, amber and compact (`.form-warn`, 13-incident · 29.09.2026 — it was amber
+   body text with no box); this only places it under the time field. */
+.rz-warn { margin-top: 5px; }
 /* Gerettete: two labelled ±steppers (Personen / Tiere), each a label-left / stepper-right row like
    the details-modal count control */
 .rz-counts { display: flex; flex-direction: column; gap: 6px; }
@@ -525,19 +524,9 @@
    paper you are about to make will not have it» rendered as a plain ink-coloured paragraph with
    the browser's own 1em margins — no amber, no tint, no flex, and «Transkripte ergänzen» inline
    in the sentence. Unscoped, and the rule survives the next move.
-   missing-transcript warning: amber + a button that jumps to the Verlauf to fill them, so it
-   actually gets actioned rather than read past. */
-.report-pre-warn { display: flex; align-items: center; gap: 9px; margin: 0; flex-wrap: wrap;
-  font: 600 12.5px/1.45 var(--body); color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 10%, transparent); border-radius: var(--r-ctl); padding: 9px 12px; }
-.report-pre-warn .i { flex: none; width: 17px; height: 17px; color: var(--amber-strong); }
-.report-pre-warn span { flex: 1 1 auto; min-width: 0; }
-.report-pre-fix { flex: none; border: none; cursor: pointer; background: var(--amber); color: var(--on-fill);
-  font: 700 12.5px var(--body); padding: 7px 12px; border-radius: var(--r-sm); }
-@media (hover: hover) {
-  .report-pre-fix:hover { filter: brightness(.96); }
-}
-.report-pre-fix:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+   They are THE form warning now (`.form-warn .form-warn-amber`, 13-incident · 29.09.2026): ink
+   text on the tint, and the fix a compact FRAMED action (`.form-warn-act`) — it was amber body
+   text and an amber-FILLED button, a second primary on the popover. */
 
 /* The transcript TEXT (or the field to write it in) wraps onto its own line below the (flex)
    event row, indented to sit under the event text rather than the time/icon columns.

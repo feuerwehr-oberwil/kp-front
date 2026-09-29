@@ -838,7 +838,7 @@ export function ReportPreflight({
   // a plain call, not a component: one declared in the render body is re-created every pass
   const zeitWarn = (kind: ZeitKind) => {
     const text = issueFor(kind)
-    return text ? <span className="rz-warn"><Icon id="warn" />{text}</span> : null
+    return text ? <span className="form-warn form-warn-amber form-warn-compact rz-warn"><Icon id="warn" />{text}</span> : null
   }
   const missTx = missingTranscriptCount(events)
   // No krokiView argument any more: the panel reports each settled crop into `options` while the
@@ -1518,28 +1518,28 @@ export function ReportPreflight({
                   </div>
                 )}
                 {missTx > 0 && (
-                  <p className="report-pre-warn">
-                    <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
-                    {onFixTranscripts && <button type="button" className="report-pre-fix" onClick={onFixTranscripts}>{P.fixTranscripts}</button>}
+                  <p className="form-warn form-warn-amber">
+                    <Icon id="warn" /> <span className="form-warn-text">{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
+                    {onFixTranscripts && <button type="button" className="form-warn-act" onClick={onFixTranscripts}>{P.fixTranscripts}</button>}
                   </p>
                 )}
                 {pendingMediaCount > 0 && (
-                  <p className="report-pre-warn">
-                    <Icon id="warn" /> <span>{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
+                  <p className="form-warn form-warn-amber">
+                    <Icon id="warn" /> <span className="form-warn-text">{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
                   </p>
                 )}
                 {/* names them and says WHY — a count of «ohne verwertbare Zeiten» was the version
                     that got printed and that nobody could do anything with. The fix is one tap
                     away, on the Anwesenheit these names come from. */}
                 {unresolvedNames.length > 0 && (
-                  <p className="report-pre-warn">
+                  <p className="form-warn form-warn-amber">
                     {/* joined on «·», not on a comma: the names read «Müller Hans», so every
                         name already contains a space, and a comma between them is a weaker
                         break than the one inside each pair — the run scanned as one long
                         smear of words. A middot outranks the space and the list falls apart
                         into people again. */}
-                    <Icon id="warn" /> <span>{fillTemplate(P.unresolvedHours, { names: unresolvedNames.join(' · ') })}</span>
-                    {onOpenAnwesenheit && <button type="button" className="report-pre-fix" onClick={onOpenAnwesenheit}>{A.steps.anwesenheit}</button>}
+                    <Icon id="warn" /> <span className="form-warn-text">{fillTemplate(P.unresolvedHours, { names: unresolvedNames.join(' · ') })}</span>
+                    {onOpenAnwesenheit && <button type="button" className="form-warn-act" onClick={onOpenAnwesenheit}>{A.steps.anwesenheit}</button>}
                   </p>
                 )}
                 <div className="report-fold-body">

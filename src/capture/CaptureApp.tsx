@@ -984,10 +984,10 @@ export default function CaptureApp() {
       <p className="cv-hint">{C.footNote}</p>
 
       {saveError && (
-        <div className="cv-error" role="alert">
+        <div className="form-warn cv-error" role="alert">
           <Icon id="warn" />
-          <span className="cv-error-text">{saveError === 'offline' ? C.saveFailedOffline : C.saveFailed}</span>
-          {lastFailed && <button type="button" className="cv-btn cv-retry" disabled={busy} onClick={() => void retryLast()}>{C.retry}</button>}
+          <span className="form-warn-text">{saveError === 'offline' ? C.saveFailedOffline : C.saveFailed}</span>
+          {lastFailed && <button type="button" className="form-warn-act" disabled={busy} onClick={() => void retryLast()}>{C.retry}</button>}
         </div>
       )}
 

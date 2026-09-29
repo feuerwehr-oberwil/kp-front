@@ -30,11 +30,9 @@
 .dw-title { margin: 0; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 19) */
 .dw-intro { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--ink-dim); font-weight: 500; }
 /* large reload caveat — the one thing a visitor must know (edits vanish on reload) */
-.dw-warn { display: flex; align-items: center; gap: 10px; margin: 0 0 13px; padding: 12px 13px;
-  border-radius: var(--r-sm); background: color-mix(in srgb, var(--amber) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); }
-.dw-warn .i { width: 22px; height: 22px; flex: none; color: var(--amber); stroke-width: 2.2; }
-.dw-warn span { font-size: 13px; line-height: 1.4; font-weight: 700; color: var(--ink); }
+/* THE form warning, amber (`.form-warn`, 13-incident · 29.09.2026 — it wore a 45% amber border
+   and a 22px glyph of its own); this only places it */
+.dw-warn { margin: 0 0 13px; }
 .dw-sec { margin-bottom: 13px; }
 .dw-sec h3 { margin: 0 0 7px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .dw-sec ul { margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; list-style: none; }
