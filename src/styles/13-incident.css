@@ -91,12 +91,14 @@
    own actions along its bottom. Everything below it is deliberately lighter, so one look
    sorts the menu into «jetzt» and «läuft auch» (field feedback 2026-08-25: every row carried the
    same weight). Replaces the old flat .ip-menu-head + the two action rows. */
-/* the fill is a soft tile with a breath of the status green in it — over the white day surface
-   `--surface-2` alone was invisible, and the tint says «läuft» in the same colour as the edge */
+/* ONE green on this card (29.09.2026, owner pick A): the «✓ Gespeichert» pill. The 4px green
+   left stripe and the green breath in the fill said «läuft» a second and third time, and with the
+   green ages under it turned green into decoration, dulling the one green that is a state. The
+   fill is a soft ink tile — over the white day surface `--fill-soft` alone was invisible. */
 .ip-card { display: flex; flex-direction: column; gap: 3px; margin: 2px 2px 6px;
   padding: 10px 12px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--green) 6%, var(--fill-soft));
-  border: 1px solid var(--glass-edge); border-left: 4px solid var(--green); }
+  background: color-mix(in srgb, var(--ink) 4%, var(--fill-soft));
+  border: 1px solid var(--glass-edge); }
 /* Title row: Einsatzname · ÜBUNG · Sync, in that order of who gives way. It does NOT wrap —
    the marker and the button would drop to a line of their own and the button would stop being
    «top right» — so the NAME is the flexible one and everything else is `flex: none`. */
@@ -179,9 +181,10 @@
 /* «Jetzt synchronisieren» at the title row's right edge — pinned there at every width, so the
    Einsatz's connection state and the button that refreshes it sit on the same line. Pulled
    slightly out of the card's padding so the ICON, not the button's box, lines up with the
-   right edge of the text below it. */
-.ip-card-sync { flex: none; display: grid; place-items: center; width: 32px; height: 32px;
-  margin: -3px -4px 0 0; padding: 0; border: none; border-radius: var(--r-sm);
+   right edge of the text below it. A --tap square at every width (29.09.2026) — it was 32px
+   off a touch screen, under the 44px floor; the negative margins keep the title row's height. */
+.ip-card-sync { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
+  margin: -9px -10px -9px 0; padding: 0; border: none; border-radius: var(--r-sm);
   background: none; color: var(--blue-strong); cursor: pointer; }
 @media (hover: hover) {
   .ip-card-sync:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); }
@@ -230,11 +233,12 @@
 .ip-menu-row { display: flex; align-items: flex-start; gap: 10px; width: 100%; min-width: 0;
   text-align: left; padding: 7px 12px; min-height: 44px; border: none; background: none;
   border-radius: var(--r-ctl); cursor: pointer; color: var(--ink); font: 700 13.5px var(--body); }
-/* the green says «läuft» — every row in this list is a running Einsatz. --accent is the brand
-   red and would say something else entirely. The 1px nudges the smaller type onto the same
-   baseline as the title beside it (align-items is flex-start, for the two-line rows). */
+/* a read-out, so --ink-dim (29.09.2026): every row here is a running Einsatz, and a green age on
+   each of them made green the menu's decoration — the card's «✓ Gespeichert» is its one green.
+   The 1px nudges the smaller type onto the same baseline as the title beside it (align-items is
+   flex-start, for the two-line rows). */
 .ip-menu-when { flex: none; width: 62px; padding-top: 1px; font: 600 11.5px var(--body);
-  font-variant-numeric: tabular-nums; color: var(--green-strong); }
+  font-variant-numeric: tabular-nums; color: var(--ink-dim); }
 @media (hover: hover) {
   .ip-menu-row:hover, .ip-menu-act:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 }
@@ -800,8 +804,10 @@
    it was a 10.5/800 pill beside the tablet's 10/700 corner for the same word. */
 .ip-badge, .cv-badge-exercise { font: 700 10px var(--body); letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--r-xs); white-space: nowrap; }
 .ip-badge { flex: none; }
-.ip-badge-open { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
-.ip-badge-work { background: color-mix(in srgb, var(--red) 13%, transparent); color: var(--red); }
+/* «In Arbeit» is the blue status tone, not red (29.09.2026): a running Einsatz is normal
+   progress, and red means danger / act now. (The Alle-Einsätze list no longer shows «Offen» — its
+   heading says it — so the two never stand side by side there.) */
+.ip-badge-open, .ip-badge-work { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
 .ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
 /* a good-news tag («empfohlen») — the green of «done», never a fill */
 .ip-badge-ok { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green-strong); }
@@ -815,6 +821,9 @@
    ellipsises, and a drill must never lose the word that says so (the card's title line spaces
    its own badge via flex gap) */
 .ip-menu-row .ip-badge { flex: none; }
+/* the per-row «Abschliessen» is COMPACT (29.09.2026): 12.5/700 at its word's width, still --tap
+   tall — five 14px buttons down the list out-shouted the row's real action, opening it */
+.ip-hist-close { font-size: 12.5px; padding: 0 12px; min-height: var(--tap); flex: none; }
 .ip-hist-sub, .ip-ds-sub { font: 500 12px var(--body); color: var(--ink-faint); margin-top: 2px; }
 /* rapport lifecycle badges (derived, lib/rapportStatus) */
 /* Alle Einsätze: search + time-group headers — the list grows by one row per Einsatz

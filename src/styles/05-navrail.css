@@ -386,4 +386,7 @@ html.rail-dragging .layers-card { transition: none; }
 /* the live count a row carries — «12 anwesend», «3 offen», «5 Positionen». A read-out, so it is
    quiet: this is the answer to «which one has something in it», not a second title. */
 .group-choose-count { font-size: 12px; font-weight: 600; color: var(--ink-dim); white-space: nowrap; }
-.pp-row.on .group-choose-count { color: var(--blue); }
+/* The current row is the row's ONE «picked» look, --sel-wash (29.09.2026): the count keeps its own
+   ink — blue here took the amber meaning away from «4 offen» right above the nav badge that
+   carries it. An open count is amber on every row. */
+.group-choose-count.open { color: var(--amber-strong); }

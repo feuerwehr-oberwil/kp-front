@@ -24,10 +24,13 @@ const statusLabel = (i: IncidentMeta): string => {
 }
 const statusKey = (i: IncidentMeta): string => (i.is_archived ? 'arch' : i.status === 'in_arbeit' ? 'work' : 'open')
 
-// All incidents in one list with a status badge — active and archived together, so you can
-// switch to any of them. Clicking opens it (archived → read-only); a reactivate restores
-// edit. Open incidents get the «Abschliessen» action HERE (not in the switcher menu — the
-// dropdown carries no destructive actions; the caller confirms + archives).
+// All incidents in one list — active and archived together, so you can switch to any of them.
+// Clicking opens it (archived → read-only); a reactivate restores edit. An open incident gets a
+// compact «Abschliessen» here too, for closing one that is not the active Einsatz (the active
+// one also has it in the Einsatz menu card and the Rapport head; the caller confirms + archives).
+// The status tag is shown only where it tells rows apart (29.09.2026): under the «Offen» heading
+// an «Offen» tag repeated its own section title on every card, so it goes — «In Arbeit» stays,
+// the heading does not say it — and archived rows keep «Abgeschlossen».
 export function HistoryPanel({ onClose, onOpen, onArchive }: {
   onClose: () => void
   onOpen: (id: string, readOnly: boolean) => void
@@ -102,12 +105,12 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
         return (
           <Fragment key={i.id}>
             {header && <div className="ip-hist-group">{header}</div>}
-            <div className="ip-hist">
+            <div className={`ip-hist${i.is_archived ? '' : ' ip-hist-live'}`}>
               <button className="ip-hist-main" onClick={() => onOpen(i.id, i.is_archived)}>
                 <div className="ip-hist-title">
                   <span className="ip-hist-name">{i.title}</span>
                   {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
-                  <span className={`ip-badge ip-badge-${statusKey(i)}`}>{statusLabel(i)}</span>
+                  {statusKey(i) !== 'open' && <span className={`ip-badge ip-badge-${statusKey(i)}`}>{statusLabel(i)}</span>}
                 </div>
                 <div className="ip-hist-sub">{shortAddress(i.address) ?? h.noLocation} · {fmtWhen(i.started_at)}</div>
               </button>
@@ -115,7 +118,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
                   server) — gated with «Abschliessen», or an el/viewer got a confirm and a 403 */}
               {i.is_archived
                 ? onArchive && <button className="ip-btn" onClick={() => reactivate(i.id)}>{h.reactivate}</button>
-                : onArchive && <button className="ip-btn" onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</button>}
+                : onArchive && <button className="ip-btn ip-hist-close" onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</button>}
               {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
                   Übung is first abgeschlossen like any incident, then deletable */}
               {i.is_exercise && i.is_archived && onArchive && (

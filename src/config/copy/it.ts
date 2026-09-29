@@ -53,7 +53,8 @@ export const it: Localizable<Copy> = {
         id: 'ueberblick', title: 'Panoramica', icon: 'info',
         blocks: [
           { kind: 'intro' },
-          { kind: 'sub', text: 'Le quattro aree di lavoro (barra sinistra)' },
+          { kind: 'sub', text: 'Le quattro aree di lavoro (barra sinistra)', only: 'wide' },
+          { kind: 'sub', text: 'Le aree di lavoro (barra in basso)', only: 'phone' },
           { kind: 'list', items: [
             '**Situazione** – la carta tattica con simboli, linee, superfici e i livelli delle condotte.',
             '**Piano** – i piani degli oggetti (Moduli 1–6, sagome degli edifici) come lavagna, piano per piano.',
@@ -66,17 +67,28 @@ export const it: Localizable<Copy> = {
       {
         id: 'navigation', title: 'Navigazione e interfaccia', icon: 'cursor',
         blocks: [
-          { kind: 'lead', text: 'Tre zone fisse: la barra delle aree a sinistra, la barra dell’intervento in alto, la barra degli strumenti a destra.' },
-          { kind: 'sub', text: 'Barra sinistra' },
+          { kind: 'lead', text: 'Tre zone fisse: la barra delle aree a sinistra, la barra dell’intervento in alto, la barra degli strumenti a destra.', only: 'wide' },
+          { kind: 'lead', text: 'Due barre in basso, una in alto: in fondo la barra delle aree, sopra la barra degli strumenti, in alto la barra dell’intervento.', only: 'phone' },
+          { kind: 'sub', text: 'Barre in basso', only: 'phone' },
+          { kind: 'list', only: 'phone', items: [
+            'La **barra delle aree** in fondo ha cinque caselle: Carta, Piani, Checklist, Squadre e Rapporto. **Piani** e **Rapporto** raggruppano più pagine (Rapporto · Presenza · Materiale): toccare di nuovo la casella o tenerla premuta apre la scelta.',
+            'Sopra, la **barra degli strumenti** della carta o del piano. **+** è l’unica porta verso tutto ciò che vi si posiziona.',
+            'Un pulsante che porta solo un simbolo dice il suo nome quando lo si **tiene premuto**. Nelle **Impostazioni**, «Etichette delle barre» scrive le parole sotto in modo permanente.',
+          ] },
+          { kind: 'sub', text: 'Barra sinistra', only: 'wide' },
           { kind: 'list', items: [
             'Cambia area di lavoro: **Mappa** (Situazione), i **Piani** (Moduli/edifici), **Checklist**, **Autoprotezione**.',
             'In modalità Situazione, **Livelli** e il selettore della **Mappa** sono fissati in basso – sempre visibili.',
             'Trascinando il bordo destro della barra la si espande con le etichette o la si richiude.',
-          ] },
+          ], only: 'wide' },
           { kind: 'sub', text: 'Barra dell’intervento in alto' },
           { kind: 'list', items: [
             'A sinistra il nome dell’intervento con il **Menu** (cambia intervento, giorno/notte, questo aiuto …) e l’orologio.',
             'A destra **Annulla/Ripristina**, **Diario** e **+ Voce**.',
+          ], only: 'wide' },
+          { kind: 'list', only: 'phone', items: [
+            'A sinistra il nome dell’intervento con il **Menu** (chiudi intervento, cambia intervento, impostazioni, prontezza offline, questo aiuto …); a destra **Annulla** e il **Diario**.',
+            'Il pulsante rotondo in basso a destra è **+ Voce**.',
           ] },
           { kind: 'sub', text: 'Barra dei messaggi' },
           { kind: 'list', items: [
@@ -84,14 +96,14 @@ export const it: Localizable<Copy> = {
             'L’ordine è fisso, non cronologico: prima l’**autoprotezione**, poi l’**allarme**, poi il **promemoria**. Ciò che aspetta qualcuno sta sempre sopra ciò che sparisce da sé.',
             'Agiscono solo i pulsanti con etichetta, la **✕** e – se il messaggio porta da qualche parte – il suo **titolo**. Toccare la riga altrove non fa nulla: leggere non deve essere la stessa cosa che agire. Se non c’è nulla in sospeso, la striscia non esiste.',
           ] },
-          { kind: 'sub', text: 'Barra degli strumenti a destra' },
+          { kind: 'sub', text: 'Barra degli strumenti a destra', only: 'wide' },
           { kind: 'list', items: [
             'Gli strumenti di disegno e posizionamento; in basso, fissata, la navigazione della carta (zoom, adatta, coordinate).',
-          ] },
+          ], only: 'wide' },
         ],
       },
       {
-        id: 'tastatur', title: 'Scorciatoie da tastiera', icon: 'type',
+        id: 'tastatur', title: 'Scorciatoie da tastiera', icon: 'type', only: 'keyboard',
         blocks: [
           { kind: 'lead', text: 'Con una tastiera si raggiunge tutto senza mouse. Le scorciatoie non agiscono mentre si scrive in un campo di testo. Dove un’area della barra di sinistra ha un tasto, il tasto è stampato sopra.' },
           { kind: 'sub', text: 'Cambiare area' },
@@ -321,6 +333,7 @@ export const it: Localizable<Copy> = {
             'Se qualcosa non torna nel record – una catena di verifica interrotta, una nota vocale senza trascrizione, una foto ancora in coda – accanto ai pulsanti compare una **pastiglia arancione di avviso**. Conta i punti e li apre; se tutto è in ordine non compare affatto.',
             'Persona di contatto e riscontro alla centrale hanno un **Non applicabile** a fine riga – per il falso allarme o la perdita d’olio dove non esistono. È una risposta, non un salto: viene registrata e appare così nel rapporto.',
             '**Chiudi intervento** chiude l’intervento e fissa l’ora di fine. Le foto e le note vocali non ancora caricate partono prima; se non è possibile (offline) **restano salvate** e partiranno alla prossima apertura — la conferma dice quante.',
+            '**Condividere** (in fondo al rapporto, e sotto **Condividi l’intervento** nel menu): un link a questo solo intervento – carta, piani, diario, foto, orari. Sola lettura, senza login, nulla è modificabile. Per la centrale, il CI e un corpo vicino durante l’intervento – e per il comune e i corpi vicini dopo: resta valido oltre la chiusura, finché qualcuno non lo revoca.',
           ] },
           { kind: 'note', text: 'Un intervento chiuso si può **riaprire** – le aggiunte successive compaiono nella cronologia e nel rapporto come **integrazioni**, e nulla va perso.' },
         ],
@@ -366,12 +379,12 @@ export const it: Localizable<Copy> = {
             'Toccando di nuovo **Selezione** il pulsante passa a **Multiplo**: un riquadro trascinato seleziona più oggetti; gli oggetti selezionati si spostano trascinando.',
             'Un pulsante che porta solo un segno dice la sua parola se lo **tieni premuto**: dopo un breve istante la parola compare come fumetto sopra di esso, su touch con una breve vibrazione. Rilasciando **non** si attiva il pulsante: chiedere che cosa sia una cosa non deve anche farla. Con il mouse basta passarci sopra.',
           ] },
-          { kind: 'sub', text: 'Mouse' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Mouse', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             'Lo scorrimento zooma; il **clic destro** (o tocco prolungato) su un punto di misura/linea lo rimuove, un clic su una linea inserisce un punto intermedio.',
           ] },
-          { kind: 'sub', text: 'Tasti' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Tasti', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             '[[Esc]] annulla lo strumento attivo o deseleziona.',
             '[[Canc]] / [[Backspace]] elimina la selezione (non mentre si scrive in un campo).',
           ] },
@@ -555,7 +568,6 @@ export const it: Localizable<Copy> = {
     titleLabel: 'Parola chiave / titolo',
     titlePlaceholder: 'es. Incendio edificio scuola',
     categoryLabel: 'Categoria',
-    detailsLabel: 'Testo della segnalazione (facoltativo)',
     detailsPlaceholder: 'Indicazioni aggiuntive sulla segnalazione',
     open: 'Apri intervento',
     opening: 'Apertura …',
@@ -564,7 +576,6 @@ export const it: Localizable<Copy> = {
     errorTake: 'Rilevamento non riuscito',
     errorUpdate: 'Aggiornamento non riuscito',
     editTitle: 'Modifica dati intervento',
-    back: 'Indietro',
     save: 'Salva',
     saving: 'Salvataggio …',
     created: 'Intervento creato',
@@ -883,7 +894,7 @@ export const it: Localizable<Copy> = {
     surfacePlan: 'Piano',
     replay: 'Avvia riproduzione',
     replayHint: 'Riproduci situazione e piano a un momento precedente',
-    composerTitle: 'Voce di diario',
+    composerTitle: 'Nuova voce',
     textPlaceholder: 'Cosa è successo? Segnalazione, osservazione, decisione …',
     typeLabel: 'Tipo',
     entryTypes: { info: 'Info', auftrag: 'Ordine', sofort: 'Misura immediata' } as Record<string, string>,
@@ -944,7 +955,7 @@ export const it: Localizable<Copy> = {
     photoNote: 'Foto',
     discardPhoto: 'Scarta foto',
     send: 'Registra',
-    saved: 'Voce di diario registrata',
+    saved: 'Voce registrata',
     transcriptPlaceholder: 'Aggiungi trascrizione',
     transcriptSave: 'Salva',
     transcriptEdit: 'Modifica trascrizione',
@@ -960,7 +971,7 @@ export const it: Localizable<Copy> = {
     detailTime: 'Ora',
     detailArea: 'Ambito',
     detailSource: 'Fonte',
-    detailSourceManual: 'Giornale · inserito a mano',
+    detailSourceManual: 'Inserito a mano',
     detailSourceSystem: 'Registrato dall’app',
     detailSourceSystemHint: 'Le righe di sistema non sono modificabili',
     detailAttachments: 'Allegati',
@@ -2606,7 +2617,7 @@ export const it: Localizable<Copy> = {
     },
     ausgerueckt: 'Partenza',
     ende: 'Fine intervento',
-    personen: '{n} registrati',
+    personen: '{n} presenti',
     von: 'da',
     bis: 'a',
     mittelCount: '{n} posizioni',
@@ -2902,12 +2913,8 @@ export const it: Localizable<Copy> = {
     attachmentRemoved: 'Foto rimossa',
     linksHead: 'Moduli e link',
     shareHead: 'Condividere',
-    shareLede: 'Un link a questo solo intervento – carta, piani, diario, foto, orari. '
-      + 'Sola lettura, senza login, nulla è modificabile. Per la centrale, il CI e un corpo '
-      + 'vicino durante l’intervento – e per il comune e i corpi vicini dopo: resta valido oltre '
-      + 'la chiusura.',
-    shareLiveLede: 'Per la centrale, il CI e un corpo vicino durante l’intervento – e per il '
-      + 'comune e i corpi vicini dopo. Resta valido oltre la chiusura, finché non lo revochi.',
+    shareLede: 'Senza login · resta valido dopo la chiusura.',
+    shareLiveLede: 'Senza login · resta valido dopo la chiusura.',
     shareCreate: 'Crea link',
     shareBusy: 'Creazione del link …',
     shareLoading: 'Caricamento del link …',
@@ -2933,7 +2940,7 @@ export const it: Localizable<Copy> = {
       + 'sorveglianza APR – e la usa: annunciare una squadra, contatto, pressione, ripiegamento, '
       + 'fuori. Nessuna carta, nessun diario. Vale finché l’intervento non è chiuso.',
     shareAsLiveLede: 'Vale fino alla chiusura.',
-    shareAsWarn: 'Quanto viene inserito lì compare nel diario APR del rapporto. Dai il link '
+    shareAsWarn: 'Quanto viene inserito lì compare nel rapporto sotto «Sorveglianza autoprotezione». Dai il link '
       + 'solo alla persona che sorveglia.',
     shareAsRevokeTitle: 'Revocare il link alla lavagna delle squadre?',
     shareAsRevokeBody: 'L’indirizzo smetterà di funzionare. Chi ha la tabella aperta non può più '
@@ -3936,7 +3943,7 @@ export const it: Localizable<Copy> = {
       roleQuestion: 'Che cosa può fare {name} durante l’intervento?',
       roleQuestionAnon: 'questa persona',
       roleRequired: 'obbligatorio',
-      roleEditorMeans: 'Registra durante l’intervento: giornale, presenze, situazione e rapporto.',
+      roleEditorMeans: 'Registra durante l’intervento: diario, presenze, situazione e rapporto.',
       roleElMeans: 'Legge tutto e tiene presenze, materiale, check-list e rapporto – carta e piani restano in sola lettura.',
       roleViewerMeans: 'Legge soltanto. Durante l’intervento non può registrare nulla – nemmeno la propria presenza.',
       roleChangeableHint: 'Entrambi si possono cambiare più tardi. Ma non durante un intervento, quando nessuno ha aperta l’amministrazione.',

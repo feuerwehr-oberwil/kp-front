@@ -1134,6 +1134,11 @@
      pair to the right end, the flex gap holds them apart. */
   .ip-hist > .ip-btn { margin-left: auto; }
   .ip-hist > .ip-btn + .ip-btn { margin-left: 0; }
+  /* …an OPEN row has one compact action and at most one tag (ÜBUNG / In Arbeit), so it fits
+     BESIDE the text block: the row stays as tall as its title, not title + a button line
+     (29.09.2026) */
+  .ip-hist-live { flex-wrap: nowrap; }
+  .ip-hist-live > .ip-hist-main { flex: 1 1 0; }
 }
 
 /* Below ~355px even the 88px freed by dropping undo/redo is not enough for the Atemschutz

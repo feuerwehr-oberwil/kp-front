@@ -13,13 +13,18 @@
 
 // Help overlay content model (authored as data so it bundles offline, no markdown dep).
 // Inline markup in `lead`/`sub`/list items: **bold** for emphasis, [[Key]] for keyboard chips.
+// `only` (29.09.2026) — a block or section that describes ONE kind of device: 'phone' (the two
+// bars at the bottom), 'wide' (the rails left and right), 'keyboard' (shortcuts, mouse: never on
+// a phone, nor on a touch-only tablet). Help that describes the tablet on a phone contradicts the
+// screen it is read on. Absent = every device. See HelpOverlay · helpDevice.
+export type HelpOnly = 'phone' | 'wide' | 'keyboard'
 export type HelpBlock =
   | { kind: 'intro' } // the per-station helpIntro (or introFallback)
-  | { kind: 'lead'; text: string }
-  | { kind: 'sub'; text: string }
-  | { kind: 'note'; text: string }
-  | { kind: 'list'; items: string[] }
-export interface HelpSection { id: string; title: string; icon: string; blocks: HelpBlock[] }
+  | { kind: 'lead'; text: string; only?: HelpOnly }
+  | { kind: 'sub'; text: string; only?: HelpOnly }
+  | { kind: 'note'; text: string; only?: HelpOnly }
+  | { kind: 'list'; items: string[]; only?: HelpOnly }
+export interface HelpSection { id: string; title: string; icon: string; blocks: HelpBlock[]; only?: HelpOnly }
 
 export const de = {
   loadingSubtitle: 'Karte & Symbolbibliothek werden geladen …',
@@ -83,7 +88,8 @@ export const de = {
         id: 'ueberblick', title: 'Überblick', icon: 'info',
         blocks: [
           { kind: 'intro' },
-          { kind: 'sub', text: 'Die Arbeitsbereiche (linke Leiste)' },
+          { kind: 'sub', text: 'Die Arbeitsbereiche (linke Leiste)', only: 'wide' },
+          { kind: 'sub', text: 'Die Arbeitsbereiche (Leiste unten)', only: 'phone' },
           { kind: 'list', items: [
             '**Karte** – die taktische Karte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
             '**Pläne** – Module und Gebäudeansichten dieser Wehr als taktische Arbeitsflächen, geschossweise.',
@@ -99,17 +105,28 @@ export const de = {
       {
         id: 'navigation', title: 'Navigation & Oberfläche', icon: 'cursor',
         blocks: [
-          { kind: 'lead', text: 'Drei feste Zonen: die Bereichsleiste links, die Einsatzleiste oben, die Werkzeugleiste rechts.' },
-          { kind: 'sub', text: 'Linke Leiste' },
+          { kind: 'lead', text: 'Drei feste Zonen: die Bereichsleiste links, die Einsatzleiste oben, die Werkzeugleiste rechts.', only: 'wide' },
+          { kind: 'lead', text: 'Zwei Leisten unten, eine oben: ganz unten die Bereichsleiste, darüber die Werkzeugleiste, oben die Einsatzleiste.', only: 'phone' },
+          { kind: 'sub', text: 'Untere Leisten', only: 'phone' },
+          { kind: 'list', only: 'phone', items: [
+            'Die **Bereichsleiste** ganz unten hat fünf Felder: Karte, Pläne, Checkliste, Trupps und Rapport. **Pläne** und **Rapport** stehen für mehrere Seiten (Rapport · Anwesenheit · Material): das Feld nochmals antippen oder gedrückt halten öffnet die Auswahl.',
+            'Darüber die **Werkzeugleiste** der Karte bzw. des Plans. **+** ist die eine Tür zu allem, was darauf gesetzt wird.',
+            'Ein Knopf, auf dem nur ein Zeichen steht, sagt sein Wort, wenn man ihn **gedrückt hält**. In den **Einstellungen** schreibt «Beschriftung der Werkzeugleisten» die Wörter dauerhaft darunter.',
+          ] },
+          { kind: 'sub', text: 'Linke Leiste', only: 'wide' },
           { kind: 'list', items: [
             'Je nach Einstellung zeigt die linke Leiste die Bezeichnungen der Arbeitsbereiche oder deren Tastaturkürzel. Die Kürzel entsprechen dem ersten Buchstaben des deutschen Begriffs, bei Anwesenheit steht P für Personal.',
             'Im Kartenbereich sind **Ebenen** und der **Karten**-Umschalter unten angeheftet – immer sichtbar.',
             'Am rechten Rand der Leiste ziehen klappt sie mit Beschriftungen auf bzw. wieder zu.',
-          ] },
+          ], only: 'wide' },
           { kind: 'sub', text: 'Obere Einsatzleiste' },
           { kind: 'list', items: [
             'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, Offline-Bereitschaft, diese Hilfe …) und der **Einsatzuhr**.',
             'Rechts **Rückgängig/Wiederherstellen**, **Verlauf** und **+ Eintrag**.',
+          ], only: 'wide' },
+          { kind: 'list', only: 'phone', items: [
+            'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, Offline-Bereitschaft, diese Hilfe …), rechts **Rückgängig** und der **Verlauf**.',
+            'Der runde Knopf unten rechts ist **+ Eintrag**.',
           ] },
           { kind: 'sub', text: 'Meldeleiste' },
           { kind: 'list', items: [
@@ -117,14 +134,14 @@ export const de = {
             'Die Reihenfolge ist fest, nicht nach Eingang: zuerst der **Atemschutz**, dann der **Alarm**, dann die **Erinnerung**. Was auf jemanden wartet, steht immer über dem, was von selbst wieder verschwindet.',
             'Es wirken nur die beschrifteten Knöpfe, das **✕** und – wo die Meldung einen Ort hat – ihr **Titel**. Ein Tipp irgendwo sonst auf die Zeile tut nichts: Lesen darf nicht dasselbe sein wie Handeln. Steht nichts an, ist der Streifen gar nicht da.',
           ] },
-          { kind: 'sub', text: 'Rechte Werkzeugleiste' },
+          { kind: 'sub', text: 'Rechte Werkzeugleiste', only: 'wide' },
           { kind: 'list', items: [
             'Die Zeichen- und Platzierwerkzeuge; unten angeheftet die Karten-Navigation (Zoom, Einpassen, Koordinaten).',
-          ] },
+          ], only: 'wide' },
         ],
       },
       {
-        id: 'tastatur', title: 'Tastaturkürzel', icon: 'type',
+        id: 'tastatur', title: 'Tastaturkürzel', icon: 'type', only: 'keyboard',
         blocks: [
           { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird. Wo ein Feld in der linken Leiste eine Taste hat, steht sie darauf.' },
           { kind: 'sub', text: 'Bereiche wechseln' },
@@ -368,6 +385,7 @@ export const de = {
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
             'Kontaktperson und Rückmeldung ELZ haben am Ende der Zeile ein **Entfällt** – für den Fehlalarm oder die Ölspur, wo es beides nicht gibt. Das ist eine Antwort, keine Übergehung: sie wird festgehalten und steht so im Rapport.',
             '**Einsatz abschliessen** schliesst den Einsatz ab und hält das Einsatzende fest. Fotos und Sprachnotizen, die noch nicht hochgeladen sind, werden vorher gesendet; geht das nicht (offline), **bleiben sie gespeichert** und gehen beim nächsten Öffnen raus – die Bestätigung sagt, wie viele.',
+            '**Weitergeben** (unten im Rapport, und im Einsatz-Menü unter **Einsatz teilen**): ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. Nur lesen, kein Login, nichts lässt sich ändern. Für Zentrale, EL und Nachbarwehr mitten im Einsatz – und für Gemeinde und Nachbarwehr danach: er gilt über den Abschluss hinaus, bis ihn jemand aufhebt.',
           ] },
           { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** – spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
         ],
@@ -412,12 +430,12 @@ export const de = {
             'Ein Finger schiebt die Karte/den Plan; zwei Finger zoomen (Pinch).',
             'Nochmals auf **Auswahl** tippen schaltet den Knopf auf **Mehrfach**: ein gezogener Rahmen wählt mehrere Objekte; ausgewählte Objekte verschiebt man durch Ziehen.',
           ] },
-          { kind: 'sub', text: 'Maus' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Maus', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             'Scrollen zoomt; **Rechtsklick** (oder langes Tippen) auf einen Mess-/Linienpunkt entfernt ihn, Klick auf eine Linie fügt einen Zwischenpunkt ein.',
           ] },
-          { kind: 'sub', text: 'Tasten' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Tasten', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             '[[Esc]] bricht das aktive Werkzeug ab bzw. hebt die Auswahl auf.',
             '[[Entf]] / [[Backspace]] löscht die Auswahl (nicht beim Tippen in ein Feld).',
           ] },
@@ -953,7 +971,6 @@ export const de = {
     // an OnOff row since 28.09.2026: the name on the row, the consequence under it
     exerciseLabel: 'Übung',
     exerciseSub: 'Zählt nicht zur Einsatzstatistik',
-    detailsLabel: 'Meldungstext (optional)',
     // «Hier» moves the Einsatzort to the device's location. On a running Einsatz it always asks
     // first – the form is usually opened in the Magazin to correct an address, and a mis-tap
     // takes the map, the Kroki, the tile stock and the Objektpläne along with it.
@@ -972,7 +989,6 @@ export const de = {
     errorUpdate: 'Aktualisierung fehlgeschlagen',
     // --- edit mode + result toasts ---
     editTitle: 'Einsatzdaten bearbeiten',
-    back: 'Zurück',
     save: 'Speichern',
     saving: 'Speichert …',
     created: 'Einsatz erstellt',
@@ -1354,7 +1370,10 @@ export const de = {
     stripLabel: 'Zeitstrahl – tippen, um zur passenden Stelle zu springen',
     replayHint: 'Karte und Plan zu einem früheren Zeitpunkt abspielen',
     // composer
-    composerTitle: 'Journaleintrag',
+    // «Verlauf» is the place, «Eintrag» the thing, on every screen (29.09.2026): the door says
+    // «Eintrag», the list «Verlauf» — «Journaleintrag» was a third word for the same row.
+    // «Einsatzjournal» survives only as the PRINTED section's name (report · journal).
+    composerTitle: 'Neuer Eintrag',
     textPlaceholder: 'Was ist passiert? Meldung, Beobachtung, Entscheid …',
     record: 'Aufnehmen',
     recordStop: 'Aufnahme stoppen',
@@ -1460,7 +1479,7 @@ export const de = {
     detailSource: 'Quelle',
     // …written by hand vs. logged by the app. The second is why the pen is missing on that row,
     // so the sheet says it rather than leaving an operator tapping a button that is not there.
-    detailSourceManual: 'Journal · von Hand erfasst',
+    detailSourceManual: 'Von Hand erfasst',
     detailSourceSystem: 'Von der App erfasst',
     detailSourceSystemHint: 'Systemzeilen sind nicht bearbeitbar',
     detailAttachments: 'Beilagen',
@@ -1537,7 +1556,7 @@ export const de = {
     // keeps `entryTypes` — an invisible character has no business in the row's own text.
     entryTypesWrap: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofort­massnahme' } as Record<string, string>,
     send: 'Erfassen',
-    saved: 'Journaleintrag erfasst',
+    saved: 'Eintrag erfasst',
     // audio-note transcript editing (Verlauf row)
     transcriptPlaceholder: 'Transkript ergänzen',
     transcriptSave: 'Speichern',
@@ -3720,7 +3739,7 @@ export const de = {
     // role – Kdt, Fourier and whoever reads along on the beamer use it just the same. The code
     // identifier stays `elView` so stored device settings keep working.
     elView: 'Führungsansicht',
-    elViewSub: 'Sperrt die taktische Bearbeitung – Journal & Symbol-Details bleiben verfügbar',
+    elViewSub: 'Sperrt die taktische Bearbeitung – Verlauf & Symbol-Details bleiben verfügbar',
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
     incidentGroup: 'Einsatz',
     contactInterval: 'Atemschutz-Funkkontakt',
@@ -4316,7 +4335,9 @@ export const de = {
     },
     ausgerueckt: 'Ausgerückt',
     ende: 'Einsatzende',
-    personen: '{n} erfasst',
+    // «anwesend», the word the chooser and the Anwesenheit head use for this count (29.09.2026) —
+    // «erfasst» beside «anwesend» read as two different numbers
+    personen: '{n} anwesend',
     von: 'von',
     bis: 'bis',
     mittelCount: '{n} Positionen',
@@ -4781,17 +4802,14 @@ export const de = {
     // Eigene Sektion unter der Checkliste (Entscheid 01.09.). Der Link ist ein Ergebnis des
     // Rapports, kein Häkchen – und die Warnung steht UNTER der Adresse, nicht in einem Tooltip:
     // sie ist das eine, was jemand gelesen haben muss, bevor er ihn verschickt.
-    // ⚠️ Diese zwei Sätze sind die EINZIGE Stelle, an der dieser Link erklärt wird (03.09.) –
-    // seit er auch das kann, wofür es früher einen zweiten «Einsatz-Link» gab. Darum nennen sie
-    // beide Zielgruppen UND beide Zeiträume: mitten im Einsatz und lange danach. Wer nur die
-    // Hälfte liest, greift sonst wieder zum falschen Link – den es nun nicht mehr gibt.
+    // ⚠️ EINE Zeile (29.09.2026): der Reiter sagt schon «lesen»; die fünf Zeilen darunter sagten
+    // es nochmals und schoben «Link erstellen» auf dem Handy unter den Falz – im Teilen-Blatt und
+    // wortgleich in «Weitergeben». Die lange Erklärung (beide Zielgruppen, beide Zeiträume) steht
+    // jetzt in der Hilfe, «Rapport & Abschluss». Vor und nach dem Erstellen derselbe Satz: «bis du
+    // ihn aufhebst» sagt der Knopf «Link aufheben» direkt darunter.
     shareHead: 'Weitergeben',
-    shareLede: 'Ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. '
-      + 'Nur lesen, kein Login, nichts lässt sich ändern. Für Zentrale, EL und Nachbarwehr '
-      + 'mitten im Einsatz – und für Gemeinde und Nachbarwehr danach: er gilt über den '
-      + 'Abschluss hinaus.',
-    shareLiveLede: 'Für Zentrale, EL und Nachbarwehr mitten im Einsatz – und für Gemeinde und '
-      + 'Nachbarwehr danach. Gilt über den Abschluss hinaus, bis du ihn aufhebst.',
+    shareLede: 'Kein Login · gilt auch nach dem Abschluss.',
+    shareLiveLede: 'Kein Login · gilt auch nach dem Abschluss.',
     shareCreate: 'Link erstellen',
     shareBusy: 'Link wird erstellt …',
     // Solange die Antwort noch aussteht: «noch nicht gefragt» ist nicht «gibt es keinen», und
@@ -4848,7 +4866,7 @@ export const de = {
       + 'Draussen. Keine Karte, kein Verlauf. Gilt, bis der Einsatz abgeschlossen ist.',
     // «… oder bis du ihn aufhebst» sagt der rote Knopf «Link aufheben» direkt darunter (27.09.2026)
     shareAsLiveLede: 'Gilt bis zum Abschluss.',
-    shareAsWarn: 'Was hier eingetragen wird, steht im Atemschutz-Journal des Rapports. Gib den '
+    shareAsWarn: 'Was hier eingetragen wird, steht im Rapport unter «Atemschutzüberwachung». Gib den '
       + 'Link nur an die Person, die überwacht.',
     // …und heisst wie der Reiter darüber («Nur Trupps»), dieselbe Regel wie bei shareRevokeTitle:
     // ein Name pro Link.
@@ -5718,7 +5736,7 @@ export const de = {
     milestoneTag: 'wird im Verlauf notiert',
     // un-ticking a milestone — by tap or by ↶ — APPENDS this beside the ☑ row (lib/useChecklistActions)
     milestoneUndone: 'Meilenstein zurückgenommen: {text}',
-    actionLabels: { journal: 'Journal', plan: 'Plan', draw: 'Zeichnen' } as Record<string, string>,
+    actionLabels: { journal: 'Verlauf', plan: 'Plan', draw: 'Zeichnen' } as Record<string, string>,
     // reference reader: hazard-colour badge labels
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,
     diagramAlt: 'Diagramm Seite {page}',
@@ -5821,7 +5839,7 @@ export const de = {
       // ⚠️ Kein eigener Menüpunkt mehr – aber `title` benennt weiterhin die Karten- bzw.
       // Journal-Gruppe auf «Station & Karte» und «Rapport» (ConfigSections, ConfigContext).
       karte: { label: 'Karte', title: 'Karte', lede: 'Startansicht der Karte (Zentrum + Zoom), bevor ein Einsatz gewählt ist.' },
-      journal: { label: 'Journal', title: 'Journal', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
+      journal: { label: 'Verlauf', title: 'Verlauf', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
       doktrin: { label: 'Doktrin', title: 'Doktrin', lede: 'FKS-Vorgaben dieser Wehr: Standard-Funkkanal, AGT-Kontaktintervall und Warn-Vorlauf.' },
       rapport: { label: 'Rapport', title: 'Rapport', lede: 'Wie die Einsatzstunden auf dem gedruckten Rapport gerundet werden – und welche eigenen Formulare am Schluss noch auszufüllen sind.' },
       alarme: {
@@ -5916,7 +5934,7 @@ export const de = {
     workbook: {
       covers: 'Enthalten sind acht Blätter: Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen und Symbolfelder – so, wie sie in der Datei heissen.',
       notBackup: 'Das ist keine Sicherung.',
-      notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Journal stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
+      notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Verlauf stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
       carriesNot: 'Nicht enthalten – und absichtlich nicht: Schlüssel und Passwörter, Logos, Objektpläne, Kartenebenen, eigene Formulare und die Alarm-Stichwörter.',
       nameNote: 'Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert; nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – so leert man eine Liste absichtlich. Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt «Mannschaft» fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
       step1Title: 'Herunterladen und einspielen',
@@ -6783,7 +6801,7 @@ export const de = {
       roleEditor: 'Bearbeiter',
       roleEl: 'Einsatzleiter',
       elViewDefault: 'Startet in Führungsansicht',
-      elViewDefaultHint: 'Taktik gesperrt, Journal & Details aktiv – am Gerät umschaltbar',
+      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – am Gerät umschaltbar',
       colorLabel: 'Farbe',
       colorOptional: 'optional',
       pickColor: 'Farbe wählen',
@@ -6818,7 +6836,7 @@ export const de = {
       roleQuestion: 'Was darf {name} im Einsatz?',
       roleQuestionAnon: 'diese Person',
       roleRequired: 'Pflichtangabe',
-      roleEditorMeans: 'Trägt im Einsatz ein: Journal, Anwesenheit, Karte und Rapport.',
+      roleEditorMeans: 'Trägt im Einsatz ein: Verlauf, Anwesenheit, Karte und Rapport.',
       roleElMeans: 'Liest alles mit und führt Anwesenheit, Material, Checklisten und den Rapport – Karte und Pläne bleiben Ansicht.',
       roleViewerMeans: 'Liest nur mit. Kann im Einsatz nichts eintragen – auch die eigene Anwesenheit nicht.',
       roleChangeableHint: 'Beides lässt sich später ändern. Nur nicht mitten im Einsatz, wenn niemand die Verwaltung offen hat.',

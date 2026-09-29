@@ -60,9 +60,9 @@
      and the Einsatzuhr were 31px tall, the weather 42 — beside a .tb-act that had just been
      raised to 44. The bar is already 62px tall around that button, so none of these move it. */
   .ip-switch-btn, .tb-einsatzuhr, .tb-weather { min-height: var(--tap); }
-  /* the Einsatz card's row of actions (40) and its sync mark (32), and the menu's «Abmelden» (30) */
+  /* the Einsatz card's row of actions (40) and the menu's «Abmelden» (30) — its sync mark is a --tap
+     square at every width since 29.09.2026 (13-incident · .ip-card-sync) */
   .ip-card-act, .ip-menu-logout, .ip-btn { min-height: var(--tap); }
-  .ip-card-sync { width: var(--tap); height: var(--tap); margin: -9px -10px 0 0; }
   /* (the plan's trust chips along its foot — Einsatzobjekt · Massstab · Karte verknüpfen — were 29px
      and stood --tap here; since 26.09.2026 they are --float-h at every width, 09-whiteboard) */
   /* the Rapport's pencil on the Einsatzdaten card (26) and the ± stepper's reset (32) */

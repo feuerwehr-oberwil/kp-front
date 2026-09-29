@@ -52,7 +52,8 @@ export const en: Localizable<Copy> = {
         id: 'ueberblick', title: 'Overview', icon: 'info',
         blocks: [
           { kind: 'intro' },
-          { kind: 'sub', text: 'The four work areas (left rail)' },
+          { kind: 'sub', text: 'The four work areas (left rail)', only: 'wide' },
+          { kind: 'sub', text: 'The work areas (bar at the bottom)', only: 'phone' },
           { kind: 'list', items: [
             '**Situation** – the tactical map with symbols, lines, areas and the utility layers.',
             '**Plan** – the object plans (Modules 1–6, building outlines) as a whiteboard, storey by storey.',
@@ -65,17 +66,28 @@ export const en: Localizable<Copy> = {
       {
         id: 'navigation', title: 'Navigation & interface', icon: 'cursor',
         blocks: [
-          { kind: 'lead', text: 'Three fixed zones: the area rail on the left, the incident bar on top, the tool rail on the right.' },
-          { kind: 'sub', text: 'Left rail' },
+          { kind: 'lead', text: 'Three fixed zones: the area rail on the left, the incident bar on top, the tool rail on the right.', only: 'wide' },
+          { kind: 'lead', text: 'Two bars at the bottom, one on top: the area bar at the very bottom, the tool bar above it, the incident bar on top.', only: 'phone' },
+          { kind: 'sub', text: 'Bottom bars', only: 'phone' },
+          { kind: 'list', only: 'phone', items: [
+            'The **area bar** at the very bottom has five tiles: Map, Plans, Checklist, Teams and Report. **Plans** and **Report** stand for several pages (Report · Attendance · Materiel): tap the tile again or hold it to open the chooser.',
+            'Above it, the **tool bar** of the map or the plan. **+** is the one door to everything that is put on it.',
+            'A button that carries only an icon says its word when you **hold it down**. In **Settings**, «Rail labels» writes the words underneath for good.',
+          ] },
+          { kind: 'sub', text: 'Left rail', only: 'wide' },
           { kind: 'list', items: [
             'Switches the work area: **Map** (Situation), the **Plans** (Modules/buildings), **Checklist**, **SCBA**.',
             'In Situation mode, **Layers** and the **Map** toggle are pinned at the bottom – always visible.',
             'Dragging the right edge of the rail expands it with labels, or collapses it again.',
-          ] },
+          ], only: 'wide' },
           { kind: 'sub', text: 'Top incident bar' },
           { kind: 'list', items: [
             'On the left, the incident name with the **Menu** (switch incident, day/night, this help …) and the clock.',
             'On the right, **Undo/Redo**, **Log** and **+ Entry**.',
+          ], only: 'wide' },
+          { kind: 'list', only: 'phone', items: [
+            'On the left, the incident name with the **Menu** (close incident, switch incident, settings, offline readiness, this help …); on the right, **Undo** and the **Log**.',
+            'The round button at the bottom right is **+ Entry**.',
           ] },
           { kind: 'sub', text: 'Message strip' },
           { kind: 'list', items: [
@@ -83,14 +95,14 @@ export const en: Localizable<Copy> = {
             'The order is fixed, not by arrival: **SCBA** first, then the **dispatch**, then the **reminder**. What waits for somebody always outranks what goes away by itself.',
             'Only the labelled buttons act, the **✕** and – where the message has somewhere to go – its **title**. A tap anywhere else on the row does nothing: reading must not be the same as acting. With nothing pending the strip is not there at all.',
           ] },
-          { kind: 'sub', text: 'Right tool rail' },
+          { kind: 'sub', text: 'Right tool rail', only: 'wide' },
           { kind: 'list', items: [
             'The drawing and placement tools; pinned at the bottom, map navigation (zoom, fit, coordinates).',
-          ] },
+          ], only: 'wide' },
         ],
       },
       {
-        id: 'tastatur', title: 'Keyboard shortcuts', icon: 'type',
+        id: 'tastatur', title: 'Keyboard shortcuts', icon: 'type', only: 'keyboard',
         blocks: [
           { kind: 'lead', text: 'With a keyboard everything is reachable without a mouse. Shortcuts do nothing while you are typing in a text field. Where an area in the left rail has a key, that key is printed on it.' },
           { kind: 'sub', text: 'Switching areas' },
@@ -320,6 +332,7 @@ export const en: Localizable<Copy> = {
             'If something about the record is off – a broken audit chain, a voice memo without a transcript, a photo still queued – an **orange notice chip** appears next to the buttons. It counts the points and opens them; when everything is in order it does not appear at all.',
             'Contact person and dispatch feedback carry a **Not applicable** at the end of the line – for the false alarm or the oil spill where neither exists. That is an answer, not a skip: it is recorded and reads that way on the report.',
             '**Close incident** closes the incident and records the time it ended. Photos and voice memos that have not been uploaded are sent first; if that is impossible (offline) they are **kept** and go out the next time the incident is opened — the confirmation says how many.',
+            '**Share** (at the bottom of the report, and **Share incident** in the incident menu): a link to this incident alone – map, plans, log, photos, times. Read-only, no login, nothing can be changed. For dispatch, the IC and a neighbouring brigade during the incident – and for the municipality and neighbouring brigades afterwards: it outlives the closure until somebody revokes it.',
           ] },
           { kind: 'note', text: 'A closed incident can be **reopened** – later additions appear in the log and the report as **addenda**, and nothing is lost.' },
         ],
@@ -365,12 +378,12 @@ export const en: Localizable<Copy> = {
             'Tapping **Select** again switches the button to **Multi**: dragging a frame selects several objects; selected objects are moved by dragging.',
             'A button that carries nothing but an icon says its word when you **hold it down** – after a short moment the word appears as a bubble above it, on touch with a short buzz. Letting go does **not** trigger the button: asking what something is must not also do it. With a mouse, hovering is enough.',
           ] },
-          { kind: 'sub', text: 'Mouse' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Mouse', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             'Scroll to zoom; **right-click** (or long press) on a measure/line point removes it, clicking a line inserts an intermediate point.',
           ] },
-          { kind: 'sub', text: 'Keys' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Keys', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             '[[Esc]] cancels the active tool or clears the selection.',
             '[[Del]] / [[Backspace]] deletes the selection (not while typing in a field).',
           ] },
@@ -556,7 +569,6 @@ export const en: Localizable<Copy> = {
     categoryLabel: 'Category',
     exerciseLabel: 'Exercise',
     exerciseSub: 'Not counted in incident statistics',
-    detailsLabel: 'Message text (optional)',
     detailsPlaceholder: 'Additional details for the report',
     open: 'Open incident',
     opening: 'Opening …',
@@ -565,7 +577,6 @@ export const en: Localizable<Copy> = {
     errorTake: 'Take-over failed',
     errorUpdate: 'Update failed',
     editTitle: 'Edit incident data',
-    back: 'Back',
     save: 'Save',
     saving: 'Saving …',
     created: 'Incident created',
@@ -881,7 +892,7 @@ export const en: Localizable<Copy> = {
     surfacePlan: 'Plan',
     replay: 'Start replay',
     replayHint: 'Replay situation and plan at an earlier point in time',
-    composerTitle: 'Log entry',
+    composerTitle: 'New entry',
     textPlaceholder: 'What happened? Report, observation, decision …',
     typeLabel: 'Kind',
     entryTypes: { info: 'Info', auftrag: 'Order', sofort: 'Immediate measure' } as Record<string, string>,
@@ -942,7 +953,7 @@ export const en: Localizable<Copy> = {
     photoNote: 'Photo',
     discardPhoto: 'Discard photo',
     send: 'Record',
-    saved: 'Log entry recorded',
+    saved: 'Entry recorded',
     transcriptPlaceholder: 'Add transcript',
     transcriptSave: 'Save',
     transcriptEdit: 'Edit transcript',
@@ -959,7 +970,7 @@ export const en: Localizable<Copy> = {
     detailTime: 'Time',
     detailArea: 'Area',
     detailSource: 'Source',
-    detailSourceManual: 'Journal · written by hand',
+    detailSourceManual: 'Written by hand',
     detailSourceSystem: 'Logged by the app',
     detailSourceSystemHint: 'System rows cannot be edited',
     detailAttachments: 'Attachments',
@@ -2213,7 +2224,7 @@ export const en: Localizable<Copy> = {
     offlineAutoSub: 'Loads map & plans by itself shortly after opening',
     offlineRadiusSub: 'Map & lines around the incident',
     elView: 'Command view',
-    elViewSub: 'Tactics locked – journal & symbol details stay live',
+    elViewSub: 'Tactics locked – log & symbol details stay live',
     deviceFoot: 'Applies to this device only. A smaller radius = faster, smaller offline download.',
     incidentGroup: 'Incident',
     contactInterval: 'SCBA radio contact',
@@ -2609,7 +2620,7 @@ export const en: Localizable<Copy> = {
     },
     ausgerueckt: 'Turned out',
     ende: 'Incident end',
-    personen: '{n} recorded',
+    personen: '{n} present',
     von: 'from',
     bis: 'to',
     mittelCount: '{n} items',
@@ -2906,13 +2917,8 @@ export const en: Localizable<Copy> = {
     attachmentRemoved: 'Photo removed',
     linksHead: 'Forms & links',
     shareHead: 'Share',
-    shareLede: 'A link to this incident alone – map, plans, journal, photos, times. '
-      + 'Read-only, no login, nothing can be changed. For dispatch, the IC and a neighbouring '
-      + 'brigade during the incident – and for the municipality and neighbouring brigades '
-      + 'afterwards: it outlives the closure.',
-    shareLiveLede: 'For dispatch, the IC and a neighbouring brigade during the incident – and '
-      + 'for the municipality and neighbouring brigades afterwards. It outlives the closure, '
-      + 'until you revoke it.',
+    shareLede: 'No login · still valid after closing.',
+    shareLiveLede: 'No login · still valid after closing.',
     shareCreate: 'Create link',
     shareBusy: 'Creating link …',
     shareLoading: 'Loading link …',
@@ -2938,7 +2944,7 @@ export const en: Localizable<Copy> = {
       + 'monitoring – and operates it: register a team, contact, pressure, withdrawal, out. No '
       + 'map, no log. Valid until the incident is closed.',
     shareAsLiveLede: 'Valid until the incident is closed.',
-    shareAsWarn: 'Whatever is entered there appears in the report’s SCBA log. Give the link only '
+    shareAsWarn: 'Whatever is entered there appears in the report under «SCBA monitoring». Give the link only '
       + 'to the person doing the monitoring.',
     shareAsRevokeTitle: 'Revoke the link to the team board?',
     shareAsRevokeBody: 'The address stops working. Anyone with the board open can no longer enter '
@@ -3537,7 +3543,7 @@ export const en: Localizable<Copy> = {
     // reads, and a tablet reads nothing — a lone glyph said «something», not what
     milestoneTag: 'noted in the log',
     milestoneUndone: 'Milestone taken back: {text}',
-    actionLabels: { journal: 'Journal', plan: 'Plan', draw: 'Draw' },
+    actionLabels: { journal: 'Log', plan: 'Plan', draw: 'Draw' },
     hazardLabels: { red: 'Fire', orange: 'Hazards', green: 'Traffic', yellow: 'Technical', blue: 'Water' },
     diagramAlt: 'Diagram page {page}',
     diagramOpen: 'Enlarge diagram',
@@ -4291,7 +4297,7 @@ export const en: Localizable<Copy> = {
       roleEditor: 'Editor',
       roleEl: 'Incident commander',
       elViewDefault: 'Starts in incident-commander view',
-      elViewDefaultHint: 'tactics locked, journal & details live – switchable on the device',
+      elViewDefaultHint: 'tactics locked, log & details live – switchable on the device',
       colorLabel: 'Colour',
       colorOptional: 'optional',
       pickColor: 'Choose colour',
@@ -4321,7 +4327,7 @@ export const en: Localizable<Copy> = {
       roleQuestion: 'What may {name} do during an incident?',
       roleQuestionAnon: 'this person',
       roleRequired: 'required',
-      roleEditorMeans: 'Records during the incident: journal, attendance, situation and report.',
+      roleEditorMeans: 'Records during the incident: log, attendance, situation and report.',
       roleElMeans: 'Reads everything and keeps attendance, material, checklists and the report – map and plans stay view-only.',
       roleViewerMeans: 'Reads along only. Cannot record anything during an incident – not even their own attendance.',
       roleChangeableHint: 'Either can be changed later. Just not mid-incident, when nobody has the admin open.',

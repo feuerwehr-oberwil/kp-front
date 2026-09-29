@@ -7,6 +7,8 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { atemschutzDoctrine, getDeploymentConfig } from '../lib/deploymentConfig'
 import { DEFAULT_HOURS_ROUNDING } from '../lib/attendanceHours'
+import { useIsPhone, useMediaQuery } from '../lib/useIsPhone'
+import { helpShows } from '../lib/helpDevice'
 
 // In-app capabilities/help overlay reached from the incident menu ("Funktionen &
 // Hilfe"). One scrollable column of feature sections with a sticky TOC + scroll-spy.
@@ -102,7 +104,18 @@ function sectionHaystack(s: HelpSection, intro: string): string {
 
 export function HelpOverlay({ onClose }: { onClose: () => void }) {
   const C = appConfig.copy.help
-  const allSections = C.sections
+  const phone = useIsPhone()
+  // a finger and nothing else = no keyboard to speak of. ⚠️ Two plain queries rather than one
+  // with a nested `not (…)`, which older WebKit does not parse; and where there is no matchMedia
+  // at all (jsdom) both read false, i.e. a desk — the shortcuts are never silently missing there.
+  const coarse = useMediaQuery('(pointer: coarse)')
+  const anyFine = useMediaQuery('(any-pointer: fine)')
+  const allSections = useMemo(() => {
+    const d = { phone, finePointer: anyFine || !coarse }
+    return C.sections
+      .filter((sec) => helpShows(sec.only, d))
+      .map((sec) => ({ ...sec, blocks: sec.blocks.filter((b) => b.kind === 'intro' || helpShows(b.only, d)) }))
+  }, [C.sections, phone, coarse, anyFine])
   const intro = getDeploymentConfig().identity?.helpIntro ?? C.introFallback
   const [query, setQuery] = useState('')
   // The help is long and gets opened WITH a question, not to be read. The filter narrows the

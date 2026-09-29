@@ -1280,16 +1280,18 @@ export default function CaptureApp() {
               </div>
               <div className="cv-row">
                 <span>{C.gerettete}</span>
+                {/* «–» while unanswered and the ✕ only with a value — the Rapport's Gerettete pair, one
+                    look for one question (29.09.2026) */}
                 <div className="cv-row-controls cv-counts">
                   <label className="cv-count-row"><span>{C.gerettetePersonen}</span>
-                    <Stepper value={savedPersonen} min={0} max={999} seed={1} placeholder="0" ariaLabel={C.gerettetePersonen}
+                    <Stepper value={savedPersonen} min={0} max={999} seed={1} ariaLabel={C.gerettetePersonen}
                       onChange={(v) => setGerettete(v, savedTiere)}
-                      onClear={() => setGerettete(null, savedTiere)} canClear={savedPersonen != null} />
+                      onClear={savedPersonen != null ? () => setGerettete(null, savedTiere) : undefined} canClear />
                   </label>
                   <label className="cv-count-row"><span>{C.geretteteTiere}</span>
-                    <Stepper value={savedTiere} min={0} max={999} seed={1} placeholder="0" ariaLabel={C.geretteteTiere}
+                    <Stepper value={savedTiere} min={0} max={999} seed={1} ariaLabel={C.geretteteTiere}
                       onChange={(v) => setGerettete(savedPersonen, v)}
-                      onClear={() => setGerettete(savedPersonen, null)} canClear={savedTiere != null} />
+                      onClear={savedTiere != null ? () => setGerettete(savedPersonen, null) : undefined} canClear />
                   </label>
                 </div>
               </div>

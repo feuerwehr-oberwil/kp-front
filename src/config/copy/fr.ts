@@ -53,7 +53,8 @@ export const fr: Localizable<Copy> = {
         id: 'ueberblick', title: 'Aperçu', icon: 'info',
         blocks: [
           { kind: 'intro' },
-          { kind: 'sub', text: 'Les quatre espaces de travail (barre de gauche)' },
+          { kind: 'sub', text: 'Les quatre espaces de travail (barre de gauche)', only: 'wide' },
+          { kind: 'sub', text: 'Les espaces de travail (barre du bas)', only: 'phone' },
           { kind: 'list', items: [
             '**Situation** – la carte tactique avec symboles, lignes, surfaces et les couches des réseaux.',
             '**Plan** – les plans d’objet (modules 1–6, contours de bâtiment) sous forme de tableau blanc, étage par étage.',
@@ -66,17 +67,28 @@ export const fr: Localizable<Copy> = {
       {
         id: 'navigation', title: 'Navigation et interface', icon: 'cursor',
         blocks: [
-          { kind: 'lead', text: 'Trois zones fixes : la barre des espaces à gauche, la barre d’intervention en haut, la barre d’outils à droite.' },
-          { kind: 'sub', text: 'Barre de gauche' },
+          { kind: 'lead', text: 'Trois zones fixes : la barre des espaces à gauche, la barre d’intervention en haut, la barre d’outils à droite.', only: 'wide' },
+          { kind: 'lead', text: 'Deux barres en bas, une en haut : tout en bas la barre des espaces, au-dessus la barre d’outils, en haut la barre d’intervention.', only: 'phone' },
+          { kind: 'sub', text: 'Barres du bas', only: 'phone' },
+          { kind: 'list', only: 'phone', items: [
+            'La **barre des espaces** tout en bas a cinq cases : Carte, Plans, Checklist, Binômes et Rapport. **Plans** et **Rapport** regroupent plusieurs pages (Rapport · Présence · Matériel) : toucher la case une seconde fois ou la maintenir ouvre le choix.',
+            'Au-dessus, la **barre d’outils** de la carte ou du plan. **+** est l’unique porte vers tout ce qu’on y place.',
+            'Un bouton qui ne porte qu’un symbole dit son nom quand on le **maintient appuyé**. Dans les **Réglages**, «Étiquettes des barres» écrit les mots dessous en permanence.',
+          ] },
+          { kind: 'sub', text: 'Barre de gauche', only: 'wide' },
           { kind: 'list', items: [
             'Change d’espace de travail : **Carte** (Situation), les **Plans** (modules/bâtiments), **Checklist**, **ARI**.',
             'En mode Situation, **Couches** et le sélecteur de **Carte** sont épinglés en bas – toujours visibles.',
             'Tirer le bord droit de la barre la déplie avec les libellés ou la replie.',
-          ] },
+          ], only: 'wide' },
           { kind: 'sub', text: 'Barre d’intervention (haut)' },
           { kind: 'list', items: [
             'À gauche, le nom de l’intervention avec le **Menu** (changer d’intervention, jour/nuit, cette aide …) et l’horloge.',
             'À droite, **Annuler/Rétablir**, **Journal** et **+ Entrée**.',
+          ], only: 'wide' },
+          { kind: 'list', only: 'phone', items: [
+            'À gauche, le nom de l’intervention avec le **Menu** (clore l’intervention, changer d’intervention, réglages, préparation hors ligne, cette aide …) ; à droite **Annuler** et le **Journal**.',
+            'Le bouton rond en bas à droite est **+ Entrée**.',
           ] },
           { kind: 'sub', text: 'Bandeau de messages' },
           { kind: 'list', items: [
@@ -84,14 +96,14 @@ export const fr: Localizable<Copy> = {
             'L’ordre est fixe, pas chronologique : d’abord l’**ARI**, puis l’**alarme**, puis le **rappel**. Ce qui attend quelqu’un passe toujours avant ce qui disparaît de soi-même.',
             'Seuls les boutons libellés agissent, le **✕** et – si le message mène quelque part – son **titre**. Toucher la ligne ailleurs ne fait rien : lire ne doit pas être la même chose qu’agir. Si rien n’est en attente, le bandeau n’existe pas.',
           ] },
-          { kind: 'sub', text: 'Barre d’outils (droite)' },
+          { kind: 'sub', text: 'Barre d’outils (droite)', only: 'wide' },
           { kind: 'list', items: [
             'Les outils de dessin et de placement ; épinglée en bas, la navigation de carte (zoom, ajuster, coordonnées).',
-          ] },
+          ], only: 'wide' },
         ],
       },
       {
-        id: 'tastatur', title: 'Raccourcis clavier', icon: 'type',
+        id: 'tastatur', title: 'Raccourcis clavier', icon: 'type', only: 'keyboard',
         blocks: [
           { kind: 'lead', text: 'Avec un clavier, tout est accessible sans souris. Les raccourcis restent sans effet pendant la saisie dans un champ de texte. Lorsqu’une zone de la barre de gauche possède une touche, celle-ci est inscrite dessus.' },
           { kind: 'sub', text: 'Changer de zone' },
@@ -321,6 +333,7 @@ export const fr: Localizable<Copy> = {
             'Si quelque chose cloche dans l’enregistrement – une chaîne de vérification rompue, une note vocale sans transcription, une photo encore en file d’attente –, une **pastille d’avertissement orange** apparaît à côté des boutons. Elle compte les points et les ouvre ; si tout est en ordre, elle n’apparaît pas.',
             'La personne de contact et le retour à la centrale portent un **Sans objet** en fin de ligne – pour la fausse alarme ou la nappe d’huile où ni l’un ni l’autre n’existe. C’est une réponse, pas un contournement : elle est consignée et figure ainsi au rapport.',
             '**Clore l’intervention** clôt l’intervention et fixe l’heure de fin. Les photos et notes vocales non encore envoyées partent d’abord ; si c’est impossible (hors ligne), elles sont **conservées** et partiront à la prochaine ouverture — la confirmation dit combien.',
+            '**Transmettre** (en bas du rapport, et sous **Partager l’intervention** dans le menu de l’intervention) : un lien vers cette intervention uniquement – carte, plans, journal, photos, heures. Lecture seule, sans connexion, rien ne peut être modifié. Pour la centrale, le CI et un corps voisin pendant l’intervention – et pour la commune et les corps voisins après : il reste valable au-delà de la clôture, jusqu’à ce que quelqu’un le révoque.',
           ] },
           { kind: 'note', text: 'Une intervention close peut être **rouverte** – les compléments ultérieurs apparaissent dans le journal et dans le rapport comme **ajouts**, et rien n’est perdu.' },
         ],
@@ -366,12 +379,12 @@ export const fr: Localizable<Copy> = {
             'Toucher **Sélection** une nouvelle fois fait passer le bouton sur **Multiple** : un cadre tiré sélectionne plusieurs objets ; les objets sélectionnés se déplacent en les tirant.',
             'Un bouton qui ne porte qu’un pictogramme dit son mot quand on le **maintient enfoncé** : après un court instant, le mot apparaît en bulle au-dessus, avec une brève vibration sur tactile. Relâcher ne déclenche **pas** le bouton : demander ce qu’est une chose ne doit pas la faire en même temps. À la souris, il suffit de survoler.',
           ] },
-          { kind: 'sub', text: 'Souris' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Souris', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             'La molette zoome ; **clic droit** (ou appui long) sur un point de mesure/de ligne le supprime, un clic sur une ligne insère un point intermédiaire.',
           ] },
-          { kind: 'sub', text: 'Touches' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Touches', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             '[[Échap]] annule l’outil actif ou désélectionne.',
             '[[Suppr]] / [[Retour arrière]] supprime la sélection (pas pendant la saisie dans un champ).',
           ] },
@@ -555,7 +568,6 @@ export const fr: Localizable<Copy> = {
     titleLabel: 'Mot-clé / titre',
     titlePlaceholder: 'p. ex. Incendie de bâtiment, école',
     categoryLabel: 'Catégorie',
-    detailsLabel: 'Texte du message (optionnel)',
     detailsPlaceholder: 'Indications supplémentaires sur le message',
     open: 'Ouvrir l’intervention',
     opening: 'Ouverture …',
@@ -564,7 +576,6 @@ export const fr: Localizable<Copy> = {
     errorTake: 'Échec de la reprise',
     errorUpdate: 'Échec de la mise à jour',
     editTitle: 'Modifier les données d’intervention',
-    back: 'Retour',
     save: 'Enregistrer',
     saving: 'Enregistrement …',
     created: 'Intervention créée',
@@ -883,7 +894,7 @@ export const fr: Localizable<Copy> = {
     surfacePlan: 'Plan',
     replay: 'Démarrer la relecture',
     replayHint: 'Rejouer situation et plan à un instant antérieur',
-    composerTitle: 'Entrée de journal',
+    composerTitle: 'Nouvelle entrée',
     textPlaceholder: 'Que s’est-il passé ? Message, observation, décision …',
     typeLabel: 'Type',
     entryTypes: { info: 'Info', auftrag: 'Ordre', sofort: 'Mesure immédiate' } as Record<string, string>,
@@ -944,7 +955,7 @@ export const fr: Localizable<Copy> = {
     photoNote: 'Photo',
     discardPhoto: 'Abandonner la photo',
     send: 'Consigner',
-    saved: 'Entrée de journal consignée',
+    saved: 'Entrée consignée',
     transcriptPlaceholder: 'Compléter la transcription',
     transcriptSave: 'Enregistrer',
     transcriptEdit: 'Modifier la transcription',
@@ -960,7 +971,7 @@ export const fr: Localizable<Copy> = {
     detailTime: 'Heure',
     detailArea: 'Domaine',
     detailSource: 'Source',
-    detailSourceManual: 'Journal · saisi à la main',
+    detailSourceManual: 'Saisi à la main',
     detailSourceSystem: 'Enregistré par l’application',
     detailSourceSystemHint: 'Les lignes système ne sont pas modifiables',
     detailAttachments: 'Annexes',
@@ -2606,7 +2617,7 @@ export const fr: Localizable<Copy> = {
     },
     ausgerueckt: 'Départ',
     ende: 'Fin d’intervention',
-    personen: '{n} saisis',
+    personen: '{n} présents',
     von: 'de',
     bis: 'à',
     mittelCount: '{n} positions',
@@ -2902,13 +2913,8 @@ export const fr: Localizable<Copy> = {
     attachmentRemoved: 'Photo supprimée',
     linksHead: 'Formulaires & liens',
     shareHead: 'Transmettre',
-    shareLede: 'Un lien vers cette intervention uniquement – carte, plans, journal, photos, heures. '
-      + 'Lecture seule, sans connexion, rien ne peut être modifié. Pour la centrale, le CI et un '
-      + 'corps voisin pendant l’intervention – et pour la commune et les corps voisins après : il '
-      + 'reste valable au-delà de la clôture.',
-    shareLiveLede: 'Pour la centrale, le CI et un corps voisin pendant l’intervention – et pour '
-      + 'la commune et les corps voisins après. Reste valable au-delà de la clôture, jusqu’à ce '
-      + 'que vous le révoquiez.',
+    shareLede: 'Sans connexion · reste valable après la clôture.',
+    shareLiveLede: 'Sans connexion · reste valable après la clôture.',
     shareCreate: 'Créer le lien',
     shareBusy: 'Création du lien …',
     shareLoading: 'Chargement du lien …',
@@ -2934,7 +2940,7 @@ export const fr: Localizable<Copy> = {
       + 'surveillance ARI – et l’utilise : annoncer un binôme, contact, pression, repli, sorti. '
       + 'Pas de carte, pas de journal. Valable jusqu’à la clôture de l’intervention.',
     shareAsLiveLede: 'Valable jusqu’à la clôture.',
-    shareAsWarn: 'Ce qui y est saisi figure au journal ARI du rapport. Ne donnez le lien qu’à la '
+    shareAsWarn: 'Ce qui y est saisi figure au rapport sous «Surveillance ARI». Ne donnez le lien qu’à la '
       + 'personne qui surveille.',
     shareAsRevokeTitle: 'Révoquer le lien vers le tableau des binômes ?',
     shareAsRevokeBody: 'L’adresse cessera de fonctionner. Qui a le tableau ouvert ne peut plus '
