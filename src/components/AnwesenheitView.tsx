@@ -520,17 +520,17 @@ export function AnwesenheitView({
   }
   // …and the state narrowing, plus the one genuinely orthogonal flag. Both are SETS: several
   // picks inside a facet OR together («anwesend oder gegangen» = wer war überhaupt da), an empty
-  // set means «alle». Every row carries the MARK the person row carries — the grey/green/amber
-  // dot, the pin, the house, the Bemerkung dot — so picking a filter and looking up what a glyph
-  // means stay the same gesture.
+  // set means «alle». Every row carries the MARK the person row carries — the row's own look in
+  // that state (plain · green tint · dimmed, 29.09.2026), the pin, the house, the Bemerkung dot —
+  // so picking a filter and looking up what a glyph means stay the same gesture.
   const [stateSel, setStateSel] = useState<ReadonlySet<StateKey>>(() => new Set())
   // «hat eine Bemerkung» is the one flag that really is independent: anybody in any state can
   // carry one, so it rides ALONGSIDE the state rather than competing with it.
   const [noteOnly, setNoteOnly] = useState(false)
   const stateEntries = [
-    { key: 'frei', cls: [], mark: <i className={s.dotFrei} />, label: A.statusFrei },
-    { key: 'present', cls: [], mark: <i className={s.dotPresent} />, label: A.statusPresent },
-    { key: 'left', cls: [], mark: <i className={s.dotLeft} />, label: A.statusLeft },
+    { key: 'frei', cls: [], mark: <i className={s.swatch} />, label: A.statusFrei },
+    { key: 'present', cls: [], mark: <i className={cx(s.swatch, s.swatchPresent)} />, label: A.statusPresent },
+    { key: 'left', cls: [], mark: <i className={cx(s.swatch, s.swatchLeft)} />, label: A.statusLeft },
     // the two places, under the state they refine — both mean «anwesend, und zwar dort»
     { key: 'scene', cls: [s.markOrt], mark: <Icon id="pin" />, label: A.ortScene },
     { key: 'station', cls: [s.markOrt, s.markOrtStation], mark: <Icon id="station" />, label: A.ortStation },
@@ -1012,7 +1012,9 @@ export function AnwesenheitView({
                     : !p.active ? (rosterProvider ? fillTemplate(A.notInSource, { provider: rosterProvider }) : A.notInDivera)
                       : undefined}
                 >
-                  <span className={cx(s.dot, present && s.dotPresent, left && s.dotLeft, !present && !left && s.dotFrei)} />
+                  {/* no status dot (29.09.2026, owner: the tint alone says «anwesend»); the state
+                      word rides in the button's name for a screen reader instead */}
+                  <span className="sr-only">{present ? A.statusPresent : left ? A.statusLeft : A.statusFrei}: </span>
                   {/* …and only when there is an abbreviation to put in it: a rank the station's
                       list does not cover gave `rankAbbr` '' and rendered an EMPTY badge — a
                       small blank chip in front of the name. No chip is better than a blank one;

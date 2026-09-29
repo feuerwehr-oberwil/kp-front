@@ -2215,7 +2215,7 @@ export function IncidentWorkspace({
   // the Rapport counts an unsettled Abweichung as open — so does every door to it (lib/abschluss ·
   // abschlussFacts): the phone's «Einsatz» badge, the chooser, the Abschluss, the archive count
   const openConflictCount = useMemo(() => openConflicts(timeline).length, [timeline])
-  const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
+  const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
@@ -5727,9 +5727,10 @@ export function IncidentWorkspace({
             // used to archive plainly (see confirmAndComplete). The badge puts the check where it
             // can be read before the row is pressed, not only after.
             onArchive={canEditIncident && !readOnly && !incidentMeta.is_archived ? () => { void confirmAndComplete() } : undefined}
-            // …the Trupps that are still out included: the badge exists so the open points can be
-            // read BEFORE the row is pressed, and «niemand hat den Trupp rausgemeldet» is one.
-            archiveOpenCount={abschlussMissing.length + (truppsStillOut > 0 ? 1 : 0)}
+            // ONE number, the nav tile's and the Rapport head's (29.09.2026): a +1 for Trupps still
+            // out made this badge say 5 where the nav said 4 one tap away. The confirm names
+            // the Trupps that are still out («Trupps noch drin»), so nothing is lost.
+            archiveOpenCount={abschlussMissing.length}
             // «Teilen» — THE door to the share sheet (06.09.): the bar's own Teilen button is
             // gone on every width, so this Einsatz-Karte row is the one place an Einsatz is
             // handed to somebody. Same gate as every minting door (`canShareLink`): editors,

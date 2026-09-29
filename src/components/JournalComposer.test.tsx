@@ -186,6 +186,36 @@ describe('JournalComposer · what an empty field offers', () => {
   })
 })
 
+// «Info» is picked from the start (29.09.2026): the Art is one of three, never «none of them» —
+// and an entry left on it files exactly what an untouched composer filed before, no entryType.
+describe('JournalComposer · the Art', () => {
+  const chip = (name: string) => screen.getByRole('button', { name })
+
+  it('starts on «Info», and an untouched entry files without an entryType', () => {
+    const { onSubmit } = setup()
+    expect(chip('Info').getAttribute('aria-pressed')).toBe('true')
+    expect(chip('Auftrag').getAttribute('aria-pressed')).toBe('false')
+    type('Lüfter im EG gestellt')
+    send()
+    const d = onSubmit.mock.calls[0][0]
+    expect(d.entryType).toBeUndefined()
+    expect(d.text).toBe('Lüfter im EG gestellt')
+  })
+
+  it('is one of three: a lit chip stays lit, «Info» is the way back', () => {
+    const { onSubmit } = setup()
+    fireEvent.click(chip('Auftrag'))
+    fireEvent.click(chip('Auftrag'))
+    expect(chip('Auftrag').getAttribute('aria-pressed')).toBe('true')
+    expect(chip('Info').getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(chip('Info'))
+    expect(chip('Info').getAttribute('aria-pressed')).toBe('true')
+    type('Strom abgestellt')
+    send()
+    expect(onSubmit.mock.calls[0][0].entryType).toBeUndefined()
+  })
+})
+
 // ⚠️ There is no «Eintrag · Erinnerung» mode any more: a due time is a property of ANY entry, so
 // «Auftrag erteilt» and «um 22:10 nachfassen» are one row rather than two rows about one thing.
 describe('JournalComposer · the clock', () => {

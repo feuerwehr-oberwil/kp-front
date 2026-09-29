@@ -53,10 +53,6 @@
   font: inherit; font-size: 13px; line-height: normal; color: transparent; }
 .ap-add-marks mark { color: transparent; border-radius: 3px;
   background: color-mix(in srgb, var(--blue) 20%, transparent); }
-.ap-add-marks mark.jc-mark-material { background: color-mix(in srgb, var(--green) 22%, transparent); }
-.ap-add-marks mark.jc-mark-partner { background: color-mix(in srgb, var(--amber) 26%, transparent); }
-.ap-add-marks mark.jc-mark-vehicle { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.ap-add-marks mark.jc-mark-group { background: color-mix(in srgb, var(--ink) 14%, transparent); }
 .ap-add-row input { position: relative; display: block; width: 100%; min-width: 0; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
   background: transparent; padding: 10px 12px; font: inherit; font-size: 13px; line-height: normal; color: var(--ink); }
 .ap-add-row input::placeholder { color: var(--ink-faint); }
@@ -193,8 +189,10 @@
 /* ⚠️ an ink mix, NOT --surface-2: that token is white at 60% in the day theme, which on this
    white sheet is nothing at all — the borderless chips read as bare bold text nobody would
    think to tap. A mix off --ink carries the same weight in both themes. */
+/* …and the ONE corner (29.09.2026): the chips were full-radius pills a row above the one-corner
+   Art tiles — two shapes for two neighbouring rows of the same sheet. */
 .jc-phrase { min-height: 44px; padding: 8px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
-  border: none; border-radius: var(--r-pill); color: var(--ink);
+  border: none; border-radius: var(--r-sm); color: var(--ink);
   /* like every other control on this sheet: the press is said by :active below, not by the
      platform's grey wash (which lingers on the chip a beat after the finger is gone) */
   -webkit-tap-highlight-color: transparent;
@@ -203,11 +201,10 @@
    cursor rather than the sentence, and what it carries is the spelling the rest of the app uses.
    The tints carry a touch more colour than they did as outlined chips: the border used to do
    half the work of telling them apart. */
+/* ONE tint for every kind of name (29.09.2026) — the Verlauf's own rule: a vehicle offered in the
+   station red and a partner in warning amber read as alarm and warning, and the kind of a word is
+   not a state. */
 .jc-phrase-link { background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue-strong); }
-.jc-link-material { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green-strong); }
-.jc-link-partner { background: color-mix(in srgb, var(--amber) 17%, transparent); color: var(--amber-strong); }
-.jc-link-vehicle { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
-.jc-link-group { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
 /* Spelling help — «AS», «RWA», «1. OG» (journalLinks · plain). The QUIETEST chip in the row on
    purpose: it is the only one that does not name a thing the Einsatz has a record of, and it
    leaves no mark behind in the Verlauf either, so it must not look like a name. */
@@ -218,7 +215,7 @@
    the sheet, a lit chip reads as «this one is selected», which is not a state this row has.
    Nothing is lost on touch: the inserted text is the feedback, and the press has its own. */
 @media (hover: hover) {
-  .jc-phrase:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .jc-phrase:hover { background-image: linear-gradient(var(--press), var(--press)); }
 }
 /* press = the house ink wash, like every other :active in the app (02-base.css). It is over when
    the finger is up, which is exactly what «tap, and the word is in the sentence» should feel like. */
@@ -534,7 +531,8 @@
 .jc-menu-lead .i { width: 16px; height: 16px; color: var(--blue-strong); }
 
 /* it replaces the Eintrag/Erinnerung track — the kind of row is already settled */
-.jc-mode-title { flex: 1 1 auto; min-width: 0; font: 800 14px var(--body); color: var(--ink);
+/* the sheet title's ONE type, --sheet-title (29.09.2026 — it was the last 14px title left) */
+.jc-mode-title { flex: 1 1 auto; min-width: 0; font: var(--sheet-title); color: var(--ink);
   /* ⚠️ the height of the Eintrag/Erinnerung track it stands in for (.useg-btn min-height + the
      track's 3px padding), or the same card is shorter as a Meldung than as an entry */
   min-height: var(--tap); display: flex; align-items: center; }
@@ -553,6 +551,8 @@
 .jc-mode-note em { flex: none; font-style: normal; font-weight: 700; color: var(--amber-strong); }
 .jc-mode-note-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-weight: 600; color: var(--ink-dim); }
+/* …the title is «Meldung»; what it is about stays read-out size under the 17px title type */
+.jc-mode-note em, .jc-mode-note-name { font-size: 14px; }
 
 /* Einsatzuhr: tap-to-cycle clock (duration / wall time / start) beside the wall clock. It's a
    <button> now — strip the native chrome and give it a comfortable tap area. */

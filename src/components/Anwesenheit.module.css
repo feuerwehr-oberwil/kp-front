@@ -73,6 +73,11 @@
 /* the two Ort glyphs, in the colours they carry on the row — read once, then the row is enough */
 .markOrt svg { width: 14px; height: 14px; color: var(--ink-dim); }
 .markOrtStation svg { color: var(--ink); }
+/* the three states as the row LOOKS in them (29.09.2026 — the row has no status dot any more):
+   a small row swatch — plain, green tint, dimmed. Overrides the round 9px mark above. */
+.markRow i.swatch { width: 14px; height: 10px; border-radius: 3px; border: 1px solid var(--glass-edge); background: var(--surface); }
+.markRow i.swatchPresent { background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
+.markRow i.swatchLeft { opacity: var(--done-opacity); }
 /* the ink dot that rides on the clock button when somebody has a Bemerkung — same size, same
    colour, so the filter row IS the mark rather than a description of it */
 .markNote i { width: 6px; height: 6px; background: var(--ink); }
@@ -120,16 +125,16 @@
 .personMain:disabled { cursor: default; }
 .personMain svg { width: 15px; height: 15px; flex: none; color: var(--amber-strong); margin-left: auto; }
 
-.isPresent { background: color-mix(in srgb, var(--green) 14%, var(--surface)); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
-@media (hover: hover) { .isPresent:hover:not(:disabled) { border-color: var(--green); } }
+/* anwesend = the green TINT and nothing else (29.09.2026, owner pick B). A green dot, the tint and
+   a green border said it three times on every row — twenty green slabs on one screen. The edge
+   stays the row's ordinary --glass-edge. Not colour alone: a present row is also the only one
+   that carries the Ort + Uhr buttons, a gone one is dimmed, and the state word is in the row's
+   name for a screen reader (AnwesenheitView · .sr-only). */
+.isPresent { background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
 /* gegangen = GONE: the ONE done dim and nothing else (01-tokens · --done-opacity, 28.09.2026 —
    it was .8 on top of a faint ink, two dims for one state) */
 .isLeft { opacity: var(--done-opacity); }
 
-.dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
-.dotFrei { background: var(--ink-faint); opacity: .4; }
-.dotPresent { background: var(--green); opacity: 1; }
-.dotLeft { background: var(--amber); opacity: 1; }
 
 .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* «there is a remark on this person» — a dot on the clock that opens the sheet. The text

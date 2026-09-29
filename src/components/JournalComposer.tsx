@@ -348,10 +348,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       {active && <Icon id="check" />}
     </>
   )
-  // Who said it, and what kind of statement it is. Both OPTIONAL and both empty by
-  // default: the composer's job is still to take a sentence, and a form that asks two
-  // questions before it accepts one is a form nobody opens at 3am.
-  const [entryType, setEntryType] = useState<JournalEntryType | null>(rest0.entryType)
+  // What kind of statement it is: ONE of three, «Info» picked from the start (29.09.2026, owner
+  // pick A). Nothing picked and «Info» picked said the same thing two ways, and three unlit chips
+  // read as a question still waiting for its answer. The sentence is still all the sheet needs —
+  // the default IS the ordinary case. `null` in a kept draft (from before) reads as «Info».
+  const [entryType, setEntryType] = useState<JournalEntryType>(rest0.entryType ?? 'info')
+  /** …and what gets WRITTEN is unchanged: «Info» files as an ordinary row with no `entryType`
+   *  at all, exactly what an untouched composer wrote before the preselect (lib/journalEntry
+   *  prints no marker for it either way). */
+  const writtenType = entryType === 'info' ? undefined : entryType
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [clip, setClip] = useState<{ url: string; secs: number; startedAt: string } | null>(rest0.clip)
@@ -622,7 +627,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       clearDraft(draftKey); clearDraft(restKey) // filed — the next open starts empty
       onSubmit({
         text: text.trim(), photoUrls: photos.length ? photos : undefined,
-        entryType: entryType ?? undefined,
+        entryType: writtenType,
         // …and the same three facts the typed entry carries. An imported memo used to drop them
         // silently: the ring could be set on the sheet and the row landed as an ordinary line.
         dueAt,
@@ -675,7 +680,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     onSubmit({
       text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined,
       files: attached.length ? attached : undefined,
-      entryType: entryType ?? undefined,
+      entryType: writtenType,
       dueAt,
       // «Wer»: the first name the sentence marks. No field asks for it — whoever writes «Trupp 2
       // entraucht Treppenhaus» has already said who it is for, and a Trupp is titled by its
@@ -954,8 +959,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             nothing. */}
         <div className="jc-controls">
           <div className="jc-meta">
-            {/* Art — quiet by design: three small chips, none preselected. «Info» is the
-                ordinary case and prints no marker at all (lib/journalEntry).
+            {/* Art — quiet by design: three small chips, one of three, «Info» preselected
+                (29.09.2026). «Info» is the ordinary case and prints no marker at all
+                (lib/journalEntry); a tap on the lit chip leaves it lit — «Info» is the way back.
                 ⚠️ No «ART» eyebrow above them. Info · Auftrag · Sofortmassnahme say what they
                 are; a heading that only repeated it cost a row on the one surface fighting the
                 keyboard for every row it has. The group keeps the word as its accessible name,
@@ -973,7 +979,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   // in what a screen reader reads out or a tooltip shows.
                   title={C.entryTypes[t]}
                   aria-label={C.entryTypes[t]}
-                  onClick={() => setEntryType((cur) => (cur === t ? null : t))}
+                  onClick={() => setEntryType(t)}
                 >
                   {/* ⚠️ …the label with its break points written in (copy · entryTypesWrap), never
                       the plain one. This chip is the narrowest control on the sheet; the word that

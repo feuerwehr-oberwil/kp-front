@@ -348,8 +348,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     <>
     {mapOpen && <MapPicker initial={coord} onCancel={() => setMapOpen(false)} onConfirm={applyPicked} />}
     <Modal title={edit ? ix.editTitle : ix.titleNew} onClose={onClose} footer={<>
-      {/* manual create is reached from the landing — "Zurück" signals it returns there */}
-      <button className="ip-btn" onClick={onClose}>{edit ? ix.cancel : ix.back}</button>
+      {/* «Abbrechen» in both modes (29.09.2026): the wizard is ONE step, and closing it goes back
+          to the landing without opening anything — a cancel, not a «Zurück» to a previous step */}
+      <button className="ip-btn" onClick={onClose}>{ix.cancel}</button>
       <button className="ip-btn primary" disabled={!effectiveTitle || busy || demoBlocked} onClick={submit}>
         {busy ? <><Icon id="rotate" className="spin" /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
       </button>
@@ -470,40 +471,26 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
         <span className="ip-onoff-l">{ix.exerciseLabel}<small>{ix.exerciseSub}</small></span>
         <OnOff ariaLabel={ix.exerciseLabel} value={isExercise} onChange={setIsExercise} />
       </div>
-      {/* create: free-text Meldungstext stays under the keyword section */}
-      {!edit && (
-        <label className="ip-field"><span>{ix.detailsLabel}</span>
-          <textarea className="ip-textarea" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder={ix.detailsPlaceholder} />
-        </label>
-      )}
-      {/* manual create: Alarmierungszeit, prefilled with now — leave it for a live incident,
-          set it back to nachtragen an analog one (paper report keeps the bookkeeping; this
-          row is what puts the right date into the catalogue). */}
-      {!edit && (
-        <label className="ip-field"><span>{ix.alarmTime}</span>
-          <DateTimeField ariaLabel={ix.alarmTime} value={dtLocalToIso(alarmiertAt)}
-            onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
-        </label>
-      )}
-
-      {/* --- Alarmierung (edit only) — the dispatch facts, everything before we arrived:
-          when we were alarmed + the alarm message. The Rapportangaben hold the rest. --- */}
-      {edit && (
-        <>
-          <div className="ip-ix-head">{ix.alarmierungHead}</div>
-          <label className="ip-field"><span>{ix.alarmTime}</span>
-            <DateTimeField ariaLabel={ix.alarmTime} value={dtLocalToIso(alarmiertAt)}
-              onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
-          </label>
-          <label className="ip-field"><span>{ix.alarmMessage}</span>
-            {/* disabled while the existing Meldungstext could not be read — editing it would
-                mean typing over something invisible, and saving would blank it */}
-            <textarea className="ip-textarea" rows={3} value={text} disabled={!textReady}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={textFailed ? ix.alarmTextUnavailable : ix.detailsPlaceholder} />
-          </label>
-        </>
-      )}
+      {/* --- Alarmierung — the dispatch facts, everything before we arrived: when we were alarmed
+          + the alarm message. The Rapportangaben hold the rest. ONE section in both modes
+          (29.09.2026): the wizard asked «Meldungstext (optional)» then «Alarmzeit» with no
+          eyebrow, the edit sheet «Alarmzeit» then «Alarmmeldung» under «Alarmierung» — one field,
+          two names, two places, and the Rapport says «Alarmmeldung».
+          Creating, the time is prefilled with now — leave it for a live incident, set it back to
+          enter an analog one afterwards (the paper report keeps the bookkeeping; this row is what
+          puts the right date into the catalogue). --- */}
+      <div className="ip-ix-head">{ix.alarmierungHead}</div>
+      <label className="ip-field"><span>{ix.alarmTime}</span>
+        <DateTimeField ariaLabel={ix.alarmTime} value={dtLocalToIso(alarmiertAt)}
+          onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
+      </label>
+      <label className="ip-field"><span>{ix.alarmMessage}</span>
+        {/* editing: disabled while the existing Meldungstext could not be read — editing it
+            would mean typing over something invisible, and saving would blank it */}
+        <textarea className="ip-textarea" rows={edit ? 3 : 2} value={text} disabled={edit && !textReady}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={edit && textFailed ? ix.alarmTextUnavailable : ix.detailsPlaceholder} />
+      </label>
 
       {demoBlocked && <p className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
     </Modal>
