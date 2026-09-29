@@ -50,7 +50,11 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     // given a Bestand later without touching its count, and a count change never drops it.
     const stock = d.stock === undefined ? cur?.stock : (d.stock === null ? undefined : Math.max(0, Math.round(d.stock)))
     const deleted = d.deleted || undefined
-    const unchanged = (cur?.menge ?? 0) === menge && note === cur?.note && stock === cur?.stock && !deleted
+    // ⚠️ a line coming BACK from a removal is a change even when its count, remark and Bestand are
+    // what the tombstone carried (29.09.2026) — which they always are for the removal toast's
+    // «Rückgängig»: it used to compare equal here and write nothing, so the undo did nothing
+    const restored = !!cur?.deleted && !deleted
+    const unchanged = (cur?.menge ?? 0) === menge && note === cur?.note && stock === cur?.stock && !deleted && !restored
     if (unchanged) return // → no event, no Verlauf row
     // (Retablierung status retired 2026-07-14 — old entries keep their stored status,
     // new events simply don't carry one; cleanup/defects live outside the system.)
@@ -63,6 +67,7 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     // same act the moment a zeroed line started surviving on the sheet. It is also the one case
     // that must NOT wait: a deletion is a decision, not a count being dialled in.
     if (deleted) { flushLogFor(mittelKey(probe)); log('box', fillTemplate(M.logDeleted, { label }) + where, 'team'); return }
+    if (restored) { log('box', fillTemplate(M.logRestored, { label }) + where, 'team'); return }
     if ((cur?.menge ?? 0) === menge && note !== cur?.note) { log('box', fillTemplate(M.logNote, { label, note: note ?? '–' }) + where, 'team'); return }
     if ((cur?.menge ?? 0) === menge) { log('box', fillTemplate(M.logStock, { label, stock: stock ?? '–' }) + where, 'team'); return }
     // A COUNT settles before it is logged. «Ölbinder: 3 Sack» typed with the ±stepper is five
