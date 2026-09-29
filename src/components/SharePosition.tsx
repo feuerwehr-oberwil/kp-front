@@ -118,7 +118,7 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPers
                 {p.rank && <span className={s.rank}>{rankAbbr(p.rank)}</span>}
                 <span className={s.name}>{p.displayName}</span>
                 {/* A mark, not a pre-selection: nothing is sent until this row is tapped. */}
-                {p.id === lastPersonId && <span className={s.last}>{C.pickLast}</span>}
+                {p.id === lastPersonId && <span className="ip-badge ip-badge-arch">{C.pickLast}</span>}
               </button>
             </li>
           ))}

@@ -36,9 +36,10 @@
 /* loud offline pill in the switcher header — only shows while offline, so it never causes the
    constant saving↔saved layout flip; amber-on-tint so it reads at a glance at 3am */
 .ip-offline-chip { display: inline-flex; align-items: center; gap: 5px; flex: none;
-  padding: 2px 8px; border-radius: var(--r-pill); font-size: 12.5px; font-weight: 600; line-height: 1;
-  color: var(--amber); background: color-mix(in srgb, var(--amber) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 38%, transparent); }
+  padding: 2px 8px; border-radius: var(--r-xs); font-size: 12.5px; font-weight: 600; line-height: 1;
+  color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 16%, transparent); }
+/* ↑ the tag's corner and no edge (29.09.2026): roundness is map furniture's, and the tone is the
+   tint + ink, never an outline besides */
 .ip-offline-chip .ip-status-dot { width: 7px; height: 7px; }
 /* sync-error variant of the chip — red-on-tint with the warn glyph, same slot/behaviour */
 .ip-error-chip { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent);
@@ -112,7 +113,7 @@
    «Einsatzbeginn 20:14 · 1 h 32» never fit on one line, and both are read, not glanced at */
 .ip-card-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
 .ip-card-pill { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%;
-  padding: 3px 9px; border-radius: var(--r-pill); font: 600 11.5px var(--body);
+  padding: 3px 9px; border-radius: var(--r-xs); font: 600 11.5px var(--body);   /* a tag's corner, not a pill (29.09.2026) */
   color: var(--ink-dim); background: color-mix(in srgb, var(--ink-faint) 14%, transparent); }
 .ip-card-pill > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ip-card-pill svg, .ip-card-pill .i { width: 12px; height: 12px; flex: none; }
@@ -404,8 +405,8 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* «Jetzt aktualisieren» — only while a build is actually waiting, so the foot is a build stamp
    the rest of the time. Quiet: the update is good news, not a demand. */
-.ip-menu-update { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 32px;
-  padding: 4px 10px; border: 1px solid var(--glass-line); border-radius: var(--r-pill);
+.ip-menu-update { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: var(--tap);
+  padding: 4px 12px; border: 1px solid var(--glass-line); border-radius: var(--r-sm);   /* a button: one corner, --tap (29.09.2026) */
   background: var(--surface); color: var(--blue); font: 700 12px var(--body); cursor: pointer; }
 .ip-menu-update .i { width: 13px; height: 13px; stroke-width: 2.2; }
 /* the ONE disabled (28.09.2026): the dim, not a colour swap */
@@ -800,6 +801,8 @@
 .ip-badge-open { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
 .ip-badge-work { background: color-mix(in srgb, var(--red) 13%, transparent); color: var(--red); }
 .ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
+/* a good-news tag («empfohlen») — the green of «done», never a fill */
+.ip-badge-ok { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green-strong); }
 /* Übung — amber so a training is never mistaken for a real Einsatz (top bar switcher, lists,
    and the poster: one look for one word, 28.09.2026) */
 .ip-badge-exercise, .cv-badge-exercise { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
@@ -960,7 +963,7 @@
 /* «Zuletzt geprüft 03:14:22» — the proof that a calm screen is not a dead one (the last
    standing poll, STANDING_POLL_MS). The dot blips once per 10s cycle and then stands down. */
 .sl-checked { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px;
-  border-radius: var(--r-pill); background: var(--surface-veil);
+  border-radius: var(--r-sm); background: var(--surface-veil);   /* a read-out: the one corner, not a pill (29.09.2026) */
   font: 500 12px var(--body); color: var(--ink-faint); }
 .sl-checked b { font: 500 12px var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .sl-blip { width: 6px; height: 6px; border-radius: 50%; background: var(--green);

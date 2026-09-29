@@ -539,8 +539,8 @@
 /* reminder (Erinnerung) row: due label + checklist-style done toggle */
 .jr-text.jr-rem-struck { text-decoration: line-through; color: var(--ink-faint); }
 .jr-rem { display: inline-flex; align-items: center; gap: 7px; flex: none; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); border-radius: var(--r-pill); padding: 5px 11px 5px 6px; font-size: 12px; font-weight: 700; cursor: pointer;
-  font-family: inherit; min-height: 34px; }
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 5px 11px 5px 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: inherit; min-height: var(--tap); }   /* a button: one corner, --tap (29.09.2026; was a 34px pill) */
 /* In the pinned block the ring stands alone in the Verlauf's ICON SLOT — 26px wide, the width of
    `.hist-ev .ic`, so the text beside it lands on the log's own axis. No pill, no word: the block's
    heading already says these are Pendenzen, and the ring is this row's icon as much as its

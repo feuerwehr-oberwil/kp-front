@@ -25,8 +25,8 @@
    pins it to the card's corner */
 .dw-x { position: absolute; top: 12px; right: 12px; }
 .dw-head { display: flex; align-items: center; gap: 10px; margin: 0 40px 10px 0; }
-.dw-badge { flex: none; background: var(--amber); color: var(--on-fill); font-size: 10px; font-weight: 800;
-  letter-spacing: 1.5px; padding: 3px 8px; border-radius: var(--r-pill); }
+/* (the DEMO tag is THE tag recipe, `.ip-badge .ip-badge-exercise`, 29.09.2026 — it was an
+   amber-filled round pill in 800) */
 .dw-title { margin: 0; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 19) */
 .dw-intro { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--ink-dim); font-weight: 500; }
 /* large reload caveat — the one thing a visitor must know (edits vanish on reload) */

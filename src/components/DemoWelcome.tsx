@@ -11,7 +11,7 @@ export function DemoWelcome({ onClose }: { onClose: () => void }) {
     <Overlay open onClose={onClose} className="dw-card" backdropClassName="modal-backdrop dw-scrim" ariaLabel={C.title}>
         <button className="ip-x dw-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         <div className="dw-head">
-          <span className="dw-badge">{appConfig.copy.demo.ribbon}</span>
+          <span className="ip-badge ip-badge-exercise">{appConfig.copy.demo.ribbon}</span>
           <h2 className="dw-title">{C.title}</h2>
         </div>
         <p className="dw-intro">{C.intro}</p>

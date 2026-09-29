@@ -133,7 +133,7 @@ export function FeedbackSheet({ trouble, onClose }: {
       <span className="fb-route-body">
         <span className="fb-route-t">
           {title}
-          <span className={`fb-route-badge${id === 'github' ? '' : ' grey'}`}>{badge}</span>
+          <span className={`ip-badge ${id === 'github' ? 'ip-badge-ok' : 'ip-badge-arch'}`}>{badge}</span>
         </span>
         <span className="fb-route-s">{note}</span>
       </span>
