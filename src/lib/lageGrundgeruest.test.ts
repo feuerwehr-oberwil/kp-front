@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { appConfig } from '../config/appConfig'
 import { haversineM } from './geo'
 import {
-  CATEGORY_LABELS, categoryKey, destinationPoint, grundgeruestProgress, grundgeruestRows,
+  CATEGORY_LABELS, categoryFieldValue, categoryKey, destinationPoint, LEGACY_CATEGORY_WORDS, grundgeruestProgress, grundgeruestRows,
   HYDRANT_MAX_M, hydrantNr, hydrantPoints, isHydrantLayer, linePresetIdFor, listFor, nearestHydrant,
   ownLocation, panClearOf, placeable, slotMatch, slotsFor, suggestionFor, suggestionText, takeOverKind, upwindPoint,
   type LageGrundgeruestPresets, type LageSlot,
@@ -40,6 +40,31 @@ describe('which list an Einsatz gets', () => {
     expect(categoryKey('strassenrettung')).toBe('strassenrettung')
     expect(categoryKey('')).toBeNull()
     expect(categoryKey('Irgendwas')).toBeNull()
+  })
+
+  // sweep K15 (29.09.2026): the demo Einsatz stores «Brand» — the chip asked «Einsatzart?» while
+  // the Einsatzdaten it opens said «Brand»
+  it('reads a legacy short word («Brand», «THL») as its category', () => {
+    expect(categoryKey('Brand')).toBe('brandbekaempfung')
+    expect(categoryKey(' thl ')).toBe('technische_hilfeleistung')
+    expect(categoryKey('Öl')).toBe('oelwehr')
+    expect(slotsFor(null, PRESETS, 'Brand')).toMatchObject({ category: 'brandbekaempfung', fallback: false })
+  })
+
+  it('knows every German admin tab word, and each names a real category', () => {
+    const de = { brandbekaempfung: 'Brand', bma_unechte_alarme: 'BMA', chemiewehr: 'Chemie', oelwehr: 'Öl',
+      elementarereignis: 'Elementar', technische_hilfeleistung: 'THL', strahlenwehr: 'Strahlen',
+      einsatz_bahnanlagen: 'Bahn', gerettete_tiere: 'Tiere', diverse_einsaetze: 'Diverse' }
+    for (const [key, word] of Object.entries(de)) expect(categoryKey(word)).toBe(key)
+    for (const key of Object.values(LEGACY_CATEGORY_WORDS)) expect(CATEGORY_LABELS[key]).toBeTruthy()
+  })
+
+  it('the Kategorie field shows a legacy word as the entry it means, anything else marked', () => {
+    const list = Object.values(CATEGORY_LABELS)
+    expect(categoryFieldValue('Ölwehr', list)).toEqual({ value: 'Ölwehr', legacy: false })
+    expect(categoryFieldValue('Brand', list)).toEqual({ value: 'Brandbekämpfung', legacy: false })
+    expect(categoryFieldValue('Grossereignis', list)).toEqual({ value: 'Grossereignis', legacy: true })
+    expect(categoryFieldValue('', list)).toBeNull()
   })
 
   it('follows the Einsatzart, and a corrected one re-picks the list', () => {

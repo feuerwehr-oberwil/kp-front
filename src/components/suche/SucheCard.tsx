@@ -30,7 +30,7 @@ export function SucheCard({ onClose, picking, onGone, ...panel }: SuchePanelProp
     <section className={`layers-card ${s.card}`} aria-label={C.title} data-suche-card data-picking={picking || undefined}>
       <div className={`lc-title ${s.head}`}>
         <Icon id="search" />{C.title}
-        {line && <span className={s.headLine} data-hot={o.missing > 0 || undefined}>{line}</span>}
+        {line && <span className={s.headLine}>{line}</span>}
         <button type="button" className="lc-x" aria-label={C.close} title={C.close} onClick={onClose}><Icon id="close" /></button>
       </div>
       <SuchePanel key={panel.focus?.nonce ?? 0} {...panel} />

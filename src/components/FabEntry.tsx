@@ -3,6 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { fmtMMSS } from '../lib/format'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
+import { EntryGlyph } from '../lib/icons'
 import { useGeorefMode } from '../lib/georefMode'
 
 // Mobile field-capture FAB. Same tap / long-hold gesture as the TopBar "Eintrag": tap opens
@@ -52,16 +53,17 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
       {recording
         ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
         : <>
-          {/* ring around the + icon, same as the TopBar Eintrag — never over the label */}
+          {/* ring around the Eintrag glyph, same as the TopBar Eintrag — never over the label */}
           <span className="tb-act-ic">
-            {/* ⚠️ The + is an INLINE path, not a sprite <use> (29.08.). This button was seen in
-                the field as a bare dark circle — glyph missing. A `<use href="#plus">` depends
-                on the IconSprite's symbol being resolvable in the live document, and WebKit is
-                flaky about re-resolving <use> targets across remounts (the FAB itself mounts and
+            {/* ⚠️ The glyph is an INLINE path, not a sprite <use> (29.08.). This button was seen in
+                the field as a bare dark circle — glyph missing. A `<use href>` depends on the
+                IconSprite's symbol being resolvable in the live document, and WebKit is flaky
+                about re-resolving <use> targets across remounts (the FAB itself mounts and
                 unmounts with every composer/panel open, and several sprites coexist). The one
                 control that logs from the field must not be able to render empty, so it carries
-                its own path — same `.i` class, so sizing/stroke are unchanged. */}
-            <svg className="i" viewBox="0 0 24 24" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
+                its own path (lib/icons · EntryGlyph). Since 29.09.2026 it is the journal glyph,
+                not «+»: «+» is the tool bar's Hinzufügen, 60px below (sweep K2). */}
+            <EntryGlyph />
             {pressing && pressedSince != null && <HoldChargeRing since={pressedSince} />}
           </span>
           <span className="tb-act-label">{appConfig.copy.journal.add}</span>

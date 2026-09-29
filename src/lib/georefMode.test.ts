@@ -1172,8 +1172,8 @@ describe('georefReduce · the scaffolding handover (auto pairs step aside)', () 
 // dot has to say exactly what the words did — and it must NOT be georefLamp, which reads the
 // armed mode's live pairs and would be red on every idle plan that is perfectly well referenced.
 describe('georefChipTone — the Ampel tone of the idle pill', () => {
-  it('is red while the sheet has no reference at all', () => {
-    expect(georefChipTone({ kind: 'unlinked', residualM: null, warn: false })).toBe('red')
+  it('is grey while the sheet has no reference yet — «not yet» is no alarm (K10)', () => {
+    expect(georefChipTone({ kind: 'unlinked', residualM: null, warn: false })).toBe('grey')
   })
 
   it('is amber for a fit nobody has checked', () => {
@@ -1194,7 +1194,7 @@ describe('georefChipTone — the Ampel tone of the idle pill', () => {
   it('tracks the chip it sits on', () => {
     const chip = georefChip(null, GEOREF_OFF, 'modul2')
     expect(chip.kind).toBe('unlinked')
-    expect(georefChipTone(chip)).toBe('red')
+    expect(georefChipTone(chip)).toBe('grey')
   })
 })
 

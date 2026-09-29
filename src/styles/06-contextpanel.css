@@ -427,10 +427,11 @@
    red glyph alone, the word in its label */
 .ctx-actions > .btn.btn-sq { flex: 0 0 var(--tap); width: var(--tap); padding: 0; }
 .ctx-actions > .btn.btn-sq .i { width: 18px; height: 18px; }
-/* «Erledigt» is the quiet middle: no colour, it only greys the symbol — and where it stands, the
-   two word tiles share the row equally (mockup 9); a foot without it (a read-only twin's five
-   doors) keeps its content-sized wrap */
-.ctx-actions > .btn.ctx-done { color: var(--ink-dim); }
+/* «Erledigt» is the quiet middle: no colour of its own, it only greys the symbol — and where it
+   stands, the two word tiles share the row equally (mockup 9); a foot without it (a read-only
+   twin's five doors) keeps its content-sized wrap.
+   ⚠️ It wears the same ink as «Zentrieren» (29.09.2026, sweep K12): it was --ink-dim, which is
+   the look of «not available» — the one thing an action must not say. */
 .ctx-actions:has(> .ctx-done) > .btn:not(.btn-sq) { flex: 1 1 0; }
 .btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: 12.5px; font-weight: 700;
   padding: 11px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);

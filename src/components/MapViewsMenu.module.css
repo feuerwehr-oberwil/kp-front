@@ -2,7 +2,9 @@
    chrome as the measure/draw ToolDock (solid --ink-fill pill, white controls, a round close
    button and an info ⓘ), so it reads as one of the map tool utilities. Portalled to <body>.
    No backdrop scrim — the map stays draggable/clickable underneath, like the tool docks. */
-.pop { z-index: var(--z-floating-card); width: 232px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
+/* 256px, not 232 (29.09.2026, sweep K14): the last row carries the ⓘ at its end now, and at 232
+   «Ansicht speichern» ellipsised beside it («Enregistrer la vue» worse) */
+.pop { z-index: var(--z-floating-card); width: 256px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
   background: var(--ink-fill); color: var(--on-accent-ink); border-radius: var(--r-surface);
   box-shadow: var(--shadow); padding: 10px; }
 /* No entry animation: the `animation: popIn` this rule used to carry never ran (a module
@@ -27,14 +29,7 @@
     max-height: calc(100dvh - 220px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
 
-.head { display: flex; align-items: center; justify-content: flex-end; padding: 0 0 6px; }
-/* close button — the house ✕ (36px, 18px glyph — AGENTS.md · Buttons), like the Ebenen panel's .lc-x */
-.close { flex: none; width: 36px; height: 36px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
-  color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0;
-  transition: background .14s var(--ease); }
-@media (hover: hover) { .close:hover { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); } }
-.close:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.close :global(.i) { width: 18px; height: 18px; }
+/* (no ✕ head any more — 29.09.2026, sweep K14: the tile toggles the menu, a row closes it) */
 
 /* margin-bottom, not a `.pop` flex-gap: a plain (unfilled) row already reads as "spaced out"
    against the dark background, but two adjacent HIGHLIGHTED rows (.on, or the saved-views list)
@@ -82,6 +77,10 @@
 @media (hover: hover) { .mini:hover { background: color-mix(in srgb, var(--on-accent-ink) 12%, transparent); color: var(--on-accent-ink); } }
 .mini:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .mini :global(.i) { width: 16px; height: 16px; }
+/* the ⓘ at the last row's end, while its sentence is open */
+.miniOn { color: var(--on-accent-ink); background: color-mix(in srgb, var(--on-accent-ink) 14%, transparent); }
+/* its sentence, under the row — the 8px inset the row labels carry (see .sep's note below) */
+.help { margin: 0 8px 6px; font-size: 12.5px; line-height: 1.4; opacity: .85; }
 
 .sep { height: 1px; background: rgba(255, 255, 255, .15); margin: 5px 4px; }
 /* ⚠️ 8px, the same inset the row labels carry (.go/.north/.save) — and the same the inline
@@ -93,8 +92,7 @@
   color: var(--on-accent-ink); background: rgba(255, 255, 255, .1);
   border: 1px solid rgba(255, 255, 255, .3); border-radius: var(--r-sm); outline: none; }
 
-/* the ⓘ sits bottom-right, like the dock's trailing info affordance — flush to the popover's
-   own padding, exactly as the close button does at the head (.head). No `.sep` above it either
-   (mirrors `.head`, which has none below the ✕): a hairline plus its own margin right next to
-   this button's own padding just doubled up the empty band the lone icon already sits in. */
+/* a LOCKED device's ⓘ (no «Ansicht speichern» row to end with) sits bottom-right, flush to the
+   popover's own padding. No `.sep` above it: a hairline plus its own margin right next to this
+   button's own padding just doubled up the empty band the lone icon already sits in. */
 .foot { display: flex; justify-content: flex-end; padding: 6px 0 0; }

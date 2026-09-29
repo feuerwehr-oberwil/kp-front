@@ -225,7 +225,7 @@ export const de = {
             'In den **Ebenen** bekommt jedes verknüpfte Blatt eine eigene Zeile («Plan (Modul 2)»): das Blatt selbst als Bild unter der Karte. Die Objekte darauf brauchen keine eigene Zeile mehr – sie gehören zu der Ebene, auf der sie gesetzt wurden.',
           ] },
           { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist (Umriss-Symbol), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Geschoss-Stapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Geschoss-Stapel des Gebäudes, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
-          { kind: 'note', text: '**Wie herum steht das Gebäude?** Der **Nordpfeil** auf dem Geschoss-Stapel und der **Kompass** unten in der linken Leiste öffnen dasselbe kleine Fenster «Gebäude drehen»: ein Regler **Drehung** mit Vorschau, dazu **Norden oben** und **Auf Längsachse drehen** als je ein Tipp. Der Umriss dreht sich mit, die Markierungen bleiben, wo sie am Gebäude liegen – und die gedruckten Geschossseiten zeigen den eingestellten Winkel.' },
+          { kind: 'note', text: '**Wie herum steht das Gebäude?** Ein Tipp auf den **Nordpfeil** oben rechts auf dem Geschoss-Stapel öffnet das kleine Fenster «Gebäude drehen»: ein Regler **Drehung** mit Vorschau, dazu **Norden oben** und **Auf Längsachse drehen** als je ein Tipp. Der Umriss dreht sich mit, die Markierungen bleiben, wo sie am Gebäude liegen – und die gedruckten Geschossseiten zeigen den eingestellten Winkel.' },
         ],
       },
       {
@@ -425,8 +425,8 @@ export const de = {
           ] },
           { kind: 'sub', text: 'Beschriftete Leisten' },
           { kind: 'list', items: [
-            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Wörter** schreibt unter jedes Zeichen der beiden Leisten sein Wort. Für alle, die die Symbole noch nicht auswendig kennen – die Leiste wird dafür etwas breiter, und «Ausklappen» braucht es dann nicht mehr.',
-            'Ohne diese Einstellung bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
+            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Ein** schreibt unter jedes Zeichen der beiden Leisten sein Wort. Für alle, die die Symbole noch nicht auswendig kennen – die Leiste wird dafür etwas breiter, und «Ausklappen» braucht es dann nicht mehr. Auf dem **Telefon** ist sie von Anfang an ein.',
+            'Ist sie aus, bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
             'Überall sonst gilt: einen Knopf, auf dem nur ein Zeichen steht, **gedrückt halten** – nach einem kurzen Moment steht sein Wort als Blase darüber, auf Touch mit einem kurzen Summen. Das Loslassen löst den Knopf dabei **nicht** aus: fragen, was etwas ist, darf es nicht gleich auch tun. An der Maus genügt Draufzeigen.',
           ] },
           { kind: 'sub', text: 'Tag / Nacht' },
@@ -941,6 +941,8 @@ export const de = {
     titleLabel: 'Stichwort / Titel',
     titlePlaceholder: 'z. B. Gebäudebrand Schulhaus',
     categoryLabel: 'Kategorie',
+    /** a stored Kategorie outside today's list (sweep K15) */
+    categoryLegacy: '{value} (alt)',
     // Übungen stay fully operable, but do not feed the statistics and are the only ones
     // that can be deleted (Alle Einsätze)
     // an OnOff row since 28.09.2026: the name on the row, the consequence under it
@@ -2941,6 +2943,9 @@ export const de = {
     // the toast and ↶ of «+ OG / + UG», naming the storey (its Verlauf row comes with #226)
     floorAddedToast: '{floor} hinzugefügt',
     floorHide: 'Geschoss ausblenden',
+    // the storey label's menu (29.09.2026, sweep K5): «Ausblenden · Geschoss entfernen»
+    floorHideShort: 'Ausblenden',
+    floorMenu: '{name}: ausblenden oder entfernen',
     floorShow: 'einblenden',
     floorHidden: 'ausgeblendet',
     removeFloor: 'Geschoss entfernen',
@@ -3607,8 +3612,6 @@ export const de = {
     einsatzartUnknown: 'Einsatzart?',
     /** the chip's title — it opens the Einsatzdaten */
     einsatzartAria: 'Einsatzart ändern',
-    hide: 'ausblenden',
-    hideAria: 'Lage-Grundgerüst ausblenden',
     expand: 'Lage-Grundgerüst aufklappen',
     collapse: 'Lage-Grundgerüst zuklappen',
     /** the card opened from the rail with everything in place */

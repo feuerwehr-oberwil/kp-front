@@ -183,16 +183,16 @@ describe('Orte: nothing is preset, and one list is by place', () => {
     // a found person stands where she was FOUND
     expect(o.orte[3].personen.map((p) => p.label)).toEqual(['Beispiel Anna'])
     expect(o.orte[1].personen).toEqual([])
-    expect(sucheHeadLine(o)).toBe('2 vermisst · 1/4 abgesucht')
+    expect(sucheHeadLine(o)).toBe('1/4 abgesucht')
   })
 
-  it('a sweep with nobody missing says only what is searched — no «0 vermisst»', () => {
+  it('the head says only what is searched — the missing are the top-bar chip and the rows (K1)', () => {
     const w = world()
     let d = addBereich(emptySuche(), { name: 'Scheune' }, w.cx()).doc
     d = addBereich(d, { name: 'Wohnhaus' }, w.cx()).doc
     d = toggleAbgesucht(d, idOf(d, 'Scheune'), w.cx()).doc
     expect(sucheHeadLine(orte(d))).toBe('1/2 abgesucht')
-    expect(sucheHeadLine(orte(addPerson(emptySuche(), { name: 'A' }, w.cx()).doc))).toBe('1 vermisst')
+    expect(sucheHeadLine(orte(addPerson(emptySuche(), { name: 'A' }, w.cx()).doc))).toBe('')
   })
 
   it('the tick is abgesucht, and again back to offen — a status row each time', () => {

@@ -88,13 +88,50 @@ export function categoryShort(key: string): string {
   return appConfig.copy.admin.lageGrundgeruest.tabShort[key] ?? CATEGORY_LABELS[key] ?? key
 }
 
-/** The category key of an incident's stored `type`, or null when it names none we know. */
+/**
+ * The SHORT words an incident's `type` was stored as before the VKF categories (29.09.2026, sweep
+ * K15): the demo Einsatz and older incidents say «Brand», «THL» — the admin's German tab words
+ * (copy.admin.lageGrundgeruest.tabShort, de). Structural data like CATEGORY_LABELS: what was
+ * STORED, so German and never translated. Without it the Grundgerüst chip asked «Einsatzart?»
+ * while the Einsatzdaten it opens said «Brand».
+ */
+export const LEGACY_CATEGORY_WORDS: Record<string, string> = {
+  brand: 'brandbekaempfung',
+  bma: 'bma_unechte_alarme',
+  chemie: 'chemiewehr',
+  'öl': 'oelwehr',
+  elementar: 'elementarereignis',
+  thl: 'technische_hilfeleistung',
+  strahlen: 'strahlenwehr',
+  bahn: 'einsatz_bahnanlagen',
+  tiere: 'gerettete_tiere',
+  diverse: 'diverse_einsaetze',
+}
+
+/** The category key of an incident's stored `type`, or null when it names none we know: the key
+ *  itself, its stored label («Brandbekämpfung»), or a legacy short word («Brand», «THL»). */
 export function categoryKey(type: string | null | undefined): string | null {
   const t = type?.trim()
   if (!t) return null
   if (t in CATEGORY_LABELS) return t
-  const hit = Object.entries(CATEGORY_LABELS).find(([, label]) => label.toLowerCase() === t.toLowerCase())
-  return hit ? hit[0] : null
+  const low = t.toLowerCase()
+  const hit = Object.entries(CATEGORY_LABELS).find(([, label]) => label.toLowerCase() === low)
+  return hit ? hit[0] : LEGACY_CATEGORY_WORDS[low] ?? null
+}
+
+/**
+ * What the Einsatzdaten's Kategorie field SHOWS for a stored `type` (sweep K15): a list entry as
+ * itself; a legacy word as the entry it means («Brand» → «Brandbekämpfung», the same answer the
+ * Grundgerüst chip gives); anything else as the stored word marked as outside the list, never a
+ * silent first entry. The stored value is not rewritten — only a pick in the field changes it.
+ */
+export function categoryFieldValue(type: string | null | undefined, list: readonly string[]): { value: string; legacy: boolean } | null {
+  const t = type?.trim()
+  if (!t) return null
+  if (list.includes(t)) return { value: t, legacy: false }
+  const key = categoryKey(t)
+  const label = key ? CATEGORY_LABELS[key] : undefined
+  return label && list.includes(label) ? { value: label, legacy: false } : { value: t, legacy: true }
 }
 
 /** A preset's list for one category — the default preset when the named one is not served. */

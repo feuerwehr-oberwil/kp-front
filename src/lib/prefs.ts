@@ -79,8 +79,13 @@ export interface Prefs {
    *  ⚠️ Not the same thing as the rails' expand chevron: that one widens the rail and puts the word
    *  BESIDE the glyph, and it is a transient state (nothing remembers it). This is a device
    *  preference and stacks the word UNDER the glyph, which is what a first-timer needs on a rail
-   *  of seven surfaces and nine tools with no words at all. Default 'off'. */
+   *  of seven surfaces and nine tools with no words at all. Default 'off' — on a PHONE 'short'
+   *  (29.09.2026, owner: «at least on mobile default to "Wörter" so that all toolbars and views
+   *  are always labelled»); see `railLabelsFor`. */
   railLabels?: RailLabels
+  /** the device's own hand set `railLabels` in the Einstellungen. Until then the stored value is
+   *  only the default the app saved along with everything else, and a phone reads 'short'. */
+  railLabelsChosen?: boolean
   /** radius (metres) of the box cached around the incident by "Alles für offline laden".
    *  Device pref — each device decides how much to store. Default 1200. */
   offlineRadiusM?: number
@@ -257,6 +262,20 @@ export function hideGrundgeruest(p: Prefs, incidentId: string, hidden: boolean):
   if (has === hidden) return p
   const next = hidden ? [...list, incidentId].slice(-GRUNDGERUEST_HIDDEN_CAP) : list.filter((x) => x !== incidentId)
   return { ...p, grundgeruestHidden: next }
+}
+
+/**
+ * «Beschriftung der Werkzeugleisten» as this device reads it (29.09.2026, sweep T8). A phone
+ * defaults to the words: its nav bar and tool bar are five even tiles with room for a word under
+ * each, and a gloved first-timer at 3am cannot hover for a tooltip. A tablet keeps the glyphs
+ * (the words there widen the rails into the map). A device that chose keeps its choice.
+ * ⚠️ The app saved `railLabels: 'off'` with every other pref long before anyone could choose, so
+ * a stored 'off' without `railLabelsChosen` is the old default, not a choice — a phone reads
+ * 'short' over it. A stored 'short' is always a choice (it was never a default before).
+ */
+export function railLabelsFor(p: Pick<Prefs, 'railLabels' | 'railLabelsChosen'>, phone: boolean): RailLabels {
+  if (p.railLabelsChosen || p.railLabels === 'short') return p.railLabels ?? 'off'
+  return phone ? 'short' : 'off'
 }
 
 export function loadPrefs(): Prefs {

@@ -138,6 +138,8 @@
    it can never disagree about whether a reference is good. */
 .wb-lamp { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .wb-lamp[data-tone='red'] { background: var(--red); }
+/* «not yet» — no scale, no link (29.09.2026, sweep K10): grey, never red at rest */
+.wb-lamp[data-tone='grey'] { background: var(--ink-faint); }
 .wb-lamp[data-tone='amber'] { background: var(--amber); }
 .wb-lamp[data-tone='green'] { background: var(--green); }
 /* a read-out with nowhere to go (a link-scoped viewer is bound to ONE object) is not greyed out
@@ -347,34 +349,24 @@
   flex-wrap: nowrap; white-space: nowrap;
   font-family: var(--body); font-weight: 700; font-size: 13px; line-height: 1; color: var(--ink-dim);
   background: var(--label-soft); border-radius: var(--r-xs); padding: var(--wb-floor-plate-pad); user-select: none; -webkit-user-select: none; }
-/* «Geschoss entfernen»: its own --tap square in the tile's top-RIGHT corner, on the label's plate
-   colour — the opposite end of the tile from the name and the fold eye (3am test r2, 25.09.2026:
-   an 18px ✕ beside the eye removed a storey for everybody on one stray tap).
-   ⚠️ 28.09.2026: it is a DELETE, so it wears THE delete look (01-tokens · --del-*) and the bin —
-   a grey ✕ said «close» (✕ only ever closes or clears). */
-.wb-floor-x { position: absolute; top: 2px; right: 2px; z-index: 1; width: var(--tap); height: var(--tap);
-  border: 1px solid var(--del-edge); background: var(--surface); color: var(--del-ink); cursor: pointer;
-  display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
+/* The label IS the storey's door (29.09.2026, sweep K5): a tap opens «Ausblenden · Geschoss
+   entfernen» (Whiteboard · the storey Menu). The per-storey eye and the red bin in the tile's
+   corner left the canvas — delete is the rarest act on this surface and was its loudest shape,
+   four bins at once on a tablet, half of each phone tile. The plate stays the plate; a small ⌄
+   says it opens something, and its hit area grows to --tap past the 21px plate (the eye's pad). */
+.wb-floor-menu { border: none; cursor: pointer; }
+.wb-floor-menu::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap); transform: translateY(-50%); }
+.wb-floor-menu > .i { width: 12px; height: 12px; stroke-width: 2.2; margin-left: -2px; color: var(--ink-faint); }
 @media (hover: hover) {
-  .wb-floor-x:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
+  .wb-floor-menu:hover { color: var(--ink); }
 }
-.wb-floor-x:active { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-floor-x .i { width: 16px; height: 16px; stroke-width: 2.2; }
-/* fold a storey away – device-local, so it is deliberately the QUIET control: the ✕ in the
-   tile's other corner removes the Geschoss for everybody, this one only stops drawing it here. */
-.wb-floor-eye { position: relative; width: 18px; height: 18px; border: none; background: none; color: var(--ink-faint); cursor: pointer;
-  display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
-.wb-floor-eye::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
-@media (hover: hover) {
-  .wb-floor-eye:hover { background: var(--fill-soft); color: var(--ink); }
-}
-.wb-floor-eye .i { width: 13px; height: 13px; stroke-width: 2; }
-/* …and on a narrow tile it is not offered at all (18.09.2026): an 18px eye inside a 13px label on
-   a ~330px tile costs the room the storey's own name needs, and its 40px hit pad covers a quarter
-   of the header. Hiding a storey is simply not a thing you do at this zoom — the operator zooms in
-   for it — while the way BACK (the folded strip) stays reachable at every size. */
+.wb-floor-menu:active { background-image: linear-gradient(var(--press), var(--press)); }
+.wb-floor-menu[data-popup-open] { color: var(--ink); }
+/* …and on a narrow stack the top storey's label steps down out from under «+ OG» (which straddles
+   the stack's top edge, centred): a door that sits under another button is no door (phone,
+   29.09.2026) */
 @container (max-width: 359px) {
-  .wb-floor-eye { display: none; }
+  .wb-floor-under-add > .wb-floor-label { top: calc(var(--tap) / 2 + 4px); }
 }
 /* …and what it leaves behind: a strip where the storey belongs, which says what it is and how to
    get it back. Sits at the seam between the two drawn tiles, so the stack still reads in order. */
@@ -576,25 +568,20 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   .wb-pa:hover:not(:disabled) { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); }
 }
 .wb-pa .i { width: 16px; height: 16px; }
-/* Truppfarbe on a placed team marker: the trigger wears the current colour, the popup is the same
-   palette the Trupp form shows (gloved 30px targets, wrapped two rows). */
-.wb-pa-mark { background: var(--blue); }
-@media (hover: hover) {
-  .wb-pa-mark:hover { background: var(--blue); filter: brightness(1.08); }
-}
+/* ⚠️ Every action on this bar wears the bar's ONE neutral wash (29.09.2026, sweep K3). «Position
+   markieren» was a --blue fill and «Bei den Trupps zeigen» a --green one: blue means «chosen»
+   (--sel) and green the Eintritt tone, so three colours in five icon-only buttons said nothing
+   about which to press. The bin keeps THE delete outline (below); the rename pen, while its field
+   is open, is a pressed toggle and wears the docks' «on» (.wb-dock-tog.on). */
 /* ⚠️ the bin was a red FILL (28.09.2026: red never fills an action) — THE delete outline, lifted
    for the dark bar: the red edge and a light red ink, on the bar's own wash (as the Suche card) */
 .wb-pa-del { color: color-mix(in srgb, var(--red) 60%, #fff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 55%, transparent); }
 @media (hover: hover) {
   .wb-pa-del:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 22%, transparent); }
 }
-.wb-pa-edit { background: var(--blue); }
+.wb-pa-edit { background: var(--sel); color: var(--on-sel); }
 @media (hover: hover) {
-  .wb-pa-edit:hover { background: var(--blue); filter: brightness(1.08); }
-}
-.wb-pa-show { background: var(--green); }
-@media (hover: hover) {
-  .wb-pa-show:hover { background: var(--green); filter: brightness(1.08); }
+  .wb-pa-edit:hover:not(:disabled) { background: var(--sel); filter: brightness(1.08); }
 }
 /* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling */
 .wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 62px); }

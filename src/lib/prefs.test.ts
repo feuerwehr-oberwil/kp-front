@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { GRUNDGERUEST_HIDDEN_CAP, SYMBOL_SCALE, clampSymbolScale, grundgeruestHidden, hideGrundgeruest, initialMode, legacySymbolMul, planSymbolScale, symbolScales, type Prefs } from './prefs'
+import { GRUNDGERUEST_HIDDEN_CAP, SYMBOL_SCALE, clampSymbolScale, grundgeruestHidden, hideGrundgeruest, initialMode, legacySymbolMul, planSymbolScale, railLabelsFor, symbolScales, type Prefs } from './prefs'
 
 // The Symbolgrösse rework: one global S/M/L pref became one multiplier PER SURFACE (Karte /
 // Module). Two things have to hold — the bands the sliders offer, and that nobody's stored
@@ -134,5 +134,25 @@ describe('Lage-Grundgerüst «ausblenden» — per device, per Einsatz', () => {
     expect(p.grundgeruestHidden).toHaveLength(GRUNDGERUEST_HIDDEN_CAP)
     expect(grundgeruestHidden(p, 'inc-0')).toBe(false)
     expect(grundgeruestHidden(p, `inc-${GRUNDGERUEST_HIDDEN_CAP + 4}`)).toBe(true)
+  })
+})
+
+// «Beschriftung der Werkzeugleisten» (29.09.2026, sweep T8): a phone reads the words by default
+describe('railLabelsFor', () => {
+  it('gives a phone the words and a tablet the glyphs when nobody chose', () => {
+    expect(railLabelsFor({}, true)).toBe('short')
+    expect(railLabelsFor({}, false)).toBe('off')
+  })
+
+  it('reads a stored «off» without a choice as the old default, not a choice', () => {
+    expect(railLabelsFor({ railLabels: 'off' }, true)).toBe('short')
+    expect(railLabelsFor({ railLabels: 'off' }, false)).toBe('off')
+  })
+
+  it('keeps a device\'s own choice', () => {
+    expect(railLabelsFor({ railLabels: 'off', railLabelsChosen: true }, true)).toBe('off')
+    expect(railLabelsFor({ railLabels: 'short', railLabelsChosen: true }, false)).toBe('short')
+    // «Wörter» was never a default, so a stored one is a choice even from before the flag
+    expect(railLabelsFor({ railLabels: 'short' }, false)).toBe('short')
   })
 })

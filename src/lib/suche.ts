@@ -551,14 +551,12 @@ export function shownBereiche(doc: SucheDoc, floorName: (f: number) => string): 
   return sucheOrte(doc, floorName).orte.flatMap((o) => (o.bereich ? [o.bereich] : []))
 }
 
-/** «2 vermisst · 1/3 abgesucht» — the card's head. Nobody missing says nothing about it (a sweep
- *  with nobody to find is the other half of the Suche, not «0 vermisst»); no places, no fraction. */
-export function sucheHeadLine(o: Pick<SucheOrte, 'missing' | 'done' | 'total'>): string {
+/** «1/3 abgesucht» — the card's head; no places, no fraction. It no longer says «2 vermisst»
+ *  (29.09.2026, sweep K1): the top bar's red chip IS that alarm on every surface, and the card's
+ *  own rows name who is missing right under the head — a third red «vermisst» was noise. */
+export function sucheHeadLine(o: Pick<SucheOrte, 'done' | 'total'>): string {
   const C = appConfig.copy.suche
-  return [
-    o.missing > 0 ? fillTemplate(C.vermisstChip, { n: o.missing }) : '',
-    o.total > 0 ? fillTemplate(C.headAbgesucht, { done: o.done, total: o.total }) : '',
-  ].filter(Boolean).join(' · ')
+  return o.total > 0 ? fillTemplate(C.headAbgesucht, { done: o.done, total: o.total }) : ''
 }
 
 /** The Trupp searching a place now — «in Arbeit» or «teilweise» with a Trupp. */

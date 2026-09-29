@@ -21,7 +21,6 @@ interface Props {
   onArm: (row: GrundgeruestRow) => void
   onPlace: (row: GrundgeruestRow) => void
   onToKarte: (row: GrundgeruestRow) => void
-  onHide: () => void
   /** the chip's door: the Einsatzdaten, where the Einsatzart is set — absent when this device
    *  may not correct them (the chip then only states) */
   onEinsatzart?: () => void
@@ -42,9 +41,10 @@ interface Props {
  * strip above the tool bar — collapsed it is one pill with the count, so it never covers the
  * phone's two bars, and the host hides it while a tool dock or the selection bar needs that lane.
  * The head's ⌄ is the strip's one fold; the «ausblenden» row it had at its foot said the same
- * thing a second time and cost 44px (27.09.2026).
+ * thing a second time and cost 44px (27.09.2026). The tablet's «ausblenden» went the same way
+ * (29.09.2026): the rail's «Grundgerüst» tile is the card's one toggle.
  */
-export function LageGrundgeruestCard({ rows, progress, category, fallback, noLocation, armedSlotId, phone, startOpen, onArm, onPlace, onToKarte, onHide, onEinsatzart }: Props) {
+export function LageGrundgeruestCard({ rows, progress, category, fallback, noLocation, armedSlotId, phone, startOpen, onArm, onPlace, onToKarte, onEinsatzart }: Props) {
   const C = appConfig.copy.lageGrundgeruest
   // phone only: the strip starts as one pill — a list over half a 360px Karte is the thing a
   // 3am operator did not ask for, and the pill's count is already the prompt
@@ -85,11 +85,9 @@ export function LageGrundgeruestCard({ rows, progress, category, fallback, noLoc
         )}
         {art}
         {count && <span className="lgg-count">{count}</span>}
-        {phone ? (
-          <Icon id="chevron-down" className="lgg-chev" />
-        ) : (
-          <button type="button" className="lgg-hide" aria-label={C.hideAria} onClick={onHide}>{C.hide}</button>
-        )}
+        {/* no «ausblenden» on the tablet either (29.09.2026, sweep K7): the lit rail tile beside
+            the card toggles it, and the word cost the card its own name («Gru…») */}
+        {phone && <Icon id="chevron-down" className="lgg-chev" />}
       </header>
       {body && (
         <>

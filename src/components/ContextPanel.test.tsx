@@ -104,22 +104,19 @@ describe('ContextPanel — basic wiring', () => {
     // station having configured a title list for it
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'] })
     expect(screen.getByText('Bezeichnung')).toBeTruthy()
-    // …and the header still SHOWS it (a Fahrzeug is known by its label, not by «Fahrzeug»),
-    // it just is not the place you change it any more
-    expect(screen.getAllByText('TLF').length).toBeGreaterThan(1)
   })
 
-  it('tapping the header title opens the Bezeichnung menu (people rename where the name shows)', () => {
+  // sweep K12 (29.09.2026): the head showed «TLF» as an underlined button AND the field said «TLF»
+  it('heads a Fahrzeug with its TYPE like every symbol — the name only in the Bezeichnung field', () => {
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'] })
-    // menu closed: the alternative type is nowhere on screen
-    expect(screen.queryByText('MTF')).toBeNull()
-    fireEvent.click(document.querySelector('.ctx-title-btn')!)
-    expect(screen.getByText('MTF')).toBeTruthy()
+    expect(document.querySelector('.ctx-title-ro')!.textContent).toBe('Fahrzeug')
+    expect(document.querySelector('.ctx-title-btn')).toBeNull()
+    expect(screen.getAllByText('TLF')).toHaveLength(1) // the Bezeichnung field, and only there
   })
 
-  it('keeps the read-only (viewer) Fahrzeug header a plain name, not a button', () => {
+  it('keeps the read-only (viewer) Fahrzeug header the type as well', () => {
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'], readOnly: true })
-    expect(document.querySelector('.ctx-title-btn')).toBeNull()
+    expect(document.querySelector('.ctx-title-ro')!.textContent).toBe('Fahrzeug')
   })
 
   it("a live vehicle's Fahrer sits in the same label+picker row as a placed vehicle's", () => {
