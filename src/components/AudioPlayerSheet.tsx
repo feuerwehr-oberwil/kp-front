@@ -556,8 +556,8 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                     value={drafts[s.index] ?? s.text}
                     onChange={(e) => setDrafts((d) => ({ ...d, [s.index]: e.target.value }))}
                   />
-                  <button className="ap-d-btn ap-d-ok" title={C.sttTake} aria-label={C.sttTake} onClick={() => confirmDraft(s.index, s)}><Icon id="check" /></button>
-                  <button className="ap-d-btn ap-d-no" title={C.sttDismiss} aria-label={C.sttDismiss} onClick={() => void patchSegment(s.index, 'dismissed')}><Icon id="close" /></button>
+                  <button className="ip-x ap-d-no" title={C.sttDismiss} aria-label={C.sttDismiss} onClick={() => void patchSegment(s.index, 'dismissed')}><Icon id="close" /></button>
+                  <button className="ap-d-ok" title={C.sttTake} aria-label={C.sttTake} onClick={() => confirmDraft(s.index, s)}><Icon id="check" /></button>
                 </div>
               ))}
             </div>
@@ -585,8 +585,8 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                         else if (e.key === 'Escape') { e.stopPropagation(); setEditSec(null) }
                       }}
                     />
-                    <button className="ap-d-btn ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditSec(null)}><Icon id="close" /></button>
-                    <button className="ap-d-btn ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveSecEdit}><Icon id="check" /></button>
+                    <button className="ip-x ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditSec(null)}><Icon id="close" /></button>
+                    <button className="ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveSecEdit}><Icon id="check" /></button>
                   </div>
                 ) : (
                   <div
@@ -631,8 +631,8 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                       else if (e.key === 'Escape') { e.stopPropagation(); setEditMarker(null) }
                     }}
                   />
-                  <button className="ap-d-btn ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditMarker(null)}><Icon id="close" /></button>
-                  <button className="ap-d-btn ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveMarkerEdit}><Icon id="check" /></button>
+                  <button className="ip-x ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditMarker(null)}><Icon id="close" /></button>
+                  <button className="ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveMarkerEdit}><Icon id="check" /></button>
                 </div>
               ) : (
                 <div
@@ -656,14 +656,16 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                   )}
                   {onRetractEntry && isPlayerRowId(m.row.id) && (
                     // only rows this player created — incident log lines are never deletable
+                    // THE delete look — a bin in the --del-* outline (29.09.2026): it was a ✕, and a
+                    // ✕ only ever closes or clears. The row itself seeks the audio, so the trailing
+                    // chevron that promised «opens something» is gone too.
                     <button
-                      className="ap-row-edit"
+                      className="ap-row-edit ap-row-del"
                       title={C.removeEntry}
                       aria-label={C.removeEntry}
                       onClick={(e) => { e.stopPropagation(); onRetractEntry(m.row.id) }}
-                    ><Icon id="close" /></button>
+                    ><Icon id="trash" /></button>
                   )}
-                  <Icon id="chevron" className="ap-row-go" />
                 </div>
               )
             ))}
