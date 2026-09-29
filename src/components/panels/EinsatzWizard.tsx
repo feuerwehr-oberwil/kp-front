@@ -25,6 +25,7 @@ import {
   type ObjectWithPlans,
 } from '../../lib/incidents'
 import { Modal, realCoord } from './_shared'
+import { SearchField } from '../SearchField'
 
 // --- Einsatz eröffnen / Einsatzdaten korrigieren -------------------------------------
 // `ix` (appConfig.copy.intake) is read inside each function below rather than captured at
@@ -398,9 +399,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
 
       {objOpen && (
         <div className="ip-objpick">
-          <input className="ip-search" value={objQuery} placeholder={ix.objectSearchPlaceholder} onChange={(e) => setObjQuery(e.target.value)} />
+          <SearchField className="ip-objpick-search" value={objQuery} onChange={setObjQuery} placeholder={ix.objectSearchPlaceholder} aria-label={ix.objectSearchPlaceholder} />
           <div className="ip-objlist">
-            {shownObjects.length === 0 && <div className="ip-ac-note">{ix.objectNoHits}</div>}
+            {shownObjects.length === 0 && <div className="no-hits">{ix.objectNoHits}</div>}
             {near.length > 0 && <div className="ip-objgroup">{ix.objectNear}</div>}
             {near.map(ObjRow)}
             {rest.map(ObjRow)}

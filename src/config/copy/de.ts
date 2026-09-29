@@ -73,8 +73,6 @@ export const de = {
     // read — the search filters the table of contents AND the sections (on a phone there is no
     // table of contents, so filtering the sections is the whole search there).
     search: 'Hilfe durchsuchen …',
-    searchClear: 'Suche löschen',
-    searchNone: 'Keine Treffer für «{q}».',
     searchHint: 'Anderes Stichwort versuchen – gesucht wird in Überschriften und Text.',
     // Fallback intro when the station has not configured a helpIntro of its own.
     introFallback: 'KP Front ist die digitale Lage- und Einsatzführung deiner Feuerwehr: taktische Karte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll – alles live auf mehreren Geräten gleichzeitig.',
@@ -675,7 +673,6 @@ export const de = {
   hoseHint: '~{n} Schläuche',
   noHistoryRows: 'Noch keine Ereignisse erfasst.',
   symbolSearchPlaceholder: 'Suchen …',
-  noSymbolMatches: 'Keine Treffer',
   closeDialog: 'Schliessen',
   sheetGrip: 'Detailhöhe anpassen',
   edit: 'Bearbeiten',
@@ -775,7 +772,16 @@ export const de = {
     suche: 'die Suche',
   },
   play: 'Abspielen',
-  clear: 'Suche löschen',
+  // The ✕ that EMPTIES a field (29.09.2026): «leeren», never «löschen» — «löschen» is the delete
+  // verb (records are «gelöscht», removalWords.test), and this ✕ deletes nothing. ONE key for the
+  // bare word, one for the search, one template for a named field («Bemerkung leeren»); the
+  // four «Suche löschen» copies (help/anwesenheit/mittel/top) are gone.
+  clear: 'Leeren',
+  clearSearch: 'Suche leeren',
+  clearField: '{field} leeren',
+  // THE «no hits» line (29.09.2026) — says what was searched; a list keeps a noun of its own only
+  // where the noun helps («Kein Trupp gefunden»). Drawn as `.no-hits` (13-incident.css).
+  noHits: 'Keine Treffer für «{q}».',
   // kind drives how the tool-rail button reads & behaves:
   //   'tool'   — modal, sticky (flat, lights up while active)
   //   'action' — one-shot, fires & gives toast feedback (push-button look)
@@ -1827,7 +1833,7 @@ export const de = {
     // stimmt für beide Arten von Trupp und für jeden Eintrag beider Auftragslisten – und fragt
     // nicht mehr, den Auftrag zu beschreiben, der gerade gewählt wurde.
     zielPlaceholder: 'Wo / was …',
-    zielClear: 'Ziel löschen',
+    zielClear: 'Ziel leeren',
     // Order of the cards on the board. Überfällige Trupps ALWAYS sit at the top – that is not a
     // setting, it is the reason this board exists.
     orderLabel: 'Reihenfolge',
@@ -1845,7 +1851,6 @@ export const de = {
     // fields could name a Trupp but not rearrange it: whoever was typed first was Gruppenführer
     // forever. The star is the correction, and it costs one tap.
     teamSearchPlaceholder: 'Person suchen …',
-    teamNoMatches: 'Kein Treffer',
     /* ── Die Chip-Zeile (nur Telefon, 05.09.) ───────────────────────────────────────────────
      * Auf 375px kosteten drei aufklappende Slot-Zeilen plus eine dauernd sichtbare
      * Mannschaftsliste die halbe Form. Der Trupp ist dort EINE umbrechende Chip-Zeile, und die
@@ -2929,7 +2934,7 @@ export const de = {
     // Übernehmen weg – lieber laut gesagt als stillschweigend aus der Auswahl genommen.
     osmPickMissing: 'Umrisse des bestehenden Gebäudes fehlen hier ({n}) – sie fallen beim Übernehmen weg.',
     osmTransfer: 'Übernehmen ({n})',
-    osmClear: 'Auswahl löschen',
+    osmClear: 'Auswahl leeren',
     addFloorUp: 'Obergeschoss hinzufügen',
     noFloorPlan: 'Kein Geschossplan',
     stairTo: 'Weiter zu {floor}',
@@ -3395,7 +3400,6 @@ export const de = {
     // commit row mirrors «als Gast hinzufügen» — short, because long values ellipsize.
     searchOrType: 'Suchen oder eingeben …',
     useTyped: '«{name}» verwenden',
-    noMatches: 'Kein Treffer',
   },
   // Login gate (face picker + PIN pad)
   demo: {
@@ -3476,7 +3480,7 @@ export const de = {
   symbols: {
     loadFailedTitle: 'Symbolbibliothek konnte nicht geladen werden',
     loadFailedSub: 'Karte und Kroki laufen ohne Symbolgrafiken weiter',
-    retry: 'Nochmals laden',
+    retry: 'Erneut versuchen',
     dismiss: 'Ausblenden',
   },
   // PWA update prompt (UpdateBanner). A new build installs and waits (registerType 'prompt')
@@ -3879,7 +3883,7 @@ export const de = {
     // Diagnose. Bewusst ohne «Nochmals»: dieselben 404 kämen wieder.
     dlNoCoverage: 'Nichts geladen – die Kartenquelle kennt dieses Gebiet nicht. Kartenebene bzw. Kachel-URL prüfen.',
     dlContinue: 'Weiterladen',
-    dlRetry: 'Nochmals',
+    dlRetry: 'Erneut versuchen',
     dlFailed: 'Offline-Download fehlgeschlagen',
   },
   // App empty state — shown when no incident is open (viewer vs. editor variants)
@@ -3929,7 +3933,7 @@ export const de = {
     filterRecorded: 'Erfasste {n}',
     back: 'Zurück',
     alarmedAt: 'Alarm {t}',
-    saveFailed: 'Speichern fehlgeschlagen – nochmals versuchen',
+    saveFailed: 'Speichern fehlgeschlagen',
     saveFailedOffline: 'Kein Empfang – die letzte Änderung wurde nicht gespeichert.',
     retry: 'Erneut versuchen',
     savedOk: 'Gespeichert',
@@ -4001,7 +4005,7 @@ export const de = {
     add: 'Hinzufügen',
     notePlaceholder: 'Notiz für den Verlauf …',
     footNote: 'Alles wird laufend gespeichert.',
-    loadFailedOffline: 'Kein Empfang – bitte nochmals versuchen.',
+    loadFailedOffline: 'Kein Empfang',
     clockSkew: 'Die Uhr dieses Geräts weicht um {n} Minuten ab – erfasste Zeiten prüfen.',
     searchMaterial: 'Material suchen …',
     // Cross-visibility QR ↔ KP: the live-dot line in the capture header once the KP tablet
@@ -4032,15 +4036,15 @@ export const de = {
     pendingTitle: 'Einsatz noch nicht verfügbar',
     pendingHint: 'Der Alarm ist eben erst eingetroffen. Wird automatisch nochmals versucht …',
     notReadyTitle: 'Dieser Einsatz ist nicht abrufbar.',
-    notReadyHint: 'Der Link gilt nur, solange der Einsatz läuft. Falls der Alarm eben erst kam: nochmals versuchen. Sonst bei der Einsatzleitung melden.',
+    notReadyHint: 'Der Link gilt nur, solange der Einsatz läuft. Kam der Alarm eben erst, ist der Einsatz vielleicht noch nicht bereit – sonst bei der Einsatzleitung melden.',
     invalidTitle: 'Dieser Link gilt nicht mehr.',
     invalidHint: 'Öffne den Link direkt aus der aktuellen Alarmmeldung.',
     disabledTitle: 'Einsatz-Links sind bei dieser Feuerwehr nicht freigeschaltet.',
     disabledHint: 'Die Einsatzleitung kann sie in der Konfiguration aktivieren.',
     offlineTitle: 'Kein Empfang',
-    offlineHint: 'Ohne Verbindung lässt sich der Einsatz nicht öffnen. Sobald du wieder Empfang hast: nochmals versuchen.',
+    offlineHint: 'Ohne Verbindung lässt sich der Einsatz nicht öffnen.',
     errorTitle: 'Der Server antwortet nicht.',
-    errorHint: 'Bitte nochmals versuchen. Bleibt es dabei: bei der Einsatzleitung melden.',
+    errorHint: 'Bleibt es dabei: bei der Einsatzleitung melden.',
     retry: 'Erneut versuchen',
     // an Atemschutz-Link reloaded while its Einsatz is closed (staging r6, F2): the page asks
     // once a minute and opens the board by itself after «Wieder öffnen»
@@ -4273,7 +4277,6 @@ export const de = {
     emptySub: 'Eröffnete und abgeschlossene Einsätze erscheinen hier.',
     noLocation: 'ohne Ort',
     searchPlaceholder: 'Einsatz suchen …',
-    noMatches: 'Keine Treffer.',
     groupOpen: 'Offen',
     groupToday: 'Heute',
     groupWeek: 'Letzte 7 Tage',
@@ -4537,7 +4540,6 @@ export const de = {
     minute: 'Minute',
     now: 'Jetzt',
     ok: 'OK',
-    clear: 'Löschen',
   },
   preflight: {
     pdfFull: 'Einsatzrapport (PDF)',
@@ -4800,7 +4802,7 @@ export const de = {
     // längst gab. Also sagt es, was passiert ist, und bietet die Frage nochmals an; erstellt
     // wird erst wieder, wenn die Antwort da ist.
     shareLoadFailed: 'Link konnte nicht geladen werden.',
-    shareRetry: 'Nochmals versuchen',
+    shareRetry: 'Erneut versuchen',
     shareCreateFailed: 'Link erstellen fehlgeschlagen',
     shareCopy: 'Adresse kopieren',
     shareCopied: 'Kopiert',
@@ -5113,7 +5115,6 @@ export const de = {
     // Platzhalter sagt das aber NICHT mehr (18.09.): «Suchen …» ist die app-weite Beschriftung
     // jeder Suchzeile, und die Gast-Tür steht als eigene letzte Zeile in der Liste.
     searchPlaceholder: 'Suchen …',
-    clearSearch: 'Suche löschen',
     statusFrei: 'nicht anwesend',
     statusPresent: 'anwesend',
     statusLeft: 'gegangen',
@@ -5132,7 +5133,6 @@ export const de = {
     emptyHint: 'Personal wird in der Verwaltung erfasst oder synchronisiert.',
     emptyHintSync: 'Synchronisiere das Personal aus {provider}.',
     retry: 'Erneut versuchen',
-    noMatches: 'Keine Treffer.',
     // ⚠️ Nennt die TASTE, die den Trupp löst, und zwar wie sie heisst (04.09.). «zuerst Trupp
     // draussen melden» war eine Umschreibung: auf der Tafel steht «Raus melden», und wer eine
     // Anweisung liest, sucht danach das Wort daraus. Auch nicht mehr «Atemschutz-Trupp» – die
@@ -5602,8 +5602,6 @@ export const de = {
     // Suche + Kategorie-Filter, gebaut wie in der Anwesenheit: eine Zeile über der Liste
     noSource: 'Ohne Zuordnung',
     searchPlaceholder: 'Suchen …',
-    clearSearch: 'Suche löschen',
-    noMatches: 'Keine Treffer.',
     categoryFilterLabel: 'Nach Kategorie filtern',
     categoryAll: 'Alle',
     categoryOther: 'Übrige',
@@ -5708,7 +5706,6 @@ export const de = {
     searchPlaceholder: 'Stichwort suchen …',
     searchAria: 'Stichwort suchen',
     matching: 'Passend: {title}',
-    noMatches: 'Keine Treffer.',
     none: 'Keine Checklisten konfiguriert.',
     pickEntry: 'Stichwort wählen oder suchen.',
     // runner
@@ -7264,7 +7261,7 @@ export const de = {
       intro: 'Der Server rechnet für jedes Objektblatt voraus, wie es auf der Karte liegt. Erst deine Freigabe macht den Vorschlag für Einsätze verbindlich.',
       loading: 'Wird geladen …',
       refresh: 'Aktualisieren',
-      loadFailed: 'Laden fehlgeschlagen. Nochmals versuchen.',
+      loadFailed: 'Laden fehlgeschlagen',
       unavailableHint: 'Automatische Vorschläge sind auf diesem Server nicht eingerichtet – Ausrichtungen können nur von Hand gesetzt werden.',
       filterLabel: 'Filter',
       openCount: 'Offen ({n})',

@@ -1122,23 +1122,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    plus a second sentence read as «blabla» in the field. */
 .teamHint { margin: 0; font: 600 11.5px var(--body); color: var(--ink-faint); }
 
-.teamSearch { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: var(--tap);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
-.teamSearch :global(.i) { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
+/* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026 — it was a framed
+   white box with a 28px ✕). `.teamSearch` stays as the NAME the phone's keyboard takeover finds it
+   by (`:has(.teamSearch input:focus)` below) and carries no look of its own. */
+.teamSearch { flex: none; }
 /* «Trupp erstellen» with nobody in it yet: the one field that has to be answered first says so,
-   in the focus ring's own colour – it is where the form starts, with or without the keyboard */
-.teamSearchWant { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
-.teamSearchWant :global(.i) { color: var(--blue); }
-.teamSearch input { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
-  font-family: var(--body); font-size: 15px; color: var(--ink); padding: 0; }
-/* the BOX is the field, so the box wears the one field focus (--focus-*, 28.09.2026) and the bare
-   input inside it does not — `.field input:focus` would ring it a second time */
-.teamSearch:focus-within { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
-.teamSearch input:focus { box-shadow: none; }
-.teamSearchClear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
-  background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
-@media (hover: hover) { .teamSearchClear:hover { background: var(--fill-soft); color: var(--ink); } }
-.teamSearchClear :global(.i) { width: 14px; height: 14px; }
+   in the focus ring's own colour – it is where the form starts, with or without the keyboard.
+   Doubled with the global class so it outranks the pill's resting look. */
+.teamSearchWant:global(.ui-search) { background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
+.teamSearchWant > :global(.i) { color: var(--blue); }
 
 /* Bounded, so the Auftrag column beside it stays reachable without scrolling the whole modal.
    ~5 rows: enough that the search is usually unnecessary, short enough to keep the footer in

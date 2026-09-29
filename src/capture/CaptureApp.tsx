@@ -33,6 +33,8 @@ import { trackPrintJob } from '../lib/printJobToast'
 import type { AttendanceEntry, MittelEntry } from '../types'
 import type { PartnerContact, ReportMeta } from '../lib/workspace'
 import { Combo } from '../components/Combo'
+import { SearchField } from '../components/SearchField'
+import { InfoToggle } from '../components/InfoToggle'
 import { Stepper } from '../components/Stepper'
 import { TimeField } from '../components/TimeField'
 import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock } from '../lib/alarmzeiten'
@@ -157,7 +159,8 @@ function AccHead({ open, label, sub, onToggle }: { open: boolean; label: string;
     <button type="button" className={`cv-acc-head${open ? ' on' : ''}`} aria-expanded={open} onClick={onToggle}>
       <span className="cv-acc-label">{label}</span>
       <span className="cv-acc-sub">{sub}</span>
-      <Icon id={open ? 'chevron-up' : 'chevron-down'} />
+      {/* the one fold grammar: the global `.chev`, turned by aria-expanded (29.09.2026) */}
+      <Icon id="chevron-down" className="chev" />
     </button>
   )
 }
@@ -995,8 +998,8 @@ export default function CaptureApp() {
           {openSection === 'personen' && (
             <div className="cv-acc-body">
               <div className="cv-search-row cv-sticky-search">
-                <input className="cv-input" placeholder={C.searchName} value={search} onChange={(e) => setSearch(e.target.value)}
-                  autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search" />
+                <SearchField className="cv-search" placeholder={C.searchName} aria-label={C.searchName} value={search} onChange={setSearch}
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
                 {/* «Erfasste N» — the check-back filter. Only once there IS something to check
                     back on: on an untouched roster it would filter to an empty list, and a
                     control that can only produce nothing is a trap on a phone at a door.
@@ -1012,8 +1015,7 @@ export default function CaptureApp() {
                     <span>{fillTemplate(C.filterRecorded, { n: recordedCount })}</span>
                   </button>
                 )}
-                <button type="button" className={`cv-info${showTapHelp ? ' on' : ''}`} aria-label={C.tapHelp}
-                  aria-expanded={showTapHelp} onClick={() => setShowTapHelp((v) => !v)}><Icon id="info" /></button>
+                <InfoToggle open={showTapHelp} onToggle={() => setShowTapHelp((v) => !v)} label={C.tapHelp} />
               </div>
               {showTapHelp && <p className="cv-hint">{C.tapHint}</p>}
               <div className="cv-people">
@@ -1115,8 +1117,8 @@ export default function CaptureApp() {
           {openSection === 'material' && (
             <div className="cv-acc-body">
               <div className="cv-search-row cv-sticky-search">
-                <input className="cv-input" placeholder={C.searchMaterial} value={matSearch} onChange={(e) => setMatSearch(e.target.value)}
-                  autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search" />
+                <SearchField className="cv-search" placeholder={C.searchMaterial} aria-label={C.searchMaterial} value={matSearch} onChange={setMatSearch}
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
               </div>
               {/* «Nichts verwendet» — the same tick the tablet's Rapport carries (lib/abschluss ·
                   stepDone). Without it the Material chip in the «noch offen» list could not be

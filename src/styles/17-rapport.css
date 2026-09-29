@@ -73,29 +73,8 @@
 /* fixed tick slot so the labels do not shift sideways as the state changes */
 .ui-ctxmenu-tick { flex: none; width: 12px; color: var(--blue); font-weight: 800; }
 
-/* A folded Rapport section: the head stays a real
-   row (44px, chevron, title) and carries a summary on the right so the fold can be read
-   without being opened — the only reason folding these is safe. */
-.report-fold { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
-/* A fold that IS its own card (.report-pre-section.report-fold — the Kroki panel is the one
-   left, «Abschnitte» having moved onto the print action): the section supplies border, radius
-   and background, the summary/body supply the padding — otherwise both pad and the head sits
-   22px in. A fold nested INSIDE a card gets no chrome of its own, so the page reads as one card
-   per block, exactly like Beilagen. */
-.report-pre-section.report-fold { padding: 0; }
-.report-pre-section > .report-fold { border: 0; border-radius: 0; background: none; }
-/* …and both heads are the same height: one fold IS its card (Abschnitte) and pads itself, the
-   other sits INSIDE one (Alles bereit) and inherits that card's padding — without this the two
-   summaries differ by the card's 10px and the sheet looks misaligned. */
-.report-pre-section > .report-fold > summary { padding-inline: 0; min-height: 20px; }
-.report-pre-section > .report-fold .report-fold-body { padding: 6px 0 0; }
-.report-pre-section.report-fold > summary { min-height: 40px; }
-.report-fold > summary { display: flex; align-items: center; gap: 8px; min-height: 40px;
-  padding: 0 12px; cursor: pointer; list-style: none; font: 700 13px var(--body); color: var(--ink); }
-.report-fold > summary::-webkit-details-marker { display: none; }
-.report-fold > summary > .i:first-child { flex: none; width: 16px; height: 16px; color: var(--ink-faint);
-  transition: transform .15s var(--ease); }
-.report-fold[open] > summary > .i:first-child { transform: rotate(180deg); }
+/* the body of the «Alles bereit» note (the `<details class="report-fold">` it once sat in is
+   gone; its rules went with it, 29.09.2026) */
 .report-fold-body { padding: 2px 10px 10px; }
 .report-fold-body p { margin: 0 0 6px; display: flex; align-items: flex-start; gap: 8px;
   font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }

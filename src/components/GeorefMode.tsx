@@ -16,6 +16,7 @@ import { incidentBindingApproved } from '../lib/incidentPlanBindings'
 import type { GeorefSuggestStep } from '../lib/georefSuggest'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { GeorefPair, PlanPt } from '../lib/georef'
+import { InfoToggle } from './InfoToggle'
 import s from './GeorefMode.module.css'
 
 /** The loupe's magnification over the plan as it is currently displayed. */
@@ -854,11 +855,7 @@ export function GeorefInstrument({ mode, inline = false, onReset }: { mode: Geor
         </>}
       </span>
       {!mode.check && (
-        <button
-          type="button" className={`${s.infoBtn} ${detail ? s.infoOn : ''}`}
-          aria-expanded={detail} title={C.detailsTitle} aria-label={C.detailsTitle}
-          onClick={() => setDetail((v) => !v)}
-        ><Icon id="info" /></button>
+        <InfoToggle className={s.infoBtn} open={detail} onToggle={() => setDetail((v) => !v)} label={C.detailsTitle} />
       )}
       <span className={s.acts}><GeorefActions mode={mode} onReset={onReset} /></span>
     </div>
@@ -964,11 +961,7 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
         <div className={s.statusRow}>
           <span className={`${s.sdot} ${s[`sdot_${st.lamp.tone}`]}`} />
           <span className={s.stext}><b>{st.lamp.head}</b>{st.sub ? <i>{st.sub}</i> : null}</span>
-          <button
-            type="button" className={`${s.infoBtn} ${detail ? s.infoOn : ''}`}
-            aria-expanded={detail} title={C.detailsTitle} aria-label={C.detailsTitle}
-            onClick={() => setDetail((v) => !v)}
-          ><Icon id="info" /></button>
+          <InfoToggle className={s.infoBtn} open={detail} onToggle={() => setDetail((v) => !v)} label={C.detailsTitle} />
         </div>
       )}
       {/* ── the quality detail, folded behind the (i): pair count, claimable ⌀, the one

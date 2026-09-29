@@ -196,17 +196,11 @@
   display: block; font-style: normal; font: 500 11.5px/1.35 var(--body);
   color: var(--ink-dim); margin-top: 1px;
 }
-/* the (i): a 44px target that LOOKS like nothing — no box, no fill. Sticky while open
-   (GeorefModeBars): whoever opened it is deciding whether the fit can be trusted, and snapping
-   it shut after every point would be the app deciding they were done reading. */
-.infoBtn {
-  flex: none; width: var(--tap); height: var(--tap); margin: -10px -8px -10px 0;
-  display: grid; place-items: center;
-  border: 0; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm);
-}
-.infoBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.infoBtn svg { width: 19px; height: 19px; }
-.infoOn { color: var(--on-sel); background: var(--sel); }
+/* the (i) is THE InfoToggle (29.09.2026 — it was a bare 44px glyph that filled the choice blue
+   when open); this only tucks it into the bar's row. Sticky while open (GeorefModeBars): whoever
+   opened it is deciding whether the fit can be trusted, and snapping it shut after every point
+   would be the app deciding they were done reading. */
+.infoBtn { margin: -4px 0; }
 /* the folded-out quality detail: pair count, claimable ⌀, one sentence of what to DO next */
 .qfold {
   border-radius: var(--r-sm); background: var(--fill-soft); padding: 9px 10px;

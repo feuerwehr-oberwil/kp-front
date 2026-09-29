@@ -185,17 +185,8 @@
    Frame (size/flex) comes from .ip-sheet, on its `.ip-wide` setting (13-incident.css): two columns
    side by side need the room, and at the standard 720px the list ellipsised the Strassennamen it
    is searched by while the map was too small to pick a pin out of a village. */
-/* Same header rule as the symbol palette (07-toolrail.css · .sym-search): the pill states its
-   own height — var(--tap) — instead of inheriting whatever the input's line-box comes to, and the
-   ✕ inside it carries no box of its own (fill-soft on fill-soft was an invisible square). */
-.pp-search { display: flex; align-items: center; height: var(--tap); gap: 10px; margin: 0 20px 12px; padding: 0 6px 0 14px;
-  background: var(--fill-soft); border-radius: var(--r-ctl); color: var(--ink-dim); }
-.pp-search .i { width: 19px; height: 19px; flex: none; }
-/* the one field focus on the pill (--focus-*, 28.09.2026), same as the Journal and Symbol search */
-.pp-search:focus-within { background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
-.pp-search input { flex: 1; min-width: 0; align-self: stretch; border: none; background: transparent; outline: none; font-family: var(--body); font-size: 16px; color: var(--ink); padding: 0; }
-.pp-clear { border: none; background: none; border-radius: var(--r-sm); width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; flex: none; }
-.pp-clear .i { width: 15px; height: 15px; }
+/* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026) — placement only */
+.pp-search { margin: 0 20px 12px; }
 .pp-body { display: flex; gap: 14px; padding: 0 20px 6px; min-height: 0; flex: 1; }
 .pp-list { flex: 1 1 60%; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .pp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 13px; border: 1px solid transparent;

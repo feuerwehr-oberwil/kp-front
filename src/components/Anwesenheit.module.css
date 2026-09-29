@@ -51,7 +51,7 @@
 @media (hover: hover) { .reloadFailed:hover { color: var(--amber-strong); border-color: var(--amber-strong); } }
 .reload svg { width: 15px; height: 15px; }
 
-/* (the search line — .controls/.search/.searchClear — lives in SurfaceControls.module.css) */
+/* (the search line — .controls/.search — lives in SurfaceControls.module.css; the field is SearchField) */
 
 /* per-person rank badge inside the name button */
 .rank {

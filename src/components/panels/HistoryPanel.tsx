@@ -7,6 +7,8 @@ import { getLocaleId } from '../../config/copy'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { EmptyState } from '../EmptyState'
+import { SearchField } from '../SearchField'
+import { fillTemplate } from '../../lib/format'
 import {
   deleteIncident,
   listIncidents,
@@ -93,12 +95,9 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
     <Modal title={h.title} onClose={onClose} wide>
       {sorted.length === 0 && <EmptyState icon="history" title={h.empty} sub={h.emptySub} />}
       {sorted.length > 0 && (
-        <label className="ip-hist-search">
-          <Icon id="search" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
-        </label>
+        <SearchField value={query} onChange={setQuery} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
       )}
-      {sorted.length > 0 && shown.length === 0 && <p className="ip-hist-nores">{h.noMatches}</p>}
+      {sorted.length > 0 && shown.length === 0 && <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>}
       {rows.map(({ i, header }) => {
         return (
           <Fragment key={i.id}>

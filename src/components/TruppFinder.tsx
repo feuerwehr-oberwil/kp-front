@@ -3,6 +3,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { TruppNo } from './TruppNo'
+import { SearchField } from './SearchField'
 import { Overlay } from '../lib/overlays'
 import { searchQuery } from '../lib/search'
 import { truppMatches, type PlacedTrupp } from '../lib/placedTrupps'
@@ -50,10 +51,10 @@ export function TruppFinder({ trupps, onPick, onClose }: {
   return (
     <Overlay open onClose={onClose} className={cx(s.finder, 'ui-dialog')} ariaLabel={C.title} initialFocus={inputRef}>
       <div className={s.head}>
-        <span className={s.headIcon} aria-hidden><Icon id="search" /></span>
-        <input
-          ref={inputRef} className={s.input} value={q} placeholder={C.placeholder} aria-label={C.title}
-          onChange={(e) => { setQ(e.target.value); setCursor(0) }}
+        {/* the head IS the search — THE search field in its one documented modifier (`head`) */}
+        <SearchField
+          ref={inputRef} variant="head" value={q} placeholder={C.placeholder} aria-label={C.title}
+          onChange={(v) => { setQ(v); setCursor(0) }}
           onKeyDown={onKeyDown}
         />
         <button type="button" className={`ip-x ${s.x}`} onClick={onClose} aria-label={appConfig.copy.closeDialog}>
