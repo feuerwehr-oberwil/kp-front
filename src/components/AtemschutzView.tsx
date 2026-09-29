@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
-import { confirmDialog, toast } from '../lib/ui'
+import { confirmDialog, toast, undoToast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { newId } from '../lib/ids'
 import { Segmented } from './Segmented'
@@ -28,7 +28,7 @@ import type { SyncStatus } from '../lib/api/workspaceSync'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { keepDraft, useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
-import { truppOrderKey } from '../lib/useTruppActions'
+import { truppOrderKey, type TruppStep } from '../lib/useTruppActions'
 import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
 import { TruppNo } from './TruppNo'
@@ -158,7 +158,9 @@ export function AtemschutzView({
   recordPressure: (id: string, bar: number) => void
   /** `exitBar` = the Restdruck asked at «Raus melden» (PressureSheet); absent = without one */
   setTruppStatus: (id: string, status: Trupp['status'], exitBar?: number) => void
-  editTrupp: (id: string, f: TruppFields) => void
+  /** hands back the Verlauf line and its ↶ step when something changed (null = nothing written) —
+   *  the save-on-close sheets raise their confirm-with-undo toast off it (saveQuick) */
+  editTrupp: (id: string, f: TruppFields) => { line: string; step: TruppStep } | null | void
   /** Take one person out of the Trupp that still holds them — the «bereits in einem anderen
    *  Trupp» warning's own fix (useTruppActions · transferOutOfTrupp). `toName` is the
    *  Gruppenführer of the Trupp being formed here, so the row it writes can say where they went.
@@ -778,11 +780,22 @@ export function AtemschutzView({
   }
   /** A mini sheet's save (components/TruppSheets): the same question in front of a Leitung, then
    *  the ONE write path. `true` = written, the sheet closes; `false` = the operator said no and the
-   *  sheet stays open with everything still picked. */
-  const saveQuick = async (id: string, f: TruppFields): Promise<boolean> => {
+   *  sheet stays open with everything still picked.
+   *  `closing` (29.09.2026, owner: «save when the sheet closes»): the write came from a CLOSE — ✕,
+   *  swipe, backdrop, Escape — on a sheet with no Speichern, and a close is also what «never mind»
+   *  used to look like. So it gets the house confirm-with-undo toast: «Auftrag · Müller Hans
+   *  gespeichert · Rückgängig». Its Rückgängig IS the ↶ step (same inverse, same counter-row, the
+   *  entry comes off the timeline — useTruppActions · remember · takeBack), guarded by the entry
+   *  standing. A pad tap (Kanal, Druck) is an unambiguous answer and stays toast-free, as the
+   *  board's Kontakt/Druck have been since 09.09. */
+  const saveQuick = async (id: string, f: TruppFields, closing?: { what: string }): Promise<boolean> => {
     const take = confirmLineTake(f, id)
     if (take !== true && !(await take)) return false
-    editTrupp(id, f)
+    const r = editTrupp(id, f)
+    if (closing && r && r.step.standing()) {
+      const { step } = r
+      undoToast(fillTemplate(appConfig.copy.savedToast, { what: closing.what }), () => { step.takeBack() }, step.standing, { kind: 'trupp-sheet-saved' })
+    }
     return true
   }
 
@@ -1735,10 +1748,12 @@ export function AtemschutzView({
 
       {quick && (() => {
         const t = trupps.find((x) => x.id === quick.id)
-        // the Trupp left the board on another device while the sheet stood open — nothing to edit
-        if (!t) return null
+        // the Trupp left the board on another device while the sheet stood open — nothing to edit.
+        // …and an Einsatz closed while it stood open takes the sheet with it (29.09.2026): these
+        // sheets write on CLOSE, and a closed Einsatz is read-only — the pending edit goes unwritten
+        if (!t || !canEdit) return null
         const close = () => setQuick(null)
-        const save = (f: TruppFields) => saveQuick(t.id, f)
+        const save = (f: TruppFields, closing?: { what: string }) => saveQuick(t.id, f, closing)
         return quick.kind === 'kanal'
           ? <KanalSheet t={t} onSave={save} onClose={close} />
           : quick.kind === 'auftrag'

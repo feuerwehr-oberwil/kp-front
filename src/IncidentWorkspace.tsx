@@ -5056,7 +5056,7 @@ export function IncidentWorkspace({
   // Trupp form cannot open a second row beside the roster's «Müller Hans».
   // ⚠️ Each is ONE step on the timeline with the crew filing it causes (openTruppSave).
   const createTruppA = (t: Trupp) => { openTruppSave(); const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
-  const editTruppA = (id: string, f: TruppFields) => { openTruppSave(); const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
+  const editTruppA = (id: string, f: TruppFields) => { openTruppSave(); const c = canonTrupp(f); const r = editTrupp(id, c); ensurePresentFromTrupp(c); return r }
   // `standby` MUST be forwarded: this wrapper used to swallow it, so «Bereitstellen» ran the
   // «Wieder einrücken» path — a crew standing at the vehicle with a running contact clock, which
   // is exactly the case the standby fork exists to prevent (see useTruppActions · reactivateTrupp).
@@ -5387,10 +5387,7 @@ export function IncidentWorkspace({
         shifts={effShifts}
         bands={effBands}
         onCreateBand={canEditRecord ? (label, from, to) => { bandActions.addBand(label, from, to) } : undefined}
-        onSaveBand={canEditRecord ? (id, label, from, to) => {
-          bandActions.renameBand(id, label)
-          void bandActions.askAndSetBandTimes(id, from, to)
-        } : undefined}
+        onSaveBand={canEditRecord ? (id, label, from, to) => { void bandActions.saveBand(id, label, from, to) } : undefined}
         onRemoveBand={canEditRecord ? bandActions.removeBand : undefined}
         onCycleCell={canEditRecord ? bandActions.cycleCell : undefined}
         onSetCellState={canEditRecord ? bandActions.setCellState : undefined}

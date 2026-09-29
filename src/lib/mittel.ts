@@ -124,6 +124,18 @@ export function tombstoneStands(entries: MittelEntry[], probe: Pick<MittelEntry,
   return after.length === 1 && !!after[0].deleted && currentLineFor(entries, probe)?.entryId === after[0].id
 }
 
+/**
+ * …and the same question for an EDIT (29.09.2026): is the one line written at `since` — a remark,
+ * a Bestand, a renamed line's new key — still the newest word on it, and not a removal? The pencil
+ * dialog saves when it closes, and its toast's «Rückgängig» appends the old values back; after
+ * another device wrote to the line that would overwrite them.
+ */
+export function editStands(entries: MittelEntry[], probe: Pick<MittelEntry, 'materialId' | 'label' | 'unit' | 'sourceId' | 'sourceLabel'>, since: string): boolean {
+  const key = mittelKey(probe)
+  const after = entries.filter((e) => mittelKey(e) === key && e.at >= since)
+  return after.length === 1 && !after[0].deleted && currentLineFor(entries, probe)?.entryId === after[0].id
+}
+
 /** Source-first grouping (the default view): `TLF → Lüfter 1 Stk`. Items with no source fall
  *  into one trailing group labelled `noSourceLabel`. */
 export interface SourceGroup {

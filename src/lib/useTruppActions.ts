@@ -97,6 +97,11 @@ export function nextMoveOrder(ordered: { key: number }[], i: number, dir: -1 | 1
   return (dir < 0 ? mid < nb : mid > nb) ? mid : nb + dir
 }
 
+/** What a remembered Trupp step hands back: drop it off the timeline (call it), ask whether it is
+ *  still standing, or take it back NOW — a confirm-with-undo toast's «Rückgängig» (29.09.2026). */
+export type TruppStep = (() => void) & { standing: () => boolean; takeBack: () => boolean }
+const NO_STEP: TruppStep = Object.assign(() => {}, { standing: () => false, takeBack: () => false })
+
 /**
  * What a Trupp edit actually CHANGED, as the words the Verlauf prints.
  *
@@ -325,8 +330,8 @@ export function useTruppActions(deps: Deps) {
    * field: `mergeWorkspace` resolves status + entryTime + exitTime together for exactly this
    * reason, and half a state machine can silence the contact clock for a crew that is inside.
    */
-  const remember = (id: string, label: string, before: Trupp | undefined, apply: (t: Trupp) => Trupp): (() => void) => {
-    if (!before || !undoTimeline) return () => {}
+  const remember = (id: string, label: string, before: Trupp | undefined, apply: (t: Trupp) => Trupp): TruppStep => {
+    if (!before || !undoTimeline) return NO_STEP
     const present = () => (liveTrupps?.() ?? trupps).some((t) => t.id === id)
     const write = (next: (t: Trupp) => Trupp): boolean => {
       if (!present()) return false // the card is gone (merge, delete-beats-edit) — decline, quietly
@@ -338,16 +343,26 @@ export function useTruppActions(deps: Deps) {
       logStep(dir, label, id)
       return true
     }
-    return undoTimeline.push({
+    const undo = () => step('undo', (cur) => keepCrewFiled(before, cur))
+    const handle = undoTimeline.push({
       domain: 'trupps',
       label,
       // the inverse writes this ONE Trupp, whole (never field by field, see above) — so it is that
       // record a remote merge must leave alone for the step to survive (lib/undoKeys)
       touches: () => [recordKey('trupps', id)],
       // the crew-filing marker is a machine fact, not part of the edit — it stays (crewFiling)
-      undo: () => step('undo', (cur) => keepCrewFiled(before, cur)),
+      undo,
       redo: () => step('redo', apply),
     })
+    // the confirm-with-undo toast's door (29.09.2026, save-on-close sheets): the SAME inverse and
+    // the SAME counter-row the ↶ writes, and the entry comes off the timeline, so the act is never
+    // taken back twice. Declines once the entry is no longer standing (a merge, a ↶ already took it).
+    const takeBack = () => {
+      if (!handle.standing()) return false
+      handle()
+      return undo()
+    }
+    return Object.assign(() => handle(), { standing: handle.standing, takeBack })
   }
 
   /**
@@ -1073,7 +1088,7 @@ export function useTruppActions(deps: Deps) {
   // previously had no correction path at all short of deleting the Trupp. What the correction
   // does and deliberately does not do is written at `correctEntryPressure`, which the card's own
   // Druck shares in the first minutes after the Eintritt (recordPressure).
-  const editTrupp = (id: string, f: TruppFields) => {
+  const editTrupp = (id: string, f: TruppFields): { line: string; step: TruppStep } | null => {
     const tr = trupps.find((t) => t.id === id)
     const bar = f.pressure
     const pressurePatch = (t: Trupp): Partial<Trupp> => correctEntryPressure(t, bar)
@@ -1155,7 +1170,10 @@ export function useTruppActions(deps: Deps) {
     // its line, because the correction did happen.
     // Nothing changed ⇒ no row, and nothing on the timeline either: ↶ must never offer to take
     // back a save that wrote nothing (the operator would watch it do visibly nothing).
-    if (line) remember(id, line, tr, withCrew)
+    if (!line) return null
+    // handed back so a save-on-close sheet can raise its confirm-with-undo toast (29.09.2026,
+    // AtemschutzView · saveQuick) — the ↶ entry and the toast are ONE step
+    return { line, step: remember(id, line, tr, withCrew) }
   }
   /**
    * What the Trupp takes in (types · Trupp.equipment) — the ids from the station's list
