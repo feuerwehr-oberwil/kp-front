@@ -1,15 +1,12 @@
 // @vitest-environment jsdom
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import type { MittelEntry } from '../types'
 import type { MittelDraft } from './MittelView'
-import { useMittelActions } from '../lib/useMittelActions'
-import { Overlays } from '../lib/ui'
-import { currentLineFor } from '../lib/mittel'
 
 // MittelView reads the deployment catalogue through the getDeploymentConfig() singleton — mock
 // just that accessor so each test can put its own catalogue/sources under the component.
@@ -271,75 +268,5 @@ describe('«Gesetzt, aber nicht erfasst» — unambiguous vs. ambiguous', () => 
     ]))
     // booking everything closes the sheet
     expect(screen.queryByText(M.lagePickTitle)).toBeNull()
-  })
-})
-
-/* The pencil dialog saves when it CLOSES (29.09.2026, owner: «save when the sheet closes»): no
- * Speichern / Abbrechen, ✕ / Escape write — once, only a change — and the confirm-with-undo toast
- * after it is the way back. Driven through the REAL writer (useMittelActions), because «the undo
- * restores» is a statement about the append-only log it writes, not about a callback. */
-describe('the pencil dialog saves on close', () => {
-  const hand = { label: 'Sandsäcke', unit: 'Stk.', sourceLabel: 'Werkhof' }
-  const seed: MittelEntry = { id: 's1', ...hand, menge: 12, stock: 40, note: 'alt', at: '2026-09-29T08:00:00.000Z' }
-  const seen = { log: [] as MittelEntry[] }
-  function Real({ initial }: { initial: MittelEntry[] }) {
-    const [mittel, setMittel] = useState<MittelEntry[]>(initial)
-    useEffect(() => { seen.log = mittel }, [mittel])
-    const { saveMittel } = useMittelActions({ mittel, setMittel, authorName: 'T', log: () => {} })
-    return <MittelView entries={mittel} canEdit onSave={saveMittel} />
-  }
-  const open = () => fireEvent.click(screen.getByRole('button', { name: `${hand.label} – ${M.editLabel}` }))
-  const closeX = () => fireEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: appConfig.copy.closeDialog })[0])
-  const note = () => screen.getByPlaceholderText(M.notePlaceholder)
-  const line = () => currentLineFor(seen.log, hand)
-  /** the «Rückgängig» of THE toast that says `what` was saved (an earlier test's toast may linger) */
-  const undoOf = (what: string) => fireEvent.click(within(screen.getByText(fillTemplate(appConfig.copy.savedToast, { what })).closest('.toast') as HTMLElement)
-    .getByRole('button', { name: appConfig.copy.undo }))
-
-  it('has no Speichern, and a close without a change writes nothing', () => {
-    render(<><Overlays /><Real initial={[seed]} /></>)
-    open()
-    expect(screen.queryByRole('button', { name: M.save })).toBeNull()
-    expect(screen.queryByRole('button', { name: M.cancel })).toBeNull()
-    expect(screen.getByText(appConfig.copy.savedOnClose)).toBeTruthy()
-    closeX()
-    expect(seen.log).toHaveLength(1)
-  })
-
-  it('a changed remark is written once when the dialog closes, and the toast\'s Rückgängig puts the old one back', () => {
-    render(<><Overlays /><Real initial={[seed]} /></>)
-    open()
-    fireEvent.change(note(), { target: { value: 'an Werkhof übergeben' } })
-    expect(seen.log).toHaveLength(1)
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
-    expect(seen.log).toHaveLength(2)
-    expect(line()).toMatchObject({ note: 'an Werkhof übergeben', menge: 12, stock: 40 })
-    undoOf(`«${hand.label}»`)
-    expect(line()).toMatchObject({ note: 'alt', menge: 12, stock: 40 })
-    expect(seen.log).toHaveLength(3)
-  })
-
-  it('a rename moves the line; the undo tombstones the new key and brings the old one back', () => {
-    render(<><Overlays /><Real initial={[seed]} /></>)
-    open()
-    fireEvent.change(screen.getByDisplayValue(hand.label), { target: { value: 'Sandsack' } })
-    closeX()
-    expect(currentLineFor(seen.log, { ...hand, label: 'Sandsack' })).toMatchObject({ menge: 12, deleted: undefined })
-    expect(line()?.deleted).toBe(true)
-    undoOf('«Sandsack»')
-    expect(line()).toMatchObject({ menge: 12, note: 'alt', stock: 40 })
-    expect(line()?.deleted).toBeFalsy()
-    expect(currentLineFor(seen.log, { ...hand, label: 'Sandsack' })?.deleted).toBe(true)
-  })
-
-  it('an emptied Material says so while open, and a close then writes NOTHING and says so', () => {
-    render(<><Overlays /><Real initial={[seed]} /></>)
-    open()
-    fireEvent.change(screen.getByDisplayValue(hand.label), { target: { value: '  ' } })
-    expect(screen.getByText(M.lineRequired)).toBeTruthy()
-    closeX()
-    expect(screen.queryByRole('dialog')).toBeNull()
-    expect(seen.log).toHaveLength(1)
-    expect(screen.getByText(M.lineNotSaved)).toBeTruthy()
   })
 })

@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useTruppActions, truppEditChanges, handOrder, nextTruppOrder, LAGE_TARGET } from './useTruppActions'
 import type { BoardDoc, Drawing, Entity, LineAttachment, Trupp, TruppFields } from '../types'
 import { appConfig } from '../config/appConfig'
-import { anyTruppInField, estimatePressure, isAtemschutzTrupp, truppFieldsOf, truppNeverDeployed } from './atemschutz'
+import { anyTruppInField, estimatePressure, isAtemschutzTrupp, truppNeverDeployed } from './atemschutz'
 import { fillTemplate } from './format'
 import type { Doc } from './workspace'
 import { objectsFromLegacy } from './tacticalObjects'
@@ -2521,51 +2521,5 @@ describe('useTruppActions — an edit row names the whole crew (staging r2, N27)
     const { actions } = harness(baseTrupp({ no: 4, members: ['Graf Eva'], auftrag: 'loeschen' }), undefined, (_i, t) => lines.push(t))
     actions.editTrupp('T1', { name: 'Keller Anna', members: ['Graf Eva'], pressure: 300, auftrag: 'retten' })
     expect(lines[0]).toMatch(/^Trupp 4 \(Keller Anna \/ Graf Eva\): /)
-  })
-})
-
-/* The save-on-close sheets (29.09.2026, TruppSheets · AuftragSheet): `editTrupp` hands back its
- * Verlauf line and ↶ step, and the confirm-with-undo toast's «Rückgängig» is `step.takeBack` — the
- * SAME inverse and counter-row the ↶ writes, with the entry taken off the timeline. */
-describe('useTruppActions — editTrupp hands back the step a save-on-close toast takes back', () => {
-  const withAuftrag = () => baseTrupp({ auftrag: 'loeschen', ziel: '2. OG' })
-
-  it('a change: one Verlauf row, one ↶ entry, and takeBack restores the Trupp, writes the ↶ row and empties the timeline', () => {
-    const rows: string[] = []
-    const before = withAuftrag()
-    const { actions, state, timeline } = timed(before, (_i, text) => rows.push(text))
-    const r = actions.editTrupp('T1', truppFieldsOf(before, { auftrag: 'retten', ziel: 'Dach' }))
-    expect(r).toBeTruthy()
-    expect(rows).toHaveLength(1)
-    expect(timeline.entries().past).toHaveLength(1)
-    expect(state.trupps[0]).toMatchObject({ auftrag: 'retten', ziel: 'Dach' })
-    expect(r!.step.standing()).toBe(true)
-    expect(r!.step.takeBack()).toBe(true)
-    expect(state.trupps[0]).toEqual(before)
-    // the counter-row, as the ↶ writes it — and the act is not left on the ↶ to take twice
-    expect(rows).toHaveLength(2)
-    expect(rows[1]).toContain(r!.line)
-    expect(timeline.canUndo()).toBe(false)
-    expect(r!.step.standing()).toBe(false)
-    expect(r!.step.takeBack()).toBe(false)
-  })
-
-  it('no change: no row, no ↶ entry, nothing handed back (the sheet raises no toast)', () => {
-    const rows: string[] = []
-    const before = withAuftrag()
-    const { actions, timeline } = timed(before, (_i, text) => rows.push(text))
-    expect(actions.editTrupp('T1', truppFieldsOf(before))).toBeNull()
-    expect(rows).toHaveLength(0)
-    expect(timeline.canUndo()).toBe(false)
-  })
-
-  it('once the ↶ took the step, the toast declines instead of taking it back twice', () => {
-    const before = withAuftrag()
-    const { actions, state, timeline } = timed(before)
-    const r = actions.editTrupp('T1', truppFieldsOf(before, { auftrag: 'retten' }))!
-    timeline.undo()
-    expect(state.trupps[0]).toEqual(before)
-    expect(r.step.standing()).toBe(false)
-    expect(r.step.takeBack()).toBe(false)
   })
 })

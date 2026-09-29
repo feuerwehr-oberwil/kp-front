@@ -625,10 +625,7 @@ describe('the mini sheets', () => {
     expect(editTrupp).not.toHaveBeenCalled()
   })
 
-  // the Auftrag sheet has no Speichern since 29.09.2026: ✕ / swipe / backdrop / Escape IS the save
-  const closeX = () => within(screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })).getByRole('button', { name: appConfig.copy.closeDialog })
-
-  it('the Auftrag chip opens the sheet on the stored values; closing it writes Auftrag, Ziel and Leitung together, once', async () => {
+  it('the Auftrag chip opens the sheet on the stored values; Speichern writes Auftrag, Ziel and Leitung together', async () => {
     const editTrupp = vi.fn()
     mount({ trupps: [withFacts()], editTrupp, leitungOptions: () => [{ no: 1, onPlan: false }, { no: 2, onPlan: true }] })
     fireEvent.click(screen.getByRole('button', { name: 'Löschen · Test' }))
@@ -639,59 +636,9 @@ describe('the mini sheets', () => {
     fireEvent.click(within(sheet).getByRole('button', { name: 'Retten' }))
     fireEvent.change(within(sheet).getByLabelText(az.editFieldLabels.ziel), { target: { value: '2. OG' } })
     fireEvent.click(within(sheet).getByRole('button', { name: `${fillTemplate(az.lineChip, { n: 2 })} · P` }))
-    // no Speichern any more — and the line under the fields says what closing does
-    expect(within(sheet).queryByRole('button', { name: az.save })).toBeNull()
-    expect(sheet.textContent).toContain(appConfig.copy.savedOnClose)
-    // a tile is an answer, not a write: nothing is written until the sheet closes
-    expect(editTrupp).not.toHaveBeenCalled()
-    fireEvent.click(closeX())
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(editTrupp).toHaveBeenCalledTimes(1)
     expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ auftrag: 'retten', ziel: '2. OG', lineNo: 2, funkkanal: 11, pressure: 300 }))
-  })
-
-  it('closing the Auftrag sheet without a change writes nothing — ✕ and Escape alike', async () => {
-    const editTrupp = vi.fn()
-    mount({ trupps: [withFacts()], editTrupp })
-    fireEvent.click(screen.getByRole('button', { name: 'Löschen · Test' }))
-    fireEvent.click(closeX())
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    fireEvent.click(screen.getByRole('button', { name: 'Löschen · Test' }))
-    // a tile tapped and tapped back is no change either
-    const sheet = screen.getByRole('dialog')
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Retten' }))
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Löschen' }))
-    fireEvent.keyDown(sheet, { key: 'Escape' })
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(editTrupp).not.toHaveBeenCalled()
-  })
-
-  it('a save by closing raises the confirm-with-undo toast; its Rückgängig takes the ↶ step back', async () => {
-    render(<Overlays />)
-    const takeBack = vi.fn(() => true)
-    const step = Object.assign(vi.fn(), { standing: () => true, takeBack })
-    const editTrupp = vi.fn(() => ({ line: 'Trupp 2 (Steiner): Auftrag: Retten – Test', step }))
-    mount({ trupps: [withFacts()], editTrupp })
-    fireEvent.click(screen.getByRole('button', { name: 'Löschen · Test' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Retten' }))
-    fireEvent.click(closeX())
-    // THE toast that says so (another test's toast may still be on its way out)
-    const said = await screen.findByText(fillTemplate(appConfig.copy.savedToast, { what: `${az.editFieldLabels.auftrag} · Steiner` }))
-    fireEvent.click(within(said.closest('.toast') as HTMLElement).getByRole('button', { name: appConfig.copy.undo }))
-    expect(takeBack).toHaveBeenCalledTimes(1)
-    expect(editTrupp).toHaveBeenCalledTimes(1)
-  })
-
-  it('writes only what the sheet touched — another device\'s Ziel, set while it stood open, survives', async () => {
-    const editTrupp = vi.fn()
-    const props = propsFor({ trupps: [withFacts()], editTrupp })
-    const { rerender } = render(<AtemschutzView {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Löschen · Test' }))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Retten' }))
-    rerender(<AtemschutzView {...props} trupps={[{ ...withFacts(), ziel: 'Dach' }]} />)
-    fireEvent.click(closeX())
-    await waitFor(() => expect(editTrupp).toHaveBeenCalledTimes(1))
-    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ auftrag: 'retten', ziel: 'Dach' }))
   })
 
   it('«keine» lets the Leitung go — absent, never an empty number', async () => {
@@ -700,14 +647,14 @@ describe('the mini sheets', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Löschen · Test' }))
     const sheet = screen.getByRole('dialog')
     fireEvent.click(within(sheet).getByRole('button', { name: az.lineNone }))
-    fireEvent.click(closeX())
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(editTrupp.mock.calls[0][1].lineNo).toBeUndefined()
   })
 
   /* the one question the form's save asks in front of a Leitung is asked here too — ONE helper
    * (AtemschutzView · confirmLineTake), so the sheet is not a way around it */
-  it('a Leitung another Trupp is on asks first when the sheet closes; «Übernehmen» unlinks the other and writes, cancel keeps the sheet open', async () => {
+  it('a Leitung another Trupp is on asks first; «Übernehmen» unlinks the other and writes, cancel keeps the sheet open', async () => {
     render(<Overlays />)
     const editTrupp = vi.fn(), unlinkTruppLine = vi.fn()
     mount({
@@ -717,13 +664,13 @@ describe('the mini sheets', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /^Löschen/ })[0])
     const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
     fireEvent.click(within(sheet).getByRole('button', { name: new RegExp(`^${fillTemplate(az.lineChip, { n: 3 })}`) }))
-    fireEvent.click(closeX())
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
     let ask = await screen.findByRole('alertdialog')
     fireEvent.click(within(ask).getByRole('button', { name: appConfig.copy.cancel }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(editTrupp).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })).toBeTruthy()
-    fireEvent.click(closeX())
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
     ask = await screen.findByRole('alertdialog')
     fireEvent.click(within(ask).getByRole('button', { name: az.lineTakeConfirm }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())

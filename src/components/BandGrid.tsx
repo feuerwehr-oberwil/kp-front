@@ -20,7 +20,6 @@ import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
 import { EmptyState } from './EmptyState'
 import { ShiftConflictNotice } from './ShiftConflictNotice'
-import { SavedCue } from './SavedCue'
 import s from './BandGrid.module.css'
 
 const clock = (iso: string): string => {
@@ -191,14 +190,6 @@ function bandTitle(b: ShiftBand): string {
  * Deliberately the plainest surface in the app: a name, two times, one button. The whole point of
  * the Schichten grid is that the time entry happens ONCE here instead of once per person, so this
  * is the only place on the surface where a clock is typed at all.
- *
- * ⚠️ EDITING saves when the sheet closes (29.09.2026, owner: «save when the sheet closes»): ✕,
- * swipe, backdrop and Escape all hand the name and times to `onSave`, which writes nothing when
- * nothing changed and otherwise raises the confirm-with-undo toast — the way to throw an edit away
- * (useBandActions · saveBand). So the edit footer holds only «Schicht löschen». CREATING keeps its
- * «Anlegen» button and a close that creates nothing: a new column is a deliberate act, and a sheet
- * opened by mistake must not leave one behind. Nothing here can be invalid — the name is optional
- * and the times are kept in order as they are typed — so a close never has a reason to refuse.
  */
 function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose }: {
   /** null = a new band */
@@ -224,24 +215,27 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
   // and nothing else.
   const days = incidentDays(startedAt, Math.max(
     openedAt + appConfig.shifts.planAheadHours * 3_600_000, Date.parse(to) || 0))
-  const create = () => { onCreate(label.trim(), from, to); onClose() }
-  // the edit's save IS its close — and an untouched band writes nothing (saveBand says so too, but
-  // the sheet does not even ask: closing to read the hours is not an edit)
-  const closeEdit = () => {
-    if (band && (label.trim() !== band.label || from !== band.from || to !== band.to)) onSave(band.id, label.trim(), from, to)
+  const commit = () => {
+    if (band) onSave(band.id, label.trim(), from, to)
+    else onCreate(label.trim(), from, to)
     onClose()
   }
   const subject = band ? bandTitle(band) : S.sheetAddTitle
   return (
-    <Sheet open onClose={band ? closeEdit : onClose} fit sheetClassName={s.sheet}
+    <Sheet open onClose={onClose} fit sheetClassName={s.sheet}
       title={band ? S.sheetEditTitle : S.sheetAddTitle}
-      footer={band
-        ? (
-          <button type="button" className="ip-btn ip-btn-danger" onClick={() => { onRemove(band.id); onClose() }}>
-            <Icon id="trash" />{S.removeBand}
+      footer={
+        <>
+          {band && (
+            <button type="button" className="ip-btn ip-btn-danger" onClick={() => { onRemove(band.id); onClose() }}>
+              <Icon id="trash" />{S.removeBand}
+            </button>
+          )}
+          <button type="button" className="ip-btn primary" onClick={commit}>
+            {band ? S.save : S.create}
           </button>
-        )
-        : <button type="button" className="ip-btn primary" onClick={create}>{S.create}</button>}
+        </>
+      }
     >
       <label className={s.field}>
         <span className={s.fieldLabel}>{S.labelField}</span>
@@ -282,7 +276,6 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
         </span>
       </div>
       <p className={s.note}>{band ? S.removeBandHint : S.sheetHint}</p>
-      {band && <SavedCue />}
     </Sheet>
   )
 }

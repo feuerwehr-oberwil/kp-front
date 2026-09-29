@@ -7,7 +7,7 @@ import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSource } from '../lib/deploymentConfig'
 import { fillTemplate, stripUnprintable } from '../lib/format'
 import { cx } from '../lib/cx'
-import { caretToEnd, toast, undoToast } from '../lib/ui'
+import { caretToEnd, toast } from '../lib/ui'
 import { Menu, Overlay, Sheet, SheetFoot } from '../lib/overlays'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
@@ -15,12 +15,11 @@ import { EmptyState } from './EmptyState'
 import type { MittelEntry, MittelStatus } from '../types'
 import {
   visibleMittel, groupBySource, currentLineFor, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
-  mittelRecommendations, defaultSourceFor, tombstoneStands, editStands,
+  mittelRecommendations, defaultSourceFor, tombstoneStands,
   type CurrentMittel, type MittelListCell, type MittelListRow, type MittelRecommendation, type SymbolMatch,
   type TruppForMittel,
 } from '../lib/mittel'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
-import { SavedCue } from './SavedCue'
 import s from './Mittel.module.css'
 import { useIsPhone } from '../lib/useIsPhone'
 import { usePageHeadFit } from '../lib/pageHeadFit'
@@ -254,14 +253,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   /** Apply the pencil dialog. A hand-added line is KEYED by label + unit + source, so renaming it
    *  is not an edit but a move: the old key is tombstoned and a new one opened carrying the count,
    *  the remark and the Bestand across. Both events stay in the log, which is what the Verlauf and
-   *  the audit trail are for — the sheet just stops showing the old name.
-   *
-   *  ⚠️ The dialog saves when it CLOSES (29.09.2026, owner: «save when the sheet closes»), so the
-   *  write is followed by the house confirm-with-undo toast — the way to throw the edit away. Its
-   *  «Rückgängig» is, like the removal's, just another save (the log is append-only): the old
-   *  remark and Bestand back on the line — for a move, the new key tombstoned and the old one
-   *  re-opened — carrying the count the line holds THEN, so a ± tapped since is not taken back.
-   *  Only while the edit is still the line's newest word (lib/mittel · editStands). */
+   *  the audit trail are for — the sheet just stops showing the old name. */
   const applyEdit = (t: EditTarget, next: { label: string; unit: string; sourceLabel?: string; stock: number | null; note: string }) => {
     const source = sources.find((x) => x.label === (next.sourceLabel ?? '').trim())
     const moved = t.custom && (
@@ -269,27 +261,16 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
       || next.unit.trim() !== t.probe.unit
       || (next.sourceLabel ?? '').trim() !== (t.probe.sourceLabel ?? '')
     )
-    const since = new Date().toISOString()
-    const was = { note: t.note.trim() || null, ...(t.custom ? { stock: t.stock ?? null } : {}) }
-    const countNow = (probe: MatProbe) => currentLineFor(entriesLive.current, probe)?.menge ?? t.menge
-    const saved = fillTemplate(appConfig.copy.savedToast, { what: `«${moved ? next.label.trim() : t.label}»` })
     if (moved) {
-      const to: MatProbe = {
+      onSave({ ...t.probe, menge: t.menge, deleted: true })
+      onSave({
         materialId: t.probe.materialId, label: next.label.trim(), unit: next.unit.trim(),
         sourceId: source?.id, sourceLabel: source?.label ?? (next.sourceLabel?.trim() || undefined),
-      }
-      onSave({ ...t.probe, menge: t.menge, deleted: true })
-      onSave({ ...to, menge: t.menge, note: next.note.trim() || null, stock: next.stock })
-      undoToast(saved, () => {
-        const n = countNow(to)
-        onSave({ ...to, menge: n, deleted: true })
-        onSave({ ...t.probe, menge: n, deleted: false, ...was })
-      }, () => editStands(entriesLive.current, to, since) && tombstoneStands(entriesLive.current, t.probe, since), { kind: 'mittel-line-saved' })
+        menge: t.menge, note: next.note.trim() || null, stock: next.stock,
+      })
       return
     }
     onSave({ ...t.probe, menge: t.menge, note: next.note.trim() || null, ...(t.custom ? { stock: next.stock } : {}) })
-    undoToast(saved, () => { onSave({ ...t.probe, menge: countNow(t.probe), ...was }) },
-      () => editStands(entriesLive.current, t.probe, since), { kind: 'mittel-line-saved' })
   }
 
   const empty = catalogue.length === 0 && lines === 0
@@ -811,25 +792,10 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
   const [note, setNote] = useState(target.note)
 
   const valid = !target.custom || (!!label.trim() && !!unit.trim())
-  const stockValue = (): number | null => {
+  const submit = () => {
+    if (!valid) return
     const n = stock.trim() === '' ? null : Math.max(0, Math.round(Number(stock)))
-    return Number.isFinite(n as number) ? n : null
-  }
-  /* ⚠️ The dialog saves when it CLOSES (29.09.2026, owner: «save when the sheet closes»): ✕, swipe,
-   * backdrop and Escape all land here, and the parent follows the write with the confirm-with-undo
-   * toast (MittelView · applyEdit). Untouched ⇒ it just closes and writes nothing. A hand-added line
-   * whose Material or Einheit was emptied cannot be written (its KEY would be empty): the field
-   * says so while the dialog is open, and a close then closes WITHOUT writing and says so in a
-   * toast — the line keeps what it had. Closing is never refused: a sheet that will not go away
-   * under a thumb at 3am is worse than an edit that has to be typed again. */
-  const close = () => {
-    const changed = target.custom && (
-      label.trim() !== target.probe.label || unit.trim() !== target.probe.unit
-      || sourceLabel.trim() !== (target.probe.sourceLabel ?? '').trim() || stockValue() !== (target.stock ?? null)
-    ) || note.trim() !== target.note.trim()
-    if (!changed) { onClose(); return }
-    if (!valid) { toast(M.lineNotSaved, { icon: 'warn' }); onClose(); return }
-    onSave({ label, unit, sourceLabel, stock: stockValue(), note })
+    onSave({ label, unit, sourceLabel, stock: Number.isFinite(n as number) ? n : null, note })
   }
 
   return (
@@ -837,11 +803,11 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
     // a hand-rolled padding on the popup stacked on top of theirs and the title sat further
     // in than the field under it. `mp-backdrop` because this opens OVER the Mittel sheet.
     <Overlay
-      open onClose={close} backdropClassName="mp-backdrop"
+      open onClose={onClose} backdropClassName="mp-backdrop"
       className="ip-sheet ip-fit ui-dialog mv-note-dialog" ariaLabel={target.custom ? M.editLabel : M.noteLabel} grab
     >
       <div className="ip-head"><h2>{target.label}</h2>
-        <button className="ip-x" onClick={close} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+        <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className="ip-body">
         {target.custom && (
@@ -883,21 +849,18 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
             onChange={(e) => setNote(stripUnprintable(e.target.value))}
           />
         </label>
-        {!valid && (
-          <div className="form-warn form-warn-compact" role="alert"><Icon id="warn" /><span className="form-warn-text">{M.lineRequired}</span></div>
-        )}
-        <SavedCue />
       </div>
-      {/* no Speichern, no Abbrechen: closing saves, the toast after it takes it back. The one
-          button left is the removal — and only where there is something the operator actually
-          put there by hand */}
-      {target.custom && (
-        <SheetFoot className="ip-actions">
+      <SheetFoot className="ip-actions">
+        {/* destructive action to the left, away from Speichern — and only where there is
+            something the operator actually put there by hand */}
+        {target.custom && (
           <button type="button" className="ip-btn mv-del" onClick={onDelete}>
             <Icon id="trash" /> {M.deleteLine}
           </button>
-        </SheetFoot>
-      )}
+        )}
+        <button type="button" className="ip-btn" onClick={onClose}>{M.cancel}</button>
+        <button type="button" className="ip-btn primary" disabled={!valid} onClick={submit}>{M.save}</button>
+      </SheetFoot>
     </Overlay>
   )
 }
