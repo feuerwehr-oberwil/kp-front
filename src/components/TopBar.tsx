@@ -118,6 +118,9 @@ interface Props {
   /** app-wide Atemschutz alarm state — drives the conditional chip (only shown when a Trupp is
    *  fällig/überfällig, so it never crowds the bar in the normal case) */
   azAlarm?: AtemschutzAlarmState
+  /** the chip's alarm already has its door on screen — the Trupps board's head badge, or a
+   *  Meldeleiste row naming the same Trupp (AtemschutzAlarmMeldung · azChipRedundant, T1) */
+  azChipHidden?: boolean
   /** People still missing in the Suche (lib/suche · vermisstCount). The «2 vermisst» chip stands
    *  in every head, for everyone, from the first vermisst until the last is found — like the
    *  Atemschutz chip, it is only there while it has something to say. */
@@ -151,7 +154,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, sucheMissing = 0, sucheAsks = 0, onOpenSuche, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, sucheMissing = 0, sucheAsks = 0, onOpenSuche, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -207,7 +210,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   const barRef = useRef<HTMLDivElement>(null)
   useHeadFit(barRef, [
     incident.title, clockText.length, hasWind, sucheMissing, sucheAsks, gpsStale ? 1 : 0, archived ? 1 : 0,
-    azAlarm?.urgent ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
+    azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
   ].join('|'))
 
   return (
@@ -347,7 +350,9 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first
             the top bar said anything was the red alarm), RED once a Trupp is überfällig or at
             its Alarmdruck. Taps through to the Atemschutz surface. */}
-        {azAlarm && azAlarm.peak >= 1 && azAlarm.urgent && (() => {
+        {/* …and not while its alarm already has a door on screen (29.09.2026, T1): two red
+            controls with two numbers for one emergency read as two emergencies */}
+        {azAlarm && azAlarm.peak >= 1 && azAlarm.urgent && !azChipHidden && (() => {
           // ⚠️ TWO reasons this chip can be red, and it has to say which. Out of contact ticks a
           // clock; at or below the Alarmdruck it shows the bar. A chip that showed a contact
           // clock for a Trupp whose air is gone would name the wrong emergency.

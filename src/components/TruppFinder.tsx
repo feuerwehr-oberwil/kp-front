@@ -19,7 +19,7 @@ import s from './TruppFinder.module.css'
  *
  * The search box is the one control here that opens a keyboard, and it is focused on open:
  * unlike the roster pickers (where the list itself is the answer and a keyboard would cover it),
- * this overlay was opened by tapping a magnifying glass. Typing is what was meant.
+ * this overlay was opened by tapping «Trupp finden». Typing is what was meant.
  */
 export function TruppFinder({ trupps, onPick, onClose }: {
   /** every placed Trupp, already sorted (lib/placedTrupps) */
@@ -50,7 +50,8 @@ export function TruppFinder({ trupps, onPick, onClose }: {
   return (
     <Overlay open onClose={onClose} className={cx(s.finder, 'ui-dialog')} ariaLabel={C.title} initialFocus={inputRef}>
       <div className={s.head}>
-        <span className={s.headIcon} aria-hidden><Icon id="search" /></span>
+        {/* the door's own glyph (#trupp-find, 29.09.2026 T8): the card says it is the one that was tapped */}
+        <span className={s.headIcon} aria-hidden><Icon id="trupp-find" /></span>
         <input
           ref={inputRef} className={s.input} value={q} placeholder={C.placeholder} aria-label={C.title}
           onChange={(e) => { setQ(e.target.value); setCursor(0) }}
@@ -83,22 +84,26 @@ export function TruppFinder({ trupps, onPick, onClose }: {
                 <span className={s.cap} style={{ background: t.color || appConfig.drawing.teamColors[0] }} />
                 <span className={s.main}>
                   <span className={s.name}>{t.name}<TruppNo no={t.no} /></span>
-                  {/* WHERE first, then who is in it: the question this list answers is where */}
+                  {/* WHERE first, then who ELSE is in it: the question this list answers is where.
+                      ⚠️ `members` leads with the leader (the search needs him), and the row's name
+                      already is him — printed again he took half the line and cut off the crew
+                      member you were actually looking for (29.09.2026, sweep 3 T7). */}
                   <span className={s.where}>
                     {t.where}
-                    {t.members.length > 0 && <span className={s.members}> · {t.members.join(' / ')}</span>}
+                    {t.members.length > 1 && <span className={s.members}> · {t.members.slice(1).join(' / ')}</span>}
                   </span>
                 </span>
                 {/* «AS» — this crew is under Presslufatmer. The list mixes Atemschutz-Trupps and
                     work squads, and which one you are about to jump to is worth knowing before
-                    the tap. A fact, not an alarm: quiet blue, never the board's amber/red.
+                    the tap. A fact, not an alarm: the ONE tag recipe (`.ip-badge`) in ink/grey,
+                    like «raus» beside it (29.09.2026 — it was a blue pill, and blue is «chosen»).
                     ⚠️ Only for a chip that HAS a Trupp: `isAtemschutzTrupp` reads an absent
                     `kind` as «unter Atemschutz» (that is what it meant before 03.09.), which on a
                     loose «Team 2» marker would be a claim nobody made. */}
                 {!!t.truppId && isAtemschutzTrupp(t) && (
-                  <span className={s.as} title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>
+                  <span className={cx('ip-badge', s.tag)} title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>
                 )}
-                {t.status === 'raus' && <span className={s.chip}>{C.raus}</span>}
+                {t.status === 'raus' && <span className={cx('ip-badge', s.tag)}>{C.raus}</span>}
                 <span className={s.go} aria-hidden><Icon id="chevron" /></span>
               </button>
             </li>
@@ -107,7 +112,9 @@ export function TruppFinder({ trupps, onPick, onClose }: {
         </ul>
       )}
 
-      {trupps.length > 0 && <div className={s.foot}>{hits.length === trupps.length ? C.hint : `${hits.length}/${trupps.length}`}</div>}
+      {/* only the count, and only while filtering (29.09.2026, T7): the «Sucht auch nach Namen»
+          hint said what the placeholder «Trupp oder Name …» above it already says */}
+      {trupps.length > 0 && hits.length !== trupps.length && <div className={s.foot}>{`${hits.length}/${trupps.length}`}</div>}
     </Overlay>
   )
 }
