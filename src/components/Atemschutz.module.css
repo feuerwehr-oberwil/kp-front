@@ -257,7 +257,16 @@
    corner: the circle sat on the chevron (field checks 24.09.2026). The effect measures where the
    row stands and marks the ROW itself; it then keeps the FAB's column free, so the chevron stays
    tappable. */
-.vrow[data-az-fab-foot] { padding-right: calc(14px + var(--fab-safe, 0px)); }
+/* the foot line and the card's ⋯ share one row (29.09.2026); the FAB guard marks the ROW */
+.vfootRow { display: flex; align-items: center; }
+.vfootRow > .vrow { flex: 1 1 auto; min-width: 0; }
+.vfootRow[data-az-fab-foot] { padding-right: var(--fab-safe, 0px); }
+/* the card's ⋯ — a quiet glyph at the end of the foot line, a full --tap target, no chip frame */
+.footMore { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center; padding: 0;
+  border: none; background: transparent; color: var(--ink-dim); cursor: pointer; border-radius: var(--r-sm);
+  -webkit-tap-highlight-color: transparent; }
+.footMore:active { background-image: linear-gradient(var(--press), var(--press)); }
+.footMore :global(.i) { width: 18px; height: 18px; }
 /* the expanded per-Trupp contact/pressure log, inside the footer */
 /* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
    first reading butts straight against «Schätzung …» and the two read as one list. `:first-child`
@@ -1539,8 +1548,6 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    colour, every chip is a door, and the chevron alone says this one leads off the card */
 .factGo :global(.i) { width: 14px; height: 14px; color: var(--ink-dim); }
 /* the ⋯, the last chip: square, the glyph in the dim ink */
-.factMore { width: 36px; padding: 0; justify-content: center; color: var(--ink-dim); }
-.factMore :global(.i) { width: 18px; height: 18px; color: inherit; }
 .kennQuiet { color: var(--ink-dim); }
 .kennCrit { color: var(--red); }
 /* the Verlauf keeps its full-bleed foot (hairline + wash), flush with the frame's bottom edge */

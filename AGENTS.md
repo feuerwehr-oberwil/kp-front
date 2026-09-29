@@ -1626,8 +1626,8 @@ to prod.
     The top bar's Eintrag wears the FAB's material (`--float-bg` + `--float-edge`, ink), not a
     blue slab, and keeps its word «Eintrag» until the LAST step of the top bar's ladder
     (`HEAD_FIT_STEPS` · 'eintrag-word'). While the hold's chooser is up, the glyph gives way to
-    its drawn ✕ (both paths always in the DOM). «Trupp finden» wears `#trupp-find` (the Trupp
-    tool's flag in a reticle) on the Trupp tool's dock and in the finder's head — never the
+    its drawn ✕ (both paths always in the DOM). «Trupp finden» wears `#trupp-find` (people with a
+    small lens — the owner's pick B, 29.09.2026; the flag in a reticle read as «ugly») on the Trupp tool's dock and in the finder's head — never the
     `#search` lens, which is the Suche's tile 60px below it on a phone.
     (11) **Anwesend = the green tint, nothing else** (29.09.2026, owner pick B): no status dot, no
     green border. Not colour alone: present rows are the ones with the Ort + Uhr buttons, gone
@@ -1822,11 +1822,17 @@ to prod.
     whole first line is the collapse toggle. ONE card on every board since 29.09.2026 (owner:
     «assimilate the tablet / desktop view closer / equal to the mobile view»): the tablet grid, the
     desktop and the handed-over Tafel (grid and phone focus) wear this same card — line · 2×2
-    tiles · state words · note · fact chips with the ⋯ · one terse foot. What differs is only what
-    the board has room for: on the grid every card stands open (the line is not a toggle, no
+    tiles · state words · note · fact chips · one terse foot that ENDS with the ⋯ (29.09.2026, owner
+    pick B — as the facts' last chip it wrapped onto a 44px row of its own). What differs is only
+    what the board has room for: on the grid every card stands open (the line is not a toggle, no
     chevron), the hand-set order keeps its ‹ › in the ⋯, and a card on a board without state heads
-    (grid, Tafel — `headed` false) says «Bereit» / «Draussen» in its state line, which on the
-    phone is the section head. The Druck is the pressure tile → `PressureSheet` everywhere; the
+    (grid, Tafel — `headed` false) says «Bereit» in its state line, which on the phone is the
+    section head. The state line never says what the card's colour already says (29.09.2026,
+    owner: «drop the überfällig – if the card is red it's pretty obvious»; «the draussen subtitle
+    is probably not even required»): fällig / überfällig live on for a screen reader only
+    (`.sr-only`), and an out Trupp's card carries no «Draussen» — it keeps the words colour cannot
+    carry (the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
+    squad's state). The Druck is the pressure tile → `PressureSheet` everywhere; the
     tablet's ± stepper with «Bestätigen», the band with the 40px clock, the tablet's grey
     Kennzeile with its blue Auftrag, the top status edge and the «Verlauf · zuletzt: … Druck 300
     bar» preview are gone — do not bring any of them back for the tablet. The focus Tafel's one
