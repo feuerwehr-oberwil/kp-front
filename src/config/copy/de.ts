@@ -5674,6 +5674,8 @@ export const de = {
     logSet: '{label}: {menge} {unit}',
     logRemoved: '{label} auf 0 gesetzt',
     logDeleted: '{label} gelöscht',
+    // an un-delete (the removal's «Rückgängig») is its own sentence
+    logRestored: '{label} wiederhergestellt',
     logNote: '{label} – Bemerkung: {note}',
     logStock: '{label} – Bestand: {stock}',
     // Angehängt an eine gesetzte Menge: WOHER die Zahl kommt. Ohne sie sagt die Zeile nur,
