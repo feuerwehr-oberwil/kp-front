@@ -131,7 +131,9 @@ export function circleRingN(cx: number, cy: number, radiusN: number, ar: number,
  *   • amber — a number that stands but is unverified: a stored calibration taken at another
  *     aspect (`stale` — «Massstab neu prüfen»), or a map-derived scale whose fit is the amber
  *     one (two pairs, automatic scaffolding, a warned-about geometry). Planungshilfe, not fact.
- *   • red — the sheet has no scale at all («nicht kalibriert»). Nothing to trust either way.
+ *   • grey — the sheet has no scale YET («nicht kalibriert»). Not red (29.09.2026, sweep K10): a
+ *     plan being read as a picture is not an emergency, and a red dot on every plan wore the
+ *     alarm colour out before a real alarm needed it. «Not yet» is grey.
  */
 export function scaleLampTone(s: {
   /** the metres are DERIVED, not typed in (Whiteboard · scaleAuto) */
@@ -144,8 +146,8 @@ export function scaleLampTone(s: {
   stale: boolean
   /** a hand calibration stands */
   calibrated: boolean
-}): 'red' | 'amber' | 'green' {
+}): 'grey' | 'amber' | 'green' {
   if (s.auto) return s.autoFromFit && s.fitWarn ? 'amber' : 'green'
   if (s.stale) return 'amber'
-  return s.calibrated ? 'green' : 'red'
+  return s.calibrated ? 'green' : 'grey'
 }

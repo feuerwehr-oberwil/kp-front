@@ -93,14 +93,16 @@
      ⚠️ `span:not(.tb-act-ic)…` — Eintrag's glyph sits in a SPAN (`.tb-act-ic`, the hold ring's
      anchor), and the bare `span` took it with the word: on every tablet in portrait (601–860px)
      «Eintrag» was an empty blue square (22.09.2026). The recording square and the reminder count
-     are spans too, and neither is a label. */
-  .tb-actions .tb-act:not(.icon) span:not(.tb-act-ic):not(.tb-stop):not(.tb-rem-count) { display: none; }
+     are spans too, and neither is a label.
+     ⚠️ …except «Eintrag» (29.09.2026, sweep K2): it keeps its word at 820px and gives it up only
+     as the top bar's LAST ladder step (lib/useHeadFit · 'eintrag-word'), measured, not here. */
+  .tb-actions .tb-act:not(.icon):not(.tb-act-add) span:not(.tb-act-ic):not(.tb-stop):not(.tb-rem-count) { display: none; }
   /* ⚠️ …and once a button is ONLY an icon it has to be a full tap target. It was `padding: 8px`,
      which lands around 31px — under the gloved floor — and the --tap sizing only arrived at
      ≤600px. So every width between 601 and 860 offered the smallest buttons in the app on the
      row that logs a Verlauf entry. Icon-only and full size go together at every width. */
   .tb-actions .tb-act { padding: 8px; min-width: var(--tap); min-height: var(--tap); justify-content: center; }
-  .tb-act-add { min-width: var(--tap); }
+  .tb-actions .tb-act-add { min-width: var(--tap); padding-inline: 11px 12px; }
   /* The weather goes to a SHORTER form here, not only on a phone: the condition glyph is the
      one part that is pure context, so it goes first. The TEMPERATURE stays — an iPad in
      portrait is 820px wide, and hiding it here is why «the temperature indicator is missing on
@@ -1167,4 +1169,14 @@
      It is therefore also the one condition `topBarUndoHidden` describes (IncidentWorkspace →
      AnwesenheitView): where the bar has no pair, the surface being tapped offers its own. */
   .topbar .tb-act-history { display: none; }
+}
+
+/* The narrowest phones' tool bar words (29.09.2026). At 360px the Karte's bar is SIX tiles of 52px
+   (Suche joined it 26.09.), where «Hinzufügen» at 9.5px is 59px and ran into «Auswahl» and
+   «Messen». Since the words are on by default on a phone (lib/prefs · railLabelsFor), these set
+   them a half-point tighter — measured: 54px, a hair over the tile, clear of both neighbours'
+   words. Its own block at the end, not nested in the phone gate: Sheet.test pins that gate as the
+   nearest @media above the sheet foot's rule. */
+@media (max-width: 374px) {
+  :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-label { font-size: 9px; letter-spacing: -.02em; }
 }

@@ -24,6 +24,7 @@ import {
   type IncidentMeta,
   type ObjectWithPlans,
 } from '../../lib/incidents'
+import { categoryFieldValue } from '../../lib/lageGrundgeruest'
 import { Modal, realCoord } from './_shared'
 import { SearchField } from '../SearchField'
 
@@ -453,8 +454,14 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       <div className="ip-field"><span>{ix.categoryLabel}</span>
         {/* themed Combo instead of the OS select; options are display labels, the stored
             value stays the (German) kategorie key — mapped back on change */}
+        {/* a stored value OUTSIDE the list (sweep K15, 29.09.2026): a legacy word («Brand») shows
+            as the entry it means — the answer the Grundgerüst chip gives — and anything else as
+            itself, marked «(alt)»; neither is rewritten until a pick changes it */}
         <Combo
-          value={ix.kategorienLabels[kategorie ?? ix.kategorien[0]] ?? kategorie ?? ix.kategorien[0]}
+          value={(() => {
+            const f = categoryFieldValue(kategorie ?? ix.kategorien[0], ix.kategorien)!
+            return f.legacy ? fillTemplate(ix.categoryLegacy, { value: f.value }) : ix.kategorienLabels[f.value] ?? f.value
+          })()}
           options={ix.kategorien.map((k) => ix.kategorienLabels[k] ?? k)}
           placeholder={ix.categoryLabel}
           clearable={false}

@@ -33,7 +33,7 @@ import { freshTeamLabel, nextTeamName, teamNoTaken } from '../lib/placedTrupps'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
-import { Overlay, Popover } from '../lib/overlays'
+import { Menu, Overlay } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
 import { doneAct, doneBadge, doneFirst, donePlace } from '../lib/objectDone'
@@ -910,6 +910,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const scaleTone = scaleLampTone({
     auto: scaleAuto, autoFromFit: !!georefFit, fitWarn: georefState.warn, stale: scaleStale, calibrated,
   })
+  /** the «⌖ Karte» chip stands in the pill row (editors; a locked session only once it is linked) */
+  const georefChipShown = canGeoref && (!readOnly || georefState.kind === 'linked') && !linkViewer
+  /** ONE chip until the plan is linked (29.09.2026, sweep K10): while there is neither a link nor a
+   *  scale, «Karte verknüpfen» is the one door — a link GIVES the scale — and «Massstab» appears
+   *  once a link or a hand calibration exists. Two red lamps on every plan at rest said the same
+   *  «not yet» twice. A hand calibration is still one tap away: Messen offers «Kalibrieren» on an
+   *  unscaled sheet (MeasurePanel · onCalibrate); and where the plan cannot be linked at all, the
+   *  Massstab chip stays, the only door there is. */
+  const scaleWaitsForLink = georefChipShown && georefState.kind !== 'linked'
+    && !scaleAuto && !calibrated && !scaleStale && tool !== 'scale'
   /** The real plan bitmap for «Deckung prüfen». The PDF viewport already rendered it into its
    *  first canvas, so taking a same-origin snapshot is both cheaper and more faithful than
    *  rendering the PDF a second time on the map side. It rides in the cross-surface mode store,
@@ -2620,6 +2630,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // removing a storey: the confirm is the OWNER's (IncidentWorkspace · onRemoveFloor →
   // lib/storeyRemoval), because only the store knows which annos on this tile are the stack's own
   // and which are the Karte's, merely shown here — and only the own ones can be lost
+  /** a storey's word on its label («4. OG», «EG», or the name the Gebäude gave it) */
+  const storeyName = (f: number) => building?.floorNames?.[String(f)] ?? floorLabel(f)
+  /** a custom name («Hauptebene») hides the storey's order, so its label brings the signed chip */
+  const customStorey = (f: number) => {
+    const own = building?.floorNames?.[String(f)]?.trim()
+    return !!own && own !== floorLabel(f)
+  }
   const removeFloor = (f: number) => {
     if (readOnly || building?.pack || floorPack?.tiles[f]) return
     onRemoveFloor(f)
@@ -2662,8 +2679,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Rotate the Gebäudeview to `toDeg`. Re-derives the footprint view and re-glues every
   // floor-stack annotation (x/y, freehand pts, team trails) so they stay on the same
   // real-world spot — see lib/footprint · remapPoint — and the VIEW with them (the pan at the
-  // end). The single commit path for every door: the compass chip's popover, the rail footer's,
-  // the slider and the two named-angle chips inside them.
+  // end). The single commit path: the north dial's popover, its slider and the two named-angle
+  // chips inside it.
   const reorientTo = (toDeg: number) => {
     if (!building || !orientSrc || !onReorient || readOnly || !sW || !sH) return
     const fromDeg = viewAngle
@@ -2717,7 +2734,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (anchor) centerOnPoint(anchor.x, anchor.y, anchor.floor)
   }
   // ── rotation popover (30.08., replaces the A8 dial drag) ── a hidden drag on a 44px dial was
-  // «hard to control»; the compass (dial AND rail button) now opens a small popover with a
+  // «hard to control»; the north dial now opens a small popover with a
   // degree SLIDER instead. Within ~5° of the two meaningful angles — north-up and the long
   // axis — the slider snaps, live in the preview (shownAngle) so the catch is visible before
   // release; the two named angles are also one-tap chips.
@@ -2975,7 +2992,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 const top = seam === 0 ? -(count - order) * FOLDED_H       // above the stack, in order
                   : seam >= N ? sH + order * FOLDED_H                      // below it
                   : (seam / N) * sH - FOLDED_H / 2 + order * FOLDED_H      // straddling the seam
-                const name = building.floorNames?.[String(f)] ?? floorLabel(f)
+                const name = storeyName(f)
                 // ⚠️ the WHOLE strip is the button, and it says so by name: on a narrow tile the
                 // «einblenden» word and the eye on the headers above are both dropped (09-whiteboard.css),
                 // so this label is all that is left to announce what tapping the row does.
@@ -2983,7 +3000,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   <button key={`folded:${f}`} type="button" className="wb-floor-folded" style={{ top, width: sW, height: FOLDED_H }}
                     title={`${name} ${appConfig.copy.whiteboard.floorShow}`} aria-label={`${name} ${appConfig.copy.whiteboard.floorShow}`}
                     onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleFloor(f)}>
-                    <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>
+                    {/* the same words as the drawn storey's label (K5): the chip only for a custom name */}
+                    {customStorey(f) && <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>}
                     <span className="wb-floor-name">{name}</span>
                     <span className="wb-floor-folded-state">{appConfig.copy.whiteboard.floorHidden}</span>
                     <span className="wb-floor-folded-cta"><Icon id="eyeoff" />{appConfig.copy.whiteboard.floorShow}</span>
@@ -2991,32 +3009,47 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 )
               })}
               {floorsTTB.map((f, idx) => (
-                <div key={f} className="wb-floor" style={{ top: (idx / N) * sH, height: sH / N, width: sW }}>
-                  <div className="wb-floor-label">
-                    {/* mock B (14.09.2026): the signed index as the SAME chip the Karte badges a storey
-                        with – recognition, not reading – then the name; a custom name («Hauptebene»)
-                        never hides the order, and level 0 is the blue one */}
-                    <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>
-                    <span className="wb-floor-name">{building.floorNames?.[String(f)] ?? floorLabel(f)}</span>
-                    {/* fold this storey away – a way of LOOKING, so it stands on every surface,
-                        read-only ones included, and never asks (the strip it leaves is the way back) */}
-                    {floorsTTB.length > 1 && (
-                      <button className="wb-floor-eye" title={appConfig.copy.whiteboard.floorHide} aria-label={appConfig.copy.whiteboard.floorHide}
-                        onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleFloor(f)}><Icon id="eye" /></button>
-                    )}
-                  </div>
-                  {/* «Geschoss entfernen» — NOT in the label any more (3am test r2, 25.09.2026): an
-                      18px ✕ right beside the fold eye, one tap took a storey away for everybody. It
-                      stands alone in the tile's opposite corner now, a full --tap square, so a press
-                      meant for the name or the eye can never land on it; the act is still
-                      confirm-with-undo (IncidentWorkspace · onRemoveFloor). Its Verlauf row and
-                      the «entfernt» wording come with PR #226 (whiteboard.floorRemovedLog). */}
-                  {f !== 0 && !readOnly && !building.pack && !floorPack?.tiles[f] && (
-                    <button className="wb-floor-x"
-                      title={`${appConfig.copy.whiteboard.removeFloor}: ${building.floorNames?.[String(f)] ?? floorLabel(f)}`}
-                      aria-label={`${appConfig.copy.whiteboard.removeFloor}: ${building.floorNames?.[String(f)] ?? floorLabel(f)}`}
-                      onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFloor(f)}><Icon id="trash" /></button>
-                  )}
+                <div key={f} className={`wb-floor${idx === 0 && !readOnly && !building.pack ? ' wb-floor-under-add' : ''}`} style={{ top: (idx / N) * sH, height: sH / N, width: sW }}>
+                  {(() => {
+                    // Sweep K5 (29.09.2026): the storey's acts live in its LABEL. A tap on «4. OG»
+                    // opens «Ausblenden · Geschoss entfernen»; the eye and the red bin that stood on
+                    // every tile at rest (four at once on a tablet, half a phone tile each) are gone
+                    // from the canvas — delete is the rarest act here and was the loudest shape.
+                    // «Ausblenden» is a way of LOOKING (device-local, never asks, the folded strip
+                    // is the way back), so it is offered on read-only surfaces too; «Geschoss
+                    // entfernen» is still the owner's confirm-with-undo (IncidentWorkspace ·
+                    // onRemoveFloor), only its door moved.
+                    const name = storeyName(f)
+                    const W = appConfig.copy.whiteboard
+                    const canHide = floorsTTB.length > 1
+                    const canRemove = f !== 0 && !readOnly && !building.pack && !floorPack?.tiles[f]
+                    const words = <>
+                      {/* the word only («4. OG», «EG»): the signed chip said the same thing again.
+                          It comes back only when a custom name («Hauptebene») hides the order. */}
+                      {customStorey(f) && <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>}
+                      <span className="wb-floor-name">{name}</span>
+                    </>
+                    if (!canHide && !canRemove) return <div className="wb-floor-label">{words}</div>
+                    return (
+                      <Menu
+                        popupClassName="de-menu-pop"
+                        itemClassName={() => 'de-menu-item'}
+                        align="start"
+                        trigger={
+                          <button type="button" className="wb-floor-label wb-floor-menu"
+                            title={canRemove ? fillTemplate(W.floorMenu, { name }) : `${name}: ${W.floorHide}`}
+                            aria-label={canRemove ? fillTemplate(W.floorMenu, { name }) : `${name}: ${W.floorHide}`}
+                            onPointerDown={(e) => e.stopPropagation()}>
+                            {words}<Icon id="chevron-down" />
+                          </button>
+                        }
+                        items={[
+                          ...(canHide ? [{ label: <><Icon id="eyeoff" /><span>{W.floorHideShort}</span></>, onClick: () => toggleFloor(f) }] : []),
+                          ...(canRemove ? [{ label: <><Icon id="trash" /><span>{W.removeFloor}</span></>, onClick: () => removeFloor(f), danger: true }] : []),
+                        ]}
+                      />
+                    )
+                  })()}
                   {/* (the north dial used to be drawn on this tile, top-right. It now floats in
                       the viewport's corner — see <PlanCompass> below the board: inside the tile
                       it panned and zoomed away with the paper, taking the rotation control with
@@ -3894,8 +3927,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
           {/* the Gebäude's north dial — fixed in the viewport's top-right corner, NOT on the
               paper (PlanCompass). It reads whenever a footprint stack is on screen; where the
-              building was auto-rotated and the surface is editable it is also the one door to
-              turning it — the same popover the rail footer's compass opens, two doors, one room.
+              building was auto-rotated and the surface is editable it is also THE door to
+              turning it (the rail's compass tile went 29.09.2026, sweep K6 — two doors, one room).
               Rendered AFTER the floating zoom so the chip can step below it (module CSS). */}
           {stack && fpView && (
             <PlanCompass deg={northDeg ?? shownAngle} northUnknown={northDeg == null}
@@ -3997,27 +4030,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   matters. */}
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= maxScale} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
-              {/* Gebäude rotation — only on a floor-stack that was auto-rotated. The SAME
-                  popover the north dial opens (30.08.): slider + named-angle chips; two doors,
-                  one room, one visible control instead of a hidden drag. */}
-              {/* not under the lock: `reorientTo` refuses a locked surface, so the slider would
-                  preview a turn and snap back on release (the north dial below already gates) */}
-              {canOrient && !readOnly && (
-                <>
-                  <div className="vrail-sep vrail-sep-foot" />
-                  <Popover
-                    ariaLabel={appConfig.copy.whiteboard.orientMenuTitle}
-                    popupClassName="wb-orient-popup"
-                    side="left" align="end" zIndex={30}
-                    trigger={
-                      <button className="vrail-nbtn"
-                        title={appConfig.copy.whiteboard.orientMenuTitle}
-                        aria-label={appConfig.copy.whiteboard.orientMenuTitle}
-                      ><span className="vrail-glyph"><Icon id="compass" /></span><span className="vrail-label">{appConfig.copy.whiteboard.orientMenuTitle}</span></button>
-                    }
-                  >{orientControls}</Popover>
-                </>
-              )}
+              {/* (no «Gebäude drehen» tile here any more — 29.09.2026, sweep K6: the north dial
+                  (PlanCompass) is the ONE door to the Drehung on every device, and it also SHOWS
+                  the angle. The rail's compass tile opened the same popover a second way and
+                  brought a second foot hairline with it.) */}
             </>
           }
         />
@@ -4455,7 +4471,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           «ungemessen» / amber rules above), and a locked device reads the plan too. Disabled in
           the `.wb-object:disabled` recipe — not greyed. An Einsatz-Link viewer (linkViewer) gets
           neither: the chips are the origin's instruments. */}
-      {(!readOnly || slimRail) && !osm && !blank && !linkViewer && (
+      {(!readOnly || slimRail) && !osm && !blank && !linkViewer && !scaleWaitsForLink && (
         scaleAuto
           /* Still a reading, not a second calibration path – but a TAPPABLE one (29.08.): the
              hover title never fires on the field iPad, so the chip explains itself the same
@@ -4501,7 +4517,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           A locked session sees the linked reading as a read-out (tone intact, no tap — see the
           Maßstab chip above); a plan with no reference offers the verb, to editors only. An
           Einsatz-Link viewer sees neither. */}
-      {canGeoref && (!readOnly || georefState.kind === 'linked') && !linkViewer && (
+      {georefChipShown && (
         <button
           className={`wb-scale-chip wb-lamped ${georefState.kind === 'linked' ? (georefState.warn ? 'wb-georef-warn' : 'wb-georef-ok') : ''} ${georefQuality ? 'arm' : ''}`}
           title={readOnly ? undefined
@@ -4521,7 +4537,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             else beginGeoref()
           }}
         >
-          <Icon id="locate" />
+          {/* the chain (29.09.2026, sweep K14): the locate crosshair is «Mein Standort», and the
+              cross beside it on the bar is Einpassen — a link is a link */}
+          <Icon id="link" />
           {/* ⚠️ «Verknüpft», and nothing after it. The chip used to carry the reading too —
               «Verknüpft · aus 2 Punkten», «Verknüpft · ⌀ 10.8 m» — which is a sentence in a row
               of three-word pills, and it put the one number that needs context (a residual means

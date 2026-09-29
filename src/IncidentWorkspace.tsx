@@ -47,6 +47,7 @@ import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from '.
 import { trackPrintJob } from './lib/printJobToast'
 import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
+import { connectedLineLabel } from './lib/connectedLines'
 import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { cartoRasterTiles } from './lib/carto'
@@ -5963,8 +5964,6 @@ export function IncidentWorkspace({
               onArm={ggArm}
               onPlace={ggPlace}
               onToKarte={ggTakeOver}
-              // a complete card is gone by itself and needs no flag
-              onHide={() => setGgMode('hidden', !ggProgress.complete)}
               // the head's Einsatzart chip opens the Einsatzdaten — the one place the Einsatzart
               // is set — for whoever may correct them (the ReviewBanner's «Bearbeiten» door)
               onEinsatzart={canEditMeta ? onEditMeta : undefined}
@@ -6209,7 +6208,14 @@ export function IncidentWorkspace({
               },
             }
             : undefined}
-          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({ id: d.id, label: lineLabel(d) }))}
+          // each row says what tells the lines apart — «Linie · 42 m → Hydrant H-142» (K11)
+          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({
+            id: d.id,
+            label: connectedLineLabel(d, selected.id, (id) => {
+              const e = entities.find((x) => x.id === id)
+              return e ? e.label || (e.symbol ? formatSymbolName(e.symbol) : undefined) : undefined
+            }),
+          }))}
           onFocusLine={focusDrawing}
         />
       )}

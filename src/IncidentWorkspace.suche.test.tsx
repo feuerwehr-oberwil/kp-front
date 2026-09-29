@@ -114,11 +114,13 @@ const layersCard = () => document.querySelector('.layers-card:not([data-suche-ca
 const click = async (el: Element | null) => { act(() => { fireEvent.click(el!) }); await settle() }
 
 describe('the Suche\'s door stands beside Ebenen', () => {
-  it('is the next button after Ebenen in the rail\'s foot, and carries the red count of people still missing', async () => {
+  // no red count on the door since 29.09.2026 (sweep K1): the top bar's chip is the alarm; the
+  // count still names the door for a screen reader
+  it('is the next button after Ebenen in the rail\'s foot, and carries no count badge', async () => {
     await mount({ workspace: { suche: missing } as unknown as Partial<Saved> })
     expect(door()).not.toBeNull()
     expect(ebenen()!.nextElementSibling).toBe(door())
-    expect(door()!.querySelector('.nav-count.nav-vermisst')?.textContent).toBe('1')
+    expect(door()!.querySelector('.nav-count')).toBeNull()
     expect(door()!.getAttribute('aria-label')).toBe(`${C.title} · ${fillTemplate(C.vermisstChip, { n: 1 })}`)
   })
 

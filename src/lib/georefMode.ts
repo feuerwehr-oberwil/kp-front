@@ -728,14 +728,16 @@ export function georefChip(
  *
  *  ⚠️ NOT `georefLamp`. That one reads the ARMED mode's live pairs and is red whenever the mode
  *  is off — which is every moment this pill is on screen. The pill's lamp therefore reads the
- *  chip state the pill already wears: no reference at all is red, a fit nobody has checked is
- *  amber, a measured or station-approved one is green. Same three tones, same meanings, so the
- *  dot on the pill and the Ampel inside the mode can never tell two different stories.
+ *  chip state the pill already wears: no reference YET is grey, a fit nobody has checked is
+ *  amber, a measured or station-approved one is green. ⚠️ Grey, not the Ampel's red (29.09.2026,
+ *  sweep K10): the Ampel is red INSIDE the mode, where no pairs is the thing to fix now; at rest an
+ *  unlinked plan read as a picture is not an emergency, and a red dot on every plan wore the alarm
+ *  colour out before a real alarm needed it.
  *  `armed` never reaches here (the row carries the instrument instead) — it reads as the amber
  *  «in progress» rather than claiming either end.
  */
-export function georefChipTone(chip: GeorefChip): 'red' | 'amber' | 'green' {
-  if (chip.kind === 'unlinked') return 'red'
+export function georefChipTone(chip: GeorefChip): 'grey' | 'amber' | 'green' {
+  if (chip.kind === 'unlinked') return 'grey'
   if (chip.kind === 'armed') return 'amber'
   return chip.warn ? 'amber' : 'green'
 }

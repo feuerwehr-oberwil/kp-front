@@ -244,7 +244,8 @@ describe('«ausblenden» is remembered on this device, per Einsatz', () => {
   it('survives a reload; the rail entry brings the card back and clears the flag', async () => {
     const m = meta()
     await mount({ m })
-    act(() => { screen.getByRole('button', { name: C.hideAria }).click() })
+    // the rail tile is the card's one toggle (no «ausblenden» on the card since 29.09.2026)
+    act(() => { railEntry()!.click() })
     expect(card()).toBeNull()
     cleanup()
     await mount({ m })

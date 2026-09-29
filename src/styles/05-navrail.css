@@ -150,14 +150,13 @@
    openCount). */
 /* ONE count badge (28.09.2026): 16px tall, min 16 wide, 11/800, --r-xs, 0 4px — and the fill is
    the meaning, never the station --accent (a station may have set it to anything; in Oberwil it
-   is alarm red). A plain count is INK; .nav-open amber, .nav-vermisst red below. The 2px ring
+   is alarm red). A plain count is INK; .nav-open amber below. The 2px ring
    eats 4px of the 16, hence line-height 12px. */
 .nav-live.nav-count { top: 2px; right: 2px; width: auto; min-width: 16px; height: 16px; padding: 0 4px;
   box-sizing: border-box; border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
   font: 800 11px var(--body); line-height: 12px; text-align: center; }
-/* the Suche's count (on its tool-rail door, components/suche · SucheToolButton) is the people still
-   MISSING — semantic red, never the station accent (which a station may have set to anything) */
-.nav-live.nav-count.nav-vermisst { background: var(--red); color: var(--on-fill); }
+/* (no red .nav-vermisst any more — 29.09.2026, sweep K1: the Suche's door carries no count; the
+   top bar's chip is the one alarm for the people still missing) */
 /* …and the Rapport's «noch offen» is the chip's AMBER (13-incident · .rp-state.warn): a warning,
    not an alarm (AGENTS.md · colour) */
 .nav-live.nav-count.nav-open { background: var(--amber); color: var(--on-fill); }
