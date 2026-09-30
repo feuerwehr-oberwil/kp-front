@@ -143,6 +143,8 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cl-runner-head[data-fit-wrap] { flex-wrap: wrap; }
 .cl-runner-head[data-fit-wrap] > .cl-runner-titles { flex-basis: 100%; }
+/* the subtitle's last fold takes the whole line, not just its words (ChecklistRunner, 30.09.2026) */
+.cl-runner-titles p[data-folded] { display: none; }
 .cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .cl-overall .cl-bar { width: 96px; flex: none; }
 .cl-overall-num { font-family: var(--mono); font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1; white-space: nowrap; }
@@ -380,7 +382,6 @@
   .cl-main { padding: 14px 14px; padding-bottom: calc(14px + var(--fab-safe, 0px)); }
   /* (the runner head is the page head's one row — its paddings are the phone tokens) */
   .cl-runner-head { margin-bottom: 14px; }
-  .cl-runner-titles p { font-size: 12px; }
   /* ONE level (owner-r2-5, 27.09.2026: «drop the multiple nested cards»). The page was a card
      (the shell) holding a white chooser row, holding a white document card with a red top edge,
      a filled «BRAND» pill and the title the chooser row had just shown — three surfaces deep
@@ -398,11 +399,13 @@
   .cl-ref-h { margin: 18px 0 8px; padding-top: 14px; border-top: 1px solid var(--glass-edge);
     font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
   .cl-ref-h:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
-  /* the runner the same way: its h2 repeated the chooser, so the head is ONE row — the subtitle
-     (cut where the progress begins) and the number, the bar and «0/8 erledigt» beside it */
-  .cl-runner-titles h2 { display: none; }
-  .cl-runner-titles p { margin: 0; }
-  .cl-runner-titles:not(:has(p)) { display: none; }
-  .cl-overall .cl-bar { width: 72px; }
+  /* the runner the same way: its h2 repeated the chooser, so the head is ONE row — and that row
+     is the list's PROGRESS and nothing else: the number, the bar across the room, «0/8 erledigt».
+     (30.09.2026, owner on «Aktions-Checkliste Fü… 0%»: «what is this». The subtitle stood here,
+     cut to a word and a half where the progress began, and read as a row with no name; the
+     chooser right above already names the list.) */
+  .cl-runner-titles { display: none; }
+  .cl-overall { flex: 1 1 auto; margin-left: 0; }
+  .cl-overall .cl-bar { flex: 1 1 auto; width: auto; }
   .cl-phase-titles h3 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 }
