@@ -1905,7 +1905,9 @@ function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
  *  «3 d 9 h» in the clock's mono spent a full character on every space and every unit, the widest
  *  thing on the card's head after the name. The digits stay mono; each unit is a small letter in
  *  the body face hard against its number, and the groups stand a third of an em apart — «3d 9h»,
- *  about two thirds the width. Every other clock passes through as it is. */
+ *  about two thirds the width. Every other clock passes through as it is. The card's foot draws its
+ *  day-long Einsatzzeit / «Draussen seit» through here too, so one card never shows both spellings;
+ *  mm:ss and «17:00 min» are untouched. */
 function ClockVal({ val }: { val: string }) {
   const m = /^(\d+) d (\d+) h$/.exec(val)
   if (!m) return <>{val}</>
@@ -2703,7 +2705,8 @@ function TruppCard({
             {sockelLine.length > 0 ? sockelLine.map((it) => (
               <span key={it.key} title={it.title}>
                 {it.labelled && <i>{it.label}</i>}
-                <b className={cx(it.alarm && s.metaAlarm)}>{it.value}</b>
+                {/* the Einsatzzeit / «Draussen seit» past a day in the head's compact «3d 10h» — one card, one spelling */}
+                <b className={cx(it.alarm && s.metaAlarm)}><ClockVal val={it.value} /></b>
               </span>
             )) : <span><i>{az.verlauf}</i></span>}
           </span>
