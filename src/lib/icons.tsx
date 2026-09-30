@@ -82,6 +82,11 @@ export function IconSprite() {
       <symbol id="skip-fwd-15" viewBox="0 0 24 24"><path d="M13 6l6 6-6 6M5 6l6 6-6 6" /></symbol>
       {/* a funnel: the rank quick-filter, where a row of chips costs a phone a whole band */}
       <symbol id="filter" viewBox="0 0 24 24"><path d="M3.5 5h17l-6.5 7.5V20l-4-2.2v-5.3z" /></symbol>
+      {/* «Trupp finden» (29.09.2026, sweep 3 T8): the Trupp tool's own flag inside a finder's
+          reticle — «where is that Trupp». It wore the #search lens, which the Suche's tile wears
+          60px below it on a phone: one glyph, two searches, and a gloved thumb picking the wrong
+          one. Distinct from #locate (a dot, «me») by the flag. Wherever «Trupp finden» appears. */}
+      <symbol id="trupp-find" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 1v2.5M12 20.5V23M1 12h2.5M20.5 12H23" /><path d="M9.5 17V7M9.5 7.5h6.5l-1.8 2.4 1.8 2.4H9.5" /></symbol>
       <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M16 16l5 5" /></symbol>
       <symbol id="close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></symbol>
       <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5" /><circle cx="12" cy="7.7" r=".5" /></symbol>

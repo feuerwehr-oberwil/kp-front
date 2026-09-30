@@ -45,9 +45,8 @@ export const de = {
   // Deliberately the same shape as «Welcher Trupp?»: a short list you tap, no surface of its own.
   truppFinder: {
     title: 'Trupp finden',
+    // «oder Name»: the list searches the people in a Trupp too — the foot said so a second time until 29.09.2026
     placeholder: 'Trupp oder Name …',
-    // …because the list searches the people in a Trupp too, not just its name
-    hint: 'Sucht auch nach Namen im Trupp.',
     noMatches: 'Kein Trupp gefunden',
     // shown INSTEAD of the list when nothing is placed anywhere — the honest answer, and it
     // says where a Trupp comes from rather than leaving an empty box
@@ -2427,14 +2426,13 @@ export const de = {
       + 'und im Rapport.',
     kindOffConfirm: 'Überwachung beenden',
     logExit: 'Trupp {name}: Austritt',
-    /* ── Handy-Tafel und Druckwahl (24.09.2026, Übung 23.09. – siehe AtemschutzView · PressureSheet) ── */
+    /* ── Handy-Tafel und Druckwahl (24.09.2026, Übung 23.09. – siehe TruppSheets · PressureSheet; Kopf seit 29.09.2026 = die Frage + «Name · Trupp N») ── */
     logExitBar: 'Trupp {name}: Austritt – Restdruck {bar} bar',
     actPressure: 'Druck',
-    pressureSheetTitle: '{name} · Druck',
-    pressureSheetLast: 'Zuletzt {bar} bar',
+    pressureSheetTitle: 'Druck',
     pressureSheetHint: 'Tippen speichert – zählt als Kontakt.',
-    exitSheetTitle: '{name} · raus',
-    exitSheetHint: 'Restdruck des Trupps (tiefster Wert der Mannschaft)',
+    exitSheetTitle: 'Restdruck',
+    exitSheetHint: 'Tippen meldet raus – tiefster Wert der Mannschaft.',
     exitNoBar: 'Ohne Druck raus',
     phoneSectionIn: 'Drin',
     phoneSectionReady: 'Bereit',

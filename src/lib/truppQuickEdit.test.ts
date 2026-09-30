@@ -67,12 +67,12 @@ describe('the sheets\' choices', () => {
     expect(quickAuftragTypes(trupp).map((a) => a.id)).toEqual(['retten', 'loeschen', 'absuchen', 'sichern', 'erkunden', 'anderes'])
     expect(quickAuftragTypes({ ...trupp, kind: 'einfach' }).map((a) => a.id)).toEqual(['verkehr', 'sanitaet', 'wasser', 'sichern', 'bereitstellung', 'anderes'])
   })
-  it('lists the drawn Leitungen and keeps the Trupp\'s own number in the row when no hose carries it', () => {
+  it('lists the drawn Leitungen and keeps the field\'s own number in the row when no hose carries it', () => {
     const drawn = [{ no: 4, onPlan: false }, { no: 2, onPlan: true, takenBy: 'Meier Anna' }]
-    expect(leitungChoices(trupp, drawn).map((o) => o.no)).toEqual([1, 2, 4])
+    expect(leitungChoices(trupp.lineNo, drawn).map((o) => o.no)).toEqual([1, 2, 4])
     // …once, when it is drawn
-    expect(leitungChoices(trupp, [...drawn, { no: 1, onPlan: false }]).map((o) => o.no)).toEqual([1, 2, 4])
-    expect(leitungChoices({ ...trupp, lineNo: undefined }, drawn).map((o) => o.no)).toEqual([2, 4])
+    expect(leitungChoices(trupp.lineNo, [...drawn, { no: 1, onPlan: false }]).map((o) => o.no)).toEqual([1, 2, 4])
+    expect(leitungChoices(undefined, drawn).map((o) => o.no)).toEqual([2, 4])
   })
 })
 

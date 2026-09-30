@@ -13,6 +13,7 @@ import type { LeitungOption } from '../lib/truppLines'
 import type { Person, Trupp, TruppAuftrag, TruppFields } from '../types'
 import { Segmented } from './Segmented'
 import { ClearableInput } from './ClearableInput'
+import { Stepper } from './Stepper'
 import { TruppTeam } from './TruppTeam'
 import s from './Atemschutz.module.css'
 
@@ -23,10 +24,10 @@ import s from './Atemschutz.module.css'
  * Trupp's name stands under the title so it is always clear whose sheet is open over the dimmed
  * board.
  *
- * The frame is the PressureSheet's — the same `.modal` head with the ✕ — grown a grab bar and the
- * push-down-to-close gesture, because on a phone these ARE bottom sheets (lib/overlays · Overlay,
- * `.miniSheet` in Atemschutz.module.css); on a tablet the same frame is a centred card, like the
- * pressure picker. ✕, backdrop and the swipe are «not now»: a mini sheet holds one to three
+ * The frame is the `.modal` head with the ✕, grown a grab bar and the push-down-to-close gesture,
+ * because on a phone these ARE bottom sheets (lib/overlays · Overlay, `.miniSheet` in
+ * Atemschutz.module.css); on a tablet the same frame is a centred card. The pressure picker was
+ * the one sheet built otherwise (a centred card at every width) and joined them on 29.09.2026. ✕, backdrop and the swipe are «not now»: a mini sheet holds one to three
  * answers, and re-typing a Ziel costs less than a draft store for it would (the big form keeps
  * drafts — TruppForm · draftKeep — because it holds a whole crew).
  *
@@ -35,7 +36,10 @@ import s from './Atemschutz.module.css'
  * undo step, same Rapport as the big form's save.
  */
 
-/** the title line's second row: «Hirter Stephan · Trupp 2» — whose sheet this is */
+/** the title line's second row: «Hirter Stephan · Trupp 2» — whose sheet this is. ONE head for
+ *  all four sheets (29.09.2026, sweep 3 T5): the title is the QUESTION (Druck · Kanal · Auftrag ·
+ *  Mannschaft), this line is whose — the Trupp sheet said «Trupp 3» over «Keller Laura» and the
+ *  Druck sheet «Keller Laura · Druck» on one line, three ways to say whose sheet is open. */
 function truppSheetSub(t: Trupp): string {
   const az = appConfig.copy.atemschutz
   return t.no != null ? `${t.name} · ${fillTemplate(az.quickTrupp, { no: t.no })}` : t.name
@@ -55,6 +59,63 @@ function MiniSheet({ title, sub, ariaLabel, onClose, children, footer, className
       <div className={s.miniBody}>{children}</div>
       {footer}
     </Overlay>
+  )
+}
+
+/**
+ * The ONE pressure picker (24.09.2026, Übung 23.09.): three columns — 300…220, 200…120, 100…20 —
+ * in steps of 20, and a tap SAVES. Used for a Druckmeldung from the phone (row and card) and for
+ * the Restdruck at «Raus melden» on every width.
+ *
+ * ⚠️ Why a grid and not the ± stepper the card has: a Druckmeldung arrives over the radio as one
+ * number while the other hand holds the handset. A stepper is five to ten taps and a «Bestätigen»;
+ * this is one. 20-bar steps because nobody reads a gauge closer than that under a mask («nobody
+ * counts that exact», maintainer, 24.09.) — so there is deliberately no «genau…» way out.
+ * The column a value sits in is its meaning at a glance: full · half · at or below the line (red).
+ * The last known value is outlined, so the eye starts where the Trupp was — which is why the hint
+ * no longer says «Zuletzt 240 bar» too (29.09.2026).
+ * A MiniSheet since 29.09.2026 (sweep 3 T5): it was a centred card with no grab bar, the one
+ * sheet of the four built differently; now it rises from the bottom on a phone like Kanal,
+ * Auftrag and Trupp, with the same head, and is the same centred card as they are on a tablet.
+ */
+const PRESSURE_GRID: number[][] = [[300, 280, 260, 240, 220], [200, 180, 160, 140, 120], [100, 80, 60, 40, 20]]
+
+export function PressureSheet({ t, title, hint, last, alarmBar, onPick, onClose, footer }: {
+  /** whose reading — the head's second line (truppSheetSub) */
+  t: Trupp
+  /** the question: «Druck», or «Restdruck» at «Raus melden» */
+  title: string
+  hint?: string
+  /** the Trupp's current bar — its nearest grid value is outlined */
+  last: number
+  /** this Trupp's turn-back line (lib/atemschutz · alarmBarFor) — values at or below it are red */
+  alarmBar: number
+  onPick: (bar: number) => void
+  onClose: () => void
+  /** a second way out that is not a number (the exit's «Ohne Druck raus») */
+  footer?: { label: string; onClick: () => void }
+}) {
+  // DOWN to the grid, never up: a Trupp last read at 250 has not got 260 (clamped to the grid's ends)
+  const near = Math.min(300, Math.max(20, Math.floor(last / 20) * 20))
+  return (
+    <MiniSheet title={title} sub={truppSheetSub(t)} ariaLabel={`${title} · ${t.name}`} onClose={onClose}
+      footer={footer && <button type="button" className={s.pressureSheetFooter} onClick={footer.onClick}>{footer.label}</button>}>
+      <div className={s.pressureGrid}>
+        {PRESSURE_GRID.map((col, i) => (
+          <div key={i} className={s.pressureCol}>
+            {col.map((bar) => (
+              <button key={bar} type="button"
+                className={cx(s.pressureCell, bar <= alarmBar && s.pressureCellLow, bar === near && s.pressureCellLast)}
+                onClick={() => onPick(bar)}>
+                {bar}
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+      {/* under the grid, like the Kanal pad's hint: what a tap does */}
+      {hint && <p className={s.miniHint}>{hint}</p>}
+    </MiniSheet>
   )
 }
 
@@ -115,7 +176,7 @@ export function KanalSheet({ t, onSave, onClose }: {
 
 /**
  * «Auftrag» — the six tiles of the Trupp's Art (the sheet's title is their label), «Ziel» over a
- * text field with the Suche's places as quick-picks under it, «Leitung» over «keine · Ltg 1 · …»
+ * text field with the Suche's places as quick-picks under it, «Leitung» over «keine · Ltg 1 · … · Nr. …»
  * from the hoses actually drawn, and one Speichern. The one-Leitung-one-Trupp question is the
  * board's (AtemschutzView · confirmLineTake, the same helper the form's save goes through), so
  * `onSave` resolves false when the operator said no and the sheet simply stays open.
@@ -134,7 +195,6 @@ export function AuftragSheet({ t, leitungOptions, lite = false, onSave, onClose 
   const [ziel, setZiel] = useState(t.ziel ?? '')
   const [lineNo, setLineNo] = useState<number | null>(t.lineNo ?? null)
   const types = quickAuftragTypes(t)
-  const lines = leitungChoices(t, leitungOptions)
   const save = async () => {
     if (await onSave(auftragSheetFields(t, { auftrag, ziel, lineNo }))) onClose()
   }
@@ -155,14 +215,7 @@ export function AuftragSheet({ t, leitungOptions, lite = false, onSave, onClose 
         <ClearableInput value={ziel} placeholder={az.zielPlaceholder} maxLength={60} clearLabel={az.zielClear}
           onChange={(v) => setZiel(stripUnprintable(v))} />
       </label>
-      {/* the Suche's places as quick-picks — for EVERY Auftrag here (the form shows them under
-          «Absuchen» only): a Löschtrupp sent to «2. OG» picks the storey the Suche already named */}
-      {!lite && (
-        <div className={s.field}>
-          <span>{az.editFieldLabels.lineNo}</span>
-          <LeitungChips value={lineNo} options={lines} onChange={setLineNo} />
-        </div>
-      )}
+      {!lite && <LeitungField label={az.editFieldLabels.lineNo} value={lineNo} options={leitungOptions} onChange={setLineNo} />}
     </MiniSheet>
   )
 }
@@ -203,6 +256,46 @@ export function LeitungChips({ value, options, onChange, ariaLabel, children }: 
 }
 
 /**
+ * «Leitung»: the chips from what is drawn, and «Nr. …» for a number nobody has drawn yet — the
+ * hose may be laid before anybody draws it. ONE field for the form and the Auftrag sheet
+ * (29.09.2026, sweep 3 T12: the sheet had no «Nr. …», so a Leitung set in one door could not be
+ * set in the other). «Nr. …» is a door, not a value: it opens the stepper and steps aside (a filled
+ * «Nr. …» beside a filled «keine» read as two answers), and the number typed then stands as its
+ * own chip. Open by itself while the value IS such a number (a kept draft, an edit), so the
+ * stepper never hides the number it holds. `children` goes under it (the form's legacy note).
+ */
+export function LeitungField({ label, value, options, onChange, children }: {
+  label: string
+  value: number | null
+  /** the Leitungen drawn on either surface (lib/truppLines · leitungOptions) */
+  options: readonly LeitungOption[]
+  onChange: (n: number | null) => void
+  children?: ReactNode
+}) {
+  const az = appConfig.copy.atemschutz
+  const [typing, setTyping] = useState(() => value != null && !options.some((o) => o.no === value))
+  const choices = useMemo(() => leitungChoices(value, options), [value, options])
+  return (
+    <div className={s.field}>
+      <span>{label}</span>
+      <LeitungChips value={value} options={choices} onChange={onChange} ariaLabel={label}>
+        {!typing && (
+          <button type="button" className={s.miniChip} onClick={() => setTyping(true)}>{az.lineTyped}</button>
+        )}
+      </LeitungChips>
+      {typing && (
+        <Stepper
+          value={value} min={1} max={99} placeholder="–"
+          onChange={onChange} onClear={() => onChange(null)} canClear={value != null}
+          ariaLabel={az.lineTyped}
+        />
+      )}
+      {children}
+    </div>
+  )
+}
+
+/**
  * The sentence under a crew that names a person who is in another Trupp — and, where that Trupp
  * has not gone in, the one tap that takes them out of it (lib/truppQuickEdit · teamConflict). ONE
  * row for the big form and the Trupp sheet (26.09.2026): the form used to draw it inline. Two
@@ -234,7 +327,7 @@ export function TeamConflictRow({ conflict, toName, onPoint, onTransfer, classNa
 }
 
 /**
- * «Trupp 2» — «Mannschaft» over the form's own crew picker (TruppTeam: chips with ✕, «Person
+ * «Mannschaft» (the sheet's title since 29.09.2026; it was «Trupp 2») — the form's own crew picker (TruppTeam: chips with ✕, «Person
  * suchen …», the Gruppenführer hint), «Ausrüstung» over the station's toggles, one Speichern. The
  * same record, the same helpers as the form (lib/truppQuickEdit · crewFields / fileGuestSlots /
  * teamConflict); the Gäste typed here reach the Anwesenheit at the save, as the form's do. Only an
@@ -274,17 +367,18 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
     const f = truppSheetFields(t, team, equipment, atemschutzEquipment().map((e) => e.id))
     if (await onSave({ ...f, ...fileGuestSlots(team, onAddGuest) })) onClose()
   }
-  const title = t.no != null ? fillTemplate(az.quickTrupp, { no: t.no }) : t.name
+  // the question, like its three siblings (T5): «Mannschaft», whose under it
+  const title = az.editFieldLabels.crew
   return (
-    <MiniSheet title={title} sub={t.no != null ? t.name : undefined} ariaLabel={`${title} · ${az.editFieldLabels.crew}`} onClose={onClose}
+    <MiniSheet title={title} sub={truppSheetSub(t)} ariaLabel={`${title} · ${t.name}`} onClose={onClose}
       className={s.miniSheetTall}
       footer={(
         <SheetFoot className={s.modalFoot}>
           <button type="button" className={cx('ip-btn primary', !canSave && s.btnBlocked)} aria-disabled={!canSave} onClick={() => void save()}>{az.save}</button>
         </SheetFoot>
       )}>
+      {/* no «Mannschaft» label over the picker: the title says it (as the Auftrag's tiles) */}
       <div ref={teamRef} className={s.field}>
-        <span>{az.editFieldLabels.crew}</span>
         <TruppTeam value={team} onChange={setTeam} phone
           personnel={personnel} legacyRoster={legacyRoster} presentIds={presentIds} stationIds={stationIds}
           assignedIds={assignedIds} rolesById={rolesById} />

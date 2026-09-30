@@ -6,7 +6,6 @@ import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { newId } from '../lib/ids'
 import { Segmented } from './Segmented'
-import { Stepper } from './Stepper'
 import { Menu, Overlay, Popover, SheetFoot, SheetGrab } from '../lib/overlays'
 import { alarmBarFor, currentRunStart, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
@@ -33,7 +32,7 @@ import { truppOrderKey } from '../lib/useTruppActions'
 import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
 import { TruppNo } from './TruppNo'
-import { AuftragSheet, KanalSheet, LeitungChips, TeamConflictRow, TruppSheet } from './TruppSheets'
+import { AuftragSheet, KanalSheet, LeitungField, PressureSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
 import { fileGuestSlots, teamConflict } from '../lib/truppQuickEdit'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
@@ -1713,7 +1712,7 @@ export function AtemschutzView({
         const lv = live.get(t.id)!
         const close = () => setPressureAsk(null)
         return pressureAsk.kind === 'exit' ? (
-          <PressureSheet title={fillTemplate(az.exitSheetTitle, { name: t.name })} hint={az.exitSheetHint}
+          <PressureSheet t={t} title={az.exitSheetTitle} hint={az.exitSheetHint}
             last={lv.currentBar} alarmBar={alarmBarFor(t, atemschutzDoctrine())} onClose={close}
             onPick={(bar) => { freezeOrder(); setTruppStatus(t.id, 'raus', bar); close() }}
             footer={{ label: az.exitNoBar, onClick: () => { freezeOrder(); setTruppStatus(t.id, 'raus'); close() } }} />
@@ -1723,7 +1722,7 @@ export function AtemschutzView({
              promise it does not keep (staging walk-through 25.09.2026). It still counts as a
              Kontakt. An Eingangsdruck set on purpose is never replaced, and then the ordinary
              line stands (lib/atemschutz · earlyEntryCorrection). */
-          <PressureSheet title={fillTemplate(az.pressureSheetTitle, { name: t.name })}
+          <PressureSheet t={t} title={az.pressureSheetTitle}
             hint={earlyEntryCorrection(t, serverNow()) ? fillTemplate(az.pressureSheetFirst, { bar: t.entryPressureBar }) : az.pressureSheetHint}
             last={lv.currentBar} alarmBar={alarmBarFor(t, atemschutzDoctrine())} onClose={close}
             onPick={(bar) => { freezeOrder(); recordPressure(t.id, bar); close() }} />
@@ -1803,60 +1802,8 @@ export function AtemschutzView({
   )
 }
 
-/**
- * The ONE pressure picker (24.09.2026, Übung 23.09.): three columns — 300…220, 200…120, 100…20 —
- * in steps of 20, and a tap SAVES. Used for a Druckmeldung from the phone (row and card) and for
- * the Restdruck at «Raus melden» on every width.
- *
- * ⚠️ Why a grid and not the ± stepper the card has: a Druckmeldung arrives over the radio as one
- * number while the other hand holds the handset. A stepper is five to ten taps and a «Bestätigen»;
- * this is one. 20-bar steps because nobody reads a gauge closer than that under a mask («nobody
- * counts that exact», maintainer, 24.09.) — so there is deliberately no «genau…» way out.
- * The column a value sits in is its meaning at a glance: full · half · at or below the line (red).
- * The last known value is outlined, so the eye starts where the Trupp was. */
 /** re-entry within this many minutes of the Austritt asks «gleiche oder neue Flasche?» */
 const BOTTLE_ASK_MIN = 10
-
-const PRESSURE_GRID: number[][] = [[300, 280, 260, 240, 220], [200, 180, 160, 140, 120], [100, 80, 60, 40, 20]]
-
-function PressureSheet({ title, hint, last, alarmBar, onPick, onClose, footer }: {
-  title: string
-  hint?: string
-  /** the Trupp's current bar — its nearest grid value is outlined */
-  last: number
-  /** this Trupp's turn-back line (lib/atemschutz · alarmBarFor) — values at or below it are red */
-  alarmBar: number
-  onPick: (bar: number) => void
-  onClose: () => void
-  /** a second way out that is not a number (the exit's «Ohne Druck raus») */
-  footer?: { label: string; onClick: () => void }
-}) {
-  const az = appConfig.copy.atemschutz
-  // DOWN to the grid, never up: a Trupp last read at 250 has not got 260 (clamped to the grid's ends)
-  const near = Math.min(300, Math.max(20, Math.floor(last / 20) * 20))
-  return (
-    <Overlay open onClose={onClose} className={cx(s.modal, s.pressureSheet)} ariaLabel={title}>
-      <div className={s.modalHead}><h3>{title}</h3>
-        <button className="ip-x" aria-label={az.cancel} onClick={onClose}><Icon id="close" /></button>
-      </div>
-      {hint && <p className={s.pressureSheetHint}>{hint} · {fillTemplate(az.pressureSheetLast, { bar: last })}</p>}
-      <div className={s.pressureGrid}>
-        {PRESSURE_GRID.map((col, i) => (
-          <div key={i} className={s.pressureCol}>
-            {col.map((bar) => (
-              <button key={bar} type="button"
-                className={cx(s.pressureCell, bar <= alarmBar && s.pressureCellLow, bar === near && s.pressureCellLast)}
-                onClick={() => onPick(bar)}>
-                {bar}
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
-      {footer && <button type="button" className={s.pressureSheetFooter} onClick={footer.onClick}>{footer.label}</button>}
-    </Overlay>
-  )
-}
 
 /** The Sicherungstrupp standing ready, on the phone board (24.09.2026): its own row in its own
  *  place, with the one action it exists for. The whole row opens its card, like every other row.
@@ -3079,17 +3026,6 @@ function TruppForm({
   // were plain state. Only «Abbrechen» and the save drop a draft (`dropDraft`).
   const [lineNo, setLineNo, clearLineNo] = useKeptState<number | null>(`${draftKey}:lineNo`, initial?.lineNo ?? null)
   const legacyLine = initial?.lineNo == null ? initial?.lineNumber?.trim() : undefined
-  // «Nr. …» (27.09.2026): the Leitung is chips from what is drawn (TruppSheets · LeitungChips); a
-  // number nobody has drawn yet is still allowed — the hose may be laid before anybody draws it —
-  // and is typed in the old stepper, revealed by the last chip. Open by itself while the value IS
-  // such a number (a kept draft, an edit), so the stepper never hides the number it holds.
-  const lineDrawn = lineNo == null || leitungOptions.some((o) => o.no === lineNo)
-  const [lineTyping, setLineTyping] = useState(!lineDrawn)
-  const lineChoices = useMemo(() => {
-    const out = [...leitungOptions]
-    if (lineNo != null && !out.some((o) => o.no === lineNo)) out.push({ no: lineNo, onPlan: false })
-    return out.sort((a, b) => a.no - b.no)
-  }, [leitungOptions, lineNo])
   const [funkkanal, setFunkkanal, clearFunkkanal] = useKeptState<number>(`${draftKey}:funkkanal`, initial?.funkkanal ?? defaultFunkkanal)
   // ⚠️ Read, never written (04.09.): the picker is gone from every layout. `null` means
   // «automatic» — the station colour for this Auftrag, else the next free palette colour (see
@@ -3672,29 +3608,12 @@ function TruppForm({
           it is part of what the Trupp is doing, and the Farbe it used to share a block with is
           gone (see `color` in submit). */}
       {!lite && (
-        <div className={cx(s.field, s.lineField)}>
-          <span>{az.lineNoLabel}</span>
-          {/* ONE row of chips (27.09.2026, slim sweep 6): «keine», then the Leitungen that are
-              actually DRAWN («Ltg 1 · Müller H.»), the same chips as the Auftrag sheet — typing a
-              number blind is how the two sides end up disagreeing; the hose usually exists long
-              before anyone registers the Trupp. The stepper survives behind the last chip, «Nr. …»,
-              for a number nobody has drawn yet (the save's takeover confirm applies either way). */}
-          <LeitungChips value={lineNo} options={lineChoices} onChange={setLineNo} ariaLabel={az.lineNoLabel}>
-            {/* a door, not a value: it opens the stepper and steps aside (a filled «Nr. …» beside a
-                filled «keine» read as two answers); the number typed then stands as its own chip */}
-            {!lineTyping && (
-              <button type="button" className={s.miniChip} onClick={() => setLineTyping(true)}>{az.lineTyped}</button>
-            )}
-          </LeitungChips>
-          {lineTyping && (
-            <Stepper
-              value={lineNo} min={1} max={99} placeholder="–"
-              onChange={setLineNo} onClear={() => setLineNo(null)} canClear={lineNo != null}
-              ariaLabel={az.lineTyped}
-            />
-          )}
+        /* ONE field with the Auftrag sheet (TruppSheets · LeitungField, 29.09.2026): «keine», the
+           Leitungen actually DRAWN («Ltg 1 · Müller H.»), and «Nr. …» for a number nobody has drawn
+           yet — typing a number blind is how the two sides end up disagreeing */
+        <LeitungField label={az.lineNoLabel} value={lineNo} options={leitungOptions} onChange={setLineNo}>
           {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
-        </div>
+        </LeitungField>
       )}
     </>
   )

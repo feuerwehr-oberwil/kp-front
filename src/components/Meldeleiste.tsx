@@ -116,10 +116,14 @@ export function Meldeleiste() {
  *  breaks voice control, which is spoken against what is on the screen (WCAG 2.5.3). */
 function MeldungTitle({ m }: { m: Meldung }) {
   if (!m.onOpen) return <span className="ml-title">{m.title}</span>
+  // ⚠️ …and a title whose way in IS the row's filled button (the Atemschutz alarm: «Zum Trupp»
+  // both) stays tappable but loses the underline (29.09.2026, sweep 3 T13): the button already
+  // says «this goes somewhere», and the link look on the loudest words drew one door twice
+  const twin = m.actions?.some((a) => a.primary && a.label === m.onOpen!.label)
   return (
     <button
       type="button"
-      className="ml-open"
+      className={twin ? 'ml-open plain' : 'ml-open'}
       aria-label={`${m.title} · ${m.onOpen.label}`}
       title={m.onOpen.label}
       onClick={m.onOpen.onClick}

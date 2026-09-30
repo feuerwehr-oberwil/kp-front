@@ -51,13 +51,14 @@ export function quickAuftragTypes(t: Trupp): { id: TruppAuftrag; label: string }
 
 /**
  * The Leitung chips: every hose actually DRAWN (lib/truppLines · leitungOptions, a number somebody
- * else is on stays pickable and says so) — plus this Trupp's own stored number when nothing drawn
- * carries it, so the chip that is «on» is always on screen and a Leitung a hose was deleted under
- * can still be let go of. Ascending, one chip per number.
+ * else is on stays pickable and says so) — plus the number the field holds when nothing drawn
+ * carries it (the Trupp's stored one, or one just typed behind «Nr. …»), so the chip that is «on»
+ * is always on screen and a Leitung a hose was deleted under can still be let go of. Ascending,
+ * one chip per number. ONE list for the form and the Auftrag sheet (TruppSheets · LeitungField,
+ * 29.09.2026 — the form had its own copy of this, the sheet had no «Nr. …»).
  */
-export function leitungChoices(t: Trupp, options: readonly LeitungOption[]): LeitungOption[] {
+export function leitungChoices(own: number | null | undefined, options: readonly LeitungOption[]): LeitungOption[] {
   const out = [...options]
-  const own = t.lineNo
   if (own != null && Number.isFinite(own) && !out.some((o) => o.no === own)) out.push({ no: own, onPlan: false })
   return out.sort((a, b) => a.no - b.no)
 }
