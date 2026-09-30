@@ -1,4 +1,5 @@
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from './format'
 import type { Trupp, TruppAuftrag, TruppFields } from '../types'
 import { isAtemschutzTrupp, truppFieldsOf, type TruppTransferState } from './atemschutz'
 import type { LeitungOption } from './truppLines'
@@ -135,4 +136,14 @@ export function crewFields(team: readonly CrewSlot[]): Pick<TruppFields, 'name' 
 export function truppSheetFields(t: Trupp, team: readonly CrewSlot[], equipment: readonly string[], ownIds: readonly string[]): TruppFields {
   const eq = ownIds.filter((id) => equipment.includes(id))
   return truppFieldsOf(t, { ...crewFields(team), equipment: eq.length ? eq : undefined })
+}
+
+/** the title line's second row: «Hirter Stephan · Trupp 2» — whose sheet this is. ONE head for
+ *  all four sheets (29.09.2026, sweep 3 T5): the title is the QUESTION (Druck · Kanal · Auftrag ·
+ *  Mannschaft), this line is whose — the Trupp sheet said «Trupp 3» over «Keller Laura» and the
+ *  Druck sheet «Keller Laura · Druck» on one line, three ways to say whose sheet is open. Here since
+ *  30.09.2026: the Trupp form's number sheets say whose too (AtemschutzView · TruppForm). */
+export function truppSheetSub(t: Trupp): string {
+  const az = appConfig.copy.atemschutz
+  return t.no != null ? `${t.name} · ${fillTemplate(az.quickTrupp, { no: t.no })}` : t.name
 }

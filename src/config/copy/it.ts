@@ -1127,9 +1127,6 @@ export const it: Localizable<Copy> = {
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
      *  wizard; «Incarico e linea» è una sola sezione (vedi de.ts). */
     stackPressure: '{n} bar',
-    stackFunk: 'Canale {n}',
-    luftDefaults: 'Standard: {v}',
-    luftChange: 'Modifica',
     // no longer asked in the Trupp form (04.09.) – still offered on the Lage/plan and in admin
     colorAuto: 'Automatico',
     // stato sync/orologio nell'intestazione della tavola (vedi de.ts)
@@ -1204,8 +1201,8 @@ export const it: Localizable<Copy> = {
     entryAskTitle: 'Far entrare la squadra?',
     entryAskMsg: 'La squadra {name} è annunciata ma non è ancora entrata. Farla entrare ora? Il cronometro dei contatti parte subito.',
     entryAskCancel: 'Non ancora',
-    pressureLabel: 'Pressione d’ingresso (bar)',
-    newPressureLabel: 'Nuova pressione d’ingresso (bar)',
+    pressureLabel: 'Pressione d’ingresso',
+    newPressureLabel: 'Nuova pressione d’ingresso',
     funkkanalSection: 'Canale radio',
     funkkanalDown: 'Canale radio giù',
     funkkanalUp: 'Canale radio su',
@@ -1278,6 +1275,7 @@ export const it: Localizable<Copy> = {
     tileExit: 'Fuori',
     quickTrupp: 'Squadra {no}',
     kanalSheetHint: 'Toccare sceglie e chiude.',
+    formPickTake: 'Applica',
     lineNone: 'nessuna',
     lineChip: 'Cond. {n}',
     auftragAdd: '+ Compito',
@@ -1412,7 +1410,7 @@ export const it: Localizable<Copy> = {
     moveBack: 'Sposta su',
     moveForward: 'Sposta giù',
     truppFallbackName: 'Squadra',
-    editPressureLabel: 'Correggi la pressione d\'ingresso (bar)',
+    editPressureLabel: 'Correggi la pressione d\'ingresso',
     editPressureHint: 'Corregge la pressione d\'ingresso registrata – non conta come contatto radio.',
     officersOnly: 'solo ufficiali',
     assignedFallbackName: 'Questa persona',
