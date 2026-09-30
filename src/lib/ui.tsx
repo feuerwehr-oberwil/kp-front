@@ -5,6 +5,7 @@ import { ConfirmCard, type ConfirmSpec } from './overlays/ConfirmCard'
 import { Overlay } from './overlays'
 import { safeHref } from './mediaUrl'
 import { watchRecords, type RecordKey } from './undoKeys'
+import { useToastLane } from './toastLane'
 
 // Lightweight app-wide toast + confirm host. Replaces native alert()/confirm()
 // so transient feedback and destructive confirmations stay inside the glass
@@ -415,6 +416,9 @@ function ToastRow({ t }: { t: Toast }) {
 
 export function Overlays() {
   useForceUpdate()
+  // the phone's lane stands ON an open bottom sheet instead of flipping to the top (lib/toastLane)
+  const toasterRef = useRef<HTMLDivElement>(null)
+  useToastLane(toasterRef, toasts.length > 0)
   const req = confirmReq
   const photo = photoReq
   const closePhoto = () => { photoReq = null; emit() }
@@ -434,7 +438,7 @@ export function Overlays() {
           scroll port at that end for free. Plain `column` with the natural order looks identical
           until the stack overflows its lane, and then starts the scroll at the OLDEST toast, so a
           burst hides the pill carrying «Rückgängig» below the fold with nothing saying so. */}
-      <div className="toaster" aria-live="polite" aria-atomic="false">
+      <div className="toaster" ref={toasterRef} aria-live="polite" aria-atomic="false">
         {[...toasts].reverse().map((t) => <ToastRow key={t.id} t={t} />)}
       </div>
 

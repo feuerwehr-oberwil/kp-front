@@ -531,10 +531,20 @@
      ⚠️ …and the Rapport's docked tab strip is the third BECAUSE it sits in the bar's own lane
      (19.09.2026): the bar riding back down while the strip 16px above it slid away with the pan
      would tear apart the one piece of chrome they are meant to read as.
-     ⚠️ NOT the FAB: it is a floating action, and those ride above a keyboard in native apps
-     too. (It also used to carry a transform of its own, and a second `transform` on the same
-     element replaces rather than composes.) */
+     ⚠️ NOT the FAB: it is not translated (it used to carry a transform of its own, and a second
+     `transform` on the same element replaces rather than composes) — with a keyboard up it is
+     hidden instead (`:root[data-kb]`, below, 30.09.2026). */
   .topbar, .navrail, .rp-tabs { transform: translateY(var(--vv-pan, 0px)); }
+  /* ⚠️ …and the strip ABOVE the pinned top bar is the bar's too (30.09.2026, staging phone pass:
+     «Alarmmeldung Nicht erfasst» peeked over the bar with the Kurzbericht focused). The page
+     stays in the layout viewport while iOS pans — it is the box holding the caret (above) — so it
+     slides up UNDER the bar, and the status-bar band plus the bar's 10px offset showed it passing
+     through. The bar carries a screen-wide backdrop up to the screen's edge, as tall as the pan
+     has gone (0 without one), so what slides under the bar disappears under it, as under a native
+     navigation bar. Its own 1px edge stays visible (+1px). */
+  .topbar::before { content: ''; position: absolute; pointer-events: none;
+    bottom: calc(100% + 1px); left: calc(-1px - max(8px, env(safe-area-inset-left))); right: calc(-1px - max(8px, env(safe-area-inset-right)));
+    height: min(var(--vv-pan, 0px), calc(10px + env(safe-area-inset-top))); background: var(--app-bg); }
 
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
      horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·
@@ -704,16 +714,23 @@
      the keyboard up, 8px + the home-indicator inset stood open between it and the keys. */
   .journal-drawer { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-width: none;
     max-height: calc(100dvh - 70px - env(safe-area-inset-top));
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    padding-bottom: 0;
     border-radius: var(--r-hero) var(--r-hero) 0 0; animation: sheetUp .22s var(--ease); }
   /* ⚠️ Keyboard up (the Verlauf search, 15.09.2026): the Overlay lifts this bottom-anchored
      drawer by the keyboard's height (keyboardLift · marginBottom), but the cap above is the whole
      screen – so a full drawer rode up with its HEAD, the row holding the search field, above the
      top of the screen, and the operator typed into a field they could not see. The cap gives the
      keyboard its share, the same way the incident sheet's `.is-kb` does (13-incident.css). */
-  /* …and the keyboard covers the home indicator, so its inset is not paid twice */
-  .journal-drawer.is-kb { padding-bottom: 10px;
-    max-height: calc(100dvh - 70px - env(safe-area-inset-top) - var(--kb-inset, 0px)); }
+  .journal-drawer.is-kb { max-height: calc(100dvh - 70px - env(safe-area-inset-top) - var(--kb-inset, 0px)); }
+  /* ⚠️ …and that bottom inset is the LOG's, not the drawer's (30.09.2026, staging phone pass:
+     «there is a gap at the bottom where things don't scroll down below»). As the drawer's own
+     padding it was a dead band — 10px + the home indicator, ~44px on an iPhone — under the
+     scroller, so every row was cut off at the band's top edge, the last one included. Paid by the
+     scroller's last row instead (AGENTS · «the bottom inset paid by its last row»), rows scroll
+     on down to the sheet's edge and the last one still comes to rest above the home indicator. */
+  .journal-drawer > .history-list { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  /* (the keyboard covers the home indicator, so its inset is not paid twice) */
+  .journal-drawer.is-kb > .history-list { padding-bottom: 10px; }
   /* ⚠️ The Pendenzen box needs a cap this side of a PERCENTAGE. Its `max-height: 45%` resolves
      against `.journal-drawer`, and on a phone this drawer is `height: auto` (bottom-anchored,
      capped by max-height) — an indefinite height, against which a percentage max-height computes
@@ -907,15 +924,20 @@
      `requestReportStep` performs are untouched — the tab is switched first and the body scrolls
      a frame later exactly as before, whichever end of the page the strip is at.
      ⚠️ Its height is RESERVED rather than measured: `--rp-tabs-safe`, the same idiom as
-     `--fab-safe` above. The .useg track is a full --tap (44px) plus this shell's 4px padding and
-     1px border top and bottom = 54px, and 6px of channel above it → 60px. Everything pinned to
+     `--fab-safe` above. The .useg track is a full --tap (44px) plus the track's own 3px padding
+     (06-contextpanel · .useg) and this shell's --bar-pad and 1px border, top and bottom = 64px,
+     and 6px of channel above it → 70px. ⚠️ Written as that SUM, not as a number (30.09.2026,
+     staging phone pass: «the journal entry slightly overlaps with the selector below»): it was a
+     literal 60px from the days of a 4px shell padding and no track padding, so the strip grew to
+     64px under a 54px reserve and the FAB, «Zurück zum Rapport», the message lane and the page's
+     own foot all stood 10px low — the FAB 2px INTO the strip. Everything pinned to
      a `--rail-h + …` baseline adds it: the Rapport surface (Surface.module.css · .shell, so
      its own «Drucken / Abschliessen» row clears the strip), the FAB and the toaster lane. Keep
      the four in step if the shell's padding ever changes.
      ⚠️ Keyed on the STRIP being rendered, not on the Rapport (27.09.2026): the Anwesenheit's
      three readings dock in the same strip (PhoneTabBar), and there it exists only once a Zeitplan
      is wired up — so the reserve follows the element, on whichever page shows one. */
-  .app:has(.rp-tabs) { --rp-tabs-safe: 60px; }
+  .app:has(.rp-tabs) { --rp-tabs-safe: calc(var(--tap) + 2 * 3px + 2 * var(--bar-pad) + 2px + 6px); }
   .rp-tabs {
     position: fixed; z-index: var(--z-chrome);
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
@@ -940,6 +962,13 @@
   .fab-entry { bottom: var(--float-bottom);
     /* on the bars' own edge (8px), not 16: the circle ended 8px short of the nav bar under it */
     right: max(8px, env(safe-area-inset-right)); }
+  /* ⚠️ …and it steps aside while a keyboard is up (`data-kb`, lib/useViewportPan · 30.09.2026).
+     Its baseline is the bars', which go behind the keys, so it stood wherever iOS's pan happened
+     to leave it — on the Rapport, over the Einsatzleiter field just under the Kurzbericht being
+     typed into — and with the page now ending ON the keyboard, the field the caret is revealed
+     in lies exactly in its corner. Typing into a page is not the moment for a new Eintrag; it is
+     back the moment the keys go. A running recording (`.rec`, its timer) stays in sight. */
+  :root[data-kb] .fab-entry:not(.rec) { visibility: hidden; }
   /* «Zurück zum Rapport» return pill (Anwesenheit/Mittel only → single nav bar) sat at 18px, i.e.
      ON the nav bar; lift it clear like the FAB.
      ⚠️ …onto THE floating row, at its left end where the row starts (26.09.2026): it stood
@@ -966,7 +995,7 @@
      bottom chrome, on whichever page shows one. `:has`, like every other lane state here, because
      the host is a root sibling of `.app`. Inside this media query a rendered strip is always
      shown (13-incident.css turns it on here), so the element itself is the whole condition. */
-  :root:has(.app .rp-tabs) { --rp-tabs-safe: 60px; }
+  :root:has(.app .rp-tabs) { --rp-tabs-safe: calc(var(--tap) + 2 * 3px + 2 * var(--bar-pad) + 2px + 6px); }
   /* …and the thing that stands ON the tool bar and lifts everything above it: the armed tool's
      hint row in the dock (ToolDock · hint, the 22px `.wb-botleft` steps up by). The lane is
      computed on :root, which cannot read `.app`'s value, so it restates it here. (The Suche's
@@ -1030,11 +1059,25 @@
   :root:has(.wb-georef-dock) .toaster,
   :root:has(.app.maptool-measure) .toaster,
   :root:has(.wb-canvas.tool-measure) .toaster,
-  :root:has(.ip-sheet.ui-dialog) .toaster,
-  :root:has(.sym-modal) .toaster,
   :root:has(.app .layers-card:not([data-picking])) .toaster {
     top: calc(72px + var(--ml-reserve, 0px) + env(safe-area-inset-top)); bottom: auto;
     max-height: min(32dvh, 240px);
+  }
+  /* ⚠️ …but a MODAL bottom sheet no longer sends it up there (30.09.2026, owner, staging phone
+     pass: «slightly odd positioning of the toasts» — with «Seite wählen» open the undo pill jumped
+     from the foot of the list to the head of the page, over its blurred title). The sheet is the
+     foot of the screen now, so the lane stands ON it: one --float-gap above its top edge, measured
+     (lib/toastLane · useToastLane → `data-lane` + `--msg-sheet-bottom`), moving with the sheet as
+     it hugs its content or rides the keyboard. Only a sheet that leaves no room for a pill above
+     it sends the lane to the top of the SCREEN (`data-lane='top'`) — over the scrimmed top bar,
+     never over the sheet's own head. `:root:has(…)` so it outranks the list above whichever
+     other owner is open under the sheet. */
+  :root:has(.toaster[data-lane='sheet']) .toaster {
+    top: auto; bottom: var(--msg-sheet-bottom);
+    max-height: calc(100dvh - var(--msg-sheet-bottom) - 8px - env(safe-area-inset-top));
+  }
+  :root:has(.toaster[data-lane='top']) .toaster {
+    top: calc(8px + env(safe-area-inset-top)); bottom: auto; max-height: min(32dvh, 240px);
   }
   /* Persistent messages use the same upper budget during variable-height map/plan tasks. Their
      rows remain reachable by scrolling instead of extending into the active bottom controls.
@@ -1051,24 +1094,13 @@
   /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
      (same layout-viewport-widening failure mode as the banners) */
   .toast { white-space: normal; }
-  /* ⚠️ …and the ACTIONS drop to their own line when they no longer fit beside the sentence.
-     «Studer Corinne Anwesenheit entfernt» with «Rückgängig» and the ✕ next to it left the text a
-     ~140px column — four lines, one of them split mid-word — while the pill itself had the whole
-     screen width. Wrapping gives the sentence that width and puts the two controls under it,
-     right-aligned, where the thumb is anyway.
-     ⚠️ The ICON stays with the sentence: forcing the text onto a line of its own (`flex-basis:
-     100%`) left the ↶ alone on the first row and made the pill three rows tall.
-     ⚠️ And this holds for SHORT texts too — «Hofer Simon anwesend» also gets its buttons on the
-     second row. Deliberate: the alternative is a floor on the text column, and any floor wide
-     enough to help the long sentence pushes the short one into a wrap of its own. One shape for
-     every undo toast on a phone, two rows, with the controls where the thumb already is. */
-  /* ⚠️ Only a toast that HAS an action wraps. Unqualified, the rule also reached the print-job
-     chain, which has its own phone layout a few lines above — one shape being rearranged by a rule
-     written for another. */
-  .toast:has(.toast-actions) { flex-wrap: wrap; }
-  /* ⚠️ `:not(.toast-actions)` — the action cluster is a <span> too, and without the guard it
-     inherited the grow, filled the whole wrapped line and swallowed its own `margin-left: auto`
-     (it was left-aligned under the sentence instead of sitting where the thumb is). */
+  /* ⚠️ ONE ROW (30.09.2026, owner, staging phone pass: the message on row 1, «Rückgängig» + ✕
+     alone on row 2 with a big empty left half). The sentence WRAPS FIRST, inside its column, and
+     the action cluster stays on the row beside it, centred on the pill. The two-row shape (18.09.)
+     answered a ~140px column that came from a narrower lane; at the bars' width the column is
+     ~175px on a 390 phone, so «Studer Corinne Anwesenheit entfernt» is two lines — inside the
+     row's one height (--float-h), where the two-row pill was 78px of mostly air. `break-word`
+     (08-toasts) never splits a word that fits the column. */
   .toast:has(.toast-actions) > .toast-message { flex: 1 1 auto; }
   .toast-actions { margin-left: auto; }
   /* the stage chain needs ~360px plus the undo button — more than a phone has, and it ran under
