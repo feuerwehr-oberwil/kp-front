@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { keyboardFootNow } from './useKeyboardInset'
+import { keyboardFootNow, keyboardInsetNow } from './useKeyboardInset'
 
 /**
  * Pins the app's chrome to the SCREEN while iOS pans the page under a keyboard.
@@ -43,6 +43,7 @@ export function useViewportPan(): void {
     let frame = 0
     let last = -1
     let lastFoot = -1
+    let lastKb: boolean | null = null
     const measure = () => {
       frame = 0
       // rounded: sub-pixel churn during the pan animation would rewrite the property on every
@@ -56,7 +57,13 @@ export function useViewportPan(): void {
       if (foot !== lastFoot) {
         lastFoot = foot
         root.style.setProperty('--vv-foot', `${foot}px`)
-        root.toggleAttribute('data-kb', foot > 0)
+      }
+      // a keyboard is up whether or not the pan has swallowed its whole height (foot 0 with the
+      // page panned by exactly the keyboard — CodeRabbit on #245), so ask the inset, not the foot
+      const kb = keyboardInsetNow() > 0
+      if (kb !== lastKb) {
+        lastKb = kb
+        root.toggleAttribute('data-kb', kb)
       }
     }
     const update = () => { if (!frame) frame = requestAnimationFrame(measure) }

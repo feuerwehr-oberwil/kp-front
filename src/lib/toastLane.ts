@@ -1,4 +1,5 @@
 import { type RefObject, useEffect } from 'react'
+import { visibleViewportBottom } from './useKeyboardInset'
 
 /**
  * Where the phone's message lane stands while a MODAL bottom sheet is open (30.09.2026).
@@ -39,8 +40,10 @@ export function laneOverSheet(sheetTop: number | null, { layoutHeight, ceiling, 
 /** The top edge of the highest modal sheet standing flush on the foot of what the screen shows —
  *  the layout viewport's bottom, or the keyboard's top when a lift has stood it there. */
 export function openSheetTop(): number | null {
+  // the VirtualKeyboard API (overlaysContent) resizes neither viewport, so its keyboard top is a
+  // third foot a lifted sheet can stand on (visibleViewportBottom — CodeRabbit on #245)
   const vv = window.visualViewport
-  const bottoms = [window.innerHeight, vv ? vv.offsetTop + vv.height : window.innerHeight]
+  const bottoms = [window.innerHeight, vv ? vv.offsetTop + vv.height : window.innerHeight, visibleViewportBottom()]
   let top: number | null = null
   for (const el of document.querySelectorAll<HTMLElement>(SHEET_SEL)) {
     if (el.closest('.toaster')) continue
@@ -95,7 +98,13 @@ export function useToastLane(ref: RefObject<HTMLElement | null>, active: boolean
     watch()
     document.addEventListener('animationend', update, true)
     document.addEventListener('transitionend', update, true)
-    window.visualViewport?.addEventListener('resize', update)
+    // a pan alone (offsetTop) is a viewport SCROLL: it moves a sheet lifted by --vv-foot without
+    // resizing it, so ResizeObserver never hears it
+    const vv = window.visualViewport
+    const vk = (navigator as Navigator & { virtualKeyboard?: EventTarget }).virtualKeyboard
+    vv?.addEventListener('resize', update)
+    vv?.addEventListener('scroll', update)
+    vk?.addEventListener('geometrychange', update)
     window.addEventListener('resize', update)
     update()
     return () => {
@@ -103,7 +112,9 @@ export function useToastLane(ref: RefObject<HTMLElement | null>, active: boolean
       mo.disconnect(); ro?.disconnect()
       document.removeEventListener('animationend', update, true)
       document.removeEventListener('transitionend', update, true)
-      window.visualViewport?.removeEventListener('resize', update)
+      vv?.removeEventListener('resize', update)
+      vv?.removeEventListener('scroll', update)
+      vk?.removeEventListener('geometrychange', update)
       window.removeEventListener('resize', update)
       host.removeAttribute('data-lane')
       host.style.removeProperty('--msg-sheet-bottom')
