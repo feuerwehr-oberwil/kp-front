@@ -26,9 +26,11 @@
    Atemschutz alarm row lay over the Anwesenheit's tabs, and a tap on «Zeitplan» landed on its
    «Zum Trupp»; the lifecycle row lay over the Rapport's «Einsatzrapport (PDF)». The strip
    publishes its height (Meldeleiste · `--ml-h`) and 08-toasts turns it into this push while a
-   strip stands; with none it is 0 and every page sits where it always did. */
+   strip stands; with none it is 0 and every page sits where it always did.
+   ⚠️ `+ --vv-foot` at the bottom (30.09.2026): with a keyboard up the page ends ON it — the
+   bottom of the band the screen still shows (lib/useViewportPan); 0 without one. */
 :where(.shell) {
-  position: absolute; inset: calc(88px + var(--ml-push, 0px)) 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface);
+  position: absolute; inset: calc(88px + var(--ml-push, 0px)) 16px calc(16px + var(--vv-foot, 0px)) calc(var(--rail-w) + 28px); z-index: var(--z-surface);
   display: flex;
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
 }
@@ -90,9 +92,18 @@
      ONE 6px channel — the tool bar over the nav bar on the Karte, the Rapport's tab strip over the
      nav bar, and this card over whichever of them is topmost. At 18px the card ended 10px above
      the bar (8px above the strip), so the foot of every page read as three different gaps. */
+  /* ⚠️ Keyboard up (30.09.2026, staging phone pass: the Rapport ended ~115px above the keys, dark
+     page between). The bars this reserve clears ride DOWN with iOS's pan and go behind the keyboard
+     (15-mobile.css · --vv-pan), but the reserve stayed — so the page ended the bars' height PLUS
+     the pan above the keys. Now it ends one --float-gap above whichever is higher: the bars where
+     they stand (the reserve less the pan) or the keyboard (--vv-foot, lib/useViewportPan). Without a
+     keyboard both variables are 0 and this is the reserve it always was. The TOP stays where it is
+     on purpose: it slides under the top bar with the pan, and the caret's box is never moved
+     against iOS's own reveal (the loop lib/useKeyboardInset documents). */
   :where(.shell) {
     inset: calc(78px + env(safe-area-inset-top) + var(--ml-push, 0px)) max(8px, env(safe-area-inset-right))
-      calc(var(--rail-h) + 14px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom))
+      max(calc(var(--rail-h) + 14px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom) - var(--vv-pan, 0px)),
+        calc(var(--vv-foot, 0px) + var(--float-gap)))
       max(8px, env(safe-area-inset-left));
   }
 }

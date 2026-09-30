@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { useKeyboardInset } from './useKeyboardInset'
+import { keyboardFootNow, keyboardInsetNow, keyboardLift, keyboardMargin, useKeyboardInset } from './useKeyboardInset'
 
 /* Two regressions from the 08.09. Feldtest («Tastatur fehlt», and the Verlauf drawer floating in
  * the top half of the screen): a keyboard that CLOSES must always bring the inset back to 0.
@@ -140,5 +140,39 @@ describe('useKeyboardInset — what only LOOKS like a keyboard on iOS', () => {
     act(() => { focusField(); window.dispatchEvent(new Event('focusin')) })
     settle()
     expect(result.current).toBe(340)
+  })
+})
+
+/* 30.09.2026, staging phone pass («check this strange gap»): iOS PANS the visual viewport by
+ * `offsetTop` to reveal a caret, and a sheet lifted by the keyboard's whole height then stood that
+ * pan above the keys. The lift is the hidden FOOT of the layout viewport — the keyboard less the
+ * pan — and it reaches the sheet as `--vv-foot` (lib/useViewportPan), the committed height only
+ * as the fallback. */
+describe('keyboardFootNow / keyboardLift — the sheet stands ON the keys', () => {
+  it('is the keyboard less the pan, and 0 without a caret', () => {
+    const vv = stubViewport()
+    vv.height = SCREEN - 300
+    vv.offsetTop = 200
+    expect(keyboardFootNow()).toBe(0) // no text field focused, no keyboard
+    focusField()
+    expect(keyboardFootNow()).toBe(100)
+    expect(keyboardInsetNow()).toBe(300) // the height caps keep the whole keyboard
+    vv.offsetTop = 0
+    expect(keyboardFootNow()).toBe(300)
+  })
+
+  it('falls back to the keyboard height on a pinch-zoomed page', () => {
+    const vv = stubViewport()
+    focusField()
+    vv.scale = 2
+    vv.height = (SCREEN - 340) / 2
+    vv.offsetTop = 120
+    expect(keyboardFootNow()).toBe(340)
+  })
+
+  it('lifts by --vv-foot, with the measured height where nothing publishes it', () => {
+    expect(keyboardLift(0)).toBeUndefined()
+    expect(keyboardLift(300)).toEqual({ marginBottom: 'var(--vv-foot, 300px)', '--kb-inset': '300px' })
+    expect(keyboardMargin(300)).toBe('var(--vv-foot, 300px)')
   })
 })

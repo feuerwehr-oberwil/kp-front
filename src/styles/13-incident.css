@@ -460,8 +460,12 @@
    so without a keyboard nothing here applies. The layout viewport does NOT shrink for the
    keyboard (iOS never did), so a centred sheet kept its middle and its footer sat behind the
    keys on an iPad. Ride to the top edge and cap the frame against the measured keyboard — the
-   composer's own answer (10-journal.css · --jc-kb). Phones lift by margin instead (15-mobile). */
-.ip-sheet.ui-dialog.is-kb { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+   composer's own answer (10-journal.css · --jc-kb). Phones lift by margin instead (15-mobile).
+   ⚠️ `+ --vv-pan` (30.09.2026): the top is measured in the LAYOUT viewport, and once iOS has panned
+   the page to reveal the caret the screen shows that viewport from `offsetTop` down — a frame at a
+   bare 12px stood the pan above the screen's top and ended the pan above the keys. Plus the pan it
+   is the visible band inset by 12px, whatever iOS did (lib/useViewportPan). */
+.ip-sheet.ui-dialog.is-kb { top: calc(max(12px, env(safe-area-inset-top)) + var(--vv-pan, 0px)); transform: translateX(-50%);
   height: min(800px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 .ip-sheet.ip-fit.ui-dialog.is-kb { height: auto; max-height: min(800px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 /* …and the same answer for every OTHER dialog, because `.ip-sheet` was never the only one with a
@@ -472,7 +476,7 @@
    six copies: three classes (`:not()` weighs as one), so it outranks every `.x.ui-dialog` pair
    that owns the centring, and `.ip-sheet` opts out because it is handled above with its own 800px
    frame. Without a keyboard `is-kb` is absent and none of this exists. */
-.ui-dialog.is-kb:not(.ip-sheet) { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+.ui-dialog.is-kb:not(.ip-sheet) { top: calc(max(12px, env(safe-area-inset-top)) + var(--vv-pan, 0px)); transform: translateX(-50%);
   max-height: calc(100dvh - 24px - var(--kb-inset, 0px)); }
 /* ── overlays leave the way they came ──
    Base UI keeps [data-starting-style]/[data-ending-style] on Backdrop + Popup and delays the

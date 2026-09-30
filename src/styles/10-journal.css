@@ -347,6 +347,13 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--shadow); padding: 10px;
   animation: drawerIn .18s var(--ease); }
 @keyframes drawerIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+/* keyboard up (the Verlauf search) on a tablet: the Overlay stands the foot on the keys
+   (keyboardLift · --vv-foot) and the top follows iOS's pan, so the drawer is the visible band less
+   its insets (13-incident.css · `.is-kb`, 30.09.2026). The phone's drawer is a bottom sheet
+   (15-mobile), hence the tablet-only gate — the complement of its query. */
+@media (min-width: 601px) and (min-height: 521px), (min-width: 1001px) {
+  .journal-drawer.is-kb { top: calc(88px + var(--vv-pan, 0px)); }
+}
 .journal-head { display: flex; align-items: center; gap: 8px; padding: 4px 4px 10px; }
 .journal-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
 .journal-title .i { width: 17px; height: 17px; }
@@ -752,6 +759,8 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 @media (pointer: coarse) and (min-width: 601px) and (min-height: 521px), (pointer: coarse) and (min-width: 1001px) {
   .journal-composer { top: max(12px, env(safe-area-inset-top));
     max-height: calc(100dvh - 24px - var(--jc-kb, 0px)); }
+  /* …in the VISIBLE band: + iOS's pan while the keyboard is up (13-incident.css · `.is-kb`, 30.09.2026) */
+  .journal-composer.is-kb { top: calc(max(12px, env(safe-area-inset-top)) + var(--vv-pan, 0px)); }
 }
 /* (.jc-head / .jc-title are gone — the mode tabs name this sheet, and the ✕ sits with them.
    See JournalComposer.) */

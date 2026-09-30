@@ -27,7 +27,7 @@ import { startChips } from '../lib/startChips'
 import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
-import { useKeyboardInset } from '../lib/useKeyboardInset'
+import { keyboardMargin, useKeyboardInset } from '../lib/useKeyboardInset'
 import { nextCompact } from '../lib/composerFit'
 
 // `C` (appConfig.copy.journal) is read at the top of each component below rather than captured
@@ -782,7 +782,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     // but «does the card still fit», measured (see lib/composerFit · 10-journal.css).
     <Overlay open onClose={onClose} className={`journal-composer ${kbInset > 0 ? 'is-kb' : ''}${compact ? ' is-compact' : ''}`} backdropClassName="modal-backdrop"
       ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef} grab
-      style={{ marginBottom: kbInset, '--jc-kb': `${kbInset}px` } as React.CSSProperties}
+      // the lift is the keyboard LESS iOS's pan (keyboardMargin · --vv-foot, 30.09.2026), the cap
+      // (--jc-kb) the whole keyboard — so the sheet stands on the keys and never outgrows the band
+      style={{ marginBottom: kbInset > 0 ? keyboardMargin(kbInset) : 0, '--jc-kb': `${kbInset}px` } as React.CSSProperties}
       popupRef={setCard}>
         {/* What this sheet is, and the ✕ beside it.
             ⚠️ There is no «Eintrag · Erinnerung» switch here any more (17.08.). It asked which KIND

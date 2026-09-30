@@ -521,10 +521,20 @@
      ⚠️ …and the Rapport's docked tab strip is the third BECAUSE it sits in the bar's own lane
      (19.09.2026): the bar riding back down while the strip 16px above it slid away with the pan
      would tear apart the one piece of chrome they are meant to read as.
-     ⚠️ NOT the FAB: it is a floating action, and those ride above a keyboard in native apps
-     too. (It also used to carry a transform of its own, and a second `transform` on the same
-     element replaces rather than composes.) */
+     ⚠️ NOT the FAB: it is not translated (it used to carry a transform of its own, and a second
+     `transform` on the same element replaces rather than composes) — with a keyboard up it is
+     hidden instead (`:root[data-kb]`, below, 30.09.2026). */
   .topbar, .navrail, .rp-tabs { transform: translateY(var(--vv-pan, 0px)); }
+  /* ⚠️ …and the strip ABOVE the pinned top bar is the bar's too (30.09.2026, staging phone pass:
+     «Alarmmeldung Nicht erfasst» peeked over the bar with the Kurzbericht focused). The page
+     stays in the layout viewport while iOS pans — it is the box holding the caret (above) — so it
+     slides up UNDER the bar, and the status-bar band plus the bar's 10px offset showed it passing
+     through. The bar carries a screen-wide backdrop up to the screen's edge, as tall as the pan
+     has gone (0 without one), so what slides under the bar disappears under it, as under a native
+     navigation bar. Its own 1px edge stays visible (+1px). */
+  .topbar::before { content: ''; position: absolute; pointer-events: none;
+    bottom: calc(100% + 1px); left: calc(-1px - max(8px, env(safe-area-inset-left))); right: calc(-1px - max(8px, env(safe-area-inset-right)));
+    height: min(var(--vv-pan, 0px), calc(10px + env(safe-area-inset-top))); background: var(--app-bg); }
 
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
      horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·
@@ -900,6 +910,13 @@
   .fab-entry { bottom: var(--float-bottom);
     /* on the bars' own edge (8px), not 16: the circle ended 8px short of the nav bar under it */
     right: max(8px, env(safe-area-inset-right)); }
+  /* ⚠️ …and it steps aside while a keyboard is up (`data-kb`, lib/useViewportPan · 30.09.2026).
+     Its baseline is the bars', which go behind the keys, so it stood wherever iOS's pan happened
+     to leave it — on the Rapport, over the Einsatzleiter field just under the Kurzbericht being
+     typed into — and with the page now ending ON the keyboard, the field the caret is revealed
+     in lies exactly in its corner. Typing into a page is not the moment for a new Eintrag; it is
+     back the moment the keys go. A running recording (`.rec`, its timer) stays in sight. */
+  :root[data-kb] .fab-entry:not(.rec) { visibility: hidden; }
   /* «Zurück zum Rapport» return pill (Anwesenheit/Mittel only → single nav bar) sat at 18px, i.e.
      ON the nav bar; lift it clear like the FAB.
      ⚠️ …onto THE floating row, at its left end where the row starts (26.09.2026): it stood
