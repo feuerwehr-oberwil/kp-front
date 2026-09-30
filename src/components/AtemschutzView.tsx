@@ -29,7 +29,6 @@ import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { keepDraft, useKeptState } from '../lib/draftKeep'
 import { truppOrderKey } from '../lib/useTruppActions'
 import s from './Atemschutz.module.css'
-import { TruppNo } from './TruppNo'
 import { AuftragSheet, KanalPickSheet, KanalSheet, LeitungField, PressureSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
 import { fileGuestSlots, teamConflict, truppSheetSub } from '../lib/truppQuickEdit'
 import { crewAfterChange, type CrewChange } from '../lib/truppLeader'
@@ -2025,11 +2024,7 @@ function rowTone(t: Trupp, status: TruppLive['status'], sev: number): string {
  *  opened card's head (26.09.2026, owner: «keep the same UI whether the card is collapsed or
  *  not»). One drawing, so opening a Trupp never moves, resizes or recolours the line the thumb
  *  just pressed; the chevron beside it is the caller's, because it points the other way. */
-function RowLine({ t, live, color, lite, no }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
-  /** the Trupp's «#N», small and grey after the name — the OPENED card's head only (26.09.2026,
-   *  phone card slim-down): the closed row stays name-only (owner, see below), and the number left
-   *  the Kennzeile, which is a strip of tappable facts now and a number is not one */
-  no?: number
+function RowLine({ t, live, color, lite }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
 }) {
   const az = appConfig.copy.atemschutz
   const words = plainWords(t, lite)
@@ -2049,11 +2044,9 @@ function RowLine({ t, live, color, lite, no }: { t: Trupp; live: TruppLive; colo
               carries no identity (round 2 review) — and an empty 11px slot would indent the name */}
           {color && <span className={s.trowDot} style={{ background: color }} />}
           <span className={s.trowNameTxt}>{t.name}</span>
-          {/* ⚠️ Name only on the ROW — no «#N», no «SiTr» (owner, staging 26.09.2026): the two marks
-              pushed a two-word name onto a second line, and «SiTr» was not recognised at all. The
-              number stands on the opened card's head (`no`) and the map; a Sicherungstrupp still
-              stands in its own section while it is ready. */}
-          {no != null && <TruppNo no={no} className={s.trowNo} />}
+          {/* ⚠️ Name only — no «#N», no «SiTr», on the row AND the opened card (owner, staging
+              26.09. and 30.09.2026: «the group leader name needs more space … drop the number #»).
+              The number stays in the TruppFinder and in the Verlauf's «Trupp N» rows. */}
         </span>
         {team && <span className={s.trowTeam}>{team}</span>}
       </span>
@@ -2809,12 +2802,12 @@ function TruppCard({
   const head = rowMode ? (
     <button type="button" className={s.trowHead} aria-expanded="true" onClick={onCollapse}
       aria-label={`${t.name} — ${az.collapse}`}>
-      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} no={t.no} />
+      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} />
       <span className={s.trowChevron}><Icon id="chevron-up" /></span>
     </button>
   ) : (
     <div className={cx(s.trowHead, s.trowHeadStatic)}>
-      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} no={t.no} />
+      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} />
     </div>
   )
   return (

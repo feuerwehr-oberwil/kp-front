@@ -1683,7 +1683,7 @@ to prod.
   - *The opened card is the row grown downwards* (owner, staging 26.09.2026): the same frame and
     tone, the same line (`RowLine`: dot · name · clock) and the same «Druck 240 bar | Kontakt» pair
     (`TruppPair`) in the same place, collapsed or open, in every tier — opening only ADDS the
-    Kennzeile (led by «#N» and, where there is one, the tier in words; the ⋯ at its end), the note,
+    Kennzeile (the tier in words where there is one; the ⋯ at its end), the note,
     Rückzug / Raus, the Sockel line and the Verlauf. No band, no second Kontakt, no Druck row. The
     whole first line is the collapse toggle. ONE card on every board since 29.09.2026 (owner:
     «assimilate the tablet / desktop view closer / equal to the mobile view»): the tablet grid, the
@@ -1809,7 +1809,9 @@ to prod.
     answered by a confirm-with-undo toast, and its log row reads «Nicht eingesetzt», never
     «Austritt». A question dialog of the Tafel has a TITLE that states the fact, at most one short
     body line, and the verbs on its buttons (recognition over reading, same review).
-    The collapsed phone row carries the «#N» badge; the handed-over phone board opens on the most
+    No «#N» on the row or the card (30.09.2026, owner: «the group leader name needs more space …
+    drop the number #»): the leader's name is the label, a step larger (17.5px, 16.5 ≤ 760px) with
+    12px to the clock; the number stays in the TruppFinder and the Verlauf. The handed-over phone board opens on the most
     urgent crew inside; the Eintrag FAB is not drawn over the phone Trupps page (a floating button
     over a scrolling list of Kontakt buttons cannot be kept clear by an inset).
   - *A Kontakt another device confirmed < 60 s ago asks* (D1 ⑧a, `lib/contactEcho`) — on EVERY

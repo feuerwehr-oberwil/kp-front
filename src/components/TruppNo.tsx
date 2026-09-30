@@ -6,7 +6,8 @@ import { cx } from '../lib/cx'
  * (docs/trupp-naming.md §2): people call a Trupp by its Gruppenführer, so the name stays primary
  * on the card, and this badge is what a Verlauf row or the Rapport can be matched against. Not on
  * the phone row, the lite tab strip, or (14.09.) the resting Trupp marker on the Karte and chip on
- * the Plan — there the name alone is the label, and the number lives on the Atemschutz card.
+ * the Plan, nor (30.09.2026, owner) the Atemschutz card — there the name alone is the label, and
+ * the number lives in the TruppFinder, the Verlauf rows and the Rapport.
  * Renders nothing for a record that has no number yet (one merged in from an older device before
  * the load normaliser saw it).
  *
