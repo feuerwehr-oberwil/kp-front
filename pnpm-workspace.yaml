@@ -2,6 +2,11 @@ overrides:
   # jsPDF pulls DOMPurify transitively. Keep the patched floor here rather than in
   # package.json: pnpm 10 ignores the legacy package.json `pnpm.overrides` field.
   dompurify: ">=3.4.13"
+  # Build/dev tooling only (eslint › minimatch, vite-plugin-pwa › workbox-build): patched floors
+  # for GHSA DoS advisories of 30.09.2026 until the parents ship them.
+  brace-expansion@2: "^2.1.7"
+  brace-expansion@5: "^5.0.12"
+  fast-uri@3: "^3.1.8"
 
 # ── Audit exceptions ────────────────────────────────────────────────────────────
 # One advisory, one reason, one expiry — the rule ci.yml states for any exception.

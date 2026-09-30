@@ -16,7 +16,7 @@ dependencies = [
     "bcrypt>=4.2.0",
     # Only HS256 JWS is used. PyJWT is the narrower maintained primitive; unlike
     # python-jose it does not pull the unfixed python-ecdsa timing advisory into runtime.
-    "pyjwt>=2.13.0",
+    "pyjwt>=2.14.0",
     "python-multipart>=0.0.20",
     "httpx>=0.28.1",
     "apscheduler>=3.10.4",
