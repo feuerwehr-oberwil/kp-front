@@ -109,3 +109,46 @@ describe('LayerPanel · Kartenquellen', () => {
     expect(document.querySelector('.lc-credits')).toBeNull()
   })
 })
+
+// On a phone Ebenen is a slide-up bottom sheet (29.09.2026, owner: «ebenen, search, etc. should be
+// a slide-up rather than a modal»): the grab bar, and a push down on its head closes it — the same
+// measured gesture every phone sheet has (lib/overlays · swipeDismiss), so it never exists where
+// the card is not on the bottom edge (the tablet's side card).
+describe('LayerPanel · phone sheet', () => {
+  const VH = window.visualViewport?.height ?? window.innerHeight
+  const place = (el: HTMLElement, bottom: number) => {
+    el.getBoundingClientRect = () => ({ top: 300, bottom, left: 0, right: 390, width: 390, height: bottom - 300, x: 0, y: 300, toJSON: () => ({}) }) as DOMRect
+  }
+  // jsdom has no PointerEvent: build the touch by hand (as swipeDismiss.test does)
+  const touch = (el: Element, type: string, clientY: number) => {
+    const ev = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: 100, clientY })
+    Object.defineProperty(ev, 'pointerType', { value: 'touch' })
+    Object.defineProperty(ev, 'pointerId', { value: 1 })
+    fireEvent(el, ev)
+  }
+  const pull = (from: Element) => { touch(from, 'pointerdown', 400); touch(from, 'pointermove', 540); touch(from, 'pointerup', 540) }
+
+  it('wears the grab bar and a head without the glyph — the title alone', () => {
+    render(<LayerPanel layers={[plan]} onToggle={noop} onOpacity={noop} onClose={noop} />)
+    expect(document.querySelector('.layers-card > .ui-sheet-grab')).toBeTruthy()
+    const head = document.querySelector('.lc-title') as HTMLElement
+    expect(head.querySelector('.i:not(.ip-x .i)')).toBeNull()
+    expect(head.textContent).toBe(appConfig.copy.panels.layers)
+  })
+
+  it('closes on a push down its head while it stands on the bottom edge', () => {
+    const onClose = vi.fn()
+    render(<LayerPanel layers={[plan]} onToggle={noop} onOpacity={noop} onClose={onClose} />)
+    place(document.querySelector('.layers-card') as HTMLElement, VH)
+    pull(document.querySelector('.lc-title') as HTMLElement)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('…and not as the tablet\'s side card, off the bottom edge', () => {
+    const onClose = vi.fn()
+    render(<LayerPanel layers={[plan]} onToggle={noop} onOpacity={noop} onClose={onClose} />)
+    place(document.querySelector('.layers-card') as HTMLElement, VH - 200)
+    pull(document.querySelector('.lc-title') as HTMLElement)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+})

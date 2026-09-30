@@ -615,22 +615,34 @@
 
   /* zoom controls reposition (.toputil) migrated → MapUtility.module.css */
 
-  /* layers/history: the sheet opens ABOVE the bars (full width, scrolls, capped to the
-     viewport) instead of beside the rail */
+  /* ── Ebenen and the Suche card: a SLIDE-UP bottom sheet (29.09.2026, owner: «rethink what is a
+     modal and what a slide-up thing on mobile … ebenen, search, etc. should be a slide-up»).
+     They were cards floating ABOVE the two bars, 10px in from each side — neither a sheet you
+     push away nor a menu at its tile. On a phone a tool or a list you work in while you look at
+     the map is a bottom sheet: flush with the bottom edge and both sides, over the bars, the
+     grab bar on top, pushed down to close (LayerPanel / SucheCard · useSwipeDismiss, the head is
+     the handle), a tap on the map above closes it too (.mapctl-backdrop). NON-modal: no scrim,
+     no focus trap — the map above stays in sight while a layer is switched.
+     It HUGS its content up to the cap, so a short list stands low and a new row grows it upward
+     — the Suche's foot, the two buttons under the thumb, never moves. The cap keeps the top of
+     the map and the top bar clear: the sheet is a tool over the map, not a page.
+     ⚠️ The bottom inset is the sheet's own (the bars under it are covered), and the keyboard
+     lifts it through `--kb-inset` / the inline margin (SucheCard · keyboardLift). */
   .layers-card {
-    left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); width: auto; max-width: none;
-    top: auto; bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); transform: none; box-sizing: border-box;
-    /* Hug a short list (a linked Plan commonly has only Fahrzeuge + Symbole) against the tool
-       rail, where the opening button and the operator's thumb already are. Keep the former
-       top-to-bottom allowance as the cap when a deployment has many Karte layers. */
-    max-height: calc(100dvh - var(--rail-h) - 94px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    overflow-y: auto; overscroll-behavior: contain; }
-  /* …and where the tool bar is the SECOND bar, it clears both — the sheet used to start over
-     the tool rail, hiding the very Ebenen button that opened it (same clearance the measure
-     panel takes above) */
-  .phone-tools .layers-card {
-    bottom: calc(var(--rail-h) * 2 + 26px + env(safe-area-inset-bottom));
-    max-height: calc(100dvh - var(--rail-h) * 2 - 102px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+    left: 0; right: 0; bottom: 0; top: auto; width: auto; max-width: none; transform: none; box-sizing: border-box;
+    max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - 84px - env(safe-area-inset-top)));
+    border-radius: var(--r-hero) var(--r-hero) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: sheetUp .22s var(--ease); }
+  .layers-card[style*='--kb-inset'] { padding-bottom: 0; }
+  /* …in replay too, where the door is the top-right cluster (05-navrail · .map-util re-anchors the
+     tablet card under it, and at (0,2,0) it would hang this sheet from the top) */
+  .map-util .layers-card { top: auto; bottom: 0;
+    max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - 84px - env(safe-area-inset-top))); }
+  .layers-card .lc-title { padding: 4px 12px 6px 20px; touch-action: none; }
+  .layers-card .lc-title button { touch-action: auto; }
+  .layers-card > .ui-sheet-grab { margin-bottom: -4px; }
+  .layers-card .lc-body { padding: 0 max(12px, env(safe-area-inset-right)) 12px max(12px, env(safe-area-inset-left)); }
 
   /* coordinate readout + selection bar sit above the bottom bar + home indicator */
   :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
@@ -948,7 +960,8 @@
      which beats a third copy of the state list. */
   :root:has(.ml) .toaster { --ml-reserve: calc(min(32dvh, 240px) + 8px); }
   /* Variable-height bottom owners cannot be cleared with another guessed pixel offset. While
-     alignment, a detail sheet, the Passung dock, a modal bottom sheet, or Messen owns that area,
+     alignment, a detail sheet, the Passung dock, a modal bottom sheet, Ebenen / the Suche (their
+     slide-up sheet, 29.09.2026) or Messen owns that area,
      transient feedback moves to one bounded lane below the top bar. Thus the controls at the
      bottom never disappear behind an undo/status pill even when their panel expands or scrolls. */
   :root:has(.phone-georef) .toaster,
@@ -957,7 +970,8 @@
   :root:has(.app.maptool-measure) .toaster,
   :root:has(.wb-canvas.tool-measure) .toaster,
   :root:has(.ip-sheet.ui-dialog) .toaster,
-  :root:has(.sym-modal) .toaster {
+  :root:has(.sym-modal) .toaster,
+  :root:has(.app .layers-card:not([data-picking])) .toaster {
     top: calc(72px + var(--ml-reserve, 0px) + env(safe-area-inset-top)); bottom: auto;
     max-height: min(32dvh, 240px);
   }
@@ -968,7 +982,8 @@
   :root:has(.app .ctx) .ml,
   :root:has(.wb-georef-dock) .ml,
   :root:has(.app.maptool-measure) .ml,
-  :root:has(.wb-canvas.tool-measure) .ml {
+  :root:has(.wb-canvas.tool-measure) .ml,
+  :root:has(.app .layers-card:not([data-picking])) .ml {
     max-height: min(32dvh, 240px);
   }
   /* (no sideways FAB reserve any more: the lane stands above the FAB — see «THE message lane») */
