@@ -341,24 +341,12 @@
 .lgg-ic { width: 18px; height: 18px; flex: none; color: var(--ink-dim); }
 .lgg-title { font: 700 13.5px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ── the head, one line (slim sweep 27.09.2026, item 3): glyph · «Grundgerüst» · the Einsatzart
-   as a CHIP · the count · ⌄ (phone) or «ausblenden» (tablet). The chip is what chose the list and
-   the door to change it (the Einsatzdaten); unknown it asks, «Einsatzart?» in amber — the sentence
-   it replaced took a whole line under the head. 30px tall in a 44px head (the head's own height
-   is the target: ::before pads the hit box to 44), the one corner, a 1px inset edge, meaning by
-   text colour + a faint tint — the Trupp card's chip family. Its word is cut before the head
-   wraps: «Strassenrettung» would otherwise push the count off a 360px strip. */
-.lgg-art { position: relative; flex: none; display: inline-flex; align-items: center; gap: 3px; min-height: 30px;
-  padding: 0 8px 0 9px; border: 0; border-radius: var(--r-sm); background: var(--fill-soft);
-  box-shadow: inset 0 0 0 1px var(--glass-edge); color: var(--ink); font: 700 12px var(--body); cursor: pointer; }
-.lgg-art::before { content: ''; position: absolute; inset: -7px -3px; }
-.lgg-art-ro { cursor: default; padding-right: 9px; }
-.lgg-art-t { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lgg-art-chev { width: 14px; height: 14px; flex: none; color: var(--ink-dim); }
-.lgg-art-ask { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 45%, transparent); }
-.lgg-art-ask .lgg-art-chev { color: inherit; }
-button.lgg-art:active { background-image: linear-gradient(var(--press), var(--press)); }
-@media (hover: hover) { button.lgg-art:hover { background-image: linear-gradient(var(--fill-soft), var(--fill-soft)); } }
+   · the count · ⌄ (phone). The Einsatzart is a plain WORD since 30.09.2026 (owner: «drop the
+   grundgerüst change in type») — it says which list this is and changes nothing, so it wears no
+   chip, no edge and no chevron: the quiet ink of a second line. It gives way first (the title
+   keeps its word), so «Strassenrettung» is cut before the count is pushed off a 360px strip. */
+.lgg-art { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 12.5px var(--body); color: var(--ink-dim); }
 /* the count is the card's one number — the tabular mono the Einsatzuhr reads in */
 .lgg-count { flex: none; font: 700 12.5px var(--mono); color: var(--ink-dim);
   padding: 2px 7px; border-radius: var(--r-pill); background: var(--fill-soft); }

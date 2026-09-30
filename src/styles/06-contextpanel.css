@@ -433,6 +433,14 @@
    ⚠️ It wears the same ink as «Zentrieren» (29.09.2026, sweep K12): it was --ink-dim, which is
    the look of «not available» — the one thing an action must not say. */
 .ctx-actions:has(> .ctx-done) > .btn:not(.btn-sq) { flex: 1 1 0; }
+/* A DOOR to the object's other surface («Zum Original», «Auf Modul 1 zeigen») takes a row of its
+   own, above the foot's acts (30.09.2026, owner: «fix this» — in the equal split above, «Auf
+   Modul 1 zeigen» ran out of its third of the row and over «Zentrieren»). Its label is cut, never
+   spilled: the plan's NAME gives way and the verb around it stays (ContextPanel · LinkBtn). */
+.ctx-actions > .btn.link:not(.btn-sq), .ctx-actions:has(> .ctx-done) > .btn.link:not(.btn-sq) { flex: 1 1 100%; }
+.btn-t { display: flex; min-width: 0; white-space: pre; }
+.btn-t > * { flex: none; }
+.btn-t > .btn-t-cut { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: 12.5px; font-weight: 700;
   padding: 11px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);
   cursor: pointer; color: var(--ink); white-space: nowrap; }

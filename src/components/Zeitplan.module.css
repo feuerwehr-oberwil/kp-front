@@ -159,6 +159,13 @@
    and the track box agreeing — they are laid out by two different mechanisms (flex basis vs
    width) and only one of them has to be off for a lane to show through the clock */
 .headRow .track { height: 22px; background: var(--surface); }
+/* PHONE: the corner holds the Zeitraum zoom (ZeitplanView · zoom, 30.09.2026), so the row is a
+   lane's height — the zoom's own --tap buttons, no padding round them — and the hours and the
+   «JETZT» flag sit at its FOOT, on the lanes they label, not 20px above them. */
+.headRowZoom .whoHead { padding: 0 2px 0 8px; text-transform: none; letter-spacing: normal; }
+.headRowZoom .track { height: auto; }
+.headRowZoom .tick { top: auto; bottom: 4px; }
+.headRowZoom .nowLineHead em { top: auto; bottom: 3px; }
 /* clamped at the edges: a label centred on the first or last rule hangs half outside the track —
    and at a window opening exactly at midnight that is the one label carrying the DATE */
 .tickStart { transform: translateX(0); }

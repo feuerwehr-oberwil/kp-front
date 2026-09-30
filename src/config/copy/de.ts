@@ -3629,11 +3629,6 @@ export const de = {
     short: 'Grundgerüst',
     /** «2/6» — optional rows count in neither half; one number, no air (slim sweep 27.09.2026) */
     count: '{done}/{total}',
-    /** the head's chip while no Einsatzart is known — the Brand list stands in, and the chip asks
-     *  (it replaced the sentence «Einsatzart unbekannt – Grundgerüst Brand», 27.09.2026) */
-    einsatzartUnknown: 'Einsatzart?',
-    /** the chip's title — it opens the Einsatzdaten */
-    einsatzartAria: 'Einsatzart ändern',
     expand: 'Lage-Grundgerüst aufklappen',
     collapse: 'Lage-Grundgerüst zuklappen',
     /** the card opened from the rail with everything in place */

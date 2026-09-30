@@ -2137,8 +2137,6 @@ export const fr: Localizable<Copy> = {
     title: 'Bases de la situation',
     short: 'Bases',
     count: '{done}/{total}',
-    einsatzartUnknown: 'Type ?',
-    einsatzartAria: 'Changer le type d\'intervention',
     expand: 'Ouvrir les bases de la situation',
     collapse: 'Replier les bases de la situation',
     complete: 'Tout est en place.',

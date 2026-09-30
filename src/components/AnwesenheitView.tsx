@@ -622,6 +622,30 @@ export function AnwesenheitView({
   const bandsAvailable = planAvailable && !!bands && !!onCreateBand && !!onSaveBand && !!onRemoveBand && !!onCycleCell && !!onSetCellState
   const showBands = bandsAvailable && view === 'bands'
 
+  /* the Zeitraum zoom. A tablet carries it at the end of the search line; a PHONE in the empty
+     corner of the grid's clock row, over the names (30.09.2026, owner: «the +/- 12h thing … uses
+     up a lot of vertical space»). The search line has no room left there — search · ✓ · rank
+     filter fill 360px — so it wrapped to a row of its own that held nothing else: 56px of a
+     screen whose job is showing the Mannschaft. The corner was dead space; it stays put while
+     the names and the hours scroll under it, and it sits on the axis the zoom changes. */
+  const horizonCtl = showPlan ? (
+    <div className={s.horizon}>
+      <span className={s.horizonLabel}>{appConfig.copy.zeitplan.horizon}</span>
+      {/* A ZOOM, not a stepper. «−» shows MORE time (the axis zooms out), which is why
+          the number beside it grows — magnifier glyphs rather than −/+ so nobody reads
+          it as «make this number smaller». */}
+      <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(1)}
+        disabled={horizonH >= HORIZONS[HORIZONS.length - 1]} aria-label={appConfig.copy.zeitplan.zoomOut}><Icon id="zoom-out" /></button>
+      <b className={s.horizonValue}>{horizonH} h</b>
+      {/* At a constant px-per-hour the view is pixel-identical when you widen the window —
+          only this number moved, and the scrollbar that would have hinted at more axis is
+          ignored by iPadOS. Naming the end makes the control answer its own question. */}
+      <span className={s.horizonEnd}>{fillTemplate(appConfig.copy.zeitplan.horizonUntil, { t: horizonEndLabel })}</span>
+      <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(-1)}
+        disabled={horizonH <= HORIZONS[0]} aria-label={appConfig.copy.zeitplan.zoomIn}><Icon id="zoom-in" /></button>
+    </div>
+  ) : null
+
   /* THE GAST DOOR — the same one the Trupp picker has had since 04.09.: the search field IS the
    * name entry. You look for somebody, the Mannschaftsliste cannot answer, and the last row of
    * the list offers to record them under exactly the name you typed. It replaced a «+» that
@@ -919,24 +943,9 @@ export function AnwesenheitView({
           {/* (the inline legend strip and its phone ⓘ popover are gone — both facets live in
               the two filter buttons above, which is also where the marks are looked up now.) */}
           {/* how far the axis reaches — it belongs on the search line beside the thing it filters,
-              not on a row of its own pushing the grid down */}
-          {showPlan && (
-            <div className={s.horizon}>
-              <span className={s.horizonLabel}>{appConfig.copy.zeitplan.horizon}</span>
-              {/* A ZOOM, not a stepper. «−» shows MORE time (the axis zooms out), which is why
-                  the number beside it grows — magnifier glyphs rather than −/+ so nobody reads
-                  it as «make this number smaller». */}
-              <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(1)}
-                disabled={horizonH >= HORIZONS[HORIZONS.length - 1]} aria-label={appConfig.copy.zeitplan.zoomOut}><Icon id="zoom-out" /></button>
-              <b className={s.horizonValue}>{horizonH} h</b>
-              {/* At a constant px-per-hour the view is pixel-identical when you widen the window —
-                  only this number moved, and the scrollbar that would have hinted at more axis is
-                  ignored by iPadOS. Naming the end makes the control answer its own question. */}
-              <span className={s.horizonEnd}>{fillTemplate(appConfig.copy.zeitplan.horizonUntil, { t: horizonEndLabel })}</span>
-              <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(-1)}
-                disabled={horizonH <= HORIZONS[0]} aria-label={appConfig.copy.zeitplan.zoomIn}><Icon id="zoom-in" /></button>
-            </div>
-          )}
+              not on a row of its own pushing the grid down (a phone has no room left on that
+              line: there it stands in the grid's own clock row, see `horizonCtl`) */}
+          {!isPhone && horizonCtl}
         </div>
       )}
 
@@ -987,6 +996,7 @@ export function AnwesenheitView({
           onAddSpan={onAddShiftSpan!}
           onReplace={onReplaceShift!}
           horizonH={horizonH}
+          zoom={isPhone ? horizonCtl : undefined}
         />
       ) : (
         <div className={s.grid}>

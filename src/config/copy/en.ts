@@ -2143,8 +2143,6 @@ export const en: Localizable<Copy> = {
     title: 'Situation basics',
     short: 'Basics',
     count: '{done}/{total}',
-    einsatzartUnknown: 'Type?',
-    einsatzartAria: 'Change incident type',
     expand: 'Open situation basics',
     collapse: 'Collapse situation basics',
     complete: 'Everything is in place.',

@@ -162,7 +162,8 @@ export function ChecklistRunner({
   // ONE ROW, like every page head (28.09.2026 — it stood 150px on the 820 tablet: a 21px title, a
   // subtitle wrapping to two lines, then «0%», the bar and «0/8 erledigt» stacked in a column of
   // their own). The title and its one quiet line left, the progress right on one line; what does
-  // not fit gives up words (lib/pageHeadFit): «erledigt», then the «%» the bar already draws.
+  // not fit gives up words (lib/pageHeadFit): the subtitle, whole (never cut mid-word, 30.09.2026),
+  // then «erledigt».
   const headRef = useRef<HTMLElement>(null)
   usePageHeadFit(headRef, `${template.id}|${overall.done}|${overall.total}`)
   return (
@@ -170,14 +171,21 @@ export function ChecklistRunner({
       <header ref={headRef} className={s['cl-runner-head']}>
         <div className={s['cl-runner-titles']}>
           <h2>{template.title}</h2>
-          {/* the quiet line: ONE line, cut where the progress begins — free text of any length,
-              whole in `title` */}
-          {template.subtitle && <p title={template.subtitle}>{template.subtitle}</p>}
+          {/* the quiet line: ONE line, said WHOLE or not at all (30.09.2026 — «Aktions-Checkliste
+              Führ…» on the 820 tablet, «…Fü…» on the phone, is a word and a half that names
+              nothing). It is checked text and the ladder's FIRST fold, as every head's quiet line
+              is: the title above says which list it is either way. Whole in `title`. The phone
+              shows none of the titles: its chooser row names the list and this row is the
+              progress alone (Checklists.module.css). */}
+          {template.subtitle && (
+            <p title={template.subtitle} data-fit-check data-fold={1}><span className="fold-long">{template.subtitle}</span></p>
+          )}
         </div>
+        {/* the bar and «n/m erledigt», no «%» (30.09.2026, owner: «0/8 erledigt» already says it
+            — two numbers for one fact) */}
         <div className={s['cl-overall']}>
-          <span className={s['cl-overall-num']} data-fold={2}><span className="fold-long">{overall.pct}%</span></span>
           <Bar {...overall} />
-          <span className={s['cl-overall-sub']} data-fold={1}>
+          <span className={s['cl-overall-sub']} data-fold={2}>
             {overall.done}/{overall.total}<span className="fold-long"> {CL.done}</span>
           </span>
         </div>
