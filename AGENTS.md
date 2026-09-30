@@ -1007,6 +1007,23 @@ to prod.
     (TruppFinder) hangs from the TOP edge so the keys never cover its results. A floating card
     above the bars (Ebenen was one until 29.09.) is none of the three: it cannot
     be pushed away and does not belong to its tile.
+    **The keyboard, on iOS (30.09.2026, owner: «this strange» / «check this strange gap»).** iOS
+    pans the visual viewport by `offsetTop` to reveal a caret; everything `position: fixed` is laid
+    out in the LAYOUT viewport. So ONE hook publishes the visible band (`lib/useViewportPan`):
+    `--vv-pan` (its top) and `--vv-foot` (the layout viewport's hidden foot = the keyboard LESS the
+    pan, `keyboardFootNow`), plus `html[data-kb]` while a keyboard is up — per frame, never a
+    render. A bottom sheet's LIFT is `--vv-foot` (`keyboardLift` / `keyboardMargin`), its height
+    CAP the whole keyboard (`--kb-inset`, `--jc-kb`): lifting by the keyboard stood the sheet the
+    pan above the keys, capping by the foot hides the caret (the pan/re-aim loop) — never mix the
+    two numbers up. A frame anchored at the TOP while the keyboard is up (`.is-kb` rides, the phone
+    Trupp sheet, the tablet composer and Verlauf) adds `--vv-pan` to its `top`. A page
+    (`Surface.module.css · .shell`) ends one `--float-gap` above the higher of the bars (their
+    reserve less the pan — they ride down behind the keys) and the keyboard (`--vv-foot`); its TOP
+    stays put and slides under the pinned top bar, whose `::before` covers the strip above it as
+    tall as the pan. Never translate the box that holds the caret. The Eintrag FAB is hidden while
+    `data-kb` (a running recording excepted). On the phone Verlauf the home-indicator inset + 10px
+    is `.history-list`'s padding, not the drawer's, so rows scroll to the sheet's edge («there is
+    a gap at the bottom where things don't scroll down below»).
   - **A sheet's footer row is `SheetFoot`** (`.ui-sheet-foot`, 26.09.2026): `Sheet` draws it for
     `footer`, and a bespoke frame whose footer is its bottom edge on a phone wears it (the Trupp
     form, the Mittel note, the Georef transfer). ONE rule in 15-mobile.css insets it on a phone —
@@ -1261,7 +1278,13 @@ to prod.
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
     bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
-    never beside a piece of it. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
+    never beside a piece of it. A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
+    its column, and «Rückgängig» + ✕ stay beside it — never a second row of buttons under the
+    text. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
+    its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet that
+    leaves no room for a pill above it sends the lane to the top of the screen, never over the
+    sheet's head. Non-modal owners of the foot (detail sheet, Ebenen, Messen, Passung) keep the
+    lane under the top bar. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
     bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
     `Meldung` carries an `icon`. A row TITLE whose way in is the same
     move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
@@ -1295,7 +1318,10 @@ to prod.
     Karte or a Plan — the floating row, Ebenen, the Ansichten menu, the context
     panel, every sheet — wears the **floating family's material**: `--float-bg` + `--float-blur` +
     `--float-edge` (or the sheets' `--glass`), light by day and dark by night, with theme inks
-    (`--ink`, `--ink-dim`, `--ink-faint`, `--fill-soft`) — never a frozen `rgba(255,255,255,…)`.
+    (`--ink`, `--ink-dim`, `--ink-faint`, `--fill-soft`) — never a frozen `rgba(255,255,255,…)`. Every popup
+    OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
+    the Einsatzuhr menu, the Atemschutz head detail and the Meteo details (30.09.2026:
+    `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
     **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the ARMED material and nothing
     else**: a tool dock (`.wb-dock` — something is armed, its ✕ disarms) and the Trupp marker's
     action bar (`.wb-pill-acts` — this marker is in hand). It is the «clean selected state» of a
@@ -1353,6 +1379,14 @@ to prod.
   - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
     its word's width, never a ghost word; the primary takes the rest of the row, same height (on a
     phone `[role=dialog] .ui-sheet-foot > .ip-btn.primary` flexes).
+  - *A label never leaves its button* (30.09.2026, owner: «fix this» — «Auf Modul 1 zeigen» ran
+    out of its tile over «Zentrieren»). A tile in a row whose share is fixed (`flex: 1 1 0`) cuts
+    its label with an ellipsis; where the label carries a NAME (`{plan}`), the name is the part
+    that gives way and the verb around it stays (ContextPanel · `LinkBtn`, `.btn-t` /
+    `.btn-t-cut`), with the whole sentence as the button's name. A door to the object's other
+    surface («Zum Original», «Auf {plan} zeigen») stands on a row of its own above the symbol
+    panel's foot. A rotation reads in whole degrees; ± from a hand-turned angle snaps to the next
+    15° mark (`Stepper · snap`).
   - *Text actions (28.09.2026, owner pick A):* no bare blue word as an action. A verb that ends a
     row makes the WHOLE row the button — `.row-go` (13-incident): ink text, the verb in
     `--ink-dim` 12.5/700 + a 16px `chevron`, one press wash, ≥44px, `aria-label` «Verb: row text».
@@ -1542,6 +1576,11 @@ to prod.
     commits the composer with `flushSync` INSIDE the click and the textarea focuses itself as it
     attaches (`JournalComposer · attachText`): React otherwise commits a microtask later, and iOS
     gives a focus made outside the tap a caret and no keys.
+  - *A docked tab strip is RESERVED by a sum of tokens, never a number* (30.09.2026, owner: «the
+    journal entry slightly overlaps with the selector below»): `--rp-tabs-safe` (15-mobile) is the
+    strip's height — `--tap` + the `.useg` track's 3px + `--bar-pad` + 1px edge, top and bottom —
+    plus its 6px channel. A literal 60px outlived a 4px shell padding and stood the FAB, the
+    message lane, «Zurück zum Rapport» and the page's foot 10px low.
   - *ONE page-title size*: `--head-title` is 17px on a phone, set as the TOKEN in `15-mobile.css`
     — never a per-surface `font-size` on the `<h2>`, which is how «Einsatzrapport» came to stand
     19px beside «Anwesenheit» at 17. The Rapport's head carries the title and what is still open;
@@ -1569,6 +1608,23 @@ to prod.
     121px phone head, 190 on the 820 tablet with «+ Trupp anmelden» wrapped to a third row) is
     superseded, and so is «icons below 1080px» on the Rapport. The one tile family stays:
     `.headTile` (Atemschutz.module.css) / `.head-tile` (13-incident.css).
+  - *A head's quiet line is said WHOLE or not at all* (30.09.2026): free text there (the
+    Checkliste's subtitle) wears `data-fit-check` and the ladder's FIRST rank, so it folds away
+    whole before the tiles give up words — never «Aktions-Checkliste Fü…». On a phone the
+    Checkliste runner shows no titles at all: the chooser row names the list, the row under it is
+    the progress alone (bar + «0/8 erledigt», no percentage — owner: the count already says it).
+  - *No card inside the page card* (30.09.2026, owner: «in the rapport we have double stacked
+    cards on mobile»). A surface's sections sit ON the page card: no frame, no fill, the content
+    at the head's inset, a `--glass-edge` hairline over each section with its eyebrow (or its
+    round-up row's title) as the head, and no hairline over the first one under the head's edge.
+    The Rapport does this wherever it is ONE column (< 1080px — phone and portrait tablet; on a
+    phone per tab, `13-incident.css`), the Checkliste on a phone; the Rapport's two-column layout
+    (1080+) keeps its cards, which face each other across the page. Rows in a list (Material,
+    Anwesenheit, checklist items) are not sections and stay rows.
+  - *The Zeitplan's zoom lives in the grid's corner on a phone* (30.09.2026, owner: «the +/- 12h
+    thing … uses up a lot of vertical space»): on a phone it stands in the clock row's empty
+    corner over the names (`ZeitplanView · zoom`, the row grows to a lane's 44px and the hours sit
+    at its foot); a tablet keeps it at the end of the search line. Never a row of its own.
   - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
     (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the
     steps) — the same chip on a phone as on a wide screen. A fixed square was tried and cannot
@@ -1657,7 +1713,19 @@ to prod.
     melden» says «warning» about a Trupp at 300 bar.
   - *A Trupps section head* (Drin · Sicherungstrupp · Bereit · Draussen, and the grid's
     Atemschutz / Weitere Trupps) is the eyebrow and the count badge — no hairline rule to the
-    edge (29.09.2026); the boundary is the air above the head.
+    edge (29.09.2026); the boundary is the air above the head — ONE number, 26px (`.sectSecond`),
+    and on the phone board ONE adjacency rule gives it to every section after the first, the
+    Sicherungstrupp zone included (`.phoneBoard > * + :is(.sect, .safetyZone)`, 30.09.2026:
+    Sicherungstrupp and Draussen sat flush on the card above). A head keeps 12px to its first
+    card. Never give a section its own top/bottom margins.
+  - *A NEW Trupp is led by its most senior member until somebody is crowned by hand* (30.09.2026,
+    `lib/truppLeader`): while «Trupp anmelden» is open and no name was tapped/held, every add or
+    removal puts the highest Dienstgrad (`lib/rank · rankOrder`) in front; ties and rankless crews
+    (Gäste) keep the order they were picked in. A tap on a name ends it for that form (kept with
+    the draft). An edit, a re-entry and the Mannschaft sheet never move the leader — a crew
+    somebody joins later keeps the one the radio knows. `TruppTeam · onChange` says which move it
+    made (`'add' | 'remove' | 'lead'`). The keyboard-up Trupp form buys back VERTICAL air only:
+    body, footer and blocked line keep the sheet's 20px side gutter.
   - *The handed-over Tafel's strip (focus mode)*: the chosen Trupp tab is the nav's ink pill
     (`--ink-fill` / `--on-accent-ink`, 29.09.2026), never an outline ring; on a red or amber tab
     the fill wins (the card shows the tier). The add cell reads «+ Trupp» — a full cell has room
@@ -1681,6 +1749,16 @@ to prod.
     Auftrag, and `TruppSheets · LeitungField` («keine · Ltg n · Nr. …»). Ziel chips are
     SHORTCUTS: a pick fills the field and the chip is never drawn as chosen (no `aria-pressed`, no
     `--sel`); the field holds the answer.
+  - *The form asks Druck and Kanal in the sheets that ask them on the card* (30.09.2026, owner):
+    one row each in every mode, «Eingangsdruck 300 bar ›» / «Funkkanal 11 ›», opening the Druck
+    sheet (20-bar grid, the form's value filled — `PressureSheet · chosen`) or the Kanal sheet
+    (`KanalPickSheet`, pad, or the ± stepper with tap-to-type and «Übernehmen» for a range too
+    wide for keys). A tap fills the draft and closes; nothing is written until the form's save.
+    The sheets are NESTED in the form's popup (their host stops pointerdown so the form's swipe
+    does not move with them); Escape closes the sheet, never the form. The grid and the pad never
+    sit inline in the form, and the «Standard: … — Ändern» fold is gone. The low-Eingangsdruck
+    «Ändern» opens the Druck sheet; the lock after the Austritt and «Gleiche / Neue Flasche» are
+    unchanged. The form's ± steppers are gone — do not bring them back.
   - *The Trupp form is a bottom sheet there, with the due clocks above it* (D1 ⑥): at most two
     due/overdue Trupps, most urgent first, each with a live «Kontakt» that confirms without
     leaving the form. The pinned set holds 2 s after a tap and the row just confirmed reads
