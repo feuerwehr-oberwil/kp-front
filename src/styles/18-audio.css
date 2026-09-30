@@ -62,7 +62,7 @@
 .ap-add-row input::placeholder { color: var(--ink-faint); }
 .ap-add-row input:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
 .ap-send { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-sm); background: var(--btn-primary);
-  color: var(--on-accent-ink); padding: 0 16px; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+  color: var(--on-btn-primary); padding: 0 16px; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .ap-send:disabled { opacity: var(--disabled); cursor: default; }
 .ap-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
   border-top: 1px solid var(--border-soft); padding-top: 10px; }
@@ -292,18 +292,13 @@
 @media (hover: hover) {
   .jc-chip:hover { color: var(--ink); border-color: var(--ink-faint); }
 }
-/* --blue, never --accent: this is a SELECTED state, and --accent is the deployment's brand red */
-.jc-chip.on { color: var(--blue-strong); font-weight: 700;
-  background: color-mix(in srgb, var(--blue) 16%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 42%, transparent); }
-/* the three Arten carry their own ink ONCE CHOSEN — an unchosen row stays uniform, so nothing
-   on it competes with the text field above it */
-.jc-chip.jc-type-auftrag.on { color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 18%, transparent);
-  border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
-.jc-chip.jc-type-sofort.on { color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+/* THE choice fill (01-tokens · --sel), never --accent: --accent is the deployment's brand red */
+.jc-chip.on { color: var(--on-sel); font-weight: 700; background: var(--sel); border-color: var(--sel); }
+/* the three Arten carry their own colour ONCE CHOSEN — the same fill, in their tone (as the
+   Suche's toned chips); an unchosen row stays uniform, so nothing on it competes with the text
+   field above it */
+.jc-chip.jc-type-auftrag.on { color: var(--on-fill); background: var(--amber); border-color: var(--amber); }
+.jc-chip.jc-type-sofort.on { color: var(--on-accent-ink); background: var(--accent); border-color: var(--accent); }
 
 /* ── «bleibt offen» ────────────────────────────────────────────────────────────────────────
    The ring, after the three Arten. It answers a DIFFERENT question than they do — they say what
@@ -510,9 +505,7 @@
 }
 .jc-due-btn { position: relative; }
 .jc-due-btn .i { width: 17px; height: 17px; }
-.jc-due-btn[data-on] { color: var(--blue-strong);
-  background: color-mix(in srgb, var(--blue) 12%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 45%, transparent); }
+.jc-due-btn[data-on] { color: var(--on-sel); background: var(--sel); border-color: var(--sel); }
 /* ⚠️ The time hangs OUT of the button, absolutely positioned. Inline it would widen the control
    by ~40px, and the three Art chips are the only things in the row that can give that up — at
    which point «Sofortmassnahme» wraps and the row grows anyway. A lit clock alone says «something

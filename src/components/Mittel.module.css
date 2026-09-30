@@ -256,7 +256,8 @@
    (13-incident.css · «ONE menu row»), and mouse-only, so a tap leaves nothing lit. */
 @media (hover: hover) { .pickOpt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
 .pickOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.pickOptOn { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+/* a picked ROW wears the one row wash (01-tokens · --sel-wash); its radio dot says the rest */
+.pickOptOn { border-color: var(--sel); background: var(--sel-wash); }
 .pickRadio { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--ink-faint); }
 .pickOptOn .pickRadio {
   border-color: var(--blue);

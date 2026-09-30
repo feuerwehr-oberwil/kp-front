@@ -250,6 +250,17 @@
   --btn-primary: var(--ink-fill);
   --btn-primary-hover: var(--ink-fill-hover);
   --on-btn-primary: var(--on-accent-ink);
+  /* THE «selected» of a CHOICE (28.09.2026, owner: «all buttons have different selected
+     states») — a segment, a chip, an option tile: ONE blue fill. The Trupp form alone wore four
+     (ink outline, blue ring, ink fill, blue segment). Blue, because it never collides with the
+     primary fill above (ink by day, light grey by night) nor with red/amber (danger/warning).
+     A ROW in a list (a menu option, a picker row) is picked by the wash instead — a filled
+     row is a slab. «Where you are» (rails, the armed tool) keeps its ink pill: that is a
+     place, not an answer. Night follows by itself: --blue / --on-fill are re-declared there. */
+  --sel: var(--blue);
+  --on-sel: var(--on-fill);
+  --sel-shadow: 0 1px 2px rgba(20, 40, 80, .22);
+  --sel-wash: color-mix(in srgb, var(--blue) 14%, transparent);
   /* sticky-note pills (map note + plan text). Day = warm paper yellow; night re-declares
      to a deep amber so the note still reads AS a note on the dark map/board instead of
      glaring as a bright daylight sticky. */

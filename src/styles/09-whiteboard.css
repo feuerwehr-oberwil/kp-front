@@ -200,7 +200,7 @@
   .pp-row:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 18%, transparent); }
 }
 .pp-row:active { background-image: linear-gradient(var(--press), var(--press)); }
-.pp-row.on { background: color-mix(in srgb, var(--blue) 14%, transparent); border-color: var(--blue); }
+.pp-row.on { background: var(--sel-wash); border-color: var(--sel); }
 /* ⚠️ The two columns share ONE line grid (owner-r2-4, 27.09.2026): 18px for the name line, 16px
    for the address line, a 2px gap in both. Each side used to take its own font's line box and
    the right one a 3px gap, so «0 m» stood ~2px above the name's line and «4 Pläne» drifted the
@@ -763,7 +763,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-dock-tog { width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12);
   border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--on-accent-ink); padding: 0; }
 .wb-dock-tog .i { width: 17px; height: 17px; }
-.wb-dock-tog.on { background: var(--blue); color: var(--on-fill); } /* active mode: blue accent, not stark white */
+.wb-dock-tog.on { background: var(--sel); color: var(--on-sel); } /* active mode: blue accent, not stark white */
 .wb-dock-tog:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* word/letter toggles (note size steps, Zettel↔Klartext) — the dock is narrow, so the label
    shrinks to fit rather than widening the whole column */
@@ -864,8 +864,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-orient-chip { flex: 1 1 0; min-height: var(--tap); padding: 0 10px; border: none; cursor: pointer;
   border-radius: var(--r-sm); background: var(--surface-2); font: 700 12.5px var(--body); color: var(--ink); }
 .wb-orient-chip:active { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-orient-chip.on { background: color-mix(in srgb, var(--blue) 14%, var(--surface-2));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 40%, transparent); color: var(--blue-strong); }
+.wb-orient-chip.on { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 
 /* FKS hose-line decorations — shared by the Lage map (in a Marker) and the Plan (wb-line-deco) */
 .line-fork { display: block; }
@@ -911,7 +910,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 @media (hover: hover) {
   .wb-cal-chip:hover { border-color: var(--blue); }
 }
-.wb-cal-chip.on { border-color: var(--blue); background: var(--blue); color: var(--on-fill); }
+.wb-cal-chip.on { border-color: var(--sel); background: var(--sel); color: var(--on-sel); }
 
 /* clean −/+ stepper for the real-length entry */
 .wb-cal-stepper { display: flex; align-items: stretch; gap: 8px; }

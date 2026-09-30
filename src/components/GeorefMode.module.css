@@ -168,8 +168,7 @@
 .pill :global(.btn), .bar :global(.btn) { flex: none; padding: 7px 11px; font-size: 12.5px; white-space: nowrap; }
 .finishAction, .resetAction, .checkAction { min-width: 0; }
 .pill :global(.btn.link.on), .bar :global(.btn.link.on) {
-  background: color-mix(in srgb, var(--blue) 12%, var(--surface));
-  border-color: var(--blue);
+  background: var(--sel); border-color: var(--sel); color: var(--on-sel);
 }
 
 /* the desktop instrument has no room for a band, so its existing pulse dot carries the tone.
@@ -207,7 +206,7 @@
 }
 .infoBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .infoBtn svg { width: 19px; height: 19px; }
-.infoOn { color: var(--blue); background: color-mix(in srgb, var(--blue) 11%, transparent); }
+.infoOn { color: var(--on-sel); background: var(--sel); }
 /* the folded-out quality detail: pair count, claimable ⌀, one sentence of what to DO next */
 .qfold {
   border-radius: var(--r-sm); background: var(--fill-soft); padding: 9px 10px;
@@ -576,10 +575,12 @@
     background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink-dim);
     font: 700 10.5px/1.4 var(--body);
   }
+    /* the chosen half is THE choice fill, as every Segmented (01-tokens · --sel) — it was a white
+     iOS-style pill, a look of its own */
   .surfaceSwitch button.surfaceOn span {
-    background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue-strong);
+    background: color-mix(in srgb, var(--on-sel) 22%, transparent); color: var(--on-sel);
   }
-  .surfaceSwitch button.surfaceOn { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+  .surfaceSwitch button.surfaceOn { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
   .surfaceSwitch button:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
   .surfaceSwitch button:disabled { opacity: var(--disabled); cursor: default; }
   .fixedTarget { display: block; }
