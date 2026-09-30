@@ -209,7 +209,7 @@ function AtemschutzAlarmMeldung({ group, onAcknowledge, onGo, onAck }: {
     tone: 'alarm',
     // the SAME two glyphs the TopBar chip uses for the same two reasons — the operator who
     // learned them on the chip does not have to learn them twice
-    icon: pressure ? 'drop' : 'gauge',
+    icon: pressure ? 'manometer' : 'gauge',
     title,
     // a read-only device says so on the row, so its acknowledgement is not mistaken for a contact
     sub: onAck ? `${sub} · ${az.alarmRowReadOnly}` : sub,

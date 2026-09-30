@@ -54,6 +54,14 @@ export function IconSprite() {
       <symbol id="box" viewBox="0 0 24 24"><path d="M12 3 4 7v10l8 4 8-4V7z" /><path d="M4 7l8 4 8-4M12 11v10" /></symbol>
       <symbol id="warn" viewBox="0 0 24 24"><path d="M12 3.5 22 20.5H2z" /><path d="M12 10v4.5" /><circle cx="12" cy="17.7" r=".4" /></symbol>
       <symbol id="drop" viewBox="0 0 24 24"><path d="M12 3.5c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z" /></symbol>
+      {/* The Manometer (26.09.2026, phone card slim-down): a half dial with its needle — what an
+          Atemschutzgeräteträger reads the pressure off, and it means pressure and nothing else. It
+          replaced the #drop on the pressure tile and on the top bar's Alarmdruck chip: a droplet
+          says WATER, which is the one thing a bar reading under Atemschutz is not. #drop stays for
+          the Leitung rows of the Verlauf (useTruppActions), where water is what it means. Distinct
+          from #gauge (a full dial with its stem, the Atemschutz surface's own glyph) at 16px by the
+          open bottom. */}
+      <symbol id="manometer" viewBox="0 0 24 24"><path d="M4 16.5a8 8 0 0 1 16 0" /><path d="M12 16.5 16.6 11.3" /><circle cx="12" cy="16.5" r="1.3" fill="currentColor" stroke="none" /><path d="M12 8.5V10M6.2 12.4l1.3.7M17.8 12.4l-1.3.7" stroke-opacity=".55" /></symbol>
       <symbol id="radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" /><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M6 6a9 9 0 0 0 0 12M18 6a9 9 0 0 1 0 12" /></symbol>
       <symbol id="flag" viewBox="0 0 24 24"><path d="M6 3v18M6 4h11l-2.5 3.5L17 11H6" /></symbol>
       <symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6" /></symbol>
@@ -74,6 +82,9 @@ export function IconSprite() {
       <symbol id="mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6.5L20.5 7" /></symbol>
       <symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M15 5H5a2 2 0 0 0-2 2v10" /></symbol>
       <symbol id="more-vert" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.7" fill="currentColor" stroke="none" /></symbol>
+      {/* …lying down: the last chip of the phone card's fact strip (26.09.2026, phone card
+          slim-down) — a horizontal ⋯ reads as «more of this row», the vertical one as a head's menu */}
+      <symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none" /></symbol>
       <symbol id="compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 4.5 14.5 13 12 11 9.5 13z" fill="var(--red)" stroke="none" /><path d="M12 13v6" stroke-opacity=".4" /></symbol>
       <symbol id="undo" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-2" /></symbol>
       <symbol id="redo" viewBox="0 0 24 24"><path d="M15 7l5 5-5 5" /><path d="M20 12H9a5 5 0 0 0 0 10h2" /></symbol>
