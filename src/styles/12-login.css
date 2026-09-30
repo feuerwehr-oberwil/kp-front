@@ -50,7 +50,7 @@
 /* brand lockup — app logo + wordmark, separated from the body by a hairline */
 .login-brand { display: flex; align-items: center; gap: 15px; padding-bottom: 22px;
   border-bottom: 1px solid var(--glass-edge); }
-.login-logo { width: 44px; height: 44px; flex: none; border-radius: 10px; box-shadow: 0 1px 4px color-mix(in srgb, #000 22%, transparent); }
+.login-logo { width: 44px; height: 44px; flex: none; border-radius: var(--r-sm); box-shadow: 0 1px 4px color-mix(in srgb, #000 22%, transparent); }
 .login-name { font-size: 16px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--ink); line-height: 1; }
 .login-sub { font-family: var(--mono); font-size: 11.5px; letter-spacing: .01em; color: var(--ink-faint); margin-top: 5px; }
 

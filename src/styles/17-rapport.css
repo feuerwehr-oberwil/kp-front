@@ -58,8 +58,8 @@
    owns the placement, so this styles the popup only — same surface vocabulary as .ip-menu,
    without its absolute anchoring. */
 .ui-ctxmenu-pos { z-index: var(--z-menu); }
-.ui-ctxmenu { min-width: 208px; max-width: min(320px, 92vw); padding: 6px;
-  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
+.ui-ctxmenu { min-width: 208px; max-width: min(320px, 92vw); padding: var(--bar-pad);
+  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-bar);
   box-shadow: var(--shadow); outline: none; }
 /* skin only — the row radius, the hover/keyboard wash, the press wash and the red row are the
    shared `.ui-menu-item` / `.ui-menu-danger` this menu's rows also wear (13-incident.css). */

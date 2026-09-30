@@ -41,7 +41,7 @@
    not, and beside the chips' own borders they read as a table. The element stays (it is where a
    group starts, and the folded bar's test counts it); only its paint went. */
 .nav-sep { height: 6px; flex: none; }
-.nav-item { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-nested, var(--r-sm));
+.nav-item { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-sm);
   cursor: pointer; color: var(--ink); font: inherit; padding: 0; width: 100%; position: relative; transition: background .14s var(--ease); }
 .navrail:not(.expanded) .nav-item, .navrail.dragging .nav-item { justify-content: center; }
 @media (hover: hover) {
@@ -62,7 +62,7 @@
 /* module/floor monograms sit in a bordered chip so they read as document tabs rather than bare
    tool glyphs; the chip hugs its content (1 / 2 / 6 / RWA / ⅔) and inverts on the active pill */
 .nav-mono-chip { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
-  min-width: 30px; min-height: 30px; max-width: 100%; padding: 1px 6px; border: 1.5px solid var(--border); border-radius: 8px; line-height: 1; }
+  min-width: 30px; min-height: 30px; max-width: 100%; padding: 1px 6px; border: 1.5px solid var(--border); border-radius: var(--r-xs); line-height: 1; }
 /* The chip has to fit inside the 46px glyph column WITH its border — a clipped border reads as a
    rendering fault, not as a tight fit. A single digit sits at the inherited 15px; a two- or
    three-letter sub-slot acronym ("PV", "RWA") gets the room it needs by shrinking the text
@@ -148,7 +148,7 @@
    phone's «Rapport» tile wears it with the head count, because Anwesenheit folded into the
    Rapport there and its one number must not disappear with its tile (18.09.2026). */
 .nav-live.nav-count { top: 2px; right: 2px; width: auto; min-width: 16px; height: 16px; padding: 0 3px;
-  box-sizing: border-box; border-radius: 8px; background: var(--accent); color: var(--on-accent-ink);
+  box-sizing: border-box; border-radius: var(--r-xs); background: var(--accent); color: var(--on-accent-ink);
   font: 800 10px var(--body); line-height: 12px; text-align: center; }
 /* Atemschutz cross-surface alarm dot: amber when fällig, red + pulse when überfällig */
 .nav-live.nav-alarm { background: var(--amber); }

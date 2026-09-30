@@ -5,9 +5,9 @@
 .ap-range { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .ap-body { display: flex; flex-direction: column; gap: 12px; padding: 8px 20px 18px; }
 .ap-wave-wrap { flex: none; position: relative; }
-.ap-wave { display: block; width: 100%; height: 96px; border-radius: 12px; background: var(--fill-soft); cursor: pointer; touch-action: none; }
+.ap-wave { display: block; width: 100%; height: 96px; border-radius: var(--r-sm); background: var(--fill-soft); cursor: pointer; touch-action: none; }
 /* peaks are computing server-side — sweep a soft highlight until they arrive */
-.ap-wave-shimmer { position: absolute; inset: 0 0 21px 0; border-radius: 12px; overflow: hidden; pointer-events: none; }
+.ap-wave-shimmer { position: absolute; inset: 0 0 21px 0; border-radius: var(--r-sm); overflow: hidden; pointer-events: none; }
 .ap-wave-shimmer::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 7%, transparent), transparent);
   animation: apShimmer 1.6s ease-in-out infinite; }
@@ -47,9 +47,9 @@
    the fill lives on the WRAPPER so the marks sit between it and the see-through input. Font,
    padding and border are repeated on both layers — any difference and the colours slide off
    their words. One line, so the backdrop follows horizontal scroll, not vertical. */
-.ap-add-field { position: relative; flex: 1; min-width: 0; background: var(--surface); border-radius: 12px; }
+.ap-add-field { position: relative; flex: 1; min-width: 0; background: var(--surface); border-radius: var(--r-sm); }
 .ap-add-marks { position: absolute; inset: 0; overflow: hidden; pointer-events: none; white-space: pre;
-  border: 1px solid transparent; border-radius: 12px; padding: 10px 12px;
+  border: 1px solid transparent; border-radius: var(--r-sm); padding: 10px 12px;
   font: inherit; font-size: 13px; line-height: normal; color: transparent; }
 .ap-add-marks mark { color: transparent; border-radius: 3px;
   background: color-mix(in srgb, var(--blue) 20%, transparent); }
@@ -57,7 +57,7 @@
 .ap-add-marks mark.jc-mark-partner { background: color-mix(in srgb, var(--amber) 26%, transparent); }
 .ap-add-marks mark.jc-mark-vehicle { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .ap-add-marks mark.jc-mark-group { background: color-mix(in srgb, var(--ink) 14%, transparent); }
-.ap-add-row input { position: relative; display: block; width: 100%; min-width: 0; border: 1px solid var(--glass-edge); border-radius: 12px;
+.ap-add-row input { position: relative; display: block; width: 100%; min-width: 0; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
   background: transparent; padding: 10px 12px; font: inherit; font-size: 13px; line-height: normal; color: var(--ink); }
 .ap-add-row input::placeholder { color: var(--ink-faint); }
 .ap-add-row input:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
@@ -68,7 +68,7 @@
   border-top: 1px solid var(--border-soft); padding-top: 10px; }
 .ap-list-head { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 6px; }
 .ap-empty { margin: 0; color: var(--ink-faint); font-size: 13px; }
-.ap-row { display: flex; align-items: center; gap: 10px; padding: 8px; border: none; border-radius: 10px; background: none;
+.ap-row { display: flex; align-items: center; gap: 10px; padding: 8px; border: none; border-radius: var(--r-sm); background: none;
   font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-align: left; }
 @media (hover: hover) {
   .ap-row:hover { background: var(--fill-soft); }
@@ -100,7 +100,7 @@
 .ap-stt-bar span { flex: 1; min-width: 0; }
 .ap-stt-all { border: none; border-radius: var(--r-sm); background: var(--btn-primary); color: var(--on-btn-primary);
   padding: 7px 13px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; flex: none; }
-.ap-draft { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 12px; }
+.ap-draft { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--r-sm); }
 /* in-progress = blue, the same answer the Zeitplan already gives for a running state.
    It is not a warning: nothing is wrong while a transcript is still being written. */
 .ap-draft-t { font-family: var(--mono); font-size: 11px; color: var(--blue); width: 38px; flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -108,7 +108,7 @@
   background: none; color: var(--amber); display: grid; place-items: center; cursor: pointer; flex: none; }
 .ap-draft-play .i { width: 11px; height: 11px; }
 .ap-draft-tx { flex: 1; min-width: 0; border: none; background: none; font: inherit; font-size: 13px; font-style: italic;
-  color: var(--ink-dim); padding: 4px 6px; border-radius: 8px; }
+  color: var(--ink-dim); padding: 4px 6px; border-radius: var(--r-xs); }
 .ap-draft-tx:focus { outline: none; background: var(--surface); color: var(--ink); font-style: normal;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--blue) 50%, transparent); }
 .ap-d-btn { width: 32px; height: 32px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
@@ -127,7 +127,7 @@
 @media (hover: none) { .ap-row-edit { opacity: 1; } }
 .ap-row-edit .i { width: 12px; height: 12px; }
 .ap-row-editing { cursor: default; }
-.ap-row-input { flex: 1; min-width: 0; border: 1px solid var(--glass-edge); border-radius: 10px; background: var(--surface);
+.ap-row-input { flex: 1; min-width: 0; border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
   padding: 7px 10px; font: inherit; font-size: 13px; color: var(--ink); }
 .ap-row-input:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
 /* Abbrechen · Speichern under the transcript field. The two ways INTO the field are icon
@@ -551,7 +551,7 @@
 /* Einsatzuhr: tap-to-cycle clock (duration / wall time / start) beside the wall clock. It's a
    <button> now — strip the native chrome and give it a comfortable tap area. */
 .tb-einsatzuhr { color: var(--ink-dim); background: none; border: none; cursor: pointer; font: inherit;
-  padding: 6px 4px; margin: -6px 0; border-radius: var(--r-nested, var(--r-sm)); -webkit-tap-highlight-color: transparent; }
+  padding: 6px 4px; margin: -6px 0; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) {
   .tb-einsatzuhr:hover { color: var(--ink); }
 }
@@ -561,7 +561,7 @@
 /* Einsatzuhr mode dropdown: labelled, selectable rows (Dauer / Uhrzeit / Beginn) so the reading
    is never ambiguous — recognition over the old blind tap-to-cycle. */
 .tb-uhr-menu { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow); padding: 6px; min-width: 236px; }
+  border-radius: var(--r-bar); box-shadow: var(--shadow); padding: var(--bar-pad); min-width: 236px; }
 /* a menu row, so it wears the app's one option-row treatment: --r-ctl, 8 % of --blue on hover,
    and the --press wash it had no answer of at all (13-incident.css · «ONE menu row»). */
 .tb-uhr-row { display: flex; align-items: center; gap: 11px; width: 100%; height: 42px; padding: 0 10px; border: 0;

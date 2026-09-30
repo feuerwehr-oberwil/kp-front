@@ -257,8 +257,9 @@ describe('sticky/updatable toast (live print status)', () => {
 
 // Action toasts can be dismissed immediately when their bounded stack is in the way.
 describe('getting a confirm-with-undo toast out of the way', () => {
-  /** the toast just raised — the store is module-level, so a previous test's pill may still stand */
-  const last = (sel: string) => [...document.querySelectorAll(`.toast ${sel}`)].pop() as HTMLElement
+  /** a control of the toast carrying `text` — the store is module-level, so a previous test's pill
+   *  may still stand, and since 25.09.2026 every timed pill has a ✕ of its own (see the note below) */
+  const inPill = (text: string, sel: string) => screen.getByText(text).closest('.toast')!.querySelector(sel) as HTMLElement
   const drag = (el: Element, dx: number) => {
     fireEvent.pointerDown(el, { pointerId: 1, clientX: 0 })
     fireEvent.pointerMove(el, { pointerId: 1, clientX: dx })
@@ -270,7 +271,7 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     render(<Overlays />)
     const onClick = vi.fn()
     act(() => { toast('mit ✕ weg', { action: { label: 'Rückgängig', onClick } }) })
-    fireEvent.click(last('.toast-x'))
+    fireEvent.click(inPill('mit ✕ weg', '.toast-x'))
     await waitFor(() => expect(screen.queryByText('mit ✕ weg')).toBeNull())
     expect(onClick).not.toHaveBeenCalled()
   })
@@ -279,7 +280,7 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     render(<Overlays />)
     const onClick = vi.fn()
     act(() => { toast('weggewischt', { action: { label: 'Rückgängig', onClick } }) })
-    drag(last('.toast-action'), 90)
+    drag(inPill('weggewischt', '.toast-action'), 90)
     await waitFor(() => expect(screen.queryByText('weggewischt')).toBeNull())
     expect(onClick).not.toHaveBeenCalled()
   })
@@ -289,7 +290,7 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     render(<Overlays />)
     const onClick = vi.fn()
     act(() => { toast('zittrig gedrückt', { action: { label: 'Rückgängig', onClick } }) })
-    drag(last('.toast-action'), 6)
+    drag(inPill('zittrig gedrückt', '.toast-action'), 6)
     expect(onClick).toHaveBeenCalled()
     await waitFor(() => expect(screen.queryByText('zittrig gedrückt')).toBeNull())
   })
@@ -340,7 +341,7 @@ describe('swiping the whole toast pill', () => {
     render(<Overlays />)
     act(() => { toast('nur Cluster', { action: { label: 'Rückgängig', onClick: vi.fn() } }) })
     const pill = pillFor('nur Cluster')
-    swipe(screen.getByRole('button', { name: 'Rückgängig' }), 30) // below the button's own 56px flick
+    swipe(pill.querySelector('.toast-action')!, 30) // below the button's own 56px flick
     expect(pill.style.transform).toBe('')
   })
 
@@ -401,5 +402,45 @@ describe('toast · a `kind` replaces its predecessor instead of stacking', () =>
     act(() => { toast('eins'); toast('zwei') })
     expect(screen.getByText('eins')).toBeTruthy()
     expect(screen.getByText('zwei')).toBeTruthy()
+  })
+})
+
+// ONE message surface (25.09.2026): what goes away by itself SAYS so — a ✕ and a line that runs
+// out with its time. What stays (a mode's instruction, a live status) has neither.
+describe('a message says whether it goes away by itself', () => {
+  const pillFor = (text: string) => screen.getByText(text).closest('.toast') as HTMLElement
+
+  it('gives a timed message a ✕ and a line that runs for exactly its time', () => {
+    render(<Overlays />)
+    act(() => { toast('läuft ab', { duration: 4000 }) })
+    const pill = pillFor('läuft ab')
+    expect(pill.querySelector('.toast-x')).toBeTruthy()
+    expect((pill.querySelector('.toast-life') as HTMLElement).style.animationDuration).toBe('4000ms')
+  })
+
+  it('gives a sticky message neither', () => {
+    render(<Overlays />)
+    let id = 0
+    act(() => { id = toast('bleibt stehen', { sticky: true }) })
+    const pill = pillFor('bleibt stehen')
+    expect(pill.querySelector('.toast-x')).toBeNull()
+    expect(pill.querySelector('.toast-life')).toBeNull()
+    act(() => { dismissToast(id) })
+  })
+
+  it('starts the line again when an update resets the clock', () => {
+    render(<Overlays />)
+    let id = 0
+    act(() => { id = toast('Stand läuft', { sticky: true }) })
+    expect(pillFor('Stand läuft').querySelector('.toast-life')).toBeNull()
+    act(() => { updateToast(id, 'Stand gesichert', { tone: 'success', duration: 3000 }) })
+    expect((pillFor('Stand gesichert').querySelector('.toast-life') as HTMLElement).style.animationDuration).toBe('3000ms')
+  })
+
+  it('closes on its ✕', async () => {
+    render(<Overlays />)
+    act(() => { toast('mit eigenem ✕') })
+    fireEvent.click(pillFor('mit eigenem ✕').querySelector('.toast-x')!)
+    await waitFor(() => expect(screen.queryByText('mit eigenem ✕')).toBeNull())
   })
 })

@@ -97,7 +97,10 @@
    Anwesenheit had already worked this out locally (`.controls > .useg { flex: none }`); this
    promotes it to the rule, which is where it belonged. Every caller that WANTS the control to
    stretch overrides it more specifically (.jc-mode, Mittel, Atemschutz, Anwesenheit). */
-.useg { display: inline-flex; flex: none; flex-wrap: wrap; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; max-width: 100%; }
+/* the TRACK is the control, so it wears the one corner; the options are parts of it, 3px inside,
+   and their corner is the track's less that gap (01-tokens · «ONE corner») */
+.useg { display: inline-flex; flex: none; flex-wrap: wrap; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; max-width: 100%;
+  --useg-in: calc(var(--r-ctl) - 3px); }
 .field .useg, .ctx-caprow .useg, .kv-row .useg { margin-left: auto; }
 /* ONE segmented spec, no per-surface overrides. The option radius was a stray 7px belonging to no
    tier, and the height was 28px / 34px / 46px in three places — two of them under the gloved floor
@@ -105,7 +108,7 @@
    side, so the CONTROL measures a full 44px (the thing a thumb aims at) while the well still shows
    around the active pill — the affordance that says "these are options in a group". That geometry
    is Anwesenheit's, worked out for its header row; this promotes it to the rule. */
-.useg-btn { appearance: none; border: 0; background: transparent; border-radius: var(--r-sm); padding: 6px 12px;
+.useg-btn { appearance: none; border: 0; background: transparent; border-radius: var(--useg-in, var(--r-sm)); padding: 6px 12px;
   min-height: calc(var(--tap) - 6px);
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font: 700 12.5px var(--body); color: var(--ink-dim); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
@@ -233,8 +236,9 @@
 .combo-clear .i { width: 13px; height: 13px; }
 .combo-input { width: 100%; box-sizing: border-box; border: 1px solid var(--blue); border-radius: var(--r-sm); padding: 7px 10px;
   font: 600 13px var(--body); color: var(--ink); background: var(--surface); outline: none; }
-.combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: 4px; list-style: none;
-  max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: var(--shadow); }
+/* a menu hugs its rows: even --bar-pad, and the corner is the rows' plus that gap (01-tokens · «ONE corner») */
+.combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: var(--bar-pad); list-style: none;
+  max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-bar); box-shadow: var(--shadow); }
 /* portalled to <body> so a scrollable/overflow-hidden panel can't clip or cut off the menu */
 /* z above the phone bottom sheet (.ctx @62), journal drawer (@61) AND the modal sheets
    (.ip-ovl @80 — the Einsatz wizard's Kategorie combo rendered BEHIND the modal at 70:
