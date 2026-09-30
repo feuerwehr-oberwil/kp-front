@@ -59,8 +59,6 @@
 .cl-runner-head[data-fit-wrap] > .cl-runner-titles { flex-basis: 100%; }
 .cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .cl-overall .cl-bar { width: 96px; flex: none; }
-.cl-overall-num { font-family: var(--mono); font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1; white-space: nowrap; }
-.cl-overall-num[data-folded] { display: none; }
 .cl-runner-head[data-fit-tight] .cl-overall { gap: 6px; }
 .cl-overall-sub { font-size: 12.5px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
@@ -147,8 +145,6 @@
 .cl-runner-titles p[data-folded] { display: none; }
 .cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .cl-overall .cl-bar { width: 96px; flex: none; }
-.cl-overall-num { font-family: var(--mono); font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1; white-space: nowrap; }
-.cl-overall-num[data-folded] { display: none; }
 .cl-runner-head[data-fit-tight] .cl-overall { gap: 6px; }
 .cl-overall-sub { font-size: 12.5px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
@@ -400,7 +396,7 @@
     font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
   .cl-ref-h:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
   /* the runner the same way: its h2 repeated the chooser, so the head is ONE row — and that row
-     is the list's PROGRESS and nothing else: the number, the bar across the room, «0/8 erledigt».
+     is the list's PROGRESS and nothing else: the bar across the room and «0/8 erledigt».
      (30.09.2026, owner on «Aktions-Checkliste Fü… 0%»: «what is this». The subtitle stood here,
      cut to a word and a half where the progress began, and read as a row with no name; the
      chooser right above already names the list.) */

@@ -163,7 +163,7 @@ export function ChecklistRunner({
   // subtitle wrapping to two lines, then «0%», the bar and «0/8 erledigt» stacked in a column of
   // their own). The title and its one quiet line left, the progress right on one line; what does
   // not fit gives up words (lib/pageHeadFit): the subtitle, whole (never cut mid-word, 30.09.2026),
-  // then «erledigt», then the «%» the bar already draws.
+  // then «erledigt».
   const headRef = useRef<HTMLElement>(null)
   usePageHeadFit(headRef, `${template.id}|${overall.done}|${overall.total}`)
   return (
@@ -181,8 +181,9 @@ export function ChecklistRunner({
             <p title={template.subtitle} data-fit-check data-fold={1}><span className="fold-long">{template.subtitle}</span></p>
           )}
         </div>
+        {/* the bar and «n/m erledigt», no «%» (30.09.2026, owner: «0/8 erledigt» already says it
+            — two numbers for one fact) */}
         <div className={s['cl-overall']}>
-          <span className={s['cl-overall-num']} data-fold={3}><span className="fold-long">{overall.pct}%</span></span>
           <Bar {...overall} />
           <span className={s['cl-overall-sub']} data-fold={2}>
             {overall.done}/{overall.total}<span className="fold-long"> {CL.done}</span>
