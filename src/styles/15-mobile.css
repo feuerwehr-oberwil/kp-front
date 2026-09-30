@@ -907,15 +907,20 @@
      `requestReportStep` performs are untouched — the tab is switched first and the body scrolls
      a frame later exactly as before, whichever end of the page the strip is at.
      ⚠️ Its height is RESERVED rather than measured: `--rp-tabs-safe`, the same idiom as
-     `--fab-safe` above. The .useg track is a full --tap (44px) plus this shell's 4px padding and
-     1px border top and bottom = 54px, and 6px of channel above it → 60px. Everything pinned to
+     `--fab-safe` above. The .useg track is a full --tap (44px) plus the track's own 3px padding
+     (06-contextpanel · .useg) and this shell's --bar-pad and 1px border, top and bottom = 64px,
+     and 6px of channel above it → 70px. ⚠️ Written as that SUM, not as a number (30.09.2026,
+     staging phone pass: «the journal entry slightly overlaps with the selector below»): it was a
+     literal 60px from the days of a 4px shell padding and no track padding, so the strip grew to
+     64px under a 54px reserve and the FAB, «Zurück zum Rapport», the message lane and the page's
+     own foot all stood 10px low — the FAB 2px INTO the strip. Everything pinned to
      a `--rail-h + …` baseline adds it: the Rapport surface (Surface.module.css · .shell, so
      its own «Drucken / Abschliessen» row clears the strip), the FAB and the toaster lane. Keep
      the four in step if the shell's padding ever changes.
      ⚠️ Keyed on the STRIP being rendered, not on the Rapport (27.09.2026): the Anwesenheit's
      three readings dock in the same strip (PhoneTabBar), and there it exists only once a Zeitplan
      is wired up — so the reserve follows the element, on whichever page shows one. */
-  .app:has(.rp-tabs) { --rp-tabs-safe: 60px; }
+  .app:has(.rp-tabs) { --rp-tabs-safe: calc(var(--tap) + 2 * 3px + 2 * var(--bar-pad) + 2px + 6px); }
   .rp-tabs {
     position: fixed; z-index: var(--z-chrome);
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
@@ -966,7 +971,7 @@
      bottom chrome, on whichever page shows one. `:has`, like every other lane state here, because
      the host is a root sibling of `.app`. Inside this media query a rendered strip is always
      shown (13-incident.css turns it on here), so the element itself is the whole condition. */
-  :root:has(.app .rp-tabs) { --rp-tabs-safe: 60px; }
+  :root:has(.app .rp-tabs) { --rp-tabs-safe: calc(var(--tap) + 2 * 3px + 2 * var(--bar-pad) + 2px + 6px); }
   /* …and the thing that stands ON the tool bar and lifts everything above it: the armed tool's
      hint row in the dock (ToolDock · hint, the 22px `.wb-botleft` steps up by). The lane is
      computed on :root, which cannot read `.app`'s value, so it restates it here. (The Suche's
