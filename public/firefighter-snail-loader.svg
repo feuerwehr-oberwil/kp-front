@@ -1,31 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="360 20 820 680" fill="none" role="img" aria-labelledby="fs-title fs-desc" class="firefighter-snail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="360 20 820 680" fill="none" role="img" aria-labelledby="fs-title fs-desc" class="firefighter-snail fs-arrival">
   <title id="fs-title">Firefighter snail loading animation</title>
-  <desc id="fs-desc">A smiling cream snail with a red spiral shell, firefighter helmet and hose crawls gently in place and blinks.</desc>
+  <desc id="fs-desc">A smiling firefighter snail races in, skids to a stop, then nods, rocks its shell, lifts its hose and blinks in place.</desc>
   <!-- Hand-redrawn vectors from the supplied reference. No bitmap, script, font or external resource.
        Inline: add snail-paused or snail-static to the SVG to pause or disable motion.
-       The default loop is 3.6 seconds; override the duration CSS variable when embedding inline. -->
+       The arrival lasts 630 ms; the standing idle repeats every 1.6 seconds. -->
   <style>
     .snail-loader { width: 120px; height: auto; }
-    .snail-loader > .firefighter-snail { display: block; width: 100%; height: auto; }
+    .snail-loader > .firefighter-snail { display: block; width: 100%; height: auto; overflow: visible; }
     :root[data-theme="night"] .snail-loader { filter: drop-shadow(0 0 5px rgba(255, 240, 207, .12)); }
-    .firefighter-snail { --snail-duration: 3.6s; }
-    .firefighter-snail .fs-shadow { transform-origin: 742px 638px; animation: fs-shadow var(--snail-duration) ease-in-out infinite; }
-    .firefighter-snail .fs-crawl { animation: fs-crawl var(--snail-duration) ease-in-out infinite; }
-    .firefighter-snail .fs-foot { transform-origin: 720px 620px; animation: fs-foot var(--snail-duration) ease-in-out infinite; }
-    .firefighter-snail .fs-shell { transform-origin: 620px 530px; animation: fs-shell var(--snail-duration) ease-in-out infinite; }
-    .firefighter-snail .fs-head { transform-origin: 800px 535px; animation: fs-head var(--snail-duration) ease-in-out infinite; }
-    .firefighter-snail .fs-nozzle { transform-origin: 891px 551px; animation: fs-nozzle var(--snail-duration) ease-in-out infinite; }
-    .firefighter-snail .fs-eyes { transform-origin: 916px 292px; animation: fs-blink calc(var(--snail-duration) * 2) linear infinite; }
-    @keyframes fs-crawl { 0%, 100% { transform: translateX(-16px); } 42% { transform: translateX(8px); } 70% { transform: translateX(17px); } }
-    @keyframes fs-foot { 0%, 100% { transform: scaleX(1); } 36% { transform: scaleX(1.06); } 68% { transform: scaleX(.97); } }
-    @keyframes fs-shell { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 36% { transform: translate(-10px, 5px) rotate(-5deg); } 68% { transform: translate(10px, -10px) rotate(5deg); } }
-    @keyframes fs-head { 0%, 100% { transform: rotate(0deg); } 36% { transform: translate(3px, 1px) rotate(4deg); } 68% { transform: translate(5px, -8px) rotate(-3deg); } }
-    @keyframes fs-nozzle { 0%, 100% { transform: rotate(0deg); } 36% { transform: rotate(2.5deg); } 68% { transform: rotate(-4deg); } }
-    @keyframes fs-shadow { 0%, 100% { transform: scaleX(1); opacity: .16; } 68% { transform: scaleX(.94); opacity: .11; } }
-    @keyframes fs-blink { 0%, 44%, 48%, 100% { transform: scaleY(1); } 46% { transform: scaleY(.08); } }
-    .firefighter-snail.snail-paused * { animation-play-state: paused !important; }
-    .firefighter-snail.snail-static * { animation: none !important; }
-    @media (prefers-reduced-motion: reduce) { .firefighter-snail * { animation: none !important; } }
+    .firefighter-snail { --snail-arrival-duration: 630ms; --snail-idle-duration: 1.6s; }
+    .firefighter-snail.fs-arrival { transform-origin: 65% 85%; animation: fs-arrival var(--snail-arrival-duration) linear both; }
+    .firefighter-snail .fs-speed-lines { opacity: 0; animation: fs-speed-lines var(--snail-arrival-duration) linear both; }
+    .firefighter-snail .fs-shell { transform-origin: 620px 530px; animation: fs-shell var(--snail-idle-duration) ease-in-out var(--snail-arrival-duration) infinite; }
+    .firefighter-snail .fs-head { transform-origin: 800px 535px; animation: fs-brake var(--snail-arrival-duration) ease-out both, fs-head var(--snail-idle-duration) ease-in-out var(--snail-arrival-duration) infinite; }
+    .firefighter-snail .fs-nozzle { transform-origin: 891px 551px; animation: fs-nozzle var(--snail-idle-duration) ease-in-out var(--snail-arrival-duration) infinite; }
+    .firefighter-snail .fs-eyes { transform-origin: 916px 292px; animation: fs-blink calc(var(--snail-idle-duration) * 2) linear var(--snail-arrival-duration) infinite; }
+    @keyframes fs-arrival {
+      0% { transform: translateX(calc(-50vw - 120px)) scale(1.18, .92); animation-timing-function: linear; }
+      22.222% { transform: translateX(-25px) scale(1.08, .96); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+      44.444% { transform: translateX(14px) scale(.91, 1.04); animation-timing-function: cubic-bezier(.3, 0, .2, 1); }
+      100% { transform: translateX(0) scale(1, 1); }
+    }
+    @keyframes fs-brake { 0%, 100% { transform: rotate(0); } 27.778%, 44.444% { transform: rotate(7deg); } }
+    @keyframes fs-speed-lines { 0%, 16.667% { opacity: .6; } 44.444%, 100% { opacity: 0; } }
+    @keyframes fs-shell { 0%, 100% { transform: translate(0, 0) rotate(0); } 35% { transform: translate(-4px, 3px) rotate(-3deg); } 70% { transform: translate(5px, -5px) rotate(3deg); } }
+    @keyframes fs-head { 0%, 100% { transform: rotate(0); } 35% { transform: rotate(5deg); } 70% { transform: rotate(-3deg); } }
+    @keyframes fs-nozzle { 0%, 100% { transform: rotate(0); } 35% { transform: rotate(2.5deg); } 70% { transform: rotate(-4deg); } }
+    @keyframes fs-blink { 0%, 40%, 46%, 100% { transform: scaleY(1); } 43% { transform: scaleY(.08); } }
+    .firefighter-snail.snail-paused, .firefighter-snail.snail-paused * { animation-play-state: paused !important; }
+    .firefighter-snail.snail-static, .firefighter-snail.snail-static * { animation: none !important; }
+    @media (prefers-reduced-motion: reduce) { .firefighter-snail, .firefighter-snail * { animation: none !important; } }
   </style>
   <defs>
     <linearGradient id="fs-red" x1="560" y1="210" x2="750" y2="590" gradientUnits="userSpaceOnUse">
@@ -51,6 +55,9 @@
     </linearGradient>
   </defs>
   <ellipse class="fs-shadow" cx="744" cy="638" rx="337" ry="20" fill="#60636a" opacity=".16"/>
+  <g class="fs-speed-lines" stroke="var(--accent, #f51b19)" stroke-width="13" stroke-linecap="round">
+    <path d="M60 350H310 M-10 418H310 M125 485H310"/>
+  </g>
   <g class="fs-crawl" stroke="#151616" stroke-linecap="round" stroke-linejoin="round">
     <g class="fs-shell">
       <path d="M541 565 C467 543 425 482 434 389 C441 301 518 224 604 207 C686 189 742 222 778 273 C808 316 803 391 774 441 C728 520 638 566 541 565Z" fill="url(#fs-red)" stroke-width="12"/>

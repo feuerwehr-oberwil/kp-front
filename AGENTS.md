@@ -76,6 +76,10 @@ to prod.
   as trusted raw markup with unique ids per instance; Vite's `inlineSnailLoader` inserts it at
   `index.html`'s `kp:snail-loader` marker so the static boot screen paints without fetching an
   asset. Keep both stages at the same size; never replace the boot markup with an external image.
+  The boot cover paints immediately and stays through the SVG's 630 ms skid arrival, even on
+  a cached launch (`lib/snailLaunch`). React loading stages continue that animation clock;
+  in-workspace loading starts at the standing idle. Do not replay the arrival at each loading
+  stage or add a fade that hides it. Reduced motion skips both motion and the minimum hold.
 - **Operational browser state lives in IndexedDB, not localStorage.** `src/lib/idb.ts` is the
   storage layer (localStorage only as its degradation fallback), `src/lib/storageMigration.ts`
   moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
