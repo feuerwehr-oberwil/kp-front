@@ -1499,7 +1499,8 @@ export function AtemschutzView({
              the thumb lives»). */
           <div className={s.focusCard}>{cards(board.filter((t) => t.id === focusId))}</div>
         ) : phoneMode ? (
-          <div ref={listRef} className={cx(openRow && s.rowListOpen)}>
+          // `.phoneBoard`: the one rule for the air above every section after the first (30.09.2026)
+          <div ref={listRef} className={cx(s.phoneBoard, openRow && s.rowListOpen)}>
             {phoneIn.length > 0 && (
               <>
                 <div className={s.sect}><span className={s.sectTitle}>{az.phoneSectionIn}</span><span className={s.sectCount}>{phoneIn.length}</span></div>
