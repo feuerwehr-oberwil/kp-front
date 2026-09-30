@@ -2617,14 +2617,16 @@ describe('the opened phone card of a Trupp outside the field', () => {
     expect(tileBoxes(card)).toEqual([{ tiles: [az.actReenter] }])
   })
 
-  it.each<[string, Partial<Trupp>, string]>([
-    ['never deployed', { entryTime: '', lastContactTime: '', readings: [{ t: iso(5 * 60_000), bar: 300, kind: 'registered' }] }, az.actEnterFirst],
-    ['still waiting', { status: 'angemeldet', entryTime: '', lastContactTime: '', exitTime: undefined, readings: [] }, az.actEnter],
-    ['without Atemschutz, in the field', { status: 'aktiv', kind: 'einfach', exitTime: undefined }, az.actExitPlain],
-    ['without Atemschutz, out', { kind: 'einfach' }, az.actReenter],
-  ])('%s: one worded action row and nothing empty', (_label, over, word) => {
+  // (a Trupp still waiting also shows the quiet «Nicht eingesetzt» on its OWN row under it — #227
+  // owner review 26.09.2026: visible, but never beside «Im Einsatz»)
+  it.each<[string, Partial<Trupp>, string[]]>([
+    ['never deployed', { entryTime: '', lastContactTime: '', readings: [{ t: iso(5 * 60_000), bar: 300, kind: 'registered' }] }, [az.actEnterFirst]],
+    ['still waiting', { status: 'angemeldet', entryTime: '', lastContactTime: '', exitTime: undefined, readings: [] }, [az.actEnter, az.actNotDeployed]],
+    ['without Atemschutz, in the field', { status: 'aktiv', kind: 'einfach', exitTime: undefined }, [az.actExitPlain]],
+    ['without Atemschutz, out', { kind: 'einfach' }, [az.actReenter]],
+  ])('%s: one worded action row and nothing empty', (_label, over, words) => {
     const card = openFirstRow({ trupps: [out(over)] })
-    expect(actionWords(card)).toEqual([word])
+    expect(actionWords(card)).toEqual(words)
     for (const box of tileBoxes(card)) expect(box.tiles.length).toBeGreaterThan(0)
   })
 
