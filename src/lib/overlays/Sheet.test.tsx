@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { Sheet, SheetClose } from './Sheet'
@@ -94,5 +95,34 @@ describe('Sheet', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Fertig' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ── the footer pays the phone's safe area (owner on an iPhone, 26.09.2026) ──
+// The Trupp form's own footer lost its insets to a later rule of the same weight, and «Abbrechen»
+// and «Im Einsatz» sat in the display's rounded corners. Every sheet footer is ONE element now
+// (SheetFoot → `.ui-sheet-foot`), and ONE rule insets it. jsdom has no env(), so the rule itself
+// is what is pinned: its three sides, and that it lives inside the phone gate (= PHONE_QUERY).
+describe('Sheet footer insets', () => {
+  it('draws the footer as the shared SheetFoot row, inside the dialog', () => {
+    render(<Sheet open onClose={vi.fn()} title="T" footer={<button type="button">OK</button>}>x</Sheet>)
+    const foot = screen.getByRole('button', { name: 'OK' }).parentElement!
+    expect(foot.classList.contains('ui-sheet-foot')).toBe(true)
+    expect(foot.classList.contains('ip-actions')).toBe(true)
+    expect(foot.closest('[role="dialog"]')).toBeTruthy()
+  })
+
+  it('insets it on three sides — the safe area where there is one — on a phone', () => {
+    const css = readFileSync(`${process.cwd()}/src/styles/15-mobile.css`, 'utf8')
+    const at = css.indexOf("[role='dialog'] .ui-sheet-foot {")
+    expect(at).toBeGreaterThan(-1)
+    const rule = css.slice(at, css.indexOf('}', at))
+    expect(rule).toContain('padding-left: max(20px, env(safe-area-inset-left))')
+    expect(rule).toContain('padding-right: max(20px, env(safe-area-inset-right))')
+    expect(rule).toContain('padding-bottom: calc(16px + env(safe-area-inset-bottom))')
+    // …and it is the phone block's: the nearest @media above it is the phone gate
+    const gate = css.lastIndexOf('@media', at)
+    expect(css.slice(gate, css.indexOf('{', gate))).toBe(
+      '@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) ')
   })
 })

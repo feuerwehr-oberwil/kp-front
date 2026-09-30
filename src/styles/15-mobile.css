@@ -721,8 +721,20 @@
   /* ⚠️ …but where a sheet HAS a footer, the footer is its bottom edge, and it paid no inset at
      all: «Abbrechen» sat 16px off the glass, inside the phone's own corner curve and on the home
      indicator (20.09.2026). The footer takes the inset; the body above it no longer needs one. */
-  .ip-sheet > .ip-actions { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
-  .ip-sheet:has(> .ip-actions) .ip-body { padding-bottom: 12px; }
+  /* ⚠️ …and it is ONE rule for every sheet's footer (`SheetFoot` → `.ui-sheet-foot`, 26.09.2026):
+     the Trupp form's own footer class lost its insets to a later rule of the same weight, and on
+     the owner's iPhone «Abbrechen» and «Im Einsatz» sat 12px off the glass and 10px above the
+     edge, where the display's corner curve eats them. Three sides: the sheet's own 20px content
+     gutter or the landscape notch, whichever is wider, and the bottom inset ON TOP of the 16px —
+     the gap a field tester needed between his thumb and the home indicator (see the Tafel's
+     `.bottomRail`). `[role='dialog']` is the weight, so a surface's own footer class (one class,
+     a CSS module loaded after this file) can style the row but never move it; the keyboard-up
+     footer (`.modalStack.is-kb .modalFoot`, three classes) still outweighs it on purpose — the
+     keyboard covers the home indicator, so the reserve is dead space there. */
+  [role='dialog'] .ui-sheet-foot {
+    padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .ip-sheet:has(> .ui-sheet-foot) .ip-body { padding-bottom: 12px; }
   /* Base UI Dialog popup has no .ip-ovl grid parent, so bottom-anchor it here (the old
      .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + sheetUp entrance. */
   .ip-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; }
