@@ -34,6 +34,8 @@ import s from './Atemschutz.module.css'
 import { TruppNo } from './TruppNo'
 import { AuftragSheet, KanalSheet, LeitungField, PressureSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
 import { fileGuestSlots, teamConflict } from '../lib/truppQuickEdit'
+import { crewAfterChange, type CrewChange } from '../lib/truppLeader'
+import { rankOrder } from '../lib/rank'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
@@ -3069,6 +3071,18 @@ function TruppForm({
     // would fight the operator's own edits
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  /* The crown follows the Dienstgrad while a NEW Trupp is being formed (30.09.2026, owner: «auto-set
+   * the highest person rank wise as group leader unless … a group leader was set manually»):
+   * until a name is tapped, the most senior member leads (lib/truppLeader · crewAfterChange).
+   * Kept with the draft, so a pushed-away form that had its leader crowned by hand comes back with
+   * that answer. Never on an edit or a re-entry — a crew joined later keeps its leader. */
+  const [leaderAuto, setLeaderAuto, clearLeaderAuto] = useKeptState<boolean>(`${draftKey}:leaderAuto`, mode === 'create')
+  const rankById = useMemo(() => new Map(personnel.map((p) => [p.id, rankOrder(p.rank)])), [personnel])
+  const changeTeam = (next: Slot[], why: CrewChange) => {
+    const r = crewAfterChange(next, why, leaderAuto, (sl) => (sl.personId ? rankById.get(sl.personId) ?? Infinity : Infinity))
+    setTeam(r.team)
+    if (r.auto !== leaderAuto) setLeaderAuto(r.auto)
+  }
   /* «Art des Trupps» — asked on creation, and changeable while EDITING one (04.09.). What the
    * board could not do until then is the ordinary case: a Verkehrstrupp that ends up going in
    * under PA, and a Trupp registered under Atemschutz by mistake. Both were a delete and a
@@ -3237,7 +3251,7 @@ function TruppForm({
   })
 
   const dropDraft = () => {
-    clearAuftrag(); clearZiel(); clearEquipment(); clearTeam()
+    clearAuftrag(); clearZiel(); clearEquipment(); clearTeam(); clearLeaderAuto()
     clearLineNo(); clearFunkkanal(); clearKind(); clearPressure(); clearPressureSet()
   }
   const submit = (standby = false) => {
@@ -3471,7 +3485,7 @@ function TruppForm({
           the Mannschaft is a wrapping chip row and the roster appears only under a typed query.
           Same record, same handlers — see TruppTeam · `phone`. */}
       <TruppTeam
-        value={team} onChange={setTeam} phone={stack} wanted={mode === 'create'} searchInputRef={teamSearchRef}
+        value={team} onChange={changeTeam} phone={stack} wanted={mode === 'create'} searchInputRef={teamSearchRef}
         personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
         assignedIds={assignedIds} rolesById={rolesById}
       />
