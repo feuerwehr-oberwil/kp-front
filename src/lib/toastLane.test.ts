@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { laneOverSheet, openSheetTop, useToastLane } from './toastLane'
 
 /* 30.09.2026, owner («slightly odd positioning of the toasts»): a modal bottom sheet no longer
@@ -36,7 +36,7 @@ class FakeViewport extends EventTarget {
   constructor(public height: number, public offsetTop = 0, public scale = 1) { super() }
 }
 afterEach(() => {
-  vi.useRealTimers(); document.body.replaceChildren()
+  cleanup(); vi.useRealTimers(); document.body.replaceChildren()
   delete (navigator as { virtualKeyboard?: unknown }).virtualKeyboard
 })
 
