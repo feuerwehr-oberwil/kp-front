@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { Icon } from '../lib/icons'
+import { SearchField } from './SearchField'
 import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
 import { ageMinutes, type LivePerson } from '../lib/usePersonPositions'
 import { fmtDistance, haversineM } from '../lib/geo'
@@ -790,20 +791,16 @@ export function AnwesenheitView({
 
       {!empty && (
         <div className={c.controls}>
-          <label className={c.search}>
-            <Icon id="search" />
-            {/* ⚠️ This field is a search AND the entry for somebody who is not on the
+          {/* ⚠️ This field is a search AND the entry for somebody who is not on the
                 Mannschaftsliste (see `guestOffer`), so what is typed here can end up on the
                 Personalblatt: `stripUnprintable` on the way in, and the NAME's length cap — there
                 is no second field left to clean it. Enter takes the offer when the roster has no
                 answer at all, which is the one case where the query can only have been a name. */}
-            <input
-              value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} placeholder={A.searchPlaceholder}
-              inputMode="search" maxLength={80}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!rows.length) addGuest() } }}
-            />
-            {q && <button className={c.searchClear} onClick={() => setQ('')} aria-label={A.clearSearch}><Icon id="close" /></button>}
-          </label>
+          <SearchField
+            className={c.search} value={q} onChange={(v) => setQ(stripUnprintable(v))} placeholder={A.searchPlaceholder}
+            aria-label={A.searchPlaceholder} inputMode="search" maxLength={80}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!rows.length) addGuest() } }}
+          />
           {/* THE QUICK FILTER — «Nur Anwesende», one tap, on all three tabs (see the note at
               `presentOnly`). It sits between the search and the funnel because that is the order
               the questions come in: who, then who right now, then which Grad / which Status. It
@@ -849,7 +846,6 @@ export function AnwesenheitView({
                       matching Mittel's «In Verwendung»), because two identical glyphs side
                       by side on the planning tabs is worse than either choice of icon. */}
                   <Icon id="people" />
-                  {rankSel.size > 0 && <span className={c.filterDot} aria-hidden />}
                 </button>
               }
               popupClassName={c.menuPop}
@@ -885,7 +881,6 @@ export function AnwesenheitView({
                   aria-label={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}
                   title={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}>
                   <Icon id="filter" />
-                  {(stateSel.size > 0 || noteOnly) && <span className={c.filterDot} aria-hidden />}
                 </button>
               }
               popupClassName={c.menuPop}
@@ -958,7 +953,7 @@ export function AnwesenheitView({
             : rosterProvider ? fillTemplate(A.emptyHintSync, { provider: rosterProvider }) : A.emptyHint}
           action={<button type="button" className="ip-btn" onClick={onReload} disabled={loading}><Icon id="rotate" /> {A.retry}</button>} />
       ) : !rows.length && !guestOffer ? (
-        <div className="ip-ac-note ip-ac-note-center">{A.noMatches}</div>
+        <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
       ) : showBands ? (
         <BandGrid
           people={rows}

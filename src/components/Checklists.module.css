@@ -31,7 +31,7 @@
    above the others beyond their order (lib/checklists · matchDiveraEntries) */
 .cl-rail-hints { display: flex; flex-direction: column; gap: 3px; }
 .cl-rail-hints .cl-rail-hint { margin-top: 0; }
-.cl-rail-search { margin: 2px 0 4px; padding: 7px 10px; }
+.cl-rail-search { margin: 2px 0 4px; }   /* THE search (components/SearchField, 29.09.2026) — placement only */
 /* all groups (Aufgaben + each reference template) are peers under the search bar */
 .cl-rail-groups { display: flex; flex-direction: column; gap: 14px; }
 .cl-rail-entry { display: flex; align-items: center; gap: 9px; border: none; background: transparent; cursor: pointer;
@@ -121,7 +121,93 @@
 
 .cl-runner-foot { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--glass-edge);
   font-size: 11px; color: var(--ink-faint); }
-.cl-empty-hint { font-size: 13px; color: var(--ink-faint); font-style: italic; padding: 4px 2px; }
+.cl-empty-hint { font-size: 13px; color: var(--ink-faint); padding: 4px 2px; }   /* no italics (29.09.2026 · C8) */
+
+/* --- reference playbook --- */
+.cl-ref-chip { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
+.cl-rail-entry-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* main pane */
+.cl-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 22px 26px; }
+
+/* --- action / rapport runner --- */
+.cl-runner { max-width: 720px; margin: 0 auto; }
+.cl-runner-head { display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap; min-height: var(--tap);
+  padding-bottom: var(--head-pad-y); margin-bottom: 18px; border-bottom: 1px solid var(--glass-edge); }
+/* ONE ROW, the page head's shape (tokens · --head-*, lib/pageHeadFit — ChecklistRunner): the title
+   (the page title's font, it was 21px) and the subtitle as its one quiet line, the progress on the
+   right on one line. The last resort gives the titles a row of their own. */
+.cl-runner-titles { flex: 1 1 auto; min-width: 0; }
+.cl-runner-titles h2 { margin: 0; font: var(--head-title); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-runner-titles p { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); line-height: 16px; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-runner-head[data-fit-wrap] { flex-wrap: wrap; }
+.cl-runner-head[data-fit-wrap] > .cl-runner-titles { flex-basis: 100%; }
+.cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.cl-overall .cl-bar { width: 96px; flex: none; }
+.cl-overall-num { font-family: var(--mono); font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1; white-space: nowrap; }
+.cl-overall-num[data-folded] { display: none; }
+.cl-runner-head[data-fit-tight] .cl-overall { gap: 6px; }
+.cl-overall-sub { font-size: 12.5px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.cl-bar { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.cl-bar-fill { display: block; height: 100%; background: var(--green); border-radius: 4px;
+  transition: width .25s var(--ease); }
+
+.cl-phase { margin-bottom: 22px; }
+.cl-phase-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
+.cl-phase-titles { display: flex; align-items: baseline; gap: 9px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
+.cl-phase-titles h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
+.cl-role { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--ink-faint); background: var(--fill-soft); padding: 2px 7px; border-radius: var(--r-xs); }
+.cl-phase-count { flex: none; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-dim); }
+.cl-note { margin: 7px 0; font-size: 12.5px; color: var(--ink-dim); font-style: italic; }
+
+/* branch/variant picker is the shared <Segmented>; keep its wizard spacing */
+.cl-phase > :global(.useg) { margin: 10px 0 4px; }
+
+.cl-items { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.cl-item { display: flex; align-items: flex-start; gap: 12px; background: var(--surface); border-radius: var(--r-ctl);
+  padding: 12px 14px; box-shadow: 0 0 0 1px var(--border-soft); }
+.cl-item.done { background: color-mix(in srgb, var(--green) 5%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 18%, transparent); }
+.cl-check { flex: none; width: 38px; height: 38px; border-radius: var(--r-sm); border: 2px solid var(--border);
+  background: var(--surface); cursor: pointer; display: grid; place-items: center; color: var(--on-accent-ink); padding: 0;
+  transition: background .12s var(--ease), border-color .12s var(--ease); }
+.cl-check :global(.i) { width: 18px; height: 18px; }
+@media (hover: hover) { .cl-check:hover:not(:disabled) { border-color: var(--green); } }
+.cl-check:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.cl-item.done .cl-check { background: var(--green); border-color: var(--green); }
+.cl-check:disabled { opacity: var(--disabled); cursor: default; }
+/* gloved field use: ticking is THE action on this surface — full 44px checkbox on touch */
+@media (pointer: coarse) {
+  .cl-check { width: 44px; height: 44px; }
+  /* …and the rest of the surface's targets (22.09.2026): the rail's rows (31–37px), the
+     Stichwort hint and the deep-link chips (26px) */
+  .cl-rail-item, .cl-rail-entry, .cl-rail-hint, .cl-deeplink { min-height: var(--tap); }
+}
+.cl-item-body { flex: 1 1 auto; min-width: 0; }
+/* whole text body is a tap target to toggle the item (the checkbox is just the visual) */
+.cl-item-tap { cursor: pointer; }
+.cl-item-text { font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+.cl-item.done .cl-item-text { color: var(--ink-dim); }
+.cl-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.cl-when { font-size: 11px; font-weight: 600; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent);
+  padding: 1px 7px; border-radius: var(--r-xs); }
+.cl-milestone { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-faint); }
+.cl-milestone :global(.i) { width: 12px; height: 12px; }
+/* completion metadata is secondary — small & muted, not a bright green banner (feedback: too prominent) */
+.cl-tickinfo { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); font-weight: 500; }
+.cl-deeplink { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 4px; border: none;
+  background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue-strong); cursor: pointer; font-family: var(--body); font-size: 11.5px;
+  font-weight: 700; padding: 6px 9px; border-radius: var(--r-sm); }
+@media (hover: hover) { .cl-deeplink:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); } }
+.cl-deeplink:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.cl-deeplink :global(.i) { width: 13px; height: 13px; }
+.cl-deeplink :global(.i):last-child { width: 11px; height: 11px; opacity: .6; }
+
+.cl-runner-foot { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--glass-edge);
+  font-size: 11px; color: var(--ink-faint); }
+.cl-empty-hint { font-size: 13px; color: var(--ink-faint); padding: 4px 2px; }   /* no italics (29.09.2026 · C8) */
 
 /* --- reference playbook --- */
 .cl-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: var(--r-ctl);

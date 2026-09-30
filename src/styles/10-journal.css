@@ -394,7 +394,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   .journal-legend-btn:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
 }
 .journal-legend-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.journal-legend-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+/* OPEN (the lens's search) is the one «open» look, the InfoToggle's blue wash (29.09.2026 — it
+   was the ink «where you are» pill); the ⓘ beside it IS the InfoToggle (`.ui-info`) */
+.journal-legend-btn.on { background: var(--sel-wash); color: var(--blue-strong); }
 .journal-legend-btn .i { width: 18px; height: 18px; }
 
 /* ── the search ──
@@ -404,15 +406,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    place for «back out of this», whichever «this» is. No space is lost while nothing is searched. */
 /* the search row sits UNDER the constant head, where the timeline strip stands otherwise (22.09.2026) */
 .journal-search-row { display: flex; align-items: center; gap: 8px; padding: 0 4px 10px; }
-.journal-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 44px;
-  padding: 0 12px; border-radius: var(--r-ctl); background: var(--fill-soft); color: var(--ink-dim); }
-.journal-search .i { flex: none; width: 16px; height: 16px; }
-.journal-search input { flex: 1; min-width: 0; border: none; background: transparent; outline: none;
-  font: 600 14px var(--body); color: var(--ink); }
-.journal-search input::placeholder { color: var(--ink-faint); }
-/* the pill IS the field: it wears the one field focus (--focus-*, 28.09.2026) around the glyph
-   and the input together — the input's own outline is off, so it had no focus look at all */
-.journal-search:focus-within { background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
+/* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026) — placement only;
+   the live count rides in its count slot */
+.journal-search { flex: 1; }
 /* the live «2 von 42» — read at a glance, never wrapped */
 .journal-search-count { flex: none; font: 700 12px var(--body); color: var(--ink-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* ⚠️ …and beside the 44px field it is 44px too (20.09.2026): at its 28px it hung beside the pill
@@ -439,13 +435,11 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 :is(.jr-legend, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
 
 /* ── the filter (feat 37 · option B, 23.09.2026) ──
-   A third .journal-legend-btn beside the lens (same chip, same 44px pad, lit `.on` while any
-   category is ticked). The dot is the Anwesenheit's filter dot (SurfaceControls · .filterDot):
-   absolutely placed, so the chip measures the same filtered or not — a label on it would move
-   Replay and ✕ and re-anchor the menu the moment something is ticked. Ringed in the lit chip's
-   own fill, since it only ever shows on it. */
-.journal-filter-dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%;
-  background: var(--blue); box-shadow: 0 0 0 2px var(--ink-fill); pointer-events: none; }
+   A third .journal-legend-btn beside the lens (same chip, same 44px pad). While any category is
+   ticked it wears the CHOICE fill (`--sel`, 29.09.2026 — the Anwesenheit's filter buttons do
+   the same): it was the ink «where you are» pill plus a blue dot, two channels for one bit and
+   the wrong role. Nothing is printed on it, so it measures the same filtered or not. */
+.journal-legend-btn.jr-filter-on { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 /* the menu: the legend's discs with ticks and counts. The height cap is the one every
    SurfaceControls menu has — a station with many plans makes this taller than a phone, and a
    too-tall popup is repositioned, never trimmed. */

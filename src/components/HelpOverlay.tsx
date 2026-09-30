@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { SearchField } from './SearchField'
 import { Overlay } from '../lib/overlays'
 import { scrollBehavior } from '../lib/reducedMotion'
 import { appConfig } from '../config/appConfig'
@@ -157,15 +158,8 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
         {/* the search lives in the HEADER, not above the TOC: the TOC is hidden on a phone,
             and that is exactly where someone is standing with one question and no patience */}
         <div className="help-search">
-          <Icon id="search" />
-          <input type="search" value={query} placeholder={C.search} aria-label={C.search}
-            autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search"
-            onChange={(e) => setQuery(e.target.value)} />
-          {query && (
-            <button type="button" className="help-search-x" aria-label={C.searchClear} onClick={() => setQuery('')}>
-              <Icon id="close" />
-            </button>
-          )}
+          <SearchField value={query} onChange={setQuery} placeholder={C.search} aria-label={C.search}
+            autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
         </div>
         <div className="help-body">
           <nav className="help-toc">
@@ -180,9 +174,10 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
           <div className="help-content" ref={scrollRef}>
             {sections.length === 0 && (
               <div className="help-empty">
-                {/* the verdict first and loudest, the way out under it — not the other way round */}
-                <p className="help-sub">{fillTemplate(C.searchNone, { q: query.trim() })}</p>
-                <p className="help-lead">{C.searchHint}</p>
+                {/* the verdict first, the way out under it — not the other way round. The verdict is
+                    the app's one «no hits» line (`.no-hits`, 29.09.2026) */}
+                <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>
+                <p className="help-empty-hint">{C.searchHint}</p>
               </div>
             )}
             {sections.map((s) => (

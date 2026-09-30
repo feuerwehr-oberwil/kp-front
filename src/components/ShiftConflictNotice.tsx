@@ -81,7 +81,7 @@ export function ShiftConflictNotice({ shifts, people, className }: {
                 for; «doppelt eingeteilt» is the fact that has to survive at any width. */}
             <b>{items.length === 1 ? items[0].name : title}</b>
             {items.length === 1 && <span className={s.short}>{Z.conflictShort}</span>}
-            <Icon id={open ? 'chevron-up' : 'chevron-down'} />
+            <Icon id="chevron-down" className="chev" />
           </button>
         ) : (
           <b>{title}</b>

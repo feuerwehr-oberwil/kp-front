@@ -107,7 +107,7 @@ describe('suchen heisst erfassen — die Suche trägt den Namen in den Composer'
     type('Kanister')
 
     // no matches: the note and the door, nothing else
-    expect(screen.getByText(M.noMatches)).toBeTruthy()
+    expect(screen.getByText(fillTemplate(appConfig.copy.noHits, { q: 'Kanister' }))).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: fromQuery('Kanister') }))
 
     // the composer stands open with the name already in its Material field

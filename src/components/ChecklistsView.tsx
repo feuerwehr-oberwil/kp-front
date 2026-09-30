@@ -6,6 +6,7 @@ import { ChecklistRunner } from './ChecklistRunner'
 import { ChecklistEntryReader } from './ChecklistReference'
 import { cx } from '../lib/cx'
 import { EmptyState } from './EmptyState'
+import { SearchField } from './SearchField'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { useMediaQuery } from '../lib/useIsPhone'
@@ -119,10 +120,7 @@ export function ChecklistsView({
         </button>
       ) : (
       <nav className={cx(s['cl-rail'], railNarrow && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
-        <div className={cx(s['cl-search'], s['cl-rail-search'])}>
-          <Icon id="search" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
-        </div>
+        <SearchField className={s['cl-rail-search']} value={query} onChange={setQuery} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
         {/* ⚠️ ALL matches, not the best one (31.08.). «VU Strasse» is Verkehrsunfall AND
             E-Autobrand AND Ölspur — which of them this Einsatz is cannot be read off the
             Stichwort, and showing only the longest keyword match made the app look certain
@@ -177,7 +175,7 @@ export function ChecklistsView({
               </div>
             )
           })}
-          {noMatches && <p className={s['cl-empty-hint']}>{CL.noMatches}</p>}
+          {noMatches && <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>}
         </div>
       </nav>
       )}

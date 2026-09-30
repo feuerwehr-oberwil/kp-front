@@ -4022,7 +4022,7 @@ function TruppForm({
       {/* Why the save did not happen, where the save is — see `blocked` above for why this is not
           a toast. `role="alert"` so it is spoken the moment it appears, exactly as the toast was. */}
       {blocked && (
-        <p className={s.formBlocked} role="alert">
+        <p className={cx('form-warn', s.formBlocked)} role="alert">
           <Icon id="warn" /><span>{blocked}</span>
         </p>
       )}
@@ -4030,7 +4030,7 @@ function TruppForm({
           registers as «Auftrag offen». `role="status"`, not alert: it is there from the first
           render of a fresh form and must not be shouted over the field the operator is filling. */}
       {!blocked && auftragMissing && (
-        <p className={cx(s.formBlocked, s.formHint)} role="status">
+        <p className={cx('form-warn form-warn-amber', s.formBlocked)} role="status">
           <Icon id="warn" /><span>{az.auftragMissingHint}</span>
         </p>
       )}

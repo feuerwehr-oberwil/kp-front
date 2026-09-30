@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
+import { SearchField } from './SearchField'
+import { InfoToggle } from './InfoToggle'
 import { EmptyState } from './EmptyState'
 import { Menu, Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
@@ -643,11 +645,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               learned — but a panel that opens on its own, or one the app remembers having opened,
               is a thing to dismiss on the way to the record. This one is a question somebody asks
               once. No hover either: the primary device has none. */}
-          <button
-            type="button" className={`journal-legend-btn${showLegend ? ' on' : ''}`}
-            title={C.legend} aria-label={C.legend} aria-expanded={showLegend}
-            onClick={() => setShowLegend((v) => !v)}
-          ><Icon id="info" /></button>
+          <InfoToggle open={showLegend} onToggle={() => setShowLegend((v) => !v)} label={C.legend} />
           {/* the lens: same chip as the ⓘ, and it closes the legend on its way in – the legend
               explains discs the search is about to hide most of */}
           <button
@@ -655,7 +653,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-pressed={searching}
             onClick={() => { if (searching) { setSearch(null); return } holdHeight(); setShowLegend(false); setSearch('') }}
           ><Icon id="search" /></button>
-          {/* the funnel (feat 37 · B): lit with a dot while anything is ticked, like the Anwesenheit's
+          {/* the funnel (feat 37 · B): an active filter is the blue CHOICE fill and nothing else
+              (29.09.2026 — it was the ink «where you are» pill plus a dot), like the Anwesenheit's
               filter buttons — WHAT is ticked is in its name, in the menu and in the strip below,
               never printed on the button, whose width then never changes under the finger. */}
           {/* ⚠️ Standing whenever there is a row, even while every row is in one category: a head
@@ -664,10 +663,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             <Menu
               trigger={
                 <button
-                  type="button" className={`journal-legend-btn${filtering ? ' on' : ''}`}
+                  type="button" className={`journal-legend-btn${filtering ? ' jr-filter-on' : ''}`}
                   title={filtering ? `${C.filter} – ${filterOn}` : C.filter}
                   aria-label={filtering ? `${C.filter} – ${filterOn}` : C.filter}
-                ><Icon id="filter" />{filtering && <span className="journal-filter-dot" aria-hidden />}</button>
+                ><Icon id="filter" /></button>
               }
               align="start"
               popupClassName="jr-filter-menu"
@@ -688,21 +687,14 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
         {deliveryNotice}
         {searching && (
           <div className="journal-search-row">
-            <label className="journal-search">
-              <Icon id="search" />
-              <input
-                value={search} autoFocus inputMode="search" maxLength={80}
-                placeholder={C.searchPlaceholder} aria-label={C.search}
-                onChange={(ev) => setSearch(ev.target.value)}
-                onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setSearch(null) } }}
-              />
-              {/* the live count, only once there is a query to count against */}
-              {query && (
-                <span className="journal-search-count" aria-live="polite">
-                  {fillTemplate(C.searchCount, { n: totalRows, m: events.length })}
-                </span>
-              )}
-            </label>
+            {/* the live count rides in the field's count slot, only once there is a query */}
+            <SearchField
+              className="journal-search" value={search ?? ''} onChange={setSearch}
+              autoFocus inputMode="search" maxLength={80}
+              placeholder={C.searchPlaceholder} aria-label={C.search}
+              onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setSearch(null) } }}
+              count={query ? fillTemplate(C.searchCount, { n: totalRows, m: events.length }) : undefined}
+            />
             <button type="button" className="journal-x" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
           </div>
         )}

@@ -5,6 +5,7 @@ import { fillTemplate, formatTime } from '../lib/format'
 import { rankAbbr, rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { Modal } from './panels/_shared'
+import { SearchField } from './SearchField'
 import type { Person } from '../types'
 import type { ShareApi, ShareState } from '../lib/useShareMyPosition'
 import s from './SharePosition.module.css'
@@ -106,15 +107,9 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPers
     <Modal title={C.pickTitle} onClose={onClose}>
       <div className={s.pick}>
         <p className={s.note}>{reconfirm ? C.pickAgain : C.pickHint}</p>
-        <input
-          className={s.search}
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={C.search}
-          autoCapitalize="words"
-          enterKeyHint="search"
-          aria-label={C.search}
+        <SearchField
+          value={q} onChange={setQ} placeholder={C.search} aria-label={C.search}
+          autoCapitalize="words" enterKeyHint="search"
         />
         <ul className={s.roster}>
           {people.map((p) => (
@@ -123,7 +118,7 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPers
                 {p.rank && <span className={s.rank}>{rankAbbr(p.rank)}</span>}
                 <span className={s.name}>{p.displayName}</span>
                 {/* A mark, not a pre-selection: nothing is sent until this row is tapped. */}
-                {p.id === lastPersonId && <span className={s.last}>{C.pickLast}</span>}
+                {p.id === lastPersonId && <span className="ip-badge ip-badge-arch">{C.pickLast}</span>}
               </button>
             </li>
           ))}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { scrollBehavior } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
+import { SearchField } from './SearchField'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSource } from '../lib/deploymentConfig'
 import { fillTemplate, stripUnprintable } from '../lib/format'
@@ -356,11 +357,8 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
           erfasse ich X» is one motion, and it used to end with a scroll to the bottom. */}
       {!empty && (
         <div className={c.controls}>
-          <label className={c.search}>
-            <Icon id="search" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={M.searchPlaceholder} inputMode="search" />
-            {q && <button className={c.searchClear} onClick={() => setQ('')} aria-label={M.clearSearch}><Icon id="close" /></button>}
-          </label>
+          <SearchField className={c.search} value={q} onChange={setQ} placeholder={M.searchPlaceholder}
+            aria-label={M.searchPlaceholder} inputMode="search" />
           {/* «In Verwendung» is a FILTER, not a second way of reading the surface — it narrows
               the same catalogue to what was actually used, grouped by Fahrzeug. As a tab beside
               «Alle» it claimed a whole segmented track in the header to say one bit. Always
@@ -390,7 +388,6 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                   aria-label={categoryOn ? `${M.categoryFilterLabel} – ${categoryOn}` : M.categoryFilterLabel}
                   title={categoryOn ? `${M.categoryFilterLabel} – ${categoryOn}` : M.categoryFilterLabel}>
                   <Icon id="filter" />{!phone && <span>{M.categoryFilterWord}</span>}
-                  {categorySel.size > 0 && <span className={c.filterDot} aria-hidden />}
                 </button>
               }
               popupClassName={c.menuPop}
@@ -462,7 +459,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
         )
       ) : !(sourceView ? bySourceShown : groups).length ? (
         <div className={s.noHits}>
-          <div className="ip-ac-note ip-ac-note-center">{M.noMatches}</div>
+          <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
           {createRow}
         </div>
       ) : sourceView ? (

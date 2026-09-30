@@ -196,17 +196,11 @@
   display: block; font-style: normal; font: 500 11.5px/1.35 var(--body);
   color: var(--ink-dim); margin-top: 1px;
 }
-/* the (i): a 44px target that LOOKS like nothing — no box, no fill. Sticky while open
-   (GeorefModeBars): whoever opened it is deciding whether the fit can be trusted, and snapping
-   it shut after every point would be the app deciding they were done reading. */
-.infoBtn {
-  flex: none; width: var(--tap); height: var(--tap); margin: -10px -8px -10px 0;
-  display: grid; place-items: center;
-  border: 0; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm);
-}
-.infoBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.infoBtn svg { width: 19px; height: 19px; }
-.infoOn { color: var(--on-sel); background: var(--sel); }
+/* the (i) is THE InfoToggle (29.09.2026 — it was a bare 44px glyph that filled the choice blue
+   when open); this only tucks it into the bar's row. Sticky while open (GeorefModeBars): whoever
+   opened it is deciding whether the fit can be trusted, and snapping it shut after every point
+   would be the app deciding they were done reading. */
+.infoBtn { margin: -4px 0; }
 /* the folded-out quality detail: pair count, claimable ⌀, one sentence of what to DO next */
 .qfold {
   border-radius: var(--r-sm); background: var(--fill-soft); padding: 9px 10px;
@@ -444,14 +438,10 @@
 /* the calm twin of .qWarn: an approved fit states who vouches for it, and states it in the
    panel's own voice — an amber box would call a published reference a defect */
 .qNote { padding: 0 2px; color: var(--ink-dim); font: 600 12px/1.45 var(--body); }
-.qWarn {
-  display: flex; gap: 9px; padding: 9px 11px; border-radius: var(--r-sm);
-  font: 600 12px/1.45 var(--body);
-  color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 34%, transparent);
-}
-.qWarn svg { width: 15px; height: 15px; flex: none; margin-top: 1px; }
+/* THE form warning, amber and compact (`.form-warn`, 13-incident · 29.09.2026 — it was amber
+   text inside an amber border); this keeps only the glyph on the first line of a long sentence */
+.qWarn { align-items: flex-start; }
+.qWarn > svg { margin-top: 1px; }
 .qActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 /* Two stable columns instead of label-sized wrapping: the German verbs fit at ordinary tablet
    width and may wrap rather than escape the dock on a narrow split. With only three actions the

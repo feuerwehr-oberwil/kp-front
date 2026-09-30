@@ -219,13 +219,13 @@ export function TeamConflictRow({ conflict, toName, onPoint, onTransfer, classNa
 }) {
   const az = appConfig.copy.atemschutz
   return (
-    <div className={cx(s.formWarn, className)}>
+    <div className={cx('form-warn', s.formWarn, className)}>
       <Icon id="warn" />
-      <button type="button" className={s.formWarnText} onClick={onPoint}>
+      <button type="button" className={cx('form-warn-text', s.formWarnText)} onClick={onPoint}>
         {fillTemplate(conflict.state === 'deployed' ? az.assignedConflictDeployed : az.assignedConflict, { name: conflict.name })}
       </button>
       {conflict.state === 'ready' && onTransfer && (
-        <button type="button" className={s.formWarnAct} onClick={() => onTransfer(conflict.personId, toName)}>
+        <button type="button" className="form-warn-act" onClick={() => onTransfer(conflict.personId, toName)}>
           {az.assignedTransfer}
         </button>
       )}

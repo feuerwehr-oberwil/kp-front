@@ -107,7 +107,7 @@ export function Combo({ value, options, groups, placeholder, searchPlaceholder, 
           // its placeholder must invite typing a NEW value, not just searching the list.
           search: searchPlaceholder ?? (allowCustom ? appConfig.copy.combo.searchOrType : appConfig.copy.combo.searchPlaceholder),
           empty: appConfig.copy.combo.empty,
-          noMatches: appConfig.copy.combo.noMatches,
+          noMatches: appConfig.copy.noHits,
         }}
         entries={shown.map(entry)}
         groups={groups?.map((g) => ({ label: g.label, options: g.options.map(entry) }))}
