@@ -1889,7 +1889,10 @@ export function ReportPreflight({
                 <span>{P.geretteteLabel}</span>
                 {/* two labelled ±steppers (shared Stepper) — tap −/+ or the value to type; matches the
                     details-modal count control. over-object carries the fresh values (state set in the
-                    same tick is stale). Empty = null (shows «0» placeholder, − disabled).
+                    same tick is stale). Empty = null: the value reads «–», not «0» (29.09.2026 — «0»
+                    above «Keine» said «nobody» for an unanswered field, the very ambiguity «Keine»
+                    removes), and the ✕ is there only once there IS a value to clear (a column of
+                    greyed ✕ beside two empty steppers said nothing).
                     `readOnly` while «Keine» is active (below): both fields are already empty when
                     that answer is given, and an enabled stepper let a tap edge one of them off zero
                     while still showing «niemand gerettet» — the same contradiction «Entfällt» guards
@@ -1898,17 +1901,17 @@ export function ReportPreflight({
                 <div className="rz-counts">
                   <div className="rz-count" data-sync="geretteteP">
                     <span>{P.gerettetePersonen}</span>
-                    <Stepper value={numOrU(geretteteP) ?? null} min={0} max={999} seed={1} placeholder="0" ariaLabel={P.gerettetePersonen}
+                    <Stepper value={numOrU(geretteteP) ?? null} min={0} max={999} seed={1} ariaLabel={P.gerettetePersonen}
                       readOnly={meta.geretteteNone}
                       onChange={(v) => { setGeretteteP(String(v)); persist(geretteteOver(String(v), geretteteT)) }}
-                      onClear={() => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) }} canClear={geretteteP !== ''} />
+                      onClear={geretteteP !== '' ? () => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) } : undefined} canClear />
                   </div>
                   <div className="rz-count" data-sync="geretteteT">
                     <span>{P.geretteteTiere}</span>
-                    <Stepper value={numOrU(geretteteT) ?? null} min={0} max={999} seed={1} placeholder="0" ariaLabel={P.geretteteTiere}
+                    <Stepper value={numOrU(geretteteT) ?? null} min={0} max={999} seed={1} ariaLabel={P.geretteteTiere}
                       readOnly={meta.geretteteNone}
                       onChange={(v) => { setGeretteteT(String(v)); persist(geretteteOver(geretteteP, String(v))) }}
-                      onClear={() => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) }} canClear={geretteteT !== ''} />
+                      onClear={geretteteT !== '' ? () => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) } : undefined} canClear />
                   </div>
                 </div>
                 {/* ⚠️ «Keine» — the answer an empty pair of steppers could not give (04.09.,

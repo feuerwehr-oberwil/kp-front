@@ -233,7 +233,7 @@ export function IncidentSwitcher({
       {open && !sheetOpen && (
         <div className="ip-menu">
           {/* The menu is about what is RUNNING, in two weights (field feedback: every row carried
-              the same one): ① THIS Einsatz as a CARD — green status edge, Titel, Adresse, zwei
+              the same one): ① THIS Einsatz as a CARD — Titel, Adresse, zwei
               Status-Pills — carrying its OWN actions inside it; ② the other running Einsätze as
               rows led by their laufende Zeit. The card needs no label — it names itself.
               Nothing that is OVER is listed here (a «Frühere» section was tried and dropped on

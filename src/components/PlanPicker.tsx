@@ -130,6 +130,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
                 <button
                   key={o.id}
                   className={`pp-row ${o.id === activeObjectId ? 'on' : ''} ${o.id === hoverId ? 'hover' : ''}`}
+                  aria-current={o.id === activeObjectId || undefined}
                   onClick={() => void choose(o)}
                   onMouseEnter={() => setHoverId(o.id)}
                   onMouseLeave={() => setHoverId((h) => (h === o.id ? null : h))}

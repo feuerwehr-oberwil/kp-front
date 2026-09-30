@@ -9,6 +9,9 @@ export interface GroupRow {
   glyph: ReactNode
   title: string
   meta?: string
+  /** «open» paints the read-out amber, the nav badge's «still open» tone (29.09.2026) — a count
+   *  of points still to do says so here as it does on the tile, current row or not */
+  metaTone?: 'open'
 }
 
 /**
@@ -56,7 +59,7 @@ export function GroupChooser({ title, rows, activeId, onPick, onClose }: {
               </span>
               {(r.meta || on) && (
                 <span className="pp-row-meta">
-                  {r.meta && <span className="group-choose-count">{r.meta}</span>}
+                  {r.meta && <span className={`group-choose-count${r.metaTone === 'open' ? ' open' : ''}`}>{r.meta}</span>}
                   {on && <Icon id="check" aria-hidden />}
                 </span>
               )}
