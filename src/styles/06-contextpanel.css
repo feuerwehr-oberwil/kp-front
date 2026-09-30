@@ -313,31 +313,29 @@
 }
 .kv-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-x .i { width: 13px; height: 13px; }
-/* «Führung übergeben» — the ⇄ BETWEEN the Einsatzleiter glyph's two rows, aligned under the
-   value column so it reads as belonging to the pair rather than to either row. Quiet at rest
-   (this is a handover, not a control anybody hunts for) and blue on hover like every other
-   affirmative action in the panel. */
-/* ⚠️ `.ctx-rows` is a BLOCK, so `align-self` does nothing here — a fit-content box with an auto
-   left margin is what pushes it under the value column. */
-.kv-swap { display: flex; align-items: center; gap: 7px; width: fit-content;
-  margin: -2px 0 4px auto; padding: 6px 10px; min-height: 32px;
-  border: 1px solid transparent; border-radius: var(--r-sm); background: none;
-  color: var(--ink-faint); font: 600 12px var(--body); cursor: pointer;
-  transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
+/* «Führung übergeben» — the ⇄ at the RIGHT END of the Einsatzleiter glyph's EL row (slim sweep
+   27.09.2026, item 9; it was a sentence with a parenthesis between the two rows): a 44px square
+   in the panel's tile family — the one corner, a faint fill, a 1px inset edge, an 18px glyph.
+   The Stv. row leaves the same 44px empty (.kv-swap-gap), so the two fields end on one line. */
+.kv-swap { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
+  border: 0; border-radius: var(--r-sm); background: var(--fill-soft); box-shadow: inset 0 0 0 1px var(--glass-edge);
+  color: var(--ink); cursor: pointer; }
 @media (hover: hover) {
-  .kv-swap:hover { background: color-mix(in srgb, var(--blue) 7%, transparent);
-    border-color: color-mix(in srgb, var(--blue) 30%, transparent); color: var(--blue); }
+  .kv-swap:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--blue); }
 }
 .kv-swap:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.kv-swap .i { width: 15px; height: 15px; }
-.kv-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; border: 1px dashed var(--glass-edge);
-  background: none; color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; font-size: 12.5px; font-weight: 600;
-  font-family: var(--body); cursor: pointer; transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
+.kv-swap .i { width: 18px; height: 18px; }
+.kv-swap-gap { flex: none; width: var(--tap); }
+/* «+ Feld» (27.09.2026): a small framed tile — 36px, the one corner, the same 1px inset edge as
+   every other frame in the panel; it was the editor's only dashed box */
+.kv-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 36px; padding: 0 12px 0 10px;
+  border: 0; box-shadow: inset 0 0 0 1px var(--glass-edge); background: var(--fill-soft); color: var(--ink);
+  border-radius: var(--r-sm); font: 700 12.5px var(--body); cursor: pointer; }
 @media (hover: hover) {
-  .kv-add:hover { background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); color: var(--blue); }
+  .kv-add:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--blue); }
 }
 .kv-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.kv-add .i { width: 14px; height: 14px; }
+.kv-add .i { width: 16px; height: 16px; }
 /* FKS Entwicklung (spread) controls — a label + a row of small toggle buttons */
 .spread-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 7px 0; }
 .spread-row + .spread-row { border-top: 1px solid var(--border-soft); }
@@ -385,14 +383,11 @@
 /* the caption row keeps only its tighter LABEL — height/radius come from the one segmented spec */
 .ctx-caprow .useg-btn { padding: 4px 10px; }
 
-/* «Gelöscht / erledigt» (lib/objectDone, 24.09.2026) — the first row of a symbol's body. Unset it
-   is ONE press with no state to be in: the `.de-action` row (08-toasts), glyph + word at the
-   controls' edge, and the quiet hint at the label's edge says what the press will NOT do — the
-   symbol does not vanish. Set, the row STATES the answer («Erledigt 20:40», the grey the glyph
-   now wears) and holds its one way back at the controls' edge. No hairline under it (the sheets
-   draw one only above a NAMED section, AGENTS · editor-sheet grammar). */
-.ctx-done { margin: 2px 0 4px; }
-.ctx-done-hint { margin-right: auto; padding-right: 8px; font-size: 12.5px; font-weight: 500; color: var(--ink-faint); text-align: left; }
+/* «Erledigt» (lib/objectDone, 24.09.2026): SET, the row STATES the answer («Erledigt 20:40», the
+   grey the glyph now wears) — first in a damage symbol's body, last elsewhere — and holds its one
+   way back at the controls' edge. No hairline under it (the sheets draw one only above a NAMED
+   section, AGENTS · editor-sheet grammar). The press that sets it is the foot's middle tile
+   (`.ctx-done`, 27.09.2026 — it was a full-width row with a hint beside it). */
 .ctx-done-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 4px 0;
   margin: 2px 0 4px; }
 .ctx-done-row { justify-content: space-between; flex-wrap: wrap; row-gap: 2px; }
@@ -410,6 +405,17 @@
 
 .ctx-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px 16px; }
 .ctx-actions > .btn { flex: 1 1 140px; }
+/* the foot's glyphs are one size (16px, the family's) — the bin's 18 in its square */
+.ctx-actions > .btn .i { width: 16px; height: 16px; }
+/* «Entfernen» as a SQUARE (27.09.2026): removal is rare and should not be a wide target — the
+   red glyph alone, the word in its label */
+.ctx-actions > .btn.btn-sq { flex: 0 0 var(--tap); width: var(--tap); padding: 0; }
+.ctx-actions > .btn.btn-sq .i { width: 18px; height: 18px; }
+/* «Erledigt» is the quiet middle: no colour, it only greys the symbol — and where it stands, the
+   two word tiles share the row equally (mockup 9); a foot without it (a read-only twin's five
+   doors) keeps its content-sized wrap */
+.ctx-actions > .btn.ctx-done { color: var(--ink-dim); }
+.ctx-actions:has(> .ctx-done) > .btn:not(.btn-sq) { flex: 1 1 0; }
 .btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: 12.5px; font-weight: 700;
   padding: 11px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);
   cursor: pointer; color: var(--ink); white-space: nowrap; }
