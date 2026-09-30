@@ -19,6 +19,7 @@ import { fillTemplate } from '../lib/format'
 import { clearAllDrafts } from '../lib/draftKeep'
 import type { AttendanceState, Trupp, TruppFields, TruppReading } from '../types'
 import { noteOwnContact, resetOwnContacts } from '../lib/contactEcho'
+import { resetPopoverGuard } from '../lib/overlays/popoverGuard'
 
 afterEach(cleanup)
 // ⚠️ …and the kept DRAFTS with it (lib/draftKeep is a module-level store): a form that was
@@ -1806,6 +1807,9 @@ describe('the form\'s Druck and Kanal are the sheets\' tap controls', () => {
   })
 
   it('Escape in a number sheet closes the sheet, never the form under it', async () => {
+    // the popover register's 350 ms tail is module state: a menu the test before closed a moment
+    // ago would veto this Escape (as it should, one gesture later) and the sheet stays — flaky by speed
+    resetPopoverGuard()
     mount({ trupps: [] })
     fireEvent.click(firstBtn(az.newTrupp))
     fireEvent.click(kanalRow())
