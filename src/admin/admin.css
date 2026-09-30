@@ -630,22 +630,24 @@
   white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
 .adm-formlink-warn { color: var(--amber-strong); }
 /* ── «hier kommt der nächste dazu» (ui.tsx · AddRow, and every bare .adm-formlink-add) ────────
-   ONE shape for adding, wherever a list ends: a dashed row the full width of the list, inside the
-   card's padding. Dashed because nothing is there yet — the same reason `EmptyState` below is
-   dashed, and the two sit in the same place saying the same kind of thing.
+   ONE shape for adding, wherever a list ends: a row the full width of the list, inside the
+   card's padding.
+   28.09.2026: FRAMED, not dashed — the app's ONE «add» look (13-incident `.cv-btn-add`: solid
+   edge, the surface, 14/700 ink). Dashed means «missing» (27.09. sweep); an add is an action.
+   The dashed `AddRow` / `EmptyState` below stay: they are the placeholder the button sits in.
 
    ⚠️ The button alone IS the row when it stands alone (no caller had to change). Inside an
    `AddRow` — which adds the dim half-sentence on the left — it goes back to being a button and
-   rides at the right edge, or the row would be a dashed box inside a dashed box. */
+   rides at the right edge. */
 .adm-formlink-add { display: flex; width: 100%; align-items: center; gap: 8px;
   min-height: var(--tap); margin-top: 12px; padding: 13px 14px; cursor: pointer;
-  border: 1px dashed var(--border); border-radius: var(--r-sm);
-  background: transparent; color: var(--ink); font: 700 13px var(--body); text-align: left; }
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: 700 14px var(--body); text-align: left; }
 @media (hover: hover) {
   .adm-formlink-add:hover { border-color: var(--ink-faint); }
 }
 .adm-formlink-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.adm-formlink-add:disabled { color: var(--ink-faint); cursor: not-allowed; }
+.adm-formlink-add:disabled { opacity: var(--disabled); cursor: default; }
 .adm-formlink-add .i { width: 16px; height: 16px; }
 
 .adm-addrow { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%;
@@ -655,8 +657,7 @@
 .adm-addrow-label { min-width: 0; overflow-wrap: anywhere; }
 .adm-addrow-act { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 /* the button in an AddRow is a button again */
-.adm-addrow .adm-formlink-add { width: auto; margin: 0; padding: 0 15px; border-style: solid;
-  border-radius: var(--r-ctl); }
+.adm-addrow .adm-formlink-add { width: auto; margin: 0; padding: 0 15px; }
 
 /* color field */
 .adm-color-row { display: flex; align-items: center; gap: 10px; }
@@ -1385,7 +1386,7 @@
 /* disabled is visibly distinct from "enabled but idle" */
 .adm-int-btn:disabled,
 .adm-save-btn:disabled {
-  opacity: var(--disabled); cursor: not-allowed;
+  opacity: var(--disabled); cursor: default;
 }
 
 /* ── Mitglieder: row hover + clearer status/role badges ───────────────────── */
@@ -1702,7 +1703,7 @@ p.adm-sys-path { margin: 3px 0 0; }
 /* open trigger: Base UI sets [data-popup-open] on the trigger (the old .adm-menu.open class
    is gone with the hand-rolled menu) */
 .adm-menu-btn[data-popup-open] { background: var(--surface); color: var(--ink); border-color: var(--blue); }
-.adm-menu-btn:disabled { opacity: var(--disabled); cursor: not-allowed; }
+.adm-menu-btn:disabled { opacity: var(--disabled); cursor: default; }
 .adm-menu-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .adm-menu-ic { width: 18px; height: 18px; }
 
@@ -1889,7 +1890,7 @@ p.adm-sys-path { margin: 3px 0 0; }
   .adm-pick-opt:hover:not(:disabled) { border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
 }
 .adm-pick-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.adm-pick-opt:disabled { opacity: var(--disabled); cursor: not-allowed; }
+.adm-pick-opt:disabled { opacity: var(--disabled); cursor: default; }
 /* an option CARD with its radio mark: the row wash (01-tokens · --sel-wash), not the chip fill */
 .adm-pick-opt.on { background: color-mix(in srgb, var(--blue) 14%, var(--surface));
   border-color: var(--sel); box-shadow: var(--shadow-sm); }

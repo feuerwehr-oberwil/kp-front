@@ -122,7 +122,9 @@
 
 .isPresent { background: color-mix(in srgb, var(--green) 14%, var(--surface)); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
 @media (hover: hover) { .isPresent:hover:not(:disabled) { border-color: var(--green); } }
-.isLeft { background: var(--surface); color: var(--ink-faint); opacity: .8; }
+/* gegangen = GONE: the ONE done dim and nothing else (01-tokens · --done-opacity, 28.09.2026 —
+   it was .8 on top of a faint ink, two dims for one state) */
+.isLeft { opacity: var(--done-opacity); }
 
 .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
 .dotFrei { background: var(--ink-faint); opacity: .4; }

@@ -197,7 +197,8 @@
 .draw-editor .de-conn-name { display: inline-flex; align-items: center; gap: 3px; max-width: 60%; padding: 0; border: 0;
   background: none; color: var(--ink); font-family: inherit; font-size: 13px; font-weight: 600; }
 .draw-editor .de-conn-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.draw-editor .de-conn-name:disabled { color: var(--ink-dim); }
+/* the ONE disabled (28.09.2026): the dim, not a colour swap */
+.draw-editor .de-conn-name:disabled { opacity: var(--disabled); cursor: default; }
 .draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
 .draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 6px; font-size: 12px; color: var(--ink-dim); }
 .draw-editor .de-conn-note.warn { color: var(--red); font-weight: 600; }

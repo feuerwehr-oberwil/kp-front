@@ -327,13 +327,14 @@
 .kv-swap:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-swap .i { width: 18px; height: 18px; }
 .kv-swap-gap { flex: none; width: var(--tap); }
-/* «+ Feld» (27.09.2026): a small framed tile — 36px, the one corner, the same 1px inset edge as
-   every other frame in the panel; it was the editor's only dashed box */
-.kv-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 36px; padding: 0 12px 0 10px;
-  border: 0; box-shadow: inset 0 0 0 1px var(--glass-edge); background: var(--fill-soft); color: var(--ink);
-  border-radius: var(--r-sm); font: 700 12.5px var(--body); cursor: pointer; }
+/* «+ Feld» (27.09.2026; 28.09.2026 on the ONE «add» look, 13-incident `.cv-btn-add`): framed,
+   --tap tall, the one corner, 14/700 ink on the surface. It was a 36px grey tile — a second add
+   shape, and under the glove floor. */
+.kv-add { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; min-height: var(--tap); padding: 0 14px 0 12px;
+  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink);
+  border-radius: var(--r-sm); font: 700 14px var(--body); cursor: pointer; }
 @media (hover: hover) {
-  .kv-add:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--blue); }
+  .kv-add:hover { border-color: var(--ink-faint); }
 }
 .kv-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-add .i { width: 16px; height: 16px; }

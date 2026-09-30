@@ -510,10 +510,12 @@
    by ~40px, and the three Art chips are the only things in the row that can give that up — at
    which point «Sofortmassnahme» wraps and the row grows anyway. A lit clock alone says «something
    was chosen» without saying what, and «wann» is the half you can act on, so it has to be legible
-   rather than merely present. Same badge shape as the Verlauf's open-count (.tb-rem-count). */
-.jc-due-badge { position: absolute; top: -7px; right: -6px; height: 17px; padding: 0 5px;
-  border-radius: var(--r-sm); background: var(--blue); color: var(--on-fill);
-  font: 800 11px/17px var(--mono); letter-spacing: -.02em; white-space: nowrap;
+   rather than merely present. The ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px,
+   11/800, --r-xs, and INK — it was blue, the chosen button's own fill, so on a lit clock the
+   badge melted into it. The --surface ring stays to lift it off that fill. */
+.jc-due-badge { position: absolute; top: -7px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
+  font: 800 11px/16px var(--body); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: center;
   box-shadow: 0 0 0 2px var(--surface); }
 /* the plain minute rows have no glyph, but they keep the ring's WIDTH — a menu whose labels start
    on two different axes reads as two lists (see .jc-menu-ring, the same slot) */

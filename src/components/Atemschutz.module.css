@@ -111,8 +111,11 @@
 .sectTitle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800;
   letter-spacing: .07em; text-transform: uppercase; color: var(--ink-dim); }
 .sectTitle :global(.i) { width: 15px; height: 15px; color: var(--ink-faint); }
-.sectCount { font: 800 11px var(--mono); color: var(--ink-faint); background: var(--fill-soft, rgba(0, 0, 0, .045));
-  border-radius: 999px; padding: 2px 8px; }
+/* the ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px, min 16, 11/800, --r-xs, and a
+   plain count is INK. It was a faint 999px pill — the only round count in the app. */
+.sectCount { display: inline-block; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
+  font: 800 11px/16px var(--body); text-align: center; font-variant-numeric: tabular-nums; }
 /* the rule itself: whatever width the title leaves */
 .sect::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--glass-edge); }
 .sectSecond { margin-top: 26px; }

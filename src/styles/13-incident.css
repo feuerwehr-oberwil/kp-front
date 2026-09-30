@@ -170,11 +170,11 @@
 }
 .ip-card-act svg { width: 15px; height: 15px; opacity: .65; flex: none; }
 /* the open count as a CORNER badge — the phone nav's amber count (05-navrail · .nav-count.nav-open),
-   same fill, same digits, same 16px — riding the tile's top-right corner instead of taking a
+   same fill, same digits (11/800 since 28.09.2026), same 16px — riding the tile's top-right corner instead of taking a
    word's width inside it */
 .ip-card-act > .ip-badge-todo { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;
   box-sizing: border-box; padding: 0 4px; border-radius: var(--r-xs); background: var(--amber); color: var(--on-fill);
-  font: 800 10px/16px var(--body); letter-spacing: 0; text-align: center; }
+  font: 800 11px/16px var(--body); letter-spacing: 0; text-align: center; }
 /* «Jetzt synchronisieren» at the title row's right edge — pinned there at every width, so the
    Einsatz's connection state and the button that refreshes it sit on the same line. Pulled
    slightly out of the card's padding so the ICON, not the button's box, lines up with the
@@ -289,7 +289,7 @@
   .set-dl:hover:not(:disabled) { border-color: var(--glass-line); }
 }
 .set-dl:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.set-dl:disabled { opacity: var(--disabled); }
+.set-dl:disabled { opacity: var(--disabled); cursor: default; }
 .set-dl svg { width: 15px; height: 15px; }
 
 /* Offline-Bereitschaft sheet — a glanceable readiness checklist + one load-all action */
@@ -405,7 +405,8 @@
   padding: 4px 10px; border: 1px solid var(--glass-line); border-radius: var(--r-pill);
   background: var(--surface); color: var(--blue); font: 700 12px var(--body); cursor: pointer; }
 .ip-menu-update .i { width: 13px; height: 13px; stroke-width: 2.2; }
-.ip-menu-update:disabled { color: var(--ink-faint); cursor: default; }
+/* the ONE disabled (28.09.2026): the dim, not a colour swap */
+.ip-menu-update:disabled { opacity: var(--disabled); cursor: default; }
 @media (hover: hover) {
   .ip-menu-update:hover:not(:disabled) { background: var(--fill-soft); }
 }
@@ -688,12 +689,16 @@
 .ip-hist-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* incident status badge in the Einsätze list (own class — must NOT collide with the
    fixed-size sync .ip-status above, which would clamp it to 16px and clip the label) */
-.ip-badge { font: 700 10px var(--body); letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--r-xs); flex: none; white-space: nowrap; }
+/* …and the ONE tag recipe (28.09.2026): the poster's «ÜBUNG» (.cv-badge-exercise) wears it too —
+   it was a 10.5/800 pill beside the tablet's 10/700 corner for the same word. */
+.ip-badge, .cv-badge-exercise { font: 700 10px var(--body); letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--r-xs); white-space: nowrap; }
+.ip-badge { flex: none; }
 .ip-badge-open { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
 .ip-badge-work { background: color-mix(in srgb, var(--red) 13%, transparent); color: var(--red); }
 .ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
-/* Übung — amber so a training is never mistaken for a real Einsatz (switcher + lists) */
-.ip-badge-exercise { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+/* Übung — amber so a training is never mistaken for a real Einsatz (top bar switcher, lists,
+   and the poster: one look for one word, 28.09.2026) */
+.ip-badge-exercise, .cv-badge-exercise { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 /* «2 offen» — the same amber, named after what it means rather than after the Übung it borrows
    from: something is outstanding and the operator is about to act as if it were not. */
 .ip-badge-todo { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); text-transform: none; }
@@ -946,12 +951,11 @@
 .cv-list-head { margin: 6px 2px 0; font: 800 11.5px var(--body); color: var(--ink-faint);
   text-transform: uppercase; letter-spacing: .05em; }
 .cv-list + .cv-list { margin-top: 4px; }
-/* Übung — same amber as the tablet's .ip-badge-exercise: a drill or a test run must never
-   be mistaken for the real Einsatz, on the surface where untrained people tick names off */
-.cv-badge-exercise { display: inline-block; margin-left: 6px; padding: 1px 7px; vertical-align: 1px;
-  border-radius: var(--r-pill); font: 800 10.5px var(--body); text-transform: uppercase; letter-spacing: .04em;
-  white-space: nowrap; /* wraps to its own line on a narrow phone rather than splitting */
-  background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+/* Übung — the tablet's .ip-badge-exercise itself (shape, type and amber are shared above): a
+   drill or a test run must never be mistaken for the real Einsatz, on the surface where
+   untrained people tick names off. Only its place in the title line is its own; nowrap (above)
+   sends it to its own line on a narrow phone rather than splitting it. */
+.cv-badge-exercise { display: inline-block; margin-left: 6px; vertical-align: 1px; }
 .cv-input { min-height: 44px; padding: 8px 12px; border-radius: var(--r-ctl); border: 1px solid var(--glass-line);
   background: var(--surface); color: var(--ink); font: 500 15px var(--body); width: 100%; }
 /* search + ⓘ: the tap-cycle explanation hides behind the info toggle (inline it crowded the card) */
@@ -1001,7 +1005,7 @@
 .cv-none.on { border-style: solid; color: var(--green-strong);
   border-color: color-mix(in srgb, var(--green) 50%, transparent);
   background: color-mix(in srgb, var(--green) 14%, transparent); }
-.cv-none:disabled { opacity: var(--disabled); }
+.cv-none:disabled { opacity: var(--disabled); cursor: default; }
 /* Partnerorganisationen on the poster: organisation + one free line, same two fields the
    tablet asks for. Stacks on a phone, which is what the poster is scanned with. */
 .cv-partners { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -1040,7 +1044,7 @@
 .cv-beilagen-list .cv-input { flex: 1 1 auto; min-width: 0; }
 .cv-beilagen-add { cursor: pointer; background: none; border: 1px dashed var(--glass-edge); }
 .cv-beilagen-add input { display: none; }
-.cv-beilagen-add.busy { opacity: .6; pointer-events: none; }
+.cv-beilagen-add.busy { opacity: var(--disabled); pointer-events: none; }
 
 /* The poster's button, on the app's ONE button spec (AGENTS.md · Buttons): neutral secondary by
    default, `--btn-primary` for the single action a screen is about (.cv-pdf / .cv-primary below).
@@ -1081,7 +1085,8 @@
   background: color-mix(in srgb, var(--blue) 12%, var(--surface)); }
 .cv-person.station .cv-person-state { color: var(--blue-strong);
   background: color-mix(in srgb, var(--blue) 18%, transparent); }
-.cv-person.left { opacity: .65; }
+/* gegangen = GONE: the ONE done dim (01-tokens · --done-opacity, 28.09.2026 — it was .65) */
+.cv-person.left { opacity: var(--done-opacity); }
 /* «Gast» — a row that no Mannschaftsliste is behind. Neutral, quiet, and BEFORE the state chip:
    it says where the name came from, not how the person is doing. */
 .cv-person-guest { flex: none; margin-left: auto; padding: 2px 7px; border-radius: var(--r-pill);
@@ -1171,11 +1176,11 @@
   color: var(--ink); font: 600 14.5px var(--body); font-variant-numeric: tabular-nums; }
 .timefield-input.dt { width: 176px; }
 .timefield-input::placeholder { color: var(--ink-faint); font-weight: 500; }
-.timefield-input:disabled { opacity: var(--disabled); }
+.timefield-input:disabled { opacity: var(--disabled); cursor: default; }
 .timefield-now { min-height: 44px; padding: 6px 12px; border: 1px solid var(--glass-line);
   border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
   font: 600 13px var(--body); cursor: pointer; }
-.timefield-now:disabled { opacity: var(--disabled); }
+.timefield-now:disabled { opacity: var(--disabled); cursor: default; }
 
 /* the wheel popover: snap-scrolling columns under a fixed center band */
 .wheelpop { z-index: var(--z-picker); padding: 10px; border-radius: var(--r-ctl);
