@@ -10,6 +10,7 @@ import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
 import { rowPhotos } from '../lib/verlauf'
 // the geometry every full surface stands in — the Rapport is the fifth of them
 import surface from './Surface.module.css'
+import { usePageHeadFit } from '../lib/pageHeadFit'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { ShareIncident } from './panels/ShareIncident'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
@@ -52,6 +53,11 @@ import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
 
 const NO_IDS = new Set<string>()
+/** The Rapport head's ladder (lib/pageHeadFit): «Ausdrucken» gives its word first, then
+ *  «Abschliessen», then the Kontrolle chip keeps its ⚠ and its count («⚠ 4», the words stay its
+ *  title), then the primary «Einsatzrapport (PDF)» shortens to «PDF ▾» (mockup 2), and last the
+ *  title says what the nav calls this page, «Rapport». */
+const RP_FOLD = { print: 1, complete: 2, chip: 3, pdf: 4, title: 5 } as const
 
 /**
  * «Zeig mir diese offene Angabe» — asked from OUTSIDE the sheet.
@@ -1386,6 +1392,16 @@ export function ReportPreflight({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ONE ROW (lib/pageHeadFit): the head folds its tiles' words — «Ausdrucken», «Abschliessen»,
+  // then «Einsatzrapport (PDF)» → «PDF» — until it fits; the Kontrolle chip's count is never cut
+  // (`data-fit-check`). It was a breakpoint (words above 1080px, icons below) and, on a phone, a
+  // second row under the title.
+  const headRef = useRef<HTMLElement>(null)
+  usePageHeadFit(headRef, [
+    missing.length, warnCount, checking, controlOk, !!onComplete, printStatus?.available, printStatus?.online,
+    printBusy, pdfBusy,
+  ].join('|'))
+
   return (
     /* A SURFACE, not a dialog. The Rapport is filled in across a whole Einsatz — a sentence
        here, a time there, jump to Anwesenheit because somebody arrived — and it wants the width
@@ -1405,16 +1421,19 @@ export function ReportPreflight({
             chrome, which is what a page inherits when it used to be a sheet. No ✕ either: a
             page is left by choosing another surface in the rail, exactly like Anwesenheit and
             Mittel, and a close button on one of six surfaces asks «closed into what?». */}
-        <header className="rp-head">
+        <header ref={headRef} className="rp-head">
           <div className="rp-head-titles">
-            <h2>{P.title}</h2>
+            {/* the nav's own word for this page once the row runs out of everything else */}
+            <h2 data-fold={RP_FOLD.title} title={P.title} aria-label={P.title}>
+              <span className="fold-long">{P.title}</span><span className="fold-short" aria-hidden="true">{appConfig.copy.modes.rapport}</span>
+            </h2>
             {/* The verdict line under the title says only the GOOD news now: «alle Angaben
                 erfasst». What is still open is counted and listed by the Kontrolle chip in the
                 actions row (see `openInControl`), at every width — the chips that stood here are
                 gone (23.09.2026). The «n Personen · m Positionen» read-out that led this line went
                 on 19.09.2026. ⚠️ Not rendered EMPTY: an empty <p> still takes its margin. */}
             {missing.length === 0 && (
-              <p className="rp-head-sum">
+              <p className="rp-head-sum" data-fit-check>
                 <span className="rp-head-done"><Icon id="check" />{P.headAllRecorded}</span>
               </p>
             )}
@@ -1465,9 +1484,12 @@ export function ReportPreflight({
                 popupClassName="rp-control"
                 ariaLabel={P.controlHead}
                 trigger={(
-                  <button type="button" className={cx('rp-state', 'head-tile', 'amber')} title={P.controlHead}>
+                  <button type="button" className={cx('rp-state', 'head-tile', 'amber')} data-fold={RP_FOLD.chip}
+                    title={`${P.controlHead}: ${controlChipLabel(missing.length, checking ? 0 : warnCount)}`}>
                     <Icon id="warn" />
-                    <span className="rp-state-label">{controlChipLabel(missing.length, checking ? 0 : warnCount)}</span>
+                    <span className="rp-state-label fold-long" data-fit-check>{controlChipLabel(missing.length, checking ? 0 : warnCount)}</span>
+                    {/* folded: the ⚠ and ONE count — what is open plus the Hinweise, as the nav badge */}
+                    <span className="rp-state-label fold-short" aria-hidden="true">{missing.length + (checking ? 0 : warnCount)}</span>
                   </button>
                 )}
               >
@@ -1515,28 +1537,27 @@ export function ReportPreflight({
                 </div>
               </Popover>
             )}
-            {/* ⚠️ Every label in this row is wrapped in `.rp-btn-label`, not left as a bare text
-                node: on a phone the row goes icon-only (see app.css) and a bare text node cannot
-                be hidden. The label survives as `aria-label` + `title`, so what is dropped is the
-                pixels, never the naming. */}
+            {/* ⚠️ Every label in this row is wrapped in `.fold-long`, not left as a bare text node:
+                where the one row runs out the head's ladder folds it (lib/pageHeadFit · `RP_FOLD`)
+                and a bare text node cannot be hidden. The label survives as `aria-label` + `title`,
+                so what is dropped is the pixels, never the naming. */}
             {onComplete && (
-              <button className="ip-btn head-tile" onClick={() => void complete()} aria-label={A.complete} title={A.complete}>
-                <Icon id="archive" /><span className="rp-btn-label">{A.complete}</span>
+              <button className="ip-btn head-tile" data-fold={RP_FOLD.complete} onClick={() => void complete()} aria-label={A.complete} title={A.complete}>
+                <Icon id="archive" /><span className="rp-btn-label fold-long">{A.complete}</span>
               </button>
             )}
             {printStatus?.available && (
               <button className={`ip-btn head-tile print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
+                data-fold={RP_FOLD.print}
                 onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
                 title={printStatus.online ? R.online : R.offline}>
                 <span className="print-send-main">
                   <Icon id="printer" />
                   <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
-                  <span className="rp-btn-label">{printBusy ? R.sending : R.send}</span>
+                  <span className="rp-btn-label fold-long">{printBusy ? R.sending : R.send}</span>
                 </span>
-                {/* the offline reason in words where the row has them (above 1080px); on the
-                    icon row it is the dot's colour, the button's name and the confirm a press
-                    raises (13-incident.css · the ≤1080 block) */}
-                {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
+                {/* the offline reason is the dot's colour, the button's name and the confirm a
+                    press raises — never a second line in the one-row head (13-incident.css) */}
               </button>
             )}
             {/* Press it and it prints, with whatever is set. The ▾ is the second door: the same
@@ -1549,11 +1570,11 @@ export function ReportPreflight({
                 phone it reads «PDF ▾» — the word, not a doc glyph whose meaning you had to know
                 (`.rp-btn-short`); the tablet keeps its full label. Same two doors as before. */}
             <span className="rp-split">
-              <button className="ip-btn head-tile rp-split-main" disabled={pdfBusy} onClick={() => void startOutput('pdf')}
+              <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.pdf} disabled={pdfBusy} onClick={() => void startOutput('pdf')}
                 aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
-                {pdfBusy ? <Icon id="rotate" className="spin" /> : <Icon id="doc" className="rp-pdf-glyph" />}
-                <span className="rp-btn-label">{pdfBusy ? P.pdfBusy : P.pdfFull}</span>
-                {!pdfBusy && <span className="rp-btn-short">{P.pdfShort}</span>}
+                {pdfBusy ? <Icon id="rotate" className="spin" /> : <Icon id="doc" className="rp-pdf-glyph fold-long" />}
+                <span className="rp-btn-label fold-long">{pdfBusy ? P.pdfBusy : P.pdfFull}</span>
+                {!pdfBusy && <span className="rp-btn-short fold-short">{P.pdfShort}</span>}
               </button>
               <Menu
                 trigger={

@@ -11,12 +11,15 @@
 .head { composes: head from './Surface.module.css'; }
 .headTitles { composes: headTitles from './Surface.module.css'; }
 .headActions { composes: headActions from './Surface.module.css'; }
-/* ⚠️ No ellipsis, unlike the Rapport's h2 — that one carries an arbitrary Einsatz name and has
-   to truncate; these three are fixed strings the layout is sized for («Atemschutzüberwachung» is
-   the longest, and --head-titles-min is wide enough for it). A fixed title that truncates is a
-   bug, not a graceful degradation. Font and spacing are the shared spec; wrapping is not. */
+/* ⚠️ A fixed title that truncates is a bug, not a graceful degradation: these are fixed strings,
+   and the head's ladder (lib/pageHeadFit) checks every <h2> — a cut one makes the tiles give up
+   their words, and last the tiles take a second row. The shared ellipsis (Surface.module.css) is
+   only the safety net under it. Font and spacing are the shared spec. */
 .headTitles h2 { margin: 0; font: var(--head-title); color: var(--ink); }
 .headTitles p { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); color: var(--ink-dim); }
+/* the QR read-out's slot — gone with its chip (nothing written from the poster yet) */
+.headQr { display: inline-flex; align-items: center; }
+.headQr:not(:has(:global(.capture-usage-chip))) { display: none; }
 
 /* the Mittel / nach-Quelle view toggle now uses the shared <Segmented> (.useg) — its old
    bespoke .viewToggle chrome was removed. Disabled options grey out while the list is empty. */
@@ -159,16 +162,10 @@
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* (the full-width inset is the shared shell's — Surface.module.css) */
-  /* TWO rows, not three. The actions used to claim a full-width line of their own because the
-     Alle/In-Verwendung track sat in them; that track is a filter button on the search line now,
-     so all that is left there is the QR read-out — and a whole row for one footnote, above a
-     list this surface exists to show, is the trade that left about a tenth of a phone screen
-     for the Positionen. Title + summary take the line, the read-out rides beside them.
-     (Same shape as the Anwesenheit's header — see Anwesenheit.module.css.) */
-  .head { padding: 10px 14px; gap: 6px 10px; flex-wrap: wrap; }
-  .headTitles { flex: 1 1 120px; }
-  .headActions { flex: none; }
-  .headTitles p { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* ONE row (every page head, 28.09.2026 — Surface.module.css): title + summary, the QR read-out
+     beside them as the first thing the head's ladder takes away (MittelView). The paddings are the
+     shared phone tokens (15-mobile · --head-pad-*). */
+  .headTitles p { font-size: 12px; }
   .composerFields { gap: 10px; }
   .field { flex: 1 1 100%; }
   .fieldNarrow { flex: 1 1 calc(50% - 5px); }

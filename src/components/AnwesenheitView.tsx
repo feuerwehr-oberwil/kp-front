@@ -7,6 +7,7 @@ import type { ZeitplanSheet } from '../lib/zeitplanPrint'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { useIsPhone } from '../lib/useIsPhone'
+import { usePageHeadFit } from '../lib/pageHeadFit'
 import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
 import { personnelProviderName } from '../lib/deploymentConfig'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
@@ -34,6 +35,9 @@ import c from './SurfaceControls.module.css'
  *  (120 h, 168 h) is for the deployment that does not end on day four: an Elementarereignis
  *  with a Pikett rota runs into a second week, and a plan that cannot show it is planned
  *  somewhere else. */
+/** The head's ladder (lib/pageHeadFit): the poster read-out steps aside first, then the retry's word. */
+const HEAD_FOLD = { qr: 1, reload: 2 } as const
+
 const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96, 120, 168]
 
 
@@ -640,9 +644,16 @@ export function AnwesenheitView({
     ...(bandsAvailable ? [{ value: 'bands' as const, label: A.viewBands }] : []),
   ]
 
+  // ONE ROW (lib/pageHeadFit): refit when what the head carries changes
+  const headRef = useRef<HTMLElement>(null)
+  usePageHeadFit(headRef, [
+    counts.present, counts.station, counts.scene, counts.left, captureUsage?.writes, captureUsage?.lastAt,
+    !!error, reloadPhase, loading, view, showPlan, showBands,
+  ].join('|'))
+
   return (
     <div className={s.surface}>
-      <header className={s.head}>
+      <header ref={headRef} className={s.head}>
         <div className={s.headTitles}>
           <h2>{A.title}</h2>
           {/* «12 anwesend · 3 gegangen» — and, once anybody is at the Magazin,
@@ -654,10 +665,10 @@ export function AnwesenheitView({
               (tokens · --head-*). It used to be a full-width row of its own BELOW the tabs and
               the buttons — which fixed the real problem it had (squeezed into a 250px column it
               stacked five lines deep) at the cost of a head that was a different object from the
-              three next to it. The titles block now yields to the tools only down to
-              --head-titles-min and then takes a row of its own, so the counts still get a line
-              they fit on — the same way the Rapport's head has always solved this. */}
-          <p className={s.headSummary}>
+              three next to it. It is never cut (`data-fit-check`): where the one row runs out,
+              the head's ladder folds the tiles' words and, last, gives the titles a row of their
+              own where the counts may wrap (lib/pageHeadFit). */}
+          <p className={s.headSummary} data-fit-check>
             {fillTemplate(A.summary, { present: counts.present })}
             {counts.station > 0 && (
               <> · {fillTemplate(A.summaryOrt, { scene: counts.scene, station: counts.station })}</>
@@ -668,11 +679,15 @@ export function AnwesenheitView({
             {counts.left > 0 && <> · {fillTemplate(A.summaryLeft, { left: counts.left })}</>}
           </p>
         </div>
-        {/* …and the poster read-out under it again, in its own still-quieter row. Beside the
-            title it was a pill competing with the panel's own heading; folded into the counts it
-            muddled «wie steht es» with «womit wurde erfasst». One line each. */}
-        <p className={s.headQr}><CaptureUsageChip usage={captureUsage} /></p>
         <div className={s.headActions}>
+          {/* The poster read-out, at the head of the tiles (28.09.2026 — it stood on a row of its
+              own under the counts, and the page head is one row). Beside the title it was a pill
+              competing with the panel's own heading; folded into the counts it muddled «wie steht
+              es» with «womit wurde erfasst». A footnote nobody acts on, so it is the first thing
+              the ladder takes away (it is still on the Rapport). */}
+          <span className={s.headQr} data-fold={HEAD_FOLD.qr}>
+            <span className="fold-long"><CaptureUsageChip usage={captureUsage} /></span>
+          </span>
           {/* ⚠️ Phone only, and ONLY while the top bar has dropped its own pair (below 360px —
               see topBarUndoHidden): any other time the bar's ↶ ↷ are the one door,
               and this head showing a second pair was pure duplication (06.09.). The pair is
@@ -744,7 +759,7 @@ export function AnwesenheitView({
               that up in the background. What is left means what it says: that did not load, try
               again. */}
           {(error || reloadPhase === 'done') && (
-            <button className={cx(s.reload, error && s.reloadFailed)} onClick={runReload}
+            <button className={cx(s.reload, error && s.reloadFailed)} onClick={runReload} data-fold={HEAD_FOLD.reload}
               disabled={loading || reloadPhase !== 'idle'}
               aria-label={A.reload} title={error ? A.loadFailedHint : undefined}>
               {loading || reloadPhase !== 'idle'
@@ -752,7 +767,7 @@ export function AnwesenheitView({
                     label={reloadPhase === 'done' ? appConfig.copy.incidentSwitcher.syncDone : A.loading} />
                 : <Icon id="warn" />}
               {reloadPhase !== 'done' && (
-                <span className={s.reloadLabel}>{loading || reloadPhase === 'busy' ? A.loading : A.retry}</span>
+                <span className="fold-long">{loading || reloadPhase === 'busy' ? A.loading : A.retry}</span>
               )}
             </button>
           )}
@@ -767,7 +782,7 @@ export function AnwesenheitView({
             you are looking at sits where the thumb already is, and the list starts ~60px sooner. */}
         {!empty && planAvailable && !isPhone && (
           <div className={s.headTabs}>
-            <Segmented<AnwesenheitTab> ariaLabel={A.viewLabel} value={view} onChange={pickView}
+            <Segmented<AnwesenheitTab> tabs ariaLabel={A.viewLabel} value={view} onChange={pickView}
               options={viewOptions} />
           </div>
         )}

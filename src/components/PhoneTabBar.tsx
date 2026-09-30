@@ -24,7 +24,7 @@ export function PhoneTabBar<T extends string>({ ariaLabel, value, onChange, opti
 }) {
   return (
     <div className="rp-tabs">
-      <Segmented<T> ariaLabel={ariaLabel} value={value} onChange={onChange} options={options} />
+      <Segmented<T> tabs ariaLabel={ariaLabel} value={value} onChange={onChange} options={options} />
     </div>
   )
 }

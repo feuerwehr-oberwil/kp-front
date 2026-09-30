@@ -46,14 +46,23 @@
 
 /* --- action / rapport runner --- */
 .cl-runner { max-width: 720px; margin: 0 auto; }
-.cl-runner-head { display: flex; align-items: flex-start; gap: 18px; flex-wrap: wrap;
-  padding-bottom: 16px; margin-bottom: 18px; border-bottom: 1px solid var(--glass-edge); }
-.cl-runner-titles { flex: 1 1 240px; }
-.cl-runner-titles h2 { margin: 0; font-size: 21px; font-weight: 800; color: var(--ink); }
-.cl-runner-titles p { margin: 4px 0 0; font-size: 13px; color: var(--ink-dim); }
-.cl-overall { flex: 0 0 200px; display: flex; flex-direction: column; gap: 4px; }
-.cl-overall-num { font-family: var(--mono); font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1; }
-.cl-overall-sub { font-size: 11.5px; color: var(--ink-faint); font-weight: 600; }
+.cl-runner-head { display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap; min-height: var(--tap);
+  padding-bottom: var(--head-pad-y); margin-bottom: 18px; border-bottom: 1px solid var(--glass-edge); }
+/* ONE ROW, the page head's shape (tokens · --head-*, lib/pageHeadFit — ChecklistRunner): the title
+   (the page title's font, it was 21px) and the subtitle as its one quiet line, the progress on the
+   right on one line. The last resort gives the titles a row of their own. */
+.cl-runner-titles { flex: 1 1 auto; min-width: 0; }
+.cl-runner-titles h2 { margin: 0; font: var(--head-title); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-runner-titles p { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); line-height: 16px; color: var(--ink-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-runner-head[data-fit-wrap] { flex-wrap: wrap; }
+.cl-runner-head[data-fit-wrap] > .cl-runner-titles { flex-basis: 100%; }
+.cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.cl-overall .cl-bar { width: 96px; flex: none; }
+.cl-overall-num { font-family: var(--mono); font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1; white-space: nowrap; }
+.cl-overall-num[data-folded] { display: none; }
+.cl-runner-head[data-fit-tight] .cl-overall { gap: 6px; }
+.cl-overall-sub { font-size: 12.5px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .cl-bar { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
 .cl-bar-fill { display: block; height: 100%; background: var(--green); border-radius: 4px;
@@ -283,11 +292,9 @@
   .cl-surface { flex-direction: column; gap: 0; }
   /* lift the main pane clear of the Eintrag FAB (bottom-right, z55) + tighten padding */
   .cl-main { padding: 14px 14px; padding-bottom: calc(14px + var(--fab-safe, 0px)); }
-  /* shrink the runner head so the actual phase list leads sooner */
-  .cl-runner-head { padding-bottom: 12px; margin-bottom: 14px; gap: 10px; }
-  .cl-runner-titles h2 { font-size: 18px; }
-  .cl-runner-titles p { font-size: 12px; margin-top: 2px; }
-  .cl-overall-num { font-size: 19px; }
+  /* (the runner head is the page head's one row — its paddings are the phone tokens) */
+  .cl-runner-head { margin-bottom: 14px; }
+  .cl-runner-titles p { font-size: 12px; }
   /* ONE level (owner-r2-5, 27.09.2026: «drop the multiple nested cards»). The page was a card
      (the shell) holding a white chooser row, holding a white document card with a red top edge,
      a filled «BRAND» pill and the title the chooser row had just shown — three surfaces deep
@@ -296,7 +303,8 @@
      the page as flat sections under the Rapport's eyebrow heads (17-rapport.css ·
      .report-pre-section h3), a hairline between them. The tablet keeps its document card: there
      the rail stands beside it and the card is what separates the two. */
-  .cl-rail-toggle { padding: 12px 14px; font: var(--head-title); color: var(--ink); }
+  /* (48px, under the 60px page heads: it carries no tile, so it does not pay for a tile's row) */
+  .cl-rail-toggle { padding: 12px var(--head-pad-x); font: var(--head-title); color: var(--ink); }
   .cl-ref { flex-direction: column; }
   .cl-ref-doc { max-width: none; padding: 0; background: none; box-shadow: none; border-top: 0; border-radius: 0; }
   /* the title is the chooser's, the category is the chip beside it — nothing to say twice */
@@ -304,12 +312,11 @@
   .cl-ref-h { margin: 18px 0 8px; padding-top: 14px; border-top: 1px solid var(--glass-edge);
     font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
   .cl-ref-h:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
-  /* the runner the same way: its h2 repeated the chooser, so the head is the progress line —
-     the number, the bar and «0/8 erledigt» on one row, the subtitle above them */
-  .cl-runner-titles { flex: 1 1 100%; }
+  /* the runner the same way: its h2 repeated the chooser, so the head is ONE row — the subtitle
+     (cut where the progress begins) and the number, the bar and «0/8 erledigt» beside it */
   .cl-runner-titles h2 { display: none; }
   .cl-runner-titles p { margin: 0; }
   .cl-runner-titles:not(:has(p)) { display: none; }
-  .cl-overall { flex: 1 1 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
+  .cl-overall .cl-bar { width: 72px; }
   .cl-phase-titles h3 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 }

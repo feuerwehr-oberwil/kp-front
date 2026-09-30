@@ -564,6 +564,14 @@ to prod.
   zoom) — a real seam, where «select vs. create» was noise; the map-utility cluster has air; and
   the Einsatz menu draws ONE hairline, above the identity row (the small-caps label heads «App»
   on its own, but the signed-in row is not an action and the rule says «the list ends here»).
+  What leaves the TOP BAR when it runs out of room is MEASURED, not ruled per breakpoint
+  (`lib/useHeadFit`, 25.09.2026): one `fit-N` step at a time until it fits, lowest priority
+  first — weather, Einsatzdauer, ↷, the gaps, the Verlauf word, the alarm's
+  name, the Einsatz title (the pill stays: glyph + ÜBUNG), the «1?» count. The Einsatz pill never
+  gives: squeezed below a readable width counts as «does not fit». A chip NEVER loses its icon —
+  a bare number says nothing — and is at least a tap wide. A new chip in the bar takes its place
+  in that ladder, never a `:has(...)` rule that hides a neighbour. The PAGE HEADS climb the same
+  ladder (`climbLadder`, `lib/pageHeadFit`, 28.09.2026 — below, «ONE page head»).
   A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
   in a `Menu`.
   And **no native form
@@ -1348,6 +1356,29 @@ to prod.
     — never a per-surface `font-size` on the `<h2>`, which is how «Einsatzrapport» came to stand
     19px beside «Anwesenheit» at 17. The Rapport's head carries the title and what is still open;
     the «n Personen · m Positionen» line under it is gone (19.09.2026).
+  - *ONE page head, ONE ROW* (28.09.2026, owner: «fix the headers, especially the one from the
+    trupps, which occupies way too much vertical space … as much space for the actual content as
+    possible»). Trupps (the Atemschutz-Link board too), Anwesenheit, Material, Checkliste and
+    Rapport wear one shape at every width ≥ 360: the titles block left — the `<h2>` and AT MOST
+    one quiet line under it («✓ Gespeichert», the counts, the Checkliste's subtitle) — the tiles
+    right, centred on each other; `--tap` + `--head-pad-y` above and below (60px on a phone, 68
+    above; Surface.module.css · `.head`, tokens · `--head-*`). What does not fit gives up WORDS,
+    MEASURED, never per breakpoint (`lib/pageHeadFit` · `usePageHeadFit`, on the top bar's
+    `climbLadder`): (1) the quiet line's time («Gespeichert um 23:21» → «Gespeichert»), (2) each
+    tile's word, lowest priority first — the glyph stays, the word is already its aria-label/title
+    so the hold-tooltip says it, a count stays with its glyph («⚠ 4»), (3) the one primary tile
+    shortens («+ Trupp anmelden» → «+ Trupp»; it keeps its word and its fill), then a head's own
+    last words (the quiet «✓ Gespeichert» keeps its ✓ — a LOUD sync state never folds; the
+    Rapport's title says the nav's «Rapport»), and only as the LAST resort (≤ 359px, a locale that
+    cannot fit) the tiles take a second row (`data-fit-wrap`). Each head states its ladder where
+    its tiles are drawn — `data-fold="<rank>"` on the part, `.fold-long` / `.fold-short` inside
+    it (`HEAD_FOLD` in AtemschutzView / AnwesenheitView, `RP_FOLD` in ReportPreflight); text that
+    must never be cut wears `data-fit-check`, and every `<h2>` is checked. A new tile takes a rank
+    in that ladder — never a `useIsPhone` word switch, never a `@media` that drops a label, never
+    a row of its own. The 27.09. «Trupps head: the title line, then the tile row under it» (a
+    121px phone head, 190 on the 820 tablet with «+ Trupp anmelden» wrapped to a third row) is
+    superseded, and so is «icons below 1080px» on the Rapport. The one tile family stays:
+    `.headTile` (Atemschutz.module.css) / `.head-tile` (13-incident.css).
   - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
     (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the
     steps) — the same chip on a phone as on a wide screen. A fixed square was tried and cannot
@@ -1371,11 +1402,13 @@ to prod.
     `lib/useModifierHeld` → `data-keys` on the rail): standing on every icon they read as status
     marks in the corner the alarm dot uses, and they are wanted at exactly the moment the
     modifier marks.
-  - *A head's icon buttons carry their word on a wide screen* (22.09.2026, `.wordBtn` in
-    `Atemschutz.module.css` and `SurfaceControls.module.css`, switched by `useIsPhone`):
-    «Reihenfolge · Überwachung abgeben · Alarmton», «In Verwendung · Filtern · Anderes Material».
-    The phone keeps the bare square — its row has no room, and the hold-tooltip is its way of
-    asking. The bell's word is its honest STATE (Alarmton / Stumm / Ton freigeben).
+  - *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Reihenfolge ·
+    Überwachung abgeben · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's
+    ladder above; the `.wordBtn`/`useIsPhone` switch there is gone), so a phone that has room shows
+    them and a tablet that has none folds them. The search line's «In Verwendung · Filtern ·
+    Anderes Material» (`SurfaceControls.module.css · .wordBtn`) is not a page head and keeps its
+    `useIsPhone` switch. A bare square's way of asking is the hold-tooltip. The bell's word is its
+    honest STATE (Alarmton / Stumm / Ton freigeben).
   - *A checklist item that writes to the Verlauf says so on its row* («⚑ wird im Verlauf
     notiert», `checklists.milestoneTag`, 22.09.2026) — the lone flag's meaning lived in a tooltip
     no tablet shows.
