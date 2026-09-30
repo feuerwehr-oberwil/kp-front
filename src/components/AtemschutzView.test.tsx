@@ -19,6 +19,7 @@ import { fillTemplate } from '../lib/format'
 import { clearAllDrafts } from '../lib/draftKeep'
 import type { AttendanceState, Trupp, TruppFields, TruppReading } from '../types'
 import { noteOwnContact, resetOwnContacts } from '../lib/contactEcho'
+import { resetPopoverGuard } from '../lib/overlays/popoverGuard'
 
 afterEach(cleanup)
 // ⚠️ …and the kept DRAFTS with it (lib/draftKeep is a module-level store): a form that was
@@ -376,7 +377,8 @@ describe('the tablet card wears the phone card (29.09.2026)', () => {
     // the first line is not a toggle on the grid: every card stands open
     expect(card.querySelector(`.${s.trowHead}`)!.tagName).toBe('DIV')
     expect(card.querySelector(`.${s.trowChevron}`)).toBeNull()
-    expect(card.querySelector(`.${s.trowHead}`)!.textContent).toContain('#2')
+    // no «#N» on the card's head (owner, 30.09.2026: «drop the number #»)
+    expect(card.querySelector(`.${s.trowHead}`)!.textContent).not.toContain('#2')
     expect(within(card as HTMLElement).getAllByRole('button', { name: az.actContact })).toHaveLength(1)
     // the ⋯ ends the foot line, beside the Verlauf's ⌄ (29.09.2026, owner pick B)
     expect(card.querySelector(`.${s.vfootRow}`)!.lastElementChild!.getAttribute('aria-label')).toBe(az.cardMenu)
@@ -523,9 +525,8 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
     expect(card.querySelectorAll(`.${s.trowClockVal}`)).toHaveLength(1) // the line's clock, no second one
     expect(within(card).getAllByRole('button', { name: az.actContact })).toHaveLength(1)
     expect(within(card).getAllByRole('button', { name: druckName })).toHaveLength(1)
-    // the Trupp's number, gone from the row's line, stands small after the name on the opened
-    // card's head (slim-down 26.09.2026 — the facts are a strip of chips now, and carry no number)
-    expect(card.querySelector(`.${s.trowHead}`)!.textContent).toContain('#2')
+    // no «#N» on the opened card either (owner, 30.09.2026: «drop the number #») — nor in the chips
+    expect(card.querySelector(`.${s.trowHead}`)!.textContent).not.toContain('#2')
     expect(card.querySelector(`.${s.facts}`)!.textContent).not.toContain('#2')
     // …and the pair works the same from here
     fireEvent.click(within(card).getByRole('button', { name: az.actContact }))
@@ -1798,6 +1799,9 @@ describe('the form\'s Druck and Kanal are the sheets\' tap controls', () => {
   })
 
   it('Escape in a number sheet closes the sheet, never the form under it', async () => {
+    // the popover register's 350 ms tail is module state: a menu the test before closed a moment
+    // ago would veto this Escape (as it should, one gesture later) and the sheet stays — flaky by speed
+    resetPopoverGuard()
     mount({ trupps: [] })
     fireEvent.click(firstBtn(az.newTrupp))
     fireEvent.click(kanalRow())
