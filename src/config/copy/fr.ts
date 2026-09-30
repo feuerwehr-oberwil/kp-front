@@ -1351,7 +1351,6 @@ export const fr: Localizable<Copy> = {
     logFirstPressureSame: 'Binôme {name} : contact – première pression {bar} bar (comme la pression d’entrée)',
     pressureSheetFirst: 'Première pression – remplace la pression d’entrée {bar} bar, compte comme contact',
     newTruppShort: 'Binôme',
-    safetyChip: 'Sécu',
     removedToast: 'Binôme {name} retiré',
     notDeployedToast: 'Binôme {name} : pas engagé',
     removeInsideTitle: 'Le binôme {name} est engagé – l’annoncer sorti d’abord ?',

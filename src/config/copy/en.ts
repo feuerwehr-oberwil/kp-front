@@ -1362,7 +1362,6 @@ export const en: Localizable<Copy> = {
     logFirstPressureSame: 'Team {name}: contact – first pressure report {bar} bar (as entry pressure)',
     pressureSheetFirst: 'First pressure report – replaces the entry pressure {bar} bar, counts as contact',
     newTruppShort: 'Team',
-    safetyChip: 'Safety',
     removedToast: 'Team {name} removed',
     notDeployedToast: 'Team {name}: not deployed',
     removeInsideTitle: 'Team {name} is inside – report it out first?',
