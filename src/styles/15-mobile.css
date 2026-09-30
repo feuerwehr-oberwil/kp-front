@@ -988,11 +988,25 @@
   :root:has(.wb-georef-dock) .toaster,
   :root:has(.app.maptool-measure) .toaster,
   :root:has(.wb-canvas.tool-measure) .toaster,
-  :root:has(.ip-sheet.ui-dialog) .toaster,
-  :root:has(.sym-modal) .toaster,
   :root:has(.app .layers-card:not([data-picking])) .toaster {
     top: calc(72px + var(--ml-reserve, 0px) + env(safe-area-inset-top)); bottom: auto;
     max-height: min(32dvh, 240px);
+  }
+  /* ⚠️ …but a MODAL bottom sheet no longer sends it up there (30.09.2026, owner, staging phone
+     pass: «slightly odd positioning of the toasts» — with «Seite wählen» open the undo pill jumped
+     from the foot of the list to the head of the page, over its blurred title). The sheet is the
+     foot of the screen now, so the lane stands ON it: one --float-gap above its top edge, measured
+     (lib/toastLane · useToastLane → `data-lane` + `--msg-sheet-bottom`), moving with the sheet as
+     it hugs its content or rides the keyboard. Only a sheet that leaves no room for a pill above
+     it sends the lane to the top of the SCREEN (`data-lane='top'`) — over the scrimmed top bar,
+     never over the sheet's own head. `:root:has(…)` so it outranks the list above whichever
+     other owner is open under the sheet. */
+  :root:has(.toaster[data-lane='sheet']) .toaster {
+    top: auto; bottom: var(--msg-sheet-bottom);
+    max-height: calc(100dvh - var(--msg-sheet-bottom) - 8px - env(safe-area-inset-top));
+  }
+  :root:has(.toaster[data-lane='top']) .toaster {
+    top: calc(8px + env(safe-area-inset-top)); bottom: auto; max-height: min(32dvh, 240px);
   }
   /* Persistent messages use the same upper budget during variable-height map/plan tasks. Their
      rows remain reachable by scrolling instead of extending into the active bottom controls.
@@ -1009,24 +1023,13 @@
   /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
      (same layout-viewport-widening failure mode as the banners) */
   .toast { white-space: normal; }
-  /* ⚠️ …and the ACTIONS drop to their own line when they no longer fit beside the sentence.
-     «Studer Corinne Anwesenheit entfernt» with «Rückgängig» and the ✕ next to it left the text a
-     ~140px column — four lines, one of them split mid-word — while the pill itself had the whole
-     screen width. Wrapping gives the sentence that width and puts the two controls under it,
-     right-aligned, where the thumb is anyway.
-     ⚠️ The ICON stays with the sentence: forcing the text onto a line of its own (`flex-basis:
-     100%`) left the ↶ alone on the first row and made the pill three rows tall.
-     ⚠️ And this holds for SHORT texts too — «Hofer Simon anwesend» also gets its buttons on the
-     second row. Deliberate: the alternative is a floor on the text column, and any floor wide
-     enough to help the long sentence pushes the short one into a wrap of its own. One shape for
-     every undo toast on a phone, two rows, with the controls where the thumb already is. */
-  /* ⚠️ Only a toast that HAS an action wraps. Unqualified, the rule also reached the print-job
-     chain, which has its own phone layout a few lines above — one shape being rearranged by a rule
-     written for another. */
-  .toast:has(.toast-actions) { flex-wrap: wrap; }
-  /* ⚠️ `:not(.toast-actions)` — the action cluster is a <span> too, and without the guard it
-     inherited the grow, filled the whole wrapped line and swallowed its own `margin-left: auto`
-     (it was left-aligned under the sentence instead of sitting where the thumb is). */
+  /* ⚠️ ONE ROW (30.09.2026, owner, staging phone pass: the message on row 1, «Rückgängig» + ✕
+     alone on row 2 with a big empty left half). The sentence WRAPS FIRST, inside its column, and
+     the action cluster stays on the row beside it, centred on the pill. The two-row shape (18.09.)
+     answered a ~140px column that came from a narrower lane; at the bars' width the column is
+     ~175px on a 390 phone, so «Studer Corinne Anwesenheit entfernt» is two lines — inside the
+     row's one height (--float-h), where the two-row pill was 78px of mostly air. `break-word`
+     (08-toasts) never splits a word that fits the column. */
   .toast:has(.toast-actions) > .toast-message { flex: 1 1 auto; }
   .toast-actions { margin-left: auto; }
   /* the stage chain needs ~360px plus the undo button — more than a phone has, and it ran under
