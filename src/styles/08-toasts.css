@@ -86,18 +86,12 @@
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-sm);
   box-shadow: var(--shadow); animation: ml-in .16s var(--ease); }
 @keyframes ml-in { from { opacity: 0; transform: translateY(-8px); } }
-/* The tone edge sits on the ROW, not on the strip: with every message visible at once, one edge
-   for the whole box would speak for messages of three different classes. `overflow: hidden`
-   above is what keeps those edges inside the rounded corners. */
-.ml-row { display: flex; align-items: center; gap: 10px; min-height: 52px;
-  padding: 4px 8px 4px 13px; border-left: 3px solid transparent; }
+/* NO tone edge on any row (29.09.2026, follow-ups; the alarm lost its red bar in sweep 3 T13):
+   a row's tone is its leading glyph's colour and nothing else (AGENTS · «ONE message surface» —
+   «never an edge»). Every Meldung carries an `icon` (lib/meldungen · required), so no row is left
+   without its tone. Calm is the default glyph ink. */
+.ml-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 8px 4px 16px; }
 .ml-row + .ml-row { border-top: 1px solid var(--border-soft); }
-/* …except the alarm (29.09.2026, sweep 3 T13): its tone is the glyph's red like every message's
-   (AGENTS · «ONE message surface» — «never an edge»), and the 3px red bar was the one edge left
-   on the loudest row. Warn / info / calm keep theirs until the strip's own pass. */
-.ml-row.t-warn { border-left-color: var(--amber); }
-.ml-row.t-info { border-left-color: var(--blue); }
-.ml-row.t-calm { border-left-color: var(--ink-faint); }
 .ml-ic { flex: none; width: 18px; height: 18px; color: var(--ink-faint); }
 .ml-row.t-alarm .ml-ic { color: var(--red); }
 .ml-row.t-warn .ml-ic { color: var(--amber-strong); }

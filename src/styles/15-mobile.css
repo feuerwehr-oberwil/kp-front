@@ -785,6 +785,21 @@
   .ip-sheet.ui-dialog.is-kb { top: auto; bottom: 0; left: 0; transform: none;
     height: auto; max-height: calc(100dvh - var(--kb-inset, 0px) - 10px - env(safe-area-inset-top)); }
 
+  /* The map picker (MapPicker · «Punkt auf der Karte wählen») is a slide-up bottom sheet too
+     (29.09.2026, owner; AGENTS · «What a surface IS on a phone»): it was a centred card 18px in
+     from every side. Flush with the bottom edge and both sides, the grab bar on top (Overlay ·
+     grab), pushed down by its head — the map inside keeps every drag (swipeDismiss · rule 3).
+     A map has no height of its own to hug, so it stands at the sheet cap; the footer is a
+     `SheetFoot` and pays the bottom inset through the one rule above. */
+  .mp-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; width: 100%;
+    height: min(72dvh, calc(100dvh - 84px - env(safe-area-inset-top)));
+    border-width: 1px 0 0; border-radius: var(--r-hero) var(--r-hero) 0 0; animation: sheetUp .22s var(--ease);
+    /* opaque: it opens OVER another sheet (Einsatzdaten), whose words showed through the glass head */
+    background: var(--surface); }
+  .mp-sheet > .ui-sheet-grab { margin-bottom: -4px; }
+  .mp-sheet .mp-head { padding: 4px 20px 8px; touch-action: none; }
+  .mp-sheet .mp-head button { touch-action: auto; }
+
   /* confirm dialog stays centred but fits the narrow screen with safe-area gutters */
   .confirm-card { width: min(420px, calc(100vw - 24px)); }
   /* ⚠️ The action row could neither shrink nor wrap, and it is right-aligned – so a long confirm

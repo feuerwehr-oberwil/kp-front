@@ -4,7 +4,7 @@
  *  lib/georefMode. Nothing here owns state that has to survive: on a phone this whole component
  *  is unmounted between the plan tap and the map tap.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -15,6 +15,8 @@ import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim } from '.
 import { incidentBindingApproved } from '../lib/incidentPlanBindings'
 import type { GeorefSuggestStep } from '../lib/georefSuggest'
 import { useIsPhone } from '../lib/useIsPhone'
+import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
+import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
 import type { GeorefPair, PlanPt } from '../lib/georef'
 import { InfoToggle } from './InfoToggle'
 import s from './GeorefMode.module.css'
@@ -523,10 +525,33 @@ function PlanLoupe({ aim, sW, sH, boardRef, corner = false }: { aim: Aim; sW: nu
 }
 
 /**
+ * The Passung's dock — the frame around `GeorefQuality` and `GeorefLinkChooser` (Whiteboard).
+ * On a tablet a card one row above the chip that opened it; on a PHONE a slide-up bottom sheet
+ * (29.09.2026, owner — AGENTS · «What a surface IS on a phone»): flush with the bottom edge and
+ * both sides, over the two bars, the grab bar on top, pushed down to close (`useSwipeDismiss`,
+ * the head is the handle). It stays NON-modal (no scrim, no trap), the dock's own rule: the plan
+ * above is live, so a tap on a symbol is a tap on that symbol.
+ * ⚠️ On the phone it PORTALS into the Einsatz's `.app` (the Meldeleiste's host): `.whiteboard`
+ * is its own stacking context at `--z-surface`, and nothing inside it can cover the bars (z 35).
+ */
+export function GeorefDock({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
+  const isPhone = useIsPhone()
+  const host = useSyncExternalStore(subscribeMeldeleisteHost, getMeldeleisteHost, () => null)
+  const swipe = useSwipeDismiss({ onClose, enabled: isPhone })
+  const dock = (
+    <div className="wb-georef-dock" role="group" aria-label={label} {...swipe}>
+      <SheetGrab />
+      {children}
+    </div>
+  )
+  return isPhone && host ? createPortal(dock, host) : dock
+}
+
+/**
  * The unlinked chip's chooser: «Automatisch ausrichten» or «Punkte selbst setzen».
  *
- * Content only — the Whiteboard wraps it in its `.wb-georef-dock` (the Passung's own panel
- * chrome and stay-live rule). While the matcher runs (3–14 s) the card shows the REAL phases
+ * Content only — the Whiteboard wraps it in `GeorefDock` (the Passung's own panel chrome and
+ * stay-live rule; a bottom sheet on a phone). While the matcher runs (3–14 s) the card shows the REAL phases
  * (`busyStep`, fed by the endpoint's own progress lines) as a checked-off step list with a
  * bar — never an indeterminate spinner over a 15-second wait. «kein Vorschlag» keeps the
  * card up, because the manual way out is right here.

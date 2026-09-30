@@ -970,15 +970,18 @@ to prod.
     — never a frame that is full-screen or centred there, like the Trupp form on a tablet or the
     handed-over Tafel; on the full app's PHONE board it IS a bottom sheet since 24.09.2026 and
     wears the bar, see the Atemschutz bullet), and the one
-    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026), and so does
-    the NON-modal map sheet Ebenen (`LayerPanel`, 29.09.2026), whose `.lc-title` is a handle. The gesture needs the frame FLUSH with the bottom edge — which is why the phone
+    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026), and so do
+    the NON-modal map sheet Ebenen (`LayerPanel`, 29.09.2026), whose `.lc-title` is a handle, and
+    the plan's NON-modal Passung dock (`GeorefDock`: Passung + «Karte verknüpfen» chooser; it
+    portals into `.app` on a phone to cover the bars). The map picker (`MapPicker`) is an
+    `Overlay grab` at the sheet cap: a map has no height to hug. The gesture needs the frame FLUSH with the bottom edge — which is why the phone
     Verlauf is a real bottom sheet now and no longer a card floating 8px off it.
   - **What a surface IS on a phone — one rule, three shapes** (29.09.2026, owner: «rethink what is
     a modal and what a slide-up thing on mobile … ebenen, search, etc. should be a slide-up»).
     Pick by what the person DOES there, never by what was easiest to build: (1) a **tool or a
     list you work in while you look at the map / board / page** — Ebenen, the «+»
-    chooser, a symbol's editor (`.ctx`), the composer, the Verlauf, every form and settings sheet
-    — is a **slide-up bottom sheet**: flush with the bottom edge and both sides, over the bars,
+    chooser, a symbol's editor (`.ctx`), the composer, the Verlauf, the map picker, the plan's
+    Passung, every form and settings sheet — is a **slide-up bottom sheet**: flush with the bottom edge and both sides, over the bars,
     the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle),
     lifted by the keyboard (`keyboardLift`), the bottom inset paid by its last row. It HUGS its
     content up to a cap that leaves the top of the map in sight, so it grows upward and its foot
@@ -1248,8 +1251,9 @@ to prod.
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
     bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
-    never beside a piece of it. The Meldeleiste's alarm row has no red left edge either
-    (29.09.2026, app-wide); its red is the leading glyph's. A row TITLE whose way in is the same
+    never beside a piece of it. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
+    bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
+    `Meldung` carries an `icon`. A row TITLE whose way in is the same
     move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
     primary action's label) stays tappable but draws NO underline (`.ml-open.plain`, derived in
     `Meldeleiste · MeldungTitle`); the underline is only the signal where the title is the ONLY
@@ -1399,8 +1403,11 @@ to prod.
     surface PLACES it with its own class (flex, margin — `:where(.ui-search)` keeps the default at
     zero specificity) and may add a STATE (the Trupp form's `.teamSearchWant`); it never re-skins
     it. The one modifier is `variant="head"` (`.ui-search-head`): a card whose whole head IS the
-    search (TruppFinder) — no pill, 18/700 query. Never a bare native `type=search`, never a
-    framed white box, never a ruled band.
+    search (TruppFinder) — no pill, 18/700 query. ONE ✕ (29.09.2026, owner): where the search's
+    own CLOSE ✕ stands beside the field and ends the search (the Verlauf's search row, the
+    TruppFinder), the field drops its inner ✕ — `noClear`, a prop, never CSS hiding; Escape still
+    closes. The Palette keeps both: its ✕ closes the whole «+» chooser, clearing only the query.
+    Never a bare native `type=search`, never a framed white box, never a ruled band.
     (6) **ⓘ toggle**: `components/InfoToggle` (`.ui-info`) — the grey 36px chip with a 44px pad;
     OPEN is `--sel-wash` + `--blue-strong` glyph (the «open/armed» look). Never the choice fill,
     never the ink pill, never `--accent`. The dark tool docks keep DockInfo's on-ink ⓘ.
@@ -1439,9 +1446,9 @@ to prod.
     `--ink-dim`.
   - *A role or status TAG is neutral unless it IS a warning* (29.09.2026): the login roster's role
     is the `.ip-badge` recipe in ink 10% for every role (red read as «something is wrong with
-    this account»); «In Arbeit» in Alle Einsätze is the blue status tone like «Offen», never red.
-    In a list grouped by status, a tag that repeats its group heading goes (no «Offen» under
-    «OFFEN»); archived rows keep «Abgeschlossen».
+    this account»). An Einsatz has ONE status tag, «Abgeschlossen» (29.09.2026, owner: «open is
+    the default state») — no «Offen», no «In Arbeit», in any list; the backend's two active
+    statuses are one state to the operator.
 - **Touch vocabulary – one beat, one buzz, one wash.** The primary devices are gloved tablets;
   a new gesture reuses these or it teaches a second language. Any new touch interaction must:
   - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip

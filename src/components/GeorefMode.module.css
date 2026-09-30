@@ -699,3 +699,12 @@
    (dragging promotes one to a real 'korrigiert' reference) but visibly nobody's tap */
 .autoAnchor { opacity: .55; }
 .autoAnchor .badge { background: var(--ink-faint); }
+
+/* the phone's Passung sheet (09-whiteboard · .wb-georef-dock, 29.09.2026): the sheet spans the
+   screen, so its content does too — the tablet card's own widths would leave a gap at the right,
+   and the head is the handle the push-down starts on */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .quality, .chooser { width: auto; max-width: none; padding: 8px 20px 16px; }
+  .qHead, .chooserHeadRow { touch-action: none; }
+  .qHead button, .chooserHeadRow button { touch-action: auto; }
+}

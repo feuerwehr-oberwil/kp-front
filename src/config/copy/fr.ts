@@ -2553,8 +2553,6 @@ export const fr: Localizable<Copy> = {
     reactivateConfirmMsg: 'L’intervention est rouverte et modifiable. Les modifications ultérieures apparaissent dans le journal et le rapport comme compléments.',
     reactivateConfirmBtn: 'Rouvrir',
     statusArchived: 'Close',
-    statusOpen: 'Ouverte',
-    statusInProgress: 'En cours',
 
     emptySub: 'Les interventions ouvertes et closes apparaissent ici.',
     archiveConfirmTitle: 'Clôturer l\'intervention',
