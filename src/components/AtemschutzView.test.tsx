@@ -557,6 +557,14 @@ describe('a collapsed row tells the same time as the open card', () => {
     expect([...val.querySelectorAll(`.${s.clockUnit}`)].map((u) => u.textContent)).toEqual(['d ', 'h'])
   })
 
+  it('…and the card\'s foot spells a day-long duration the same way, mm:ss and «min» untouched', () => {
+    // tablet grid: every card stands open, so the foot is drawn
+    mount({ trupps: [{ ...aktivTrupp(), entryTime: iso((3 * 24 + 10) * 3600_000 + 60_000) }] })
+    const foot = document.querySelector(`.${s.metaLine}`)!
+    expect(foot.textContent).toContain('3d 10h')
+    expect(foot.textContent).not.toMatch(/\d d \d+ h/)
+  })
+
   it('shows no time at all on the closed row of an out work squad', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [{ ...aktivTrupp(), kind: 'einfach', status: 'raus', exitTime: iso(5 * 60_000) }] })
