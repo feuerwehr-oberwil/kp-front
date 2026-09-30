@@ -1030,7 +1030,9 @@
     max-height: calc(100dvh - var(--msg-sheet-bottom) - 8px - env(safe-area-inset-top));
   }
   :root:has(.toaster[data-lane='top']) .toaster {
-    top: calc(8px + env(safe-area-inset-top)); bottom: auto; max-height: min(32dvh, 240px);
+    /* + the pan: fixed boxes sit in the LAYOUT viewport, and with a keyboard up iOS has panned the
+       visible band down by --vv-pan — without it the pill stood above the screen (CodeRabbit) */
+    top: calc(8px + env(safe-area-inset-top) + var(--vv-pan, 0px)); bottom: auto; max-height: min(32dvh, 240px);
   }
   /* Persistent messages use the same upper budget during variable-height map/plan tasks. Their
      rows remain reachable by scrolling instead of extending into the active bottom controls.
