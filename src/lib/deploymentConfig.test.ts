@@ -261,6 +261,17 @@ describe('Atemschutz pressure-alarm doctrine', () => {
     await load({ alarmBar: 40, alarmBarRueckzug: 60 })
     expect(atemschutzDoctrine()).toMatchObject({ alarmBar: 40, alarmBarRueckzug: 40 })
   })
+
+  // the Eingangsdruck minimum (24.09.2026): the station's number, else the shipped 270 — and a
+  // stored 0 stays 0, because that is how a station switches the question off
+  it('reads the Eingangsdruck minimum off the station, with 270 as the shipped default', async () => {
+    await load({})
+    expect(atemschutzDoctrine().entryPressureMin).toBe(270)
+    await load({ entryPressureMin: 250 })
+    expect(atemschutzDoctrine().entryPressureMin).toBe(250)
+    await load({ entryPressureMin: 0 })
+    expect(atemschutzDoctrine().entryPressureMin).toBe(0)
+  })
 })
 
 // `reportLinks()` is the boundary the whole «Formulare & Links» feature rests on: whatever it

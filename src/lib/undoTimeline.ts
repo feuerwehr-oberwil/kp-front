@@ -80,6 +80,8 @@ export interface Dropper {
 
 interface Recorded extends UndoEntry {
   id: string
+  /** a compound step (`group`): the domain steps of its parts, all kept or all dropped together */
+  partSteps?: readonly string[]
 }
 
 /** What a step did. `lost` is the soft failure: the entry could not act and has been dropped. */
@@ -117,6 +119,18 @@ export interface UndoTimeline {
   entries: () => { past: readonly UndoEntry[]; future: readonly UndoEntry[] }
   /** everything is gone (a different incident is loaded) */
   clear: () => void
+  /**
+   * ONE act that writes into several domains is ONE step (staging r3 F1). Everything pushed until
+   * the returned `end()` is gathered into a single entry: its undo takes the parts back newest
+   * first, its redo puts them back in order, and it carries the label of the part named by
+   * `primary` (the Trupp's «Trupp 2 … angemeldet», not the «Anwesenheit» its crew filing wrote
+   * after it). A registration with two Gäste used to leave «Rückgängig: Anwesenheit» on top — a
+   * ↶ that stripped the crew's AS-Funktion, kept them present and kept the Trupp.
+   *
+   * Re-entrant: a group opened while one is open joins it (its `end` does nothing). A group with
+   * one part pushes that part as it is; with none, nothing.
+   */
+  group: (primary?: UndoDomain) => () => void
   /** React glue – fires whenever the stacks change, so `canUndo`/the label re-render */
   subscribe: (fn: () => void) => () => void
 }
@@ -157,21 +171,93 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
     return { status: 'done', entry }
   }
 
+  const record = (entry: Omit<Recorded, 'id'>, id: string) => {
+    // A new action anywhere clears the ENTIRE global redo tail, not just its own domain's:
+    // the tail is a chronology, and re-doing into a past that has moved on is not «forward».
+    past = [...past, { ...entry, id }].slice(-cap)
+    future = []
+    notify()
+  }
+  const dropById = (id: string) => {
+    const before = past.length + future.length
+    past = past.filter((e) => e.id !== id)
+    future = future.filter((e) => e.id !== id)
+    if (past.length + future.length !== before) notify()
+  }
+
+  /** the open group: its parts, and — once it is recorded — the id each part now lives under */
+  let open: { parts: Recorded[]; primary?: UndoDomain } | null = null
+  const partOf = new Map<string, string>()
+
+  const compound = (parts: Recorded[], primary?: UndoDomain): Omit<Recorded, 'id'> => {
+    const head = parts.find((p) => p.domain === primary) ?? parts[0]
+    return {
+      domain: head.domain,
+      label: head.label,
+      scope: head.scope,
+      // the step touches what ANY of its parts touches; one part of unknown reach makes the whole
+      // step unknown (a merge that changed anything drops it — lib/undoTimeline · rebase)
+      touches: () => {
+        const keys: RecordKey[] = []
+        for (const p of parts) {
+          const k = p.touches?.() ?? null
+          if (k === null) return null
+          keys.push(...k)
+        }
+        return keys
+      },
+      // …and the domain steps of every part: a merge keeps them only while this step stands
+      partSteps: parts.flatMap((p) => p.partSteps ?? (p.step ? [p.step] : [])),
+      // newest first, like the separate steps would have run; a part that finds its target gone
+      // does not stop the others (they are still takeable), but the step reports the loss
+      undo: () => {
+        let ok = true
+        for (const p of [...parts].reverse()) if (p.undo() === false) ok = false
+        return ok
+      },
+      redo: () => {
+        let ok = true
+        for (const p of parts) if (p.redo() === false) ok = false
+        return ok
+      },
+    }
+  }
+
   return {
     push: (entry) => {
-      // A new action anywhere clears the ENTIRE global redo tail, not just its own domain's:
-      // the tail is a chronology, and re-doing into a past that has moved on is not «forward».
       const id = newId('u')
-      past = [...past, { ...entry, id }].slice(-cap)
-      future = []
-      notify()
-      const drop = () => {
-        const before = past.length + future.length
-        past = past.filter((e) => e.id !== id)
-        future = future.filter((e) => e.id !== id)
-        if (past.length + future.length !== before) notify()
+      if (open) {
+        const g = open
+        g.parts.push({ ...entry, id })
+        const dropPart = () => {
+          if (open === g) { g.parts = g.parts.filter((p) => p.id !== id); return }
+          // dropped after the group closed: the part is inside a recorded step — drop that step
+          const host = partOf.get(id)
+          if (host) dropById(host)
+        }
+        return Object.assign(dropPart, {
+          // still in the open group, or its recorded step still on the ↶ side
+          standing: () => (open === g ? g.parts.some((p) => p.id === id) : past.some((e) => e.id === (partOf.get(id) ?? id))),
+        })
       }
-      return Object.assign(drop, { standing: () => past.some((e) => e.id === id) })
+      record(entry, id)
+      return Object.assign(() => dropById(id), {
+        standing: () => past.some((e) => e.id === id),
+      })
+    },
+    group: (primary) => {
+      if (open) return () => {}
+      const g: { parts: Recorded[]; primary?: UndoDomain } = { parts: [], primary }
+      open = g
+      return () => {
+        if (open !== g) return
+        open = null
+        if (!g.parts.length) return
+        if (g.parts.length === 1) { record(g.parts[0], g.parts[0].id); return }
+        const id = newId('u')
+        for (const p of g.parts) partOf.set(p.id, id)
+        record(compound(g.parts, g.primary), id)
+      }
     },
     undo: () => step('past'),
     redo: () => step('future'),
@@ -210,7 +296,7 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
       future = walk(future)
       if (past.length + future.length !== before) notify()
     },
-    steps: () => new Set([...past, ...future].map((e) => e.step).filter((s): s is string => !!s)),
+    steps: () => new Set([...past, ...future].flatMap((e) => e.partSteps ?? (e.step ? [e.step] : []))),
     entries: () => ({ past, future }),
     clear: () => { past = []; future = []; notify() },
     subscribe: (fn) => { listeners.add(fn); return () => { listeners.delete(fn) } },

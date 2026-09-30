@@ -127,13 +127,13 @@ test('F4 · keyboard: K / C / A / R switch surfaces; an open Hilfe leaves the ke
   await page.keyboard.press('Escape')
 })
 
-test('F5 · Abschluss from the Einsatz menu: the confirm names the open points, Abbrechen leaves the Einsatz open', async ({ page }) => {
+test('F5 · Abschluss from the Einsatz menu: the confirm names the open points, «Zurück» leaves the Einsatz open', async ({ page }) => {
   await page.locator('.ip-switch-btn').click()
   await page.getByRole('button', { name: 'Einsatz abschliessen' }).click()
   const ask = page.getByRole('alertdialog')
   await expect(ask).toBeVisible()
   await expect(ask).toContainText('Einsatz abschliessen')
-  await ask.getByRole('button', { name: 'Abbrechen' }).click()
+  await ask.getByRole('button', { name: 'Zurück', exact: true }).click()
   await expect(ask).toHaveCount(0)
   await expect(page.locator('nav.navrail')).toBeVisible()
   await expect(page.getByText('Einsatz abgeschlossen')).toHaveCount(0)

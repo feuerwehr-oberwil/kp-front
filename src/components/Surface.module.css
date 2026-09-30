@@ -21,9 +21,14 @@
 
 /* left inset clears the NavRail (left:16px + --rail-w), matching .mapctl/.basesw so the
    title isn't hidden behind the rail. No flex-direction: the Checkliste lays its rail out in a
-   ROW, the other four stack — that is the one thing they genuinely disagree about. */
+   ROW, the other four stack — that is the one thing they genuinely disagree about.
+   ⚠️ `--ml-push`: a page stands BELOW the Meldeleiste, never under it (staging r4, W1). At 820 an
+   Atemschutz alarm row lay over the Anwesenheit's tabs, and a tap on «Zeitplan» landed on its
+   «Zum Trupp»; the lifecycle row lay over the Rapport's «Einsatzrapport (PDF)». The strip
+   publishes its height (Meldeleiste · `--ml-h`) and 08-toasts turns it into this push while a
+   strip stands; with none it is 0 and every page sits where it always did. */
 :where(.shell) {
-  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface);
+  position: absolute; inset: calc(88px + var(--ml-push, 0px)) 16px 16px calc(var(--rail-w) + 28px); z-index: var(--z-surface);
   display: flex;
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
 }
@@ -63,7 +68,7 @@
      nav bar, and this card over whichever of them is topmost. At 18px the card ended 10px above
      the bar (8px above the strip), so the foot of every page read as three different gaps. */
   :where(.shell) {
-    inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    inset: calc(78px + env(safe-area-inset-top) + var(--ml-push, 0px)) max(8px, env(safe-area-inset-right))
       calc(var(--rail-h) + 14px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom))
       max(8px, env(safe-area-inset-left));
   }

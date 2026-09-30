@@ -128,3 +128,26 @@ def test_a_fresh_write_is_still_refused_outright(doctrine):
     refusing it costs nothing but a corrected keystroke."""
     with pytest.raises(ValidationError):
         DeploymentConfigIn.model_validate({"doctrine": doctrine})
+
+
+def test_the_entry_pressure_minimum_survives_a_save():
+    """The Eingangsdruck minimum behind the Trupp form's one plausibility question (24.09.2026).
+    Declared on the model, or `extra="ignore"` would drop it on save exactly as it once dropped
+    the air-estimate numbers — a station setting that looks stored and is not."""
+    cfg = DeploymentConfigIn.model_validate({"doctrine": {"entryPressureMin": 250}})
+    assert cfg.doctrine.entryPressureMin == 250
+    # 0 is a real choice here — «never ask» — not a cleared field
+    assert DeploymentConfigIn.model_validate({"doctrine": {"entryPressureMin": 0}}).doctrine.entryPressureMin == 0
+    assert DeploymentConfigIn.model_validate({"doctrine": {}}).doctrine.entryPressureMin is None
+    assert EXAMPLE_CONFIG["doctrine"]["entryPressureMin"] == 270
+
+
+@pytest.mark.parametrize("value", [-1, 301])
+def test_the_entry_pressure_minimum_stays_in_range(value):
+    """A fresh write out of range is refused; a stored one degrades to the shipped value and the
+    station keeps the rest of its config."""
+    with pytest.raises(ValidationError):
+        DeploymentConfigIn.model_validate({"doctrine": {"entryPressureMin": value}})
+    doc = load_stored_config({"identity": {"appName": "Feuerwehr Steintal"}, "doctrine": {"entryPressureMin": value}})
+    assert doc.identity.appName == "Feuerwehr Steintal"
+    assert doc.doctrine.entryPressureMin is None

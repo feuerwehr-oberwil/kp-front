@@ -250,3 +250,98 @@ describe('undoTimeline', () => {
     expect(again.standing()).toBe(false) // already taken by ↶ — the toast must not do it twice
   })
 })
+
+/* staging r3 F1: a Trupp registration files Gäste and writes their AS-Funktion in the Anwesenheit.
+ * Those are parts of ONE act, and ↶ names and takes back the act — not «Anwesenheit» alone. */
+describe('group — one act across domains is one step', () => {
+  const part = (domain: UndoDomain, label: string, log: string[]): UndoEntry => ({
+    domain, label, undo: () => { log.push(`undo ${label}`) }, redo: () => { log.push(`redo ${label}`) },
+  })
+
+  it('gathers the parts under the primary part\'s label; undo runs newest first, redo in order', () => {
+    const tl = createUndoTimeline()
+    const log: string[] = []
+    const end = tl.group('trupps')
+    tl.push(part('anwesenheit', 'Anwesenheit', log)) // the Gäste, filed first
+    tl.push(part('trupps', 'Trupp 2 angemeldet', log))
+    tl.push(part('anwesenheit', 'Anwesenheit', log)) // the Funktion, written after
+    expect(tl.canUndo()).toBe(false) // nothing recorded while the act is still running
+    end()
+    expect(tl.peekUndo()?.label).toBe('Trupp 2 angemeldet')
+    expect(tl.undo().status).toBe('done')
+    expect(log).toEqual(['undo Anwesenheit', 'undo Trupp 2 angemeldet', 'undo Anwesenheit'])
+    expect(tl.canUndo()).toBe(false)
+    log.length = 0
+    tl.redo()
+    expect(log).toEqual(['redo Anwesenheit', 'redo Trupp 2 angemeldet', 'redo Anwesenheit'])
+  })
+
+  it('one part is pushed as it is, none pushes nothing, a nested group joins the open one', () => {
+    const tl = createUndoTimeline()
+    const log: string[] = []
+    tl.group()()
+    expect(tl.canUndo()).toBe(false)
+    const end = tl.group('trupps')
+    const inner = tl.group('anwesenheit')
+    tl.push(part('trupps', 'T', log))
+    inner() // does nothing — the outer group is still open
+    expect(tl.canUndo()).toBe(false)
+    end()
+    expect(tl.peekUndo()?.label).toBe('T')
+  })
+
+  it('a part whose target is gone makes the step «lost», and the others still act', () => {
+    const tl = createUndoTimeline()
+    const log: string[] = []
+    const end = tl.group('trupps')
+    tl.push(part('anwesenheit', 'A', log))
+    tl.push({ domain: 'trupps', label: 'T', undo: () => false, redo: () => false })
+    end()
+    expect(tl.undo().status).toBe('lost')
+    expect(log).toEqual(['undo A'])
+  })
+
+  it('dropping a part after the group closed drops the recorded step (a toast used its undo)', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('trupps')
+    const drop = tl.push({ domain: 'trupps', label: 'T', undo: () => {}, redo: () => {} })
+    tl.push({ domain: 'anwesenheit', label: 'A', undo: () => {}, redo: () => {} })
+    end()
+    drop()
+    expect(tl.canUndo()).toBe(false)
+  })
+})
+
+/* #227's `group` meets #234's `touches` / `step` / `standing` (staging integration, 25.09.2026):
+   a compound step must answer the merge like any other. */
+describe('group × merge — one compound step', () => {
+  const part = (domain: UndoDomain, label: string, extra: Partial<UndoEntry> = {}): UndoEntry => ({
+    domain, label, undo: () => {}, redo: () => {}, ...extra,
+  })
+
+  it('the compound touches what any part touches, keeps every part\'s step, and drops whole', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('trupps')
+    const t = tl.push(part('trupps', 'T', { step: 's-t', touches: () => ['trupps:t1'] }))
+    tl.push(part('anwesenheit', 'A', { step: 's-a', touches: () => ['attendance:p1'] }))
+    end()
+    expect(tl.steps()).toEqual(new Set(['s-t', 's-a']))
+    expect(t.standing()).toBe(true)
+    tl.rebase(['trupps:other'])
+    expect(tl.canUndo()).toBe(true)
+    tl.rebase(['attendance:p1']) // another device changed the person the save filed
+    expect(tl.canUndo()).toBe(false)
+    expect(tl.steps()).toEqual(new Set())
+    expect(t.standing()).toBe(false)
+  })
+
+  it('one part of unknown reach makes the whole step unknown', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('trupps')
+    tl.push(part('trupps', 'T', { touches: () => ['trupps:t1'] }))
+    tl.push(part('anwesenheit', 'A'))
+    end()
+    tl.rebase(['mittel:m1'])
+    expect(tl.canUndo()).toBe(false)
+  })
+})
