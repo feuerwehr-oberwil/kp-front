@@ -1495,13 +1495,15 @@ describe('the Trupp form on the main board’s phone layout', () => {
     mount({ trupps: [aktivTrupp()] }) // useIsPhone false
     fireEvent.click(firstBtn(az.newTrupp))
     expect(document.querySelector(`.${s.stack}`)).toBeNull() // no phone column on a tablet
-    // …the Art leads the RIGHT column as its own labelled section (08.09.), with the folded
-    // Standard row at the column's end — after the Leitung
-    expect(screen.getByText(az.kindLabel)).toBeTruthy()
+    // …the Art leads the RIGHT column as its own section (08.09.) — named for a screen reader
+    // only since 27.09.2026 (the two tiles name themselves) — with the folded Standard row at
+    // the column's end, after the Leitung
+    expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
+    expect(screen.queryByText(az.kindLabel)).toBeNull()
     const body = document.querySelector(`.${s.modalBody}`)
     expect(body?.firstElementChild?.className).toContain(s.formCol)
     const right = body?.children[1]
-    expect(right?.firstElementChild?.textContent).toContain(az.kindLabel)
+    expect(right?.firstElementChild?.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(az.kindLabel)
     expect(right?.lastElementChild?.textContent).toContain(az.luftChange)
     // …and everything is still there: «Ändern» unfolds Druck+Kanal in place
     fireEvent.click(screen.getByText(az.luftChange))
@@ -2487,7 +2489,8 @@ describe('staging: the empty board, the SiTr chip, the held pinned row', () => {
 
   it('an empty board offers «Trupp anmelden» itself', () => {
     mount({ trupps: [] })
-    const door = screen.getAllByRole('button', { name: new RegExp(az.start) }).find((b) => b.className.includes(s.emptyAct))!
+    // the whole «Trupp anmelden» (newTrupp) — `start` is the form's one-verb footer since 27.09.2026
+    const door = screen.getAllByRole('button', { name: new RegExp(az.newTrupp) }).find((b) => b.className.includes(s.emptyAct))!
     fireEvent.click(door)
     expect(screen.getByRole('dialog', { name: az.formCreateTitle })).toBeTruthy()
   })
