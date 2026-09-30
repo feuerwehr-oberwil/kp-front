@@ -1873,6 +1873,10 @@ function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
   // tap — read as two answers at once. A pressure alarm is not answered by a Kontakt and stays.
   const done = confirmed && alarm.reason !== 'pressure'
   const word = done ? az.clockOk : alarm.reason === 'pressure' ? az.clockAlarmPressure : sev >= 2 ? az.clockOverdue : az.clockWarn
+  // ⚠️ «Überfällig» / «Kontakt fällig» are not SHOWN (owner, 29.09.2026: «red is already pretty
+  // obvious» — the same call as the card's state line): the row's red or amber and its Kontakt say
+  // it; the word stays for a screen reader. «Alarmdruck» and «Bestätigt» stay: colour can't say those.
+  const tierOnly = !done && alarm.reason !== 'pressure'
   return (
     <div className={cx(s.pinRow, done ? s.pinRowDone : sev >= 2 ? s.trowCrit : s.trowWarn)}>
       <span className={s.pinName}>
@@ -1881,7 +1885,7 @@ function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
       </span>
       <span className={s.pinTime}>
         <span className={s.pinClock}>{fmtClock(live.sinceContactSec)}</span>
-        <span className={s.pinState}>{word}</span>
+        <span className={tierOnly ? 'sr-only' : s.pinState}>{word}</span>
       </span>
       {confirmed ? (
         <button type="button" className={cx(s.kontaktBtn, s.pinKontakt, s.pinDone)} disabled
