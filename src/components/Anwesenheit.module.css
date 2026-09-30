@@ -26,9 +26,9 @@
    not (34px buttons inside 3px padding = 40px). */
 /* nothing to override any more: this geometry (option = --tap - 6px inside a 3px --r-ctl track,
    so the control measures a full 44px) became the one segmented spec in app.css. */
-/* the view tabs, in a slot of their own so a phone can put them on a line of their own without
-   the action cluster coming with them. On a desk screen they sit inline, between the title and
-   the tools, and claim only their own width. */
+/* the view tabs, in a slot of their own between the title and the tools, claiming only their own
+   width. Tablet and desk only: on a phone the same three are the docked strip above the nav bar
+   (AnwesenheitView · PhoneTabBar, 27.09.2026) and this slot is not rendered at all. */
 .headTabs { flex: none; order: 2; }
 /* ⚠️ No ellipsis, unlike the Rapport's h2 — that one carries an arbitrary Einsatz name and has
    to truncate; these three are fixed strings the layout is sized for («Atemschutzüberwachung» is
@@ -218,19 +218,13 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
   .headActions { gap: 6px; }
   .reload { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
   .reloadLabel { display: none; }
-  /* TWO rows, not three. The title used to claim a full line of its own and the actions the next
-     one — which, once the tabs no longer fit beside the icons, left a whole row carrying a single
-     right-aligned reload button. The icons are small and the title line has room for them, so:
-     row 1 = title + summary | printer + reload, row 2 = the tabs, full width. That is ~60px of a
-     390px screen handed back to the grid, on every one of the three tabs. */
+  /* ONE row. The title used to claim a full line of its own and the actions the next one — and
+     until 27.09.2026 the tabs a third, full width. The tabs are the docked strip above the nav bar
+     now (PhoneTabBar), so the head is title + summary | printer + reload, and the list starts
+     another ~60px sooner than it did with the tabs in here. */
   .head { flex-wrap: wrap; }
   .headTitles { flex: 1 1 120px; }
   .headActions { flex: none; }
-  /* full width and each segment sharing it equally — «Anwes. · Zeitplan · Schichten» measured
-     ~280px against a ~250px slot when it sat in the cluster, which is what pushed it to wrap */
-  .headTabs { flex: 1 0 100%; order: 3; }
-  .headTabs :global(.useg) { display: flex; width: 100%; }
-  .headTabs :global(.useg-btn) { flex: 1; padding: 6px 4px; }
   .horizon { flex: 0 1 auto; gap: 4px; }
   .horizonLabel { display: none; }
   .horizonValue { min-width: 2.6rem; }

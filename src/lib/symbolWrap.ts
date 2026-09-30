@@ -50,6 +50,14 @@ const SEAMS: Record<string, string> = {
   Fernsignaltableau: 'Fern­signal­tableau',
   Schlüsseldepot: 'Schlüssel­depot',
   Windrichtung: 'Wind­richtung',
+  // ── the Schadenlage row (27.09.2026, the phone's chooser went to FOUR columns) ──
+  // A cell is ~75px wide on a 360px phone, and these three had no seam at all — «Überschwemmung»
+  // is the widest label in the catalogue (117px at 12px) and would have broken at whatever
+  // letter the line ran out on. Über·schwemmung, Total·zerstörung and Teil·zerstörung are
+  // compound boundaries, the second component being the one the eye completes anyway.
+  Überschwemmung: 'Über­schwemmung',
+  Totalzerstörung: 'Total­zerstörung',
+  Teilzerstörung: 'Teil­zerstörung',
   // ── FKS Vegetationsbrand + Zivile Signaturen (01.09.) ──
   // Without a seam the palette cell simply clips: «Drohnenlandeplat» is what the new
   // Drohnenlandeplatz read as, with the last letters cut off rather than wrapped.

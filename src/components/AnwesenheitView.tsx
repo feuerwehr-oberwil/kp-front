@@ -19,6 +19,7 @@ import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zei
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
+import { PhoneTabBar } from './PhoneTabBar'
 import { Menu, Sheet } from '../lib/overlays'
 import { TimeBlockSheet } from './TimeBlockSheet'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
@@ -631,6 +632,14 @@ export function AnwesenheitView({
    * and the freshly recorded one appears in the unfiltered list right where they belong. */
   const addGuest = () => { if (guestOffer && onAddGuest) { onAddGuest(guestOffer); setQ('') } }
 
+  /* the three readings — ONE list, rendered in the head on a tablet and in the docked strip on a
+     phone, so the two can never offer a different set */
+  const viewOptions: { value: AnwesenheitTab; label: string }[] = [
+    { value: 'list', label: A.viewList },
+    { value: 'plan', label: A.viewPlan },
+    ...(bandsAvailable ? [{ value: 'bands' as const, label: A.viewBands }] : []),
+  ]
+
   return (
     <div className={s.surface}>
       <header className={s.head}>
@@ -751,19 +760,15 @@ export function AnwesenheitView({
         {/* The three readings of this Mannschaft, in a slot of their OWN rather than inside the
             action cluster. Only offered where a Zeitplan can actually be edited/read — the surface
             is inert without the shift slice wired up.
-            On a phone the cluster and the tabs together no longer fit one line (printer + three
-            segments + reload ≈ 380px against ~362px of room), so they wrapped — and because the
-            titles already claimed a full row, the header spent THREE rows before the search: a
-            title, a row holding one right-aligned reload button, and the tabs. It is its own slot
-            now: the icons ride up beside the title and the tabs take a full-width line under it. */}
-        {!empty && planAvailable && (
+            ⚠️ NOT on a phone (owner, 27.09.2026: «move the anwesenheit / zeitplan / schichten
+            toggle also to the bottom → same as for the einsatzrapport»). There the same three go
+            into the docked strip above the nav bar (PhoneTabBar, at the foot of this surface), so
+            the head is the title and the counts and nothing else — the control that changes what
+            you are looking at sits where the thumb already is, and the list starts ~60px sooner. */}
+        {!empty && planAvailable && !isPhone && (
           <div className={s.headTabs}>
             <Segmented<AnwesenheitTab> ariaLabel={A.viewLabel} value={view} onChange={pickView}
-              options={[
-                { value: 'list', label: A.viewList },
-                { value: 'plan', label: A.viewPlan },
-                ...(bandsAvailable ? [{ value: 'bands' as const, label: A.viewBands }] : []),
-              ]} />
+              options={viewOptions} />
           </div>
         )}
       </header>
@@ -1106,6 +1111,13 @@ export function AnwesenheitView({
           onBack={() => onMarkPresent(blocksPerson)}
           onClose={() => setBlocksFor(null)}
         />
+      )}
+
+      {/* PHONE: the three readings as the docked strip above the nav bar — the Rapport's own
+          (PhoneTabBar · 15-mobile.css `.rp-tabs`). Rendering it is what reserves its lane:
+          `--rp-tabs-safe` lifts this shell's bottom edge, the FAB and «Zurück zum Rapport». */}
+      {!empty && planAvailable && isPhone && (
+        <PhoneTabBar<AnwesenheitTab> ariaLabel={A.viewLabel} value={view} onChange={pickView} options={viewOptions} />
       )}
     </div>
   )
