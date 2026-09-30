@@ -5964,7 +5964,6 @@ export function IncidentWorkspace({
               rows={ggRows}
               progress={ggProgress}
               category={ggSel.category}
-              fallback={ggSel.fallback}
               noLocation={!ggCenter}
               armedSlotId={ggArmedLive ? ggArmedId : null}
               phone={isPhone}
@@ -5972,9 +5971,6 @@ export function IncidentWorkspace({
               onArm={ggArm}
               onPlace={ggPlace}
               onToKarte={ggTakeOver}
-              // the head's Einsatzart chip opens the Einsatzdaten — the one place the Einsatzart
-              // is set — for whoever may correct them (the ReviewBanner's «Bearbeiten» door)
-              onEinsatzart={canEditMeta ? onEditMeta : undefined}
             />
           )}
 

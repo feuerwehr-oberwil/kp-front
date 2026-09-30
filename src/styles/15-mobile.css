@@ -1183,11 +1183,6 @@
    which meant closing the phone block early, and that silently re-parented everything below it
    (the whole NavRail → bottom bar section included) into this 359px query. The nav rail then
    stayed a vertical sidebar on every phone. A media query in the middle of a block is a scissor. */
-/* The Grundgerüst strip's head (03-map · .lgg-art): «Einsatzart?» and the count do not both fit
-   a 360px strip beside the word (measured 27.09.2026: 296px of content in a 276px head) — the
-   question is the one that matters, the count comes back once the Einsatzart is set. After the
-   phone block for the reason above. */
-@media (max-width: 374px) { .lgg-phone .lgg-art-ask ~ .lgg-count { display: none; } }
 @media (max-width: 359px) {
   .tb-az-clock { display: none; }
   /* …and a trade of the same shape: below 360px the bar's three gloved 44px actions leave the
