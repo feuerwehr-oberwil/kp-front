@@ -1637,7 +1637,7 @@ export function AtemschutzView({
                       not say – the badge stays on the card head, the phone row and the map. */}
                   <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
                   {/* the same collapsed-time split the list row and the card make (collapsedClock) */}
-                  <span className={s.tabClock}>{collapsedClock(t, lv).val}</span>
+                  <span className={s.tabClock}><ClockVal val={collapsedClock(t, lv).val} /></span>
                 </button>
               )
             })}
@@ -1905,6 +1905,18 @@ function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
 // KanalPickSheet, where the Kanal stepper lives on for a range too wide for a pad.)
 // (`PressureInline`, the tablet card's ± Druck stepper with its own «Bestätigen», went on
 // 29.09.2026 with the tablet card: every board's Druck is the pressure tile → PressureSheet.)
+/** A day-long clock drawn compact (30.09.2026, owner: «the group leader name needs more space»):
+ *  «3 d 9 h» in the clock's mono spent a full character on every space and every unit, the widest
+ *  thing on the card's head after the name. The digits stay mono; each unit is a small letter in
+ *  the body face hard against its number, and the groups stand a third of an em apart — «3d 9h»,
+ *  about two thirds the width. Every other clock passes through as it is. */
+function ClockVal({ val }: { val: string }) {
+  const m = /^(\d+) d (\d+) h$/.exec(val)
+  if (!m) return <>{val}</>
+  // the space rides in the unit's small face, so the text (and what a screen reader reads) is «3d 9h»
+  return <>{m[1]}<span className={s.clockUnit}>d </span><span className={s.clockGroup}>{m[2]}<span className={s.clockUnit}>h</span></span></>
+}
+
 /** What a Trupp's clock says — the phone row, every card's first line (RowLine) and the
  *  focus-strip tab all read it here, so no two views of one Trupp ever disagree: a crew inside ticks its own clock (Kontakt under PA, Einsatzzeit on a work
  *  squad), an Atemschutz-Trupp that is out ticks «Draussen seit» in the quiet tone, a work squad
@@ -2057,7 +2069,7 @@ function RowLine({ t, live, color, lite }: { t: Trupp; live: TruppLive; color?: 
       {/* one derivation with the card's band (collapsedClock) — the row used to freeze a work
           squad's Einsatzzeit after the exit and show «–:––» for an out crew's break clock */}
       <span className={s.trowClock}>
-        <span className={s.trowClockVal}>{clock.val}</span>
+        <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
         <span className={s.trowSub}>{clockSub}</span>
       </span>
     </>

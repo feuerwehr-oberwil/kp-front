@@ -1099,9 +1099,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 
 /* identity — the only elastic track, so it takes whatever the fixed ones leave */
 .trowId { min-width: 0; }
-/* a step up and a little more air (30.09.2026, owner: «the group leader name needs more space»):
-   the leader's name is what the radio calls, so it is the largest word on the line after the clock */
-.trowName { display: flex; align-items: center; gap: 10px; font-size: 17.5px; font-weight: 800; color: var(--ink); }
+/* a step up (30.09.2026, owner: «the group leader name needs more space»): the leader's name is
+   what the radio calls, so it is the largest word on the line after the clock. The AIR gave way
+   the same evening — 8px to the dot and to the clock (the head's column gap), not 10/12: the name
+   takes the free width first and folds to a second line only when it truly cannot fit. */
+.trowName { display: flex; align-items: center; gap: 8px; font-size: 17.5px; font-weight: 800; color: var(--ink); }
 .trowDot { width: 11px; height: 11px; border-radius: var(--r-pill); flex: none; }
 /* the ellipsis has to live on a child: `text-overflow` needs a block with inline content, and
    .trowName is a flex container — on it, a long name was chopped mid-letter with no «…» */
@@ -1128,6 +1130,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   line-height: 1; color: var(--green); font-variant-numeric: tabular-nums; }
 .trowWarn .trowClockVal { color: var(--amber); }
 .trowCrit .trowClockVal { color: var(--red); }
+/* «3d 9h» (AtemschutzView · ClockVal, 30.09.2026): the unit is a small body-face letter against its
+   number, so a day-long clock stops out-measuring the name beside it */
+.clockUnit { font-family: var(--body); font-size: .75em; font-weight: 700; margin-left: 1px; }
+.clockGroup { margin-left: .15em; }
 .trowSub { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: .05em;
   text-transform: uppercase; color: var(--ink-faint); margin-top: 5px; white-space: nowrap; }
 
@@ -1172,7 +1178,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      a hint (the whole row is the button), and 15.5px still clears the 12.5px floor comfortably */
   .trowChevron { width: 24px; }
   .trowChevron :global(.i) { width: 15px; height: 15px; }
-  .trowName { font-size: 16.5px; gap: 9px; }
+  .trowName { font-size: 16.5px; gap: 8px; }
 }
 
 
@@ -1514,7 +1520,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* the whole line is the toggle, as the whole row was: it spans the frame's top and side padding so
    its target is the row's own top band (10 + the chevron's 44px), and the chevron stays in the
    pixel that opened the card */
-.trowHead { display: grid; grid-template-columns: minmax(0, 1fr) auto 24px; column-gap: 12px; align-items: center;
+.trowHead { display: grid; grid-template-columns: minmax(0, 1fr) auto 24px; column-gap: 8px; align-items: center;
   margin: 0 -11px; padding: 10px 11px 0; border: none; background: transparent; color: inherit;
   font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .trowHead .trowChevron { width: 24px; }
