@@ -3276,6 +3276,7 @@ export const en: Localizable<Copy> = {
     logSet: '{label}: {menge} {unit}',
     logRemoved: '{label} set to 0',
     logDeleted: '{label} deleted',
+    logRestored: '{label} restored',
     logStock: '{label} – stock: {stock}',
     logBefore: '(was {n})',
     editLabel: 'Edit entry',

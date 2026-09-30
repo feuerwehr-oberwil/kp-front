@@ -5161,6 +5161,7 @@ export const fr: Localizable<Copy> = {
     logSet: '{label} : {menge} {unit}',
     logRemoved: '{label} mis à 0',
     logDeleted: '{label} supprimé',
+    logRestored: '{label} rétabli',
     logNote: '{label} – remarque : {note}',
     logStock: '{label} – stock : {stock}',
     logBefore: '(avant {n})',
