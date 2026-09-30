@@ -1874,6 +1874,12 @@ to prod.
     Kennzeile with its blue Auftrag, the top status edge and the «Verlauf · zuletzt: … Druck 300
     bar» preview are gone — do not bring any of them back for the tablet. The focus Tafel's one
     card shows the line's clock at 34px.
+  - *The head's line gives its width to the leader's NAME* (30.09.2026 evening, owner: «the group
+    leader name needs more space»): 8px to the dot and to the clock (never wider), no «#N», and a
+    day-long clock drawn «3d 10h» — mono digits, the unit a small body-face letter against its
+    number (`AtemschutzView · ClockVal`), on the row, the card's head AND foot and the Tafel's tab —
+    one card, one spelling; mm:ss and «17:00 min» stay as they are. The name folds to a second
+    line only when it truly cannot fit, never to «…».
   - *The Schätzung stays readable on the card's foot* (29.09.2026, owner: «we still need the
     schätzung clearly visible»): the terse foot keeps its word and full ink — «1 d 11 h ·
     Schätzung ≈ 0 bar ⌄» — and the word, not a dimmed grey, is what keeps it from being read as a
