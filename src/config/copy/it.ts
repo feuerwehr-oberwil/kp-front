@@ -512,6 +512,8 @@ export const it: Localizable<Copy> = {
     symbol: 'Tocca la carta per posizionare il segno. Attiva il lucchetto per metterne più di seguito.',
     lasso: 'Trascina con un dito un riquadro attorno a più oggetti. Con due dita la carta continua a spostarsi. Toccando di nuovo «Multiplo» si torna alla Selezione.',
     line: 'Trascina sulla carta o tocca i punti per disegnare una linea. Colore, spessore e stile si scelgono poi nell’editor.',
+    lineFreehand: 'Trascina sulla carta per disegnare una linea. Per singoli punti: «Punti». Colore, spessore e stile si scelgono poi nell’editor.',
+    lineNodes: 'Tocca i punti sulla carta, concludi con ✓. Colore, spessore e stile si scelgono poi nell’editor.',
     lineFreeShort: 'Trascina il dito sulla carta',
     lineNodesShort: 'Tocca i punti – ✓ chiude la linea',
     areaFreeShort: 'Traccia il contorno con il dito',

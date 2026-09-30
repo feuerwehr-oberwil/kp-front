@@ -510,6 +510,8 @@ export const en: Localizable<Copy> = {
     symbol: 'Tap the map to place the symbol. Enable the lock to place several in a row.',
     lasso: 'Drag a frame around several objects with one finger. Two fingers still pan the map. Tapping «Multi» again switches back to Select.',
     line: 'Drag on the map or tap points to draw a line. Pick colour, width and style afterwards in the editor.',
+    lineFreehand: 'Drag on the map to draw a line. For single points: «Points». Pick colour, width and style afterwards in the editor.',
+    lineNodes: 'Tap points on the map, finish with ✓. Pick colour, width and style afterwards in the editor.',
     lineFreeShort: 'Drag your finger across the map',
     lineNodesShort: 'Tap points – ✓ finishes the line',
     areaFreeShort: 'Drag the outline with your finger',

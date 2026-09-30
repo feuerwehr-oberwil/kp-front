@@ -512,6 +512,8 @@ export const fr: Localizable<Copy> = {
     symbol: 'Touchez la carte pour placer le symbole. Activez le verrou pour en poser plusieurs à la suite.',
     lasso: 'Tirez un cadre autour de plusieurs objets avec un doigt. Deux doigts déplacent toujours la carte. Toucher «Multiple» une nouvelle fois ramène à Sélection.',
     line: 'Glissez sur la carte ou touchez des points pour tracer une ligne. Couleur, épaisseur et style se choisissent ensuite dans l’éditeur.',
+    lineFreehand: 'Glissez sur la carte pour tracer une ligne. Pour des points isolés : « Points ». Couleur, épaisseur et style se choisissent ensuite dans l’éditeur.',
+    lineNodes: 'Touchez des points sur la carte, terminez avec ✓. Couleur, épaisseur et style se choisissent ensuite dans l’éditeur.',
     lineFreeShort: 'Glissez le doigt sur la carte',
     lineNodesShort: 'Touchez des points – ✓ termine la ligne',
     areaFreeShort: 'Tracez le contour du doigt',

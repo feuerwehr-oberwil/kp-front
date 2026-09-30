@@ -2449,7 +2449,7 @@ function TruppCard({
    * ⚠️ On the PHONE it is the LAST resort, not the first row (26.09.2026, phone card slim-down ⑤):
    * every fact the form edits has its own chip and sheet on that card — the crew, the Auftrag,
    * the Ziel, the Leitung, the Kanal, the Ausrüstung — so the form is left for what has no sheet,
-   * the Art and the Eingangsdruck-Korrektur. It stands after the jumps and the Suche's rows,
+   * the Art and the Eingangsdruck-Korrektur. It stands after the jumps,
    * above the rule that separates the closing actions — on the tablet too since 29.09.2026, which
    * wears the same chips (it kept «Bearbeiten» first while its Kennzeile was a sentence). */
   const editItem = canEdit ? [{ label: az.edit, onClick: () => onEdit() }] : []
@@ -2461,7 +2461,6 @@ function TruppCard({
     // form's Ltg-Nr. quick-picks, from the line's own editor, or by snapping a hose end to the
     // Trupp's marker – never from an armed, invisible tap mode.
     ...(lite || !hasLine ? [] : [{ label: az.lineShow, onClick: () => onShowLine(t.id) }]),
-    // the Suche's two doors (Tür 3): the radio report reaches the ASÜ or the plan person here
     ...editItem,
     // Only while the hand-set order is the one on screen: moving a card under any other sort
     // would rearrange something the sort is about to rearrange back.

@@ -505,7 +505,8 @@
      bar's own menu the moment the alarm ends, and the chip beside it is itself a ticking clock. */
   .tb-az-name { display: none; }
   .tb-az { gap: 5px; padding: 6px 9px; }
-  .topbar:has(.tb-az) .tb-einsatzuhr { display: none; }
+  /* (the Einsatzuhr yields by MEASURE now, not by rule — lib/useHeadFit, step 3: on a 390 px
+     phone it left the bar the moment a chip came up although there was room) */
 
   /* ── Chrome stays on the SCREEN while the keyboard is up ──
      The document cannot scroll any more (02-base.css · fixed body), but iOS still PANS the
@@ -923,12 +924,10 @@
   :root:has(.app .rp-tabs) { --rp-tabs-safe: 60px; }
   /* …and the thing that stands ON the tool bar and lifts everything above it: the armed tool's
      hint row in the dock (ToolDock · hint, the 22px `.wb-botleft` steps up by). The lane is
-     computed on :root, which cannot read `.app`'s value, so it restates it here. (The Suche's
-     peek line that lifted it too left with the Suche's phone sheet, 26.09.2026.) */
+     computed on :root, which cannot read `.app`'s value, so it restates it here. */
   :root:has(.phone-tools .wb-dock-hint) { --msg-dock-hint: 22px; }
   /* ── THE floating row (26.09.2026) ── the one line just above the bars where the phone's small
-     floating pieces stand: the plan's chips (09-whiteboard · .wb-botleft), the Grundgerüst strip
-     (03-map · .lgg-phone) and the Eintrag FAB. They stood at three heights of their own (6px,
+     floating pieces stand: the plan's chips (09-whiteboard · .wb-botleft) and the Eintrag FAB. They stood at three heights of their own (6px,
      14px and 14px above the tool bar) in three looks; now they are ONE family (01-tokens ·
      --float-*) on ONE baseline: --float-gap (8px) above the highest bar — the same 8px they keep
      from each other and from the screen's edge, like the bars.
@@ -941,7 +940,7 @@
   :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom)); }
   /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
      strip, the way back to the Rapport. It publishes no height because it has only one: --float-h. */
-  :root:has(:is(.fab-entry, .wb-botleft, .lgg-phone, .rp-return)) { --float-row: calc(var(--float-h) + var(--float-gap)); }
+  :root:has(:is(.fab-entry, .wb-botleft, .rp-return)) { --float-row: calc(var(--float-h) + var(--float-gap)); }
   /* …but a tool's option dock hides the FAB (below) and the host drops the strip, so there only
      the chips can stand in it */
   :root:has(.phone-tools .wb-dock):not(:has(.wb-botleft)) { --float-row: 0px; }

@@ -1265,7 +1265,7 @@ to prod.
     door. A button never repeats the glyph its row already leads with.
   - *ONE floating family, ONE floating row (26.09.2026, owner: «everything has the same shape,
     colour, padding»):* every small thing that floats over the Karte or a Plan — the messages
-    above, the plan's chips (Objekt · Gebäude · Massstab · ⌖ Karte), the phone's Grundgerüst strip,
+    above, the plan's chips (Objekt · Gebäude · Massstab · ⌖ Karte),
     «Zurück zum Rapport» and the Eintrag FAB — wears `--float-*` (01-tokens): the bars' glass with
     their `--glass-line` edge as an INSET ring and `--shadow`; ONE row height `--float-h` (a --tap
     button + `--msg-pad` all round = 52px); the one corner; 14px before the glyph; 16px glyphs. A
@@ -1317,8 +1317,8 @@ to prod.
     ink (an open count is amber on every row, current or not — `.group-choose-count.open`); a ✓
     may stay as the cue that is not a colour. (3)
     **Where you are** — the nav rail, the armed tool, a Trupp tab — keeps the ink pill
-    (`--ink-fill`): a place, not an answer. A chip whose tone IS its meaning (the Suche's status
-    chips, the composer's Auftrag/Sofort) fills in that tone, same shape; colour swatches keep
+    (`--ink-fill`): a place, not an answer. A chip whose tone IS its meaning (the composer's
+    Auftrag/Sofort) fills in that tone, same shape; colour swatches keep
     their ring (their fill is the colour). Never an outline-only «selected», never `--ink` as a
     choice fill (at night it is the primary button's light grey).
   - *Primary (28.09.2026):* the single action of a surface is `--btn-primary` / `--on-btn-primary`,
@@ -1334,7 +1334,7 @@ to prod.
   - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
     (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
     word (a rare delete may be a square bin, still outlined). Red never fills it (`.btn.warn`,
-    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, Suche `[data-danger]`, `.wb-pa-del`,
+    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, `.wb-pa-del`,
     the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
     ever closes or clears — a ✕ that deletes is a bug. The audio player's in-place editors are the
     ✕ `.ip-x` + ✓ primary icon pair (36/44).
@@ -1347,8 +1347,7 @@ to prod.
     row (Ansichten).
   - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
     its word's width, never a ghost word; the primary takes the rest of the row, same height (on a
-    phone `[role=dialog] .ui-sheet-foot > .ip-btn.primary` flexes). The Suche's EQUAL split is
-    its list's two «+» doors only — a Suche form's cancel is framed and content-wide too.
+    phone `[role=dialog] .ui-sheet-foot > .ip-btn.primary` flexes).
   - *Text actions (28.09.2026, owner pick A):* no bare blue word as an action. A verb that ends a
     row makes the WHOLE row the button — `.row-go` (13-incident): ink text, the verb in
     `--ink-dim` 12.5/700 + a 16px `chevron`, one press wash, ≥44px, `aria-label` «Verb: row text».

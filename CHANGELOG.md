@@ -52,6 +52,12 @@ so this file – not the log – is the record of what shipped up to that point.
   prüfen» into the Verlauf and onto the Meldeleiste. Übungen are included; an Einsatz nobody
   has written to for 24 h stops being observed, with one Verlauf row saying so. The server fills
   only the Rapport's «vor Ort»; «zurück» (back at the depot) stays the geofence's.
+- **The top bar collapses by priority, measured.** When a bar runs out of room, it gives up the
+  weather first, then the Einsatzdauer, ↷, the spacing, the Verlauf word, the alarm's name and
+  the Einsatz title — one step at a time, only as far as needed. The Einsatz pill never shrinks
+  below a readable width (it was 20 px at 360 px with all chips up), no chip is ever a bare
+  number without its icon, and the weather stays on a 1180 px bar with an alarm up.
+
 - **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the
   phone no longer hides the clocks: the form is a bottom sheet, and the due and overdue Trupps
   (at most two, most urgent first) stand above it with a live «Kontakt» that confirms without
