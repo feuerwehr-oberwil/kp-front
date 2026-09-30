@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { useViewportPan } from './useViewportPan'
 
 /* 30.09.2026, staging phone pass: the Rapport ended ~115px above the iOS keyboard and the Trupp
@@ -15,7 +15,9 @@ const SCREEN = 800
 const root = document.documentElement
 const settle = () => act(() => { vi.advanceTimersByTime(50) })
 
-afterEach(() => { vi.useRealTimers(); document.body.replaceChildren() })
+// vitest runs without globals, so Testing Library's auto-cleanup never registers: unmount the
+// hooks here, or a mounted one's focusout timers fire after jsdom is gone («window is not defined»)
+afterEach(() => { cleanup(); vi.useRealTimers(); document.body.replaceChildren() })
 
 describe('useViewportPan — the visible band, as CSS', () => {
   it('writes the pan, the foot and data-kb while a field has the caret, and clears them after', () => {
