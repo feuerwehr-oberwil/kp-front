@@ -57,7 +57,7 @@
 .ph { width: 46px; height: 46px; border-radius: var(--r-ctl); border: 2px solid var(--blue); color: var(--blue);
   display: grid; place-items: center; font-family: var(--mono); font-size: 12px; background: var(--surface-2); flex: none; }
 .ph svg { width: 30px; height: 30px; }
-.ctx-head h3 { margin: 0; font-size: 17px; font-weight: 700; }
+.ctx-head h3 { margin: 0; font: var(--sheet-title); } /* the one sheet title (28.09.2026; was 700) */
 .ctx-head p { margin: 2px 0 0; font-size: 12px; color: var(--ink-dim); font-weight: 500; }
 /* ⚠️ ink-mix, not --surface-2: the glass tokens are white-based and vanish on this white card —
    the ✕ family (ip-x / ctx-x / journal-x) shares this quiet ink pill so every close reads alike */
@@ -161,7 +161,8 @@
 .ctx-note-input { display: block; width: 100%; resize: vertical; min-height: 76px;
   font: 500 14px/1.45 var(--body); color: var(--ink); background: var(--fill-soft);
   border: 1px solid var(--border-soft); border-radius: var(--r-ctl); padding: 10px 12px; }
-.ctx-note-input:focus { outline: none; border-color: var(--blue); background: var(--surface); }
+/* focus: the one field focus (--focus-*, 28.09.2026), not a solid blue edge of its own */
+.ctx-note-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); background: var(--surface); }
 /* seven swatches (default note ink + the six drawing colours) have to sit on ONE line next to
    their label — at the full 30px they wrapped a single lonely circle onto a second row */
 .ctx-note-colors { display: flex; align-items: center; gap: 7px; margin-left: auto; justify-content: flex-end; }
@@ -182,8 +183,10 @@
 /* the untitled run of label+control rows (steppers, Bezeichnung, the symbol's own fields) — it
    continues the rows above it rather than starting something, so it opens no gap of its own */
 .ctx-rows { display: block; }
-.ctx-section-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
+.ctx-section-label {
+  display: block; margin-bottom: 6px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 
 /* Preset / read-only detail fields render as plain .field rows (label left, control right) — the
    SAME row as the Darstellung steppers above, so a «Typ» sits identically to a «Luftrichtung». Their
@@ -200,7 +203,9 @@
   padding: 8px 10px; min-width: 0; font-family: var(--body); }
 .kv-key { flex: 0 0 38%; font-weight: 600; color: var(--ink-dim); }
 .kv-val { flex: 1; font-family: var(--mono); }
-.kv-key:focus, .kv-val:focus { outline: none; background: color-mix(in srgb, var(--blue) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 35%, transparent); }
+/* borderless boxes, so the one field focus (--focus-*, 28.09.2026) draws its edge as an inset
+   ring; the field turns to the sheet's white like every other focused field — no blue wash */
+.kv-key:focus, .kv-val:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
 /* two rows can't share a Bezeichnung — details are stored as a key→value map, so the later row
    would silently swallow the earlier one. The row keeps its red key box (it stays red while
    focused, hence the higher specificity than :focus) and hands its border to the hint below. */
@@ -235,8 +240,11 @@
 }
 .combo-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-clear .i { width: 13px; height: 13px; }
-.combo-input { width: 100%; box-sizing: border-box; border: 1px solid var(--blue); border-radius: var(--r-sm); padding: 7px 10px;
+.combo-input { width: 100%; box-sizing: border-box; border: 1px solid var(--glass-edge); border-radius: var(--r-sm); padding: 7px 10px;
   font: 600 13px var(--body); color: var(--ink); background: var(--surface); outline: none; }
+/* it only exists while typing, and wears the one field focus (--focus-*, 28.09.2026) — it had a
+   solid blue edge of its own */
+.combo-input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* a menu hugs its rows: even --bar-pad, and the corner is the rows' plus that gap (01-tokens · «ONE corner») */
 .combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: var(--bar-pad); list-style: none;
   max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-bar); box-shadow: var(--shadow); }
@@ -285,8 +293,10 @@
 .combo-empty { padding: 8px 10px; font-size: 12px; color: var(--ink-faint); }
 .combo-group { list-style: none; }
 .combo-group > ul { list-style: none; margin: 0; padding: 0; }
-.combo-group-head { padding: 7px 10px 3px; font-size: 10.5px; font-weight: 800; letter-spacing: .05em;
-  text-transform: uppercase; color: var(--ink-faint); }
+.combo-group-head {
+  padding: 7px 10px 3px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .combo-group + .combo-group .combo-group-head { border-top: 1px solid var(--border-soft); margin-top: 2px; }
 
 /* read-only ADR hazard readout (UN-Nr → substance/hazard data on the Gefahrentafel) */
@@ -369,7 +379,7 @@
   border-radius: var(--r-ctl); padding: 9px 11px; font-family: var(--body); font-size: 13.5px; color: var(--ink);
   background: var(--fill-soft); }
 .ctx-notes-input::placeholder { color: var(--ink-faint); }
-.ctx-notes-input:focus { outline: none; background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 12%, transparent); }
+.ctx-notes-input:focus { outline: none; background: var(--surface); border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* compact per-symbol caption override, tucked above the Zentrieren/Entfernen row — small and
    low-emphasis since field values matter first; visibility is a rare tweak (a tiny inline seg). */
 /* ⚠️ Beschriftung stays at the BOTTOM, below the actions, and reads as what it is: a display

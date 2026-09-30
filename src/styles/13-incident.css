@@ -209,7 +209,7 @@
   .sync-glyph.on .sync-ring, .sync-glyph.on .sync-tick { transition: none; }
 }
 /* small-caps section label inside the dropdown (e.g. "Dieser Einsatz") — same idiom as .set-group-t */
-.ip-menu-label { margin-top: 8px; padding: 4px 12px 2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.ip-menu-label { margin-top: 8px; padding: 4px 12px 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 
 .ip-menu {
   position: absolute; top: calc(100% + 8px); left: 0; min-width: min(300px, 88vw); max-width: min(430px, 92vw);
@@ -257,7 +257,7 @@
    iOS-style — small-caps group label, hairline-divided rows in a soft card, footnote below */
 .set-sheet { display: flex; flex-direction: column; gap: 24px; }
 .set-group { display: flex; flex-direction: column; gap: 8px; }
-.set-group-t { margin: 0 0 0 4px; font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+.set-group-t { margin: 0 0 0 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .set-card { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2); overflow: hidden; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 14px; min-height: 56px; }
 .set-row + .set-row { border-top: 1px solid var(--glass-edge); }
@@ -493,8 +493,9 @@
 /* 800, like EVERY other title in the app — Anwesenheit, Mittel, Atemschutz, Checklists, Hilfe and
    the Rapport all set their h2 at 800/19. At 700 the dialog heads («Weitere Person erfassen»,
    «Anderes Objekt») were a visibly lighter cut of Sora than the surface behind them, which reads
-   as a different typeface rather than as a smaller heading. */
-.ip-head h2 { margin: 0; font: 800 19px var(--body); color: var(--ink); }
+   as a different typeface rather than as a smaller heading. 17, not 19, since 28.09.2026: the
+   one sheet-title size (01-tokens · --sheet-title), a step under the page head behind it. */
+.ip-head h2 { margin: 0; font: var(--sheet-title); color: var(--ink); }
 /* ⚠️ `display: grid`, not the default inline flow. The ✕ is an inline SVG in a padding-only box,
    so it sat on the text BASELINE: the box came out taller than it is wide (the descender space
    below the glyph) and the ✕ itself rode a couple of pixels high of centre — which is what made
@@ -520,7 +521,7 @@
 .ip-body { padding: 6px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
 
 .ip-field { display: flex; flex-direction: column; gap: 5px; }
-.ip-field > span { font: 600 12px var(--body); color: var(--ink-dim); }
+.ip-field > span { font: var(--field-label); color: var(--ink-dim); } /* the one field label (28.09.2026; was 600) */
 .ip-field input, .ip-field select, .ip-input {
   padding: 11px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); font: 500 15px var(--body); color: var(--ink);
@@ -529,10 +530,10 @@
    Anwesenheit remark) — same control, just not wrapped in a label block */
 .ip-input { width: 100%; min-width: 0; }
 /* One focus ring for every intake/wizard field — a visible blue halo so the EL always
-   sees which control is live (gloved, 3am), instead of the browser default outline. */
+   sees which control is live (gloved, 3am), instead of the browser default outline. Since
+   28.09.2026 it is THE field focus of the whole app, as the --focus-* pair (01-tokens). */
 .ip-field input:focus, .ip-field select:focus, .ip-textarea:focus, .ip-search:focus, .ip-input:focus {
-  outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent);
+  outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo);
 }
 /* ── field with a ✕ that empties it (components/ClearableInput) ───────────────────────────
    The ✕ OVERLAPS the field's right padding rather than sitting beside it, so a clearable field
@@ -567,24 +568,13 @@
 @media (prefers-reduced-motion: reduce) {
   .spin { animation: spin-pulse ease-in-out infinite; animation-duration: 1.4s !important; }
 }
-/* The «Übung» toggle chip (EinsatzWizard) — a proper button, not a native `<input
-   type="checkbox">` (05.09. fix). One control, self-aligned left like the fields above it rather
-   than centred like `.ip-btn`, so it reads as a property of the form and not a footer action. */
-.ip-ex-toggle { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px;
-  min-height: var(--tap); padding: 0 12px 0 8px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
-  background: var(--surface-2); color: var(--ink-dim); font: 700 12.5px var(--body); cursor: pointer; }
-@media (hover: hover) {
-  .ip-ex-toggle:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--glass-edge)); }
-}
-.ip-ex-toggle:active { background-image: linear-gradient(var(--press), var(--press)); }
-.ip-ex-toggle.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
-/* the box: an empty outline until pressed, then the same tick every other confirm chip draws —
-   recognisable as «a checkbox» at a glance without being a checkbox */
-.ip-ex-toggle-box { flex: none; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid currentColor;
-  display: grid; place-items: center; color: var(--ink-faint); }
-.ip-ex-toggle.on .ip-ex-toggle-box { color: var(--blue-strong); }
-.ip-ex-toggle-box .i { width: 11px; height: 11px; opacity: 0; transition: opacity .12s var(--ease); }
-.ip-ex-toggle.on .ip-ex-toggle-box .i { opacity: 1; }
+/* The «Übung» row (EinsatzWizard) — an `OnOff` pair beside its name (28.09.2026; it was a
+   tick-box chip). The `.set-row` recipe without the card: name + consequence left, the pair
+   right. The label gives way (min-width 0), never the pair — at 360px «Zählt nicht zur
+   Einsatzstatistik» wraps to two lines and «Aus | An» keeps its full tap width. */
+.ip-onoff-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: var(--tap); }
+.ip-onoff-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; font: 600 14.5px var(--body); color: var(--ink); }
+.ip-onoff-l small { font: 500 12px var(--body); color: var(--ink-faint); }
 
 .ip-actions, .ip-row-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
 /* The footer row of a SHEET pays for its own breathing room. It used to have none, so every new
@@ -729,8 +719,10 @@
 .ip-hist-search .i { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
 .ip-hist-search input { border: none; outline: none; background: transparent; width: 100%;
   font: 500 14px var(--body); color: var(--ink); }
-.ip-hist-group { margin: 10px 2px 0; font: 800 11.5px var(--body); color: var(--ink-faint);
-  text-transform: uppercase; letter-spacing: .05em; }
+.ip-hist-group {
+  margin: 10px 2px 0;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .ip-hist-nores { margin: 4px 2px; font: 500 13px var(--body); color: var(--ink-faint); font-style: italic; }
 
 /* --- Rapport closing checklist (inside the Einsatzrapport sheet) --------------------- */
@@ -838,8 +830,10 @@
 .sl-glyph svg { width: 100%; height: 100%; stroke-width: .8; }
 @media (min-width: 760px) { .sl-glyph { width: 300px; height: 300px; transform: translate(-50%, -54%); } }
 /* which surface this is, in the voice a kicker uses — small, tracked, quiet */
-.sl-kicker { display: inline-flex; align-items: center; gap: 8px; flex: none;
-  font: 600 12px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+.sl-kicker {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .sl-kicker svg { width: 14px; height: 14px; flex: none; }
 .sl-middle { position: relative; margin: auto 0; display: flex; flex-direction: column; align-items: center; }
 
@@ -962,8 +956,10 @@
 .cv-item-sub { font: 500 12.5px var(--body); color: var(--ink-faint); }
 /* group divider — only rendered when the list actually mixes tonight's Einsatz with the
    unreported backlog, so the common single-row list stays header-free */
-.cv-list-head { margin: 6px 2px 0; font: 800 11.5px var(--body); color: var(--ink-faint);
-  text-transform: uppercase; letter-spacing: .05em; }
+.cv-list-head {
+  margin: 6px 2px 0;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .cv-list + .cv-list { margin-top: 4px; }
 /* Übung — the tablet's .ip-badge-exercise itself (shape, type and amber are shared above): a
    drill or a test run must never be mistaken for the real Einsatz, on the surface where
@@ -979,7 +975,9 @@
    search read as a seamless white bar with the ⓘ floating on it — no edges, no field. */
 .cv-search-row .cv-input { flex: 1; min-width: 0; background: var(--fill-soft); }
 .cv-search-row .cv-input:focus { background: var(--surface); outline: none;
-  border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
+  border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
+/* every other QR-Bogen field: the one field focus (28.09.2026) */
+.cv-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* The search stays put while its list scrolls. A roster is long enough that filtering it means
    scrolling to the name, and the field that filtered it had already scrolled off the top — so
    correcting a typo meant scrolling back up to find the box. Stacks UNDER the section head,
@@ -1230,8 +1228,10 @@
 .wheelpop-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
 
 .cv-matgroup { display: flex; flex-direction: column; gap: 2px; }
-.cv-matgroup-head { font: 700 11.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
-  color: var(--ink-faint); padding: 6px 0 2px; }
+.cv-matgroup-head {
+  padding: 6px 0 2px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .cv-mittel li.used .cv-mittel-label { color: var(--accent); font-weight: 700; }
 .cv-rueck { flex-wrap: wrap; }
 .cv-textarea { min-height: 64px; resize: vertical; width: 100%; box-sizing: border-box; }
@@ -1448,8 +1448,10 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    The admin raises this while it is mounted — see the scoped block at the end of admin.css. */
 .ui-menu-pos { z-index: var(--z-menu); }
 .ui-menu-sep { height: 1px; margin: 5px 8px; background: var(--glass-edge); }
-.ui-menu-head { padding: 6px 10px 3px; font: 700 10.5px var(--body); letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ink-faint); }
+.ui-menu-head {
+  padding: 6px 10px 3px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .ui-menu-check { flex: none; display: grid; place-items: center; width: 17px; height: 17px;
   border-radius: 4px; border: 1.5px solid var(--border-strong, var(--border)); }
 .ui-menu-check svg { width: 12px; height: 12px; fill: none; stroke: var(--surface); stroke-width: 3;
@@ -1528,7 +1530,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* «Noch offen» inside the Kontrolle popover (every width since 23.09.2026): a list of doors,
    each a full-width 44px row */
 .rp-control-open { display: flex; flex-direction: column; margin-bottom: 10px; }
-.rp-control-open-head { font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); padding: 0 2px 4px; }
+.rp-control-open-head { padding: 0 2px 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .rp-control-step { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: var(--tap);
   padding: 0 10px; border: none; background: none; border-radius: var(--r-ctl); cursor: pointer; text-align: left;
   font: 600 13.5px var(--body); color: var(--ink); }
@@ -1704,8 +1706,10 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* Datenquellen: collapsible groups + search so the 150+ object list stays manageable */
 .ip-group { margin: 8px 0 2px; }
 .ip-group > :not(summary) { margin-top: 6px; }
-.ip-group-head, summary.ip-group-head { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
-  font: 700 12px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); padding: 8px 2px; user-select: none; }
+.ip-group-head, summary.ip-group-head {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; padding: 8px 2px; user-select: none;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 /* a foldable head is a TARGET, so it carries the --tap floor and answers a press; the static
    `.ip-objects-head` below is not one and keeps its text height. */
 summary.ip-group-head { min-height: var(--tap); border-radius: var(--r-ctl); margin: 0 -6px; padding-left: 8px; padding-right: 8px; }
@@ -1717,7 +1721,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-objects-head { cursor: default; margin-top: 10px; }
 .ip-group-count { font-weight: 600; color: var(--ink-faint); text-transform: none; letter-spacing: 0; }
 /* section subhead = the shared uppercase eyebrow (.ctx-section-label spec), not a blue sentence-case one-off */
-.ip-sub2 { margin: 8px 0 2px; font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+.ip-sub2 { margin: 8px 0 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .ip-search { width: 100%; box-sizing: border-box; margin: 4px 0 6px; padding: 9px 12px; border: 1px solid var(--glass-edge);
   border-radius: var(--r-ctl); background: var(--surface); font: 500 13px var(--body); color: var(--ink); }
 /* "Neue Geo-Ebene" form: a small card under the global datasets list */
@@ -1733,7 +1737,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-ds-compact .ip-ds-title { font-size: 13.5px; }
 .ip-ds-dist { color: var(--blue); font-weight: 600; }
 /* --- Einsatz eröffnen wizard --- */
-.ip-ix-head { margin: 4px 0 -2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.ip-ix-head { margin: 4px 0 -2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 /* «Objekt aus Feuerwehrplänen» / «Auf Karte setzen» — the two location fallbacks share a row;
    «Hier» (GPS) lives as an icon-only button on the address field itself (`.ip-ac-locate`
    below), because it is the PRIMARY method and has to be reachable without opening anything. */
@@ -1779,7 +1783,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* object library picker */
 .ip-objpick { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 6px 8px; background: var(--surface-2); }
 .ip-objlist { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
-.ip-objgroup { font: 700 10.5px var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); padding: 6px 8px 2px; }
+.ip-objgroup { padding: 6px 8px 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 /* ⚠️ flex: none – the list is a scrolling flex COLUMN, and a flex item may shrink below its
    content: once the list overflowed, every row was squeezed to its min-height and a name that
    wrapped onto two lines painted its sub-line under the next row's title (20.09.2026). */
@@ -1805,7 +1809,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* open, the head IS the coordinate line (EinsatzWizard): same row, the ✕ beside it */
 .ip-fold-row { display: flex; align-items: center; gap: 4px; margin: 4px 0 -2px; }
 .ip-fold-row .ip-fold-head { flex: 1 1 auto; min-width: 0; margin: 0; }
-.ip-fold-title { font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.ip-fold-title { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 @media (hover: hover) {
   .ip-fold-head:hover .ip-fold-title, .ip-fold-head:hover .i { color: var(--ink-dim); }
 }
@@ -1876,7 +1880,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-launch-sub { font: 500 12.5px var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Divera-alarm row: red kicker + pulse to read as the loud, fresh thing */
 .ip-launch.alarm { border-color: color-mix(in srgb, var(--red) 35%, var(--glass-edge)); }
-.ip-launch-kicker { font: 800 10px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+.ip-launch-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red); }
 .ip-launch-pulse { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
   background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
 .ip-launch-pulse svg { width: 16px; height: 16px; }

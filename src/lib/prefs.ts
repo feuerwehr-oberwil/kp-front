@@ -87,7 +87,7 @@ export interface Prefs {
   /** Offline-Vorbereitung: the installed app quietly runs «Alles für offline laden» itself,
    *  shortly after an Einsatz is opened, so devices are simply ready without anybody pressing
    *  the button (28.08. field feedback — the button relies on someone remembering it).
-   *  Default TRUE. `false` = «Nur manuell». Two states, deliberately no «nur WLAN» tier:
+   *  Default TRUE. `false` = «Aus» (manual only). Two states, deliberately no «nur WLAN» tier:
    *  Safari/iPadOS exposes no network-type API, so a WLAN gate could not work on the primary
    *  devices and would be a setting that lies. A station worried about SIM data opts out. */
   offlineAuto?: boolean

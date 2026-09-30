@@ -31,7 +31,7 @@
   border: 1px solid var(--glass-edge); border-radius: var(--r-xs); background: var(--fill-soft);
   color: var(--ink); font: 700 16px var(--mono); font-variant-numeric: tabular-nums;
 }
-.typed:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent); }
+.typed:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); } /* the one field focus, 28.09.2026 */
 
 /* The tabs: answers that are not a clock reading at all. Side by side, equal weight, above the
    wheels they replace. */

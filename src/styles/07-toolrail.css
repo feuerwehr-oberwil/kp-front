@@ -182,14 +182,17 @@
 .ctx-titlewrap { flex: 1; min-width: 0; }
 /* inline editables carry a faint resting affordance (a soft underline) so touch
    users can see they're editable without a hover to reveal it */
-.ctx-title-input { width: 100%; border: none; background: transparent; font-family: var(--body); font-size: 17px; font-weight: 700;
+.ctx-title-input { width: 100%; border: none; background: transparent; font: var(--sheet-title);
   color: var(--ink); padding: 2px 5px; margin: -2px -5px; border-radius: var(--r-xs) var(--r-xs) 0 0; outline: none;
   border-bottom: 1.5px solid rgba(30, 45, 70, .16); }
 .ctx-title-input::placeholder { color: var(--ink-faint); font-weight: 600; }
 @media (hover: hover) {
   .ctx-title-input:not(.ctx-title-ro):hover { background: var(--fill-soft); border-bottom-color: rgba(30, 45, 70, .3); }
 }
-.ctx-title-input:focus { background: color-mix(in srgb, var(--blue) 9%, transparent); border-bottom-color: var(--blue); }
+/* focused it becomes a FIELD, in the one field focus (--focus-*, 28.09.2026): the underline was a
+   blue line on a blue wash, a look no other field in the app had */
+.ctx-title-input:focus { background: var(--surface); border-radius: var(--r-xs);
+  border-bottom-color: transparent; box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
 /* The labelled Fahrzeug's header title is a BUTTON: a tap falls through to the «Bezeichnung»
    field below and opens its menu (ContextPanel · openBezeichnung). It keeps the resting
    underline — here the affordance is honest, the tap does something. */
@@ -222,8 +225,10 @@
 .step-val-btn:disabled { cursor: default; }
 /* over-stock flag: the value reads red (e.g. Mittel used past the available amount) */
 .step-val.step-over { color: var(--red); }
-.step-input { width: 52px; box-sizing: border-box; border: 1px solid var(--blue); border-radius: var(--r-xs);
+.step-input { width: 52px; box-sizing: border-box; border: 1px solid var(--glass-edge); border-radius: var(--r-xs);
   background: var(--surface); padding: 3px 4px; outline: none; }
+/* typed-value mode: the one field focus (--focus-*, 28.09.2026), not a solid blue edge */
+.step-input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 .step-clear { width: 32px; height: 32px; flex: none; margin-left: 8px; border-radius: var(--r-sm); border: none; padding: 0;
   background: var(--fill-soft); color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
 @media (hover: hover) {
@@ -279,6 +284,8 @@
 .sym-search { flex: 1; min-width: 0; height: var(--tap); display: flex; align-items: center; gap: 10px;
   background: var(--fill-soft); border-radius: var(--r-ctl); padding: 0 6px 0 14px; color: var(--ink-dim); }
 .sym-search .i { width: 20px; height: 20px; flex: none; }
+/* the one field focus on the pill (--focus-*, 28.09.2026) */
+.sym-search:focus-within { background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
 /* the input fills the pill's height instead of setting it — its own padding is what made the two
    controls disagree in the first place */
 .sym-search input { flex: 1; min-width: 0; align-self: stretch; border: none; background: transparent; outline: none;

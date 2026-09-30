@@ -19,10 +19,10 @@
    line was what separated the read-only dispatch facts from the fields below. The block is its
    own section now, and the section's own edge is the separator. */
 .report-meta-dispatch-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-/* --ink-dim, the same ink as every other eyebrow on this surface (.report-pre-section h3). It sat
-   on --ink-faint, one shade quieter, directly above three headings that did not — same size,
-   same weight, same tracking, different colour, stacked in one column. */
-.report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+/* The same ink as every other eyebrow on this surface (.report-pre-section h3) — once it was one
+   shade apart from three headings stacked in the same column. Since 28.09.2026 all of them are
+   the app's ONE eyebrow (01-tokens · --eyebrow, --ink-faint). */
+.report-meta-dispatch-head > span { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 /* the icon-only «Bearbeiten» — the whole card is the press target for a pointer (see
    `.report-meta-dispatch-click` below), so this exists as the keyboard/AT target the card can
    never be (ReportPreflight keeps the <dl> readable content rather than a button's label) and as
@@ -223,8 +223,10 @@
 .report-pre-section { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 14px 16px; background: var(--surface-2); }
 /* section header = the SAME uppercase eyebrow as the details modal (.ctx-section-label) so every
    header across the app reads identically (was a one-off 14px sentence-case here) */
-.report-pre-section h3 { margin: 0 0 12px; font: 700 11px var(--body); letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ink-dim); }
+.report-pre-section h3 {
+  margin: 0 0 12px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 /* «Stand» on the crop map: Jetzt / a time + the reconstruction hint. Top-left, opposite the
    ± buttons, so neither sits where the framing itself needs to be read. */
 .kf-at { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; }
@@ -269,7 +271,7 @@
 /* ============================================================
    Kroki-Ausschnitt — THE PAPER. The crop, the legend under it and the three plates the server
    pastes on last. Everything in here is a facsimile of what `backend/app/kroki.py` prints; the
-   framing controls around it (hint line, Hoch·Quer, ±, «Auf Einsatz zoomen») are chrome and
+   framing controls around it (hint line, Hoch·Quer, ±, «Folgt der Karte») are chrome and
    live in 14-intake.css with the rest of the panel shell.
    ============================================================ */
 
@@ -622,8 +624,10 @@
 @media (min-width: 560px) { .rp-conf-sides { grid-template-columns: 1fr 1fr; } }
 .rp-conf-side { border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
   background: var(--surface); padding: 8px 11px; min-width: 0; }
-.rp-conf-side h6 { margin: 0 0 2px; font: 800 10.5px var(--body); letter-spacing: .06em;
-  text-transform: uppercase; color: var(--ink-faint); }
+.rp-conf-side h6 {
+  margin: 0 0 2px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .rp-conf-val { font: 700 13px var(--mono); overflow-wrap: anywhere; }
 /* the answers wrap rather than shrink — a button whose label is «Angabe vom Erfassungsbogen
    übernehmen» must not ellipsize into a different sentence */

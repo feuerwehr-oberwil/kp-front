@@ -189,8 +189,10 @@
 
 /* Verbindungen — reuses the editor's own .de-row / .de-preset rows verbatim so it reads as one more
    FKS group, not a separate widget. Only the target value, the note line and the detach get styling. */
-.draw-editor .de-conn-title { padding: 4px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ink-dim); }
+.draw-editor .de-conn-title {
+  padding: 4px 0 2px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 /* the same font-family: inherit as .de-prof-toggle above, for the same reason — these three are
    buttons sitting among .de-row labels, and a button that does not ask for the page font gets the
    browser's instead. */

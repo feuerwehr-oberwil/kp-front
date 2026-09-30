@@ -233,10 +233,13 @@ html.rail-dragging .layers-card { transition: none; }
    short phone viewport) scrolled the only way out of the sheet off the top. `-10px` cancels the
    card's own padding so the sticky strip spans the full width and nothing shows through beside
    it; the matching padding is added back inside. */
-.lc-title { position: sticky; top: -10px; z-index: 1; margin: -10px -10px 0; padding: 14px 18px 8px;
+.lc-title {
+  position: sticky; top: -10px; z-index: 1; margin: -10px -10px 0; padding: 14px 18px 8px;
   background: var(--ink-fill); border-radius: var(--r-surface) var(--r-surface) 0 0;
-  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255, 255, 255, .65);
-  display: flex; align-items: center; gap: 7px; }
+  display: flex; align-items: center; gap: 7px;
+  /* the eyebrow type (28.09.2026); its colour stays — white on the ink band */
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: rgba(255, 255, 255, .65);
+}
 /* close button at the title's right end — the house ✕ (36px, 18px glyph — AGENTS.md · Buttons,
    13-incident.css · .ip-x), like the views popover's. It was 34/16 here, a size of its own. */
 .lc-x { flex: none; margin-left: auto; width: 36px; height: 36px; border-radius: var(--r-sm); border: none;

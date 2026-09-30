@@ -3,6 +3,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { Sheet } from '../lib/overlays'
 import { fillTemplate } from '../lib/format'
+import { OnOff } from './Segmented'
 import { personnelSyncExecute, personnelSyncPreview, type PersonnelSyncPreview, type PersonnelSyncResult } from '../lib/incidents'
 
 // Editor-only provider sync: fetch a read-only preview (new /
@@ -76,12 +77,18 @@ export function PersonnelSyncDialog({ provider, onClose, onSynced }: { provider:
               <li key={c.label}><b>{c.n}</b> <span>{c.label}</span></li>
             ))}
           </ul>
-          {preview.stale.length > 0 && (
-            <label className="psync-stale">
-              <input type="checkbox" checked={deactivateStale} onChange={(e) => setDeactivateStale(e.target.checked)} />
-              <span>{fillTemplate(ps.staleHide, { n: preview.stale.length, provider })}</span>
-            </label>
-          )}
+          {/* ONE yes/no about the whole sync, not a pick among items — so the app's one binary
+              idiom, `OnOff` «Aus | An» (28.09.2026), and not the one native checkbox left on a
+              sheet (AGENTS.md · one control per kind of question) */}
+          {preview.stale.length > 0 && (() => {
+            const label = fillTemplate(ps.staleHide, { n: preview.stale.length, provider })
+            return (
+              <div className="psync-stale">
+                <span>{label}</span>
+                <OnOff ariaLabel={label} value={deactivateStale} onChange={setDeactivateStale} />
+              </div>
+            )
+          })()}
           <div className="ip-actions">
             <button className="ip-btn" onClick={onClose} disabled={busy}>{appConfig.copy.cancel}</button>
             <button className="ip-btn primary" onClick={() => void run()} disabled={busy}>

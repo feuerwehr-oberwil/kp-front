@@ -8,7 +8,7 @@ import type { CaptionMode } from '../../types'
 import { getDeploymentConfig } from '../../lib/deploymentConfig'
 import { listPersonnel } from '../../lib/incidents'
 import { Modal } from './_shared'
-import { Segmented } from '../Segmented'
+import { OnOff, Segmented } from '../Segmented'
 import { Stepper } from '../Stepper'
 
 /** Percent for a symbol multiplier — «110 %» is a size anyone reads at a glance, «1.1» is not.
@@ -65,7 +65,7 @@ export function SettingsSheet({
   offlineRadiusM: number
   onOfflineRadius: (m: number) => void
   /** quiet self-warm shortly after opening an Einsatz (lib/prefs · offlineAuto). Default true;
-   *  false = «Nur manuell» — the button in the Offline-Bereitschaft sheet stays either way. */
+   *  false = «Aus» (manual only) — the button in the Offline-Bereitschaft sheet stays either way. */
   offlineAuto: boolean
   onOfflineAuto: (v: boolean) => void
   /** keep the screen awake while an incident is open — device pref, default on */
@@ -163,28 +163,30 @@ export function SettingsSheet({
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.railLabels}<small>{cp.railLabelsSub}</small></span>
-              <Segmented<RailLabels> ariaLabel={cp.railLabels} value={railLabels} onChange={onRailLabels}
-                options={[{ value: 'off', label: cp.railLabelsOff }, { value: 'short', label: cp.railLabelsOn }]} />
+              {/* a yes/no too («soll da Text stehen»), so the same `OnOff` (28.09.2026) – it said
+                  «Aus | Wörter»; the stored value keeps its 'off' | 'short' names */}
+              <OnOff ariaLabel={cp.railLabels} value={railLabels === 'short'} onChange={(v) => onRailLabels(v ? 'short' : 'off')} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.offlineRadius}<small>{cp.offlineRadiusSub}</small></span>
               <Stepper value={offlineRadiusM} min={500} max={3000} step={250} format={(v) => (v < 1000 ? `${v} m` : `${v / 1000} km`)} onChange={onOfflineRadius} ariaLabel={cp.offlineRadius} />
             </div>
+            {/* The four yes/no rows below are the ONE binary idiom, `OnOff` – «Aus | An», in that
+                order (28.09.2026). They each built their own pair, «Ein | Aus» or «Erlaubt | Aus»,
+                with «on» on the LEFT – the mirror image of every editor sheet's switch, so the same
+                thumb-position meant «on» here and «off» there. */}
             <div className="set-row">
               <span className="set-row-l">{cp.offlineAuto}<small>{cp.offlineAutoSub}</small></span>
-              <Segmented<boolean> ariaLabel={cp.offlineAuto} value={offlineAuto} onChange={onOfflineAuto}
-                options={[{ value: true, label: cp.offlineAutoOn }, { value: false, label: cp.offlineAutoOff }]} />
+              <OnOff ariaLabel={cp.offlineAuto} value={offlineAuto} onChange={onOfflineAuto} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.keepScreenOn}<small>{cp.keepScreenOnSub}</small></span>
-              <Segmented<boolean> ariaLabel={cp.keepScreenOn} value={keepScreenOn} onChange={onKeepScreenOn}
-                options={[{ value: true, label: cp.keepScreenOnOn }, { value: false, label: cp.keepScreenOnOff }]} />
+              <OnOff ariaLabel={cp.keepScreenOn} value={keepScreenOn} onChange={onKeepScreenOn} />
             </div>
             {onElView && (
               <div className="set-row">
                 <span className="set-row-l">{cp.elView}<small>{cp.elViewSub}</small></span>
-                <Segmented<boolean> ariaLabel={cp.elView} value={elView} onChange={onElView}
-                  options={[{ value: true, label: cp.elViewOn }, { value: false, label: cp.elViewOff }]} />
+                <OnOff ariaLabel={cp.elView} value={elView} onChange={onElView} />
               </div>
             )}
             {/* Standort verwenden — the standing PERMISSION only, never the act of sharing:
@@ -197,8 +199,7 @@ export function SettingsSheet({
                   {sp.settingsLabel}
                   <small>{shareAs ? fillTemplate(sp.settingsAs, { name: shareAs }) : sp.settingsHint}</small>
                 </span>
-                <Segmented<boolean> ariaLabel={sp.settingsLabel} value={!!shareAs} onChange={onSharePosition}
-                  options={[{ value: true, label: sp.settingsOn }, { value: false, label: sp.settingsOff }]} />
+                <OnOff ariaLabel={sp.settingsLabel} value={!!shareAs} onChange={onSharePosition} />
               </div>
             )}
           </div>
