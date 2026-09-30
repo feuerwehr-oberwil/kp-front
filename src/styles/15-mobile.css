@@ -714,16 +714,23 @@
      the keyboard up, 8px + the home-indicator inset stood open between it and the keys. */
   .journal-drawer { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-width: none;
     max-height: calc(100dvh - 70px - env(safe-area-inset-top));
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    padding-bottom: 0;
     border-radius: var(--r-hero) var(--r-hero) 0 0; animation: sheetUp .22s var(--ease); }
   /* ⚠️ Keyboard up (the Verlauf search, 15.09.2026): the Overlay lifts this bottom-anchored
      drawer by the keyboard's height (keyboardLift · marginBottom), but the cap above is the whole
      screen – so a full drawer rode up with its HEAD, the row holding the search field, above the
      top of the screen, and the operator typed into a field they could not see. The cap gives the
      keyboard its share, the same way the incident sheet's `.is-kb` does (13-incident.css). */
-  /* …and the keyboard covers the home indicator, so its inset is not paid twice */
-  .journal-drawer.is-kb { padding-bottom: 10px;
-    max-height: calc(100dvh - 70px - env(safe-area-inset-top) - var(--kb-inset, 0px)); }
+  .journal-drawer.is-kb { max-height: calc(100dvh - 70px - env(safe-area-inset-top) - var(--kb-inset, 0px)); }
+  /* ⚠️ …and that bottom inset is the LOG's, not the drawer's (30.09.2026, staging phone pass:
+     «there is a gap at the bottom where things don't scroll down below»). As the drawer's own
+     padding it was a dead band — 10px + the home indicator, ~44px on an iPhone — under the
+     scroller, so every row was cut off at the band's top edge, the last one included. Paid by the
+     scroller's last row instead (AGENTS · «the bottom inset paid by its last row»), rows scroll
+     on down to the sheet's edge and the last one still comes to rest above the home indicator. */
+  .journal-drawer > .history-list { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  /* (the keyboard covers the home indicator, so its inset is not paid twice) */
+  .journal-drawer.is-kb > .history-list { padding-bottom: 10px; }
   /* ⚠️ The Pendenzen box needs a cap this side of a PERCENTAGE. Its `max-height: 45%` resolves
      against `.journal-drawer`, and on a phone this drawer is `height: auto` (bottom-anchored,
      capped by max-height) — an indefinite height, against which a percentage max-height computes
