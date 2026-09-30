@@ -16,13 +16,9 @@
 .help-head-tt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .help-head-tt h2 { margin: 0; font-size: 18px; font-weight: 800; color: var(--ink); }
 .help-head-tt p { margin: 0; font-size: 12.5px; color: var(--ink-dim); line-height: 1.45; }
-.help-x { margin-left: auto; flex: none; width: 34px; height: 34px; border-radius: var(--r-sm); border: none; cursor: pointer;
-  background: var(--fill-soft); color: var(--ink-dim); display: grid; place-items: center; transition: background .14s var(--ease), color .14s var(--ease); }
-@media (hover: hover) {
-  .help-x:hover { background: var(--hover-strong); color: var(--ink); }
-}
-.help-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.help-x .i { width: 16px; height: 16px; }
+/* the ✕ IS the global `.ip-x` (28.09.2026 — it was a 34px copy with a 16px glyph); the head only
+   pushes it to the end */
+.help-head .ip-x { margin-left: auto; flex: none; }
 /* one search row spanning the full width under the header — it filters BOTH columns, so it
    belongs to neither of them (and the TOC it would otherwise sit in is gone on a phone) */
 .help-search { display: flex; align-items: center; gap: 9px; flex: none; padding: 10px 20px;

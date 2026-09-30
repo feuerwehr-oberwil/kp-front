@@ -50,7 +50,7 @@ function MiniSheet({ title, sub, ariaLabel, onClose, children, footer, className
       <SheetGrab />
       <div className={s.modalHead}>
         <h3>{title}{sub && <small className={s.miniSub}>{sub}</small>}</h3>
-        <button type="button" className={s.iconBtn} aria-label={az.cancel} onClick={onClose}><Icon id="close" /></button>
+        <button type="button" className="ip-x" aria-label={az.cancel} onClick={onClose}><Icon id="close" /></button>
       </div>
       <div className={s.miniBody}>{children}</div>
       {footer}

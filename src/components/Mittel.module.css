@@ -225,8 +225,9 @@
   padding: 9px 12px; background: color-mix(in srgb, var(--blue) 9%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--blue) 32%, transparent); border-radius: var(--r-ctl); }
 .recText { flex: 1 1 240px; min-width: 0; font: 600 13px var(--body); color: var(--ink-dim); }
+/* ⚠️ the strip's one action is THE primary (28.09.2026) — blue now means «chosen» (--sel) */
 .recTake { flex: none; border: none; border-radius: var(--r-sm); padding: 8px 14px; cursor: pointer;
-  font: 700 12.5px var(--body); background: var(--blue); color: var(--on-fill); }
+  font: 700 12.5px var(--body); background: var(--btn-primary); color: var(--on-btn-primary); }
 .recTake:active { background-image: linear-gradient(var(--press), var(--press)); }
 .recHide { flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin: -2px -4px -2px -6px;
   border: none; border-radius: var(--r-sm); background: none; color: var(--ink-faint); cursor: pointer; }

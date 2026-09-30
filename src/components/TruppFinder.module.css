@@ -23,14 +23,10 @@
 .input { flex: 1; min-width: 0; border: none; background: none; outline: none;
   font: 700 18px var(--body); color: var(--ink); }
 .input::placeholder { color: var(--ink-faint); font-weight: 600; }
-/* var(--tap), like every other dialog ✕ that stands alone in its header: at 36px this one was
-   below the touch floor and read a size smaller than the 18px query beside it. A module class
-   gets no help from the shared 44px pad in 02-base.css, so it has to BE 44. */
-.x { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center; padding: 0;
-  border: none; border-radius: var(--r-sm); background: none; color: var(--ink-faint); cursor: pointer; }
-@media (hover: hover) { .x:hover { background: var(--fill-soft); color: var(--ink); } }
-.x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.x svg { width: 18px; height: 18px; }
+/* The ✕ IS the global `.ip-x` (28.09.2026 — it was a bare, unfilled copy); the head is a search
+   field, so it takes the one exception to the 36px: var(--tap) beside a 44px field (AGENTS ·
+   Buttons follow one spec). Doubled with the global class so the size beats `.ip-x`'s own 36. */
+.x:global(.ip-x) { flex: none; width: var(--tap); height: var(--tap); }
 
 .list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 8px; list-style: none; }
 .row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;

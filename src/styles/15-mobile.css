@@ -735,6 +735,9 @@
   [role='dialog'] .ui-sheet-foot {
     padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right));
     padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  /* ⚠️ owner pick A (28.09.2026): on a phone the footer's primary takes the rest of the row and
+     the framed «Abbrechen» beside it stays at its word's width — one row, one height */
+  [role='dialog'] .ui-sheet-foot > .ip-btn.primary { flex: 1 1 auto; justify-content: center; }
   .ip-sheet:has(> .ui-sheet-foot) .ip-body { padding-bottom: 12px; }
   /* Base UI Dialog popup has no .ip-ovl grid parent, so bottom-anchor it here (the old
      .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + sheetUp entrance. */

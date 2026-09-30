@@ -2971,7 +2971,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     <button className="wb-floor-x"
                       title={`${appConfig.copy.whiteboard.removeFloor}: ${building.floorNames?.[String(f)] ?? floorLabel(f)}`}
                       aria-label={`${appConfig.copy.whiteboard.removeFloor}: ${building.floorNames?.[String(f)] ?? floorLabel(f)}`}
-                      onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFloor(f)}><Icon id="close" /></button>
+                      onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFloor(f)}><Icon id="trash" /></button>
                   )}
                   {/* (the north dial used to be drawn on this tile, top-right. It now floats in
                       the viewport's corner — see <PlanCompass> below the board: inside the tile

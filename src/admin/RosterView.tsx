@@ -322,7 +322,7 @@ function ImportConfirmSheet({ file, preview, onCancel, onDone }: {
       title={mapping ? C.mapTitle : C.confirmTitle}
       footer={
         <>
-          <button type="button" className="ip-btn ghost" onClick={onCancel} disabled={busy}>{Cc.cancel}</button>
+          <button type="button" className="ip-btn" onClick={onCancel} disabled={busy}>{Cc.cancel}</button>
           <button type="button" className="ip-btn primary" onClick={() => void apply()} disabled={busy || nothing}>
             {busy
               ? C.importing

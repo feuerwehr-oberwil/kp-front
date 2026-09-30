@@ -94,7 +94,7 @@ export function PinSheet({ user, onClose, onSaved }: {
       sheetClassName="adm-pin-sheet"
       footer={setting ? (
         <>
-          <button type="button" className="ip-btn ghost" onClick={onClose}>{Cc.cancel}</button>
+          <button type="button" className="ip-btn" onClick={onClose}>{Cc.cancel}</button>
           <button
             type="button"
             className="ip-btn primary"
@@ -108,7 +108,7 @@ export function PinSheet({ user, onClose, onSaved }: {
         <>
           <button
             type="button"
-            className="ip-btn ghost"
+            className="ip-btn"
             onClick={() => { setSecond(''); setErr(null); setStep('set') }}
             disabled={busy}
           >

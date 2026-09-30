@@ -254,7 +254,7 @@ export function OfflineReadinessSheet({
                 <span className="or-prog-pct">{progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0} %</span>
                 {/* the download had no way out until 02.09.: three workers on a dead WLAN ran until
                     their timeouts, and the button under them was gone for the duration */}
-                <button type="button" className="ip-btn ghost or-prog-cancel" onClick={onCancel}>{o.cancel}</button>
+                <button type="button" className="ip-btn or-prog-cancel" onClick={onCancel}>{o.cancel}</button>
               </span>
             </div>
           </div>
