@@ -1245,8 +1245,6 @@ export const fr: Localizable<Copy> = {
     lowestPressure: 'Le plus bas',
     lineField: 'Conduite',
     edit: 'Modifier',
-    pressureDown: '{step} bar de moins',
-    pressureUp: '{step} bar de plus',
     pressureConfirm: 'Confirmer',
     pressureConfirmHint: 'Confirmer la nouvelle pression – compte comme contact',
     verlauf: 'Journal',

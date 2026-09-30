@@ -96,7 +96,7 @@ const pickAuftrag = (label = 'Retten') =>
 describe('the Druckmeldung on the tablet card', () => {
   it('opens the pressure picker from the tile, and a tap on a number saves it', () => {
     const props = mount()
-    expect(screen.queryByLabelText(az.pressureDown.replace('{step}', String(atemschutzDoctrine().pressureStep)))).toBeNull()
+    expect(document.querySelector(`.${s.stepBtn}`)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: `${az.actPressure} 240 bar` }))
     expect(props.recordPressure).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '200' }))
@@ -1761,6 +1761,33 @@ describe('the Gruppenführer by rank', () => {
   })
 })
 
+/* The form asks Druck and Kanal the way the sheets do (30.09.2026): the Druck grid, the Kanal pad
+ * — a tap is the answer, nothing is saved until «Trupp anmelden». */
+describe('the form\'s Druck and Kanal are the sheets\' tap controls', () => {
+  const real = atemschutzDoctrine()
+  beforeEach(() => { vi.spyOn(deploymentConfig, 'atemschutzDoctrine').mockImplementation(() => ({ ...real, funkkanalMin: 1, funkkanalMax: 16 })) })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('picks the Eingangsdruck on the grid and the Kanal on the pad', () => {
+    const createTrupp = vi.fn()
+    mount({ trupps: [], createTrupp })
+    fireEvent.click(firstBtn(az.newTrupp))
+    typeGuest('Pad Paula')
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${az.luftChange}:`) }))
+    const grid = screen.getByRole('group', { name: az.pressureLabel })
+    // the station default is the picked answer, filled
+    expect(within(grid).getByRole('button', { name: String(dz.defaultPressureBar) }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(within(grid).getByRole('button', { name: '280' }))
+    expect(within(grid).getByRole('button', { name: '280' }).getAttribute('aria-pressed')).toBe('true')
+    const pad = screen.getByRole('group', { name: az.funkkanalUnit })
+    expect(within(pad).getByRole('button', { name: String(dz.defaultFunkkanal) }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(within(pad).getByRole('button', { name: '7' }))
+    expect(createTrupp).not.toHaveBeenCalled()
+    fireEvent.click(lastBtn(az.start))
+    expect(createTrupp).toHaveBeenCalledWith(expect.objectContaining({ entryPressureBar: 280, funkkanal: 7 }))
+  })
+})
+
 describe('the Gast door in the person picker', () => {
   const roster = Array.from({ length: 40 }, (_, i) => ({
     id: `p${i}`, displayName: `Muster ${String(i).padStart(2, '0')}`, active: true,
@@ -2254,13 +2281,9 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
     fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
   }
-  /** type a bar into the form's Eingangsdruck stepper (tap the value, type, Enter) */
+  /** tap a bar on the form's Eingangsdruck grid (the Druck sheet's grid since 30.09.2026) */
   const typePressure = (bar: number, label: string) => {
-    const field = within(screen.getByRole('dialog')).getByText(label).closest(`.${s.field}`) as HTMLElement
-    fireEvent.click(within(field).getByTitle(appConfig.copy.stepper.typeToEnter))
-    const input = field.querySelector<HTMLInputElement>(`.${s.stepInput}`)!
-    fireEvent.change(input, { target: { value: String(bar) } })
-    fireEvent.blur(input)
+    fireEvent.click(within(screen.getByRole('group', { name: label })).getByRole('button', { name: String(bar) }))
   }
 
   it('locks it once the Trupp is out, points at the Restdruck, and saves the stored value', async () => {
@@ -2269,7 +2292,7 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     await openEdit()
     expect(screen.getByText(az.pressureLocked)).toBeTruthy()
     expect(screen.getByText(new RegExp(fillTemplate(az.pressureLockedExit, { t: '.*', bar: 60 }).replace(/[()]/g, '.')))).toBeTruthy()
-    expect(within(screen.getByRole('dialog')).queryByLabelText(fillTemplate(az.pressureDown, { step: dz.pressureStep }))).toBeNull()
+    expect(within(screen.getByRole('dialog')).queryByRole('group', { name: az.editPressureLabel })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: az.save }))
     expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 300 }))
   })
@@ -2278,7 +2301,9 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     mount()
     await openEdit()
     expect(screen.queryByText(az.pressureLocked)).toBeNull()
-    expect(within(screen.getByRole('dialog')).getByLabelText(fillTemplate(az.pressureDown, { step: dz.pressureStep }))).toBeTruthy()
+    // the grid, with the stored 300 as the picked answer
+    const grid = within(screen.getByRole('dialog')).getByRole('group', { name: az.editPressureLabel })
+    expect(within(grid).getByRole('button', { name: '300' }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('asks ONCE below the station minimum, with the value on the button', async () => {
@@ -2410,11 +2435,7 @@ describe('review fixes: the low Eingangsdruck on a re-entry', () => {
     readings: [...aktivTrupp().readings!, { t: iso(2 * 60_000), bar: 120, kind: 'exit', measured: true }],
   })
   const typePressure = (bar: number) => {
-    const field = within(screen.getByRole('dialog')).getByText(az.newPressureLabel).closest(`.${s.field}`) as HTMLElement
-    fireEvent.click(within(field).getByTitle(appConfig.copy.stepper.typeToEnter))
-    const input = field.querySelector<HTMLInputElement>(`.${s.stepInput}`)!
-    fireEvent.change(input, { target: { value: String(bar) } })
-    fireEvent.blur(input)
+    fireEvent.click(within(screen.getByRole('group', { name: az.newPressureLabel })).getByRole('button', { name: String(bar) }))
   }
 
   it('«Neue Flasche» with a low value asks once, with «Ändern» focused', async () => {
@@ -2540,7 +2561,7 @@ describe('staging: the first Druckmeldung says what it does', () => {
     fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Neu Nina')
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${az.luftChange}:`) }))
-    fireEvent.pointerDown(screen.getByLabelText(fillTemplate(az.pressureDown, { step: dz.pressureStep })))
+    fireEvent.click(within(screen.getByRole('group', { name: az.pressureLabel })).getByRole('button', { name: '280' }))
     fireEvent.click(lastBtn(az.start))
     expect(createTrupp.mock.calls[0][0].readings).toEqual([expect.objectContaining({ kind: 'registered', measured: true })])
   })
