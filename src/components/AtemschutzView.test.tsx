@@ -243,8 +243,8 @@ describe('the state a tier cannot say', () => {
    * And no «Draussen seit» under the word (22.09.): the band read «DRAUSSEN / Draussen seit». */
   it('gives an Atemschutz-Trupp that is out its break clock, and no tier', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
-    // the grid has no «Draussen» section head, so the card's state line says it (`headed`)
-    expect(document.querySelector(`.${s.stateLine}`)?.textContent).toBe(az.status.raus)
+    // no «Draussen» line on the card (owner, 29.09.2026): the grey card with «Wieder in den Einsatz» says it
+    expect(document.querySelector(`.${s.stateLine}`)).toBeNull()
     // «Draussen seit» is the ROW's caption track only — on a card it stays hidden (`.trowHead .trowSub`)
     expect(screen.getByText(az.outFor).closest(`.${s.trowHead}`)).toBeTruthy()
     expect(screen.queryByText(az.clockOk)).toBeNull()
@@ -379,8 +379,8 @@ describe('the tablet card wears the phone card (29.09.2026)', () => {
     expect(card.querySelector(`.${s.trowChevron}`)).toBeNull()
     expect(card.querySelector(`.${s.trowHead}`)!.textContent).toContain('#2')
     expect(within(card as HTMLElement).getAllByRole('button', { name: az.actContact })).toHaveLength(1)
-    // the ⋯ is the facts' last chip
-    expect(card.querySelector(`.${s.facts}`)!.lastElementChild!.getAttribute('aria-label')).toBe(az.cardMenu)
+    // the ⋯ ends the foot line, beside the Verlauf's ⌄ (29.09.2026, owner pick B)
+    expect(card.querySelector(`.${s.vfootRow}`)!.lastElementChild!.getAttribute('aria-label')).toBe(az.cardMenu)
   })
 
   // T9: the handed-over phone Tafel's add cell carries its word
@@ -696,10 +696,10 @@ describe('the mini sheets', () => {
     fireEvent.click(document.querySelector(`.${s.trow}`)!)
     const card = document.querySelector('[data-az-open]') as HTMLElement
     const chips = [...card.querySelectorAll(`.${s.facts} > *`)]
-    expect(chips.map((c) => c.textContent)).toEqual(['Huber', 'Löschen · Test', fillTemplate(az.lineChip, { n: 1 }), `${az.funkkanalUnit} 11`, 'WBK', ''])
-    // every chip but the ⋯ is a button; the ⋯ is the LAST one and it is the card's menu
+    expect(chips.map((c) => c.textContent)).toEqual(['Huber', 'Löschen · Test', fillTemplate(az.lineChip, { n: 1 }), `${az.funkkanalUnit} 11`, 'WBK'])
+    // every chip is a button; the ⋯ is NOT a chip — it ends the foot line (29.09.2026, owner pick B)
     expect(chips.every((c) => c.tagName === 'BUTTON')).toBe(true)
-    expect(chips[chips.length - 1].getAttribute('aria-label')).toBe(az.cardMenu)
+    expect(card.querySelector(`.${s.vfootRow}`)!.lastElementChild!.getAttribute('aria-label')).toBe(az.cardMenu)
     // no colour, no labels: the Kennzeile's sentence classes are not in the strip
     expect(card.querySelector(`.${s.kenn}`)).toBeNull()
     // the Kanal chip opens the pad, the Auftrag chip the Auftrag sheet

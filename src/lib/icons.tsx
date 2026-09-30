@@ -86,7 +86,7 @@ export function IconSprite() {
           reticle — «where is that Trupp». It wore the #search lens, which the Suche's tile wears
           60px below it on a phone: one glyph, two searches, and a gloved thumb picking the wrong
           one. Distinct from #locate (a dot, «me») by the flag. Wherever «Trupp finden» appears. */}
-      <symbol id="trupp-find" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 1v2.5M12 20.5V23M1 12h2.5M20.5 12H23" /><path d="M9.5 17V7M9.5 7.5h6.5l-1.8 2.4 1.8 2.4H9.5" /></symbol>
+      <symbol id="trupp-find" viewBox="0 0 24 24"><circle cx="8" cy="7.5" r="3" /><path d="M2.5 19c0-3.2 2.4-5.3 5.5-5.3 1.4 0 2.6.4 3.6 1.1" /><circle cx="16.5" cy="15.5" r="3.6" /><path d="M19.1 18.1 22 21" /></symbol>
       <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M16 16l5 5" /></symbol>
       <symbol id="close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></symbol>
       <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5" /><circle cx="12" cy="7.7" r=".5" /></symbol>

@@ -2180,7 +2180,7 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  *   2 tiles      «⌓ 240 bar | Kontakt» (TruppPair), then Rückzug | Raus in the same tile shape
  *   3 state      the tier in words where colour alone would say it (`stateLine`)
  *   4 Hinweis    the Alarmdruck note, for the case where only the projection has crossed
- *   5 facts      crew · Auftrag · Kanal … as chips, each the door to its sheet, the ⋯ last
+ *   5 facts      crew · Auftrag · Kanal … as chips, each the door to its sheet (the ⋯ ends the foot)
  *   6 foot       Einsatzzeit · Schätzung, the whole line the Verlauf's toggle
  *
  * What the tablet keeps because it has the room: every card open at once in a grid (the phone
@@ -2351,13 +2351,20 @@ function TruppCard({
    * also says «Bereit» and «Draussen» in the quiet tone — on the phone those are the section it
    * stands in, and there they would be the same word twice. */
   const rowMode = !!onCollapse
-  const rowWord: { text: string; tone?: string } | null = !monitored ? { text: statusLabel, tone: s.kennQuiet }
-    : out ? (neverDeployed || !headed ? { text: statusLabel, tone: s.kennQuiet } : null)
+  /* ⚠️ 29.09.2026 (owner on staging): «drop the überfällig – if the card is red it's pretty obvious»,
+   * and «the draussen subtitle is probably not even required». So fällig / überfällig are no
+   * longer SHOWN: the red or amber card, its red clock and its Kontakt say it, and the word stays
+   * for a screen reader only (`hidden`). An out Trupp's «Draussen» goes on every board — its card
+   * is the grey one with «Wieder in den Einsatz» on it. What stays in words is what colour cannot
+   * carry: the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
+   * squad's state. */
+  const rowWord: { text: string; tone?: string; hidden?: boolean } | null = !monitored ? { text: statusLabel, tone: s.kennQuiet }
+    : out ? (neverDeployed ? { text: statusLabel, tone: s.kennQuiet } : null)
     : preEntry ? (headed ? null : { text: az.phoneSectionReady, tone: s.kennQuiet })
     : frozen ? { text: az.clockFrozen, tone: s.kennQuiet }
     : pressureCrit ? { text: `${az.clockAlarmPressure} · ${fillTemplate(az.clockAlarmLimit, { bar: line })}`, tone: s.kennCrit }
-    : sev >= 2 ? { text: az.clockOverdue, tone: s.kennCrit }
-    : sev === 1 ? { text: az.clockWarn }
+    : sev >= 2 ? { text: az.clockOverdue, hidden: true }
+    : sev === 1 ? { text: az.clockWarn, hidden: true }
     : null
 
   // The Leitung chip: the numeric field, else the free text an older record still carries. Shown
@@ -2553,7 +2560,7 @@ function TruppCard({
   const menu = menuItems.length > 0 && (
     <Menu
       trigger={
-        <button type="button" className={cx(s.fact, s.factMore)} aria-label={az.cardMenu} title={az.cardMenu}>
+        <button type="button" className={s.footMore} aria-label={az.cardMenu} title={az.cardMenu}>
           <Icon id="more" />
         </button>
       }
@@ -2567,7 +2574,7 @@ function TruppCard({
    * 2. OG· Kanal 11», its Auftrag in blue), each a 36px chip with one 1px edge and no colour of
    * its own — a strip of things to TAP, where the sentence was a line to read: the crew → Trupp
    * sheet, «Löschen · Test» → Auftrag sheet, «Kanal 11» → Kanal sheet, «Ltg 1» → the drawn hose
-   * (else the Auftrag sheet), the Ausrüstung → Trupp sheet, and the ⋯ as the LAST chip. The one
+   * (else the Auftrag sheet), the Ausrüstung → Trupp sheet (the ⋯ moved to the foot line on 29.09.2026). The one
    * thing allowed a colour is the GAP: a dashed amber «+ Auftrag» where the Auftrag is missing —
    * a Trupp with no job is a question the Überwacher must be able to see. No chip for a missing
    * Leitung (it lives in the Auftrag sheet), no small-caps labels, no «#N» (that is on the head).
@@ -2595,14 +2602,13 @@ function TruppCard({
         hasLine && !lite ? () => onShowLine(t.id) : onQuick && (() => onQuick('auftrag')), hasLine && !lite ? s.factGo : undefined)}
       {t.funkkanal != null && chip('kanal', `${az.funkkanalUnit} ${t.funkkanal}`, onQuick && (() => onQuick('kanal')))}
       {equipmentTags.map(({ id, tag }) => chip(`eq-${id}`, tag, onQuick && (() => onQuick('trupp'))))}
-      {menu}
     </div>
   )
   /* the card says in WORDS what its line and its Kontakt say in colour — one line under the tile
    * grid, red or amber with the tier (26.09.2026 — see `rowWord`) */
-  const stateLine = rowWord && (
-    <div className={cx(s.stateLine, rowWord.tone)} role={monitored ? 'status' : undefined}>{rowWord.text}</div>
-  )
+  const stateLine = rowWord && (rowWord.hidden
+    ? <span className="sr-only" role="status">{rowWord.text}</span>
+    : <div className={cx(s.stateLine, rowWord.tone)} role={monitored ? 'status' : undefined}>{rowWord.text}</div>)
   const noteZone = (
     <>
       {/* ── 4 Hinweis ─────────────────────────────────────────────────────────────────────────
@@ -2726,7 +2732,13 @@ function TruppCard({
             schätzung clearly visible»): it is the one number on the card that is not a reading,
             and «≈ 0 bar» dimmed at the card's foot was easy to read past. The word is what keeps
             it from being taken for a logged Druck — the dimming that used to do that is gone. */}
-        <button type="button" className={cx(s.vrow, s.vrowTerse)} data-az-foot="" aria-expanded={logOpen} aria-label={az.verlauf}
+        {/* ⚠️ The ⋯ ends THIS line (29.09.2026, owner pick B): as the facts' last chip it wrapped
+            onto a row of its own on most cards, 44px of height for one glyph. Beside the Verlauf's
+            ⌄ it costs nothing, stands at the same place on every card and every board, and the
+            FAB guard (`data-az-foot` on the row, AtemschutzView · the parking effect) keeps both
+            clear of the Eintrag button. */}
+        <div className={s.vfootRow} data-az-foot="">
+        <button type="button" className={cx(s.vrow, s.vrowTerse)} aria-expanded={logOpen} aria-label={az.verlauf}
           onClick={() => setLogOpen((o) => !o)}>
           <span className={s.metaLine}>
             {sockelLine.length > 0 ? sockelLine.map((it) => (
@@ -2738,6 +2750,8 @@ function TruppCard({
           </span>
           <Icon id={logOpen ? 'chevron-up' : 'chevron-down'} className={s.logChev} />
         </button>
+        {menu}
+        </div>
             {logOpen && (
               <div className={s.vopen}>
                 {/* ── ONE panel of look-up rows, then the list (09.09., maintainer review) ────
