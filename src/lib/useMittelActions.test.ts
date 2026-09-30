@@ -90,3 +90,21 @@ describe('useMittelActions · two devices, one millisecond', () => {
     expect(merged.map((m) => m.label).sort()).toEqual(['Schlauch 75er', 'Tauchpumpe', 'Ölbinder'])
   })
 })
+
+/* ⚠️ An un-delete carries exactly the count, remark and Bestand its tombstone did — which made it
+ * compare «unchanged» and write nothing, so the removal toast's «Rückgängig» (and the pencil
+ * dialog's, after a rename) silently did nothing (29.09.2026). A return from a removal is a change. */
+describe('useMittelActions · a line coming back from a removal', () => {
+  it('is written, with its own Verlauf row', () => {
+    const h = harness([entry(3)])
+    act(() => { h.result.current.saveMittel({ ...draft(3), deleted: true }) })
+    act(() => { h.result.current.saveMittel({ ...draft(3), deleted: false }) })
+    expect(h.rows()).toEqual(['Schlauch 75er gelöscht', 'Schlauch 75er wiederhergestellt'])
+  })
+
+  it('…while a line that was never removed still writes nothing for the same values', () => {
+    const h = harness([entry(3)])
+    act(() => { h.result.current.saveMittel({ ...draft(3), deleted: false }) })
+    expect(h.rows()).toEqual([])
+  })
+})
