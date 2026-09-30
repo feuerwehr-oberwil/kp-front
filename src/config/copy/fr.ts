@@ -201,7 +201,7 @@ export const fr: Localizable<Copy> = {
             'Là où un objet **se trouve** est décidé par la dernière main qui l’a posé : tiré sur une feuille, il est sur la feuille – et suit la correction de l’ajustement. Tiré sur la carte, il est au sol. Un ajustement corrigé replace tout ce qui est posé sur cette feuille – une ligne au journal, qu’un ↶ annule. **Format du plan mesuré** est le même repositionnement sans intervention : l’app a mesuré la feuille ouverte et résolu l’ajustement à sa vraie forme. **Réinitialiser** une référence ne perd rien : la feuille et la carte gardent toutes deux ce qu’elles montrent.',
             'Dans les **Couches**, chaque feuille liée reçoit une ligne propre (« Plan (module 2) ») : la feuille elle-même, en image sous la carte. Les objets qui y sont posés n’ont plus besoin de ligne – ils appartiennent à la couche sur laquelle ils ont été posés.',
           ] },
-          { kind: 'note', text: '**Dans quel sens se trouve le bâtiment ?** La **flèche du nord** sur la pile d’étages et la **boussole** en bas de la barre de gauche ouvrent la même petite fenêtre « Pivoter le bâtiment » : un curseur **Rotation** avec aperçu, plus **Nord en haut** et **Pivoter sur le grand axe** en un seul geste. Le contour tourne avec, les marquages restent où ils sont sur le bâtiment – et les pages d’étage imprimées montrent l’angle réglé.' },
+          { kind: 'note', text: '**Dans quel sens se trouve le bâtiment ?** Un toucher sur la **flèche du nord** en haut à droite de la pile d’étages ouvre la petite fenêtre « Pivoter le bâtiment » : un curseur **Rotation** avec aperçu, plus **Nord en haut** et **Pivoter sur le grand axe** en un seul geste. Le contour tourne avec, les marquages restent où ils sont sur le bâtiment – et les pages d’étage imprimées montrent l’angle réglé.' },
         ],
       },
       {
@@ -1744,6 +1744,8 @@ export const fr: Localizable<Copy> = {
     addFloorDown: 'Ajouter un sous-sol',
     floorAddedToast: '{floor} ajouté',
     floorHide: 'Masquer l’étage',
+    floorHideShort: 'Masquer',
+    floorMenu: '{name} : masquer ou retirer',
     floorShow: 'afficher',
     floorHidden: 'masqué',
     removeFloor: 'Retirer l’étage',

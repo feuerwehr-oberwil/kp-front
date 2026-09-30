@@ -113,4 +113,9 @@ describe('the shared ladder (lib/useHeadFit · climbLadder)', () => {
     expect(bar.className).toBe('')
     expect(fitHead(bar, () => true)).toBe(HEAD_FIT_STEPS.length)
   })
+
+  // sweep K2 (29.09.2026): the tablet's Eintrag keeps its word at 820px and gives it up LAST
+  it('«Eintrag» is the last word the top bar gives up', () => {
+    expect(HEAD_FIT_STEPS[HEAD_FIT_STEPS.length - 1]).toBe('eintrag-word')
+  })
 })

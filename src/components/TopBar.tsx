@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Popover, PopoverClose } from '../lib/overlays'
 import { fmtElapsedHM, fmtMMSS } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
-import { Icon } from '../lib/icons'
+import { EntryGlyph, Icon } from '../lib/icons'
 import { fmtClock, type AtemschutzAlarmState } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import type { Incident, ReactivateResult, WeatherData } from '../types'
@@ -281,13 +281,14 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             {recording
               ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
               : <>
-                {/* the charge ring rings the + icon — anchored at the right edge it sat ON the
+                {/* the charge ring rings the glyph — anchored at the right edge it sat ON the
                     label's last letters and read as clutter over the word it was charging */}
                 <span className="tb-act-ic">
                   {/* inline path, not a sprite <use> — same defence as FabEntry (29.08.): the
-                      field-logging + must never render as an empty circle when a sprite fails
-                      to resolve across remounts */}
-                  <svg className="i" viewBox="0 0 24 24" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
+                      field-logging glyph must never render as an empty button when a sprite
+                      fails to resolve across remounts. The journal glyph, not «+» (29.09.2026,
+                      sweep K2): the rail's «+ Symbol» stands right beside it. */}
+                  <EntryGlyph />
                   {pressing && pressedSince != null && <HoldChargeRing since={pressedSince} />}
                 </span>
                 <span className="tb-act-label">{appConfig.copy.journal.add}</span>

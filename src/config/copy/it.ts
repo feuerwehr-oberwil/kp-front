@@ -201,7 +201,7 @@ export const it: Localizable<Copy> = {
             'Dove un oggetto **sta** lo decide l’ultima mano che lo ha posato: trascinato su un foglio sta sul foglio – e si sposta con la correzione dell’adattamento. Trascinato sulla carta sta a terra. Un adattamento corretto riposiziona tutto ciò che sta su quel foglio – una riga nel diario, che un ↶ annulla. **Formato del foglio misurato** è lo stesso riposizionamento senza alcun gesto: l’app ha misurato il foglio aperto e risolto l’adattamento nella sua vera forma. **Reimpostare** un riferimento non perde nulla: foglio e carta mantengono entrambi ciò che mostrano.',
             'Nei **Livelli** ogni foglio collegato riceve una riga propria («Piano (modulo 2)»): il foglio stesso, come immagine sotto la carta. Gli oggetti posati su di esso non hanno più bisogno di una riga – appartengono al livello su cui sono stati posati.',
           ] },
-          { kind: 'note', text: '**Da che parte è girato l’edificio?** La **freccia del nord** sulla pila dei piani e la **bussola** in basso nella barra sinistra aprono la stessa finestrella «Ruota l’edificio»: un cursore **Rotazione** con anteprima, più **Nord in alto** e **Ruota sull’asse maggiore** con un tocco ciascuno. Il contorno gira con essa, le marcature restano dove stanno sull’edificio – e le pagine dei piani stampate mostrano l’angolo impostato.' },
+          { kind: 'note', text: '**Da che parte è girato l’edificio?** Un tocco sulla **freccia del nord** in alto a destra sulla pila dei piani apre la finestrella «Ruota l’edificio»: un cursore **Rotazione** con anteprima, più **Nord in alto** e **Ruota sull’asse maggiore** con un tocco ciascuno. Il contorno gira con essa, le marcature restano dove stanno sull’edificio – e le pagine dei piani stampate mostrano l’angolo impostato.' },
         ],
       },
       {
@@ -1744,6 +1744,8 @@ export const it: Localizable<Copy> = {
     addFloorDown: 'Aggiungi piano inferiore',
     floorAddedToast: '{floor} aggiunto',
     floorHide: 'Nascondi piano',
+    floorHideShort: 'Nascondi',
+    floorMenu: '{name}: nascondi o rimuovi',
     floorShow: 'mostra',
     floorHidden: 'nascosto',
     removeFloor: 'Rimuovi piano',

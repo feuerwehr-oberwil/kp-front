@@ -123,8 +123,8 @@ describe('circleRingN', () => {
 describe('scaleLampTone — what the Massstab pill\'s lamp says about the metres', () => {
   const S = { auto: false, autoFromFit: false, fitWarn: false, stale: false, calibrated: false }
 
-  it('is red on a sheet with no scale at all — «nicht kalibriert»', () => {
-    expect(scaleLampTone(S)).toBe('red')
+  it('is grey on a sheet with no scale yet — «nicht kalibriert» is no alarm (K10)', () => {
+    expect(scaleLampTone(S)).toBe('grey')
   })
 
   it('is green for a hand calibration against the printed scale bar', () => {

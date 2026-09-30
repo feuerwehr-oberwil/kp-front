@@ -193,10 +193,6 @@
    blue line on a blue wash, a look no other field in the app had */
 .ctx-title-input:focus { background: var(--surface); border-radius: var(--r-xs);
   border-bottom-color: transparent; box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
-/* The labelled Fahrzeug's header title is a BUTTON: a tap falls through to the «Bezeichnung»
-   field below and opens its menu (ContextPanel · openBezeichnung). It keeps the resting
-   underline — here the affordance is honest, the tap does something. */
-.ctx-title-btn { display: block; text-align: left; cursor: pointer; appearance: none; }
 /* keyboard-free stepper (− value +), used for Geschoss + Anzahl. The clear ✕ keeps
    a FIXED slot (visibility toggles, with a gap before it) so the + button never
    shifts under the finger between taps and never sits where clear will appear. */

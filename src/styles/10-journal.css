@@ -71,9 +71,9 @@
    Measured from nothing collapsed, one step at a time, until the bar fits; a step keeps every
    step below it. Lowest priority first: the weather, the Einsatzdauer, ↷, the gaps, the Verlauf
    word, the Suche's words, the alarm's name, the Einsatz title (the pill stays — glyph and ÜBUNG
-   marker), and last the «1?» count (the «?» stays). The pill itself never gives: squeezed below
-   a readable width counts as «does not fit». «Eintrag» keeps its word — writing the entry is
-   what an officer does WHILE the alarm runs. :not(.tb-rem-count) keeps the reminder count, a
+   marker), the «1?» count (the «?» stays), and last the word «Eintrag» (29.09.2026). The pill
+   itself never gives: squeezed below a readable width counts as «does not fit». «Eintrag» keeps
+   its word the longest — writing the entry is what an officer does WHILE the alarm runs. :not(.tb-rem-count) keeps the reminder count, a
    number the bar exists to show.
    ⚠️ No step takes a chip's ICON (final walk-through, R1): a bare red «5» said nothing. */
 .topbar.fit-1 :is(.tb-weather-cond, .tb-weather-temp) { display: none; }
@@ -97,6 +97,10 @@
 .topbar.fit-9 .tb-mode { padding: 5px 8px; font-size: 0; gap: 0; }
 .topbar.fit-9 .tb-mode .i { width: 16px; height: 16px; }
 .topbar.fit-10 .tb-suche-ask-n { display: none; }
+/* «Eintrag» gives its word LAST (29.09.2026, sweep K2): its glyph is the journal pen now, not a
+   «+» that the rail's «+ Symbol» beside it also wears, so a bare glyph still says what it is */
+.topbar.fit-11 .tb-act-add .tb-act-label { display: none; }
+.topbar.fit-11 .tb-act-add { min-width: var(--tap); padding-inline: 8px; }
 /* every chip in the bar is at least a tap wide, its glyph and its number together */
 .topbar :is(.tb-az, .tb-suche) { min-width: var(--tap); justify-content: center; }
 .topbar :is(.tb-az, .tb-suche) > .i { flex: none; }
@@ -210,13 +214,16 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 }
 .wx-pop-link:active { background-image: linear-gradient(var(--press), var(--press)); }
 .wx-pop-link svg { width: 16px; height: 16px; }
-.tb-act-add { position: relative; background: var(--blue); color: var(--on-fill); touch-action: none; user-select: none; min-width: 96px; }
-/* ⚠️ NOT `--blue-strong` on hover: that token flips LIGHTER in night mode (it is the tint-text
-   role), so a hover on the filled button washed it out to pale blue with barely-there ink —
-   the one button in the bar that has to look pressable. A hover deepens the fill in both
-   themes, and the ink stays the fill's own contrast colour. */
+/* The bar's Eintrag wears the FAB's material (29.09.2026, sweep K2/E9): the floating family's
+   glass with its inset edge, ink glyph and word — the same door as the phone's FAB, one recipe.
+   It was a --blue slab, and blue now means «chosen» (--sel): a permanently blue tile read as a
+   lit, armed tool, not an action. Its glyph is the journal pen (lib/icons · EntryGlyph), never
+   «+», which is Hinzufügen only. */
+.tb-act-add { position: relative; background: var(--float-bg); box-shadow: var(--float-edge); color: var(--ink);
+  touch-action: none; user-select: none; min-width: 96px; }
+.tb-act-add .i { width: 16px; height: 16px; }
 @media (hover: hover) {
-  .tb-act-add:hover { background: color-mix(in srgb, var(--blue) 88%, var(--ink)); color: var(--on-fill); }
+  .tb-act-add:hover { background: var(--float-bg); color: var(--ink); filter: brightness(1.05); }
 }
 /* ⚠️ Names the LABEL, not every span. It used to read `.tb-act-add span`, which at (0,1,1)
    also out-specified the charging cue's own `.tb-hold { position: absolute }` (0,1,0) — so on
@@ -244,27 +251,23 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tb-hold-ring .tb-hold-track { opacity: .3; }
 .tb-hold-ring .tb-hold-fill { stroke-linecap: round; }
 /* ── while the chooser is up, the button IS the cancel ──
-   A plus turned 45° is already an ✕, so the button does not swap its icon for a second one: the
-   one that is there rotates. Nothing enters or leaves the DOM, nothing can reflow under the
-   finger, and the turn itself carries the meaning — the affordance you pressed visibly becomes
-   the way out of it.
+   The glyph gives way to its ✕ (lib/icons · EntryGlyph draws both, the ✕ hidden). It used to be
+   the «+» turned 45°; since the Eintrag wears the journal pen (29.09.2026, sweep K2) a turned
+   glyph is no ✕, so the second path shows instead — both are always in the DOM, so nothing
+   enters or leaves and nothing reflows under the finger.
    ⚠️ The label is dropped, not faded, and the button's width is FROZEN inline from the rect the
    hook already measured (components/TopBar · FabEntry). Fading it left the mark stranded off
    to one side of a wide empty button; dropping it without freezing the width would have let the
    button snap down to its min-width mid-gesture — the very shift this whole pass was about. Held
    at its own width, the ✕ simply lands in the middle of the button that was already there.
-   No red: the mark sits on the filled accent button, where red reads as a fault rather than as
-   a way out. The lit option is the feedback — none lit means the release does nothing. */
-.tb-act-add .i, .fab-entry .i { transition: transform .18s var(--ease); }
-/* ⚠️ Descendant, not `> .i`: since the ring wrapper (da52f1f, 28.08.) the + sits inside
-   `.tb-act-ic`, and the child selector silently stopped matching — a latched hold showed a
-   label-less button with an un-rotated +, i.e. no visible cancel affordance at all. The only
-   `.i` inside either host is the + itself (the ring is `.tb-hold-ring`, the chooser is
-   portalled to <body>), so the descendant form is exact. */
-.tb-act-add.cancelling .i, .fab-entry.cancelling .i { transform: rotate(45deg); }
+   No red: red reads as a fault rather than as a way out. The lit option is the feedback — none
+   lit means the release does nothing. */
+.tb-act-ic .i-entry-x { display: none; }
+.tb-act-add.cancelling .tb-act-ic .i-entry, .fab-entry.cancelling .tb-act-ic .i-entry { display: none; }
+.tb-act-add.cancelling .tb-act-ic .i-entry-x, .fab-entry.cancelling .tb-act-ic .i-entry-x { display: block; }
 .tb-act-add.cancelling .tb-act-label, .fab-entry.cancelling .tb-act-label { display: none; }
 
-.tb-act-add.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
+.tb-act-add.rec { background: var(--red); color: var(--on-fill); box-shadow: none; animation: recPulse 1.4s ease-in-out infinite; }
 .tb-act-add.rec span { font-family: var(--mono); }
 
 /* ── the latched hold's two slide targets (Sprachnotiz · Foto) ──
@@ -316,7 +319,6 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 @media (prefers-reduced-motion: reduce) {
   .hold-target { animation: none; }
   .hold-target { transition: none; transform: none; }
-  .tb-act-add .i, .fab-entry .i { transition: none; }
 }
 /* explicit stop affordance shown while recording — a white square reads as "stop" */
 .tb-stop { position: relative; z-index: 1; width: 11px; height: 11px; border-radius: 2px; background: var(--on-accent-ink); flex: none; }
