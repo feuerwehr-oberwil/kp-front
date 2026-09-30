@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from '../lib/format'
@@ -235,7 +235,7 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
  */
 export function ZeitplanView({
   people, attendance, shifts, canEdit, startedAt, nowMs,
-  onAdd, onAddSpan, onReplace, onSetTime, onRemove, horizonH,
+  onAdd, onAddSpan, onReplace, onSetTime, onRemove, horizonH, zoom,
 }: {
   /** already filtered + ordered by the shared Anwesenheit header, so both views read alike */
   people: Person[]
@@ -255,6 +255,9 @@ export function ZeitplanView({
   onRemove: (id: string, personName: string) => void
   /** how many hours the axis shows at once (the Zeitraum control lives in the surface header) */
   horizonH: number
+  /** PHONE: the Zeitraum zoom, drawn in the clock row's corner over the names — the search line
+   *  above has no room for it there (AnwesenheitView · horizonCtl) */
+  zoom?: ReactNode
 }) {
   const Z = appConfig.copy.zeitplan // read per-render so the resolved locale applies
   const isPhone = useIsPhone()
@@ -362,9 +365,11 @@ export function ZeitplanView({
       <ShiftConflictNotice shifts={shifts} people={people} className={s.conflictNotice} />
       <div className={s.scroll}>
         <div className={s.grid} style={{ ['--track-w' as string]: `${trackW}px` }}>
-          {/* head — «Wer» over the name column, the clock over the track, exactly as on paper */}
-          <div className={cx(s.row, s.headRow)}>
-            <div className={cx(s.who, s.whoHead)} aria-hidden />
+          {/* head — «Wer» over the name column, the clock over the track, exactly as on paper.
+              On a phone the corner over the names holds the Zeitraum zoom (see `zoom`); the row
+              grows to a lane's height and the hours sit at its foot, on the lanes they label. */}
+          <div className={cx(s.row, s.headRow, zoom != null && s.headRowZoom)}>
+            {zoom != null ? <div className={cx(s.who, s.whoHead)}>{zoom}</div> : <div className={cx(s.who, s.whoHead)} aria-hidden />}
             <div className={s.track}>
               {hours.map((h) => (
               // The «JETZT» flag is opaque so it stays readable wherever it lands, which means an
