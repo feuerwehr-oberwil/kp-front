@@ -599,7 +599,12 @@ to prod.
   auto-saved without manual confirmations»): ✕ and swipe close it, and one quiet «Alles wird
   laufend gespeichert.» line (`copy.savedLive`) says so (TimeBlockSheet, PersonnelSync result).
   «Speichern» stays only where something is CREATED (Trupp anmelden, Einsatz eröffnen, Eintrag /
-  Mittel erfassen) or where a typed value would otherwise write a record per keystroke.
+  Mittel erfassen) or where a typed value would otherwise write a record per keystroke — the Trupp's
+  Auftrag sheet, the Schichtband edit and the Mittel pencil KEEP their Speichern / Abbrechen (owner,
+  29.09.2026: save-on-close was built and taken back; do not re-introduce it without asking).
+  ⚠️ A Mittel line coming back from a removal is a CHANGE even when its count/remark/Bestand equal
+  the tombstone's (`useMittelActions`) — it compared «unchanged», so the removal toast's
+  «Rückgängig» wrote nothing; it now writes and logs «… wiederhergestellt» (`mittel.logRestored`).
   **A symbol's context sheet is headed by its TYPE**, for every symbol, the generic Fahrzeug too
   («Fahrzeug» / the pack's name; 29.09.2026). A user-given name lives in its field
   («Bezeichnung») only — never twice, never an underlined head that jumps to a field. The foot's
