@@ -1367,7 +1367,7 @@ export default function CaptureApp() {
                     not tappable. */}
                 <fieldset className="cv-partner-add" disabled={busy}>
                   <input
-                    className="cv-input" value={partnerDraft} placeholder={C.partnerAdd} aria-label={C.partnerAdd}
+                    className="cv-input" value={partnerDraft} placeholder={C.partnerPlaceholder} aria-label={C.partnerAdd}
                     maxLength={80}
                     onChange={(e) => setPartnerDraft(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitPartner() } }}

@@ -1465,7 +1465,7 @@ export function ReportPreflight({
                 popupClassName="rp-control"
                 ariaLabel={P.controlHead}
                 trigger={(
-                  <button type="button" className={cx('rp-state', 'warn')} title={P.controlHead}>
+                  <button type="button" className={cx('rp-state', 'head-tile', 'amber')} title={P.controlHead}>
                     <Icon id="warn" />
                     <span className="rp-state-label">{controlChipLabel(missing.length, checking ? 0 : warnCount)}</span>
                   </button>
@@ -1520,12 +1520,12 @@ export function ReportPreflight({
                 be hidden. The label survives as `aria-label` + `title`, so what is dropped is the
                 pixels, never the naming. */}
             {onComplete && (
-              <button className="ip-btn" onClick={() => void complete()} aria-label={A.complete} title={A.complete}>
+              <button className="ip-btn head-tile" onClick={() => void complete()} aria-label={A.complete} title={A.complete}>
                 <Icon id="archive" /><span className="rp-btn-label">{A.complete}</span>
               </button>
             )}
             {printStatus?.available && (
-              <button className={`ip-btn print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
+              <button className={`ip-btn head-tile print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
                 onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
                 title={printStatus.online ? R.online : R.offline}>
                 <span className="print-send-main">
@@ -1544,16 +1544,20 @@ export function ReportPreflight({
                 for «drucken»), and the way into the section picker. Split rather than two
                 buttons: the arrow belongs TO the PDF button — it modifies it — and a separate
                 ⋮ beside it would have read as the surface's menu. The pair never wraps apart
-                (it is one flex item), so at ≤720px it drops onto its own line intact. */}
+                (it is one flex item), so at ≤720px it drops onto its own line intact.
+                ⚠️ One FRAMED tile, not a filled one (27.09.2026, slim sweep · mockup 2): on the
+                phone it reads «PDF ▾» — the word, not a doc glyph whose meaning you had to know
+                (`.rp-btn-short`); the tablet keeps its full label. Same two doors as before. */}
             <span className="rp-split">
-              <button className="ip-btn primary rp-split-main" disabled={pdfBusy} onClick={() => void startOutput('pdf')}
+              <button className="ip-btn head-tile rp-split-main" disabled={pdfBusy} onClick={() => void startOutput('pdf')}
                 aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
-                <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />
+                {pdfBusy ? <Icon id="rotate" className="spin" /> : <Icon id="doc" className="rp-pdf-glyph" />}
                 <span className="rp-btn-label">{pdfBusy ? P.pdfBusy : P.pdfFull}</span>
+                {!pdfBusy && <span className="rp-btn-short">{P.pdfShort}</span>}
               </button>
               <Menu
                 trigger={
-                  <button type="button" className="ip-btn primary rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
+                  <button type="button" className="ip-btn head-tile rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
                     <Icon id="chevron-down" className="chev" />
                   </button>
                 }
@@ -2415,7 +2419,7 @@ export function ReportPreflight({
                   <div className="report-partner-add">
                     <ClearableInput
                       className="ip-input" value={partnerDraft}
-                      placeholder={P.partnerAdd} aria-label={P.partnerAdd}
+                      placeholder={P.partnerPlaceholder} aria-label={P.partnerAdd}
                       clearLabel={P.partnerOrgShort} maxLength={80}
                       onChange={(v) => setPartnerDraft(stripUnprintable(v))}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitPartner() } }}

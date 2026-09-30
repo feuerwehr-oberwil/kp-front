@@ -575,12 +575,15 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    with nothing between them. */
 .jr-note-on i { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; }
 .jr-note-on::after { content: "›"; flex: none; color: var(--ink-faint); font-weight: 400; }
-/* «wieder in …» on a done row — small dashed pills, the same «this creates something» look the
-   composer's preset chips wear. Quiet on purpose: a closed Pendenz is a fact first, an offer
-   second. ≥28px tap height inside a text row via padding (the row itself adds the rest). */
+/* «wieder in …» on a done row — small amber pills that CREATE a follow-up. Quiet on purpose: a
+   closed Pendenz is a fact first, an offer second. ≥28px tap height inside a text row via padding
+   (the row itself adds the rest). Framed, not dashed (27.09.2026, slim sweep · mockup 5): the dash
+   said «this creates something», but a dashed edge in this app means «missing / hidden /
+   placeholder», and an offer is an ordinary action — the amber text and a faint amber tint carry
+   what kind of action it is. */
 .jr-again { display: inline-flex; gap: 5px; flex: none; }
-.jr-again-btn { border: 1px dashed color-mix(in srgb, var(--amber-strong) 55%, transparent);
-  background: none; border-radius: var(--r-pill, 999px); padding: 3px 9px; cursor: pointer;
+.jr-again-btn { border: 1px solid color-mix(in srgb, var(--amber-strong) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 8%, transparent); border-radius: var(--r-pill, 999px); padding: 3px 9px; cursor: pointer;
   font: 600 11.5px var(--body); color: var(--amber-strong); white-space: nowrap; }
 @media (hover: hover) {
   .jr-again-btn:hover { background: color-mix(in srgb, var(--amber-strong) 10%, transparent); }
