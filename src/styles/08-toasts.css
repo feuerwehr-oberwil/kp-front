@@ -491,8 +491,8 @@
    (reported 2026-09-11 — 1–2 s of nothing on launch). Near-immediate instead; browser-tab
    loads keep the anti-flash hold. */
 @media (display-mode: standalone) { .boot-splash { animation: fade .15s var(--ease) both; } }
-/* the «Heavy haul» snail (components/SnailLoader) replaced the .ping pulse 07.09. — its sizing
-   and animation live in the SVG's own <style>, so the static boot splash needs no rules here */
+/* The firefighter snail's sizing and animation live in its SVG. Vite inlines the same source
+   in the boot splash; components/SnailLoader uses it once React has mounted. */
 .loading-name { font-size: 16px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
 .loading-sub { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
 /* stalled-launch block: appears only after Splash's STUCK_MS, so it must fade in rather than

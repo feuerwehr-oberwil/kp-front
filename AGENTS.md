@@ -71,6 +71,11 @@ to prod.
 
 ## Architecture & conventions
 
+- **The loading mascot has one source.** `public/firefighter-snail-loader.svg` owns its paths,
+  motion, station-accent shell/hose, sizing and reduced-motion rule. `SnailLoader` imports it
+  as trusted raw markup with unique ids per instance; Vite's `inlineSnailLoader` inserts it at
+  `index.html`'s `kp:snail-loader` marker so the static boot screen paints without fetching an
+  asset. Keep both stages at the same size; never replace the boot markup with an external image.
 - **Operational browser state lives in IndexedDB, not localStorage.** `src/lib/idb.ts` is the
   storage layer (localStorage only as its degradation fallback), `src/lib/storageMigration.ts`
   moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
