@@ -198,8 +198,12 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   /* landscape phones: the pop is taller than the leftover viewport below the bar —
      cap it and scroll instead of pushing the MeteoSchweiz link off-screen */
   max-height: calc(100dvh - 90px - env(safe-area-inset-top)); overflow-y: auto; overscroll-behavior: contain;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-ctl); box-shadow: 0 14px 40px rgba(0, 0, 0, .3), 0 0 0 1px var(--glass-edge);
+  /* ⚠️ the top bar's own glass, the set every popup out of the bar wears (`.tb-uhr-menu`,
+     `.az-head-detail`) — 30.09.2026, staging phone pass: «the toolbar, the weather details have
+     different colors (at least in dark mode)». It was `--surface`, the raised BUTTON fill, a
+     visibly lighter slate than the bar at night, with a heavier shadow of its own. */
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  border-radius: var(--r-ctl); box-shadow: var(--shadow);
   padding: 16px; animation: popIn .15s var(--ease); font-variant-numeric: tabular-nums; }
 /* centred header: condition glyph, label, big temperature */
 .wx-pop-head { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-bottom: 14px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
