@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="360 20 820 680" fill="none" role="img" aria-labelledby="fs-title fs-desc" class="firefighter-snail">
+  <title id="fs-title">Firefighter snail loading animation</title>
+  <desc id="fs-desc">A smiling cream snail with a red spiral shell, firefighter helmet and hose crawls gently in place and blinks.</desc>
+  <!-- Hand-redrawn vectors from the supplied reference. No bitmap, script, font or external resource.
+       Inline: add snail-paused or snail-static to the SVG to pause or disable motion.
+       The default loop is 3.6 seconds; override the duration CSS variable when embedding inline. -->
+  <style>
+    .snail-loader { width: 120px; height: auto; }
+    .snail-loader > .firefighter-snail { display: block; width: 100%; height: auto; }
+    :root[data-theme="night"] .snail-loader { filter: drop-shadow(0 0 5px rgba(255, 240, 207, .12)); }
+    .firefighter-snail { --snail-duration: 3.6s; }
+    .firefighter-snail .fs-shadow { transform-origin: 742px 638px; animation: fs-shadow var(--snail-duration) ease-in-out infinite; }
+    .firefighter-snail .fs-crawl { animation: fs-crawl var(--snail-duration) ease-in-out infinite; }
+    .firefighter-snail .fs-foot { transform-origin: 720px 620px; animation: fs-foot var(--snail-duration) ease-in-out infinite; }
+    .firefighter-snail .fs-shell { transform-origin: 620px 530px; animation: fs-shell var(--snail-duration) ease-in-out infinite; }
+    .firefighter-snail .fs-head { transform-origin: 800px 535px; animation: fs-head var(--snail-duration) ease-in-out infinite; }
+    .firefighter-snail .fs-nozzle { transform-origin: 891px 551px; animation: fs-nozzle var(--snail-duration) ease-in-out infinite; }
+    .firefighter-snail .fs-eyes { transform-origin: 916px 292px; animation: fs-blink calc(var(--snail-duration) * 2) linear infinite; }
+    @keyframes fs-crawl { 0%, 100% { transform: translateX(-16px); } 42% { transform: translateX(8px); } 70% { transform: translateX(17px); } }
+    @keyframes fs-foot { 0%, 100% { transform: scaleX(1); } 36% { transform: scaleX(1.06); } 68% { transform: scaleX(.97); } }
+    @keyframes fs-shell { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 36% { transform: translate(-10px, 5px) rotate(-5deg); } 68% { transform: translate(10px, -10px) rotate(5deg); } }
+    @keyframes fs-head { 0%, 100% { transform: rotate(0deg); } 36% { transform: translate(3px, 1px) rotate(4deg); } 68% { transform: translate(5px, -8px) rotate(-3deg); } }
+    @keyframes fs-nozzle { 0%, 100% { transform: rotate(0deg); } 36% { transform: rotate(2.5deg); } 68% { transform: rotate(-4deg); } }
+    @keyframes fs-shadow { 0%, 100% { transform: scaleX(1); opacity: .16; } 68% { transform: scaleX(.94); opacity: .11; } }
+    @keyframes fs-blink { 0%, 44%, 48%, 100% { transform: scaleY(1); } 46% { transform: scaleY(.08); } }
+    .firefighter-snail.snail-paused * { animation-play-state: paused !important; }
+    .firefighter-snail.snail-static * { animation: none !important; }
+    @media (prefers-reduced-motion: reduce) { .firefighter-snail * { animation: none !important; } }
+  </style>
+  <defs>
+    <linearGradient id="fs-red" x1="560" y1="210" x2="750" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="color-mix(in srgb, var(--accent, #f51b19), white 10%)"/><stop offset=".55" stop-color="var(--accent, #f51b19)"/><stop offset="1" stop-color="color-mix(in srgb, var(--accent, #f51b19), black 12%)"/>
+    </linearGradient>
+    <linearGradient id="fs-helmet" x1="827" y1="85" x2="982" y2="279" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff342b"/><stop offset="1" stop-color="#e71018"/>
+    </linearGradient>
+    <linearGradient id="fs-cream" x1="808" y1="300" x2="918" y2="550" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffdf7"/><stop offset=".65" stop-color="#fffaf2"/><stop offset="1" stop-color="#e6dbce"/>
+    </linearGradient>
+    <linearGradient id="fs-foot-fill" x1="642" y1="553" x2="660" y2="637" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffdf7"/><stop offset="1" stop-color="#e5d8c9"/>
+    </linearGradient>
+    <linearGradient id="fs-black" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#424343"/><stop offset=".5" stop-color="#222323"/><stop offset="1" stop-color="#111212"/>
+    </linearGradient>
+    <linearGradient id="fs-metal" x1="916" y1="518" x2="950" y2="579" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/><stop offset=".3" stop-color="#e9e9e6"/><stop offset=".5" stop-color="#999b9b"/><stop offset=".8" stop-color="#f4f5f2"/><stop offset="1" stop-color="#828484"/>
+    </linearGradient>
+    <linearGradient id="fs-yellow" x1="905" y1="76" x2="962" y2="177" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffe76c"/><stop offset="1" stop-color="#ffc915"/>
+    </linearGradient>
+  </defs>
+  <ellipse class="fs-shadow" cx="744" cy="638" rx="337" ry="20" fill="#60636a" opacity=".16"/>
+  <g class="fs-crawl" stroke="#151616" stroke-linecap="round" stroke-linejoin="round">
+    <g class="fs-shell">
+      <path d="M541 565 C467 543 425 482 434 389 C441 301 518 224 604 207 C686 189 742 222 778 273 C808 316 803 391 774 441 C728 520 638 566 541 565Z" fill="url(#fs-red)" stroke-width="12"/>
+      <path d="M494 494 C529 539 575 543 623 516 C692 478 749 420 752 346 C754 307 736 280 711 257 C757 277 784 310 782 351 C780 431 688 529 598 555 C554 568 517 537 494 494Z" fill="color-mix(in srgb, var(--accent, #f51b19), black 22%)" opacity=".45" stroke="none"/>
+      <path d="M534 550 C477 519 454 441 487 360 C515 290 580 245 636 262 C691 271 724 311 721 362 C718 418 673 471 625 480 C579 490 539 471 527 431 C515 394 538 345 572 325 C608 302 639 318 650 341 C665 373 641 407 615 411 C591 415 570 390 595 371" stroke-width="15"/>
+      <path d="M613 231 C655 218 703 233 730 261 C743 276 732 279 720 269 C686 242 660 236 613 231Z" fill="#ff8c76" stroke="none" opacity=".72"/>
+      <path d="M541 416 C531 384 550 348 587 335 C558 357 549 377 541 416Z" fill="#ff9b80" stroke="none" opacity=".65"/>
+    </g>
+    <g class="fs-foot">
+      <path d="M525 552 C489 571 451 590 433 602 C416 614 422 629 445 630 C560 630 717 649 857 635 C890 631 904 614 899 589 C885 559 852 535 812 529 C762 521 727 505 689 502 C633 536 582 556 525 552Z" fill="url(#fs-foot-fill)" stroke-width="10"/>
+      <path d="M447 612 C479 592 509 580 535 566 C585 569 633 542 670 518 C666 553 677 580 698 602 C646 620 541 619 447 623Z" fill="#fffdf8" stroke="none"/>
+    </g>
+    <!-- The hose wraps behind the neck and returns in front of the body. -->
+    <path d="M788 394 C744 389 708 411 690 453 C657 526 674 574 737 605 C789 631 845 620 879 590 C897 574 913 557 930 534 C958 498 949 459 924 439" fill="url(#fs-red)" stroke-width="10"/>
+    <path d="M780 414 C748 414 720 435 704 471 C687 511 698 553 740 577 C789 603 836 592 871 566" stroke-width="9"/>
+    <g class="fs-head">
+      <!-- Helmet's protective neck flaps, behind the cream face. -->
+      <path d="M840 230 C814 235 789 266 775 304 C762 328 746 349 727 363 C757 385 800 392 826 380 L853 258Z" fill="url(#fs-black)" stroke-width="10"/>
+      <path d="M964 252 L981 255 C980 305 982 346 1003 376 C991 389 969 391 947 386Z" fill="url(#fs-black)" stroke-width="10"/>
+      <path d="M816 262 C808 301 787 344 762 357" stroke="#535353" stroke-width="6" opacity=".5"/>
+      <path d="M981 279 C979 319 983 348 996 372" stroke="#535353" stroke-width="6" opacity=".6"/>
+      <path d="M843 240 C885 226 930 237 970 249 C965 335 947 445 909 506 C889 539 849 553 810 542 C766 530 733 506 737 464 C763 433 789 389 808 344 C825 302 836 266 843 240Z" fill="url(#fs-cream)" stroke-width="10"/>
+      <path d="M843 244 C883 235 930 242 963 256 L961 274 C923 256 879 248 837 268Z" fill="#d9ccbb" stroke="none" opacity=".6"/>
+      <path d="M748 464 C742 502 773 522 808 531 C842 542 872 531 898 513 C886 537 854 552 817 543 C773 534 740 510 738 479Z" fill="#fffefb" stroke="none"/>
+      <g class="fs-eyes" stroke="none">
+        <ellipse cx="889" cy="289" rx="13" ry="29" transform="rotate(15 889 289)" fill="#111212"/>
+        <ellipse cx="940" cy="298" rx="12" ry="27" transform="rotate(15 940 298)" fill="#111212"/>
+        <ellipse cx="893" cy="276" rx="4.8" ry="7" transform="rotate(15 893 276)" fill="#fffefb"/>
+        <ellipse cx="944" cy="286" rx="4.4" ry="6.5" transform="rotate(15 944 286)" fill="#fffefb"/>
+      </g>
+      <path d="M865 330 C884 345 910 351 931 347 C921 366 907 390 889 388 C869 384 863 357 865 330Z" fill="#111212" stroke-width="5"/>
+      <path d="M870 357 C884 355 899 367 899 382 C883 390 873 379 870 357Z" fill="#ff6837" stroke="none"/>
+      <!-- Red helmet, brim, yellow reflective stripe and side fastener. -->
+      <path d="M781 229 C793 188 811 125 870 91 C883 62 900 60 922 66 C957 66 967 79 975 107 C995 137 1004 181 1000 244 C1017 253 1014 266 989 273 C927 251 864 233 796 268 C776 284 761 282 763 270Z" fill="url(#fs-helmet)" stroke-width="10"/>
+      <path d="M798 240 C858 201 943 217 1000 244" stroke-width="6"/>
+      <path d="M796 268 C851 222 930 232 989 254" stroke-width="10"/>
+      <path d="M899 66 C914 86 916 134 912 172 L966 181 C973 149 970 101 958 79 C940 68 921 65 899 66Z" fill="url(#fs-yellow)" stroke-width="9"/>
+      <path d="M926 82 L943 86 M927 96 L949 103 M930 114 L951 120 M930 132 L953 139 M930 151 L954 158" stroke="#fff4a6" stroke-width="3" opacity=".5"/>
+      <path d="M810 201 C827 154 846 126 875 106" stroke="#ff9983" stroke-width="12" opacity=".65"/>
+      <ellipse cx="786" cy="235" rx="16" ry="23" transform="rotate(27 786 235)" fill="url(#fs-black)" stroke-width="7"/>
+      <ellipse cx="786" cy="234" rx="6" ry="12" transform="rotate(27 786 234)" stroke="#595b5b" stroke-width="5"/>
+    </g>
+    <!-- Front turn of the hose covers the base of the neck. -->
+    <path d="M739 442 C726 459 731 494 749 514 C782 552 828 559 868 534 C886 522 902 514 926 516 L929 553 C902 551 886 562 866 574 C824 600 771 596 730 565 C691 536 678 483 706 446" fill="url(#fs-red)" stroke-width="9"/>
+    <path d="M720 477 C721 513 746 541 777 554 M794 562 C814 565 841 559 857 553" stroke="#ff9b7e" stroke-width="6" opacity=".66"/>
+    <g class="fs-nozzle">
+      <path d="M965 524 L962 510 Q962 502 974 499 L1008 491 Q1021 490 1022 505 L1024 525Z" fill="url(#fs-black)" stroke-width="8"/>
+      <path d="M977 516 L977 510 L1009 503 L1010 515Z" fill="#111212" stroke-width="3"/>
+      <path d="M880 538 C867 545 868 573 881 580 L906 582 L911 535Z" fill="url(#fs-black)" stroke-width="7"/>
+      <path d="M906 517 C888 529 886 564 903 584 L928 586 L939 521Z" fill="url(#fs-red)" stroke-width="8"/>
+      <path d="M930 518 C906 523 901 568 919 583 C929 591 947 582 954 575 L956 529 C947 521 939 517 930 518Z" fill="url(#fs-metal)" stroke-width="7"/>
+      <path d="M942 529 C929 539 927 566 940 577" stroke="#646767" stroke-width="6"/>
+      <path d="M956 525 C939 533 935 558 947 575 L974 577 L985 522Z" fill="url(#fs-red)" stroke-width="7"/>
+      <path d="M973 523 C957 535 952 558 965 574 L1033 578 L1041 519Z" fill="url(#fs-black)" stroke-width="8"/>
+      <path d="M984 529 C976 541 974 558 981 569 M1004 526 C995 538 993 559 1000 573" stroke="#111212" stroke-width="7"/>
+      <path d="M967 546 L1026 544" stroke="#565858" stroke-width="5" opacity=".55"/>
+      <path d="M967 570 L981 632 Q983 640 994 638 L1010 633 Q1018 631 1014 621 L1000 571Z" fill="url(#fs-black)" stroke-width="8"/>
+      <path d="M980 580 L990 620" stroke="#555858" stroke-width="6"/>
+      <path d="M985 628 L1008 624 Q1016 622 1018 629 Q1020 635 1012 638 L990 642 Q980 643 978 636 Q977 630 985 628Z" fill="url(#fs-black)" stroke-width="6"/>
+      <path d="M1032 521 C1016 533 1011 558 1024 578 L1056 580 L1065 517Z" fill="url(#fs-red)" stroke-width="7"/>
+      <path d="M1054 517 C1034 531 1030 568 1047 585 L1081 596 C1108 605 1127 577 1126 550 C1124 521 1111 504 1091 508Z" fill="url(#fs-black)" stroke-width="8"/>
+      <path d="M1049 533 L1073 539 M1043 551 L1069 555 M1045 569 L1070 573" stroke="#4e5151" stroke-width="5"/>
+      <ellipse cx="1094" cy="554" rx="25" ry="42" transform="rotate(9 1094 554)" fill="#171818" stroke="#484a4a" stroke-width="7"/>
+      <ellipse cx="1094" cy="554" rx="14" ry="29" transform="rotate(9 1094 554)" fill="#090a0a" stroke="#292b2b" stroke-width="5"/>
+    </g>
+  </g>
+</svg>

@@ -17,6 +17,21 @@ try { gitSha = execSync('git rev-parse --short HEAD').toString().trim() } catch 
 if (gitSha === 'dev' && process.env.GIT_SHA) gitSha = process.env.GIT_SHA.slice(0, 7)
 const buildTime = new Date().toISOString()
 
+// The boot screen must paint before ANY asset arrives. Use the React loader's source
+// directly instead of maintaining a second copy of its paths and animation in index.html.
+function inlineSnailLoader(): Plugin {
+  const marker = '<!-- kp:snail-loader -->'
+  return {
+    name: 'kp-inline-snail-loader',
+    transformIndexHtml(html, context) {
+      if (context.filename !== resolve('index.html')) return html
+      if (!html.includes(marker)) throw new Error('Boot splash is missing the snail loader marker')
+      const artwork = readFileSync(new URL('./public/firefighter-snail-loader.svg', import.meta.url), 'utf-8')
+      return html.replace(marker, `<div class="snail-loader" aria-hidden="true">${artwork}</div>`)
+    },
+  }
+}
+
 // ⚠️ The web manifest is NOT a static file at runtime: the backend serves it
 // (backend/app/webmanifest.py), overlaying the station's own name, accent colour and app
 // icons onto the one built here, so the installed PWA on a crew tablet carries the station's
@@ -146,6 +161,7 @@ export default defineConfig(({ mode }) => {
     // self-contained minified ESM with nothing to pre-bundle, so serving it as source is free.
     optimizeDeps: { exclude: ['pdfjs-dist/build/pdf.worker.min.mjs'] },
     plugins: [
+      inlineSnailLoader(),
       react(),
       VitePWA({
         // 'prompt' (not 'autoUpdate'): a fresh deploy installs and WAITS instead of silently
