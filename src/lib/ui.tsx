@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { ConfirmCard, type ConfirmSpec } from './overlays/ConfirmCard'
 import { Overlay } from './overlays'
 import { safeHref } from './mediaUrl'
+import { watchRecords, type RecordKey } from './undoKeys'
 
 // Lightweight app-wide toast + confirm host. Replaces native alert()/confirm()
 // so transient feedback and destructive confirmations stay inside the glass
@@ -33,7 +34,7 @@ export interface ToastStep {
   state: 'done' | 'now' | 'future' | 'fail'
   icon?: 'check' | 'warn' | 'printer'
 }
-interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean }
+interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean; kind?: string }
 /** A confirm that is on screen and waiting for its answer — the shared `ConfirmSpec` plus what
  *  only the pending state needs: which request it is, and the promise to settle. */
 interface ConfirmReq extends ConfirmSpec {
@@ -85,9 +86,13 @@ export function dismissToast(id: number) {
   setTimeout(() => { toasts = toasts.filter((x) => x.id !== id); emit() }, 160)
 }
 
-export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void }): number {
+export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void; kind?: string }): number {
+  // `kind`: a toast of the same kind still on screen is REPLACED, not stacked under the new one
+  // (3am test r4, 26.09.2026: three «+ OG» taps stacked three identical «Geschoss hinzugefügt ·
+  // Rückgängig» pills over the stack's own «+ UG»). The replaced toast's act stays on ↶.
+  if (opts?.kind) for (const t of toasts) if (t.kind === opts.kind && !t.leaving) dismissToast(t.id)
   const id = seq++
-  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss }]
+  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss, kind: opts?.kind }]
   emit()
   // sticky toasts stay until updateToast/dismissToast decides (live status). Otherwise an
   // action (e.g. confirm-with-undo) needs time to be seen and tapped.
@@ -107,8 +112,28 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
  * own icon (radio, drop, trash, pen, move, check) and that glyph is what names the edit; they
  * are not an unfinished sweep.
  */
-export function undoToast(text: string, onUndo: () => void): number {
-  return toast(text, { icon: 'undo', action: { label: appConfig.copy.undo, onClick: onUndo } })
+export function undoToast(text: string, onUndo: () => void, guard?: readonly RecordKey[] | (() => boolean), opts?: { kind?: string }): number {
+  // ⚠️ `guard` — the toast outlives remote merges like any undo step does (25.09.2026). Given the
+  // records `onUndo` writes, a merge that changes one of them (lib/undoKeys · noteRemoteChanges)
+  // makes the button decline with «Nicht mehr rückgängig machbar» instead of writing a pre-merge
+  // value over another device's change; given a predicate (a timeline entry's `standing`), the
+  // entry's own fate decides. Without one the toast acts unguarded, as it always did.
+  // `opts.kind` (#232): a second toast of the same kind replaces the first instead of stacking.
+  const watch = Array.isArray(guard) ? watchRecords(guard) : null
+  const ok = typeof guard === 'function' ? guard : watch ? watch.ok : () => true
+  return toast(text, {
+    icon: 'undo',
+    action: {
+      label: appConfig.copy.undo,
+      onClick: () => {
+        watch?.release()
+        if (!ok()) { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
+        onUndo()
+      },
+    },
+    onDismiss: () => watch?.release(),
+    kind: opts?.kind,
+  })
 }
 
 /** Patch a live toast in place (text/icon/tone/action). Pass `duration` to auto-dismiss it

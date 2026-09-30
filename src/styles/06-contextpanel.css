@@ -381,6 +381,29 @@
 /* the caption row keeps only its tighter LABEL — height/radius come from the one segmented spec */
 .ctx-caprow .useg-btn { padding: 4px 10px; }
 
+/* «Gelöscht / erledigt» (lib/objectDone, 24.09.2026) — the first row of a symbol's body. Unset it
+   is ONE press with no state to be in: the `.de-action` row (08-toasts), glyph + word at the
+   controls' edge, and the quiet hint at the label's edge says what the press will NOT do — the
+   symbol does not vanish. Set, the row STATES the answer («Erledigt 20:40», the grey the glyph
+   now wears) and holds its one way back at the controls' edge. No hairline under it (the sheets
+   draw one only above a NAMED section, AGENTS · editor-sheet grammar). */
+.ctx-done { margin: 2px 0 4px; }
+.ctx-done-hint { margin-right: auto; padding-right: 8px; font-size: 12.5px; font-weight: 500; color: var(--ink-faint); text-align: left; }
+.ctx-done-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 4px 0;
+  margin: 2px 0 4px; }
+.ctx-done-row { justify-content: space-between; flex-wrap: wrap; row-gap: 2px; }
+.ctx-done-state { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--ink-dim);
+  font-variant-numeric: tabular-nums; }
+.ctx-done-state > .i { flex: none; width: 26px; height: 26px; padding: 5px; box-sizing: border-box; border-radius: 50%;
+  background: var(--ink-faint); color: var(--surface); stroke-width: 2.6; }
+.ctx-done-reopen { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; margin-left: auto; padding: 0 2px;
+  border: 0; background: transparent; color: var(--ink); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.ctx-done-reopen .i { width: 16px; height: 16px; color: var(--ink-dim); }
+@media (hover: hover) {
+  .ctx-done-reopen:hover, .ctx-done-reopen:hover .i { color: var(--blue); }
+}
+.ctx-done-reopen:active { background-image: linear-gradient(var(--press), var(--press)); }
+
 .ctx-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px 16px; }
 .ctx-actions > .btn { flex: 1 1 140px; }
 .btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: 12.5px; font-weight: 700;

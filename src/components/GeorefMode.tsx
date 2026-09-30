@@ -10,7 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { confirmDialog, toast, undoToast } from '../lib/ui'
-import { acceptGeorefProposal, beginTap, endGeorefMode, georefDispatch, georefLamp, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, georefProposalScalePct, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, resetGeorefPlan, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
+import { acceptGeorefProposal, beginTap, georefStillIs, endGeorefMode, georefDispatch, georefLamp, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, georefProposalScalePct, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, resetGeorefPlan, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
 import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim } from '../lib/georef'
 import { incidentBindingApproved } from '../lib/incidentPlanBindings'
 import type { GeorefSuggestStep } from '../lib/georefSuggest'
@@ -694,7 +694,10 @@ function GeorefProposalActions({ mode }: { mode: GeorefModeState }) {
   const pct = georefProposalScalePct(mode)
   const accept = async () => {
     const key = mode.storageKey
-    if (await acceptGeorefProposal() && key) undoToast(C.acceptedToast, () => resetGeorefPlan(key))
+    const accepted = mode.pairs
+    // the reset takes back exactly what was accepted — never a reference somebody has corrected
+    // since (lib/georefMode · georefStillIs)
+    if (await acceptGeorefProposal() && key) undoToast(C.acceptedToast, () => resetGeorefPlan(key), () => georefStillIs(key, accepted))
   }
   if (!mode.adjusting) {
     return (

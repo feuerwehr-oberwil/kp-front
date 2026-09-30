@@ -615,3 +615,49 @@ async def test_a_rolled_back_save_leaves_no_snapshot_file(db_session, editor):
     assert storage.exists(snap.storage_key)
     await db_session.rollback()
     assert not storage.exists(snap.storage_key)
+
+
+async def test_a_snapshot_is_stored_gzipped_and_reads_back(client, editor, db_session):
+    """Snapshots are gzipped since 26.09.2026 (one full blob per save came to ~0.4 GB per 24 h
+    Einsatz, docs/testing/fat-incident.md); what `/snapshot` answers is unchanged."""
+    import gzip
+
+    await _login(client, editor)
+    inc = await _incident(client)
+    workspace = {"entities": [{"id": f"e{i}", "label": "Trupp Dach Nordseite"} for i in range(200)]}
+    r = await client.put(f"/api/incidents/{inc}/workspace", json={"base_rev": 0, "workspace": workspace})
+    assert r.status_code == 200, r.text
+
+    snap = await client.get(f"/api/incidents/{inc}/snapshot", params={"at": datetime.now(UTC).isoformat()})
+    assert snap.json()["workspace"] == workspace
+    [key] = (
+        await db_session.execute(
+            select(WorkspaceSnapshot.storage_key).where(WorkspaceSnapshot.incident_id == uuid.UUID(inc))
+        )
+    ).scalars()
+    raw = storage.get_bytes(key)
+    assert key.endswith(".json.gz") and raw[:2] == b"\x1f\x8b"
+    assert json.loads(gzip.decompress(raw)) == workspace
+    assert len(raw) < len(json.dumps(workspace)) / 5
+
+
+async def test_a_plain_json_snapshot_from_before_compression_still_reads(client, editor, db_session):
+    """Snapshots written before 26.09.2026 are plain JSON and are never rewritten (backup originals
+    are immutable) — the reader tells them apart by content, not by key."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    at = datetime(2020, 1, 1, 8, tzinfo=UTC)
+    await _snapshot(db_session, uuid.UUID(inc), occurred_at=at, seq_at=1, workspace={"v": "legacy"})
+    r = await client.get(f"/api/incidents/{inc}/snapshot", params={"at": at.isoformat()})
+    assert r.json()["workspace"] == {"v": "legacy"}
+
+
+async def test_a_corrupt_snapshot_answers_without_a_workspace_instead_of_a_500(client, editor, db_session):
+    await _login(client, editor)
+    inc = await _incident(client)
+    at = datetime(2020, 1, 1, 8, tzinfo=UTC)
+    snap = await _snapshot(db_session, uuid.UUID(inc), occurred_at=at, seq_at=1, workspace={"v": 1})
+    storage.put_bytes(snap.storage_key, b"\x1f\x8b\x08\x00truncated")
+    r = await client.get(f"/api/incidents/{inc}/snapshot", params={"at": at.isoformat()})
+    assert r.status_code == 200
+    assert r.json()["workspace"] is None

@@ -9,7 +9,7 @@ import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
 import { truppNeverDeployed } from './atemschutz'
 import { atemschutzEquipment, attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
-import { repeatRuns, rowPhotos, rowText } from './verlauf'
+import { isNachtrag, repeatRuns, rowPhotos, rowText } from './verlauf'
 import { linkMarkup, type JournalLink } from './journalLinks'
 import { jsonEqual } from './jsonEqual'
 
@@ -143,11 +143,30 @@ export function eventIso(e: TimelineEvent, fallbackDate?: string): string | null
   return d.toISOString()
 }
 
+// ⚠️ NOT the ↶/↷ rows any more (staging walk-through, 25.09.2026): the Verlauf is append-only, so
+// a taken-back act is TWO rows, and the paper has to print both — with only the first, the
+// printed Einsatzjournal said «Symbol «Feuer» gesetzt» about a fire the Kroki beside it did not
+// show. `journalRows` prints `kind: 'history'` rows for the same reason.
 const OMIT_TEXT = [
   appConfig.copy.log.objectMoved.replace('{name}', ''),
-  appConfig.copy.log.undo,
-  appConfig.copy.log.redo,
 ]
+
+/** Does the act this ↶ / ↷ row names print a row of its own? The row is «{action} rückgängig
+ *  gemacht» / «{action} wiederhergestellt» (copy · log.undoNamed / redoNamed); the action is held
+ *  to the same rule its own row is printed by. A row that names no action (the generic «Aktion
+ *  rückgängig gemacht», a domain word) cannot be matched and prints — it is the record's only
+ *  statement that something was taken back. */
+function historyCountersPrintedRow(e: TimelineEvent): boolean {
+  const text = e.text.trim()
+  for (const tpl of [appConfig.copy.log.undoNamed, appConfig.copy.log.redoNamed]) {
+    const [, suffix = ''] = tpl.split('{action}')
+    if (suffix && text.endsWith(suffix)) {
+      const action = text.slice(0, text.length - suffix.length).trim()
+      return !action || printableTacticalText({ ...e, text: action })
+    }
+  }
+  return true
+}
 
 function printableTacticalText(e: TimelineEvent): boolean {
   const text = e.text.trim()
@@ -362,7 +381,6 @@ export function journalRows(
    *  existed simply keeps every suffix, which is what it printed yesterday. */
   opts?: { includeBookkeeping?: boolean; vocab?: JournalLink[]; truppIds?: ReadonlySet<string> },
 ): JournalPrintRow[] {
-  const closedMs = closedAt ? Date.parse(closedAt) : NaN
   // …and a line the app repeated while nothing changed prints ONCE, with its count — the same
   // rule the Verlauf reads by, so paper and screen tell the same story (lib/verlauf).
   const repeats = repeatRuns(events)
@@ -374,7 +392,12 @@ export function journalRows(
       // the detailed audit option (then EVERY action counts). Decided 2026-07-14.
       if (!opts?.includeBookkeeping && e.kind === 'team' && (e.icon === 'people' || e.icon === 'box')) return false
       if (e.kind === 'audio' || e.kind === 'photo' || e.kind === 'journal' || e.kind === 'team') return true
-      if (e.kind === 'layer' || e.kind === 'history') return false
+      if (e.kind === 'layer') return false
+      // a ↶ / ↷ row is the second half of an act that was taken back (or put back) — printed, or
+      // the journal describes a picture that is not the one on the paper beside it. ⚠️ …but only
+      // WITH its first half (D6, 26.09.2026): a move prints no row (below), so «KP Front
+      // verschoben rückgängig gemacht» stood alone on paper, countering nothing it had said.
+      if (e.kind === 'history') return historyCountersPrintedRow(e)
       return printableTacticalText(e)
     })
     .map((e) => {
@@ -407,7 +430,10 @@ export function journalRows(
               ...e.transcriptSections.map((s) => `${fmtDuration(s.at)}  ${s.text}`),
             ]
           : undefined,
-        nachtrag: Number.isFinite(closedMs) && iso != null && Date.parse(iso) > closedMs,
+        // …or received by the server while the Einsatz was closed, whatever time it carries: a
+        // Kontakt from before the close that arrived after it is late on paper (staging r3)
+        // …and a row the Abschluss itself wrote is part of the close (lib/verlauf · isNachtrag)
+        nachtrag: isNachtrag(iso != null && iso !== e.at ? { ...e, at: iso } : e, closedAt),
         repeats: repeats.counts.get(e.id),
         correctedAt: e.correctedAt && e.textOriginal ? hhmm(new Date(e.correctedAt)) : undefined,
         // the original through the same prefix-strip as the latest text, or the two would

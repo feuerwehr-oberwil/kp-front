@@ -208,7 +208,7 @@ function SpreadArrows({ spread, color }: { spread: Spread; color: string }) {
 const floorRangeBadge = (from?: number, to?: number) =>
   from != null && to != null && from === to ? floorBadge(from) : [from, to].filter((f): f is number => f != null).map(floorBadge).join('/')
 
-export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, docked, className }: {
+export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, docked, done, className }: {
   svg: string
   /** rendered edge length in px (square) */
   sizePx: number
@@ -245,6 +245,12 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
    *  ⚠️ KARTE ONLY, like the bond itself — the Plan and the printed Kroki pass nothing and render
    *  exactly as they did. */
   docked?: string
+  /** «Gelöscht / erledigt» (lib/objectDone · doneBadge): the HH:MM it was declared over. The
+   *  glyph and its Entwicklung arrows go GREY (`.ts-done`, the `--done-*` tokens) and the time
+   *  stands in the top-left corner, in the storey badge's chrome. The caption, the badges and the
+   *  hit area stay as they were: it is still the same symbol, and still selectable. ONE rule on
+   *  the Karte, the Plan and the Gebäude, because all three render through here. */
+  done?: string | null
   /** extra class on the outer wrapper (e.g. 'photo' on the map, 'ts-plan' on the plan) */
   className?: string
 }) {
@@ -258,7 +264,7 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
   const safeSvg = useMemo(() => sanitizeSvg(svg), [svg])
   const safeOverlay = useMemo(() => (overlay ? sanitizeSvg(overlay.svg) : ''), [overlay?.svg])
   return (
-    <div className={`ts ${className ?? ''}`} style={{ width: sizePx, height: sizePx }}>
+    <div className={`ts ${className ?? ''}${done ? ' ts-done' : ''}`} style={{ width: sizePx, height: sizePx }}>
       {spread && <SpreadArrows spread={spread} color={symColor(svg)} />}
       <div
         className={`ts-rot ${needsWhite(svg) ? 'white' : ''}`}
@@ -295,6 +301,8 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
       {docked && (
         <span className="sym-dock" title={docked} aria-label={docked}><Icon id="link" /></span>
       )}
+      {/* …and the fourth corner, top-left, is the «erledigt» time (lib/objectDone) */}
+      {done && <span className="sym-done">{done}</span>}
       {caption && (
         <span className="sym-caption">
           {caption.split('\n').map((line, i) => <span key={i}>{line}</span>)}

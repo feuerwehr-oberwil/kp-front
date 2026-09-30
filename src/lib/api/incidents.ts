@@ -23,6 +23,18 @@ export function isIncidentRunning(i: Pick<IncidentMeta, 'is_archived' | 'status'
   return !i.is_archived && INCIDENT_ACTIVE_STATUSES.includes(i.status)
 }
 
+/**
+ * The Einsatzende the record states when nobody entered one: the CURRENT close. After «Wieder
+ * öffnen» and a second close, every device and the printed Rapport kept the FIRST close — the
+ * Einsatzdauer, the «Einsatzende» line and the end of every Anwesenheit interval — while the
+ * Austritte and the close rows sat later on the same paper (D2). `closed_at` stays the first
+ * close and marks the Nachträge (lib/verlauf · isNachtrag, lib/report · journalRows); this is
+ * everything else.
+ */
+export function closeTimeOf(i: Pick<IncidentMeta, 'closed_at' | 'last_closed_at'>): string | null {
+  return i.last_closed_at ?? i.closed_at ?? null
+}
+
 export interface IncidentMeta {
   id: string
   divera_id: number | null
@@ -38,6 +50,9 @@ export interface IncidentMeta {
   auto_opened: boolean // created by an alarm without a human (auto-open / generic intake)
   started_at: string
   closed_at: string | null
+  /** When it was closed THIS time (D2, 25.09.2026) — stamped on every close, where `closed_at`
+   *  keeps the first. Absent from lists cached before the field existed. */
+  last_closed_at?: string | null
   is_archived: boolean
   is_exercise: boolean // Übung — stats-excluded, the only kind that may be hard-deleted
   report_done_at: string | null // Abschluss-Assistent completion bookmark (see rapportStatus.ts)

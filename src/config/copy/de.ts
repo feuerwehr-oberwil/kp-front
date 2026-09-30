@@ -248,7 +248,7 @@ export const de = {
             '**Druck** direkt mit ± einstellen und mit **Bestätigen** übernehmen – das zählt als Kontakt und wird protokolliert; ein Fehlklick ohne Bestätigen ändert nichts. Niedriger Druck wird rot.',
             'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug melden** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder in den Einsatz** (neue Flasche) zurück in die Überwachung – der **Druckverlauf der ersten Ausrückung bleibt dabei erhalten** und steht später vollständig auf dem Rapport.',
             'Draussene Trupps behalten ihren Platz auf der Tafel (grau und gedämpft) statt in einen eigenen Abschnitt zu wandern – die Karte, die du suchst, steht dort, wo sie vorher stand.',
-            'Ein **gelöschter Trupp** verschwindet nur von der Tafel: auf dem Rapport steht er weiter, mit allem, was gemessen wurde, und als **«Von Tafel entfernt»**. Über **Entfernte Trupps** in der Kopfzeile kommt er zurück – der «Rückgängig»-Hinweis ist die schnelle Tür, nicht die einzige.',
+            'Ein **entfernter Trupp** verschwindet nur von der Tafel: auf dem Rapport steht er weiter, mit allem, was gemessen wurde, und als **«Von Tafel entfernt»**. Über **Entfernte Trupps** in der Kopfzeile kommt er zurück – der «Rückgängig»-Hinweis ist die schnelle Tür, nicht die einzige.',
             '**Verlauf** je Trupp (ausklappbar) zeigt jeden Kontakt mit Uhrzeit und Druck.',
             '**Bearbeiten** (Stift) passt Auftrag / Ziel oder Trupp mitten im Einsatz an.',
             'Wer unter AS ist, lässt sich in der **Anwesenheit** nicht abmelden – ein Tipp auf die Zeile springt stattdessen auf die Karte dieses Trupps und hebt sie kurz hervor.',
@@ -686,6 +686,11 @@ export const de = {
   exerciseBadge: 'Übung',
   keepPlacing: 'Mehrere platzieren',
   delete: 'Löschen',
+  /** ⚠️ The ONE word for taking a tactical object (Symbol, Notiz, Form, Linie, Fläche,
+   *  Absperrkreis, Truppmarker) off the picture — its panel's button, its confirm and its Verlauf
+   *  row («… entfernt»), since 25.09.2026. «gelöscht» now means only an extinguished Feuer
+   *  (objectDone); «Löschen» stays for records that are not on the picture (views, checklists). */
+  remove: 'Entfernen',
   undo: 'Rückgängig',
   // ⚠️ «Wiederherstellen», nicht «Wiederholen» (11.09.): «wiederholen» heisst, die Aktion NOCH
   // EINMAL auszuführen – im Verlauf stand hintereinander «Druck 280 bar rückgängig gemacht» und
@@ -722,6 +727,41 @@ export const de = {
     rapport: 'Rapport',
     zeitplan: 'Zeitplan',
     ansicht: 'Ansicht',
+  },
+  /** ⚠️ Die FLÄCHE, auf der ein Schritt passiert ist — steht vor der Aktion in «Rückgängig: …»,
+   *  wo die Aktion sie nicht schon selbst nennt (lib/undoTimeline · undoCaption). Seit ein Merge
+   *  nur noch einzelne Schritte fallen lässt (25.09.2026), kann das ↶ nach einem fremden Speichern
+   *  auf eine ältere Aktion einer ANDEREN Fläche zeigen; ohne Fläche nimmt der zweite Tipp, der
+   *  der Karte galt, eine Trupp-Änderung zurück. */
+  undoSurfaces: {
+    karte: 'Karte',
+    plan: 'Plan',
+    trupps: 'Trupps',
+    anwesenheit: 'Anwesenheit',
+    mittel: 'Material',
+    checkliste: 'Checklisten',
+    gebaeude: 'Gebäude',
+    rapport: 'Rapport',
+    zeitplan: 'Zeitplan',
+    ansicht: 'Karte',
+    pendenz: 'Verlauf',
+  },
+  /** Ein anderes Gerät hat geändert, was der OBERSTE Schritt zurückgenommen hätte: der Schritt
+   *  fällt weg, und das ↶ zeigt jetzt auf etwas Älteres. Einmal sagen, statt still umzubenennen.
+   *  `{what}` aus `undoDroppedWhat`. */
+  undoTopDropped: 'Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät hat {what} geändert',
+  undoDroppedWhat: {
+    karte: 'die Karte',
+    plan: 'den Plan',
+    trupps: 'den Trupp',
+    anwesenheit: 'die Anwesenheit',
+    mittel: 'das Material',
+    checkliste: 'die Checkliste',
+    gebaeude: 'das Gebäude',
+    rapport: 'den Rapport',
+    zeitplan: 'den Zeitplan',
+    ansicht: 'die Ansichten',
+    pendenz: 'die Pendenz',
   },
   play: 'Abspielen',
   clear: 'Suche löschen',
@@ -811,6 +851,12 @@ export const de = {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
+    // ONE line for the armed mode, on the phone dock itself (ToolDock · hint) — the text above
+    // stays behind ⓘ
+    lineFreeShort: 'Mit dem Finger über die Karte ziehen',
+    lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
+    areaFreeShort: 'Den Umriss mit dem Finger ziehen',
+    areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
     area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -1124,11 +1170,15 @@ export const de = {
      *  Zeile ohne Zahl, wie «Referenz entfernt». (georefTwins · handLinkRow) */
     referenceLinked: 'Plan mit Karte verknüpft – {plan}',
     referenceLinkedPlaced: 'Plan mit Karte verknüpft – {plan} – {n} Objekte verortet',
-    objectDeleted: '{name} gelöscht',
-    drawingDeleted: 'Zeichnung gelöscht',
+    /** ⚠️ «entfernt», nicht mehr «gelöscht» (25.09.2026): seit «Gelöscht / erledigt» (objectDone)
+     *  heisst «Feuer gelöscht» ein GELÖSCHTES Feuer. Ein Objekt, das von Karte oder Plan genommen
+     *  wird, ist «entfernt» – das Wort des Knopfs (copy · remove). Geschriebene Zeilen behalten
+     *  ihr «gelöscht» (append-only). */
+    objectDeleted: '{name} entfernt',
+    drawingDeleted: 'Zeichnung entfernt',
     // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is
     // wrong – the singular claims there was only one.
-    selectionDeleted: '{n} Objekte gelöscht',
+    selectionDeleted: '{n} Objekte entfernt',
     duplicated: 'Objekt dupliziert',
     undo: 'Aktion rückgängig gemacht',
     redo: 'Aktion wiederhergestellt',
@@ -1190,6 +1240,31 @@ export const de = {
     // says. A line that carries a preset reports THAT instead (lib/lineStyle · linePresetLabel).
     drawKinds: { area: 'Fläche', line: 'Linie', circle: 'Absperrkreis' } as Record<string, string>,
   },
+  /** «Gelöscht / erledigt» statt löschen (review item 21b, 24.09.2026, lib/objectDone). Das Feuer
+   *  im EG war aus, also wurde das Symbol um 20:40 GELÖSCHT – und der Rapport zeigte danach keinen
+   *  Brand mehr. Jetzt bleibt ein erledigtes Symbol stehen, grau, mit der Uhrzeit; «Entfernen» ist
+   *  nur noch für eine Fehleingabe. */
+  objectDone: {
+    /** ⚠️ EIN Wort, nach Familie: ein Feuer ist «gelöscht», alles andere «erledigt»
+     *  (appConfig.symbols.fireFamily). `title` steht am Zeilenanfang, `inline` mitten im Satz. */
+    word: {
+      fire: { title: 'Gelöscht', inline: 'gelöscht' },
+      other: { title: 'Erledigt', inline: 'erledigt' },
+    },
+    /** die Aktion oben im Symbol-Editor – die Worte der Entscheidung, für jede Familie gleich */
+    action: 'Gelöscht / erledigt',
+    actionHint: 'bleibt grau sichtbar',
+    /** der gesetzte Zustand im Editor und auf dem Rapport: «Erledigt 20:40» */
+    state: '{word} {time}',
+    reopen: 'Wieder aktiv',
+    /** Der Knopf selbst heisst überall «Entfernen» (copy · remove); auf einem Symbol mit «Gelöscht /
+     *  erledigt» sagt dieser Hinweis, wofür er noch da ist: für die Fehleingabe. */
+    removeHint: 'nur bei Fehleingabe',
+    /** Verlauf: «Feuer EG gelöscht» – was und wo. Das Wann ist der Zeitstempel der Zeile selbst,
+     *  derselbe Moment, den `done.at` hält; eine Uhrzeit in Klammern sagte es zweimal. */
+    logDone: '{name} {word}',
+    logReopened: '{name} wieder aktiv',
+  },
   // unified, append-only journal (Verlauf) shared by Karte + Plan
   // PHONE: the «+» tile's word and the first section of its sheet (lib/toolFold · Palette) —
   // Linie · Fläche · Absperrkreis · Notiz · Trupp leave the bar for it
@@ -1223,6 +1298,12 @@ export const de = {
       refusedTitleOne: '1 Protokollereignis für diese Rolle nicht vorgesehen',
       refusedTitle: '{n} Protokollereignisse für diese Rolle nicht vorgesehen',
       refusedBody: 'Der Server nimmt diese Ereignisse von dieser Anmeldung nicht an. Sie bleiben auf diesem Gerät und können gesichert werden; der Verlauf ist davon nicht betroffen.',
+      // 25.09.2026 (N3): was nach dem Abschluss des Einsatzes noch ankam — nicht übernommen, gesichert
+      closedTitleOne: '1 Eintrag nach dem Abschluss nicht übernommen',
+      closedTitle: '{n} Einträge nach dem Abschluss nicht übernommen',
+      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge den Server erreichten. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und können gesichert werden. Wird der Einsatz wieder geöffnet, werden sie nachgesendet.',
+      // die Statusleuchte, solange solche Einträge nur auf dem Gerät liegen
+      closedShort: 'Einträge nach dem Abschluss nicht übernommen – sichern',
     },
     open: 'Verlauf',
     add: 'Eintrag',
@@ -1978,6 +2059,8 @@ export const de = {
     readingNoAs: '{what} – ohne Atemschutz',
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
+    // R3: ein abgeschlossener Einsatz alarmiert nicht – die Uhr steht beim Abschluss
+    clockFrozen: 'Stand beim Abschluss',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
     // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
@@ -2403,6 +2486,8 @@ export const de = {
     /** Fallback, wenn die letzte Messung nichts hergibt – der Alarm ist trotzdem beendet, und
      *  eine Zeile, die das sagt, ist mehr wert als gar keine. */
     alarmClearedOther: 'Kontakt wiederhergestellt',
+    // …und wenn die Kontaktuhr durch «Wieder öffnen» neu lief: kein Funkkontakt, sondern das (D5)
+    alarmClearedByReopen: 'Kontaktuhr neu gestartet (wieder geöffnet)',
     // The Alarmdruck used to be visible only on the card – the record was missing the moment the
     // Trupp had to turn back. Only on CROSSING it, not on every value below it.
     //
@@ -2415,13 +2500,16 @@ export const de = {
     logPressureAlarm: 'Trupp {name}: Druck {bar} bar – Alarmdruck erreicht',
     // A Trupp disappearing from the board is the one action that used to leave nothing behind at
     // all – the toast was gone and the Trupp had never existed.
-    logRemoved: 'Trupp {name} gelöscht',
+    logRemoved: 'Trupp {name} entfernt',
     logRestored: 'Trupp {name} wiederhergestellt',
     // Der Einsatz wird abgeschlossen, während ein Trupp noch als drin geführt ist (staging r3 F4):
     // eine Zeile pro Trupp, damit der Verlauf sagt, was beim Abschluss offen war – ein Austritt
     // wird NICHT erfunden. Auf dem Rapport endet der Einsatz des Trupps mit dem Zusatz unten.
     logInsideAtClose: 'Trupp {name} beim Abschluss noch drin',
     cycleEndAtClose: '{t} (beim Abschluss noch drin)',
+    // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
+    // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
+    logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
@@ -2447,8 +2535,8 @@ export const de = {
     fallbackObjectName: 'Objekt',
   },
   notes: {
-    deleteTitle: 'Notiz löschen',
-    deleteMsg: 'Diese Notiz enthält Text. Wirklich löschen?',
+    deleteTitle: 'Notiz entfernen',
+    deleteMsg: 'Diese Notiz enthält Text. Wirklich entfernen?',
     // note styling — shared by the Karte map and the Plan whiteboard (same controls in the
     // armed-tool dock before placing and in the detail panel afterwards)
     section: 'Notiz',
@@ -2475,6 +2563,10 @@ export const de = {
     dockHints: {
       draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Breite und Stil danach im Editor.',
       line: 'Eckpunkte antippen. Doppeltippen oder «Fertig» schliesst die Linie ab. Farbe, Breite und Stil danach im Editor.',
+      lineFreeShort: 'Mit dem Finger über den Plan ziehen',
+      lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
+      areaFreeShort: 'Den Umriss mit dem Finger ziehen',
+      areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
       area: 'Ziehen zeichnet den Umriss frei. Oder Eckpunkte antippen (mind. 3) – Doppeltippen oder «Fertig» schliesst die Fläche ab.',
       circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
       text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -2724,9 +2816,9 @@ export const de = {
     insertVertex: 'Punkt einfügen',
     dragVertex: 'Eckpunkt ziehen · gedrückt halten zum Löschen',
     dragRadius: 'Radius ziehen',
-    groupDeleteTitle: 'Auswahl löschen',
-    groupDeleted: 'Auswahl gelöscht',
-    groupDeletedN: '{n} Objekte vom Plan gelöscht',
+    groupDeleteTitle: 'Auswahl entfernen',
+    groupDeleted: 'Auswahl entfernt',
+    groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',
     placeSymbol: 'Symbol «{name}» auf Plan gesetzt',
     placeLine: 'Linie auf Plan gezeichnet',
@@ -2746,10 +2838,10 @@ export const de = {
     // and the record is only destroyed where the operator said so. Both löschen rows are danger
     // rows, and both confirm first.
     removeMarker: 'Marker entfernen',
-    removeMarkerTrail: 'Marker und Spur löschen',
-    clearTrail: 'Spur löschen',
-    clearTrailConfirm: 'Alle {n} markierten Positionen von {name} löschen? Die Spur verschwindet von Karte und Plan.',
-    trailCleared: '{name}: Spur gelöscht',
+    removeMarkerTrail: 'Marker und Spur entfernen',
+    clearTrail: 'Spur entfernen',
+    clearTrailConfirm: 'Alle {n} markierten Positionen von {name} entfernen? Die Spur verschwindet von Karte und Plan.',
+    trailCleared: '{name}: Spur entfernt',
     trails: 'Spuren',
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
@@ -2758,7 +2850,7 @@ export const de = {
     ghostTrail: 'Spur {name}',
     ghostTrailHint: 'Spur von {name} – der Truppmarker wurde entfernt',
     ghostTrailTitle: 'Spur von {name}',
-    ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur löschen?',
+    ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur entfernen?',
     ghostTrailRestore: 'Trupp wieder platzieren',
     ghostTrailRestored: '{name} wieder platziert – Spur übernommen',
     // Umbenennen eines losen Trupp-Markers auf eine Nummer, die schon vergeben ist (ein Trupp,
@@ -2792,19 +2884,28 @@ export const de = {
     climbDown: 'Ein Geschoss tiefer weiter',
     climbBack: 'Zurück auf {floor}',
     addFloorDown: 'Untergeschoss hinzufügen',
+    // the toast and ↶ of «+ OG / + UG», naming the storey (its Verlauf row comes with #226)
+    floorAddedToast: '{floor} hinzugefügt',
     floorHide: 'Geschoss ausblenden',
     floorShow: 'einblenden',
     floorHidden: 'ausgeblendet',
-    removeFloor: 'Geschoss löschen',
-    removeFloorConfirm: '{floor}: {n} Markierungen dieses Geschosses werden gelöscht oder gekürzt. Geschoss trotzdem löschen?',
-    removeFloorConfirmOne: '{floor}: 1 Markierung dieses Geschosses wird gelöscht oder gekürzt. Geschoss trotzdem löschen?',
-    floorRemoved: 'Geschoss gelöscht',
+    removeFloor: 'Geschoss entfernen',
+    removeFloorConfirm: '{floor}: {n} Markierungen dieses Geschosses werden entfernt oder gekürzt. Geschoss trotzdem entfernen?',
+    removeFloorConfirmOne: '{floor}: 1 Markierung dieses Geschosses wird entfernt oder gekürzt. Geschoss trotzdem entfernen?',
+    floorRemoved: 'Geschoss entfernt',
+    /** the Verlauf row for the act itself (25.09.2026) — it used to write only its ↶ row */
+    floorRemovedLog: 'Geschoss {floor} entfernt',
+    floorRemovedLogMarks: 'Geschoss {floor} entfernt – {n} Markierungen entfernt oder gekürzt',
+    floorRestoredLog: 'Geschoss {floor} wiederhergestellt',
+    floorAddedLog: 'Geschoss {floor} hinzugefügt',
     floorAdded: 'Geschoss hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
     buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',
     buildingReplacedKept: 'Gebäude gewechselt – Geschosse behalten',
     buildingReplacedCarried: 'Gebäude gewechselt – {n} Markierungen übertragen',
     buildingReplacedCarriedDropped: 'Gebäude gewechselt – {n} übertragen, {d} weggefallen',
+    /** Ein Gebäude zum ersten Mal übernommen (noch kein Stapel da) — der ↶-Schritt dafür. */
+    buildingTaken: 'Gebäude übernommen',
     replaceBuilding: 'Anderes Gebäude wählen',
     replaceBuildingConfirm: 'Der bisherige Geschoss-Stapel wird verworfen und durch den neuen Umriss ersetzt.',
     // ⚠️ Der LEGACY-Fall: ein Gebäude ohne Georeferenz lässt sich nicht auf dem Boden verorten,
@@ -3194,7 +3295,7 @@ export const de = {
     gpsDistanceNow: 'jetzt {distance} entfernt',
     hiddenTarget: 'Ziel ausgeblendet',
     revealTarget: 'Ebene einblenden',
-    removeConnectedTitle: '{name} löschen',
+    removeConnectedTitle: '{name} entfernen',
     removeConnectedMessage: '{n} Linien werden gelöst.',
     removeEMessage: 'Teilstück löschen? {n} angeschlossene Linien werden gelöst.',
   },
@@ -3846,6 +3947,11 @@ export const de = {
     errorTitle: 'Der Server antwortet nicht.',
     errorHint: 'Bitte nochmals versuchen. Bleibt es dabei: bei der Einsatzleitung melden.',
     retry: 'Erneut versuchen',
+    // an Atemschutz-Link reloaded while its Einsatz is closed (staging r6, F2): the page asks
+    // once a minute and opens the board by itself after «Wieder öffnen»
+    closedTitle: 'Einsatz abgeschlossen',
+    closedAt: 'Abgeschlossen um {time}.',
+    closedHint: 'Wird der Einsatz wieder geöffnet, erscheint die Tafel hier von selbst.',
     // the Einsatz could not be loaded after opening the link (signal gone) – the landing page
     // says so instead of showing an empty incident list
     unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
@@ -4035,9 +4141,34 @@ export const de = {
   // was es beschreibt: die Liste.
   archived: {
     title: 'Einsatz abgeschlossen',
-    hint: 'Nur ansehen – zum Bearbeiten wieder öffnen.',
+    // r3, F10: der Rapport bleibt nach dem Abschluss korrigierbar (Nachträge) – alles andere nicht
+    hint: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    // …und wer gar nichts wieder öffnen kann (Link-Sitzungen)
+    hintViewOnly: 'Nur ansehen.',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
+    // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
+    // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
+    closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
+    closedElsewhereSub: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    // …und was dieses Gerät danach noch schicken wollte (ein Kontakt, eine Tafel-Änderung von
+    // offline): nicht übernommen, aber nicht verloren.
+    closedRefusedOne: '1 Eintrag dieses Geräts kam nach dem Abschluss und wurde nicht mehr übernommen. Er bleibt auf diesem Gerät gespeichert.',
+    closedRefused: '{n} Einträge dieses Geräts kamen nach dem Abschluss und wurden nicht mehr übernommen. Sie bleiben auf diesem Gerät gespeichert.',
+    closedExport: 'Einträge sichern',
+    closedDismiss: 'Hinweis ausblenden',
+    // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
+    reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
+    // r3, F10: der Rapport eines abgeschlossenen Einsatzes bleibt korrigierbar – und sagt es
+    rapportClosedHint: 'Einsatz abgeschlossen – Änderungen am Rapport erscheinen als Nachträge.',
+    // …und die Atemschutz-Link-Tafel, deren Halter nichts wieder öffnen kann
+    linkClosedTitle: 'Einsatz abgeschlossen – diese Tafel zeigt nur noch an',
+    // D1: der Link wurde für seinen eigenen Einsatz abgelehnt (widerrufen) – nichts mehr annehmen
+    linkRefusedTitle: 'Dieser Link gilt nicht mehr – diese Tafel zeigt nur noch an',
+    reopenedElsewhereSub: 'Wieder bearbeitbar – spätere Einträge erscheinen als Nachträge.',
+    // was beim Abschluss zurückgestellt wurde, geht jetzt raus – als Nachtrag
+    reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt nachgesendet – als Nachtrag.',
+    reopenedParked: 'Wieder bearbeitbar. {n} Einträge dieses Geräts, die nach dem Abschluss nicht übernommen wurden, werden jetzt nachgesendet – als Nachträge.',
   },
   // Einsätze history list
   history: {

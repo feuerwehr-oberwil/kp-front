@@ -49,7 +49,8 @@ export function useAtemschutzAlarm({
    *  the same alarm twice, four seconds apart, for a Trupp nothing had changed about. */
   logAlarm: (id: string, status: Trupp['status'], turnus: string) => void
   /** …and the line that says the alarm is over. Same turnus, same idempotency. */
-  logAlarmCleared: (id: string, turnus: string) => void
+  /** `seen` is the Trupp exactly as THIS evaluation saw it — restart markers included (F1, 26.09.). */
+  logAlarmCleared: (id: string, turnus: string, seen?: Trupp) => void
   /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec); default = appConfig doctrine */
   intervalMin?: number
   graceSec?: number
@@ -125,7 +126,7 @@ export function useAtemschutzAlarm({
       const turnus = alarmedFor.current.get(t.id)
       if (turnus === undefined) return
       alarmedFor.current.delete(t.id)
-      if (!demo) logAlarmCleared(t.id, turnus)
+      if (!demo) logAlarmCleared(t.id, turnus, t)
     }
     for (const t of trupps) {
       const l = deriveTruppLive(t, now, intervalMin, graceSec)

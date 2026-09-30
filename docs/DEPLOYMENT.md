@@ -52,7 +52,10 @@ install a 64-bit OS.
 
 The app process and an idle Postgres together sit comfortably under 500 MB, which is why 1 GB
 is a genuine minimum. What grows is **uploaded plans and incident media** in the `storage`
-volume – size the disk from that, not from the application.
+volume – size the disk from that, not from the application. The Replay's snapshots live there
+too. Every save keeps one gzipped copy of the incident: about 100 MB for a 24-hour Einsatz of
+normal size, and a few GB for a Grossereignis
+([`testing/fat-incident.md`](testing/fat-incident.md)).
 
 **Use an SSD, and do not run this from a microSD card or a USB stick.** Postgres writes
 continuously even when nobody is using the app, and cheap flash fails by silent corruption

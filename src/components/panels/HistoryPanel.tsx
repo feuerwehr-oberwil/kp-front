@@ -29,7 +29,8 @@ const statusKey = (i: IncidentMeta): string => (i.is_archived ? 'arch' : i.statu
 export function HistoryPanel({ onClose, onOpen, onArchive }: {
   onClose: () => void
   onOpen: (id: string, readOnly: boolean) => void
-  /** confirm + archive an open incident (editors only; omit for viewers) */
+  /** confirm + archive an open incident (editors only; omit for viewers and the el role). Its
+   *  presence also offers «Wieder öffnen» on an archived one — the same lifecycle, the same gate. */
   onArchive?: (id: string) => Promise<void>
 }) {
   const [items, setItems] = useState<IncidentMeta[]>([])
@@ -111,8 +112,10 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
                 </div>
                 <div className="ip-hist-sub">{shortAddress(i.address) ?? h.noLocation} · {fmtWhen(i.started_at)}</div>
               </button>
+              {/* «Wieder öffnen» is the lifecycle too (PATCH is_archived, editor-only on the
+                  server) — gated with «Abschliessen», or an el/viewer got a confirm and a 403 */}
               {i.is_archived
-                ? <button className="ip-btn" onClick={() => reactivate(i.id)}>{h.reactivate}</button>
+                ? onArchive && <button className="ip-btn" onClick={() => reactivate(i.id)}>{h.reactivate}</button>
                 : onArchive && <button className="ip-btn" onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</button>}
               {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
                   Übung is first abgeschlossen like any incident, then deletable */}

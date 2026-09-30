@@ -230,6 +230,19 @@ test:
     pnpm test
     cd backend && uv run pytest -q
 
+# (A measurement, not a gate — prints a report. Presets live in src/lib/fatIncident.ts; see
+# docs/testing/fat-incident.md for what the numbers mean and the last recorded run.)
+# How the pure hot paths scale with incident size (vitest bench over the fat-incident presets).
+[group('Quality')]
+bench:
+    pnpm bench
+
+# (Throwaway Postgres + built app per preset; never touches the dev database.)
+# Play a large/long Einsatz into a real backend and open it on a throttled browser.
+[group('Quality')]
+fat-perf *presets:
+    bash scripts/fat-perf.sh {{presets}}
+
 # Type-check the frontend and the e2e specs without emitting.
 [group('Quality')]
 check:

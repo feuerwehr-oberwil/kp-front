@@ -44,6 +44,12 @@ pnpm test    # vitest
 pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when you fix some, never raise it
 ```
 
+**Large / long incidents** (26.09.2026): `pnpm bench` times the pure hot paths and `just fat-perf
+[preset …]` plays a synthetic fat incident (`src/lib/fatIncident.ts`) into a throwaway backend and
+opens it on a CPU-throttled browser. Measurements, not gates. Run them when you change the save
+path, the Karte's rendering, the Verlauf or the Replay, and compare against the recorded run in
+[`docs/testing/fat-incident.md`](docs/testing/fat-incident.md).
+
 **Sourcemaps are hidden** (24.09.2026): `build.sourcemap: 'hidden'` writes a `.map` beside every
 chunk. No bundle references it, and the service worker's precache excludes `*.map`.
 `scripts/check-sourcemaps.mjs` checks all of this in CI. Never switch to `true`, and never
@@ -99,6 +105,66 @@ to prod.
   journal has its own copy. The stores' own timers go through `run()` and request nothing. It is
   one re-run per request and never after an answer (401, refused, exhausted merge), so an offline
   device does not spin (`outboxReconnect.soak.test.ts`).
+  ⚠️ **A closed Einsatz keeps its RECORD, not its operation, and every device hears the close**
+  (25.09.2026, staging N3: two devices ran a closed Einsatz for minutes and wrote a Kontakt and
+  two «Überfällig» rows into it). Server (`api/incidents · incident_closed`): once `is_open` is
+  false, a live write MADE AFTER THE CLOSE is 409 `{code: 'incident_closed', closed_at}` — judged
+  by when it happened (rows `at`, events `occurred_at`, saves `edited_at`, all on the
+  server-aligned clock, +120 s tolerance; no stamp ⇒ by arrival), never by when it arrived: a
+  Kontakt from before the close is a true fact and prints as a Nachtrag. Live = events outside
+  the record vocabulary (`EL_EVENT_PREFIXES`), Verlauf rows of kind `team`/`symbol`/`layer`/
+  `vehicle` without a `conflict` payload, the trupps slice, and a full save that changes a key
+  outside `RECORD_WORKSPACE_KEYS` and `VIEW_WORKSPACE_KEYS` (the revision check runs FIRST, and an
+  entry the server already holds is the idempotent success, not a refusal). The record slice,
+  record events, Meldungen/patch rows, `PATCH`, media and «Wieder öffnen» are untouched. Every
+  workspace read — the 304 too — carries `X-Incident-Open`/`X-Incident-Closed-At`; a lifecycle
+  `PATCH` and the auto-archive sweep wake the parked followers, and a poll carrying `open=` that
+  no longer matches is answered at once. Client (`lib/incidentClosed`): the poll header, a
+  refusal and the list watch (a suspicion, verified) all `reportIncidentClosed`; App flips the
+  meta IN PLACE (`closedMetaFor`, never for the Einsatz this device is closing, never a jump
+  elsewhere), and `IncidentWorkspace` derives `readOnly` from `isIncidentRunning` live, so the
+  alarm, the GPS pass, the presence log, the weather stamp and the Wiedervorlagen stop, with one
+  Meldeleiste row («… auf einem anderen Gerät abgeschlossen (hh:mm)»). The closing device drains
+  its Verlauf and audit outboxes before the archive `PATCH`. The outboxes keep DELIVERING on a
+  closed view (`outboxReadOnly`), and a refused write is parked — journal `refused`, audit
+  `closed` (apart from the role bucket `refused`), the workspace's `::__refused__` slots, whose
+  record part is re-saved at once through the record route and whose ancestor goes straight
+  back on screen. Parked entries are exported by «Einträge sichern», keep the lamp amber until
+  then, and are SENT again once the Einsatz runs again. A plain 409 on the workspace is still
+  the revision conflict: test the code first. «Wieder öffnen» elsewhere comes back the same way
+  (`X-Incident-Open: 1`, the same wake, the list watch, `reopenedMetaFor`) on EVERY device that
+  shows the Einsatz closed, however it came to (a close signal, its own close, «Alle Einsätze» —
+  forceReadOnly goes too), with its own row naming the reopen row's time. The live poll claims
+  `open=` from the server's last `X-Incident-Open`, never only from the view, and a held poll that
+  answers at once with nothing new eases off — a closed view must never spin (it did, 3.4/s). «Anhängen» is never offered onto a closed Einsatz.
+  After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
+  … erscheinen als Nachträge»); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
+  until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped
+  `receivedAfterClose` and prints as a Nachtrag whatever its time — except a row the Abschluss
+  itself wrote between the confirm and the close (`atClose`, set by `useAbschluss · markClosing`;
+  honoured up to 120 s past the close, `verlauf · isNachtrag`). A reopen clears
+  `report_done_at` (a running Einsatz is not «Rapport fertig»), keeps `closed_at` (the first
+  Einsatzende, which marks the Nachträge — so the Einsatzuhr ignores it while the Einsatz runs),
+  and writes its boundary row with `lifecycle: 'reopened'`; every crew still inside restarts its
+  contact clock at that row's `at`, one `azro-<row>-<Trupp>` row each, and the alarm holds until
+  the row has arrived (`lib/reopenClocks`); the alarm that restart ends names the reopen
+  (`contactRestartedAt`), never a Funkkontakt — read off the Trupp the alarm engine EVALUATED
+  (`logAlarmCleared(id, turnus, seen)`), not the parent's state, which gets the restart one effect
+  later, so every tablet writes the same reason under the one derived id — and the pressure estimate skips the closed
+  interval (`pausedFrom` → `contactRestartedAt`, `atemschutz · estimatePressure`). The Atemschutz-Link of a closed Einsatz says «diese
+  Tafel zeigt nur noch an» and follows once a minute (`pollBackoff · minDelayMs`): a link
+  session on a closed Einsatz is answered 409 `incident_closed` + `X-Incident-Open: 0` on the
+  Einsatz's own routes (before any key check — every close, the second too), and a link page
+  refused 403 on its workspace/Verlauf/events freezes read-only (`api · LINK_REFUSED_EVENT`). A
+  per-Einsatz Atemschutz link RELOADED while closed gets the same 409 from the exchange (no cookie;
+  the alarm link's (src, ref) exchange keeps its one 404) and shows «Einsatz abgeschlossen», asking
+  again once a minute so a reopen opens the board by itself (`link/LinkApp · ClosedCard`). The
+  link KEY is not revoked by a close, on purpose: the QR panel shows it standing and a reopen
+  revives it. `closed_at` is the FIRST close (Nachträge only); `last_closed_at` is stamped on
+  every close and is the Einsatzende the clock, the Rapport and the Anwesenheit ends default to
+  (`api/incidents · closeTimeOf`); the PDF prints the Nachtrag mark under the row's time. A
+  closed Tafel alarms nothing (no badge, no red; «Stand beim Abschluss»), the lifecycle row
+  expires after two minutes and never covers the Rapport.
   A disposed journal store must never publish a late snapshot over its replacement.
   A Web Lock request rejected before a grant must not immediately requeue: an inactive
   document can reject forever and prevent navigation. Requeue only after a held lock is lost,
@@ -134,11 +200,59 @@ to prod.
     destroys something (a Geschoss, a Beilage, an Anwesenheits-Block, a Pendenz's «Erledigt» —
     whose inverse is an APPENDED `reopened` row, since 23.09.2026). It does the inverse
     itself and **drops its timeline entry** (`push` returns the dropper), so an act is never
-    undoable twice.
+    undoable twice. ⚠️ …and it writes the SAME counter-row the ↶ would (25.09.2026,
+    `IncidentWorkspace · oneShotUndoToast`): a storey restored from the toast used to leave
+    «Geschoss 3. OG entfernt» alone on the printed Einsatzjournal. The Rapport prints the ↶ / ↷
+    rows as well (`report · journalRows`) — a taken-back act is two rows, on paper too. ⚠️ And a
+    counter-row exists only beside the row it counters (26.09.2026): a one-shot whose act wrote
+    no row undoes silently (`rememberOneShot(…, 'silent')`), and a ↶ of an act the paper does not
+    print (a move) is not printed either (`report · historyCountersPrintedRow`).
   Two rules that fall out of it: a surface that persists on every **keystroke** classifies its
   writes so a burst of typing is ONE step and a value/row appearing or disappearing is its own
-  (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate drops the whole
-  timeline plus every open fold window, because nothing on it describes anything real any more.
+  (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate closes the open
+  fold windows — the Rapport's typing burst (`lastReportStep`), the Bildlegende
+  (`lastCaptionStep`), the Gebäude-Drehung (`lastReorient`) — and re-opens a plan gesture whose
+  step the merge took: the store's sheet-step token (`useObjectStore · rebaseObjects`) and the
+  Whiteboard's first-movement checkpoint (`useBoardDoc · set`) each lay a fresh step at the
+  gesture's next sample.
+  - ⚠️ **A remote merge drops only the steps it INVALIDATED** (25.09.2026, `lib/undoKeys`,
+    `UndoTimeline.rebase`) — this REVERSES the 08.09. rule that dropped the whole timeline on
+    every hydrate, which with three devices greyed ↶ out within ~2 s of any save anywhere.
+    `applyWorkspace` diffs the live state against the merged one record by record, at or coarser
+    than the merge's own granularity (`WORKSPACE_RECORDS`: an object/Trupp/Mittel row by id, an
+    Anwesenheit by person, a Rapport field by name, `building:` whole; `planview:<planId>` for a
+    sheet whose drawn view moved, `planview:*` when a fit field did). The diff is by value and
+    insensitive to key order ONLY (an `undefined` property counts as absent): array order and
+    every value are compared exactly — the merge's own comparison (`undoKeys · sameValue` IS
+    `lib/jsonEqual`), so «the merge changed this record» and «this side changed it» never
+    disagree about a re-sorted value. Every entry says which records its undo/redo TOUCH
+    (`touches`): every record it writes, AND every record one of those values LINKS to — a
+    placard's `dockedTo`, a Leitung end's attachment target, a `truppId`, a Gebäude body's
+    `building:` (`objectRefs` / `annoRefs`, old value and new) — because re-stating a link means
+    «where the target is NOW», and a ↷ that re-docks onto a host another device moved would land
+    at the old spot. The merge drops each entry that touches a changed record, plus — walking in
+    the order the steps would be taken — every entry behind a dropped one that touches a record
+    the dropped one touched (its effect is now permanent). An entry with no `touches` is dropped
+    by any real change, and so is everything older. An echo drops nothing. The delegating
+    domains then keep exactly the steps whose entries survived (`step`), RE-LAID onto the merged
+    state as a patch of the records each wrote (`rebaseHistory`; an open Karte drag via
+    `rebasePending`) — the Karte store per object, the slices per record — so no snapshot carries
+    a pre-merge value of a record the merge changed. A Plan's stack is whole-sheet VIEW snapshots
+    (an absent anno is a deletion), so it cannot be re-laid: it survives only WHOLE
+    (`planStackTouches` names the stack's every object, link and its view), cut by step id
+    (`keepPlanSteps`). The confirm-with-undo toasts are guarded too: `undoToast(…, guard)`
+    declines with «Nicht mehr rückgängig machbar» once a merge changed a record it would write or
+    link to (or its entry is no longer `standing`); a toast whose target lives outside the
+    workspace checks the target itself (`georefStillIs`, `mittel · tombstoneStands`). The whole
+    bookkeeping runs through `carryUndoThroughMerge`: if any of it throws, the old rule applies
+    (timeline cleared, every history dropped, the merged state still lands). ⚠️ ↶ never turns
+    into an older act SILENTLY (staging r3, F8): when a merge drops the step ↶ would have taken
+    back, one line says so («Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät
+    hat … geändert», `onTopDropped`), and the header's label and flash caption name the SURFACE
+    in front of an action that does not already say it («Trupps · Trupp 1 (…): Ausrüstung: WBK»,
+    `undoTimeline · undoCaption`, `copy.undoSurfaces`) — the Verlauf row keeps the bare action. Add an entry ⇒ give
+    it a `touches` that covers EVERYTHING its undo and redo write, and every record those values
+    link to; add an id-valued link field ⇒ add it to `objectRefs`.
   Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are
   new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
   metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.
@@ -313,7 +427,7 @@ to prod.
     geo for the Karte; never projected across). The marker's bar has ONE trash (`deleteLocked` and
     the morphing trash are gone, and so is the short-lived footprint button beside it): with no
     trail it removes the marker outright, and with one it opens the app's `Menu` — «Marker
-    entfernen» (the ghost stays) · «Spur löschen» · «Marker und Spur löschen», the last two danger
+    entfernen» (the ghost stays) · «Spur entfernen» · «Marker und Spur entfernen», the last two danger
     rows, each confirming first. The combined row leaves NO ghost: the surface arms the
     reconciliation (`reconcileGhostTrails · dropped`, `IncidentWorkspace · armTrailDrop`) and the
     ghost is born `removedAt`-stamped rather than skipped — a skipped one is ghosted again by the
@@ -349,6 +463,19 @@ to prod.
   their actual text/value, because the Rapport is read on paper where nothing can be clicked. The
   row is also the ONE string the Verlauf, the Rapport and the hash chain all read – so a re-shown
   reminder carries its bare text alongside (`reminder.text`) rather than the row being re-parsed.
+  **Deleting and creating belong in the same channel, on both surfaces**: a single object removed
+  on a Plan writes the Karte's «{name} entfernt» (24.09.2026, `drawingEdit · annoLogName`, as a
+  `subjectId`, never a jump target), and «Gelöscht / erledigt» writes «Feuer EG gelöscht» /
+  «Feuer EG wieder aktiv» from the act itself — one row per act ([`docs/verlauf-coverage.md`](docs/verlauf-coverage.md)).
+  ⚠️ **The two acts never share a verb** (decided 25.09.2026): taking a tactical object off the
+  picture is «Entfernen» / «… entfernt» — button, confirm and Verlauf row, Karte and Plan, every
+  object kind (`copy · remove`, `log.objectDeleted` …) — so «gelöscht» only ever means an
+  extinguished Feuer. That holds for EVERYTHING on the picture (audited 25.09.2026 after the second
+  staging walk-through): a Trupp taken off the board («Trupp N entfernt»), a marker's Spur, a
+  Gebäude storey («Geschoss 3. OG entfernt», now written by the act itself), a plan group — pinned
+  by `config/copy/removalWords.test.ts`. Rows already written keep their «gelöscht»
+  (append-only). «Löschen» stays for records that are not on the picture (an Ansicht, a Schicht,
+  a Checkliste, a Verlauf-Eintrag, a Mittel line).
   The one accepted maintenance exception is whole-incident hard deletion through `/admin`:
   `DELETE /api/incidents/{id}` is deployment-admin-only, and a real Einsatz must already be
   archived (an Übung may be deleted in any state). It deliberately removes the full record and
@@ -389,8 +516,9 @@ to prod.
   turn's degrees are read *on the surface*, beside the pivot and the radius the finger is
   swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet – so the
   two grips are icon-only and never re-flow mid-gesture. «Fertig» ends the editing state
-  (disarm + clear the selection + close its sheets); **«Löschen» is not on the bar** – an object
-  is deleted from its own editor sheet and with the Delete key, which on both surfaces reaches a
+  (disarm + clear the selection + close its sheets); **«Entfernen» is not on the bar** (it was
+  called «Löschen» until 25.09.2026) – an object is removed from its own editor sheet and with the
+  Delete key, which on both surfaces reaches a
   Mehrfach group and a mirrored selection too. On the object itself only **geometry** grips live:
   vertex, «+» midpoint, Verlängern, Verbindung lösen, the radius ring, and a shape's own
   resize grips (its rotate knob left on 02.09.: the bar's ⟳ is the one way to turn a Form;
@@ -485,7 +613,7 @@ to prod.
     hinzufügen» (24.09.2026, `stackFloors · removeStorey` / `withoutOwnOnStorey`): a Karte object
     SHOWN on a storey is not the storey's, and swept out of the view it was deleted outright. It
     stays on the Karte and simply finds no tile. The removal's confirm asks only about what the
-    SAME sweep loses (`removeStorey · lost`, `lib/storeyRemoval`) — «n Markierungen … gelöscht oder
+    SAME sweep loses (`removeStorey · lost`, `lib/storeyRemoval`) — «n Markierungen … entfernt oder
     gekürzt» — and a storey showing only Karte objects goes without asking; the toast still undoes
     it. And the seam honours it per object: a lent anno
     handed back exactly as shown folds to the SAME record (`applyBoardToObjects`), never through
@@ -535,6 +663,10 @@ to prod.
     the step and whose remaining samples fold into it, and the token closes when the finger lifts
     — a plan step is a pointer gesture. With none open, every write is its own step, which is what
     the writers that are not gestures (the Trupp sweeps, a plan ↶, a Gebäude amend) need.
+    ⚠️ The plan laid ITS entry when the step began, before anyone knew whom the fold would touch;
+    when the store takes the step, that entry and its per-plan snapshot are withdrawn
+    (`useObjectStore · onForeignStep` → `lib/planStepLink`, 25.09.2026). A plan-panel edit of a
+    Karte-owned symbol used to cost two ↶, the second one reporting a lost step.
   - **Presentation stays equivalent, and nothing is lent that is owned.** Each surface draws the
     other's objects with its OWN native chrome and sizing (map `symPx`, board `symBase`) — no
     projection tone, no reduced opacity, no twin-only band — and every capability the surface has
@@ -547,6 +679,25 @@ to prod.
     — the live vehicle and responder feed (`planProjection · liveOverlay`, `PlanLiveLayer`),
     read-only but for the one gesture it always had: dropping a Fahrzeug writes the same
     held-in-place override the Karte writes.
+  - **A symbol whose matter is over is marked, never deleted** (24.09.2026, review item 21b,
+    `lib/objectDone`). «Gelöscht / erledigt», a row of the symbol's editor sheet, sets
+    `done {at, by?}` — a SymbolProps prop, so both bodies share it and every write-through and bake
+    carries it (never `BAKE_PRESERVED`: that list would re-add a cleared value from the map body).
+    ⚠️ It is offered ONLY where being over means something — the damage and hazard categories
+    (`appConfig.symbols.doneCategories`: Schadenlage, Gefahren) and the fire family
+    (`objectDone · offersDone`, decided by the PACK's category, never the editable subtitle); there
+    it is the editor's first row. A Fahrzeug, a KP Front, a Hydrant, an Einsatzmittel never gets
+    it (owner's sign-off, 26.09.2026: «we don't need "erledigt" for cars»). A `done` already on
+    another symbol (an older record) keeps rendering and can be reopened, never newly set
+    (`doneAct` refuses).
+    The symbol stays, greyed with its HH:MM top-left, by ONE rule on the Karte, the Plan and the
+    Gebäude (`TacticalSymbol` · `.ts-done`, the `--done-*` tokens) and on paper (`kroki ·
+    _place_symbol`, `DONE_ALPHA`). «Wieder aktiv» clears it; both are ordinary undoable prop edits,
+    audited with `done: null` for the clear (JSON drops `undefined`, and the replay would keep it
+    grey). A Feuer is «gelöscht», everything else «erledigt» (`appConfig.symbols.fireFamily`, one
+    copy key `objectDone.word`). The footer's delete reads «Entfernen» — for a mistake — and it
+    writes the Karte's removal row («… entfernt») on the Plan too. Symbols only: a
+    Fläche/Absperrkreis would need greyed ink on four renderers.
   - **Reference change or delete loses nothing.** Correcting a fit re-bakes every sheet-anchored
     object's map body — that correction is the whole point of correcting a fit — as ONE undo step
     with one Verlauf row («Referenz angepasst – n Objekte neu verortet»). A DELETED reference
@@ -664,6 +815,20 @@ to prod.
   Geschossplan» on every storey (prod, 20.09.2026). Floors that exist are never replaced. Bound sheets carry `incident:` georef keys, routed by
   `stationPlanScale · georefForPlan`; legacy fits under existing ink are preserved, never
   silently replaced.
+- **Building outlines come from the station's snapshot first** (25.09.2026). `POST
+  /api/overpass/buildings` clips the box out of the stored station snapshot
+  (`reference_buildings · stored_answer`, read-only) whenever that covers the box AND its
+  `fetched_at` is at most 30 days old; otherwise it races the mirrors and falls back to the
+  snapshot at any age only when every mirror failed (also with no mirror configured, before the
+  503). Only the alignment worker refreshes the snapshot, and only while it has jobs to run, so
+  «recent» is not a given. ⚠️ The live path has its OWN parsed copy (`_live`, one shared load for
+  concurrent cold callers, parse and clip off the event loop): the worker's `_cache` is returned
+  for ten minutes without checking the station's objects, and fed from the live path it once
+  handed the worker a snapshot missing newly pushed objects. The race itself is cached
+  per query (6 h, 64 entries, never a failure) and shared between concurrent callers — every
+  device of an Einsatz asks for the same box from ONE egress address, which the public mirrors
+  throttle — and its per-mirror guard (30 s) outlasts the query's own `[timeout:25]`. Staging
+  answered about half of all Karte opens with a 502 before.
 - **A plan PDF is downloaded ONCE per revision, and its pages are rendered once per width**
   (18.09.2026). pdf.js is never handed a URL: `lib/pdfBytes` does one plain `GET` and
   `PdfViewport · docEntry` opens the document from `data` (a COPY — pdf.js transfers, i.e.
@@ -745,6 +910,9 @@ to prod.
     surface registers while it is open (`overlays/popoverGuard` · `usePopoverGuard`; `Menu`,
     `Popover` and `ComboMenu` already do), and `Sheet`/`Overlay` veto an `outside-press`/
     `escape-key` dismissal while the register is warm. Add a hand-rolled popover ⇒ register it.
+    A surface with its own INNER layers (a search, an inline editor) answers Esc through
+    `Overlay · onEscape` — true = «I closed my layer» — never through `dismissEscape={false}`,
+    which only vetoes and left the Verlauf drawer deaf to Esc on the tablet (26.09.2026).
   - **A phone bottom sheet is closed by pushing it down.** `overlays/swipeDismiss`, spread on the
     popup by `Sheet` and `Overlay` (`swipeToClose`, on by default) — never a per-surface copy. It
     measures that the popup IS a bottom sheet, leaves a scrolled body its own gesture, never starts
@@ -777,7 +945,17 @@ to prod.
   everything tactical stay 403 for it), and `viewer`
   (read-only). Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
   on, `readOnly` off) with `canEditRecord` unlocking the four surfaces, `canEditMeta` the
-  Einsatzdaten panel, and the sync pushing `slice: 'record'`. The legacy `commander` value has been migrated away: the stored role,
+  Einsatzdaten panel, and the sync pushing `slice: 'record'`. ⚠️ **A door the role cannot go
+  through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026). A
+  READ-OUT is not a door: it stays, disabled in the `.wb-object:disabled` recipe (full opacity,
+  its own words and tone, no tap). So a locked session (el, Führungsansicht, viewer, replay) keeps
+  the building's name, the Massstab and the linked «⌖ Karte» chip as read-outs — an unchecked
+  automatic fit must never look like a checked one, whoever is looking — but gets no «Anderes
+  Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». Every
+  session that cannot share links (`canShareLink` false: el, Führungsansicht, viewer, link) gets
+  no «Weitergeben» section, and so sends no GET for a link it may not read. The `el` also gets no
+  saved-view writes, no vehicle override, no object switch, no «Wieder öffnen», no transcription
+  and no checklist «Zeichnen» link. The legacy `commander` value has been migrated away: the stored role,
   the `Literal`/type unions, the `CurrentEditor` dependency, and `user?.role === 'editor'` checks
   all use `editor` now. Do not reintroduce `commander`, and do not add deployment-admin power to the
   incident role model. Deployment administration is **separated** behind the `ADMIN_SECRET` env var:
@@ -860,6 +1038,8 @@ to prod.
     (`symbols · symbolLegendText`), for every symbol. ⚠️ Not `symbolCaptionText`: the screen's
     value-only caption is an answer without its question once lifted into a legend. A symbol's own
     `caption: 'off'` is a screen declutter and is not read; only «Beschriftungen aus» silences it.
+    A «Gelöscht / erledigt» symbol ends its line on that Status with its time («Feuer · gelöscht
+    20:40», 24.09.2026) and prints grey, never absent.
   - **One figure-page template** (`report_pdf · figure_pages`): heading, then the muted «Einsatz ·
     Stand …» line, picture, legend – for the Kroki, a plan sheet and a Gebäude page alike. A new
     kind of figure page joins that list; it does not get a layout block of its own. Orientation is

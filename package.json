@@ -15,6 +15,7 @@
     "lint": "eslint . --max-warnings=412",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "bench": "vitest bench --run",
     "preview": "vite preview --port 4173"
   },
   "dependencies": {

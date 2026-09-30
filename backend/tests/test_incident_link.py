@@ -608,8 +608,9 @@ async def test_closing_the_einsatz_stops_a_link_reporting(client, link_key, inci
             "ts": datetime.now(UTC).isoformat(),
         },
     )
-    assert r.status_code == 403, r.text
-    assert r.json()["detail"] == DENIED_DETAIL
+    # still refused — and, on the Einsatz's own route, refused as CLOSED (D1, 25.09.2026)
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["code"] == "incident_closed"
 
 
 async def test_link_cannot_report_into_another_incident(client, link_key, incident, db_session):
@@ -673,8 +674,10 @@ async def test_closing_the_incident_revokes_a_live_link(client, link_key, incide
     await db_session.commit()
 
     r = await client.get(f"/api/incidents/{incident.id}/journal")
-    assert r.status_code == 403, r.text
-    assert r.json()["detail"] == DENIED_DETAIL
+    # dead — and it says why, so the page can freeze instead of retrying into a wall (D1)
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["code"] == "incident_closed"
+    assert r.headers["X-Incident-Open"] == "0"
 
 
 async def test_a_real_login_is_not_narrowed_by_a_stale_link_cookie(client, link_key, incident, editor):
@@ -784,8 +787,8 @@ async def test_a_dead_session_can_still_redeem_the_next_link(client, db_session,
     incident.status = "abgeschlossen"
     incident.closed_at = datetime.now(UTC)
     await db_session.commit()
-    # the session is dead, as designed
-    assert (await client.get(f"/api/incidents/{incident.id}")).status_code == 403
+    # the session is dead, as designed — on the Einsatz's own route it says «closed» (D1)
+    assert (await client.get(f"/api/incidents/{incident.id}")).status_code == 409
 
     nxt = _incident(title="Oelwehr Bahnhofstrasse 12", source_ref="alarm-the-next-one")
     db_session.add(nxt)
@@ -1413,9 +1416,29 @@ async def test_closing_the_einsatz_kills_an_open_atemschutz_session(client, edit
     await db_session.commit()
 
     r = await client.put(f"/api/incidents/{incident.id}/workspace/trupps", json={"trupps": [], "base_rev": 0})
-    assert r.status_code == 403, r.text
-    assert r.json()["detail"] == DENIED_DETAIL
-    assert (await client.get(f"/api/incidents/{incident.id}/workspace")).status_code == 403
+    # refused — as CLOSED, with the headers every closed answer carries (D1, 25.09.2026): the Tafel
+    # read an unexplained 403 as a sync hiccup and kept taking entries it could never deliver
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["code"] == "incident_closed"
+    r = await client.get(f"/api/incidents/{incident.id}/workspace?since=0")
+    assert r.status_code == 409 and r.headers["X-Incident-Open"] == "0"
+    # a station-wide route keeps the one generic refusal — nothing to probe there
+    assert (await client.get("/api/plan-scales")).status_code == 403
+
+
+async def test_a_second_close_reaches_the_atemschutz_link_too(client, editor, incident, db_session):
+    """D1: close, reopen, close again — the Link must hear the SECOND close exactly like the first."""
+    await _open_atemschutz(client, editor, incident)
+    inc = await db_session.get(Incident, incident.id)
+    for archived in (True, False, True):
+        inc.is_archived = archived
+        await db_session.commit()
+        r = await client.get(f"/api/incidents/{incident.id}/workspace?since=0")
+        if archived:
+            assert r.status_code == 409, r.text
+            assert r.headers["X-Incident-Open"] == "0"
+        else:
+            assert r.status_code in (200, 304), r.text
 
 
 async def test_revoking_kills_the_url_and_the_open_atemschutz_session(client, editor, workspace):
@@ -1458,18 +1481,40 @@ async def test_atemschutz_link_stays_scoped_to_its_own_incident(client, editor, 
     assert r.json()["detail"] == DENIED_DETAIL
 
 
-async def test_an_atemschutz_link_to_a_closed_einsatz_answers_404(client, editor, incident, db_session):
-    """«Noch nicht / nicht mehr verfügbar» — the alarm link's answer, because it is the alarm
-    link's lifetime. A revoked or unknown secret stays the 401 instead."""
+async def test_an_atemschutz_link_to_a_closed_einsatz_says_closed(client, editor, incident, db_session):
+    """A closed Einsatz is said as CLOSED to the holder of its own secret (staging r6, F2): the
+    same 409 `incident_closed` a running session gets, so the reloaded page shows the closed card
+    and follows the reopen instead of «eben erst eingetroffen» → «nicht abrufbar». Still no
+    session; a revoked or unknown secret stays the 401."""
     token = await _mint_atemschutz_link(client, editor, incident)
     inc = await db_session.get(Incident, incident.id)
-    inc.is_archived = True
+    closed_at = datetime(2026, 9, 26, 3, 12, tzinfo=UTC)
+    inc.status = "geschlossen"
+    inc.closed_at = closed_at
     await db_session.commit()
 
     r = await client.post("/api/incident-link/session", json={"token": token})
-    assert r.status_code == 404, r.text
-    assert r.json()["detail"] == NOT_AVAILABLE_DETAIL
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["code"] == "incident_closed"
+    assert r.json()["detail"]["closed_at"] == closed_at.isoformat()
+    assert r.headers["X-Incident-Open"] == "0"
     assert LINK_COOKIE not in r.cookies
+
+    # archived is closed all the same
+    inc.status = "offen"
+    inc.is_archived = True
+    await db_session.commit()
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 409, r.text
+    assert LINK_COOKIE not in r.cookies
+
+    # …and «Wieder öffnen» opens the same link again — nothing to re-mint
+    inc.is_archived = False
+    await db_session.commit()
+    r = await client.post("/api/incident-link/session", json={"token": token})
+    assert r.status_code == 200, r.text
+    assert LINK_COOKIE in r.cookies
+    _forget_link(client)
 
     for probe in ("anope-not-a-real-secret", "a"):
         r = await client.post("/api/incident-link/session", json={"token": probe})

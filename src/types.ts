@@ -157,6 +157,22 @@ export interface SymbolProps {
    *  sheet). The renderers add a `--note-halo` outline so bare text stays legible over an
    *  aerial / a dark plan — never a background-less plain colour. */
   notePlain?: boolean
+  /** «Gelöscht / erledigt» (review item 21b, 24.09.2026): the thing this symbol marks is OVER —
+   *  the fire is out, the Rettung done — but it happened, so the symbol STAYS on the picture,
+   *  greyed, with the time (lib/objectDone). Deleting it («Entfernen») is for a mistake only.
+   *  A PROP, not geometry: it lives in SymbolProps, so it is part of the vocabulary both bodies
+   *  share and crosses with every write-through and every bake (lib/tacticalObjects) like `count`
+   *  does. Setting and clearing it are ordinary undoable prop edits. Offered on `kind: 'symbol'`
+   *  only — a Fläche/Absperrkreis would need its own greyed ink on four renderers. */
+  done?: ObjectDone
+}
+
+/** When a symbol was marked «gelöscht / erledigt», and by whom. `at` is an ISO instant on the
+ *  deployment's clock (lib/serverClock · serverNowIso), the same clock every Verlauf row uses. */
+export interface ObjectDone {
+  at: string
+  /** author display name snapshot, when known (like `MittelEvent.by`) */
+  by?: string
 }
 
 /** Relative note text size. Absent = 'm'; see `NOTE_SIZE_SCALE` in lib/notes. */
@@ -496,6 +512,18 @@ export interface TimelineEvent {
    *  at display time and hides the patch row itself — rows are never edited in place
    *  (append-only record; same pattern as the reminder lifecycle above). */
   patchOf?: string
+  /** Stamped by the SERVER on a row it accepted while the Einsatz was closed (api/journal,
+   *  staging r3): a Kontakt from 14:44 that arrived at 14:47, after a 14:45 close, keeps its
+   *  place in time — and still prints as a Nachtrag, because it reached the record late. */
+  receivedAfterClose?: boolean
+  /** Written BY the Abschluss itself, between the operator's confirm and the close — the crews it
+   *  went over, the ones it stood down (staging r6, F3). Part of the close, never a Nachtrag, even
+   *  when the device's clock put it a moment past the server's `closed_at` (lib/verlauf ·
+   *  isNachtrag bounds how far past). */
+  atClose?: boolean
+  /** A server boundary row: the Einsatz was closed or reopened here (backend · append_system_row).
+   *  What the clients key the reopen's clock restart on — never the German sentence. */
+  lifecycle?: 'closed' | 'reopened'
   /** patch payload only: corrected text for the target row. Patch rows carry a filler
    *  `text: ''`, so a text correction needs its own field — the store folds it onto the
    *  target's `text` at display time (append-only correction, same as transcript). */
@@ -1110,6 +1138,18 @@ export interface Trupp {
    *  pressure update; seeded to entryTime on Eingerückt. Empty while `angemeldet`. The contact
    *  clock (now − this) is the safety signal: overdue past the interval ⇒ überfällig alarm. */
   lastContactTime: string
+  /** The contact clock was RESTARTED here by «Wieder öffnen», not by a Kontakt (lib/reopenClocks,
+   *  D5): equal to `lastContactTime` while that restart is the last thing that moved the clock.
+   *  What lets the alarm's «beendet» row name the reopen instead of claiming a Funkkontakt. */
+  contactRestartedAt?: string
+  /** …and when the Einsatz had been CLOSED before that reopen: `[pausedFrom, contactRestartedAt]`
+   *  is time spent closed, which the pressure estimate does not count as breathing (staging r4:
+   *  every crew inside read «Alarmdruck … laut Schätzung erreicht» right after the reopen). */
+  pausedFrom?: string
+  /** …and the contact time the restart REPLACED: an alarm opened on that contact was still running
+   *  at the reopen (the restart ends it); one opened on an older contact had already been ended
+   *  by this one (N4, staging 26.09.2026). */
+  contactBeforeRestart?: string
   /** last recorded cylinder pressure (bar) + when (ISO) — logged for the record, never predicted */
   lastPressureBar?: number
   lastPressureTime?: string
