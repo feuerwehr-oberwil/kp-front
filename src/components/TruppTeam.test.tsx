@@ -54,7 +54,7 @@ describe('TruppTeam', () => {
   it('adds a tapped roster member, first one first', () => {
     const onChange = setup()
     fireEvent.click(screen.getByRole('option', { name: /Huber Sarah/ }))
-    expect(onChange).toHaveBeenCalledWith([{ name: 'Huber Sarah', personId: 'p2' }])
+    expect(onChange).toHaveBeenCalledWith([{ name: 'Huber Sarah', personId: 'p2' }], 'add')
   })
 
   // The hold is the SAME action as the tap — the hand that learned «press and hold» on a node
@@ -74,7 +74,7 @@ describe('TruppTeam', () => {
       expect(onChange).toHaveBeenCalledWith([
         { name: 'Huber Sarah', personId: 'p2' },
         { name: 'Meier Anna', personId: 'p1' },
-      ])
+      ], 'lead')
 
       // …and the click the release still produces is swallowed
       onChange.mockClear()
@@ -97,7 +97,7 @@ describe('TruppTeam', () => {
     expect(onChange).toHaveBeenCalledWith([
       { name: 'Huber Sarah', personId: 'p2' },
       { name: 'Meier Anna', personId: 'p1' },
-    ])
+    ], 'lead')
   })
 
   it('searches the Mannschaft instead of making it a scroll list', () => {
@@ -138,7 +138,7 @@ describe('TruppTeam', () => {
 
     fireEvent.change(screen.getByPlaceholderText('Person suchen …'), { target: { value: 'Nachbarwehr Keller' } })
     fireEvent.click(guestRow('Nachbarwehr Keller'))
-    expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }])
+    expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }], 'add')
   })
 
   // …and it disappears again with the query, rather than standing over a roster that has the
@@ -169,7 +169,7 @@ describe('TruppTeam', () => {
     const search = screen.getByPlaceholderText('Person suchen …')
     fireEvent.change(search, { target: { value: 'bru' } })
     fireEvent.keyDown(search, { key: 'Enter' })
-    expect(onChange).toHaveBeenCalledWith([{ name: 'Brunner Thomas', personId: 'p3' }])
+    expect(onChange).toHaveBeenCalledWith([{ name: 'Brunner Thomas', personId: 'p3' }], 'add')
   })
 
   // …and with NOTHING matching, Enter makes nobody (staging walk-through 25.09.2026): the
@@ -182,7 +182,7 @@ describe('TruppTeam', () => {
     fireEvent.keyDown(search, { key: 'Enter' })
     expect(onChange).not.toHaveBeenCalled()
     fireEvent.click(guestRow('Nachbarwehr Keller'))
-    expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }])
+    expect(onChange).toHaveBeenCalledWith([{ name: 'Nachbarwehr Keller' }], 'add')
   })
 
   /* ⚠️ THE REVERSAL the shared field pays for (04.09.). The old dedicated name field committed on
@@ -218,7 +218,7 @@ describe('TruppTeam', () => {
     const onChange = setup()
     fireEvent.change(screen.getByPlaceholderText('Person suchen …'), { target: { value: 'Keller Urs' } })
     fireEvent.click(guestRow('Keller Urs'))
-    expect(onChange).toHaveBeenCalledWith([{ name: 'Keller Urs' }])
+    expect(onChange).toHaveBeenCalledWith([{ name: 'Keller Urs' }], 'add')
   })
 
   // an empty Trupp renders no chip and no control at all (09.09.) — the search sits right below
@@ -282,7 +282,7 @@ describe('TruppTeam', () => {
       const search = screen.getByLabelText(az.teamSearchPlaceholder)
       fireEvent.change(search, { target: { value: 'bru' } })
       fireEvent.click(screen.getByRole('option', { name: /Brunner Thomas/ }))
-      expect(onChange).toHaveBeenCalledWith([{ name: 'Brunner Thomas', personId: 'p3' }])
+      expect(onChange).toHaveBeenCalledWith([{ name: 'Brunner Thomas', personId: 'p3' }], 'add')
       expect((search as HTMLInputElement).value).toBe('')
       // …and with nothing typed the list is gone again, not left standing
       expect(screen.queryByRole('listbox')).toBeNull()
@@ -361,10 +361,10 @@ describe('TruppTeam', () => {
       expect(onChange).toHaveBeenCalledWith([
         { name: 'Huber Sarah', personId: 'p2' },
         { name: 'Meier Anna', personId: 'p1' },
-      ])
+      ], 'lead')
       onChange.mockClear()
       fireEvent.click(screen.getByRole('button', { name: 'Huber Sarah aus dem Trupp nehmen' }))
-      expect(onChange).toHaveBeenCalledWith([{ name: 'Meier Anna', personId: 'p1' }])
+      expect(onChange).toHaveBeenCalledWith([{ name: 'Meier Anna', personId: 'p1' }], 'remove')
       // the Gruppenführer's own chip states the fact and is not offered again
       expect((screen.getByRole('button', { name: az.leaderLabel }) as HTMLButtonElement).disabled).toBe(true)
     })
@@ -390,6 +390,6 @@ describe('TruppTeam', () => {
     expect(onChange).toHaveBeenCalledWith([
       { name: 'Meier Anna', personId: 'p1' },
       { name: 'Brunner Thomas', personId: 'p3' },
-    ])
+    ], 'remove')
   })
 })

@@ -1719,6 +1719,48 @@ describe('the Reihenfolge menu', () => {
  * the SEARCH is the name entry, and the door is the last row of the list, present only while
  * something is typed. The full behaviour is pinned in TruppTeam.test.tsx; this one checks that
  * the form the operator actually opens still gets a Gast into the Trupp. */
+/* The crown follows the Dienstgrad while a NEW Trupp is formed (30.09.2026, lib/truppLeader) —
+ * until somebody is crowned by hand, and never on a Trupp that already exists. */
+describe('the Gruppenführer by rank', () => {
+  const upd = '2026-09-30T06:00:00.000Z'
+  const roster = [
+    { id: 'pf', displayName: 'Fuchs Fritz', rank: 'fwm', active: true, updatedAt: upd },
+    { id: 'pl', displayName: 'Lang Lea', rank: 'lt', active: true, updatedAt: upd },
+    { id: 'pk', displayName: 'Kurz Kai', rank: 'kpl', active: true, updatedAt: upd },
+  ]
+  const pick = (name: string) => fireEvent.click(screen.getByRole('option', { name: new RegExp(name) }))
+
+  it('a new Trupp is led by its most senior member, whatever order they were picked in', () => {
+    const createTrupp = vi.fn()
+    mount({ trupps: [], personnel: roster, createTrupp })
+    fireEvent.click(firstBtn(az.newTrupp))
+    pick('Fuchs Fritz'); pick('Lang Lea'); pick('Kurz Kai')
+    fireEvent.click(lastBtn(az.start))
+    expect(createTrupp).toHaveBeenCalledWith(expect.objectContaining({ name: 'Lang Lea', members: ['Fuchs Fritz', 'Kurz Kai'] }))
+  })
+
+  it('stops following the rank once a name is crowned by hand', () => {
+    const createTrupp = vi.fn()
+    mount({ trupps: [], personnel: roster, createTrupp })
+    fireEvent.click(firstBtn(az.newTrupp))
+    pick('Fuchs Fritz'); pick('Kurz Kai')
+    fireEvent.click(screen.getByRole('button', { name: /Fuchs Fritz als Gruppenführer/ }))
+    pick('Lang Lea')
+    fireEvent.click(lastBtn(az.start))
+    expect(createTrupp).toHaveBeenCalledWith(expect.objectContaining({ name: 'Fuchs Fritz', members: ['Kurz Kai', 'Lang Lea'] }))
+  })
+
+  it('never moves the leader of a Trupp that already exists', async () => {
+    const editTrupp = vi.fn()
+    mount({ trupps: [aktivTrupp()], personnel: roster, editTrupp })
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+    pick('Lang Lea')
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ name: 'Steiner', members: ['Huber', 'Lang Lea'] }))
+  })
+})
+
 describe('the Gast door in the person picker', () => {
   const roster = Array.from({ length: 40 }, (_, i) => ({
     id: `p${i}`, displayName: `Muster ${String(i).padStart(2, '0')}`, active: true,
