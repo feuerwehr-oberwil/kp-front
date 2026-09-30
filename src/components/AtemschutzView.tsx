@@ -27,12 +27,10 @@ import { atemschutzDoctrine, atemschutzEquipment, isDemoMode } from '../lib/depl
 import type { SyncStatus } from '../lib/api/workspaceSync'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { keepDraft, useKeptState } from '../lib/draftKeep'
-import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { truppOrderKey } from '../lib/useTruppActions'
-import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
 import { TruppNo } from './TruppNo'
-import { AuftragSheet, KanalSheet, LeitungField, PressureSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
+import { AuftragSheet, KanalPicker, KanalSheet, LeitungField, PressureGrid, PressureSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
 import { fileGuestSlots, teamConflict } from '../lib/truppQuickEdit'
 import { crewAfterChange, type CrewChange } from '../lib/truppLeader'
 import { rankOrder } from '../lib/rank'
@@ -68,12 +66,6 @@ const NO_ASSIGNED: Set<string> = new Set()
 
 /** How the board is arranged — mirrors Prefs.atemschutzOrder. */
 export type TruppOrder = 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
-
-/** snap a raw bar value to the step grid, clamped to [0, ceiling] */
-function snapBar(v: number): number {
-  const dz = atemschutzDoctrine()
-  return Math.max(0, Math.min(dz.pressureMax, Math.round(v / dz.pressureStep) * dz.pressureStep))
-}
 
 /** Non-AS Trupp wording — APP ONLY (09.09., field ask). A work squad reports a task done, not a
  *  radio check, so the app says «Auftrag erledigt» / «Ohne Auftrag» / «Ohne Auftrag seit» for
@@ -1905,53 +1897,9 @@ function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
   )
 }
 
-// A gloved-friendly ±stepper for cylinder pressure (step + ceiling from config; 320 bar allows
-// an overfull bottle). Big targets, snaps to the step grid; tap the value to type an exact bar.
-function PressureStepper({ value, onChange, compact }: { value: number; onChange: (v: number) => void; compact?: boolean }) {
-  const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
-  const dz = atemschutzDoctrine()
-  const dec = useHoldRepeat(() => onChange(snapBar(value - dz.pressureStep)))
-  const inc = useHoldRepeat(() => onChange(snapBar(value + dz.pressureStep)))
-  const edit = useTapToType({ min: 0, max: dz.pressureMax, onCommit: (v) => onChange(snapBar(v)), clamp: snapBar })
-  return (
-    <div className={cx(s.stepper, compact && s.stepperSmall)}>
-      <button type="button" className={s.stepBtn} aria-label={fillTemplate(az.pressureDown, { step: dz.pressureStep })} {...dec}>
-        <Icon id="minus" />
-      </button>
-      {edit.editing ? (
-        <div className={s.stepVal}><input className={s.stepInput} {...edit.inputProps} /><span>bar</span></div>
-      ) : (
-        <button type="button" className={s.stepVal} onClick={() => edit.start(value)} title={appConfig.copy.stepper.typeToEnter}><b>{value}</b><span>bar</span></button>
-      )}
-      <button type="button" className={s.stepBtn} aria-label={fillTemplate(az.pressureUp, { step: dz.pressureStep })} {...inc}>
-        <Icon id="plus" />
-      </button>
-    </div>
-  )
-}
-
-// The Funkkanal ±stepper in the create/edit form: hold to repeat, tap the value to type an
-// exact channel. Clamped to the configured channel range.
-function FunkkanalStepper({ value, onChange, compact }: { value: number; onChange: (v: number) => void; compact?: boolean }) {
-  const az = appConfig.copy.atemschutz
-  const dz = atemschutzDoctrine()
-  const clamp = (v: number) => Math.max(dz.funkkanalMin, Math.min(dz.funkkanalMax, v))
-  const dec = useHoldRepeat(() => onChange(clamp(value - 1)))
-  const inc = useHoldRepeat(() => onChange(clamp(value + 1)))
-  const edit = useTapToType({ min: dz.funkkanalMin, max: dz.funkkanalMax, onCommit: onChange })
-  return (
-    <div className={cx(s.stepper, compact && s.stepperSmall)}>
-      <button type="button" className={s.stepBtn} aria-label={az.funkkanalDown} {...dec}><Icon id="minus" /></button>
-      {edit.editing ? (
-        <div className={s.stepVal}><input className={s.stepInput} {...edit.inputProps} /><span>{az.funkkanalUnit}</span></div>
-      ) : (
-        <button type="button" className={s.stepVal} onClick={() => edit.start(value)} title={appConfig.copy.stepper.typeToEnter}><b>{value}</b><span>{az.funkkanalUnit}</span></button>
-      )}
-      <button type="button" className={s.stepBtn} aria-label={az.funkkanalUp} {...inc}><Icon id="plus" /></button>
-    </div>
-  )
-}
-
+// (`PressureStepper` and `FunkkanalStepper`, the form's ± steppers, went on 30.09.2026: the form asks
+// the Eingangsdruck on the Druck sheet's grid and the Kanal on its pad — TruppSheets · PressureGrid /
+// KanalPicker, where the Kanal stepper lives on for a range too wide for a pad.)
 // (`PressureInline`, the tablet card's ± Druck stepper with its own «Bestätigen», went on
 // 29.09.2026 with the tablet card: every board's Druck is the pressure tile → PressureSheet.)
 /** What a Trupp's clock says — the phone row, every card's first line (RowLine) and the
@@ -3504,6 +3452,10 @@ function TruppForm({
   ].filter(Boolean).join(' · ')
   const luftIsDefault = (!showPressure || pressure === atemschutzDoctrine().defaultPressureBar)
     && funkkanal === (isPa ? defaultFunkkanal : atemschutzDoctrine().defaultFunkkanalEinfach)
+  // ⚠️ An UPGRADE asks for a FIRST Eingangsdruck, never «korrigieren» — the latter would claim the
+  // Trupp already had one (04.09.). Also the grid's name for a screen reader.
+  const pressureFieldLabel = mode === 'redeploy' ? az.newPressureLabel
+    : isEdit && !upgrading ? az.editPressureLabel : az.pressureLabel
   const luftFields = defaultsOpen ? (
     <>
       {pressureLocked && (
@@ -3521,10 +3473,7 @@ function TruppForm({
       )}
       {showPressure && !pressureLocked && (
         <div ref={pressureRef} className={s.field}>
-          {/* ⚠️ An UPGRADE asks for a FIRST Eingangsdruck, never «korrigieren» — the latter would
-              claim the Trupp already had one (04.09.). */}
-          <span>{mode === 'redeploy' ? az.newPressureLabel
-            : isEdit && !upgrading ? az.editPressureLabel : az.pressureLabel}</span>
+          <span>{pressureFieldLabel}</span>
           {bottleAsk && (
             <div className={s.bottleAsk}>
               <p>{fillTemplate(outMin! < 1 ? az.bottleAskNow : az.bottleAsk, { min: String(outMin), bar: String(lastExit!.bar) })}</p>
@@ -3540,7 +3489,10 @@ function TruppForm({
               </div>
             </div>
           )}
-          <PressureStepper value={pressure} onChange={(v) => { setPressure(v); setPressureSet(true); if (bottleAsk && !bottle) setBottle('new') }} compact />
+          {/* the Druck sheet's grid (30.09.2026, owner: «the new easy tap format»): one tap is the
+              answer, filled; the red column is still the Alarmdruck's */}
+          <PressureGrid value={pressure} chosen alarmBar={atemschutzDoctrine().alarmBar} ariaLabel={pressureFieldLabel}
+            onPick={(v) => { setPressure(v); setPressureSet(true); if (bottleAsk && !bottle) setBottle('new') }} />
           {/* said out loud, because the same ± on the CARD does the opposite: there it is a
               Druckmeldung and resets the contact clock. Here it corrects the record. */}
           {isEdit && !upgrading && <p className={s.fieldNote}>{az.editPressureHint}</p>}
@@ -3554,7 +3506,9 @@ function TruppForm({
           that heading — which is why it is the only one.) */}
       <div className={s.field}>
         <span>{az.funkkanalSection}</span>
-        <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} compact />
+        {/* the Kanal sheet's pad (30.09.2026), in a short box of its own — or its stepper, for a
+            range too wide for keys (TruppSheets · KanalPicker) */}
+        <KanalPicker value={funkkanal} onPick={setFunkkanal} capped />
       </div>
     </>
   ) : (

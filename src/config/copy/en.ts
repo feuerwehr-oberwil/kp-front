@@ -1246,8 +1246,6 @@ export const en: Localizable<Copy> = {
     alarmNoteEst: 'Alarm pressure {bar} bar – reached per estimate',
     lineField: 'Line',
     edit: 'Edit',
-    pressureDown: '{step} bar less',
-    pressureUp: '{step} bar more',
     pressureConfirm: 'Confirm',
     pressureConfirmHint: 'Confirm new pressure – counts as contact',
     verlauf: 'Log',

@@ -2034,8 +2034,6 @@ export const de = {
     alarmNoteEst: 'Alarmdruck {bar} bar – laut Schätzung erreicht',
     lineField: 'Leitung',
     edit: 'Bearbeiten',
-    pressureDown: '{step} bar weniger',
-    pressureUp: '{step} bar mehr',
     pressureConfirm: 'Bestätigen',
     pressureConfirmHint: 'Neuen Druck bestätigen – zählt als Kontakt',
     // ⚠️ A HINT, never a block. Air does not come back, so a rising value is almost always a
