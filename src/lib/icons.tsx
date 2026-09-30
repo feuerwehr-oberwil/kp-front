@@ -27,6 +27,12 @@ export function IconSprite() {
       <symbol id="coords" viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" /><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" /></symbol>
       <symbol id="sat" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18" /></symbol>
       <symbol id="map" viewBox="0 0 24 24"><path d="M9 4 3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6.5z" /><path d="M9 4v14M15 6.5v14" /></symbol>
+      {/* «Eintrag» (29.09.2026, sweep K2): writing lines and a pencil on them — a Verlauf entry
+          being written. It was the bare «+», 60px above the tool bar's «+ Hinzufügen», so one
+          glyph meant «put on the map» AND «write in the Verlauf». «+» is Hinzufügen only now.
+          The FAB and the top bar draw it INLINE (EntryGlyph below), never through this sprite
+          symbol — see the ⚠️ in FabEntry; this one serves everyone else. */}
+      <symbol id="entry" viewBox="0 0 24 24"><path d={ENTRY_PATH} /></symbol>
       <symbol id="doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4M9 12.5h6M9 16h6" /></symbol>
       {/* Rapportangaben: the Erfassungsblatt on its board. `journalArea` classifies a row as
           Bereich «Rapport» by this icon (lib/report.ts), and both writers — the preflight and
@@ -54,6 +60,14 @@ export function IconSprite() {
       <symbol id="box" viewBox="0 0 24 24"><path d="M12 3 4 7v10l8 4 8-4V7z" /><path d="M4 7l8 4 8-4M12 11v10" /></symbol>
       <symbol id="warn" viewBox="0 0 24 24"><path d="M12 3.5 22 20.5H2z" /><path d="M12 10v4.5" /><circle cx="12" cy="17.7" r=".4" /></symbol>
       <symbol id="drop" viewBox="0 0 24 24"><path d="M12 3.5c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z" /></symbol>
+      {/* The Manometer (26.09.2026, phone card slim-down): a half dial with its needle — what an
+          Atemschutzgeräteträger reads the pressure off, and it means pressure and nothing else. It
+          replaced the #drop on the pressure tile and on the top bar's Alarmdruck chip: a droplet
+          says WATER, which is the one thing a bar reading under Atemschutz is not. #drop stays for
+          the Leitung rows of the Verlauf (useTruppActions), where water is what it means. Distinct
+          from #gauge (a full dial with its stem, the Atemschutz surface's own glyph) at 16px by the
+          open bottom. */}
+      <symbol id="manometer" viewBox="0 0 24 24"><path d="M4 16.5a8 8 0 0 1 16 0" /><path d="M12 16.5 16.6 11.3" /><circle cx="12" cy="16.5" r="1.3" fill="currentColor" stroke="none" /><path d="M12 8.5V10M6.2 12.4l1.3.7M17.8 12.4l-1.3.7" stroke-opacity=".55" /></symbol>
       <symbol id="radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" /><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M6 6a9 9 0 0 0 0 12M18 6a9 9 0 0 1 0 12" /></symbol>
       <symbol id="flag" viewBox="0 0 24 24"><path d="M6 3v18M6 4h11l-2.5 3.5L17 11H6" /></symbol>
       <symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6" /></symbol>
@@ -68,12 +82,20 @@ export function IconSprite() {
       <symbol id="skip-fwd-15" viewBox="0 0 24 24"><path d="M13 6l6 6-6 6M5 6l6 6-6 6" /></symbol>
       {/* a funnel: the rank quick-filter, where a row of chips costs a phone a whole band */}
       <symbol id="filter" viewBox="0 0 24 24"><path d="M3.5 5h17l-6.5 7.5V20l-4-2.2v-5.3z" /></symbol>
+      {/* «Trupp finden» (29.09.2026, sweep 3 T8): the Trupp tool's own flag inside a finder's
+          reticle — «where is that Trupp». It wore the #search lens, which the Suche's tile wears
+          60px below it on a phone: one glyph, two searches, and a gloved thumb picking the wrong
+          one. Distinct from #locate (a dot, «me») by the flag. Wherever «Trupp finden» appears. */}
+      <symbol id="trupp-find" viewBox="0 0 24 24"><circle cx="8" cy="7.5" r="3" /><path d="M2.5 19c0-3.2 2.4-5.3 5.5-5.3 1.4 0 2.6.4 3.6 1.1" /><circle cx="16.5" cy="15.5" r="3.6" /><path d="M19.1 18.1 22 21" /></symbol>
       <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M16 16l5 5" /></symbol>
       <symbol id="close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" /></symbol>
       <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5" /><circle cx="12" cy="7.7" r=".5" /></symbol>
       <symbol id="mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6.5L20.5 7" /></symbol>
       <symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M15 5H5a2 2 0 0 0-2 2v10" /></symbol>
       <symbol id="more-vert" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.7" fill="currentColor" stroke="none" /></symbol>
+      {/* …lying down: the last chip of the phone card's fact strip (26.09.2026, phone card
+          slim-down) — a horizontal ⋯ reads as «more of this row», the vertical one as a head's menu */}
+      <symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none" /></symbol>
       <symbol id="compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 4.5 14.5 13 12 11 9.5 13z" fill="var(--red)" stroke="none" /><path d="M12 13v6" stroke-opacity=".4" /></symbol>
       <symbol id="undo" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-2" /></symbol>
       <symbol id="redo" viewBox="0 0 24 24"><path d="M15 7l5 5-5 5" /><path d="M20 12H9a5 5 0 0 0 0 10h2" /></symbol>
@@ -160,6 +182,24 @@ export function IconSprite() {
       <symbol id="phone" viewBox="0 0 24 24"><path d="M21 16.4v2.6a1.9 1.9 0 0 1-2.1 1.9 18.9 18.9 0 0 1-8.2-2.9 18.6 18.6 0 0 1-5.7-5.7A18.9 18.9 0 0 1 2.1 4.1 1.9 1.9 0 0 1 4 2h2.6a1.9 1.9 0 0 1 1.9 1.6c.12.9.34 1.8.66 2.7a1.9 1.9 0 0 1-.43 2L7.6 9.5a15.2 15.2 0 0 0 5.7 5.7l1.2-1.2a1.9 1.9 0 0 1 2-.43c.86.32 1.76.54 2.67.66A1.9 1.9 0 0 1 21 16.4z" /></symbol>
     </svg>
   )
+}
+
+/** The Eintrag glyph's one path (#entry): three writing lines, the pencil on the last. */
+const ENTRY_PATH = 'M4 6h12M4 10.5h8M4 15h3.5M10.5 19.5l.8-3.3 7.4-7.4a1.7 1.7 0 0 1 2.5 2.5l-7.4 7.4z'
+
+/**
+ * The Eintrag glyph as an INLINE path, for the two buttons that log from the field (FabEntry, the
+ * top bar's Eintrag): a sprite `<use>` can fail to resolve across remounts in WebKit and render an
+ * empty button (29.08.), so these carry their own path. Same `.i` class, so size and stroke match.
+ * It brings its ✕ along, hidden: while the hold's chooser is up the button IS the cancel
+ * (10-journal.css · `.cancelling`). The «+» turned 45° was that ✕; a pencil turned is not one,
+ * so the ✕ is drawn — both always in the DOM, so nothing enters or reflows under the finger.
+ */
+export function EntryGlyph() {
+  return <>
+    <svg className="i i-entry" viewBox="0 0 24 24" aria-hidden><path d={ENTRY_PATH} /></svg>
+    <svg className="i i-entry-x" viewBox="0 0 24 24" aria-hidden><path d="M6 6l12 12M18 6 6 18" /></svg>
+  </>
 }
 
 export function Icon({ id, className }: { id: string; className?: string }) {

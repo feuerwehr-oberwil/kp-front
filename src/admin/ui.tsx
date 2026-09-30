@@ -378,8 +378,8 @@ export function RecordRows({ name, swatch, meta, action, children }: {
 /**
  * The dashed row that closes a list: «und hier kommt der nächste dazu».
  *
- * Every «+ … hinzufügen» in /admin already looks like this — `.adm-formlink-add` IS the dashed
- * row when it stands alone. `AddRow` is for the case where the row has something to say first:
+ * Every «+ … hinzufügen» in /admin is a `.adm-formlink-add` — a framed row when it stands alone
+ * (28.09.2026: no longer dashed; the dashed frame is this placeholder row, not the button). `AddRow` is for the case where the row has something to say first:
  * a dim line on the left (what would be added, or why nothing has been yet) and the action on
  * the right.
  */

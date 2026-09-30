@@ -9,6 +9,7 @@ import { useLongPress } from '../lib/useLongPress'
 import type { Person } from '../types'
 import type { Slot } from './PersonField'
 import { ComboRank } from './ComboMenu'
+import { SearchField } from './SearchField'
 import s from './Atemschutz.module.css'
 // the Dienstgrad chip and the name cell of a roster row live with the picker they were shared
 // with (ComboMenu.module.css) — this list draws the same row, so it draws the same two marks
@@ -302,25 +303,19 @@ export function TruppTeam({
           not the search's: whatever stands here can end up on the Personalblatt.
           ⚠️ `stripUnprintable` on the way IN, for the same reason — the query is a search until
           the moment it is committed as a name, and there is no second field left to clean it. */}
-      <label className={cx(s.teamSearch, wanted && !value.length && s.teamSearchWant)}>
-        <Icon id="search" />
-        <input
-          ref={(el) => { searchRef.current = el; if (searchInputRef) searchInputRef.current = el }}
-          value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} inputMode="search"
-          maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
-          // ⚠️ The PLACEHOLDER moves on once the Trupp has somebody in it — «Weitere Person
-          // suchen …» — because on the phone this field is the only way in and «Person suchen»
-          // over three chips reads as if it were asking again for whoever is already standing
-          // there. The a11y NAME stays put: a label that renames itself under the same control
-          // is a second control to a screen reader.
-          placeholder={phone && value.length ? az.teamSearchMore : az.teamSearchPlaceholder}
-          aria-label={az.teamSearchPlaceholder}
-        />
-        {q && (
-          <button type="button" className={s.teamSearchClear} onClick={() => setQ('')}
-            aria-label={appConfig.copy.clear}><Icon id="close" /></button>
-        )}
-      </label>
+      <SearchField
+        className={cx(s.teamSearch, wanted && !value.length && s.teamSearchWant)}
+        ref={(el) => { searchRef.current = el; if (searchInputRef) searchInputRef.current = el }}
+        value={q} onChange={(v) => setQ(stripUnprintable(v))} inputMode="search"
+        maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
+        // ⚠️ The PLACEHOLDER moves on once the Trupp has somebody in it — «Weitere Person
+        // suchen …» — because on the phone this field is the only way in and «Person suchen»
+        // over three chips reads as if it were asking again for whoever is already standing
+        // there. The a11y NAME stays put: a label that renames itself under the same control
+        // is a second control to a screen reader.
+        placeholder={phone && value.length ? az.teamSearchMore : az.teamSearchPlaceholder}
+        aria-label={az.teamSearchPlaceholder}
+      />
 
       {/* ⚠️ On a PHONE the Mannschaft appears only under a typed query, and the list is the
           ANSWER to it rather than a surface to browse: `.teamHits` shrink-wraps its ≤4 rows
@@ -356,7 +351,9 @@ export function TruppTeam({
             </button>
           </li>
         ))}
-        {!visible.length && <li className={s.comboEmpty}>{needle ? az.teamNoMatches : az.noRoster}</li>}
+        {!visible.length && (needle
+          ? <li className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</li>
+          : <li className={s.comboEmpty}>{az.noRoster}</li>)}
         {/* THE GAST DOOR, and it exists only while something is typed (04.09.). It carries the
             query in its own label, so the row states what pressing it will do rather than opening
             a second field to say it again — «"Keller" als Gast hinzufügen». The label is short

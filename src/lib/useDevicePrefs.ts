@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { clampSymbolScale, loadPrefs, symbolScales, type RailLabels, type SymbolSurface } from './prefs'
+import { clampSymbolScale, loadPrefs, railLabelsFor, savePrefs, symbolScales, type RailLabels, type SymbolSurface } from './prefs'
+import { PHONE_QUERY } from './useIsPhone'
 import { appConfig } from '../config/appConfig'
 import type { CaptionMode } from '../types'
 
@@ -23,7 +24,15 @@ export function useDevicePrefs() {
   const [offlineRadiusM, setOfflineRadiusM] = useState<number>(() => loadPrefs().offlineRadiusM ?? 1200)
   const [offlineAuto, setOfflineAuto] = useState<boolean>(() => loadPrefs().offlineAuto ?? true)
   const [keepScreenOn, setKeepScreenOn] = useState<boolean>(() => loadPrefs().keepScreenOn ?? true)
-  const [railLabels, setRailLabels] = useState<RailLabels>(() => loadPrefs().railLabels ?? 'off')
+  // a phone reads the words by default (29.09.2026, sweep T8 — prefs · railLabelsFor); the device
+  // class is read once, like the rest of these seeds
+  const [railLabels, setLabels] = useState<RailLabels>(() => railLabelsFor(loadPrefs(),
+    typeof window !== 'undefined' && !!window.matchMedia?.(PHONE_QUERY).matches))
+  /** a hand choice in the Einstellungen: marked as one, so the phone default never overrides it */
+  const setRailLabels = useCallback((v: RailLabels) => {
+    savePrefs({ ...loadPrefs(), railLabels: v, railLabelsChosen: true })
+    setLabels(v)
+  }, [])
   return {
     symbolScale, setSymbolScale,
     symbolCaptions, setSymbolCaptions,

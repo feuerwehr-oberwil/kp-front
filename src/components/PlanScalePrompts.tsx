@@ -50,8 +50,8 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
         <button className="wb-cal-step" aria-label="+" onClick={() => bump(step)}>+</button>
       </div>
       <div className="wb-cal-actions">
-        <button className="ip-btn ghost" onClick={onClose}>{appConfig.copy.whiteboard.scale.cancel}</button>
-        <button className="btn primary" disabled={!(val > 0)} onClick={() => onCommit(val)}>{appConfig.copy.whiteboard.scale.confirm}</button>
+        <button className="ip-btn" onClick={onClose}>{appConfig.copy.whiteboard.scale.cancel}</button>
+        <button className="ip-btn primary" disabled={!(val > 0)} onClick={() => onCommit(val)}>{appConfig.copy.whiteboard.scale.confirm}</button>
       </div>
     </Overlay>
   )

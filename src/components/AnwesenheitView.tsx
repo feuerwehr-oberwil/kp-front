@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { Icon } from '../lib/icons'
+import { SearchField } from './SearchField'
 import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
 import { ageMinutes, type LivePerson } from '../lib/usePersonPositions'
 import { fmtDistance, haversineM } from '../lib/geo'
@@ -7,6 +8,7 @@ import type { ZeitplanSheet } from '../lib/zeitplanPrint'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { useIsPhone } from '../lib/useIsPhone'
+import { usePageHeadFit } from '../lib/pageHeadFit'
 import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
 import { personnelProviderName } from '../lib/deploymentConfig'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
@@ -19,6 +21,7 @@ import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zei
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
+import { PhoneTabBar } from './PhoneTabBar'
 import { Menu, Sheet } from '../lib/overlays'
 import { TimeBlockSheet } from './TimeBlockSheet'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
@@ -33,6 +36,9 @@ import c from './SurfaceControls.module.css'
  *  (120 h, 168 h) is for the deployment that does not end on day four: an Elementarereignis
  *  with a Pikett rota runs into a second week, and a plan that cannot show it is planned
  *  somewhere else. */
+/** The head's ladder (lib/pageHeadFit): the poster read-out steps aside first, then the retry's word. */
+const HEAD_FOLD = { qr: 1, reload: 2 } as const
+
 const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96, 120, 168]
 
 
@@ -515,17 +521,17 @@ export function AnwesenheitView({
   }
   // …and the state narrowing, plus the one genuinely orthogonal flag. Both are SETS: several
   // picks inside a facet OR together («anwesend oder gegangen» = wer war überhaupt da), an empty
-  // set means «alle». Every row carries the MARK the person row carries — the grey/green/amber
-  // dot, the pin, the house, the Bemerkung dot — so picking a filter and looking up what a glyph
-  // means stay the same gesture.
+  // set means «alle». Every row carries the MARK the person row carries — the row's own look in
+  // that state (plain · green tint · dimmed, 29.09.2026), the pin, the house, the Bemerkung dot —
+  // so picking a filter and looking up what a glyph means stay the same gesture.
   const [stateSel, setStateSel] = useState<ReadonlySet<StateKey>>(() => new Set())
   // «hat eine Bemerkung» is the one flag that really is independent: anybody in any state can
   // carry one, so it rides ALONGSIDE the state rather than competing with it.
   const [noteOnly, setNoteOnly] = useState(false)
   const stateEntries = [
-    { key: 'frei', cls: [], mark: <i className={s.dotFrei} />, label: A.statusFrei },
-    { key: 'present', cls: [], mark: <i className={s.dotPresent} />, label: A.statusPresent },
-    { key: 'left', cls: [], mark: <i className={s.dotLeft} />, label: A.statusLeft },
+    { key: 'frei', cls: [], mark: <i className={s.swatch} />, label: A.statusFrei },
+    { key: 'present', cls: [], mark: <i className={cx(s.swatch, s.swatchPresent)} />, label: A.statusPresent },
+    { key: 'left', cls: [], mark: <i className={cx(s.swatch, s.swatchLeft)} />, label: A.statusLeft },
     // the two places, under the state they refine — both mean «anwesend, und zwar dort»
     { key: 'scene', cls: [s.markOrt], mark: <Icon id="pin" />, label: A.ortScene },
     { key: 'station', cls: [s.markOrt, s.markOrtStation], mark: <Icon id="station" />, label: A.ortStation },
@@ -631,9 +637,24 @@ export function AnwesenheitView({
    * and the freshly recorded one appears in the unfiltered list right where they belong. */
   const addGuest = () => { if (guestOffer && onAddGuest) { onAddGuest(guestOffer); setQ('') } }
 
+  /* the three readings — ONE list, rendered in the head on a tablet and in the docked strip on a
+     phone, so the two can never offer a different set */
+  const viewOptions: { value: AnwesenheitTab; label: string }[] = [
+    { value: 'list', label: A.viewList },
+    { value: 'plan', label: A.viewPlan },
+    ...(bandsAvailable ? [{ value: 'bands' as const, label: A.viewBands }] : []),
+  ]
+
+  // ONE ROW (lib/pageHeadFit): refit when what the head carries changes
+  const headRef = useRef<HTMLElement>(null)
+  usePageHeadFit(headRef, [
+    counts.present, counts.station, counts.scene, counts.left, captureUsage?.writes, captureUsage?.lastAt,
+    !!error, reloadPhase, loading, view, showPlan, showBands,
+  ].join('|'))
+
   return (
     <div className={s.surface}>
-      <header className={s.head}>
+      <header ref={headRef} className={s.head}>
         <div className={s.headTitles}>
           <h2>{A.title}</h2>
           {/* «12 anwesend · 3 gegangen» — and, once anybody is at the Magazin,
@@ -645,10 +666,10 @@ export function AnwesenheitView({
               (tokens · --head-*). It used to be a full-width row of its own BELOW the tabs and
               the buttons — which fixed the real problem it had (squeezed into a 250px column it
               stacked five lines deep) at the cost of a head that was a different object from the
-              three next to it. The titles block now yields to the tools only down to
-              --head-titles-min and then takes a row of its own, so the counts still get a line
-              they fit on — the same way the Rapport's head has always solved this. */}
-          <p className={s.headSummary}>
+              three next to it. It is never cut (`data-fit-check`): where the one row runs out,
+              the head's ladder folds the tiles' words and, last, gives the titles a row of their
+              own where the counts may wrap (lib/pageHeadFit). */}
+          <p className={s.headSummary} data-fit-check>
             {fillTemplate(A.summary, { present: counts.present })}
             {counts.station > 0 && (
               <> · {fillTemplate(A.summaryOrt, { scene: counts.scene, station: counts.station })}</>
@@ -659,11 +680,15 @@ export function AnwesenheitView({
             {counts.left > 0 && <> · {fillTemplate(A.summaryLeft, { left: counts.left })}</>}
           </p>
         </div>
-        {/* …and the poster read-out under it again, in its own still-quieter row. Beside the
-            title it was a pill competing with the panel's own heading; folded into the counts it
-            muddled «wie steht es» with «womit wurde erfasst». One line each. */}
-        <p className={s.headQr}><CaptureUsageChip usage={captureUsage} /></p>
         <div className={s.headActions}>
+          {/* The poster read-out, at the head of the tiles (28.09.2026 — it stood on a row of its
+              own under the counts, and the page head is one row). Beside the title it was a pill
+              competing with the panel's own heading; folded into the counts it muddled «wie steht
+              es» with «womit wurde erfasst». A footnote nobody acts on, so it is the first thing
+              the ladder takes away (it is still on the Rapport). */}
+          <span className={s.headQr} data-fold={HEAD_FOLD.qr}>
+            <span className="fold-long"><CaptureUsageChip usage={captureUsage} /></span>
+          </span>
           {/* ⚠️ Phone only, and ONLY while the top bar has dropped its own pair (below 360px —
               see topBarUndoHidden): any other time the bar's ↶ ↷ are the one door,
               and this head showing a second pair was pure duplication (06.09.). The pair is
@@ -735,7 +760,7 @@ export function AnwesenheitView({
               that up in the background. What is left means what it says: that did not load, try
               again. */}
           {(error || reloadPhase === 'done') && (
-            <button className={cx(s.reload, error && s.reloadFailed)} onClick={runReload}
+            <button className={cx(s.reload, error && s.reloadFailed)} onClick={runReload} data-fold={HEAD_FOLD.reload}
               disabled={loading || reloadPhase !== 'idle'}
               aria-label={A.reload} title={error ? A.loadFailedHint : undefined}>
               {loading || reloadPhase !== 'idle'
@@ -743,7 +768,7 @@ export function AnwesenheitView({
                     label={reloadPhase === 'done' ? appConfig.copy.incidentSwitcher.syncDone : A.loading} />
                 : <Icon id="warn" />}
               {reloadPhase !== 'done' && (
-                <span className={s.reloadLabel}>{loading || reloadPhase === 'busy' ? A.loading : A.retry}</span>
+                <span className="fold-long">{loading || reloadPhase === 'busy' ? A.loading : A.retry}</span>
               )}
             </button>
           )}
@@ -751,39 +776,31 @@ export function AnwesenheitView({
         {/* The three readings of this Mannschaft, in a slot of their OWN rather than inside the
             action cluster. Only offered where a Zeitplan can actually be edited/read — the surface
             is inert without the shift slice wired up.
-            On a phone the cluster and the tabs together no longer fit one line (printer + three
-            segments + reload ≈ 380px against ~362px of room), so they wrapped — and because the
-            titles already claimed a full row, the header spent THREE rows before the search: a
-            title, a row holding one right-aligned reload button, and the tabs. It is its own slot
-            now: the icons ride up beside the title and the tabs take a full-width line under it. */}
-        {!empty && planAvailable && (
+            ⚠️ NOT on a phone (owner, 27.09.2026: «move the anwesenheit / zeitplan / schichten
+            toggle also to the bottom → same as for the einsatzrapport»). There the same three go
+            into the docked strip above the nav bar (PhoneTabBar, at the foot of this surface), so
+            the head is the title and the counts and nothing else — the control that changes what
+            you are looking at sits where the thumb already is, and the list starts ~60px sooner. */}
+        {!empty && planAvailable && !isPhone && (
           <div className={s.headTabs}>
-            <Segmented<AnwesenheitTab> ariaLabel={A.viewLabel} value={view} onChange={pickView}
-              options={[
-                { value: 'list', label: A.viewList },
-                { value: 'plan', label: A.viewPlan },
-                ...(bandsAvailable ? [{ value: 'bands' as const, label: A.viewBands }] : []),
-              ]} />
+            <Segmented<AnwesenheitTab> tabs ariaLabel={A.viewLabel} value={view} onChange={pickView}
+              options={viewOptions} />
           </div>
         )}
       </header>
 
       {!empty && (
         <div className={c.controls}>
-          <label className={c.search}>
-            <Icon id="search" />
-            {/* ⚠️ This field is a search AND the entry for somebody who is not on the
+          {/* ⚠️ This field is a search AND the entry for somebody who is not on the
                 Mannschaftsliste (see `guestOffer`), so what is typed here can end up on the
                 Personalblatt: `stripUnprintable` on the way in, and the NAME's length cap — there
                 is no second field left to clean it. Enter takes the offer when the roster has no
                 answer at all, which is the one case where the query can only have been a name. */}
-            <input
-              value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} placeholder={A.searchPlaceholder}
-              inputMode="search" maxLength={80}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!rows.length) addGuest() } }}
-            />
-            {q && <button className={c.searchClear} onClick={() => setQ('')} aria-label={A.clearSearch}><Icon id="close" /></button>}
-          </label>
+          <SearchField
+            className={c.search} value={q} onChange={(v) => setQ(stripUnprintable(v))} placeholder={A.searchPlaceholder}
+            aria-label={A.searchPlaceholder} inputMode="search" maxLength={80}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!rows.length) addGuest() } }}
+          />
           {/* THE QUICK FILTER — «Nur Anwesende», one tap, on all three tabs (see the note at
               `presentOnly`). It sits between the search and the funnel because that is the order
               the questions come in: who, then who right now, then which Grad / which Status. It
@@ -829,7 +846,6 @@ export function AnwesenheitView({
                       matching Mittel's «In Verwendung»), because two identical glyphs side
                       by side on the planning tabs is worse than either choice of icon. */}
                   <Icon id="people" />
-                  {rankSel.size > 0 && <span className={c.filterDot} aria-hidden />}
                 </button>
               }
               popupClassName={c.menuPop}
@@ -865,7 +881,6 @@ export function AnwesenheitView({
                   aria-label={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}
                   title={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}>
                   <Icon id="filter" />
-                  {(stateSel.size > 0 || noteOnly) && <span className={c.filterDot} aria-hidden />}
                 </button>
               }
               popupClassName={c.menuPop}
@@ -938,7 +953,7 @@ export function AnwesenheitView({
             : rosterProvider ? fillTemplate(A.emptyHintSync, { provider: rosterProvider }) : A.emptyHint}
           action={<button type="button" className="ip-btn" onClick={onReload} disabled={loading}><Icon id="rotate" /> {A.retry}</button>} />
       ) : !rows.length && !guestOffer ? (
-        <div className="ip-ac-note ip-ac-note-center">{A.noMatches}</div>
+        <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
       ) : showBands ? (
         <BandGrid
           people={rows}
@@ -992,7 +1007,9 @@ export function AnwesenheitView({
                     : !p.active ? (rosterProvider ? fillTemplate(A.notInSource, { provider: rosterProvider }) : A.notInDivera)
                       : undefined}
                 >
-                  <span className={cx(s.dot, present && s.dotPresent, left && s.dotLeft, !present && !left && s.dotFrei)} />
+                  {/* no status dot (29.09.2026, owner: the tint alone says «anwesend»); the state
+                      word rides in the button's name for a screen reader instead */}
+                  <span className="sr-only">{present ? A.statusPresent : left ? A.statusLeft : A.statusFrei}: </span>
                   {/* …and only when there is an abbreviation to put in it: a rank the station's
                       list does not cover gave `rankAbbr` '' and rendered an EMPTY badge — a
                       small blank chip in front of the name. No chip is better than a blank one;
@@ -1106,6 +1123,13 @@ export function AnwesenheitView({
           onBack={() => onMarkPresent(blocksPerson)}
           onClose={() => setBlocksFor(null)}
         />
+      )}
+
+      {/* PHONE: the three readings as the docked strip above the nav bar — the Rapport's own
+          (PhoneTabBar · 15-mobile.css `.rp-tabs`). Rendering it is what reserves its lane:
+          `--rp-tabs-safe` lifts this shell's bottom edge, the FAB and «Zurück zum Rapport». */}
+      {!empty && planAvailable && isPhone && (
+        <PhoneTabBar<AnwesenheitTab> ariaLabel={A.viewLabel} value={view} onChange={pickView} options={viewOptions} />
       )}
     </div>
   )

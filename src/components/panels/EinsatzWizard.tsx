@@ -6,6 +6,7 @@ import { useGeoPosition } from '../../lib/useGeoPosition'
 import { MapPicker } from '../MapPicker'
 import { DateTimeField } from '../TimeField'
 import { Combo } from '../Combo'
+import { OnOff } from '../Segmented'
 import { appConfig } from '../../config/appConfig'
 import { dtLocalValue, dtLocalToIso, fillTemplate } from '../../lib/format'
 import { fmtDistance, haversineM } from '../../lib/geo'
@@ -24,6 +25,7 @@ import {
   type ObjectWithPlans,
 } from '../../lib/incidents'
 import { Modal, realCoord } from './_shared'
+import { SearchField } from '../SearchField'
 
 // --- Einsatz eröffnen / Einsatzdaten korrigieren -------------------------------------
 // `ix` (appConfig.copy.intake) is read inside each function below rather than captured at
@@ -347,8 +349,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     <>
     {mapOpen && <MapPicker initial={coord} onCancel={() => setMapOpen(false)} onConfirm={applyPicked} />}
     <Modal title={edit ? ix.editTitle : ix.titleNew} onClose={onClose} footer={<>
-      {/* manual create is reached from the landing — "Zurück" signals it returns there */}
-      <button className="ip-btn" onClick={onClose}>{edit ? ix.cancel : ix.back}</button>
+      {/* «Abbrechen» in both modes (29.09.2026): the wizard is ONE step, and closing it goes back
+          to the landing without opening anything — a cancel, not a «Zurück» to a previous step */}
+      <button className="ip-btn" onClick={onClose}>{ix.cancel}</button>
       <button className="ip-btn primary" disabled={!effectiveTitle || busy || demoBlocked} onClick={submit}>
         {busy ? <><Icon id="rotate" className="spin" /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
       </button>
@@ -397,9 +400,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
 
       {objOpen && (
         <div className="ip-objpick">
-          <input className="ip-search" value={objQuery} placeholder={ix.objectSearchPlaceholder} onChange={(e) => setObjQuery(e.target.value)} />
+          <SearchField className="ip-objpick-search" value={objQuery} onChange={setObjQuery} placeholder={ix.objectSearchPlaceholder} aria-label={ix.objectSearchPlaceholder} />
           <div className="ip-objlist">
-            {shownObjects.length === 0 && <div className="ip-ac-note">{ix.objectNoHits}</div>}
+            {shownObjects.length === 0 && <div className="no-hits">{ix.objectNoHits}</div>}
             {near.length > 0 && <div className="ip-objgroup">{ix.objectNear}</div>}
             {near.map(ObjRow)}
             {rest.map(ObjRow)}
@@ -461,54 +464,34 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           }}
         />
       </div>
-      {/* ⚠️ A toggle CHIP, not a native `<input type="checkbox">` (05.09. fix) — this surface's
-          other controls already keep the house rule of no native form chrome (AGENTS.md · «the
-          editor sheets have one control per kind of question»), and a bare checkbox was the one
-          exception nobody had caught. `aria-pressed` (not `role="checkbox"`): it is a button that
-          DOES something on tap, in the same idiom as the Segmented/`jc-due-chip` toggles
-          elsewhere, not an input inside a form that gets submitted. */}
-      <button
-        type="button" className={`ip-ex-toggle${isExercise ? ' on' : ''}`}
-        aria-pressed={isExercise}
-        onClick={() => setIsExercise((v) => !v)}
-      >
-        <span className="ip-ex-toggle-box" aria-hidden><Icon id="check" /></span>
-        {ix.exerciseToggle}
-      </button>
-      {/* create: free-text Meldungstext stays under the keyword section */}
-      {!edit && (
-        <label className="ip-field"><span>{ix.detailsLabel}</span>
-          <textarea className="ip-textarea" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder={ix.detailsPlaceholder} />
-        </label>
-      )}
-      {/* manual create: Alarmierungszeit, prefilled with now — leave it for a live incident,
-          set it back to nachtragen an analog one (paper report keeps the bookkeeping; this
-          row is what puts the right date into the catalogue). */}
-      {!edit && (
-        <label className="ip-field"><span>{ix.alarmTime}</span>
-          <DateTimeField ariaLabel={ix.alarmTime} value={dtLocalToIso(alarmiertAt)}
-            onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
-        </label>
-      )}
-
-      {/* --- Alarmierung (edit only) — the dispatch facts, everything before we arrived:
-          when we were alarmed + the alarm message. The Rapportangaben hold the rest. --- */}
-      {edit && (
-        <>
-          <div className="ip-ix-head">{ix.alarmierungHead}</div>
-          <label className="ip-field"><span>{ix.alarmTime}</span>
-            <DateTimeField ariaLabel={ix.alarmTime} value={dtLocalToIso(alarmiertAt)}
-              onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
-          </label>
-          <label className="ip-field"><span>{ix.alarmMessage}</span>
-            {/* disabled while the existing Meldungstext could not be read — editing it would
-                mean typing over something invisible, and saving would blank it */}
-            <textarea className="ip-textarea" rows={3} value={text} disabled={!textReady}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={textFailed ? ix.alarmTextUnavailable : ix.detailsPlaceholder} />
-          </label>
-        </>
-      )}
+      {/* Übung is a yes/no property, so it is the ONE binary idiom – an `OnOff` row, «Aus | An»
+          (28.09.2026). It was a tick-box CHIP (05.09., itself the fix for a native checkbox):
+          a third look for the same question the Einstellungen and every editor sheet ask with
+          the pair. Label left, pair right, like a `.set-row`. */}
+      <div className="ip-onoff-row">
+        <span className="ip-onoff-l">{ix.exerciseLabel}<small>{ix.exerciseSub}</small></span>
+        <OnOff ariaLabel={ix.exerciseLabel} value={isExercise} onChange={setIsExercise} />
+      </div>
+      {/* --- Alarmierung — the dispatch facts, everything before we arrived: when we were alarmed
+          + the alarm message. The Rapportangaben hold the rest. ONE section in both modes
+          (29.09.2026): the wizard asked «Meldungstext (optional)» then «Alarmzeit» with no
+          eyebrow, the edit sheet «Alarmzeit» then «Alarmmeldung» under «Alarmierung» — one field,
+          two names, two places, and the Rapport says «Alarmmeldung».
+          Creating, the time is prefilled with now — leave it for a live incident, set it back to
+          enter an analog one afterwards (the paper report keeps the bookkeeping; this row is what
+          puts the right date into the catalogue). --- */}
+      <div className="ip-ix-head">{ix.alarmierungHead}</div>
+      <label className="ip-field"><span>{ix.alarmTime}</span>
+        <DateTimeField ariaLabel={ix.alarmTime} value={dtLocalToIso(alarmiertAt)}
+          onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
+      </label>
+      <label className="ip-field"><span>{ix.alarmMessage}</span>
+        {/* editing: disabled while the existing Meldungstext could not be read — editing it
+            would mean typing over something invisible, and saving would blank it */}
+        <textarea className="ip-textarea" rows={edit ? 3 : 2} value={text} disabled={!textReady}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={textFailed ? ix.alarmTextUnavailable : ix.detailsPlaceholder} />
+      </label>
 
       {demoBlocked && <p className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
     </Modal>

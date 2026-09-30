@@ -104,22 +104,19 @@ describe('ContextPanel — basic wiring', () => {
     // station having configured a title list for it
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'] })
     expect(screen.getByText('Bezeichnung')).toBeTruthy()
-    // …and the header still SHOWS it (a Fahrzeug is known by its label, not by «Fahrzeug»),
-    // it just is not the place you change it any more
-    expect(screen.getAllByText('TLF').length).toBeGreaterThan(1)
   })
 
-  it('tapping the header title opens the Bezeichnung menu (people rename where the name shows)', () => {
+  // sweep K12 (29.09.2026): the head showed «TLF» as an underlined button AND the field said «TLF»
+  it('heads a Fahrzeug with its TYPE like every symbol — the name only in the Bezeichnung field', () => {
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'] })
-    // menu closed: the alternative type is nowhere on screen
-    expect(screen.queryByText('MTF')).toBeNull()
-    fireEvent.click(document.querySelector('.ctx-title-btn')!)
-    expect(screen.getByText('MTF')).toBeTruthy()
+    expect(document.querySelector('.ctx-title-ro')!.textContent).toBe('Fahrzeug')
+    expect(document.querySelector('.ctx-title-btn')).toBeNull()
+    expect(screen.getAllByText('TLF')).toHaveLength(1) // the Bezeichnung field, and only there
   })
 
-  it('keeps the read-only (viewer) Fahrzeug header a plain name, not a button', () => {
+  it('keeps the read-only (viewer) Fahrzeug header the type as well', () => {
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'], readOnly: true })
-    expect(document.querySelector('.ctx-title-btn')).toBeNull()
+    expect(document.querySelector('.ctx-title-ro')!.textContent).toBe('Fahrzeug')
   })
 
   it("a live vehicle's Fahrer sits in the same label+picker row as a placed vehicle's", () => {
@@ -387,7 +384,7 @@ describe('ContextPanel — Stoff → UN-Nr. (Gas/Chemie substance search)', () =
     entity: { id: 'c1', symbol: 'FW Gefahr C', fields } as SymbolView,
     protectedKeys: new Set(['Stoff', 'UN-Nr.']),
   })
-  const openStoff = () => fireEvent.click(screen.getByRole('button', { name: /Wert/ }))
+  const openStoff = () => fireEvent.click(screen.getByRole('button', { name: /^Stoff …/ }))
 
   it('a common substance is one pick away and fills its UN number', () => {
     const onFields = vi.fn()
@@ -509,7 +506,7 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
     protectedKeys: new Set(['Name', 'Stv.']),
     fieldOptions: { Name: ['Widmer Céline', 'Müller Hans'], 'Stv.': ['Widmer Céline', 'Müller Hans'] },
   })
-  const SWAP = 'Führung übergeben (EL ⇄ Stv.)'
+  const SWAP = appConfig.copy.contextPanel.swapEl
 
   it('labels the rows by the JOB, not by «Name»', () => {
     setup(el({ Name: 'Widmer Céline', 'Stv.': 'Müller Hans' }))
@@ -682,14 +679,24 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
   const O = appConfig.copy.objectDone
   const AT = '2026-09-23T18:40:00.000Z'
 
-  it('offers the action as the first row on a damage symbol, and the delete reads «Entfernen»', () => {
-    const p = setup({ onDone: vi.fn() })
-    const row = screen.getAllByRole('button', { name: new RegExp(O.action) })[0]
-    // the first thing in the body — above every property
-    expect(row.closest('.ctx-body')?.firstElementChild).toBe(row)
-    fireEvent.click(row)
+  // slim sweep 27.09.2026 (D8): the press is the foot's middle tile, «Erledigt», wherever it is offered
+  // (a damage or hazard symbol, #226) — it was a full-width row in the body. The 3am
+  // walk-through of 25.09.2026 (a reflex tap on the first row greyed a fresh KP Front) holds: the
+  // foot is never the first thing under the finger.
+  it('offers «Erledigt» as a tile in the foot — between «Zentrieren» and the bin — and the delete is the «Entfernen» square', () => {
+    const p = setup({ onDone: vi.fn(), onCenter: vi.fn() })
+    const tile = screen.getAllByRole('button', { name: O.action })[0]
+    expect(tile.closest('.ctx-actions')).toBeTruthy()
+    expect(tile.title).toBe(O.actionHint)
+    expect(tile.closest('.ctx-body')?.firstElementChild?.contains(tile)).toBe(false)
+    const foot = tile.closest('.ctx-actions')!
+    expect([...foot.querySelectorAll('button')].map((b) => b.textContent || b.getAttribute('aria-label')))
+      .toEqual([appConfig.copy.contextPanel.center, O.action, appConfig.copy.remove])
+    fireEvent.click(tile)
     expect(p.onDone).toHaveBeenCalledWith(true)
-    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
+    const bin = screen.getAllByRole('button', { name: appConfig.copy.remove })[0]
+    expect(bin.classList.contains('btn-sq')).toBe(true)
+    expect(bin.title).toContain(O.removeHint)
     expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
   })
 

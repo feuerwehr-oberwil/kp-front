@@ -42,7 +42,8 @@ import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from '.
 import { trackPrintJob } from './lib/printJobToast'
 import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
-import { conflictResolvedRow, type OpenConflict } from './lib/attendanceConflict'
+import { connectedLineLabel } from './lib/connectedLines'
+import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { cartoRasterTiles } from './lib/carto'
 import { useMeasure } from './lib/useMeasure'
@@ -124,7 +125,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
+import { azChipRedundant, isAtemschutzTrupp, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -1435,7 +1436,7 @@ export function IncidentWorkspace({
   // browser tab's cache is evicted too readily to call it «bereit». Re-armed when what there is
   // to warm changes (another Objekt's plans, a new Leitungs-Ebene), so a plan attached mid-
   // incident still gets pulled; the signature keeps one warm per state, not one per minute.
-  // «Nur manuell» (device pref) switches all of this off; the button always stays.
+  // Offline-Vorbereitung «Aus» (device pref) switches all of this off; the button always stays.
   // …and re-armed when the operator grows the offline radius (29.08.): the readiness probe
   // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
   // «nicht geladen» forever. Centre and raster-reference ids are explicit too: a corrected
@@ -1816,6 +1817,9 @@ export function IncidentWorkspace({
   // App — that repainted the whole tree every second a Trupp was in the field (battery drain).
   // Declared up here (not with the Atemschutz block) because the sync loop below reads it.
   const [azAlarm, setAzAlarm] = useState<AtemschutzAlarmState>({ peak: 0, urgent: null, severities: {} })
+  // which Trupps the Meldeleiste names right now (AtemschutzAlarmMeldungen · onShown) — the TopBar
+  // chip steps aside while a row or the board's own badge already says its alarm (T1, 29.09.2026)
+  const [azRowsShown, setAzRowsShown] = useState<string[]>([])
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
@@ -2077,8 +2081,11 @@ export function IncidentWorkspace({
   // never prints as a Nachtrag for being stamped a moment past the server's `closed_at`.
   const closingRowsRef = useRef(false)
   const markClosing = useCallback((on: boolean) => { closingRowsRef.current = on }, [])
-  const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
-    reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+  // the Rapport counts an unsettled Abweichung as open — so does every door to it (lib/abschluss ·
+  // abschlussFacts): the phone's «Einsatz» badge, the chooser, the Abschluss, the archive count
+  const openConflictCount = useMemo(() => openConflicts(timeline).length, [timeline])
+  const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
+    reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
     standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
@@ -5173,6 +5180,10 @@ export function IncidentWorkspace({
         onOpenWeather={openWeatherDetails}
         bearing={view.bearing}
         azAlarm={azAlarm}
+        // ONE red door per alarm on screen (29.09.2026, sweep 3 T1): on the Trupps board the head's
+        // «⚠ n» badge is it, elsewhere the Meldeleiste row naming the same Trupp; the chip comes
+        // back once «Zum Trupp» took that row down, and the amber lead always keeps it
+        azChipHidden={azChipRedundant(azAlarm, mode === 'atemschutz', azRowsShown)}
         // …and the chip lands ON the urgent Trupp's card, like every other way in (Meldeleiste,
         // Anwesenheit, the notification tap) — the chip names a Trupp, so the tap must find it.
         onOpenAtemschutz={(truppId) => {
@@ -5229,9 +5240,10 @@ export function IncidentWorkspace({
             // used to archive plainly (see confirmAndComplete). The badge puts the check where it
             // can be read before the row is pressed, not only after.
             onArchive={canEditIncident && !readOnly && !incidentMeta.is_archived ? () => { void confirmAndComplete() } : undefined}
-            // …the Trupps that are still out included: the badge exists so the open points can be
-            // read BEFORE the row is pressed, and «niemand hat den Trupp rausgemeldet» is one.
-            archiveOpenCount={abschlussMissing.length + (truppsStillOut > 0 ? 1 : 0)}
+            // ONE number, the nav tile's and the Rapport head's (29.09.2026): a +1 for Trupps still
+            // out made this badge say 5 where the nav said 4 one tap away. The confirm names
+            // the Trupps that are still out («Trupps noch drin»), so nothing is lost.
+            archiveOpenCount={abschlussMissing.length}
             // «Teilen» — THE door to the share sheet (06.09.): the bar's own Teilen button is
             // gone on every width, so this Einsatz-Karte row is the one place an Einsatz is
             // handed to somebody. Same gate as every minting door (`canShareLink`): editors,
@@ -5291,6 +5303,7 @@ export function IncidentWorkspace({
         // withheld while the board itself is on screen — it shows the alarm in full and the
         // strip only covered its controls (see AtemschutzAlarmMeldung's header)
         onBoard={mode === 'atemschutz'}
+        onShown={setAzRowsShown}
         // Reaching the named card is acknowledgement enough to stop the room's tone and tray
         // re-notifications. The row itself stays until a real contact/pressure event clears it.
         onAcknowledge={muteAtemschutz}
@@ -5688,7 +5701,14 @@ export function IncidentWorkspace({
               },
             }
             : undefined}
-          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({ id: d.id, label: lineLabel(d) }))}
+          // each row says what tells the lines apart — «Linie · 42 m → Hydrant H-142» (K11)
+          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({
+            id: d.id,
+            label: connectedLineLabel(d, selected.id, (id) => {
+              const e = entities.find((x) => x.id === id)
+              return e ? e.label || (e.symbol ? formatSymbolName(e.symbol) : undefined) : undefined
+            }),
+          }))}
           onFocusLine={focusDrawing}
         />
       )}
@@ -5876,7 +5896,7 @@ export function IncidentWorkspace({
           // «D pur» (09.09.): no colour/width/style here — the finished line lands selected in
           // the DrawEditor (useMapDrawing · one-shot to Select), which is where the styling
           // lives; new lines inherit the last-used style (the editor writes the defaults back)
-          [{ type: 'info', text: appConfig.copy.dockHints.line }],
+          [{ type: 'info', text: lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
         ]} />
       )}
       {mapUI && tool === 'area' && (
@@ -5911,7 +5931,8 @@ export function IncidentWorkspace({
           // things that gesture can mean. Disabled rather than hidden while nothing is placed:
           // on the tool's own dock, its absence would read as a tool that lost a button.
           [{
-            type: 'action', icon: 'search', label: appConfig.copy.truppFinder.title,
+            // its OWN glyph (29.09.2026, T8), not the lens the Suche's tile wears right below
+            type: 'action', icon: 'trupp-find', label: appConfig.copy.truppFinder.title,
             disabled: placed.length === 0, onClick: () => setFindTruppOpen(true),
           }],
           [{ type: 'info', text: appConfig.copy.dockHints.team }],

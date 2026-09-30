@@ -3,6 +3,7 @@ import Map, { Marker, type MapRef } from 'react-map-gl/maplibre'
 import { QuietAttributionControl } from './MapAttribution'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
+import { SearchField } from './SearchField'
 import { matchesAnyQuery, searchQuery } from '../lib/search'
 import { appConfig } from '../config/appConfig'
 import { confirmDialog } from '../lib/ui'
@@ -107,11 +108,8 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
           <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         </div>
 
-        <div className="pp-search">
-          <Icon id="search" />
-          <input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={pp.searchPlaceholder} />
-          {q && <button className="pp-clear" onClick={() => setQ('')} aria-label={appConfig.copy.clear}><Icon id="close" /></button>}
-        </div>
+        <SearchField ref={searchRef} className="pp-search" value={q} onChange={setQ}
+          placeholder={pp.searchPlaceholder} aria-label={pp.searchPlaceholder} />
 
         <div className="pp-body">
           {/* primary, reliable path: the searchable list */}
@@ -132,6 +130,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
                 <button
                   key={o.id}
                   className={`pp-row ${o.id === activeObjectId ? 'on' : ''} ${o.id === hoverId ? 'hover' : ''}`}
+                  aria-current={o.id === activeObjectId || undefined}
                   onClick={() => void choose(o)}
                   onMouseEnter={() => setHoverId(o.id)}
                   onMouseLeave={() => setHoverId((h) => (h === o.id ? null : h))}

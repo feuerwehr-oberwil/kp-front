@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Popover, PopoverClose } from '../lib/overlays'
 import { fmtElapsedHM, fmtMMSS } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
-import { Icon } from '../lib/icons'
+import { EntryGlyph, Icon } from '../lib/icons'
 import { fmtClock, type AtemschutzAlarmState } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import type { Incident, ReactivateResult, WeatherData } from '../types'
@@ -11,6 +11,7 @@ import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
+import { useHeadFit } from '../lib/useHeadFit'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
  * The wind/condition maths, kept beside its only reader. It used to live in a `WindBadge`
@@ -116,6 +117,9 @@ interface Props {
   /** app-wide Atemschutz alarm state — drives the conditional chip (only shown when a Trupp is
    *  fällig/überfällig, so it never crowds the bar in the normal case) */
   azAlarm?: AtemschutzAlarmState
+  /** the chip's alarm already has its door on screen — the Trupps board's head badge, or a
+   *  Meldeleiste row naming the same Trupp (AtemschutzAlarmMeldung · azChipRedundant, T1) */
+  azChipHidden?: boolean
   /** Live GPS feed has gone silent — the vehicles on the map are frozen. */
   gpsStale?: boolean
   /** Age of the last successful GPS poll, for the chip's readout. */
@@ -141,7 +145,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -193,8 +197,15 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
     onHoldPhoto,
   })
 
+  // the bar's priority ladder (lib/useHeadFit): measured, one step at a time, until it fits
+  const barRef = useRef<HTMLDivElement>(null)
+  useHeadFit(barRef, [
+    incident.title, clockText.length, hasWind, gpsStale ? 1 : 0, archived ? 1 : 0,
+    azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
+  ].join('|'))
+
   return (
-    <div className="topbar">
+    <div className="topbar" ref={barRef}>
       {titleSlot ?? (
         <>
           <div className="ename">{incident.title}</div>
@@ -245,7 +256,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
                 selectors would have picked the wrong buttons, because the mapNav action ahead of
                 them is a .tb-act.icon too and comes and goes with the surface. */}
             <button className="tb-act icon tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /></button>
-            <button className="tb-act icon tb-act-history" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
+            <button className="tb-act icon tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
           </>
         )}
         {/* ⚠️ `has-rem` tints the BUTTON, not just its corner. The count badge alone is 17px of amber
@@ -273,13 +284,14 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             {recording
               ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
               : <>
-                {/* the charge ring rings the + icon — anchored at the right edge it sat ON the
+                {/* the charge ring rings the glyph — anchored at the right edge it sat ON the
                     label's last letters and read as clutter over the word it was charging */}
                 <span className="tb-act-ic">
                   {/* inline path, not a sprite <use> — same defence as FabEntry (29.08.): the
-                      field-logging + must never render as an empty circle when a sprite fails
-                      to resolve across remounts */}
-                  <svg className="i" viewBox="0 0 24 24" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
+                      field-logging glyph must never render as an empty button when a sprite
+                      fails to resolve across remounts. The journal glyph, not «+» (29.09.2026,
+                      sweep K2): the rail's «+ Symbol» stands right beside it. */}
+                  <EntryGlyph />
                   {pressing && pressedSince != null && <HoldChargeRing since={pressedSince} />}
                 </span>
                 <span className="tb-act-label">{appConfig.copy.journal.add}</span>
@@ -313,7 +325,9 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first
             the top bar said anything was the red alarm), RED once a Trupp is überfällig or at
             its Alarmdruck. Taps through to the Atemschutz surface. */}
-        {azAlarm && azAlarm.peak >= 1 && azAlarm.urgent && (() => {
+        {/* …and not while its alarm already has a door on screen (29.09.2026, T1): two red
+            controls with two numbers for one emergency read as two emergencies */}
+        {azAlarm && azAlarm.peak >= 1 && azAlarm.urgent && !azChipHidden && (() => {
           // ⚠️ TWO reasons this chip can be red, and it has to say which. Out of contact ticks a
           // clock; at or below the Alarmdruck it shows the bar. A chip that showed a contact
           // clock for a Trupp whose air is gone would name the wrong emergency.
@@ -331,7 +345,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
               title={appConfig.copy.atemschutz.chipHint}
               aria-label={`${appConfig.copy.modes.atemschutz}: ${what} — ${u.name}`}
             >
-              <Icon id={lowPressure ? 'drop' : 'gauge'} />
+              {/* the Manometer for the Alarmdruck (26.09.2026): the droplet it wore said water */}
+              <Icon id={lowPressure ? 'manometer' : 'gauge'} />
               <span className="tb-az-name">{u.name}</span>
               {/* the clock ticks off the bar's own 1 Hz tick — the alarm state object stays
                   reference-stable between tier/Trupp transitions (App must not re-render per

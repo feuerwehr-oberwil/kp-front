@@ -1,18 +1,18 @@
 /* Anwesenheit surface — mirrors the Atemschutz surface shell (inset card + head), then a
    dense grid of name buttons. Each button tap-cycles frei → anwesend → gegangen → frei, so
    many crew fit on screen without scrolling and the whole board edits in place. */
-/* geometry + header: the shell every full surface shares (Surface.module.css). This head carries
-   ONE row more than the others (the QR read-out), which is what a surface with more to say is
-   allowed to do — it does not get different metrics for it. */
+/* geometry + header: the shell every full surface shares (Surface.module.css) — ONE row, like
+   every page head (28.09.2026): the QR read-out stood on a row of its own under the counts and is
+   now the first thing in the tiles cluster, the first to step aside when the row runs out
+   (AnwesenheitView · HEAD_FOLD). */
 .surface { composes: shell from './Surface.module.css'; flex-direction: column; }
 .head { composes: head from './Surface.module.css'; }
 /* the counts, under the title inside the titles block — see AnwesenheitView */
 .headSummary { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); color: var(--ink-dim); }
-/* …and the QR read-out under THAT: same idea, one step quieter, and on a row of its own because
-   it answers a different question. Empty until the first poster write, and an empty <p> must not
-   draw a gap. */
-.headQr { flex: 1 0 100%; order: 5; margin: 0; line-height: 1; }
-.headQr:empty { display: none; }
+/* …and the QR read-out at the head of the tiles: a read-out, not a tile, so it is the first thing
+   the ladder takes away (it is still on the Rapport). Empty until the first poster write. */
+.headQr { display: inline-flex; align-items: center; }
+.headQr:not(:has(:global(.capture-usage-chip))) { display: none; }
 .headTitles { composes: headTitles from './Surface.module.css'; }
 .headActions { composes: headActions from './Surface.module.css'; }
 /* ONE height and ONE corner for every control on this line. They had three: the printer button is
@@ -26,20 +26,20 @@
    not (34px buttons inside 3px padding = 40px). */
 /* nothing to override any more: this geometry (option = --tap - 6px inside a 3px --r-ctl track,
    so the control measures a full 44px) became the one segmented spec in app.css. */
-/* the view tabs, in a slot of their own so a phone can put them on a line of their own without
-   the action cluster coming with them. On a desk screen they sit inline, between the title and
-   the tools, and claim only their own width. */
+/* the view tabs, in a slot of their own between the title and the tools, claiming only their own
+   width. Tablet and desk only: on a phone the same three are the docked strip above the nav bar
+   (AnwesenheitView · PhoneTabBar, 27.09.2026) and this slot is not rendered at all. */
 .headTabs { flex: none; order: 2; }
-/* ⚠️ No ellipsis, unlike the Rapport's h2 — that one carries an arbitrary Einsatz name and has
-   to truncate; these three are fixed strings the layout is sized for («Atemschutzüberwachung» is
-   the longest, and --head-titles-min is wide enough for it). A fixed title that truncates is a
-   bug, not a graceful degradation. Font and spacing are the shared spec; wrapping is not. */
+/* ⚠️ A fixed title that truncates is a bug, not a graceful degradation: these are fixed strings,
+   and the head's ladder (lib/pageHeadFit) checks every <h2> — a cut one makes the tiles give up
+   their words, and last the tiles take a second row. The shared ellipsis (Surface.module.css) is
+   only the safety net under it. Font and spacing are the shared spec. */
 .headTitles h2 { margin: 0; font: var(--head-title); color: var(--ink); }
 
 
 .reload {
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  cursor: pointer; min-height: var(--tap);
+  cursor: pointer; min-height: var(--tap); min-width: var(--tap);
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
   border-radius: var(--r-sm); padding: 0 13px; font: 700 12.5px var(--body);
 }
@@ -51,7 +51,7 @@
 @media (hover: hover) { .reloadFailed:hover { color: var(--amber-strong); border-color: var(--amber-strong); } }
 .reload svg { width: 15px; height: 15px; }
 
-/* (the search line — .controls/.search/.searchClear — lives in SurfaceControls.module.css) */
+/* (the search line — .controls/.search — lives in SurfaceControls.module.css; the field is SearchField) */
 
 /* per-person rank badge inside the name button */
 .rank {
@@ -73,6 +73,11 @@
 /* the two Ort glyphs, in the colours they carry on the row — read once, then the row is enough */
 .markOrt svg { width: 14px; height: 14px; color: var(--ink-dim); }
 .markOrtStation svg { color: var(--ink); }
+/* the three states as the row LOOKS in them (29.09.2026 — the row has no status dot any more):
+   a small row swatch — plain, green tint, dimmed. Overrides the round 9px mark above. */
+.markRow i.swatch { width: 14px; height: 10px; border-radius: 3px; border: 1px solid var(--glass-edge); background: var(--surface); }
+.markRow i.swatchPresent { background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
+.markRow i.swatchLeft { opacity: var(--done-opacity); }
 /* the ink dot that rides on the clock button when somebody has a Bemerkung — same size, same
    colour, so the filter row IS the mark rather than a description of it */
 .markNote i { width: 6px; height: 6px; background: var(--ink); }
@@ -120,14 +125,16 @@
 .personMain:disabled { cursor: default; }
 .personMain svg { width: 15px; height: 15px; flex: none; color: var(--amber-strong); margin-left: auto; }
 
-.isPresent { background: color-mix(in srgb, var(--green) 14%, var(--surface)); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
-@media (hover: hover) { .isPresent:hover:not(:disabled) { border-color: var(--green); } }
-.isLeft { background: var(--surface); color: var(--ink-faint); opacity: .8; }
+/* anwesend = the green TINT and nothing else (29.09.2026, owner pick B). A green dot, the tint and
+   a green border said it three times on every row — twenty green slabs on one screen. The edge
+   stays the row's ordinary --glass-edge. Not colour alone: a present row is also the only one
+   that carries the Ort + Uhr buttons, a gone one is dimmed, and the state word is in the row's
+   name for a screen reader (AnwesenheitView · .sr-only). */
+.isPresent { background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
+/* gegangen = GONE: the ONE done dim and nothing else (01-tokens · --done-opacity, 28.09.2026 —
+   it was .8 on top of a faint ink, two dims for one state) */
+.isLeft { opacity: var(--done-opacity); }
 
-.dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
-.dotFrei { background: var(--ink-faint); opacity: .4; }
-.dotPresent { background: var(--green); opacity: 1; }
-.dotLeft { background: var(--amber); opacity: 1; }
 
 .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* «there is a remark on this person» — a dot on the clock that opens the sheet. The text
@@ -204,33 +211,14 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* (the full-width inset is the shared shell's — Surface.module.css) */
-  .head { padding: 10px 14px; gap: 10px; align-items: center; }
-  /* keep the counts on a single line so the header stays short (was wrapping to 4 lines and
-     ballooning the header); the action buttons collapse to icons to free the width for it */
-  /* ⚠️ The counts are never cut. «13 anwesend · 2 gegange…» is the one line this panel exists
-     to give at a glance, and an ellipsis through it answers nothing — so they wrap rather than
-     truncate. (They sit under the title inside the titles block now, so the `order` they used to
-     carry as a direct child of `.head` is gone with it.) The QR read-out steps aside on a phone:
-     it is a footnote about the poster being used, which nobody acts on, and it is still on the
-     Rapport. */
-  .headSummary { font-size: 12px; line-height: 1.35; }
-  .headQr { order: 5; }
-  .headActions { gap: 6px; }
-  .reload { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
-  .reloadLabel { display: none; }
-  /* TWO rows, not three. The title used to claim a full line of its own and the actions the next
-     one — which, once the tabs no longer fit beside the icons, left a whole row carrying a single
-     right-aligned reload button. The icons are small and the title line has room for them, so:
-     row 1 = title + summary | printer + reload, row 2 = the tabs, full width. That is ~60px of a
-     390px screen handed back to the grid, on every one of the three tabs. */
-  .head { flex-wrap: wrap; }
-  .headTitles { flex: 1 1 120px; }
-  .headActions { flex: none; }
-  /* full width and each segment sharing it equally — «Anwes. · Zeitplan · Schichten» measured
-     ~280px against a ~250px slot when it sat in the cluster, which is what pushed it to wrap */
-  .headTabs { flex: 1 0 100%; order: 3; }
-  .headTabs :global(.useg) { display: flex; width: 100%; }
-  .headTabs :global(.useg-btn) { flex: 1; padding: 6px 4px; }
+  /* The counts are never cut: «13 anwesend · 2 gegange…» answers nothing. They are
+     `data-fit-check` (AnwesenheitView), so a cut line makes the head's ladder fold the tiles'
+     words and, last, give the titles a row of their own where the line may wrap
+     (Surface.module.css · the wrap). ONE row otherwise (27.09.2026 on the phone, every page head
+     since 28.09.2026): the tabs are the docked strip above the nav bar (PhoneTabBar), so the head
+     is title + summary | printer + reload; the reload's word is the ladder's to fold, not a
+     breakpoint's. */
+  .headSummary { font-size: 12px; }
   .horizon { flex: 0 1 auto; gap: 4px; }
   .horizonLabel { display: none; }
   .horizonValue { min-width: 2.6rem; }
@@ -274,7 +262,7 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 
 /* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
 .horizon { flex: none; display: flex; align-items: center; gap: 6px; }
-.horizonLabel { font: 700 11px var(--body); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+.horizonLabel { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .horizonValue { min-width: 3.4rem; text-align: center; font: 700 12.5px var(--mono); color: var(--ink); }
 /* «bis 18:01» — at a constant px-per-hour a wider window is pixel-identical, so this is the only
    visible answer to what widening it bought you */

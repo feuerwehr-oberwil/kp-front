@@ -9,13 +9,13 @@ export function DemoWelcome({ onClose }: { onClose: () => void }) {
   const C = appConfig.copy.demo.welcome
   return (
     <Overlay open onClose={onClose} className="dw-card" backdropClassName="modal-backdrop dw-scrim" ariaLabel={C.title}>
-        <button className="dw-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+        <button className="ip-x dw-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         <div className="dw-head">
-          <span className="dw-badge">{appConfig.copy.demo.ribbon}</span>
+          <span className="ip-badge ip-badge-exercise">{appConfig.copy.demo.ribbon}</span>
           <h2 className="dw-title">{C.title}</h2>
         </div>
         <p className="dw-intro">{C.intro}</p>
-        <div className="dw-warn" role="note"><Icon id="warn" /><span>{C.reloadWarn}</span></div>
+        <div className="form-warn form-warn-amber dw-warn" role="note"><Icon id="warn" /><span className="form-warn-text">{C.reloadWarn}</span></div>
         <div className="dw-sec">
           <h3>{C.canTitle}</h3>
           <ul>{C.can.map((t) => <li key={t}><Icon id="check" /><span>{t}</span></li>)}</ul>

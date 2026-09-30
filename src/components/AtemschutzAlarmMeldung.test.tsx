@@ -2,6 +2,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/react'
 import { AtemschutzAlarmMeldungen, atemschutzAlarmRows } from './AtemschutzAlarmMeldung'
+import { azChipRedundant } from '../lib/atemschutz'
 import { Meldeleiste } from './Meldeleiste'
 import type { Trupp } from '../types'
 
@@ -289,5 +290,63 @@ describe('several Trupps, one reason', () => {
     const title = document.querySelector('.ml-title')?.textContent ?? ''
     expect(title).toContain('Huber')
     expect(title).not.toContain('Meier')
+  })
+})
+
+// T1 (29.09.2026): the TopBar chip steps aside while its alarm already has a door on screen — the
+// board's own badge, or a Meldeleiste row naming the same Trupp for the same reason. Never for
+// the amber lead, and back the moment «Zum Trupp» took the row down.
+describe('the TopBar chip and the strip', () => {
+  afterEach(cleanup)
+  const base = { intervalMin: 5, graceSec: 60, onGoToTrupp: () => {} }
+  const red = { peak: 2 as const, urgent: { id: 'b', reason: 'pressure' as const } }
+
+  it('hides a red chip on the board, or while a row names its Trupp for its reason', () => {
+    expect(azChipRedundant(red, true, [])).toBe(true)
+    expect(azChipRedundant(red, false, ['b:pressure'])).toBe(true)
+    // a row for the same Trupp but the OTHER reason is a different emergency
+    expect(azChipRedundant(red, false, ['b:contact', 'a:contact'])).toBe(false)
+    expect(azChipRedundant(red, false, [])).toBe(false)
+  })
+
+  it('never hides the amber «Kontakt fällig» — it has no row and no badge', () => {
+    const amber = { peak: 1 as const, urgent: { id: 'a', reason: 'contact' as const } }
+    expect(azChipRedundant(amber, true, ['a:contact'])).toBe(false)
+    expect(azChipRedundant({ peak: 0, urgent: null }, true, [])).toBe(false)
+  })
+
+  it('reports what the strip names, nothing while withheld, and drops a row «Zum Trupp» took down', () => {
+    const reports: string[][] = []
+    const onShown = (k: string[]) => reports.push(k)
+    const last = () => reports[reports.length - 1]
+    const t = [trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) }), trupp({ id: 'b', name: 'Huber', lastPressureBar: 90 })]
+    const strip = (onBoard: boolean) => (
+      <>
+        <AtemschutzAlarmMeldungen trupps={t} severities={{ a: 2, b: 2 }} {...base} onBoard={onBoard} onShown={onShown} />
+        <Meldeleiste />
+      </>
+    )
+    const { rerender } = render(strip(false))
+    expect(last()).toEqual(['a:contact', 'b:pressure'])
+    rerender(strip(true))
+    expect(last()).toEqual([])
+    rerender(strip(false))
+    // «Zum Trupp» on the pressure row: that row goes, and with it the chip's reason to hide
+    const pressureRow = [...document.querySelectorAll('.ml-row')].find((r) => r.textContent?.includes('Alarmdruck'))!
+    fireEvent.click(pressureRow.querySelector('.ml-act button')!)
+    expect(last()).toEqual(['a:contact'])
+    expect(azChipRedundant(red, false, last())).toBe(false)
+  })
+
+  // T13: the title is still the way in, but it does not wear a link look beside its own button
+  it('draws the title without the underline, and «Zum Trupp» without a glyph', () => {
+    render(
+      <>
+        <AtemschutzAlarmMeldungen trupps={[trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) })]} severities={{ a: 2 }} {...base} />
+        <Meldeleiste />
+      </>,
+    )
+    expect(document.querySelector('button.ml-open')?.className).toBe('ml-open plain')
+    expect(document.querySelector('.ml-act button svg')).toBeNull()
   })
 })

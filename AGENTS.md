@@ -292,6 +292,15 @@ to prod.
   at a tile's edge the translation stops, never each vertex (`whiteboard · floorGeometry.moveRigid`,
   24.09.2026 — the per-vertex clamp flattened a Leitung onto the tile's rim in the field); a vertex
   changes storey only by its own grip.
+  - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
+    «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
+    tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking
+    (device-local, on read-only surfaces too, the folded strip is the way back), «Geschoss
+    entfernen» is the danger row and stays the owner's confirm-with-undo (IncidentWorkspace ·
+    onRemoveFloor). No eye and no bin on the canvas: delete is the rarest act on this surface.
+  - *The north dial is the ONE door to «Gebäude drehen»* (29.09.2026), on every device
+    (`PlanCompass`); it also shows the angle. The rail carries no compass tile (it opened the same
+    popover a second way and brought a second foot hairline).
   **Ink is cut to its storey's visible SECTION** (24.09.2026, `lib/storeyClip`): the tile's
   drawings, laid as `FloorPage` lays them and cut to the footprint box, or the whole tile where
   there is no Geschossplan. Linien, Flächen, Absperrkreise and trails are clipped to it (SVG
@@ -540,7 +549,17 @@ to prod.
   `data-holdaction`, or the app-wide hold-tooltip eats its release.
 - **The editor sheets have one control per kind of question** (decided 01.09., same sweep). A
   yes/no property is the `OnOff` Segmented pair (`components/Segmented`) – never a single chip
-  whose text or glyph flips, which said «An» on one row and showed a state on the next. A number
+  whose text or glyph flips, which said «An» on one row and showed a state on the next.
+  That holds app-wide, not only in the editor sheets (28.09.2026): the Einstellungen, the Übung
+  on the Einsatz form and the Kroki's «Folgt der Karte» are `OnOff` rows too, always «Aus | An»
+  in that order (a row's own «Ein | Aus» with «on» on the left reversed the thumb position). A
+  **«none of these»** answer that stands in for a list (Material «Nichts verwendet») is a
+  CHOICE chip: one fixed text, picked = the choice fill, and no «✓» growing into the label. A
+  single option on a sheet is a yes/no too (PersonnelSync «… ausblenden» is an `OnOff` row, not
+  a native checkbox). Only a control that picks ITEMS in a list is multi-select. The
+  head-bar status buttons (bell, share QR, the menu's Standort row) name the state that is TRUE
+  now and are not yes/no properties.
+  A number
   is the shared `Stepper`; where the two surfaces cannot agree on a unit (a Form's size is metres
   on the Karte and a share of the sheet on a Plan) it is `ScaleStepper`, the same chrome handing
   the caller a ×-factor. A one-press action is a `.de-action` row, in the grammar «Verbindung
@@ -559,11 +578,42 @@ to prod.
   zoom) — a real seam, where «select vs. create» was noise; the map-utility cluster has air; and
   the Einsatz menu draws ONE hairline, above the identity row (the small-caps label heads «App»
   on its own, but the signed-in row is not an action and the rule says «the list ends here»).
+  The Trupps section heads draw no rule either (29.09.2026 — see the Atemschutz board).
+  What leaves the TOP BAR when it runs out of room is MEASURED, not ruled per breakpoint
+  (`lib/useHeadFit`, 25.09.2026): one `fit-N` step at a time until it fits, lowest priority
+  first — weather, Einsatzdauer, ↷, the gaps, the Verlauf word, the alarm's
+  name, the Einsatz title (the pill stays: glyph + ÜBUNG), the «1?» count, and last the
+  Eintrag's word (`'eintrag-word'`, 29.09.2026). The Einsatz pill never
+  gives: squeezed below a readable width counts as «does not fit». A chip NEVER loses its icon —
+  a bare number says nothing — and is at least a tap wide. A new chip in the bar takes its place
+  in that ladder, never a `:has(...)` rule that hides a neighbour. The PAGE HEADS climb the same
+  ladder (`climbLadder`, `lib/pageHeadFit`, 28.09.2026 — below, «ONE page head»).
   A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
   in a `Menu`.
   And **no native form
   control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
   instead of a number field, `components/Slider` instead of `<input type="range">`.
+  **One question, one name, one place, in every sheet that asks it** (29.09.2026): the Einsatz
+  wizard and «Einsatzdaten bearbeiten» share the «Alarmierung» section – eyebrow, then
+  «Alarmzeit», then «Alarmmeldung» (the Rapport's word). A one-step sheet's footer cancel is
+  «Abbrechen»; «Zurück» only where there is a real previous step. The composer's Art is ONE of
+  three with «Info» preselected – «nothing» and «Info» were two ways to say one thing; «Info»
+  still writes no `entryType` and no marker. An optional count with a «Keine» answer beside it
+  shows «–» while unanswered, never «0», and its ✕ only once there is a value.
+  **A sheet whose edits are live has no confirm footer** (29.09.2026, owner: «everything should be
+  auto-saved without manual confirmations»): ✕ and swipe close it, and one quiet «Alles wird
+  laufend gespeichert.» line (`copy.savedLive`) says so (TimeBlockSheet, PersonnelSync result).
+  «Speichern» stays only where something is CREATED (Trupp anmelden, Einsatz eröffnen, Eintrag /
+  Mittel erfassen) or where a typed value would otherwise write a record per keystroke — the Trupp's
+  Auftrag sheet, the Schichtband edit and the Mittel pencil KEEP their Speichern / Abbrechen (owner,
+  29.09.2026: save-on-close was built and taken back; do not re-introduce it without asking).
+  ⚠️ A Mittel line coming back from a removal is a CHANGE even when its count/remark/Bestand equal
+  the tombstone's (`useMittelActions`) — it compared «unchanged», so the removal toast's
+  «Rückgängig» wrote nothing; it now writes and logs «… wiederhergestellt» (`mittel.logRestored`).
+  **A symbol's context sheet is headed by its TYPE**, for every symbol, the generic Fahrzeug too
+  («Fahrzeug» / the pack's name; 29.09.2026). A user-given name lives in its field
+  («Bezeichnung») only — never twice, never an underlined head that jumps to a field. The foot's
+  «Erledigt» wears the same ink as «Zentrieren» (a dimmed action reads «not available»).
 - **One object, two surfaces — there are no twins any more** (10.09.2026,
   `tmp/design-unified-objects.md`). A tactical object is ONE record in one collection
   (`src/lib/tacticalObjects.ts`), carrying up to two bodies of the same thing: `entity` XOR
@@ -930,9 +980,39 @@ to prod.
     — never a frame that is full-screen or centred there, like the Trupp form on a tablet or the
     handed-over Tafel; on the full app's PHONE board it IS a bottom sheet since 24.09.2026 and
     wears the bar, see the Atemschutz bullet), and the one
-    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026). The
-    gesture needs the frame FLUSH with the bottom edge — which is why the phone Verlauf is a real
-    bottom sheet now and no longer a card floating 8px off it.
+    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026), and so do
+    the NON-modal map sheet Ebenen (`LayerPanel`, 29.09.2026), whose `.lc-title` is a handle, and
+    the plan's NON-modal Passung dock (`GeorefDock`: Passung + «Karte verknüpfen» chooser; it
+    portals into `.app` on a phone to cover the bars). The map picker (`MapPicker`) is an
+    `Overlay grab` at the sheet cap: a map has no height to hug. The gesture needs the frame FLUSH with the bottom edge — which is why the phone
+    Verlauf is a real bottom sheet now and no longer a card floating 8px off it.
+  - **What a surface IS on a phone — one rule, three shapes** (29.09.2026, owner: «rethink what is
+    a modal and what a slide-up thing on mobile … ebenen, search, etc. should be a slide-up»).
+    Pick by what the person DOES there, never by what was easiest to build: (1) a **tool or a
+    list you work in while you look at the map / board / page** — Ebenen, the «+»
+    chooser, a symbol's editor (`.ctx`), the composer, the Verlauf, the map picker, the plan's
+    Passung, every form and settings sheet — is a **slide-up bottom sheet**: flush with the bottom edge and both sides, over the bars,
+    the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle),
+    lifted by the keyboard (`keyboardLift`), the bottom inset paid by its last row. It HUGS its
+    content up to a cap that leaves the top of the map in sight, so it grows upward and its foot
+    never moves under the thumb. Detents only where the surface has two useful heights (the
+    `.ctx` editors' half ⇄ full). Modal (scrim, focus trap) when it asks for input that must be
+    finished or abandoned; NON-modal (a clear `.mapctl-backdrop`, no trap) when it only changes
+    what the map shows — Ebenen is non-modal on purpose. (2) A **decision
+    that blocks** — a confirm, «Welcher Trupp?», a one-field ask — is a **centred dialog**
+    (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. (3) A **short
+    pick-one menu that belongs to its tile or chip** — Ansichten at the compass, the Einsatz-Menü,
+    the Meteo chip, every `Menu` — is a **popover anchored to that control**. Two exceptions,
+    each a rule: a page you READ (Hilfe) is full-screen, and a search that opens with the keyboard
+    (TruppFinder) hangs from the TOP edge so the keys never cover its results. A floating card
+    above the bars (Ebenen was one until 29.09.) is none of the three: it cannot
+    be pushed away and does not belong to its tile.
+  - **A sheet's footer row is `SheetFoot`** (`.ui-sheet-foot`, 26.09.2026): `Sheet` draws it for
+    `footer`, and a bespoke frame whose footer is its bottom edge on a phone wears it (the Trupp
+    form, the Mittel note, the Georef transfer). ONE rule in 15-mobile.css insets it on a phone —
+    `max(20px, safe-area-inset-left/right)` and `16px + safe-area-inset-bottom` — at a weight a
+    surface's own footer class cannot undercut; never inset a sheet footer per surface (the Trupp
+    form's own rule lost to a later one and put its buttons into an iPhone's corners).
   - **One menu row, one wash.** Every row `Menu`/`ContextMenu` renders wears `ui-menu-item`
     (+ `ui-menu-danger`), which carries the hover (`--blue` at 8 %, gated on `hover: hover`), the
     keyboard `[data-highlighted]`, the `--press` wash and the `--r-ctl` row radius
@@ -1080,6 +1160,17 @@ to prod.
   OG/UG already said Geschoss while the help and the Verlauf rows said Stockwerk). Already-written
   Verlauf rows keep their wording (append-only); code identifiers (`floor`, `floorTag`,
   `whiteboard.*`, `Whiteboard.tsx`) keep their names.
+- **The place is «Verlauf», the thing is «Eintrag» – on every screen** (29.09.2026). The composer
+  is «Neuer Eintrag», its toast «Eintrag erfasst», the checklist action chip «Verlauf», the
+  Führungsansicht «Verlauf & Symbol-Details», the source row «Von Hand erfasst». «Journal» appears
+  on screen nowhere. **«Einsatzjournal» stays ONLY as the printed Rapport section's name**
+  (`report_pdf · "journal"`, `copy.report.journal`, and the «Abschnitte» toggle that names that
+  section) – the paper term. The printed Atemschutz section is «Atemschutzüberwachung», never
+  «Atemschutz-Journal». en/fr/it keep their own place word (Log / Journal / Diario) and the same
+  entry word (Entry / Entrée / Voce). Code identifiers (`journal.*`, `Journal.tsx`, `jr-*`,
+  `jc-*`) keep their names. **One count, one word: «{n} anwesend»** – the chooser, the
+  Anwesenheit head and the Rapport's «Personal & Mittel» row say the same word for the head
+  count (the Rapport said «erfasst»).
 - **Failure copy has two shapes, and they are not interchangeable** (settled 2026-08-27 after a
   sweep found 35 of one and 20+ of the other with no rule between them):
   - *«X fehlgeschlagen»* – the action the operator just triggered failed, on a surface that
@@ -1089,10 +1180,15 @@ to prod.
     hochgeladen werden»). Losing the object name to shorten it is the wrong trade.
   - **Punctuation follows the last segment, not the string.** A string ends with a period only
     when its final segment is a full clause (subject + finite verb): «… – Änderungen sind lokal
-    gespeichert.» keeps it, «… – nochmals versuchen» and «Löschen fehlgeschlagen» do not.
+    gespeichert.» keeps it, «Löschen fehlgeschlagen» does not.
     Headings and titles never take one, even when they are full clauses («Ein Fehler ist
     aufgetreten»). The rule is per locale – French «La suppression a échoué.» is a clause where
     German «Löschen fehlgeschlagen» is a fragment, and both are right.
+  - **A retry sentence says what happened, the button says «Erneut versuchen»** (29.09.2026) —
+    never «… nochmals versuchen» in the sentence next to it; one button word in every locale.
+- **A ✕ that empties a field says «leeren», never «löschen»** (29.09.2026) — «löschen» is the
+  delete verb. `copy.clear` «Leeren», `copy.clearSearch` «Suche leeren», `copy.clearField`
+  «{field} leeren»; no per-surface «Suche löschen» copies.
 - **A search field's placeholder is «<Thing> suchen …», or bare «Suchen …» where the surface
   already names the thing** (swept 18.09.2026: «Suchen», «Name suchen», «Suchen oder Name
   eingeben …» and three-dot `...` all existed side by side). Always the ellipsis character with a
@@ -1118,6 +1214,15 @@ to prod.
   component/function instead; (2) a few copy values are structural DATA keys, not labels
   (`contextPanel.unField`/`stoffField` match the non-localized preset fields, intake
   `kategorien`/`kategorieGuess` mirror the backend) – leave these untranslated (German fallback).
+- **Help describes the device it is read on** (29.09.2026). `HelpBlock` / `HelpSection` carry
+  `only: 'phone' | 'wide' | 'keyboard'` (`lib/helpDevice · helpShows`): a phone reads about the
+  two bottom bars and the FAB, never a left/right rail or a rail drag; the Tastaturkürzel section
+  and the mouse/keys parts show only off a phone and where a fine pointer exists. Every locale
+  carries its own sections array, so a device-specific block goes into all four
+  (`helpDevice.test` checks the phone text of every locale for rail words). **A surface's
+  explanation is one line; the long text lives in Hilfe**: the «Einsatz · lesen» share lede is
+  «Kein Login · gilt auch nach dem Abschluss.» in the share sheet and in Rapport › Weitergeben
+  alike; audiences and lifetimes are in Hilfe › Rapport & Abschluss.
 - **Tactical symbols are our own pack.** `public/tactical-symbols.json` is KP-Front-authored
   artwork following the FKS Faltkarte conventions, generated by `tools/gen_symbols.py` – edit
   the generator, never the JSON, and re-run `python3 tools/gen_symbols.py emit` (a `review`
@@ -1134,20 +1239,70 @@ to prod.
   - *The ✕ that closes a sheet is 36px with an 18px glyph, everywhere* (`.ip-x`, `.journal-x`,
     `.ctx-x` — one rule in 13-incident.css; it was 28/30/32). Beside a 44px search field it is
     44px instead (Palette, Verlauf search), and it is the ordinary grey, never a filled «on».
-  - *Radius:* **every** button is `var(--r-sm)`, whatever its size, border or icon-only-ness —
-    **except one that sits in a bar's padding** (22.09.2026): its corner is the bar's radius minus
-    the padding, so the two curves run concentric (`--r-nested`, stated beside the padding of
-    `.topbar` and `.rail` and their phone rules; read by the identity pill, `.tb-act`, the
-    Einsatzuhr, the rails' tiles; falls back to `--r-sm` outside a bar). A 10px card inside a
-    22px bar read as «way more angled than the container around it». `.toputil` already was
-    this arithmetic (16 − 6 = 10). The dark docks' ✕ (Ebenen, Ansichten) are the house 36/18 too.
-    Rows, list items, option cells, tiles and field triggers are **not** buttons and keep
-    `--r-ctl`; on-canvas furniture (handles, vertices, pins, trail marks, colour swatches, the
-    badges attached to a map object), dots, legends and avatars stay round – roundness is what
-    tells map furniture apart from chrome.
+  - *Radius – ONE corner (25.09.2026):* **every** rectangle is `var(--r-sm)` (12px) – button,
+    field, status box, row, card, page card, sheet, dialog, message; `--r-ctl`/`--r-surface`/
+    `--r-hero` are aliases of it, kept only as role names. Three exceptions, each a rule, never
+    taste: (1) things under ~32px tall wear `--r-xs` (the same shape at that size) and map
+    furniture, dots, avatars and the FAB stay round – roundness is what tells map furniture
+    apart from chrome; (2) a **floating container that hugs controls** (top bar, nav/tool bar,
+    glass clusters, menus, docks) keeps ONE even gap all round – `--bar-pad` plus its
+    1px border – and its corner is the controls' corner plus that gap, `--r-bar` (19px), so the
+    curves run parallel like nested squares (the top bar had 7px above the pill and 11px beside
+    it, and no radius could match both); a MESSAGE is not a bar – it wears the one corner itself
+    and its buttons sit `--msg-pad` inside with `--r-msg-in`; (3) the **parts of one control** (segments in `.useg`,
+    the zoom buttons in their group) are the control's corner less their inset. No literal px
+    radius above `--r-xs` (hairline ticks and handles aside); the old 10 · 14 · 16 · 20 · 22 scale put three corners on three neighbouring
+    buttons and read as a mess.
+  - *Messages – ONE surface, ONE lane (25.09.2026):* a toast, a mode's instruction (Gebäude
+    wählen), a tool's tip and the hold-tip wear the same look (08-toasts.css · «ONE message
+    surface»): the floating family's material (below — light by day, dark by night, never a dark
+    pill on a light UI), ink 13/600, the one corner, no outline of its own. A tone is the colour of
+    the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
+    shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
+    mode is on shows neither. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
+    bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
+    never beside a piece of it. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
+    bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
+    `Meldung` carries an `icon`. A row TITLE whose way in is the same
+    move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
+    primary action's label) stays tappable but draws NO underline (`.ml-open.plain`, derived in
+    `Meldeleiste · MeldungTitle`); the underline is only the signal where the title is the ONLY
+    door. A button never repeats the glyph its row already leads with.
+  - *ONE floating family, ONE floating row (26.09.2026, owner: «everything has the same shape,
+    colour, padding»):* every small thing that floats over the Karte or a Plan — the messages
+    above, the plan's chips (Objekt · Gebäude · Massstab · ⌖ Karte),
+    «Zurück zum Rapport» and the Eintrag FAB — wears `--float-*` (01-tokens): the bars' glass with
+    their `--glass-line` edge as an INSET ring and `--shadow`; ONE row height `--float-h` (a --tap
+    button + `--msg-pad` all round = 52px); the one corner; 14px before the glyph; 16px glyphs. A
+    STATE is a glyph colour inside it — the chip's lamp, a toast's leading icon, the object chip's
+    amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
+    armed» is a blue wash mixed into the glass. «Not yet» is GREY (29.09.2026): a plan with no
+    scale and no link shows a grey lamp, never red (red = danger, act now; an unlinked plan read
+    as a picture is not an emergency). And ONE chip says it: until a sheet is linked, «Karte
+    verknüpfen» (the link glyph, never the locate crosshair) is the pill row's only chip — a link
+    gives the scale; «Massstab» appears once a link or a hand calibration exists (the hand
+    calibration stays reachable through Messen · «Massstab kalibrieren»). Where a plan cannot be
+    linked, the Massstab chip stays. On a phone the pieces stand on ONE baseline,
+    `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
+    strip · tool bar · a tool's option dock + its hint row), 8px from the screen's edge and from
+    each other. The FAB stays ROUND (the one-corner exception) but is `--float-h` across, on that
+    baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
+    the row (and the `--float-row` `:has` list) — never a height, material or offset of its own.
   - *Type:* two sizes, two weights. `12.5px/700` compact (toolbars, docks, dense rows, chips),
     `14px/700` standard (sheet footers, form + page actions), and `800` **only** on the single
     action of a surface (Kontakt, Speichern, Senden). Nothing else.
+  - *Two materials, by what the thing IS (29.09.2026, owner):* everything that floats over the
+    Karte or a Plan — the floating row, Ebenen, the Ansichten menu, the context
+    panel, every sheet — wears the **floating family's material**: `--float-bg` + `--float-blur` +
+    `--float-edge` (or the sheets' `--glass`), light by day and dark by night, with theme inks
+    (`--ink`, `--ink-dim`, `--ink-faint`, `--fill-soft`) — never a frozen `rgba(255,255,255,…)`.
+    **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the ARMED material and nothing
+    else**: a tool dock (`.wb-dock` — something is armed, its ✕ disarms) and the Trupp marker's
+    action bar (`.wb-pill-acts` — this marker is in hand). It is the «clean selected state» of a
+    mode, so a list you read or a menu you pick from never wears it; a new surface that is dark
+    by day is a mode, or it is a bug. On a light-by-day card the ✕ is the global `.ip-x` and the
+    primary is `--btn-primary`; the on-ink ✕ (`.wb-dock-x`) and the light-fill primary
+    (`.wb-dock-go`) belong to the armed material only.
   - *Height is a separate axis* – `--tap` (44px) by default, 48–50px for a card's main action.
     The 12 type combos happened because people enlarged the *label* when they wanted a bigger
     *target*; raise the height, not the font.
@@ -1156,6 +1311,153 @@ to prod.
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
     broken, act now; blue/grey = normal status and in-progress.
   - *Disabled:* `opacity: var(--disabled)` + `cursor: default`. Never inline the number.
+  - *Selected – three roles, one look each (28.09.2026, owner: «all buttons have different
+    selected states» — the Trupp form alone wore four: ink outline, blue ring, ink fill, blue
+    segment).* (1) A **choice** — a segment, a chip, an option tile, a toggle chip, single or
+    multi — is `--sel` filled with `--on-sel` text and `--sel-shadow` (01-tokens), whether it
+    sits in a Segmented track, stands as chips (the Segmented's ≥5 mode too) or is a module's
+    own class. (2) A **row** in a list or menu (a combo option, a picker row, an option card
+    with a radio mark) is picked by `--sel-wash`, never filled — a filled row is a slab. **Nothing
+    else rides on the wash** (29.09.2026): no ring, no recoloured read-out; a count keeps its own
+    ink (an open count is amber on every row, current or not — `.group-choose-count.open`); a ✓
+    may stay as the cue that is not a colour. (3)
+    **Where you are** — the nav rail, the armed tool, a Trupp tab — keeps the ink pill
+    (`--ink-fill`): a place, not an answer. A chip whose tone IS its meaning (the composer's
+    Auftrag/Sofort) fills in that tone, same shape; colour swatches keep
+    their ring (their fill is the colour). Never an outline-only «selected», never `--ink` as a
+    choice fill (at night it is the primary button's light grey).
+  - *Primary (28.09.2026):* the single action of a surface is `--btn-primary` / `--on-btn-primary`,
+    14px/800 — never `--blue` (blue is «chosen», `--sel`), never `--ink-fill` directly (at night it
+    is a 1.14:1 patch on the sheet), never green. On the ARMED material (a tool dock, the Trupp
+    marker bar — dark in both themes) the primary is the LIGHT fill: `--on-accent-ink` with
+    `--ink-fill` ink (`.wb-dock-go`). The documented green «go» (`.ml-btn.prim.go`, Atemschutz «Eintritt») is a
+    tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
+    neutral wash (29.09.2026): no green «Bei den Trupps zeigen», no blue «Position markieren». A
+    door to a page wears that page's nav glyph («Bei den Trupps zeigen» = the Trupps stopwatch,
+    never ⚠). The bin keeps THE delete outline; the rename pen, while its field is open, is a
+    pressed toggle (`--sel`, like `.wb-dock-tog.on`).
+  - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
+    (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
+    word (a rare delete may be a square bin, still outlined). Red never fills it (`.btn.warn`,
+    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, `.wb-pa-del`,
+    the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
+    ever closes or clears — a ✕ that deletes is a bug. The audio player's in-place editors are the
+    ✕ `.ip-x` + ✓ primary icon pair (36/44).
+  - *Close:* every sheet/dialog ✕ IS the global `.ip-x` in the TSX (36px, 18px glyph, grey fill);
+    a module class may position it, never restyle it. 44px only beside a 44px search field
+    (Palette, Verlauf search, TruppFinder — `.x:global(.ip-x)`). The armed material keeps its
+    on-ink ✕ (`.wb-dock-x`); Ebenen wears `.ip-x` (`.lc-x` only places it). A
+    menu has no ✕ row and no lone ⓘ row (29.09.2026): its tile toggles it and a row or a press
+    elsewhere closes it; an ⓘ sits at the END of the last row and opens its sentence under that
+    row (Ansichten).
+  - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
+    its word's width, never a ghost word; the primary takes the rest of the row, same height (on a
+    phone `[role=dialog] .ui-sheet-foot > .ip-btn.primary` flexes).
+  - *Text actions (28.09.2026, owner pick A):* no bare blue word as an action. A verb that ends a
+    row makes the WHOLE row the button — `.row-go` (13-incident): ink text, the verb in
+    `--ink-dim` 12.5/700 + a 16px `chevron`, one press wash, ≥44px, `aria-label` «Verb: row text».
+    A fact that jumps inside a sentence is ink + › (`.kennGo`); anything else is a framed compact
+    button (`.wb-nearby-switch`, `.de-conn-reveal`).
+  - *Fields, titles, eyebrows, warnings — one look each (28.09.2026, owner: «remove what
+    contradicts»).* (1) **Focus** on anything you type into is `--focus-edge` + `--focus-halo`
+    (01-tokens), the `.ip-field` look: a half-blue edge and a soft 3px halo. It is never solid ink,
+    solid blue, a blue wash or an underline. A borderless field draws the edge as an inset ring
+    (`box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo)`). Where a box wraps a bare
+    input (a search pill), the BOX takes it (`:focus-within`) and the input wears nothing. (2) A
+    **sheet or dialog title** is `--sheet-title` (800/17). The page head's `--head-title` (19) is
+    for surfaces, so a sheet never out-shouts the page it opens over; a card head (Ebenen)
+    is that sheet title without a leading glyph. A **field label** is
+    `--field-label` (700/12) in `--ink-dim`, sentence case. (3) An **eyebrow**, the small
+    uppercase label over a section or a menu group, is `font: var(--eyebrow); letter-spacing:
+    var(--eyebrow-track); text-transform: uppercase` in `--ink-faint` (section heads such as
+    `.lgroup`, `.sym-ghead`). When the colour carries a
+    meaning (the amber Sicherungstrupp head, the red alarm kicker, a head that inherits its tone),
+    it keeps that colour and only takes the type. Badges, state words in a row, brand wordmarks
+    and the Kroki paper facsimile are not eyebrows. (4) A **warning inside a form** is THE global
+    `.form-warn` (13-incident, 29.09.2026; lifted from the Trupp form): a rounded `--r-sm` box, ink
+    text 13/700, the leading glyph in the tone over a 10% tint of it — `--warn-tone` red by
+    default, `.form-warn-amber` when it does not block; `.form-warn-text` for the sentence,
+    `.form-warn-act` for its one compact framed action in the tone (12.5/700, never 800, never
+    filled), `.form-warn-compact` for the one-line note under a field. The Rapport
+    Kontrolle/Zeiten, the QR-Bogen save error, Georef quality, Demo and the share sheet's note
+    under the address (`.esh-warn`, amber) wear it; a module class only places it. It is never a
+    full-width band, never red body text. A press on its sentence is the `--press` wash, never an
+    opacity drop. A QR is framed once: its white tile is the frame, no box around it.
+  - *Small roles – one look each (28.09.2026, owner: «remove contradicting UI»).*
+    (1) **Add** is a framed «+ word» button: 1px `--glass-edge`, `--surface`, ink 14/700, `--tap`
+    tall, the one corner — the `.cv-btn-add` look (13-incident). Dashed means «missing», never
+    «add»; the ONE dashed add is «Foto hinzufügen» (`.cv-beilagen-add`, `.report-att-add`,
+    decision D6 — it is the placeholder for a file). Icon-only where a column has no room (the
+    Schichten ＋), still a framed --tap square. Floating over a plan it keeps the glass, not the
+    shape (`.wb-floor-add`). Never a grey disc, a pill or a sub-44 tile.
+    (2) **Count badge**: 16px tall, min-width 16, 11px/800, `--r-xs`, padding 0 4px. Fill is the
+    meaning: ink (`--ink-fill` + `--on-accent-ink`) = a plain count, amber = open, red =
+    missing/alarm — NEVER the station `--accent`, never blue, never a round pill (`.nav-count`
+    in 05-navrail is the reference).
+    (3) **Disabled** = `opacity: var(--disabled)` + `cursor: default` and nothing else — no
+    repainted fill, no colour swap, no `not-allowed`, no inlined number (also not as a `var()`
+    fallback). **Gone** (a person who left, a Trupp raus, a layer off) = `opacity:
+    var(--done-opacity)` only; a strike-through may carry the word, a second dim may not. A
+    read-only control that is NOT unavailable (`opacity: 1` on purpose) says so in a comment.
+    (4) **Tag** (ÜBUNG, a status word): the `.ip-badge` recipe — 10px/700 uppercase .03em,
+    padding 2px 7px, `--r-xs`; ÜBUNG is amber 16% + `--amber-strong` wherever it stands (top bar,
+    lists, the poster's `.cv-badge-exercise` shares the selectors). Status words in a picker row
+    («AS», «raus» in the TruppFinder) are this tag in ink on `--fill-soft` — never blue (blue is
+    «chosen»), never a pill.
+    (5) **Search field** (29.09.2026): every «type to narrow this list» is `components/SearchField`
+    (`.ui-search`, 13-incident) — glyph · input · ✕ · optional count slot; the grey pill
+    (`--fill-soft`) that turns white on focus with the one field focus on the BOX, `--tap` tall,
+    the one corner, 16px text (iOS zooms into anything smaller). Its ✕ is a full `--tap` square
+    at the pill's end, shown only while there is something to clear, labelled «Suche leeren». A
+    surface PLACES it with its own class (flex, margin — `:where(.ui-search)` keeps the default at
+    zero specificity) and may add a STATE (the Trupp form's `.teamSearchWant`); it never re-skins
+    it. The one modifier is `variant="head"` (`.ui-search-head`): a card whose whole head IS the
+    search (TruppFinder) — no pill, 18/700 query. ONE ✕ (29.09.2026, owner): where the search's
+    own CLOSE ✕ stands beside the field and ends the search (the Verlauf's search row, the
+    TruppFinder), the field drops its inner ✕ — `noClear`, a prop, never CSS hiding; Escape still
+    closes. The Palette keeps both: its ✕ closes the whole «+» chooser, clearing only the query.
+    Never a bare native `type=search`, never a framed white box, never a ruled band.
+    (6) **ⓘ toggle**: `components/InfoToggle` (`.ui-info`) — the grey 36px chip with a 44px pad;
+    OPEN is `--sel-wash` + `--blue-strong` glyph (the «open/armed» look). Never the choice fill,
+    never the ink pill, never `--accent`. The dark tool docks keep DockInfo's on-ink ⓘ.
+    (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
+    worded `copy.noHits` «Keine Treffer für «{q}».»; a noun of its own only where it helps («Kein
+    Trupp gefunden»).
+    (8) **Fold**: every disclosure — a `<details>`, an accordion head, a notice that folds —
+    carries the global `<Icon id="chevron-down" className="chev" />`, turned by `aria-expanded` /
+    `details[open]` (02-base). Never an up/down icon swap, never a text ▸, never the UA marker
+    alone.
+    (9) **Filter on**: an active filter button is the choice fill (`--sel`) and nothing else — no
+    dot beside it (Anwesenheit/Mittel `.iconBtnOn`, the Verlauf funnel `.jr-filter-on`).
+    (10) **One glyph, one meaning, within a thumb's reach** (29.09.2026). «Eintrag» is the journal
+    pen (`lib/icons` · `#entry`, drawn inline by `EntryGlyph` on the FAB and the top bar's
+    Eintrag), never «+»: «+» means Hinzufügen only (the FAB stood 60px above the tool bar's «+
+    Hinzufügen» with the same glyph, and the tablet's Eintrag sat beside the rail's «+ Symbol»).
+    The top bar's Eintrag wears the FAB's material (`--float-bg` + `--float-edge`, ink), not a
+    blue slab, and keeps its word «Eintrag» until the LAST step of the top bar's ladder
+    (`HEAD_FIT_STEPS` · 'eintrag-word'). While the hold's chooser is up, the glyph gives way to
+    its drawn ✕ (both paths always in the DOM). «Trupp finden» wears `#trupp-find` (people with a
+    small lens — the owner's pick B, 29.09.2026; the flag in a reticle read as «ugly») on the Trupp tool's dock and in the finder's head — never the
+    `#search` lens, which a search tile wears.
+    (11) **Anwesend = the green tint, nothing else** (29.09.2026, owner pick B): no status dot, no
+    green border. Not colour alone: present rows are the ones with the Ort + Uhr buttons, gone
+    rows are `--done-opacity`, and the state word is in the row button's accessible name
+    (`.sr-only`). The filter menu shows each state as a small row swatch (plain · tint · dimmed),
+    the look the row has.
+  - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
+    Verlauf – vehicle, partner, Trupp, person, material, group – is **bold `--ink`**
+    (`.jr-link`), and in the composer one blue wash / one blue suggestion tint
+    (`.jc-text-marks mark`, `.jc-phrase-link`). Red and amber are for alarms and warnings only; a
+    routine «Ausrücken TLF» in the station red read as the loudest row on a page that carries real
+    Atemschutz alarms. The composer's phrase chips wear the one corner (`--r-sm`), never a pill.
+  - *One green per surface that means «saved / alive»* (29.09.2026): the Einsatz menu card's green
+    is its «✓ Gespeichert» pill – no green stripe, no green fill, the other Einsätze' ages
+    `--ink-dim`.
+  - *A role or status TAG is neutral unless it IS a warning* (29.09.2026): the login roster's role
+    is the `.ip-badge` recipe in ink 10% for every role (red read as «something is wrong with
+    this account»). An Einsatz has ONE status tag, «Abgeschlossen» (29.09.2026, owner: «open is
+    the default state») — no «Offen», no «In Arbeit», in any list; the backend's two active
+    statuses are one state to the operator.
 - **Touch vocabulary – one beat, one buzz, one wash.** The primary devices are gloved tablets;
   a new gesture reuses these or it teaches a second language. Any new touch interaction must:
   - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip
@@ -1216,11 +1518,21 @@ to prod.
   - *The compass lives in the BAR, beside Ebenen* (05.08.2026). It floated top-right on the map
     for one day (18.09.) and came back: up there its menu opened half a screen from the thumb that
     asked for it. «Mein Standort» is a row of that menu, not a tile of its own (also tried 18.09.).
+  - *Words under the glyphs by default on a phone* (29.09.2026, owner: «at least on mobile
+    default to "Wörter" so that all toolbars and views are always labelled»). The Einstellungen
+    «Beschriftung der Werkzeugleisten» (`lib/prefs · railLabels`) reads ON on a phone
+    (`railLabelsFor`, `PHONE_QUERY` at boot) and OFF on a tablet (the words widen the rails into
+    the map). It covers the nav bar (Karte · Pläne · Checkliste · Trupps · Einsatz) and the tool
+    bar of the Karte and of every Plan; the tool DOCKS (a tool's options) are not rails and stay
+    icon + ⓘ. A hand choice is marked (`railLabelsChosen`) and always wins; a stored 'off' without
+    the mark is the old default the app saved for everybody, not a choice.
   - *«Einpassen» on a Plan is the bar's tile*; the top bar's twin (`TopBar · mapNav`) survives only
     where there is no bar at all (viewer-only Modul, Gebäude pick surface, replay — 20.09.2026).
-  - *The FAB follows the THEME, not `--btn-primary`*: white surface by day, the raised `--ink-fill`
-    pill at night. That token inverts at night so a form's one action has an edge against its
-    sheet; the FAB sits on no sheet, and inverted it was the one pale disc in a dark cab. Its
+  - *The FAB follows the THEME, not `--btn-primary`*: it wears the floating family's glass
+    (26.09.2026 — the white surface by day and a raised `--ink-fill` at night until then made it
+    the one piece of the bottom row in a colour of its own). `--btn-primary` inverts at night so a
+    form's one action has an edge against its sheet; the FAB sits on no sheet, and inverted it was
+    the one pale disc in a dark cab. Its
     hold OPENS a chooser (Sprachnotiz · Foto) that STAYS until one is tapped; the button is its ✕
     and a press elsewhere closes it (`useHoldEntry`, 21.09.2026). It was slide-and-release, which
     «Foto» cannot be on an iPhone: WebKit opens a file picker only for a real TAP, refuses a slid
@@ -1234,6 +1546,29 @@ to prod.
     — never a per-surface `font-size` on the `<h2>`, which is how «Einsatzrapport» came to stand
     19px beside «Anwesenheit» at 17. The Rapport's head carries the title and what is still open;
     the «n Personen · m Positionen» line under it is gone (19.09.2026).
+  - *ONE page head, ONE ROW* (28.09.2026, owner: «fix the headers, especially the one from the
+    trupps, which occupies way too much vertical space … as much space for the actual content as
+    possible»). Trupps (the Atemschutz-Link board too), Anwesenheit, Material, Checkliste and
+    Rapport wear one shape at every width ≥ 360: the titles block left — the `<h2>` and AT MOST
+    one quiet line under it («✓ Gespeichert», the counts, the Checkliste's subtitle) — the tiles
+    right, centred on each other; `--tap` + `--head-pad-y` above and below (60px on a phone, 68
+    above; Surface.module.css · `.head`, tokens · `--head-*`). What does not fit gives up WORDS,
+    MEASURED, never per breakpoint (`lib/pageHeadFit` · `usePageHeadFit`, on the top bar's
+    `climbLadder`): (1) the quiet line's time («Gespeichert um 23:21» → «Gespeichert»), (2) each
+    tile's word, lowest priority first — the glyph stays, the word is already its aria-label/title
+    so the hold-tooltip says it, a count stays with its glyph («⚠ 4»), (3) the one primary tile
+    shortens («+ Trupp anmelden» → «+ Trupp»; it keeps its word and its fill), then a head's own
+    last words (the quiet «✓ Gespeichert» keeps its ✓ — a LOUD sync state never folds; the
+    Rapport's title says the nav's «Rapport»), and only as the LAST resort (≤ 359px, a locale that
+    cannot fit) the tiles take a second row (`data-fit-wrap`). Each head states its ladder where
+    its tiles are drawn — `data-fold="<rank>"` on the part, `.fold-long` / `.fold-short` inside
+    it (`HEAD_FOLD` in AtemschutzView / AnwesenheitView, `RP_FOLD` in ReportPreflight); text that
+    must never be cut wears `data-fit-check`, and every `<h2>` is checked. A new tile takes a rank
+    in that ladder — never a `useIsPhone` word switch, never a `@media` that drops a label, never
+    a row of its own. The 27.09. «Trupps head: the title line, then the tile row under it» (a
+    121px phone head, 190 on the 820 tablet with «+ Trupp anmelden» wrapped to a third row) is
+    superseded, and so is «icons below 1080px» on the Rapport. The one tile family stays:
+    `.headTile` (Atemschutz.module.css) / `.head-tile` (13-incident.css).
   - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
     (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the
     steps) — the same chip on a phone as on a wide screen. A fixed square was tried and cannot
@@ -1247,8 +1582,8 @@ to prod.
     closes it. The field used to REPLACE the head, and the drawer then no longer said what it was.
     The funnel beside the lens (23.09.2026, `lib/journalFilter`) filters by the row's ONE Bereich —
     `journalArea`/`journalDisc`'s own words, no taxonomy of its own — as a checkbox `Menu`
-    («Art des Eintrags» · «Bereich», with counts); ticks OR, and AND with the search. Lit + dot
-    while on, one «Gefiltert: … · Alle zeigen» line under the head, the timeline strip hidden as
+    («Art des Eintrags» · «Bereich», with counts); ticks OR, and AND with the search. Lit (the
+    choice fill, no dot — «Filter on», below) while on, one «Gefiltert: … · Alle zeigen» line under the head, the timeline strip hidden as
     during a search. Per-opening like the search, never stored; it narrows the list only — the
     Wiedergabe always plays the whole picture. The pinned Pendenzen block is part of the list it
     narrows (24.09.2026, `journalFilter · showsPinnedPendenzen`): hidden while a filter is on
@@ -1257,11 +1592,13 @@ to prod.
     `lib/useModifierHeld` → `data-keys` on the rail): standing on every icon they read as status
     marks in the corner the alarm dot uses, and they are wanted at exactly the moment the
     modifier marks.
-  - *A head's icon buttons carry their word on a wide screen* (22.09.2026, `.wordBtn` in
-    `Atemschutz.module.css` and `SurfaceControls.module.css`, switched by `useIsPhone`):
-    «Reihenfolge · Überwachung abgeben · Alarmton», «In Verwendung · Filtern · Anderes Material».
-    The phone keeps the bare square — its row has no room, and the hold-tooltip is its way of
-    asking. The bell's word is its honest STATE (Alarmton / Stumm / Ton freigeben).
+  - *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Reihenfolge ·
+    Überwachung abgeben · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's
+    ladder above; the `.wordBtn`/`useIsPhone` switch there is gone), so a phone that has room shows
+    them and a tablet that has none folds them. The search line's «In Verwendung · Filtern ·
+    Anderes Material» (`SurfaceControls.module.css · .wordBtn`) is not a page head and keeps its
+    `useIsPhone` switch. A bare square's way of asking is the hold-tooltip. The bell's word is its
+    honest STATE (Alarmton / Stumm / Ton freigeben).
   - *A checklist item that writes to the Verlauf says so on its row* («⚑ wird im Verlauf
     notiert», `checklists.milestoneTag`, 22.09.2026) — the lone flag's meaning lived in a tooltip
     no tablet shows.
@@ -1269,8 +1606,16 @@ to prod.
     a second tap or a hold opens the ONE list (`components/GroupChooser`), and «Plan wählen» opens
     unasked the first time the tile is used in an Einsatz, once per device (`lib/chooserOffer`).
     Both wear the corner mark (`.nav-grp`; `.vrail-grp` on the two-state Auswahl).
-  - Everything stacked above the nav bar keeps ONE 6px channel (`--rail-h + 14px`: the tool bar,
-    `.rp-tabs`, the page card in `Surface.module.css`).
+    ⚠️ The «Einsatz» tile's badge is what the Rapport still has OPEN, in amber (26.09.2026, owner:
+    «why is there 3 in the bottom when 6 are open?» — it was the head count). ONE number from ONE
+    derivation: `lib/abschluss · abschlussFacts` → `missingSteps`, read by the Rapport's «⚠ n noch
+    offen» chip and — through `useAbschluss`, which now counts the unsettled Abweichungen too — by
+    the badge, the chooser's Rapport row (in the chip's words, `controlChipLabel`), the Abschluss
+    confirm and the archive count (`rapportOneCount.test.tsx`). The head count lives on the
+    chooser's Anwesenheit row.
+  - Every BAR stacked above the nav bar keeps ONE 6px channel (`--rail-h + 14px`: the tool bar,
+    `.rp-tabs`, the page card in `Surface.module.css`); the floating row above the bars keeps the
+    family's `--float-gap` (8px) — the gap its pieces keep from each other and from the edge.
   - Tried and thrown out the same day, so nobody rebuilds them: a «Zeichnen» tile with a flyout, the
     same tile opening the GroupChooser behind a last-used first tap, and a «Karte» tile folding
     Ansichten + Ebenen. The vertical rails (tablet/desktop) are unchanged throughout.
@@ -1278,7 +1623,64 @@ to prod.
   handed-over Tafel; PR #212 and its follow-up, 24./25.09.2026, Übung 23.09.): sections Drin ·
   Sicherungstrupp · Bereit · Draussen, «Drin» by urgency with the 2 s freeze, «Druck | Kontakt»
   with words, one `PressureSheet`. The tablet grid and the Tafel are NOT this board, except where
-  a rule below says «every board». The rules:
+  a rule below says «every board» — their CARD is (see «The opened card …»). The rules:
+  - *The opened card is the row grown downwards* (owner, staging 26.09.2026): the same frame and
+    tone, the same line (`RowLine`: dot · name · clock) and the same «Druck 240 bar | Kontakt» pair
+    (`TruppPair`) in the same place, collapsed or open, in every tier — opening only ADDS the
+    Kennzeile (led by «#N» and, where there is one, the tier in words; the ⋯ at its end), the note,
+    Rückzug / Raus, the Sockel line and the Verlauf. No band, no second Kontakt, no Druck row. The
+    whole first line is the collapse toggle. ONE card on every board since 29.09.2026 (owner:
+    «assimilate the tablet / desktop view closer / equal to the mobile view»): the tablet grid, the
+    desktop and the handed-over Tafel (grid and phone focus) wear this same card — line · 2×2
+    tiles · state words · note · fact chips · one terse foot that ENDS with the ⋯ (29.09.2026, owner
+    pick B — as the facts' last chip it wrapped onto a 44px row of its own). What differs is only
+    what the board has room for: on the grid every card stands open (the line is not a toggle, no
+    chevron), the hand-set order keeps its ‹ › in the ⋯, and a card on a board without state heads
+    (grid, Tafel — `headed` false) says «Bereit» in its state line, which on the phone is the
+    section head. The state line never says what the card's colour already says (29.09.2026,
+    owner: «drop the überfällig – if the card is red it's pretty obvious»; «the draussen subtitle
+    is probably not even required»): fällig / überfällig live on for a screen reader only
+    (`.sr-only`), and an out Trupp's card carries no «Draussen» — it keeps the words colour cannot
+    carry (the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
+    squad's state). The Druck is the pressure tile → `PressureSheet` everywhere; the
+    tablet's ± stepper with «Bestätigen», the band with the 40px clock, the tablet's grey
+    Kennzeile with its blue Auftrag, the top status edge and the «Verlauf · zuletzt: … Druck 300
+    bar» preview are gone — do not bring any of them back for the tablet. The focus Tafel's one
+    card shows the line's clock at 34px.
+  - *The Schätzung stays readable on the card's foot* (29.09.2026, owner: «we still need the
+    schätzung clearly visible»): the terse foot keeps its word and full ink — «1 d 11 h ·
+    Schätzung ≈ 0 bar ⌄» — and the word, not a dimmed grey, is what keeps it from being read as a
+    logged Druck. Its alarm case is the note under the tiles in the ONE form-warning look (ink
+    13/700, ⚠ in `--red-strong`, 10% red tint, no border), never red text in a red box.
+  - *Rückzug and Raus are equal tiles on every board* (29.09.2026): both framed grey, «Rückzug»
+    amber only at or under the Trupp's Alarmdruck (`.actAlarm`). A permanently amber «Rückzug
+    melden» says «warning» about a Trupp at 300 bar.
+  - *A Trupps section head* (Drin · Sicherungstrupp · Bereit · Draussen, and the grid's
+    Atemschutz / Weitere Trupps) is the eyebrow and the count badge — no hairline rule to the
+    edge (29.09.2026); the boundary is the air above the head.
+  - *The handed-over Tafel's strip (focus mode)*: the chosen Trupp tab is the nav's ink pill
+    (`--ink-fill` / `--on-accent-ink`, 29.09.2026), never an outline ring; on a red or amber tab
+    the fill wins (the card shows the tier). The add cell reads «+ Trupp» — a full cell has room
+    for the word.
+  - *One red door per alarm on screen* (29.09.2026): the TopBar's Atemschutz chip hides while its
+    alarm already has a door on screen — on the Trupps page (the head's «⚠ n» badge) and wherever
+    the Meldeleiste shows a row naming the chip's Trupp for the chip's reason
+    (`AtemschutzAlarmMeldung · azChipRedundant`, fed by `onShown`). It comes back the moment «Zum
+    Trupp» takes that row down, and the amber «Kontakt fällig» chip never hides (it has no row and
+    no badge). The top bar's `useHeadFit` key counts the chip only while it is drawn. Never hide
+    it with CSS `:has(...)`.
+  - *The four mini sheets are one sheet* (29.09.2026): Druck · Kanal · Auftrag · Mannschaft are
+    `TruppSheets · MiniSheet` — a bottom sheet with the grab bar and the swipe on a phone, a
+    centred card on a tablet — with ONE head: the title is the QUESTION («Druck», «Restdruck» at
+    «Raus melden», «Kanal», «Auftrag», «Mannschaft»), the line under it is whose
+    (`truppSheetSub`: «Keller Laura · Trupp 3»). A field label that repeats the title goes. The
+    hint under a pad/grid says what a tap does and never repeats a value the grid already marks
+    (no «Zuletzt 240 bar» beside the ringed 240). A new per-Trupp quick sheet uses `MiniSheet`.
+  - *A door answers the same question the same way* (29.09.2026): the Trupp form and the Auftrag
+    sheet share their Ziel and Leitung controls — `ZielChips` under the Ziel field for EVERY
+    Auftrag, and `TruppSheets · LeitungField` («keine · Ltg n · Nr. …»). Ziel chips are
+    SHORTCUTS: a pick fills the field and the chip is never drawn as chosen (no `aria-pressed`, no
+    `--sel`); the field holds the answer.
   - *The Trupp form is a bottom sheet there, with the due clocks above it* (D1 ⑥): at most two
     due/overdue Trupps, most urgent first, each with a live «Kontakt» that confirms without
     leaving the form. The pinned set holds 2 s after a tap and the row just confirmed reads

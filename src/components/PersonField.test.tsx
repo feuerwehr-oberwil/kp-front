@@ -130,10 +130,10 @@ describe('PersonField · roster search', () => {
     expect(screen.getByRole('button', { name: useRow('ster 07') })).toBeTruthy()
   })
 
-  it('says «kein Treffer» rather than «keine Mannschaft» when a search finds nothing', () => {
+  it('says «keine Treffer für …» rather than «keine Mannschaft» when a search finds nothing', () => {
     open(many)
     fireEvent.change(screen.getByLabelText(SEARCH), { target: { value: 'zzz' } })
-    expect(screen.getByText('Kein Treffer')).toBeTruthy()
+    expect(screen.getByText('Keine Treffer für «zzz».')).toBeTruthy()
   })
 
   // ⚠️ The >8 threshold does NOT apply here: the field doubles as the name entry, so hiding it

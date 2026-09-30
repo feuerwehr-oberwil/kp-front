@@ -10,6 +10,7 @@ import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
 import { rowPhotos } from '../lib/verlauf'
 // the geometry every full surface stands in — the Rapport is the fifth of them
 import surface from './Surface.module.css'
+import { usePageHeadFit } from '../lib/pageHeadFit'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { ShareIncident } from './panels/ShareIncident'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
@@ -34,7 +35,7 @@ import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
 import {
   defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
-import { missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
+import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
@@ -43,7 +44,7 @@ import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Enti
 import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
 import { PersonField } from './PersonField'
-import { Segmented } from './Segmented'
+import { PhoneTabBar } from './PhoneTabBar'
 import { useIsPhone } from '../lib/useIsPhone'
 import { journalVocabulary } from '../lib/journalLinks'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
@@ -52,6 +53,11 @@ import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
 
 const NO_IDS = new Set<string>()
+/** The Rapport head's ladder (lib/pageHeadFit): «Ausdrucken» gives its word first, then
+ *  «Abschliessen», then the Kontrolle chip keeps its ⚠ and its count («⚠ 4», the words stay its
+ *  title), then the primary «Einsatzrapport (PDF)» shortens to «PDF ▾» (mockup 2), and last the
+ *  title says what the nav calls this page, «Rapport». */
+const RP_FOLD = { print: 1, complete: 2, chip: 3, pdf: 4, title: 5 } as const
 
 /**
  * «Zeig mir diese offene Angabe» — asked from OUTSIDE the sheet.
@@ -820,7 +826,7 @@ export function ReportPreflight({
   // a plain call, not a component: one declared in the render body is re-created every pass
   const zeitWarn = (kind: ZeitKind) => {
     const text = issueFor(kind)
-    return text ? <span className="rz-warn"><Icon id="warn" />{text}</span> : null
+    return text ? <span className="form-warn form-warn-amber form-warn-compact rz-warn"><Icon id="warn" />{text}</span> : null
   }
   const missTx = missingTranscriptCount(events)
   // No krokiView argument any more: the panel reports each settled crop into `options` while the
@@ -1223,7 +1229,8 @@ export function ReportPreflight({
      Rows raised before 04.09. carry no structured payload and are deliberately not returned;
      an item nobody can close would leave the step open for ever on every past Einsatz. */
   const conflicts = useMemo(() => openConflicts(events), [events])
-  const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount, openConflicts: conflicts.length }
+  // ONE builder with the workspace's doors (the badge, the chooser, the Abschluss) — lib/abschluss
+  const facts: AbschlussFacts = abschlussFacts(meta, attendanceCount, mittelCount, conflicts.length)
   const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
   // People whose presence blocks cannot be turned into a duration — almost always a still-open
   // block borrowing an Einsatzende that lies BEFORE it. They fall out of BOTH Einsatzstunden
@@ -1385,6 +1392,16 @@ export function ReportPreflight({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ONE ROW (lib/pageHeadFit): the head folds its tiles' words — «Ausdrucken», «Abschliessen»,
+  // then «Einsatzrapport (PDF)» → «PDF» — until it fits; the Kontrolle chip's count is never cut
+  // (`data-fit-check`). It was a breakpoint (words above 1080px, icons below) and, on a phone, a
+  // second row under the title.
+  const headRef = useRef<HTMLElement>(null)
+  usePageHeadFit(headRef, [
+    missing.length, warnCount, checking, controlOk, !!onComplete, printStatus?.available, printStatus?.online,
+    printBusy, pdfBusy,
+  ].join('|'))
+
   return (
     /* A SURFACE, not a dialog. The Rapport is filled in across a whole Einsatz — a sentence
        here, a time there, jump to Anwesenheit because somebody arrived — and it wants the width
@@ -1404,16 +1421,19 @@ export function ReportPreflight({
             chrome, which is what a page inherits when it used to be a sheet. No ✕ either: a
             page is left by choosing another surface in the rail, exactly like Anwesenheit and
             Mittel, and a close button on one of six surfaces asks «closed into what?». */}
-        <header className="rp-head">
+        <header ref={headRef} className="rp-head">
           <div className="rp-head-titles">
-            <h2>{P.title}</h2>
+            {/* the nav's own word for this page once the row runs out of everything else */}
+            <h2 data-fold={RP_FOLD.title} title={P.title} aria-label={P.title}>
+              <span className="fold-long">{P.title}</span><span className="fold-short" aria-hidden="true">{appConfig.copy.modes.rapport}</span>
+            </h2>
             {/* The verdict line under the title says only the GOOD news now: «alle Angaben
                 erfasst». What is still open is counted and listed by the Kontrolle chip in the
                 actions row (see `openInControl`), at every width — the chips that stood here are
                 gone (23.09.2026). The «n Personen · m Positionen» read-out that led this line went
                 on 19.09.2026. ⚠️ Not rendered EMPTY: an empty <p> still takes its margin. */}
             {missing.length === 0 && (
-              <p className="rp-head-sum">
+              <p className="rp-head-sum" data-fit-check>
                 <span className="rp-head-done"><Icon id="check" />{P.headAllRecorded}</span>
               </p>
             )}
@@ -1464,9 +1484,12 @@ export function ReportPreflight({
                 popupClassName="rp-control"
                 ariaLabel={P.controlHead}
                 trigger={(
-                  <button type="button" className={cx('rp-state', 'warn')} title={P.controlHead}>
+                  <button type="button" className={cx('rp-state', 'head-tile', 'amber')} data-fold={RP_FOLD.chip}
+                    title={`${P.controlHead}: ${controlChipLabel(missing.length, checking ? 0 : warnCount)}`}>
                     <Icon id="warn" />
-                    <span className="rp-state-label">{controlChipLabel(missing.length, checking ? 0 : warnCount)}</span>
+                    <span className="rp-state-label fold-long" data-fit-check>{controlChipLabel(missing.length, checking ? 0 : warnCount)}</span>
+                    {/* folded: the ⚠ and ONE count — what is open plus the Hinweise, as the nav badge */}
+                    <span className="rp-state-label fold-short" aria-hidden="true">{missing.length + (checking ? 0 : warnCount)}</span>
                   </button>
                 )}
               >
@@ -1483,28 +1506,28 @@ export function ReportPreflight({
                   </div>
                 )}
                 {missTx > 0 && (
-                  <p className="report-pre-warn">
-                    <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
-                    {onFixTranscripts && <button type="button" className="report-pre-fix" onClick={onFixTranscripts}>{P.fixTranscripts}</button>}
+                  <p className="form-warn form-warn-amber">
+                    <Icon id="warn" /> <span className="form-warn-text">{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
+                    {onFixTranscripts && <button type="button" className="form-warn-act" onClick={onFixTranscripts}>{P.fixTranscripts}</button>}
                   </p>
                 )}
                 {pendingMediaCount > 0 && (
-                  <p className="report-pre-warn">
-                    <Icon id="warn" /> <span>{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
+                  <p className="form-warn form-warn-amber">
+                    <Icon id="warn" /> <span className="form-warn-text">{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
                   </p>
                 )}
                 {/* names them and says WHY — a count of «ohne verwertbare Zeiten» was the version
                     that got printed and that nobody could do anything with. The fix is one tap
                     away, on the Anwesenheit these names come from. */}
                 {unresolvedNames.length > 0 && (
-                  <p className="report-pre-warn">
+                  <p className="form-warn form-warn-amber">
                     {/* joined on «·», not on a comma: the names read «Müller Hans», so every
                         name already contains a space, and a comma between them is a weaker
                         break than the one inside each pair — the run scanned as one long
                         smear of words. A middot outranks the space and the list falls apart
                         into people again. */}
-                    <Icon id="warn" /> <span>{fillTemplate(P.unresolvedHours, { names: unresolvedNames.join(' · ') })}</span>
-                    {onOpenAnwesenheit && <button type="button" className="report-pre-fix" onClick={onOpenAnwesenheit}>{A.steps.anwesenheit}</button>}
+                    <Icon id="warn" /> <span className="form-warn-text">{fillTemplate(P.unresolvedHours, { names: unresolvedNames.join(' · ') })}</span>
+                    {onOpenAnwesenheit && <button type="button" className="form-warn-act" onClick={onOpenAnwesenheit}>{A.steps.anwesenheit}</button>}
                   </p>
                 )}
                 <div className="report-fold-body">
@@ -1514,27 +1537,27 @@ export function ReportPreflight({
                 </div>
               </Popover>
             )}
-            {/* ⚠️ Every label in this row is wrapped in `.rp-btn-label`, not left as a bare text
-                node: on a phone the row goes icon-only (see app.css) and a bare text node cannot
-                be hidden. The label survives as `aria-label` + `title`, so what is dropped is the
-                pixels, never the naming. */}
+            {/* ⚠️ Every label in this row is wrapped in `.fold-long`, not left as a bare text node:
+                where the one row runs out the head's ladder folds it (lib/pageHeadFit · `RP_FOLD`)
+                and a bare text node cannot be hidden. The label survives as `aria-label` + `title`,
+                so what is dropped is the pixels, never the naming. */}
             {onComplete && (
-              <button className="ip-btn" onClick={() => void complete()} aria-label={A.complete} title={A.complete}>
-                <Icon id="archive" /><span className="rp-btn-label">{A.complete}</span>
+              <button className="ip-btn head-tile" data-fold={RP_FOLD.complete} onClick={() => void complete()} aria-label={A.complete} title={A.complete}>
+                <Icon id="archive" /><span className="rp-btn-label fold-long">{A.complete}</span>
               </button>
             )}
             {printStatus?.available && (
-              <button className={`ip-btn print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
-                onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : R.send}
+              <button className={`ip-btn head-tile print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
+                data-fold={RP_FOLD.print}
+                onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
                 title={printStatus.online ? R.online : R.offline}>
                 <span className="print-send-main">
                   <Icon id="printer" />
                   <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
-                  <span className="rp-btn-label">{printBusy ? R.sending : R.send}</span>
+                  <span className="rp-btn-label fold-long">{printBusy ? R.sending : R.send}</span>
                 </span>
-                {/* the offline reason is the whole point of the taller button — it stays when the
-                    label goes, because «it will print later» is not guessable from a printer icon */}
-                {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
+                {/* the offline reason is the dot's colour, the button's name and the confirm a
+                    press raises — never a second line in the one-row head (13-incident.css) */}
               </button>
             )}
             {/* Press it and it prints, with whatever is set. The ▾ is the second door: the same
@@ -1542,16 +1565,20 @@ export function ReportPreflight({
                 for «drucken»), and the way into the section picker. Split rather than two
                 buttons: the arrow belongs TO the PDF button — it modifies it — and a separate
                 ⋮ beside it would have read as the surface's menu. The pair never wraps apart
-                (it is one flex item), so at ≤720px it drops onto its own line intact. */}
+                (it is one flex item), so at ≤720px it drops onto its own line intact.
+                ⚠️ One FRAMED tile, not a filled one (27.09.2026, slim sweep · mockup 2): on the
+                phone it reads «PDF ▾» — the word, not a doc glyph whose meaning you had to know
+                (`.rp-btn-short`); the tablet keeps its full label. Same two doors as before. */}
             <span className="rp-split">
-              <button className="ip-btn primary rp-split-main" disabled={pdfBusy} onClick={() => void startOutput('pdf')}
+              <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.pdf} disabled={pdfBusy} onClick={() => void startOutput('pdf')}
                 aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
-                <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />
-                <span className="rp-btn-label">{pdfBusy ? P.pdfBusy : P.pdfFull}</span>
+                {pdfBusy ? <Icon id="rotate" className="spin" /> : <Icon id="doc" className="rp-pdf-glyph fold-long" />}
+                <span className="rp-btn-label fold-long">{pdfBusy ? P.pdfBusy : P.pdfFull}</span>
+                {!pdfBusy && <span className="rp-btn-short fold-short">{P.pdfShort}</span>}
               </button>
               <Menu
                 trigger={
-                  <button type="button" className="ip-btn primary rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
+                  <button type="button" className="ip-btn head-tile rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
                     <Icon id="chevron-down" className="chev" />
                   </button>
                 }
@@ -1661,21 +1688,19 @@ export function ReportPreflight({
             surface, like the head, so it cannot scroll away from under the thumb. The dot marks
             a tab holding a Mindestangabe that is still open — the same amber the head's chips
             use, so «noch offen» means one thing on this page. */}
-        <div className="rp-tabs">
-          <Segmented<PhoneTab>
-            ariaLabel={P.tabsLabel}
-            value={phoneTab}
-            onChange={pickTab}
-            options={PHONE_TABS.map((t) => {
-              const open = missing.some((s) => STEP_TAB[s] === t)
-              return {
-                value: t,
-                title: open ? `${P.tabs[t]} – ${P.headStillOpen}` : P.tabs[t],
-                label: <>{P.tabs[t]}{open && <span className="rp-tab-dot" aria-hidden />}</>,
-              }
-            })}
-          />
-        </div>
+        <PhoneTabBar<PhoneTab>
+          ariaLabel={P.tabsLabel}
+          value={phoneTab}
+          onChange={pickTab}
+          options={PHONE_TABS.map((t) => {
+            const open = missing.some((s) => STEP_TAB[s] === t)
+            return {
+              value: t,
+              title: open ? `${P.tabs[t]} – ${P.headStillOpen}` : P.tabs[t],
+              label: <>{P.tabs[t]}{open && <span className="rp-tab-dot" aria-hidden />}</>,
+            }
+          })}
+        />
         <div className="ip-body report-preflight-body" data-phone-tab={phoneTab} ref={bodyRef}>
           {/* TWO columns on a wide screen (one below 1080px, see app.css), because the rapport is
               worked in two different ways and they interleave: the FORM is typed straight through
@@ -1864,7 +1889,10 @@ export function ReportPreflight({
                 <span>{P.geretteteLabel}</span>
                 {/* two labelled ±steppers (shared Stepper) — tap −/+ or the value to type; matches the
                     details-modal count control. over-object carries the fresh values (state set in the
-                    same tick is stale). Empty = null (shows «0» placeholder, − disabled).
+                    same tick is stale). Empty = null: the value reads «–», not «0» (29.09.2026 — «0»
+                    above «Keine» said «nobody» for an unanswered field, the very ambiguity «Keine»
+                    removes), and the ✕ is there only once there IS a value to clear (a column of
+                    greyed ✕ beside two empty steppers said nothing).
                     `readOnly` while «Keine» is active (below): both fields are already empty when
                     that answer is given, and an enabled stepper let a tap edge one of them off zero
                     while still showing «niemand gerettet» — the same contradiction «Entfällt» guards
@@ -1873,17 +1901,17 @@ export function ReportPreflight({
                 <div className="rz-counts">
                   <div className="rz-count" data-sync="geretteteP">
                     <span>{P.gerettetePersonen}</span>
-                    <Stepper value={numOrU(geretteteP) ?? null} min={0} max={999} seed={1} placeholder="0" ariaLabel={P.gerettetePersonen}
+                    <Stepper value={numOrU(geretteteP) ?? null} min={0} max={999} seed={1} ariaLabel={P.gerettetePersonen}
                       readOnly={meta.geretteteNone}
                       onChange={(v) => { setGeretteteP(String(v)); persist(geretteteOver(String(v), geretteteT)) }}
-                      onClear={() => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) }} canClear={geretteteP !== ''} />
+                      onClear={geretteteP !== '' ? () => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) } : undefined} canClear />
                   </div>
                   <div className="rz-count" data-sync="geretteteT">
                     <span>{P.geretteteTiere}</span>
-                    <Stepper value={numOrU(geretteteT) ?? null} min={0} max={999} seed={1} placeholder="0" ariaLabel={P.geretteteTiere}
+                    <Stepper value={numOrU(geretteteT) ?? null} min={0} max={999} seed={1} ariaLabel={P.geretteteTiere}
                       readOnly={meta.geretteteNone}
                       onChange={(v) => { setGeretteteT(String(v)); persist(geretteteOver(geretteteP, String(v))) }}
-                      onClear={() => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) }} canClear={geretteteT !== ''} />
+                      onClear={geretteteT !== '' ? () => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) } : undefined} canClear />
                   </div>
                 </div>
                 {/* ⚠️ «Keine» — the answer an empty pair of steppers could not give (04.09.,
@@ -2239,12 +2267,15 @@ export function ReportPreflight({
               )}
               {mittelCount === 0 && onComplete && (
                 <div className="rp-check-extra">
+                  {/* the «none of these» CHOICE, same as the QR-Bogen's (28.09.2026): one text,
+                      picked = the choice fill. It was a primary button whose label grew a «✓». */}
                   <button
                     type="button"
-                    className={`ip-btn${meta.mittelConfirmedNone ? ' primary' : ''}`}
+                    className={`ip-btn${meta.mittelConfirmedNone ? ' on' : ''}`}
+                    aria-pressed={!!meta.mittelConfirmedNone}
                     onClick={() => persist({ mittelConfirmedNone: !meta.mittelConfirmedNone })}
                   >
-                    {meta.mittelConfirmedNone ? A.mittelNoneOn : A.mittelNone}
+                    {A.mittelNone}
                   </button>
                 </div>
               )}
@@ -2413,7 +2444,7 @@ export function ReportPreflight({
                   <div className="report-partner-add">
                     <ClearableInput
                       className="ip-input" value={partnerDraft}
-                      placeholder={P.partnerAdd} aria-label={P.partnerAdd}
+                      placeholder={P.partnerPlaceholder} aria-label={P.partnerAdd}
                       clearLabel={P.partnerOrgShort} maxLength={80}
                       onChange={(v) => setPartnerDraft(stripUnprintable(v))}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitPartner() } }}

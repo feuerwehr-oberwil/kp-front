@@ -7,6 +7,8 @@ import { getLocaleId } from '../../config/copy'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { EmptyState } from '../EmptyState'
+import { SearchField } from '../SearchField'
+import { fillTemplate } from '../../lib/format'
 import {
   deleteIncident,
   listIncidents,
@@ -16,16 +18,14 @@ import {
 import { Modal, fmtWhen } from './_shared'
 
 // --- History (Phase 5) --------------------------------------------------------------
-const statusLabel = (i: IncidentMeta): string => {
-  const h = appConfig.copy.history
-  return i.is_archived ? h.statusArchived : i.status === 'offen' ? h.statusOpen : i.status === 'in_arbeit' ? h.statusInProgress : i.status
-}
-const statusKey = (i: IncidentMeta): string => (i.is_archived ? 'arch' : i.status === 'in_arbeit' ? 'work' : 'open')
-
-// All incidents in one list with a status badge — active and archived together, so you can
-// switch to any of them. Clicking opens it (archived → read-only); a reactivate restores
-// edit. Open incidents get the «Abschliessen» action HERE (not in the switcher menu — the
-// dropdown carries no destructive actions; the caller confirms + archives).
+// All incidents in one list — active and archived together, so you can switch to any of them.
+// Clicking opens it (archived → read-only); a reactivate restores edit. An open incident gets a
+// compact «Abschliessen» here too, for closing one that is not the active Einsatz (the active
+// one also has it in the Einsatz menu card and the Rapport head; the caller confirms + archives).
+// ONE status tag, and only on a closed Einsatz: «Abgeschlossen» (29.09.2026, owner: «we just need
+// tags to say an emergency is closed. open is the default state»). «Offen» and «In Arbeit» are
+// gone — the backend's two ACTIVE statuses (lib/api/incidents · INCIDENT_ACTIVE_STATUSES) are one
+// state to the operator, and nothing here sorted or grouped by the difference.
 export function HistoryPanel({ onClose, onOpen, onArchive }: {
   onClose: () => void
   onOpen: (id: string, readOnly: boolean) => void
@@ -93,22 +93,19 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
     <Modal title={h.title} onClose={onClose} wide>
       {sorted.length === 0 && <EmptyState icon="history" title={h.empty} sub={h.emptySub} />}
       {sorted.length > 0 && (
-        <label className="ip-hist-search">
-          <Icon id="search" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
-        </label>
+        <SearchField value={query} onChange={setQuery} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
       )}
-      {sorted.length > 0 && shown.length === 0 && <p className="ip-hist-nores">{h.noMatches}</p>}
+      {sorted.length > 0 && shown.length === 0 && <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>}
       {rows.map(({ i, header }) => {
         return (
           <Fragment key={i.id}>
             {header && <div className="ip-hist-group">{header}</div>}
-            <div className="ip-hist">
+            <div className={`ip-hist${i.is_archived ? '' : ' ip-hist-live'}`}>
               <button className="ip-hist-main" onClick={() => onOpen(i.id, i.is_archived)}>
                 <div className="ip-hist-title">
                   <span className="ip-hist-name">{i.title}</span>
                   {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
-                  <span className={`ip-badge ip-badge-${statusKey(i)}`}>{statusLabel(i)}</span>
+                  {i.is_archived && <span className="ip-badge ip-badge-arch">{h.statusArchived}</span>}
                 </div>
                 <div className="ip-hist-sub">{shortAddress(i.address) ?? h.noLocation} · {fmtWhen(i.started_at)}</div>
               </button>
@@ -116,7 +113,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
                   server) — gated with «Abschliessen», or an el/viewer got a confirm and a 403 */}
               {i.is_archived
                 ? onArchive && <button className="ip-btn" onClick={() => reactivate(i.id)}>{h.reactivate}</button>
-                : onArchive && <button className="ip-btn" onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</button>}
+                : onArchive && <button className="ip-btn ip-hist-close" onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</button>}
               {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
                   Übung is first abgeschlossen like any incident, then deletable */}
               {i.is_exercise && i.is_archived && onArchive && (

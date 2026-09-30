@@ -168,8 +168,7 @@
 .pill :global(.btn), .bar :global(.btn) { flex: none; padding: 7px 11px; font-size: 12.5px; white-space: nowrap; }
 .finishAction, .resetAction, .checkAction { min-width: 0; }
 .pill :global(.btn.link.on), .bar :global(.btn.link.on) {
-  background: color-mix(in srgb, var(--blue) 12%, var(--surface));
-  border-color: var(--blue);
+  background: var(--sel); border-color: var(--sel); color: var(--on-sel);
 }
 
 /* the desktop instrument has no room for a band, so its existing pulse dot carries the tone.
@@ -197,17 +196,11 @@
   display: block; font-style: normal; font: 500 11.5px/1.35 var(--body);
   color: var(--ink-dim); margin-top: 1px;
 }
-/* the (i): a 44px target that LOOKS like nothing — no box, no fill. Sticky while open
-   (GeorefModeBars): whoever opened it is deciding whether the fit can be trusted, and snapping
-   it shut after every point would be the app deciding they were done reading. */
-.infoBtn {
-  flex: none; width: var(--tap); height: var(--tap); margin: -10px -8px -10px 0;
-  display: grid; place-items: center;
-  border: 0; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm);
-}
-.infoBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.infoBtn svg { width: 19px; height: 19px; }
-.infoOn { color: var(--blue); background: color-mix(in srgb, var(--blue) 11%, transparent); }
+/* the (i) is THE InfoToggle (29.09.2026 — it was a bare 44px glyph that filled the choice blue
+   when open); this only tucks it into the bar's row. Sticky while open (GeorefModeBars): whoever
+   opened it is deciding whether the fit can be trusted, and snapping it shut after every point
+   would be the app deciding they were done reading. */
+.infoBtn { margin: -4px 0; }
 /* the folded-out quality detail: pair count, claimable ⌀, one sentence of what to DO next */
 .qfold {
   border-radius: var(--r-sm); background: var(--fill-soft); padding: 9px 10px;
@@ -428,12 +421,10 @@
    asking whether the link can be trusted, and vague words cannot answer that. */
 .quality { width: min(92vw, 400px); max-width: 100%; display: grid; gap: 10px; padding: 12px; }
 .qHead { display: flex; align-items: center; gap: 8px;
-  font: 700 11px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
-.qX { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center;
-  border: none; background: transparent; color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; }
-@media (hover: hover) { .qX:hover { background: var(--fill-soft); color: var(--ink); } }
-.qX:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.qX svg { width: 15px; height: 15px; }
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+/* the ✕ IS the global `.ip-x` (28.09.2026 — it was a 30px bare ✕ with a 15px glyph); this only
+   pushes it to the end of the head */
+.qX { margin-left: auto; flex: none; }
 /* ⚠️ The row WRAPS (18.09.2026). Its left column used to be `nowrap` — written when it held a
    count («3 Paare») — and then grew sentences: «Automatisch ausgerichtet», «Von der Station
    freigegeben». At 15px mono that is ~240px of unbreakable text beside the value column, in a
@@ -447,14 +438,10 @@
 /* the calm twin of .qWarn: an approved fit states who vouches for it, and states it in the
    panel's own voice — an amber box would call a published reference a defect */
 .qNote { padding: 0 2px; color: var(--ink-dim); font: 600 12px/1.45 var(--body); }
-.qWarn {
-  display: flex; gap: 9px; padding: 9px 11px; border-radius: var(--r-sm);
-  font: 600 12px/1.45 var(--body);
-  color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 34%, transparent);
-}
-.qWarn svg { width: 15px; height: 15px; flex: none; margin-top: 1px; }
+/* THE form warning, amber and compact (`.form-warn`, 13-incident · 29.09.2026 — it was amber
+   text inside an amber border); this keeps only the glyph on the first line of a long sentence */
+.qWarn { align-items: flex-start; }
+.qWarn > svg { margin-top: 1px; }
 .qActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 /* Two stable columns instead of label-sized wrapping: the German verbs fit at ordinary tablet
    width and may wrap rather than escape the dock on a narrow split. With only three actions the
@@ -576,10 +563,12 @@
     background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink-dim);
     font: 700 10.5px/1.4 var(--body);
   }
+    /* the chosen half is THE choice fill, as every Segmented (01-tokens · --sel) — it was a white
+     iOS-style pill, a look of its own */
   .surfaceSwitch button.surfaceOn span {
-    background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue-strong);
+    background: color-mix(in srgb, var(--on-sel) 22%, transparent); color: var(--on-sel);
   }
-  .surfaceSwitch button.surfaceOn { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+  .surfaceSwitch button.surfaceOn { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
   .surfaceSwitch button:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
   .surfaceSwitch button:disabled { opacity: var(--disabled); cursor: default; }
   .fixedTarget { display: block; }
@@ -612,12 +601,9 @@
 .chooser { display: grid; gap: 8px; width: 320px; max-width: calc(100vw - 24px); padding: 12px 12px 12px 16px; }
 .chooserHeadRow { display: flex; align-items: center; gap: 8px; }
 .chooserHead { flex: 1; min-width: 0; font-size: 14px; }
-.chooserX {
-  flex: none; width: var(--tap); height: var(--tap); border: 0; border-radius: var(--r-sm);
-  background: var(--fill-soft); color: var(--ink-dim); display: grid; place-items: center;
-  cursor: pointer; padding: 0; margin-right: -2px;
-}
-.chooserX svg { width: 15px; height: 15px; }
+/* the ✕ IS the global `.ip-x` (28.09.2026 — a 44px tile with a 15px glyph, beside a title and no
+   search field); this only keeps it out of the row's flex */
+.chooserX { flex: none; margin-right: -2px; }
 /* one way in per row: icon, the verb, and what happens next — an option list, not a form */
 .chooserOpt {
   display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
@@ -713,3 +699,12 @@
    (dragging promotes one to a real 'korrigiert' reference) but visibly nobody's tap */
 .autoAnchor { opacity: .55; }
 .autoAnchor .badge { background: var(--ink-faint); }
+
+/* the phone's Passung sheet (09-whiteboard · .wb-georef-dock, 29.09.2026): the sheet spans the
+   screen, so its content does too — the tablet card's own widths would leave a gap at the right,
+   and the head is the handle the push-down starts on */
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .quality, .chooser { width: auto; max-width: none; padding: 8px 20px 16px; }
+  .qHead, .chooserHeadRow { touch-action: none; }
+  .qHead button, .chooserHeadRow button { touch-action: auto; }
+}

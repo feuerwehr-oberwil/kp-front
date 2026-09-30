@@ -129,7 +129,8 @@ export function useSwipeDismiss({ onClose, enabled = true }: SwipeDismissOptions
       // rule 3 — a control is a control, and so is a surface that pans under the finger
       if (target?.closest(NO_DRAG_SEL)) return
       // rule 2 — the header always drags; over a scroller only while it is at the very top
-      const onHead = !!target?.closest('.ip-head, .ui-sheet-grab')
+      // (`.lc-title`: the head of the phone's non-modal map sheets — Ebenen, the Suche card)
+      const onHead = !!target?.closest('.ip-head, .ui-sheet-grab, .lc-title')
       const scroller = onHead ? null : scrollerWithin(target, el)
       if (!onHead && scroller && scroller.scrollTop > 0) return
       drag.current = {

@@ -216,32 +216,35 @@ describe('folded plan tile', () => {
   })
 })
 
-// The head count was the one number the Anwesenheit tile stated just by existing. With that tile
-// folded away it rides on the «Rapport» tile — as a COUNT, not a dot, so it can still be read.
-describe('the head count on the Rapport tile', () => {
+// The badge on the folded «Einsatz» tile is what the Rapport still has OPEN (26.09.2026) — it was
+// the head count, which read as «open» beside a Rapport chip saying another number. The whole
+// chain (chip = Abschluss = badge = chooser row) is pinned in rapportOneCount.test.tsx.
+describe('the open count on the Rapport tile', () => {
   const rapport = () => screen.getByRole('button', { name: /^(Rapport|Einsatz)/ })
 
-  it('states the number, and says it out loud too', () => {
-    setup({ fold: true, presentCount: 12 })
-    expect(rapport().querySelector('.nav-count')?.textContent).toBe('12')
-    expect(rapport().getAttribute('aria-label')).toBe('Einsatz · 12 anwesend')
+  it('states the number in amber, and says it out loud in the chip\'s words', () => {
+    setup({ fold: true, openCount: 6, presentCount: 3 })
+    const badge = rapport().querySelector('.nav-count')
+    expect(badge?.textContent).toBe('6')
+    expect(badge?.classList.contains('nav-open')).toBe(true)
+    expect(rapport().getAttribute('aria-label')).toBe('Einsatz · 6 offen')
   })
 
-  // a standing «0 anwesend» on a fresh Einsatz is a badge that teaches you to stop reading badges
-  it('paints nothing while nobody is on scene', () => {
-    setup({ fold: true, presentCount: 0 })
+  // nothing open is nothing to say — and the head count never stands in for it
+  it('paints nothing while nothing is open', () => {
+    setup({ fold: true, openCount: 0, presentCount: 12 })
     expect(rapport().querySelector('.nav-count')).toBeNull()
     expect(rapport().getAttribute('aria-label')).toBe('Einsatz')
   })
 
-  // on a tablet the Anwesenheit still has its own tile, and its own head line, right there
-  it('is a phone badge only — the vertical rail still carries the Anwesenheit itself', () => {
-    setup({ presentCount: 12 })
+  // on a tablet the Rapport has its own tile and its own chip, right there
+  it('is a phone badge only', () => {
+    setup({ openCount: 6 })
     expect(rapport().querySelector('.nav-count')).toBeNull()
   })
 
-  it('caps a three-figure crew so the badge stays a badge', () => {
-    setup({ fold: true, presentCount: 140 })
+  it('caps a three-figure count so the badge stays a badge', () => {
+    setup({ fold: true, openCount: 140 })
     expect(rapport().querySelector('.nav-count')?.textContent).toBe('99+')
   })
 })

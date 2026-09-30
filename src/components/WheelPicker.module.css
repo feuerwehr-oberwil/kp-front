@@ -31,7 +31,7 @@
   border: 1px solid var(--glass-edge); border-radius: var(--r-xs); background: var(--fill-soft);
   color: var(--ink); font: 700 16px var(--mono); font-variant-numeric: tabular-nums;
 }
-.typed:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent); }
+.typed:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); } /* the one field focus, 28.09.2026 */
 
 /* The tabs: answers that are not a clock reading at all. Side by side, equal weight, above the
    wheels they replace. */
@@ -47,14 +47,9 @@
 .tab:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the tab whose state the value currently IS: pressed, not hidden. It used to disappear once it
    applied, which removed the only way back to it after scrolling the wheels. */
-.tabOn {
-  background: color-mix(in srgb, var(--blue) 26%, transparent);
-  border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue);
-}
-.green.tabOn {
-  background: color-mix(in srgb, var(--green) 26%, transparent);
-  border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green);
-}
+/* …and pressed is THE choice fill (01-tokens · --sel); the green tab fills green */
+.tabOn { background: var(--sel); border-color: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
+.green.tabOn { background: var(--green); border-color: var(--green); color: var(--on-fill); }
 
 /* desktop: the typed field and the day, side by side — one control per value.
    With a full date it wraps: Tag · Monat · Jahr on their own line under the clock, so three

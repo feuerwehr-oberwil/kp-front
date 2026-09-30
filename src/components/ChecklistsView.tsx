@@ -6,6 +6,7 @@ import { ChecklistRunner } from './ChecklistRunner'
 import { ChecklistEntryReader } from './ChecklistReference'
 import { cx } from '../lib/cx'
 import { EmptyState } from './EmptyState'
+import { SearchField } from './SearchField'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { useMediaQuery } from '../lib/useIsPhone'
@@ -105,15 +106,21 @@ export function ChecklistsView({
       {railNarrow && !railOpen ? (
         <button className={s['cl-rail-toggle']} onClick={() => setRailOpen(true)} aria-expanded={false} aria-label={CL.showList}>
           <Icon id="search" />
-          <span>{selTitle}</span>
+          <span className={s['cl-rail-toggle-title']}>{selTitle}</span>
+          {/* the Stichwort's category as a word in the head (27.09.2026, owner-r2-5): it was a
+              filled «BRAND» pill inside the document card, over a title the chooser had just
+              shown — the card is gone on a phone (Checklists.module.css), so its two facts moved
+              up here: the title is the chooser's, the category is this chip. */}
+          {activeEntry?.hazardColor && (
+            <span className={cx(s['cl-head-hz'], s[`hz-${activeEntry.hazardColor}`])}>
+              <i className={s['cl-ref-chip']} />{CL.hazardLabels[activeEntry.hazardColor] ?? activeEntry.hazardColor}
+            </span>
+          )}
           <Icon id="chevron-down" />
         </button>
       ) : (
       <nav className={cx(s['cl-rail'], railNarrow && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
-        <div className={cx(s['cl-search'], s['cl-rail-search'])}>
-          <Icon id="search" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
-        </div>
+        <SearchField className={s['cl-rail-search']} value={query} onChange={setQuery} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
         {/* ⚠️ ALL matches, not the best one (31.08.). «VU Strasse» is Verkehrsunfall AND
             E-Autobrand AND Ölspur — which of them this Einsatz is cannot be read off the
             Stichwort, and showing only the longest keyword match made the app look certain
@@ -168,7 +175,7 @@ export function ChecklistsView({
               </div>
             )
           })}
-          {noMatches && <p className={s['cl-empty-hint']}>{CL.noMatches}</p>}
+          {noMatches && <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>}
         </div>
       </nav>
       )}

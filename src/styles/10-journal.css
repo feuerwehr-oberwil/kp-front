@@ -17,7 +17,7 @@
    (16px where every other neighbour has 8) — a slot with nothing in it takes no room */
 .tb-share:empty { display: none; }
 .tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer;
-  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-nested, var(--r-sm)); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
+  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
   font-weight: 700; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
 .tb-act .i { width: 15px; height: 15px; }
 /* ⚠️ The undo/redo glyphs (lib/icons · #undo/#redo) are NOT centred in their own 24×24 viewBox
@@ -42,7 +42,7 @@
    the bar's nested corner (AGENTS.md · buttons · radius). On a phone it is --tap tall, and a
    44px capsule next to the square-cornered Verlauf button read as a foreign object. The same
    goes for .tb-gps and .tb-mode below – the three status chips of the bar share one shape. */
-.tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-nested, var(--r-sm));
+.tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-sm);
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
   flex: 0 1 auto; min-width: 0; transition: background .14s var(--ease); }
 .tb-az .i { width: 15px; height: 15px; flex: none; }
@@ -53,7 +53,11 @@
 .tb-az-clock { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 /* An ÜBERFÄLLIGER Trupp outranks the weather readout for the width. The chip only exists while
    somebody is overdue, so this trade only happens exactly when it should. */
-.topbar:has(.tb-az) .tb-weather-wrap { display: none; }
+/* ⚠️ What leaves the bar when it runs out of room is no longer decided here by «an alarm hides the
+   weather» (walk-through 25.09.2026, N12/N23): that rule took the weather off a 1180 px bar that
+   still had room for it, while at 360 px nothing stopped the Einsatz pill from being squeezed to
+   20 px. The bar is MEASURED instead (lib/useHeadFit) and collapses by priority — see the
+   `.topbar.fit-N` ladder below. */
 /* …and below 1100px it outranks the incident TITLE as well, for the same reason and by the same
    mechanism the phone layout already uses (glyph in, words out — the full title stays one tap away
    in the dropdown). Without this the bar ran out of road: the chip is allowed to shrink, but not
@@ -63,16 +67,43 @@
    of «Peter Schmid 615:41» outside the bar, i.e. the one thing on screen that must be legible was
    the one thing sitting on the map. The title is what a crowded bar can most afford to lose: you
    know which incident you are standing in; you do not know how long the Trupp has been inside. */
-@media (max-width: 1100px) {
-  .topbar:has(.tb-az) .ip-switch-title { display: none; }
-  .topbar:has(.tb-az) .ip-switch-glyph { display: grid; }
-  /* «Verlauf» loses its word too, the same trade the bar already makes for everyone below 860px.
-     Not «Eintrag»: that one stays labelled, because writing the journal entry is the thing an
-     officer does WHILE the alarm is running. :not(.tb-rem-count) so the reminder badge — a count,
-     not a label — survives; hiding it would drop a number the bar exists to show. */
-  .topbar:has(.tb-az) .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
-  .topbar:has(.tb-az) .tb-act:not(.tb-act-add) { padding: 8px; }
-}
+/* ── The bar's priority ladder (lib/useHeadFit · HEAD_FIT_STEPS) ──
+   Measured from nothing collapsed, one step at a time, until the bar fits; a step keeps every
+   step below it. Lowest priority first: the weather, the Einsatzdauer, ↷, the gaps, the Verlauf
+   word, the Suche's words, the alarm's name, the Einsatz title (the pill stays — glyph and ÜBUNG
+   marker), the «1?» count (the «?» stays), and last the word «Eintrag» (29.09.2026). The pill
+   itself never gives: squeezed below a readable width counts as «does not fit». «Eintrag» keeps
+   its word the longest — writing the entry is what an officer does WHILE the alarm runs. :not(.tb-rem-count) keeps the reminder count, a
+   number the bar exists to show.
+   ⚠️ No step takes a chip's ICON (final walk-through, R1): a bare red «5» said nothing. */
+.topbar.fit-1 :is(.tb-weather-cond, .tb-weather-temp) { display: none; }
+.topbar.fit-2 .tb-weather-wrap { display: none; }
+.topbar.fit-3 .tb-einsatzuhr { display: none; }
+.topbar.fit-4 .tb-act-redo { display: none; }
+.topbar.fit-5 { gap: 3px; padding-inline: 6px; }
+.topbar.fit-5 .tb-actions { gap: 0; }
+.topbar.fit-5 :is(.tb-az, .ip-switch-btn) { padding-inline: 7px; }
+.topbar.fit-6 .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
+.topbar.fit-6 .tb-act:not(.tb-act-add) { padding: 8px; }
+.topbar.fit-7 .tb-suche .tb-suche-full { display: none; }
+.topbar.fit-7 .tb-suche .tb-suche-short { display: inline; }
+.topbar.fit-8 .tb-az-name { display: none; }
+.topbar.fit-9 .ip-switch-title { display: none; }
+.topbar.fit-9 .ip-switch-glyph { display: grid; }
+.topbar.fit-9:has(.ip-switch-btn > .ip-badge-exercise) .ip-switch-glyph { display: none; }
+/* …and the «Einsatz abgeschlossen» chip (#235: it now appears LIVE, when another device closes
+   the Einsatz) gives its words at the same step as the title — the lock stays, the sentence is
+   one tap away in its menu, exactly as on the phone bar */
+.topbar.fit-9 .tb-mode { padding: 5px 8px; font-size: 0; gap: 0; }
+.topbar.fit-9 .tb-mode .i { width: 16px; height: 16px; }
+.topbar.fit-10 .tb-suche-ask-n { display: none; }
+/* «Eintrag» gives its word LAST (29.09.2026, sweep K2): its glyph is the journal pen now, not a
+   «+» that the rail's «+ Symbol» beside it also wears, so a bare glyph still says what it is */
+.topbar.fit-11 .tb-act-add .tb-act-label { display: none; }
+.topbar.fit-11 .tb-act-add { min-width: var(--tap); padding-inline: 8px; }
+/* every chip in the bar is at least a tap wide, its glyph and its number together */
+.topbar :is(.tb-az, .tb-suche) { min-width: var(--tap); justify-content: center; }
+.topbar :is(.tb-az, .tb-suche) > .i { flex: none; }
 .tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 @media (hover: hover) {
   .tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
@@ -93,7 +124,7 @@
    map (disappearing reads as «it has driven off», not as «the feed is gone»), so the freeze
    has to become visible here. Amber, not red: a frozen position is a caveat, not an alarm —
    and red belongs to the überfälliger Trupp. */
-.tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-nested, var(--r-sm));
+.tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-sm);
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
   flex: none; cursor: default;
   background: color-mix(in srgb, var(--amber, #b45309) 16%, transparent); color: var(--amber-strong, #b45309); }
@@ -106,7 +137,7 @@
    the head. Amber for the same reason .tb-gps is: a state to be aware of, not an alarm. Tapping
    it offers the two exits the banner used to carry (Zurück / Wieder öffnen), so nothing was lost
    with the banner; on a link session there are no exits and it is a plain, inert chip. */
-.tb-mode { display: inline-flex; align-items: center; gap: 6px; flex: none; border: none; border-radius: var(--r-nested, var(--r-sm));
+.tb-mode { display: inline-flex; align-items: center; gap: 6px; flex: none; border: none; border-radius: var(--r-sm);
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; white-space: nowrap;
   background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber-strong); }
 .tb-mode .i { width: 14px; height: 14px; flex: none; }
@@ -177,19 +208,22 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .wx-pop-row dd { margin: 0; font: 700 12.5px var(--body); color: var(--ink); text-align: right; }
 .wx-pop-link { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; margin-top: 14px;
   padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--fill-soft);
-  color: var(--blue); font: 700 12.5px var(--body); cursor: pointer; }
+  color: var(--ink); font: 700 12.5px var(--body); cursor: pointer; } /* ink, not blue: 28.09.2026 — blue means «chosen» */
 @media (hover: hover) {
-  .wx-pop-link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
+  .wx-pop-link:hover { background: var(--hover-strong); }
 }
 .wx-pop-link:active { background-image: linear-gradient(var(--press), var(--press)); }
 .wx-pop-link svg { width: 16px; height: 16px; }
-.tb-act-add { position: relative; background: var(--blue); color: var(--on-fill); touch-action: none; user-select: none; min-width: 96px; }
-/* ⚠️ NOT `--blue-strong` on hover: that token flips LIGHTER in night mode (it is the tint-text
-   role), so a hover on the filled button washed it out to pale blue with barely-there ink —
-   the one button in the bar that has to look pressable. A hover deepens the fill in both
-   themes, and the ink stays the fill's own contrast colour. */
+/* The bar's Eintrag wears the FAB's material (29.09.2026, sweep K2/E9): the floating family's
+   glass with its inset edge, ink glyph and word — the same door as the phone's FAB, one recipe.
+   It was a --blue slab, and blue now means «chosen» (--sel): a permanently blue tile read as a
+   lit, armed tool, not an action. Its glyph is the journal pen (lib/icons · EntryGlyph), never
+   «+», which is Hinzufügen only. */
+.tb-act-add { position: relative; background: var(--float-bg); box-shadow: var(--float-edge); color: var(--ink);
+  touch-action: none; user-select: none; min-width: 96px; }
+.tb-act-add .i { width: 16px; height: 16px; }
 @media (hover: hover) {
-  .tb-act-add:hover { background: color-mix(in srgb, var(--blue) 88%, var(--ink)); color: var(--on-fill); }
+  .tb-act-add:hover { background: var(--float-bg); color: var(--ink); filter: brightness(1.05); }
 }
 /* ⚠️ Names the LABEL, not every span. It used to read `.tb-act-add span`, which at (0,1,1)
    also out-specified the charging cue's own `.tb-hold { position: absolute }` (0,1,0) — so on
@@ -217,27 +251,23 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tb-hold-ring .tb-hold-track { opacity: .3; }
 .tb-hold-ring .tb-hold-fill { stroke-linecap: round; }
 /* ── while the chooser is up, the button IS the cancel ──
-   A plus turned 45° is already an ✕, so the button does not swap its icon for a second one: the
-   one that is there rotates. Nothing enters or leaves the DOM, nothing can reflow under the
-   finger, and the turn itself carries the meaning — the affordance you pressed visibly becomes
-   the way out of it.
+   The glyph gives way to its ✕ (lib/icons · EntryGlyph draws both, the ✕ hidden). It used to be
+   the «+» turned 45°; since the Eintrag wears the journal pen (29.09.2026, sweep K2) a turned
+   glyph is no ✕, so the second path shows instead — both are always in the DOM, so nothing
+   enters or leaves and nothing reflows under the finger.
    ⚠️ The label is dropped, not faded, and the button's width is FROZEN inline from the rect the
    hook already measured (components/TopBar · FabEntry). Fading it left the mark stranded off
    to one side of a wide empty button; dropping it without freezing the width would have let the
    button snap down to its min-width mid-gesture — the very shift this whole pass was about. Held
    at its own width, the ✕ simply lands in the middle of the button that was already there.
-   No red: the mark sits on the filled accent button, where red reads as a fault rather than as
-   a way out. The lit option is the feedback — none lit means the release does nothing. */
-.tb-act-add .i, .fab-entry .i { transition: transform .18s var(--ease); }
-/* ⚠️ Descendant, not `> .i`: since the ring wrapper (da52f1f, 28.08.) the + sits inside
-   `.tb-act-ic`, and the child selector silently stopped matching — a latched hold showed a
-   label-less button with an un-rotated +, i.e. no visible cancel affordance at all. The only
-   `.i` inside either host is the + itself (the ring is `.tb-hold-ring`, the chooser is
-   portalled to <body>), so the descendant form is exact. */
-.tb-act-add.cancelling .i, .fab-entry.cancelling .i { transform: rotate(45deg); }
+   No red: red reads as a fault rather than as a way out. The lit option is the feedback — none
+   lit means the release does nothing. */
+.tb-act-ic .i-entry-x { display: none; }
+.tb-act-add.cancelling .tb-act-ic .i-entry, .fab-entry.cancelling .tb-act-ic .i-entry { display: none; }
+.tb-act-add.cancelling .tb-act-ic .i-entry-x, .fab-entry.cancelling .tb-act-ic .i-entry-x { display: block; }
 .tb-act-add.cancelling .tb-act-label, .fab-entry.cancelling .tb-act-label { display: none; }
 
-.tb-act-add.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
+.tb-act-add.rec { background: var(--red); color: var(--on-fill); box-shadow: none; animation: recPulse 1.4s ease-in-out infinite; }
 .tb-act-add.rec span { font-family: var(--mono); }
 
 /* ── the latched hold's two slide targets (Sprachnotiz · Foto) ──
@@ -289,7 +319,6 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 @media (prefers-reduced-motion: reduce) {
   .hold-target { animation: none; }
   .hold-target { transition: none; transform: none; }
-  .tb-act-add .i, .fab-entry .i { transition: none; }
 }
 /* explicit stop affordance shown while recording — a white square reads as "stop" */
 .tb-stop { position: relative; z-index: 1; width: 11px; height: 11px; border-radius: 2px; background: var(--on-accent-ink); flex: none; }
@@ -367,7 +396,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   .journal-legend-btn:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
 }
 .journal-legend-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.journal-legend-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+/* OPEN (the lens's search) is the one «open» look, the InfoToggle's blue wash (29.09.2026 — it
+   was the ink «where you are» pill); the ⓘ beside it IS the InfoToggle (`.ui-info`) */
+.journal-legend-btn.on { background: var(--sel-wash); color: var(--blue-strong); }
 .journal-legend-btn .i { width: 18px; height: 18px; }
 
 /* ── the search ──
@@ -377,12 +408,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    place for «back out of this», whichever «this» is. No space is lost while nothing is searched. */
 /* the search row sits UNDER the constant head, where the timeline strip stands otherwise (22.09.2026) */
 .journal-search-row { display: flex; align-items: center; gap: 8px; padding: 0 4px 10px; }
-.journal-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 44px;
-  padding: 0 12px; border-radius: var(--r-ctl); background: var(--fill-soft); color: var(--ink-dim); }
-.journal-search .i { flex: none; width: 16px; height: 16px; }
-.journal-search input { flex: 1; min-width: 0; border: none; background: transparent; outline: none;
-  font: 600 14px var(--body); color: var(--ink); }
-.journal-search input::placeholder { color: var(--ink-faint); }
+/* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026) — placement only;
+   the live count rides in its count slot */
+.journal-search { flex: 1; }
 /* the live «2 von 42» — read at a glance, never wrapped */
 .journal-search-count { flex: none; font: 700 12px var(--body); color: var(--ink-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* ⚠️ …and beside the 44px field it is 44px too (20.09.2026): at its 28px it hung beside the pill
@@ -409,19 +437,17 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 :is(.jr-legend, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
 
 /* ── the filter (feat 37 · option B, 23.09.2026) ──
-   A third .journal-legend-btn beside the lens (same chip, same 44px pad, lit `.on` while any
-   category is ticked). The dot is the Anwesenheit's filter dot (SurfaceControls · .filterDot):
-   absolutely placed, so the chip measures the same filtered or not — a label on it would move
-   Replay and ✕ and re-anchor the menu the moment something is ticked. Ringed in the lit chip's
-   own fill, since it only ever shows on it. */
-.journal-filter-dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%;
-  background: var(--blue); box-shadow: 0 0 0 2px var(--ink-fill); pointer-events: none; }
+   A third .journal-legend-btn beside the lens (same chip, same 44px pad). While any category is
+   ticked it wears the CHOICE fill (`--sel`, 29.09.2026 — the Anwesenheit's filter buttons do
+   the same): it was the ink «where you are» pill plus a blue dot, two channels for one bit and
+   the wrong role. Nothing is printed on it, so it measures the same filtered or not. */
+.journal-legend-btn.jr-filter-on { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 /* the menu: the legend's discs with ticks and counts. The height cap is the one every
    SurfaceControls menu has — a station with many plans makes this taller than a phone, and a
    too-tall popup is repositioned, never trimmed. */
 .jr-filter-menu { min-width: 250px; max-width: min(340px, 92vw);
   max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
-  padding: 6px; border-radius: var(--r-ctl);
+  padding: var(--bar-pad); border-radius: var(--r-bar);   /* hugs its rows — 01-tokens · «ONE corner» */
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); }
 /* skin only — radius, hover and press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .jr-filter-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--tap);
@@ -575,12 +601,15 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    with nothing between them. */
 .jr-note-on i { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; }
 .jr-note-on::after { content: "›"; flex: none; color: var(--ink-faint); font-weight: 400; }
-/* «wieder in …» on a done row — small dashed pills, the same «this creates something» look the
-   composer's preset chips wear. Quiet on purpose: a closed Pendenz is a fact first, an offer
-   second. ≥28px tap height inside a text row via padding (the row itself adds the rest). */
+/* «wieder in …» on a done row — small amber pills that CREATE a follow-up. Quiet on purpose: a
+   closed Pendenz is a fact first, an offer second. ≥28px tap height inside a text row via padding
+   (the row itself adds the rest). Framed, not dashed (27.09.2026, slim sweep · mockup 5): the dash
+   said «this creates something», but a dashed edge in this app means «missing / hidden /
+   placeholder», and an offer is an ordinary action — the amber text and a faint amber tint carry
+   what kind of action it is. */
 .jr-again { display: inline-flex; gap: 5px; flex: none; }
-.jr-again-btn { border: 1px dashed color-mix(in srgb, var(--amber-strong) 55%, transparent);
-  background: none; border-radius: var(--r-pill, 999px); padding: 3px 9px; cursor: pointer;
+.jr-again-btn { border: 1px solid color-mix(in srgb, var(--amber-strong) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 8%, transparent); border-radius: var(--r-pill, 999px); padding: 3px 9px; cursor: pointer;
   font: 600 11.5px var(--body); color: var(--amber-strong); white-space: nowrap; }
 @media (hover: hover) {
   .jr-again-btn:hover { background: color-mix(in srgb, var(--amber-strong) 10%, transparent); }
@@ -591,8 +620,10 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    40-letter street name has to break somewhere, and that is what it is for. */
 .jr-text { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
 /* calendar-day separator: the Verlauf can span days (Hochwasser) or weeks (Nachträge) */
-.jr-day-sep { display: flex; align-items: center; gap: 10px; margin: 10px 2px 4px; font-size: 11px;
-  font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
+.jr-day-sep {
+  display: flex; align-items: center; gap: 10px; margin: 10px 2px 4px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .jr-day-sep::before, .jr-day-sep::after { content: ''; flex: 1; height: 1px; background: var(--glass-edge); }
 
 /* quick-add composer — centred card over the modal backdrop */
@@ -738,16 +769,15 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   font-family: inherit; font-size: 14px; line-height: normal; color: transparent;
   white-space: pre-wrap; overflow-wrap: break-word;
 }
-/* One ink per kind of thing, in the composer and in the Verlauf alike — a Fahrzeug and a
-   Person are not the same fact, and the eye should be able to tell them apart without reading. */
+/* ONE wash for every recognised word, in the composer and in the Verlauf alike (29.09.2026, owner
+   pick A). Each kind had its own ink — a Fahrzeug in the station red, a Partner in warning amber —
+   and a routine «Ausrücken TLF» then read as the loudest line on a page that also carries real
+   Atemschutz alarms. Red and amber mean alarm and warning, nothing else; the KIND of a word is
+   not a state. */
 .jc-text-marks mark { color: transparent; border-radius: 3px;
   background: color-mix(in srgb, var(--blue) 20%, transparent); }
-.jc-text-marks mark.jc-mark-material { background: color-mix(in srgb, var(--green) 22%, transparent); }
-.jc-text-marks mark.jc-mark-partner { background: color-mix(in srgb, var(--amber) 26%, transparent); }
-.jc-text-marks mark.jc-mark-vehicle { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.jc-text-marks mark.jc-mark-group { background: color-mix(in srgb, var(--ink) 14%, transparent); }
-/* An address is not one of the five — it is not a thing this Einsatz has words for — so it gets
-   no sixth ink, it gets the underline. The backdrop's text is transparent, so the underline has
+/* An address is not one of the Einsatz's own words, so it gets the underline on top of a lighter
+   wash. The backdrop's text is transparent, so the underline has
    to be coloured on its own; it lands under the real characters in the field above. Written here
    for both backdrops (18-audio.css paints the Wiedergabe's washes), because it is one rule. */
 .jc-text-marks mark.jc-mark-url,
@@ -758,18 +788,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   text-underline-offset: 2px;
 }
 
-/* …and the same five in the Verlauf, where there is real text to colour rather than a backdrop */
-.jr-link { font-weight: 700; }
-.jr-link-person { color: var(--blue-strong); }
-/* A Trupp wears the MANNSCHAFT's ink rather than a sixth one: «Trupp Meier Anna» and «Meier Anna»
-   are the same people, and the only colour still free in the palette is red — which on this
-   surface means alarm. The two composer backdrops need no rule of their own: blue IS their
-   default wash (see `.jc-text-marks mark` above and .ap-add-marks in 18-audio.css). */
-.jr-link-trupp { color: var(--blue-strong); }
-.jr-link-material { color: var(--green-strong); }
-.jr-link-partner { color: var(--amber-strong); }
-.jr-link-vehicle { color: var(--accent); }
-.jr-link-group { color: var(--ink); }
+/* …and in the Verlauf, where there is real text: every mention — vehicle, partner, Trupp, person,
+   material, group — is bold INK, one look for «one of the Einsatz's own words» (29.09.2026) */
+.jr-link { font-weight: 700; color: var(--ink); }
 /* the address in the Verlauf: a real <a>, so it carries the underline that says «this opens»
    rather than a colour that only says «this is a thing» */
 a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-offset: 2px;
@@ -783,7 +804,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
   background: transparent; }
 /* the field's own fill lives on the wrapper, so the marks sit between it and the text */
 .jc-text-wrap { background: var(--surface-2); border-radius: var(--r-ctl); }
-.jc-text:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent); }
+.jc-text:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* ---- one rhythm for every control in the composer ----
    The two modes are the same dialog, so they should be the same shape: a fixed grid of
    equal-height rows instead of buttons that wrap wherever they happen to run out of room. It
@@ -845,11 +866,11 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    other three «what does this entry carry» buttons are.) */
 .jc-foot { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .jc-send { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
-  background: var(--blue); color: var(--on-fill); border-radius: var(--r-sm); padding: 9px 16px; height: var(--tap); font-size: 12.5px; font-weight: 800;
+  background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm); padding: 9px 16px; height: var(--tap); font-size: 14px; font-weight: 800;
   font-family: inherit; white-space: nowrap; }
 .jc-send .i { width: 15px; height: 15px; }
 @media (hover: hover) {
-  .jc-send:hover { background: var(--blue-strong); }
+  .jc-send:hover { background: var(--btn-primary-hover); }
 }
 .jc-send:disabled { opacity: var(--disabled); cursor: default; }
 
@@ -866,8 +887,10 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    row was deleted, which turned the one field the hard start-confirm gate forces the operator to
    confirm into an unlabelled stepper (23.08.). Its own line in the .jc-import-start row, so the
    words sit above the ± rather than fighting the confirm chip for the width. */
-.jc-due-label { flex-basis: 100%; font-size: 12px; font-weight: 700; letter-spacing: .04em;
-  text-transform: uppercase; color: var(--ink-faint); }
+.jc-due-label {
+  flex-basis: 100%;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .jc-due-chip { display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-edge); background: var(--surface-2);
   color: var(--ink); border-radius: var(--r-sm); padding: 9px 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
   height: var(--tap); min-width: 0; white-space: nowrap; }
@@ -875,7 +898,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 @media (hover: hover) {
   .jc-due-chip:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--glass-edge)); }
 }
-.jc-due-chip.on { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: color-mix(in srgb, var(--blue) 50%, transparent); color: var(--blue-strong); }
+.jc-due-chip.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
 /* custom HH:MM stepper (replaces the native time spinner) */
 .jc-time { display: inline-flex; align-items: center; gap: 12px; align-self: flex-start; padding: 8px 14px; border-radius: var(--r-ctl);
   background: var(--surface-2); border: 1px solid var(--glass-edge); }
@@ -907,7 +930,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    before you can say what is wrong with it. */
 .jc-exact { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px;
   width: min(320px, 92vw); }
-.jc-exact-title { margin: 0; text-align: center; font: 800 15px var(--body); color: var(--ink); }
+.jc-exact-title { margin: 0; text-align: center; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 15) */
 /* the day, stepped: ‹ Heute · Di 18.08. › — its buttons are the same 44px squares the time
    stepper uses, so the dialog has ONE control idiom rather than two */
 .jc-exact-day { display: flex; align-items: center; gap: 8px; padding: 4px 6px;
@@ -923,11 +946,15 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 /* a due time that has already gone by would fire the moment it is saved — said in words, in red,
    and «Übernehmen» is disabled until the day or the time moves */
 .jc-exact-preview.is-past { color: var(--red); font-family: var(--body); font-size: 13px; }
-.jc-exact-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* ⚠️ owner pick A (28.09.2026): the framed «Abbrechen» at its word's width, «Übernehmen» takes
+   the rest (they were two equal halves, the cancel a dim word on the glass) */
+.jc-exact-actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
 .jc-exact-cancel, .jc-exact-ok { display: flex; align-items: center; justify-content: center; gap: 7px;
-  height: var(--tap); border-radius: var(--r-sm); font: 800 14px var(--body); cursor: pointer; font-family: inherit; }
-.jc-exact-cancel { border: 1px solid var(--glass-edge); background: var(--surface-2); color: var(--ink-dim); }
-.jc-exact-ok { border: 1px solid var(--blue); background: var(--blue); color: var(--on-fill); }
+  height: var(--tap); border-radius: var(--r-sm); font: 700 14px var(--body); cursor: pointer; font-family: inherit; }
+.jc-exact-cancel { padding: 0 16px; border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink); }
+.jc-exact-ok { font-weight: 800; }
+/* the primary fill, never --blue: blue is a CHOSEN answer (01-tokens · --sel) since 28.09.2026 */
+.jc-exact-ok { border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); }
 .jc-exact-ok:disabled { opacity: var(--disabled); cursor: default; }
 .jc-exact-ok .i { width: 16px; height: 16px; }
 
@@ -951,9 +978,10 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 
 /* open-reminders count badge on the Verlauf button */
 .tb-rem-count { z-index: 2; }
-.tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-sm); background: var(--amber); color: var(--on-fill); line-height: 17px; text-align: center;
-  font-size: 11px; font-weight: 800; letter-spacing: -.2px; }
+/* the ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px, 11/800, --r-xs; amber = open */
+.tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: var(--r-xs); background: var(--amber); color: var(--on-fill); line-height: 16px; text-align: center;
+  font: 800 11px var(--body); }
 
 /* ⚠️ TOMBSTONE, 23.08. — the whole banner layer that stood here is gone.
    Removed: `.reminder-banner` + 9 `rb-*` rules (the due Wiedervorlage, a 440px card at z-45 that
@@ -971,14 +999,15 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .ig-why { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }
 .ig-install { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px;
   border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm);
-  font: 650 15px var(--body); cursor: pointer; }
+  font: 800 14px var(--body); cursor: pointer; } /* 28.09.2026: 650/15 was a 13th combo — the single action is 14/800, the
+  50px height is what makes it the card's main one */
 @media (hover: hover) {
   .ig-install:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 }
 .ig-install:disabled { opacity: var(--disabled); cursor: default; }
 .ig-install .i { width: 17px; height: 17px; }
 .ig-native-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-dim); text-align: center; }
-.ig-or { margin: 18px 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
+.ig-or { margin: 18px 0 10px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .ig-intro { margin: 0 0 10px; font-size: 13.5px; font-weight: 650; color: var(--ink); }
 .ig-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; counter-reset: ig; }
 .ig-steps li { display: flex; align-items: center; gap: 11px; counter-increment: ig; }

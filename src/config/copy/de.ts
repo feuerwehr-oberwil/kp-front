@@ -13,13 +13,18 @@
 
 // Help overlay content model (authored as data so it bundles offline, no markdown dep).
 // Inline markup in `lead`/`sub`/list items: **bold** for emphasis, [[Key]] for keyboard chips.
+// `only` (29.09.2026) — a block or section that describes ONE kind of device: 'phone' (the two
+// bars at the bottom), 'wide' (the rails left and right), 'keyboard' (shortcuts, mouse: never on
+// a phone, nor on a touch-only tablet). Help that describes the tablet on a phone contradicts the
+// screen it is read on. Absent = every device. See HelpOverlay · helpDevice.
+export type HelpOnly = 'phone' | 'wide' | 'keyboard'
 export type HelpBlock =
   | { kind: 'intro' } // the per-station helpIntro (or introFallback)
-  | { kind: 'lead'; text: string }
-  | { kind: 'sub'; text: string }
-  | { kind: 'note'; text: string }
-  | { kind: 'list'; items: string[] }
-export interface HelpSection { id: string; title: string; icon: string; blocks: HelpBlock[] }
+  | { kind: 'lead'; text: string; only?: HelpOnly }
+  | { kind: 'sub'; text: string; only?: HelpOnly }
+  | { kind: 'note'; text: string; only?: HelpOnly }
+  | { kind: 'list'; items: string[]; only?: HelpOnly }
+export interface HelpSection { id: string; title: string; icon: string; blocks: HelpBlock[]; only?: HelpOnly }
 
 export const de = {
   loadingSubtitle: 'Karte & Symbolbibliothek werden geladen …',
@@ -40,9 +45,8 @@ export const de = {
   // Deliberately the same shape as «Welcher Trupp?»: a short list you tap, no surface of its own.
   truppFinder: {
     title: 'Trupp finden',
+    // «oder Name»: the list searches the people in a Trupp too — the foot said so a second time until 29.09.2026
     placeholder: 'Trupp oder Name …',
-    // …because the list searches the people in a Trupp too, not just its name
-    hint: 'Sucht auch nach Namen im Trupp.',
     noMatches: 'Kein Trupp gefunden',
     // shown INSTEAD of the list when nothing is placed anywhere — the honest answer, and it
     // says where a Trupp comes from rather than leaving an empty box
@@ -73,8 +77,6 @@ export const de = {
     // read — the search filters the table of contents AND the sections (on a phone there is no
     // table of contents, so filtering the sections is the whole search there).
     search: 'Hilfe durchsuchen …',
-    searchClear: 'Suche löschen',
-    searchNone: 'Keine Treffer für «{q}».',
     searchHint: 'Anderes Stichwort versuchen – gesucht wird in Überschriften und Text.',
     // Fallback intro when the station has not configured a helpIntro of its own.
     introFallback: 'KP Front ist die digitale Lage- und Einsatzführung deiner Feuerwehr: taktische Karte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll – alles live auf mehreren Geräten gleichzeitig.',
@@ -85,7 +87,8 @@ export const de = {
         id: 'ueberblick', title: 'Überblick', icon: 'info',
         blocks: [
           { kind: 'intro' },
-          { kind: 'sub', text: 'Die Arbeitsbereiche (linke Leiste)' },
+          { kind: 'sub', text: 'Die Arbeitsbereiche (linke Leiste)', only: 'wide' },
+          { kind: 'sub', text: 'Die Arbeitsbereiche (Leiste unten)', only: 'phone' },
           { kind: 'list', items: [
             '**Karte** – die taktische Karte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
             '**Pläne** – Module und Gebäudeansichten dieser Wehr als taktische Arbeitsflächen, geschossweise.',
@@ -101,17 +104,28 @@ export const de = {
       {
         id: 'navigation', title: 'Navigation & Oberfläche', icon: 'cursor',
         blocks: [
-          { kind: 'lead', text: 'Drei feste Zonen: die Bereichsleiste links, die Einsatzleiste oben, die Werkzeugleiste rechts.' },
-          { kind: 'sub', text: 'Linke Leiste' },
+          { kind: 'lead', text: 'Drei feste Zonen: die Bereichsleiste links, die Einsatzleiste oben, die Werkzeugleiste rechts.', only: 'wide' },
+          { kind: 'lead', text: 'Zwei Leisten unten, eine oben: ganz unten die Bereichsleiste, darüber die Werkzeugleiste, oben die Einsatzleiste.', only: 'phone' },
+          { kind: 'sub', text: 'Untere Leisten', only: 'phone' },
+          { kind: 'list', only: 'phone', items: [
+            'Die **Bereichsleiste** ganz unten hat fünf Felder: Karte, Pläne, Checkliste, Trupps und Rapport. **Pläne** und **Rapport** stehen für mehrere Seiten (Rapport · Anwesenheit · Material): das Feld nochmals antippen oder gedrückt halten öffnet die Auswahl.',
+            'Darüber die **Werkzeugleiste** der Karte bzw. des Plans. **+** ist die eine Tür zu allem, was darauf gesetzt wird.',
+            'Ein Knopf, auf dem nur ein Zeichen steht, sagt sein Wort, wenn man ihn **gedrückt hält**. In den **Einstellungen** schreibt «Beschriftung der Werkzeugleisten» die Wörter dauerhaft darunter.',
+          ] },
+          { kind: 'sub', text: 'Linke Leiste', only: 'wide' },
           { kind: 'list', items: [
             'Je nach Einstellung zeigt die linke Leiste die Bezeichnungen der Arbeitsbereiche oder deren Tastaturkürzel. Die Kürzel entsprechen dem ersten Buchstaben des deutschen Begriffs, bei Anwesenheit steht P für Personal.',
             'Im Kartenbereich sind **Ebenen** und der **Karten**-Umschalter unten angeheftet – immer sichtbar.',
             'Am rechten Rand der Leiste ziehen klappt sie mit Beschriftungen auf bzw. wieder zu.',
-          ] },
+          ], only: 'wide' },
           { kind: 'sub', text: 'Obere Einsatzleiste' },
           { kind: 'list', items: [
             'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, Offline-Bereitschaft, diese Hilfe …) und der **Einsatzuhr**.',
             'Rechts **Rückgängig/Wiederherstellen**, **Verlauf** und **+ Eintrag**.',
+          ], only: 'wide' },
+          { kind: 'list', only: 'phone', items: [
+            'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, Offline-Bereitschaft, diese Hilfe …), rechts **Rückgängig** und der **Verlauf**.',
+            'Der runde Knopf unten rechts ist **+ Eintrag**.',
           ] },
           { kind: 'sub', text: 'Meldeleiste' },
           { kind: 'list', items: [
@@ -119,14 +133,14 @@ export const de = {
             'Die Reihenfolge ist fest, nicht nach Eingang: zuerst der **Atemschutz**, dann der **Alarm**, dann die **Erinnerung**. Was auf jemanden wartet, steht immer über dem, was von selbst wieder verschwindet.',
             'Es wirken nur die beschrifteten Knöpfe, das **✕** und – wo die Meldung einen Ort hat – ihr **Titel**. Ein Tipp irgendwo sonst auf die Zeile tut nichts: Lesen darf nicht dasselbe sein wie Handeln. Steht nichts an, ist der Streifen gar nicht da.',
           ] },
-          { kind: 'sub', text: 'Rechte Werkzeugleiste' },
+          { kind: 'sub', text: 'Rechte Werkzeugleiste', only: 'wide' },
           { kind: 'list', items: [
             'Die Zeichen- und Platzierwerkzeuge; unten angeheftet die Karten-Navigation (Zoom, Einpassen, Koordinaten).',
-          ] },
+          ], only: 'wide' },
         ],
       },
       {
-        id: 'tastatur', title: 'Tastaturkürzel', icon: 'type',
+        id: 'tastatur', title: 'Tastaturkürzel', icon: 'type', only: 'keyboard',
         blocks: [
           { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird. Wo ein Feld in der linken Leiste eine Taste hat, steht sie darauf.' },
           { kind: 'sub', text: 'Bereiche wechseln' },
@@ -225,7 +239,7 @@ export const de = {
             'In den **Ebenen** bekommt jedes verknüpfte Blatt eine eigene Zeile («Plan (Modul 2)»): das Blatt selbst als Bild unter der Karte. Die Objekte darauf brauchen keine eigene Zeile mehr – sie gehören zu der Ebene, auf der sie gesetzt wurden.',
           ] },
           { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist (Umriss-Symbol), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Geschoss-Stapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Geschoss-Stapel des Gebäudes, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
-          { kind: 'note', text: '**Wie herum steht das Gebäude?** Der **Nordpfeil** auf dem Geschoss-Stapel und der **Kompass** unten in der linken Leiste öffnen dasselbe kleine Fenster «Gebäude drehen»: ein Regler **Drehung** mit Vorschau, dazu **Norden oben** und **Auf Längsachse drehen** als je ein Tipp. Der Umriss dreht sich mit, die Markierungen bleiben, wo sie am Gebäude liegen – und die gedruckten Geschossseiten zeigen den eingestellten Winkel.' },
+          { kind: 'note', text: '**Wie herum steht das Gebäude?** Ein Tipp auf den **Nordpfeil** oben rechts auf dem Geschoss-Stapel öffnet das kleine Fenster «Gebäude drehen»: ein Regler **Drehung** mit Vorschau, dazu **Norden oben** und **Auf Längsachse drehen** als je ein Tipp. Der Umriss dreht sich mit, die Markierungen bleiben, wo sie am Gebäude liegen – und die gedruckten Geschossseiten zeigen den eingestellten Winkel.' },
         ],
       },
       {
@@ -370,6 +384,7 @@ export const de = {
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
             'Kontaktperson und Rückmeldung ELZ haben am Ende der Zeile ein **Entfällt** – für den Fehlalarm oder die Ölspur, wo es beides nicht gibt. Das ist eine Antwort, keine Übergehung: sie wird festgehalten und steht so im Rapport.',
             '**Einsatz abschliessen** schliesst den Einsatz ab und hält das Einsatzende fest. Fotos und Sprachnotizen, die noch nicht hochgeladen sind, werden vorher gesendet; geht das nicht (offline), **bleiben sie gespeichert** und gehen beim nächsten Öffnen raus – die Bestätigung sagt, wie viele.',
+            '**Weitergeben** (unten im Rapport, und im Einsatz-Menü unter **Einsatz teilen**): ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. Nur lesen, kein Login, nichts lässt sich ändern. Für Zentrale, EL und Nachbarwehr mitten im Einsatz – und für Gemeinde und Nachbarwehr danach: er gilt über den Abschluss hinaus, bis ihn jemand aufhebt.',
           ] },
           { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** – spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
         ],
@@ -414,19 +429,19 @@ export const de = {
             'Ein Finger schiebt die Karte/den Plan; zwei Finger zoomen (Pinch).',
             'Nochmals auf **Auswahl** tippen schaltet den Knopf auf **Mehrfach**: ein gezogener Rahmen wählt mehrere Objekte; ausgewählte Objekte verschiebt man durch Ziehen.',
           ] },
-          { kind: 'sub', text: 'Maus' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Maus', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             'Scrollen zoomt; **Rechtsklick** (oder langes Tippen) auf einen Mess-/Linienpunkt entfernt ihn, Klick auf eine Linie fügt einen Zwischenpunkt ein.',
           ] },
-          { kind: 'sub', text: 'Tasten' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Tasten', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             '[[Esc]] bricht das aktive Werkzeug ab bzw. hebt die Auswahl auf.',
             '[[Entf]] / [[Backspace]] löscht die Auswahl (nicht beim Tippen in ein Feld).',
           ] },
           { kind: 'sub', text: 'Beschriftete Leisten' },
           { kind: 'list', items: [
-            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Wörter** schreibt unter jedes Zeichen der beiden Leisten sein Wort. Für alle, die die Symbole noch nicht auswendig kennen – die Leiste wird dafür etwas breiter, und «Ausklappen» braucht es dann nicht mehr.',
-            'Ohne diese Einstellung bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
+            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Ein** schreibt unter jedes Zeichen der beiden Leisten sein Wort. Für alle, die die Symbole noch nicht auswendig kennen – die Leiste wird dafür etwas breiter, und «Ausklappen» braucht es dann nicht mehr. Auf dem **Telefon** ist sie von Anfang an ein.',
+            'Ist sie aus, bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
             'Überall sonst gilt: einen Knopf, auf dem nur ein Zeichen steht, **gedrückt halten** – nach einem kurzen Moment steht sein Wort als Blase darüber, auf Touch mit einem kurzen Summen. Das Loslassen löst den Knopf dabei **nicht** aus: fragen, was etwas ist, darf es nicht gleich auch tun. An der Maus genügt Draufzeigen.',
           ] },
           { kind: 'sub', text: 'Tag / Nacht' },
@@ -675,7 +690,6 @@ export const de = {
   hoseHint: '~{n} Schläuche',
   noHistoryRows: 'Noch keine Ereignisse erfasst.',
   symbolSearchPlaceholder: 'Suchen …',
-  noSymbolMatches: 'Keine Treffer',
   closeDialog: 'Schliessen',
   sheetGrip: 'Detailhöhe anpassen',
   edit: 'Bearbeiten',
@@ -764,7 +778,17 @@ export const de = {
     pendenz: 'die Pendenz',
   },
   play: 'Abspielen',
-  clear: 'Suche löschen',
+  // The ✕ that EMPTIES a field (29.09.2026): «leeren», never «löschen» — «löschen» is the delete
+  // verb (records are «gelöscht», removalWords.test), and this ✕ deletes nothing. ONE key for the
+  // bare word, one for the search, one template for a named field («Bemerkung leeren»); the
+  // four «Suche löschen» copies (help/anwesenheit/mittel/top) are gone.
+  clear: 'Leeren',
+  clearSearch: 'Suche leeren',
+  clearField: '{field} leeren',
+  // THE «no hits» line (29.09.2026) — says what was searched; a list keeps a noun of its own only
+  // where the noun helps («Kein Trupp gefunden»). Drawn as `.no-hits` (13-incident.css).
+  noHits: 'Keine Treffer für «{q}».',
+  savedLive: 'Alles wird laufend gespeichert.',
   // kind drives how the tool-rail button reads & behaves:
   //   'tool'   — modal, sticky (flat, lights up while active)
   //   'action' — one-shot, fires & gives toast feedback (push-button look)
@@ -851,6 +875,10 @@ export const de = {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
+    /** …per input mode, because the two take different gestures: «Freihand» draws only with a
+     *  drag (a tap does nothing), «Punkte» only with taps and ✓. */
+    lineFreehand: 'Auf der Karte ziehen, um eine Linie zu zeichnen. Für einzelne Punkte: «Punkte». Farbe, Breite und Stil danach im Editor.',
+    lineNodes: 'Punkte auf die Karte tippen, mit ✓ abschliessen. Farbe, Breite und Stil danach im Editor.',
     // ONE line for the armed mode, on the phone dock itself (ToolDock · hint) — the text above
     // stays behind ⓘ
     lineFreeShort: 'Mit dem Finger über die Karte ziehen',
@@ -898,13 +926,16 @@ export const de = {
     addressPlaceholder: 'Strasse Nr, PLZ Ort',
     addressSearching: 'Wird gesucht …',
     addressNoHits: 'Keine Adresse gefunden',
-    objectButton: 'Objekt aus Feuerwehrplänen',
+    // «Aus Plänen» · «Auf Karte» (27.09.2026, slim sweep · mockup 4a): the app's last two-line
+    // buttons. The verb «setzen» is where the buttons sit (under the address); «Feuerwehrpläne»
+    // is the only source of objects the app has, and the list that folds open says so.
+    objectButton: 'Aus Plänen',
     objectSearchPlaceholder: 'Objekt oder Adresse suchen …',
     objectNear: 'In der Nähe',
     objectNoHits: 'Keine Objekte gefunden',
     objectPlans: (n: number) => (n === 1 ? '1 Plan' : `${n} Pläne`),
     objectNoPlans: 'keine Pläne',
-    mapPickButton: 'Auf Karte setzen',
+    mapPickButton: 'Auf Karte',
     hereButton: 'Hier',
     hereFailed: 'Standort nicht verfügbar',
     coordSet: 'Koordinate gesetzt',
@@ -919,8 +950,9 @@ export const de = {
     categoryLabel: 'Kategorie',
     // Übungen stay fully operable, but do not feed the statistics and are the only ones
     // that can be deleted (Alle Einsätze)
-    exerciseToggle: 'Übung – zählt nicht zur Einsatzstatistik',
-    detailsLabel: 'Meldungstext (optional)',
+    // an OnOff row since 28.09.2026: the name on the row, the consequence under it
+    exerciseLabel: 'Übung',
+    exerciseSub: 'Zählt nicht zur Einsatzstatistik',
     // «Hier» moves the Einsatzort to the device's location. On a running Einsatz it always asks
     // first – the form is usually opened in the Magazin to correct an address, and a mis-tap
     // takes the map, the Kroki, the tile stock and the Objektpläne along with it.
@@ -939,7 +971,6 @@ export const de = {
     errorUpdate: 'Aktualisierung fehlgeschlagen',
     // --- edit mode + result toasts ---
     editTitle: 'Einsatzdaten bearbeiten',
-    back: 'Zurück',
     save: 'Speichern',
     saving: 'Speichert …',
     created: 'Einsatz erstellt',
@@ -1251,8 +1282,10 @@ export const de = {
       fire: { title: 'Gelöscht', inline: 'gelöscht' },
       other: { title: 'Erledigt', inline: 'erledigt' },
     },
-    /** die Aktion oben im Symbol-Editor – die Worte der Entscheidung, für jede Familie gleich */
-    action: 'Gelöscht / erledigt',
+    /** die Kachel im Fuss des Symbol-Editors – EIN Wort für jede Familie (D8, 27.09.2026: das
+     *  Feuer ist gelöscht, das Symbol erledigt; der Doppelname «Gelöscht / erledigt» war die
+     *  Brücke vom alten «Löschen» und ist gefallen). `actionHint` ist ihr title. */
+    action: 'Erledigt',
     actionHint: 'bleibt grau sichtbar',
     /** der gesetzte Zustand im Editor und auf dem Rapport: «Erledigt 20:40» */
     state: '{word} {time}',
@@ -1317,7 +1350,10 @@ export const de = {
     stripLabel: 'Zeitstrahl – tippen, um zur passenden Stelle zu springen',
     replayHint: 'Karte und Plan zu einem früheren Zeitpunkt abspielen',
     // composer
-    composerTitle: 'Journaleintrag',
+    // «Verlauf» is the place, «Eintrag» the thing, on every screen (29.09.2026): the door says
+    // «Eintrag», the list «Verlauf» — «Journaleintrag» was a third word for the same row.
+    // «Einsatzjournal» survives only as the PRINTED section's name (report · journal).
+    composerTitle: 'Neuer Eintrag',
     textPlaceholder: 'Was ist passiert? Meldung, Beobachtung, Entscheid …',
     record: 'Aufnehmen',
     recordStop: 'Aufnahme stoppen',
@@ -1423,7 +1459,7 @@ export const de = {
     detailSource: 'Quelle',
     // …written by hand vs. logged by the app. The second is why the pen is missing on that row,
     // so the sheet says it rather than leaving an operator tapping a button that is not there.
-    detailSourceManual: 'Journal · von Hand erfasst',
+    detailSourceManual: 'Von Hand erfasst',
     detailSourceSystem: 'Von der App erfasst',
     detailSourceSystemHint: 'Systemzeilen sind nicht bearbeitbar',
     detailAttachments: 'Beilagen',
@@ -1500,7 +1536,7 @@ export const de = {
     // keeps `entryTypes` — an invisible character has no business in the row's own text.
     entryTypesWrap: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofort­massnahme' } as Record<string, string>,
     send: 'Erfassen',
-    saved: 'Journaleintrag erfasst',
+    saved: 'Eintrag erfasst',
     // audio-note transcript editing (Verlauf row)
     transcriptPlaceholder: 'Transkript ergänzen',
     transcriptSave: 'Speichern',
@@ -1735,8 +1771,9 @@ export const de = {
     // Sync-/Uhr-Status im Tafelkopf (Sicherheitsreview 01.09.): die EINE Fläche, an der ein
     // Leben hängt, sagt selbst, ob ihr Stand gesichert und ihre Uhr richtig ist. Leise reicht
     // incidentSwitcher.savedAt; laut trägt der Chip das Kurzlabel des Zustands plus, wie alt
-    // der letzte gesicherte Stand ist.
-    syncStand: '{status} – Stand {t}',
+    // der letzte gesicherte Stand ist. Kurz (25.09.2026): der Kopf ist auf dem Telefon EINE Zeile,
+    // «– Stand» schnitt dort den Chip ab; der ganze Satz steht im title/aria-label.
+    syncStand: '{status} · {t}',
     // Geräteuhr-Chip (>3 Min. Abweichung, CLOCK_SKEW_WARN_MIN): jede Kontaktuhr auf der Tafel
     // ist Date.now() dieses Geräts. {d} trägt das Vorzeichen (+ = Gerät geht vor); die
     // Langfassung (Tooltip) ist incidentSwitcher.clockSkewToast – gleiche Formulierung wie die
@@ -1748,7 +1785,9 @@ export const de = {
     // «in den Einsatz», nie «einrücken» (09.09.) – siehe die Notiz bei entryAskTitle
     formRedeployTitle: 'Wieder in den Einsatz',
     sectionTeam: 'Trupp',
-    auftragLabel: 'Art',
+    // «Auftrag» über den sechs Kacheln (27.09.2026, slim sweep 6) – nicht mehr «Art»: das Wort stand
+    // direkt unter «Art des Trupps», und die Karte sagt schon «Auftrag» (editFieldLabels)
+    auftragLabel: 'Auftrag',
     auftragOpen: 'Auftrag offen',
     // DISPLAY labels for the Auftrag types, keyed by the auftrag `id`. ONE flat map over BOTH
     // lists (appConfig.atemschutz.auftrag = unter Atemschutz, .auftragEinfach = ohne) — which is
@@ -1785,13 +1824,16 @@ export const de = {
       wbk: 'WBK',
       multiwarn: 'MW',
     } as Record<string, string>,
-    zielLabel: 'Auftrag / Ziel',
+    // «Ziel» (27.09.2026, slim sweep 6): der Auftrag ist die Kachelzeile darüber, das Feld ist das
+    // Ziel – wie auf der Karte und im Auftrag-Sheet (editFieldLabels.ziel)
+    zielLabel: 'Ziel',
     // EIN Platzhalter für jede Art – bis 03.09. stand hier «z. B. 2OG links» und nur bei Art
     // «Anderes» der allgemeine Satz. Ein Stockwerk ist Atemschutz-Vokabular: unter Art «Verkehr»
-    // oder «Sanität» schlug das Beispiel einen Ort vor, den es dort gar nicht gibt. Der
-    // allgemeine Satz stimmt für beide Arten von Trupp und für jeden Eintrag beider Auftragslisten.
-    zielPlaceholder: 'Auftrag beschreiben',
-    zielClear: 'Auftrag / Ziel löschen',
+    // oder «Sanität» schlug das Beispiel einen Ort vor, den es dort gar nicht gibt. «Wo / was …»
+    // stimmt für beide Arten von Trupp und für jeden Eintrag beider Auftragslisten – und fragt
+    // nicht mehr, den Auftrag zu beschreiben, der gerade gewählt wurde.
+    zielPlaceholder: 'Wo / was …',
+    zielClear: 'Ziel leeren',
     // Order of the cards on the board. Überfällige Trupps ALWAYS sit at the top – that is not a
     // setting, it is the reason this board exists.
     orderLabel: 'Reihenfolge',
@@ -1809,7 +1851,6 @@ export const de = {
     // fields could name a Trupp but not rearrange it: whoever was typed first was Gruppenführer
     // forever. The star is the correction, and it costs one tap.
     teamSearchPlaceholder: 'Person suchen …',
-    teamNoMatches: 'Kein Treffer',
     /* ── Die Chip-Zeile (nur Telefon, 05.09.) ───────────────────────────────────────────────
      * Auf 375px kosteten drei aufklappende Slot-Zeilen plus eine dauernd sichtbare
      * Mannschaftsliste die halbe Form. Der Trupp ist dort EINE umbrechende Chip-Zeile, und die
@@ -1850,9 +1891,12 @@ export const de = {
     teamGuestAdd: '«{name}» als Gast hinzufügen',
     // Leitung: the same number as on the drawn Leitung (Karte/Plan) — that is how Trupp and
     // Schlauchleitung find each other, without anybody typing anything twice.
-    lineNoLabel: 'Leitung Nr.',
+    // «Leitung» über den Chips «keine · Ltg 1 · …» (27.09.2026; vorher «Leitung Nr.» über einem
+    // Stepper mit «Gezeichnet:»-Zeile) – dieselben Chips wie im Auftrag-Sheet (lineNone / lineChip)
+    lineNoLabel: 'Leitung',
     lineLegacyNote: 'Früher erfasst: «{value}»',
-    lineOptsLabel: 'Gezeichnet:',
+    // der letzte Chip: eine Nummer, die noch nicht gezeichnet ist, tippt man im alten Stepper ein
+    lineTyped: 'Nr. …',
     lineTakeTitle: 'Leitung {n} ist vergeben',
     lineTakeMsg: 'Auf Leitung {n} ist Trupp {from}. Neu Trupp {to} darauf?',
     lineTakeConfirm: 'Übernehmen',
@@ -1939,11 +1983,13 @@ export const de = {
     // später über «Bearbeiten»; die Karte führt die Lücke als «Auftrag offen». Nur «Anderes»
     // braucht sein Wort, weil die Kachel allein nichts sagt.
     auftragMissingHint: 'Auftrag fehlt – der Trupp wird mit «Auftrag offen» angemeldet.',
-    saveBlockedAuftrag: '«Anderes» braucht einen Auftrag/Ziel-Text.',
+    saveBlockedAuftrag: '«Anderes» braucht ein Ziel.',
     saveBlockedPressure: 'Eingangsdruck fehlt.',
     cancel: 'Abbrechen',
     save: 'Speichern',
-    start: 'Trupp anmelden',
+    // der Fuss des Formulars: ein Verb – der Titel «Trupp anmelden» steht darüber (27.09.2026);
+    // der Knopf auf der leeren Tafel sagt weiter newTrupp
+    start: 'Anmelden',
     reenterSubmit: 'Im Einsatz',
     // Second path when re-entering: new cylinder, new Auftrag, but not under PA yet – the Trupp
     // waits as a Sicherungstrupp and is started later with «Im Einsatz».
@@ -2108,6 +2154,26 @@ export const de = {
     actRueckzug: 'Rückzug melden',
     actContinue: 'Fortsetzen',
     actExit: 'Raus melden',
+    /* ⚠️ Die KACHELN der Handy-Karte (26.09.2026, phone card slim-down): nur das Verb, ohne
+     * «melden» – die aufgeklappte Karte sagt «Rückzug · Raus» neben «Kontakt» und dem Druck, und
+     * vier Kacheln nebeneinander tragen keine zwei Wörter. Die Langformen (`actRueckzug`,
+     * `actExit`) bleiben der Tablet-Karte, dem Bestätigungsdialog («Raus melden» als sichere
+     * Antwort) und dem Screenreader-Namen der Kachel. */
+    tileRueckzug: 'Rückzug',
+    tileExit: 'Raus',
+    /* ── Die Mini-Sheets der Handy-Karte (26.09.2026, phone card slim-down; components/TruppSheets) ──
+     * Ein Chip auf der Karte öffnet EIN kurzes Sheet für genau diese Angabe. Titel sind die
+     * bestehenden Feldnamen (`editFieldLabels`, `funkkanalUnit`); hier nur, was es dort noch nicht gab. */
+    // die zweite Titelzeile: «Hirter Stephan · Trupp 2» – wessen Sheet über der abgedunkelten Tafel steht
+    quickTrupp: 'Trupp {no}',
+    // das Kanal-Pad hat kein Speichern – der eine Satz sagt, dass ein Tipp wählt und schliesst
+    kanalSheetHint: 'Antippen wählt und schliesst.',
+    // die Leitung-Chips: «keine · Ltg 1 · Ltg 2 …»
+    lineNone: 'keine',
+    lineChip: 'Ltg {n}',
+    // der gestrichelte Chip auf der Handy-Karte, wo der Auftrag fehlt (die Tablet-Kennzeile behält
+    // «Auftrag offen»); das «+» gehört zum Wort – ein Chip, der etwas hinzufügt
+    auftragAdd: '+ Auftrag',
     // ⚠️ APP ONLY (09.09., Feldtest) – ein Trupp ohne Atemschutz meldet einen erledigten Auftrag,
     // keinen Funkkontakt. Die ausgehändigte Link-Tafel bleibt bei «Raus melden», für JEDEN
     // Trupp: das ist der eine Bildschirm, den eine externe Person bekommt, und er darf nicht
@@ -2364,27 +2430,24 @@ export const de = {
       + 'und im Rapport.',
     kindOffConfirm: 'Überwachung beenden',
     logExit: 'Trupp {name}: Austritt',
-    /* ── Handy-Tafel und Druckwahl (24.09.2026, Übung 23.09. – siehe AtemschutzView · PressureSheet) ── */
+    /* ── Handy-Tafel und Druckwahl (24.09.2026, Übung 23.09. – siehe TruppSheets · PressureSheet; Kopf seit 29.09.2026 = die Frage + «Name · Trupp N») ── */
     logExitBar: 'Trupp {name}: Austritt – Restdruck {bar} bar',
     actPressure: 'Druck',
-    pressureSheetTitle: '{name} · Druck',
-    pressureSheetLast: 'Zuletzt {bar} bar',
+    pressureSheetTitle: 'Druck',
     pressureSheetHint: 'Tippen speichert – zählt als Kontakt.',
-    exitSheetTitle: '{name} · raus',
-    exitSheetHint: 'Restdruck des Trupps (tiefster Wert der Mannschaft)',
+    exitSheetTitle: 'Restdruck',
+    exitSheetHint: 'Tippen meldet raus – tiefster Wert der Mannschaft.',
     exitNoBar: 'Ohne Druck raus',
     phoneSectionIn: 'Drin',
     phoneSectionReady: 'Bereit',
     phoneSectionOut: 'Draussen',
     safetyTitle: 'Sicherungstrupp',
     safetyDeploy: 'Einsetzen',
-    safetyNone: 'Kein Sicherungstrupp',
-    safetyNoneHint: 'Ein Trupp ist drin',
-    safetyNoneHintMany: '{n} Trupps sind drin',
+    // «Bestimmen» am Abschnittskopf SICHERUNGSTRUPP (26.09.2026, phone card slim-down) – der
+    // gestrichelte Kasten «Kein Sicherungstrupp · Ein Trupp ist drin» ist weg; der Kopf steht wie
+    // DRIN/DRAUSSEN, und der leere Abschnitt IST die Aussage
     safetyPick: 'Bestimmen',
     /* ── Handy-Tafel, zweite Runde (24.09.2026, D1 ⑥ ⑦ ⑧a, Punkt 2) ─────────────────────────── */
-    // der leere Platz, solange noch niemand drin ist – ruhig, nicht amber
-    safetyNoneExpected: 'Ab dem 1. Trupp drin wird er erwartet',
     // «Bestimmen» mit bereiten Trupps: einen davon nehmen oder einen neuen anmelden
     safetyPickTitle: 'Sicherungstrupp bestimmen',
     safetyPickNew: 'Neuen Trupp anmelden (Sichern)',
@@ -2410,8 +2473,6 @@ export const de = {
     pressureSheetFirst: 'Erste Druckmeldung – ersetzt den Eingangsdruck {bar} bar, zählt als Kontakt',
     // der Knopf im Kopf der Tafel trägt auch am Handy sein Wort
     newTruppShort: 'Trupp',
-    // kleine Marke am Sicherungstrupp, auch nachdem er eingesetzt ist
-    safetyChip: 'SiTr',
     /* ── Staging-Durchgang 2, 25.09.2026 ── */
     // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, AGENTS.md)
     removedToast: 'Trupp {name} entfernt',
@@ -2875,7 +2936,7 @@ export const de = {
     // Übernehmen weg – lieber laut gesagt als stillschweigend aus der Auswahl genommen.
     osmPickMissing: 'Umrisse des bestehenden Gebäudes fehlen hier ({n}) – sie fallen beim Übernehmen weg.',
     osmTransfer: 'Übernehmen ({n})',
-    osmClear: 'Auswahl löschen',
+    osmClear: 'Auswahl leeren',
     addFloorUp: 'Obergeschoss hinzufügen',
     noFloorPlan: 'Kein Geschossplan',
     stairTo: 'Weiter zu {floor}',
@@ -2887,6 +2948,9 @@ export const de = {
     // the toast and ↶ of «+ OG / + UG», naming the storey (its Verlauf row comes with #226)
     floorAddedToast: '{floor} hinzugefügt',
     floorHide: 'Geschoss ausblenden',
+    // the storey label's menu (29.09.2026, sweep K5): «Ausblenden · Geschoss entfernen»
+    floorHideShort: 'Ausblenden',
+    floorMenu: '{name}: ausblenden oder entfernen',
     floorShow: 'einblenden',
     floorHidden: 'ausgeblendet',
     removeFloor: 'Geschoss entfernen',
@@ -3051,13 +3115,19 @@ export const de = {
     captionAll: 'Alle',
     notes: 'Notizen',
     notesPlaceholder: 'Allgemeine Notizen …',
+    /** the «+ Feld» tile's label (aria/title) and its word */
     addField: 'Feld hinzufügen',
+    addFieldShort: 'Feld',
     removeField: 'Feld löschen',
-    // ⇄ between the Einsatzleiter glyph's two rows. Says what HAPPENS, not what the button is:
-    // an Ablösung is «übergeben», and both Anwesenheits-Bemerkungen follow the swap by themselves.
-    swapEl: 'Führung übergeben (EL ⇄ Stv.)',
+    // the ⇄ square at the end of the Einsatzleiter glyph's EL row (title/aria). Says what HAPPENS,
+    // not what the button is: an Ablösung is «übergeben», and both Anwesenheits-Bemerkungen follow
+    // the swap by themselves.
+    swapEl: 'Führung übergeben',
     fieldKeyPlaceholder: 'Bezeichnung',
-    fieldValuePlaceholder: 'Wert',
+    /** an empty box (27.09.2026 — it said «Wert»): a person field asks for a name, any other
+     *  repeats its own label ({label}) with an ellipsis */
+    fieldNamePlaceholder: 'Name …',
+    fieldValuePlaceholder: '{label} …',
     // ⚠️ A field whose value needs a UNIT has to say so in the box. «Kapazität: 80» is ambiguous
     // between litres and cubic metres on the one number a Wasserversorgung is planned from —
     // and the placeholder is the cheapest place to settle it, since it costs nothing to ignore.
@@ -3335,7 +3405,6 @@ export const de = {
     // commit row mirrors «als Gast hinzufügen» — short, because long values ellipsize.
     searchOrType: 'Suchen oder eingeben …',
     useTyped: '«{name}» verwenden',
-    noMatches: 'Kein Treffer',
   },
   // Login gate (face picker + PIN pad)
   demo: {
@@ -3416,7 +3485,7 @@ export const de = {
   symbols: {
     loadFailedTitle: 'Symbolbibliothek konnte nicht geladen werden',
     loadFailedSub: 'Karte und Kroki laufen ohne Symbolgrafiken weiter',
-    retry: 'Nochmals laden',
+    retry: 'Erneut versuchen',
     dismiss: 'Ausblenden',
   },
   // PWA update prompt (UpdateBanner). A new build installs and waits (registerType 'prompt')
@@ -3600,8 +3669,6 @@ export const de = {
     symbolCaptionsSub: 'Kennwert unter dem Symbol',
     railLabels: 'Beschriftung der Werkzeugleisten',
     railLabelsSub: 'Wort unter jedem Zeichen in den beiden Leisten',
-    railLabelsOff: 'Aus',
-    railLabelsOn: 'Wörter',
     captionsOff: 'Aus',
     captionsAuto: 'Auto',
     captionsAll: 'Alle',
@@ -3611,19 +3678,13 @@ export const de = {
     // only). Two states — see lib/prefs · offlineAuto for why there is no «nur WLAN» tier.
     offlineAuto: 'Offline-Vorbereitung',
     offlineAutoSub: 'Lädt Karte und Pläne kurz nach dem Öffnen des Einsatzes automatisch herunter',
-    offlineAutoOn: 'Automatisch',
-    offlineAutoOff: 'Nur manuell',
     keepScreenOn: 'Bildschirm eingeschaltet lassen',
     keepScreenOnSub: 'Verhindert das Abdunkeln während des Einsatzes',
-    keepScreenOnOn: 'Ein',
-    keepScreenOnOff: 'Aus',
     // Used to be called «Einsatzleiter-Ansicht»: the mode locks the tactical layer and names no
     // role – Kdt, Fourier and whoever reads along on the beamer use it just the same. The code
     // identifier stays `elView` so stored device settings keep working.
     elView: 'Führungsansicht',
-    elViewSub: 'Sperrt die taktische Bearbeitung – Journal & Symbol-Details bleiben verfügbar',
-    elViewOn: 'Ein',
-    elViewOff: 'Aus',
+    elViewSub: 'Sperrt die taktische Bearbeitung – Verlauf & Symbol-Details bleiben verfügbar',
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
     incidentGroup: 'Einsatz',
     contactInterval: 'Atemschutz-Funkkontakt',
@@ -3787,7 +3848,7 @@ export const de = {
     // Diagnose. Bewusst ohne «Nochmals»: dieselben 404 kämen wieder.
     dlNoCoverage: 'Nichts geladen – die Kartenquelle kennt dieses Gebiet nicht. Kartenebene bzw. Kachel-URL prüfen.',
     dlContinue: 'Weiterladen',
-    dlRetry: 'Nochmals',
+    dlRetry: 'Erneut versuchen',
     dlFailed: 'Offline-Download fehlgeschlagen',
   },
   // App empty state — shown when no incident is open (viewer vs. editor variants)
@@ -3837,7 +3898,7 @@ export const de = {
     filterRecorded: 'Erfasste {n}',
     back: 'Zurück',
     alarmedAt: 'Alarm {t}',
-    saveFailed: 'Speichern fehlgeschlagen – nochmals versuchen',
+    saveFailed: 'Speichern fehlgeschlagen',
     saveFailedOffline: 'Kein Empfang – die letzte Änderung wurde nicht gespeichert.',
     retry: 'Erneut versuchen',
     savedOk: 'Gespeichert',
@@ -3858,6 +3919,9 @@ export const de = {
     partnerOrg: 'Organisation',
     partnerNote: 'Bemerkung',
     partnerAdd: 'Organisation hinzufügen',
+    // the field's placeholder — the verb is the «+» beside it (27.09.2026, slim sweep · mockup 5:
+    // «hinzufügen» rows lose the word; partnerAdd stays the name of the button and the field)
+    partnerPlaceholder: 'Organisation …',
     partnerRemove: 'Organisation entfernen',
     // header of the collapsible sections — says while collapsed whether anything is in there yet
     partnerCount: '{n} erfasst',
@@ -3906,7 +3970,7 @@ export const de = {
     add: 'Hinzufügen',
     notePlaceholder: 'Notiz für den Verlauf …',
     footNote: 'Alles wird laufend gespeichert.',
-    loadFailedOffline: 'Kein Empfang – bitte nochmals versuchen.',
+    loadFailedOffline: 'Kein Empfang',
     clockSkew: 'Die Uhr dieses Geräts weicht um {n} Minuten ab – erfasste Zeiten prüfen.',
     searchMaterial: 'Material suchen …',
     // Cross-visibility QR ↔ KP: the live-dot line in the capture header once the KP tablet
@@ -3937,15 +4001,15 @@ export const de = {
     pendingTitle: 'Einsatz noch nicht verfügbar',
     pendingHint: 'Der Alarm ist eben erst eingetroffen. Wird automatisch nochmals versucht …',
     notReadyTitle: 'Dieser Einsatz ist nicht abrufbar.',
-    notReadyHint: 'Der Link gilt nur, solange der Einsatz läuft. Falls der Alarm eben erst kam: nochmals versuchen. Sonst bei der Einsatzleitung melden.',
+    notReadyHint: 'Der Link gilt nur, solange der Einsatz läuft. Kam der Alarm eben erst, ist der Einsatz vielleicht noch nicht bereit – sonst bei der Einsatzleitung melden.',
     invalidTitle: 'Dieser Link gilt nicht mehr.',
     invalidHint: 'Öffne den Link direkt aus der aktuellen Alarmmeldung.',
     disabledTitle: 'Einsatz-Links sind bei dieser Feuerwehr nicht freigeschaltet.',
     disabledHint: 'Die Einsatzleitung kann sie in der Konfiguration aktivieren.',
     offlineTitle: 'Kein Empfang',
-    offlineHint: 'Ohne Verbindung lässt sich der Einsatz nicht öffnen. Sobald du wieder Empfang hast: nochmals versuchen.',
+    offlineHint: 'Ohne Verbindung lässt sich der Einsatz nicht öffnen.',
     errorTitle: 'Der Server antwortet nicht.',
-    errorHint: 'Bitte nochmals versuchen. Bleibt es dabei: bei der Einsatzleitung melden.',
+    errorHint: 'Bleibt es dabei: bei der Einsatzleitung melden.',
     retry: 'Erneut versuchen',
     // an Atemschutz-Link reloaded while its Einsatz is closed (staging r6, F2): the page asks
     // once a minute and opens the board by itself after «Wieder öffnen»
@@ -4043,8 +4107,6 @@ export const de = {
     settingsLabel: 'Standort verwenden',
     settingsHint: 'Erlaubt diesem Gerät, deinen Standort zu verwenden. Geteilt wird erst, wenn du es auf der Karte einschaltest.',
     settingsAs: 'Als {name}',
-    settingsOn: 'Erlaubt',
-    settingsOff: 'Aus',
   },
   // Anwesenheit list: live position next to the name. Deliberately neutral – far away is the
   // normal case (Wassertransport), not a warning.
@@ -4058,7 +4120,10 @@ export const de = {
   incidentSwitcher: {
     noIncident: 'Kein Einsatz',
     savedAt: 'Gespeichert um {t}',
-    startedRow: 'Einsatzbeginn {t} · {d}',
+    // the card's clock pill (27.09.2026, slim sweep · mockup 10): the glyph is the label, the
+    // full sentence is its title (startedFull)
+    startedRow: '{t} · {d}',
+    startedFull: 'Einsatzbeginn {t} · {d}',
     saved: 'Gespeichert',
     badgePending: 'Nicht synchronisiert – wird gespeichert',
     badgeOffline: 'Offline – lokal gespeichert, wird synchronisiert sobald wieder verbunden',
@@ -4177,7 +4242,6 @@ export const de = {
     emptySub: 'Eröffnete und abgeschlossene Einsätze erscheinen hier.',
     noLocation: 'ohne Ort',
     searchPlaceholder: 'Einsatz suchen …',
-    noMatches: 'Keine Treffer.',
     groupOpen: 'Offen',
     groupToday: 'Heute',
     groupWeek: 'Letzte 7 Tage',
@@ -4186,8 +4250,6 @@ export const de = {
     reactivateConfirmMsg: 'Der Einsatz wird wieder geöffnet und ist bearbeitbar. Spätere Änderungen erscheinen im Verlauf und Rapport als Nachträge.',
     reactivateConfirmBtn: 'Wieder öffnen',
     statusArchived: 'Abgeschlossen',
-    statusOpen: 'Offen',
-    statusInProgress: 'In Arbeit',
     archiveConfirmTitle: 'Einsatz abschliessen',
     archiveConfirmMsg: 'Der Einsatz wird abgeschlossen und das Einsatzende festgehalten. Spätere Ergänzungen erscheinen im Verlauf und Rapport als Nachträge.',
     archiveConfirmBtn: 'Abschliessen',
@@ -4216,12 +4278,13 @@ export const de = {
     },
     ausgerueckt: 'Ausgerückt',
     ende: 'Einsatzende',
-    personen: '{n} erfasst',
+    // «anwesend», the word the chooser and the Anwesenheit head use for this count (29.09.2026) —
+    // «erfasst» beside «anwesend» read as two different numbers
+    personen: '{n} anwesend',
     von: 'von',
     bis: 'bis',
     mittelCount: '{n} Positionen',
     mittelNone: 'Nichts verwendet',
-    mittelNoneOn: 'Nichts verwendet ✓',
     complete: 'Einsatz abschliessen',
     backToRapport: 'Zurück zum Rapport',
     confirmTitle: 'Einsatz abschliessen',
@@ -4440,7 +4503,6 @@ export const de = {
     minute: 'Minute',
     now: 'Jetzt',
     ok: 'OK',
-    clear: 'Löschen',
   },
   preflight: {
     pdfFull: 'Einsatzrapport (PDF)',
@@ -4651,6 +4713,9 @@ export const de = {
     partnerNoteShort: 'Bemerkung',
     partnersNone: 'keine erfasst',
     partnerAdd: 'Organisation hinzufügen',
+    // the field's placeholder — the verb is the framed «+» beside it (27.09.2026, slim sweep ·
+    // mockup 5); partnerAdd stays the accessible name of both
+    partnerPlaceholder: 'Organisation …',
     // Ein «Bereich Polizei» auf dem Kroki ist bereits die Antwort auf «war die da?» – der
     // Streifen sagt, was auf der Karte steht, und kreuzt die Zeilen erst auf Tipp an. Gleiche
     // Form und gleiches Versprechen wie bei den Geretteten (geretteteLageStrip): der Rapport
@@ -4677,17 +4742,14 @@ export const de = {
     // Eigene Sektion unter der Checkliste (Entscheid 01.09.). Der Link ist ein Ergebnis des
     // Rapports, kein Häkchen – und die Warnung steht UNTER der Adresse, nicht in einem Tooltip:
     // sie ist das eine, was jemand gelesen haben muss, bevor er ihn verschickt.
-    // ⚠️ Diese zwei Sätze sind die EINZIGE Stelle, an der dieser Link erklärt wird (03.09.) –
-    // seit er auch das kann, wofür es früher einen zweiten «Einsatz-Link» gab. Darum nennen sie
-    // beide Zielgruppen UND beide Zeiträume: mitten im Einsatz und lange danach. Wer nur die
-    // Hälfte liest, greift sonst wieder zum falschen Link – den es nun nicht mehr gibt.
+    // ⚠️ EINE Zeile (29.09.2026): der Reiter sagt schon «lesen»; die fünf Zeilen darunter sagten
+    // es nochmals und schoben «Link erstellen» auf dem Handy unter den Falz – im Teilen-Blatt und
+    // wortgleich in «Weitergeben». Die lange Erklärung (beide Zielgruppen, beide Zeiträume) steht
+    // jetzt in der Hilfe, «Rapport & Abschluss». Vor und nach dem Erstellen derselbe Satz: «bis du
+    // ihn aufhebst» sagt der Knopf «Link aufheben» direkt darunter.
     shareHead: 'Weitergeben',
-    shareLede: 'Ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. '
-      + 'Nur lesen, kein Login, nichts lässt sich ändern. Für Zentrale, EL und Nachbarwehr '
-      + 'mitten im Einsatz – und für Gemeinde und Nachbarwehr danach: er gilt über den '
-      + 'Abschluss hinaus.',
-    shareLiveLede: 'Für Zentrale, EL und Nachbarwehr mitten im Einsatz – und für Gemeinde und '
-      + 'Nachbarwehr danach. Gilt über den Abschluss hinaus, bis du ihn aufhebst.',
+    shareLede: 'Kein Login · gilt auch nach dem Abschluss.',
+    shareLiveLede: 'Kein Login · gilt auch nach dem Abschluss.',
     shareCreate: 'Link erstellen',
     shareBusy: 'Link wird erstellt …',
     // Solange die Antwort noch aussteht: «noch nicht gefragt» ist nicht «gibt es keinen», und
@@ -4699,7 +4761,7 @@ export const de = {
     // längst gab. Also sagt es, was passiert ist, und bietet die Frage nochmals an; erstellt
     // wird erst wieder, wenn die Antwort da ist.
     shareLoadFailed: 'Link konnte nicht geladen werden.',
-    shareRetry: 'Nochmals versuchen',
+    shareRetry: 'Erneut versuchen',
     shareCreateFailed: 'Link erstellen fehlgeschlagen',
     shareCopy: 'Adresse kopieren',
     shareCopied: 'Kopiert',
@@ -4730,19 +4792,21 @@ export const de = {
     // ⚠️ «Link», nie «Code» (02.09.): geteilt wird eine Adresse – QR ist nur einer der Wege,
     // sie aufs andere Gerät zu bringen, und der ganze übrige Abschnitt sagt schon «Link».
     shareKindLabel: 'Was der Link freigibt',
-    shareKindFull: 'Ganzer Einsatz',
-    shareKindFullSub: 'nur lesen',
-    // ⚠️ «Nur Trupps» (04.09.), wie der Bereich jetzt heisst (copy.modes) — der Reiter benennt die
-    // TÜR, und die Tür führt auf die Trupp-Tafel. Was hinter ihr bedient wird, ist trotzdem die
+    // EINZEILIG seit 27.09.2026 (slim sweep, 4b): «Ganzer Einsatz / nur lesen» und «Nur Trupps /
+    // bedienen» waren die einzigen zweizeiligen Segmente der App. Was «Ganzer» und «Nur» trugen,
+    // sagen «lesen / bedienen» deutlicher – ein Schlüssel pro Reiter, der «·» gehört zum String.
+    shareKindFull: 'Einsatz · lesen',
+    // ⚠️ «Trupps» (04.09.), wie der Bereich heisst (copy.modes) — der Reiter benennt die TÜR, und
+    // die Tür führt auf die Trupp-Tafel. Was hinter ihr bedient wird, ist trotzdem die
     // Atemschutzüberwachung, und genau das muss der Lauftext darunter weiterhin sagen: der Link
     // gibt eine Sicherheitsaufgabe aus der Hand, nicht eine Liste.
-    shareKindAtem: 'Nur Trupps',
-    shareKindAtemSub: 'bedienen',
+    shareKindAtem: 'Trupps · bedienen',
     shareAsLede: 'Wer den Link öffnet, sieht nur die Trupp-Tafel dieses Einsatzes – die '
       + 'Atemschutzüberwachung – und bedient sie mit: Trupp anmelden, Kontakt, Druck, Rückzug, '
       + 'Draussen. Keine Karte, kein Verlauf. Gilt, bis der Einsatz abgeschlossen ist.',
-    shareAsLiveLede: 'Gilt, bis der Einsatz abgeschlossen ist – oder bis du ihn aufhebst.',
-    shareAsWarn: 'Was hier eingetragen wird, steht im Atemschutz-Journal des Rapports. Gib den '
+    // «… oder bis du ihn aufhebst» sagt der rote Knopf «Link aufheben» direkt darunter (27.09.2026)
+    shareAsLiveLede: 'Gilt bis zum Abschluss.',
+    shareAsWarn: 'Was hier eingetragen wird, steht im Rapport unter «Atemschutzüberwachung». Gib den '
       + 'Link nur an die Person, die überwacht.',
     // …und heisst wie der Reiter darüber («Nur Trupps»), dieselbe Regel wie bei shareRevokeTitle:
     // ein Name pro Link.
@@ -4774,12 +4838,10 @@ export const de = {
     // more – which is also why there is nothing left to «übernehmen».
     krokiHead: 'Kroki-Ausschnitt',
     framingHint: 'Karte verschieben und zoomen – gedruckt wird genau dieser Ausschnitt.',
-    framingFit: 'Auf Einsatz zoomen',
     // Until 09.08. the crop did not follow along: picked once at 22:20, printed unchanged at
     // 01:30 — with everything added since then outside it, and nobody saying so.
     framingFollows: 'Folgt der Karte',
     framingFollowOn: 'Der Ausschnitt wächst mit der Karte mit. Verschieben schaltet das ab.',
-    framingFollowOff: 'Ausschnitt an die Karte anpassen – und mitwachsen lassen',
     // An arrow instead of zooming out: what lies outside is usually a Hydrant two streets away,
     // and shrinking half the picture for that costs more than it gains.
     framingOutside: '{n} ausserhalb – antippen zum Anpassen',
@@ -4797,7 +4859,13 @@ export const de = {
     // THE chip in the Rapport head (23.09.2026 — the separate «noch offen» chips under the title
     // are gone at every width): what is still open, and the warnings about the record, each
     // counted in its own words (lib/abschlussOpen · controlChipLabel). «Hinweis(e)» said both.
-    controlOpen: '{n} noch offen',
+    // «{n} offen», not «{n} noch offen» (27.09.2026, slim sweep · mockup 2): the number keeps
+    // its unit and nothing else — the chip is amber and counts, «noch» said what amber says.
+    // ONE wording for ONE number: the phone's «Einsatz» tile and the page chooser take the
+    // same words through controlChipLabel, so they lose the «noch» with it.
+    controlOpen: '{n} offen',
+    // the phone's word on the PDF tile («PDF ▾»); the tablet shows pdfFull
+    pdfShort: 'PDF',
     controlHint: '1 Hinweis',
     controlHints: '{n} Hinweise',
     // the heading of the open steps inside the chip's popover
@@ -5006,7 +5074,6 @@ export const de = {
     // Platzhalter sagt das aber NICHT mehr (18.09.): «Suchen …» ist die app-weite Beschriftung
     // jeder Suchzeile, und die Gast-Tür steht als eigene letzte Zeile in der Liste.
     searchPlaceholder: 'Suchen …',
-    clearSearch: 'Suche löschen',
     statusFrei: 'nicht anwesend',
     statusPresent: 'anwesend',
     statusLeft: 'gegangen',
@@ -5025,7 +5092,6 @@ export const de = {
     emptyHint: 'Personal wird in der Verwaltung erfasst oder synchronisiert.',
     emptyHintSync: 'Synchronisiere das Personal aus {provider}.',
     retry: 'Erneut versuchen',
-    noMatches: 'Keine Treffer.',
     // ⚠️ Nennt die TASTE, die den Trupp löst, und zwar wie sie heisst (04.09.). «zuerst Trupp
     // draussen melden» war eine Umschreibung: auf der Tafel steht «Raus melden», und wer eine
     // Anweisung liest, sucht danach das Wort daraus. Auch nicht mehr «Atemschutz-Trupp» – die
@@ -5070,7 +5136,6 @@ export const de = {
     ended: 'beendet',
     // on the head of the Zeitplan card, on hover: it looks like a heading
     flip: 'umschalten',
-    done: 'Fertig',
     // Switch over the same Mannschaft, three views: who is HERE, who can be there WHEN
     // (continuous time, person-major), and who staffs WHICH window (discrete time, Schicht-major).
     // «Anwes.» and not «Anwesenheit»: only abbreviated do three segments fit on 390 px (~278 px
@@ -5284,8 +5349,6 @@ export const de = {
     // Suche + Kategorie-Filter, gebaut wie in der Anwesenheit: eine Zeile über der Liste
     noSource: 'Ohne Zuordnung',
     searchPlaceholder: 'Suchen …',
-    clearSearch: 'Suche löschen',
-    noMatches: 'Keine Treffer.',
     categoryFilterLabel: 'Nach Kategorie filtern',
     categoryAll: 'Alle',
     categoryOther: 'Übrige',
@@ -5341,6 +5404,8 @@ export const de = {
     logSet: '{label}: {menge} {unit}',
     logRemoved: '{label} auf 0 gesetzt',
     logDeleted: '{label} gelöscht',
+    // an un-delete (the removal's «Rückgängig») is its own sentence
+    logRestored: '{label} wiederhergestellt',
     logNote: '{label} – Bemerkung: {note}',
     logStock: '{label} – Bestand: {stock}',
     // Angehängt an eine gesetzte Menge: WOHER die Zahl kommt. Ohne sie sagt die Zeile nur,
@@ -5390,7 +5455,6 @@ export const de = {
     searchPlaceholder: 'Stichwort suchen …',
     searchAria: 'Stichwort suchen',
     matching: 'Passend: {title}',
-    noMatches: 'Keine Treffer.',
     none: 'Keine Checklisten konfiguriert.',
     pickEntry: 'Stichwort wählen oder suchen.',
     // runner
@@ -5403,7 +5467,7 @@ export const de = {
     milestoneTag: 'wird im Verlauf notiert',
     // un-ticking a milestone — by tap or by ↶ — APPENDS this beside the ☑ row (lib/useChecklistActions)
     milestoneUndone: 'Meilenstein zurückgenommen: {text}',
-    actionLabels: { journal: 'Journal', plan: 'Plan', draw: 'Zeichnen' } as Record<string, string>,
+    actionLabels: { journal: 'Verlauf', plan: 'Plan', draw: 'Zeichnen' } as Record<string, string>,
     // reference reader: hazard-colour badge labels
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,
     diagramAlt: 'Diagramm Seite {page}',
@@ -5506,7 +5570,7 @@ export const de = {
       // ⚠️ Kein eigener Menüpunkt mehr – aber `title` benennt weiterhin die Karten- bzw.
       // Journal-Gruppe auf «Station & Karte» und «Rapport» (ConfigSections, ConfigContext).
       karte: { label: 'Karte', title: 'Karte', lede: 'Startansicht der Karte (Zentrum + Zoom), bevor ein Einsatz gewählt ist.' },
-      journal: { label: 'Journal', title: 'Journal', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
+      journal: { label: 'Verlauf', title: 'Verlauf', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
       doktrin: { label: 'Doktrin', title: 'Doktrin', lede: 'FKS-Vorgaben dieser Wehr: Standard-Funkkanal, AGT-Kontaktintervall und Warn-Vorlauf.' },
       rapport: { label: 'Rapport', title: 'Rapport', lede: 'Wie die Einsatzstunden auf dem gedruckten Rapport gerundet werden – und welche eigenen Formulare am Schluss noch auszufüllen sind.' },
       alarme: {
@@ -5595,7 +5659,7 @@ export const de = {
     workbook: {
       covers: 'Enthalten sind acht Blätter: Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen und Symbolfelder – so, wie sie in der Datei heissen.',
       notBackup: 'Das ist keine Sicherung.',
-      notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Journal stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
+      notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Verlauf stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
       carriesNot: 'Nicht enthalten – und absichtlich nicht: Schlüssel und Passwörter, Logos, Objektpläne, Kartenebenen, eigene Formulare und die Alarm-Stichwörter.',
       nameNote: 'Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert; nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – so leert man eine Liste absichtlich. Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt «Mannschaft» fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
       step1Title: 'Herunterladen und einspielen',
@@ -6391,7 +6455,7 @@ export const de = {
       roleEditor: 'Bearbeiter',
       roleEl: 'Einsatzleiter',
       elViewDefault: 'Startet in Führungsansicht',
-      elViewDefaultHint: 'Taktik gesperrt, Journal & Details aktiv – am Gerät umschaltbar',
+      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – am Gerät umschaltbar',
       colorLabel: 'Farbe',
       colorOptional: 'optional',
       pickColor: 'Farbe wählen',
@@ -6426,7 +6490,7 @@ export const de = {
       roleQuestion: 'Was darf {name} im Einsatz?',
       roleQuestionAnon: 'diese Person',
       roleRequired: 'Pflichtangabe',
-      roleEditorMeans: 'Trägt im Einsatz ein: Journal, Anwesenheit, Karte und Rapport.',
+      roleEditorMeans: 'Trägt im Einsatz ein: Verlauf, Anwesenheit, Karte und Rapport.',
       roleElMeans: 'Liest alles mit und führt Anwesenheit, Material, Checklisten und den Rapport – Karte und Pläne bleiben Ansicht.',
       roleViewerMeans: 'Liest nur mit. Kann im Einsatz nichts eintragen – auch die eigene Anwesenheit nicht.',
       roleChangeableHint: 'Beides lässt sich später ändern. Nur nicht mitten im Einsatz, wenn niemand die Verwaltung offen hat.',
@@ -6869,7 +6933,7 @@ export const de = {
       intro: 'Der Server rechnet für jedes Objektblatt voraus, wie es auf der Karte liegt. Erst deine Freigabe macht den Vorschlag für Einsätze verbindlich.',
       loading: 'Wird geladen …',
       refresh: 'Aktualisieren',
-      loadFailed: 'Laden fehlgeschlagen. Nochmals versuchen.',
+      loadFailed: 'Laden fehlgeschlagen',
       unavailableHint: 'Automatische Vorschläge sind auf diesem Server nicht eingerichtet – Ausrichtungen können nur von Hand gesetzt werden.',
       filterLabel: 'Filter',
       openCount: 'Offen ({n})',

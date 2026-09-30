@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CameraView, LngLat } from '../types'
 import { Icon } from '../lib/icons'
@@ -69,18 +69,26 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
   const [editingId, setEditingId] = useState<string | null>(null)
   const isPhone = useIsPhone()
   const commitRename = (id: string, name: string) => { api.onRename(id, name.trim()); setEditingId(null) }
+  // the ⓘ at the end of the last row opens its sentence under that row (DockInfo's inline rule:
+  // the menu has the room, a floating tip would land on the map) — and keeps it in view
+  const [help, setHelp] = useState(false)
+  const helpRef = useRef<HTMLParagraphElement>(null)
+  useLayoutEffect(() => { if (help) helpRef.current?.scrollIntoView?.({ block: 'nearest' }) }, [help])
+  const helpBtn = (
+    <button type="button" className={cx(s.mini, help && s.miniOn)} aria-label={cp.hint} title={cp.hint}
+      aria-expanded={help} onClick={() => setHelp((v) => !v)}><Icon id="info" /></button>
+  )
 
   // No backdrop scrim — exactly like the measure/draw ToolDock: the dock just sits over the map,
   // the map stays fully draggable + clickable underneath, and it closes by tapping the compass
-  // again, the ✕, or activating another tool. (A scrim would swallow map drags/clicks.)
+  // again, a row, or activating another tool. (A scrim would swallow map drags/clicks.)
+  // ⚠️ No ✕ row (29.09.2026, sweep K14): a menu closes on its own tile or on a row, like the
+  // Einsatz menu, which has neither ✕ nor a lone ⓘ tile — the two cost ~120px on a phone.
   return createPortal(
     <>
       {/* same dark dock as the measure/draw ToolDock, in the same spot: centred just left of
-          the right tool rail, ✕ on top, ⓘ at the bottom (see .wb-dock / .wb-dock-map). */}
+          the right tool rail (see .wb-dock / .wb-dock-map); the ⓘ ends the last row. */}
       <div className={cx(s.pop, s.dock, "mv-dock")} role="dialog" aria-label={cp.title}>
-        <div className={s.head}>
-          <button className={s.close} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
-        </div>
         <button className={cx(s.row, s.north)} onClick={() => { api.onResetNorth(); onClose() }}>
           <span className={s.ico}><Icon id="compass" /></span>
           <span className={s.name}>{cp.north}</span>
@@ -163,15 +171,20 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
         {!readOnly && (
           <>
             <div className={s.sep} />
-            <button className={cx(s.row, s.save)} onClick={() => api.onSave()}>
-              <span className={s.ico}><Icon id="plus" /></span>
-              <span className={s.name}>{cp.save}</span>
-            </button>
+            {/* the last row carries the ⓘ at its end (K14) — a row of its own for one icon was
+                44px of menu for nothing */}
+            <div className={s.row}>
+              <button className={s.save} onClick={() => api.onSave()}>
+                <span className={s.ico}><Icon id="plus" /></span>
+                <span className={s.name}>{cp.save}</span>
+              </button>
+              {helpBtn}
+            </div>
+            {help && <p ref={helpRef} className={s.help}>{cp.hint}</p>}
           </>
         )}
-        {/* no separator here on purpose — see .foot in the module CSS: a rule this close to
-            the ⓘ's own padding just doubled up the empty band around it. */}
-        <div className={s.foot}><DockInfo text={cp.hint} inline /></div>
+        {/* a locked device has no «Ansicht speichern» row to end with: the ⓘ keeps its foot */}
+        {readOnly && <div className={s.foot}><DockInfo text={cp.hint} inline /></div>}
       </div>
     </>,
     document.body,
