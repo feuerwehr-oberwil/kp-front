@@ -14,6 +14,7 @@ import { buzz } from '../lib/haptics'
 import { PlanChooser } from './PlanChooser'
 import { GroupChooser, type GroupRow } from './GroupChooser'
 import { SURFACE_KEY } from '../lib/hotkeys'
+import { controlChipLabel } from '../lib/abschlussOpen'
 
 // precomposed Unicode fraction glyphs for combined-module monograms (clean proper fractions);
 // anything without one falls back to a compact diagonal rendering.
@@ -85,19 +86,24 @@ interface Props {
   /** PHONE only: the running Einsatz — what «Plan wählen» remembers having offered itself for
    *  (lib/chooserOffer). Without one the list is never opened unasked. */
   incidentId?: string
-  /** PHONE only: how many people are marked present right now — a COUNT badge on the «Rapport»
-   *  tile, which is the door to the Anwesenheit once the bar has folded. Without it the head
-   *  count (the one number the bar used to state just by having an Anwesenheit tile) would be a
-   *  surface away. 0 / undefined paints nothing: a «0 anwesend» badge on a fresh Einsatz is a
-   *  standing zero nobody reads. */
+  /** PHONE only: how many people are marked present right now — the read-out on the Anwesenheit
+   *  row of the page chooser. (It was the COUNT badge on the «Einsatz» tile until 26.09.2026; that
+   *  badge is `openCount` now, see there.) */
   presentCount?: number
   /** PHONE only: which of the three pages the «Rapport» tile opens — the one this device left
    *  the group on, else the first-open rule (lib/rapportPages · initialRapportPage). Defaults to
    *  the Rapport itself, which is what the tile is named after. */
   rapportTarget?: RapportPage
   /** PHONE only: how many of the Rapport's Mindestangaben are still open (lib/abschluss ·
-   *  missingSteps) — the read-out on its row of the page chooser, the same «{n} offen» its own
-   *  head carries. */
+   *  missingSteps, through useAbschluss — the SAME list the Rapport's «⚠ n noch offen» chip counts)
+   *  — the COUNT badge on the «Einsatz» tile and the read-out on the Rapport's row of the page
+   *  chooser, both in the chip's own words (lib/abschlussOpen · controlChipLabel).
+   *  ⚠️ ONE number (owner, staging 26.09.2026: «why is there 3 in the bottom when 6 are open?»).
+   *  The badge used to be the HEAD COUNT (18.09.2026, so the number the folded Anwesenheit tile had
+   *  stated would not vanish with it) — but the tile leads into the Rapport, whose head says «6
+   *  noch offen», and a red «3» on it read as «3 open». A badge on a door says what is waiting
+   *  behind it; the head count is one hold away, on the chooser's Anwesenheit row. 0 / undefined
+   *  paints nothing: a Rapport with nothing open has nothing to say. */
   openCount?: number
   /** PHONE only: how many distinct Mittel positions are recorded — the Material row's read-out */
   mittelCount?: number
@@ -132,9 +138,11 @@ export function NavRail(p: Props) {
   // folded, the tile is the door to Rapport · Anwesenheit · Material, so it wears the word for
   // the whole record («Einsatz», owner 18.09.2026); on the rail it is the Rapport alone
   const rapportWord = p.fold ? nav.rapportGroup : appConfig.copy.modes.rapport
-  // the head count on the «Rapport» tile — only where the Anwesenheit tile is gone (see `fold`),
-  // and only once there is a head to count
-  const rapportCount = p.fold ? (p.presentCount ?? 0) : 0
+  // what is still open in the Rapport, on the tile that leads there — only on a folded bar (see
+  // `openCount`), and only while something is
+  const rapportCount = p.fold ? (p.openCount ?? 0) : 0
+  /** «6 noch offen» — the Rapport chip's words for the same number (see `openCount`) */
+  const openWords = (n: number) => controlChipLabel(n, 0)
   /** the «Rapport» tile stands for its whole GROUP on a folded bar, so it is lit on all three of
    *  its pages — a tile that went dark the moment its own door was used would say the operator
    *  had left the bar behind. Unfolded it is the one surface it has always been. */
@@ -144,7 +152,8 @@ export function NavRail(p: Props) {
   const rapportGo = (p.fold ? p.rapportTarget : undefined) ?? 'rapport'
   /** The three rows behind it, in the group's own order (lib/rapportPages · RAPPORT_PAGES), each
    *  with the glyph its rail tile wears and the one number that says whether there is anything
-   *  in it: «{n} offen» for the Rapport — the very count its own head shows — «{n} anwesend» for
+   *  in it: «{n} noch offen» for the Rapport — the very count and words its own head chip shows,
+   *  and the tile's badge — «{n} anwesend» for
    *  the Anwesenheit, «{n} Positionen» for the Material. That read-out is the whole reason the
    *  list is worth opening rather than guessing: it answers «where is the thing I came for». */
   const P = appConfig.copy
@@ -152,7 +161,7 @@ export function NavRail(p: Props) {
   const pageRows: GroupRow[] = RAPPORT_PAGES.map((page) => ({
     rapport: {
       id: page, glyph: <Icon id="doc" />, title: P.modes.rapport,
-      meta: (p.openCount ?? 0) > 0 ? `${p.openCount} ${P.preflight.headStillOpen}` : undefined,
+      meta: (p.openCount ?? 0) > 0 ? openWords(p.openCount ?? 0) : undefined,
     },
     anwesenheit: {
       id: page, glyph: <Icon id="people" />, title: P.modes.anwesenheit,
@@ -334,7 +343,7 @@ export function NavRail(p: Props) {
           aria-pressed={rapportOn}
           /* the badge is a NUMBER, so it has to be said and not merely painted — a dot can be
              «there is something», a count cannot be read off a coloured circle */
-          aria-label={rapportCount ? `${rapportWord} · ${fillTemplate(appConfig.copy.anwesenheit.summary, { present: rapportCount })}` : rapportWord}
+          aria-label={rapportCount ? `${rapportWord} · ${openWords(rapportCount)}` : rapportWord}
           aria-haspopup={p.fold ? 'dialog' : undefined}
           {...(p.fold ? { 'data-holdaction': true as const } : null)}
           onPointerDown={(e) => { heldR.current = false; if (p.fold) holdRapport.onPointerDown(e) }}
@@ -349,10 +358,11 @@ export function NavRail(p: Props) {
         >
           <span className="nav-glyph">
             <Icon id="doc" />
-            {/* PHONE only, and only once somebody is actually on scene — see `presentCount`.
-                Same family as the Trupps alarm dot (.nav-live), one size up because it carries
-                a figure: same corner, same white ring, so the bar has ONE badge idiom. */}
-            {rapportCount ? <span className="nav-live nav-count" aria-hidden>{rapportCount > 99 ? '99+' : rapportCount}</span> : null}
+            {/* PHONE only, and only while something is open — see `openCount`. Same family as
+                the Trupps alarm dot (.nav-live), one size up because it carries a figure: same
+                corner, same white ring, so the bar has ONE badge idiom — in the chip's AMBER
+                (`nav-open`): «noch offen» is a warning, not an alarm and not the station's red. */}
+            {rapportCount ? <span className="nav-live nav-count nav-open" aria-hidden>{rapportCount > 99 ? '99+' : rapportCount}</span> : null}
           </span>
           <span className="nav-label">{rapportWord}</span>
           <span className="nav-key" aria-hidden>{SURFACE_KEY.rapport}</span>

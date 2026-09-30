@@ -739,12 +739,17 @@
 @media (max-width: 520px) {
   .rp-check-extra { padding-left: 12px; }
 }
-/* floating way back to the Rapport sheet after a checklist row navigated away */
+/* floating way back to the Rapport sheet after a checklist row navigated away.
+   ⚠️ A piece of the floating family since 26.09.2026 (01-tokens · --float-*): it was a filled
+   primary capsule of its own height and shadow, the one pill-shaped rectangle left in the app. */
 .rp-return { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
-  z-index: var(--z-topbar); display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 18px;
-  border: none; border-radius: var(--r-pill); background: var(--btn-primary); color: var(--on-btn-primary);
-  font: 700 14px var(--body); cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
-.rp-return svg { width: 16px; height: 16px; }
+  z-index: var(--z-topbar); display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box;
+  min-height: var(--float-h); padding: 0 var(--float-pad-x);
+  border: none; border-radius: var(--r-sm); color: var(--ink);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  font: 700 12.5px var(--body); cursor: pointer; }
+.rp-return:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.rp-return svg { width: 16px; height: 16px; color: var(--blue); }
 
 /* --- Standing links: the WAITING screen (/terminal · /l/s…) ---------------------------- */
 /* «Bereitschaft» (Entwurf B, maintainer pick 09.09.) — see src/link/StandingApp · IdleScreen
@@ -1406,7 +1411,11 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* Same material as the buttons it stands in line with — .ip-btn is `--surface` on `--glass-edge`.
    On `--surface-2` + `--border` the chip read as a slightly translucent hole between two solid
    buttons; the row levelled height and corner but never the surface. */
-.rp-state { display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; cursor: pointer;
+/* ⚠️ Content CENTRED (owner, staging 26.09.2026: «fix the padding of the noch offen button»): on
+   a phone the chip takes the row's slack (below · `flex: 1 1 auto`), and with its glyph and words
+   hugging the left it stood as a wide box with 12px on one side and ~120px on the other — a text
+   field, not a button. Centred, the air is even; on a wide head it hugs its content anyway. */
+.rp-state { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; cursor: pointer;
   min-width: 0; border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
   font: 700 12.5px var(--body); }
 .rp-state svg { width: 15px; height: 15px; flex: none; }

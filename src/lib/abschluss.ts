@@ -91,6 +91,22 @@ export function missingSteps(f: AbschlussFacts): AbschlussStep[] {
 }
 
 /**
+ * The facts the Rapport's «noch offen» is counted from — built ONE way for every reader on the KP
+ * (26.09.2026): the Rapport's own «⚠ n noch offen» chip (ReportPreflight), and through useAbschluss
+ * the phone's «Einsatz» badge, the chooser's «n noch offen» row, the Abschluss confirm and the
+ * Einsatz-Menü's archive count. The workspace's copy used to leave `openConflicts` out, so an
+ * unsettled Abweichung was open on the Rapport and «done» on every door leading to it — and the
+ * badge counted heads besides (NavRail · openCount). The count is the caller's (attendanceConflict
+ * · openConflicts over its Verlauf), because the Rapport already holds it memoised.
+ * ⚠️ The Rapport passes the form AS IT STANDS ON SCREEN (ReportPreflight · editedMeta), the
+ * workspace the blob: between a keystroke and its save the two may differ by the field being
+ * typed. That is the only difference left, and it closes with the save.
+ */
+export function abschlussFacts(reportMeta: ReportMeta, attendanceCount: number, mittelCount: number, openConflictCount: number): AbschlussFacts {
+  return { reportMeta, attendanceCount, mittelCount, openConflicts: openConflictCount }
+}
+
+/**
  * Apply an 'HH:MM' wall-clock time onto an existing ISO timestamp's calendar day (local
  * time). Used by the Stunden editor: the person edits times, the date rides along from
  * the original stamp — with `nextDayIfBefore` handling a span that crosses midnight

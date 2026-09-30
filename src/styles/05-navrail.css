@@ -145,11 +145,15 @@
 .nav-item.on .nav-live { border-color: var(--ink-fill); }
 /* ⚠️ A COUNT, not a dot — same family as .nav-live (same corner, same white ring, so the bar has
    one badge idiom), but it carries a figure and therefore needs a box that grows with it. The
-   phone's «Rapport» tile wears it with the head count, because Anwesenheit folded into the
-   Rapport there and its one number must not disappear with its tile (18.09.2026). */
+   phone's «Einsatz» tile wears it with what the Rapport still has OPEN (26.09.2026 — the head
+   count until then, which read as «open» and disagreed with the Rapport's own chip; NavRail ·
+   openCount). */
 .nav-live.nav-count { top: 2px; right: 2px; width: auto; min-width: 16px; height: 16px; padding: 0 3px;
   box-sizing: border-box; border-radius: var(--r-xs); background: var(--accent); color: var(--on-accent-ink);
   font: 800 10px var(--body); line-height: 12px; text-align: center; }
+/* the Rapport's «noch offen» is the chip's AMBER (13-incident · .rp-state.warn): a warning,
+   not an alarm (AGENTS.md · colour) */
+.nav-live.nav-count.nav-open { background: var(--amber); color: var(--on-fill); }
 /* Atemschutz cross-surface alarm dot: amber when fällig, red + pulse when überfällig */
 .nav-live.nav-alarm { background: var(--amber); }
 .nav-live.nav-alarm.crit { background: var(--red); animation: nav-alarm-pulse 1.4s infinite; }

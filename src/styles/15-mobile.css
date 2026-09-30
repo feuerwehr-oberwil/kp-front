@@ -8,11 +8,11 @@
    instead of inventing its own number — the old scattered 64/72/80/86px guesses each covered the
    place somebody remembered and missed the rest, and a hit-test found the circle sitting on the
    Atemschutz «Austritt» button, on Anwesenheit person rows, on a Mittel row and on the Checkliste
-   rail. 66px = the 58px circle plus 8px of air; it is the same in both axes because the FAB's
-   16/18px offsets and the surfaces' 8/18px insets cancel out to the same figure.
+   rail. 60px = the circle (--float-h, the floating family's one row height, 26.09.2026 — it was
+   58) plus the family's 8px gap.
    0 unless the FAB is actually on screen (viewer, composer, open panel, tool dock → no reserve). */
 .app { --fab-safe: 0px; }
-.app:has(.fab-entry) { --fab-safe: 66px; }
+.app:has(.fab-entry) { --fab-safe: calc(var(--float-h) + var(--float-gap)); }
 /* ⚠️ …and the same pair on :root, because the reserve has one consumer that is NOT inside .app:
    the toast host. `<Overlays />` is mounted at the ROOT on purpose (App.tsx — .app is a stacking
    context, so a confirm opened from a root-level sheet painted under it), so `.toaster` never
@@ -21,20 +21,21 @@
    `elementFromPoint` at the FAB's own visual centre returned the undo button. Tapping «+ Eintrag»
    undid the entry you had just made. Same values, so nothing inside .app changes. */
 :root { --fab-safe: 0px; }
-:root:has(.fab-entry) { --fab-safe: 66px; }
+:root:has(.fab-entry) { --fab-safe: calc(var(--float-h) + var(--float-gap)); }
 .fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: var(--z-fab);
   display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
-  border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--ink);
+  border: none; border-radius: var(--r-pill); color: var(--ink);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
   font: 700 15px var(--body); cursor: pointer; touch-action: none; user-select: none;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 34%, transparent), var(--shadow-sm);
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
 /* ⚠️ The FAB follows the THEME, not --btn-primary (20.09.2026, field report «flipped»). That token
    inverts at night on purpose – a form's one action needs an edge against the sheet it sits on
    (01-tokens.css) – but the FAB sits on no sheet: it floats over the map beside glass chrome, and
    there the inversion made it the one dark disc on a day screen and the one pale disc in a dark
-   cab. Day: the white surface. Night: the raised dark pill the tool docks wear. */
-:root[data-theme="night"] .fab-entry { background: var(--ink-fill); color: var(--on-accent-ink);
-  border-color: color-mix(in srgb, var(--ink) 18%, transparent); }
+   cab. ⚠️ …and since 26.09.2026 it wears the floating family's material itself (01-tokens ·
+   --float-*): the bars' glass by day and by night. Its own raised --ink-fill at night and a
+   heavier drop shadow made it the one piece of the bottom row in a colour of its own (owner,
+   staging 26.09.2026); round is what still says «this is THE Eintrag button». */
 @media (hover: hover) {
   .fab-entry:hover { filter: brightness(1.05); }
 }
@@ -45,7 +46,7 @@
   .fab-entry .i, .fab-entry .tb-act-label { position: relative; z-index: 1; }
 .fab-entry .i { width: 18px; height: 18px; }
 /* recording: the FAB turns red + shows the running timer, same as the TopBar Eintrag */
-.fab-entry.rec, :root[data-theme="night"] .fab-entry.rec { background: var(--red); color: var(--on-accent-ink); border-color: transparent; animation: recPulse 1.4s ease-in-out infinite; }
+.fab-entry.rec { background: var(--red); color: var(--on-accent-ink); border-color: transparent; animation: recPulse 1.4s ease-in-out infinite; }
 .fab-entry.rec span { font-family: var(--mono); }
 /* ⚠️ NO «quiet» step-back any more (18.09.2026, field ask). The circle used to shrink to .82
    and half-fade while anything underneath was scrolled: on the Journal, where the list is
@@ -274,8 +275,8 @@
   .phone-tools .wb-dock .wb-dock-hint { display: block; flex: 1 0 100%; order: 99; max-width: calc(100vw - 40px);
     font: 600 12.5px var(--body); color: var(--on-accent-ink); opacity: .85; text-align: center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* …and the Gebäude's chip row (and anything else stacked on the dock) steps up by that row */
-  .app:has(.wb-dock-hint) .wb-botleft { bottom: calc(var(--rail-h) * 3 + 26px + 22px + env(safe-area-inset-bottom)); }
+  /* (…and the Gebäude's chip row steps up by that row: `--msg-dock-hint` is part of
+     --float-base, see «THE floating row» below) */
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   /* A Plan-side detail sheet is fixed, but its z-index still cannot escape the whiteboard's
      stacking context (09-whiteboard.css). Lift that surface just above the shared nav rail while
@@ -283,8 +284,7 @@
      the top bar (z 56) and modal overlays remain above it. */
   .phone-tools .whiteboard:has(.ctx) { z-index: var(--z-chrome-raised); }
   .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
-  /* the Eintrag-FAB clears both bars on the drawing surfaces */
-  .phone-tools .fab-entry { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); }
+  /* (the Eintrag-FAB clears both bars on the drawing surfaces through --float-bottom, below) */
 
   /* ── details as a bottom sheet ── the shared .ctx editors (ContextPanel / DrawEditor /
      ShapeEditor) become a drag-expandable bottom sheet: half-height default so the map and
@@ -817,13 +817,20 @@
 
   /* with the bottom bar present, the FAB lifts above it and the map attribution ⓘ lifts
      above the FAB so the bottom-right reads bar → FAB → ⓘ with no overlap
-     …and above the Rapport's docked tab strip too, on the page that carries one. */
-  .fab-entry { bottom: calc(var(--rail-h) + 18px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom));
+     …and above the Rapport's docked tab strip too, on the page that carries one.
+     ⚠️ On THE floating row's baseline (--float-bottom, below), 26.09.2026: it stood 14px above the
+     tool bar while the plan's chips stood 6px above it and the Grundgerüst strip 14px, so the
+     three pieces of one row sat at three heights. */
+  .fab-entry { bottom: var(--float-bottom);
     /* on the bars' own edge (8px), not 16: the circle ended 8px short of the nav bar under it */
     right: max(8px, env(safe-area-inset-right)); }
   /* «Zurück zum Rapport» return pill (Anwesenheit/Mittel only → single nav bar) sat at 18px, i.e.
-     ON the nav bar; lift it clear like the FAB. */
-  .rp-return { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+     ON the nav bar; lift it clear like the FAB.
+     ⚠️ …onto THE floating row, at its left end where the row starts (26.09.2026): it stood
+     centred, a 48px filled capsule beside the 58px circle — now the row's height and material
+     (13-incident · .rp-return). */
+  .rp-return { bottom: var(--float-bottom); left: max(8px, env(safe-area-inset-left)); transform: none;
+    max-width: calc(100vw - 16px - var(--fab-safe)); }
   .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) + 86px + env(safe-area-inset-bottom)); }
   /* ⚠️ …but not on the Karte (owner, 24.09.2026). There the ⓘ stood beside the FAB – with the
      tool bar up it sat BEHIND it, a white half-moon peeking out at its right edge – and on a
@@ -835,21 +842,7 @@
   /* Notification lanes. A fixed amount of bottom chrome gets an equally fixed reserve: one nav
      bar normally, two on an editable drawing surface, three while its option dock is open. The
      host is a root sibling of `.app`, so every state selector starts at :root. */
-  /* ⚠️ …and the bars are not the only thing down there. The plan's bottom-left read-out row
-     (09-whiteboard · .wb-botleft: Objekt · Gebäude · Massstab · ⌖ Karte) is pinned to the SAME
-     rail-h baselines as the lanes below — 4px under the pill — so the toast that row's own
-     Massstab chip raises («Ref. automatisch – Massstab aus dem Gebäudegrundriss») landed square
-     on the chips that raised it, wedged between them and the tool bar. It lifts over the row the
-     way it already lifts over each bar. The row publishes no height, so like --ml-reserve below
-     this is a CAP, not a measurement: ONE ~30px chip row and an 8px channel. It was two rows
-     until 18.09.2026, when the row stopped wrapping — on a phone the Massstab and «⌖ Karte»
-     pills are icon + Ampel-lamp only and the whole row fits one line at 360px
-     (09-whiteboard · .wb-botleft, .wb-lamped). Keep the two in step if that ever changes.
-     ⚠️ ONE row of --tap, not of 30px (24.09.2026): on a touch screen the chips stand 44px tall
-     (20-touch-floors · .wb-scale-chip), so the 38px reserve still put the pill's foot on their
-     heads – the Gebäude's «Ref. automatisch» toast sat square on the Gebäude chip. */
-  :root:has(.wb-botleft) { --plan-row-reserve: calc(var(--tap) + 8px); }
-  /* the Gebäude's «+ UG» above that row (08-toasts · --stack-foot-lift): here the plan-row
+  /* the Gebäude's «+ UG» above the floating row (08-toasts · --stack-foot-lift): here the row's
      reserve already clears the chips, so the lift is only the pill's own band. On :root, like the
      other reserves, because THE message lane below is computed there. */
   :root:has(.wb-floor-add-down) { --stack-foot-lift: 70px; }
@@ -866,34 +859,37 @@
   :root:has(.app.phone-tools.suche-peek) { --msg-suche-lift: 70px; }
   :root:has(.app.phone-tools.suche-peek [data-suche-floorchips]) { --msg-suche-lift: 114px; }
   :root:has(.phone-tools .wb-dock-hint) { --msg-dock-hint: 22px; }
+  /* ── THE floating row (26.09.2026) ── the one line just above the bars where the phone's small
+     floating pieces stand: the plan's chips (09-whiteboard · .wb-botleft), the Grundgerüst strip
+     (03-map · .lgg-phone) and the Eintrag FAB. They stood at three heights of their own (6px,
+     14px and 14px above the tool bar) in three looks; now they are ONE family (01-tokens ·
+     --float-*) on ONE baseline: --float-gap (8px) above the highest bar — the same 8px they keep
+     from each other and from the screen's edge, like the bars.
+     --float-base is where the bars end: the nav bar (8px + rail-h) and the Rapport's docked tab
+     strip on that one page; the tool bar on a drawing surface (its own 6px channel + rail-h); a
+     tool's option dock while one is out (it hides the FAB and the strip), plus its hint row. */
+  :root { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
+  :root:has(.phone-tools) { --float-base: calc(var(--rail-h) * 2 + 14px); }
+  :root:has(.phone-tools .wb-dock) { --float-base: calc(var(--rail-h) * 3 + 20px + var(--msg-dock-hint, 0px)); }
+  :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom)); }
+  /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
+     strip, the way back to the Rapport. It publishes no height because it has only one: --float-h. */
+  :root:has(:is(.fab-entry, .wb-botleft, .lgg-phone, .rp-return)) { --float-row: calc(var(--float-h) + var(--float-gap)); }
+  /* …but a tool's option dock hides the FAB (below) and the host drops the strip, so there only
+     the chips can stand in it */
+  :root:has(.phone-tools .wb-dock):not(:has(.wb-botleft)) { --float-row: 0px; }
   /* ── THE message lane (25.09.2026) ── one baseline for every message that floats over the
      foot of the screen: the toasts AND the instruction of a pick mode (OsmOutline ·
      .wb-osm-barwrap) and a tool's tip (DockInfo · .wb-dock-tip), which used to sit at three
      heights of their own. Declared on :root because two of them are portaled to <body>.
      It spans the bars' own width (8px in from each side, like the nav bar, the tool bar and the
-     top bar) and stands ABOVE the Eintrag FAB rather than stopping short of it: a pill that ended
-     at an arbitrary 66px reserve lined up with nothing, and read as pushed to one side.
-     So: above the highest bar/chip row, and — where the FAB is on screen — above its head
-     (its bottom + 58px + an 8px channel; the FAB's own offsets are further up in this file). */
+     top bar) and stands ABOVE the floating row rather than beside the FAB: a pill that ended at
+     an arbitrary 66px reserve lined up with nothing, and read as pushed to one side.
+     So (26.09.2026): the floating row's baseline, plus that row and one --float-gap where it is
+     occupied — a message is the same family and keeps the same gap to its neighbour — plus the
+     Gebäude's «+ UG» band. With the row empty the message stands IN it. */
   :root {
-    --msg-lane-bottom: calc(var(--rail-h) + 24px + var(--rp-tabs-safe, 0px) + var(--plan-row-reserve, 0px) + var(--stack-foot-lift, 0px) + env(safe-area-inset-bottom));
-  }
-  :root:has(.fab-entry) {
-    --msg-lane-bottom: calc(max(var(--rail-h) + 24px + var(--rp-tabs-safe, 0px) + var(--plan-row-reserve, 0px) + var(--stack-foot-lift, 0px),
-      var(--rail-h) + 18px + var(--rp-tabs-safe, 0px) + 58px + 8px) + env(safe-area-inset-bottom));
-  }
-  :root:has(.phone-tools) {
-    --msg-lane-bottom: calc(var(--rail-h) * 2 + 24px + var(--msg-suche-lift, 0px) + var(--plan-row-reserve, 0px) + var(--stack-foot-lift, 0px)
-      + env(safe-area-inset-bottom));
-  }
-  :root:has(.phone-tools .fab-entry) {
-    --msg-lane-bottom: calc(max(var(--rail-h) * 2 + 24px + var(--plan-row-reserve, 0px) + var(--stack-foot-lift, 0px), var(--rail-h) * 2 + 28px + 58px + 8px)
-      + var(--msg-suche-lift, 0px) + env(safe-area-inset-bottom));
-  }
-  /* the tool-option dock hides the FAB and takes a third lane (declared last: same specificity) */
-  :root:has(.phone-tools .wb-dock) {
-    --msg-lane-bottom: calc(var(--rail-h) * 3 + 30px + var(--msg-suche-lift, 0px) + var(--msg-dock-hint, 0px) + var(--plan-row-reserve, 0px)
-      + var(--stack-foot-lift, 0px) + env(safe-area-inset-bottom));
+    --msg-lane-bottom: calc(var(--float-bottom) + var(--float-row, 0px) + var(--stack-foot-lift, 0px));
   }
   .toaster {
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
@@ -970,7 +966,10 @@
   /* + Eintrag FAB → a compact icon-only circle on a phone (the label crowded the weather
      pill on the same bottom baseline). The recording state keeps its label/timer so the
      running time stays legible. */
-  .fab-entry:not(.rec) { width: 58px; height: 58px; padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
+  /* the row's one height (--float-h, 52px — 58 until 26.09.2026, when the circle stood 6px taller
+     than every chip and toast beside it); still inside the 48–56px of a primary action */
+  .fab-entry:not(.rec) { width: var(--float-h); height: var(--float-h); padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
+  .fab-entry.rec { min-height: var(--float-h); padding-top: 0; padding-bottom: 0; }
   /* ⚠️ the LABEL, not every span: since the ring wrapper (da52f1f, 28.08.) the + sits inside
      `span.tb-act-ic`, and `span` here hid the glyph with it — a bare circle, nothing to read
      (same trap as the `.cancelling` selector, see 10-journal.css) */

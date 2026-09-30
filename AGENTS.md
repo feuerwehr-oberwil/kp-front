@@ -1145,13 +1145,27 @@ to prod.
     buttons and read as a mess.
   - *Messages – ONE surface, ONE lane (25.09.2026):* a toast, a mode's instruction (Gebäude
     wählen), a tool's tip and the hold-tip wear the same look (08-toasts.css · «ONE message
-    surface»): the app's own surface (light by day, dark by night – never a dark pill on a light
-    UI), ink 13/600, the one corner, no outline of its own. A tone is the colour of the glyph the
-    sentence leads with – never an edge, never a fill. What goes away **by itself** shows a ✕
-    and a line that runs out with its time (lib/ui · ToastRow); what stays while its mode is on
-    shows neither. On a phone they share one lane
-    (`--msg-lane-bottom`, 15-mobile): the bars' own width (8px in from each side) and above the
-    FAB, never beside it.
+    surface»): the floating family's material (below — light by day, dark by night, never a dark
+    pill on a light UI), ink 13/600, the one corner, no outline of its own. A tone is the colour of
+    the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
+    shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
+    mode is on shows neither. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
+    bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
+    never beside a piece of it.
+  - *ONE floating family, ONE floating row (26.09.2026, owner: «everything has the same shape,
+    colour, padding»):* every small thing that floats over the Karte or a Plan — the messages
+    above, the plan's chips (Objekt · Gebäude · Massstab · ⌖ Karte), the phone's Grundgerüst strip,
+    «Zurück zum Rapport» and the Eintrag FAB — wears `--float-*` (01-tokens): the bars' glass with
+    their `--glass-line` edge as an INSET ring and `--shadow`; ONE row height `--float-h` (a --tap
+    button + `--msg-pad` all round = 52px); the one corner; 14px before the glyph; 16px glyphs. A
+    STATE is a glyph colour inside it — the chip's lamp, a toast's leading icon, the object chip's
+    amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
+    armed» is a blue wash mixed into the glass. On a phone the pieces stand on ONE baseline,
+    `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
+    strip · tool bar · a tool's option dock + its hint row), 8px from the screen's edge and from
+    each other. The FAB stays ROUND (the one-corner exception) but is `--float-h` across, on that
+    baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
+    the row (and the `--float-row` `:has` list) — never a height, material or offset of its own.
   - *Type:* two sizes, two weights. `12.5px/700` compact (toolbars, docks, dense rows, chips),
     `14px/700` standard (sheet footers, form + page actions), and `800` **only** on the single
     action of a surface (Kontakt, Speichern, Senden). Nothing else.
@@ -1225,9 +1239,11 @@ to prod.
     asked for it. «Mein Standort» is a row of that menu, not a tile of its own (also tried 18.09.).
   - *«Einpassen» on a Plan is the bar's tile*; the top bar's twin (`TopBar · mapNav`) survives only
     where there is no bar at all (viewer-only Modul, Gebäude pick surface, replay — 20.09.2026).
-  - *The FAB follows the THEME, not `--btn-primary`*: white surface by day, the raised `--ink-fill`
-    pill at night. That token inverts at night so a form's one action has an edge against its
-    sheet; the FAB sits on no sheet, and inverted it was the one pale disc in a dark cab. Its
+  - *The FAB follows the THEME, not `--btn-primary`*: it wears the floating family's glass
+    (26.09.2026 — the white surface by day and a raised `--ink-fill` at night until then made it
+    the one piece of the bottom row in a colour of its own). `--btn-primary` inverts at night so a
+    form's one action has an edge against its sheet; the FAB sits on no sheet, and inverted it was
+    the one pale disc in a dark cab. Its
     hold OPENS a chooser (Sprachnotiz · Foto) that STAYS until one is tapped; the button is its ✕
     and a press elsewhere closes it (`useHoldEntry`, 21.09.2026). It was slide-and-release, which
     «Foto» cannot be on an iPhone: WebKit opens a file picker only for a real TAP, refuses a slid
@@ -1276,8 +1292,16 @@ to prod.
     a second tap or a hold opens the ONE list (`components/GroupChooser`), and «Plan wählen» opens
     unasked the first time the tile is used in an Einsatz, once per device (`lib/chooserOffer`).
     Both wear the corner mark (`.nav-grp`; `.vrail-grp` on the two-state Auswahl).
-  - Everything stacked above the nav bar keeps ONE 6px channel (`--rail-h + 14px`: the tool bar,
-    `.rp-tabs`, the page card in `Surface.module.css`).
+    ⚠️ The «Einsatz» tile's badge is what the Rapport still has OPEN, in amber (26.09.2026, owner:
+    «why is there 3 in the bottom when 6 are open?» — it was the head count). ONE number from ONE
+    derivation: `lib/abschluss · abschlussFacts` → `missingSteps`, read by the Rapport's «⚠ n noch
+    offen» chip and — through `useAbschluss`, which now counts the unsettled Abweichungen too — by
+    the badge, the chooser's Rapport row (in the chip's words, `controlChipLabel`), the Abschluss
+    confirm and the archive count (`rapportOneCount.test.tsx`). The head count lives on the
+    chooser's Anwesenheit row.
+  - Every BAR stacked above the nav bar keeps ONE 6px channel (`--rail-h + 14px`: the tool bar,
+    `.rp-tabs`, the page card in `Surface.module.css`); the floating row above the bars keeps the
+    family's `--float-gap` (8px) — the gap its pieces keep from each other and from the edge.
   - Tried and thrown out the same day, so nobody rebuilds them: a «Zeichnen» tile with a flyout, the
     same tile opening the GroupChooser behind a last-used first tap, and a «Karte» tile folding
     Ansichten + Ebenen. The vertical rails (tablet/desktop) are unchanged throughout.

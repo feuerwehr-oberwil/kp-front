@@ -255,6 +255,16 @@
    — three stacked «Geschoss hinzugefügt» pills hid it completely (3am test r4, 26.09.2026). The
    phone restates the lift for its own lane (15-mobile). */
 :root:has(.wb-floor-add-down) .toaster { --stack-foot-lift: 96px; }
+/* …and on a tablet the plan's chip row (09-whiteboard · .wb-botleft: 16px up, --float-h tall) is a
+   floating row the messages stand ABOVE, one --float-gap over it, as on a phone (26.09.2026). At
+   the 28px baseline a long toast, centred, lay across the object chip — the row is the same
+   floating family (01-tokens · --float-*), and two of its pieces never overlap. The phone has its
+   own lane (15-mobile · --msg-lane-bottom); this query is its exact complement. */
+@media (min-width: 601px) and (min-height: 521px), (min-width: 1001px) {
+  :root:has(.wb-botleft) .toaster {
+    bottom: max(calc(max(28px, calc(16px + env(safe-area-inset-bottom))) + var(--stack-foot-lift, 0px)),
+      calc(16px + var(--float-h) + var(--float-gap) + env(safe-area-inset-bottom))); }
+}
 /* A desktop/tablet detail panel owns the right side of the operational surface. Messages are
    centred in the genuinely free map/plan band instead of painting over that panel's fields and
    actions. The tablet panel has a fluid width; these values mirror 06-contextpanel's `.ctx` plus
@@ -278,11 +288,12 @@
 }
 /* ── ONE message surface (25.09.2026) ──────────────────────────────────────────────────────
    Every line of text the app lays over the Karte or a Plan — a toast, an instruction while a mode
-   is on (Gebäude wählen, Leitung wählen …), a tool's tip, the hold-tip — wears THIS: the app's own
-   surface (white by day, the dark surface by night — it flips with the theme like every panel),
+   is on (Gebäude wählen, Leitung wählen …), a tool's tip, the hold-tip — wears THIS: the floating
+   family's material (01-tokens · --float-*, 26.09.2026: the bars' glass — it was --surface, a
+   shade lighter than the bars at night, and the chips beside it wore a third look),
    ink text, 13/600, the ONE corner (--r-sm) like the cards and chips beside it — not the bars'
    bigger one, which read as a different shape (25.09.2026, maintainer). No outline of its own:
-   the house shadow's hairline is its edge. Its buttons sit --msg-pad inside and wear the corner
+   the bars' inset hairline and the house shadow are its edge. Its buttons sit --msg-pad inside and wear the corner
    less that gap (--r-msg-in), so the two still run parallel. A tone is the colour of the glyph the
    sentence leads with — never an edge or a fill (a coloured edge bent round the corner and read as
    a stray outline). It used to be a dark pill here, a light bar there, a third size for the tool
@@ -292,13 +303,13 @@
    `touch-action: pan-y` hands horizontal movement to the pill's own pointer handlers (lib/ui ·
    ToastRow) while leaving vertical panning of the stack to the browser. */
 .toast { position: relative; overflow: hidden; box-sizing: border-box; display: flex; flex: none; align-items: center;
-  gap: 9px; pointer-events: auto; min-height: calc(var(--tap) + 2 * var(--msg-pad));
-  background: var(--surface); color: var(--ink); border: none; box-shadow: var(--shadow);
-  font: 600 13px/1.35 var(--body); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) 14px;
+  gap: 9px; pointer-events: auto; min-height: var(--float-h);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none; box-shadow: var(--float-edge);
+  font: 600 13px/1.35 var(--body); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x);
   border-radius: var(--r-sm); white-space: nowrap; touch-action: pan-y;
   animation: toastIn .22s var(--ease); }
 /* no button at its right end (a live status, an instruction): the text keeps the left side's air */
-.toast:not(:has(> .toast-x, > .toast-actions)) { padding-right: 14px; }
+.toast:not(:has(> .toast-x, > .toast-actions)) { padding-right: var(--float-pad-x); }
 /* the running-out line: full at the start, empty when the pill leaves (duration inline, per toast).
    Inset by the corner on both sides, so it stays a straight line and never bends round the corner
    into something that reads as a border. */
@@ -764,7 +775,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   padding: 8px 12px; border-radius: var(--r-sm);
   /* the message surface (see «ONE message surface» above), compact: it rides beside a finger,
      so it keeps a single line's height */
-  background: var(--surface); color: var(--ink); border: none;
+  background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none;
   font: 600 13px/1.35 var(--body);
   text-align: center; text-wrap: balance;
-  box-shadow: var(--shadow); }
+  box-shadow: var(--float-edge); }
