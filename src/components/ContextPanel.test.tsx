@@ -137,6 +137,27 @@ describe('ContextPanel — basic wiring', () => {
   })
 })
 
+// 30.09.2026 (owner: «fix this» — «Auf Modul 1 zeigen» ran out of its frame into «Zentrieren»):
+// the door to the linked plan is cut, never spilled, and the part that gives way is the plan's
+// NAME — the verb around it stays. The whole sentence is the button's name.
+describe('ContextPanel — the door to a linked plan', () => {
+  it('names the plan in the sentence and cuts only the name', () => {
+    const onProjection = vi.fn()
+    setup({ onProjection, projectionPlan: 'Modul 1 Untergeschoss Nord', onCenter: vi.fn() })
+    const btn = screen.getAllByRole('button', { name: 'Auf Modul 1 Untergeschoss Nord zeigen' })[0]
+    expect(btn.querySelector('.btn-t-cut')?.textContent).toBe('Modul 1 Untergeschoss Nord')
+    expect(btn.querySelector('.btn-t')?.textContent).toBe('Auf Modul 1 Untergeschoss Nord zeigen')
+    fireEvent.click(btn)
+    expect(onProjection).toHaveBeenCalled()
+  })
+
+  it('a plain label (Plan → Karte) is cut at its end, still one name', () => {
+    setup({ onProjection: vi.fn(), projectionLabel: 'Auf Karte zeigen' })
+    const btn = screen.getAllByRole('button', { name: 'Auf Karte zeigen' })[0]
+    expect(btn.querySelector('.btn-t-cut')?.textContent).toBe('Auf Karte zeigen')
+  })
+})
+
 describe('ContextPanel — Geschoss (Untergeschosse are as reachable as Obergeschosse)', () => {
   const floorOnly = new Set<SymbolControl>(['floor'])
   // Von and Bis on screen ⇒ the FIRST − / + / clear is Von's

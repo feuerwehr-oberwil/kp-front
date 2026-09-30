@@ -5574,9 +5574,7 @@ export function IncidentWorkspace({
           onClose={() => setSelectedId(null)}
           onCenter={() => flyToMapVisible(selected.coord, 18.4)}
           onProjection={selectedPlanProjection ? () => showMapSourceOnPlan(selected) : undefined}
-          projectionLabel={selectedPlanProjection
-            ? fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: selectedPlanProjection.plan.code })
-            : undefined}
+          projectionPlan={selectedPlanProjection?.plan.code}
           onTitleLive={(v) => {
             // stream into the doc so the note-pill / label updates live, but silently —
             // snapshot once for undo, no per-keystroke audit event
