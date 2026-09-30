@@ -311,3 +311,37 @@ describe('group — one act across domains is one step', () => {
     expect(tl.canUndo()).toBe(false)
   })
 })
+
+/* #227's `group` meets #234's `touches` / `step` / `standing` (staging integration, 25.09.2026):
+   a compound step must answer the merge like any other. */
+describe('group × merge — one compound step', () => {
+  const part = (domain: UndoDomain, label: string, extra: Partial<UndoEntry> = {}): UndoEntry => ({
+    domain, label, undo: () => {}, redo: () => {}, ...extra,
+  })
+
+  it('the compound touches what any part touches, keeps every part\'s step, and drops whole', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('trupps')
+    const t = tl.push(part('trupps', 'T', { step: 's-t', touches: () => ['trupps:t1'] }))
+    tl.push(part('anwesenheit', 'A', { step: 's-a', touches: () => ['attendance:p1'] }))
+    end()
+    expect(tl.steps()).toEqual(new Set(['s-t', 's-a']))
+    expect(t.standing()).toBe(true)
+    tl.rebase(['trupps:other'])
+    expect(tl.canUndo()).toBe(true)
+    tl.rebase(['attendance:p1']) // another device changed the person the save filed
+    expect(tl.canUndo()).toBe(false)
+    expect(tl.steps()).toEqual(new Set())
+    expect(t.standing()).toBe(false)
+  })
+
+  it('one part of unknown reach makes the whole step unknown', () => {
+    const tl = createUndoTimeline()
+    const end = tl.group('trupps')
+    tl.push(part('trupps', 'T', { touches: () => ['trupps:t1'] }))
+    tl.push(part('anwesenheit', 'A'))
+    end()
+    tl.rebase(['mittel:m1'])
+    expect(tl.canUndo()).toBe(false)
+  })
+})

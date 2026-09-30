@@ -94,6 +94,23 @@ describe('useAbschluss', () => {
     expect(marks).toEqual([])
   })
 
+  it('the «beim Abschluss noch drin» rows are written under the close mark (#227 × #235, staging integration)', async () => {
+    // the crews question («trotzdem») and then the Abschluss confirm
+    vi.mocked(confirmDialog).mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+    const marks: boolean[] = []
+    const noted: boolean[] = []
+    const inside = { id: 'in', no: 1, name: 'Tst', auftrag: 'loeschen', status: 'aktiv',
+      entryTime: '2026-09-25T10:00:00Z', lastContactTime: '2026-09-25T10:04:00Z' } as unknown as Trupp
+    const a = args({
+      trupps: [inside],
+      markClosing: (on) => { marks.push(on) },
+      noteInsideAtClose: () => { noted.push(marks[marks.length - 1]) },
+    })
+    await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
+    // written, and written while the mark was on — so they print as part of the close, not a Nachtrag
+    expect(noted).toEqual([true])
+  })
+
   it('a cancelled confirm hands nothing over and drains nothing', async () => {
     vi.mocked(confirmDialog).mockResolvedValueOnce(false)
     const a = args()
