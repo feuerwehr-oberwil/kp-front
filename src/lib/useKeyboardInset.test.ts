@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { keyboardFootNow, keyboardInsetNow, keyboardLift, keyboardMargin, useKeyboardInset } from './useKeyboardInset'
 
 /* Two regressions from the 08.09. Feldtest («Tastatur fehlt», and the Verlauf drawer floating in
@@ -33,7 +33,9 @@ function focusField(): HTMLInputElement {
   return el
 }
 
-afterEach(() => { document.body.replaceChildren() })
+// vitest runs without globals, so Testing Library's auto-cleanup never registers: unmount the
+// hooks here, or a mounted one's focusout timers fire after jsdom is gone («window is not defined»)
+afterEach(() => { cleanup(); document.body.replaceChildren() })
 
 /** run the rAF-coalesced measure (jsdom backs rAF with timers, which are faked here) */
 const settle = () => act(() => { vi.advanceTimersByTime(50) })
