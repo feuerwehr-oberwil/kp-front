@@ -366,7 +366,7 @@
    ⚠️ It was DELETED once (7a2605c) as unused CSS, which it truthfully was — dead for exactly the
    reason fixed here. Restored rather than left out: without it the centred tablet dialog keeps
    centring itself on a viewport the keyboard has halved, which is the complaint it answers. */
-.modal:global(.is-kb) { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+.modal:global(.is-kb) { top: calc(max(12px, env(safe-area-inset-top)) + var(--vv-pan, 0px)); transform: translateX(-50%);
   height: min(760px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 /* ⚠️ Tighter than the standard .ip-head, and deliberately so: this form has a row that GROWS
    — the drawn Leitungen wrap to a second line of chips as soon as a few hoses exist — and the
@@ -473,7 +473,8 @@
      that block is a single class and the ride-up rule is two, so the moment the ride-up went live
      its `translateX(-50%)` would have applied to a sheet that is `left: 0; width: 100vw` — half
      the form off the left edge. A phone sheet is already flush to the top; it only shrinks. */
-  .modal:global(.is-kb) { top: 0; transform: none;
+  /* (+ --vv-pan: the visible band's top once iOS has panned — 13-incident.css · `.is-kb`, 30.09.2026) */
+  .modal:global(.is-kb) { top: var(--vv-pan, 0px); transform: none;
     height: calc(100dvh - var(--kb-inset, 0px)); max-height: calc(100dvh - var(--kb-inset, 0px)); }
 }
 /* Gebäude / Modul-6 placement picker */
@@ -1687,6 +1688,10 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
      · `.ui-sheet-grab`), and a head under a bar is the handle, as on every other bottom sheet */
   .modalSheet .modalHead { padding-top: 2px; touch-action: none; }
   .modalSheet .modalHead button { touch-action: auto; }
+  /* keyboard up: the top stands in the visible band too (+ --vv-pan), while the lift stands the foot
+     on the keys (keyboardLift · --vv-foot) — with only the lift, iOS's pan slid the head off the
+     top of the screen (30.09.2026, see 13-incident.css · `.is-kb`) */
+  .modal.modalSheet:global(.is-kb) { top: calc(max(24px, calc(env(safe-area-inset-top) + 8px)) + var(--vv-pan, 0px)); }
 }
 
 /* the pinned due Trupps — one line each, over the scrim, above the sheet's top edge */
