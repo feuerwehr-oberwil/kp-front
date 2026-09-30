@@ -7,6 +7,7 @@ import { fillTemplate, stripUnprintable } from '../lib/format'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { useLongPress } from '../lib/useLongPress'
 import type { Person } from '../types'
+import type { CrewChange } from '../lib/truppLeader'
 import type { Slot } from './PersonField'
 import { ComboRank } from './ComboMenu'
 import { SearchField } from './SearchField'
@@ -49,7 +50,9 @@ export function TruppTeam({
   searchInputRef?: React.RefObject<HTMLInputElement | null>
   /** the Trupp, in printed order — `value[0]` is the Gruppenführer */
   value: Slot[]
-  onChange: (next: Slot[]) => void
+  /** `why` says which move it was — a `lead` is the operator crowning somebody, which ends the
+   *  form's rank-follows-crown for a new Trupp (lib/truppLeader, 30.09.2026) */
+  onChange: (next: Slot[], why: CrewChange) => void
   personnel: Person[]
   /** names off older Trupps, used when no roster synced (Divera outage) */
   legacyRoster: string[]
@@ -167,10 +170,12 @@ export function TruppTeam({
 
   // Adding the FIRST person makes them Gruppenführer, because the overwhelmingly common case is
   // that the Trupp is entered leader-first. Nothing is locked by it — the crown moves with a tap.
-  const add = (slot: Slot) => { onChange([...value, slot]); setQ(''); searchRef.current?.focus() }
-  const remove = (i: number) => onChange(value.filter((_, j) => j !== i))
+  // (On a NEW Trupp the form then hands the crown to the most senior Dienstgrad until somebody is
+  // crowned by hand — lib/truppLeader, 30.09.2026; this list only says which move it made.)
+  const add = (slot: Slot) => { onChange([...value, slot], 'add'); setQ(''); searchRef.current?.focus() }
+  const remove = (i: number) => onChange(value.filter((_, j) => j !== i), 'remove')
   /** crown: the chosen person moves to the front, everyone else keeps their order */
-  const promote = (i: number) => onChange([value[i], ...value.filter((_, j) => j !== i)])
+  const promote = (i: number) => onChange([value[i], ...value.filter((_, j) => j !== i)], 'lead')
   // …by a tap OR by a hold. The row is a radio and a tap is the right gesture for one, but the
   // hand that has just learned «press and hold» on a node handle, a lock chip and a Trupp card
   // tries it here too — and a press that does nothing reads as a row that isn't a control.

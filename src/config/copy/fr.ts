@@ -1136,9 +1136,6 @@ export const fr: Localizable<Copy> = {
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
      *  wizard; «Mission et ligne» is one section (see de.ts). */
     stackPressure: '{n} bar',
-    stackFunk: 'Canal {n}',
-    luftDefaults: 'Standard : {v}',
-    luftChange: 'Modifier',
     // no longer asked in the Trupp form (04.09.) – still offered on the Lage/plan and in admin
     colorAuto: 'Automatique',
     // état sync/horloge dans l'en-tête du tableau (voir de.ts)
@@ -1213,8 +1210,8 @@ export const fr: Localizable<Copy> = {
     entryAskTitle: 'Engager l’équipe ?',
     entryAskMsg: 'L’équipe {name} est annoncée mais pas encore engagée. L’engager maintenant ? Le chrono de contact démarre immédiatement.',
     entryAskCancel: 'Pas encore',
-    pressureLabel: 'Pression d’entrée (bar)',
-    newPressureLabel: 'Nouvelle pression d’entrée (bar)',
+    pressureLabel: 'Pression d’entrée',
+    newPressureLabel: 'Nouvelle pression d’entrée',
     funkkanalSection: 'Canal radio',
     funkkanalDown: 'Canal radio bas',
     funkkanalUp: 'Canal radio haut',
@@ -1245,8 +1242,6 @@ export const fr: Localizable<Copy> = {
     lowestPressure: 'Le plus bas',
     lineField: 'Conduite',
     edit: 'Modifier',
-    pressureDown: '{step} bar de moins',
-    pressureUp: '{step} bar de plus',
     pressureConfirm: 'Confirmer',
     pressureConfirmHint: 'Confirmer la nouvelle pression – compte comme contact',
     verlauf: 'Journal',
@@ -1289,6 +1284,7 @@ export const fr: Localizable<Copy> = {
     tileExit: 'Sorti',
     quickTrupp: 'Binôme {no}',
     kanalSheetHint: 'Toucher choisit et ferme.',
+    formPickTake: 'Appliquer',
     lineNone: 'aucune',
     lineChip: 'Cond. {n}',
     auftragAdd: '+ Mission',
@@ -1422,7 +1418,7 @@ export const fr: Localizable<Copy> = {
     moveBack: 'Monter',
     moveForward: 'Descendre',
     truppFallbackName: 'Binôme',
-    editPressureLabel: 'Corriger la pression d\'entrée (bar)',
+    editPressureLabel: 'Corriger la pression d\'entrée',
     editPressureHint: 'Corrige la pression d\'entrée saisie – ne compte pas comme contact radio.',
     officersOnly: 'officiers seulement',
     assignedFallbackName: 'Cette personne',

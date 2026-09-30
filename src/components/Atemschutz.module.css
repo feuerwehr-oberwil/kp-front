@@ -115,6 +115,13 @@
    head it ran into «Bestimmen». A group boundary is spacing (18.09. rule): the eyebrow, the count
    and the air above the head — `.sectSecond`'s 26px, the Sicherungstrupp's own margins.) */
 .sectSecond { margin-top: 26px; }
+/* …and the phone board's four sections (Drin · Sicherungstrupp · Bereit · Draussen) take the SAME
+   26px above every head after the first (30.09.2026, owner: «Sicherungstrupp has almost no spacing
+   to the card above», «Draussen … no spacing to a card above»). The heads carried only a bottom
+   margin, so a head that followed a list of cards sat flush on the last card — and the
+   Sicherungstrupp zone's own 4px top / 18px bottom made two more numbers for one boundary. ONE
+   adjacency rule, whichever sections happen to be on screen; the first one stays at the top. */
+.phoneBoard > * + :is(.sect, .safetyZone) { margin-top: 26px; }
 .sectEmpty { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
 
 
@@ -547,15 +554,17 @@
 /* what an older Trupp record had typed in the free-text Leitung field, shown as entered — the
    record is never rewritten, so the Überwacher can still read what they wrote */
 .fieldNote { margin: 0; font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
-/* Druck + Kanal folded into one readable line («Standard: 300 bar · Kanal 11 — Ändern»,
-   08.09.): a soft inset row, the values carrying the weight. The row keeps the field column's
-   height rhythm so folding never reflows the Auftrag column beside it.
-   ⚠️ The WHOLE row is the button since 28.09.2026 (13-incident · `.row-go`, owner pick A): it was
-   a blue «Ändern» at the right end, a 44px target on a full-width line, in the colour that now
-   means «chosen». `.luftDefaults` is only the wrapper the flash ring points at. */
-.luftDefaults { border-radius: var(--r-ctl); }
-.luftDefaults > :global(.row-go) { background: var(--fill-soft); }
-.luftDefaultsText { font-size: 13px; font-weight: 700; color: var(--ink); }
+/* Eingangsdruck and Funkkanal: ONE row each, «Eingangsdruck 300 bar ›» / «Funkkanal 11 ›», that
+   opens the Druck / Kanal sheet (30.09.2026, owner: the grid and the pad do not sit in the form).
+   The whole row is the button (13-incident · `.row-go`, owner pick A of 28.09.) on the soft inset of
+   the «Standard: 300 bar · Kanal 11 — Ändern» line it replaces — the two rows are what that fold
+   held, and they cost the Auftrag column beside them nothing. `.pickRow` is also the wrapper the
+   flash ring points at. The value carries the weight, in the mono of every number on the board. */
+.pickRow { border-radius: var(--r-ctl); }
+.pickRow > :global(.row-go) { background: var(--fill-soft); }
+.pickRowValue { flex: none; font: 800 15px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+/* the number sheets' host inside the form (TruppForm · pickers): a React-tree stop for the pointer, no box */
+.pickHost { display: contents; }
 
 
 /* NOT --accent on hover: that token is this deployment's brand red, so the whole chip lit up
@@ -982,10 +991,14 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      ⚠️ `:global(.is-kb)` — this is a CSS module and `is-kb` is a literal class lib/overlays
      appends, so a bare `.is-kb` compiles to a selector nothing wears (see `.modal:global(.is-kb)`
      above, where exactly that shipped dead once). */
+  /* ⚠️ Only the VERTICAL air is bought back (30.09.2026, owner: «the padding to the sides is
+     smaller than usual»): the sides keep the sheet's 20px gutter, the one the head above them
+     keeps. A 14px keyboard gutter stood the chips and the search 6px outside the title's edge —
+     the band above the keyboard is short, not narrow. */
   .modalStack:global(.is-kb) .modalHead { padding-bottom: 2px; }
-  .modalStack:global(.is-kb) .modalBody { padding: 2px 14px 8px; }
-  .modalStack:global(.is-kb) .modalFoot { padding: 8px 14px; }
-  .modalStack:global(.is-kb) .formBlocked { margin: 0 14px 8px; } /* the body's keyboard gutter */
+  .modalStack:global(.is-kb) .modalBody { padding: 2px 20px 8px; }
+  .modalStack:global(.is-kb) .modalFoot { padding: 8px 20px; }
+  .modalStack:global(.is-kb) .formBlocked { margin: 0 20px 8px; }
   /* `.stack`'s first child is ALWAYS the Mannschaft block (AtemschutzView · TruppForm renders
      `teamFields` first, on every mode) — everything after it is «Art des Trupps», Auftrag/Ziel/
      Leitung and the folded Standard row. The `assignedConflict` warning and the `blocked` line
@@ -1558,7 +1571,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .trowCard .vrow { padding-left: 11px; }
 
 /* the Sicherungstrupp — one place, between the crews inside and everybody else */
-.safetyZone { margin: 4px 0 18px; }
+/* (its air above is the phone board's one section rule, `.phoneBoard`; the head after it brings its own) */
+.safetyZone { margin: 0; }
 .trowSafety { grid-template-columns: minmax(0, 1fr) auto !important; border-left-color: var(--green);
   background: color-mix(in srgb, var(--green) 7%, var(--surface)); }
 .trowSafetyWho { display: block; font-size: 13px; font-weight: 600; color: var(--ink-dim); margin-top: 2px;
@@ -1572,7 +1586,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    (D1 ⑦, 24.09.2026) went with the slim-down: an empty section under its own head says the same
    in no words. `.sectDue`: a crew is inside and nobody stands ready — the title wears the warn
    tone, a hint (the alarm rules do not know it), never a fill. */
-.sectSafety { margin-bottom: 8px; }
+/* 4 + the zone's 8px row gap = the 12px every other head keeps above its first card (30.09.2026) */
+.sectSafety { margin-bottom: 4px; }
 .sectAct { margin-left: auto; flex: none; min-height: 36px; padding: 0 14px; border: none; cursor: pointer; border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink); font: 800 13px var(--body); box-shadow: inset 0 0 0 1px var(--glass-edge); }
 .sectAct:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -1596,6 +1611,9 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    the pressure alarm off — `alarmBar: 0`): tinted as a column, red digits only at or below the line */
 .pressureCol:last-child { background: color-mix(in srgb, var(--red) 9%, var(--surface)); }
 .pressureCellLast { box-shadow: inset 0 0 0 2.5px var(--ink); }
+/* opened from the Trupp form (30.09.2026, TruppSheets · PressureGrid `chosen`): the picked cell is
+   the form's answer — THE choice fill */
+.pressureCellOn, .pressureCellOn.pressureCellLow { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 /* «Ohne Druck raus» — the sheet's foot, in the body's gutter */
 .pressureSheetFooter { flex: none; margin: 0 20px 16px; min-height: 50px; border: none; cursor: pointer; border-radius: var(--r-ctl);
   background: var(--fill-soft, rgba(0, 0, 0, .045)); font: 700 14px var(--body); color: var(--ink); }
@@ -1628,9 +1646,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .padKey:active { background-image: linear-gradient(var(--press), var(--press)); }
 .padKey :global(.i) { width: 16px; height: 16px; }
 .padKeyOn { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
-/* the fallback for a range too wide for keys (lib/truppQuickEdit · KANAL_PAD_MAX): − value + */
-.padStepper { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
-.padValue { text-align: center; min-width: 4ch; font: 800 22px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+/* (the fallback for a range too wide for keys is the ± stepper, `.stepperSmall`, since 30.09.2026 —
+   the sheet's own «− value +» went) */
 /* the chip rows under a label («Leitung»: keine · Ltg 1 · …; «Ausrüstung»): the tap floor, the
    one corner, the one edge; «on» is THE choice fill (--sel), a Leitung another Trupp is on is dashed */
 .miniChips { display: flex; flex-wrap: wrap; gap: 6px; }

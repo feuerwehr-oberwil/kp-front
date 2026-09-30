@@ -1136,9 +1136,6 @@ export const en: Localizable<Copy> = {
      *  wizard. Titles name the FIELDS; a collapsed section reads its own answer out beside the
      *  title, and «Order & line» is one section (see de.ts). */
     stackPressure: '{n} bar',
-    stackFunk: 'Channel {n}',
-    luftDefaults: 'Default: {v}',
-    luftChange: 'Change',
     // no longer asked in the Trupp form (04.09.) – still offered on the Lage/plan and in admin
     colorAuto: 'Automatic',
     // sync/clock status in the board header (see de.ts)
@@ -1214,8 +1211,8 @@ export const en: Localizable<Copy> = {
     entryAskTitle: 'Send team in?',
     entryAskMsg: 'Team {name} is registered but has not gone in yet. Send them in now? The contact clock starts immediately.',
     entryAskCancel: 'Not yet',
-    pressureLabel: 'Entry pressure (bar)',
-    newPressureLabel: 'New entry pressure (bar)',
+    pressureLabel: 'Entry pressure',
+    newPressureLabel: 'New entry pressure',
     funkkanalSection: 'Radio channel',
     funkkanalDown: 'Radio channel down',
     funkkanalUp: 'Radio channel up',
@@ -1255,8 +1252,6 @@ export const en: Localizable<Copy> = {
     alarmNoteEst: 'Alarm pressure {bar} bar – reached per estimate',
     lineField: 'Line',
     edit: 'Edit',
-    pressureDown: '{step} bar less',
-    pressureUp: '{step} bar more',
     pressureConfirm: 'Confirm',
     pressureConfirmHint: 'Confirm new pressure – counts as contact',
     verlauf: 'Log',
@@ -1300,6 +1295,7 @@ export const en: Localizable<Copy> = {
     tileExit: 'Out',
     quickTrupp: 'Team {no}',
     kanalSheetHint: 'Tap picks and closes.',
+    formPickTake: 'Apply',
     lineNone: 'none',
     lineChip: 'Line {n}',
     auftragAdd: '+ Task',
@@ -1433,7 +1429,7 @@ export const en: Localizable<Copy> = {
     moveBack: 'Move up',
     moveForward: 'Move down',
     truppFallbackName: 'Team',
-    editPressureLabel: 'Correct the entry pressure (bar)',
+    editPressureLabel: 'Correct the entry pressure',
     editPressureHint: 'Corrects the recorded entry pressure — does not count as radio contact.',
     officersOnly: 'officers only',
     assignedFallbackName: 'This person',

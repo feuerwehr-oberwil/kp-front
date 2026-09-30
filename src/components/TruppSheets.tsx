@@ -8,12 +8,14 @@ import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { abbreviateName, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { atemschutzEquipment } from '../lib/deploymentConfig'
 import type { TruppTransferState } from '../lib/atemschutz'
-import { auftragSheetFields, fileGuestSlots, kanalPad, kanalSheetFields, leitungChoices, quickAuftragTypes, teamConflict, truppSheetFields, type CrewSlot } from '../lib/truppQuickEdit'
+import { auftragSheetFields, fileGuestSlots, kanalPad, kanalSheetFields, leitungChoices, quickAuftragTypes, teamConflict, truppSheetFields, truppSheetSub, type CrewSlot } from '../lib/truppQuickEdit'
 import type { LeitungOption } from '../lib/truppLines'
 import type { Person, Trupp, TruppAuftrag, TruppFields } from '../types'
 import { Segmented } from './Segmented'
 import { ClearableInput } from './ClearableInput'
 import { Stepper } from './Stepper'
+import { useHoldRepeat } from '../lib/useHoldRepeat'
+import { useTapToType } from '../lib/useTapToType'
 import { TruppTeam } from './TruppTeam'
 import { ZielChips } from './suche/SucheTrupp'
 import s from './Atemschutz.module.css'
@@ -36,15 +38,6 @@ import s from './Atemschutz.module.css'
  * stands now with only this sheet's fields changed (lib/truppQuickEdit): same Verlauf row, same
  * undo step, same Rapport as the big form's save.
  */
-
-/** the title line's second row: «Hirter Stephan · Trupp 2» — whose sheet this is. ONE head for
- *  all four sheets (29.09.2026, sweep 3 T5): the title is the QUESTION (Druck · Kanal · Auftrag ·
- *  Mannschaft), this line is whose — the Trupp sheet said «Trupp 3» over «Keller Laura» and the
- *  Druck sheet «Keller Laura · Druck» on one line, three ways to say whose sheet is open. */
-function truppSheetSub(t: Trupp): string {
-  const az = appConfig.copy.atemschutz
-  return t.no != null ? `${t.name} · ${fillTemplate(az.quickTrupp, { no: t.no })}` : t.name
-}
 
 function MiniSheet({ title, sub, ariaLabel, onClose, children, footer, className }: {
   title: ReactNode; sub?: string; ariaLabel: string; onClose: () => void; children: ReactNode; footer?: ReactNode; className?: string
@@ -81,39 +74,30 @@ function MiniSheet({ title, sub, ariaLabel, onClose, children, footer, className
  */
 const PRESSURE_GRID: number[][] = [[300, 280, 260, 240, 220], [200, 180, 160, 140, 120], [100, 80, 60, 40, 20]]
 
-export function PressureSheet({ t, title, hint, last, alarmBar, onPick, onClose, footer }: {
+export function PressureSheet({ t, sub, title, hint, last, alarmBar, chosen = false, onPick, onClose, footer }: {
   /** whose reading — the head's second line (truppSheetSub) */
-  t: Trupp
-  /** the question: «Druck», or «Restdruck» at «Raus melden» */
+  t?: Trupp
+  /** …or that line as given, where no Trupp exists yet (the Trupp form's own door, below) */
+  sub?: string
+  /** the question: «Druck», «Restdruck» at «Raus melden», the form's «Eingangsdruck» */
   title: string
   hint?: string
   /** the Trupp's current bar — its nearest grid value is outlined */
   last: number
   /** this Trupp's turn-back line (lib/atemschutz · alarmBarFor) — values at or below it are red */
   alarmBar: number
+  /** `last` is the form's ANSWER, not a reading — PressureGrid · chosen */
+  chosen?: boolean
   onPick: (bar: number) => void
   onClose: () => void
   /** a second way out that is not a number (the exit's «Ohne Druck raus») */
   footer?: { label: string; onClick: () => void }
 }) {
-  // DOWN to the grid, never up: a Trupp last read at 250 has not got 260 (clamped to the grid's ends)
-  const near = Math.min(300, Math.max(20, Math.floor(last / 20) * 20))
+  const who = t ? truppSheetSub(t) : sub
   return (
-    <MiniSheet title={title} sub={truppSheetSub(t)} ariaLabel={`${title} · ${t.name}`} onClose={onClose}
+    <MiniSheet title={title} sub={who} ariaLabel={t ? `${title} · ${t.name}` : title} onClose={onClose}
       footer={footer && <button type="button" className={s.pressureSheetFooter} onClick={footer.onClick}>{footer.label}</button>}>
-      <div className={s.pressureGrid}>
-        {PRESSURE_GRID.map((col, i) => (
-          <div key={i} className={s.pressureCol}>
-            {col.map((bar) => (
-              <button key={bar} type="button"
-                className={cx(s.pressureCell, bar <= alarmBar && s.pressureCellLow, bar === near && s.pressureCellLast)}
-                onClick={() => onPick(bar)}>
-                {bar}
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
+      <PressureGrid value={last} alarmBar={alarmBar} onPick={onPick} chosen={chosen} ariaLabel={title} />
       {/* under the grid, like the Kanal pad's hint: what a tap does */}
       {hint && <p className={s.miniHint}>{hint}</p>}
     </MiniSheet>
@@ -121,9 +105,45 @@ export function PressureSheet({ t, title, hint, last, alarmBar, onPick, onClose,
 }
 
 /**
+ * The grid itself. Two ways to mark `value`: for a Druckmeldung it is the LAST reading — outlined, and
+ * a tap saves a new one; opened from the Trupp form (`chosen`, 30.09.2026) it is the ANSWER — the one
+ * picked cell wears the choice fill (`--sel`), and a tap only fills the form's draft. A value the grid
+ * does not hold (a 290 recorded before 30.09.) is outlined at its step below, like a last reading,
+ * and nothing is filled until a cell is tapped.
+ */
+function PressureGrid({ value, alarmBar, onPick, chosen = false, ariaLabel }: {
+  value: number
+  /** values at or below it are red (lib/atemschutz · alarmBarFor) */
+  alarmBar: number
+  onPick: (bar: number) => void
+  /** the form's answer, not the last reading — see above */
+  chosen?: boolean
+  ariaLabel?: string
+}) {
+  const picked = chosen && PRESSURE_GRID.some((col) => col.includes(value)) ? value : null
+  // DOWN to the grid, never up: a Trupp last read at 250 has not got 260 (clamped to the grid's ends)
+  const near = picked == null ? Math.min(300, Math.max(20, Math.floor(value / 20) * 20)) : null
+  return (
+    <div className={s.pressureGrid} role="group" aria-label={ariaLabel}>
+      {PRESSURE_GRID.map((col, i) => (
+        <div key={i} className={s.pressureCol}>
+          {col.map((bar) => (
+            <button key={bar} type="button" aria-pressed={chosen ? bar === picked : undefined}
+              className={cx(s.pressureCell, bar <= alarmBar && s.pressureCellLow, bar === near && s.pressureCellLast, bar === picked && s.pressureCellOn)}
+              onClick={() => onPick(bar)}>
+              {bar}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
  * «Kanal» — a pad of the station's channel range, the current one marked; ONE tap picks, writes
  * and closes (the hint under the pad says so, because the sheet has no Speichern). A range too
- * wide for a pad (lib/truppQuickEdit · KANAL_PAD_MAX) gets the form's stepper and a Speichern.
+ * wide for a pad (lib/truppQuickEdit · KANAL_PAD_MAX) gets the ± stepper and a Speichern.
  */
 export function KanalSheet({ t, onSave, onClose }: {
   t: Trupp
@@ -131,47 +151,99 @@ export function KanalSheet({ t, onSave, onClose }: {
   onSave: (f: TruppFields) => Promise<boolean> | boolean
   onClose: () => void
 }) {
+  const pick = async (n: number) => n === t.funkkanal || await onSave(kanalSheetFields(t, n))
+  return <KanalPickSheet value={t.funkkanal ?? atemschutzDoctrine().defaultFunkkanal} sub={truppSheetSub(t)} name={t.name}
+    onPick={pick} onClose={onClose} />
+}
+
+/**
+ * The Kanal sheet itself, for both of its doors (30.09.2026): the card's «Kanal 11» writes through
+ * `KanalSheet` above; the Trupp form's «Funkkanal 11 ›» only fills its draft (`takeLabel`
+ * «Übernehmen» on the stepper's foot, where a pad key cannot say it). `onPick` resolves false when
+ * nothing was taken — the sheet then stays open.
+ */
+export function KanalPickSheet({ value, sub, name, takeLabel, onPick, onClose }: {
+  value: number
+  /** whose — the head's second line */
+  sub?: string
+  /** the Trupp's name for the sheet's accessible name */
+  name?: string
+  /** the stepper's foot button (default «Speichern») */
+  takeLabel?: string
+  onPick: (n: number) => Promise<boolean> | boolean
+  onClose: () => void
+}) {
   const az = appConfig.copy.atemschutz
   const dz = atemschutzDoctrine()
   const pad = kanalPad(dz.funkkanalMin, dz.funkkanalMax)
-  const current = t.funkkanal ?? dz.defaultFunkkanal
-  const [typed, setTyped] = useState<number>(current)
-  const onRef = useRef<HTMLButtonElement>(null)
-  // a long pad opens ON the current channel, not at 1
-  useEffect(() => { onRef.current?.scrollIntoView?.({ block: 'center' }) }, [])
-  const pick = async (n: number) => {
-    if (n === t.funkkanal) { onClose(); return }
-    if (await onSave(kanalSheetFields(t, n))) onClose()
-  }
-  const clamp = (v: number) => Math.max(dz.funkkanalMin, Math.min(dz.funkkanalMax, v))
+  const [typed, setTyped] = useState<number>(value)
+  const pick = async (n: number) => { if (await onPick(n)) onClose() }
   return (
-    <MiniSheet title={az.funkkanalUnit} sub={truppSheetSub(t)} ariaLabel={`${az.funkkanalUnit} · ${t.name}`} onClose={onClose} className={pad ? s.miniSheetPad : undefined}
+    <MiniSheet title={az.funkkanalUnit} sub={sub} ariaLabel={name ? `${az.funkkanalUnit} · ${name}` : az.funkkanalUnit} onClose={onClose} className={pad ? s.miniSheetPad : undefined}
       footer={pad ? undefined : (
         <SheetFoot className={s.modalFoot}>
-          <button type="button" className="ip-btn primary" onClick={() => void pick(typed)}>{az.save}</button>
+          <button type="button" className="ip-btn primary" onClick={() => void pick(typed)}>{takeLabel ?? az.save}</button>
         </SheetFoot>
       )}>
       {pad ? (
         <>
-          <div className={s.pad} role="group" aria-label={az.funkkanalUnit}>
-            {pad.map((n) => (
-              <button key={n} ref={n === current ? onRef : undefined} type="button" aria-pressed={n === current}
-                className={cx(s.padKey, n === current && s.padKeyOn)} onClick={() => void pick(n)}>{n}</button>
-            ))}
-          </div>
+          <KanalPicker value={value} onPick={(n) => void pick(n)} />
           <p className={s.miniHint}>{az.kanalSheetHint}</p>
         </>
       ) : (
         <div className={s.field}>
           <span>{az.editFieldLabels.funkkanal}</span>
-          <div className={s.padStepper}>
-            <button type="button" className={s.padKey} aria-label={az.funkkanalDown} onClick={() => setTyped(clamp(typed - 1))}><Icon id="minus" /></button>
-            <b className={s.padValue}>{typed}</b>
-            <button type="button" className={s.padKey} aria-label={az.funkkanalUp} onClick={() => setTyped(clamp(typed + 1))}><Icon id="plus" /></button>
-          </div>
+          <KanalPicker value={typed} onPick={setTyped} />
         </div>
       )}
     </MiniSheet>
+  )
+}
+
+/**
+ * The Kanal control of the Kanal sheet: the station's channels as keys, the chosen one filled, while
+ * the range fits a pad (lib/truppQuickEdit · kanalPad); above that the ± stepper, hold to repeat and
+ * tap the value to type (a 1–9999 scheme is not stepped one by one — 30.09.2026, it was a bare
+ * «− value +»). The pad opens ON the current channel.
+ */
+function KanalPicker({ value, onPick }: { value: number; onPick: (n: number) => void }) {
+  const az = appConfig.copy.atemschutz
+  const dz = atemschutzDoctrine()
+  const pad = kanalPad(dz.funkkanalMin, dz.funkkanalMax)
+  const onRef = useRef<HTMLButtonElement>(null)
+  // a long pad opens ON the current channel, not at 1 (once, at mount: never under the finger)
+  useEffect(() => { onRef.current?.scrollIntoView?.({ block: 'center' }) }, [])
+  if (!pad) return <FunkkanalStepper value={value} onChange={onPick} />
+  return (
+    <div className={s.pad} role="group" aria-label={az.funkkanalUnit}>
+      {pad.map((n) => (
+        <button key={n} ref={n === value ? onRef : undefined} type="button" aria-pressed={n === value}
+          className={cx(s.padKey, n === value && s.padKeyOn)} onClick={() => onPick(n)}>{n}</button>
+      ))}
+    </div>
+  )
+}
+
+// The Funkkanal ± stepper — the Kanal control where the station's range is too wide for a pad:
+// hold to repeat, tap the value to type an exact channel. Clamped to the configured range.
+// (It was the Trupp form's own inline control; since 30.09.2026 it lives in the Kanal sheet only.)
+function FunkkanalStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const az = appConfig.copy.atemschutz
+  const dz = atemschutzDoctrine()
+  const clamp = (v: number) => Math.max(dz.funkkanalMin, Math.min(dz.funkkanalMax, v))
+  const dec = useHoldRepeat(() => onChange(clamp(value - 1)))
+  const inc = useHoldRepeat(() => onChange(clamp(value + 1)))
+  const edit = useTapToType({ min: dz.funkkanalMin, max: dz.funkkanalMax, onCommit: onChange })
+  return (
+    <div className={cx(s.stepper, s.stepperSmall)}>
+      <button type="button" className={s.stepBtn} aria-label={az.funkkanalDown} {...dec}><Icon id="minus" /></button>
+      {edit.editing ? (
+        <div className={s.stepVal}><input className={s.stepInput} {...edit.inputProps} /><span>{az.funkkanalUnit}</span></div>
+      ) : (
+        <button type="button" className={s.stepVal} onClick={() => edit.start(value)} title={appConfig.copy.stepper.typeToEnter}><b>{value}</b><span>{az.funkkanalUnit}</span></button>
+      )}
+      <button type="button" className={s.stepBtn} aria-label={az.funkkanalUp} {...inc}><Icon id="plus" /></button>
+    </div>
   )
 }
 

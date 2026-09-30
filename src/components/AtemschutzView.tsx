@@ -27,14 +27,14 @@ import { atemschutzDoctrine, atemschutzEquipment, isDemoMode } from '../lib/depl
 import type { SyncStatus } from '../lib/api/workspaceSync'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { keepDraft, useKeptState } from '../lib/draftKeep'
-import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { truppOrderKey } from '../lib/useTruppActions'
-import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
 import { TruppNo } from './TruppNo'
 import { ZielChips } from './suche/SucheTrupp'
-import { AuftragSheet, KanalSheet, LeitungField, PressureSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
-import { fileGuestSlots, teamConflict } from '../lib/truppQuickEdit'
+import { AuftragSheet, KanalPickSheet, KanalSheet, LeitungField, PressureSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
+import { fileGuestSlots, teamConflict, truppSheetSub } from '../lib/truppQuickEdit'
+import { crewAfterChange, type CrewChange } from '../lib/truppLeader'
+import { rankOrder } from '../lib/rank'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
@@ -67,12 +67,6 @@ const NO_ASSIGNED: Set<string> = new Set()
 
 /** How the board is arranged — mirrors Prefs.atemschutzOrder. */
 export type TruppOrder = 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
-
-/** snap a raw bar value to the step grid, clamped to [0, ceiling] */
-function snapBar(v: number): number {
-  const dz = atemschutzDoctrine()
-  return Math.max(0, Math.min(dz.pressureMax, Math.round(v / dz.pressureStep) * dz.pressureStep))
-}
 
 /** Non-AS Trupp wording — APP ONLY (09.09., field ask). A work squad reports a task done, not a
  *  radio check, so the app says «Auftrag erledigt» / «Ohne Auftrag» / «Ohne Auftrag seit» for
@@ -1499,7 +1493,8 @@ export function AtemschutzView({
              the thumb lives»). */
           <div className={s.focusCard}>{cards(board.filter((t) => t.id === focusId))}</div>
         ) : phoneMode ? (
-          <div ref={listRef} className={cx(openRow && s.rowListOpen)}>
+          // `.phoneBoard`: the one rule for the air above every section after the first (30.09.2026)
+          <div ref={listRef} className={cx(s.phoneBoard, openRow && s.rowListOpen)}>
             {phoneIn.length > 0 && (
               <>
                 <div className={s.sect}><span className={s.sectTitle}>{az.phoneSectionIn}</span><span className={s.sectCount}>{phoneIn.length}</span></div>
@@ -1906,53 +1901,9 @@ function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
   )
 }
 
-// A gloved-friendly ±stepper for cylinder pressure (step + ceiling from config; 320 bar allows
-// an overfull bottle). Big targets, snaps to the step grid; tap the value to type an exact bar.
-function PressureStepper({ value, onChange, compact }: { value: number; onChange: (v: number) => void; compact?: boolean }) {
-  const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
-  const dz = atemschutzDoctrine()
-  const dec = useHoldRepeat(() => onChange(snapBar(value - dz.pressureStep)))
-  const inc = useHoldRepeat(() => onChange(snapBar(value + dz.pressureStep)))
-  const edit = useTapToType({ min: 0, max: dz.pressureMax, onCommit: (v) => onChange(snapBar(v)), clamp: snapBar })
-  return (
-    <div className={cx(s.stepper, compact && s.stepperSmall)}>
-      <button type="button" className={s.stepBtn} aria-label={fillTemplate(az.pressureDown, { step: dz.pressureStep })} {...dec}>
-        <Icon id="minus" />
-      </button>
-      {edit.editing ? (
-        <div className={s.stepVal}><input className={s.stepInput} {...edit.inputProps} /><span>bar</span></div>
-      ) : (
-        <button type="button" className={s.stepVal} onClick={() => edit.start(value)} title={appConfig.copy.stepper.typeToEnter}><b>{value}</b><span>bar</span></button>
-      )}
-      <button type="button" className={s.stepBtn} aria-label={fillTemplate(az.pressureUp, { step: dz.pressureStep })} {...inc}>
-        <Icon id="plus" />
-      </button>
-    </div>
-  )
-}
-
-// The Funkkanal ±stepper in the create/edit form: hold to repeat, tap the value to type an
-// exact channel. Clamped to the configured channel range.
-function FunkkanalStepper({ value, onChange, compact }: { value: number; onChange: (v: number) => void; compact?: boolean }) {
-  const az = appConfig.copy.atemschutz
-  const dz = atemschutzDoctrine()
-  const clamp = (v: number) => Math.max(dz.funkkanalMin, Math.min(dz.funkkanalMax, v))
-  const dec = useHoldRepeat(() => onChange(clamp(value - 1)))
-  const inc = useHoldRepeat(() => onChange(clamp(value + 1)))
-  const edit = useTapToType({ min: dz.funkkanalMin, max: dz.funkkanalMax, onCommit: onChange })
-  return (
-    <div className={cx(s.stepper, compact && s.stepperSmall)}>
-      <button type="button" className={s.stepBtn} aria-label={az.funkkanalDown} {...dec}><Icon id="minus" /></button>
-      {edit.editing ? (
-        <div className={s.stepVal}><input className={s.stepInput} {...edit.inputProps} /><span>{az.funkkanalUnit}</span></div>
-      ) : (
-        <button type="button" className={s.stepVal} onClick={() => edit.start(value)} title={appConfig.copy.stepper.typeToEnter}><b>{value}</b><span>{az.funkkanalUnit}</span></button>
-      )}
-      <button type="button" className={s.stepBtn} aria-label={az.funkkanalUp} {...inc}><Icon id="plus" /></button>
-    </div>
-  )
-}
-
+// (`PressureStepper` and `FunkkanalStepper`, the form's ± steppers, went on 30.09.2026: the form's
+// rows open the Druck sheet's grid and the Kanal sheet's pad — TruppSheets · PressureSheet /
+// KanalPickSheet, where the Kanal stepper lives on for a range too wide for a pad.)
 // (`PressureInline`, the tablet card's ± Druck stepper with its own «Bestätigen», went on
 // 29.09.2026 with the tablet card: every board's Druck is the pressure tile → PressureSheet.)
 /** What a Trupp's clock says — the phone row, every card's first line (RowLine) and the
@@ -3072,6 +3023,18 @@ function TruppForm({
     // would fight the operator's own edits
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  /* The crown follows the Dienstgrad while a NEW Trupp is being formed (30.09.2026, owner: «auto-set
+   * the highest person rank wise as group leader unless … a group leader was set manually»):
+   * until a name is tapped, the most senior member leads (lib/truppLeader · crewAfterChange).
+   * Kept with the draft, so a pushed-away form that had its leader crowned by hand comes back with
+   * that answer. Never on an edit or a re-entry — a crew joined later keeps its leader. */
+  const [leaderAuto, setLeaderAuto, clearLeaderAuto] = useKeptState<boolean>(`${draftKey}:leaderAuto`, mode === 'create')
+  const rankById = useMemo(() => new Map(personnel.map((p) => [p.id, rankOrder(p.rank)])), [personnel])
+  const changeTeam = (next: Slot[], why: CrewChange) => {
+    const r = crewAfterChange(next, why, leaderAuto, (sl) => (sl.personId ? rankById.get(sl.personId) ?? Infinity : Infinity))
+    setTeam(r.team)
+    if (r.auto !== leaderAuto) setLeaderAuto(r.auto)
+  }
   /* «Art des Trupps» — asked on creation, and changeable while EDITING one (04.09.). What the
    * board could not do until then is the ordinary case: a Verkehrstrupp that ends up going in
    * under PA, and a Trupp registered under Atemschutz by mistake. Both were a delete and a
@@ -3104,14 +3067,13 @@ function TruppForm({
   /** This edit is turning the Überwachung ON — the Trupp had no cylinder until a moment ago, so
    *  the Druck field asks for a first Eingangsdruck rather than offering a correction. */
   const upgrading = mode === 'edit' && isPa && !!initial && !isAtemschutzTrupp(initial)
-  /** Druck + Kanal folded behind the «Standard: … — Ändern» line (see `luftFields`), in the
-   *  CREATE form only (08.09., field ask): there the pair is an OFFER — the station defaults,
-   *  right on almost every Anmeldung — and two steppers nobody touches cost the form its calm.
-   *  Every other mode keeps the classic fields open, because there the number is a QUESTION
-   *  with a real answer: an edit exists to correct the Eingangsdruck, an upgrade asks its
-   *  first one, and a Wieder-einrücken's fresh cylinder has a gauge reading that must not be
-   *  assumed at 300. Opens for good once tapped. */
-  const [defaultsOpen, setDefaultsOpen] = useState(mode !== 'create')
+  /** Which of the two number sheets is open over the form (30.09.2026, owner: «Eingangsdruck and
+   *  Funkkanal must open in a pop-up»): the Druck sheet's grid and the Kanal sheet's pad, opened from
+   *  the rows «Eingangsdruck 300 bar ›» / «Funkkanal 11 ›» (see `luftFields`). A pick fills the
+   *  draft and closes; nothing is written until the form's own save. They replace the «Standard:
+   *  300 bar · Kanal 11 — Ändern» fold of 08.09. — it hid two steppers nobody touched; a row that
+   *  opens a sheet costs the form what the fold did. */
+  const [picker, setPicker] = useState<'pressure' | 'kanal' | null>(null)
   // …and the Auftrag tiles follow it: each kind has its own six-word vocabulary (config ·
   // atemschutz.auftrag / .auftragEinfach). Only the OFFER is narrowed — an already-stored value
   // from the other list keeps rendering everywhere (lib/report · truppAuftragLabel).
@@ -3142,12 +3104,14 @@ function TruppForm({
   // already folds the other sections away while it has the keyboard (Atemschutz.module.css).
   const teamSearchRef = useRef<HTMLInputElement | null>(null)
   const focusTeamFirst = !!stack && mode === 'create'
-  // Esc closes the form (keyboard parity with the scrim/close-button)
+  // Esc closes the form (keyboard parity with the scrim/close-button) — but not while one of its
+  // number sheets is open: that Escape is the sheet's (it closes itself first, and this closure
+  // still sees it open, because the close has not rendered yet)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !picker) onCancel() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
+  }, [onCancel, picker])
   const auftragRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (focusSection !== 'auftrag') return
@@ -3240,7 +3204,7 @@ function TruppForm({
   })
 
   const dropDraft = () => {
-    clearAuftrag(); clearZiel(); clearEquipment(); clearTeam()
+    clearAuftrag(); clearZiel(); clearEquipment(); clearTeam(); clearLeaderAuto()
     clearLineNo(); clearFunkkanal(); clearKind(); clearPressure(); clearPressureSet()
   }
   const submit = (standby = false) => {
@@ -3377,11 +3341,8 @@ function TruppForm({
       safeAnswer: 'cancel',
     })
     if (ok) { setLowConfirmed(pressure); return true }
-    // «Ändern»: back to the number — unfolded if it sat in the Standard line, and rung
-    if (!defaultsOpen) {
-      setDefaultsOpen(true)
-      requestAnimationFrame(() => pointAt(() => pressureRef.current))
-    } else pointAt(() => pressureRef.current)
+    // «Ändern»: straight back to the number — the Druck sheet, opened on the value it asked about
+    setPicker('pressure')
     return false
   }
 
@@ -3421,12 +3382,7 @@ function TruppForm({
     }
     if ((showPressure && pressure <= 0) || !bottleOk) {
       setBlockedShown(true)
-      // the Druck may sit folded behind the Standard-line — unfold first, ring on the next
-      // frame (same contract pointAt keeps for a collapsed stack section)
-      if (!defaultsOpen) {
-        setDefaultsOpen(true)
-        requestAnimationFrame(() => pointAt(() => pressureRef.current))
-      } else pointAt(() => pressureRef.current)
+      pointAt(() => pressureRef.current)
     }
   }
 
@@ -3472,27 +3428,30 @@ function TruppForm({
           the Mannschaft is a wrapping chip row and the roster appears only under a typed query.
           Same record, same handlers — see TruppTeam · `phone`. */}
       <TruppTeam
-        value={team} onChange={setTeam} phone={stack} wanted={mode === 'create'} searchInputRef={teamSearchRef}
+        value={team} onChange={changeTeam} phone={stack} wanted={mode === 'create'} searchInputRef={teamSearchRef}
         personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
         assignedIds={assignedIds} rolesById={rolesById}
       />
     </div>
   )
 
-  /* Druck + Kanal live behind ONE readable line since 08.09. («Standard: 300 bar · Kanal 11 —
-   * Ändern», field ask): on almost every Anmeldung both ARE the station defaults, and two
-   * steppers nobody touches cost the form its calm. The line always reads the ACTUAL current
-   * values — a corrected pair keeps showing itself (and drops the word «Standard»), so nothing
-   * true is ever hidden; «Ändern» unfolds the same two fields as before, for good (per mount).
-   * Auto-open where the number IS the question: an upgrade asks its first Eingangsdruck. */
-  const luftValue = [
-    showPressure ? fillTemplate(az.stackPressure, { n: pressure }) : null,
-    fillTemplate(az.stackFunk, { n: funkkanal }),
-  ].filter(Boolean).join(' · ')
-  const luftIsDefault = (!showPressure || pressure === atemschutzDoctrine().defaultPressureBar)
-    && funkkanal === (isPa ? defaultFunkkanal : atemschutzDoctrine().defaultFunkkanalEinfach)
   const hmOf = (iso?: string) => (iso ? fmtTime(iso) : '')
-  const luftFields = defaultsOpen ? (
+  // ⚠️ An UPGRADE asks for a FIRST Eingangsdruck, never «korrigieren» — the latter would claim the
+  // Trupp already had one (04.09.). The row's word and the Druck sheet's title (the question).
+  const pressureFieldLabel = mode === 'redeploy' ? az.newPressureLabel
+    : isEdit && !upgrading ? az.editPressureLabel : az.pressureLabel
+  // the number sheets' second head line — whose (lib/truppQuickEdit · truppSheetSub), or the leader picked so far
+  const pickSub = initial ? truppSheetSub(initial) : team[0]?.name.trim() || undefined
+  const pickPressure = (v: number) => {
+    setPressure(v); setPressureSet(true)
+    if (bottleAsk && !bottle) setBottle('new')
+    setPicker(null)
+  }
+  /* Eingangsdruck and Funkkanal: ONE row each, in every mode — «Eingangsdruck 300 bar ›»,
+   * «Funkkanal 11 ›» (30.09.2026) — and the row opens the sheet that asks it everywhere else: the
+   * Druck sheet's 20-bar grid, the Kanal sheet's pad (`picker`, the sheets are rendered by the form
+   * body). The rows always read the ACTUAL values, so nothing true is hidden behind a fold. */
+  const luftFields = (
     <>
       {pressureLocked && (
         <div ref={pressureRef} className={s.field}>
@@ -3509,10 +3468,6 @@ function TruppForm({
       )}
       {showPressure && !pressureLocked && (
         <div ref={pressureRef} className={s.field}>
-          {/* ⚠️ An UPGRADE asks for a FIRST Eingangsdruck, never «korrigieren» — the latter would
-              claim the Trupp already had one (04.09.). */}
-          <span>{mode === 'redeploy' ? az.newPressureLabel
-            : isEdit && !upgrading ? az.editPressureLabel : az.pressureLabel}</span>
           {bottleAsk && (
             <div className={s.bottleAsk}>
               <p>{fillTemplate(outMin! < 1 ? az.bottleAskNow : az.bottleAsk, { min: String(outMin), bar: String(lastExit!.bar) })}</p>
@@ -3528,34 +3483,47 @@ function TruppForm({
               </div>
             </div>
           )}
-          <PressureStepper value={pressure} onChange={(v) => { setPressure(v); setPressureSet(true); if (bottleAsk && !bottle) setBottle('new') }} compact />
-          {/* said out loud, because the same ± on the CARD does the opposite: there it is a
+          <div className={s.pickRow}>
+            <button type="button" className="row-go" aria-haspopup="dialog" onClick={() => setPicker('pressure')}
+              aria-label={`${pressureFieldLabel} ${fillTemplate(az.stackPressure, { n: pressure })}`}>
+              <span className="row-go-text">{pressureFieldLabel}</span>
+              <span className={s.pickRowValue}>{fillTemplate(az.stackPressure, { n: pressure })}</span>
+              <span className="row-go-word"><Icon id="chevron" /></span>
+            </button>
+          </div>
+          {/* said out loud, because the same grid on the CARD does the opposite: there it is a
               Druckmeldung and resets the contact clock. Here it corrects the record. */}
           {isEdit && !upgrading && <p className={s.fieldNote}>{az.editPressureHint}</p>}
         </div>
       )}
-      {/* Kanal rides with the Druck: two short numbers between two big buttons, the pair you set
-          on every single Trupp.
+      {/* Kanal rides with the Druck: the pair you set on every single Trupp.
           ⚠️ No section headings in here. Uppercase labels over rules cut the form into boxes and
-          each rule cost a row; every field already says what it is, and «AUFTRAG» over a field
-          called «Auftrag / Ziel» was the same word twice. (On the stack the section header IS
-          that heading — which is why it is the only one.) */}
-      <div className={s.field}>
-        <span>{az.funkkanalSection}</span>
-        <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} compact />
+          each rule cost a row; every field already says what it is. */}
+      <div className={s.pickRow}>
+        <button type="button" className="row-go" aria-haspopup="dialog" onClick={() => setPicker('kanal')}
+          aria-label={`${az.funkkanalSection} ${funkkanal}`}>
+          <span className="row-go-text">{az.funkkanalSection}</span>
+          <span className={s.pickRowValue}>{funkkanal}</span>
+          <span className="row-go-word"><Icon id="chevron" /></span>
+        </button>
       </div>
     </>
-  ) : (
-    <div ref={pressureRef} className={s.luftDefaults}>
-      {/* the whole row is the button (13-incident · .row-go): the values, then «Ändern ›» */}
-      <button type="button" className="row-go" onClick={() => setDefaultsOpen(true)}
-        aria-label={`${az.luftChange}: ${luftIsDefault ? fillTemplate(az.luftDefaults, { v: luftValue }) : luftValue}`}>
-        <span className={cx('row-go-text', s.luftDefaultsText)}>
-          {luftIsDefault ? fillTemplate(az.luftDefaults, { v: luftValue }) : luftValue}
-        </span>
-        <span className="row-go-word">{az.luftChange}<Icon id="chevron" /></span>
-      </button>
-    </div>
+  )
+
+  /* The two number sheets over the form. ⚠️ Rendered INSIDE the form's popup, so they are nested
+   * dialogs (a tap in them is not an outside press that closes the form); and the host stops the
+   * pointerdown on its way up the React tree — a portal's events still bubble through it, and the
+   * form's own swipe-to-close would have dragged the form down under the sheet's drag. */
+  const pickers = picker && (
+    <span className={s.pickHost} onPointerDown={(e) => e.stopPropagation()}>
+      {picker === 'pressure' ? (
+        <PressureSheet sub={pickSub} title={pressureFieldLabel} hint={az.kanalSheetHint} last={pressure} chosen
+          alarmBar={atemschutzDoctrine().alarmBar} onPick={pickPressure} onClose={() => setPicker(null)} />
+      ) : (
+        <KanalPickSheet value={funkkanal} sub={pickSub} takeLabel={az.formPickTake}
+          onPick={(n) => { setFunkkanal(n); return true }} onClose={() => setPicker(null)} />
+      )}
+    </span>
   )
 
   const auftragFields = (
@@ -3745,6 +3713,7 @@ function TruppForm({
         <button className={cx(mode === 'redeploy' && isPa ? 'ip-btn' : 'ip-btn primary', !canSubmit && s.btnBlocked)}
           aria-disabled={!canSubmit} onClick={() => attemptSubmit()}>{submitLabel}</button>
       </SheetFoot>
+      {pickers}
     </>
   )
 
