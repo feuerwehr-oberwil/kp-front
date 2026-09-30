@@ -989,10 +989,14 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      ⚠️ `:global(.is-kb)` — this is a CSS module and `is-kb` is a literal class lib/overlays
      appends, so a bare `.is-kb` compiles to a selector nothing wears (see `.modal:global(.is-kb)`
      above, where exactly that shipped dead once). */
+  /* ⚠️ Only the VERTICAL air is bought back (30.09.2026, owner: «the padding to the sides is
+     smaller than usual»): the sides keep the sheet's 20px gutter, the one the head above them
+     keeps. A 14px keyboard gutter stood the chips and the search 6px outside the title's edge —
+     the band above the keyboard is short, not narrow. */
   .modalStack:global(.is-kb) .modalHead { padding-bottom: 2px; }
-  .modalStack:global(.is-kb) .modalBody { padding: 2px 14px 8px; }
-  .modalStack:global(.is-kb) .modalFoot { padding: 8px 14px; }
-  .modalStack:global(.is-kb) .formBlocked { margin: 0 14px 8px; } /* the body's keyboard gutter */
+  .modalStack:global(.is-kb) .modalBody { padding: 2px 20px 8px; }
+  .modalStack:global(.is-kb) .modalFoot { padding: 8px 20px; }
+  .modalStack:global(.is-kb) .formBlocked { margin: 0 20px 8px; }
   /* `.stack`'s first child is ALWAYS the Mannschaft block (AtemschutzView · TruppForm renders
      `teamFields` first, on every mode) — everything after it is «Art des Trupps», Auftrag/Ziel/
      Leitung and the folded Standard row. The `assignedConflict` warning and the `blocked` line
