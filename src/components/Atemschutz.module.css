@@ -115,6 +115,13 @@
    head it ran into «Bestimmen». A group boundary is spacing (18.09. rule): the eyebrow, the count
    and the air above the head — `.sectSecond`'s 26px, the Sicherungstrupp's own margins.) */
 .sectSecond { margin-top: 26px; }
+/* …and the phone board's four sections (Drin · Sicherungstrupp · Bereit · Draussen) take the SAME
+   26px above every head after the first (30.09.2026, owner: «Sicherungstrupp has almost no spacing
+   to the card above», «Draussen … no spacing to a card above»). The heads carried only a bottom
+   margin, so a head that followed a list of cards sat flush on the last card — and the
+   Sicherungstrupp zone's own 4px top / 18px bottom made two more numbers for one boundary. ONE
+   adjacency rule, whichever sections happen to be on screen; the first one stays at the top. */
+.phoneBoard > * + :is(.sect, .safetyZone) { margin-top: 26px; }
 .sectEmpty { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
 
 
@@ -1558,7 +1565,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .trowCard .vrow { padding-left: 11px; }
 
 /* the Sicherungstrupp — one place, between the crews inside and everybody else */
-.safetyZone { margin: 4px 0 18px; }
+/* (its air above is the phone board's one section rule, `.phoneBoard`; the head after it brings its own) */
+.safetyZone { margin: 0; }
 .trowSafety { grid-template-columns: minmax(0, 1fr) auto !important; border-left-color: var(--green);
   background: color-mix(in srgb, var(--green) 7%, var(--surface)); }
 .trowSafetyWho { display: block; font-size: 13px; font-weight: 600; color: var(--ink-dim); margin-top: 2px;
@@ -1572,7 +1580,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    (D1 ⑦, 24.09.2026) went with the slim-down: an empty section under its own head says the same
    in no words. `.sectDue`: a crew is inside and nobody stands ready — the title wears the warn
    tone, a hint (the alarm rules do not know it), never a fill. */
-.sectSafety { margin-bottom: 8px; }
+/* 4 + the zone's 8px row gap = the 12px every other head keeps above its first card (30.09.2026) */
+.sectSafety { margin-bottom: 4px; }
 .sectAct { margin-left: auto; flex: none; min-height: 36px; padding: 0 14px; border: none; cursor: pointer; border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink); font: 800 13px var(--body); box-shadow: inset 0 0 0 1px var(--glass-edge); }
 .sectAct:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
