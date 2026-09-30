@@ -91,26 +91,16 @@ const typeGuest = (name: string) => {
 const pickAuftrag = (label = 'Retten') =>
   fireEvent.click(within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: label }))
 
-describe('the inline Druckmeldung', () => {
-  it('offers ± immediately and commits only after a changed value is confirmed', () => {
+/* The tablet's inline ± stepper with its own «Bestätigen» is GONE (29.09.2026): every board's
+ * Druck is the pressure tile, and the tile opens the ONE picker — a tap on a number saves. */
+describe('the Druckmeldung on the tablet card', () => {
+  it('opens the pressure picker from the tile, and a tap on a number saves it', () => {
     const props = mount()
-    const step = atemschutzDoctrine().pressureStep
-    const down = screen.getByLabelText(az.pressureDown.replace('{step}', String(step)))
-    expect(screen.queryByRole('button', { name: az.pressureConfirm })).toBeNull()
-    fireEvent.pointerDown(down)
+    expect(screen.queryByLabelText(az.pressureDown.replace('{step}', String(atemschutzDoctrine().pressureStep)))).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: `${az.actPressure} 240 bar` }))
     expect(props.recordPressure).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: az.pressureConfirm }))
-    expect(props.recordPressure).toHaveBeenCalledWith('tr1', 240 - step)
-  })
-
-  it('✕ throws away a pending pressure without hiding the immediate controls', () => {
-    const props = mount()
-    const step = atemschutzDoctrine().pressureStep
-    fireEvent.pointerDown(screen.getByLabelText(az.pressureDown.replace('{step}', String(step))))
-    fireEvent.click(screen.getByRole('button', { name: az.cancel }))
-    expect(props.recordPressure).not.toHaveBeenCalled()
-    expect(screen.getByLabelText(az.pressureDown.replace('{step}', String(step)))).toBeTruthy()
-    expect(screen.queryByRole('button', { name: az.pressureConfirm })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '200' }))
+    expect(props.recordPressure).toHaveBeenCalledWith('tr1', 200)
   })
 })
 
@@ -154,8 +144,10 @@ describe('the contact times (the head of the Verlauf)', () => {
     it('leaves the Einsatzzeit and the Schätzung standing on one line', () => {
       mount()
       const line = document.querySelector(`.${s.metaLine}`)!
-      expect(line.textContent).toContain(az.elapsed)
-      // the short form of «Geschätzter Druck» — see de.ts · estimatedShort
+      // the Einsatzzeit as a duration that says so («30:00 min») — terse, no «Einsatzzeit» word
+      expect(line.textContent).toMatch(/\d+:\d{2} min/)
+      // the short form of «Geschätzter Druck» — see de.ts · estimatedShort. ⚠️ It KEEPS its word
+      // on the terse line (owner 29.09.2026: «the schätzung clearly visible»)
       expect(line.textContent).toContain(az.estimatedShort)
       expect(line.textContent).toMatch(/≈ \d+ bar/)
     })
@@ -192,18 +184,16 @@ describe('the contact times (the head of the Verlauf)', () => {
       expect(screen.getByText(/Druckwerten|angenommen/).className).toContain(s.zoneNote)
     })
 
-    /* The closed row's «zuletzt: 16:48 Druck 270 bar» is there to answer «und dann?» WITHOUT
-     * opening anything. Open, it printed the newest Ablesung right above the list that starts
-     * with that very row (same field review). */
-    it('drops the row’s preview once the list it previews is on screen', () => {
+    /* The «zuletzt: 16:48 Druck 270 bar» preview is GONE on every board (26.09.2026 on the phone,
+     * the tablet 29.09.2026 — T2): its bar was the pressure tile's number a second time, and its
+     * content is the Verlauf's first row anyway. The line is values only, and it is the toggle. */
+    it('carries no «zuletzt» preview — the line is the toggle', () => {
       mount()
       const row = screen.getByRole('button', { name: new RegExp(az.verlauf) })
-      expect(row.textContent).toMatch(/zuletzt/)
-      fireEvent.click(row)
       expect(row.textContent).not.toMatch(/zuletzt/)
-      expect(document.querySelector(`.${s.logList}`)).toBeTruthy()
+      expect(row.textContent).not.toContain('240 bar')
       fireEvent.click(row)
-      expect(row.textContent).toMatch(/zuletzt/)
+      expect(document.querySelector(`.${s.logList}`)).toBeTruthy()
     })
 
     // …and the one line never goes with it: closing the Verlauf must not take the two numbers
@@ -212,25 +202,24 @@ describe('the contact times (the head of the Verlauf)', () => {
       mount()
       const row = screen.getByRole('button', { name: new RegExp(az.verlauf) })
       const text = () => document.querySelector(`.${s.metaLine}`)?.textContent ?? ''
-      expect(text()).toContain(az.elapsed)
+      expect(text()).toContain(az.estimatedShort)
       fireEvent.click(row)
-      expect(text()).toContain(az.elapsed)
+      expect(text()).toContain(az.estimatedShort)
       fireEvent.click(row)
-      expect(text()).toContain(az.elapsed)
+      expect(text()).toContain(az.estimatedShort)
     })
 
     /* The ONE value that is allowed to join the line, and only where nothing else shows it: a
-     * viewer has no ± block, so «Druck 240 bar» would otherwise be a tap away on the surface a
-     * life depends on. With the block live, the number is already there in 19px mono and the
-     * line must not say it twice. */
-    it('adds the aktueller Druck for a viewer, and never beside the live ± block', () => {
+     * viewer has no pressure tile, so «240 bar» would otherwise be a tap away on the surface a
+     * life depends on. With the tile live, the number is already on it and the line must not say
+     * it twice. */
+    it('adds the aktueller Druck for a viewer, and never beside the live pressure tile', () => {
       mount({ canEdit: false })
-      expect(document.querySelector(`.${s.metaLine}`)!.textContent).toContain(az.currentPressure)
+      expect(document.querySelector(`.${s.metaLine}`)!.textContent).toContain('240 bar')
       cleanup()
       mount({ canEdit: true })
       const line = document.querySelector(`.${s.metaLine}`)!.textContent!
-      // «Druck» appears on the ± block above; the line carries only the Einsatzzeit + Schätzung
-      expect(line).not.toContain(`${az.currentPressure}240`)
+      expect(line).not.toMatch(/(^|[^≈] )240 bar/)
       expect(line).toContain(az.estimatedShort)
     })
   })
@@ -241,10 +230,10 @@ describe('the contact times (the head of the Verlauf)', () => {
  * lifecycle word — and each is a fact a viewer, who has no action bar to read it off, would
  * otherwise get from a 5px border colour alone. */
 describe('the state a tier cannot say', () => {
-  it('names «Rückzug» beside the crew, where the band is still saying «Kontakt ok»', () => {
+  it('names «Rückzug» as a fact chip, where the calm clock says nothing about it', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'rueckzug' }], canEdit: false })
-    expect(screen.getByText(az.clockOk)).toBeTruthy()           // the tier, unchanged
-    expect(screen.getByText(az.status.rueckzug)).toBeTruthy()   // …and the fact it cannot carry
+    expect(screen.queryByText(az.clockOk)).toBeNull()                    // «Kontakt ok» is the green's
+    expect(screen.getByText(az.status.rueckzug).className).toContain(s.factState) // …the fact is a word
   })
 
   /* WHICH time an out card carries depends on whether anybody was ever monitoring it (settled
@@ -254,12 +243,13 @@ describe('the state a tier cannot say', () => {
    * And no «Draussen seit» under the word (22.09.): the band read «DRAUSSEN / Draussen seit». */
   it('gives an Atemschutz-Trupp that is out its break clock, and no tier', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
-    expect(screen.getByText(az.status.raus)).toBeTruthy()
-    expect(screen.queryByText(az.outFor)).toBeNull()
+    // the grid has no «Draussen» section head, so the card's state line says it (`headed`)
+    expect(document.querySelector(`.${s.stateLine}`)?.textContent).toBe(az.status.raus)
+    // «Draussen seit» is the ROW's caption track only — on a card it stays hidden (`.trowHead .trowSub`)
+    expect(screen.getByText(az.outFor).closest(`.${s.trowHead}`)).toBeTruthy()
     expect(screen.queryByText(az.clockOk)).toBeNull()
-    expect(screen.queryByText(az.sinceContact)).toBeNull()
-    const band = document.querySelector(`.${s.bandVal}`)!
-    expect(band.textContent).toMatch(/^0?5:00$/)
+    const clock = document.querySelector(`.${s.trowClockVal}`)!
+    expect(clock.textContent).toMatch(/^0?5:00$/)
   })
 
   /* The break clock is a LONG duration read as one, so past the hour it rolls the way the
@@ -267,8 +257,8 @@ describe('the state a tier cannot say', () => {
    * focus strip below said «5:43:17» (field shot 11.09.). */
   it('rolls a long break clock into hours — 5:43:17, never 343:17', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(343 * 60_000 + 17_000) }] })
-    const band = document.querySelector(`.${s.bandVal}`)!
-    expect(band.textContent).toMatch(/^5:43:1\d$/)
+    const clock = document.querySelector(`.${s.trowClockVal}`)!
+    expect(clock.textContent).toMatch(/^5:43:1\d$/)
   })
 
   /* …and a WORK SQUAD that is out gets the word alone. Nothing about it was ever monitored, so
@@ -281,8 +271,8 @@ describe('the state a tier cannot say', () => {
     expect(screen.getByText(az.statusPlainOut)).toBeTruthy()
     expect(screen.queryByText(az.outFor)).toBeNull()
     expect(screen.queryByText(az.elapsed)).toBeNull()
-    const band = document.querySelector(`.${s.bandVal}`)!
-    expect(band.textContent).toBe('')
+    const clock = document.querySelector(`.${s.trowClockVal}`)!
+    expect(clock.textContent).toBe('')
   })
 
   /* ⚠️ «Nicht eingesetzt» gets NO running clock (04.09.). A Sicherungstrupp that was stood down
@@ -299,14 +289,14 @@ describe('the state a tier cannot say', () => {
     // the break clock's own caption is exactly what must NOT stand over this card
     expect(screen.queryByText(az.outFor)).toBeNull()
     // …and the value beside it is a wall-clock time, never a running mm:ss
-    const band = document.querySelector(`.${s.bandVal}`)!
-    expect(band.textContent).toMatch(/^\d{2}:\d{2}$/)
+    const clock = document.querySelector(`.${s.trowClockVal}`)!
+    expect(clock.textContent).toMatch(/^\d{2}:\d{2}$/)
   })
 
   /* …and BOTH out states hand the loud type back. The 40px bold number belongs to the crews that
    * are inside — that is the reading order of the whole board — and a break clock in the same
    * weight put a Trupp nobody is watching at the top of the eye's list. */
-  it('draws both out states quietly, and leaves the loud band to the crews inside', () => {
+  it('draws both out states quietly, and leaves the loud clock to the crews inside', () => {
     for (const t of [
       { ...aktivTrupp(), status: 'raus' as const, exitTime: iso(5 * 60_000) },
       { ...aktivTrupp(), status: 'raus' as const, entryTime: '', exitTime: iso(5 * 60_000),
@@ -314,17 +304,18 @@ describe('the state a tier cannot say', () => {
     ]) {
       cleanup()
       mount({ trupps: [t] })
-      expect(document.querySelector(`.${s.band}`)!.className).toContain(s.bandQuiet)
+      expect(document.querySelector(`.${s.trowCard}`)!.className).toContain(s.trowOut)
     }
     cleanup()
     mount() // still inside: this is the one card that keeps the big number
-    expect(document.querySelector(`.${s.band}`)!.className).not.toContain(s.bandQuiet)
+    expect(document.querySelector(`.${s.trowCard}`)!.className).not.toContain(s.trowOut)
   })
 
   it('keeps «Einrücken» explained on a Trupp under Atemschutz — and only there', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'angemeldet' }] })
     expect(screen.getByText(az.preEntryHint)).toBeTruthy()
-    expect(screen.getByText(az.bandPreEntry)).toBeTruthy()
+    // the grid has no «Bereit» section head, so the card says it (TruppCard · `headed`)
+    expect(screen.getByText(az.phoneSectionReady)).toBeTruthy()
   })
 })
 
@@ -340,7 +331,7 @@ describe('the lifecycle row: in the order the Einsatz runs', () => {
     for (const status of ['aktiv', 'rueckzug'] as const) {
       cleanup()
       mount({ trupps: [{ ...aktivTrupp(), status }] })
-      const labels = [...document.querySelectorAll(`.${s.actions} .${s.actBtn}`)].map((b) => b.textContent)
+      const labels = [...document.querySelectorAll(`.${s.actions} .${s.actBtn}`)].map((b) => b.getAttribute('aria-label') ?? b.textContent)
       expect(labels).toEqual([status === 'aktiv' ? az.actRueckzug : az.actContinue, az.actExit])
     }
   })
@@ -369,6 +360,41 @@ describe('the lifecycle row: in the order the Einsatz runs', () => {
   })
 })
 
+/* T11 (29.09.2026): the tablet's Rückzug / Raus are the phone's equal tiles — both framed grey,
+ * «Rückzug» amber ONLY at or under the Trupp's Alarmdruck. It was amber on every card in the field. */
+describe('the tablet card wears the phone card (29.09.2026)', () => {
+  it('keeps «Rückzug» grey above the Alarmdruck and turns it amber at the line', () => {
+    mount()
+    expect(screen.getByRole('button', { name: az.actRueckzug }).className).not.toContain(s.actAlarm)
+    cleanup()
+    mount({ trupps: [{ ...aktivTrupp(), lastPressureBar: 80, lowestBar: 80 }] })
+    expect(screen.getByRole('button', { name: az.actRueckzug }).className).toContain(s.actAlarm)
+  })
+
+  it('draws the card with no band, no Kennzeile and no ± stepper — the tiles and the chips', () => {
+    mount({ trupps: [{ ...aktivTrupp(), no: 2 }] })
+    const card = document.querySelector(`.${s.trowCard}`)!
+    // the first line is not a toggle on the grid: every card stands open
+    expect(card.querySelector(`.${s.trowHead}`)!.tagName).toBe('DIV')
+    expect(card.querySelector(`.${s.trowChevron}`)).toBeNull()
+    expect(card.querySelector(`.${s.trowHead}`)!.textContent).toContain('#2')
+    expect(within(card as HTMLElement).getAllByRole('button', { name: az.actContact })).toHaveLength(1)
+    // the ⋯ is the facts' last chip
+    expect(card.querySelector(`.${s.facts}`)!.lastElementChild!.getAttribute('aria-label')).toBe(az.cardMenu)
+  })
+
+  // T9: the handed-over phone Tafel's add cell carries its word
+  it('writes «+ Trupp» in the Tafel strip\'s add cell', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    try {
+      mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp()] })
+      expect(document.querySelector(`.${s.tabAdd}`)!.textContent).toBe(az.newTruppShort)
+    } finally {
+      vi.mocked(useIsPhone).mockReturnValue(false)
+    }
+  })
+})
+
 /* A closed Einsatz is a record, not a situation. A Trupp that was never reported out kept
  * accumulating Einsatzzeit through the night, so the Akte opened the next morning claimed a crew
  * had been inside for eleven hours — and the überfällig alarm went with it (that half is App's,
@@ -381,7 +407,7 @@ describe('an abgeschlossener Einsatz (frozenAt)', () => {
       const trupp = { ...aktivTrupp(), entryTime: new Date(entry).toISOString() }
       // the Einsatz ended four minutes after this Trupp went in
       mount({ trupps: [trupp], frozenAt: entry + 4 * 60_000 })
-      const clock = () => screen.getByText(az.elapsed).parentElement!.textContent
+      const clock = () => document.querySelector(`.${s.metaLine}`)!.textContent
       const atClose = clock()
       expect(atClose).toContain('4:00')
 
@@ -399,15 +425,15 @@ describe('an abgeschlossener Einsatz (frozenAt)', () => {
     const trupp = { ...aktivTrupp(), entryTime: new Date(entry).toISOString(), lastContactTime: new Date(entry).toISOString() }
     mount({ trupps: [trupp], frozenAt: entry + 40 * 60_000 })
     expect(document.querySelector(`.${s.overdueBadge}`)).toBeNull()
-    expect(document.querySelector(`.${s.bandCrit}`)).toBeNull()
+    expect(document.querySelector(`.${s.trowCrit}`)).toBeNull()
     expect(screen.getByText(az.clockFrozen)).toBeTruthy()
     expect(screen.queryByText(az.clockOverdue)).toBeNull()
     // …and the colours that mean «running» go too (N5): the board wears the frozen tone, whose
     // rules neutralise the red status edge and the green clocks
     expect(document.querySelector(`.${s.surfaceFrozen}`)).toBeTruthy()
     const css = readFileSync(`${process.cwd()}/src/components/Atemschutz.module.css`, 'utf8')
-    expect(css).toMatch(/\.surfaceFrozen \.st-aktiv, \.surfaceFrozen \.st-rueckzug, \.surfaceFrozen \.st-ueberfaellig \{ border-top-color: var\(--ink-faint\); \}/)
-    expect(css).toMatch(/\.surfaceFrozen \.bandVal, \.surfaceFrozen \.trowClockVal, \.surfaceFrozen \.tabClock \{ color: var\(--ink-dim\)/)
+    expect(css).toMatch(/\.surfaceFrozen \.trow \{ border-left-color: var\(--ink-faint\); background: var\(--surface\); \}/)
+    expect(css).toMatch(/\.surfaceFrozen \.trowClockVal, \.surfaceFrozen \.tabClock \{ color: var\(--ink-dim\)/)
     // …the SICHERUNGSTRUPP head included — no amber title on a closed Tafel (r6, F3; a head since
     // the slim-down of 26.09.2026)
     expect(css).toMatch(/\.surfaceFrozen \.sectDue \.sectTitle \{ color: var\(--ink-dim\); \}/)
@@ -495,7 +521,7 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
     const props = mount({ trupps: [{ ...aktivTrupp(), no: 2 }] })
     fireEvent.click(document.querySelector(`.${s.trow}`)!)
     const card = document.querySelector('[data-az-open]') as HTMLElement
-    expect(card.querySelector(`.${s.band}`)).toBeNull()
+    expect(card.querySelectorAll(`.${s.trowClockVal}`)).toHaveLength(1) // the line's clock, no second one
     expect(within(card).getAllByRole('button', { name: az.actContact })).toHaveLength(1)
     expect(within(card).getAllByRole('button', { name: druckName })).toHaveLength(1)
     // the Trupp's number, gone from the row's line, stands small after the name on the opened
@@ -538,15 +564,16 @@ describe('a collapsed row tells the same time as the open card', () => {
 })
 
 describe('the Verlauf footer (the removed «Draussen: hh:mm» line, generalised)', () => {
-  it('previews the LATEST event with its bar, and expands the full log in place', () => {
+  // ⚠️ no preview of the latest event since 29.09.2026 (T2) — see «carries no «zuletzt» preview»
+  it('expands the full log in place, newest first', () => {
     mount()
-    const row = screen.getByRole('button', { name: new RegExp(`${az.verlauf}.*${az.readingKind.pressure}`) })
-    expect(row.textContent).toContain('240 bar')
+    const row = screen.getByRole('button', { name: az.verlauf })
     expect(row.textContent).not.toContain('2 Einträge')
     // the older entry row is behind the fold until the footer is tapped
     expect(screen.queryByText(az.readingKind.entry)).toBeNull()
     fireEvent.click(row)
     expect(screen.getByText(az.readingKind.entry)).toBeTruthy()
+    expect([...document.querySelectorAll(`.${s.logKind}`)].map((e) => e.textContent)[0]).toBe(az.readingKind.pressure)
   })
 })
 
@@ -564,9 +591,9 @@ describe('pointing to a Trupp', () => {
   /* Since the slim-down (26.09.2026) the gap opens the one sheet that answers it — the Auftrag
    * sheet with the six tiles (components/TruppSheets) — not the whole form on its Auftrag field. A
    * viewer's card (no `onQuick`) still hands the gap to the form. */
-  it('opens «Auftrag offen» on the Auftrag sheet, tiles ready', () => {
+  it('opens the missing Auftrag («+ Auftrag») on the Auftrag sheet, tiles ready', () => {
     mount({ trupps: [{ ...aktivTrupp(), auftrag: undefined }] })
-    fireEvent.click(screen.getByRole('button', { name: az.auftragOpen }))
+    fireEvent.click(screen.getByRole('button', { name: az.auftragAdd }))
     const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
     expect(within(sheet).getByRole('group', { name: az.editFieldLabels.auftrag })).toBeTruthy()
     expect(within(sheet).getByRole('button', { name: 'Löschen' })).toBeTruthy()
@@ -610,7 +637,7 @@ describe('the mini sheets', () => {
   it('the Auftrag chip opens the sheet on the stored values; Speichern writes Auftrag, Ziel and Leitung together', async () => {
     const editTrupp = vi.fn()
     mount({ trupps: [withFacts()], editTrupp, leitungOptions: () => [{ no: 1, onPlan: false }, { no: 2, onPlan: true }] })
-    fireEvent.click(screen.getByRole('button', { name: 'Löschen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Löschen · Test' }))
     const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
     expect(within(sheet).getByRole('button', { name: 'Löschen' }).getAttribute('aria-pressed')).toBe('true')
     expect((within(sheet).getByLabelText(az.editFieldLabels.ziel) as HTMLInputElement).value).toBe('Test')
@@ -626,7 +653,7 @@ describe('the mini sheets', () => {
   it('«keine» lets the Leitung go — absent, never an empty number', async () => {
     const editTrupp = vi.fn()
     mount({ trupps: [withFacts()], editTrupp })
-    fireEvent.click(screen.getByRole('button', { name: 'Löschen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Löschen · Test' }))
     const sheet = screen.getByRole('dialog')
     fireEvent.click(within(sheet).getByRole('button', { name: az.lineNone }))
     fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
@@ -643,7 +670,7 @@ describe('the mini sheets', () => {
       trupps: [withFacts(), { ...aktivTrupp(), id: 'tr2', name: 'Other Olga', lineNo: 3 }],
       editTrupp, unlinkTruppLine, leitungOptions: () => [{ no: 3, onPlan: false, takenBy: 'Other Olga' }],
     })
-    fireEvent.click(screen.getAllByRole('button', { name: 'Löschen' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /^Löschen/ })[0])
     const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
     fireEvent.click(within(sheet).getByRole('button', { name: new RegExp(`^${fillTemplate(az.lineChip, { n: 3 })}`) }))
     fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
@@ -764,7 +791,8 @@ describe('the mini sheets', () => {
 
   /* ⑤ — the ⋯ on the phone: the jumps, the Suche's rows, then «Bearbeiten» as the last resort
    * above the rule; «Entfernen» stays last and red. The tablet keeps «Bearbeiten» first. */
-  it('puts «Bearbeiten» last before the rule on the phone, and keeps it first on the tablet', async () => {
+  // …and on the tablet too since 29.09.2026: it wears the same chips, so it has the same doors
+  it('puts «Bearbeiten» last before the rule — on the phone and on the tablet', async () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const sucheItems = () => [{ label: 'Fund melden', onClick: noop }]
     mount({ trupps: [{ ...withFacts(), entityId: 'e1' }], truppsWithLine: new Set(['tr1']), sucheItems })
@@ -776,7 +804,7 @@ describe('the mini sheets', () => {
     vi.mocked(useIsPhone).mockReturnValue(false)
     mount({ trupps: [{ ...withFacts(), entityId: 'e1' }], truppsWithLine: new Set(['tr1']), sucheItems })
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
-    expect((await screen.findAllByRole('menuitem')).map((m) => m.textContent)).toEqual([az.edit, az.showOnMap, az.lineShow, 'Fund melden', az.remove])
+    expect((await screen.findAllByRole('menuitem')).map((m) => m.textContent)).toEqual([az.showOnMap, az.lineShow, 'Fund melden', az.edit, az.remove])
   })
 
   it('a viewer has no doors: the facts are plain text', () => {
@@ -846,9 +874,9 @@ describe('the handed-over board on a phone (focus mode)', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [aktivTrupp(), { ...aktivTrupp(), id: 'tr2', name: 'Meier' }] })
     expect(screen.getAllByRole('tab')).toHaveLength(2)
-    expect(document.querySelectorAll(`.${s.card}`)).toHaveLength(1)
+    expect(document.querySelectorAll(`.${s.trowCard}`)).toHaveLength(1)
     fireEvent.click(screen.getByRole('tab', { name: /Meier/ }))
-    expect(document.querySelector(`.${s.card}`)?.textContent).toContain('Meier')
+    expect(document.querySelector(`.${s.trowCard}`)?.textContent).toContain('Meier')
     // the strip's own «+ Trupp» is the door; no second one in the header
     expect(screen.getAllByRole('button', { name: az.newTrupp })).toHaveLength(1)
   })
@@ -925,7 +953,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
     await waitFor(() => {
       expect(screen.getByRole('tab', { name: /Meier Anna/ }).getAttribute('aria-selected')).toBe('true')
     })
-    expect(document.querySelector(`.${s.card}`)?.textContent).toContain('Meier Anna')
+    expect(document.querySelector(`.${s.trowCard}`)?.textContent).toContain('Meier Anna')
   })
 
   it('opens the Trupp form as ONE flat column — everything visible, Druck+Kanal folded', () => {
@@ -960,16 +988,18 @@ describe('the handed-over board on a phone (focus mode)', () => {
   // ⚠️ SIX zones since 09.09., not seven: the Sockel folded into the Verlauf block under it
   // (`.metaLine` + the expander), so there is no standing look-up strip on the card any more —
   // at any width, on any board. That is the point of asserting the list rather than one class.
-  it('uses the same card as every other board — same six zones, in the same order', () => {
+  it('uses the same card as every other board — the same zones, in the same order', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [aktivTrupp()] })
-    const card = document.querySelector(`.${s.card}`)!
+    const card = document.querySelector(`.${s.trowCard}`)!
     // ⚠️ the whole zone list, in order, and NOTHING besides — one card means one zone list, and
     // that is what a phone-only arrangement would break first.
     // Asserting «.cardHead exists» proves nothing: it exists on every card at every width.
     // the FIRST class of each child: the block also carries its tier, which is not the point here
-    expect([...card.children].map((c) => c.className.trim().split(/\s+/)[0])).toEqual([
-      s.cardHead, s.kenn, s.block, s.noteZone, s.actZone, s.vfoot,
+    // ⚠️ since 29.09.2026 the card of EVERY board is the phone's opened row: line · tiles · the
+    // lifecycle row · (the state in words, where there is one) · note · facts · foot
+    expect([...card.children].map((c) => c.className.trim().split(/\s+/)[0]).filter((c) => c !== s.stateLine)).toEqual([
+      s.trowHead, s.trowActs, s.actZone, s.noteZone, s.facts, s.vfoot,
     ])
     // Kontakt is still an in-card control, not a pinned screen-edge bar
     expect(card.querySelector(`.${s.kontaktBtn}`)).toBeTruthy()
@@ -1025,18 +1055,18 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     mount()
     expect(screen.queryByText(az.sectionAtemschutz)).toBeNull()
     expect(screen.queryByText(az.sectionPlain)).toBeNull()
-    expect(document.querySelector(`.${s.cardPlain}`)).toBeNull()
+    expect(document.querySelector(`.${s.trowPlain}`)).toBeNull()
   })
 
   it('splits into «Atemschutz» + «Weitere Trupps» and gives both halves the SAME card', () => {
     mount({ trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
     expect(screen.getByText(az.sectionAtemschutz)).toBeTruthy()
     expect(screen.getByText(az.sectionPlain)).toBeTruthy()
-    const cards = [...document.querySelectorAll(`.${s.card}`)]
+    const cards = [...document.querySelectorAll(`.${s.trowCard}`)]
     expect(cards).toHaveLength(2)
     const plain = cards.find((c) => c.textContent?.includes('Gerber'))!
     // same shell — and NONE of the monitoring vocabulary: no clock, no Druck, no Kontakt
-    expect(plain.classList.contains(s.cardPlain)).toBe(true)
+    expect(plain.classList.contains(s.trowPlain)).toBe(true)
     expect(plain.querySelector(`.${s.kontaktBtn}`)).toBeNull()
     expect(plain.textContent).not.toContain('bar')
     expect(screen.getAllByRole('button', { name: az.actContact })).toHaveLength(1) // the PA card's
@@ -1052,7 +1082,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     mount({ trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
     const rows = [...document.querySelectorAll(`.${s.trow}`)]
     expect(rows).toHaveLength(2)
-    expect(document.querySelector(`.${s.card}`)).toBeNull() // nothing open yet
+    expect(document.querySelector(`.${s.trowCard}`)).toBeNull() // nothing open yet
     fireEvent.click(rows.find((r) => r.textContent?.includes('Gerber'))!)
     // the opened phone card is the row grown downwards (26.09.2026) — in the row's own quiet tone
     const card = document.querySelector('[data-az-open]')!
@@ -1074,7 +1104,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
       { t: iso(18 * 60_000), bar: 0, kind: 'entry' },
     ]
     mount({ trupps: [{ ...plainTrupp(), readings }], truppColors: { tr9: '#e2920a' } })
-    const card = () => document.querySelector(`.${s.card}`)!
+    const card = () => document.querySelector(`.${s.trowCard}`)!
     expect(card().textContent).not.toContain('bar')
     // …and the rows are still there to read: open the log and the chronology is intact
     fireEvent.click(screen.getByRole('button', { name: new RegExp(az.verlauf) }))
@@ -1089,8 +1119,8 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' } })
     expect(screen.getByText(az.sectionAtemschutzEmpty)).toBeTruthy()
     // the one card on the board is the work squad's, and it is the plain one
-    expect(document.querySelectorAll(`.${s.card}`)).toHaveLength(1)
-    expect(document.querySelectorAll(`.${s.cardPlain}`)).toHaveLength(1)
+    expect(document.querySelectorAll(`.${s.trowCard}`)).toHaveLength(1)
+    expect(document.querySelectorAll(`.${s.trowPlain}`)).toHaveLength(1)
   })
 
   it('offers the one lifecycle step its state actually has — and no Rückzug it cannot take', () => {
@@ -1141,7 +1171,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
   it('hides plain Trupps entirely on the handed-over board, and offers no way to create one', () => {
     mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
     expect(screen.queryByText('Gerber')).toBeNull()
-    expect(document.querySelector(`.${s.cardPlain}`)).toBeNull()
+    expect(document.querySelector(`.${s.trowPlain}`)).toBeNull()
     expect(screen.queryByText(az.sectionPlain)).toBeNull()
     fireEvent.click(firstBtn(az.newTrupp))
     expect(screen.queryByRole('radiogroup', { name: az.kindLabel })).toBeNull()
@@ -1256,9 +1286,9 @@ describe('the board with Trupps that are not under Atemschutz', () => {
       trupps: [{ ...aktivTrupp(), auftrag: 'verkehr' }, { ...plainTrupp(), auftrag: 'loeschen' }],
       truppColors: { tr1: '#e8392b', tr9: '#e2920a' },
     })
-    expect(screen.getByText('Verkehr')).toBeTruthy()   // PA card wearing a non-PA id
-    expect(screen.getByText('Löschen')).toBeTruthy()   // plain row wearing a PA id
-    expect(screen.queryByRole('button', { name: az.auftragOpen })).toBeNull()
+    expect(screen.getByText(/^Verkehr( · |$)/)).toBeTruthy()   // PA card wearing a non-PA id
+    expect(screen.getByText(/^Löschen( · |$)/)).toBeTruthy()   // plain row wearing a PA id
+    expect(screen.queryByRole('button', { name: az.auftragAdd })).toBeNull()
   })
 
   // «Anderes» is the escape hatch on BOTH lists — it is the same shared id — so it has to keep
@@ -1315,7 +1345,7 @@ describe('a Trupp may be registered without an Auftrag', () => {
     cleanup()
     const onEdit = vi.fn()
     mount({ trupps: [created], editTrupp: onEdit })
-    expect(screen.getByRole('button', { name: az.auftragOpen })).toBeTruthy()
+    expect(screen.getByRole('button', { name: az.auftragAdd })).toBeTruthy()
   })
 
   it('still records the Auftrag when one is picked', () => {
@@ -1480,7 +1510,8 @@ describe('the Trupp form on the main board’s phone layout', () => {
     // board's phone layout is the row list) — the form behind the button is the same one
     mount({ lite: { subtitle: 'Brand' }, trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000) }] })
     fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
-    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+    // (in the form: the Tafel's «+ Trupp» cell says the same word since 29.09.2026)
+    expect(within(screen.getByRole('dialog')).getByText(az.sectionTeam)).toBeTruthy()
     // the folded Standard line is a CREATE affair — a fresh cylinder's reading is a question
     expect(screen.getByText(az.newPressureLabel)).toBeTruthy()
 
@@ -1519,7 +1550,7 @@ describe('the Reihenfolge menu', () => {
     id, kind: 'einfach', name, entryPressureBar: 0, entryTime: iso(10 * 60_000),
     lastContactTime: '', status: 'aktiv', ...over,
   })
-  const names = () => [...document.querySelectorAll(`.${s.nameStatic}`)].map((e) => e.textContent)
+  const names = () => [...document.querySelectorAll(`.${s.trowNameTxt}`)].map((e) => e.textContent)
 
   it('Dringlichkeit: among equals, the deployment that has run longest comes first', () => {
     mount({ order: 'dringlichkeit', trupps: [
@@ -1726,7 +1757,7 @@ describe('the überfällig badge in the header', () => {
     ...aktivTrupp(), id, name, lastContactTime: iso(60 * 60_000),
   })
   const flashedNames = () =>
-    [...document.querySelectorAll(`.${s.cardFlash}`)].map((el) => el.querySelector(`.${s.nameStatic}`)?.textContent)
+    [...document.querySelectorAll(`.${s.cardFlash}`)].map((el) => el.querySelector(`.${s.trowNameTxt}`)?.textContent)
 
   it('rings every alarmed Trupp, not only the one it jumps to', () => {
     mount({ trupps: [
@@ -1837,13 +1868,15 @@ describe('the Ausrüstung of an Atemschutz-Trupp', () => {
     expect((editTrupp.mock.calls[0][1] as TruppFields).equipment).toEqual(['retthaube'])
   })
 
-  it('prints the Kürzel at the end of the Kennzeile — and nothing when nothing was ticked', () => {
+  // the facts' last chips before the ⋯ (the Kennzeile's tags until 29.09.2026 — TruppCard · facts)
+  it('prints the Kürzel as the last fact chips — and nothing when nothing was ticked', () => {
+    const tagsOf = () => [...document.querySelectorAll(`.${s.facts} > .${s.fact}`)].map((el) => el.textContent)
+      .filter((t) => (Object.values(az.equipmentShort) as string[]).includes(t ?? ''))
     mount({ trupps: [{ ...aktivTrupp(), equipment: ['retthaube', 'wbk'] }] })
-    const tags = [...document.querySelectorAll(`.${s.kennTag}`)].map((el) => el.textContent)
-    expect(tags).toEqual([az.equipmentShort.retthaube, az.equipmentShort.wbk])
+    expect(tagsOf()).toEqual([az.equipmentShort.retthaube, az.equipmentShort.wbk])
     cleanup()
     mount()
-    expect(document.querySelector(`.${s.kennTag}`)).toBeNull()
+    expect(tagsOf()).toEqual([])
   })
 
   it('asks a work squad nothing — the field only exists under Atemschutz', async () => {
@@ -2541,9 +2574,13 @@ describe('staging r2: numbers, the Link\'s first Trupp, and «nicht eingesetzt»
       readings: [{ t: iso(5 * 60_000), bar: 300, kind: 'registered' }, { t: iso(60_000), bar: 300, kind: 'exit' }],
     }
     mount({ trupps: [stoodDown] })
-    const preview = document.querySelector(`.${s.vrowLast}`)?.textContent ?? ''
-    expect(preview).toContain(az.statusNotDeployed)
-    expect(preview).not.toContain(az.readingKind.exit)
+    // the card's state line says it (the «zuletzt: …» preview that used to is gone, 29.09.2026)…
+    expect(document.querySelector(`.${s.stateLine}`)?.textContent).toBe(az.statusNotDeployed)
+    // …and the Verlauf's last row, opened, reads the same — never «Austritt»
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.verlauf) }))
+    const rows = [...document.querySelectorAll(`.${s.logKind}`)].map((e) => e.textContent)
+    expect(rows[0]).toBe(az.statusNotDeployed)
+    expect(rows).not.toContain(az.readingKind.exit)
     expect(screen.getByRole('button', { name: az.actEnterFirst })).toBeTruthy()
   })
 })
