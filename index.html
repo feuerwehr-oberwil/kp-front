@@ -56,7 +56,7 @@
       first-load this splash exists for in the first place. Without this the same window showed
       an unstyled flash of raw German text on white.
 
-      Same selectors as src/styles/08-toasts.css (.login/.boot-splash/.loading-card/.ping/
+      Same selectors as src/styles/08-toasts.css (.login/.boot-splash/.loading-card/
       .loading-stuck/.boot-hint) and src/styles/02-base.css (html background) on purpose: once
       the real stylesheet loads it sits AFTER this block in the cascade, so at equal specificity
       it simply wins and takes over — no !important tug-of-war, no double-maintenance beyond
@@ -91,15 +91,10 @@
       html { background: var(--app-bg); }
       .login { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px;
         background: var(--app-bg); color: var(--ink); font-family: system-ui, sans-serif; }
-      .boot-splash { animation: fade .3s var(--ease) .4s both; }
-      /* installed app (standalone): a cold PWA start is never inside the warm-launch window the
-         hold above protects, so there the delay only lengthened the black screen before the
-         snail — near-immediate instead; browser-tab loads keep the anti-flash hold (same rule
-         in 08-toasts.css, keep in sync) */
-      @media (display-mode: standalone) { .boot-splash { animation: fade .15s var(--ease) both; } }
-      /* no fade of its own — the .boot-splash container fades the whole cover in, and the real
-         stylesheet sets `animation: none` on pre-app cards (08-toasts.css: remounts must not
-         blink pixels that are already on screen) */
+      /* Paint immediately so the snail's entrance is visible. main.tsx keeps this cover until
+         the arrival finishes; React then continues its clock (same rule in 08-toasts.css). */
+      .boot-splash { animation: none; overflow: hidden; }
+      /* Pre-app cards have no fade: it would hide the entrance or blink during handover. */
       .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; }
       /* the reserved (empty) text lines below the snail — same METRICS as 08-toasts.css, so
          the line boxes are the right height before the real stylesheet arrives and nothing

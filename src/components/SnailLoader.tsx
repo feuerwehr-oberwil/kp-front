@@ -1,5 +1,6 @@
-import { useId } from 'react'
+import { useId, useLayoutEffect, useRef } from 'react'
 import snailSvg from '../../public/firefighter-snail-loader.svg?raw'
+import { continueSnailAnimation } from '../lib/snailLaunch'
 
 /**
  * Shared loading mascot. Vite inlines this same SVG into index.html's boot splash,
@@ -8,8 +9,13 @@ import snailSvg from '../../public/firefighter-snail-loader.svg?raw'
  * keep gradients independent when two loading surfaces are mounted at the same time.
  * Only this trusted, bundled artwork is inserted; the card's text announces the status.
  */
-export function SnailLoader() {
+export function SnailLoader({ idleOnly = false }: { idleOnly?: boolean }) {
   const id = useId()
+  const ref = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const svg = ref.current?.querySelector('svg')
+    if (svg) continueSnailAnimation(svg, idleOnly)
+  }, [idleOnly])
   const artwork = snailSvg.replaceAll('fs-', `fs${id.replace(/[^a-zA-Z0-9_-]/g, '')}-`)
-  return <div className="snail-loader" aria-hidden="true" dangerouslySetInnerHTML={{ __html: artwork }} />
+  return <div ref={ref} className="snail-loader" aria-hidden="true" dangerouslySetInnerHTML={{ __html: artwork }} />
 }

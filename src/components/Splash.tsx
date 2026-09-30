@@ -4,7 +4,7 @@ import { deploymentName } from '../lib/deploymentConfig'
 import { SnailLoader } from './SnailLoader'
 
 /**
- * Shared boot screen: the brand pulse + station wordmark, optionally a status line.
+ * Shared boot screen: the animated snail + station wordmark, optionally a status line.
  * Every pre-incident loading stage (auth probe, incident-list fetch, admin chunk,
  * symbol library) renders this, so a cold launch reads as one continuous sequence —
  * no blank colour flash, no jump between layouts. The 3am tenet: the operator always
@@ -33,7 +33,7 @@ export function Splash({ sub, inApp }: { sub?: string; inApp?: boolean }) {
   return (
     <div className={inApp ? `loading${stuck ? ' stuck' : ''}` : 'login splash'}>
       <div className="loading-card">
-        <SnailLoader />
+        <SnailLoader idleOnly={inApp} />
         <div className="loading-name">{deploymentName()}</div>
         {/* Always rendered, empty when there is nothing to say: the card is centred, so a sub
             line that APPEARS (App's «Einsatz wird geöffnet …» after this bare splash) used to

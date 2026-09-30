@@ -470,27 +470,21 @@
   background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); }
 .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: fade .3s var(--ease); }
 /* …but NOT on the pre-app cover (.login splash): its first appearance is the static boot
-   splash, whose own .boot-splash fade covers the entrance — and every LATER pre-app Splash is
+   splash, whose snail supplies the entrance — and every LATER pre-app Splash is
    a React remount replacing pixels that are already on screen (static → LinkApp, provider
    boundaries on the standing surfaces). Re-running the fade there blinked the snail out for
    two frames per stage (reported 2026-09-09); the in-workspace overlay (.loading) keeps it,
    because there the card genuinely appears over new ground. */
 .login .loading-card { animation: none; }
-/* Static pre-React boot splash (markup in index.html). Held back briefly: a warm launch mounts
-   React well inside this delay, so the ordinary case still goes straight to the login screen
-   with no flicker, and only a start slow enough to look broken ever shows a pulse. `both` keeps
-   it fully transparent during the delay rather than painting and then fading.
+/* Static pre-React boot splash (markup in index.html). Paint immediately so the snail's
+   entrance is visible. main.tsx holds it through the 630 ms arrival even on a warm launch,
+   then React's snail continues the same clock instead of replaying it.
    ⚠️ index.html inlines this rule (plus .login/.loading-card/.loading-stuck/.boot-hint
    below and the --ink/--accent/--app-bg tokens they use) in a <style> block, so the splash still
    renders before this stylesheet — or if it never arrives — has loaded. Keep both copies in
    sync; same selectors there on purpose, so this rule simply overrides the inline one once it
    loads (equal specificity, later in the cascade). */
-.boot-splash { animation: fade .3s var(--ease) .4s both; }
-/* Installed app (standalone): a cold PWA start is never inside the warm-launch window the hold
-   above protects, so there the delay only lengthened the black screen before the snail
-   (reported 2026-09-11 — 1–2 s of nothing on launch). Near-immediate instead; browser-tab
-   loads keep the anti-flash hold. */
-@media (display-mode: standalone) { .boot-splash { animation: fade .15s var(--ease) both; } }
+.boot-splash { animation: none; overflow: hidden; }
 /* The firefighter snail's sizing and animation live in its SVG. Vite inlines the same source
    in the boot splash; components/SnailLoader uses it once React has mounted. */
 .loading-name { font-size: 16px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
