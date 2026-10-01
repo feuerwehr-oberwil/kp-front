@@ -103,7 +103,7 @@ test.describe(() => {
 test.describe('loading snail', () => {
   test.use({ serviceWorkers: 'block' })
 
-  type Launch = { startedAt?: number; finishedAt?: number; replacedAt?: number; reactClock?: number }
+  type Launch = { startedAt?: number; finishedAt?: number; arrivalElapsed?: number; replacedAt?: number; reactClock?: number }
 
   async function prepareLaunch(page: Page, configDelay = 0) {
     await page.emulateMedia({ reducedMotion: 'no-preference' })
@@ -127,7 +127,7 @@ test.describe('loading snail', () => {
         if (event.animationName === 'fs-arrival') state.startedAt = performance.now()
       })
       document.addEventListener('animationend', event => {
-        if (event.animationName === 'fs-arrival') state.finishedAt = performance.now()
+        if (event.animationName === 'fs-arrival') { state.finishedAt = performance.now(); state.arrivalElapsed = event.elapsedTime }
       })
       new MutationObserver(() => {
         if (document.querySelector('.boot-splash')) sawBoot = true
@@ -151,8 +151,11 @@ test.describe('loading snail', () => {
     expect(launch.startedAt).toBeDefined()
     expect(launch.finishedAt).toBeDefined()
     expect(launch.replacedAt!).toBeGreaterThanOrEqual(launch.finishedAt!)
-    // CSS events arrive on frames, so allow one frame either side of the 630 ms duration.
-    expect(launch.finishedAt! - launch.startedAt!).toBeGreaterThan(580)
+    // The animation's OWN clock says it ran to its end: `animationend` reports the elapsed time
+    // (0.63 s for the whole entrance). The wall clock between the two events is no measure of it —
+    // on a loaded runner `animationstart` arrives a few frames after the animation began, so the
+    // gap read 549–567 ms for a complete 630 ms run (CI, 01.10.2026).
+    expect(launch.arrivalElapsed).toBeGreaterThanOrEqual(0.629)
     expect(launch.reactClock).toBeGreaterThanOrEqual(630)
     await expect(page.locator('.boot-splash')).toHaveCount(0)
     await expect(page.locator('.login-state')).toBeVisible()
