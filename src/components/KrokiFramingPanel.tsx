@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Layer, Marker, Source, type MapRef } from 'react-map-gl/maplibre'
 import type { Map as MapLibreMap } from 'maplibre-gl'
@@ -694,11 +695,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             {/* The DRAG is local; the reconstruction runs when the thumb comes to rest. Firing
                 it on every notch meant a fetch per pixel — the busy line blinked, the map
                 redrew mid-drag and the whole sheet flickered. */}
-            {/* The reconstruction reports itself ON the slider — a bar that runs along the
-                track it belongs to. The old «Lage wird rekonstruiert …» line sat beside the
-                control, needed a fixed slot so its coming and going didn't resize the bar
-                under the finger, and still said in eleven words what the track can say by
-                moving. */}
+            {/* The busy trail owns a fixed slot beside the time, so the slider stays still. */}
             {/* WHEN anything happened, as hairlines under the track. Without them «drag until
                 the picture shows it» is a blind search across the whole Einsatz — and the
                 moments worth stopping at are exactly the ones that left a Verlauf row or a
@@ -722,8 +719,8 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                 onKeyUp={() => commitDrag()}
                 onBlur={() => commitDrag()}
               />
-              <span className="kf-at-prog" aria-hidden="true" />
             </span>
+            <span className="kf-at-wait" aria-hidden="true">{atBusy && <ShellLoader />}</span>
             <b className="kf-at-val">{label}</b>
           </div>
         )}

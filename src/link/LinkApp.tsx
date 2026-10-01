@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 // Einsatz-Link view (/l/<token>) — what a responder opens from the alert on a personal phone:
 // no login, ONE incident, read-only. Unlike the capture poster (/e/), this is not a separate
 // surface: after the token exchange it mounts the normal field app, which the backend has
@@ -141,7 +142,7 @@ function LinkBoot({ token }: { token: string }) {
       <div className="cv-shell">
         <IconSprite />
         <div className="cv-card cv-center" role="status">
-          <Icon id="rotate" className="spin" />
+          <ShellLoader size="surface" />
           <p>{C.pendingTitle}</p>
           <p className="cv-hint">{C.pendingHint}</p>
         </div>

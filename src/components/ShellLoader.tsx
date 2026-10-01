@@ -1,0 +1,24 @@
+import type { ReactNode } from 'react'
+import snailSvg from '../../public/firefighter-snail-loader.svg?raw'
+import s from './ShellLoader.module.css'
+
+// The compact loader traces the mascot's own spiral, rather than maintaining another drawing.
+const shellPath = snailSvg.match(/<path id="fs-shell-trail" d="([^"]+)"/)?.[1]
+if (!shellPath) throw new Error('Loading mascot is missing its shell trail')
+
+type Size = 'inline' | 'surface'
+
+export function ShellLoader({ size = 'inline' }: { size?: Size }) {
+  return <svg className={`${s.loader} ${size === 'surface' ? s.surface : ''}`} viewBox="480 245 270 315" width={size === 'surface' ? 48 : 20} height={size === 'surface' ? 48 : 20}
+    fill="none" stroke="currentColor" strokeWidth="14" strokeLinecap="round" aria-hidden="true" focusable="false">
+    <path d={shellPath} opacity=".12" />
+    <path d={shellPath} pathLength="100" className={s.trail} />
+  </svg>
+}
+
+/** The words announce the wait; the spiral is decorative. The caller owns placement. */
+export function LoadingStatus({ children, size = 'inline' }: { children: ReactNode; size?: Size }) {
+  return <span className={`${s.status} ${size === 'surface' ? s.stacked : ''}`} role="status">
+    <ShellLoader size={size} /><span>{children}</span>
+  </span>
+}

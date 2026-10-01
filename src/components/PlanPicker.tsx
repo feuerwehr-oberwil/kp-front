@@ -4,6 +4,7 @@ import { QuietAttributionControl } from './MapAttribution'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
+import { LoadingStatus } from './ShellLoader'
 import { matchesAnyQuery, searchQuery } from '../lib/search'
 import { appConfig } from '../config/appConfig'
 import { confirmDialog } from '../lib/ui'
@@ -121,7 +122,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
                 <span className="pp-row-meta"><Icon id="undo" /></span>
               </button>
             )}
-            {loading && <div className="pp-empty">{pp.loading}</div>}
+            {loading && <div className="pp-empty"><LoadingStatus size="surface">{pp.loading}</LoadingStatus></div>}
             {!loading && error && <div className="pp-empty">{pp.loadFailed}</div>}
             {!loading && !error && filtered.length === 0 && <div className="pp-empty">{pp.noObject}</div>}
             {!loading && !error && filtered.map((o) => {

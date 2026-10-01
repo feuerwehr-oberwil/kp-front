@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
@@ -147,7 +148,7 @@ function MeldungActions({ m }: { m: Meldung }) {
           disabled={a.disabled}
           onClick={a.onClick}
         >
-          {a.icon && <Icon id={a.icon} className={a.busy ? 'spin' : undefined} />}{a.label}
+          {a.busy ? <ShellLoader /> : a.icon && <Icon id={a.icon} />}{a.label}
         </button>
       ))}
     </span>

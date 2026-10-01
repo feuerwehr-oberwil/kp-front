@@ -192,24 +192,18 @@
 .ip-card-sync:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-card-sync svg { width: 16px; height: 16px; opacity: 1; }
 .ip-card-sync:disabled { cursor: default; }
-/* Spinner → tick, as ONE circle rather than two icons swapped: r=9 ⇒ circumference ≈ 56.5, and
-   every dash length below is cut to that. Busy draws a ~quarter arc and rotates it; done closes
-   the arc to a full ring and strokes the tick through it, so the eye follows the same shape from
-   «working» to «erledigt» and no words are needed for the most boring outcome there is.
-   The component is src/components/SyncGlyph.tsx — shared by the Einsatz sync button, the
-   Offline-Bereitschaft load (.or-done below) and the Anwesenheit reload. */
+/* Shared sync controls use Shell trail while busy and the existing ring/tick on success. */
 .sync-glyph { display: block; overflow: visible; fill: none; stroke: currentColor;
   stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.sync-ring { stroke-dasharray: 14 43; transform-origin: 50% 50%; animation: spin .75s linear infinite; }
+.sync-ring { stroke-dasharray: 57 57; }
 .sync-tick { stroke-dasharray: 14; stroke-dashoffset: 14; }
-/* done: the ring completes (no longer spinning) and the tick draws in just behind it */
+/* Done: a full ring and the completion tick. */
 .sync-glyph.on { color: var(--green); }
 .sync-glyph.on .sync-ring { animation: none; stroke-dasharray: 57 57; stroke-dashoffset: 0;
   transition: stroke-dasharray .26s var(--ease); }
 .sync-glyph.on .sync-tick { stroke-dashoffset: 0; transition: stroke-dashoffset .3s var(--ease) .14s; }
-/* reduced motion: keep the STATES (arc → closed ring + tick), drop the spin and the draw-on */
+/* Reduced motion keeps the completion state and drops the draw-on. */
 @media (prefers-reduced-motion: reduce) {
-  .sync-ring { animation: none; }
   .sync-glyph.on .sync-ring, .sync-glyph.on .sync-tick { transition: none; }
 }
 /* small-caps section label inside the dropdown (e.g. "Dieser Einsatz") — same idiom as .set-group-t */
@@ -656,19 +650,6 @@
 .no-hits { margin: 0; padding: 20px 12px; text-align: center; font: 500 13px var(--body); color: var(--ink-faint);
   font-style: normal; overflow-wrap: anywhere; list-style: none; }
 
-/* spinning glyph for in-progress actions (taking an alarm, opening/saving an Einsatz) so the
-   rotate icon reads as "working", not a frozen refresh button */
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { animation: spin .9s linear infinite; transform-origin: 50% 50%; }
-/* reduced motion: without this the spin freezes into a static glyph that reads as a dead refresh
-   button. An opacity pulse is exempt from the catch-all on purpose — it is an activity signal
-   without motion (nothing travels or rotates). !important on the duration so 03-map's global
-   .001ms rule does not zero it (same-origin !important: .spin outranks `*`); same idiom as the
-   .sync-ring guard above, which swaps its spin for the completed-states story. */
-@keyframes spin-pulse { 50% { opacity: .35; } }
-@media (prefers-reduced-motion: reduce) {
-  .spin { animation: spin-pulse ease-in-out infinite; animation-duration: 1.4s !important; }
-}
 /* The «Übung» row (EinsatzWizard) — an `OnOff` pair beside its name (28.09.2026; it was a
    tick-box chip). The `.set-row` recipe without the card: name + consequence left, the pair
    right. The label gives way (min-width 0), never the pair — at 360px «Zählt nicht zur
@@ -1535,6 +1516,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* the short word for the main half — «PDF», where the full «Einsatzrapport (PDF)» does not fit
    (`.fold-short`, lib/pageHeadFit); the doc glyph goes with the long label, so the folded tile is
    the word and the ▾, as in mockup 2, and the busy spinner still takes its place */
+.rp-pdf-short { position: relative; }
+.rp-pdf-wait { position: absolute; inset: 0; display: grid; place-items: center; }
 .rp-print-menu { min-width: 240px; max-width: min(340px, 92vw); padding: var(--bar-pad); border-radius: var(--r-bar);
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — the radius, the hover/press wash and the red row live on `.ui-menu-item` /

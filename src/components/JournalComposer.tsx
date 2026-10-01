@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
@@ -1198,7 +1199,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             that must never share a row with anything else. */}
         <div className="jc-foot">
           <button className="jc-send" disabled={!canSend || uploading} onClick={submit}>
-            <Icon id="check" />{uploading ? C.audioUploading : C.send}
+            {uploading ? <ShellLoader /> : <Icon id="check" />}{uploading ? C.audioUploading : C.send}
           </button>
         </div>
       {/* «Uhrzeit …» — the one answer that is not a row in a menu. A dialog rather than a strip

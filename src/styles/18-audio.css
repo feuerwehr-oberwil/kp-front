@@ -6,13 +6,9 @@
 .ap-body { display: flex; flex-direction: column; gap: 12px; padding: 8px 20px 18px; }
 .ap-wave-wrap { flex: none; position: relative; }
 .ap-wave { display: block; width: 100%; height: 96px; border-radius: var(--r-sm); background: var(--fill-soft); cursor: pointer; touch-action: none; }
-/* peaks are computing server-side — sweep a soft highlight until they arrive */
-.ap-wave-shimmer { position: absolute; inset: 0 0 21px 0; border-radius: var(--r-sm); overflow: hidden; pointer-events: none; }
-.ap-wave-shimmer::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 7%, transparent), transparent);
-  animation: apShimmer 1.6s ease-in-out infinite; }
-@keyframes apShimmer { to { transform: translateX(100%); } }
-@media (prefers-reduced-motion: reduce) { .ap-wave-shimmer::after { animation: none; opacity: .5; transform: none; } }
+/* Peaks are computing; keep the real player's canvas and transport steady. */
+.ap-wave-loading { position: absolute; inset: 0 0 21px 0; display: grid; place-items: center;
+  color: var(--ink-dim); pointer-events: none; }
 .ap-clock { position: relative; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px;
   color: var(--ink-faint); padding: 5px 2px 0; font-variant-numeric: tabular-nums; min-height: 16px; }
 .ap-clock span[style] { transform: translateX(-50%); }

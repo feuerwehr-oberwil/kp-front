@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
@@ -1552,7 +1553,7 @@ export function ReportPreflight({
                 onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
                 title={printStatus.online ? R.online : R.offline}>
                 <span className="print-send-main">
-                  <Icon id="printer" />
+                  {printBusy ? <ShellLoader /> : <Icon id="printer" />}
                   <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
                   <span className="rp-btn-label fold-long">{printBusy ? R.sending : R.send}</span>
                 </span>
@@ -1571,10 +1572,13 @@ export function ReportPreflight({
                 (`.rp-btn-short`); the tablet keeps its full label. Same two doors as before. */}
             <span className="rp-split">
               <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.pdf} disabled={pdfBusy} onClick={() => void startOutput('pdf')}
-                aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
-                {pdfBusy ? <Icon id="rotate" className="spin" /> : <Icon id="doc" className="rp-pdf-glyph fold-long" />}
-                <span className="rp-btn-label fold-long">{pdfBusy ? P.pdfBusy : P.pdfFull}</span>
-                {!pdfBusy && <span className="rp-btn-short fold-short">{P.pdfShort}</span>}
+                aria-busy={pdfBusy || undefined} aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
+                {pdfBusy ? <span className="fold-long"><ShellLoader /></span> : <Icon id="doc" className="rp-pdf-glyph fold-long" />}
+                <span className="rp-btn-label fold-long">{P.pdfFull}</span>
+                <span className="rp-btn-short rp-pdf-short fold-short">
+                  <span style={{ visibility: pdfBusy ? 'hidden' : undefined }}>{P.pdfShort}</span>
+                  {pdfBusy && <span className="rp-pdf-wait"><ShellLoader /></span>}
+                </span>
               </button>
               <Menu
                 trigger={

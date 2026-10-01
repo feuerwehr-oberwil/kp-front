@@ -77,9 +77,14 @@ to prod.
   `index.html`'s `kp:snail-loader` marker so the static boot screen paints without fetching an
   asset. Keep both stages at the same size; never replace the boot markup with an external image.
   The boot cover paints immediately and stays through the SVG's 630 ms skid arrival, even on
-  a cached launch (`lib/snailLaunch`). React loading stages continue that animation clock;
-  in-workspace loading starts at the standing idle. Do not replay the arrival at each loading
-  stage or add a fade that hides it. Reduced motion skips both motion and the minimum hold.
+  a cached launch (`lib/snailLaunch`). React launch loading stages continue that animation clock.
+  Do not replay the arrival at each loading stage or add a fade that hides it.
+  Reduced motion skips both motion and the minimum hold.
+  In-workspace activity uses `ShellLoader` / `LoadingStatus` (01.10.2026): the compact
+  Shell trail draws the SVG's `fs-shell-trail` spiral in inherited ink, with a 2.4 s loop
+  and a static reduced-motion state. Keep the path in the mascot SVG, never copy its geometry.
+  Use the decorative loader inside busy actions, or `LoadingStatus` beside existing loading
+  copy. Do not add artificial minimum waits for in-app activity.
   `SnailLoader` keeps ONE `{ __html }` object per instance: React 19 rewrites `innerHTML` for a
   new object even with the same string, which re-inserts the SVG and restarts its animations, so
   every re-render of a loading stage replayed the arrival.

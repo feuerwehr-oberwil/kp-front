@@ -332,19 +332,11 @@
   transition: opacity .25s var(--ease); }
 .toast-step.done { opacity: .6; }
 .toast-step.now, .toast-step.fail { opacity: 1; }
-.toast-step .i, .toast-step .print-feed { width: 14px; height: 14px; }
+.toast-step svg { width: 14px; height: 14px; }
 .toast-chev { display: flex; flex: none; opacity: .28; }
 .toast-chev .i { width: 12px; height: 12px; }
 .toast-pip { width: 7px; height: 7px; border-radius: 50%; flex: none;
   background: var(--ink-faint); }
-/* the sheet feeding out of the printer — a rotating dial (the usual busy glyph) reads wrong on a
-   printer. The global prefers-reduced-motion rule stills it; the stages stay readable. */
-.print-feed-paper { animation: printFeed 2s var(--ease) infinite; }
-@keyframes printFeed {
-  0%, 8% { transform: translateY(4px); opacity: 0; }
-  30% { opacity: 1; }
-  60%, 100% { transform: translateY(0); opacity: 1; }
-}
 /* the text is the shrinkable part — long messages wrap INSIDE the pill instead of
    ballooning past the action button (undo toast on the capture modal, 2026-07-18) */
 /* ⚠️ `break-word`, not `anywhere`: on a phone «Studer Corinne Anwesenheit entfernt» came out as
@@ -469,6 +461,8 @@
 .loading.stuck .loading-card { padding: 26px 30px; border-radius: var(--r-surface);
   background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); }
 .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: fade .3s var(--ease); }
+.workspace-loading { display: flex; align-items: center; justify-content: center;
+  height: 100%; min-height: 180px; padding: 24px; color: var(--ink-dim); pointer-events: none; }
 /* …but NOT on the pre-app cover (.login splash): its first appearance is the static boot
    splash, whose snail supplies the entrance — and every LATER pre-app Splash is
    a React remount replacing pixels that are already on screen (static → LinkApp, provider

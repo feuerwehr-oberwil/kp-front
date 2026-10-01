@@ -546,7 +546,7 @@ export function useConfig(): ConfigCtx {
 export function ConfigGate({ children }: { children: ReactNode }) {
   const { draft, loadError } = useConfig()
   if (loadError) return <EmptyState tone="err" message={loadError} />
-  if (!draft) return <EmptyState message={appConfig.copy.admin.common.configLoading} />
+  if (!draft) return <EmptyState loading message={appConfig.copy.admin.common.configLoading} />
   return <>{children}</>
 }
 

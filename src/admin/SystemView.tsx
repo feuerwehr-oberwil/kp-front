@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError, apiGet, apiPost, CONNECTOR_TIMEOUT_MS } from '../lib/api'
 import { Icon } from '../lib/icons'
@@ -405,7 +406,7 @@ function SharePointCard({
   const probeButton = (
     <span className="adm-test">
       <button type="button" className="btn adm-int-btn" disabled={probe.kind === 'testing'} onClick={() => void runProbe()}>
-        {probe.kind === 'testing' ? C.spTesting : C.spTestConnection}
+        {probe.kind === 'testing' && <ShellLoader />}{probe.kind === 'testing' ? C.spTesting : C.spTestConnection}
       </button>
       {probe.kind === 'ok' && (
         <ResultChip key="ok" tone="ok" onExpire={() => setProbe({ kind: 'idle' })}>{C.spTestOk}</ResultChip>
@@ -489,9 +490,8 @@ function SharePointCard({
           </div>
           <div className="adm-sys-actions">
             <button type="button" className="btn adm-int-btn" disabled={busy} onClick={() => void runNow()}>
-              {/* ⚠️ `spin` — the glyph is a rotate arrow and sat perfectly still through the whole
-                  sync, which is the same picture a jammed button gives. */}
-              <Icon id="rotate" className={busy ? 'spin' : undefined} />
+              {/* Keep the refresh action recognizable; use the shared trail while it runs. */}
+              {busy ? <ShellLoader /> : <Icon id="rotate" />}
               {busy ? C.spSyncing : C.spSyncNow}
             </button>
             {probeButton}
@@ -608,7 +608,7 @@ function OfflineCacheCard() {
       title={C.offlineCache}
       tip={`${C.offlineCacheTip} ${C.offlineCacheCaption}`}
     >
-      {state.kind === 'loading' && <EmptyState message={C.cacheReading} />}
+      {state.kind === 'loading' && <EmptyState loading message={C.cacheReading} />}
       {state.kind === 'unavailable' && <EmptyState message={C.cacheUnavailable} />}
       {state.kind === 'ok' && (
         <>
@@ -728,7 +728,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
         </button>
       </div>
       {state.kind === 'loading' && (
-        <Card><EmptyState message={C.loading} /></Card>
+        <Card><EmptyState loading message={C.loading} /></Card>
       )}
       {state.kind === 'error' && (
         <Card><EmptyState tone="err" message={C.error} /></Card>

@@ -24,6 +24,7 @@
 import type { Copy, Localizable } from './index'
 
 export const fr: Localizable<Copy> = {
+  loading: 'Chargement …',
   loadingSubtitle: 'Chargement de la carte et de la bibliothèque de symboles …',
   // «Binômes», comme `atemschutz.boardTitle` — la surface porte aussi les binômes sans ARI, et
   // «ARI» au-dessus d’un binôme circulation était faux (voir la note dans de.ts).

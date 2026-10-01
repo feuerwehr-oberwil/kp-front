@@ -6,7 +6,7 @@ import { render, screen, cleanup , within} from '@testing-library/react'
 // and VKF Luefter mobil (Typ, config-listable) cover the cases; ZZ Ohne Felder is in neither
 // preset table (no name, no category match), so it is the symbol that declares NO field.
 vi.mock('../lib/useSymbols', () => ({
-  useSymbols: () => ({
+  useSymbols: vi.fn(() => ({
     ready: true,
     order: ['Fahrzeuge / Mittel', 'ZZ Testkategorie'],
     symbols: [
@@ -19,14 +19,25 @@ vi.mock('../lib/useSymbols', () => ({
       'VKF Luefter mobil': '<svg></svg>',
       'ZZ Ohne Felder': '<svg></svg>',
     },
-  }),
+  })),
 }))
 
+import { useSymbols } from '../lib/useSymbols'
+import { appConfig } from '../config/appConfig'
 import { FleetAttributesViewer } from './FleetAttributesViewer'
 
 afterEach(cleanup)
 
 describe('FleetAttributesViewer — read-only config viewer', () => {
+  it('ends activity and offers retry when the symbol library fails', () => {
+    const reload = vi.fn()
+    vi.mocked(useSymbols).mockReturnValueOnce({ ready: false, error: true, symbols: [], byName: {}, order: [], reload })
+    const { container } = render(<FleetAttributesViewer lists={[]} />)
+    expect(screen.getByText(appConfig.copy.symbols.loadFailedTitle)).toBeTruthy()
+    expect(screen.getByRole('button', { name: appConfig.copy.symbols.retry })).toBeTruthy()
+    expect(container.querySelector('[role="status"]')).toBeNull()
+  })
+
   it('renders no editing controls (no inputs except the search filter, no buttons)', () => {
     render(<FleetAttributesViewer lists={[]} />)
     // exactly one text input — the symbol filter — and no action buttons

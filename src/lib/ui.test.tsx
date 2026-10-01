@@ -195,6 +195,7 @@ describe('sticky/updatable toast (live print status)', () => {
   })
 
   it('a step chain renders every stage and keeps the plain sentence for screen readers', () => {
+    vi.useFakeTimers()
     render(<Overlays />)
     let id!: number
     act(() => {
@@ -221,7 +222,13 @@ describe('sticky/updatable toast (live print status)', () => {
         { label: 'Gedruckt', state: 'future' },
       ],
     }))
-    expect(document.querySelector('.toast-step.now .print-feed')).toBeTruthy()
+    const pill = screen.getByText('Wird gedruckt …').closest('.toast')!
+    const activity = pill.querySelector('.toast-step.now svg')
+    expect(activity?.getAttribute('aria-hidden')).toBe('true')
+    expect([...activity!.querySelectorAll('path')].some(path => path.getAttribute('pathLength') === '100')).toBe(true)
+    act(() => updateToast(id, 'Druck fehlgeschlagen', { steps: null, icon: 'warn', tone: 'warn' }))
+    expect(pill.querySelector('.toast-step.now')).toBeNull()
+    act(() => dismissToast(id))
   })
 
   // ⚠️ The red trace in the pill is for FAILURES (review 24.09.2026): the print pill wears the warn
