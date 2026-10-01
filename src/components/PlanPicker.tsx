@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Marker, type MapRef } from 'react-map-gl/maplibre'
 import { QuietAttributionControl } from './MapAttribution'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { useGeoPosition } from '../lib/useGeoPosition'
+import { useIsPhone } from '../lib/useIsPhone'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import { LoadingStatus } from './ShellLoader'
@@ -50,6 +52,8 @@ interface Props {
  * the map collapses to keep the list usable at narrow widths.
  */
 export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose }: Props) {
+  const phone = useIsPhone()
+  const userPos = useGeoPosition(phone)
   const pp = appConfig.copy.planPicker
   const style = useMemo(() => baseStyle(), [])
   const [q, setQ] = useState('')
@@ -160,6 +164,9 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
                 dragRotate={false}
               >
                 <QuietAttributionControl />
+                {phone && userPos && <Marker longitude={userPos[0]} latitude={userPos[1]} anchor="center">
+                  <div className="map-here map-me" title={appConfig.copy.map.youHere} />
+                </Marker>}
                 {/* incident location */}
                 <Marker longitude={center[0]} latitude={center[1]} anchor="center">
                   <span className="pp-pin-inc" />

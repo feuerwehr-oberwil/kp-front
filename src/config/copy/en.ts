@@ -561,6 +561,8 @@ export const en: Localizable<Copy> = {
     titleLabel: 'Keyword / title',
     titlePlaceholder: 'e.g. Building fire, school',
     categoryLabel: 'Category',
+    exerciseNo: 'No',
+    exerciseYes: 'Yes',
     exerciseLabel: 'Exercise',
     exerciseSub: 'Not counted in incident statistics',
     detailsPlaceholder: 'Additional details for the report',

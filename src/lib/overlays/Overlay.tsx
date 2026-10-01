@@ -5,6 +5,7 @@ import { useDismissGrace } from './dismissGrace'
 import { useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
 import { SheetGrab } from './SheetGrab'
+import { useMobileScrollLock } from './useMobileScrollLock'
 
 /**
  * Lower-level sibling of <Sheet>: gives an EXISTING bespoke overlay — one with its own
@@ -80,6 +81,7 @@ export interface OverlayProps {
 }
 
 export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, onEscape, style, popupRef, swipeToClose = true, grab = false, children }: OverlayProps) {
+  useMobileScrollLock(open)
   const isOpeningEcho = useDismissGrace(open)
   const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose })
   // the on-screen keyboard, the same way <Sheet> answers it; only an `.ip-sheet` frame has the

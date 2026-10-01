@@ -952,6 +952,8 @@ export const de = {
     // Übungen stay fully operable, but do not feed the statistics and are the only ones
     // that can be deleted (Alle Einsätze)
     // an OnOff row since 28.09.2026: the name on the row, the consequence under it
+    exerciseNo: 'Nein',
+    exerciseYes: 'Ja',
     exerciseLabel: 'Übung',
     exerciseSub: 'Zählt nicht zur Einsatzstatistik',
     // «Hier» moves the Einsatzort to the device's location. On a running Einsatz it always asks

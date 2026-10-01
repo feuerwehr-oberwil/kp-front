@@ -46,7 +46,7 @@ import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
 import { PersonField } from './PersonField'
 import { PhoneTabBar } from './PhoneTabBar'
-import { useIsPhone } from '../lib/useIsPhone'
+import { PHONE_QUERY, useIsPhone } from '../lib/useIsPhone'
 import { journalVocabulary } from '../lib/journalLinks'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
@@ -1251,6 +1251,25 @@ export function ReportPreflight({
   const warnCount = (missTx > 0 ? 1 : 0) + (pendingMediaCount > 0 ? 1 : 0) + (proof.intact === false ? 1 : 0)
     + (unresolvedNames.length > 0 ? 1 : 0)
   const [controlOpen, setControlOpen] = useState(false)
+  useEffect(() => {
+    if (!controlOpen || !window.matchMedia?.(PHONE_QUERY).matches) return
+    let frame = 0
+    const measure = () => {
+      const popup = document.querySelector<HTMLElement>('.rp-control')
+      const entry = document.querySelector('.fab-entry')
+      if (!popup || !entry) return
+      popup.style.setProperty('--rp-control-room', `${Math.max(44, entry.getBoundingClientRect().top - popup.getBoundingClientRect().top - 8)}px`)
+    }
+    frame = requestAnimationFrame(measure)
+    window.addEventListener('resize', measure)
+    window.visualViewport?.addEventListener('resize', measure)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', measure)
+      window.visualViewport?.removeEventListener('resize', measure)
+    }
+  }, [controlOpen])
+
 
   // ⚠️ Used ONLY to decide whether the Kroki panel is mounted (see the section itself) — the
   // tabs themselves are pure CSS, because a layout that depends on a JS breakpoint and one that

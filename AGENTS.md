@@ -980,6 +980,11 @@ to prod.
   tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a tablet tap
   model don't map cleanly to Base UI Select/Tooltip); the admin `Select` stays hand-rolled too,
   keyboard-driven and unportalled.
+  **Mobile modal scrolling** (01.10.2026): `useMobileScrollLock` prevents background touch
+  scrolling and edge chaining while `Sheet` / `Overlay` is open, without making portalled
+  pickers inert. Inner vertical lists and the composer's native horizontal suggestions keep
+  their gestures. The composer's mobile Pendenz / time menus retain the sentence's caret for
+  pointer picks (`Menu · keepFocusRef`); keyboard navigation still moves focus into the menu.
   Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - **One gesture closes one thing.** A dropdown open INSIDE a dialog closes first and alone — the
     first Esc / the first outside tap is the menu's, the second is the sheet's. Every transient
@@ -1340,13 +1345,20 @@ to prod.
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
     the Einsatzuhr menu, the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
-    **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the ARMED material and nothing
+    **On tablet/desktop, dark in both themes (`--ink-fill` + `--on-accent-ink`) is the ARMED material and nothing
     else**: a tool dock (`.wb-dock` — something is armed, its ✕ disarms) and the Trupp marker's
     action bar (`.wb-pill-acts` — this marker is in hand). It is the «clean selected state» of a
     mode, so a list you read or a menu you pick from never wears it; a new surface that is dark
     by day is a mode, or it is a bug. On a light-by-day card the ✕ is the global `.ip-x` and the
     primary is `--btn-primary`; the on-ink ✕ (`.wb-dock-x`) and the light-fill primary
     (`.wb-dock-go`) belong to the armed material only.
+    **Mobile tool docks use the popup material** (01.10.2026): Messen and every tool-option
+    dock wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
+    Their controls share a neutral fill and selected wash, with a centred row; the line dock
+    has no subtitle on mobile (its instructions stay behind ⓘ).
+    The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
+    The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
+    Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.
   - *Height is a separate axis* – `--tap` (44px) by default, 48–50px for a card's main action.
     The 12 type combos happened because people enlarged the *label* when they wanted a bigger
     *target*; raise the height, not the font.
@@ -1639,6 +1651,14 @@ to prod.
     phone per tab, `13-incident.css`), the Checkliste on a phone; the Rapport's two-column layout
     (1080+) keeps its cards, which face each other across the page. Rows in a list (Material,
     Anwesenheit, checklist items) are not sections and stay rows.
+  - *Mobile space and positioning* (01.10.2026): the Zeitplan's empty-grid ⓘ shares its clock
+    header instead of reserving a footer row, using the header's surface and control edge.
+    The Rapport's «noch offen» popup hugs its content, with only its maximum height bounded to
+    one gap above Eintrag. «Anderes Objekt» has a bounded scrolling list above its map (36dvh,
+    capped at 300px) and shows
+    the device's position; while typing, the map yields its space to the results. The opened
+    Trupp is parked again when «Im Einsatz» moves it to another section, by scrolling its own
+    port. The mobile Einsatz form answers «Übung?» with «Nein | Ja»; wider forms keep «Aus | An».
   - *The Zeitplan's zoom lives in the grid's corner on a phone* (30.09.2026, owner: «the +/- 12h
     thing … uses up a lot of vertical space»): on a phone it stands in the clock row's empty
     corner over the names (`ZeitplanView · zoom`, the row grows to a lane's 44px and the hours sit

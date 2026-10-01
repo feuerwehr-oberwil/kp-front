@@ -918,6 +918,7 @@ export function AtemschutzView({
    * scroll against. */
   const bodyRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const openRowStatus = trupps.find((t) => t.id === openRow)?.status
   useEffect(() => {
     const list = listRef.current, port = bodyRef.current
     if (!list || !port) return
@@ -945,7 +946,9 @@ export function AtemschutzView({
     let frame = 0
     const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure() }) }
     measure()
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const top = port.scrollTop + card.getBoundingClientRect().top - port.getBoundingClientRect().top
+    if (typeof port.scrollTo === 'function') port.scrollTo({ top, behavior: 'smooth' })
+    else port.scrollTop = top
     port.addEventListener('scroll', schedule, { passive: true })
     window.addEventListener('resize', schedule)
     window.visualViewport?.addEventListener('resize', schedule)
@@ -959,7 +962,7 @@ export function AtemschutzView({
       window.visualViewport?.removeEventListener('resize', schedule)
       ro?.disconnect()
     }
-  }, [compact, openRow])
+  }, [compact, openRow, openRowStatus])
 
   /* WHICH cards the current pointer marks — and which one the board scrolls to.
    *

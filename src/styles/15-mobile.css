@@ -236,7 +236,7 @@
   .phone-tools .wb-dock { position: fixed; left: 50%; right: auto; top: auto; transform: translateX(-50%);
     /* 6px above the tool bar — the SAME gap the tool bar has above the nav bar (both are +6 offsets) */
     bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom));
-    flex-direction: row; align-items: center; gap: 10px;
+    flex-direction: row; align-items: center; justify-content: safe center; gap: 10px;
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
     width: max-content; max-width: calc(100vw - 16px); height: var(--rail-h); max-height: var(--rail-h);
@@ -246,6 +246,21 @@
        the bottom of the tool dock — under the buttons, on a control that is dragged with a thumb
        and needs no indicator to be discovered. It still scrolls. */
     scrollbar-width: none; -ms-overflow-style: none; }
+  /* Mobile tool options share the popup material. */
+  .phone-tools .wb-dock { background: var(--float-bg); backdrop-filter: var(--float-blur);
+    box-shadow: var(--float-edge); color: var(--ink);
+    --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface)); }
+  .phone-tools .wb-dock .wb-dock-ic { color: var(--ink-dim); }
+  .phone-tools .wb-dock .wb-style-sep { background: var(--glass-line); }
+  .phone-tools .wb-dock .wb-ls { --ls-ink: var(--ink); }
+  .phone-tools .wb-dock .wb-ww span { background: var(--ink); }
+  .phone-tools .wb-dock .wb-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--glass-line); }
+  .phone-tools .wb-dock .wb-ww.on, .phone-tools .wb-dock .wb-ls.on { background: var(--sel-wash); }
+  .phone-tools .wb-dock .wb-dock-x { background: var(--dock-control-bg); color: var(--ink-dim); }
+  .phone-tools .wb-dock .wb-dock-go { background: var(--btn-primary); color: var(--on-btn-primary); }
+  .phone-tools .wb-dock .wb-dock-tog.on { background: var(--sel-wash); color: var(--ink); }
+  .phone-tools .wb-dock .wb-dock-tog:not(.on), .phone-tools .wb-dock .wb-ww:not(.on),
+  .phone-tools .wb-dock .wb-ls:not(.on) { background: var(--dock-control-bg); color: var(--ink-dim); }
   .phone-tools .wb-dock::-webkit-scrollbar { display: none; }
   /* buttons keep their size instead of flex-shrinking when a busy dock overflows — otherwise the
      round × / ℹ squashed into ovals in line/area docks while the bar scrolled */
@@ -261,16 +276,10 @@
      buttons, 16/17/18 icons). ℹ matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
   .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: var(--tap); min-width: var(--tap); height: var(--tap); border-radius: var(--r-sm); }
-  /* ⚠️ The ✕ is sticky at the bar's leading end, and the ring that hides the options sliding
-     under it is a `box-shadow: 0 0 0 10px` — which reaches 10px past the button on EVERY side.
-     This bar clips its own overflow on both axes and carries 12px of side padding, so that ring
-     was sliced away exactly where an option scrolls into the padding: half a grey option chip
-     surfaced beside the ✕ and read as a ✕ with a bite taken out of it. Two flat offsets instead
-     — one covering the leading padding, one the gap to the next control — both at the button's
-     own height, so nothing has to reach outside the port to do its job. `z-index` because the
-     ✕ has to paint over what it is hiding, whatever order the dock ends up in. */
+  /* The sticky ✕ keeps its neutral fill inside the button. Surface-coloured masking shadows
+     painted a second, mismatched block over the dock's glass. */
   .phone-tools .wb-dock .wb-dock-x { width: var(--tap); height: var(--tap); z-index: 2;
-    box-shadow: -14px 0 0 var(--ink-fill), 12px 0 0 var(--ink-fill); }
+    box-shadow: none; }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
   /* the armed mode's ONE line (ToolDock · hint): the dock grows a second row for it — the
      buttons stay one scrolling row above it, the words wrap never and end in an ellipsis on the
@@ -278,7 +287,7 @@
   .phone-tools .wb-dock:has(.wb-dock-hint) { flex-wrap: wrap; height: auto; max-height: none; row-gap: 2px;
     padding-bottom: 8px; overflow: hidden; }
   .phone-tools .wb-dock .wb-dock-hint { display: block; flex: 1 0 100%; order: 99; max-width: calc(100vw - 40px);
-    font: 600 12.5px var(--body); color: var(--on-accent-ink); opacity: .85; text-align: center;
+    font: 600 12.5px var(--body); color: var(--ink-dim); opacity: .85; text-align: center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* (…and the Gebäude's chip row steps up by that row: `--msg-dock-hint` is part of
      --float-base, see «THE floating row» below) */
@@ -809,6 +818,17 @@
      grab), pushed down by its head — the map inside keeps every drag (swipeDismiss · rule 3).
      A map has no height of its own to hug, so it stands at the sheet cap; the footer is a
      `SheetFoot` and pays the bottom inset through the one rule above. */
+  .rp-control { max-height: var(--rp-control-room, 46vh); }
+
+  /* One bounded list above the object map, with rows retaining their own height. */
+  .pp-sheet .pp-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+  .pp-sheet .pp-list { min-height: 0; flex: 1 1 0; }
+  .pp-sheet .pp-row { flex: none; }
+  .pp-sheet .pp-map { min-height: min(300px, 36dvh); height: min(300px, 36dvh); }
+  .pp-sheet.ip-sheet.ip-wide { height: 86dvh; }
+  .pp-sheet.is-kb .pp-map { display: none; }
+  .pp-sheet.ip-sheet.ui-dialog.is-kb { height: calc(100dvh - var(--kb-inset, 0px) - 12px); }
+
   .mp-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; width: 100%;
     height: min(72dvh, calc(100dvh - 84px - env(safe-area-inset-top)));
     border-width: 1px 0 0; border-radius: var(--r-hero) var(--r-hero) 0 0; animation: sheetUp .22s var(--ease);

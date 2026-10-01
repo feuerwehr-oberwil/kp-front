@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useIsPhone } from '../../lib/useIsPhone'
 import { Icon } from '../../lib/icons'
 import { LoadingStatus, ShellLoader } from '../ShellLoader'
 import { confirmDialog, toast } from '../../lib/ui'
@@ -7,7 +8,7 @@ import { useGeoPosition } from '../../lib/useGeoPosition'
 import { MapPicker } from '../MapPicker'
 import { DateTimeField } from '../TimeField'
 import { Combo } from '../Combo'
-import { OnOff } from '../Segmented'
+import { OnOff, Segmented } from '../Segmented'
 import { appConfig } from '../../config/appConfig'
 import { dtLocalValue, dtLocalToIso, fillTemplate } from '../../lib/format'
 import { fmtDistance, haversineM } from '../../lib/geo'
@@ -75,6 +76,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   onClose: () => void
   onCreated: (inc: IncidentFull) => void
 }) {
+  const phone = useIsPhone()
   const ix = appConfig.copy.intake // read per-render so the resolved locale applies
   const [title, setTitle] = useState(edit?.title ?? '')
   const [address, setAddress] = useState(edit?.address ?? '')
@@ -465,13 +467,11 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           }}
         />
       </div>
-      {/* Übung is a yes/no property, so it is the ONE binary idiom – an `OnOff` row, «Aus | An»
-          (28.09.2026). It was a tick-box CHIP (05.09., itself the fix for a native checkbox):
-          a third look for the same question the Einstellungen and every editor sheet ask with
-          the pair. Label left, pair right, like a `.set-row`. */}
+      {/* On a phone the question «Übung?» reads «Nein | Ja»; the wider form keeps its pair. */}
       <div className="ip-onoff-row">
         <span className="ip-onoff-l">{ix.exerciseLabel}<small>{ix.exerciseSub}</small></span>
-        <OnOff ariaLabel={ix.exerciseLabel} value={isExercise} onChange={setIsExercise} />
+        {phone ? <Segmented ariaLabel={ix.exerciseLabel} value={isExercise} onChange={setIsExercise}
+          options={[{ value: false, label: ix.exerciseNo }, { value: true, label: ix.exerciseYes }]} /> : <OnOff ariaLabel={ix.exerciseLabel} value={isExercise} onChange={setIsExercise} />}
       </div>
       {/* --- Alarmierung — the dispatch facts, everything before we arrived: when we were alarmed
           + the alarm message. The Rapportangaben hold the rest. ONE section in both modes

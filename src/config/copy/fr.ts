@@ -615,6 +615,8 @@ export const fr: Localizable<Copy> = {
 
     hereButton: 'Ici',
     hereFailed: 'Position indisponible',
+    exerciseNo: 'Non',
+    exerciseYes: 'Oui',
     exerciseLabel: 'Exercice',
     exerciseSub: 'Ne compte pas dans la statistique d\'intervention',
     moveConfirmTitle: 'Déplacer le lieu d\'intervention ?',
