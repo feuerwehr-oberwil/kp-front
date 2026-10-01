@@ -1,4 +1,4 @@
-import { useRef, useState, type RefObject, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type RefObject, type ReactElement, type ReactNode } from 'react'
 import { Menu as BaseMenu } from '@base-ui/react/menu'
 import { usePopoverGuard } from './popoverGuard'
 
@@ -126,6 +126,16 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
   const [open, setOpen] = useState(false)
   usePopoverGuard(open)
   const keepFocus = useRef(false)
+  useEffect(() => {
+    if (!open || !keepFocusRef) return
+    // A pointer-opened menu may next be reached with Tab/arrow keys from the retained field
+    // or trigger. Release before Base UI moves focus into the portalled popup.
+    const release = (e: KeyboardEvent) => {
+      if (e.key === 'Tab' || e.target !== keepFocusRef.current) keepFocus.current = false
+    }
+    document.addEventListener('keydown', release, true)
+    return () => document.removeEventListener('keydown', release, true)
+  }, [open, keepFocusRef])
 
   const renderItem = (it: MenuActionItem | MenuCheckItem | MenuRadioGroup, key: number) => {
     if ('kind' in it && it.kind === 'radio') {
