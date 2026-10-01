@@ -460,8 +460,12 @@
    so without a keyboard nothing here applies. The layout viewport does NOT shrink for the
    keyboard (iOS never did), so a centred sheet kept its middle and its footer sat behind the
    keys on an iPad. Ride to the top edge and cap the frame against the measured keyboard — the
-   composer's own answer (10-journal.css · --jc-kb). Phones lift by margin instead (15-mobile). */
-.ip-sheet.ui-dialog.is-kb { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+   composer's own answer (10-journal.css · --jc-kb). Phones lift by margin instead (15-mobile).
+   ⚠️ `+ --vv-pan` (30.09.2026): the top is measured in the LAYOUT viewport, and once iOS has panned
+   the page to reveal the caret the screen shows that viewport from `offsetTop` down — a frame at a
+   bare 12px stood the pan above the screen's top and ended the pan above the keys. Plus the pan it
+   is the visible band inset by 12px, whatever iOS did (lib/useViewportPan). */
+.ip-sheet.ui-dialog.is-kb { top: calc(max(12px, env(safe-area-inset-top)) + var(--vv-pan, 0px)); transform: translateX(-50%);
   height: min(800px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 .ip-sheet.ip-fit.ui-dialog.is-kb { height: auto; max-height: min(800px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 /* …and the same answer for every OTHER dialog, because `.ip-sheet` was never the only one with a
@@ -472,7 +476,7 @@
    six copies: three classes (`:not()` weighs as one), so it outranks every `.x.ui-dialog` pair
    that owns the centring, and `.ip-sheet` opts out because it is handled above with its own 800px
    frame. Without a keyboard `is-kb` is absent and none of this exists. */
-.ui-dialog.is-kb:not(.ip-sheet) { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+.ui-dialog.is-kb:not(.ip-sheet) { top: calc(max(12px, env(safe-area-inset-top)) + var(--vv-pan, 0px)); transform: translateX(-50%);
   max-height: calc(100dvh - 24px - var(--kb-inset, 0px)); }
 /* ── overlays leave the way they came ──
    Base UI keeps [data-starting-style]/[data-ending-style] on Backdrop + Popup and delays the
@@ -1691,6 +1695,30 @@ select.cv-input { appearance: none; -webkit-appearance: none;
     align-items: start;
   }
 }
+/* ONE SURFACE while the Rapport is one column (30.09.2026, owner on the phone: «in the rapport we
+   have double stacked cards»). Below 1080px every section — the four form sections, the round-up
+   rows (Anwesenheit · Mittel · Partner · Beilagen), the Kroki and «Weitergeben» — stood as a
+   framed card inside the page's own card: a box in a box, and on a phone 26px of each line spent
+   on two edges. Now they sit ON the page like the Checkliste's phone sections (Checklists.module.css
+   · «ONE level»): no frame, no fill, the content at the head's inset, a hairline over each section
+   and its eyebrow (or the round-up row's title) as the head. The first section of the page — of
+   the TAB on a phone, below — draws no line: the head's own edge is right above it. Two columns
+   (1080+) keep their cards: there they are what faces the column opposite. */
+@media (max-width: 1079px) {
+  .report-preflight-body, .report-preflight-body > .rp-col, .rp-col-form > .report-fieldset, .rp-checks { gap: 16px; }
+  .report-preflight-body :is(.report-pre-section, .rp-check) {
+    border: 0; border-top: 1px solid var(--glass-edge); border-radius: 0; background: none; padding: 16px 0 0;
+  }
+  .report-preflight-body .rp-check { padding-top: 5px; } /* + the title row's own 11px = 16 */
+  .report-preflight-body .rp-col-form > .report-fieldset > [data-tab]:not([data-tab] ~ *) { border-top: 0; padding-top: 0; }
+  /* a round-up row is a row of the page now: no card inset — the title row keeps its --tap
+     height, the body stays under the label (26px dot + 10px gap) */
+  .report-preflight-body .rp-check-main { padding-inline: 0; }
+  .report-preflight-body .rp-check-extra { padding: 0 0 4px 36px; }
+  /* the whole row still opens it (the stretched ::after); with no edge to light, a mouse hover
+     keeps the hairline as it is */
+  .report-preflight-body .rp-check:has(.rp-check-main:not(:disabled)):hover { border-color: var(--glass-edge); }
+}
 /* (the phone inset — one breakpoint for every surface, at 600px — is the shared shell's, in
    components/Surface.module.css.) */
 /* Phone: the cards get the width Anwesenheit's rows get. 22px of body padding plus 16px of card
@@ -1777,6 +1805,16 @@ select.cv-input { appearance: none; -webkit-appearance: none;
      different one on each tab. The chip above is inside `.rp-col-side`, which the «Bericht» rule
      takes away wholesale; it keeps its own rule because the chip is also hidden on «Beilagen»,
      where the column around it very much stays. */
+  /* the first section of the TAB draws no hairline (the one-column rule above names the page's
+     first; on «Personal & Mittel» and «Beilagen» the first is a round-up row in the other column,
+     and on «Beilagen» the Kroki after the rows' box is not a first). */
+  .report-preflight-body[data-phone-tab="werwas"] [data-tab="werwas"]:not([data-tab="werwas"] ~ *, :has([data-tab="werwas"]) ~ *),
+  .report-preflight-body[data-phone-tab="beilagen"] [data-tab="beilagen"]:not([data-tab="beilagen"] ~ *, :has([data-tab="beilagen"]) ~ *) {
+    border-top: 0; padding-top: 0;
+  }
+  /* 360–390px: the round-up rows' body starts at the dot, not under the label — the Partner
+     fields and the names want the width more than the indent */
+  .report-preflight-body .rp-check-extra { padding-left: 0; }
   .report-preflight-body[data-phone-tab="bericht"] > .rp-col:not(:has([data-tab="bericht"])),
   .report-preflight-body[data-phone-tab="werwas"] > .rp-col:not(:has([data-tab="werwas"])),
   .report-preflight-body[data-phone-tab="beilagen"] > .rp-col:not(:has([data-tab="beilagen"])) { display: none; }

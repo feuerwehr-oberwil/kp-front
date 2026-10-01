@@ -120,6 +120,10 @@ export interface ContextPanelProps {
   /** The inverse of «Zum Original»: show this source object on its linked surface. */
   onProjection?: () => void
   projectionLabel?: string
+  /** the plan a Karte object is shown on: «Auf {plan} zeigen» (copy.contextPanel.showOnPlan) with
+   *  the plan's NAME as the part that gives way, so the verb stays readable — wins over
+   *  `projectionLabel` */
+  projectionPlan?: string
   /** commit the final label on blur (folds the whole edit into one undo step / audit event) */
   onTitle: (label: string) => void
   /** stream the label on every keystroke so the on-surface glyph/note updates live while
@@ -255,6 +259,11 @@ const ROT_STEP = 15   // degrees per tap — same control on both surfaces
  *  (−180, 180], the stepper's own range: read raw, a stored 270° pinned it at its max and the
  *  first − jumped to 180°. What the stepper hands back is stored in [0, 360) again. */
 const signedDeg = (d: number) => { const b = bearing360(d); return b > 180 ? b - 360 : b }
+/** the stepper's read-out: WHOLE degrees, as every angle the app shows (SelectionTurn, the Kurs).
+ *  A turn by hand (the two-finger twist, the selection dial) stores whatever the fingers said —
+ *  «−46.50917745051447°» stood in the panel (owner, staging 30.09.2026: «fix this»). Only the
+ *  display rounds; the stored bearing is untouched until a ± or a typed value replaces it. */
+const fmtDeg = (v: number) => `${Math.round(v)}°`
 
 type Row = { k: string; v: string }
 const toRows = (fields?: Record<string, string>): Row[] => Object.entries(fields ?? {}).map(([k, v]) => ({ k, v }))
@@ -269,7 +278,25 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+/** A door to the object's other surface («Zum Original», «Auf Modul 1 zeigen») — the foot's link
+ *  tone. Its label may not outgrow its tile (30.09.2026, owner: «Auf Modul 1 zeigen» ran out of its
+ *  frame into «Zentrieren»): with a `name` in `{plan}` it is the NAME that is cut, so the verb
+ *  around it stays; a plain label is cut at its end. The whole sentence is the title. */
+function LinkBtn({ onClick, text, name }: { onClick: () => void; text: string; name?: string }) {
+  const [pre, post = ''] = name != null ? text.split('{plan}') : [text]
+  const full = name != null ? `${pre}${name}${post}` : text
+  return (
+    <button className="btn link" onClick={onClick} title={full} aria-label={full}>
+      <Icon id="external" />
+      <span className="btn-t" aria-hidden>
+        {name != null ? <>{pre && <span>{pre}</span>}<span className="btn-t-cut">{name}</span>{post && <span>{post}</span>}</>
+          : <span className="btn-t-cut">{text}</span>}
+      </span>
+    </button>
+  )
+}
+
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, projectionPlan, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -664,8 +691,10 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
     <div className="ctx-actions">
       {/* first, and in the link tone: on a read-only panel it is the only thing that DOES anything,
           and what it does is leave for the real object. */}
-      {onOriginal && <button className="btn link" onClick={onOriginal}><Icon id="external" />{originalLabel ?? C.toOriginal}</button>}
-      {onProjection && <button className="btn link" onClick={onProjection}><Icon id="external" />{projectionLabel ?? C.toProjection}</button>}
+      {onOriginal && <LinkBtn onClick={onOriginal} text={originalLabel ?? C.toOriginal} />}
+      {onProjection && (projectionPlan != null
+        ? <LinkBtn onClick={onProjection} text={C.showOnPlan} name={projectionPlan} />
+        : <LinkBtn onClick={onProjection} text={projectionLabel ?? C.toProjection} />)}
       {onCenter && <button className="btn" onClick={onCenter}><Icon id="cross" />{C.center}</button>}
       {/* «GPS» (reset a vehicle's manual override) and «Löschen» are alternatives, and a live
           entity gets neither — `readOnly` is already true for anything externally sourced.
@@ -889,7 +918,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               )}
               {showRotate && (
                 // when a fan rotation is also present (Grosslüfter) the body stepper reads «Fahrzeug»
-                <LabeledStepper label={showRotate2 ? C.rotationVehicle : C.rotation} value={signedDeg(entity.rotation ?? 0)} step={ROT_STEP} format={(v) => `${v}°`}
+                <LabeledStepper label={showRotate2 ? C.rotationVehicle : C.rotation} value={signedDeg(entity.rotation ?? 0)} step={ROT_STEP} snap format={fmtDeg}
                   onChange={(v) => onRotate!(bearing360(v))} onClear={() => onRotate!(null)} canClear={(entity.rotation ?? 0) !== 0}
                   min={-180} max={180} readOnly={readOnly} ariaLabel={showRotate2 ? C.rotationVehicle : C.rotation} />
               )}
@@ -897,7 +926,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                 // the part stepper reads «Lüfter», «Leiter» … per the composite (fan vs ladder/boom)
                 const partLabel = C[compositeSpec(entity.symbol)?.partLabel ?? 'rotationFan']
                 return (
-                  <LabeledStepper label={partLabel} value={signedDeg(entity.rotation2 ?? 0)} step={ROT_STEP} format={(v) => `${v}°`}
+                  <LabeledStepper label={partLabel} value={signedDeg(entity.rotation2 ?? 0)} step={ROT_STEP} snap format={fmtDeg}
                     onChange={(v) => onRotate2!(bearing360(v))} onClear={() => onRotate2!(null)} canClear={(entity.rotation2 ?? 0) !== 0}
                     min={-180} max={180} readOnly={readOnly} ariaLabel={partLabel} />
                 )

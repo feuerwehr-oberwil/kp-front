@@ -135,6 +135,41 @@ describe('ContextPanel — basic wiring', () => {
     fireEvent.pointerDown(screen.getByLabelText('mehr')) // hold-to-repeat: first step fires on pointer-down
     expect(p.onRotate).toHaveBeenCalledWith(15) // ROT_STEP
   })
+
+  // 30.09.2026 (owner's screenshot: «−46.50917745051447°»): a hand-turned symbol shows whole
+  // degrees, and ± lands on the 15° marks from there — the stored value is only DISPLAYED rounded
+  it('shows a hand-turned rotation in whole degrees and steps onto the 15° grid', () => {
+    const p = setup({ controls: new Set<SymbolControl>(['rotation']), entity: { id: 's1', rotation: 360 - 46.50917745051447 } })
+    expect(screen.getByText('-47°')).toBeTruthy()
+    expect(screen.queryByText(/46\.5/)).toBeNull()
+    fireEvent.pointerDown(screen.getByLabelText('mehr'))
+    expect(p.onRotate).toHaveBeenLastCalledWith(360 - 45)
+    fireEvent.pointerUp(screen.getByLabelText('mehr'))
+    fireEvent.pointerDown(screen.getByLabelText('weniger'))
+    expect(p.onRotate).toHaveBeenLastCalledWith(360 - 60)
+    expect(p.onRotate).toHaveBeenCalledTimes(2)
+  })
+})
+
+// 30.09.2026 (owner: «fix this» — «Auf Modul 1 zeigen» ran out of its frame into «Zentrieren»):
+// the door to the linked plan is cut, never spilled, and the part that gives way is the plan's
+// NAME — the verb around it stays. The whole sentence is the button's name.
+describe('ContextPanel — the door to a linked plan', () => {
+  it('names the plan in the sentence and cuts only the name', () => {
+    const onProjection = vi.fn()
+    setup({ onProjection, projectionPlan: 'Modul 1 Untergeschoss Nord', onCenter: vi.fn() })
+    const btn = screen.getAllByRole('button', { name: 'Auf Modul 1 Untergeschoss Nord zeigen' })[0]
+    expect(btn.querySelector('.btn-t-cut')?.textContent).toBe('Modul 1 Untergeschoss Nord')
+    expect(btn.querySelector('.btn-t')?.textContent).toBe('Auf Modul 1 Untergeschoss Nord zeigen')
+    fireEvent.click(btn)
+    expect(onProjection).toHaveBeenCalled()
+  })
+
+  it('a plain label (Plan → Karte) is cut at its end, still one name', () => {
+    setup({ onProjection: vi.fn(), projectionLabel: 'Auf Karte zeigen' })
+    const btn = screen.getAllByRole('button', { name: 'Auf Karte zeigen' })[0]
+    expect(btn.querySelector('.btn-t-cut')?.textContent).toBe('Auf Karte zeigen')
+  })
 })
 
 describe('ContextPanel — Geschoss (Untergeschosse are as reachable as Obergeschosse)', () => {

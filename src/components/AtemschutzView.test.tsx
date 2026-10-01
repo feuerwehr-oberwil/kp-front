@@ -19,6 +19,7 @@ import { fillTemplate } from '../lib/format'
 import { clearAllDrafts } from '../lib/draftKeep'
 import type { AttendanceState, Trupp, TruppFields, TruppReading } from '../types'
 import { noteOwnContact, resetOwnContacts } from '../lib/contactEcho'
+import { resetPopoverGuard } from '../lib/overlays/popoverGuard'
 
 afterEach(cleanup)
 // ⚠️ …and the kept DRAFTS with it (lib/draftKeep is a module-level store): a form that was
@@ -88,6 +89,14 @@ const typeGuest = (name: string) => {
 }
 /** Answering the Auftrag in the open form. Not required to register since 14.09. (see «a Trupp
  *  may be registered without an Auftrag» below) — the tests that pick one are about its value. */
+/** the form's Eingangsdruck / Funkkanal rows (30.09.2026: each opens its number sheet) */
+const pressureRow = (label: string = az.pressureLabel) => screen.getByRole('button', { name: new RegExp(`^${label} \\d+ bar$`) })
+const kanalRow = () => screen.getByRole('button', { name: new RegExp(`^${az.funkkanalSection} \\d+$`) })
+/** open the Druck sheet from the form's row and tap a bar — it fills the draft and closes */
+const pickPressure = (bar: number, label: string = az.pressureLabel) => {
+  fireEvent.click(pressureRow(label))
+  fireEvent.click(within(screen.getByRole('group', { name: label })).getByRole('button', { name: String(bar) }))
+}
 const pickAuftrag = (label = 'Retten') =>
   fireEvent.click(within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: label }))
 
@@ -96,7 +105,7 @@ const pickAuftrag = (label = 'Retten') =>
 describe('the Druckmeldung on the tablet card', () => {
   it('opens the pressure picker from the tile, and a tap on a number saves it', () => {
     const props = mount()
-    expect(screen.queryByLabelText(az.pressureDown.replace('{step}', String(atemschutzDoctrine().pressureStep)))).toBeNull()
+    expect(document.querySelector(`.${s.stepBtn}`)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: `${az.actPressure} 240 bar` }))
     expect(props.recordPressure).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '200' }))
@@ -377,7 +386,8 @@ describe('the tablet card wears the phone card (29.09.2026)', () => {
     // the first line is not a toggle on the grid: every card stands open
     expect(card.querySelector(`.${s.trowHead}`)!.tagName).toBe('DIV')
     expect(card.querySelector(`.${s.trowChevron}`)).toBeNull()
-    expect(card.querySelector(`.${s.trowHead}`)!.textContent).toContain('#2')
+    // no «#N» on the card's head (owner, 30.09.2026: «drop the number #»)
+    expect(card.querySelector(`.${s.trowHead}`)!.textContent).not.toContain('#2')
     expect(within(card as HTMLElement).getAllByRole('button', { name: az.actContact })).toHaveLength(1)
     // the ⋯ ends the foot line, beside the Verlauf's ⌄ (29.09.2026, owner pick B)
     expect(card.querySelector(`.${s.vfootRow}`)!.lastElementChild!.getAttribute('aria-label')).toBe(az.cardMenu)
@@ -524,9 +534,8 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
     expect(card.querySelectorAll(`.${s.trowClockVal}`)).toHaveLength(1) // the line's clock, no second one
     expect(within(card).getAllByRole('button', { name: az.actContact })).toHaveLength(1)
     expect(within(card).getAllByRole('button', { name: druckName })).toHaveLength(1)
-    // the Trupp's number, gone from the row's line, stands small after the name on the opened
-    // card's head (slim-down 26.09.2026 — the facts are a strip of chips now, and carry no number)
-    expect(card.querySelector(`.${s.trowHead}`)!.textContent).toContain('#2')
+    // no «#N» on the opened card either (owner, 30.09.2026: «drop the number #») — nor in the chips
+    expect(card.querySelector(`.${s.trowHead}`)!.textContent).not.toContain('#2')
     expect(card.querySelector(`.${s.facts}`)!.textContent).not.toContain('#2')
     // …and the pair works the same from here
     fireEvent.click(within(card).getByRole('button', { name: az.actContact }))
@@ -956,21 +965,17 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(document.querySelector(`.${s.trowCard}`)?.textContent).toContain('Meier Anna')
   })
 
-  it('opens the Trupp form as ONE flat column — everything visible, Druck+Kanal folded', () => {
+  it('opens the Trupp form as ONE flat column — everything visible, Druck+Kanal as one row each', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
     mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp()], createTrupp })
     fireEvent.click(firstBtn(az.newTrupp))
-    // no sections since 08.09.: the Mannschaft, the Auftrag and the folded Standard line all
-    // stand in one scroll — nothing is behind a chevron
+    // no sections since 08.09.: the Mannschaft, the Auftrag and the Druck / Kanal rows all
+    // stand in one scroll — the rows read the station defaults
     expect(screen.getByLabelText(az.teamSearchPlaceholder)).toBeTruthy()
     expect(screen.getByText(az.auftragLabel)).toBeTruthy()
-    expect(screen.queryByText(az.pressureLabel)).toBeNull()
-    expect(screen.getByText(fillTemplate(az.luftDefaults, {
-      v: `${fillTemplate(az.stackPressure, { n: dz.defaultPressureBar })} · ${fillTemplate(az.stackFunk, { n: dz.defaultFunkkanal })}`,
-    }))).toBeTruthy()
-    fireEvent.click(screen.getByText(az.luftChange))
-    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
+    expect(pressureRow().getAttribute('aria-label')).toBe(`${az.pressureLabel} ${fillTemplate(az.stackPressure, { n: dz.defaultPressureBar })}`)
+    expect(kanalRow().getAttribute('aria-label')).toBe(`${az.funkkanalSection} ${dz.defaultFunkkanal}`)
     // …only the final submit is gated on a valid Trupp — `aria-disabled`, not the native
     // attribute, so a blocked tap still reaches attemptSubmit and can explain itself
     const submitBtn = lastBtn(az.start)
@@ -1247,9 +1252,8 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     const createTrupp = vi.fn()
     mount({ createTrupp, personnel: [], trupps: [] })
     fireEvent.click(firstBtn(az.newTrupp))
-    // the Druck field is behind the Standard line on a create (08.09.) — and there for Atemschutz…
-    fireEvent.click(screen.getByText(az.luftChange))
-    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
+    // the Druck row is there for Atemschutz…
+    expect(pressureRow()).toBeTruthy()
     fireEvent.click(screen.getByRole('radio', { name: az.kindPlain }))
     // …and gone the moment it is not
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
@@ -1490,13 +1494,13 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
     // …and everything else stands in one column, in reading order
     const txt = document.querySelector(`.${s.stack}`)?.textContent ?? ''
-    const order = [az.sectionTeam, az.auftragLabel, az.lineNoLabel, az.luftChange].map((t) => txt.indexOf(t))
+    const order = [az.sectionTeam, az.auftragLabel, az.lineNoLabel, az.pressureLabel, az.funkkanalSection].map((t) => txt.indexOf(t))
     expect(order.every((n) => n >= 0)).toBe(true)
     expect([...order]).toEqual([...order].slice().sort((a, b) => a - b))
-    // the Standard line folds Druck+Kanal until «Ändern»
-    expect(screen.queryByText(az.pressureLabel)).toBeNull()
-    fireEvent.click(screen.getByText(az.luftChange))
-    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
+    // the Druck row opens the Druck sheet — the grid is never inline
+    expect(screen.queryByRole('group', { name: az.pressureLabel })).toBeNull()
+    fireEvent.click(pressureRow())
+    expect(screen.getByRole('group', { name: az.pressureLabel })).toBeTruthy()
   })
 
   /* ⚠️ «Wieder einrücken» opens the MANNSCHAFT, not «Luft & Funk» (05.09. evening, field
@@ -1535,10 +1539,12 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(body?.firstElementChild?.className).toContain(s.formCol)
     const right = body?.children[1]
     expect(right?.firstElementChild?.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(az.kindLabel)
-    expect(right?.lastElementChild?.textContent).toContain(az.luftChange)
-    // …and everything is still there: «Ändern» unfolds Druck+Kanal in place
-    fireEvent.click(screen.getByText(az.luftChange))
-    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
+    expect(right?.lastElementChild?.textContent).toContain(az.funkkanalSection)
+    // …and the Kanal row opens the Kanal sheet, over the form
+    fireEvent.click(kanalRow())
+    expect(screen.getByRole('dialog', { name: az.funkkanalUnit })).toBeTruthy()
+    // (the form stands under it — hidden from the accessibility tree while the sheet is on top)
+    expect(document.querySelector(`[role="dialog"][aria-label="${az.formCreateTitle}"]`)).toBeTruthy()
   })
 
   /* ── The Reihenfolge menu (04.09., Feldtest Manuel) ───────────────────────────────────────────
@@ -1602,9 +1608,8 @@ describe('the Reihenfolge menu', () => {
     expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
     expect(screen.getByText(az.auftragLabel)).toBeTruthy()
     expect(within(screen.getByRole('dialog')).getByText(az.sectionTeam)).toBeTruthy()
-    // …and «Ändern» unfolds the Kanal, minus the one field a Verkehrstrupp has no cylinder for
-    fireEvent.click(screen.getByText(az.luftChange))
-    expect(screen.getByText(az.funkkanalSection)).toBeTruthy()
+    // …and the Kanal row stands, minus the one a Verkehrstrupp has no cylinder for
+    expect(kanalRow()).toBeTruthy()
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
   })
 
@@ -1727,6 +1732,94 @@ describe('the Reihenfolge menu', () => {
  * the SEARCH is the name entry, and the door is the last row of the list, present only while
  * something is typed. The full behaviour is pinned in TruppTeam.test.tsx; this one checks that
  * the form the operator actually opens still gets a Gast into the Trupp. */
+/* The crown follows the Dienstgrad while a NEW Trupp is formed (30.09.2026, lib/truppLeader) —
+ * until somebody is crowned by hand, and never on a Trupp that already exists. */
+describe('the Gruppenführer by rank', () => {
+  const upd = '2026-09-30T06:00:00.000Z'
+  const roster = [
+    { id: 'pf', displayName: 'Fuchs Fritz', rank: 'fwm', active: true, updatedAt: upd },
+    { id: 'pl', displayName: 'Lang Lea', rank: 'lt', active: true, updatedAt: upd },
+    { id: 'pk', displayName: 'Kurz Kai', rank: 'kpl', active: true, updatedAt: upd },
+  ]
+  const pick = (name: string) => fireEvent.click(screen.getByRole('option', { name: new RegExp(name) }))
+
+  it('a new Trupp is led by its most senior member, whatever order they were picked in', () => {
+    const createTrupp = vi.fn()
+    mount({ trupps: [], personnel: roster, createTrupp })
+    fireEvent.click(firstBtn(az.newTrupp))
+    pick('Fuchs Fritz'); pick('Lang Lea'); pick('Kurz Kai')
+    fireEvent.click(lastBtn(az.start))
+    expect(createTrupp).toHaveBeenCalledWith(expect.objectContaining({ name: 'Lang Lea', members: ['Fuchs Fritz', 'Kurz Kai'] }))
+  })
+
+  it('stops following the rank once a name is crowned by hand', () => {
+    const createTrupp = vi.fn()
+    mount({ trupps: [], personnel: roster, createTrupp })
+    fireEvent.click(firstBtn(az.newTrupp))
+    pick('Fuchs Fritz'); pick('Kurz Kai')
+    fireEvent.click(screen.getByRole('button', { name: /Fuchs Fritz als Gruppenführer/ }))
+    pick('Lang Lea')
+    fireEvent.click(lastBtn(az.start))
+    expect(createTrupp).toHaveBeenCalledWith(expect.objectContaining({ name: 'Fuchs Fritz', members: ['Kurz Kai', 'Lang Lea'] }))
+  })
+
+  it('never moves the leader of a Trupp that already exists', async () => {
+    const editTrupp = vi.fn()
+    mount({ trupps: [aktivTrupp()], personnel: roster, editTrupp })
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+    pick('Lang Lea')
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ name: 'Steiner', members: ['Huber', 'Lang Lea'] }))
+  })
+})
+
+/* The form asks Druck and Kanal in the sheets that ask them on the card (30.09.2026): a row each,
+ * opening the Druck grid / the Kanal pad — a tap is the answer, nothing is saved until the save. */
+describe('the form\'s Druck and Kanal are the sheets\' tap controls', () => {
+  const real = atemschutzDoctrine()
+  beforeEach(() => { vi.spyOn(deploymentConfig, 'atemschutzDoctrine').mockImplementation(() => ({ ...real, funkkanalMin: 1, funkkanalMax: 16 })) })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('opens the Druck grid and the Kanal pad from the rows; a tap fills the draft and closes', async () => {
+    const createTrupp = vi.fn()
+    mount({ trupps: [], createTrupp })
+    fireEvent.click(firstBtn(az.newTrupp))
+    typeGuest('Pad Paula')
+    fireEvent.click(pressureRow())
+    const grid = screen.getByRole('group', { name: az.pressureLabel })
+    // the station default is the picked answer, filled
+    expect(within(grid).getByRole('button', { name: String(dz.defaultPressureBar) }).getAttribute('aria-pressed')).toBe('true')
+    // one tap fills the draft and closes the sheet; the row reads it
+    fireEvent.click(within(grid).getByRole('button', { name: '280' }))
+    expect(screen.queryByRole('group', { name: az.pressureLabel })).toBeNull()
+    expect(pressureRow().getAttribute('aria-label')).toBe(`${az.pressureLabel} 280 bar`)
+    fireEvent.click(kanalRow())
+    const pad = screen.getByRole('group', { name: az.funkkanalUnit })
+    expect(within(pad).getByRole('button', { name: String(dz.defaultFunkkanal) }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(within(pad).getByRole('button', { name: '7' }))
+    await waitFor(() => expect(screen.queryByRole('group', { name: az.funkkanalUnit })).toBeNull())
+    expect(kanalRow().getAttribute('aria-label')).toBe(`${az.funkkanalSection} 7`)
+    // nothing is written until the form's own save
+    expect(createTrupp).not.toHaveBeenCalled()
+    fireEvent.click(lastBtn(az.start))
+    expect(createTrupp).toHaveBeenCalledWith(expect.objectContaining({ entryPressureBar: 280, funkkanal: 7 }))
+  })
+
+  it('Escape in a number sheet closes the sheet, never the form under it', async () => {
+    // the popover register's 350 ms tail is module state: a menu the test before closed a moment
+    // ago would veto this Escape (as it should, one gesture later) and the sheet stays — flaky by speed
+    resetPopoverGuard()
+    mount({ trupps: [] })
+    fireEvent.click(firstBtn(az.newTrupp))
+    fireEvent.click(kanalRow())
+    const pad = screen.getByRole('group', { name: az.funkkanalUnit })
+    fireEvent.keyDown(pad, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('group', { name: az.funkkanalUnit })).toBeNull())
+    expect(screen.getByRole('dialog', { name: az.formCreateTitle })).toBeTruthy()
+  })
+})
+
 describe('the Gast door in the person picker', () => {
   const roster = Array.from({ length: 40 }, (_, i) => ({
     id: `p${i}`, displayName: `Muster ${String(i).padStart(2, '0')}`, active: true,
@@ -2094,17 +2187,18 @@ describe('the phone Trupp form keeps the due clocks in view (D1 ⑥)', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [inField('f', 'Fresh Fritz', 1)] })
     openCreate()
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${az.luftChange}:`) }))
+    fireEvent.click(kanalRow())
     fireEvent.pointerDown(screen.getByLabelText(az.funkkanalUp))
+    fireEvent.click(screen.getByRole('button', { name: az.formPickTake }))
     // the ✕ in the head — «not now», like pushing the sheet down
     fireEvent.click(document.querySelector(`.${s.modalHead} .ip-x`)!)
     expect(screen.queryByRole('dialog', { name: az.formCreateTitle })).toBeNull()
     openCreate()
-    expect(document.querySelector(`.${s.luftDefaultsText}`)?.textContent).toContain(fillTemplate(az.stackFunk, { n: dz.defaultFunkkanal + 1 }))
+    expect(kanalRow().getAttribute('aria-label')).toBe(`${az.funkkanalSection} ${dz.defaultFunkkanal + 1}`)
     // …and «Abbrechen» throws it away
     fireEvent.click(screen.getByText(az.cancel, { selector: 'button.ip-btn' }))
     openCreate()
-    expect(document.querySelector(`.${s.luftDefaultsText}`)?.textContent).toContain(fillTemplate(az.stackFunk, { n: dz.defaultFunkkanal }))
+    expect(kanalRow().getAttribute('aria-label')).toBe(`${az.funkkanalSection} ${dz.defaultFunkkanal}`)
   })
 })
 
@@ -2222,14 +2316,8 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
     fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
   }
-  /** type a bar into the form's Eingangsdruck stepper (tap the value, type, Enter) */
-  const typePressure = (bar: number, label: string) => {
-    const field = within(screen.getByRole('dialog')).getByText(label).closest(`.${s.field}`) as HTMLElement
-    fireEvent.click(within(field).getByTitle(appConfig.copy.stepper.typeToEnter))
-    const input = field.querySelector<HTMLInputElement>(`.${s.stepInput}`)!
-    fireEvent.change(input, { target: { value: String(bar) } })
-    fireEvent.blur(input)
-  }
+  /** the form's Eingangsdruck row → the Druck sheet → one bar (30.09.2026) */
+  const typePressure = (bar: number, label: string) => pickPressure(bar, label)
 
   it('locks it once the Trupp is out, points at the Restdruck, and saves the stored value', async () => {
     const editTrupp = vi.fn()
@@ -2238,7 +2326,7 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     // «300 bar 🔒» and ONE hint line (owner review 26.09.2026)
     expect(screen.getByText('300 bar')).toBeTruthy()
     expect(screen.getByText(fillTemplate(az.pressureLockedWhyExit, { bar: 60 }))).toBeTruthy()
-    expect(within(screen.getByRole('dialog')).queryByLabelText(fillTemplate(az.pressureDown, { step: dz.pressureStep }))).toBeNull()
+    expect(screen.queryByRole('button', { name: new RegExp(`^${az.editPressureLabel}`) })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: az.save }))
     expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 300 }))
   })
@@ -2247,7 +2335,10 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     mount()
     await openEdit()
     expect(screen.queryByText(new RegExp(az.pressureLocked))).toBeNull()
-    expect(within(screen.getByRole('dialog')).getByLabelText(fillTemplate(az.pressureDown, { step: dz.pressureStep }))).toBeTruthy()
+    // the row, and behind it the grid with the stored 300 as the picked answer
+    fireEvent.click(pressureRow(az.editPressureLabel))
+    const grid = screen.getByRole('group', { name: az.editPressureLabel })
+    expect(within(grid).getByRole('button', { name: '300' }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('asks ONCE below the station minimum, with the value on the button', async () => {
@@ -2256,17 +2347,19 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     mount({ trupps: [], createTrupp })
     fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Tief Theo')
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${az.luftChange}:`) }))
     typePressure(180, az.pressureLabel)
     fireEvent.click(lastBtn(az.start))
     let ask = await screen.findByRole('alertdialog')
     // a title stating the fact, one line with the two numbers (owner review 26.09.2026)
     expect(within(ask).getByText(az.entryLowTitle)).toBeTruthy()
     expect(within(ask).getByText(fillTemplate(az.entryLowMsg, { bar: 180, min: dz.entryPressureMin }))).toBeTruthy()
-    // «Ändern» goes back to the number and registers nothing
+    // «Ändern» goes back to the number — the Druck sheet, on 180 — and registers nothing
     fireEvent.click(within(ask).getByRole('button', { name: az.entryLowChange }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(createTrupp).not.toHaveBeenCalled()
+    const grid = await screen.findByRole('group', { name: az.pressureLabel })
+    expect(within(grid).getByRole('button', { name: '180' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(within(grid).getByRole('button', { name: '180' }))
     fireEvent.click(lastBtn(az.start))
     ask = await screen.findByRole('alertdialog')
     fireEvent.click(within(ask).getByRole('button', { name: fillTemplate(az.entryLowConfirm, { bar: 180 }) }))
@@ -2380,13 +2473,7 @@ describe('review fixes: the low Eingangsdruck on a re-entry', () => {
     ...aktivTrupp(), status: 'raus', exitTime: iso(2 * 60_000),
     readings: [...aktivTrupp().readings!, { t: iso(2 * 60_000), bar: 120, kind: 'exit', measured: true }],
   })
-  const typePressure = (bar: number) => {
-    const field = within(screen.getByRole('dialog')).getByText(az.newPressureLabel).closest(`.${s.field}`) as HTMLElement
-    fireEvent.click(within(field).getByTitle(appConfig.copy.stepper.typeToEnter))
-    const input = field.querySelector<HTMLInputElement>(`.${s.stepInput}`)!
-    fireEvent.change(input, { target: { value: String(bar) } })
-    fireEvent.blur(input)
-  }
+  const typePressure = (bar: number) => pickPressure(bar, az.newPressureLabel)
 
   it('«Neue Flasche» with a low value asks once, with «Ändern» focused', async () => {
     render(<Overlays />)
@@ -2510,8 +2597,7 @@ describe('staging: the first Druckmeldung says what it does', () => {
     mount({ trupps: [], createTrupp })
     fireEvent.click(firstBtn(az.newTrupp))
     typeGuest('Neu Nina')
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${az.luftChange}:`) }))
-    fireEvent.pointerDown(screen.getByLabelText(fillTemplate(az.pressureDown, { step: dz.pressureStep })))
+    pickPressure(280)
     fireEvent.click(lastBtn(az.start))
     expect(createTrupp.mock.calls[0][0].readings).toEqual([expect.objectContaining({ kind: 'registered', measured: true })])
   })

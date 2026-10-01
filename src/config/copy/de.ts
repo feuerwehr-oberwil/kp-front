@@ -1764,10 +1764,6 @@ export const de = {
      *  den keine Vorgabe beantworten kann */
     /** «Meier Thomas (GF) · Huber Simon» – der Gruppenführer trägt sein Kürzel mit */
     stackPressure: '{n} bar',
-    stackFunk: 'Kanal {n}',
-    // die zusammengefaltete Druck+Kanal-Zeile im Trupp-Formular (08.09.)
-    luftDefaults: 'Standard: {v}',
-    luftChange: 'Ändern',
     // Sync-/Uhr-Status im Tafelkopf (Sicherheitsreview 01.09.): die EINE Fläche, an der ein
     // Leben hängt, sagt selbst, ob ihr Stand gesichert und ihre Uhr richtig ist. Leise reicht
     // incidentSwitcher.savedAt; laut trägt der Chip das Kurzlabel des Zustands plus, wie alt
@@ -1933,14 +1929,14 @@ export const de = {
     entryAskTitle: 'Trupp in den Einsatz?',
     entryAskMsg: 'Trupp {name} ist angemeldet, aber noch nicht im Einsatz. Jetzt in den Einsatz? Die Kontaktuhr läuft ab sofort.',
     entryAskCancel: 'Noch nicht',
-    pressureLabel: 'Eingangsdruck (bar)',
-    newPressureLabel: 'Neuer Eingangsdruck (bar)',
+    pressureLabel: 'Eingangsdruck',
+    newPressureLabel: 'Neuer Eingangsdruck',
     // ⚠️ «Trupp bearbeiten» shows the Eingangsdruck too. It used to be the one field the form
     // hid, so a mistyped 200 for 300 at der Anmeldung could only be corrected by deleting the
     // Trupp — and the Eingangsdruck is what every Verbrauchsrechnung and the tiefster Druck on
     // the Rapport are measured against. Correcting it does NOT touch the contact clock: this is
     // a correction of what was written down, not a new Druckmeldung (that is the card's ± ).
-    editPressureLabel: 'Eingangsdruck korrigieren (bar)',
+    editPressureLabel: 'Eingangsdruck korrigieren',
     editPressureHint: 'Korrigiert den erfassten Eingangsdruck – zählt nicht als Funkkontakt.',
     funkkanalSection: 'Funkkanal',
     funkkanalDown: 'Funkkanal runter',
@@ -2034,8 +2030,6 @@ export const de = {
     alarmNoteEst: 'Alarmdruck {bar} bar – laut Schätzung erreicht',
     lineField: 'Leitung',
     edit: 'Bearbeiten',
-    pressureDown: '{step} bar weniger',
-    pressureUp: '{step} bar mehr',
     pressureConfirm: 'Bestätigen',
     pressureConfirmHint: 'Neuen Druck bestätigen – zählt als Kontakt',
     // ⚠️ A HINT, never a block. Air does not come back, so a rising value is almost always a
@@ -2168,6 +2162,8 @@ export const de = {
     quickTrupp: 'Trupp {no}',
     // das Kanal-Pad hat kein Speichern – der eine Satz sagt, dass ein Tipp wählt und schliesst
     kanalSheetHint: 'Antippen wählt und schliesst.',
+    // die Zahlen-Sheets aus dem Trupp-Formular übernehmen nur ins Formular (30.09.2026) – «Speichern» wäre gelogen
+    formPickTake: 'Übernehmen',
     // die Leitung-Chips: «keine · Ltg 1 · Ltg 2 …»
     lineNone: 'keine',
     lineChip: 'Ltg {n}',
