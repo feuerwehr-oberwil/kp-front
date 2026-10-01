@@ -80,6 +80,15 @@ to prod.
   a cached launch (`lib/snailLaunch`). React loading stages continue that animation clock;
   in-workspace loading starts at the standing idle. Do not replay the arrival at each loading
   stage or add a fade that hides it. Reduced motion skips both motion and the minimum hold.
+  `SnailLoader` keeps ONE `{ __html }` object per instance: React 19 rewrites `innerHTML` for a
+  new object even with the same string, which re-inserts the SVG and restarts its animations, so
+  every re-render of a loading stage replayed the arrival.
+  **An Einsatz opens behind the snail** (01.10.2026, `lib/bootCover`): a genuine open (App ·
+  `coverId`, never a background remount or a re-select of the Einsatz on screen) keeps the
+  pre-app Splash portalled over the whole workspace until the symbol pack, the framed Karte's
+  first `idle`, the rail's plan tiles and the weather are in, capped at 8 s (below Splash's
+  STUCK_MS), then fades it out. The launcher waits for the boot's pick (`bootDecided`): the list
+  watch can fill the list first.
 - **Operational browser state lives in IndexedDB, not localStorage.** `src/lib/idb.ts` is the
   storage layer (localStorage only as its degradation fallback), `src/lib/storageMigration.ts`
   moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,

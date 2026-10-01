@@ -239,6 +239,10 @@ export function useObjectPlans(
   // Bindings proposed by THIS hook instance, effective immediately: the parent's synced slice
   // follows through onBind, but a slow round-trip must not leave the sheet unpinned meanwhile.
   const [proposed, setProposed] = useState<IncidentPlanBinding[]>([])
+  // the object answers have come back (or failed): until then the rail does not yet know its
+  // plan tiles, and the Einsatz's opening cover waits for them (lib/bootCover)
+  const [autoSettled, setAutoSettled] = useState(false)
+  const [manualSettledFor, setManualSettledFor] = useState<string | null>(null)
   const effectiveBindings = useMemo(
     () => fillBindingFloors(addPlanBindings(bindingOpts?.bindings ?? [], proposed), proposed),
     [bindingOpts?.bindings, proposed],
@@ -326,6 +330,7 @@ export function useObjectPlans(
           : { plans: {}, titles: {}, datasets: {} })
       })
       .catch(() => { /* no object reachable → Umrisse + Tafel only */ })
+      .finally(() => { if (alive) setAutoSettled(true) })
     return () => { alive = false }
   }, [incidentId])
 
@@ -420,6 +425,7 @@ export function useObjectPlans(
     getObjectResilient(pickedObjectId) // offline → falls back to the IDB-cached object
       .then((obj) => { if (alive) setManualObject({ id: obj.id, name: obj.name, address: obj.address, pos: obj.lat != null && obj.lng != null ? [obj.lng, obj.lat] : null, ...buildPlanInfo(obj.plans) }) })
       .catch(() => { /* object removed → fall back to auto */ })
+      .finally(() => { if (alive) setManualSettledFor(pickedObjectId) })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickedObjectId, incidentId])
@@ -458,5 +464,6 @@ export function useObjectPlans(
   // and not the Einsatzadresse. A manual pick is the operator's own choice – no warning.
   // …with the object's id, so the plan surface can remember its banner per Einsatz and object
   const activeObjectNearby = manualObject || !autoInfo.nearby ? null : { ...autoInfo.nearby, objectId: autoInfo.id ?? '' }
-  return { backendPlans, resolvedPlanDocs, effectiveBindings, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject }
+  const plansSettled = autoSettled && (!pickedObjectId || manualObject?.id === pickedObjectId || manualSettledFor === pickedObjectId)
+  return { plansSettled, backendPlans, resolvedPlanDocs, effectiveBindings, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject }
 }

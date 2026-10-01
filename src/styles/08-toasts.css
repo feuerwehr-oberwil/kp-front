@@ -476,6 +476,9 @@
    two frames per stage (reported 2026-09-09); the in-workspace overlay (.loading) keeps it,
    because there the card genuinely appears over new ground. */
 .login .loading-card { animation: none; }
+/* The Einsatz's opening cover lifts off the finished workspace (lib/bootCover · BOOT_COVER_FADE_MS,
+   keep in step). It never fades IN: it takes over from a Splash already on screen. */
+.login.splash.leaving { opacity: 0; transition: opacity .24s var(--ease); pointer-events: none; }
 /* Static pre-React boot splash (markup in index.html). Paint immediately so the snail's
    entrance is visible. main.tsx holds it through the 630 ms arrival even on a warm launch,
    then React's snail continues the same clock instead of replaying it.

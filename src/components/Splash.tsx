@@ -13,6 +13,9 @@ import { SnailLoader } from './SnailLoader'
  * `inApp` switches from the full-screen pre-app cover (own background, above the login
  * layer) to the lighter in-workspace overlay used once an incident is mounted and the
  * TopBar is already painted.
+ *
+ * `leaving` fades the pre-app cover out: the Einsatz's opening cover (lib/bootCover) lifts off
+ * a finished workspace rather than cutting to it.
  */
 
 /** How long a launch may pulse silently before the splash admits something is wrong. Past a
@@ -23,7 +26,7 @@ import { SnailLoader } from './SnailLoader'
  *  cases where the operator otherwise has nothing on screen to tap. */
 const STUCK_MS = 9_000
 
-export function Splash({ sub, inApp }: { sub?: string; inApp?: boolean }) {
+export function Splash({ sub, inApp, leaving }: { sub?: string; inApp?: boolean; leaving?: boolean }) {
   const [stuck, setStuck] = useState(false)
   useEffect(() => {
     const t = setTimeout(() => setStuck(true), STUCK_MS)
@@ -31,7 +34,7 @@ export function Splash({ sub, inApp }: { sub?: string; inApp?: boolean }) {
   }, [])
   const c = appConfig.copy.splash
   return (
-    <div className={inApp ? `loading${stuck ? ' stuck' : ''}` : 'login splash'}>
+    <div className={inApp ? `loading${stuck ? ' stuck' : ''}` : `login splash${leaving ? ' leaving' : ''}`}>
       <div className="loading-card">
         <SnailLoader idleOnly={inApp} />
         <div className="loading-name">{deploymentName()}</div>
