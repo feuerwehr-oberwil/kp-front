@@ -84,7 +84,7 @@ export function ChecklistsView({
   // reference entries by title/keyword — so Aufgaben, Taktik and Grundlagen are peer groups.
   const q = query.trim().toLowerCase()
   const actionResults = q ? actionTemplates.filter((t) => t.title.toLowerCase().includes(q)) : actionTemplates
-  const noMatches = !actionResults.length && !results.length
+  const noMatches = ready && !actionResults.length && !results.length
 
   const activeTemplate = sel?.kind === 'tpl' ? actionTemplates.find((t) => t.id === sel.id) ?? null : null
   const activeEntry = sel?.kind === 'entry' ? entries.find((e) => e.id === sel.id) ?? null : null
@@ -138,6 +138,7 @@ export function ChecklistsView({
         {/* every group is a peer below the search: the checkable Aufgaben, then each reference
             template (Taktik-Stichworte, Grundlagen-Infos). One scroll region. */}
         <div className={s['cl-rail-groups']}>
+          {!ready && !templates.length && <div className="workspace-loading"><LoadingStatus>{appConfig.copy.loading}</LoadingStatus></div>}
           {actionResults.length > 0 && (
             <div className={s['cl-rail-group']}>
               <div className={s['cl-rail-label']}>{CL.groupTasks}</div>
@@ -185,7 +186,6 @@ export function ChecklistsView({
           Opening an item collapses the list to the toggle row and gives the checklist the screen. */}
       {!(railNarrow && railOpen) && (
         <main className={s['cl-main']}>
-          {!ready && !templates.length && <div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div>}
           {activeTemplate ? (
             <ChecklistRunner
               template={activeTemplate}
