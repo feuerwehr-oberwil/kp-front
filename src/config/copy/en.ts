@@ -23,6 +23,7 @@
 import type { Copy, Localizable } from './index'
 
 export const en: Localizable<Copy> = {
+  loading: 'Loading …',
   loadingSubtitle: 'Loading map & symbol library …',
   // «Teams», matching `atemschutz.boardTitle` — the surface carries work squads too, so naming it
   // «SCBA» told a traffic-control team it was in the wrong place (see de.ts for the full note).

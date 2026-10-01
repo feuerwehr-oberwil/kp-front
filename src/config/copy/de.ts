@@ -27,6 +27,7 @@ export type HelpBlock =
 export interface HelpSection { id: string; title: string; icon: string; blocks: HelpBlock[]; only?: HelpOnly }
 
 export const de = {
+  loading: 'Wird geladen …',
   loadingSubtitle: 'Karte & Symbolbibliothek werden geladen …',
   // ⚠️ «Trupps», nicht «Atemschutz» (04.09.). Die Fläche führt seit 03.09. BEIDE Arten Trupp — die
   // Atemschutztrupps oben, die Arbeitstrupps darunter (atemschutz.sectionPlain) —, und ein Bereich,

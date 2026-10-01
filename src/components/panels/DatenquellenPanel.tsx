@@ -1,3 +1,4 @@
+import { ShellLoader } from '../ShellLoader'
 import { useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { matchesQuery, searchQuery } from '../../lib/search'
@@ -169,7 +170,7 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
                 options={[{ value: 'line', label: ds.kindLines }, { value: 'point', label: ds.kindPoints }]} />
               <input type="color" value={nColor} onChange={(e) => setNColor(e.target.value)} aria-label={ds.color} />
               <button type="button" className="ip-btn" disabled={!nf || !nLabel.trim() || busy} onClick={() => void addLayer()}>
-                {busy ? ds.adding : ds.add}
+                {busy && <ShellLoader />}{busy ? ds.adding : ds.add}
               </button>
               <button type="button" className="ip-btn" disabled={busy} onClick={resetAdd}>{appConfig.copy.cancel}</button>
             </div>

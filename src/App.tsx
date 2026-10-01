@@ -1,3 +1,4 @@
+import { ShellLoader } from './components/ShellLoader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactivateResult } from './types'
 import './app.css'
@@ -852,7 +853,7 @@ export default function App() {
               <div className="ip-launch-list">
                 {openIncidents.map((i) => (
                   <button key={i.id} type="button" className="ip-launch" disabled={opening != null} onClick={() => void openIncident(i.id, { meta: i })}>
-                    <Icon id={opening === i.id ? 'rotate' : 'flag'} className={opening === i.id ? 'spin' : undefined} />
+                    {opening === i.id ? <ShellLoader /> : <Icon id="flag" />}
                     <span className="ip-launch-main">
                       <span className="ip-launch-title">{i.title}</span>
                       <span className="ip-launch-sub">{shortAddress(i.address) ?? ''}</span>
@@ -866,7 +867,7 @@ export default function App() {
                   // NEVER archives a live dispatch for the crew (that would be a server delete)
                   <div key={a.id} className="ip-launch alarm">
                     <button type="button" className="ip-launch-hit" disabled={taking != null} onClick={() => void takeAndOpen(a)}>
-                      <span className="ip-launch-pulse"><Icon id={taking === a.divera_id ? 'rotate' : 'bell'} className={taking === a.divera_id ? 'spin' : undefined} /></span>
+                      <span className="ip-launch-pulse">{taking === a.divera_id ? <ShellLoader /> : <Icon id="bell" />}</span>
                       <span className="ip-launch-main">
                         <span className="ip-launch-kicker">{appConfig.copy.intake.newDiveraAlarm}</span>
                         <span className="ip-launch-title">{a.title}</span>

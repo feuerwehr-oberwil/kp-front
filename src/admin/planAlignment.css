@@ -71,7 +71,7 @@
    it letterboxes identically and stays registered with the raster. */
 .adm-card-pic { position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; min-height: 0; padding: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; appearance: none; background: #fff; cursor: zoom-in; overflow: hidden; }
 .adm-card-pic:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
-.adm-card-pic img, .adm-card-pic svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.adm-card-pic > img, .adm-card-pic > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .adm-card-pic img { object-fit: contain; }
 .adm-card-wait { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; color: var(--ink-dim); background: var(--fill-soft); }
 .adm-card-cap { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px 4px; min-width: 0; }
@@ -284,7 +284,9 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 }
 /* one crop, captioned with the floors list's own chip so the two read as the same object */
 .adm-floor-tile { position: relative; min-width: 0; border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--board-bg); overflow: hidden; }
-.adm-floor-tile svg { display: block; width: 100%; }
+.adm-floor-tile > svg { display: block; width: 100%; }
+.adm-floor-tile-wait { position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--ink-dim); pointer-events: none; }
 /* ⚠️ The caption is the SHELL of the radius nesting (01-tokens: cluster → ctl → sm), not a pill:
    a pill around a square chip put a 999px curve a few pixels from an 8px one and the two fought
    (Bastian, 16.09.2026). --r-ctl outside, the chip's own --r-xs inside, and the chip drops the

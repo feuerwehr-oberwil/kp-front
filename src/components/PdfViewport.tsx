@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type * as PdfjsLib from 'pdfjs-dist'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
@@ -741,7 +742,7 @@ export function PdfViewport(props: Props) {
         />
       )}
       {!ready && (
-        <div className={s['wb-pdf-status']} role="status"><span>{appConfig.copy.pdf.loading}</span></div>
+        <div className={s['wb-pdf-status']} role="status"><ShellLoader size="surface" /><span>{appConfig.copy.pdf.loading}</span></div>
       )}
     </>
   )
@@ -851,6 +852,7 @@ function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props)
       />
       {status !== 'ready' && (
         <div className={s['wb-pdf-status']} role="status">
+          {status !== 'error' && <ShellLoader size="surface" />}
           <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>
           {fail && <PdfFailDetail fail={fail} reasonClass={s['wb-pdf-reason']} codeClass={s['wb-pdf-code']} />}
           {(status === 'error' || slow) && (

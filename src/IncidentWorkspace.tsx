@@ -1,3 +1,4 @@
+import { LoadingStatus } from './components/ShellLoader'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
@@ -6112,8 +6113,8 @@ export function IncidentWorkspace({
       {/* like the map: mounted once the pack has loaded OR failed for good (empty glyph table) */}
       {mode === 'plans' && (sym.ready || sym.error) && guarded('board', (
         /* the chunk is prefetched on idle (loadWhiteboard); on the rare cold switch the fallback is
-           the board's own empty paper, never a spinner */
-        <Suspense fallback={<div className="whiteboard" aria-hidden />}><Whiteboard
+           the paper frame with the shared loading state */
+        <Suspense fallback={<div className="whiteboard"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}><Whiteboard
           railLabels={railLabels}
           plans={planDocs}
           // on desktop the Verlauf drawer docks beside the plan's tool rail (same as the
@@ -6453,7 +6454,7 @@ export function IncidentWorkspace({
         /* onEditDispatch leaves the preflight open so the Einsatzdaten wizard stacks on top
            (later in DOM, same z-index) — canceling it reveals the rapport again instead of a
            dead end. (Saving still remounts the workspace and returns to the map.) */
-        <Suspense fallback={<div className="rp-backdrop" aria-hidden />}><ReportPreflight
+        <Suspense fallback={<div className="rp-backdrop"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}><ReportPreflight
           incident={incidentMeta}
           reportMeta={reportMeta}
           personnel={pickablePersonnel}

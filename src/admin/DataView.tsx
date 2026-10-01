@@ -1,3 +1,4 @@
+import { LoadingStatus, ShellLoader } from '../components/ShellLoader'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ObjectSheet } from './ObjectSheet'
 import { apiGet, apiPost, ApiError } from '../lib/api'
@@ -112,7 +113,7 @@ function TestButton({ run }: { run: () => Promise<unknown> }) {
         onClick={() => void onClick()}
         disabled={state.kind === 'testing'}
       >
-        {state.kind === 'testing' ? C.testing : C.testConnection}
+        {state.kind === 'testing' && <ShellLoader />}{state.kind === 'testing' ? C.testing : C.testConnection}
       </button>
       {state.kind === 'ok' && (
         <ResultChip key="ok" tone="ok" onExpire={() => setState({ kind: 'idle' })}>{C.testOk}</ResultChip>
@@ -338,7 +339,7 @@ export function AlarmProviderView({ onNavigate }: { onNavigate?: (id: string) =>
           {setup === 'configured' && hasPool ? (
             <>
               <span className="adm-int-stat">
-                {pool.kind === 'loading' && C.poolLoading}
+                {pool.kind === 'loading' && <LoadingStatus>{C.poolLoading}</LoadingStatus>}
                 {pool.kind === 'ok' && fillTemplate(pool.data.length === 1 ? C.poolCount : C.poolCountPlural, { n: pool.data.length })}
                 {(pool.kind === 'unconfigured' || pool.kind === 'error') && C.poolUnavailable}
               </span>
@@ -348,7 +349,7 @@ export function AlarmProviderView({ onNavigate }: { onNavigate?: (id: string) =>
                 onClick={() => void onRefresh()}
                 disabled={refreshing || pool.kind === 'loading'}
               >
-                {refreshing ? C.refreshing : C.refresh}
+                {refreshing && <ShellLoader />}{refreshing ? C.refreshing : C.refresh}
               </button>
               <TestButton run={() => apiPost('/api/divera/pool/refresh')} />
             </>
@@ -469,7 +470,7 @@ export function VehicleProviderView({ onNavigate }: { onNavigate?: (id: string) 
         <IntStatus badge={badge}>
           {setup === 'configured' && (
             <span className="adm-int-stat">
-              {positions.kind === 'loading' && C.vehiclesLoading}
+              {positions.kind === 'loading' && <LoadingStatus>{C.vehiclesLoading}</LoadingStatus>}
               {positions.kind === 'ok' && (
                 <>{fillTemplate(positions.data.length === 1 ? C.vehicleCount : C.vehicleCountPlural, { n: positions.data.length })}
                   {positions.data.length > 0 && (
@@ -650,7 +651,7 @@ export function ObjectsView({ title }: {
           </button>
         )}
       >
-        {state.kind === 'loading' && <EmptyState message={C.objectsLoading} />}
+        {state.kind === 'loading' && <EmptyState loading message={C.objectsLoading} />}
         {state.kind === 'unconfigured' && <EmptyState message={C.objectsUnavailable} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.objectsError} />}
         {state.kind === 'ok' && state.data.length === 0 && (
@@ -663,7 +664,7 @@ export function ObjectsView({ title }: {
           <div className={`adm-obj-split${mapObjs.length === 0 ? ' nomap' : ''}`}>
             {mapObjs.length > 0 && (
               <div className="adm-obj-map">
-                <Suspense fallback={<div className="adm-state">{C.mapLoading}</div>}>
+                <Suspense fallback={<div className="adm-state"><LoadingStatus size="surface">{C.mapLoading}</LoadingStatus></div>}>
                   <ObjectsMap
                     objects={mapObjs}
                     selectedId={selected}
@@ -758,7 +759,7 @@ export function GeodataView({ title }: {
   return (
     <div className="adm-editor">
       <Card title={title}>
-        {state.kind === 'loading' && <EmptyState message={C.geodataLoading} />}
+        {state.kind === 'loading' && <EmptyState loading message={C.geodataLoading} />}
         {state.kind === 'unconfigured' && <EmptyState message={C.geodataUnavailable} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.geodataError} />}
         {state.kind === 'ok' && state.data.length === 0 && (

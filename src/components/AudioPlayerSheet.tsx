@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
 import type { TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
+import { LoadingStatus, ShellLoader } from './ShellLoader'
 import { isPlayerRowId } from '../lib/ids'
 import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
@@ -425,7 +426,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
         </div>
         <div className="ip-body ap-body">
           <div className="ap-wave-wrap">
-            {peaks.status === 'loading' && <span className="ap-wave-shimmer" aria-hidden />}
+            {peaks.status === 'loading' && <span className="ap-wave-loading" aria-hidden><ShellLoader /></span>}
             <canvas
               ref={canvasRef}
               className="ap-wave"
@@ -524,7 +525,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
           )}
 
           {stt.phase === 'running' && (
-            <p className="ap-stt-note"><Icon id="rotate" />{C.sttRunning}</p>
+            <p className="ap-stt-note"><LoadingStatus>{C.sttRunning}</LoadingStatus></p>
           )}
           {stt.phase === 'failed' && (
             <p className="ap-stt-note ap-stt-failed">

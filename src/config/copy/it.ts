@@ -24,6 +24,7 @@
 import type { Copy, Localizable } from './index'
 
 export const it: Localizable<Copy> = {
+  loading: 'Caricamento …',
   loadingSubtitle: 'Caricamento mappa e libreria simboli …',
   // «Squadre», come `atemschutz.boardTitle` — la superficie porta anche le squadre senza APR, e
   // «Autoprotezione» sopra una squadra viabilità era semplicemente falso (vedi la nota in de.ts).

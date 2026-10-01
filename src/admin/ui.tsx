@@ -1,3 +1,4 @@
+import { LoadingStatus, ShellLoader } from '../components/ShellLoader'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { apiDelete, apiGet, apiPost } from '../lib/api'
 import { Icon } from '../lib/icons'
@@ -442,7 +443,7 @@ export function UsageBar({ pctFilled, tone = 'blue' }: { pctFilled: number; tone
 /**
  * A bar for work that is RUNNING, not for a level that is filling up (that is `UsageBar`).
  *
- * Determinate when the work can say how far it is, and a travelling stripe when it cannot —
+ * Determinate when the work can say how far it is, and Shell trail when it cannot —
  * which is honest for the moment before the first count arrives, and for a server that reports
  * nothing at all. The label is the sentence above it; `pct` is shown beside it when known.
  */
@@ -458,14 +459,14 @@ export function ProgressBar({ done, total, label }: { done?: number; total?: num
         </p>
       )}
       <div
-        className="adm-sys-bar"
+        className={determinate ? 'adm-sys-bar' : 'adm-progress-wait'}
         role="progressbar"
         aria-label={label}
         aria-valuemin={determinate ? 0 : undefined}
         aria-valuemax={determinate ? total : undefined}
         aria-valuenow={determinate ? done : undefined}
       >
-        <span className={`adm-sys-bar-fill blue${determinate ? '' : ' adm-bar-wait'}`} style={determinate ? { width: `${pct}%` } : undefined} />
+        {determinate ? <span className="adm-sys-bar-fill blue" style={{ width: `${pct}%` }} /> : <ShellLoader />}
       </div>
     </div>
   )
@@ -480,16 +481,17 @@ export function ProgressBar({ done, total, label }: { done?: number; total?: num
  *  etwas dazu» are the same sentence, and a centred 36px block said it in a different voice on
  *  every second page. The action sits at the right edge of the row while it fits and drops
  *  under the text when it does not. */
-export function EmptyState({ message, hint, action, tone }: {
+export function EmptyState({ message, hint, action, tone, loading = false }: {
   message: string
   hint?: ReactNode
   action?: ReactNode
   tone?: 'err'
+  loading?: boolean
 }) {
   return (
     <div className={`adm-empty${tone === 'err' ? ' err' : ''}`}>
       <div className="adm-empty-txt">
-        <p className="adm-empty-msg">{message}</p>
+        <p className="adm-empty-msg">{loading ? <LoadingStatus>{message}</LoadingStatus> : message}</p>
         {hint && <p className="adm-empty-hint">{hint}</p>}
       </div>
       {action && <div className="adm-empty-action">{action}</div>}

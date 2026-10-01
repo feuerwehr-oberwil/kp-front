@@ -1,3 +1,4 @@
+import { ShellLoader } from '../ShellLoader'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { SyncGlyph } from '../SyncGlyph'
@@ -249,7 +250,7 @@ export function OfflineReadinessSheet({
               <div className="or-prog-fill" style={{ width: `${progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }} />
             </div>
             <div className="or-prog-meta">
-              <span>{o.loadingForOffline}</span>
+              <span><ShellLoader /> {o.loadingForOffline}</span>
               <span className="or-prog-end">
                 <span className="or-prog-pct">{progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0} %</span>
                 {/* the download had no way out until 02.09.: three workers on a dead WLAN ran until

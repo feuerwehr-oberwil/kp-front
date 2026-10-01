@@ -1,3 +1,4 @@
+import { LoadingStatus } from './ShellLoader'
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import type { ChecklistState, ChecklistTemplate, Item, TemplateState } from '../lib/checklists'
@@ -184,6 +185,7 @@ export function ChecklistsView({
           Opening an item collapses the list to the toggle row and gives the checklist the screen. */}
       {!(railNarrow && railOpen) && (
         <main className={s['cl-main']}>
+          {!ready && !templates.length && <div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div>}
           {activeTemplate ? (
             <ChecklistRunner
               template={activeTemplate}

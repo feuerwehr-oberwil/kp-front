@@ -152,7 +152,7 @@ export function FleetAttributesViewer({ lists }: { lists: FleetAttributeList[] }
         aria-label={C.filterPlaceholder}
       />
 
-      {groups.length === 0 && <EmptyState message={sym.ready ? C.noMatches : C.loading} />}
+      {groups.length === 0 && <EmptyState loading={!sym.ready} message={sym.ready ? C.noMatches : C.loading} />}
 
       {/* ONE table across every category; the category is a spanning first column (not a
           per-category section heading), so all groups share identical columns. */}

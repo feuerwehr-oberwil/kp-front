@@ -1,3 +1,4 @@
+import { ShellLoader } from '../ShellLoader'
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
@@ -272,7 +273,7 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
       <>
         {picker}
         <p className="esh-lede esh-pending" aria-busy="true">
-          <Icon id="rotate" className="spin" />{C.shareLoading}
+          <ShellLoader />{C.shareLoading}
         </p>
       </>
     )
@@ -303,7 +304,7 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
         <p className="esh-lede">{kc.lede}</p>
         <button type="button" className="ip-btn primary" disabled={busy}
           onClick={() => void run(() => createShareLink(incidentId, kind), C.shareCreateFailed)}>
-          <Icon id="external" />{busy ? C.shareBusy : C.shareCreate}
+          {busy ? <ShellLoader /> : <Icon id="external" />}{busy ? C.shareBusy : C.shareCreate}
         </button>
       </>
     )

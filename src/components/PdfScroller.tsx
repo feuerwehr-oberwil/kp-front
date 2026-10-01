@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { loadDocTimed, pdfWorkerUrl, PdfFailDetail, usePdfLoad } from './PdfViewport'
@@ -298,6 +299,7 @@ export function PdfScroller({ url }: { url: string }) {
     <div ref={wrapRef} className={s.scroller} onDoubleClick={onDoubleClick}>
       {status !== 'ready' && (
         <div className={s.hint}>
+          {status !== 'error' && <ShellLoader size="surface" />}
           <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>
           {fail && <PdfFailDetail fail={fail} reasonClass={s.reason} codeClass={s.code} />}
           {(status === 'error' || slow) && (

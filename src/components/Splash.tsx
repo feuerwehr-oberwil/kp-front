@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { deploymentName } from '../lib/deploymentConfig'
@@ -36,7 +37,7 @@ export function Splash({ sub, inApp, leaving }: { sub?: string; inApp?: boolean;
   return (
     <div className={inApp ? `loading${stuck ? ' stuck' : ''}` : `login splash${leaving ? ' leaving' : ''}`}>
       <div className="loading-card">
-        <SnailLoader idleOnly={inApp} />
+        {inApp ? <ShellLoader size="surface" /> : <SnailLoader />}
         <div className="loading-name">{deploymentName()}</div>
         {/* Always rendered, empty when there is nothing to say: the card is centred, so a sub
             line that APPEARS (App's «Einsatz wird geöffnet …» after this bare splash) used to

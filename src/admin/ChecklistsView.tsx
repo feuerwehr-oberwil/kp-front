@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '../lib/api'
 import { Sheet } from '../lib/overlays'
@@ -151,7 +152,7 @@ export function ChecklistsView() {
       >
         <p className="adm-hint">{C.intro}</p>
         {flash && <p className="adm-save-ok">{flash}</p>}
-        {state.kind === 'loading' && <EmptyState message={C.loading} />}
+        {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.loadError} />}
         {state.kind === 'ok' && rows.length === 0 && <EmptyState message={C.none} hint={C.noneHint} />}
         {/* Typ und Quelle mirror the Geodaten table (DataView · GeodataView), down to the
@@ -339,7 +340,7 @@ function UploadSheet({ existing, onClose, onDone }: {
         <>
           <button type="button" className="ip-btn" onClick={onClose}>{Cc.cancel}</button>
           <button type="button" className="ip-btn primary" disabled={!parsed || !orderOk || busy} onClick={() => void submit()}>
-            {busy ? C.uploadingLabel : C.uploadConfirm}
+            {busy && <ShellLoader />}{busy ? C.uploadingLabel : C.uploadConfirm}
           </button>
         </>
       }
@@ -456,7 +457,7 @@ function AssetSheet({ row, onClose, onDone }: {
         <>
           <button type="button" className="ip-btn" onClick={onClose}>{Cc.cancel}</button>
           <button type="button" className="ip-btn primary" disabled={!file || !pageOk || busy} onClick={() => void submit()}>
-            {busy ? C.uploadingLabel : C.uploadConfirm}
+            {busy && <ShellLoader />}{busy ? C.uploadingLabel : C.uploadConfirm}
           </button>
         </>
       }
@@ -554,7 +555,7 @@ function DeleteSheet({ row, onClose, onDone }: {
         <>
           <button type="button" className="ip-btn" onClick={onClose}>{Cc.cancel}</button>
           <button type="button" className="ip-btn ip-btn-danger" disabled={busy} onClick={() => void submit()}>
-            {busy ? C.deleting : C.delete}
+            {busy && <ShellLoader />}{busy ? C.deleting : C.delete}
           </button>
         </>
       }

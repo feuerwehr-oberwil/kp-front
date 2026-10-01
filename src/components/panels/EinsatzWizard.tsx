@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
+import { LoadingStatus, ShellLoader } from '../ShellLoader'
 import { confirmDialog, toast } from '../../lib/ui'
 import { ApiError } from '../../lib/api'
 import { useGeoPosition } from '../../lib/useGeoPosition'
@@ -353,7 +354,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           to the landing without opening anything — a cancel, not a «Zurück» to a previous step */}
       <button className="ip-btn" onClick={onClose}>{ix.cancel}</button>
       <button className="ip-btn primary" disabled={!effectiveTitle || busy || demoBlocked} onClick={submit}>
-        {busy ? <><Icon id="rotate" className="spin" /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
+        {busy ? <><ShellLoader /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
       </button>
     </>}>
       {/* --- Standort --- */}
@@ -371,12 +372,12 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             onFocus={() => setAddrOpen(true)}
           />
           <button type="button" className="ip-ac-locate" disabled={locating} onClick={useHere} aria-label={ix.hereButton}>
-            <Icon id={locating ? 'rotate' : 'locate'} className={locating ? 'spin' : undefined} />
+            {locating ? <ShellLoader /> : <Icon id="locate" />}
           </button>
         </div>
         {addrOpen && address.trim().length >= 3 && (
           <div className="ip-ac-menu">
-            {addrLoading && <div className="ip-ac-note">{ix.addressSearching}</div>}
+            {addrLoading && <div className="ip-ac-note"><LoadingStatus>{ix.addressSearching}</LoadingStatus></div>}
             {!addrLoading && hits.length === 0 && <div className="ip-ac-note">{ix.addressNoHits}</div>}
             {hits.map((h, i) => (
               <button key={i} type="button" className="ip-ac-row" onClick={() => pickHit(h)}>

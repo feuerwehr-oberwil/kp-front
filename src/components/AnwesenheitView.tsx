@@ -452,10 +452,10 @@ export function AnwesenheitView({
     return () => clearInterval(t)
   }, [view])
   // «Erneut versuchen» reports on itself, the same way «Jetzt synchronisieren» does
-  // (IncidentSwitcher): the ring spins while the roster loads, and on success it closes into a
+  // (IncidentSwitcher): Shell trail runs while the roster loads, and on success gives way to a
   // tick — which has to be shown HERE, because success also clears `error` and with it the
   // button's reason to exist. So the button stays for the tick's 2.5s, then leaves. `floorDone`
-  // is the same 420ms floor as the sync button: a LAN round trip can settle in ~50ms, and an arc
+  // is the same 420ms floor as the sync button: a LAN round trip can settle in ~50ms, and a trail
   // that flicks past reads as a glitch rather than as work done.
   const [reloadPhase, setReloadPhase] = useState<'idle' | 'busy' | 'done'>('idle')
   const [reloadFloorDone, setReloadFloorDone] = useState(true)

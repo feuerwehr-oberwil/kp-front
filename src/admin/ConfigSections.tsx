@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AlarmGroup, DeploymentConfig, DeploymentFleet, FleetVehicle } from '../lib/deploymentConfig'
 import { legacyFleetToAttributeLists, DEFAULT_MODULES } from '../lib/deploymentConfig'
@@ -1768,7 +1769,7 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
           <SettingsNote>
             <span className="adm-brand-row">
               <button type="button" className="btn adm-save-btn" disabled={!ready || busy} onClick={() => void commit()}>
-                {busy ? C.geojsonUploading : C.geojsonUpload}
+                {busy && <ShellLoader />}{busy ? C.geojsonUploading : C.geojsonUpload}
               </button>
               <button type="button" className="btn adm-int-btn" disabled={busy} onClick={reset}>
                 {C.geojsonCancel}

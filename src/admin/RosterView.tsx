@@ -1,3 +1,4 @@
+import { LoadingStatus, ShellLoader } from '../components/ShellLoader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
 import { apiGet, ApiError } from '../lib/api'
@@ -130,7 +131,7 @@ function AddPersonForm({ onCreated, onClose }: { onCreated: () => void; onClose:
             {Cc.cancel}
           </button>
           <button type="submit" className="btn adm-save-btn" disabled={!valid || busy}>
-            {busy ? Cc.saving : Cc.create}
+            {busy && <ShellLoader />}{busy ? Cc.saving : Cc.create}
           </button>
         </div>
       </>
@@ -215,7 +216,7 @@ function EditRow({ person, onSaved, onCancel }: {
               {Cc.cancel}
             </button>
             <button type="button" className="btn adm-save-btn" onClick={() => void save()} disabled={busy}>
-              {busy ? Cc.saving : Cc.save}
+              {busy && <ShellLoader />}{busy ? Cc.saving : Cc.save}
             </button>
           </div>
         </div>
@@ -325,7 +326,7 @@ function ImportConfirmSheet({ file, preview, onCancel, onDone }: {
           <button type="button" className="ip-btn" onClick={onCancel} disabled={busy}>{Cc.cancel}</button>
           <button type="button" className="ip-btn primary" onClick={() => void apply()} disabled={busy || nothing}>
             {busy
-              ? C.importing
+              ? <LoadingStatus>{C.importing}</LoadingStatus>
               : mapping
                 ? fillTemplate(allAdopted ? C.mapAdoptAndImport : C.mapApplyAndImport, { n: preview.total })
                 : C.confirmImport}
@@ -500,7 +501,7 @@ function CsvImportCard({ onImported }: { onImported: () => void }) {
         <button type="button" className="btn adm-save-btn" onClick={() => fileRef.current?.click()} disabled={busy}>
           {C.csvImport}
         </button>
-        {busy && <span className="adm-int-stat">{C.importing}</span>}
+        {busy && <span className="adm-int-stat"><LoadingStatus>{C.importing}</LoadingStatus></span>}
       </div>
       {err && <div className="adm-state adm-state-err">{err}</div>}
       {result && (
@@ -748,7 +749,7 @@ export function RosterView() {
               onClose={() => setAddOpen(false)}
             />
           )}
-          {state.kind === 'loading' && <EmptyState message={C.loading} />}
+          {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
           {state.kind === 'error' && <EmptyState tone="err" message={state.detail} />}
           {/* «Einrichtung» sends a fresh station straight here for «Personal erfassen», and the
               answer for a whole Wehr is the Arbeitsmappe — which is named nowhere on this page.

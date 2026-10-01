@@ -1,3 +1,4 @@
+import { LoadingStatus } from '../components/ShellLoader'
 import { useRef, useState } from 'react'
 import { apiGet, apiUpload, ApiError } from '../lib/api'
 import { downloadBlob } from '../lib/download'
@@ -189,7 +190,7 @@ export function StationWorkbookView() {
           </>
         )}
       >
-        {busy && <p className="adm-card-cap">{C.busy}</p>}
+        {busy && <p className="adm-card-cap"><LoadingStatus>{C.busy}</LoadingStatus></p>}
         {state.kind === 'error' && <div className="adm-save-err">{state.message}</div>}
       </Card>
 
