@@ -1251,11 +1251,28 @@ export function ReportPreflight({
   const warnCount = (missTx > 0 ? 1 : 0) + (pendingMediaCount > 0 ? 1 : 0) + (proof.intact === false ? 1 : 0)
     + (unresolvedNames.length > 0 ? 1 : 0)
   const [controlOpen, setControlOpen] = useState(false)
-
-  // ⚠️ Used ONLY to decide whether the Kroki panel is mounted (see the section itself) — the
-  // tabs themselves are pure CSS, because a layout that depends on a JS breakpoint and one that
-  // depends on a media query drift apart on exactly the widths nobody tests.
   const isPhone = useIsPhone()
+  useEffect(() => {
+    if (!controlOpen || !isPhone) return
+    let frame = 0
+    const measure = () => {
+      const popup = document.querySelector<HTMLElement>('.rp-control')
+      const entry = document.querySelector('.fab-entry')
+      if (!popup || !entry) return
+      popup.style.setProperty('--rp-control-room', `${Math.max(44, entry.getBoundingClientRect().top - popup.getBoundingClientRect().top - 8)}px`)
+    }
+    frame = requestAnimationFrame(measure)
+    window.addEventListener('resize', measure)
+    window.visualViewport?.addEventListener('resize', measure)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', measure)
+      window.visualViewport?.removeEventListener('resize', measure)
+    }
+  }, [controlOpen, isPhone])
+
+
+  // The tabs themselves are pure CSS; `isPhone` also controls the Kroki panel's mounting.
   // The phone's three tabs (see PhoneTab). Seeded from the box that also carries the scroll
   // position, so a hop to Anwesenheit and back returns to the tab it left from; a fresh Einsatz
   // opens on «Bericht», which is the first section of the printed rapport.

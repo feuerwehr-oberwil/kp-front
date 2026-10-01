@@ -73,7 +73,7 @@ const propsFor = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => (
     unlinkTruppLine: noop,
     ...over,
 })
-vi.mock('../lib/useIsPhone', () => ({ useIsPhone: vi.fn(() => false) }))
+vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
 
 const mount = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => {
   const props = propsFor(over)

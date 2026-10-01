@@ -38,6 +38,16 @@ const pair = (label: string) => {
 describe('Übung on the Einsatz form', () => {
   const ix = appConfig.copy.intake
 
+  it('answers «Übung?» with Nein | Ja on a phone, keeping the false answer first', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
+    try {
+      render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+      expect(pair(ix.exerciseLabel).words).toEqual([ix.exerciseNo, ix.exerciseYes])
+      fireEvent.click(pair(ix.exerciseLabel).btns[1])
+      expect(pair(ix.exerciseLabel).pressed).toEqual(['false', 'true'])
+    } finally { vi.unstubAllGlobals() }
+  })
+
   it('is the Aus | An pair, off for a fresh Einsatz', () => {
     render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
     const p = pair(ix.exerciseLabel)

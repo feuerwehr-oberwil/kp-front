@@ -1133,6 +1133,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     log('layers', appConfig.copy.log.duplicated, { annoId: id, x: copy.x ?? copy.pts?.[0]?.[0], y: copy.y ?? copy.pts?.[0]?.[1], floor: copy.floor })
   }
 
+  useEffect(() => {
+    if (isPhone && active.id === 'tafel' && tool === 'measure') setTool('pan')
+  }, [isPhone, active.id, tool])
+
   // expose tool-pick + zoom + duplicate to the keyboard-shortcut layer. Semantic ids (from App) →
   // Plan tools; the rest tool is 'pan' (the plan pans on empty canvas), 'note'→'text',
   // 'team'→'resource'. No dep array (mirrors fitRef) so the handle always closes over live state.
@@ -1141,7 +1145,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const MAP: Record<string, BoardTool> = { select: 'pan', lasso: 'lasso', line: 'line', area: 'area', circle: 'circle', note: 'text', team: 'resource', measure: 'measure' }
     keysRef.current = {
       pickTool: (cmd) => {
-        if (selectOnly) return // the Umrisse sheet arms nothing — by keyboard either (see selectOnly)
+        if (selectOnly || (isPhone && active.id === 'tafel' && cmd === 'measure')) return // the Umrisse sheet arms nothing — by keyboard either (see selectOnly)
         if (cmd === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
         const id = MAP[cmd]; if (!id) return
         setTool(tool === id ? 'pan' : id); setPending(null)
@@ -3947,7 +3951,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // one setting, two rails, and only one of them listening.
           labels={railLabels}
           primary={{ id: 'symbol', icon: appConfig.copy.primarySymbol.icon, label: appConfig.copy.whiteboard.symbol }}
-          tools={readOnly ? slimPlanTools : planTools}
+          tools={(readOnly ? slimPlanTools : planTools).filter((t) => !(isPhone && active.id === 'tafel' && t.id === 'measure'))}
           active={tool}
           toolRefs={toolBtn}
           // ⚠️ Auswahl and Mehrfach share ONE rail slot (05.09., the same on the Karte): the rail
@@ -3994,7 +3998,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {pendingShape && tool === 'shape' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('pan') } }],
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color={isPhone ? 'currentColor' : '#fff'} aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           // «mehrere nacheinander» has no meaning for a shape laid between two named places
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape

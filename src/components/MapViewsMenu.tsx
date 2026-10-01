@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CameraView, LngLat } from '../types'
 import { Icon } from '../lib/icons'
@@ -7,6 +7,7 @@ import { cx } from '../lib/cx'
 import { DockInfo } from './DockInfo'
 import { useLongPress } from '../lib/useLongPress'
 import { useIsPhone } from '../lib/useIsPhone'
+import { usePopoverGuard } from '../lib/overlays/popoverGuard'
 import s from './MapViewsMenu.module.css'
 
 /** Everything the saved-views control needs from App — the synced list plus the camera ops. */
@@ -222,6 +223,18 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   // shortcut for the one row that gets used over and over — deliberately undiscoverable by
   // accident (500 ms, cancels on any movement, so a pan or a scroll of the rail never trips
   // it) and never the ONLY way there: «Einpassen» stays a plain row one tap in.
+  const phone = useIsPhone()
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  usePopoverGuard(open && phone)
+  useEffect(() => {
+    if (!open || !phone) return
+    const outside = (e: PointerEvent) => {
+      const target = e.target instanceof Element ? e.target : null
+      if (target && !target.closest('.mv-dock') && !triggerRef.current?.contains(target)) onOpenChange(false)
+    }
+    document.addEventListener('pointerdown', outside, true)
+    return () => document.removeEventListener('pointerdown', outside, true)
+  }, [open, phone, onOpenChange])
   const hold = useLongPress()
   // A fired hold must not also open the menu: the browser still delivers the click on release.
   // Cleared at the START of every press, not only when that click arrives — a hold whose click
@@ -233,6 +246,7 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   return (
     <>
       <button
+        ref={triggerRef}
         className={cx(btnClassName, open && activeClassName)}
         title={cp.title}
         aria-label={cp.title}
