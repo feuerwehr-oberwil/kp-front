@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef } from 'react'
 import snailSvg from '../../public/firefighter-snail-loader.svg?raw'
 import { continueSnailAnimation } from '../lib/snailLaunch'
 
@@ -16,6 +16,11 @@ export function SnailLoader({ idleOnly = false }: { idleOnly?: boolean }) {
     const svg = ref.current?.querySelector('svg')
     if (svg) continueSnailAnimation(svg, idleOnly)
   }, [idleOnly])
-  const artwork = snailSvg.replaceAll('fs-', `fs${id.replace(/[^a-zA-Z0-9_-]/g, '')}-`)
-  return <div ref={ref} className="snail-loader" aria-hidden="true" dangerouslySetInnerHTML={{ __html: artwork }} />
+  // ⚠️ One `{ __html }` object per instance. React 19 writes `innerHTML` again whenever the
+  // object is a NEW one, even with the same string, and a re-inserted SVG restarts its CSS
+  // animations at 0 — so every re-render of a loading stage replayed the skid arrival, inside the
+  // workspace too, where it should stand idle. The layout effect only runs on mount and cannot
+  // catch that (01.10.2026).
+  const html = useMemo(() => ({ __html: snailSvg.replaceAll('fs-', `fs${id.replace(/[^a-zA-Z0-9_-]/g, '')}-`) }), [id])
+  return <div ref={ref} className="snail-loader" aria-hidden="true" dangerouslySetInnerHTML={html} />
 }

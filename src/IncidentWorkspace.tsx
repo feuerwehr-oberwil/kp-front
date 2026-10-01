@@ -168,6 +168,7 @@ import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineRe
 import { fetchShareLink } from './lib/viewLink'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
+import { useBootCover } from './lib/bootCover'
 import { fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
 import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit } from './lib/storageBudget'
 import { ChecklistsView } from './components/ChecklistsView'
@@ -180,7 +181,7 @@ import { rosterWithGuests } from './lib/guests'
 import type { ChecklistState, Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
 import { primeKeyboard } from './lib/keyboardPrime'
-import { flushSync } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import type { NoteSize } from './types'
 import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
 import { TruppFinder } from './components/TruppFinder'
@@ -325,6 +326,11 @@ interface WorkspaceProps {
    *  25.09.2026), and when. App sets it as it flips the meta in place (App · onIncidentClosed /
    *  onIncidentReopened); the workspace says so in one Meldeleiste row. */
   lifecycleElsewhere?: { event: 'closed' | 'reopened'; at: number } | null
+  /** This mount OPENS the Einsatz (App · coverId): it assembles behind the snail until the first
+   *  screen is whole (lib/bootCover). Not on a background remount. */
+  openCover?: boolean
+  /** …and the cover has lifted — App forgets it, so a later remount comes up uncovered */
+  onOpenCoverDone?: () => void
 }
 
 
@@ -349,7 +355,7 @@ const ZEITPLAN_RECORDS = fieldsOf<{ shifts: Shift[]; bands: ShiftBand[] }>({ shi
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
   onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere,
+  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
   // inspect, but every editing affordance is hidden and commit() is neutered so
@@ -1275,7 +1281,7 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
@@ -1682,6 +1688,17 @@ export function IncidentWorkspace({
   // During replay the badge reads the folded reading.
   const liveWeather = useWeather(incidentView.center)
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
+
+  // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
+  // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
+  // (when the Karte is the surface it opens on), the rail's plan tiles and the weather in the
+  // top bar. Each of those used to arrive in view, one jump at a time (01.10.2026).
+  const [mapSettled, setMapSettled] = useState(false)
+  const onMapSettled = useCallback(() => setMapSettled(true), [])
+  const coverPhase = useBootCover(!!openCover, (sym.ready || !!sym.error)
+    && (mode !== 'map' || mapSettled)
+    && plansSettled
+    && (!!liveWeather.data || !!liveWeather.error), onOpenCoverDone)
   const openWeatherDetails = useCallback(() => {
     const [lng, lat] = incidentView.center
     const url = appConfig.copy.weather.detailsUrl.replace('{lat}', String(lat)).replace('{lng}', String(lng))
@@ -4947,6 +4964,10 @@ export function IncidentWorkspace({
     // the Meldeleiste paints INSIDE this stacking context (lib/meldeleisteHost), under the top bar
     <div ref={registerMeldeleisteHost} className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
+      {coverPhase !== 'off' && createPortal(
+        <Splash sub={appConfig.copy.incidentLink.opening} leaving={coverPhase === 'leaving'} />,
+        document.body,
+      )}
       <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
@@ -5075,6 +5096,7 @@ export function IncidentWorkspace({
           }}
           onView={setView}
           onBasemapUnavailable={onBasemapUnavailable}
+          onSettled={onMapSettled}
           picking={coord.mode === 'aim'}
           onCursor={coord.setAim}
           onPick={(c) => {
