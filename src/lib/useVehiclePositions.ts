@@ -8,11 +8,26 @@ import { visibleInterval } from './visibleInterval'
 
 const cfg = appConfig.gps
 
+// Arial Bold advance widths in em — close enough to tell whether a name overflows the body
+const glyphEm = (ch: string): number =>
+  ch === ' ' || ch === '.' || ch === '/' ? 0.278
+  : ch === 'I' ? 0.278
+  : ch === '-' ? 0.333
+  : /[0-9J]/.test(ch) ? 0.556
+  : ch === 'M' ? 0.833
+  : ch === 'W' ? 0.944
+  : 0.722
+// the name gets ONE size so a fleet reads as a set (it used to scale with 1/length: «RAW» big,
+// «KDO 12» half that). A long name shrinks only down to the floor, then condenses to the width.
+const NAME_FS = 0.6
+const NAME_FS_MIN = 0.48
+const NAME_MAX_W = 1.9
+
 /**
  * Generic vehicle tactical glyph (the VKF "Fahrzeug" outline) with the vehicle
  * name baked into the body — same look as the TLF symbol, but for any name, so
- * each vehicle is identifiable on the map without clicking it. The body holds
- * ~1.46 units of width; font-size shrinks for longer names so they stay inside.
+ * each vehicle is identifiable on the map without clicking it. Colour and stroke
+ * are the library's FKS blue, like every other tactical symbol.
  *
  * `rotationDeg` rotates only the vehicle body (so the cab/front points the right
  * way) while the name label stays upright and readable. The glyph's neutral
@@ -20,23 +35,34 @@ const cfg = appConfig.gps
  * from a GPS compass heading. `directed` draws the front chevron (▷|) that marks
  * the travel direction — omitted for a stationary vehicle, which has no heading,
  * so a parked truck doesn't falsely point somewhere.
+ *
+ * A turned body crosses the upright name (at 30–60° its edges ran straight through
+ * the letters), so the name sits on a white outline of itself. It is a second <text>
+ * underneath, not `paint-order`: the sanitiser allowlist (lib/sanitizeSvg) drops that
+ * attribute, and the glyph round-trips through it as free workspace data.
  */
 export function vehicleSymbolSvg(name: string, rotationDeg = 0, directed = true): string {
-  const label = xmlEscape(name.toUpperCase())
-  const fontSize = Math.min(0.66, 1.9 / Math.max(label.length, 1)).toFixed(3)
+  const raw = name.toUpperCase()
+  const label = xmlEscape(raw)
+  const em = [...raw].reduce((w, ch) => w + glyphEm(ch), 0) || 1
+  const fs = Math.max(NAME_FS_MIN, Math.min(NAME_FS, NAME_MAX_W / em))
+  const fit = em * fs > NAME_MAX_W ? ` textLength="${NAME_MAX_W}" lengthAdjust="spacingAndGlyphs"` : ''
   const r = (((rotationDeg % 360) + 360) % 360).toFixed(1)
   const c = '#00a0ff'
   const front = directed
     ? `<path d="M 0.46,-0.4 L 0.46,0.4" stroke="${c}" fill="none" stroke-width="0.07" stroke-linecap="round" stroke-linejoin="round"/>` +
       `<path d="M 0.46,-0.4 L 1,0 L 0.46,0.4" stroke="${c}" fill="none" stroke-width="0.07" stroke-linecap="round" stroke-linejoin="round"/>`
     : ''
+  const text = (paint: string) =>
+    `<text x="0" y="0" dy="0.35em" font-size="${fs.toFixed(3)}"${fit} ${paint} text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold">${label}</text>`
   return (
     `<svg viewBox="-1.3 -1.3 2.6 2.6" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">` +
     `<g transform="rotate(${r})">` +
     `<path d="M -1,0.4 L -1,-0.4 L 1,-0.4 L 1,0.4 L -1,0.4" stroke="${c}" fill="none" stroke-width="0.1" stroke-linecap="round" stroke-linejoin="round"/>` +
     front +
     `</g>` +
-    `<text x="0" y="0" dy="0.35em" font-size="${fontSize}" fill="${c}" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold">${label}</text>` +
+    text(`fill="#fff" stroke="#fff" stroke-width="0.2" stroke-linejoin="round"`) +
+    text(`fill="${c}"`) +
     `</svg>`
   )
 }
