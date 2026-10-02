@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { autoRotation, isMoving, useVehiclePositions, vehiclesSignature } from './useVehiclePositions'
+import { autoRotation, isMoving, useVehiclePositions, vehicleSymbolSvg, vehiclesSignature } from './useVehiclePositions'
+import { needsWhite } from './symbolRender'
+import { sanitizeSvgResult } from './sanitizeSvg'
 import type { Entity } from '../types'
 
 // Minimal live-vehicle entity, as toEntity would produce.
@@ -163,6 +165,41 @@ describe('useVehiclePositions polling', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
     expect(fetchMock).toHaveBeenCalledTimes(2)
     unmount()
+  })
+})
+
+describe('vehicleSymbolSvg (the name has to read at a glance)', () => {
+  const fontSizes = (svg: string) => [...svg.matchAll(/font-size="([\d.]+)"/g)].map((m) => Number(m[1]))
+
+  it('gives short names one size instead of scaling with the name length', () => {
+    // it was 1.9 / length: «RAW» 0.63, «MOWA» 0.48, «KDO 12» 0.32
+    expect(fontSizes(vehicleSymbolSvg('RAW'))).toEqual([0.6, 0.6])
+    expect(fontSizes(vehicleSymbolSvg('TLF'))).toEqual([0.6, 0.6])
+    expect(fontSizes(vehicleSymbolSvg('MOWA'))[0]).toBeGreaterThan(0.55)
+    expect(fontSizes(vehicleSymbolSvg('KDO 12'))[0]).toBeGreaterThan(0.5)
+    expect(vehicleSymbolSvg('KDO 12')).not.toContain('textLength')
+  })
+
+  it('condenses a long name to the body width instead of shrinking it to nothing', () => {
+    const svg = vehicleSymbolSvg('Tanklöschfahrzeug 2')
+    expect(fontSizes(svg)).toEqual([0.48, 0.48])
+    expect(svg).toContain('textLength="1.9"')
+  })
+
+  it('puts a white outline under the name so the turned body cannot cross the letters', () => {
+    const svg = vehicleSymbolSvg('MOWA', 45)
+    const halo = svg.indexOf('stroke="#fff"')
+    const ink = svg.lastIndexOf('fill="#00a0ff"')
+    expect(halo).toBeGreaterThan(-1)
+    expect(halo).toBeLessThan(ink)   // drawn first → underneath
+    // still an outline glyph, so the map keeps its white chip behind it
+    expect(needsWhite(svg)).toBe(true)
+  })
+
+  it('survives the sanitiser untouched (it round-trips as free workspace data)', () => {
+    for (const svg of [vehicleSymbolSvg('MOWA', 30), vehicleSymbolSvg('Tanklöschfahrzeug 2', 0, false), vehicleSymbolSvg('A&B <1>')]) {
+      expect(sanitizeSvgResult(svg).modified).toBe(false)
+    }
   })
 })
 
