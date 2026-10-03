@@ -207,17 +207,23 @@
      ⚠️ Every selector here carries the `:not(.expanded):not(.dragging)` pair the «Beschriftung ·
      Wörter» rules above carry: those set a width and a padding per tile, and at one class fewer
      these lost to them. */
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-scroll { overflow: hidden; -webkit-mask-image: none; mask-image: none; }
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-scroll > .vrail-tool { flex: 1 1 0; width: auto; min-width: 44px; padding: 0; }
+  /* ⚠️ ONE row of tiles, not a lane plus a footer (03.10.2026, owner from an iPhone: «auswahl
+     and messen is way bigger than ansichten»). The tools sat in the scroll lane and the pinned
+     controls in `.vrail-nav`, and the two boxes split the bar by a GUESS — the lane «holds three»,
+     so the footer got 25% / 40%. Any bar that is not exactly three tools broke it: the slim
+     read-only set, the Tafel without Messen, a tool more or less — two tools stretched over 60%
+     beside two pinned tiles squeezed into 40%. Both wrappers step aside here (`display:
+     contents`), so every tile is a direct item of the bar's own flex row and takes the same
+     share, whatever each box holds. Ansichten/Einpassen and Ebenen keep their place at the end
+     through `order` (above). The lane has nothing to scroll in this state; with no box of its own
+     lib/useRail measures nothing and lights no fade. */
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) :is(.vrail-scroll-wrap, .vrail-scroll, .vrail-nav) { display: contents; }
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) :is(.vrail-tool, .vrail-layers, .vrail-views, .vrail-fit) { flex: 1 1 0; width: auto; min-width: 44px; padding: 0; }
   /* NO hairline between the tools and the pinned controls (19.09.2026): with five even tiles it
      cut one row into «three and two» and said nothing — every tile here is a map control. The
-     2px it leaves is the lane's own gap, so the five stay evenly spaced. */
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-sep-foot { display: none; }
-  /* the pinned controls are tiles of the same row: the lane holds three, so the Karte's two take
-     two fifths of the bar and the Plan's one a quarter */
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav { flex: 0 0 25%; }
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav:has(.vrail-views) { flex-basis: 40%; }
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav > :is(.vrail-layers, .vrail-views, .vrail-fit) { flex: 1 1 0; width: auto; min-width: 44px; padding: 0; }
+     bar's own 2px gap is the only space between any two tiles. (lib/toolFold already drops the
+     lane's group dividers; hidden here too, or one would be a 9px item of the row.) */
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) :is(.vrail-sep-foot, .vrail-sep) { display: none; }
   /* the corner mark: «this tile holds more than one thing» — the two-state Auswahl ↔ Mehrfach
      here, and the nav bar's «Pläne» and «Einsatz».
      ⚠️ TOP right, not the conventional bottom right: with «Beschriftung · Wörter» on, the tile's
@@ -589,7 +595,11 @@
      real distinction while there were eleven of them; with exactly one tile per group they
      separate a thing from a thing and cost the five tiles 10px between them (see NavRail ·
      `fold`, which stops rendering them).
-     The scroll path itself is untouched and still measures: it simply finds nothing to scroll. */
+     ⚠️ And ONE row (03.10.2026): the scroll lane and its wrap step aside (`display: contents`),
+     so the five tiles are items of the bar itself, on the bar's own 2px gap — the same row the
+     tool bar above is (see «ONE row of tiles» there). The scroll path finds no box to measure
+     and lights no fade; the unfolded bar (one tile per plan) still scrolls as before. */
+  .navrail.folded:not(.expanded):not(.dragging) :is(.rail-scroll-wrap, .nav-scroll) { display: contents; }
   .navrail.folded .nav-item { flex: 1 1 0; width: auto; }
 
   /* ── the folded «Pläne» tile ── NO rules of its own any more (18.09.2026). It wears the
@@ -619,7 +629,7 @@
   /* …and the folded bar shares its width in this mode too. Measured at 360px: «Checkliste», the
      longest of the five words, is ~55px of Sora at 9.5px and each tile's equal share is ~65px, so
      nothing truncates and the scroll the rule above kept for this variant finds nothing to do. */
-  .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-item { flex: 1 1 0; }
+  .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-item { flex: 1 1 0; min-width: 44px; padding: 0; }
   .navrail.labelled:not(.expanded):not(.dragging) .nav-glyph { height: 22px; }
   /* …and the same two corrections the desktop rule makes, one size smaller (see 05-navrail.css) */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-mono-chip { min-width: 22px; min-height: 22px; font-size: 11px; }
@@ -630,6 +640,14 @@
      visible without scrolling. */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-label {
     font-size: 9.5px; overflow: visible; text-overflow: clip; }
+  /* ⚠️ …but on the FOLDED bars a word never spills past its own tile (03.10.2026): every tile is
+     one equal share, so a word longer than its share (a translation, an armed tool's name on the
+     «+» tile, the narrowest phone) ends in «…» inside it, the same way on every tile — never
+     into its neighbour, never a tile of its own size. The 1.3 line box keeps the descenders of
+     «Hinzufügen» inside the clip. */
+  .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-label,
+  :is(.tool-rail, .wb-tools).folded.labelled:not(.expanded):not(.dragging) .vrail-label {
+    box-sizing: border-box; max-width: 100%; padding: 0 2px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
   .nav-foot { margin-top: 0; }
   .nav-sep { width: 1px; height: 26px; margin: 0 2px; flex: none; }   /* vertical divider in a row (see the width math on .nav-item) */
 

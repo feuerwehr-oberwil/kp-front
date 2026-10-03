@@ -8,6 +8,7 @@ import { DockInfo } from './DockInfo'
 import { useLongPress } from '../lib/useLongPress'
 import { useIsPhone } from '../lib/useIsPhone'
 import { usePopoverGuard } from '../lib/overlays/popoverGuard'
+import { useLiveBearing } from '../lib/liveBearing'
 import s from './MapViewsMenu.module.css'
 
 /** Everything the saved-views control needs from App — the synced list plus the camera ops. */
@@ -192,6 +193,18 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
   )
 }
 
+/** The compass needle. It turns WITH the finger while the Karte is being rotated (03.10.2026,
+ *  owner: «live-update the compass while rotating similar to the wind direction») — the same
+ *  per-frame store the wind arrow reads (lib/liveBearing), so only this span re-renders per
+ *  frame, never the button, its menu or IncidentWorkspace. `bearing` is the settled one, used
+ *  while no Karte is mounted. NO transition on it (MapUtility.module.css · .compass,
+ *  07-toolrail · .vrail-compass): per frame it would only trail the finger, and at the ±180°
+ *  seam MapLibre's bearing flips sign, which a transition spins the long way round. */
+function CompassGlyph({ bearing, className }: { bearing: number; className: string }) {
+  const live = useLiveBearing(bearing)
+  return <span className={className} style={{ transform: `rotate(${-live}deg)` }}><Icon id="compass" /></span>
+}
+
 /**
  * The multi-purpose compass: always visible (it rotates to the live bearing as an indicator),
  * and tapping it opens the saved-views popover — `Nach Norden`, the team's saved framings, and
@@ -217,7 +230,7 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   onToggleCoords?: () => void
 }) {
   const cp = appConfig.copy.mapViews
-  const glyph = <span className={glyphClassName} style={{ transform: `rotate(${-bearing}deg)` }}><Icon id="compass" /></span>
+  const glyph = <CompassGlyph bearing={bearing} className={glyphClassName} />
 
   // Hold the compass to fit the incident into view, without going through the menu. A quiet
   // shortcut for the one row that gets used over and over — deliberately undiscoverable by
