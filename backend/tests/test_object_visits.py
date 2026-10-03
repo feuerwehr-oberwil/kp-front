@@ -349,7 +349,7 @@ async def _incident_with_link(db_session) -> Incident:
     from app.deployment_config import config_row
 
     row = await config_row(db_session)
-    row.incident_link_key = "mint-key-0123456789-0123456789-0123"
+    row.incident_link_key = "mint-key-0123456789-0123456789-0123"  # gitleaks:allow
     row.terminal_link_key = "terminal-key-0123456789-0123456789-01"
     inc = Incident(title="Brand", status="offen", source="test", source_ref="1")
     db_session.add(inc)

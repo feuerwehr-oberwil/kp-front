@@ -283,12 +283,12 @@ async def claim(db: AsyncSession, enabled: set[str], now: datetime) -> Claim | N
         .with_for_update(skip_locked=True)
         .scalar_subquery()
     )
-    token = uuid.uuid4().hex
+    lease_id = uuid.uuid4().hex
     row = (
         await db.execute(
             update(ObjectVisitDelivery)
             .where(ObjectVisitDelivery.id == candidate, due)
-            .values(lease_owner=token, lease_until=now + LEASE, attempts=ObjectVisitDelivery.attempts + 1)
+            .values(lease_owner=lease_id, lease_until=now + LEASE, attempts=ObjectVisitDelivery.attempts + 1)
             .returning(
                 ObjectVisitDelivery.id,
                 ObjectVisitDelivery.destination,
@@ -310,7 +310,7 @@ async def claim(db: AsyncSession, enabled: set[str], now: datetime) -> Claim | N
         visit_id=row.visit_id,
         wanted=row.wanted_revision,
         delivered=row.delivered_revision,
-        token=token,
+        token=lease_id,
         attempts=row.attempts,
         remote_items=dict(row.remote_items or {}),
         remote_folder_id=row.remote_folder_id,
