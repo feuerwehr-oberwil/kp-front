@@ -876,6 +876,7 @@ export default function App() {
           // of running ones. «Wieder öffnen» stays the one way back to editing.
           onSwitchIncident={(i) => void openIncident(i.id, { meta: i, readOnly: i.is_archived })}
           onOpenHistory={() => setOverlay('history')}
+          onOpenObjectVisits={objectVisitsConfig().enabled && !linkScoped ? enterObjectVisits : undefined}
           // «Einsatz eröffnen» goes straight to the manual wizard — the pool sheet is gone
           // (testing feedback 2026-07-18): incoming alarms are taken via the landing card or
           // the mid-incident banner, never via a separate pool screen.
