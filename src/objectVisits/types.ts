@@ -165,6 +165,8 @@ export interface VisitList {
   title: string
   note?: string | null
   closesAt?: string | null
+  scheduledOn?: string | null
+  archived?: boolean
   objectIds: string[]
   unresolved?: ObjectRef[]
   /** object id → the organizer's prior completion */

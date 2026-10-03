@@ -255,3 +255,6 @@
 .place { display: flex; align-items: center; gap: 6px; margin: 0 4px; font: 500 13px/1.4 var(--body); color: var(--ink-dim); }
 .place :global(.i), .place svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
 .field { min-width: 0; }
+
+.scheduleHistory { margin-block: 20px; }
+.scheduleHistory summary { cursor: pointer; min-height: 44px; padding-block: 12px; font-weight: 600; }

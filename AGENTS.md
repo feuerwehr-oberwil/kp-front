@@ -1152,7 +1152,9 @@ to prod.
   no-ops when unset** (gating registration at boot is what made this impossible before), and
   a secret is **write-only over the API** — settable, never readable. The CARTO basemap key is
   the explicit client-credential exception: CARTO requires it in browser tile URLs, so it is
-  readable at runtime and must be restricted to deployment domains at the provider. ⚠️ Readable
+  readable at runtime and must be restricted to deployment domains at the provider. The
+  authenticated organizer catalogue also shares this browser key for its route map; allow
+  that organizer's domain at CARTO too. ⚠️ Readable
   is not public — `/api/config` serves it only to a caller holding a session, and «session»
   includes an incident LINK (`LinkApp` mounts the whole app, and a link carries no
   `access_token`, so `actor is not None` is the wrong test). Server-side renders (Rapport/Kroki)
@@ -1185,6 +1187,13 @@ to prod.
   IMPORTER stays GET-only (`sharepoint_graph.py`) and filing writes only through
   `object_visit_sharepoint.py` with the separate `sharepoint_export_*` credentials; nothing
   remote is ever deleted. Alarms and the new-Einsatz banner stay on the Objektbesuche surface.
+- **Visit planning keeps templates separate from rounds** (03.10.2026): `visit_programmes`
+  holds reusable organizer routes, never visible to crews. Annual publication is one
+  transaction with a stale-revision guard; a round's stable ref and stop snapshot survive
+  rescheduling/withdrawal. Never copy last year's completions into a new round. `scheduledOn`
+  is a calendar day, separate from `closesAt`; archived rounds retain visits and accept late
+  offline sync. Field history is collapsed, overdue work stays visible. Contract:
+  `docs/object-visits.md` · Visit programmes.
 - **Domain language is German** (Atemschutz, Trupp, Einsatz, Verlauf, …); keep terms
   accurate. **All user-facing strings live in `appConfig.copy.*`** – never hard-code UI text in
   a component; add a key and reference it.

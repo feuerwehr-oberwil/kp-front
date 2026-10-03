@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import object_visits as ov
 from .. import storage
+from .. import visit_programmes as programmes
 from ..auth.secret_token import SecretGate
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
@@ -55,9 +56,32 @@ async def require_organizer(
 Organizer = Annotated[None, Depends(require_organizer)]
 
 
+@router.get("/visit-programmes/{programme_ref}")
+async def get_programme(programme_ref: str, _org: Organizer, db: AsyncSession = Depends(get_db)) -> dict:
+    return await programmes.read(db, programme_ref)
+
+
+@router.put("/visit-programmes/{programme_ref}/routes")
+async def put_programme_routes(
+    programme_ref: str, body: programmes.RoutesUpdate, _org: Organizer, db: AsyncSession = Depends(get_db)
+) -> dict:
+    return await programmes.save_routes(db, programme_ref, body)
+
+
+@router.put("/visit-programmes/{programme_ref}/years/{year}")
+async def publish_programme(
+    programme_ref: str, year: int, body: programmes.Publish, _org: Organizer, db: AsyncSession = Depends(get_db)
+) -> dict:
+    return await programmes.publish(db, programme_ref, year, body)
+
+
 @router.get("/object-visits/catalogue")
 async def organizer_catalogue(_org: Organizer, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
-    return await ov.catalogue(db, can_capture=False)
+    result = await ov.catalogue(db, can_capture=False)
+    # Public browser credential, shared only with the authenticated organizer. Its map
+    # domain must also be allowed at CARTO; other integration secrets remain write-only.
+    result["cartoBasemapKey"] = credential("carto_api_key") or None
+    return result
 
 
 @router.get("/object-visits/changes")
@@ -156,6 +180,7 @@ async def organizer_delete_object(
     source: str, external_id: str, _org: Organizer, db: AsyncSession = Depends(get_db)
 ) -> dict[str, str]:
     """Remove the organizer's ref: ``{removed: "ref" | "object" | "none"}`` (idempotent)."""
+    await programmes.require_unused_ref(db, source, external_id)
     return await ov.delete_integration_object(db, source, external_id)
 
 
@@ -175,9 +200,11 @@ async def organizer_put_object(
 async def organizer_put_list(
     ref: str, _org: Organizer, body: Annotated[dict[str, Any], Body()], db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
+    await programmes.require_unmanaged(db, ref)
     return await ov.put_visit_list(db, ref, body)
 
 
 @router.delete("/visit-lists/{ref:path}")
 async def organizer_delete_list(ref: str, _org: Organizer, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    await programmes.require_unmanaged(db, ref)
     return await ov.delete_visit_list(db, ref)

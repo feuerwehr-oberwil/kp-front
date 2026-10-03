@@ -12077,6 +12077,215 @@
         }
       }
     },
+    "/api/integrations/visit-programmes/{programme_ref}": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Get Programme",
+        "operationId": "get_programme_api_integrations_visit_programmes__programme_ref__get",
+        "parameters": [
+          {
+            "name": "programme_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Programme Ref"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Programme Api Integrations Visit Programmes  Programme Ref  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/visit-programmes/{programme_ref}/routes": {
+      "put": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Put Programme Routes",
+        "operationId": "put_programme_routes_api_integrations_visit_programmes__programme_ref__routes_put",
+        "parameters": [
+          {
+            "name": "programme_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Programme Ref"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutesUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Put Programme Routes Api Integrations Visit Programmes  Programme Ref  Routes Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/visit-programmes/{programme_ref}/years/{year}": {
+      "put": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Publish Programme",
+        "operationId": "publish_programme_api_integrations_visit_programmes__programme_ref__years__year__put",
+        "parameters": [
+          {
+            "name": "programme_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Programme Ref"
+            }
+          },
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Year"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Publish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Publish Programme Api Integrations Visit Programmes  Programme Ref  Years  Year  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/integrations/object-visits/catalogue": {
       "get": {
         "tags": [
@@ -13879,6 +14088,27 @@
           "edit_version"
         ],
         "title": "AlignmentMutation"
+      },
+      "Assignment": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,39}$",
+            "title": "Code"
+          },
+          "scheduledOn": {
+            "type": "string",
+            "format": "date",
+            "title": "Scheduledon"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "scheduledOn"
+        ],
+        "title": "Assignment"
       },
       "Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post": {
         "properties": {
@@ -17877,6 +18107,28 @@
         ],
         "title": "ObjectOut"
       },
+      "ObjectRef": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+            "title": "Source"
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "id"
+        ],
+        "title": "ObjectRef"
+      },
       "ObjectRefIn": {
         "properties": {
           "source": {
@@ -18895,6 +19147,30 @@
         "title": "ProviderRegistration",
         "description": "One provider this build knows about, whether or not this station uses it.\n\nThe list is what makes personnel/alarms/vehicles a *choice* rather than a vendor: a\nstation reads it to see what it could point at. ``implemented`` is false for a provider\nwhose contract is published but whose ingestion is not built yet — an entry that is\ndiscoverable and honest about being inert, rather than a registry that quietly implies\neverything listed works."
       },
+      "Publish": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revision"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/Assignment"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Assignments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "assignments"
+        ],
+        "title": "Publish"
+      },
       "RankConfig": {
         "properties": {
           "key": {
@@ -19568,6 +19844,67 @@
         ],
         "title": "RosterUser",
         "description": "A login tile — never includes anything secret."
+      },
+      "Route": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,39}$",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectRef"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Objects"
+          },
+          "retired": {
+            "type": "boolean",
+            "title": "Retired",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "objects"
+        ],
+        "title": "Route"
+      },
+      "RoutesUpdate": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revision"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/Route"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Routes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "routes"
+        ],
+        "title": "RoutesUpdate"
       },
       "SegmentPatch": {
         "properties": {

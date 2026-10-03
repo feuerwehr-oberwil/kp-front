@@ -470,6 +470,16 @@ class ObjectRef(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class VisitProgramme(Base):
+    """Reusable organizer routes; publication materializes dated VisitLists atomically."""
+
+    __tablename__ = "visit_programmes"
+    ref: Mapped[str] = mapped_column(Text, primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    routes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    years: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+
+
 class VisitList(Base):
     """A read-only work list an organizer pushed (``PUT /api/integrations/visit-lists/{ref}``).
 
@@ -483,6 +493,8 @@ class VisitList(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     closes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    scheduled_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     #: [{"source": …, "id": …}] in the organizer's order
     items: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     updated_at: Mapped[datetime] = mapped_column(
