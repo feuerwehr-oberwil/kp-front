@@ -77,7 +77,11 @@ async def publish_programme(
 
 @router.get("/object-visits/catalogue")
 async def organizer_catalogue(_org: Organizer, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
-    return await ov.catalogue(db, can_capture=False)
+    result = await ov.catalogue(db, can_capture=False)
+    # Public browser credential, shared only with the authenticated organizer. Its map
+    # domain must also be allowed at CARTO; other integration secrets remain write-only.
+    result["cartoBasemapKey"] = credential("carto_api_key") or None
+    return result
 
 
 @router.get("/object-visits/changes")

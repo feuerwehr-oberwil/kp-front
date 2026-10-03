@@ -1152,7 +1152,9 @@ to prod.
   no-ops when unset** (gating registration at boot is what made this impossible before), and
   a secret is **write-only over the API** — settable, never readable. The CARTO basemap key is
   the explicit client-credential exception: CARTO requires it in browser tile URLs, so it is
-  readable at runtime and must be restricted to deployment domains at the provider. ⚠️ Readable
+  readable at runtime and must be restricted to deployment domains at the provider. The
+  authenticated organizer catalogue also shares this browser key for its route map; allow
+  that organizer's domain at CARTO too. ⚠️ Readable
   is not public — `/api/config` serves it only to a caller holding a session, and «session»
   includes an incident LINK (`LinkApp` mounts the whole app, and a link carries no
   `access_token`, so `actor is not None` is the wrong test). Server-side renders (Rapport/Kroki)

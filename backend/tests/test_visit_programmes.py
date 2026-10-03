@@ -39,6 +39,20 @@ async def catalogue(client):
     return (await client.get("/api/integrations/object-visits/catalogue", headers=bearer())).json()["lists"]
 
 
+async def test_organizer_map_reuses_browser_key_without_exposing_it_anonymously(client, prepared, db_session):
+    from app import credentials
+
+    await credentials.set_value(db_session, "carto_api_key", "test-carto-browser-key", actor_id=None)
+    await db_session.commit()
+    path = "/api/integrations/object-visits/catalogue"
+    response = await client.get(path, headers=bearer())
+    assert response.status_code == 200
+    assert response.json()["cartoBasemapKey"] == "test-carto-browser-key"
+    anonymous = await client.get(path)
+    assert anonymous.status_code == 401
+    assert "test-carto-browser-key" not in anonymous.text
+
+
 async def test_templates_stay_off_field_and_only_selected_routes_publish(client, prepared):
     assert (await client.get(BASE, headers=bearer())).json()["revision"] == 0
     result = await save(client, 0, prepared)

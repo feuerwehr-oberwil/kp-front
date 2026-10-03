@@ -160,7 +160,7 @@ either form arrives as the same id.
 
 | Route | Purpose |
 |---|---|
-| `GET /object-visits/catalogue` | same as the field catalogue (`canCapture` false) |
+| `GET /object-visits/catalogue` | same as the field catalogue (`canCapture` false), plus `cartoBasemapKey` (nullable public browser credential) for the organizer's map. Allow the organizer's domain at CARTO too. |
 | `PUT /objects/{source}/{externalId}` | body `{name, address?, lat?, lng?, folder?}`. Resolve: existing ref → that object; else an object whose `filing_folder` (or derived folder) equals `folder` → attach the ref; else create an `ObjectSite` (`source_note = "Integration: {source}"`, no plans). Updates `filing_folder` / lat / lng when given and the object has none (never renames a plan-carrying object; renames only a plan-less object this same `source` created). Folder comparison is Unicode-composed, case- and whitespace-insensitive. `200 {objectId, created}`. Path segments URL-encoded; `externalId` ≤ 300 chars. |
 | `DELETE /objects/{source}/{externalId}` | removes that ref; the OBJECT goes too only if this integration created it (`source_note` «Integration: …»), it has no plan, no visit (any lifecycle) and no other ref. Lists that named the ref then report it under `unresolved`. `200 {removed: "ref" \| "object" \| "none"}` — idempotent (`none` = no such ref) |
 | `GET /objects/by-ref/{source}/{externalId}` | resolve the organizer's id: `200 {objectId, name, address, lat, lng, folder, refs, hasPlans}` · `404` unknown ref. (The catalogue's `objects[].refs` resolves the same way in bulk.) |
