@@ -1172,6 +1172,19 @@ to prod.
   `src/lib/checklists.ts`, offline-cached), falling back to one neutral bundled example
   (`src/data/checklists/generic-action.json`) – never a station's real lists. GeoJSON must be WGS84
   `[lng,lat]` (LV95 is rejected).
+- **Objektbesuche live beside the Einsatz, never inside it** (03.10.2026). The module
+  (`objectVisits.enabled`, `src/objectVisits/`, `src/components/objectVisits/`, backend
+  `object_visits*.py`, `api/integrations.py`) owns standalone visits: no incident, no workspace
+  blob, no media row. Its contract is [`docs/object-visits.md`](docs/object-visits.md) — change
+  it with the code. Rules that are easy to break: `visits.py` / `admin_visits.py` are web
+  analytics and unrelated; checklist templates of `kind: "visit"` never reach an Einsatz surface
+  (`loadTemplates` drops them) and Einsatz kinds never reach a visit; a visit is «Gespeichert»
+  only when the server holds the latest revision AND every photo it references; a full photo
+  leaves the device only after a fresh server read says it is stored; revisions are cut at save
+  points, not keystrokes; a completed visit is corrected, never reopened; the SharePoint
+  IMPORTER stays GET-only (`sharepoint_graph.py`) and filing writes only through
+  `object_visit_sharepoint.py` with the separate `sharepoint_export_*` credentials; nothing
+  remote is ever deleted. Alarms and the new-Einsatz banner stay on the Objektbesuche surface.
 - **Domain language is German** (Atemschutz, Trupp, Einsatz, Verlauf, …); keep terms
   accurate. **All user-facing strings live in `appConfig.copy.*`** – never hard-code UI text in
   a component; add a key and reference it.

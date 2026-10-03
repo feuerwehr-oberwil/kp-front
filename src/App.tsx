@@ -1,11 +1,13 @@
 import { ShellLoader } from './components/ShellLoader'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactivateResult } from './types'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
 import { demoSeedRebase, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
-import { shortAddress, isDemoMode, alarmProviderName } from './lib/deploymentConfig'
+import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig } from './lib/deploymentConfig'
+import { isOvPath, navigateTo, OV_BASE, showsObjectVisits, useOvRoute } from './objectVisits/route'
+import { startOutboxRunner } from './objectVisits/outbox'
 import { fillTemplate, initials, roleLabel } from './lib/format'
 import { Overlays, toast, confirmDialog } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
@@ -51,6 +53,10 @@ import { onStorageDegraded } from './lib/idb'
 import { HelpOverlay } from './components/HelpOverlay'
 import { installHoldTooltip } from './lib/holdTooltip'
 
+
+// Objektbesuche (/besuche…, docs/object-visits.md): its own lazy chunk — precached with the field
+// app, so the surface opens offline — mounted in place of the launcher while its route is on.
+const ObjectVisitsApp = lazy(() => import('./components/objectVisits/ObjectVisitsApp'))
 
 // ---------------------------------------------------------------------------------
 // Incident root: owns the incident list, the active selection, and the per-incident
@@ -117,6 +123,13 @@ export default function App() {
   // Never on a link session: /api/push/subscriptions writes rows tied to a user and 403s.
   useEffect(() => { if (!linkScoped) void ensurePushSubscription() }, [linkScoped])
 
+  // Objektbesuche: what a save point could not send (offline, a lapsed session) goes up on its
+  // own — at every start and every reconnect, whether or not anybody opens that visit again.
+  // Never for a link session (the routes 403 for it); a device with no visits costs one IDB read.
+  // Only THIS account's pending sends: on a shared tablet a colleague's draft waits for them.
+  const runnerUser = user?.id ?? null
+  useEffect(() => (linkScoped || !runnerUser ? undefined : startOutboxRunner(undefined, { user: runnerUser })), [linkScoped, runnerUser])
+
   // hold an icon-only button to read its word — the tablet's title-tooltip (lib/holdTooltip)
   useEffect(() => installHoldTooltip(), [])
 
@@ -149,6 +162,19 @@ export default function App() {
   // IDB sync cache); a second tab is read-only with a one-tap take-over.
   const tabLock = useIncidentTabLock(activeId)
   const [overlay, setOverlay] = useState<null | 'create' | 'history' | 'daten'>(null)
+  // the Objektbesuche route (/besuche…) — a surface of its own, see the render below
+  const ovRoute = useOvRoute()
+  // …ENTERED on purpose (the launcher's button, a deep link at start): only then may it cover an
+  // open Einsatz — a back gesture onto an old /besuche entry must not (objectVisits/route)
+  const [ovEntered, setOvEntered] = useState(() => isOvPath(window.location.pathname))
+  const enterObjectVisits = useCallback(() => { setOvEntered(true); navigateTo(OV_BASE) }, [])
+  // leaving REPLACES the entry: a later back gesture does not walk into the surface again
+  const leaveObjectVisits = useCallback(() => { setOvEntered(false); navigateTo('/', { replace: true }) }, [])
+  // left by the browser's own back: the entry is spent (React's «adjust state while rendering»)
+  if (!ovRoute && ovEntered) setOvEntered(false)
+  // a back gesture onto /besuche over a running Einsatz: the Einsatz stays, and so does its address
+  const ovOverEinsatz = !!ovRoute && !ovEntered && !!activeId && !linkScoped
+  useEffect(() => { if (ovOverEinsatz) navigateTo('/', { replace: true }) }, [ovOverEinsatz])
   // landing-card utilities (no incident open): device settings / help / install guide
   const [landingSheet, setLandingSheet] = useState<null | 'settings' | 'help' | 'install'>(null)
   // Rückmeldung: something went wrong recently and the cooldown has passed → ask on the
@@ -379,6 +405,9 @@ export default function App() {
       }
       if (offline) toast(appConfig.copy.incidentSwitcher.bootOffline, { icon: 'warn' })
       setIncidents(list)
+      // A launch INTO Objektbesuche (a deep link, a reload on /besuche) opens no Einsatz behind
+      // it: leaving the surface lands on the launcher, not on yesterday's Einsatz.
+      if (isOvPath(window.location.pathname)) return
       // Remembered incident normally wins, but a NEWER alarm-created incident takes
       // precedence: a killed app reopens onto the live alarm, not yesterday's Einsatz.
       const bootPrefs = loadPrefs()
@@ -707,6 +736,45 @@ export default function App() {
     }
   }, [refreshList, selectIncident])
 
+  // Objektbesuche: the whole screen, launcher or not — and it does not wait for the Einsatz list.
+  // The Meldeleiste and the toast/confirm host stay, the surface's own dialogs need them.
+  const ovShown = showsObjectVisits({ routeOn: !!ovRoute, entered: ovEntered, incidentOpen: !!activeId, linkSession: linkScoped })
+  if (ovShown) {
+    return (
+      <>
+        <Meldeleiste />
+        {sessionExpired && <SessionExpiredMeldung onRelogin={() => void logout()} />}
+        {/* ⚠️ An alarm reaches a member on a visit too — this is a fire brigade's app. The same
+            two messages the launcher and the workspace carry, in the same strip; taking one leaves
+            the surface (the visit is saved on the device and sent at its save point) and opens
+            the Einsatz exactly as the launcher would. */}
+        {isEditor && (
+          <IncomingAlarmBanner
+            alarms={poolAlarms}
+            taking={taking}
+            attachFirst={false}
+            onTake={(a) => { leaveObjectVisits(); void takeAndOpen(a) }}
+          />
+        )}
+        {freshIncident && poolAlarms.length === 0 && (
+          <NewIncidentBanner
+            inc={freshIncident}
+            active={!!activeId}
+            onSwitch={() => {
+              const f = freshIncident
+              dismissFreshIncident()
+              leaveObjectVisits()
+              void openIncident(f.id, { meta: f })
+            }}
+            onDismiss={dismissFreshIncident}
+          />
+        )}
+        <Suspense fallback={<Splash />}><ObjectVisitsApp onExit={leaveObjectVisits} /></Suspense>
+        <Overlays />
+      </>
+    )
+  }
+
   // Incident list still loading after auth: keep the boot Splash up rather than a blank
   // colour flash, so the launch stays continuous from /me probe → list → workspace.
   if (incidents === null || (!bootDecided && !activeId)) return <Splash />
@@ -808,6 +876,7 @@ export default function App() {
           // of running ones. «Wieder öffnen» stays the one way back to editing.
           onSwitchIncident={(i) => void openIncident(i.id, { meta: i, readOnly: i.is_archived })}
           onOpenHistory={() => setOverlay('history')}
+          onOpenObjectVisits={objectVisitsConfig().enabled && !linkScoped ? enterObjectVisits : undefined}
           // «Einsatz eröffnen» goes straight to the manual wizard — the pool sheet is gone
           // (testing feedback 2026-07-18): incoming alarms are taken via the landing card or
           // the mid-incident banner, never via a separate pool screen.
@@ -920,6 +989,13 @@ export default function App() {
               {!linkScoped && (
                 <div className="ip-emptyapp-secondary">
                   <button className="ip-btn" onClick={() => setOverlay('history')}>{appConfig.copy.emptyApp.history}</button>
+                  {/* Objektbesuche: only where the station switched the module on; every account
+                      may read, the surface hides what a role may not capture */}
+                  {objectVisitsConfig().enabled && (
+                    <button className="ip-btn" onClick={enterObjectVisits}>
+                      <Icon id="clipboard" />{appConfig.copy.objectVisits.launcher}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

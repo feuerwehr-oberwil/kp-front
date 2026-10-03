@@ -359,6 +359,24 @@ export async function idbSet(key: string, value: unknown): Promise<boolean> {
   return true
 }
 
+/**
+ * Write a value to IndexedDB ONLY — never to the localStorage fallback. Resolves true only once the
+ * transaction committed. For values the fallback cannot hold: a Blob serialises to `{}`, so the
+ * fallback would report «durable» over a photo it has just thrown away (object visits ·
+ * attachments). A false here means the value lives in page memory only, and the caller says so.
+ */
+export async function idbSetStrict(key: string, value: unknown): Promise<boolean> {
+  if (idbUnavailable) { setDegraded(true); return false }
+  try {
+    await tx('readwrite', (s) => s.put(value, key))
+    setDegraded(false)
+    return true
+  } catch {
+    setDegraded(true)
+    return false
+  }
+}
+
 /** Delete a key from every store it could be in. Clearing only IndexedDB would leave a quota
  *  fallback copy that `idbGet`'s empty-read path would then resurrect as if it were current. */
 export async function idbDel(key: string): Promise<void> {

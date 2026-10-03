@@ -118,6 +118,7 @@ from .config import settings
 from .csp import csp_for
 from .database import Base, engine
 from .i18n import set_locale, translate_detail
+from .object_visits import ObjectVisitError
 from .spa import mount_spa, spa_index_path
 from .webmanifest import register_manifest_route
 
@@ -248,6 +249,10 @@ class _BodyTooLargeError(Exception):
     through the app to get there, which is the point: whatever was mid-parse stops."""
 
 
+#: Bare image bodies — the only non-multipart uploads (``PUT …/object-visits/{id}/attachments/…``).
+_RAW_IMAGE_UPLOADS = frozenset({"image/jpeg", "image/png", "image/webp"})
+
+
 class LimitRequestBody:
     """Cap the RAW bytes a request may deliver, counted as they arrive (pure ASGI).
 
@@ -290,7 +295,9 @@ class LimitRequestBody:
         # the 110 MB upload cap for a JSON body (SEC-04). Split off the parameters and compare the
         # bare type.
         media_type = headers.get("content-type", "").split(";", 1)[0].strip().lower()
-        is_upload = media_type == "multipart/form-data"
+        # A raw photo PUT (Objektbesuche attachments, docs/object-visits.md) is an upload too;
+        # its route caps it far lower itself (15 MB).
+        is_upload = media_type == "multipart/form-data" or media_type in _RAW_IMAGE_UPLOADS
         cap_mb = settings.max_upload_mb if is_upload else settings.max_json_body_mb
         cap = cap_mb * 1024 * 1024
         too_large = f"Anfrage zu gross (max. {cap_mb} MB)"
@@ -382,6 +389,13 @@ _MAX_VALIDATION_MSG_CHARS = 200
 #: chose — so the number of parts and each part's length are bounded like `msg` (SEC-04).
 _MAX_VALIDATION_LOC_PARTS = 10
 _MAX_VALIDATION_LOC_PART_CHARS = 100
+
+
+@app.exception_handler(ObjectVisitError)
+async def object_visit_error_handler(request: Request, exc: ObjectVisitError) -> JSONResponse:
+    """Objektbesuche refusals carry a ``code`` at the TOP of the body (docs/object-visits.md:
+    ``409 {code: "revision_conflict", revision, visit}``), plus the usual ``detail``."""
+    return JSONResponse(exc.body(), status_code=exc.status)
 
 
 @app.exception_handler(RequestValidationError)
@@ -715,6 +729,9 @@ def _register_optional_routers() -> None:
         ("app.api.sharepoint", "router"),
         ("app.api.diag", "router"),
         ("app.api.visits", "router"),
+        ("app.api.object_visits", "router"),
+        ("app.api.integrations", "router"),
+        ("app.api.object_visits_admin", "router"),
     ]:
         try:
             mod = __import__(module_name, fromlist=[attr])

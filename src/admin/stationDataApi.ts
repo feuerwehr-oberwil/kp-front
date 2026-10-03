@@ -185,7 +185,7 @@ export async function deleteChecklistDatasets(ids: string[]): Promise<{ pruned: 
 
 // ─── checklist template validation (client-side mirror) ────────────────────────
 
-const TEMPLATE_KINDS = ['action', 'rapport', 'reference'] as const
+const TEMPLATE_KINDS = ['action', 'rapport', 'reference', 'visit'] as const
 export type ParsedChecklistKind = (typeof TEMPLATE_KINDS)[number]
 
 export interface ParsedChecklist {
@@ -233,7 +233,7 @@ export function parseChecklistTemplate(
   const id = (tpl.id as string).trim()
   // the dataset id is `checklists:<id>`, so a colon in the id would forge an asset id
   if (id.includes(':') || /\s/.test(id)) return { ok: false, error: msg.badId }
-  // exactly one of them, same rule as the server: phases → action/rapport, entries → reference
+  // exactly one of them, same rule as the server: phases → action/rapport/visit, entries → reference
   const phases = Array.isArray(tpl.phases) ? tpl.phases : []
   const entries = Array.isArray(tpl.entries) ? tpl.entries : []
   if (Boolean(phases.length) === Boolean(entries.length)) return { ok: false, error: msg.needsPhasesOrEntries }

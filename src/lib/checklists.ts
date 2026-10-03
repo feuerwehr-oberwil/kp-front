@@ -20,7 +20,13 @@ import genericAction from '../data/checklists/generic-action.json'
 
 // --- template schema (matches the bundled JSON) ----------------------------------
 
-export type ChecklistKind = 'action' | 'reference' | 'rapport'
+/** `visit` = an Objektbesuch checklist (docs/object-visits.md): same distribution, answered on the
+ *  Objektbesuche surface only — every INCIDENT surface leaves it out (`loadTemplates`). */
+export type ChecklistKind = 'action' | 'reference' | 'rapport' | 'visit'
+
+/** How a `visit` item is answered (docs/object-visits.md · «Checklist templates of kind visit»).
+ *  Missing = `check`. Incident checklists ignore it: their items are ticked. */
+export type ItemInput = 'check' | 'yesno' | 'text' | 'number' | 'choice' | 'photo'
 export type HazardColor = 'red' | 'orange' | 'green' | 'yellow' | 'blue'
 
 export interface Item {
@@ -32,6 +38,14 @@ export interface Item {
   action?: 'journal' | 'plan' | 'draw' | null
   /** ticking this pushes a Verlauf row + audit event; non-milestones stay silent */
   milestone?: boolean
+  /** `visit` templates: the answer type (absent = `check`) */
+  input?: ItemInput
+  /** `visit` · `choice`: the options, by stable id */
+  options?: { id: string; label: string }[]
+  /** `visit` · `number`: the unit shown after the field («Stk.») */
+  unit?: string
+  /** `visit`: an unanswered required item asks «trotzdem abschliessen?» — nothing else */
+  required?: boolean
 }
 
 export interface Branch {
@@ -156,11 +170,14 @@ export async function loadTemplates(): Promise<ChecklistTemplate[]> {
             .catch(() => null),
         ),
       )
-      return sortTemplates(fetched.filter((t): t is ChecklistTemplate => t !== null))
+      // ⚠️ An Objektbesuch checklist is not an Einsatz checklist: it shares the distribution
+      // (`checklists:<id>`), never the surface (docs/object-visits.md). Left out HERE, before the
+      // cache is written, so no incident surface can ever list one.
+      return sortTemplates(fetched.filter((t): t is ChecklistTemplate => t !== null && t.kind !== 'visit'))
     },
     { validate: hasTemplates, fallback: () => FALLBACK, shouldFallback: () => true },
   )
-  return value
+  return value.filter((t) => t.kind !== 'visit')
 }
 
 /** how long a warmed list is handed out before a newer one is asked for behind it */

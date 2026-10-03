@@ -27,7 +27,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -43,6 +43,8 @@ export function IncidentSwitcher({
   onSwitch: (i: IncidentMeta) => void
   /** «Alle Einsätze» — absent for an Einsatz-Link session, which may only ever see its own */
   onHistory?: () => void
+  /** Objektbesuche — set only where the station switched the module on and this is no link session */
+  onObjectVisits?: () => void
   onDivera: () => void
   onDatenquellen: () => void
   /** Einsatzrapport (PDF / Drucken) — absent for an Einsatz-Link session, which may not
@@ -365,6 +367,14 @@ export function IncidentSwitcher({
           {/* «App»: device + installation, not this Einsatz. It always has rows — Hilfe is
               unconditional — so the label never heads an empty group the way «Einsätze» can. */}
           <div className="ip-menu-label">{cp.app}</div>
+          {/* Objektbesuche is no Einsatz, so it is not under «Einsätze»: it is the app's other job.
+              Here because a device that always opens its running Einsatz never sees the launcher
+              (staging 03.10.2026). */}
+          {onObjectVisits && (
+            <button className="ip-menu-act" onClick={() => { setOpen(false); onObjectVisits() }}>
+              <Icon id="clipboard" /> {appConfig.copy.objectVisits.launcher}
+            </button>
+          )}
           {onSettings && <button className="ip-menu-act" onClick={onSettings}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
           {active && <button className="ip-menu-act" onClick={onOfflineReadiness}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
           <button className="ip-menu-act" onClick={onHelp}><Icon id="info" /> {appConfig.copy.help.menu}</button>

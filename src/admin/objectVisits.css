@@ -1,0 +1,8 @@
+/* Station › Objektbesuche (ObjectVisitsView) — only what admin.css has no recipe for. */
+
+/* a checkbox / radio with its word, several in one Wert cell (Wer darf erfassen · Wann) */
+.adm-ov-role {
+  display: inline-flex; align-items: center; gap: 7px; min-height: var(--tap); margin-right: 14px;
+  font: 600 14px var(--body); color: var(--ink); cursor: pointer;
+}
+.adm-ov-role input[type='radio'] { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); }
