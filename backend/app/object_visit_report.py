@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import io
 import logging
+import unicodedata
 from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -56,8 +57,14 @@ _CHECK = {"ok": "OK", "defect": "Mangel", "na": "n. a."}
 _YESNO = {"yes": "Ja", "no": "Nein"}
 
 
+def _nfc(s: Any) -> str:
+    """Composed text. Folder names from a Mac arrive decomposed («u» + combining diaeresis), and
+    the PDF's base-14 fonts draw the combining mark as a box («Mu■hlematt», staging 03.10.2026)."""
+    return unicodedata.normalize("NFC", str(s if s is not None else ""))
+
+
 def _esc(s: Any) -> str:
-    return str(s if s is not None else "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return _nfc(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _multiline(s: Any) -> str:
@@ -254,7 +261,7 @@ def _render(
         canvas.saveState()
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(colors.HexColor(_DIM))
-        canvas.drawString(15 * mm, 9 * mm, " · ".join(str(b) for b in footer_bits)[:180])
+        canvas.drawString(15 * mm, 9 * mm, _nfc(" · ".join(str(b) for b in footer_bits))[:180])
         canvas.drawRightString(A4[0] - 15 * mm, 9 * mm, f"Seite {document.page}")
         canvas.restoreState()
 
@@ -337,11 +344,18 @@ def _render(
             f"• {_esc((by_id.get(k) or {}).get('text') or k)}" + (f" – {_esc(a.get('note'))}" if a.get("note") else "")
             for k, a in defects
         ]
-        story.append(Paragraph(f"<b>{len(defects)} Mängel</b><br/>" + "<br/>".join(lines), st["body"]))
+        story.append(
+            Paragraph(
+                f"<b>{len(defects)} {'Mangel' if len(defects) == 1 else 'Mängel'}</b><br/>" + "<br/>".join(lines),
+                st["body"],
+            )
+        )
     else:
         story.append(Paragraph("Keine Mängel erfasst.", st["body"]))
     if checklist and unanswered:
-        story.append(Paragraph(f"{len(unanswered)} Punkt(e) nicht geprüft.", st["small"]))
+        story.append(
+            Paragraph(f"{len(unanswered)} {'Punkt' if len(unanswered) == 1 else 'Punkte'} nicht geprüft.", st["small"])
+        )
 
     # --- checklist --------------------------------------------------------------------
     if checklist:
@@ -443,7 +457,8 @@ def _render(
     # --- photos -----------------------------------------------------------------------
     listed = [p for p in doc.get("photos") or [] if isinstance(p, dict) and isinstance(p.get("id"), str)]
     if listed:
-        story.append(Paragraph(f"Fotos ({len(listed)})", st["h2"]))
+        # the heading never stays behind alone at the foot of a page
+        story.append(Paragraph(f"Fotos ({len(listed)})", ParagraphStyle("h2keep", parent=st["h2"], keepWithNext=1)))
         cell_w = (width - 6 * mm) / 2
         cell_h = 70 * mm
         cells: list[Any] = []

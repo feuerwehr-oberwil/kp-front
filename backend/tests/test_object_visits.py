@@ -1079,3 +1079,15 @@ async def test_station_bbox_ignores_plan_less_integration_objects(db_session):
     await make_object(db_session, name="Box", lat=7.55, lng=47.50, source_note="Integration: fwo")  # swapped
     box = await station_bbox(db_session)
     assert box is not None and box[0] > 47 and box[2] < 48 and box[3] < 8
+
+
+def test_report_composes_decomposed_umlauts_and_counts_in_german():
+    """A Mac-named folder arrives decomposed; the PDF must not draw «Mu■hlematt» (staging 03.10.2026)."""
+    import unicodedata
+
+    from app.object_visit_report import _esc, _nfc
+
+    decomposed = unicodedata.normalize("NFD", "Mühlemattstrasse 50")
+    assert decomposed != "Mühlemattstrasse 50"
+    assert _nfc(decomposed) == "Mühlemattstrasse 50"
+    assert _esc(decomposed) == "Mühlemattstrasse 50"
