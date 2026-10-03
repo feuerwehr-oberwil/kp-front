@@ -1600,6 +1600,13 @@ to prod.
     and the door to Mehrfach (a two-member pair flips on the second tap; anything larger gets a
     list, never a cycle). Add a tool that places something ⇒ add its id to `ADD_TOOLS`, in BOTH
     spellings if the Karte and the Plan name it differently.
+  - *Every tile of a bar is ONE equal share* (03.10.2026, owner: «auswahl and messen is way
+    bigger than ansichten»). On a folded phone bar the tool lane and the pinned footer step aside
+    (`display: contents`, 15-mobile.css) so all tiles are items of the bar's own row, `flex: 1 1
+    0`, on its one 2px gap — never a percentage per wrapper: the old 60/40 split assumed three
+    tools, and the read-only set (Auswahl · Messen) stretched two tiles over 60%. A word longer
+    than its share ends in «…» inside its tile. The compass needle turns with the finger
+    (`lib/liveBearing`, like the wind arrow), not on release.
   - *The compass lives in the BAR, beside Ebenen* (05.08.2026). It floated top-right on the map
     for one day (18.09.) and came back: up there its menu opened half a screen from the thumb that
     asked for it. «Mein Standort» is a row of that menu, not a tile of its own (also tried 18.09.).

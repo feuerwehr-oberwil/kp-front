@@ -1959,9 +1959,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Keep only the LOCAL bearing live per rotate frame (the tactical glyphs re-render with the
       // −bearing offset so they stay geographically pinned). Deliberately NOT calling onView here:
       // that re-renders all of IncidentWorkspace every frame of a two-finger rotate. onMoveEnd
-      // fires at the end of the gesture and updates App's view state then — the App-level compass /
-      // coord readout just settle on release instead of tracking every frame. The wind arrow is
-      // the exception – it turns WITH the finger, through its own store (lib/liveBearing).
+      // fires at the end of the gesture and updates App's view state then — the coord readout
+      // just settles on release instead of tracking every frame. The wind arrow and the compass
+      // needle are the exceptions – they turn WITH the finger, through their own store
+      // (lib/liveBearing), which re-renders only the two glyphs.
       onRotate={(e) => { setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing) }}
       // MapLibre says a genuine pan began. That (a) opens the pan gesture the trailing click is
       // measured against (see panGesture), (b) peeks the phone detail sheet down for as long as
