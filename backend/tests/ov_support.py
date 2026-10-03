@@ -40,7 +40,7 @@ TEMPLATE: dict[str, Any] = {
     ],
 }
 
-INTEGRATION_KEY = "organizer-key-0123456789-abcdefghij"
+INTEGRATION_KEY = "organizer-key-0123456789-abcdefghij"  # gitleaks:allow
 
 
 def jpeg(color: str = "red", size: tuple[int, int] = (64, 48)) -> bytes:
