@@ -66,7 +66,7 @@ interface AuditEntry {
 }
 
 /** Card order = the order a station connects things in, not alphabetical. */
-const GROUPS = ['divera', 'traccar', 'push', 'stt', 'maps', 'webhooks', 'sharepoint', 'monitoring'] as const
+const GROUPS = ['divera', 'traccar', 'push', 'stt', 'maps', 'webhooks', 'sharepoint', 'sharepoint_export', 'object_visits', 'monitoring'] as const
 
 /** The credential's state as the row's VALUE — a write-only secret has no other one to show.
  *  Rendered LABEL-LESS (`StatusBadge label=""`): the Einstellung column already names the

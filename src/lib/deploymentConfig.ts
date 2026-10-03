@@ -453,6 +453,8 @@ export interface DeploymentConfig {
     intervalMinutes?: number | null
     sources?: DeploymentSharePointSource[] | null
   }
+  /** Objektbesuche (docs/object-visits.md · «Deployment config»). Off unless `enabled`. */
+  objectVisits?: DeploymentObjectVisits | null
   integrations?: DeploymentIntegrations
   /** The Lage-Grundgerüst card on the Karte: which shipped preset runs, and the Einsatzarten
    *  the station replaced (lib/lageGrundgeruest). Read through `lageGrundgeruestConfig()`. */
@@ -465,6 +467,29 @@ export interface DeploymentConfig {
    *  silently reverting whatever anybody changed since (backend · api/config · put_config).
    *  Response-only: the backend ignores it on the way in, and the editor never edits it. */
   version?: string | null
+}
+
+/** One place a visit is filed to, one-way (docs/object-visits.md · «Delivery»). */
+export interface ObjectVisitDestination {
+  id: string
+  kind: 'sharepoint'
+  enabled?: boolean
+  /** `every-sync` files every ready revision (drafts too), `completed` only completed ones */
+  timing?: 'every-sync' | 'completed'
+  siteUrl?: string | null
+  library?: string | null
+  root?: string | null
+  objectFolder?: string | null
+  visitFolder?: string | null
+}
+
+export interface DeploymentObjectVisits {
+  enabled?: boolean | null
+  /** account roles that may capture; the rest read (default editor + el) */
+  captureRoles?: ('editor' | 'el' | 'viewer')[] | null
+  /** the fields a Korrekturvorschlag can name (opaque ids for the organizer) */
+  proposalFields?: { id: string; label: string }[] | null
+  destinations?: ObjectVisitDestination[] | null
 }
 
 export interface AlarmGroup {
@@ -690,6 +715,14 @@ export function attendanceMergeGapMin(): number {
 export function reportLinks(): ReportLink[] {
   return (resolved.report?.links ?? []).filter((l) =>
     !!l && !!l.id?.trim() && !!l.title?.trim() && isOpenableUrl(l.url ?? ''))
+}
+
+/** The Objektbesuche module as this device knows it: on/off and who may capture. The catalogue's
+ *  own `canCapture` is the server's word and wins where it is known (objectVisits/catalogue). */
+export function objectVisitsConfig(): { enabled: boolean; captureRoles: string[] } {
+  const ov = resolved.objectVisits
+  const roles = Array.isArray(ov?.captureRoles) ? ov.captureRoles.filter((r) => typeof r === 'string') : null
+  return { enabled: ov?.enabled === true, captureRoles: roles ?? ['editor', 'el'] }
 }
 
 export function rosterNameOrder(): 'last-first' | 'first-last' {

@@ -1396,6 +1396,145 @@
       "title": "ModuleConfig",
       "type": "object"
     },
+    "ObjectVisitDestination": {
+      "description": "Where the server files a copy of every visit (docs/object-visits.md «Delivery»).\n\n⚠️ NO CREDENTIAL HERE — this document is served by the public ``GET /api/config``. The\nwriter's app registration lives in the encrypted credential group ``sharepoint_export``.",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "sharepoint",
+          "default": "sharepoint",
+          "title": "Kind",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "timing": {
+          "default": "every-sync",
+          "enum": [
+            "every-sync",
+            "completed"
+          ],
+          "title": "Timing",
+          "type": "string"
+        },
+        "siteUrl": {
+          "maxLength": 400,
+          "minLength": 1,
+          "title": "Siteurl",
+          "type": "string"
+        },
+        "library": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Library"
+        },
+        "root": {
+          "default": "",
+          "maxLength": 400,
+          "title": "Root",
+          "type": "string"
+        },
+        "objectFolder": {
+          "default": "{object.folder}",
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Objectfolder",
+          "type": "string"
+        },
+        "visitFolder": {
+          "default": "Objektbesuche/{date} {checklist} ({short})",
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Visitfolder",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "siteUrl"
+      ],
+      "title": "ObjectVisitDestination",
+      "type": "object"
+    },
+    "ObjectVisitProposalField": {
+      "description": "One entry of the Korrekturvorschlag field list. The id is opaque to KP Front — the\norganizer maps it to its own master data (docs/object-visits.md).",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "ObjectVisitProposalField",
+      "type": "object"
+    },
+    "ObjectVisitsConfig": {
+      "description": "The optional Objektbesuche module (docs/object-visits.md). Off unless switched on.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "captureRoles": {
+          "items": {
+            "enum": [
+              "editor",
+              "el",
+              "viewer"
+            ],
+            "type": "string"
+          },
+          "title": "Captureroles",
+          "type": "array"
+        },
+        "proposalFields": {
+          "items": {
+            "$ref": "#/$defs/ObjectVisitProposalField"
+          },
+          "maxItems": 50,
+          "title": "Proposalfields",
+          "type": "array"
+        },
+        "destinations": {
+          "items": {
+            "$ref": "#/$defs/ObjectVisitDestination"
+          },
+          "maxItems": 5,
+          "title": "Destinations",
+          "type": "array"
+        }
+      },
+      "title": "ObjectVisitsConfig",
+      "type": "object"
+    },
     "RankConfig": {
       "description": "One Dienstgrad in the station's ordered rank list. Position in ``roster.ranks`` is\nthe seniority order (most senior first). ``tier`` drives the \"nur Offiziere\" picker\nfilter and the Anwesenheit grouping; ``abbr`` is the short badge shown in lists.",
       "properties": {
@@ -1947,6 +2086,9 @@
     },
     "lageGrundgeruest": {
       "$ref": "#/$defs/LageGrundgeruestConfig"
+    },
+    "objectVisits": {
+      "$ref": "#/$defs/ObjectVisitsConfig"
     }
   },
   "title": "DeploymentConfigIn",

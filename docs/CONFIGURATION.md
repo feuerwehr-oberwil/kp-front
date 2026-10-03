@@ -25,6 +25,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [1c. `report.attendanceMergeGapMin` – two ticks that are one arrival](#1c-reportattendancemergegapmin--two-ticks-that-are-one-arrival)
   - [1d. `report.links` – the station's own forms, on the Rapport](#1d-reportlinks--the-stations-own-forms-on-the-rapport)
   - [1e. `lageGrundgeruest` – what every Lage needs in its first minutes](#1e-lagegrundgeruest--what-every-lage-needs-in-its-first-minutes)
+  - [1f. `objectVisits` – the optional Objektbesuche module](#1f-objectvisits--the-optional-objektbesuche-module)
   - [`doctrine.alarmBarRueckzug` – the quieter line on Rückzug](#doctrinealarmbarrueckzug--the-quieter-line-for-a-trupp-on-rückzug)
   - [`doctrine.entryPressureMin` – the one question about a low Eingangsdruck](#doctrineentrypressuremin--the-one-question-about-a-low-eingangsdruck)
 - [2. Reference / Werkleitungs layers – station-supplied](#2-reference--werkleitungs-layers--station-supplied-nothing-bundled)
@@ -38,7 +39,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
     [4c. `"snapshot"` – the roster-snapshot contract](#4c-snapshot--a-roster-file-somebody-else-publishes)
 - [5. User accounts, roles, and deployment administration](#5-user-accounts-roles-and-deployment-administration)
 - [6. Environment variables (secrets / infra)](#6-environment-variables-secrets--infra--operator-not-admin)
-  - [The twenty-one integration credentials – env **or** `/admin`](#the-twenty-one-integration-credentials--env-or-admin--zugangsdaten)
+  - [The twenty-five integration credentials – env **or** `/admin`](#the-twenty-five-integration-credentials--env-or-admin--zugangsdaten)
   - [6a. Objektplan-Pull](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in)
   - [6b. Three things that look like env vars and are not](#6b-three-things-that-look-like-env-vars-and-are-not)
   - [6c. SharePoint-Pull – the station's own folders](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)
@@ -68,7 +69,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 |-------|------|-------|-------------|
 | **Defaults** | National/safe fallbacks (FKS doctrine, symbol presets) | `src/config/appConfig.ts` | developers |
 | **Deployment config** ← *this doc* | Per-station settings + uploaded assets | DB `deployment_config` row + asset storage | technical deployment owner – forms at `/admin`, or the same rows as a config file via CLI |
-| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-one integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Zugangsdaten for those twenty-one. **Env wins and locks the field** (§6) |
+| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-five integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Zugangsdaten for those twenty-five. **Env wins and locks the field** (§6) |
 | **Per-incident settings** | Live operational knobs (synced) | workspace blob (`IncidentSettings`) | any **user**, in-incident |
 
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
@@ -814,6 +815,16 @@ In the browser: `/admin › Lage-Grundgerüst` – one tab per Einsatzart, «Pre
 1 Einsatzart angepasst», rows to edit, reorder and remove, «+ Element», and «Auf Preset
 zurücksetzen» per Einsatzart.
 
+## 1f. `objectVisits` – the optional Objektbesuche module
+
+Off unless `objectVisits.enabled` is `true`. `captureRoles` (default `["editor","el"]`) says who may
+record a visit, `proposalFields` is the station's field list for Korrekturvorschläge, and
+`destinations[]` are the SharePoint folders the server files visits into. The full contract – the
+visit document, the APIs, the delivery – is [`object-visits.md`](object-visits.md); setting up a
+destination is [`object-visits-sharepoint.md`](object-visits-sharepoint.md). No credential lives in
+the section (`GET /api/config` is public): the writer's app registration is the
+`sharepoint_export` credential group, the organizer's key `object_visits_integration_key`.
+
 ---
 
 ## 2. Reference / werkleitungs layers – **station-supplied, nothing bundled**
@@ -1188,7 +1199,7 @@ The product role model is deliberately small:
 Set at deploy time, never in the repo. **Seventeen of them are also settable from the browser** –
 see the rule immediately below; everything else in the table really is deploy-time only.
 
-### The twenty-one integration credentials – env **or** `/admin` → Zugangsdaten
+### The twenty-five integration credentials – env **or** `/admin` → Zugangsdaten
 
 The station's integration settings – the three Divera keys, the Traccar trio, the VAPID trio, the
 four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET`,
@@ -1266,6 +1277,8 @@ and locks the field – see the rule above).
 | 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. It is deliberately not minted by the installer: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Zugangsdaten |
 | 🔐 `HEALTHCHECK_PING_URL` | dead-man's switch: **the job GETs this URL every 60 s** (healthchecks.io or any cron monitor), so the monitor alerts when the pings *stop*. Catches the class an HTTP probe of `/ready` cannot: a container stopped with nothing replacing it, or a wedged event loop. Point it at a check with a **1 min period and ~3 min grace** – matching the 60 s cadence, so two missed pings raise it. Nothing set anywhere = the heartbeat job still runs but returns on its first line, so nothing is pinged; a failed ping is logged and swallowed, so a monitoring outage never disturbs the deployment. The «Einrichtung» card on the admin landing page links straight to this field |
 | 🔐 `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_CLIENT_SECRET`, `SHAREPOINT_SECRET_EXPIRES` | the Azure app registration behind the SharePoint pull ([§6c](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)), read-only, client-credentials flow. ⚠️ These four are the credentials that have **no `Settings` field**: they were introduced after the credential table existed, so the environment half is read straight off the process environment and the normal path is the browser. The two ids are readable (an operator compares them against the Azure portal); the secret is write-only. `SHAREPOINT_SECRET_EXPIRES` is not a credential but the ISO date (`JJJJ-MM-TT`) the secret lapses on – Azure caps it at 24 months and says nothing when it does, so this is what the System card counts down. Nothing set = no pull, fail-closed |
+| 🔐 `OBJECT_VISITS_INTEGRATION_KEY` | the Objektbesuche organizer's bearer key for `/api/integrations` ([`object-visits.md`](object-visits.md)); ≥ 24 characters, write-only, no `Settings` field (read off the environment, normally set in the browser). Unset = the organizer API answers 403 |
+| 🔐 `SHAREPOINT_EXPORT_TENANT_ID`, `SHAREPOINT_EXPORT_CLIENT_ID`, `SHAREPOINT_EXPORT_CLIENT_SECRET` | a SECOND Azure app registration, the only one KP Front writes with: the Objektbesuche delivery files visit reports into a destination folder ([`object-visits-sharepoint.md`](object-visits-sharepoint.md)), `Sites.Selected` **write** on one site. Separate from the pull's read-only registration on purpose. No `Settings` fields; ids readable, secret write-only. Incomplete = no delivery, fail-closed |
 | 🔐 `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
 | 🔐 `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments |
 | 🔐 `CARTO_API_KEY` | browser key for the built-in CARTO Voyager and Dark Matter raster basemaps. Request it for the deployment domains at [CARTO Basemaps](https://carto.com/basemaps/apikey/). The runtime config appends it as `?key=` to every CARTO tile template the BROWSER fetches – map pickers, the admin object map, offline downloads. **⚠️ Restrict it to the deployment domains in CARTO**: it is necessarily visible in browser requests, and that restriction rather than secrecy is what stops it being spent elsewhere. Never commit a real value. Two things narrow it further: `/api/config` hands it only to callers that already hold a session (PIN user, admin, or an incident link – the login screen draws no map and does not get it), and **Rapport/Kroki tiles are fetched server-side with this same credential**, so the browser's copy never travels in a request body, a log line or a tile-cache filename. Empty = the provider's unkeyed/watermarked response is shown. |
@@ -1334,7 +1347,7 @@ is fetched, and plans stay exactly as they were loaded. Index format and the rea
 
 Each of these is a **token or key stored in the database** and managed in the admin UI, not set
 at deploy time. They are listed here because that is where people go looking for them. (Unlike
-the twenty-one 🔐 credentials above, these three have **no** environment variable at all – there is
+the twenty-five 🔐 credentials above, these three have **no** environment variable at all – there is
 nothing to put in `.env` and nothing that could outrank the stored value.)
 
 | Feature | Where it is managed | What it does |

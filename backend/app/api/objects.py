@@ -4,18 +4,20 @@ import hashlib
 import re
 import unicodedata
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import CurrentAdmin, CurrentUser, OptionalUser, UserOrAdmin
+from ..auth.dependencies import CurrentAdmin, CurrentUser, OptionalUser, UserOrAdmin, _admin_session_valid
 from ..config import settings
 from ..database import get_db
 from ..geo_util import haversine_m
 from ..models import ObjectSite, ReferenceDataset
+from ..object_visits import attach_refs, is_integration_only, object_ids_with_plans
 from ..plans import plans_pull_enabled, store_plan
-from ..schemas import ObjectIn, ObjectOut, ObjectWithPlans, PlanSourcesOut, ReferenceDatasetOut
+from ..schemas import ObjectIn, ObjectOut, ObjectUpsertIn, ObjectWithPlans, PlanSourcesOut, ReferenceDatasetOut
 from ..sharepoint_sync import sharepoint_status
 from .incidents import get_incident_or_404
 
@@ -61,8 +63,12 @@ async def list_objects(
     _user: UserOrAdmin,
     q: str | None = None,
     near: str | None = None,  # "lng,lat"
+    admin_session: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
 ):
+    """Every Einsatzobjekt — for the field's pickers WITHOUT the plan-less objects an Objektbesuche
+    organizer created (a key box is not a plan to open at an Einsatz; `object_visits ·
+    is_integration_only`). The admin session keeps the complete list."""
     query = select(ObjectSite)
     if q:
         # Name OR address: an object is known to one caller as «BLT Tramdepot» and to the next
@@ -78,6 +84,9 @@ async def list_objects(
             raise HTTPException(status_code=422, detail="near muss 'lng,lat' sein") from e
 
     plans_by_obj = await _plans_by_object(db, [o.id for o in objs])
+    if not await _admin_session_valid(admin_session):
+        with_plans = {oid for oid, plans in plans_by_obj.items() if plans}
+        objs = [o for o in objs if not is_integration_only(o, with_plans)]
     out: list[ObjectWithPlans] = []
     for o in objs:
         plans = [ReferenceDatasetOut.model_validate(p) for p in plans_by_obj.get(o.id, [])]
@@ -137,14 +146,19 @@ async def create_object(body: ObjectIn, _admin: CurrentAdmin, db: AsyncSession =
 
 @router.put("/{object_id}", response_model=ObjectOut)
 async def upsert_object(
-    object_id: uuid.UUID, body: ObjectIn, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
+    object_id: uuid.UUID, body: ObjectUpsertIn, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ) -> ObjectSite:
     o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
     if o is None:
         o = ObjectSite(id=object_id)
         db.add(o)
-    for k, v in body.model_dump().items():
+    for k, v in body.model_dump(exclude={"filing_folder", "refs"}).items():
         setattr(o, k, v)
+    if "filing_folder" in body.model_fields_set:
+        o.filing_folder = (body.filing_folder or "").strip() or None
+    await db.flush()
+    if body.refs:
+        await attach_refs(db, o.id, [(r.source, r.id) for r in body.refs])
     await db.flush()
     await db.refresh(o)
     return o
@@ -265,6 +279,9 @@ def _norm_addr(s: str | None) -> str:
 async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)):
     inc = await get_incident_or_404(db, incident_id)
     objs = list((await db.execute(select(ObjectSite))).scalars())
+    # An organizer's plan-less object (a key box) is not something to offer on the plan rail.
+    with_plans = await object_ids_with_plans(db)
+    objs = [o for o in objs if not is_integration_only(o, with_plans)]
 
     # Address match wins over pure proximity: geocoding "Strasse Nr" to a precise building
     # is imprecise and many objects sit within 400 m of each other, so the nearest-by-coords

@@ -2,7 +2,15 @@
 
 Point KP Front at the SharePoint folders your brigade already keeps its documents in, and object
 plans, geodata, checklists and the station workbook are imported on a schedule. **Read-only and
-pull-only:** KP Front never writes to your SharePoint, and no code in it can.
+pull-only:** this connector (the *importer*, `app/sharepoint_graph.py`) never writes to your
+SharePoint, and no code in it can.
+
+> **One exception lives elsewhere, behind its own app registration.** The optional
+> **Objektbesuche** module can FILE visit reports into a SharePoint folder (one way, nothing ever
+> deleted). That is a separate writer (`app/object_visit_sharepoint.py`) with a separate credential
+> group («SharePoint-Ablage», `sharepoint_export_*`) and a separate `Sites.Selected` **write** grant
+> on one site — the importer's registration below stays read-only and is never used for writing.
+> Setting it up: [`object-visits-sharepoint.md`](object-visits-sharepoint.md).
 
 This document is the setup afternoon, written for a volunteer who has never opened the Azure
 portal. The reference for the config fields themselves is
@@ -368,7 +376,9 @@ registration, the permission and the folders all stay as they are.
 
 These are guarantees, not current behaviour that might change:
 
-- **It never writes to SharePoint.** There is no write code in it at all.
+- **It never writes to SharePoint.** There is no write code in it at all. (The Objektbesuche
+  delivery writes with its own registration and its own code — see
+  [`object-visits-sharepoint.md`](object-visits-sharepoint.md); it never touches this one's.)
 - **A broken listing never empties anything.** If a folder that previously held twelve plans
   suddenly lists none, the run is **refused** and nothing changes – the far likelier cause is a
   renamed folder or a revoked permission than a decision that the crew should no longer have

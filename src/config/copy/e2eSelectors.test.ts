@@ -25,6 +25,8 @@ const E2E_DIR = join(import.meta.dirname, '..', '..', '..', 'e2e')
 const NOT_COPY = new Map<string, string>([
   ['Tafel', 'plan `code` from the seeded object plans (src/data/demoIncident.ts), not copy'],
   ['E2E Smoke Test', 'the incident title the smoke test types in itself'],
+  ['Schlüsselhülse zugänglich', 'a checklist item of the visit template object-visits.spec uploads itself'],
+  ['Grob gereinigt', 'a checklist item of the visit template object-visits.spec uploads itself'],
 ])
 
 /** Locator calls that take a user-visible string. `locator('text=…')` is included

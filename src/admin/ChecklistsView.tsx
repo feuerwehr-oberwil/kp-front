@@ -393,9 +393,9 @@ function UploadSheet({ existing, onClose, onDone }: {
   )
 }
 
-const kindLabel = (kind: 'action' | 'rapport' | 'reference'): string => {
+const kindLabel = (kind: 'action' | 'rapport' | 'reference' | 'visit'): string => {
   const C = appConfig.copy.admin.checklists
-  return kind === 'action' ? C.kindAction : kind === 'rapport' ? C.kindRapport : C.kindReference
+  return kind === 'action' ? C.kindAction : kind === 'rapport' ? C.kindRapport : kind === 'visit' ? C.kindVisit : C.kindReference
 }
 
 // ─── diagram assets ────────────────────────────────────────────────────────────

@@ -354,7 +354,12 @@ async function throwApiError(res: Response): Promise<never> {
     let data: Record<string, unknown> | undefined
     try {
       const body = await res.json()
-      if (body && typeof body.detail === 'string') { detail = body.detail; hint = undefined }
+      if (body && typeof body.detail === 'string') {
+        detail = body.detail
+        hint = undefined
+        // `{code, detail, …}` — a named refusal with its sentence beside the name (object visits)
+        if (typeof body.code === 'string') { code = body.code; data = body as Record<string, unknown> }
+      }
       // …or the same answer with a name on it: `{code, message}`, for the refusals a screen has
       // to TELL APART rather than merely display (see ApiError.code). The message is the same
       // German sentence a string detail would have carried, so nothing is lost by ignoring code.
@@ -367,7 +372,16 @@ async function throwApiError(res: Response): Promise<never> {
         data = body.detail as Record<string, unknown>
         hint = undefined
       }
-      else if (Array.isArray(body?.detail)) {
+      // …or a named refusal WITHOUT a sentence (`{code}` alone, under `detail` or bare): keep the
+      // name so a caller can tell it apart, and let the mapped wording stand as the sentence.
+      else if (body && typeof body === 'object' && !Array.isArray(body.detail)) {
+        const named = body.detail && typeof body.detail === 'object' ? body.detail : body
+        if (typeof named.code === 'string') {
+          code = named.code
+          data = named as Record<string, unknown>
+        }
+      }
+      if (Array.isArray(body?.detail)) {
         // Kept as structured pairs as well as the flattened line: the flattened one is English
         // Pydantic prose and only a caller that knows the document can say what it means (see
         // ApiError.fields).
@@ -486,6 +500,25 @@ export function apiBeacon(path: string, body: unknown, method: 'POST' | 'PUT' = 
     }, 0 /* no timeout: the point of a beacon is to outlive this page */)
       .catch(() => { /* best-effort — nothing to recover to during teardown */ })
   } catch { /* JSON.stringify / fetch construction failure — best-effort */ }
+}
+
+/**
+ * Any-method request returning the RAW Response, with the same session renewal, timeout and
+ * link-mode header as every JSON call — for a caller that has to read a refusal's BODY itself
+ * (the object-visit PUT answers 409 with the server's current document, which `ApiError` would
+ * flatten) or send a Blob body with its own headers (an attachment PUT with its hash). A network
+ * failure still throws `ApiError(0, …)`; every HTTP status comes back as a Response.
+ */
+export function apiRequestRaw(path: string, init: RequestInit, timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise<Response> {
+  return requestResponse(path, init, timeoutMs)
+}
+
+/** The bound for a body of photo size (see UPLOAD_TIMEOUT_MS), for `apiRequestRaw` callers. */
+export const UPLOAD_REQUEST_TIMEOUT_MS = UPLOAD_TIMEOUT_MS
+
+/** Shape a non-2xx Response into the app's ApiError (for `apiRequestRaw` callers). Always throws. */
+export function throwResponseError(res: Response): Promise<never> {
+  return throwApiError(res)
 }
 
 /**
