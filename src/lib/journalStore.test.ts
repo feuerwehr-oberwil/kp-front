@@ -983,3 +983,15 @@ describe('JournalStore — a CLOSED Einsatz refuses the live rows (N3, 25.09.202
     } finally { off(); s.dispose() }
   })
 })
+
+it('does not fold client corrections or retractions onto server lifecycle rows', async () => {
+  fakeServer([
+    row('sys-closed', { lifecycle: 'closed', text: 'Einsatz abgeschlossen' }),
+    row('patch', { patchOf: 'sys-closed', lifecycle: 'reopened', retracted: true }),
+  ])
+  const store = new JournalStore(INC, false)
+  try {
+    await store.init([])
+    expect(store.display()).toEqual([expect.objectContaining({ id: 'sys-closed', lifecycle: 'closed', text: 'Einsatz abgeschlossen' })])
+  } finally { store.dispose() }
+})

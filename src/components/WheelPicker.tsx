@@ -5,13 +5,14 @@
 // under the center band. «Jetzt» is the fast path (stamp current clock and close), «OK»
 // commits a scrolled selection. Portalled to <body> so no card/accordion can clip it.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { fmtDayShort } from '../lib/zeitplanFormat'
 import { hhmm, pad2 } from '../lib/format'
 import { scrollBehavior } from '../lib/reducedMotion'
 import w from './WheelPicker.module.css'
+import { usePopoverGuard } from '../lib/overlays/popoverGuard'
 
 const ITEM_H = 44 // px, one wheel row — a full ≥44px tap target; must match .wheel-item/.wheel-pad/.wheelpop-band in app.css
 
@@ -107,7 +108,7 @@ export interface WheelValue { y: number; mo: number; d: number; h: number; mi: n
 const isCoarse = () =>
   typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
-/** '9', '930', '9:30', '09.30' → [h, mi]; null while it is still being typed or out of range. */
+/** '930', '9:30', '09.30' → [h, mi]; null while it is still being typed or out of range. */
 function parseTyped(raw: string): [number, number] | null {
   const t = raw.trim().replace(/[.\s]/g, ':')
   const m = /^(\d{1,2}):?(\d{2})$/.exec(t)
@@ -124,7 +125,7 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   withDate?: boolean
   onCommit: (v: WheelValue) => void
   onClose: () => void
-  /** offered as «Löschen» when set (clears the underlying value) */
+  /** offered as «Leeren» when set (clears the underlying value) */
   onClear?: () => void
   /** A one-tap answer above the wheels — «ab Einsatzbeginn 07:29». It belongs here rather than
    *  beside the field because it answers the question the picker asks. */
@@ -146,6 +147,9 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
    */
   days?: Date[]
 }) {
+  usePopoverGuard(true)
+  const errorId = useId()
+  const [invalid, setInvalid] = useState(false)
   const C = appConfig.copy.wheel
   const coarse = isCoarse()
   const [v, setV] = useState<WheelValue>({
@@ -191,11 +195,19 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
         onClose()
       }
     }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose() } }
     document.addEventListener('pointerdown', onDoc, true)
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('pointerdown', onDoc, true); document.removeEventListener('keydown', onKey) }
+    window.addEventListener('keydown', onKey, true)
+    return () => { document.removeEventListener('pointerdown', onDoc, true); window.removeEventListener('keydown', onKey, true) }
   }, [onClose])
+
+  const commit = () => {
+    if (!coarse) {
+      const time = parseTyped(typed)
+      if (!time) { setInvalid(true); return }
+      onCommit({ ...v, h: time[0], mi: time[1] })
+    } else onCommit(v)
+  }
 
   const stampNow = () => {
     const n = new Date()
@@ -207,11 +219,12 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   // the popover grew past it, so «OK» ended up under the bottom edge of the screen with no way to
   // reach it. Measured: 9px padding ×2 + 5×44px of wheel + 40px actions + its 8px gap, plus the
   // shortcut row when there is one.
-  const height = 18 + (coarse ? 220 : withDate ? 96 : 52) + 48 + (shortcut || (onClear && clearLabel) ? 48 : 0)
+  const height = 18 + (coarse ? 220 : withDate ? 96 : 52) + 48 + (shortcut || (onClear && clearLabel) ? 52 : 0) + (invalid ? 56 : 0)
   const up = window.innerHeight - anchor.bottom < height + 16
-  // a shortcut or a named clear needs its sentence on one line; the bare wheels do not
+  // Leave room for all three footer actions, including longer translations such as «Maintenant».
+  // A shortcut or a named state choice needs its sentence on one line; bare wheels do not.
   const dayWheel = dayList.length > 1 ? 76 : 0
-  const width = withDate ? (coarse ? 316 : 288) : (shortcut || clearLabel ? 236 : 196) + dayWheel
+  const width = withDate ? (coarse ? 316 : 288) : (onClear && !clearLabel ? 264 : shortcut || clearLabel ? 236 : 196) + dayWheel
   const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))
   // Always positioned by `top`, so one clamp covers both directions: a popover that would hang off
   // either edge slides back in rather than putting its actions out of reach.
@@ -247,7 +260,7 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
           )}
           {onClear && clearLabel && (
             <button type="button" aria-pressed={!!clearActive}
-              className={`${w.tab} ${w.green}${clearActive ? ` ${w.tabOn}` : ''}`}
+              className={`${w.tab}${clearLabel ? ` ${w.green}` : ''}${clearActive ? ` ${w.tabOn}` : ''}`}
               onClick={onClear}>{clearLabel}</button>
           )}
         </div>
@@ -287,12 +300,14 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
             <input
               className={w.typed} value={typed} inputMode="numeric" enterKeyHint="done" autoFocus
               aria-label={`${C.hour} / ${C.minute}`} placeholder="--:--"
+              aria-invalid={invalid || undefined} aria-describedby={invalid ? errorId : undefined}
               onChange={(e) => {
                 setTyped(e.target.value)
+                setInvalid(false)
                 const hhmm = parseTyped(e.target.value)
                 if (hhmm) setV((p) => ({ ...p, h: hhmm[0], mi: hhmm[1] }))
               }}
-              onKeyDown={(e) => { if (e.key === 'Enter') onCommit(v) }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit() } }}
             />
             {/* ⚠️ With a keyboard the date needs its OWN controls: the day/month/year wheels are
                 a touch affordance, and rendering them here left a tall empty box with nothing in
@@ -329,11 +344,13 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
           </div>
         )}
       </div>
+      {invalid && <p id={errorId} className={w.error} role="alert">{C.invalidTime}</p>}
       <div className="wheelpop-actions">
-        {/* «Jetzt» sits with OK because it, too, produces a clock reading — the tabs above produce
-            something that is NOT a clock reading, which is the whole distinction. */}
+        {onClear && !clearLabel && (
+          <button type="button" className="wheelpop-btn" onClick={onClear}>{appConfig.copy.clear}</button>
+        )}
         <button type="button" className="wheelpop-btn" onClick={stampNow}>{C.now}</button>
-        <button type="button" className="wheelpop-btn primary" onClick={() => onCommit(v)}>{C.ok}</button>
+        <button type="button" className="wheelpop-btn primary" onClick={commit}>{C.ok}</button>
       </div>
     </div>,
     document.body,

@@ -28,6 +28,13 @@ describe('latestLifecycle', () => {
     expect(latestLifecycle([row('r9', '2026-09-25T12:45:00Z', { text: 'Einsatz abgeschlossen' })])).toBeNull()
     expect(latestLifecycle([])).toBeNull()
   })
+
+  it('never lets an ordinary journal row or a patch become an alarm boundary', () => {
+    expect(latestLifecycle([
+      row('note', '2099-01-01T00:00:00Z', { lifecycle: 'closed' }),
+      row('sys-patch', '2099-01-01T00:00:00Z', { lifecycle: 'closed', patchOf: 'note' }),
+    ])).toBeNull()
+  })
 })
 
 describe('clocksAfterReopen', () => {

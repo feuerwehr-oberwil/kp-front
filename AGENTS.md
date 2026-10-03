@@ -69,6 +69,26 @@ parses these lines back per device, the morning after every Einsatz (read-only;
 frontend has none – so run `pnpm lint && pnpm test` before pushing, since changes go straight
 to prod.
 
+## Review regression contracts (02.10.2026)
+
+- Journal lifecycle boundaries and the `sys` id namespace belong to the server. Neither a
+  client row nor a patch targeting a system row may create, retract or edit them; the client
+  alarm clock ignores ordinary journal rows carrying lifecycle-looking metadata.
+- A failed conflict PUT still hands the merged union to the live view before another edit.
+  Re-sending parked workspace saves first commits their replacement cache entry, with transfer
+  markers for crash-safe retry, before clearing the parked originals.
+- Blob data never falls back to JSON storage. Failed local media persistence retains bytes in
+  memory and reports storage failure. Pending uploads retry with a bounded delay; exhausted
+  uploads wait for explicit retry. Rendering the queue must never trigger an upload loop.
+- Time popovers join the shared dismissal guard: one Escape closes only the picker. Invalid
+  typed times stay open with an error; optional values expose «Leeren» left of «Jetzt» and «OK»
+  in the action row. Named state choices such as «noch da» stay above the wheels. Hold-repeat
+  buttons support click-only assistive activation without doubling pointer taps.
+- Cancelled map requests (`AbortError`) are filtered only at `lib/mapError`, not globally.
+  Timeouts, actual map failures and aborts outside the map still enter crash telemetry.
+- CI enables the six workspace workflows and phone/tablet touch checks on its disposable stack.
+  Locally these mutations require `E2E_WORKFLOWS=1`; never target a station in use.
+
 ## Architecture & conventions
 
 - **The loading mascot has one source.** `public/firefighter-snail-loader.svg` owns its paths,
@@ -617,7 +637,8 @@ to prod.
   «Abbrechen»; «Zurück» only where there is a real previous step. The composer's Art is ONE of
   three with «Info» preselected – «nothing» and «Info» were two ways to say one thing; «Info»
   still writes no `entryType` and no marker. An optional count with a «Keine» answer beside it
-  shows «–» while unanswered, never «0», and its ✕ only once there is a value.
+  shows «–» while unanswered, never «0». Its ✕ stays visible and disabled while empty, so filling
+  or clearing the count never shifts the adjacent controls.
   **A sheet whose edits are live has no confirm footer** (29.09.2026, owner: «everything should be
   auto-saved without manual confirmations»): ✕ and swipe close it, and one quiet «Alles wird
   laufend gespeichert.» line (`copy.savedLive`) says so (TimeBlockSheet, PersonnelSync result).
