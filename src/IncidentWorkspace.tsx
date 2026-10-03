@@ -1,3 +1,4 @@
+import { LoadingStatus } from './components/ShellLoader'
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
@@ -173,6 +174,7 @@ import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineRe
 import { fetchShareLink } from './lib/viewLink'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
+import { useBootCover } from './lib/bootCover'
 import { fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
 import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit } from './lib/storageBudget'
 import { ChecklistsView } from './components/ChecklistsView'
@@ -185,7 +187,7 @@ import { rosterWithGuests } from './lib/guests'
 import type { ChecklistState, Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
 import { primeKeyboard } from './lib/keyboardPrime'
-import { flushSync } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import type { NoteSize } from './types'
 import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
 import { TruppFinder } from './components/TruppFinder'
@@ -200,7 +202,7 @@ import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
-import { canBeDone, doneAct, doneFirst, donePlace } from './lib/objectDone'
+import { canBeDone, doneAct, doneOf, donePlace, offersDone } from './lib/objectDone'
 import { createPlanStepLink, type PlanStepLink } from './lib/planStepLink'
 import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
@@ -339,6 +341,11 @@ interface WorkspaceProps {
    *  25.09.2026), and when. App sets it as it flips the meta in place (App · onIncidentClosed /
    *  onIncidentReopened); the workspace says so in one Meldeleiste row. */
   lifecycleElsewhere?: { event: 'closed' | 'reopened'; at: number } | null
+  /** This mount OPENS the Einsatz (App · coverId): it assembles behind the snail until the first
+   *  screen is whole (lib/bootCover). Not on a background remount. */
+  openCover?: boolean
+  /** …and the cover has lifted — App forgets it, so a later remount comes up uncovered */
+  onOpenCoverDone?: () => void
 }
 
 
@@ -363,7 +370,7 @@ const ZEITPLAN_RECORDS = fieldsOf<{ shifts: Shift[]; bands: ShiftBand[] }>({ shi
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
   onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere,
+  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
   // inspect, but every editing affordance is hidden and commit() is neutered so
@@ -1321,7 +1328,7 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
@@ -1737,6 +1744,17 @@ export function IncidentWorkspace({
   // During replay the badge reads the folded reading.
   const liveWeather = useWeather(incidentView.center)
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
+
+  // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
+  // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
+  // (when the Karte is the surface it opens on), the rail's plan tiles and the weather in the
+  // top bar. Each of those used to arrive in view, one jump at a time (01.10.2026).
+  const [mapSettled, setMapSettled] = useState(false)
+  const onMapSettled = useCallback(() => setMapSettled(true), [])
+  const coverPhase = useBootCover(!!openCover, (sym.ready || !!sym.error)
+    && (mode !== 'map' || mapSettled)
+    && plansSettled
+    && (!!liveWeather.data || !!liveWeather.error), onOpenCoverDone)
   const openWeatherDetails = useCallback(() => {
     const [lng, lat] = incidentView.center
     const url = appConfig.copy.weather.detailsUrl.replace('{lat}', String(lat)).replace('{lng}', String(lng))
@@ -3714,11 +3732,11 @@ export function IncidentWorkspace({
     patchEntity(entityId, { dockedTo: undefined })
     log('select', line, placard ? 'symbol' : 'team', undefined, entityId)
     // …and the toast's way back says so too: the bond is restored, and the record has to hear it.
-    // The re-dock names the HOST too: it docks at wherever the host stands, and a host another
-    // device has moved since is not where this bond was broken. It re-docks only onto a host that
-    // still stands, and only a marker that is still loose — by the time it is tapped the host may
-    // have been deleted, or the marker docked elsewhere (CodeRabbit on #232); `objectsRef` is the
-    // store as it is NOW, not at the release
+    // It re-docks only onto a host that still stands, and only a marker that is still loose — by
+    // the time it is tapped the host may have been deleted, or the marker docked elsewhere
+    // (CodeRabbit on #232); `objectsRef` is the store as it is NOW, not at the release. The guard
+    // names the HOST too: it docks at wherever the host stands, and a host another device has
+    // moved since is not where this bond was broken
     undoToast(line, () => {
       const now = objectsRef.current
       const hostStands = now.some((o) => o.entity?.id === hostId)
@@ -3786,6 +3804,7 @@ export function IncidentWorkspace({
     setPanel(null)
     if (t.target.kind === 'map') { setMode('map'); focusEntity(t.target.entityId); return }
     setMode('plans'); setActivePlanId(t.target.planId)
+    // eslint-disable-next-line react-hooks/purity -- the TruppFinder's onPick, an event handler: never called during render
     setPlanFocus({ x: t.target.x, y: t.target.y, floor: t.target.floor, annoId: t.target.annoId, nonce: Date.now() })
   }
   const deleteEntity = async (id: string) => {
@@ -3846,6 +3865,7 @@ export function IncidentWorkspace({
       place: donePlace(ent.floorFrom ?? ent.floor, ent.floorTo),
       // the sheet that draws it natively, if any — its view gets the event too (lib/objectDone)
       sheetPlanId: objectsRef.current.find((o) => o.id === ent.id)?.sheet?.planId,
+      cat: sym.symbols.find((x) => x.name === ent.symbol)?.cat,
     })
     if (!act) return
     stepLabel.current = act.text // the ↶ names the act, not «Änderung auf der Karte»
@@ -4110,26 +4130,6 @@ export function IncidentWorkspace({
     redo: () => { reapply(); oneShotRow('redo', label, rows); return true },
   })
   rememberOneShotRef.current = rememberOneShot
-  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') =>
-    rememberOneShot('gebaeude', label, restore, reapply, touches, rows)
-  /** The row a one-shot's step owes the record, in either direction — its own words, or the generic ones. */
-  const oneShotRow = (dir: 'undo' | 'redo', label: string, rows?: OneShotRows | 'silent') => {
-    if (rows === 'silent') { histSide.current.emit(dir); return }
-    if (!rows) { logHistStep(dir, label, ''); return }
-    rows[dir]()
-    histSide.current.emit(dir)
-  }
-  /**
-   * ⚠️ A one-shot's confirm-with-undo toast. Its «Rückgängig» is the SAME act as the header's ↶ —
-   * so it writes the SAME counter-row (staging walk-through, 25.09.2026: a storey restored from
-   * the toast left «Geschoss 3. OG entfernt» standing alone on the printed Einsatzjournal, about a
-   * storey that still existed) — and drops the timeline entry, so the act is never taken back twice.
-   * Guarded by the entry (`drop.standing`): once a merge dropped it, or a ↶ already took it, the
-   * toast declines instead of writing over another device's change. `opts.kind` (#232): a toast of
-   * the same kind still on screen gives way to this one.
-   */
-  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { kind?: string }) =>
-    undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) }, drop.standing, opts)
   // the Abschluss's «nicht eingesetzt» door (standDownTrupps above) — read only when the question
   // is answered, long after this commit, so an effect is the place to point it
   // ⚠️ Re-checked against the Trupps as they stand NOW: a Sicherungstrupp sent in while the
@@ -4150,6 +4150,26 @@ export function IncidentWorkspace({
       }
     }
   })
+  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') =>
+    rememberOneShot('gebaeude', label, restore, reapply, touches, rows)
+  /** The row a one-shot's step owes the record, in either direction — its own words, or the generic ones. */
+  const oneShotRow = (dir: 'undo' | 'redo', label: string, rows?: OneShotRows | 'silent') => {
+    if (rows === 'silent') { histSide.current.emit(dir); return }
+    if (!rows) { logHistStep(dir, label, ''); return }
+    rows[dir]()
+    histSide.current.emit(dir)
+  }
+  /**
+   * ⚠️ A one-shot's confirm-with-undo toast. Its «Rückgängig» is the SAME act as the header's ↶ —
+   * so it writes the SAME counter-row (staging walk-through, 25.09.2026: a storey restored from
+   * the toast left «Geschoss 3. OG entfernt» standing alone on the printed Einsatzjournal, about a
+   * storey that still existed) — and drops the timeline entry, so the act is never taken back twice.
+   * Guarded by the entry (`drop.standing`): once a merge dropped it, or a ↶ already took it, the
+   * toast declines instead of writing over another device's change. `opts.kind` (#232): a toast of
+   * the same kind still on screen gives way to this one.
+   */
+  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { kind?: string }) =>
+    undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) }, drop.standing, opts)
 
   /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
    *
@@ -5429,6 +5449,10 @@ export function IncidentWorkspace({
     // the Meldeleiste paints INSIDE this stacking context (lib/meldeleisteHost), under the top bar
     <div ref={registerMeldeleisteHost} className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''}${suchePick ? ' suche-picking' : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
+      {coverPhase !== 'off' && createPortal(
+        <Splash sub={appConfig.copy.incidentLink.opening} leaving={coverPhase === 'leaving'} />,
+        document.body,
+      )}
       <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
@@ -5560,6 +5584,7 @@ export function IncidentWorkspace({
           }}
           onView={setView}
           onBasemapUnavailable={onBasemapUnavailable}
+          onSettled={onMapSettled}
           // the Suche's pick rides MapView's own pick path (26.09.2026, review): it comes before any
           // drawing's selection, so «Keller» can be put INSIDE the Fläche it is — a selection there
           // would close the card, cancel the pick and lose its form. The symbols step aside too
@@ -6162,8 +6187,12 @@ export function IncidentWorkspace({
           fieldHints={rosterFieldHints(selected)}
           protectedKeys={selected.kind === 'symbol' ? new Set(symbolPresetFieldKeys(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)) : undefined}
           onDelete={() => deleteEntity(selected.id)}
-          onDone={canBeDone(selected.kind) && !selected.live && !tacticalLocked ? (on) => setEntityDone(selected, on) : undefined}
-          doneFirst={doneFirst(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)}
+          // «Gelöscht / erledigt» only where being OVER means something — a Feuer, a Rauch, a
+          // Gefahr — never a Fahrzeug (lib/objectDone · offersDone); an older `done` elsewhere may
+          // still be reopened, so nothing recorded is stuck grey
+          onDone={canBeDone(selected.kind) && !selected.live && !tacticalLocked
+            && (offersDone(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat) || !!doneOf(selected))
+            ? (on) => setEntityDone(selected, on) : undefined}
           hasOverride={vehicleOverrides[selected.id] != null}
           // Vehicles only. «GPS» undoes an operator's drag/rotate of a live symbol — a person
           // dot has neither (both are blocked in MapMarkers), so the button sat there
@@ -6394,7 +6423,7 @@ export function IncidentWorkspace({
         ]} />
       )}
       {mapUI && tool === 'line' && (
-        <ToolDock hint={lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodesShort : appConfig.copy.dockHints.lineFreeShort} groups={[
+        <ToolDock hint={isPhone ? undefined : lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodesShort : appConfig.copy.dockHints.lineFreeShort} groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
@@ -6469,7 +6498,7 @@ export function IncidentWorkspace({
       {mapUI && tool === 'shape' && pendingShape && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color={isPhone ? 'currentColor' : '#fff'} aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
           // meaning for it — the lock row is simply not offered
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
@@ -6607,8 +6636,8 @@ export function IncidentWorkspace({
       {/* like the map: mounted once the pack has loaded OR failed for good (empty glyph table) */}
       {mode === 'plans' && (sym.ready || sym.error) && guarded('board', (
         /* the chunk is prefetched on idle (loadWhiteboard); on the rare cold switch the fallback is
-           the board's own empty paper, never a spinner */
-        <Suspense fallback={<div className="whiteboard" aria-hidden />}><Whiteboard
+           the paper frame with the shared loading state */
+        <Suspense fallback={<div className="whiteboard"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}><Whiteboard
           railLabels={railLabels}
           plans={planDocs}
           // on desktop the Verlauf drawer docks beside the plan's tool rail (same as the
@@ -6781,7 +6810,7 @@ export function IncidentWorkspace({
               return [recordKey('building'), recordKey('planview', 'gebaeude'), ...swept.map((a) => recordKey('objects', a.id)), ...swept.flatMap(annoRefs)]
             }
             // …and it says so, the way the removal does («Deleting and creating belong in the same
-            // channel»): «Geschoss 4. OG hinzugefügt», taken back as «… entfernt», per storey (#226)
+            // channel»): «Geschoss 4. OG hinzugefügt», taken back as «… entfernt», per storey
             const subject = { subjectId: storeySubject(newFloor) }
             const addedRow = () => logPlan('plus', storeyAddedRow(floorLabel(newFloor)), subject)
             const rows: OneShotRows = { undo: () => logPlan('undo', storeyRemovedRow(floorLabel(newFloor), 0), subject), redo: addedRow }
@@ -6978,7 +7007,7 @@ export function IncidentWorkspace({
         /* onEditDispatch leaves the preflight open so the Einsatzdaten wizard stacks on top
            (later in DOM, same z-index) — canceling it reveals the rapport again instead of a
            dead end. (Saving still remounts the workspace and returns to the map.) */
-        <Suspense fallback={<div className="rp-backdrop" aria-hidden />}><ReportPreflight
+        <Suspense fallback={<div className="rp-backdrop"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}><ReportPreflight
           incident={incidentMeta}
           reportMeta={reportMeta}
           personnel={pickablePersonnel}

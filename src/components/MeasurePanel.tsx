@@ -1,3 +1,4 @@
+import { LoadingStatus } from './ShellLoader'
 import { useState } from 'react'
 import type { LngLat } from '../types'
 import type { ProfileResult } from '../lib/profile'
@@ -88,7 +89,7 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
             </button>
           )}
           {hasProfile && profileOpen && (profileLoading ? (
-            <div className={s['mp-prof-msg']}>{C.profileLoading}</div>
+            <div className={s['mp-prof-msg']}><LoadingStatus>{C.profileLoading}</LoadingStatus></div>
           ) : profile ? (
             <>
               <div className={s['mp-prof-title']}>{C.profile}</div>

@@ -20,6 +20,7 @@ import { scrollBehavior } from '../lib/reducedMotion'
 import { fillTemplate, hhmm, stripUnprintable, telHref } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
+import { ShellLoader } from '../components/ShellLoader'
 import { currentLineFor, mittelLineCount, visibleMittel } from '../lib/mittel'
 import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd, missingSteps, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
@@ -1426,7 +1427,7 @@ export default function CaptureApp() {
                 <label className={`cv-btn cv-btn-add cv-beilagen-add${uploading ? ' busy' : ''}`}>
                   {/* while the upload runs the control eats taps at 60% opacity — the house busy
                       glyph says WHY instead of leaving a silently dead button (App.tsx idiom) */}
-                  {uploading ? <Icon id="rotate" className="spin" /> : <Icon id="photo" />}<span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
+                  {uploading ? <ShellLoader /> : <Icon id="photo" />}<span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
                   <input type="file" accept="image/*" multiple disabled={busy || uploading}
                     onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; if (files.length) void addBeilagen(files) }} />
                 </label>
@@ -1511,14 +1512,14 @@ export default function CaptureApp() {
         {/* KP active → the buttons step back to quiet secondary styling (never hidden or
             disabled — a phone print must stay possible, it's just no longer the main path) */}
         <button className={`cv-btn cv-pdf${kpActive ? ' cv-quiet' : ''}`} disabled={busy || pdfBusy} onClick={() => setConfirmOut('pdf')}>
-          <Icon id="doc" /> {pdfBusy ? R.sending : C.rapportPdf}
+          {pdfBusy ? <ShellLoader /> : <Icon id="doc" />} {pdfBusy ? R.sending : C.rapportPdf}
         </button>
         {printStatus?.available && (
           <button className={`cv-btn print-send${kpActive ? ' cv-quiet' : ''}${printStatus.online ? '' : ' offline'}`}
             disabled={busy || printBusy} onClick={() => setConfirmOut('print')}
             title={printStatus.online ? R.online : R.offline}>
             <span className="print-send-main">
-              <Icon id="printer" />
+              {printBusy ? <ShellLoader /> : <Icon id="printer" />}
               <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
               {printBusy ? R.sending : R.send}
             </span>

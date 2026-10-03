@@ -1,11 +1,36 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { Menu } from './Menu'
 
 afterEach(cleanup)
 
 describe('Menu', () => {
+  it.each(['field', 'trigger'])('allows keyboard navigation after pointer opening with focus retained (%s)', async (from) => {
+    const keepFocusRef = { current: null as HTMLTextAreaElement | null }
+    const onClick = vi.fn()
+    render(<>
+      <textarea ref={keepFocusRef} />
+      <Menu modal={false} keepFocusRef={keepFocusRef} trigger={<button>Aktionen</button>}
+        items={[{ label: 'Umbenennen', onClick }]} />
+    </>)
+    const field = screen.getByRole('textbox')
+    const trigger = screen.getByRole('button', { name: 'Aktionen' })
+    field.focus()
+    fireEvent.click(trigger)
+    const item = await screen.findByRole('menuitem', { name: 'Umbenennen' })
+    fireEvent.keyDown(field, { key: 'a' })
+    item.focus()
+    expect(document.activeElement).toBe(field)
+    const source = from === 'field' ? field : trigger
+    source.focus()
+    fireEvent.keyDown(source, { key: from === 'field' ? 'Tab' : 'ArrowDown' })
+    item.focus()
+    await waitFor(() => expect(document.activeElement).toBe(item))
+    fireEvent.keyDown(item, { key: 'Enter' })
+    await waitFor(() => expect(onClick).toHaveBeenCalledTimes(1))
+  })
+
   it('opens on trigger click and renders its items', () => {
     render(<Menu trigger={<button>Aktionen</button>} items={[{ label: 'Umbenennen', onClick: vi.fn() }, { label: 'Löschen', onClick: vi.fn(), danger: true }]} />)
     expect(screen.queryByText('Umbenennen')).toBeNull()

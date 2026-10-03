@@ -89,7 +89,7 @@ that passes would file an intermittent crash as «flaky».
 milliseconds of each other. Each takes the next number from its own view of the Einsatz, so all
 three mint «Trupp 1»; the merge then settles the number (`lib/truppNumbers ·
 resolveTruppNumbers`, docs/trupp-naming.md §7), and the test asserts that the server ends up with
-three distinct names. Until 25.09.2026 this test pinned the duplicate as a known bug. A crash
+three distinct names. Until 25.09.2026 this test asserted the duplicate instead. A crash
 still fails it on its own: the guard and the client-error check before the assertion.
 
 **Proof that it catches the bug** (24.09.2026): with the #200 fix reverted locally (the

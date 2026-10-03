@@ -1,3 +1,4 @@
+import { ShellLoader } from './components/ShellLoader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactivateResult } from './types'
 import './app.css'
@@ -128,10 +129,19 @@ export default function App() {
   // the boot auto-open is running and nothing is on screen yet: hold the Splash instead of
   // flashing the launcher, whose card would only start a second, silent open of the same Einsatz
   const [bootOpening, setBootOpening] = useState(false)
+  // the boot has decided what to open (or that it opens nothing). Until then the launcher must not
+  // render: the always-on list watch can fill `incidents` BEFORE the boot's own list call returns,
+  // and the launcher then flashed between the splash and the Einsatz (01.10.2026)
+  const [bootDecided, setBootDecided] = useState(false)
   const bootOpenSeq = useRef(0) // StrictMode / re-run guard: only the LATEST boot open may clear it
   const [activeMeta, setActiveMeta] = useState<IncidentMeta | null>(null)
   const [workspace, setWorkspace] = useState<Saved | null>(null)
   const [remount, setRemount] = useState(0)
+  // the Einsatz whose OPENING is still behind the workspace's snail cover (lib/bootCover). Set
+  // by a genuine open only — never by a background remount, nor by re-selecting the Einsatz
+  // already on screen (the read-only stay after «Abschliessen») — and cleared as the cover lifts.
+  const [coverId, setCoverId] = useState<string | null>(null)
+  const clearCover = useCallback(() => setCoverId(null), [])
   // Demo instances greet a first-time visitor once per device with the can/can't intro.
   const [showWelcome, setShowWelcome] = useState(() => isDemoMode() && !hasSeenDemoWelcome())
   const [forceReadOnly, setForceReadOnly] = useState(false)
@@ -250,6 +260,7 @@ export default function App() {
     // the bell honestly saying «Ton nicht freigegeben» (see useAtemschutzMute).
     unlockAlarm()
     const my = ++selectReq.current // any newer call supersedes this one
+    const opening = activeIdRef.current !== id
     if (opts.readOnly) {
       if (!forceReadOnlyRef.current) archiveReturnRef.current = activeIdRef.current
     } else {
@@ -299,6 +310,7 @@ export default function App() {
     setWorkspace(seed)
     setForceReadOnly(!!opts.readOnly)
     setActiveId(id)
+    setCoverId(opening ? id : null)
     setRemount((n) => n + 1)
     // ⚠️ `incidentChosenAt` is stamped only when a HUMAN opened this — never on the boot
     // auto-open, which would otherwise record the app's own choice as the operator's and let a
@@ -343,7 +355,7 @@ export default function App() {
         if (bootOpenSeq.current === my) setBootOpening(false)
       }
     }
-    void (async () => {
+    void (async () => { try {
       // Link session: there is exactly one incident and no list to pick from — fetch it by id
       // and open it. (GET /api/incidents is not on the link allowlist, so listing here would
       // 403 and land a responder on an empty launcher instead of the Einsatz they were sent.)
@@ -386,7 +398,7 @@ export default function App() {
       if (saved && shouldReopenClosed(saved, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })) {
         await bootOpen(saved, { readOnly: saved.is_archived })
       }
-    })()
+    } finally { setBootDecided(true) } })()
   }, [selectIncident, linkIncidentId])
 
   // Forget the crash streak once an incident has proven healthy: on a CLEAN leave (a switch, a
@@ -697,7 +709,7 @@ export default function App() {
 
   // Incident list still loading after auth: keep the boot Splash up rather than a blank
   // colour flash, so the launch stays continuous from /me probe → list → workspace.
-  if (incidents === null) return <Splash />
+  if (incidents === null || (!bootDecided && !activeId)) return <Splash />
   // …and through the boot auto-open, named: the launcher would only flash for the seconds the
   // workspace takes to arrive. The splash's own 9 s «Neu starten» stays a harmless escape.
   if (bootOpening && !activeId) return <Splash sub={appConfig.copy.incidentLink.opening} />
@@ -809,6 +821,8 @@ export default function App() {
           onReactivateActive={isEditor && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
           lifecycleElsewhere={lifecycleElsewhere?.id === activeMeta.id ? lifecycleElsewhere : null}
+          openCover={coverId === activeId}
+          onOpenCoverDone={clearCover}
           needsReview={
             reviewPendingId === activeMeta.id ||
             // `intakeReviewedAt` = somebody already checked this Einsatz on another device. This
@@ -839,7 +853,7 @@ export default function App() {
               <div className="ip-launch-list">
                 {openIncidents.map((i) => (
                   <button key={i.id} type="button" className="ip-launch" disabled={opening != null} onClick={() => void openIncident(i.id, { meta: i })}>
-                    <Icon id={opening === i.id ? 'rotate' : 'flag'} className={opening === i.id ? 'spin' : undefined} />
+                    {opening === i.id ? <ShellLoader /> : <Icon id="flag" />}
                     <span className="ip-launch-main">
                       <span className="ip-launch-title">{i.title}</span>
                       <span className="ip-launch-sub">{shortAddress(i.address) ?? ''}</span>
@@ -853,7 +867,7 @@ export default function App() {
                   // NEVER archives a live dispatch for the crew (that would be a server delete)
                   <div key={a.id} className="ip-launch alarm">
                     <button type="button" className="ip-launch-hit" disabled={taking != null} onClick={() => void takeAndOpen(a)}>
-                      <span className="ip-launch-pulse"><Icon id={taking === a.divera_id ? 'rotate' : 'bell'} className={taking === a.divera_id ? 'spin' : undefined} /></span>
+                      <span className="ip-launch-pulse">{taking === a.divera_id ? <ShellLoader /> : <Icon id="bell" />}</span>
                       <span className="ip-launch-main">
                         <span className="ip-launch-kicker">{appConfig.copy.intake.newDiveraAlarm}</span>
                         <span className="ip-launch-title">{a.title}</span>

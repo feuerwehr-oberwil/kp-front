@@ -9,6 +9,7 @@ import { Overlay } from '../lib/overlays/Overlay'
 import { ConfirmCard } from '../lib/overlays/ConfirmCard'
 import { Slider } from '../components/Slider'
 import { Segmented } from '../components/Segmented'
+import { LoadingStatus, ShellLoader } from '../components/ShellLoader'
 import { fmtDate, StatusBadge } from './ui'
 import { InfoTip } from './InfoTip'
 import { alignmentPreview, approveAlignment, loadAlignmentDetail, loadAlignmentQueue, rejectAlignment, retryAlignment, undoAlignmentApproval, type AlignmentItem, type AlignmentListItem, type AlignmentQueue, type AlignmentStatus } from './planAlignmentApi'
@@ -197,8 +198,8 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
   const actions = <div className="adm-align-actions">
     {staged.length > 0 && <span className="adm-hint adm-apply-summary">{batch ? fillTemplate(C.grid.applying, batch) : fillTemplate(C.grid.applySummary, { yes: yesCount, no: staged.length - yesCount })}</span>}
     {overrides.size > 0 && <button type="button" className="btn" disabled={!!batch} onClick={() => setOverrides(new Map())}>{C.grid.resetMarks}</button>}
-    {!embedded && <button type="button" className="btn" disabled={refreshing || !!batch} onClick={async () => { setRefreshing(true); await refresh(); if (alive.current) setRefreshing(false) }}>{refreshing ? C.loading : C.refresh}</button>}
-    {staged.length > 0 && <button type="button" className="btn primary" disabled={!!batch || busy.size > 0} onClick={() => void apply()}>{fillTemplate(C.grid.apply, { n: staged.length })}</button>}
+    {!embedded && <button type="button" className="btn" disabled={refreshing || !!batch} onClick={async () => { setRefreshing(true); await refresh(); if (alive.current) setRefreshing(false) }}>{refreshing && <ShellLoader />}{refreshing ? C.loading : C.refresh}</button>}
+    {staged.length > 0 && <button type="button" className="btn primary" disabled={!!batch || busy.size > 0} onClick={() => void apply()}>{batch && <ShellLoader />}{fillTemplate(C.grid.apply, { n: staged.length })}</button>}
   </div>
   const searchField = <input className="adm-input adm-align-search" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={C.search} aria-label={C.search} />
   const applied = notice ? <span className="adm-hint adm-align-applied" role="status">{notice}</span> : null
@@ -215,7 +216,7 @@ export function PlanAlignmentReview({ compact = false, embedded = false, source 
       : <div className="adm-align-filters"><Segmented<Filter> value={filter} onChange={setFilter} ariaLabel={C.filterLabel} options={[
         { value: 'open', label: fillTemplate(C.openCount, { n: count }) }, { value: 'approved', label: C.grid.decided }, { value: 'all', label: C.all },
       ]} />{applied}{searchField}</div>}
-    {!queue && !error && <p className="adm-state" role="status">{C.loading}</p>}
+    {!queue && !error && <p className="adm-state"><LoadingStatus>{C.loading}</LoadingStatus></p>}
     {queue && visible.length === 0 && <p className="adm-hint adm-align-empty">{items.length === 0 ? C.empty : C.noResults}</p>}
     {sections.map(({ section, items: list }) => <div key={section} className="adm-grid-section">
       <div className="adm-grid-head"><h3>{C.grid.sections[section]}</h3><span className="adm-hint">{fillTemplate(C.queueCount, { n: list.length })}</span></div>
@@ -401,7 +402,7 @@ function ResolvedAlignmentDetail(props: SeededDetailProps) {
   // must not leave the full-screen editor without a way out.
   if (!resolved) return <section className="adm-align-review adm-editor-detail" aria-label={props.item.object_name}>
     <EditorHeader item={props.item} />
-    <div className="adm-editor-pane">{error ? retry : <p className="adm-align-empty" role="status">{C.loading}</p>}</div>
+    <div className="adm-editor-pane">{error ? retry : <p className="adm-align-empty"><LoadingStatus size="surface">{C.loading}</LoadingStatus></p>}</div>
   </section>
   return <>
     {error && retry}
@@ -497,7 +498,7 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
       actions={<>
       <span className="adm-editor-rule" aria-hidden />
       <button type="button" className="btn" disabled={busy || !canUndo} onClick={() => historyRef.current?.undo()}><Icon id="undo" />{appConfig.copy.undo}</button>
-      <button type="button" className="btn primary" disabled={!saveable} onClick={() => void save()}>{busy ? C.saving : F.saveAll}</button>
+      <button type="button" className="btn primary" disabled={!saveable} onClick={() => void save()}>{busy && <ShellLoader />}{busy ? C.saving : F.saveAll}</button>
     </>} />
     <MarkerNotes item={item} />
     {!item.is_current && <p className="adm-align-notice">{C.superseded}</p>}
@@ -512,12 +513,12 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
         { value: 'floors', label: F.title }, { value: 'map', label: C.editor.map }, { value: 'preview', label: C.editor.preview },
       ]} />}
       mapPreview={image && pairs.length >= 2
-        ? <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={60} /></Suspense>
+        ? <Suspense fallback={<p className="adm-state"><LoadingStatus size="surface">{C.loading}</LoadingStatus></p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={60} /></Suspense>
         : undefined} />
     <div className="adm-pack-map adm-editor-pane" hidden={tab !== 'map'}>
-      {tab === 'map' && (imageFailed ? <p className="adm-state adm-state-err" role="alert">{C.previewFailed}</p> : !image ? <p className="adm-state" role="status">{C.previewLoading}</p>
-        : editable && tab === 'map' ? <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Pairing item={item} pairs={pairs} onPairs={(p) => setPairsDraft({ pairs: p, editVersion: item.edit_version })} onDone={() => {}} onReset={() => setPairsDraft(null)} previewUrl={image} /></Suspense>
-        : <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={60} /></Suspense>)}
+      {tab === 'map' && (imageFailed ? <p className="adm-state adm-state-err" role="alert">{C.previewFailed}</p> : !image ? <p className="adm-state"><LoadingStatus size="surface">{C.previewLoading}</LoadingStatus></p>
+        : editable && tab === 'map' ? <Suspense fallback={<p className="adm-state"><LoadingStatus size="surface">{C.loading}</LoadingStatus></p>}><Pairing item={item} pairs={pairs} onPairs={(p) => setPairsDraft({ pairs: p, editVersion: item.edit_version })} onDone={() => {}} onReset={() => setPairsDraft(null)} previewUrl={image} /></Suspense>
+        : <Suspense fallback={<p className="adm-state"><LoadingStatus size="surface">{C.loading}</LoadingStatus></p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={60} /></Suspense>)}
     </div>
     {/* a draft measured against a revision that has since moved cannot be saved – the way out of
         that one stays inline, where the notice is */}
@@ -589,7 +590,7 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
           so it stands with the actions – the footer that used to hold it is gone */}
       {['no_match', 'failed', 'unavailable'].includes(item.status) && RETRYABLE.has(item.reason ?? '')
         && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
-      <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy ? C.saving : C.approve}</button>
+      <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy && <ShellLoader />}{busy ? C.saving : C.approve}</button>
     </> : undefined} />
     <nav className="adm-editor-tabs">
       <Segmented<boolean> value={manual} onChange={setManual} ariaLabel={C.title} options={[
@@ -600,9 +601,9 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
     {!item.is_current && <p className="adm-align-notice">{C.superseded}</p>}
     {reason && <p className="adm-hint adm-align-reason">{reason}</p>}
     <div className="adm-editor-pane adm-editor-map-pane">
-    {imageFailed ? <p className="adm-state adm-state-err" role="alert">{C.previewFailed}</p> : !image ? <p className="adm-state" role="status">{C.previewLoading}</p>
-      : pairing ? <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Pairing item={item} pairs={pairs} onPairs={setPairs} onDone={() => setManual(false)} onReset={reset} previewUrl={image} /></Suspense>
-      : <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={opacity} /></Suspense>}
+    {imageFailed ? <p className="adm-state adm-state-err" role="alert">{C.previewFailed}</p> : !image ? <p className="adm-state"><LoadingStatus size="surface">{C.previewLoading}</LoadingStatus></p>
+      : pairing ? <Suspense fallback={<p className="adm-state"><LoadingStatus size="surface">{C.loading}</LoadingStatus></p>}><Pairing item={item} pairs={pairs} onPairs={setPairs} onDone={() => setManual(false)} onReset={reset} previewUrl={image} /></Suspense>
+      : <Suspense fallback={<p className="adm-state"><LoadingStatus size="surface">{C.loading}</LoadingStatus></p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={opacity} /></Suspense>}
     </div>
     {/* the slider moves the overlay, so it only exists while there IS one */}
     {image && !imageFailed && !pairing && <div className="adm-align-settings"><span>{C.opacity}</span><Slider value={opacity} onChange={setOpacity} ariaLabel={C.opacity} valueText={`${opacity} %`} /><span className="adm-align-number">{opacity} %</span></div>}

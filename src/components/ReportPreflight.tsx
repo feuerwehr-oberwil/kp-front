@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
@@ -1262,11 +1263,28 @@ export function ReportPreflight({
   const warnCount = (missTx > 0 ? 1 : 0) + (pendingMediaCount > 0 ? 1 : 0) + (proof.intact === false ? 1 : 0)
     + (unresolvedNames.length > 0 ? 1 : 0)
   const [controlOpen, setControlOpen] = useState(false)
-
-  // ⚠️ Used ONLY to decide whether the Kroki panel is mounted (see the section itself) — the
-  // tabs themselves are pure CSS, because a layout that depends on a JS breakpoint and one that
-  // depends on a media query drift apart on exactly the widths nobody tests.
   const isPhone = useIsPhone()
+  useEffect(() => {
+    if (!controlOpen || !isPhone) return
+    let frame = 0
+    const measure = () => {
+      const popup = document.querySelector<HTMLElement>('.rp-control')
+      const entry = document.querySelector('.fab-entry')
+      if (!popup || !entry) return
+      popup.style.setProperty('--rp-control-room', `${Math.max(44, entry.getBoundingClientRect().top - popup.getBoundingClientRect().top - 8)}px`)
+    }
+    frame = requestAnimationFrame(measure)
+    window.addEventListener('resize', measure)
+    window.visualViewport?.addEventListener('resize', measure)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', measure)
+      window.visualViewport?.removeEventListener('resize', measure)
+    }
+  }, [controlOpen, isPhone])
+
+
+  // The tabs themselves are pure CSS; `isPhone` also controls the Kroki panel's mounting.
   // The phone's three tabs (see PhoneTab). Seeded from the box that also carries the scroll
   // position, so a hop to Anwesenheit and back returns to the tab it left from; a fresh Einsatz
   // opens on «Bericht», which is the first section of the printed rapport.
@@ -1564,7 +1582,7 @@ export function ReportPreflight({
                 onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
                 title={printStatus.online ? R.online : R.offline}>
                 <span className="print-send-main">
-                  <Icon id="printer" />
+                  {printBusy ? <ShellLoader /> : <Icon id="printer" />}
                   <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
                   <span className="rp-btn-label fold-long">{printBusy ? R.sending : R.send}</span>
                 </span>
@@ -1583,10 +1601,13 @@ export function ReportPreflight({
                 (`.rp-btn-short`); the tablet keeps its full label. Same two doors as before. */}
             <span className="rp-split">
               <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.pdf} disabled={pdfBusy} onClick={() => void startOutput('pdf')}
-                aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
-                {pdfBusy ? <Icon id="rotate" className="spin" /> : <Icon id="doc" className="rp-pdf-glyph fold-long" />}
-                <span className="rp-btn-label fold-long">{pdfBusy ? P.pdfBusy : P.pdfFull}</span>
-                {!pdfBusy && <span className="rp-btn-short fold-short">{P.pdfShort}</span>}
+                aria-busy={pdfBusy || undefined} aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
+                {pdfBusy ? <span className="fold-long"><ShellLoader /></span> : <Icon id="doc" className="rp-pdf-glyph fold-long" />}
+                <span className="rp-btn-label fold-long">{P.pdfFull}</span>
+                <span className="rp-btn-short rp-pdf-short fold-short">
+                  <span style={{ visibility: pdfBusy ? 'hidden' : undefined }}>{P.pdfShort}</span>
+                  {pdfBusy && <span className="rp-pdf-wait"><ShellLoader /></span>}
+                </span>
               </button>
               <Menu
                 trigger={

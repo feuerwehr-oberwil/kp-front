@@ -624,3 +624,24 @@ describe('JournalComposer · swiping the suggestion band', () => {
     expect(row.className).toContain('jc-phrases')
   })
 })
+
+
+describe('the mobile composer caret', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it('keeps the sentence focused through Pendenz and relative-time picks', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
+    setup()
+    const field = screen.getByRole('textbox')
+    fireEvent.change(field, { target: { value: 'EL meldet' } })
+    field.focus()
+    fireEvent.mouseDown(ring())
+    fireEvent.click(ring())
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Neue Pendenz$/ }))
+    await waitFor(() => expect(document.activeElement).toBe(field))
+    const due = document.querySelector('.jc-due-btn')!
+    fireEvent.mouseDown(due)
+    fireEvent.click(due)
+    fireEvent.click(await screen.findByRole('menuitem', { name: /in 5 min/i }))
+    await waitFor(() => expect(document.activeElement).toBe(field))
+  })
+})

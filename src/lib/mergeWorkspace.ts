@@ -23,8 +23,8 @@ import { landedClaims, resolveTruppNumbers, unwindUnlanded, type NumberScope } f
 import type { TruppTrail } from './truppTrails'
 import type { BoardDoc, Drawing, Entity, Trupp } from '../types'
 import type { InitialState, Saved } from './workspace'
-import { unionCrewFiled } from './crewFiling'
 import { jsonEqual } from './jsonEqual'
+import { unionCrewFiled } from './crewFiling'
 
 type Id = string
 interface HasId {

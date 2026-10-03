@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { Icon, PrinterFeedIcon } from './icons'
+import { Icon } from './icons'
+import { ShellLoader } from '../components/ShellLoader'
 import { appConfig } from '../config/appConfig'
 import { ConfirmCard, type ConfirmSpec } from './overlays/ConfirmCard'
 import { Overlay } from './overlays'
@@ -241,7 +242,8 @@ function ToastSteps({ steps, text }: { steps: ToastStep[]; text: string }) {
           <Fragment key={s.label}>
             {i > 0 && <span className="toast-chev"><Icon id="chevron" /></span>}
             <span className={`toast-step ${s.state}`}>
-              {s.icon === 'printer' ? <PrinterFeedIcon /> : s.icon ? <Icon id={s.icon} /> : <span className="toast-pip" />}
+              {s.state === 'now' && s.icon !== 'check' && s.icon !== 'warn'
+                ? <ShellLoader /> : s.icon ? <Icon id={s.icon} /> : <span className="toast-pip" />}
               <span className="toast-step-label">{s.label}</span>
             </span>
           </Fragment>
@@ -254,8 +256,8 @@ function ToastSteps({ steps, text }: { steps: ToastStep[]; text: string }) {
 /** The success toast's tick, drawn in once (~250ms stroke draw, 08-toasts.css) instead of
  * popping on statically — the toast pill's small cousin of the sync glyph's closing tick
  * (components/SyncGlyph). Written out rather than `<Icon id="check"/>` because a CSS animation
- * on a path inside a `<use>` shadow tree is not reliably applied (same reason as
- * PrinterFeedIcon). Same geometry and box as the sprite's #check, so nothing shifts. */
+ * on a path inside a `<use>` shadow tree is not reliably applied.
+ * Same geometry and box as the sprite's #check, so nothing shifts. */
 function ToastCheck() {
   return (
     <svg className="i toast-check" viewBox="0 0 24 24" aria-hidden>

@@ -23,6 +23,7 @@ import { applyLocale } from './config/copy'
 import { ensureErg } from './lib/erg'
 import { ensureUnHazard } from './lib/unHazard'
 import { whenIdle } from './lib/idle'
+import { waitForSnailArrival } from './lib/snailLaunch'
 
 // zoom applies only to the map/plan, not the UI chrome (app feel, not a web page)
 lockChromeZoom()
@@ -175,6 +176,9 @@ void (async () => {
   // /terminal is the enrolled Stations-Terminal — a standing link session without a token in
   // the address (its credential is a device cookie), routed through the same link chunk.
   const isLink = window.location.pathname.startsWith('/l/') || window.location.pathname === '/terminal'
+  // Finish the static cover's 630 ms arrival before replacing it, even on a warm launch.
+  // React Splash continues the same clock; a long boot has already finished this entrance.
+  await waitForSnailArrival()
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       {/* Root boundary: login, landing list, overlays, and the admin app used to sit

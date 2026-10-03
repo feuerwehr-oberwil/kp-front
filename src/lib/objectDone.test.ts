@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import { applyBoardToObjects, applyDocToObjects, bakeGeoBody, sheetAnnos, viewsOf, type TacticalObject } from './tacticalObjects'
 import {
-  canBeDone, doneAct, doneBadge, doneFirst, doneName, doneOf, donePlace, doneRowText, doneStateText, doneStatusText, doneWord,
-  isFireFamily, markDone, reopenedRowText,
+  canBeDone, doneAct, doneBadge, doneName, doneOf, donePlace, doneRowText, doneStateText, doneStatusText, doneWord,
+  isFireFamily, markDone, offersDone, reopenedRowText,
 } from './objectDone'
 import { symbolLegendText } from './symbols'
 import { krokiEntity } from './krokiPayload'
@@ -59,13 +59,16 @@ describe('the words — one key, a family switch', () => {
     expect(doneBadge({ done: { at: 'x' } })).toBeNull()
   })
 
-  it('offers the row FIRST only where «done» is the next act — damage and hazard, never a KP Front', () => {
-    expect(doneFirst('VKF Feuer', undefined)).toBe(true) // the fire family, whatever the catalogue says
-    expect(doneFirst('VKF Rettungen', 'Schadenlage')).toBe(true)
-    expect(doneFirst('FW Gefahr G', 'Gefahren')).toBe(true)
-    expect(doneFirst('VKF KP Front', 'Führung')).toBe(false)
-    expect(doneFirst('VKF Fahrzeug', 'Fahrzeuge / Mittel')).toBe(false)
-    expect(doneFirst('SI Ueberflurhydrant', undefined)).toBe(false)
+  // owner's sign-off on #226 (26.09.2026): «only support this for some types. we don't need
+  // "erledigt" for cars»
+  it('offers «Gelöscht / erledigt» only for damage and hazard — never a Fahrzeug, a KP, a Hydrant', () => {
+    expect(offersDone('VKF Feuer', undefined)).toBe(true) // the fire family, whatever the catalogue says
+    expect(offersDone('VKF Rauch', 'Schadenlage')).toBe(true)
+    expect(offersDone('VKF Rettungen', 'Schadenlage')).toBe(true)
+    expect(offersDone('FW Gefahr G', 'Gefahren')).toBe(true)
+    expect(offersDone('VKF KP Front', 'Führung')).toBe(false)
+    expect(offersDone('VKF Fahrzeug', 'Fahrzeuge / Mittel')).toBe(false)
+    expect(offersDone('SI Ueberflurhydrant', 'Wasser')).toBe(false)
   })
 
   it('stamps who, when known, and only symbols can be done', () => {
@@ -190,6 +193,13 @@ describe('doneAct — the one act both surfaces perform (IncidentWorkspace · se
     expect(act.done).toBeUndefined()
     expect(act.text).toBe('Feuer EG wieder aktiv')
     for (const [, payload] of act.events) expect(payload.patch).toEqual({ done: null })
+  })
+
+  it('never MARKS a vehicle — but an older `done` on one can still be reopened', () => {
+    const car = { id: 'v1', kind: 'symbol', symbol: 'VKF Fahrzeug', label: 'TLF' }
+    expect(doneAct(car, true, { atIso: AT, place: '', cat: 'Fahrzeuge / Mittel' })).toBeNull()
+    const reopened = doneAct({ ...car, done: { at: AT } }, false, { atIso: AT, place: '', cat: 'Fahrzeuge / Mittel' })
+    expect(reopened?.text).toBe('TLF wieder aktiv')
   })
 
   it('does nothing twice, and nothing for what is not a symbol', () => {

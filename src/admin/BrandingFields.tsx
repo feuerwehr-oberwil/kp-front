@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { useRef, useState } from 'react'
 import { apiUpload, apiDelete, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
@@ -91,7 +92,7 @@ function BrandingSlot({ slot, label, hint, url, accept = ACCEPT, onApplied }: {
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void onPick(f) }}
         />
         <button type="button" className="btn adm-int-btn" disabled={busy} onClick={() => inputRef.current?.click()}>
-          {busy ? C.uploading : C.upload}
+          {busy && <ShellLoader />}{busy ? C.uploading : C.upload}
         </button>
         {url && (
           <ConfirmButton label={C.remove} question={C.removeConfirm} disabled={busy}

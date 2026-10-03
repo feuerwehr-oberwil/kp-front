@@ -626,6 +626,7 @@
   font: 600 12.5px var(--body); color: var(--ink-faint); }
 .stepRow svg { width: 15px; height: 15px; flex: none; color: var(--green-strong); }
 .stepNow { color: var(--ink); font-weight: 700; }
+.stepNow svg { color: var(--ink); }
 .stepDone { color: var(--ink-dim); }
 .stepDot { flex: none; width: 7px; height: 7px; margin: 0 4px;
   border-radius: 50%; background: color-mix(in srgb, var(--ink) 18%, transparent); }
@@ -633,14 +634,6 @@
   background: color-mix(in srgb, var(--blue) 14%, transparent); overflow: hidden; }
 .stepBar > span { display: block; height: 100%; border-radius: var(--r-pill);
   background: var(--blue); transition: width .35s var(--ease); }
-.chooserSpin {
-  flex: none; width: 15px; height: 15px; border-radius: 50%; box-sizing: border-box;
-  border: 2.5px solid color-mix(in srgb, var(--blue) 25%, transparent); border-top-color: var(--blue);
-  animation: georefSpin .9s linear infinite;
-}
-@keyframes georefSpin { to { transform: rotate(360deg); } }
-/* a still ring is fine — the busy line beside it carries the message */
-@media (prefers-reduced-motion: reduce) { .chooserSpin { animation: none; } }
 
 /* ✥ / ⟳ — the SelectionBar's grip colours verbatim (11-measure.css · .sel-bar-act):
    resting solid --blue, armed --ink-fill with the blue ring drawn OUTSIDE the button */

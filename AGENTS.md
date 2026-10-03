@@ -44,6 +44,12 @@ pnpm test    # vitest
 pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when you fix some, never raise it
 ```
 
+**Large / long incidents** (26.09.2026): `pnpm bench` times the pure hot paths and `just fat-perf
+[preset …]` plays a synthetic fat incident (`src/lib/fatIncident.ts`) into a throwaway backend and
+opens it on a CPU-throttled browser. Measurements, not gates. Run them when you change the save
+path, the Karte's rendering, the Verlauf or the Replay, and compare against the recorded run in
+[`docs/testing/fat-incident.md`](docs/testing/fat-incident.md).
+
 **Sourcemaps are hidden** (24.09.2026): `build.sourcemap: 'hidden'` writes a `.map` beside every
 chunk. No bundle references it, and the service worker's precache excludes `*.map`.
 `scripts/check-sourcemaps.mjs` checks all of this in CI. Never switch to `true`, and never
@@ -65,6 +71,29 @@ to prod.
 
 ## Architecture & conventions
 
+- **The loading mascot has one source.** `public/firefighter-snail-loader.svg` owns its paths,
+  motion, station-accent shell/hose, sizing and reduced-motion rule. `SnailLoader` imports it
+  as trusted raw markup with unique ids per instance; Vite's `inlineSnailLoader` inserts it at
+  `index.html`'s `kp:snail-loader` marker so the static boot screen paints without fetching an
+  asset. Keep both stages at the same size; never replace the boot markup with an external image.
+  The boot cover paints immediately and stays through the SVG's 630 ms skid arrival, even on
+  a cached launch (`lib/snailLaunch`). React launch loading stages continue that animation clock.
+  Do not replay the arrival at each loading stage or add a fade that hides it.
+  Reduced motion skips both motion and the minimum hold.
+  In-workspace activity uses `ShellLoader` / `LoadingStatus` (01.10.2026): the compact
+  Shell trail draws the SVG's `fs-shell-trail` spiral in inherited ink, with a 2.4 s loop
+  and a static reduced-motion state. Keep the path in the mascot SVG, never copy its geometry.
+  Use the decorative loader inside busy actions, or `LoadingStatus` beside existing loading
+  copy. Do not add artificial minimum waits for in-app activity.
+  `SnailLoader` keeps ONE `{ __html }` object per instance: React 19 rewrites `innerHTML` for a
+  new object even with the same string, which re-inserts the SVG and restarts its animations, so
+  every re-render of a loading stage replayed the arrival.
+  **An Einsatz opens behind the snail** (01.10.2026, `lib/bootCover`): a genuine open (App ·
+  `coverId`, never a background remount or a re-select of the Einsatz on screen) keeps the
+  pre-app Splash portalled over the whole workspace until the symbol pack, the framed Karte's
+  first `idle`, the rail's plan tiles and the weather are in, capped at 8 s (below Splash's
+  STUCK_MS), then fades it out. The launcher waits for the boot's pick (`bootDecided`): the list
+  watch can fill the list first.
 - **Operational browser state lives in IndexedDB, not localStorage.** `src/lib/idb.ts` is the
   storage layer (localStorage only as its degradation fallback), `src/lib/storageMigration.ts`
   moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
@@ -886,11 +915,13 @@ to prod.
     `lib/objectDone`). «Gelöscht / erledigt», a row of the symbol's editor sheet, sets
     `done {at, by?}` — a SymbolProps prop, so both bodies share it and every write-through and bake
     carries it (never `BAKE_PRESERVED`: that list would re-add a cleared value from the map body).
-    ⚠️ The row is FIRST only where «done» is the next act — the damage and hazard categories
-    (`appConfig.symbols.doneFirstCategories`) and the fire family (`objectDone · doneFirst`, decided
-    by the PACK's category, never the editable subtitle); every other symbol has it near the bottom,
-    above «Entfernen». An editor opens by itself after placing, and a reflex tap on the first row
-    greyed a brand-new KP Front (3am walk-through, 25.09.2026).
+    ⚠️ It is offered ONLY where being over means something — the damage and hazard categories
+    (`appConfig.symbols.doneCategories`: Schadenlage, Gefahren) and the fire family
+    (`objectDone · offersDone`, decided by the PACK's category, never the editable subtitle); there
+    it is the editor's first row. A Fahrzeug, a KP Front, a Hydrant, an Einsatzmittel never gets
+    it (owner's sign-off, 26.09.2026: «we don't need "erledigt" for cars»). A `done` already on
+    another symbol (an older record) keeps rendering and can be reopened, never newly set
+    (`doneAct` refuses).
     The symbol stays, greyed with its HH:MM top-left, by ONE rule on the Karte, the Plan and the
     Gebäude (`TacticalSymbol` · `.ts-done`, the `--done-*` tokens) and on paper (`kroki ·
     _place_symbol`, `DONE_ALPHA`). «Wieder aktiv» clears it; both are ordinary undoable prop edits,
@@ -1105,6 +1136,11 @@ to prod.
   tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a tablet tap
   model don't map cleanly to Base UI Select/Tooltip); the admin `Select` stays hand-rolled too,
   keyboard-driven and unportalled.
+  **Mobile modal scrolling** (01.10.2026): `useMobileScrollLock` prevents background touch
+  scrolling and edge chaining while `Sheet` / `Overlay` is open, without making portalled
+  pickers inert. Inner vertical lists and the composer's native horizontal suggestions keep
+  their gestures. The composer's mobile Pendenz / time menus retain the sentence's caret for
+  pointer picks (`Menu · keepFocusRef`); keyboard navigation still moves focus into the menu.
   Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - **One gesture closes one thing.** A dropdown open INSIDE a dialog closes first and alone — the
     first Esc / the first outside tap is the menu's, the second is the sheet's. Every transient
@@ -1491,13 +1527,20 @@ to prod.
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
     the Einsatzuhr menu, the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
-    **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the ARMED material and nothing
+    **On tablet/desktop, dark in both themes (`--ink-fill` + `--on-accent-ink`) is the ARMED material and nothing
     else**: a tool dock (`.wb-dock` — something is armed, its ✕ disarms) and the Trupp marker's
     action bar (`.wb-pill-acts` — this marker is in hand). It is the «clean selected state» of a
     mode, so a list you read or a menu you pick from never wears it; a new surface that is dark
     by day is a mode, or it is a bug. On a light-by-day card the ✕ is the global `.ip-x` and the
     primary is `--btn-primary`; the on-ink ✕ (`.wb-dock-x`) and the light-fill primary
     (`.wb-dock-go`) belong to the armed material only.
+    **Mobile tool docks use the popup material** (01.10.2026): Messen and every tool-option
+    dock wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
+    Their controls share a neutral fill and selected wash, with a centred row; the line dock
+    has no subtitle on mobile (its instructions stay behind ⓘ).
+    The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
+    The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
+    Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.
   - *Height is a separate axis* – `--tap` (44px) by default, 48–50px for a card's main action.
     The 12 type combos happened because people enlarged the *label* when they wanted a bigger
     *target*; raise the height, not the font.
@@ -1792,6 +1835,14 @@ to prod.
     phone per tab, `13-incident.css`), the Checkliste on a phone; the Rapport's two-column layout
     (1080+) keeps its cards, which face each other across the page. Rows in a list (Material,
     Anwesenheit, checklist items) are not sections and stay rows.
+  - *Mobile space and positioning* (01.10.2026): the Zeitplan's empty-grid ⓘ shares its clock
+    header instead of reserving a footer row, using the header's surface and control edge.
+    The Rapport's «noch offen» popup hugs its content, with only its maximum height bounded to
+    one gap above Eintrag. «Anderes Objekt» has a bounded scrolling list above its map (36dvh,
+    capped at 300px) and shows
+    the device's position; while typing, the map yields its space to the results. The opened
+    Trupp is parked again when «Im Einsatz» moves it to another section, by scrolling its own
+    port. The mobile Einsatz form answers «Übung?» with «Nein | Ja»; wider forms keep «Aus | An».
   - *The Zeitplan's zoom lives in the grid's corner on a phone* (30.09.2026, owner: «the +/- 12h
     thing … uses up a lot of vertical space»): on a phone it stands in the clock row's empty
     corner over the names (`ZeitplanView · zoom`, the row grows to a lane's 44px and the hours sit
@@ -1981,8 +2032,11 @@ to prod.
     merged as a union, kept by every undo restore) records who was filed or already there, so a
     person somebody takes OFF the Anwesenheit is never written back by another device (the
     ghost-trail trap). «Entfernen» on a crew INSIDE asks first («Raus melden» focused), and
-    every removal raises the confirm-with-undo toast. «Nicht eingesetzt» is a row of the ⋮, never
-    the button beside «Im Einsatz», and its log row reads «Nicht eingesetzt», never «Austritt».
+    every removal raises the confirm-with-undo toast. «Nicht eingesetzt» is a VISIBLE quiet button
+    on its own row — never beside «Im Einsatz», not hidden in the ⋮ (owner review 26.09.2026) —
+    answered by a confirm-with-undo toast, and its log row reads «Nicht eingesetzt», never
+    «Austritt». A question dialog of the Tafel has a TITLE that states the fact, at most one short
+    body line, and the verbs on its buttons (recognition over reading, same review).
     No «#N» on the row or the card (30.09.2026, owner: «the group leader name needs more space …
     drop the number #»): the leader's name is the label, a step larger (17.5px, 16.5 ≤ 760px) with
     12px to the clock; the number stays in the TruppFinder and the Verlauf. The handed-over phone board opens on the most
@@ -2018,8 +2072,8 @@ to prod.
     strip portals into the open Einsatz's `.app` (`lib/meldeleisteHost`, staging r5 N3), because
     `.app` is its own stacking context and from App root the strip outranked all of it.
   - *Merges compare JSON, not key order* (staging r3 F11): the server's JSONB re-sorts keys, so
-    `mergeWorkspace · eq` ignores key order (`lib/jsonEqual`, see «Key order is never a change»);
-    an Anwesenheit divergence is reported only when the sides differ in more than `noteAt`.
+    `mergeWorkspace · eq` ignores key order; an Anwesenheit divergence is reported only when the
+    sides differ in more than `noteAt`.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for

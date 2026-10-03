@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 /** The PLAN half of «Karte verknüpfen» — crosses, tap capture, loupe, popover and mode panel.
  *
  *  The map half lives in GeorefMapLayer (inside MapView); the state both sides share lives in
@@ -583,7 +584,7 @@ export function GeorefLinkChooser({ busyStep, onAuto, onManual, onClose }: {
           <div className={s.chooserBusy} role="status">
             {steps.map((st, i) => (
               <span key={st.id} className={`${s.stepRow} ${i < at ? s.stepDone : i === at ? s.stepNow : ''}`}>
-                {i < at ? <Icon id="check" /> : i === at ? <span className={s.chooserSpin} aria-hidden /> : <span className={s.stepDot} aria-hidden />}
+                {i < at ? <Icon id="check" /> : i === at ? <ShellLoader /> : <span className={s.stepDot} aria-hidden />}
                 {st.label}
               </span>
             ))}

@@ -1,3 +1,4 @@
+import { ShellLoader } from '../ShellLoader'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { initials, roleLabel, fillTemplate, fmtSpanShort } from '../../lib/format'
@@ -21,7 +22,7 @@ function fmtClock(ms: number): string {
   }
 }
 
-// (the SyncGlyph — the spinning-arc-closes-into-tick vocabulary this button speaks — now lives
+// (the SyncGlyph — the shared activity and completion vocabulary — now lives
 // in ../SyncGlyph, shared with the Offline-Bereitschaft load and the Anwesenheit reload)
 
 // --- TopBar switcher ----------------------------------------------------------------
@@ -89,8 +90,8 @@ export function IncidentSwitcher({
   const [applyingUpdate, setApplyingUpdate] = useState(false)
   useEffect(() => onUpdateAvailable(setUpdateWaiting), [])
   const updateReady = updateWaiting && canApplyInPlace(getInstallPlatform())
-  // «Jetzt synchronisieren» reports what it did on the button itself: the ring spins for the
-  // round trip, then closes and draws a tick. Success needs no words — a toast for «alles
+  // «Jetzt synchronisieren» reports what it did on the button itself: Shell trail runs for the
+  // round trip, then gives way to a tick. Success needs no words — a toast for «alles
   // synchronisiert» was a sentence to read for the most boring outcome there is. Offline and
   // failure still get one, because those change what the operator should do next.
   const [syncPhase, setSyncPhase] = useState<'idle' | 'busy' | 'done'>('idle')
@@ -173,8 +174,8 @@ export function IncidentSwitcher({
    * «Jetzt synchronisieren» — always offered, not only on offline/error: it forces a push AND an
    * immediate pull, the "make everything fresh right now" action when things feel stale. It has
    * to LOOK like it ran, because on an already-synced Einsatz — the normal case — the status
-   * says the same thing before and after the tap; so the ring spins for the round trip and then
-   * closes into a tick on the button itself.
+   * says the same thing before and after the tap; so Shell trail runs for the round trip and then
+   * gives way to a tick on the button itself.
    *
    * It sits in the CARD's title row, at the Einsatzname's right edge: the action belongs to that
    * one Einsatz, so it belongs to the line that names it — not to the app's own header bar
@@ -389,7 +390,7 @@ export function IncidentSwitcher({
             {updateReady && (
               <button className="ip-menu-update" disabled={applyingUpdate}
                 onClick={() => { setApplyingUpdate(true); void applyUpdateNow() }}>
-                <Icon id="rotate" className={applyingUpdate ? 'spin' : undefined} />
+                {applyingUpdate ? <ShellLoader /> : <Icon id="rotate" />}
                 {applyingUpdate ? cu.applying : cu.apply}
               </button>
             )}

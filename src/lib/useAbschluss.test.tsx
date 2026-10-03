@@ -147,6 +147,8 @@ describe('useAbschluss', () => {
       })
       expect(standDownTrupps).toHaveBeenCalledWith(['t6'])
       expect(order).toEqual(['ask registered', 'ask abschluss', 'stand down', 'complete'])
+      // every question of the chain carries a title (owner review 26.09.2026)
+      expect(ask.mock.calls.map((c) => c[0].title)).toEqual([A.registeredTitle, A.confirmTitle])
     })
 
     it('«schliessen», then «Abbrechen» on the Abschluss, stands NOTHING down', async () => {

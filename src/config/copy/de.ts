@@ -27,6 +27,7 @@ export type HelpBlock =
 export interface HelpSection { id: string; title: string; icon: string; blocks: HelpBlock[]; only?: HelpOnly }
 
 export const de = {
+  loading: 'Wird geladen …',
   loadingSubtitle: 'Karte & Symbolbibliothek werden geladen …',
   // ⚠️ «Trupps», nicht «Atemschutz» (04.09.). Die Fläche führt seit 03.09. BEIDE Arten Trupp — die
   // Atemschutztrupps oben, die Arbeitstrupps darunter (atemschutz.sectionPlain) —, und ein Bereich,
@@ -970,6 +971,8 @@ export const de = {
     // Übungen stay fully operable, but do not feed the statistics and are the only ones
     // that can be deleted (Alle Einsätze)
     // an OnOff row since 28.09.2026: the name on the row, the consequence under it
+    exerciseNo: 'Nein',
+    exerciseYes: 'Ja',
     exerciseLabel: 'Übung',
     exerciseSub: 'Zählt nicht zur Einsatzstatistik',
     // «Hier» moves the Einsatzort to the device's location. On a running Einsatz it always asks
@@ -2471,8 +2474,11 @@ export const de = {
     // die fälligen Trupps über dem Anmelde-Sheet (Bereichsname für Screenreader)
     pinnedLabel: 'Fällige Trupps',
     // Kontakt, den ein ANDERES Gerät vor weniger als 60 s schon bestätigt hat (lib/contactEcho)
-    contactEchoMsg: '{name}: Kontakt wurde vor {s} s schon bestätigt (anderes Gerät).',
-    contactEchoAgain: 'Nochmals',
+    // Titel = die Tatsache, eine Zeile = wer und wann, die Verben auf den Knöpfen (Review 26.09.2026)
+    contactEchoTitle: 'Kontakt schon bestätigt',
+    contactEchoWho: 'Trupp {n}',
+    contactEchoMsg: '{name} · vor {s} s auf einem anderen Gerät',
+    contactEchoAgain: 'Nochmals bestätigen',
     contactEchoOk: 'OK',
     /* ── Staging-Durchgang 25.09.2026 ── */
     // Bearbeiten als Patch: ein Feld, das inzwischen ein anderes Gerät geändert hat
@@ -2490,6 +2496,8 @@ export const de = {
     /* ── Staging-Durchgang 2, 25.09.2026 ── */
     // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, AGENTS.md)
     removedToast: 'Trupp {name} entfernt',
+    // «Nicht eingesetzt» vom sichtbaren Knopf der Karte – mit Rückgängig (Review 26.09.2026)
+    notDeployedToast: 'Trupp {name}: nicht eingesetzt',
     // «Entfernen» auf einem Trupp, der DRIN ist: zuerst fragen, «Raus melden» ist die sichere Antwort
     removeInsideTitle: 'Trupp {name} ist drin – erst rausmelden?',
     removeInsideMsg: 'Entfernen nimmt den Trupp von der Tafel und aus jedem Alarm. Meist ist gemeint: Der Trupp ist draussen.',
@@ -2497,16 +2505,14 @@ export const de = {
     actEnterFirst: 'In den Einsatz',
     contactDone: 'Bestätigt',
     // Eingangsdruck eines Trupps, der schon raus ist: gesperrt (Punkt 2)
-    pressureLockedLabel: 'Eingangsdruck ({t})',
     pressureLockedLabelPlain: 'Eingangsdruck',
     pressureLocked: 'Trupp ist raus',
-    pressureLockedExit: 'Restdruck beim Austritt ({t}): {bar} bar',
-    pressureLockedHint: 'Nach dem Austritt gesperrt. Eine Korrektur gehört als Eintrag in den Verlauf.',
+    pressureLockedWhyExit: 'Trupp ist raus · Restdruck {bar} bar',
     // …und die EINE Plausibilitätsfrage: ein Eingangsdruck unter dem Stationsminimum
     // (doctrine.entryPressureMin). Die Zahl steht auf dem Knopf.
-    entryLowMsg: '{bar} bar ist für einen Eintritt tief (Station: ab {min}). Stimmt das, meldet der Trupp gleich einen Alarm bei ≤{alarm}.',
-    entryLowMsgNoAlarm: '{bar} bar ist für einen Eintritt tief (Station: ab {min}).',
-    entryLowConfirm: '{bar} bestätigen',
+    entryLowTitle: 'Eingangsdruck tief',
+    entryLowMsg: '{bar} bar – üblich ab {min} bar',
+    entryLowConfirm: '{bar} bar übernehmen',
     entryLowChange: 'Ändern',
     bottleAsk: 'Vor {min} min raus, zuletzt {bar} bar. Welche Flasche?',
     bottleAskNow: 'Gerade raus, zuletzt {bar} bar. Welche Flasche?',
@@ -4348,6 +4354,7 @@ export const de = {
     registeredMany: '{n} Trupps noch angemeldet ({list}).',
     registeredSafety: '{name}, Sicherungstrupp',
     registeredToBoard: 'Zur Tafel',
+    registeredTitle: 'Noch angemeldet',
     registeredStandDown: 'Als «nicht eingesetzt» schliessen',
     // Trupps, die beim Abschluss noch DRIN sind: eine eigene, erste Frage
     insideOne: '1 Trupp ist noch drin: {list}.',

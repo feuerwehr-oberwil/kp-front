@@ -164,6 +164,8 @@ export function useAbschluss({
     let standDown: string[] = []
     if (registered.length > 0) {
       const answer = await confirmDialog({
+        // every question of the chain carries a title (owner review 26.09.2026)
+        title: A.registeredTitle,
         message: registeredAbschlussMessage(registered),
         confirmLabel: A.registeredStandDown,
         altLabel: A.registeredToBoard,

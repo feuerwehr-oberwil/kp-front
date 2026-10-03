@@ -467,9 +467,9 @@ export function ZeitplanView({
       {nothingPlanned && (
         <div className={s.emptyNote}>
           <button type="button" className={s.emptyInfoBtn} onClick={() => setHelpOpen((v) => !v)}
-            aria-expanded={helpOpen} title={helpOpen ? Z.laneHintHide : Z.laneHintShow}>
+            aria-label={`${Z.emptyTitle} · ${Z.laneHintShow}`} aria-expanded={helpOpen} title={helpOpen ? Z.laneHintHide : Z.laneHintShow}>
             <Icon id="clock" />
-            {Z.emptyTitle}
+            <span>{Z.emptyTitle}</span>
             <Icon id="info" />
           </button>
           {helpOpen && <p className={s.legendHint}>{Z.laneHint}</p>}

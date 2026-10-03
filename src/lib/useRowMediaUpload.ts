@@ -122,8 +122,8 @@ export function useRowMediaUpload({
           'rapport', appConfig.copy.preflight.attachmentAdded,
           () => setAttachments((list) => { const cur = list.find((a) => a.id === id); if (cur) kept.row = cur; return list.filter((a) => a.id !== id) }),
           () => setAttachments((list) => (list.some((a) => a.id === id) ? list : [...list, kept.row])),
-          // a Beilage writes no Verlauf row, so neither does taking it back (D6, 26.09.2026)
           () => [recordKey('attachments', id)],
+          // a Beilage writes no Verlauf row, so neither does taking it back (D6, 26.09.2026)
           'silent',
         )
         try {

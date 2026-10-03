@@ -73,7 +73,7 @@ const propsFor = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => (
     unlinkTruppLine: noop,
     ...over,
 })
-vi.mock('../lib/useIsPhone', () => ({ useIsPhone: vi.fn(() => false) }))
+vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
 
 const mount = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => {
   const props = propsFor(over)
@@ -351,12 +351,21 @@ describe('the lifecycle row: in the order the Einsatz runs', () => {
    * (`.actions:has(> .actEnter:first-child)`), so «Einrücken» still takes the room. */
   // «Nicht eingesetzt» left the row for the ⋮ (staging r2, N8): an equal button one tap beside
   // «Im Einsatz» was a reflex away from closing the wrong way
-  it('leads the pre-entry row with «Im Einsatz» alone — the stand-down is a row of the ⋮', async () => {
-    mount({ trupps: [{ ...aktivTrupp(), status: 'angemeldet' }] })
+  /* owner review 26.09.2026: «Nicht eingesetzt» is VISIBLE again, but never beside «Im Einsatz»
+   * — its own row, a quiet secondary; the ⋮ no longer carries it */
+  it('leads the pre-entry row with «Im Einsatz» alone; «Nicht eingesetzt» stands on its own row, not in the ⋮', async () => {
+    const setTruppStatus = vi.fn()
+    mount({ trupps: [{ ...aktivTrupp(), status: 'angemeldet' }], setTruppStatus })
     const labels = [...document.querySelectorAll(`.${s.actions} .${s.actBtn}`)].map((b) => b.textContent)
     expect(labels).toEqual([az.actEnter])
+    const standDown = screen.getByRole('button', { name: az.actNotDeployed })
+    expect(standDown.closest(`.${s.standDownRow}`)).not.toBeNull()
+    expect(standDown.closest(`.${s.actions}`)).toBeNull()
+    fireEvent.click(standDown)
+    expect(setTruppStatus).toHaveBeenCalledWith('tr1', 'raus', undefined, { undoToast: true })
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
-    expect(await screen.findByRole('menuitem', { name: az.actNotDeployed })).toBeTruthy()
+    await screen.findAllByRole('menuitem')
+    expect(screen.queryByRole('menuitem', { name: az.actNotDeployed })).toBeNull()
   })
 })
 
@@ -1893,7 +1902,7 @@ describe('«Entfernen» on a never-deployed Trupp offers «nicht eingesetzt» fi
     openRemove()
     const dialog = await screen.findByRole('alertdialog')
     fireEvent.click(within(dialog).getByRole('button', { name: az.actNotDeployed }))
-    await waitFor(() => expect(setTruppStatus).toHaveBeenCalledWith('tr1', 'raus'))
+    await waitFor(() => expect(setTruppStatus).toHaveBeenCalledWith('tr1', 'raus', undefined, { undoToast: true }))
     expect(deleteTrupp).not.toHaveBeenCalled()
   })
 
@@ -2223,7 +2232,9 @@ describe('a Kontakt another device just confirmed asks first (D1 ⑧a)', () => {
     const props = mount({ trupps: [confirmedElsewhere(20)] })
     fireEvent.click(screen.getByRole('button', { name: az.actContact }))
     const ask = await screen.findByRole('alertdialog')
-    expect(within(ask).getByText(/Steiner: Kontakt wurde vor 2\d s schon bestätigt \(anderes Gerät\)\./)).toBeTruthy()
+    // a title stating the fact, one line for who and when (owner review 26.09.2026)
+    expect(within(ask).getByText(az.contactEchoTitle)).toBeTruthy()
+    expect(within(ask).getByText(/^.+ · vor 2\d s auf einem anderen Gerät$/)).toBeTruthy()
     fireEvent.click(within(ask).getByRole('button', { name: az.contactEchoOk }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(props.recordContact).not.toHaveBeenCalled()
@@ -2329,8 +2340,9 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     const editTrupp = vi.fn()
     mount({ trupps: [outWithRest()], editTrupp })
     await openEdit()
-    expect(screen.getByText(az.pressureLocked)).toBeTruthy()
-    expect(screen.getByText(new RegExp(fillTemplate(az.pressureLockedExit, { t: '.*', bar: 60 }).replace(/[()]/g, '.')))).toBeTruthy()
+    // «300 bar 🔒» and ONE hint line (owner review 26.09.2026)
+    expect(screen.getByText('300 bar')).toBeTruthy()
+    expect(screen.getByText(fillTemplate(az.pressureLockedWhyExit, { bar: 60 }))).toBeTruthy()
     expect(screen.queryByRole('button', { name: new RegExp(`^${az.editPressureLabel}`) })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: az.save }))
     expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 300 }))
@@ -2339,7 +2351,7 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
   it('stays open while the Trupp is inside', async () => {
     mount()
     await openEdit()
-    expect(screen.queryByText(az.pressureLocked)).toBeNull()
+    expect(screen.queryByText(new RegExp(az.pressureLocked))).toBeNull()
     // the row, and behind it the grid with the stored 300 as the picked answer
     fireEvent.click(pressureRow(az.editPressureLabel))
     const grid = screen.getByRole('group', { name: az.editPressureLabel })
@@ -2355,7 +2367,9 @@ describe('the Eingangsdruck is guarded (item 2)', () => {
     typePressure(180, az.pressureLabel)
     fireEvent.click(lastBtn(az.start))
     let ask = await screen.findByRole('alertdialog')
-    expect(within(ask).getByText(fillTemplate(az.entryLowMsg, { bar: 180, min: dz.entryPressureMin, alarm: dz.alarmBar }))).toBeTruthy()
+    // a title stating the fact, one line with the two numbers (owner review 26.09.2026)
+    expect(within(ask).getByText(az.entryLowTitle)).toBeTruthy()
+    expect(within(ask).getByText(fillTemplate(az.entryLowMsg, { bar: 180, min: dz.entryPressureMin }))).toBeTruthy()
     // «Ändern» goes back to the number — the Druck sheet, on 180 — and registers nothing
     fireEvent.click(within(ask).getByRole('button', { name: az.entryLowChange }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
@@ -2706,14 +2720,16 @@ describe('the opened phone card of a Trupp outside the field', () => {
     expect(tileBoxes(card)).toEqual([{ tiles: [az.actReenter] }])
   })
 
-  it.each<[string, Partial<Trupp>, string]>([
-    ['never deployed', { entryTime: '', lastContactTime: '', readings: [{ t: iso(5 * 60_000), bar: 300, kind: 'registered' }] }, az.actEnterFirst],
-    ['still waiting', { status: 'angemeldet', entryTime: '', lastContactTime: '', exitTime: undefined, readings: [] }, az.actEnter],
-    ['without Atemschutz, in the field', { status: 'aktiv', kind: 'einfach', exitTime: undefined }, az.actExitPlain],
-    ['without Atemschutz, out', { kind: 'einfach' }, az.actReenter],
-  ])('%s: one worded action row and nothing empty', (_label, over, word) => {
+  // (a Trupp still waiting also shows the quiet «Nicht eingesetzt» on its OWN row under it — #227
+  // owner review 26.09.2026: visible, but never beside «Im Einsatz»)
+  it.each<[string, Partial<Trupp>, string[]]>([
+    ['never deployed', { entryTime: '', lastContactTime: '', readings: [{ t: iso(5 * 60_000), bar: 300, kind: 'registered' }] }, [az.actEnterFirst]],
+    ['still waiting', { status: 'angemeldet', entryTime: '', lastContactTime: '', exitTime: undefined, readings: [] }, [az.actEnter, az.actNotDeployed]],
+    ['without Atemschutz, in the field', { status: 'aktiv', kind: 'einfach', exitTime: undefined }, [az.actExitPlain]],
+    ['without Atemschutz, out', { kind: 'einfach' }, [az.actReenter]],
+  ])('%s: one worded action row and nothing empty', (_label, over, words) => {
     const card = openFirstRow({ trupps: [out(over)] })
-    expect(actionWords(card)).toEqual([word])
+    expect(actionWords(card)).toEqual(words)
     for (const box of tileBoxes(card)) expect(box.tiles.length).toBeGreaterThan(0)
   })
 

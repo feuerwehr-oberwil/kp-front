@@ -1,3 +1,4 @@
+import { LoadingStatus, ShellLoader } from './ShellLoader'
 import { useEffect, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
@@ -54,7 +55,7 @@ export function PersonnelSyncDialog({ provider, onClose, onSynced }: { provider:
   return (
     <Sheet open onClose={onClose} fit title={fillTemplate(ps.title, { provider })}>
       {loading ? (
-        <p className="ip-note"><Icon id="rotate" /> {fillTemplate(ps.querying, { provider })}</p>
+        <p className="ip-note"><LoadingStatus>{fillTemplate(ps.querying, { provider })}</LoadingStatus></p>
       ) : error && !result ? (
         <p className="ip-note"><Icon id="warn" /> {error}</p>
       ) : result ? (
@@ -91,7 +92,7 @@ export function PersonnelSyncDialog({ provider, onClose, onSynced }: { provider:
           <div className="ip-actions">
             <button className="ip-btn" onClick={onClose} disabled={busy}>{appConfig.copy.cancel}</button>
             <button className="ip-btn primary" onClick={() => void run()} disabled={busy}>
-              <Icon id="rotate" />{busy ? ps.syncing : ps.sync}
+              {busy ? <ShellLoader /> : <Icon id="rotate" />}{busy ? ps.syncing : ps.sync}
             </button>
           </div>
         </>

@@ -150,7 +150,7 @@ export function AtemschutzView({
   recordContact: (id: string) => void
   recordPressure: (id: string, bar: number) => void
   /** `exitBar` = the Restdruck asked at «Raus melden» (PressureSheet); absent = without one */
-  setTruppStatus: (id: string, status: Trupp['status'], exitBar?: number) => void
+  setTruppStatus: (id: string, status: Trupp['status'], exitBar?: number, opts?: { undoToast?: boolean }) => void
   editTrupp: (id: string, f: TruppFields) => void
   /** Take one person out of the Trupp that still holds them — the «bereits in einem anderen
    *  Trupp» warning's own fix (useTruppActions · transferOutOfTrupp). `toName` is the
@@ -653,8 +653,11 @@ export function AtemschutzView({
     const t = trupps.find((x) => x.id === id)
     const ago = t ? foreignContactAgo(t, serverNow()) : null
     if (t && ago != null) {
+      /* Recognition over reading (owner review 26.09.2026): a TITLE that states the fact, one
+         short line for which crew and when, the verbs on the buttons. */
       const again = await confirmDialog({
-        message: fillTemplate(az.contactEchoMsg, { name: t.name, s: ago }),
+        title: az.contactEchoTitle,
+        message: fillTemplate(az.contactEchoMsg, { name: typeof t.no === 'number' ? fillTemplate(az.contactEchoWho, { n: t.no }) : t.name, s: ago }),
         confirmLabel: az.contactEchoAgain,
         cancelLabel: az.contactEchoOk,
         safeAnswer: 'cancel',
@@ -921,6 +924,7 @@ export function AtemschutzView({
    * scroll against. */
   const bodyRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const openRowStatus = trupps.find((t) => t.id === openRow)?.status
   useEffect(() => {
     const list = listRef.current, port = bodyRef.current
     if (!list || !port) return
@@ -948,7 +952,9 @@ export function AtemschutzView({
     let frame = 0
     const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure() }) }
     measure()
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const top = port.scrollTop + card.getBoundingClientRect().top - port.getBoundingClientRect().top
+    if (typeof port.scrollTo === 'function') port.scrollTo({ top, behavior: 'smooth' })
+    else port.scrollTop = top
     port.addEventListener('scroll', schedule, { passive: true })
     window.addEventListener('resize', schedule)
     window.visualViewport?.addEventListener('resize', schedule)
@@ -962,7 +968,7 @@ export function AtemschutzView({
       window.visualViewport?.removeEventListener('resize', schedule)
       ro?.disconnect()
     }
-  }, [compact, openRow])
+  }, [compact, openRow, openRowStatus])
 
   /* WHICH cards the current pointer marks — and which one the board scrolls to.
    *
@@ -1011,6 +1017,7 @@ export function AtemschutzView({
       focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
       onContact={(id) => { void contactTap(id) }}
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
+      onStandDown={(id) => { freezeOrder(); setTruppStatus(id, 'raus', undefined, { undoToast: true }) }}
       // the Restdruck question at «Raus melden» — every width (24.09.2026, see PressureSheet)
       onAskExit={(id) => setPressureAsk({ id, kind: 'exit' })}
       // …and the card's Druck is the same picker, on EVERY board since 29.09.2026 (the tablet's
@@ -2163,7 +2170,7 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, sucheItems,
+  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, sucheItems,
 }: {
   /** the mini sheets (26.09.2026 — components/TruppSheets): a tap on the Kanal opens the Kanal
    *  sheet, a tap on the Auftrag / Ziel / a missing Auftrag the Auftrag sheet, a tap on the crew or
@@ -2183,6 +2190,8 @@ function TruppCard({
   color?: string
   onContact: (id: string) => void
   onStatus: (id: string, status: Trupp['status']) => void
+  /** «Nicht eingesetzt» — the stand-down of a Trupp that never went in, with its undo toast */
+  onStandDown: (id: string) => void
   /** «Raus melden» asks the Restdruck first (PressureSheet) — absent = straight out, as before */
   onAskExit?: (id: string) => void
   /** the pressure tile's door: the PressureSheet (24.09.2026 on the phone, every board since
@@ -2386,7 +2395,7 @@ function TruppCard({
         altLabel: az.remove,
         altDanger: true,
       })
-      if (a === true) { onStatus(t.id, 'raus'); return }
+      if (a === true) { onStandDown(t.id); return }
       if (a !== 'alt') return
     }
     onDelete(t.id)
@@ -2433,13 +2442,8 @@ function TruppCard({
       { label: az.moveBack, onClick: () => onMove(t.id, -1) },
       { label: az.moveForward, onClick: () => onMove(t.id, 1) },
     ] : []),
-    /* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one was the
-     * bin — which throws away the one record that says a crew stood ready, on a document that is
-     * the legal account of the Einsatz. This closes it like any other Trupp: under «Draussen»,
-     * «In den Einsatz» right there. Under Atemschutz only: a Sicherungstrupp is by definition
-     * under PA. ⚠️ In the MENU since 25.09.2026 (staging N8) — it sat as an equal button one tap
-     * beside «Im Einsatz». */
-    ...(canEdit && preEntry && monitored ? [{ kind: 'sep' as const }, { label: az.actNotDeployed, onClick: () => onStatus(t.id, 'raus') }] : []),
+    /* («Nicht eingesetzt» is a visible button on its own row again — see the Aktionen zone; the
+     * ⋮ no longer carries it, owner review 26.09.2026.) */
     ...(canEdit ? [{ kind: 'sep' as const }, { label: az.remove, onClick: doDelete, danger: true }] : []),
   // ⚠️ a separator may never LEAD. On a Trupp that has come out and was never placed, every row
   // above «Entfernen» is withheld and the menu opened on a bare rule.
@@ -2608,10 +2612,19 @@ function TruppCard({
             <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
               <Icon id="flag" /><span>{az.actEnter}</span>
             </button>
-            {/* «Nicht eingesetzt» is no longer the button beside it (staging walk-through
-                25.09.2026, N8): two equal buttons side by side, one of which closes the Trupp in a
-                tap, is a reflex away from the wrong one. It is a row of the ⋮ menu now, behind the
-                same word (see `menuItems`). */}
+          </div>
+        )}
+        {/* «Nicht eingesetzt» — VISIBLE, but never beside «Im Einsatz» (owner review 26.09.2026,
+            after staging N8 had put it behind ⋮): two equal buttons side by side, one of which
+            closes the Trupp in a tap, are a reflex away from the wrong one, and hidden behind ⋮
+            nobody found it. So: its own row, a quiet secondary at the far edge, a full 44 px,
+            and the tap answers with a confirm-with-undo toast («Trupp N: nicht eingesetzt ·
+            Rückgängig»). The row it writes still says «nicht eingesetzt», never «Austritt». */}
+        {canEdit && preEntry && monitored && (
+          <div className={s.standDownRow}>
+            <button type="button" className={s.standDownBtn} onClick={() => onStandDown(t.id)}>
+              <Icon id="logout" /><span>{az.actNotDeployed}</span>
+            </button>
           </div>
         )}
         {canEdit && inField && (
@@ -3340,9 +3353,11 @@ function TruppForm({
   const lowEntryAsks = entryIsAsked && pressure !== lowConfirmed && entryPressureAsks(pressure, atemschutzDoctrine())
   const askLowEntry = async (): Promise<boolean> => {
     const dz = atemschutzDoctrine()
+    // a title stating the fact, one line with the two numbers, the value on the button (owner
+    // review 26.09.2026: the paragraph about the coming alarm was read by nobody)
     const ok = await confirmDialog({
-      message: fillTemplate(dz.alarmBar > 0 ? az.entryLowMsg : az.entryLowMsgNoAlarm,
-        { bar: pressure, min: dz.entryPressureMin, alarm: dz.alarmBar }),
+      title: az.entryLowTitle,
+      message: fillTemplate(az.entryLowMsg, { bar: pressure, min: dz.entryPressureMin }),
       confirmLabel: fillTemplate(az.entryLowConfirm, { bar: pressure }),
       cancelLabel: az.entryLowChange,
       // «Ändern» is the answer an Enter or a reflex tap gives — the value stays in the form
@@ -3443,7 +3458,6 @@ function TruppForm({
     </div>
   )
 
-  const hmOf = (iso?: string) => (iso ? fmtTime(iso) : '')
   // ⚠️ An UPGRADE asks for a FIRST Eingangsdruck, never «korrigieren» — the latter would claim the
   // Trupp already had one (04.09.). The row's word and the Druck sheet's title (the question).
   const pressureFieldLabel = mode === 'redeploy' ? az.newPressureLabel
@@ -3462,16 +3476,16 @@ function TruppForm({
   const luftFields = (
     <>
       {pressureLocked && (
+        // «300 bar 🔒» and ONE line why (owner review 26.09.2026) — the number, the lock, the Restdruck
         <div ref={pressureRef} className={s.field}>
-          <span>{initial?.entryTime ? fillTemplate(az.pressureLockedLabel, { t: hmOf(initial.entryTime) }) : az.pressureLockedLabelPlain}</span>
+          <span>{az.pressureLockedLabelPlain}</span>
           <div className={s.pressureLocked}>
             <b>{initial!.entryPressureBar} bar</b>
-            <span className={s.pressureLockedWhy}><Icon id="lock" />{az.pressureLocked}</span>
+            <Icon id="lock" className={s.pressureLockedIcon} />
           </div>
-          {lockedExit && (
-            <p className={s.pressureLockedExit}>{fillTemplate(az.pressureLockedExit, { t: hmOf(lockedExit.t), bar: lockedExit.bar })}</p>
-          )}
-          <p className={s.fieldNote}>{az.pressureLockedHint}</p>
+          <p className={s.fieldNote}>{lockedExit
+            ? fillTemplate(az.pressureLockedWhyExit, { bar: lockedExit.bar })
+            : az.pressureLocked}</p>
         </div>
       )}
       {showPressure && !pressureLocked && (

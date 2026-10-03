@@ -338,6 +338,9 @@ interface Props {
   /** a base-layer tile failed while offline — there is no cached basemap for this view. Fires
    *  per failed tile; the caller decides how often to say so (IncidentWorkspace · NoBasemapMeldung). */
   onBasemapUnavailable?: () => void
+  /** ONCE per MapView: the incident is framed and the first view has drawn everything it asked
+   *  for (tiles and sources loaded or failed). The opening cover lifts on it (lib/bootCover). */
+  onSettled?: () => void
   /** coordinate picker: while aiming the map shows a crosshair, the cursor lng/lat
    *  streams to onCursor, and the next map click locks the point via onPick. */
   /** <Marker>s the workspace draws over the tactical layer (the Suche's pins, 26.09.2026) */
@@ -434,7 +437,7 @@ export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
-    onView, onBasemapUnavailable, overlay, sucheTargets, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
+    onView, onBasemapUnavailable, onSettled, overlay, sucheTargets, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
     onSelectionDone, georefPlanRasters = [] } = props
@@ -1134,6 +1137,20 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       } catch { /* map gone */ }
     }, 0)
   }, [fitPoints, initialBearing, initialZoom, mapReady])
+
+  // The first COMPLETE frame: framed (the fit above runs in a timeout-0 scheduled before this
+  // one) and every tile and source of that view loaded or failed — MapLibre's `idle`. Before it,
+  // the basemap arrives in patches and the content sits where the initial center put it.
+  const settled = useRef(false)
+  const onSettledRef = useRef(onSettled)
+  useEffect(() => { onSettledRef.current = onSettled })
+  useEffect(() => {
+    const map = mapInst.current
+    if (!map || !mapReady || settled.current) return
+    const fire = () => { if (!settled.current) { settled.current = true; onSettledRef.current?.() } }
+    const t = setTimeout(() => { try { map.once('idle', fire) } catch { /* map gone */ } }, 0)
+    return () => { clearTimeout(t); try { map.off('idle', fire) } catch { /* map gone */ } }
+  }, [mapReady])
 
   // The point symbols (hydrant, Schieber …), the arrowheads and the Schraffur tiles are
   // registered by <MapImages> — the first child of <Map>, because an effect waiting for

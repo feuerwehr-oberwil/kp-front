@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ShellLoader } from './ShellLoader'
 import { planRegionCropUrl, planRegionUrl, type RegionCrop } from './PdfViewport'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget } from '../lib/pdfRenderBudget'
 import { regionCorners } from '../lib/stackFit'
@@ -10,6 +11,16 @@ import {
 
 /** the whole page – a footprint stack lays one sheet per storey, uncropped */
 const WHOLE: [number, number, number, number] = [0, 0, 1, 1]
+
+/** Keep the drawing's footprint while its pixels arrive; the shared trail stays upright. */
+function FloorPageWait({ matrix }: { matrix: number[] }) {
+  const [a, b, c, d, e, f] = matrix
+  const at = `matrix(${matrix.map(v => v.toFixed(4)).join(' ')})`
+  return <g aria-hidden="true">
+    <rect className="wb-floor-page-wait" width={1} height={1} transform={at} />
+    <g transform={`translate(${e + (a + c) / 2 - 10} ${f + (b + d) / 2 - 10})`}><ShellLoader /></g>
+  </g>
+}
 
 /**
  * One storey's Geschossplan under its tile on the Gebäude stack.
@@ -41,6 +52,7 @@ function RasterFloorPage({ url, corners, region = WHOLE, w, h, floors }: {
   const [crop, setCrop] = useState<RegionCrop | null>(null)
   // …and the drawing rendered ALONE at the full budget, once the zoom asks for it
   const [sharp, setSharp] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
   const asked = useRef(false)
   const alive = useRef(true)
   const [x0, y0, x1, y1] = region
@@ -60,7 +72,7 @@ function RasterFloorPage({ url, corners, region = WHOLE, w, h, floors }: {
   useEffect(() => {
     alive.current = true
     asked.current = false
-    setCrop(null); setSharp(null)
+    setCrop(null); setSharp(null); setFailed(false)
     void planRegionCropUrl(url, [x0, y0, x1, y1])
       .then((c) => { if (alive.current) setCrop(c) })
       // no bake, no yardstick: fall back to the render that always worked
@@ -75,7 +87,7 @@ function RasterFloorPage({ url, corners, region = WHOLE, w, h, floors }: {
     asked.current = true
     void planRegionUrl(url, [x0, y0, x1, y1], pageCanvasBudget(floors), FLOOR_PAGE_SIDE, () => alive.current)
       .then((u) => { if (alive.current) setSharp(u) })
-      .catch(() => { /* the crop, or the outline alone as before */ })
+      .catch(() => { if (alive.current) setFailed(true) /* keep the crop, or the outline alone */ })
   }
   const [o, px, py] = regionCorners(corners, [x0, y0, x1, y1])
   const m = [(px[0] - o[0]) * w, (px[1] - o[1]) * h, (py[0] - o[0]) * w, (py[1] - o[1]) * h, o[0] * w, o[1] * h]
@@ -92,7 +104,7 @@ function RasterFloorPage({ url, corners, region = WHOLE, w, h, floors }: {
   // the three before it – and a tile with nothing in it looks like a storey WITHOUT a plan rather
   // than one still coming (Bastian, 16.09.2026). The placeholder is the drawing's own rectangle,
   // exactly where the raster will land, so the tile does not jump when it arrives.
-  if (!src) return <rect className="wb-floor-page-wait" width={1} height={1} transform={at} />
+  if (!src) return failed ? null : <FloorPageWait matrix={m} />
   return (
     <image
       href={src}
@@ -138,7 +150,7 @@ export function FloorPage(props: FloorPageProps) {
     const [o, px, py] = regionCorners(props.corners, props.region ?? WHOLE)
     const { w, h } = props
     const m = [(px[0] - o[0]) * w, (px[1] - o[1]) * h, (py[0] - o[0]) * w, (py[1] - o[1]) * h, o[0] * w, o[1] * h]
-    return <rect className="wb-floor-page-wait" width={1} height={1} transform={`matrix(${m.map((v) => v.toFixed(4)).join(' ')})`} />
+    return <FloorPageWait matrix={m} />
   }
   if (!page || !mine?.manifest || !source) { const { onDensity: _unused, ...raster } = props; void _unused; return <RasterFloorPage {...raster} /> }
   return (

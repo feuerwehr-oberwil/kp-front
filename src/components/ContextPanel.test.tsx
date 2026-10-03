@@ -714,12 +714,12 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
   const O = appConfig.copy.objectDone
   const AT = '2026-09-23T18:40:00.000Z'
 
-  // slim sweep 27.09.2026 (D8): the press is the foot's middle tile, «Erledigt», on every symbol —
-  // it was a full-width row in the body, first on a damage symbol and last elsewhere. The 3am
+  // slim sweep 27.09.2026 (D8): the press is the foot's middle tile, «Erledigt», wherever it is offered
+  // (a damage or hazard symbol, #226) — it was a full-width row in the body. The 3am
   // walk-through of 25.09.2026 (a reflex tap on the first row greyed a fresh KP Front) holds: the
   // foot is never the first thing under the finger.
   it('offers «Erledigt» as a tile in the foot — between «Zentrieren» and the bin — and the delete is the «Entfernen» square', () => {
-    const p = setup({ onDone: vi.fn(), doneFirst: true, onCenter: vi.fn() })
+    const p = setup({ onDone: vi.fn(), onCenter: vi.fn() })
     const tile = screen.getAllByRole('button', { name: O.action })[0]
     expect(tile.closest('.ctx-actions')).toBeTruthy()
     expect(tile.title).toBe(O.actionHint)
@@ -733,14 +733,6 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
     expect(bin.classList.contains('btn-sq')).toBe(true)
     expect(bin.title).toContain(O.removeHint)
     expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
-  })
-
-  it('on any other symbol the tile is the same one, in the same place', () => {
-    setup({ onDone: vi.fn(), entity: { id: 'k1', symbol: 'VKF KP Front', label: 'KP Front' } })
-    const tile = screen.getAllByRole('button', { name: O.action })[0]
-    expect(tile.closest('.ctx-actions')).toBeTruthy()
-    // …and no row in the body any more (the phone's inline copy of the foot is not a row)
-    expect(document.querySelector('.de-action.ctx-done')).toBeNull()
   })
 
   it('states a set one — «Gelöscht 20:40 · Wieder aktiv» — and «Wieder aktiv» takes it back', () => {

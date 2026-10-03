@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { GRUNDGERUEST_HIDDEN_CAP, SYMBOL_SCALE, clampSymbolScale, grundgeruestHidden, hideGrundgeruest, initialMode, legacySymbolMul, planSymbolScale, railLabelsFor, symbolScales, type Prefs } from './prefs'
-
 // The Symbolgrösse rework: one global S/M/L pref became one multiplier PER SURFACE (Karte /
 // Module). Two things have to hold — the bands the sliders offer, and that nobody's stored
 // setting is lost on the way over.

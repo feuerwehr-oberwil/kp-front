@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -61,7 +62,7 @@ export function JournalDeliveryNotice({ status, count, refused = 0, closedRefuse
       <strong>{unsafe ? C.storageTitle : count === 1 ? C.failedTitleOne : fillTemplate(C.failedTitle, { n: count })}</strong>
       <p>{unsafe ? C.storageBody : status === 'offline' ? C.offlineBody : C.savedBody}</p>
       <div className="jr-delivery-actions">
-        <button type="button" className="ip-btn primary" disabled={busy} onClick={() => void run()}>{busy ? C.retrying : C.retry}</button>
+        <button type="button" className="ip-btn primary" disabled={busy} onClick={() => void run()}>{busy && <ShellLoader />}{busy ? C.retrying : C.retry}</button>
         <button type="button" className="ip-btn" onClick={onExport}>{C.export}</button>
       </div>
     </div>

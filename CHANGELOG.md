@@ -71,19 +71,6 @@ so this file – not the log – is the record of what shipped up to that point.
   prüfen» into the Verlauf and onto the Meldeleiste. Übungen are included; an Einsatz nobody
   has written to for 24 h stops being observed, with one Verlauf row saying so. The server fills
   only the Rapport's «vor Ort»; «zurück» (back at the depot) stays the geofence's.
-
-- **«Gelöscht / erledigt» instead of deleting a symbol.** A symbol's editor now offers
-  «Gelöscht / erledigt» – as its first row on damage and hazard symbols (Feuer, Rauch, Rettung,
-  Gefahr …), near the bottom on everything else, so a reflex tap cannot grey a fresh KP Front: the symbol stays on the Karte, the Plan and every Gebäude storey, greyed
-  and with the time in its corner, and it prints the same way on the Kroki and the Gebäude pages
-  of the Rapport, its legend line ending «gelöscht 20:40» (a Feuer) or «erledigt 20:40»
-  (everything else). «Wieder aktiv» takes it back; both are undoable and each writes one Verlauf
-  row («Feuer EG gelöscht»). Taking an object off the picture is now «Entfernen»
-  everywhere – the delete button on every object panel, its confirm, and the Verlauf row
-  («Feuer entfernt», «3 Objekte entfernt») on the Karte and on plans alike – so «gelöscht» only
-  ever means an extinguished fire; rows already written keep their wording. Removing a single
-  object on a plan finally writes that row too. On the Übung of 23.09.2026 the extinguished EG fire was deleted, and the
-  Rapport's plan no longer showed there had been a fire at all.
 - **The Suche, step 1: who is still missing, and what is abgesucht (Übung 23.09.2026).** One list
   of Personen (vermisst → gefunden → übergeben, or entwarnt; groups with a count) and Bereiche
   (every storey of the Gebäude by itself, split by names; offen · in Arbeit + Trupp · abgesucht ·
@@ -109,13 +96,13 @@ so this file – not the log – is the record of what shipped up to that point.
   where somebody was found. The Suche opens beside the Karte or plan you are on, and the rail entry
   always opens it. The Meldeleiste, the Lage-Grundgerüst card and strip, and the storey ✕ keep
   clear of the dock, the peek line and the storey's progress badge.
+  Editors only; the Einsatzleiter and viewers read. Station config: `suche.uebergabe`.
 - **The top bar collapses by priority, measured.** When a bar runs out of room, it gives up the
   weather first, then the Einsatzdauer, ↷, the spacing, the Verlauf word, the Suche's words, the
   alarm's name and the Einsatz title — one step at a time, only as far as needed. The Einsatz
   pill never shrinks below a readable width (it was 20 px at 360 px with all chips up), no chip
   is ever a bare number without its icon, and the weather stays on a 1180 px bar with an alarm
   and the Suche chip up.
-  Editors only; the Einsatzleiter and viewers read. Station config: `suche.uebergabe`.
 
 - **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the
   phone no longer hides the clocks: the form is a bottom sheet, and the due and overdue Trupps
@@ -140,8 +127,10 @@ so this file – not the log – is the record of what shipped up to that point.
   second walk-through fixed: every Gast from the Trupp form was filed twice in the Anwesenheit
   (and the Verlauf printed ids); a crew registered on the Atemschutz-Link never reached the
   Anwesenheit (an editor device now files it, once); «Entfernen» on a crew inside asks first and
-  every removal can be undone from its toast; «Nicht eingesetzt» moved into ⋮ and no longer logs
-  an «Austritt»; the Abschluss's paperwork list focuses «Zurück»; the phone board shows Trupp
+  every removal can be undone from its toast; «Nicht eingesetzt» is a quiet button on its own
+  row (no longer beside «Im Einsatz»), can be undone from its toast and no longer logs an
+  «Austritt»; the double-contact and low-Eingangsdruck questions are a title, one line and two
+  verbs; the Abschluss's paperwork list focuses «Zurück»; the phone board shows Trupp
   numbers, the Link opens on the most urgent crew inside, the Eintrag «+» no longer covers a
   crew's «Kontakt», and an edit row in the Verlauf names the whole crew. A third walk-through
   fixed: registering a Trupp with Gäste is one ↶ again (it used to undo only the crew's Funktion
@@ -156,6 +145,18 @@ so this file – not the log – is the record of what shipped up to that point.
   `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
   value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.
   *Automatic: no config change needed; the new doctrine value is optional.*
+- **«Gelöscht / erledigt» instead of deleting a symbol.** A symbol's editor now offers
+  «Gelöscht / erledigt» as its first row – on damage and hazard symbols only (Feuer, Rauch,
+  Rettung, Gefahr …), never on a Fahrzeug, a KP Front or a Hydrant: the symbol stays on the Karte, the Plan and every Gebäude storey, greyed
+  and with the time in its corner, and it prints the same way on the Kroki and the Gebäude pages
+  of the Rapport, its legend line ending «gelöscht 20:40» (a Feuer) or «erledigt 20:40»
+  (everything else). «Wieder aktiv» takes it back; both are undoable and each writes one Verlauf
+  row («Feuer EG gelöscht»). Taking an object off the picture is now «Entfernen»
+  everywhere – the delete button on every object panel, its confirm, and the Verlauf row
+  («Feuer entfernt», «3 Objekte entfernt») on the Karte and on plans alike – so «gelöscht» only
+  ever means an extinguished fire; rows already written keep their wording. Removing a single
+  object on a plan finally writes that row too. On the Übung of 23.09.2026 the extinguished EG fire was deleted, and the
+  Rapport's plan no longer showed there had been a fire at all.
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the
@@ -283,26 +284,6 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
-- **No «Failed to fetch» counter in the server log after an offline spell.** While offline, every
-  basemap tile the Karte could not load was counted as a client error. The reports themselves
-  could not leave the device, but the repeat counter did once the network was back:
-  «Failed to fetch ×N» with nothing broken behind it. A bare fetch failure while the browser says
-  it is offline is now not counted at all (`lib/reportError · isOfflineNetworkNoise`). Render
-  throws, render storms and a failure while nominally online are still reported, so the
-  post-Einsatz check reads only what broke.
-- **A Leitung coupled to a vehicle's GPS has a way back to the Einsatzort.** In the Übung on
-  23.09.2026 «Weiter folgen» was tapped for a TLF already back at its depot; the hose line traced
-  the drive (a 1.15 km spike, printed on the Rapport) and nothing remembered where it had ended on
-  site. Now the Meldung – one row per vehicle, naming its lines – says how far the vehicle is
-  («TLF fährt weg · 340 m vom Einsatzort», raised only from 100 m – a parked vehicle's GPS scatter
-  asks nothing) and leads with a green «Am Einsatzort lassen»;
-  «Weiter folgen» keeps the line as it stood (`gps.before`, ignored by older builds), and the line
-  editor, while an end follows or has stopped following, offers «Zurück auf Stand am Einsatzort
-  (hh:mm)», «Am Einsatzort lösen» and «Hier lösen (Spur behalten)» – a traced hose may be kept.
-  A vehicle back within 150 m after having been 300 m out gets the offer once more. «Zurück» and
-  a cut-back are one undo step with one Verlauf row, keep a plan-drawn hose on its sheet, and win
-  over another device's GPS poll in the sync. The printed Kroki no longer pulls a paused end to
-  wherever the vehicle is now.
 - **Three devices tapping «Neuer Trupp» at once no longer make three «Trupp 1».** Each device
   drew the next number from its own view of the Einsatz, and the merge rightly kept all three
   records under one number – on the Karte, in the Verlauf and on the Rapport. The merge now
@@ -324,6 +305,26 @@ so this file – not the log – is the record of what shipped up to that point.
   workspace refreshed every synced list on screen except Mittel, so this device kept its stale
   list and saved it back, which the merge read as a deletion. The merge now applies every synced
   field through a typed setter map, and a synced field with no setter fails `tsc`.
+- **No «Failed to fetch» counter in the server log after an offline spell.** While offline, every
+  basemap tile the Karte could not load was counted as a client error. The reports themselves
+  could not leave the device, but the repeat counter did once the network was back:
+  «Failed to fetch ×N» with nothing broken behind it. A bare fetch failure while the browser says
+  it is offline is now not counted at all (`lib/reportError · isOfflineNetworkNoise`). Render
+  throws, render storms and a failure while nominally online are still reported, so the
+  post-Einsatz check reads only what broke.
+- **A Leitung coupled to a vehicle's GPS has a way back to the Einsatzort.** In the Übung on
+  23.09.2026 «Weiter folgen» was tapped for a TLF already back at its depot; the hose line traced
+  the drive (a 1.15 km spike, printed on the Rapport) and nothing remembered where it had ended on
+  site. Now the Meldung – one row per vehicle, naming its lines – says how far the vehicle is
+  («TLF fährt weg · 340 m vom Einsatzort», raised only from 100 m – a parked vehicle's GPS scatter
+  asks nothing) and leads with a green «Am Einsatzort lassen»;
+  «Weiter folgen» keeps the line as it stood (`gps.before`, ignored by older builds), and the line
+  editor, while an end follows or has stopped following, offers «Zurück auf Stand am Einsatzort
+  (hh:mm)», «Am Einsatzort lösen» and «Hier lösen (Spur behalten)» – a traced hose may be kept.
+  A vehicle back within 150 m after having been 300 m out gets the offer once more. «Zurück» and
+  a cut-back are one undo step with one Verlauf row, keep a plan-drawn hose on its sheet, and win
+  over another device's GPS poll in the sync. The printed Kroki no longer pulls a paused end to
+  wherever the vehicle is now.
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched

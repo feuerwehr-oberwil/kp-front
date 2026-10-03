@@ -231,19 +231,7 @@
    paint above the input, so a tick starting any higher would draw ON the handle */
 .kf-at-marks i { position: absolute; top: 8px; width: 1.5px; height: 12px; margin-left: -0.75px;
   border-radius: 1px; background: var(--ink-faint); opacity: .7; }
-/* «wird rekonstruiert» as MOTION on the track it belongs to, not a sentence beside it: a thin
-   bar sweeping the slider says the same thing without a fixed text slot resizing the bar.
-   margin-top 20px = below the ticks (they end 20px past the centre), flush with the track's
-   44px (--tap) bottom edge. */
-.kf-at-prog { position: absolute; left: 0; right: 0; top: 50%; margin-top: 20px; height: 2px; border-radius: 1px;
-  overflow: hidden; opacity: 0; transition: opacity .15s ease; pointer-events: none; }
-.kf-at-track.busy .kf-at-prog { opacity: 1; }
-.kf-at-prog::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 38%; border-radius: 1px;
-  background: color-mix(in srgb, var(--blue) 85%, transparent); animation: kf-at-sweep 1.05s ease-in-out infinite; }
-@keyframes kf-at-sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(305%); } }
-@media (prefers-reduced-motion: reduce) {
-  .kf-at-prog::after { animation: none; width: 100%; opacity: .55; }
-}
+.kf-at-wait { display: grid; place-items: center; width: 20px; height: 20px; flex: none; color: var(--ink-dim); }
 .kf-at-val { flex: none; min-width: 8.5em; font: 800 13px var(--mono); color: var(--ink); }
 
 /* ============================================================

@@ -1,4 +1,6 @@
+import { ShellLoader } from './ShellLoader'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useIsPhone } from '../lib/useIsPhone'
 import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
@@ -244,6 +246,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // silent drop is precisely the failure this guard exists to end.
   const restKey = `${draftKey}:rest`
   const [rest0] = useState(() => readDraft<KeptRest>(restKey, EMPTY_REST))
+  const phone = useIsPhone()
   const textRef = useRef<HTMLTextAreaElement>(null)
   const marksRef = useRef<HTMLDivElement>(null)
   const [selection, setSelection] = useState<TextSelection>(() => ({ start: text.length, end: text.length }))
@@ -891,7 +894,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
           ? (sucheRow ? null : <div className="jc-phrases is-empty" aria-hidden />) : (
           // Keep the keyboard focused on mousedown (the chips' own onMouseDown); the row itself
           // scrolls NATIVELY — see .jc-phrases in 18-audio.css for why the hand-rolled pan went.
-          <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
+          <div className="jc-phrases" data-swipe-ignore onMouseDown={(e) => { if (phone) e.preventDefault() }} role="group" aria-label={C.quickPhrasesAria}>
             {suggestions.map((c) => (
               <button
                 key={c.label}
@@ -973,6 +976,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <button
                   key={t}
                   type="button"
+                  onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
                   className={`jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
                   aria-pressed={entryType === t}
                   // ⚠️ The WORD is the accessible name on both rungs of the ladder — the compact
@@ -1021,6 +1025,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   an open item, because a banner nobody can tick off has no answer. */}
               <span className="jc-openwrap">
               <Menu
+                keepFocusRef={phone ? textRef : undefined}
+                modal={!phone}
                 side="top"
                 align="end"
                 popupClassName="rp-print-menu jc-pendenz-menu"
@@ -1043,6 +1049,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 trigger={(
                   <button
                     type="button"
+                    onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
                     className="jc-due-btn"
                     data-on={dueAt ? '1' : undefined}
                     title={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
@@ -1058,6 +1065,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
               </span>
               <span className="jc-openwrap">
               <Menu
+                keepFocusRef={phone ? textRef : undefined}
+                modal={!phone}
                 side="top"
                 align="end"
                 popupClassName="rp-print-menu jc-pendenz-menu"
@@ -1123,6 +1132,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 trigger={(
                   <button
                     type="button"
+                    onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
                     className="jc-open"
                     data-state={noteOn ? 1 : openState}
                     title={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
@@ -1244,7 +1254,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             that must never share a row with anything else. */}
         <div className="jc-foot">
           <button className="jc-send" disabled={!canSend || uploading} onClick={submit}>
-            <Icon id="check" />{uploading ? C.audioUploading : C.send}
+            {uploading ? <ShellLoader /> : <Icon id="check" />}{uploading ? C.audioUploading : C.send}
           </button>
         </div>
       {/* «Uhrzeit …» — the one answer that is not a row in a menu. A dialog rather than a strip

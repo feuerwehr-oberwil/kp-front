@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -57,7 +58,7 @@ export function GeorefTransfer({ source, targets, onTransfer, onClose, onDone }:
               {completed.has(target.plan.id)
                 ? <span className={s.transferLinked}>{C.transferCompleted}</span>
                 : target.linked && <span className={s.transferLinked}>{C.transferLinked}</span>}
-              {busy === target.plan.id && <Icon id="rotate" className="spin" />}
+              {busy === target.plan.id && <ShellLoader />}
             </button>
           ))}
         </div>

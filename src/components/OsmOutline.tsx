@@ -10,6 +10,7 @@ import { georefFromPick, M_PER_LAT, matchStoredRings, mPerLon } from '../lib/bui
 import type { LngLat, SrcGeoref } from '../types'
 import { Icon } from '../lib/icons'
 import { RetryButton } from './RetryButton'
+import { LoadingStatus } from './ShellLoader'
 import s from './OsmOutline.module.css'
 
 // A building footprint as a normalized 0..1 ring in board space (north-up).
@@ -244,7 +245,7 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
   )
   if (!rings) return (
     <div className={s['wb-osm-hint']}>
-      <span>{copy.osmLoading}</span>
+      <LoadingStatus>{copy.osmLoading}</LoadingStatus>
       {slow && <RetryButton label={copy.osmRetry} onClick={retry} />}
     </div>
   )

@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { useState } from 'react'
 import { apiPost, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
@@ -115,7 +116,7 @@ export function PinSheet({ user, onClose, onSaved }: {
             {C.pinBack}
           </button>
           <button type="button" className="ip-btn primary" disabled={!matches || busy} onClick={() => void save()}>
-            {busy ? Cc.saving : C.pinSave}
+            {busy && <ShellLoader />}{busy ? Cc.saving : C.pinSave}
           </button>
         </>
       )}

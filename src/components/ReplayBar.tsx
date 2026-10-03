@@ -11,6 +11,7 @@ import { Icon } from '../lib/icons'
 import { fillTemplate, fmtElapsedHM, fmtSpanShort, formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import { Segmented } from './Segmented'
+import { LoadingStatus } from './ShellLoader'
 import s from './ReplayBar.module.css'
 import {
   activityMoments, findGaps, fractionAtTime, gapAt, journalMoments, layoutTrack,
@@ -278,7 +279,7 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, 
       {loadError ? (
         <div className={s['replay-empty']}>{rp.loadFailed}</div>
       ) : !bundle ? (
-        <div className={s['replay-empty']}>{rp.loading}</div>
+        <div className={s['replay-empty']}><LoadingStatus>{rp.loading}</LoadingStatus></div>
       ) : (
         <div className={s['replay-controls']}>
           {/* transport: −10 s / play-pause / +30 s, then speed, with the live clock at the end */}
