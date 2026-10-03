@@ -15,7 +15,7 @@ import { checklistItems } from '../../objectVisits/doc'
 /** dd.mm.yyyy in the station's locale */
 export function fmtDate(iso: string | null | undefined): string {
   if (!iso) return ''
-  const d = new Date(iso)
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso)
   if (Number.isNaN(d.getTime())) return ''
   try {
     return d.toLocaleDateString(getLocaleId(), { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -27,7 +27,7 @@ export function fmtDate(iso: string | null | undefined): string {
 /** dd.mm. — for a chip */
 export function fmtDayShort(iso: string | null | undefined): string {
   if (!iso) return ''
-  const d = new Date(iso)
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso)
   if (Number.isNaN(d.getTime())) return ''
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
 }
@@ -35,7 +35,7 @@ export function fmtDayShort(iso: string | null | undefined): string {
 /** hh:mm today, «dd.mm. hh:mm» on another day */
 export function fmtWhen(iso: string | null | undefined, now = new Date()): string {
   if (!iso) return ''
-  const d = new Date(iso)
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso)
   if (Number.isNaN(d.getTime())) return ''
   return d.toDateString() === now.toDateString() ? hhmm(d) : `${fmtDayShort(iso)} ${hhmm(d)}`
 }

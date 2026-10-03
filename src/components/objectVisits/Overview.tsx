@@ -1,6 +1,7 @@
 // Übersicht: what is ready offline, my drafts, the work lists, search, «In der Nähe».
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { localCalendarDay, visitSchedule, type ScheduleGroup } from '../../lib/visitSchedule'
 import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
@@ -34,6 +35,26 @@ export function Overview() {
     && typeof v.by === 'object' && v.by?.id === ov.userId)
   const unsent = ov.locals.filter((v) => v.doc.lifecycle === 'completed' && (hasWork(v) || v.dirty || !v.base))
   const known = useMemo(() => knownVisits(ov.locals, ov.summaries), [ov.locals, ov.summaries])
+
+  const [today, setToday] = useState(() => localCalendarDay())
+  useEffect(() => {
+    const timer = window.setInterval(() => setToday(localCalendarDay()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const groups = visitSchedule(catalogue?.lists ?? [], known, today)
+  const listRows = (lists: NonNullable<typeof catalogue>['lists']) => (
+    <div className={s.card}>{lists.map(l => {
+      const p = listProgress(l, known)
+      const sub = [plural(l.objectIds.length, C.listObjectsOne, C.listObjectsMany),
+        l.scheduledOn ? fillTemplate(C.listOn, { date: fmtDate(l.scheduledOn) }) : l.closesAt ? fillTemplate(C.listUntil, { date: fmtDate(l.closesAt) }) : null,
+        l.archived ? C.listArchived : null].filter(Boolean).join(' · ')
+      return <button key={l.ref} type="button" className={s.row} onClick={() => ov.go({ kind: 'list', ref: l.ref })}>
+        <span className={s.rowMain}><span className={s.rowTitle}>{l.title}</span><span className={s.rowSub}>{sub}</span>
+          <span className={s.bar} aria-hidden><i style={{ width: `${p.total ? Math.round((p.done / p.total) * 100) : 0}%` }} /></span>
+        </span><span className={s.mono}>{p.done}/{p.total}</span><Icon id="chevron" className={s.chev} />
+      </button>
+    })}</div>
+  )
 
   const q = searchQuery(query)
   const hits = catalogue && q ? catalogue.objects.filter((o) => matchesAnyQuery(q, o.name, o.address)).slice(0, 40) : []
@@ -142,26 +163,14 @@ export function Overview() {
             </Section>
           )}
 
-          {catalogue && catalogue.lists.length > 0 && (
-            <Section title={C.lists}>
-              <div className={s.card}>
-                {catalogue.lists.map((l) => {
-                  const p = listProgress(l, known)
-                  const sub = [plural(l.objectIds.length, C.listObjectsOne, C.listObjectsMany), l.closesAt ? fillTemplate(C.listUntil, { date: fmtDate(l.closesAt) }) : null].filter(Boolean).join(' · ')
-                  return (
-                    <button key={l.ref} type="button" className={s.row} onClick={() => ov.go({ kind: 'list', ref: l.ref })}>
-                      <span className={s.rowMain}>
-                        <span className={s.rowTitle}>{l.title}</span>
-                        <span className={s.rowSub}>{sub}</span>
-                        <span className={s.bar} aria-hidden><i style={{ width: `${p.total ? Math.round((p.done / p.total) * 100) : 0}%` }} /></span>
-                      </span>
-                      <span className={s.mono}>{p.done}/{p.total}</span>
-                      <Icon id="chevron" className={s.chev} />
-                    </button>
-                  )
-                })}
-              </div>
-            </Section>
+          {(['today', 'overdue', 'upcoming', 'undated'] as ScheduleGroup[]).map(group => groups[group].length > 0 && (
+            <Section key={group} title={C.schedule[group]}>{listRows(groups[group])}</Section>
+          ))}
+          {groups.history.length > 0 && (
+            <details className={s.scheduleHistory}>
+              <summary>{C.schedule.history} · {groups.history.length}</summary>
+              {listRows(groups.history)}
+            </details>
           )}
 
           {catalogue && (

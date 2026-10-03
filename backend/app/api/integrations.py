@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import object_visits as ov
 from .. import storage
+from .. import visit_programmes as programmes
 from ..auth.secret_token import SecretGate
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
@@ -53,6 +54,25 @@ async def require_organizer(
 
 
 Organizer = Annotated[None, Depends(require_organizer)]
+
+
+@router.get("/visit-programmes/{ref}")
+async def get_programme(ref: str, _org: Organizer, db: AsyncSession = Depends(get_db)) -> dict:
+    return await programmes.read(db, ref)
+
+
+@router.put("/visit-programmes/{ref}/routes")
+async def put_programme_routes(
+    ref: str, body: programmes.RoutesUpdate, _org: Organizer, db: AsyncSession = Depends(get_db)
+) -> dict:
+    return await programmes.save_routes(db, ref, body)
+
+
+@router.put("/visit-programmes/{ref}/years/{year}")
+async def publish_programme(
+    ref: str, year: int, body: programmes.Publish, _org: Organizer, db: AsyncSession = Depends(get_db)
+) -> dict:
+    return await programmes.publish(db, ref, year, body)
 
 
 @router.get("/object-visits/catalogue")
@@ -156,6 +176,7 @@ async def organizer_delete_object(
     source: str, external_id: str, _org: Organizer, db: AsyncSession = Depends(get_db)
 ) -> dict[str, str]:
     """Remove the organizer's ref: ``{removed: "ref" | "object" | "none"}`` (idempotent)."""
+    await programmes.require_unused_ref(db, source, external_id)
     return await ov.delete_integration_object(db, source, external_id)
 
 
@@ -175,9 +196,11 @@ async def organizer_put_object(
 async def organizer_put_list(
     ref: str, _org: Organizer, body: Annotated[dict[str, Any], Body()], db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
+    await programmes.require_unmanaged(db, ref)
     return await ov.put_visit_list(db, ref, body)
 
 
 @router.delete("/visit-lists/{ref:path}")
 async def organizer_delete_list(ref: str, _org: Organizer, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    await programmes.require_unmanaged(db, ref)
     return await ov.delete_visit_list(db, ref)

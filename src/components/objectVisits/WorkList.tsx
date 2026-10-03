@@ -31,7 +31,7 @@ export function WorkList({ listRef }: { listRef: string }) {
 
   const p = listProgress(list, known)
   const byId = new Map(catalogue.objects.map((o) => [o.id, o]))
-  const sub = [fillTemplate(C.listSub, { done: p.done, total: p.total }), list.closesAt ? fillTemplate(C.listUntil, { date: fmtDate(list.closesAt) }) : null]
+  const sub = [fillTemplate(C.listSub, { done: p.done, total: p.total }), list.scheduledOn ? fillTemplate(C.listOn, { date: fmtDate(list.scheduledOn) }) : list.closesAt ? fillTemplate(C.listUntil, { date: fmtDate(list.closesAt) }) : null]
     .filter(Boolean).join(' · ')
   const unresolved = list.unresolved?.length ?? 0
   const missingHere = list.objectIds.filter((id) => !byId.has(id)).length
@@ -41,6 +41,7 @@ export function WorkList({ listRef }: { listRef: string }) {
       <Head title={list.title} sub={sub} onBack={back} />
       <div className={s.body}>
         <div className={s.col}>
+          {list.archived && <p className={s.lead}>{C.listArchived}</p>}
           {list.note && <p className={s.lead}>{list.note}</p>}
           {unresolved + missingHere > 0 && (
             <div className="form-warn form-warn-amber form-warn-compact" role="status">
@@ -74,9 +75,9 @@ export function WorkList({ listRef }: { listRef: string }) {
               ].filter(Boolean).join(' · ')
               const open = () => {
                 if (v) ov.go({ kind: 'visit', id: v.id })
-                else if (ov.canCapture) ov.go({ kind: 'new', object: o.id, ref: list.ref })
+                else if (ov.canCapture && !list.archived) ov.go({ kind: 'new', object: o.id, ref: list.ref })
               }
-              const door = !!v || ov.canCapture
+              const door = !!v || (ov.canCapture && !list.archived)
               const inner = (
                 <>
                   <span className={s.num}>{i + 1}</span>
