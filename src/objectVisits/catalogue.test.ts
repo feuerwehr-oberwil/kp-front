@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { ApiError } from '../lib/api'
 import { __resetIdbForTests, idbGet } from '../lib/idb'
 import {
-  CATALOGUE_KEY, distanceM, knownVisits, listProgress, loadCatalogue, loadSummaries, nearestObjects, resolveObject, visitTemplates,
+  CATALOGUE_KEY, distanceM, knownVisits, lastSeen, listProgress, loadCatalogue, loadSummaries, nearestObjects, resolveObject, visitTemplates,
 } from './catalogue'
 import type { Catalogue } from './types'
 
@@ -95,6 +95,34 @@ describe('catalogue helpers', () => {
     expect(p).toMatchObject({ done: 1, total: 3 })
     expect(p.byObject.get('u2')?.lifecycle).toBe('draft')
     expect(p.byObject.has('u3')).toBe(false)
+  })
+  it('prior completions from the organizer count as done; a real completed visit wins', () => {
+    const list = { ref: 'B4', objectIds: ['u1', 'u2', 'u3'], done: {
+      u1: { at: '2026-05-30', source: 'SchlüHü', by: 'Frei Nina' },
+      u2: { at: '2026-05-30', source: 'SchlüHü' },
+      u9: { at: '2026-05-30' },
+    } }
+    const visits = [
+      { id: 'ov1', objectId: 'u1', workRef: 'B4', lifecycle: 'completed', visitedAt: '2026-10-01' },
+      { id: 'ov2', objectId: 'u2', workRef: 'B4', lifecycle: 'draft', visitedAt: '2026-10-02' },
+    ]
+    const p = listProgress(list, visits)
+    expect(p).toMatchObject({ done: 2, total: 3 })
+    expect(p.stops.get('u1')).toEqual({ visit: { id: 'ov1', lifecycle: 'completed', visitedAt: '2026-10-01' }, done: true }) // the visit wins
+    expect(p.stops.get('u2')).toMatchObject({ visit: { lifecycle: 'draft' }, prior: { source: 'SchlüHü' }, done: true }) // done before, in progress
+    expect(p.stops.get('u3')).toEqual({ done: false })
+  })
+  it('«zuletzt» is the newer of the last visit and an organizer\'s completion', () => {
+    const c = cat({ lists: [{ ref: 'B4', title: 'B4', objectIds: ['u1', 'u2'], done: { u1: { at: '2026-05-30', source: 'SchlüHü' }, u2: { at: '2025-01-01' } } }] })
+    c.objects[1] = { ...c.objects[1], lastVisit: { id: 'ov', visitedAt: '2026-02-01T10:00:00+01:00', lifecycle: 'completed' } }
+    expect(lastSeen(c, c.objects[0])).toEqual({ at: '2026-05-30', source: 'SchlüHü' })
+    expect(lastSeen(c, c.objects[1])).toEqual({ at: '2026-02-01T10:00:00+01:00' })
+    expect(lastSeen(c, c.objects[2])).toBeNull()
+  })
+  it('a draft is not «zuletzt»: only a finished visit or an organizer\'s completion counts', () => {
+    const c = cat({ lists: [] })
+    c.objects[0] = { ...c.objects[0], lastVisit: { id: 'ov', visitedAt: '2026-10-03T10:00:00+02:00', lifecycle: 'draft' } }
+    expect(lastSeen(c, c.objects[0])).toBeNull()
   })
   it('summaries: null when nobody answered, never an empty list', async () => {
     expect(await loadSummaries(async () => { throw new ApiError(0, 'x') })).toBeNull()

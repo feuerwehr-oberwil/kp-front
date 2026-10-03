@@ -160,7 +160,6 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
         <span>{C.proposalReason}</span>
         <input className={s.input} value={reason} placeholder={C.proposalReasonPlaceholder} onChange={(e) => setReason(e.target.value)} />
       </label>
-      <p className={s.note}>{C.proposalHint}</p>
     </Sheet>
   )
 }

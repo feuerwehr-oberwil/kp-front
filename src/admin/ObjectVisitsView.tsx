@@ -420,7 +420,8 @@ function VisitsCard() {
                 <td>{L[v.lifecycle] ?? v.lifecycle}</td>
                 <td className="adm-num">{v.revision}</td>
                 <td className="adm-num">{v.findings ?? ''}</td>
-                <td>{personName(v.by)}</td>
+                {/* «Von»: the people typed on the visit; the (shared) account only as fallback */}
+                <td>{v.with?.length ? v.with.join(', ') : personName(v.by)}</td>
                 <td>
                   <a className="adm-link" href={OV_ROUTES.report(v.id)} target="_blank" rel="noreferrer">{T.pdf}</a>
                 </td>

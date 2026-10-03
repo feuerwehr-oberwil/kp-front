@@ -7,7 +7,7 @@
 import { ApiError, isUnverifiable } from '../lib/api'
 import { readThrough, type ReadThroughSource } from '../lib/idb'
 import { getCatalogue, listVisits } from './api'
-import type { Catalogue, CatalogueObject, ObjectRef, VisitSummary, VisitTemplate } from './types'
+import type { Catalogue, CatalogueObject, ObjectRef, PriorDone, VisitList, VisitSummary, VisitTemplate } from './types'
 
 export const CATALOGUE_KEY = 'kp-front-ov-catalogue'
 
@@ -49,11 +49,6 @@ export async function loadCatalogue(fetcher: () => Promise<Catalogue> = getCatal
     if (e instanceof ApiError && (e.status === 403 || e.status === 404)) return { state: 'refused', error: e }
     return { state: 'missing', error: e }
   }
-}
-
-/** What the readiness line says: how many objects / checklists, as of when. */
-export function readiness(c: Catalogue): { objects: number; templates: number; lists: number; generatedAt: string } {
-  return { objects: c.objects.length, templates: c.templates.length, lists: c.lists.length, generatedAt: c.generatedAt }
 }
 
 /**
@@ -117,13 +112,31 @@ export async function loadSummaries(fetcher: () => Promise<VisitSummary[]> = () 
   }
 }
 
-/** A work list's progress: per object the visit made WITH this list's reference (completed
- *  before draft; a discarded one does not count), and how many are completed. Device copies and
- *  server rows alike. */
+/** The organizer's prior completion of a stop, if it sent one (and it is well-formed). */
+export function priorDone(list: Pick<VisitList, 'done'>, objectId: string): PriorDone | null {
+  const d = list.done && typeof list.done === 'object' ? list.done[objectId] : null
+  return d && typeof d.at === 'string' && d.at ? d : null
+}
+
+export interface StopState {
+  /** the visit made WITH this list's reference (completed before draft; discarded ones never) */
+  visit?: { id: string; lifecycle: string; visitedAt?: string }
+  /** the organizer's completion — shown only where no completed visit exists */
+  prior?: PriorDone
+  /** completed: by a real visit, or by the organizer's record */
+  done: boolean
+}
+
+/**
+ * A work list's progress: per object its visit for THIS list and the organizer's prior
+ * completion; «n von m besucht» counts both (docs/object-visits.md · «Progress on a list»). A
+ * completed real visit always wins in display; a draft does not hide a prior `done` — the stop
+ * then reads as done-before and in progress.
+ */
 export function listProgress(
-  list: { ref: string; objectIds: string[] },
+  list: { ref: string; objectIds: string[]; done?: VisitList['done'] },
   visits: { objectId: string; workRef?: string | null; lifecycle: string; visitedAt?: string; id: string }[],
-): { done: number; total: number; byObject: Map<string, { id: string; lifecycle: string; visitedAt?: string }> } {
+): { done: number; total: number; byObject: Map<string, { id: string; lifecycle: string; visitedAt?: string }>; stops: Map<string, StopState> } {
   const byObject = new Map<string, { id: string; lifecycle: string; visitedAt?: string }>()
   for (const v of visits) {
     if (v.workRef !== list.ref || v.lifecycle === 'discarded') continue
@@ -134,9 +147,27 @@ export function listProgress(
       byObject.set(v.objectId, { id: v.id, lifecycle: v.lifecycle, visitedAt: v.visitedAt })
     }
   }
-  // «besucht» = completed; a draft shows as «Entwurf» on its row but is not progress yet
-  const done = list.objectIds.filter((id) => byObject.get(id)?.lifecycle === 'completed').length
-  return { done, total: list.objectIds.length, byObject }
+  const stops = new Map<string, StopState>()
+  for (const id of list.objectIds) {
+    const visit = byObject.get(id)
+    const real = visit?.lifecycle === 'completed'
+    const prior = real ? null : priorDone(list, id)
+    stops.set(id, { ...(visit ? { visit } : {}), ...(prior ? { prior } : {}), done: real || !!prior })
+  }
+  const done = list.objectIds.filter((id) => stops.get(id)?.done).length
+  return { done, total: list.objectIds.length, byObject, stops }
+}
+
+/** When this object was last done, as far as this device knows: its last visit or an
+ *  organizer's prior completion on any list — whichever is newer. */
+export function lastSeen(c: Catalogue, o: CatalogueObject): { at: string; source?: string | null } | null {
+  // «zuletzt …» means a finished visit: a draft is not a visit that happened yet (staging 03.10.2026)
+  let best: { at: string; source?: string | null } | null = o.lastVisit?.visitedAt && o.lastVisit.lifecycle === 'completed' ? { at: o.lastVisit.visitedAt } : null
+  for (const l of c.lists) {
+    const d = priorDone(l, o.id)
+    if (d && (!best || d.at > best.at.slice(0, 10))) best = { at: d.at, source: d.source ?? null }
+  }
+  return best
 }
 
 /** Every visit this device knows of — device copies over server rows (for list progress). */

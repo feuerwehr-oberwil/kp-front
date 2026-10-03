@@ -9,6 +9,7 @@ import { dtLocalToIso, dtLocalValue, fillTemplate } from '../../lib/format'
 import type { Item } from '../../lib/checklists'
 import { Segmented } from '../Segmented'
 import { answerStats, inputOf, isAnswered, localIso } from '../../objectVisits/doc'
+import { rememberWith, splitPeople } from '../../objectVisits/devicePrefs'
 import type { Answer, VisitDoc, VisitPhoto, VisitProposal } from '../../objectVisits/types'
 import { Section, Thumb } from './common'
 import { answerText, fmtDate, fmtWhen, plural } from './ovFormat'
@@ -22,42 +23,45 @@ export function DetailsCard({ doc, readOnly, onEdit }: { doc: VisitDoc; readOnly
   const C = appConfig.copy.objectVisits
   const withText = (doc.with ?? []).join(', ')
   if (readOnly) return null
+  // at the TOP of the visit: «Von» is typed (the accounts are shared station logins) and starts
+  // with this device's last names; the date starts as «now» and only a back-entry changes it
   return (
-    <Section title={C.details}>
-      <div className={`${s.card} ${s.cardPad}`}>
-        <label className={s.field}>
-          <span>{C.visitedAt}</span>
-          <input
-            className={`ip-input ${s.input}`} type="datetime-local" value={dtLocalValue(doc.visitedAt)}
-            onChange={(e) => {
-              const iso = dtLocalToIso(e.target.value)
-              if (iso) onEdit((d) => ({ ...d, visitedAt: localIso(new Date(iso)) }))
-            }}
-          />
-        </label>
-        <WithField value={withText} placeholder={C.withPlaceholder} label={C.with}
-          onCommit={(list) => onEdit((d) => {
+    <div className={`${s.card} ${s.cardPad}`}>
+      <WithField value={withText} placeholder={C.withPlaceholder} label={C.with}
+        onCommit={(list) => {
+          rememberWith(list)
+          onEdit((d) => {
             const next = { ...d }
             if (list.length) next.with = list
             else delete next.with
             return next
-          })} />
-      </div>
-    </Section>
+          })
+        }} />
+      <label className={s.field}>
+        <span>{C.visitedAt}</span>
+        <input
+          className={`ip-input ${s.input} ${s.dateInput}`} type="datetime-local" value={dtLocalValue(doc.visitedAt)}
+          onChange={(e) => {
+            const iso = dtLocalToIso(e.target.value)
+            if (iso) onEdit((d) => ({ ...d, visitedAt: localIso(new Date(iso)) }))
+          }}
+        />
+      </label>
+    </div>
   )
 }
 
-/** Free-text companions, typed as one line and stored as a list. */
+/** «Von»: typed as one line, stored as a list. */
 function WithField({ value, label, placeholder, onCommit }: { value: string; label: string; placeholder: string; onCommit: (list: string[]) => void }) {
   const [text, setText] = useState(value)
   return (
     <label className={s.field}>
       <span>{label}</span>
       <input
-        className={`ip-input ${s.input}`} value={text} placeholder={placeholder} autoComplete="off"
+        className={`ip-input ${s.input}`} value={text} placeholder={placeholder} autoComplete="off" autoCapitalize="words"
         onChange={(e) => {
           setText(e.target.value)
-          onCommit(e.target.value.split(/[,;\n]/).map((x) => x.trim()).filter(Boolean))
+          onCommit(splitPeople(e.target.value))
         }}
       />
     </label>
@@ -316,7 +320,6 @@ export function ProposalsSection({ doc, readOnly, onOpen, onAdd }: {
           <button type="button" className={`${s.row} ${s.add}`} onClick={onAdd}><Icon id="plus" />{C.proposalAdd}</button>
         )}
       </div>
-      {(!readOnly || doc.proposals.length > 0) && <p className={s.secNote}>{C.proposalNote}</p>}
     </Section>
   )
 }
@@ -326,7 +329,8 @@ export function ProposalsSection({ doc, readOnly, onOpen, onAdd }: {
 export function SummaryCard({ doc, byName }: { doc: VisitDoc; byName?: string | null }) {
   const C = appConfig.copy.objectVisits
   const st = answerStats(doc)
-  const people = [byName, ...(doc.with ?? [])].filter(Boolean).join(', ')
+  // «Von» is who visited (typed); the signed-in account only where nobody was typed
+  const people = (doc.with ?? []).length ? (doc.with ?? []).join(', ') : (byName ?? '')
   const parts = [
     st.total ? fillTemplate(C.countOk, { n: st.ok }) : null,
     st.defects ? plural(st.defects, C.defectsOne, C.defectsMany) : null,

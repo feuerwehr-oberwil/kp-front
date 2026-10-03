@@ -5,9 +5,9 @@ import { expect, expectNoCrash, login, test } from './helpers'
 //
 //   prepare online (the catalogue lands on the device) → go offline → start a visit, answer it,
 //   take a photo → reload WHILE offline: the draft and its photo are still there (IndexedDB +
-//   the precached shell) → online → «Jetzt senden» (a save point) → the status line reaches
-//   «Gespeichert» only once the server holds the revision AND the photo → «Abschliessen» → the
-//   read view with the report.
+//   the precached shell) → online: the save point that failed offline goes up by itself → the
+//   status line reaches «Gespeichert» only once the server holds the revision AND the photo → one
+//   more change is saved ~20 s later without any tap → «Abschliessen» → the read view.
 //
 // Needs the deployment's admin secret: the module is switched on through the config API, and
 // one object + one visit checklist are put in through the admin API. Writes to its own object
@@ -77,7 +77,8 @@ async function openSurface(page: Page) {
   if (await launcher.isVisible().catch(() => false)) await launcher.click()
   else await page.goto('/besuche')
   await expect(page).toHaveURL(/\/besuche$/)
-  await expect(page.getByText(/^Offline bereit · /)).toBeVisible()
+  // the catalogue is on the device once its search and «In der Nähe» are drawn
+  await expect(page.getByRole('button', { name: /In der Nähe/ })).toBeVisible()
   await page.evaluate(async () => { await navigator.serviceWorker.ready })
 }
 
@@ -101,6 +102,7 @@ async function captureVisit(page: Page, objectName: string, jpeg: Buffer): Promi
   if (await chooser.isVisible({ timeout: 2_000 }).catch(() => false)) await chooser.click()
   await page.waitForURL(/\/besuche\/ov[0-9a-z-]+$/)
   const visitId = page.url().split('/').pop()!
+  await page.getByLabel('Von').fill('Muster Max')
   await page.getByRole('group', { name: 'Schlüsselhülse zugänglich' }).getByRole('button', { name: 'OK' }).click()
   await page.getByRole('group', { name: 'Grob gereinigt' }).getByRole('button', { name: 'Ja' }).click()
   await page.getByTestId('ov-photo-input').setInputFiles({ name: 'foto.jpg', mimeType: 'image/jpeg', buffer: jpeg })
@@ -113,14 +115,14 @@ async function captureVisit(page: Page, objectName: string, jpeg: Buffer): Promi
 }
 
 /** The server holds the visit, ready, with the answers and the photo. */
-async function expectSaved(api: Api, visitId: string) {
+async function expectSaved(api: Api, visitId: string, photos = 1) {
   await expect.poll(async () => {
     const r = await api.get(`/api/object-visits/${visitId}`)
     return r.ok() ? (await r.json()).ready : `HTTP ${r.status()}`
   }, { timeout: 45_000, message: 'the visit must reach the server, with its photo, by itself' }).toBe(true)
   const saved = await (await api.get(`/api/object-visits/${visitId}`)).json()
   expect(saved).toMatchObject({ lifecycle: 'draft', missing: [] })
-  expect(saved.photos).toHaveLength(1)
+  expect(saved.photos).toHaveLength(photos)
   expect(saved.answers).toEqual({ zugaenglich: { v: 'ok' }, gereinigt: { v: 'yes' } })
 }
 
@@ -147,6 +149,8 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       // ── offline: start the visit, answer it, take a photo ──
       await context.setOffline(true)
       const visitId = await captureVisit(page, objectName, jpeg)
+      // the save point ~20 s after the last change fires offline: the reconnect owes it now
+      await page.waitForTimeout(22_000)
 
       // ── reload while offline: the draft and its photo come back from the device ──
       await page.reload({ waitUntil: 'domcontentloaded' })
@@ -156,15 +160,21 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await expect(page.getByRole('button', { name: /^Foto öffnen: Zugang Nord/ })).toBeVisible()
       expect((await api.get(`/api/object-visits/${visitId}`)).status(), 'nothing was sent while offline').toBe(404)
 
-      // ── online: a save point; «Gespeichert» only with the revision AND the photo on the server ──
+      // ── online: the reload was a save point offline — it goes up by itself; «Gespeichert» only
+      //    with the revision AND the photo on the server ──
       await context.setOffline(false)
-      await page.getByRole('button', { name: 'Weitere Aktionen' }).click()
-      await page.getByRole('menuitem', { name: 'Jetzt senden' }).click()
-      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Gespeichert/ })).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Gespeichert/ })).toBeVisible({ timeout: 45_000 })
       const saved = await (await api.get(`/api/object-visits/${visitId}`)).json()
       expect(saved).toMatchObject({ lifecycle: 'draft', ready: true, missing: [] })
       expect(saved.photos).toHaveLength(1)
       expect(saved.answers).toEqual({ zugaenglich: { v: 'ok' }, gereinigt: { v: 'yes' } })
+      expect(saved.with).toEqual(['Muster Max'])
+
+      // ── one more change: saved ~20 s after it, with no tap ──
+      await page.getByLabel('Bemerkungen').fill('Hauswart neu')
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Änderungen auf Gerät/ })).toBeVisible()
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Gespeichert/ })).toBeVisible({ timeout: 45_000 })
+      expect((await (await api.get(`/api/object-visits/${visitId}`)).json()).notes).toBe('Hauswart neu')
 
       // ── «Abschliessen» → the read view ──
       await page.getByRole('button', { name: 'Abschliessen' }).click()
@@ -196,6 +206,13 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       const jpeg = await jpegOf(page)
       await context.setOffline(true)
       const visitId = await captureVisit(page, objectName, jpeg)
+      // several from the library at once: each its own photo, no caption sheet
+      await page.getByTestId('ov-photo-input').setInputFiles([
+        { name: 'a.jpg', mimeType: 'image/jpeg', buffer: jpeg },
+        { name: 'b.jpg', mimeType: 'image/jpeg', buffer: jpeg },
+      ])
+      await expect(page.getByText('2 Fotos hinzugefügt')).toBeVisible()
+      await expect(page.getByRole('button', { name: /^Foto öffnen/ })).toHaveCount(3)
       await page.getByRole('button', { name: 'Zurück' }).click() // leaving: the save point, offline
       const row = page.getByRole('button', { name: new RegExp(objectName) })
       await expect(row).toContainText('auf Gerät')
@@ -203,7 +220,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
 
       await context.setOffline(false)
       await expect(row, 'the draft reaches «Gespeichert» by itself').toContainText('Gespeichert', { timeout: 45_000 })
-      await expectSaved(api, visitId)
+      await expectSaved(api, visitId, 3)
       await expectNoCrash(page, 'object visit · reconnect')
     } finally {
       await context.setOffline(false)

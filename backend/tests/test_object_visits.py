@@ -531,7 +531,12 @@ async def test_organizer_lists_and_change_feed(client, editor, on, obj, db_sessi
     }
     r = await client.put(f"/api/integrations/visit-lists/{ref}", json=body, headers=bearer())
     assert r.status_code == 200, r.text
-    assert r.json() == {"ref": ref, "objectIds": [str(obj.id)], "unresolved": [{"source": "fwo", "id": "später"}]}
+    assert r.json() == {
+        "ref": ref,
+        "objectIds": [str(obj.id)],
+        "unresolved": [{"source": "fwo", "id": "später"}],
+        "done": {},
+    }
 
     await login(client, editor)
     lists = (await client.get("/api/object-visits/catalogue")).json()["lists"]
@@ -1091,3 +1096,185 @@ def test_report_composes_decomposed_umlauts_and_counts_in_german():
     assert decomposed != "Mühlemattstrasse 50"
     assert _nfc(decomposed) == "Mühlemattstrasse 50"
     assert _esc(decomposed) == "Mühlemattstrasse 50"
+
+
+# --- round 2 (owner feedback, 03.10.2026) -----------------------------------------------------------
+
+
+async def test_lists_carry_prior_completions(client, editor, on, obj, db_session):
+    await set_key(db_session)
+    db_session.add(ObjectRef(object_id=obj.id, source="fwo", external_id="gv"))
+    await db_session.commit()
+    body = {
+        "title": "Tour A1",
+        "objects": [
+            {
+                "source": "fwo",
+                "id": "gv",
+                "done": {"at": "2025-10-14", "by": "Frei Nina", "source": "SchlüHü", "note": "ok"},
+            },
+            {"source": "fwo", "id": "später", "done": {"at": "2025-10-15"}},
+        ],
+    }
+    r = await client.put("/api/integrations/visit-lists/fwo-admin:2025/A1", json=body, headers=bearer())
+    assert r.status_code == 200, r.text
+    done = {"at": "2025-10-14", "by": "Frei Nina", "source": "SchlüHü", "note": "ok"}
+    assert r.json()["done"] == {str(obj.id): done}
+    await login(client, editor)
+    lst = (await client.get("/api/object-visits/catalogue")).json()["lists"][0]
+    assert lst["done"] == {str(obj.id): done} and lst["unresolved"] == [{"source": "fwo", "id": "später"}]
+    # the unresolved stop's completion appears once its object is known
+    await client.post("/api/auth/logout")
+    r = await client.put("/api/integrations/objects/fwo/später", json={"name": "Neu"}, headers=bearer())
+    later = r.json()["objectId"]
+    await login(client, editor)
+    lst = (await client.get("/api/object-visits/catalogue")).json()["lists"][0]
+    assert lst["done"][later] == {"at": "2025-10-15"}
+
+
+@pytest.mark.parametrize(
+    "done",
+    [
+        {"at": "14.10.2025"},
+        {"at": "2025-02-30"},
+        {"by": "x"},
+        {"at": "2025-10-14", "note": "n" * 501},
+        {"at": "2025-10-14", "by": "a\x00b"},
+        {"at": "2025-10-14", "who": "x"},
+        "2025-10-14",
+    ],
+)
+async def test_prior_completions_are_validated(client, on, db_session, done):
+    import json as _json
+
+    await set_key(db_session)
+    body = {"title": "T", "objects": [{"source": "fwo", "id": "x", "done": done}]}
+    r = await client.put(
+        "/api/integrations/visit-lists/l1",
+        content=_json.dumps(body),
+        headers={**bearer(), "Content-Type": "application/json"},
+    )
+    assert r.status_code == 422, r.text
+
+
+async def test_with_is_the_primary_who(client, editor, on, obj, db_session):
+    import pypdfium2 as pdfium
+
+    await set_key(db_session)
+    await login(client, editor)
+    vid = new_id("ov")
+    await put(client, vid, visit_doc(vid, obj, **{"with": ["Frei Nina", "Muster Hans"]}), None)
+    assert (await client.get("/api/object-visits")).json()[0]["with"] == ["Frei Nina", "Muster Hans"]
+    feed = (await client.get("/api/integrations/object-visits/changes", headers=bearer())).json()
+    assert feed["items"][0]["with"] == ["Frei Nina", "Muster Hans"]
+    pdf = (await client.get(f"/api/object-visits/{vid}/report.pdf")).content
+    text = "".join(page.get_textpage().get_text_range() for page in pdfium.PdfDocument(pdf))
+    assert "Frei Nina, Muster Hans" in text and "Konto" in text and "Cmd" in text
+    # nobody named → the account stands in for «Von», and there is no separate «Konto» line
+    vid2 = new_id("ov")
+    await put(client, vid2, visit_doc(vid2, obj, **{"with": []}), None)
+    pdf = (await client.get(f"/api/object-visits/{vid2}/report.pdf")).content
+    text = "".join(page.get_textpage().get_text_range() for page in pdfium.PdfDocument(pdf))
+    assert "Von" in text and "Cmd" in text and "Konto" not in text
+
+
+async def test_organizer_removes_a_ref_and_its_own_empty_object(client, editor, on, obj, db_session):
+    await set_key(db_session)
+    obj_id = obj.id
+    r = await client.put("/api/integrations/objects/fwo/box1", json={"name": "Box"}, headers=bearer())
+    box = r.json()["objectId"]
+    await client.put(
+        "/api/integrations/visit-lists/l1",
+        json={"title": "T", "objects": [{"source": "fwo", "id": "box1"}]},
+        headers=bearer(),
+    )
+    r = await client.delete("/api/integrations/objects/fwo/box1", headers=bearer())
+    assert r.json() == {"removed": "object"}
+    db_session.expire_all()
+    assert await db_session.get(ObjectSite, uuid.UUID(box)) is None
+    assert (await client.delete("/api/integrations/objects/fwo/box1", headers=bearer())).json() == {"removed": "none"}
+    cat = (await client.get("/api/integrations/object-visits/catalogue", headers=bearer())).json()
+    assert cat["lists"][0]["unresolved"] == [{"source": "fwo", "id": "box1"}]
+
+    # a station object (not the organizer's) keeps its row — only the ref goes
+    db_session.add(ObjectRef(object_id=obj_id, source="fwo", external_id="gv"))
+    await db_session.commit()
+    assert (await client.delete("/api/integrations/objects/fwo/gv", headers=bearer())).json() == {"removed": "ref"}
+    assert await db_session.get(ObjectSite, obj_id) is not None
+
+    # the organizer's object stays while a visit stands on it, or another ref names it
+    r = await client.put("/api/integrations/objects/fwo/box2", json={"name": "Box 2"}, headers=bearer())
+    box2 = uuid.UUID(r.json()["objectId"])
+    await client.put("/api/integrations/objects/firegis/g2", json={"name": "Box 2", "folder": None}, headers=bearer())
+    db_session.add(ObjectRef(object_id=box2, source="other", external_id="o2"))
+    await db_session.commit()
+    assert (await client.delete("/api/integrations/objects/fwo/box2", headers=bearer())).json() == {"removed": "ref"}
+    r = await client.put("/api/integrations/objects/fwo/box3", json={"name": "Box 3"}, headers=bearer())
+    box3 = await db_session.get(ObjectSite, uuid.UUID(r.json()["objectId"]))
+    box3_id = box3.id
+    first = visit_doc(new_id("ov"), box3)
+    await db_session.refresh(editor)
+    await login(client, editor)
+    await put(client, first["id"], first, None)
+    await client.post("/api/auth/logout")
+    assert (await client.delete("/api/integrations/objects/fwo/box3", headers=bearer())).json() == {"removed": "ref"}
+    db_session.expire_all()
+    assert await db_session.get(ObjectSite, box3_id) is not None
+    # a slash in the id travels, and the key is required
+    assert (await client.delete("/api/integrations/objects/fwo/a%2Fb", headers=bearer())).json() == {"removed": "none"}
+    assert (await client.delete("/api/integrations/objects/fwo/a")).status_code == 401
+
+
+async def test_organizer_reads_an_objects_plans(client, editor, on, db_session):
+    from app.models import PlanRevision
+
+    await set_key(db_session)
+    obj = await make_object(db_session, name="Schulhaus", address="Schulweg 1")
+    storage_mod.put_bytes("plans/s/modul2-v2.pdf", b"%PDF-1.4 v2")
+    storage_mod.put_bytes("plans/s/modul2-v1.pdf", b"%PDF-1.4 v1")
+    ds_id = f"plan:{obj.id}:modul2"
+    db_session.add(
+        ReferenceDataset(
+            id=ds_id,
+            object_id=obj.id,
+            module="modul2",
+            kind="pdf",
+            title="Schulhaus – Umgebung",
+            storage_key="plans/s/modul2-v2.pdf",
+            content_type="application/pdf",
+            size_bytes=11,
+            current_version=2,
+        )
+    )
+    await db_session.flush()
+    db_session.add(PlanRevision(dataset_id=ds_id, version=1, storage_key="plans/s/modul2-v1.pdf"))
+    db_session.add(ObjectRef(object_id=obj.id, source="fwo", external_id="Schulweg 1 - Schulhaus"))
+    await db_session.commit()
+
+    base = f"/api/integrations/objects/{obj.id}/plans"
+    plans = (await client.get(base, headers=bearer())).json()
+    assert plans == [
+        {
+            "module": "modul2",
+            "title": "Schulhaus – Umgebung",
+            "revision": 2,
+            "contentType": "application/pdf",
+            "size": 11,
+        }
+    ]
+    r = await client.get(f"{base}/modul2", headers=bearer())
+    assert r.status_code == 200 and r.content == b"%PDF-1.4 v2" and r.headers["x-plan-revision"] == "2"
+    assert (await client.get(f"{base}/modul2", params={"revision": 1}, headers=bearer())).content == b"%PDF-1.4 v1"
+    assert (await client.get(f"{base}/modul2", params={"revision": 7}, headers=bearer())).status_code == 404
+    assert (await client.get(f"{base}/modul9", headers=bearer())).status_code == 404
+    assert (await client.get(f"/api/integrations/objects/{uuid.uuid4()}/plans", headers=bearer())).status_code == 404
+
+    found = (await client.get("/api/integrations/objects/by-ref/fwo/Schulweg 1 - Schulhaus", headers=bearer())).json()
+    assert found["objectId"] == str(obj.id) and found["hasPlans"] is True
+    assert (await client.get("/api/integrations/objects/by-ref/fwo/nope", headers=bearer())).status_code == 404
+
+    # key only: no key, a wrong key, a browser session — all refused
+    assert (await client.get(base)).status_code == 401
+    assert (await client.get(base, headers={"Authorization": "Bearer x" * 3})).status_code == 401
+    await login(client, editor)
+    assert (await client.get(f"{base}/modul2")).status_code == 401

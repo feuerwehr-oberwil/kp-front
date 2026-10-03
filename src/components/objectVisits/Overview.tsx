@@ -8,7 +8,7 @@ import { deploymentName } from '../../lib/deploymentConfig'
 import { matchesAnyQuery, searchQuery } from '../../lib/search'
 import { SearchField } from '../SearchField'
 import { LoadingStatus } from '../ShellLoader'
-import { knownVisits, listProgress, nearestObjects, readiness } from '../../objectVisits/catalogue'
+import { knownVisits, lastSeen, listProgress, nearestObjects } from '../../objectVisits/catalogue'
 import { deriveStatus } from '../../objectVisits/status'
 import { isVisitDurable, type LocalVisit } from '../../objectVisits/store'
 import { hasWork } from '../../objectVisits/outbox'
@@ -55,7 +55,8 @@ export function Overview() {
   }
 
   const objectRow = (o: CatalogueObject, extra?: string) => {
-    const sub = [o.address, o.lastVisit ? fillTemplate(C.lastVisit, { date: fmtDate(o.lastVisit.visitedAt) }) : C.neverVisited, extra].filter(Boolean).join(' · ')
+    const seen = catalogue ? lastSeen(catalogue, o) : null
+    const sub = [o.address, seen ? fillTemplate(C.lastVisit, { date: fmtDate(seen.at) }) : C.neverVisited, extra].filter(Boolean).join(' · ')
     const door = ov.canCapture || !!o.lastVisit
     const inner = (
       <>
@@ -95,19 +96,6 @@ export function Overview() {
         <div className={s.col}>
           {ov.cat === null && <div className={s.loadingLine}><LoadingStatus>{C.loading}</LoadingStatus></div>}
 
-          {catalogue && ov.cat && (() => {
-            const r = readiness(catalogue)
-            const objects = plural(r.objects, C.objectsOne, C.objectsMany)
-            const templates = r.templates === 0 ? C.templatesNone : plural(r.templates, C.templatesOne, C.templatesMany)
-            return ov.cat.state === 'ready'
-              ? <p className={s.ready}><Icon id="check" />{fillTemplate(C.readyLine, { objects, templates, time: fmtWhen(r.generatedAt) })}</p>
-              : (
-                <p className={`${s.ready} ${s.stale}`}>
-                  <Icon id="warn" />{fillTemplate(C.staleLine, { time: fmtWhen(r.generatedAt) })}
-                  <button type="button" className="form-warn-act" onClick={ov.reloadCatalogue}>{C.retry}</button>
-                </p>
-              )
-          })()}
 
           {ov.cat?.state === 'missing' && (
             <div className={`form-warn form-warn-amber ${s.msg}`} role="status">

@@ -29,7 +29,9 @@ const syncIcon = (k: VisitStatus['sync']['kind']) =>
 export function StatusLine({ status, rec, canSend, onSendNow }: {
   status: VisitStatus
   rec: LocalVisit | null
-  /** «Jetzt senden» is offered (a capture role with something to send) */
+  /** the sheet may offer «Erneut versuchen» (a capture role) — only when a send did NOT get
+   *  through: sending is automatic (save points + 20 s after the last change), there is no
+   *  «Jetzt senden» to think about otherwise (owner, staging 03.10.2026) */
   canSend: boolean
   onSendNow: () => void
 }) {
@@ -56,7 +58,8 @@ export function StatusLine({ status, rec, canSend, onSendNow }: {
 
   return (
     <>
-      <button type="button" className={s.status} aria-label={`${C.statusOpen}: ${line}`} onClick={() => setOpen(true)}>
+      {/* the second line of the page head: compact, one tap to the sheet */}
+      <button type="button" className={s.headStatus} aria-label={`${C.statusOpen}: ${line}`} onClick={() => setOpen(true)}>
         <span className={s.seg}><span className={lc} aria-hidden />{lifecycleLabel(lifecycle)}</span>
         <span className={s.sep} aria-hidden>·</span>
         <span className={`${s.seg} ${syncTone(sync.kind) ?? ''}`}><Icon id={syncIcon(sync.kind)} />{syncLabel(sync)}</span>
@@ -73,9 +76,9 @@ export function StatusLine({ status, rec, canSend, onSendNow }: {
           fit
           onClose={() => setOpen(false)}
           title={C.statusTitle}
-          footer={canSend ? (
+          footer={canSend && (sync.error || sync.offline) && sync.kind !== 'auth' ? (
             <button type="button" className="ip-btn primary" onClick={() => { setOpen(false); onSendNow() }}>
-              <Icon id="upload" />{C.sendNow}
+              <Icon id="rotate" />{C.retry}
             </button>
           ) : undefined}
         >

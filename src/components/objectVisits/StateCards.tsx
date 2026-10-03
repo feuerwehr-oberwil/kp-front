@@ -68,13 +68,16 @@ export function UnsavedCard({ onSaveFile, onRetry }: { onSaveFile: () => void; o
   )
 }
 
-export function AuthCard({ onLogin }: { onLogin: () => void }) {
+export function AuthCard({ onLogin, onSaveFile }: { onLogin: () => void; onSaveFile: () => void }) {
   const C = appConfig.copy.objectVisits
   return (
     <div className={`form-warn form-warn-amber ${s.msg}`} role="status">
       <div className={s.msgHead}><Icon id="lock" /><span className={s.msgTitle}>{C.authTitle}</span></div>
       <p className={s.msgBody}>{C.authBody}</p>
-      <div className={s.msgActs}><button type="button" className="form-warn-act" onClick={onLogin}>{C.authLogin}</button></div>
+      <div className={s.msgActs}>
+        <button type="button" className="form-warn-act" onClick={onLogin}>{C.authLogin}</button>
+        <button type="button" className="form-warn-act" onClick={onSaveFile}><Icon id="download" /> {C.saveFile}</button>
+      </div>
     </div>
   )
 }

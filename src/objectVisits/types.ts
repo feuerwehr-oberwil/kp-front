@@ -124,6 +124,8 @@ export interface VisitSummary {
   visitedAt: string
   updatedAt?: string | null
   by?: Person | string | null
+  /** «Von» — the people typed on the visit (the account is only the fallback) */
+  with?: string[] | null
   findings?: number
 }
 
@@ -147,6 +149,17 @@ export interface CatalogueObject {
   lastVisit?: { id: string; visitedAt: string; lifecycle: Lifecycle } | null
 }
 
+/** A completion the ORGANIZER already holds for a stop (e.g. the last round in SchlüHü). Shown
+ *  as done — never turned into a visit; a real visit for the list always wins. */
+export interface PriorDone {
+  /** YYYY-MM-DD */
+  at: string
+  by?: string | null
+  /** e.g. «SchlüHü» */
+  source?: string | null
+  note?: string | null
+}
+
 export interface VisitList {
   ref: string
   title: string
@@ -154,6 +167,8 @@ export interface VisitList {
   closesAt?: string | null
   objectIds: string[]
   unresolved?: ObjectRef[]
+  /** object id → the organizer's prior completion */
+  done?: Record<string, PriorDone> | null
 }
 
 export interface ProposalField { id: string; label: string }

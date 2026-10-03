@@ -302,20 +302,26 @@ def _render(
     )
     story.append(head)
     story.append(Spacer(1, 3 * mm))
-    people = ", ".join([p for p in [created_by, *(doc.get("with") or [])] if isinstance(p, str) and p.strip()])
-    facts = [
-        ("Objekt", obj.get("name") or "–"),
-        ("Adresse", obj.get("address") or "–"),
-        ("Besucht", _fmt(doc.get("visitedAt"))),
-        ("Personen", people or "–"),
-        ("Stand", f"Revision {revision} · Stand {_fmt(stand)}"),
+    # «Von» is who was THERE — the free-text people of the visit (`with`), because accounts are
+    # generic (a station tablet, «fu»). The account that saved it follows, smaller; it stands in
+    # for «Von» only when nobody was named.
+    names = [p.strip() for p in doc.get("with") or [] if isinstance(p, str) and p.strip()]
+    account = created_by.strip() if isinstance(created_by, str) and created_by.strip() else None
+    facts: list[tuple[str, str, str]] = [
+        ("Objekt", obj.get("name") or "–", "body"),
+        ("Adresse", obj.get("address") or "–", "body"),
+        ("Besucht", _fmt(doc.get("visitedAt")), "body"),
+        ("Von", ", ".join(names) or account or "–", "body"),
     ]
+    if names and account:
+        facts.append(("Konto", account, "small"))
+    facts.append(("Stand", f"Revision {revision} · Stand {_fmt(stand)}", "body"))
     if doc.get("workRef"):
-        facts.append(("Auftrag", doc["workRef"]))
+        facts.append(("Auftrag", doc["workRef"], "body"))
     if plain:
-        story.extend(Paragraph(f"<b>{_esc(k)}</b>: {_esc(v)}", st["body"]) for k, v in facts)
+        story.extend(Paragraph(f"<b>{_esc(k)}</b>: {_esc(v)}", st[style]) for k, v, style in facts)
     info = Table(
-        [[Paragraph(_esc(k), st["label"]), Paragraph(_esc(v), st["body"])] for k, v in facts],
+        [[Paragraph(_esc(k), st["label"]), Paragraph(_esc(v), st[style])] for k, v, style in facts],
         colWidths=[28 * mm, width - 28 * mm],
     )
     info.setStyle(
