@@ -56,23 +56,23 @@ async def require_organizer(
 Organizer = Annotated[None, Depends(require_organizer)]
 
 
-@router.get("/visit-programmes/{ref}")
-async def get_programme(ref: str, _org: Organizer, db: AsyncSession = Depends(get_db)) -> dict:
-    return await programmes.read(db, ref)
+@router.get("/visit-programmes/{programme_ref}")
+async def get_programme(programme_ref: str, _org: Organizer, db: AsyncSession = Depends(get_db)) -> dict:
+    return await programmes.read(db, programme_ref)
 
 
-@router.put("/visit-programmes/{ref}/routes")
+@router.put("/visit-programmes/{programme_ref}/routes")
 async def put_programme_routes(
-    ref: str, body: programmes.RoutesUpdate, _org: Organizer, db: AsyncSession = Depends(get_db)
+    programme_ref: str, body: programmes.RoutesUpdate, _org: Organizer, db: AsyncSession = Depends(get_db)
 ) -> dict:
-    return await programmes.save_routes(db, ref, body)
+    return await programmes.save_routes(db, programme_ref, body)
 
 
-@router.put("/visit-programmes/{ref}/years/{year}")
+@router.put("/visit-programmes/{programme_ref}/years/{year}")
 async def publish_programme(
-    ref: str, year: int, body: programmes.Publish, _org: Organizer, db: AsyncSession = Depends(get_db)
+    programme_ref: str, year: int, body: programmes.Publish, _org: Organizer, db: AsyncSession = Depends(get_db)
 ) -> dict:
-    return await programmes.publish(db, ref, year, body)
+    return await programmes.publish(db, programme_ref, year, body)
 
 
 @router.get("/object-visits/catalogue")

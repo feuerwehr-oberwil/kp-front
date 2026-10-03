@@ -174,13 +174,13 @@ either form arrives as the same id.
 
 Organizer-key endpoints (module must be enabled):
 
-- `GET /visit-programmes/{ref}` → `{revision, routes, years}`. Unknown ref answers revision 0
+- `GET /visit-programmes/{programme_ref}` → `{revision, routes, years}`. Unknown ref answers revision 0
   with empty arrays; reading creates nothing. Ref is ≤100 letters/digits/`:`/`.`/`_`/`-`.
-- `PUT /visit-programmes/{ref}/routes`, body `{revision, routes}`. Route =
+- `PUT /visit-programmes/{programme_ref}/routes`, body `{revision, routes}`. Route =
   `{code, title, objects:[{source,id}], retired:false}`. Codes are stable, unique (≤40
   letters/digits/hyphens); 200 routes, 500 ordered unique stops each. Existing routes can be
   retired/reactivated, not deleted. Templates never appear in the field catalogue.
-- `PUT /visit-programmes/{ref}/years/{year}`, body
+- `PUT /visit-programmes/{programme_ref}/years/{year}`, body
   `{revision, assignments:[{code,scheduledOn:"YYYY-MM-DD"}]}`. Each route once, all dates in
   the supplied year (2000–2200). Empty selection withdraws the year's rounds. All changes
   and the revision increment commit atomically; stale revision → 409 `planning_conflict`.
