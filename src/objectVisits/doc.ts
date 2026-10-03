@@ -28,10 +28,12 @@ export function objectSnapshot(o: CatalogueObject): VisitObject {
 }
 
 /** A fresh draft — nothing is sent until the first save point. */
-export function newVisitDoc({ object, workRef, checklist, now = new Date() }: {
+export function newVisitDoc({ object, workRef, checklist, people, now = new Date() }: {
   object: VisitObject
   workRef?: string | null
   checklist: VisitTemplate | null
+  /** «Von» — the people who visit (prefilled from this device's last visit) */
+  people?: string[]
   now?: Date
 }): VisitDoc {
   return {
@@ -40,6 +42,7 @@ export function newVisitDoc({ object, workRef, checklist, now = new Date() }: {
     object,
     ...(workRef ? { workRef } : {}),
     visitedAt: localIso(now),
+    ...(people?.length ? { with: people } : {}),
     lifecycle: 'draft',
     checklist,
     answers: {},

@@ -11,6 +11,7 @@ import { resolveObject, visitTemplates } from '../../objectVisits/catalogue'
 import { newVisitDoc, objectSnapshot } from '../../objectVisits/doc'
 import { createLocalVisit, findOpenDraft } from '../../objectVisits/store'
 import { decideNewVisit } from '../../objectVisits/newVisit'
+import { lastWith } from '../../objectVisits/devicePrefs'
 import type { CatalogueObject, VisitTemplate } from '../../objectVisits/types'
 import { Head } from './common'
 import { useOv } from './ovContext'
@@ -50,7 +51,7 @@ export function NewVisit({ objectKey, workRef }: { objectKey: string; workRef: s
     }
     if (step.kind !== 'create' || !object) return
     started.current = true
-    const doc = newVisitDoc({ object: objectSnapshot(object), workRef, checklist: step.template })
+    const doc = newVisitDoc({ object: objectSnapshot(object), workRef, checklist: step.template, people: lastWith() })
     void createLocalVisit(doc, ov.userId).then((r) => {
       if (r.rec) ov.go({ kind: 'visit', id: doc.id }, { replace: true })
       else { started.current = false; setFailed(true) }

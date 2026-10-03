@@ -122,8 +122,8 @@ Refusals carry a `code` at the top of the body **and** a German `detail`:
 
 | Route | Answer |
 |---|---|
-| `GET /catalogue` | `{generatedAt, canCapture, objects:[{id,name,address,lat,lng,folder,refs,hasPlans,lastVisit:{id,visitedAt,lifecycle}\|null}], templates:[visit templates], lists:[{ref,title,note,closesAt,objectIds:[…],unresolved:[{source,id}]}], proposalFields:[{id,label}]}` |
-| `GET /?object=&workRef=&mine=1&lifecycle=&limit=` | `[{id,objectId,objectName,workRef,lifecycle,revision,ready,visitedAt,updatedAt,by,findings}]` newest first |
+| `GET /catalogue` | `{generatedAt, canCapture, objects:[{id,name,address,lat,lng,folder,refs,hasPlans,lastVisit:{id,visitedAt,lifecycle}\|null}], templates:[visit templates], lists:[{ref,title,note,closesAt,objectIds:[…],unresolved:[{source,id}],done:{"<objectId>":{at,by?,source?,note?}}}], proposalFields:[{id,label}]}` |
+| `GET /?object=&workRef=&mine=1&lifecycle=&limit=` | `[{id,objectId,objectName,workRef,lifecycle,revision,ready,visitedAt,updatedAt,by,with,findings}]` newest first (`with`: the document's people, `[string]`) |
 | `GET /{id}` | the visit (document + server fields) |
 | `PUT /{id}` | body `{opId, baseRevision: int\|null, doc}` → `200 {revision, ready, missing, visit}` · `409 {code:"revision_conflict", revision, visit}` · `422` · same `opId` again ⇒ the stored first answer (idempotent replay, even if newer revisions exist) |
 | `PUT /{id}/attachments/{attId}` | raw bytes; headers `Content-Type`, `X-Content-SHA256` (hex). `201 {id, sha256, size}` new · `200` same id+hash already stored · `409 {code:"attachment_conflict"}` same id other hash · `422` hash/body mismatch, type not jpeg/png/webp (magic bytes), > 15 MB. The visit must exist (send the doc first). |
@@ -162,9 +162,24 @@ either form arrives as the same id.
 |---|---|
 | `GET /object-visits/catalogue` | same as the field catalogue (`canCapture` false) |
 | `PUT /objects/{source}/{externalId}` | body `{name, address?, lat?, lng?, folder?}`. Resolve: existing ref → that object; else an object whose `filing_folder` (or derived folder) equals `folder` → attach the ref; else create an `ObjectSite` (`source_note = "Integration: {source}"`, no plans). Updates `filing_folder` / lat / lng when given and the object has none (never renames a plan-carrying object; renames only a plan-less object this same `source` created). Folder comparison is Unicode-composed, case- and whitespace-insensitive. `200 {objectId, created}`. Path segments URL-encoded; `externalId` ≤ 300 chars. |
-| `PUT /visit-lists/{ref}` | body `{title, note?, closesAt?, objects:[{source,id}]}` (ordered, ≤ 500). Unresolved refs are kept and reported. `200 {ref, objectIds, unresolved}` · `DELETE /visit-lists/{ref}` → `200 {ref, deleted}` (idempotent) |
-| `GET /object-visits/changes?after=<seq>&limit=<≤500>` | `{items:[FeedItem], nextAfter}`; `FeedItem = {seq, id, objectId, objectRefs, objectName, workRef, revision, lifecycle, ready, visitedAt, updatedAt, by, findings, proposals:[…], deliveries:[…], url}` — one item per visit at its latest state, ordered by `seq`. `objectRefs` is read LIVE from `object_refs`, so a ref attached later (an object upsert matching by folder) appears on the next poll. `nextAfter` = the last item's `seq`, or `after` when empty |
+| `DELETE /objects/{source}/{externalId}` | removes that ref; the OBJECT goes too only if this integration created it (`source_note` «Integration: …»), it has no plan, no visit (any lifecycle) and no other ref. Lists that named the ref then report it under `unresolved`. `200 {removed: "ref" \| "object" \| "none"}` — idempotent (`none` = no such ref) |
+| `GET /objects/by-ref/{source}/{externalId}` | resolve the organizer's id: `200 {objectId, name, address, lat, lng, folder, refs, hasPlans}` · `404` unknown ref. (The catalogue's `objects[].refs` resolves the same way in bulk.) |
+| `GET /objects/{objectId}/plans` | the object's plans, read-only, one per Modul-Slot: `200 [{module, title, revision, contentType, size}]` (`revision` = the plan's current version) · `404` unknown object. Plan-less object ⇒ `[]` |
+| `GET /objects/{objectId}/plans/{module}[?revision=n]` | the plan bytes (`application/pdf`, inline, header `X-Plan-Revision`) — current, or the pinned revision `n` (the same immutable revision store an Einsatz pins) · `404` unknown object/module/revision |
+| `PUT /visit-lists/{ref}` | body `{title, note?, closesAt?, objects:[{source, id, done?}]}` (ordered, ≤ 500). `done` = a completion the ORGANIZER already holds for that stop (e.g. last round in SchlüHü): `{at: "YYYY-MM-DD", by?: ≤120, source?: ≤60 (e.g. "SchlüHü"), note?: ≤500}`; unknown keys, a non-date `at` or NUL/surrogates ⇒ 422. Stored as sent and shown — KP Front never turns it into a visit. Unresolved refs (and their `done`) are kept and reported. `200 {ref, objectIds, unresolved, done: {"<objectId>": {…}}}` (resolved stops only; first entry wins if two refs name one object) · `DELETE /visit-lists/{ref}` → `200 {ref, deleted}` (idempotent) |
+| `GET /object-visits/changes?after=<seq>&limit=<≤500>` | `{items:[FeedItem], nextAfter}`; `FeedItem = {seq, id, objectId, objectRefs, objectName, workRef, revision, lifecycle, ready, visitedAt, updatedAt, by, with, findings, proposals:[…], deliveries:[…], url}` — one item per visit at its latest state, ordered by `seq`. `objectRefs` is read LIVE from `object_refs`, so a ref attached later (an object upsert matching by folder) appears on the next poll. `nextAfter` = the last item's `seq`, or `after` when empty |
 | `GET /object-visits/{id}` · `/report.pdf` · `/attachments/{attId}` | read-only copies for review |
+
+**Progress on a list, and its precedence.** A stop is complete when a visit with the list's `ref`
+as `workRef` and lifecycle `completed` exists for its object — that real visit always wins in
+display (its date, its people, its report). Only where none exists does the organizer's `done`
+show the stop as complete («erledigt 14.10.2025 · SchlüHü · Frei Nina»). A draft for the stop does
+not hide a `done`; the stop then reads as done-before and in progress.
+
+**Who.** Accounts are generic (a station tablet, «fu»), so the document's free-text people
+(`with`, wire key unchanged) are the primary «who»: the report prints «Von: <with>» and the
+account smaller as «Konto: <createdBy.name>»; with `with` empty, «Von» falls back to the account.
+`by` (the creating account) stays in every summary; `with` sits beside it.
 
 `seq` is a global sequence bumped whenever a visit's revision, readiness or a delivery state
 changes. The organizer polls; no webhooks. It is a one-row counter (`object_visit_seq`) bumped

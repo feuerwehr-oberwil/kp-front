@@ -16,7 +16,7 @@ import { Menu } from '../../lib/overlays'
 import { localThumb, prepareUploadImage } from '../../lib/imagePrep'
 import { LoadingStatus } from '../ShellLoader'
 import { getRevisions, getVisit, sha256Hex } from '../../objectVisits/api'
-import { resolveObject } from '../../objectVisits/catalogue'
+import { knownVisits, lastSeen, listProgress, resolveObject } from '../../objectVisits/catalogue'
 import { answerStats, checklistItems, stripServer, syncPhotoAnswers } from '../../objectVisits/doc'
 import { resolveConflict, type Resolution } from '../../objectVisits/merge'
 import {
@@ -39,6 +39,8 @@ import s from './ObjectVisits.module.css'
 
 /** «every 2 min while dirty» */
 const DIRTY_SAVE_MS = 120_000
+/** a save point this long after the last change (owner, staging 03.10.2026: «make sending automatic») */
+export const QUIET_SAVE_MS = 20_000
 /** how often an open, sent visit asks the server about its filing while that is pending */
 const DELIVERY_POLL_MS = 60_000
 
@@ -98,11 +100,14 @@ export function VisitPage({ id }: { id: string }) {
     const save = () => requestSave(id, undefined, { actor: who.current.userId })
     const onHidden = () => { if (document.visibilityState === 'hidden') void save() }
     document.addEventListener('visibilitychange', onHidden)
+    // the page going away (a reload, the app swiped off) — best effort, like the background
+    window.addEventListener('pagehide', save)
     const t = setInterval(() => {
       void readVisit(id).then((r) => { if (r.ok && r.value?.dirty) void save() })
     }, DIRTY_SAVE_MS)
     return () => {
       document.removeEventListener('visibilitychange', onHidden)
+      window.removeEventListener('pagehide', save)
       clearInterval(t)
       void save() // leaving the visit
     }
@@ -122,9 +127,23 @@ export function VisitPage({ id }: { id: string }) {
     return () => clearInterval(t)
   }, [pollDelivery, id])
 
+  // ── a save point 20 s after the last change while online: nobody has to think about sending ──
+  const quietTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (quietTimer.current) clearTimeout(quietTimer.current) }, [])
+  const armQuietSave = useCallback(() => {
+    if (quietTimer.current) clearTimeout(quietTimer.current)
+    quietTimer.current = setTimeout(() => {
+      quietTimer.current = null
+      // offline too: the send fails at once, and the save point it leaves behind is what the
+      // reconnect sends (outbox · startOutboxRunner) — the member never has to come back for it
+      void requestSave(id, undefined, { actor: who.current.userId })
+    }, QUIET_SAVE_MS)
+  }, [id])
+
   /** Store an edit on the device now; the page shows it before the write lands. */
   const edit = useCallback((fn: (d: VisitDoc) => VisitDoc): Promise<void> => {
     pendingEdits.current++
+    armQuietSave()
     setRec((r) => (r ? { ...r, doc: syncPhotoAnswers(fn(r.doc)), dirty: true } : r))
     return updateVisit(id, (cur) => (cur ? {
       ...cur,
@@ -141,7 +160,7 @@ export function VisitPage({ id }: { id: string }) {
       setDurable(res.ok && res.durable && isVisitDurable(id, res.rec?.doc))
       if (pendingEdits.current === 0 && res.rec) setRec(res.rec)
     })
-  }, [id])
+  }, [id, armQuietSave])
 
   const sendNow = async () => {
     const out = await requestSave(id, undefined, { actor: ov.userId, manual: true })
@@ -171,9 +190,9 @@ export function VisitPage({ id }: { id: string }) {
     photoItemRef.current = itemId
     fileRef.current?.click()
   }
-  const onFile = async (file: File) => {
-    const itemId = photoItemRef.current
-    setPhotoSheet({ attId: null, preparing: true, stored: null })
+  /** One picked file → one photo on the device (prepared, thumbnailed, hashed). Null when the
+   *  browser could not decode it. */
+  const storePhoto = async (file: File, itemId: string | null, caption: string): Promise<{ photo: VisitPhoto; stored: boolean } | null> => {
     try {
       const blob = await prepareUploadImage(file)
       const type = blob.type || 'image/jpeg'
@@ -181,17 +200,38 @@ export function VisitPage({ id }: { id: string }) {
       const sha256 = await sha256Hex(blob)
       const attId = newId('ova')
       const stored = await putAttachment(attId, { blob, thumb, type, sha256, size: blob.size, visitId: id })
-      const item = itemId ? checklistItems(doc?.checklist).find((i) => i.id === itemId) : undefined
-      const photo: VisitPhoto = { id: attId, caption: item?.text ?? '', ...(itemId ? { item: itemId } : {}), sha256, size: blob.size, type }
-      await edit((d) => ({ ...d, photos: [...d.photos, photo] }))
-      setPhotoSheet({ attId, preparing: false, stored })
-      // photos go up as soon as the visit exists on the server (not a revision)
-      if (rec?.base) void flushVisit(id) // (its pending send stays with its account — outbox · responsible)
+      return { photo: { id: attId, caption, ...(itemId ? { item: itemId } : {}), sha256, size: blob.size, type }, stored }
     } catch {
-      setPhotoSheet(null)
-      toast(C.photoFailed, { icon: 'warn', tone: 'warn' })
+      return null
     }
   }
+  /** The picker answered: the camera's one photo (its caption sheet follows), or several from the
+   *  library — all added at once with empty captions, linked to the item the picker came from. */
+  const onFiles = async (files: File[]) => {
+    const itemId = photoItemRef.current
+    if (files.length === 1) {
+      setPhotoSheet({ attId: null, preparing: true, stored: null })
+      const item = itemId ? checklistItems(doc?.checklist).find((i) => i.id === itemId) : undefined
+      const got = await storePhoto(files[0], itemId, item?.text ?? '')
+      if (!got) { setPhotoSheet(null); toast(C.photoFailed, { icon: 'warn', tone: 'warn' }); return }
+      await edit((d) => ({ ...d, photos: [...d.photos, got.photo] }))
+      setPhotoSheet({ attId: got.photo.id, preparing: false, stored: got.stored })
+    } else {
+      setPhotoSheet(null)
+      const added: VisitPhoto[] = []
+      let failed = 0
+      for (const f of files) { // one at a time: imagePrep decodes one picture at a time anyway
+        const got = await storePhoto(f, itemId, '')
+        if (got) added.push(got.photo); else failed++
+      }
+      if (added.length) await edit((d) => ({ ...d, photos: [...d.photos, ...added] }))
+      if (added.length) toast(fillTemplate(C.photosAdded, { n: added.length }), { icon: 'check' })
+      if (failed) toast(C.photoFailed, { icon: 'warn', tone: 'warn' })
+    }
+    // photos go up as soon as the visit exists on the server (not a revision)
+    if (rec?.base) void flushVisit(id) // (its pending send stays with its account — outbox · responsible)
+  }
+
   const removePhoto = (attId: string) => {
     if (!doc) return
     const at = doc.photos.findIndex((p) => p.id === attId)
@@ -282,7 +322,8 @@ export function VisitPage({ id }: { id: string }) {
   const editable = canEdit && (lifecycle === 'draft' || correcting)
   const readView = !editable
   const catObject = catalogue ? resolveObject(catalogue, doc.object.id) : null
-  const last = catObject?.lastVisit && catObject.lastVisit.id !== doc.id ? fillTemplate(C.lastVisit, { date: fmtDate(catObject.lastVisit.visitedAt) }) : null
+  const seen = catalogue && catObject && catObject.lastVisit?.id !== doc.id ? lastSeen(catalogue, catObject) : null
+  const last = seen ? fillTemplate(C.lastVisit, { date: fmtDate(seen.at) }) : null
   const sub = [doc.object.address, last].filter(Boolean).join(' · ')
   const pending = new Set(rec ? (rec.base ? pendingUploads(rec) : doc.photos.map((p) => p.id)) : [])
   const revision = rec?.base?.revision ?? remote?.revision ?? null
@@ -293,11 +334,11 @@ export function VisitPage({ id }: { id: string }) {
   // the next stop of the work list: the first object after this one without a completed visit
   const next = (() => {
     if (!list || !catalogue || lifecycle !== 'completed') return null
-    const done = new Set(ov.locals.filter((v) => v.doc.workRef === list.ref && v.doc.lifecycle === 'completed').map((v) => v.doc.object.id))
-    for (const sm of ov.summaries ?? []) if (sm.workRef === list.ref && sm.lifecycle === 'completed') done.add(sm.objectId)
+    // done = a completed visit for this list, or the organizer's prior completion
+    const stops = listProgress(list, knownVisits(ov.locals, ov.summaries)).stops
     const at = list.objectIds.indexOf(doc.object.id)
     const order = [...list.objectIds.slice(at + 1), ...list.objectIds.slice(0, Math.max(0, at))]
-    const id2 = order.find((oid) => !done.has(oid) && catalogue.objects.some((o) => o.id === oid))
+    const id2 = order.find((oid) => oid !== doc.object.id && !stops.get(oid)?.done && catalogue.objects.some((o) => o.id === oid))
     if (!id2) return 'done' as const
     return { index: list.objectIds.indexOf(id2) + 1, object: catalogue.objects.find((o) => o.id === id2)! }
   })()
@@ -314,30 +355,28 @@ export function VisitPage({ id }: { id: string }) {
     <>
       <Head
         title={doc.object.name}
-        sub={sub || null}
+        subNode={<StatusLine status={status} rec={rec} canSend={canEdit} onSendNow={() => { void sendNow() }} />}
         onBack={leave}
-        actions={rec ? (
+        actions={canEdit && lifecycle === 'draft' ? (
           <Menu
             trigger={<button type="button" className={s.iconBtn} aria-label={C.menu} title={C.menu}><Icon id="more" /></button>}
             popupClassName={s.menuPop}
             itemClassName={() => s.menuItem}
-            items={[
-              ...(canEdit ? [{ label: C.sendNow, onClick: () => { void sendNow() } }] : []),
-              { label: C.saveFile, onClick: () => { void saveFile() } },
-              ...(canEdit && lifecycle === 'draft' ? [{ label: C.discard, onClick: () => { void discard() }, danger: true }] : []),
-            ]}
+            // sending is automatic and «Als Datei sichern» lives in the cards that need it: the
+            // menu holds the one thing that is not a save (owner, staging 03.10.2026)
+            items={[{ label: C.discard, onClick: () => { void discard() }, danger: true }]}
           />
         ) : undefined}
       />
       <div className={s.body}>
         <div className={s.col}>
-          <StatusLine status={status} rec={rec} canSend={canEdit} onSendNow={() => { void sendNow() }} />
+          {sub && <p className={s.place}><Icon id="pin" />{sub}</p>}
 
           {status.sync.kind === 'unsaved' && (
             <UnsavedCard onSaveFile={() => { void saveFile() }}
               onRetry={() => { void retryHeld().then(() => setDurable(isVisitDurable(id, rec?.doc))) }} />
           )}
-          {status.sync.kind === 'auth' && <AuthCard onLogin={ov.relogin} />}
+          {status.sync.kind === 'auth' && <AuthCard onLogin={ov.relogin} onSaveFile={() => { void saveFile() }} />}
           {status.sync.kind === 'error' && status.sync.error && <RefusedCard error={status.sync.error} onSaveFile={() => { void saveFile() }} />}
           <ConflictCards doc={doc} readOnly={!canEdit} viewer={ov.userId} onResolve={resolve} />
 
@@ -396,7 +435,7 @@ export function VisitPage({ id }: { id: string }) {
                       <span className={s.num}>{next.index}</span>
                       <span className={s.rowMain}>
                         <span className={s.rowTitle}>{next.object.name}</span>
-                        <span className={s.rowSub}>{[next.object.address, next.object.lastVisit ? fillTemplate(C.lastVisit, { date: fmtDate(next.object.lastVisit.visitedAt) }) : C.neverVisited].filter(Boolean).join(' · ')}</span>
+                        <span className={s.rowSub}>{[next.object.address, next.object.lastVisit?.lifecycle === 'completed' ? fillTemplate(C.lastVisit, { date: fmtDate(next.object.lastVisit.visitedAt) }) : C.neverVisited].filter(Boolean).join(' · ')}</span>
                       </span>
                       <Icon id="chevron" className={s.chev} />
                     </button>
@@ -410,6 +449,7 @@ export function VisitPage({ id }: { id: string }) {
             <p className="form-warn form-warn-amber form-warn-compact"><Icon id="pen" /><span className="form-warn-text">{C.correctionNote}</span></p>
           )}
 
+          <DetailsCard doc={doc} readOnly={readView} onEdit={(fn) => { void edit(fn) }} />
           <ChecklistSection doc={doc} readOnly={readView} pending={pending}
             onEdit={(fn) => { void edit(fn) }} onTakePhoto={takePhoto}
             onOpenPhoto={(attId) => setPhotoSheet({ attId, preparing: false, stored: null })} />
@@ -418,8 +458,6 @@ export function VisitPage({ id }: { id: string }) {
             onOpenPhoto={(attId) => setPhotoSheet({ attId, preparing: false, stored: null })} />
           <ProposalsSection doc={doc} readOnly={readView}
             onOpen={(p) => setProposalSheet({ p })} onAdd={() => setProposalSheet({ p: null })} />
-          {/* last: the date starts as «now» and only a back-entry from paper changes it */}
-          <DetailsCard doc={doc} readOnly={readView} onEdit={(fn) => { void edit(fn) }} />
         </div>
       </div>
 
@@ -434,12 +472,14 @@ export function VisitPage({ id }: { id: string }) {
       )}
 
       <input
-        ref={fileRef} className={s.hiddenInput} type="file" accept="image/*" capture="environment"
+        // no `capture`: the phone offers camera AND library (iOS: Kamera · Fotomediathek ·
+        // Dateien); several picked at once become several photos
+        ref={fileRef} className={s.hiddenInput} type="file" accept="image/*" multiple
         data-testid="ov-photo-input"
         onChange={(e) => {
-          const f = e.target.files?.[0]
+          const files = Array.from(e.target.files ?? [])
           e.target.value = ''
-          if (f) void onFile(f)
+          if (files.length) void onFiles(files)
         }}
       />
 

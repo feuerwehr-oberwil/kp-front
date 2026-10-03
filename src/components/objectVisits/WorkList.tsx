@@ -5,7 +5,7 @@ import { useMemo } from 'react'
 import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
-import { knownVisits, listProgress } from '../../objectVisits/catalogue'
+import { knownVisits, lastSeen, listProgress } from '../../objectVisits/catalogue'
 import { pendingUploads } from '../../objectVisits/outbox'
 import { Head } from './common'
 import { fmtDate, fmtDayShort } from './ovFormat'
@@ -51,16 +51,27 @@ export function WorkList({ listRef }: { listRef: string }) {
             {list.objectIds.map((id, i) => {
               const o = byId.get(id)
               if (!o) return null
-              const v = p.byObject.get(id)
+              const stop = p.stops.get(id) ?? { done: false }
+              const v = stop.visit
               const local = v ? ov.locals.find((l) => l.doc.id === v.id) : undefined
               const photosOut = local ? pendingUploads(local).length > 0 || local.sent?.ready === false : false
-              const chip = !v ? null
-                : v.lifecycle === 'completed'
-                  ? (photosOut
-                    ? <span className="ip-badge ip-badge-todo">{C.statePhotos}</span>
-                    : <span className="ip-badge ip-badge-ok">{fillTemplate(C.stateDone, { date: fmtDayShort(v.visitedAt) })}</span>)
-                  : <span className="ip-badge ip-badge-todo">{C.stateDraft}</span>
-              const subLine = [o.address, o.lastVisit ? fillTemplate(C.lastVisit, { date: fmtDate(o.lastVisit.visitedAt) }) : C.neverVisited].filter(Boolean).join(' · ')
+              const prior = stop.prior
+              const priorText = prior ? [fmtDayShort(prior.at), prior.source].filter(Boolean).join(' · ') : ''
+              // a real completed visit wins; else a draft says «Entwurf» (the organizer's earlier
+              // completion moves to the line below); else the organizer's completion is the chip
+              const chip = v?.lifecycle === 'completed'
+                ? (photosOut
+                  ? <span className="ip-badge ip-badge-todo">{C.statePhotos}</span>
+                  : <span className="ip-badge ip-badge-ok">{fillTemplate(C.stateDone, { date: fmtDayShort(v.visitedAt) })}</span>)
+                : v ? <span className="ip-badge ip-badge-todo">{C.stateDraft}</span>
+                  : prior ? <span className="ip-badge ip-badge-ok">{fillTemplate(C.stateDone, { date: priorText })}</span>
+                    : null
+              const seen = catalogue ? lastSeen(catalogue, o) : null
+              const subLine = [
+                o.address,
+                v && prior ? [C.listDoneElsewhere, fmtDate(prior.at), prior.source, prior.by].filter(Boolean).join(' ')
+                  : seen ? fillTemplate(C.lastVisit, { date: fmtDate(seen.at) }) : C.neverVisited,
+              ].filter(Boolean).join(' · ')
               const open = () => {
                 if (v) ov.go({ kind: 'visit', id: v.id })
                 else if (ov.canCapture) ov.go({ kind: 'new', object: o.id, ref: list.ref })

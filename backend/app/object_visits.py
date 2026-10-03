@@ -31,7 +31,7 @@ import unicodedata
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import func, select, update
@@ -552,6 +552,11 @@ async def serialize_visit(db: AsyncSession, visit: ObjectVisit) -> dict[str, Any
     }
 
 
+def with_names(doc: dict[str, Any]) -> list[str]:
+    """The people the visit names (`with`) — the primary «who»; accounts are generic."""
+    return [p for p in doc.get("with") or [] if isinstance(p, str) and p.strip()]
+
+
 def summary(visit: ObjectVisit) -> dict[str, Any]:
     obj = visit.doc.get("object") or {}
     return {
@@ -565,6 +570,7 @@ def summary(visit: ObjectVisit) -> dict[str, Any]:
         "visitedAt": visit.doc.get("visitedAt"),
         "updatedAt": _iso(visit.updated_at),
         "by": _who(visit.created_by, visit.created_by_name),
+        "with": with_names(visit.doc),
         "findings": visit.findings,
     }
 
@@ -991,11 +997,26 @@ async def visit_templates(db: AsyncSession) -> list[dict[str, Any]]:
     return out
 
 
+async def resolve_list(
+    db: AsyncSession, items: list[dict[str, Any]]
+) -> tuple[list[str], list[dict[str, str]], dict[str, dict[str, Any]]]:
+    """(object ids in order, unresolved refs, ``done`` keyed by object id) of a work list."""
+    ids, unresolved = await resolve_refs(db, items)
+    rows = (await db.execute(select(ObjectRef.source, ObjectRef.external_id, ObjectRef.object_id))).all()
+    known = {(r.source, r.external_id): str(r.object_id) for r in rows}
+    done: dict[str, dict[str, Any]] = {}
+    for item in items:
+        oid = known.get((item.get("source", ""), item.get("id", "")))
+        if oid is not None and isinstance(item.get("done"), dict) and oid not in done:
+            done[oid] = item["done"]
+    return ids, unresolved, done
+
+
 async def visit_lists(db: AsyncSession) -> list[dict[str, Any]]:
     rows = (await db.execute(select(VisitList).order_by(VisitList.ref))).scalars().all()
     out: list[dict[str, Any]] = []
     for vl in rows:
-        ids, unresolved = await resolve_refs(db, list(vl.items or []))
+        ids, unresolved, done = await resolve_list(db, list(vl.items or []))
         out.append(
             {
                 "ref": vl.ref,
@@ -1004,6 +1025,7 @@ async def visit_lists(db: AsyncSession) -> list[dict[str, Any]]:
                 "closesAt": _iso(vl.closes_at),
                 "objectIds": ids,
                 "unresolved": unresolved,
+                "done": done,
             }
         )
     return out
@@ -1079,6 +1101,7 @@ async def feed(db: AsyncSession, *, after: int, limit: int) -> dict[str, Any]:
                 "visitedAt": v.doc.get("visitedAt"),
                 "updatedAt": _iso(v.updated_at),
                 "by": _who(v.created_by, v.created_by_name),
+                "with": with_names(v.doc),
                 "findings": v.findings,
                 "proposals": list(v.doc.get("proposals") or []),
                 "deliveries": await deliveries_for(db, v.id),
@@ -1157,6 +1180,31 @@ async def upsert_integration_object(
     return {"objectId": str(obj.id), "created": created}
 
 
+def _prior_completion(value: Any, external_id: str) -> dict[str, str]:
+    """A completion the organizer already holds for this stop (e.g. a tour done in SchlüHü).
+
+    ``{at: "YYYY-MM-DD", by?, source?, note?}`` — stored and shown, never turned into a visit."""
+    where = f"objects[{external_id[:40]}].done"
+    if not isinstance(value, dict):
+        raise invalid(f"{where} muss ein Objekt sein")
+    unknown = set(value) - {"at", "by", "source", "note"}
+    if unknown:
+        raise invalid(f"{where}: unbekannte Felder {sorted(unknown)}")
+    at = value.get("at")
+    if not isinstance(at, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", at):
+        raise invalid(f"{where}.at muss ein Datum JJJJ-MM-TT sein")
+    try:
+        date.fromisoformat(at)
+    except ValueError as e:
+        raise invalid(f"{where}.at ist kein gültiges Datum") from e
+    out = {"at": at}
+    for key, limit in (("by", 120), ("source", 60), ("note", 500)):
+        text = _text(value.get(key), limit, f"{where}.{key}")
+        if text is not None and text.strip():
+            out[key] = text.strip()
+    return out
+
+
 async def put_visit_list(db: AsyncSession, ref: str, body: dict[str, Any]) -> dict[str, Any]:
     refuse_unstorable(ref, body)
     if not ref or len(ref) > 200 or any(not c.isprintable() for c in ref):
@@ -1170,7 +1218,7 @@ async def put_visit_list(db: AsyncSession, ref: str, body: dict[str, Any]) -> di
     items = body.get("objects")
     if not isinstance(items, list) or len(items) > 500:
         raise invalid("objects: eine Liste von höchstens 500 {source, id}")
-    clean: list[dict[str, str]] = []
+    clean: list[dict[str, Any]] = []
     for item in items:
         if (
             not isinstance(item, dict)
@@ -1181,7 +1229,10 @@ async def put_visit_list(db: AsyncSession, ref: str, body: dict[str, Any]) -> di
             or len(item["id"]) > MAX_EXTERNAL_ID
         ):
             raise invalid("objects: jeder Eintrag braucht {source, id}")
-        clean.append({"source": item["source"], "id": item["id"]})
+        entry: dict[str, Any] = {"source": item["source"], "id": item["id"]}
+        if item.get("done") is not None:
+            entry["done"] = _prior_completion(item["done"], item["id"])
+        clean.append(entry)
     row = await db.get(VisitList, ref)
     if row is None:
         row = VisitList(ref=ref, title=title, items=clean)
@@ -1192,8 +1243,8 @@ async def put_visit_list(db: AsyncSession, ref: str, body: dict[str, Any]) -> di
     row.items = clean
     row.updated_at = datetime.now(UTC)
     await db.flush()
-    ids, unresolved = await resolve_refs(db, clean)
-    return {"ref": ref, "objectIds": ids, "unresolved": unresolved}
+    ids, unresolved, done = await resolve_list(db, clean)
+    return {"ref": ref, "objectIds": ids, "unresolved": unresolved, "done": done}
 
 
 async def delete_visit_list(db: AsyncSession, ref: str) -> dict[str, Any]:
@@ -1323,3 +1374,81 @@ async def render_report(
             photos=photos,
         )
     )
+
+
+# --- organizer: removing an object ref, reading an object's plans ----------------------------------
+
+
+async def delete_integration_object(db: AsyncSession, source: str, external_id: str) -> dict[str, str]:
+    """``DELETE /api/integrations/objects/{source}/{externalId}`` — idempotent.
+
+    Removes the ref. The OBJECT goes too only when this organizer made it and nothing else
+    stands on it: ``source_note`` «Integration: …», no plan, no visit (of any lifecycle), no
+    other ref. Work lists that named it then report the ref as unresolved (they resolve live).
+    """
+    refuse_unstorable(source, external_id)
+    if not SOURCE_RE.match(source):
+        raise invalid("source: Kleinbuchstaben, Ziffern, '.', '_' oder '-'")
+    ref = (
+        await db.execute(select(ObjectRef).where(ObjectRef.source == source, ObjectRef.external_id == external_id))
+    ).scalar_one_or_none()
+    if ref is None:
+        return {"removed": "none"}
+    object_id = ref.object_id
+    await db.delete(ref)
+    await db.flush()
+    obj = await db.get(ObjectSite, object_id)
+    if obj is None or not (obj.source_note or "").startswith("Integration:"):
+        return {"removed": "ref"}
+    plans = (await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.object_id == obj.id).limit(1))).first()
+    visits = (await db.execute(select(ObjectVisit.id).where(ObjectVisit.object_id == obj.id).limit(1))).first()
+    others = (await db.execute(select(ObjectRef.id).where(ObjectRef.object_id == obj.id).limit(1))).first()
+    if plans or visits or others:
+        return {"removed": "ref"}
+    await db.delete(obj)
+    await db.flush()
+    logger.info("organizer %s removed object %s (%s) with its last ref", source, obj.id, obj.name)
+    return {"removed": "object"}
+
+
+async def object_by_ref(db: AsyncSession, source: str, external_id: str) -> ObjectSite:
+    refuse_unstorable(source, external_id)
+    ref = (
+        await db.execute(select(ObjectRef).where(ObjectRef.source == source, ObjectRef.external_id == external_id))
+    ).scalar_one_or_none()
+    obj = await db.get(ObjectSite, ref.object_id) if ref is not None else None
+    if obj is None:
+        raise not_found("Objekt nicht gefunden")
+    return obj
+
+
+async def object_summary(db: AsyncSession, obj: ObjectSite) -> dict[str, Any]:
+    refs = (await refs_by_object(db)).get(obj.id, [])
+    return {
+        "objectId": str(obj.id),
+        "name": obj.name,
+        "address": obj.address,
+        "lat": float(obj.lat) if obj.lat is not None else None,
+        "lng": float(obj.lng) if obj.lng is not None else None,
+        "folder": object_folder(obj),
+        "refs": refs,
+        "hasPlans": obj.id in await object_ids_with_plans(db),
+    }
+
+
+async def object_plans(db: AsyncSession, object_id: uuid.UUID) -> list[ReferenceDataset]:
+    """The object's plan datasets (one per Modul-Slot) that hold bytes, by module."""
+    if await db.get(ObjectSite, object_id) is None:
+        raise not_found("Objekt nicht gefunden")
+    rows = (
+        (
+            await db.execute(
+                select(ReferenceDataset)
+                .where(ReferenceDataset.object_id == object_id, ReferenceDataset.storage_key.is_not(None))
+                .order_by(ReferenceDataset.module)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [r for r in rows if r.module and r.kind == "pdf"]

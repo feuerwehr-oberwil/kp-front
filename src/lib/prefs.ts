@@ -103,6 +103,9 @@ export interface Prefs {
   /** last Verwaltung (admin) section id, so reopening /admin returns to the same page.
    *  Kept loose (string) so prefs.ts doesn't depend on the admin's SectionId union. */
   adminSection?: string
+  /** Objektbesuche · «Von»: the names last typed on THIS device (the accounts are shared logins,
+   *  so the people are typed), prefilled into the next visit. Device-local, never synced. */
+  ovWith?: string
   /** Führungsansicht: tactical editing locked on this device (journal capture and
    *  read-only symbol details stay live). Unset = follow the login's server-side default
    *  (AuthUser.el_view_default); an explicit toggle here overrides it. Editors only. */

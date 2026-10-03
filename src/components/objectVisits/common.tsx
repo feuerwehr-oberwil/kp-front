@@ -6,9 +6,11 @@ import { appConfig } from '../../config/appConfig'
 import { usePhotoUrl } from './ovFormat'
 import s from './ObjectVisits.module.css'
 
-export function Head({ title, sub, onBack, actions }: {
+export function Head({ title, sub, subNode, onBack, actions }: {
   title: string
   sub?: string | null
+  /** a second line that is a control of its own (the visit's status line) — replaces `sub` */
+  subNode?: ReactNode
   onBack?: () => void
   actions?: ReactNode
 }) {
@@ -23,7 +25,7 @@ export function Head({ title, sub, onBack, actions }: {
         )}
         <div className={s.headTitles}>
           <h1>{title}</h1>
-          {sub && <p>{sub}</p>}
+          {subNode ?? (sub && <p>{sub}</p>)}
         </div>
         {actions}
       </header>

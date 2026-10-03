@@ -20,6 +20,10 @@ describe('visit document', () => {
     expect(d.id).toMatch(/^[a-z]{1,4}[0-9a-z-]{6,64}$/)
     expect(d.visitedAt).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d$/)
   })
+  it('«Von» starts with the people given (this device\'s last ones)', () => {
+    expect(newVisitDoc({ object: { id: 'o', name: 'O' }, checklist: null, people: ['Frei Nina'] }).with).toEqual(['Frei Nina'])
+    expect(newVisitDoc({ object: { id: 'o', name: 'O' }, checklist: null, people: [] })).not.toHaveProperty('with')
+  })
   it('localIso keeps the wall clock and the offset', () => {
     const s = localIso(new Date(2026, 9, 3, 8, 14, 0))
     expect(s.startsWith('2026-10-03T08:14:00')).toBe(true)
