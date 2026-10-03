@@ -48,10 +48,11 @@ from sqlalchemy import select
 from . import storage
 from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
+from .checklist_templates import TEMPLATE_KINDS, template_problem
 from .database import async_session_maker
 from .models import ReferenceDataset
 
-_TEMPLATE_KINDS = {"action", "rapport", "reference"}
+_TEMPLATE_KINDS = set(TEMPLATE_KINDS)
 _IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".svg"}
 
 
@@ -190,10 +191,9 @@ def _validate_template_json(src: Path, entry: ChecklistEntry) -> None:
         fail(f"ERROR: {src}: template id {tpl.get('id')!r} != manifest id {entry.id!r}.")
     if tpl.get("kind") != entry.kind:
         fail(f"ERROR: {src}: template kind {tpl.get('kind')!r} != manifest kind {entry.kind!r}.")
-    has_phases = isinstance(tpl.get("phases"), list) and tpl["phases"]
-    has_entries = isinstance(tpl.get("entries"), list) and tpl["entries"]
-    if bool(has_phases) == bool(has_entries):
-        fail(f"ERROR: {src}: needs exactly one of 'phases' (action/rapport) or 'entries' (reference).")
+    problem = template_problem(tpl)
+    if problem:
+        fail(f"ERROR: {src}: {problem}")
 
 
 def _validate_files(manifest_path: Path, entries: list[ChecklistEntry]) -> tuple[int, int]:

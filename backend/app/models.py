@@ -440,9 +440,201 @@ class ObjectSite(Base):
     #: does not keeps uploading by hand, unaffected.
     source_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True, index=True)
     source_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: The folder this object's documents are FILED under in the station's plan library
+    #: («Hauptstrasse 24 - Gemeindeverwaltung»), verbatim. Read by the Objektbesuche delivery
+    #: (`{object.folder}`, docs/object-visits.md) so a visit lands next to the plans. Set by the
+    #: SharePoint pull and the manifest import (`folder`), backfilled from `source_note` where
+    #: that names the folder; NULL = unknown, and `object_visits.object_folder` derives one.
+    filing_folder: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class ObjectRef(Base):
+    """An outside system's id for one Einsatzobjekt (``fwo-schlue:<uuid>``, ``firegis:<gid>``).
+
+    Opaque to this app: it only ever looks a ref up, never parses one. Unique per
+    ``(source, external_id)`` — one outside id names one object here; an object may carry many.
+    """
+
+    __tablename__ = "object_refs"
+    __table_args__ = (UniqueConstraint("source", "external_id", name="uq_object_refs_source_external"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    object_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("objects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    external_id: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class VisitList(Base):
+    """A read-only work list an organizer pushed (``PUT /api/integrations/visit-lists/{ref}``).
+
+    ``items`` keeps the organizer's ORDER and its refs as sent — an unresolved ref is kept and
+    reported, so an object loaded later joins the list without the organizer pushing again.
+    """
+
+    __tablename__ = "visit_lists"
+
+    ref: Mapped[str] = mapped_column(Text, primary_key=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    closes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: [{"source": …, "id": …}] in the organizer's order
+    items: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class ObjectVisit(Base):
+    """One Objektbesuch at its CURRENT state (docs/object-visits.md).
+
+    The id is the client's (``ov…``, minted on the device before anything is sent). ``doc`` is
+    the latest accepted document; every accepted version is also an immutable
+    :class:`ObjectVisitRevision`. ``seq`` orders the organizer's change feed and is bumped
+    whenever the revision, the readiness or a delivery state changes (``object_visits.bump_seq``).
+    """
+
+    __tablename__ = "object_visits"
+    __table_args__ = (Index("ix_object_visits_object_visited", "object_id", "visited_at"),)
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    #: SET NULL, not CASCADE: a visit is a record of what somebody saw, and deleting an
+    #: Einsatzobjekt (a duplicate merge, a demo reset) must not take that record with it. The
+    #: document keeps the object's name and address as they were.
+    object_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("objects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    work_ref: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
+    lifecycle: Mapped[str] = mapped_column(String(16), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    ready: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    doc: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    visited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    findings: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_by_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    updated_by_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    seq: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, index=True)
+
+
+class ObjectVisitRevision(Base):
+    """One accepted version of a visit document — immutable once written.
+
+    ``op_id`` is the client's write-operation id: a PUT whose response was lost is sent again
+    with the same one and answered with ``response``, the stored first answer, even when newer
+    revisions exist by then. ``ready`` flips once every photo the revision references is stored.
+    """
+
+    __tablename__ = "object_visit_revisions"
+    __table_args__ = (UniqueConstraint("visit_id", "op_id", name="uq_object_visit_revisions_op"),)
+
+    visit_id: Mapped[str] = mapped_column(Text, ForeignKey("object_visits.id", ondelete="CASCADE"), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    op_id: Mapped[str] = mapped_column(Text, nullable=False)
+    lifecycle: Mapped[str] = mapped_column(String(16), nullable=False)
+    doc: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    ready: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    response: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    accepted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    accepted_by_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ObjectVisitAttachment(Base):
+    """A photo's ORIGINAL bytes for one visit, stored once under a fresh key and never replaced.
+
+    Keyed by the client's attachment id within the visit; ``sha256`` is what makes a repeated
+    upload idempotent and a different body under the same id a conflict. Thumbnails are derived
+    (``<storage_key>.thumb.jpg``) and may be regenerated.
+    """
+
+    __tablename__ = "object_visit_attachments"
+
+    visit_id: Mapped[str] = mapped_column(Text, ForeignKey("object_visits.id", ondelete="CASCADE"), primary_key=True)
+    att_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    size: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_type: Mapped[str] = mapped_column(Text, nullable=False)
+    storage_key: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ObjectVisitSeq(Base):
+    """The change feed's counter — ONE row, bumped inside the writing transaction.
+
+    ⚠️ A row, not a bare Postgres SEQUENCE, on purpose: a sequence hands its numbers out in CALL
+    order but they become visible in COMMIT order, so an organizer polling ``after=<seq>`` could
+    read 6 before 5 committed and never see 5. Updating this row holds its lock until the writer
+    commits, so numbers become visible in the order they were handed out. Every writer bumps it
+    LAST, after its own row locks, so the lock order is always visit → delivery → this row.
+    """
+
+    __tablename__ = "object_visit_seq"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    value: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+
+
+class ObjectVisitDelivery(Base):
+    """The outbox row for one visit to one destination (docs/object-visits.md «Delivery»).
+
+    ``wanted_revision`` is the newest eligible ready revision, ``delivered_revision`` the newest
+    one filed remotely — advanced by compare-and-swap only. ``remote_items`` maps attachment ids
+    to the drive items written for them (``_folder`` and ``_removed`` are bookkeeping keys).
+    """
+
+    __tablename__ = "object_visit_deliveries"
+    __table_args__ = (
+        UniqueConstraint("destination", "visit_id", name="uq_object_visit_deliveries_dest_visit"),
+        Index("ix_object_visit_deliveries_due", "state", "next_attempt_at"),
+    )
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    destination: Mapped[str] = mapped_column(String(64), nullable=False)
+    visit_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("object_visits.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    wanted_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    delivered_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    #: pending | delivered | failed | paused
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lease_owner: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: what the destination config + credentials looked like when the row went `failed` — a
+    #: change to either is one of the three things that put it back to `pending`
+    failed_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    remote_folder_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    remote_items: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ObjectVisitDeliveryLog(Base):
+    """Append-only: what each delivery attempt did. Never updated, never pruned."""
+
+    __tablename__ = "object_visit_delivery_log"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    delivery_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("object_visit_deliveries.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    #: claimed | delivered | retry | failed | paused | resumed | superseded | retry_requested
+    event: Mapped[str] = mapped_column(String(32), nullable=False)
+    revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class ReferenceDataset(Base):

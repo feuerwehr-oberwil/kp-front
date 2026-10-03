@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import plan_tiles, storage
 from ..auth.dependencies import CurrentAdmin, OptionalUser, UserOrAdmin
+from ..checklist_templates import template_problem
 from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
 from ..plan_floors import fit_publishable, load_floors
@@ -46,25 +47,15 @@ def _checklist_role(dataset_id: str) -> str | None:
 
 def _validate_checklist_template(data: bytes) -> None:
     """Cheap shape check on an uploaded checklist template so a malformed one is rejected at
-    upload, not shipped to the field. Requires id/kind/title and exactly one of phases/entries."""
+    upload, not shipped to the field. Requires id/kind/title and exactly one of phases/entries;
+    a ``visit`` template's items are checked for their answer types (app/checklist_templates)."""
     try:
         tpl = json.loads(data)
     except (ValueError, TypeError) as e:
         raise HTTPException(status_code=422, detail=f"Checkliste ist kein gültiges JSON: {e}") from e
-    if not isinstance(tpl, dict):
-        raise HTTPException(status_code=422, detail="Checkliste muss ein JSON-Objekt sein")
-    for field in ("id", "kind", "title"):
-        if not isinstance(tpl.get(field), str) or not tpl[field].strip():
-            raise HTTPException(status_code=422, detail=f"Checkliste: Feld {field!r} fehlt oder ist leer")
-    if tpl["kind"] not in ("action", "rapport", "reference"):
-        raise HTTPException(status_code=422, detail=f"Checkliste: unbekannte kind {tpl['kind']!r}")
-    has_phases = isinstance(tpl.get("phases"), list) and tpl["phases"]
-    has_entries = isinstance(tpl.get("entries"), list) and tpl["entries"]
-    if bool(has_phases) == bool(has_entries):
-        raise HTTPException(
-            status_code=422,
-            detail="Checkliste braucht genau eines von 'phases' (action/rapport) oder 'entries' (reference)",
-        )
+    problem = template_problem(tpl)
+    if problem:
+        raise HTTPException(status_code=422, detail=problem)
 
 
 @router.get("", response_model=list[ReferenceDatasetOut])

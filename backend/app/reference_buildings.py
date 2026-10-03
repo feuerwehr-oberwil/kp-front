@@ -20,11 +20,11 @@ import math
 import time
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import overpass, storage
-from .models import ObjectSite
+from .models import ObjectSite, ReferenceDataset
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,18 @@ async def stored_answer(box: tuple[float, float, float, float], *, any_age: bool
 
 
 async def station_bbox(db: AsyncSession) -> tuple[float, float, float, float] | None:
-    rows = (await db.execute(select(ObjectSite.lng, ObjectSite.lat).where(ObjectSite.lat.is_not(None)))).all()
+    """The box around the station's Einsatzobjekte — WITHOUT the plan-less objects an Objektbesuche
+    organizer created (`source_note` «Integration: …»): they carry no plan to align, and one of
+    them with swapped lat/lng would stretch the Overpass snapshot across half a continent."""
+    with_plans = select(ReferenceDataset.object_id).where(ReferenceDataset.object_id.is_not(None))
+    # Spelled out as an OR rather than NOT(note LIKE … AND …): a NULL source_note would make the
+    # negation NULL and drop every hand-made object from the box (SQL's three-valued logic).
+    kept = or_(
+        ObjectSite.source_note.is_(None),
+        not_(ObjectSite.source_note.like("Integration:%")),
+        ObjectSite.id.in_(with_plans),
+    )
+    rows = (await db.execute(select(ObjectSite.lng, ObjectSite.lat).where(ObjectSite.lat.is_not(None), kept))).all()
     return bbox_of([(float(lng), float(lat)) for lng, lat in rows if lng is not None and lat is not None])
 
 
