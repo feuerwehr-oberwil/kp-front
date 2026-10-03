@@ -246,6 +246,12 @@
 .headStatus::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap); transform: translateY(-50%); }
 .headStatus .seg { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .headStatus .seg:last-child { flex: 0 1 auto; }
+/* «Entwurf» / «Abgeschlossen» is the one word that must never be cut («Entwur», iPhone 03.10.2026) */
+.headStatus .seg:first-child { flex: none; }
+/* the filing glyph needs no separator dot: a little air is enough, and it never shrinks away */
+.segIcon { flex: none; margin-left: 4px; }
+.headStatus .segIcon.toneOk :global(.i), .headStatus .segIcon.toneOk svg { color: var(--green); }
+.headStatus .segIcon.toneBad :global(.i), .headStatus .segIcon.toneBad svg { color: var(--red); }
 .place { display: flex; align-items: center; gap: 6px; margin: 0 4px; font: 500 13px/1.4 var(--body); color: var(--ink-dim); }
 .place :global(.i), .place svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
 .field { min-width: 0; }
