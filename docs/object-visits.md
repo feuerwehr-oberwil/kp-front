@@ -122,7 +122,7 @@ Refusals carry a `code` at the top of the body **and** a German `detail`:
 
 | Route | Answer |
 |---|---|
-| `GET /catalogue` | `{generatedAt, canCapture, objects:[{id,name,address,lat,lng,folder,refs,hasPlans,lastVisit:{id,visitedAt,lifecycle}\|null}], templates:[visit templates], lists:[{ref,title,note,closesAt,objectIds:[…],unresolved:[{source,id}],done:{"<objectId>":{at,by?,source?,note?}}}], proposalFields:[{id,label}]}` |
+| `GET /catalogue` | `{generatedAt, canCapture, objects:[{id,name,address,lat,lng,folder,refs,hasPlans,lastVisit:{id,visitedAt,lifecycle}\|null}], templates:[visit templates], lists:[{ref,title,note,closesAt,scheduledOn,archived,objectIds:[…],unresolved:[{source,id}],done:{"<objectId>":{at,by?,source?,note?}}}], proposalFields:[{id,label}]}` |
 | `GET /?object=&workRef=&mine=1&lifecycle=&limit=` | `[{id,objectId,objectName,workRef,lifecycle,revision,ready,visitedAt,updatedAt,by,with,findings}]` newest first (`with`: the document's people, `[string]`) |
 | `GET /{id}` | the visit (document + server fields) |
 | `PUT /{id}` | body `{opId, baseRevision: int\|null, doc}` → `200 {revision, ready, missing, visit}` · `409 {code:"revision_conflict", revision, visit}` · `422` · same `opId` again ⇒ the stored first answer (idempotent replay, even if newer revisions exist) |
@@ -160,7 +160,7 @@ either form arrives as the same id.
 
 | Route | Purpose |
 |---|---|
-| `GET /object-visits/catalogue` | same as the field catalogue (`canCapture` false) |
+| `GET /object-visits/catalogue` | same as the field catalogue (`canCapture` false), plus `cartoBasemapKey` (nullable public browser credential) for the organizer's map. Allow the organizer's domain at CARTO too. |
 | `PUT /objects/{source}/{externalId}` | body `{name, address?, lat?, lng?, folder?}`. Resolve: existing ref → that object; else an object whose `filing_folder` (or derived folder) equals `folder` → attach the ref; else create an `ObjectSite` (`source_note = "Integration: {source}"`, no plans). Updates `filing_folder` / lat / lng when given and the object has none (never renames a plan-carrying object; renames only a plan-less object this same `source` created). Folder comparison is Unicode-composed, case- and whitespace-insensitive. `200 {objectId, created}`. Path segments URL-encoded; `externalId` ≤ 300 chars. |
 | `DELETE /objects/{source}/{externalId}` | removes that ref; the OBJECT goes too only if this integration created it (`source_note` «Integration: …»), it has no plan, no visit (any lifecycle) and no other ref. Lists that named the ref then report it under `unresolved`. `200 {removed: "ref" \| "object" \| "none"}` — idempotent (`none` = no such ref) |
 | `GET /objects/by-ref/{source}/{externalId}` | resolve the organizer's id: `200 {objectId, name, address, lat, lng, folder, refs, hasPlans}` · `404` unknown ref. (The catalogue's `objects[].refs` resolves the same way in bulk.) |
@@ -169,6 +169,41 @@ either form arrives as the same id.
 | `PUT /visit-lists/{ref}` | body `{title, note?, closesAt?, objects:[{source, id, done?}]}` (ordered, ≤ 500). `done` = a completion the ORGANIZER already holds for that stop (e.g. last round in SchlüHü): `{at: "YYYY-MM-DD", by?: ≤120, source?: ≤60 (e.g. "SchlüHü"), note?: ≤500}`; unknown keys, a non-date `at` or NUL/surrogates ⇒ 422. Stored as sent and shown — KP Front never turns it into a visit. Unresolved refs (and their `done`) are kept and reported. `200 {ref, objectIds, unresolved, done: {"<objectId>": {…}}}` (resolved stops only; first entry wins if two refs name one object) · `DELETE /visit-lists/{ref}` → `200 {ref, deleted}` (idempotent) |
 | `GET /object-visits/changes?after=<seq>&limit=<≤500>` | `{items:[FeedItem], nextAfter}`; `FeedItem = {seq, id, objectId, objectRefs, objectName, workRef, revision, lifecycle, ready, visitedAt, updatedAt, by, with, findings, proposals:[…], deliveries:[…], url}` — one item per visit at its latest state, ordered by `seq`. `objectRefs` is read LIVE from `object_refs`, so a ref attached later (an object upsert matching by folder) appears on the next poll. `nextAfter` = the last item's `seq`, or `after` when empty |
 | `GET /object-visits/{id}` · `/report.pdf` · `/attachments/{attId}` | read-only copies for review |
+
+### Visit programmes — reusable routes and scheduled rounds
+
+Organizer-key endpoints (module must be enabled):
+
+- `GET /visit-programmes/{programme_ref}` → `{revision, routes, years}`. Unknown ref answers revision 0
+  with empty arrays; reading creates nothing. Ref is ≤100 letters/digits/`:`/`.`/`_`/`-`.
+- `PUT /visit-programmes/{programme_ref}/routes`, body `{revision, routes}`. Route =
+  `{code, title, objects:[{source,id}], retired:false}`. Codes are stable, unique (≤40
+  letters/digits/hyphens); 200 routes, 500 ordered unique stops each. Existing routes can be
+  retired/reactivated, not deleted. Templates never appear in the field catalogue.
+- `PUT /visit-programmes/{programme_ref}/years/{year}`, body
+  `{revision, assignments:[{code,scheduledOn:"YYYY-MM-DD"}]}`. Each route once, all dates in
+  the supplied year (2000–2200). Empty selection withdraws the year's rounds. All changes
+  and the revision increment commit atomically; stale revision → 409 `planning_conflict`.
+
+Publication creates work refs `{programmeRef}-{year}/{code}` (e.g.
+`fwo-admin:fu-2027/A1`). First publication snapshots ordered object refs. An existing work
+list is adopted intact, including organizer `done` entries. Republish changes dates and
+visibility only; editing a template never rewrites a published snapshot or any visit.
+Unselected lists in that exact programme/year become `archived:true`, retaining visits,
+completions and reports. Re-selecting restores the same ref/snapshot. A new year has new refs
+and no imported completion ticks. Direct legacy list PUT/DELETE against a managed year
+returns 409 `managed_list`; use the programme endpoint.
+
+Catalogue lists add `scheduledOn` (calendar date, no timezone conversion) and `archived`.
+The existing `closesAt` deadline remains separate. Field overview groups Today, Overdue,
+Upcoming and Undated; complete/withdrawn rounds are collapsed into history. An archived
+list opens existing visits but offers no new capture. Already captured/offline visits remain
+syncable after withdrawal. Old cached catalogues lacking these fields remain usable.
+
+Storage: `visit_programmes` plus `visit_lists.scheduled_on/archived`, Alembic
+`e2f3a4b5c6d7`. Old lists are undated/unarchived; migrations do not select or schedule them.
+The existing whole-database backup includes the programme. Deploy this API before its
+organizer UI. No new key or operational service is needed.
 
 **Progress on a list, and its precedence.** A stop is complete when a visit with the list's `ref`
 as `workRef` and lifecycle `completed` exists for its object — that real visit always wins in

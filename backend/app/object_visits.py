@@ -1023,6 +1023,8 @@ async def visit_lists(db: AsyncSession) -> list[dict[str, Any]]:
                 "title": vl.title,
                 "note": vl.note,
                 "closesAt": _iso(vl.closes_at),
+                "scheduledOn": vl.scheduled_on.isoformat() if vl.scheduled_on else None,
+                "archived": vl.archived,
                 "objectIds": ids,
                 "unresolved": unresolved,
                 "done": done,

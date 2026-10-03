@@ -507,6 +507,9 @@ _PARAM_VALUES = {
     "source": "fwo",
     "external_id": "a/b",
     "ref": "fwo-admin:fu-2026/B4",
+    # A programme is one path segment; a published list's ref above contains a slash.
+    "programme_ref": "fwo-admin:fu",
+    "year": "2027",
 }
 
 
