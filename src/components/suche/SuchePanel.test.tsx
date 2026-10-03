@@ -108,8 +108,9 @@ describe('SuchePanel · one list by place (design «F», 26.09.2026)', () => {
     fireEvent.change(screen.getByLabelText(C.wer), { target: { value: 'Gruppe Werkstatt' } })
     fireEvent.click(screen.getByRole('button', { name: new RegExp(C.mehrere) }))
     const more = within(screen.getByRole('group', { name: C.anzahl })).getByRole('button', { name: appConfig.copy.stepper.more })
-    // a real press: the step fires on pointerdown, and the browser's click follows it
-    const press = () => { fireEvent.pointerDown(more, { button: 0 }); fireEvent.pointerUp(window); fireEvent.click(more) }
+    // a real press: the step fires on pointerdown, and the browser's click follows it (detail 1 —
+    // a detail-0 click is an assistive-tech activation and steps on its own, lib/useHoldRepeat)
+    const press = () => { fireEvent.pointerDown(more, { button: 0 }); fireEvent.pointerUp(window); fireEvent.click(more, { detail: 1 }) }
     press()
     press()
     // ⚠️ the stepper's buttons are no submit: nothing reported yet (it once was, at 3)
