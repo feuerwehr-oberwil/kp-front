@@ -564,7 +564,7 @@ export class JournalStore {
     for (const p of out) {
       if (!p.patchOf) continue
       const target = patched.get(p.patchOf)
-      if (!target) continue
+      if (!target || target.id.startsWith('sys')) continue // server boundaries cannot be corrected by a client patch
       const { id: _i, t: _t, at: _a, icon: _ic, text: _tx, patchOf: _p, textEdit, transcriptSection, transcriptSectionEdit, ...fields } = p
       const folded = patched.get(p.patchOf)!
       patched.set(target.id, {

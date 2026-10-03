@@ -21,13 +21,16 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 #: capture/stats links accept theirs (`?secret=…`), which uvicorn's access log writes out in
 #: full on every legitimate call.
 _SECRET_QUERY_PARAM = re.compile(
-    r"(?i)([?&](?:accesskey|access_key|api_key|apikey|key|secret|token|password|passwd|pwd))=[^&\s'\"]*"
+    r"(?i)([?&](?:accesskey|access_key|api_key|apikey|key|secret|token|t|password|passwd|pwd))=[^&\s'\"]*"
 )
+_SECRET_LINK_PATH = re.compile(r"(/(?:e|l)/)[^/?#\s'\"]+")
 
 
 def _redact(value: object) -> object:
-    """`?accesskey=abc` → `?accesskey=<redacted>`, for anything that is a string."""
-    return _SECRET_QUERY_PARAM.sub(r"\1=<redacted>", value) if isinstance(value, str) else value
+    """Mask query credentials and QR bootstrap paths, including initial SPA access logs."""
+    if not isinstance(value, str):
+        return value
+    return _SECRET_LINK_PATH.sub(r"\1<redacted>", _SECRET_QUERY_PARAM.sub(r"\1=<redacted>", value))
 
 
 class RedactSecretsInUrls(logging.Filter):

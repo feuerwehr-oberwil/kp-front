@@ -48,7 +48,7 @@ export interface MediaQueueApi {
    *  Resolves false when it could only be held in memory (see mediaQueue · enqueueMedia). */
   enqueue: (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string) => Promise<boolean>
   /** attempt to upload everything queued for this incident (best-effort, never throws) */
-  flush: () => Promise<void>
+  flush: (options?: { retry?: boolean }) => Promise<void>
   /** this queue's part of the shared sync status (mediaSyncStatus) */
   syncStatus: SyncStatus
   /** the same, current as of the last queue operation — for a caller that just awaited flush() */
@@ -58,6 +58,7 @@ export interface MediaQueueApi {
 export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: Opts): MediaQueueApi {
   const [items, setItems] = useState<MediaQueueItem[]>([])
   const [durable, setDurable] = useState(true)
+  const [reconnected, setReconnected] = useState(0)
   const status = useRef<SyncStatus>('synced')
   // keep callbacks in refs so the window/online listeners always call the fresh versions
   const cb = useRef({ onUploaded, onRestore })
@@ -78,9 +79,9 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     setItems((prev) => (sameQueue(prev, next) ? prev : next))
   }, [incidentId])
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async (options?: { retry?: boolean }) => {
     if (readOnly) return
-    const { uploaded } = await flushMediaQueue(incidentId, uploadMedia)
+    const { uploaded } = await flushMediaQueue(incidentId, uploadMedia, options)
     for (const u of uploaded) {
       // after a reload the row shows the object URL we minted at restore, not the one the
       // capture was queued with — that is the picture the server URL has to replace
@@ -102,6 +103,7 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
       const q = await listMediaQueue(incidentId)
       if (!alive) return
       for (const item of q) {
+        if (!(item.blob instanceof Blob)) continue // retain corrupt legacy metadata, without throwing on restore
         const url = URL.createObjectURL(item.blob)
         restoredUrls.current.set(item.id, url)
         // ⚠️ The chip reads a session THUMBNAIL of the queued file (lib/mediaUrl); the full
@@ -129,10 +131,21 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
 
   // Retry the moment the browser reports connectivity is back.
   useEffect(() => {
-    const onOnline = () => void flush()
+    const onOnline = () => { setReconnected((n) => n + 1); void flush() }
     window.addEventListener('online', onOnline)
     return () => window.removeEventListener('online', onOnline)
   }, [flush])
+
+  // Retry only pending captures, at their persisted deadline. Updating attempts must never
+  // cause an immediate render → upload → render loop; permanently failed items need a tap.
+  useEffect(() => {
+    if (readOnly || !navigator.onLine) return
+    const pending = items.filter((item) => item.status === 'pending')
+    if (!pending.length) return
+    const at = Math.min(...pending.map((item) => item.retryAt ?? 0))
+    const timer = setTimeout(() => { void flush() }, Math.max(0, at - Date.now()))
+    return () => clearTimeout(timer)
+  }, [items, flush, readOnly, reconnected])
 
   const enqueue = useCallback(async (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string) => {
     const stored = await enqueueMedia(incidentId, rowId, kind, blob, filename, createdAt, localUrl)
