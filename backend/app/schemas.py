@@ -441,6 +441,12 @@ class JournalAppendIn(BaseModel):
             rid = e.get("id")
             if not isinstance(rid, str) or not rid.strip():
                 raise ValueError("Jede Journalzeile braucht eine nichtleere String-id")
+            # The alarm clock trusts server boundary rows, including their legacy `sys…`
+            # spelling. Neither a client row nor a correction may impersonate/change one.
+            # Shared by the ordinary journal and the PIN-less capture endpoint.
+            target = e.get("patchOf")
+            if "lifecycle" in e or rid.startswith("sys") or (isinstance(target, str) and target.startswith("sys")):
+                raise ValueError("Systemzeilen des Einsatzverlaufs dürfen nicht vom Gerät geschrieben werden")
             if len(_json.dumps(e)) > 32_768:
                 raise ValueError(f"Journalzeile {rid!r} zu gross (max. 32 KB)")
             _validate_row_urls(e, rid)

@@ -49,7 +49,7 @@ import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { uiBlue } from '../lib/themeToken'
 import { useIsPhone } from '../lib/useIsPhone'
-import { reportClientError } from '../lib/reportError'
+import { reportMapError } from '../lib/mapError'
 import { isTypingTarget } from '../lib/hotkeys'
 import { QuietAttributionControl } from './MapAttribution'
 import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
@@ -1923,7 +1923,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // field failure was invisible to the deployer. Report, but never rethrow: a failed tile
       // must not take the incident down.
       onError={(e) => {
-        reportClientError(e.error ?? new Error('map error'), { kind: 'error' })
+        reportMapError(e.error)
         // A BASE tile failing while the device is offline = no cached basemap for this view: the
         // map is a flat colour with symbols on it and nothing says why. MapLibre re-fires a
         // source's error at the map with the `sourceId` it belongs to (style.ts · setEventedParent);

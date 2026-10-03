@@ -44,6 +44,9 @@ const legacyKind = (row: TimelineEvent): LifecycleBoundary['kind'] | null => {
 /** The newest close/reopen boundary in the Verlauf (any order in, newest by `at` out). */
 export function latestLifecycle(rows: readonly TimelineEvent[]): LifecycleBoundary | null {
   const all = rows
+    // The server reserves this namespace at both journal append doors. Ordinary notes
+    // (including older persisted rows) and enrichment patches cannot control the alarm.
+    .filter((row) => row.id?.startsWith('sys') && !row.patchOf)
     .map((row) => ({ row, kind: row.lifecycle ?? legacyKind(row), ms: row.at ? Date.parse(row.at) : Number.NaN }))
     .filter((b): b is { row: TimelineEvent; kind: LifecycleBoundary['kind']; ms: number } => !!b.kind && Number.isFinite(b.ms))
     .sort((a, b) => a.ms - b.ms)

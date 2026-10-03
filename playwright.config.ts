@@ -37,7 +37,14 @@ export default defineConfig({
     viewport: { width: 1280, height: 900 },
   },
   projects: [
-    { name: 'chromium', use: { browserName: 'chromium', launchOptions: executablePath ? { executablePath } : {} } },
+    { name: 'chromium', testIgnore: '**/touch.spec.ts', use: { browserName: 'chromium', launchOptions: executablePath ? { executablePath } : {} } },
+    ...[
+      { name: 'touch-tablet', viewport: { width: 1024, height: 768 }, isMobile: false },
+      { name: 'touch-phone', viewport: { width: 390, height: 844 }, isMobile: true },
+    ].map(({ name, ...device }) => ({ name, testMatch: '**/touch.spec.ts', use: {
+      browserName: 'chromium' as const, hasTouch: true, ...device,
+      launchOptions: executablePath ? { executablePath } : {},
+    } })),
     { name: 'webkit', testMatch: '**/smoke.spec.ts', use: { browserName: 'webkit' } },
     // `just fat-perf <preset>` — a measurement, skipped unless FAT_PRESET is set (e2e/fat-incident.perf.ts)
     // no trace: it would record every one of the thousands of API calls and become the bottleneck

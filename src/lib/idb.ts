@@ -230,7 +230,12 @@ const lsGet = <T>(key: string): T | null => {
  *  header: ~5 MB is too small for one), which is precisely why the caller must know. */
 const lsSet = (key: string, value: unknown): boolean => {
   try {
-    const encoded = JSON.stringify(value)
+    const encoded = JSON.stringify(value, (_key, item: unknown) => {
+      // JSON would silently replace binary captures with {}. Returning success would make
+      // their owner drop the only remaining Blob; refuse the fallback and keep it in memory.
+      if (typeof Blob !== 'undefined' && item instanceof Blob) throw new Error('Binary data requires IndexedDB')
+      return item
+    })
     if (encoded === undefined) return false
     localStorage.setItem(key, encoded)
     return true

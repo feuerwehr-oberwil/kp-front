@@ -49,8 +49,13 @@ export function useHoldRepeat(
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stepRef.current() }
   }
 
+  // Assistive technology and programmatic button activation dispatch a click without a
+  // pointer press. Real pointer clicks already stepped on pointerdown; keyboard defaults
+  // are prevented above, so neither path may step twice.
+  const onClick = (e: React.MouseEvent) => { if (e.detail === 0) stepRef.current() }
+
   // `data-holdaction` opts the button out of the global hold-tooltip (lib/holdTooltip): a press
   // held here is already an act (the repeat), so a label bubble over it would be noise on top of
   // a running gesture. Flows to every consumer automatically because these props are spread.
-  return { onPointerDown, onKeyDown, 'data-holdaction': true as const }
+  return { onPointerDown, onKeyDown, onClick, 'data-holdaction': true as const }
 }
