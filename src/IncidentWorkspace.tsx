@@ -302,6 +302,8 @@ interface WorkspaceProps {
   onTakeOverTab: () => void
   onSwitchIncident: (i: IncidentMeta) => void
   onOpenHistory: () => void
+  /** opens the Objektbesuche surface (App · enterObjectVisits); undefined = module off */
+  onOpenObjectVisits?: () => void
   onOpenDivera: () => void
   onOpenDatenquellen: () => void
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
@@ -355,7 +357,7 @@ const ZEITPLAN_RECORDS = fieldsOf<{ shifts: Shift[]; bands: ShiftBand[] }>({ shi
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
-  onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
   needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
@@ -5253,6 +5255,7 @@ export function IncidentWorkspace({
             onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
+            onObjectVisits={linkScoped ? undefined : onOpenObjectVisits}
             onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
             onDatenquellen={onOpenDatenquellen}
