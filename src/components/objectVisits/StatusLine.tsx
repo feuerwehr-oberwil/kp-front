@@ -10,7 +10,7 @@ import type { VisitStatus } from '../../objectVisits/status'
 import { destinationLabel } from '../../objectVisits/folders'
 import { getDeploymentConfig } from '../../lib/deploymentConfig'
 import type { LocalVisit } from '../../objectVisits/store'
-import { deliveryLabel, fmtWhen, lifecycleLabel, syncLabel } from './ovFormat'
+import { deliveryLabel, fmtWhen, lifecycleLabel, syncLabel, syncShort } from './ovFormat'
 import s from './ObjectVisits.module.css'
 
 const syncTone = (k: VisitStatus['sync']['kind']) =>
@@ -62,12 +62,12 @@ export function StatusLine({ status, rec, canSend, onSendNow }: {
       <button type="button" className={s.headStatus} aria-label={`${C.statusOpen}: ${line}`} onClick={() => setOpen(true)}>
         <span className={s.seg}><span className={lc} aria-hidden />{lifecycleLabel(lifecycle)}</span>
         <span className={s.sep} aria-hidden>·</span>
-        <span className={`${s.seg} ${syncTone(sync.kind) ?? ''}`}><Icon id={syncIcon(sync.kind)} />{syncLabel(sync)}</span>
+        <span className={`${s.seg} ${syncTone(sync.kind) ?? ''}`}><Icon id={syncIcon(sync.kind)} />{syncShort(sync)}</span>
+        {/* filing: the glyph alone, in its state's tone — the words are in the sheet and the label */}
         {filing && (
-          <>
-            <span className={s.sep} aria-hidden>·</span>
-            <span className={`${s.seg} ${delivery.kind === 'failed' ? s.toneBad : delivery.kind === 'delivered' ? s.toneOk : ''}`}><Icon id="archive" />{filing}</span>
-          </>
+          <span className={`${s.seg} ${s.segIcon} ${delivery.kind === 'failed' ? s.toneBad : delivery.kind === 'delivered' ? s.toneOk : ''}`} title={filing}>
+            <Icon id="archive" />
+          </span>
         )}
       </button>
       {open && (

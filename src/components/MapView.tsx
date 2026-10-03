@@ -50,7 +50,7 @@ import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { uiBlue } from '../lib/themeToken'
 import { useIsPhone } from '../lib/useIsPhone'
-import { reportClientError } from '../lib/reportError'
+import { reportMapError } from '../lib/mapError'
 import { isTypingTarget } from '../lib/hotkeys'
 import { QuietAttributionControl } from './MapAttribution'
 import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
@@ -1948,7 +1948,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // field failure was invisible to the deployer. Report, but never rethrow: a failed tile
       // must not take the incident down.
       onError={(e) => {
-        reportClientError(e.error ?? new Error('map error'), { kind: 'error' })
+        reportMapError(e.error)
         // A BASE tile failing while the device is offline = no cached basemap for this view: the
         // map is a flat colour with symbols on it and nothing says why. MapLibre re-fires a
         // source's error at the map with the `sourceId` it belongs to (style.ts · setEventedParent);
@@ -1984,9 +1984,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Keep only the LOCAL bearing live per rotate frame (the tactical glyphs re-render with the
       // −bearing offset so they stay geographically pinned). Deliberately NOT calling onView here:
       // that re-renders all of IncidentWorkspace every frame of a two-finger rotate. onMoveEnd
-      // fires at the end of the gesture and updates App's view state then — the App-level compass /
-      // coord readout just settle on release instead of tracking every frame. The wind arrow is
-      // the exception – it turns WITH the finger, through its own store (lib/liveBearing).
+      // fires at the end of the gesture and updates App's view state then — the coord readout
+      // just settles on release instead of tracking every frame. The wind arrow and the compass
+      // needle are the exceptions – they turn WITH the finger, through their own store
+      // (lib/liveBearing), which re-renders only the two glyphs.
       onRotate={(e) => { setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing) }}
       // MapLibre says a genuine pan began. That (a) opens the pan gesture the trailing click is
       // measured against (see panGesture), (b) peeks the phone detail sheet down for as long as

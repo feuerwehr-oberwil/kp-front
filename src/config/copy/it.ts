@@ -2784,6 +2784,7 @@ export const it: Localizable<Copy> = {
     lehren: 'Insegnamenti / sicurezza',
   },
   wheel: {
+    invalidTime: 'Inserire un orario valido (00:00–23:59).',
     day: 'Giorno',
     month: 'Mese',
     year: 'Anno',

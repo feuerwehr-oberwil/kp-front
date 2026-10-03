@@ -32,6 +32,9 @@ type CacheEntry = {
   /** When the newest edit in `workspace` was made, on the server-aligned clock (lib/serverClock)
    *  — sent as `edited_at`, so a closed Einsatz takes a save made before its close. */
   editedAt?: number
+  /** Refused entries already transferred into this workspace. Stored with the replacement
+   *  so a crash before clearing the refused slot cannot replay them over later edits. */
+  requeuedRefused?: number[]
 }
 const cacheKey = (id: string) => `kp-front-ws-${id}`
 // A fallback slot, one per (incident, owner). Another user's UNSYNCED work is parked here so the
@@ -351,8 +354,9 @@ export class WorkspaceSync {
   }
 
   /** Write the current entry to the offline cache NOW (a no-op when nothing is waiting). */
-  private flushCache() {
-    if (!this.cacheTimer) return
+  private cacheWrite: Promise<boolean> = Promise.resolve(true)
+  private flushCache(): Promise<boolean> {
+    if (!this.cacheTimer) return this.cacheWrite
     clearTimeout(this.cacheTimer)
     this.cacheTimer = null
     // The main slot is holding another session's un-parked unsynced work (see
@@ -361,17 +365,20 @@ export class WorkspaceSync {
     if (this.mainSlotBlocked) {
       if (!this.disposed && this.cacheDurable) { this.cacheDurable = false; this.publish() }
       if (this.slotUnread) void this.probeUnreadSlot()
-      return
+      return Promise.resolve(false)
     }
     // The entry already carries the owner captured when it was BUILT or last edited (construction
     // / init / save / adopt). We write it VERBATIM — re-stamping the live `cacheOwner` here would
     // relabel a debounced or teardown write that lands after the identity changed, handing one
     // user's unsynced edit another user's name (SEC-10 owner races).
-    void withTileEviction(() => idbSet(cacheKey(this.incidentId), this.entry)).then((ok) => {
-      if (this.disposed || this.cacheDurable === ok) return
-      this.cacheDurable = ok
-      this.publish()
+    this.cacheWrite = withTileEviction(() => idbSet(cacheKey(this.incidentId), this.entry)).then((ok) => {
+      if (!this.disposed && this.cacheDurable !== ok) {
+        this.cacheDurable = ok
+        this.publish()
+      }
+      return ok
     })
+    return this.cacheWrite
   }
 
   /** Try the main slot init() could not read once more — on the next blocked cache write, and
@@ -665,7 +672,7 @@ export class WorkspaceSync {
         const merged = this.mergeReporting(cached.base ?? {}, cached.workspace, server)
         // the offline work was written (and its Verlauf rows with it) under the cached numbers
         this.reportRenumbered(cached.workspace, merged)
-        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: ownerAtStart ?? cached.owner }
+        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: ownerAtStart ?? cached.owner, requeuedRefused: cached.requeuedRefused }
         this.writeCache()
         this.opts.onRev?.(workspace_rev)
         this.setStatus('pending')
@@ -680,7 +687,7 @@ export class WorkspaceSync {
           : await this.parkOrphan(cached)
         if (!durable) return this.serveServerWithoutCaching(ws, workspace_rev)
       }
-      this.entry = { workspace: ws, base: ws, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? undefined }
+      this.entry = { workspace: ws, base: ws, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? undefined, requeuedRefused: cached?.requeuedRefused }
       this.writeCache()
       this.opts.onRev?.(workspace_rev)
       this.setStatus('synced')
@@ -882,6 +889,17 @@ export class WorkspaceSync {
     /** the last merge this resolver wrote into the entry, and the saveSeq it was written at */
     let lastMerged: Workspace | null = null
     let lastMergedSeq = 0
+    const preservePendingMerge = () => {
+      if (!lastMerged || this.disposed) return
+      if (this.saveSeq !== lastMergedSeq) {
+        this.entry = { ...this.entry, workspace: this.merge(mine0, this.entry.workspace, lastMerged) }
+      }
+      // A failed PUT still advanced the ancestor. The next edit MUST be made on the union,
+      // otherwise its missing remote records become deletions at an already-current rev.
+      this.writeCache()
+      this.reportRenumbered(this.viewState, this.entry.workspace)
+      this.handToView(this.entry.workspace, this.entry.baseRev)
+    }
     for (let attempt = 0; attempt < CONFLICT_ATTEMPTS; attempt++) {
       // a RE-merge (another device landed during ours) waits a jittered moment first — see
       // conflictBackoffMs. The first merge after the original 409 goes at once.
@@ -948,6 +966,7 @@ export class WorkspaceSync {
         // the merge landed on a closed Einsatz — the same answer as a plain push gets (see drain)
         if (isIncidentClosedRefusal(e)) return this.parkRefused(e)
         if (e instanceof ApiError && e.status === 409) continue // someone else landed too — re-merge
+        preservePendingMerge()
         if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
         this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
         this.unreached = isUnverifiable(e)
@@ -955,6 +974,7 @@ export class WorkspaceSync {
       }
     }
     // retries exhausted — leave it dirty for a later flush to pick up
+    preservePendingMerge()
     this.setStatus('error')
     return false
   }
@@ -1117,23 +1137,39 @@ export class WorkspaceSync {
    * result saved like any edit (a debounce, the 409 merge, a fresh refusal parks it again), and
    * the slots are emptied. Everything after the reopen prints as a Nachtrag.
    */
-  async requeueRefused(): Promise<void> {
+  private requeueFlight: Promise<void> | null = null
+  requeueRefused(): Promise<void> {
+    return this.requeueFlight ??= this.transferRefused().finally(() => { this.requeueFlight = null })
+  }
+
+  private async transferRefused(): Promise<void> {
     // ⚠️ Only once the MAIN slot was actually read: emptying a slot that could not be read would
     // destroy what an earlier session parked there. Unread ⇒ nothing is re-sent now; the next
     // attempt (the next render that sees the Einsatz running) reads again.
     if (!(await this.loadRefused())) return
     if (this.disposed || !this.refused.length) return
     const parked = this.refused
+    const transferred = new Set(this.entry.requeuedRefused)
     let ws = this.entry.workspace
-    for (const p of parked) ws = mergeWorkspace(p.base ?? {}, p.workspace, ws)
-    const emptied = await idbSet(refusedCacheKey(this.incidentId), [])
-    if (!emptied || this.disposed) return // still parked — nothing is sent twice or lost
+    for (const p of parked) {
+      if (!transferred.has(p.refusedAt)) ws = mergeWorkspace(p.base ?? {}, p.workspace, ws)
+      transferred.add(p.refusedAt)
+    }
+    this.entry = { ...this.entry, requeuedRefused: [...transferred] }
+    this.save(ws)
+    this.handToView(ws, this.entry.baseRev)
+    // Commit the replacement FIRST. Even a quota failure or a reload in this await leaves
+    // one durable copy. The marker above makes retry after a failed clear idempotent.
+    if (!(await this.flushCache()) || this.disposed) return
+    const remaining = this.refused.filter((p) => !parked.includes(p))
+    const emptied = await idbSet(refusedCacheKey(this.incidentId), remaining)
+    if (!emptied || this.disposed) return
     for (const k of this.refusedFallbackKeys) await idbDel(k)
     this.refusedFallbackKeys = []
-    this.refused = []
+    this.refused = remaining
+    this.entry = { ...this.entry, requeuedRefused: this.entry.requeuedRefused?.filter((at) => !parked.some((p) => p.refusedAt === at)) }
+    this.writeCache()
     this.emitRefused()
-    this.save(ws)
-    this.applyInPlace(ws, this.entry.baseRev)
     await this.flush()
   }
 
@@ -1159,7 +1195,7 @@ export class WorkspaceSync {
     if (this.disposed) return
     this.reportRenumbered(this.viewState, workspace, 'adopt')
     this.viewState = workspace
-    this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? this.entry.owner }
+    this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? this.entry.owner, requeuedRefused: this.entry.requeuedRefused }
     this.writeCache()
     this.opts.onRev?.(rev)
     this.setStatus('synced')

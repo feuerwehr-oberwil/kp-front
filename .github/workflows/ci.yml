@@ -294,6 +294,7 @@ jobs:
 
       - name: E2E smoke + field scenario (browser → running container)
         env:
+          E2E_WORKFLOWS: 1
           E2E_BASE_URL: http://localhost:8000
           E2E_PIN: ${{ env.SEED_PIN }}  # the browser login needs the same PIN the seed used
           E2E_ADMIN_SECRET: ${{ env.ADMIN_SECRET }}  # unlocks /admin for the row-menu spec

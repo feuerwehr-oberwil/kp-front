@@ -39,9 +39,8 @@ export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, form
   format?: (v: number) => string
   placeholder?: string
   onChange: (v: number) => void
-  /** reset to the default/empty state. Omit to hide the ✕ entirely — the Gerettete pair passes it
-   *  only while there is a value (29.09.2026): there an unanswered field reads «–» beside «Keine»,
-   *  and a greyed ✕ column said nothing. */
+  /** reset to the default/empty state. Keep wired when the field supports reset and use
+   *  `canClear` to disable it when empty; omit only for fields without a reset action. */
   onClear?: () => void
   /** whether a reset would do anything; false ⇒ the ✕ stays visible but greyed/disabled */
   canClear?: boolean

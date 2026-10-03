@@ -10,8 +10,9 @@
 .tu-btn :global(.i) { width: 19px; height: 19px; }
 .tu-divider { width: 6px; flex: none; }   /* spacing between the zoom pair and Ebenen, not a line (22.09.2026) */
 
-/* compass glyph rotates to the live bearing (inline transform) */
-.compass { display: grid; place-items: center; width: 100%; height: 100%; transition: transform .15s ease; }
+/* compass glyph rotates to the live bearing (inline transform), set on every rotate frame —
+   no transition (MapViewsMenu · CompassGlyph) */
+.compass { display: grid; place-items: center; width: 100%; height: 100%; }
 
 /* ---- TopBar ⇄ top-right map utilities: never let them collide ----
    Below 860px the cluster drops below the bar so the bar gets full width. */

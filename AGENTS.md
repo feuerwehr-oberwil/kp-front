@@ -69,6 +69,26 @@ parses these lines back per device, the morning after every Einsatz (read-only;
 frontend has none – so run `pnpm lint && pnpm test` before pushing, since changes go straight
 to prod.
 
+## Review regression contracts (02.10.2026)
+
+- Journal lifecycle boundaries and the `sys` id namespace belong to the server. Neither a
+  client row nor a patch targeting a system row may create, retract or edit them; the client
+  alarm clock ignores ordinary journal rows carrying lifecycle-looking metadata.
+- A failed conflict PUT still hands the merged union to the live view before another edit.
+  Re-sending parked workspace saves first commits their replacement cache entry, with transfer
+  markers for crash-safe retry, before clearing the parked originals.
+- Blob data never falls back to JSON storage. Failed local media persistence retains bytes in
+  memory and reports storage failure. Pending uploads retry with a bounded delay; exhausted
+  uploads wait for explicit retry. Rendering the queue must never trigger an upload loop.
+- Time popovers join the shared dismissal guard: one Escape closes only the picker. Invalid
+  typed times stay open with an error; optional values expose «Leeren» left of «Jetzt» and «OK»
+  in the action row. Named state choices such as «noch da» stay above the wheels. Hold-repeat
+  buttons support click-only assistive activation without doubling pointer taps.
+- Cancelled map requests (`AbortError`) are filtered only at `lib/mapError`, not globally.
+  Timeouts, actual map failures and aborts outside the map still enter crash telemetry.
+- CI enables the six workspace workflows and phone/tablet touch checks on its disposable stack.
+  Locally these mutations require `E2E_WORKFLOWS=1`; never target a station in use.
+
 ## Architecture & conventions
 
 - **The loading mascot has one source.** `public/firefighter-snail-loader.svg` owns its paths,
@@ -773,7 +793,8 @@ to prod.
   «Abbrechen»; «Zurück» only where there is a real previous step. The composer's Art is ONE of
   three with «Info» preselected – «nothing» and «Info» were two ways to say one thing; «Info»
   still writes no `entryType` and no marker. An optional count with a «Keine» answer beside it
-  shows «–» while unanswered, never «0», and its ✕ only once there is a value.
+  shows «–» while unanswered, never «0». Its ✕ stays visible and disabled while empty, so filling
+  or clearing the count never shifts the adjacent controls.
   **A sheet whose edits are live has no confirm footer** (29.09.2026, owner: «everything should be
   auto-saved without manual confirmations»): ✕ and swipe close it, and one quiet «Alles wird
   laufend gespeichert.» line (`copy.savedLive`) says so (TimeBlockSheet, PersonnelSync result).
@@ -1776,6 +1797,13 @@ to prod.
     and the door to Mehrfach (a two-member pair flips on the second tap; anything larger gets a
     list, never a cycle). Add a tool that places something ⇒ add its id to `ADD_TOOLS`, in BOTH
     spellings if the Karte and the Plan name it differently.
+  - *Every tile of a bar is ONE equal share* (03.10.2026, owner: «auswahl and messen is way
+    bigger than ansichten»). On a folded phone bar the tool lane and the pinned footer step aside
+    (`display: contents`, 15-mobile.css) so all tiles are items of the bar's own row, `flex: 1 1
+    0`, on its one 2px gap — never a percentage per wrapper: the old 60/40 split assumed three
+    tools, and the read-only set (Auswahl · Messen) stretched two tiles over 60%. A word longer
+    than its share ends in «…» inside its tile. The compass needle turns with the finger
+    (`lib/liveBearing`, like the wind arrow), not on release.
   - *The compass lives in the BAR, beside Ebenen* (05.08.2026). It floated top-right on the map
     for one day (18.09.) and came back: up there its menu opened half a screen from the thumb that
     asked for it. «Mein Standort» is a row of that menu, not a tile of its own (also tried 18.09.).

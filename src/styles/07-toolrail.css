@@ -59,7 +59,8 @@
    a mouse, whatever the window measures. */
 @media (max-width: 1023px), (pointer: coarse) { .vrail-zoom { display: none; } }
 .vrail-sep-foot { flex: none; margin: 2px 10px; }
-.vrail-compass { display: grid; place-items: center; transition: transform .15s ease; }
+/* no transition: the needle is set on every rotate frame (MapViewsMenu · CompassGlyph) */
+.vrail-compass { display: grid; place-items: center; }
 /* expand toggle — the shared .rail-exp chrome, but row-reversed so the chevron sits in the
    right-edge glyph column (the rail is anchored right and opens leftward), and pointing the
    other way. */

@@ -32,11 +32,18 @@ test('core surfaces render and survive reload', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Trupps', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expectNoCrash(page, 'Trupps')
 
-  // ⚠️ Checkliste / Anwesenheit / Material / Rapport are NOT driven here yet. Adding
-  // them turned main red: the first three switched in, «Material» never reported
-  // itself active, and this suite runs against the built image at CI's viewport — a
-  // layout this file has no evidence about. Reinstate them with a trace in hand, not
-  // by assuming the rail looks the way it does on a desk.
+  // Assert mounted content: rail selection alone cannot detect a lazy surface crashing.
+  await page.getByRole('button', { name: 'Checkliste', exact: true }).click()
+  await expect(page.locator('[class*="cl-surface"]')).toBeVisible()
+  await expectNoCrash(page, 'Checkliste')
+  for (const name of ['Anwesenheit', 'Material']) {
+    await page.locator('nav.navrail').getByRole('button', { name, exact: true }).click()
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
+    await expectNoCrash(page, name)
+  }
+  await page.locator('nav.navrail').getByRole('button', { name: 'Rapport', exact: true }).click()
+  await expect(page.locator('.report-preflight-body')).toBeVisible()
+  await expectNoCrash(page, 'Rapport')
 
   // Reload: the session cookie + the synced incident workspace + the surface pref must
   // all survive — i.e. no white-screen, no kicked-to-login, no lost incident.

@@ -9,8 +9,8 @@
 // Blobs ride in the entry directly — IndexedDB stores Blob natively via structured clone.
 // NOTE: on the localStorage fallback path (idb.ts, when IndexedDB is unavailable — Safari
 // private mode, locked-down WebViews) a Blob does NOT survive JSON serialization, so queuing
-// degrades to session-only there — the same loss behaviour we had before this queue existed,
-// never worse.
+// keeps the original Blob in RAM and reports a storage failure. Never claim local durability
+// for JSON metadata whose binary data would be lost on reload.
 //
 // ⚠️ Every read-modify-write of an incident's queue runs through ONE lane (lib/serialQueue,
 // 23.09.2026). The queue is a single IDB value, so two writers that each read it, change it and
@@ -21,7 +21,7 @@
 // wait behind a slow upload to be stored); the flush re-reads the queue in the lane before it
 // writes, and touches only the entries it actually attempted.
 
-import { ApiError } from './api'
+import { isUnverifiable } from './api'
 import { idbDel, idbRead, idbSet } from './idb'
 import { newId } from './ids'
 import { serialQueue } from './serialQueue'
@@ -45,6 +45,8 @@ export interface MediaQueueItem {
   attempts: number               // count of failed upload attempts (network drops don't count)
   status: MediaStatus
   lastError?: string
+  /** Earliest automatic retry. Failed items wait for the operator instead. */
+  retryAt?: number
   /** the row's blob: URL this capture stands for — the picture the server URL replaces once
    *  it uploads. Absent on audio (a row has one voice memo) and on pre-2026-08 queue entries. */
   localUrl?: string
@@ -69,7 +71,7 @@ export const mediaQueueId = (rowId: string, kind: 'photo' | 'audio', localUrl?: 
  *  churn behind an App-wide re-render loop (~900 commits/s: render → flush effect → IDB →
  *  setItems → render), a measured phone battery/heat drain. */
 export const sameQueue = (a: MediaQueueItem[], b: MediaQueueItem[]): boolean =>
-  a.length === b.length && a.every((x, i) => x.id === b[i].id && x.status === b[i].status && x.attempts === b[i].attempts)
+  a.length === b.length && a.every((x, i) => x.id === b[i].id && x.status === b[i].status && x.attempts === b[i].attempts && x.retryAt === b[i].retryAt)
 
 /** Per incident: `edit` serialises every read-modify-write of the stored queue; `flush` keeps two
  *  flushes from uploading the same item twice (the `online` event and the sync recovering
@@ -203,7 +205,7 @@ export interface FlushOutcome {
  *  leaves the item `pending` (attempts unchanged — it never got to the server); a real server
  *  error counts an attempt and flips to `failed` past MAX_ATTEMPTS. Never throws — a bad flush
  *  just leaves work queued for the next one. */
-export function flushMediaQueue(incidentId: string, upload: MediaUploader): Promise<FlushOutcome> {
+export function flushMediaQueue(incidentId: string, upload: MediaUploader, { retry = false }: { retry?: boolean } = {}): Promise<FlushOutcome> {
   const lane = laneFor(incidentId)
   return lane.flush(async () => {
     const { items } = await lane.edit(() => readQueue(incidentId))
@@ -211,6 +213,13 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader): Prom
     /** per attempted entry: its updated state, or null once it is on the server */
     const settled: { item: MediaQueueItem; next: MediaQueueItem | null }[] = []
     for (const item of items) {
+      if (!retry && (item.status === 'failed' || (item.retryAt ?? 0) > Date.now())) continue
+      // Older JSON fallbacks may already hold {} instead of a Blob. Keep the record visible
+      // as failed, but never crash the restore/upload path or pretend the bytes are present.
+      if (!(item.blob instanceof Blob)) {
+        settled.push({ item, next: { ...item, status: 'failed', lastError: 'Stored media has no binary data' } })
+        continue
+      }
       try {
         const { url } = await upload(incidentId, item.blob, item.kind, item.filename)
         uploaded.push({ id: item.id, rowId: item.rowId, kind: item.kind, url, localUrl: item.localUrl })
@@ -218,10 +227,12 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader): Prom
       } catch (e) {
         // A network failure (offline / server unreachable) is not the item's fault — keep it
         // pending without burning an attempt. Only a reachable-but-rejecting server counts.
-        const networkDown = !navigatorOnline() || (e instanceof ApiError && e.status === 0)
-        const attempts = networkDown ? item.attempts : item.attempts + 1
+        const networkDown = !navigatorOnline() || isUnverifiable(e)
+        const previous = retry && item.status === 'failed' ? 0 : item.attempts
+        const attempts = networkDown ? previous : previous + 1
         const status: MediaStatus = !networkDown && attempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
-        settled.push({ item, next: { ...item, attempts, status, lastError: e instanceof Error ? e.message : String(e) } })
+        const retryAt = Date.now() + Math.min(60_000, 5_000 * 2 ** attempts)
+        settled.push({ item, next: { ...item, attempts, status, retryAt, lastError: e instanceof Error ? e.message : String(e) } })
       }
     }
     // Write back against the queue as it is NOW, not the snapshot above: whatever was captured

@@ -11,11 +11,12 @@ mount, a wedged session, a render loop on the Karte.
 | `object-visits.spec.ts` | Objektbesuche on a phone: catalogue prepared online, a visit taken offline (answers + photo) survives a reload, «Jetzt senden» reaches «Gespeichert» (revision + photo on the server), «Abschliessen» → read view | needs `E2E_ADMIN_SECRET` (switches the module on, adds an object + a visit checklist) |
 | `admin-row-menu.spec.ts` | the admin row menu is on top and its actions fire | CI (needs `E2E_ADMIN_SECRET`) |
 | `demo.spec.ts` | the public demo's entry fits a phone | only against a demo deployment |
-| `workspace-flows.spec.ts` | undo, timeline, keyboard, Abschluss, replay across the workspace seams | opt-in, `E2E_WORKFLOWS=1` |
+| `workspace-flows.spec.ts` | undo, timeline, keyboard, Abschluss, replay across the workspace seams | CI; locally opt-in, `E2E_WORKFLOWS=1` |
+| `touch.spec.ts` | coarse-pointer time controls at 1024×768 and 390×844, clearing, reachable actions and overflow | CI; locally opt-in, `E2E_WORKFLOWS=1` |
 
 CI's *Image* job runs the suite against the production container it has just built
 (`.github/workflows/ci.yml`). Only the rows marked CI actually run there: the demo spec skips
-on a station image, and the workflow flows skip without their flag. `playwright.config.ts`
+on a station image. CI sets `E2E_WORKFLOWS=1` for its disposable stack; local workflow and touch tests skip without that flag. `playwright.config.ts`
 starts no servers.
 
 ## The client-error guard

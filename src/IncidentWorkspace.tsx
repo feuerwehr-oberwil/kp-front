@@ -2191,7 +2191,7 @@ export function IncidentWorkspace({
   const syncStatus = closedRefusedUnexported && baseSyncStatus === 'synced' ? 'pending' : baseSyncStatus
   const syncNow = async () => {
     await Promise.all([syncWorkspaceNow(), journal.retry(), auditDelivery.retry()])
-    await media.flush().catch(() => {})
+    await media.flush({ retry: true }).catch(() => {})
     if (combinedSyncStatus(sync.syncStatus, journal.getStatus(), auditDelivery.getStatus(), media.getStatus()) !== 'synced') {
       throw new Error('Operational records have not all been acknowledged')
     }
@@ -2281,7 +2281,8 @@ export function IncidentWorkspace({
   // a stronger signal than the browser's `online` event, which fires on link-up not reach.
   // ⚠️ On the RECORD status, not `syncStatus`: that one includes the media queue itself, and
   // would never read «synced» while anything is queued — the drain would wait for itself.
-  useEffect(() => { if (recordsSyncStatus === 'synced') void media.flush() }, [recordsSyncStatus, media])
+  const flushMedia = media.flush
+  useEffect(() => { if (recordsSyncStatus === 'synced') void flushMedia() }, [recordsSyncStatus, flushMedia])
 
   // Escape is the universal bail-out — it peels back one layer of transient state at a time so
   // there's always a quick way back to the plain map: (1) cancel an armed placement, (2) close the

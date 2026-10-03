@@ -1926,8 +1926,8 @@ export function ReportPreflight({
                     details-modal count control. over-object carries the fresh values (state set in the
                     same tick is stale). Empty = null: the value reads «–», not «0» (29.09.2026 — «0»
                     above «Keine» said «nobody» for an unanswered field, the very ambiguity «Keine»
-                    removes), and the ✕ is there only once there IS a value to clear (a column of
-                    greyed ✕ beside two empty steppers said nothing).
+                    removes). The ✕ stays visible, disabled while empty, so entering or clearing a
+                    count never moves the buttons.
                     `readOnly` while «Keine» is active (below): both fields are already empty when
                     that answer is given, and an enabled stepper let a tap edge one of them off zero
                     while still showing «niemand gerettet» — the same contradiction «Entfällt» guards
@@ -1939,14 +1939,14 @@ export function ReportPreflight({
                     <Stepper value={numOrU(geretteteP) ?? null} min={0} max={999} seed={1} ariaLabel={P.gerettetePersonen}
                       readOnly={meta.geretteteNone}
                       onChange={(v) => { setGeretteteP(String(v)); persist(geretteteOver(String(v), geretteteT)) }}
-                      onClear={geretteteP !== '' ? () => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) } : undefined} canClear />
+                      onClear={() => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) }} canClear={geretteteP !== ''} />
                   </div>
                   <div className="rz-count" data-sync="geretteteT">
                     <span>{P.geretteteTiere}</span>
                     <Stepper value={numOrU(geretteteT) ?? null} min={0} max={999} seed={1} ariaLabel={P.geretteteTiere}
                       readOnly={meta.geretteteNone}
                       onChange={(v) => { setGeretteteT(String(v)); persist(geretteteOver(geretteteP, String(v))) }}
-                      onClear={geretteteT !== '' ? () => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) } : undefined} canClear />
+                      onClear={() => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) }} canClear={geretteteT !== ''} />
                   </div>
                 </div>
                 {/* ⚠️ «Keine» — the answer an empty pair of steppers could not give (04.09.,
