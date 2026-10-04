@@ -15,8 +15,10 @@ export function visitSchedule(lists: VisitList[], visits: Parameters<typeof list
   for (const list of lists) {
     const p = listProgress(list, visits)
     const complete = p.total > 0 && p.done === p.total && !list.unresolved?.length
+    const finished = complete && !list.archived ? finishedOn(p.stops) : ''
+    // capped at today: an organizer's `done.at` in the future must not stay «recent» for good
     const group = list.archived ? 'history'
-      : complete ? (finishedOn(p.stops) >= recentFrom ? 'recent' : 'history')
+      : complete ? (finished >= recentFrom && finished <= today ? 'recent' : 'history')
       : !list.scheduledOn ? 'undated'
         : list.scheduledOn === today ? 'today' : list.scheduledOn < today ? 'overdue' : 'upcoming'
     groups[group].push(list)
@@ -40,7 +42,7 @@ function finishedOn(stops: ReturnType<typeof listProgress>['stops']): string {
   for (const stop of stops.values()) {
     const day = stop.visit?.lifecycle === 'completed' && stop.visit.visitedAt
       ? localCalendarDay(new Date(stop.visit.visitedAt))
-      : stop.prior?.at ?? ''
+      : stop.prior?.at.slice(0, 10) ?? ''
     if (day > last) last = day
   }
   return last

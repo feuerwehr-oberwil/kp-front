@@ -38,4 +38,12 @@ describe('dated rounds', () => {
     expect(groups.history.map(l => l.ref)).toEqual(['last-month', 'withdrawn'])
     expect(visitSchedule(lists, visits, '2027-04-01').recent.map(l => l.ref)).toEqual(['this-week'])
   })
+  it('keeps an organizer completion dated in the future out of recent, and reads a timestamp by its day', () => {
+    const groups = visitSchedule([
+      { ...list('future'), done: { a: { at: '2027-04-02' } } },
+      { ...list('stamped'), done: { a: { at: '2027-03-28T15:00:00Z' } } },
+    ], [], '2027-03-28')
+    expect(groups.recent.map(l => l.ref)).toEqual(['stamped'])
+    expect(groups.history.map(l => l.ref)).toEqual(['future'])
+  })
 })
