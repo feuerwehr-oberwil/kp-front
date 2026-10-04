@@ -5495,7 +5495,7 @@ export const de = {
     listObjectsMany: '{n} Objekte',
     listOn: "am {date}",
     listArchived: "Nicht mehr eingeplant",
-    schedule: {"today": "Heute", "overdue": "Noch offen", "upcoming": "Nächste Termine", "undated": "Ohne Termin", "history": "Vergangene Runden"},
+    schedule: {"today": "Heute", "overdue": "Noch offen", "upcoming": "Nächste Termine", "undated": "Ohne Termin", "recent": "Kürzlich erledigt"},
     listUntil: 'bis {date}',
     searchHead: 'Objekt suchen',
     searchPlaceholder: 'Objekt suchen …',

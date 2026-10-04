@@ -163,15 +163,10 @@ export function Overview() {
             </Section>
           )}
 
-          {(['today', 'overdue', 'upcoming', 'undated'] as ScheduleGroup[]).map(group => groups[group].length > 0 && (
-            <Section key={group} title={C.schedule[group]}>{listRows(groups[group])}</Section>
+          {/* past rounds are the organizer's record, not field work: only the last week's stay */}
+          {(['today', 'overdue', 'upcoming', 'undated', 'recent'] as ScheduleGroup[]).map(group => groups[group].length > 0 && (
+            <Section key={group} title={C.schedule[group as Exclude<ScheduleGroup, 'history'>]}>{listRows(groups[group])}</Section>
           ))}
-          {groups.history.length > 0 && (
-            <details className={s.scheduleHistory}>
-              <summary>{C.schedule.history} · {groups.history.length}</summary>
-              {listRows(groups.history)}
-            </details>
-          )}
 
           {catalogue && (
             <Section title={C.searchHead}>
