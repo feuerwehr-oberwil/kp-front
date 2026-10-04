@@ -196,8 +196,10 @@ returns 409 `managed_list`; use the programme endpoint.
 
 Catalogue lists add `scheduledOn` (calendar date, no timezone conversion) and `archived`.
 The existing `closesAt` deadline remains separate. Field overview groups Today, Overdue,
-Upcoming and Undated; complete/withdrawn rounds are collapsed into history. An archived
-list opens existing visits but offers no new capture. Already captured/offline visits remain
+Upcoming and Undated, then «Kürzlich erledigt»: a complete round whose last stop was done in
+the last 7 days. Withdrawn rounds and older complete ones are not listed in the field app —
+the organizer holds that record (fwo-admin, the filed reports). An archived list (reached by
+link) opens existing visits but offers no new capture. Already captured/offline visits remain
 syncable after withdrawal. Old cached catalogues lacking these fields remain usable.
 
 Storage: `visit_programmes` plus `visit_lists.scheduled_on/archived`, Alembic

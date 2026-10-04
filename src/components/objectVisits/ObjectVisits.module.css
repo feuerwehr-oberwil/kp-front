@@ -256,5 +256,3 @@
 .place :global(.i), .place svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
 .field { min-width: 0; }
 
-.scheduleHistory { margin-block: 20px; }
-.scheduleHistory summary { cursor: pointer; min-height: 44px; padding-block: 12px; font-weight: 600; }

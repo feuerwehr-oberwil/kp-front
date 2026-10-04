@@ -3348,7 +3348,7 @@ export const en: Localizable<Copy> = {
     listObjectsMany: '{n} objects',
     listOn: "on {date}",
     listArchived: "No longer scheduled",
-    schedule: {"today": "Today", "overdue": "Overdue", "upcoming": "Upcoming", "undated": "Undated", "history": "Past rounds"},
+    schedule: {"today": "Today", "overdue": "Overdue", "upcoming": "Upcoming", "undated": "Undated", "recent": "Recently done"},
     listUntil: 'until {date}',
     searchHead: 'Find an object',
     searchPlaceholder: 'Search objects …',
