@@ -119,7 +119,10 @@ to prod.
   moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
   media queue metadata, reference/checklist/object metadata, and readiness; localStorage holds
   only tiny device flags (update banners, install prompts, once-per-device hints) and migration
-  flags. UI copy/locale/defaults/storage keys live in
+  flags. The Mannschaft (roster) is cached there too (`kp-front-roster`, `usePersonnel`); a one-off
+  read outside the hook — the Leeres Erfassungsblatt — goes through `loadRoster` (server, else the
+  cache), never a bare `listPersonnel()`, and the launcher warms it at sign-in (05.10.2026: the
+  blank sheet printed an empty «Personal / Anwesenheit» offline). UI copy/locale/defaults/storage keys live in
   `src/config/appConfig.ts`; the neutral fallback incident is `src/data/demoIncident.ts`.
 - **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
   outboxes and the media upload queue contribute to the shared sync status. Preserve rejected entries for retry/export;

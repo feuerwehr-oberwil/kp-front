@@ -50,6 +50,7 @@ import { Meldeleiste } from './components/Meldeleiste'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
+import { loadRoster } from './lib/usePersonnel'
 import { HelpOverlay } from './components/HelpOverlay'
 import { installHoldTooltip } from './lib/holdTooltip'
 
@@ -121,6 +122,11 @@ export default function App() {
   // permission is already granted AND the deployment has VAPID keys) — killed-app alarms.
   // Never on a link session: /api/push/subscriptions writes rows tied to a user and 403s.
   useEffect(() => { if (!linkScoped) void ensurePushSubscription() }, [linkScoped])
+  // Keep the last-known Mannschaft on the device from the LAUNCHER on, not only once an Einsatz
+  // has been opened online: an Einsatz first opened offline, and the Leeres Erfassungsblatt, read
+  // that cache (usePersonnel · loadRoster). A link session may not list the roster (403).
+  const rosterUserId = user && !linkScoped ? user.id : null
+  useEffect(() => { if (rosterUserId) void loadRoster().catch(() => {}) }, [rosterUserId])
 
   // Objektbesuche: what a save point could not send (offline, a lapsed session) goes up on its
   // own — at every start and every reconnect, whether or not anybody opens that visit again.

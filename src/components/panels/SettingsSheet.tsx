@@ -6,7 +6,7 @@ import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import type { CaptionMode } from '../../types'
 import { getDeploymentConfig } from '../../lib/deploymentConfig'
-import { listPersonnel } from '../../lib/incidents'
+import { loadRoster } from '../../lib/usePersonnel'
 import { Modal } from './_shared'
 import { OnOff, Segmented } from '../Segmented'
 import { Stepper } from '../Stepper'
@@ -105,15 +105,16 @@ export function SettingsSheet({
 
   // Leeres Erfassungsblatt — per-device utility ACTION (not a setting): an AdFU can produce
   // a fresh paper hand-fill sheet in the field. Same generator as the admin's Erfassung view;
-  // the jsPDF chunk loads lazily so it stays out of the critical bundle. A failed roster
-  // fetch (offline) still yields a usable sheet with blank guest lines.
+  // the jsPDF chunk loads lazily so it stays out of the critical bundle. Offline it prints the
+  // last roster this device held (usePersonnel · loadRoster); with none at all it still yields a
+  // usable sheet with blank guest lines.
   const [sheetBusy, setSheetBusy] = useState(false)
   const downloadBlankSheet = async () => {
     if (sheetBusy) return
     setSheetBusy(true)
     let names: string[] = []
     try {
-      names = (await listPersonnel())
+      names = (await loadRoster())
         .filter((p) => p.active)
         .map((p) => p.displayName)
         .sort((a, b) => a.localeCompare(b, 'de-CH'))
