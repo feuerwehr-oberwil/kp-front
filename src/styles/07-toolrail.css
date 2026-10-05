@@ -76,6 +76,14 @@
 .vrail:not(.expanded) .vrail-tool, .vrail.dragging .vrail-tool { justify-content: center; }
 .vrail-glyph { width: 46px; min-width: 46px; height: 46px; display: grid; place-items: center; }
 .vrail-glyph .i { width: 22px; height: 22px; }
+/* the Ebenen «not Standard» mark (05.10.2026, owner: «ebenen should have an indication when using
+   standard or all on / off»): a small blue dot at the glyph's top right — Alle ein, Alle aus or a
+   hand-switched set; the panel's quick-taps say which. In the «chosen» blue (--sel), the tone the
+   panel lights its quick-tap in: nothing is wrong, the map just isn't the Einsatz default. Ringed in the tile's own background so it reads
+   on the lit (ink) tile as well. Shared with the read-only cluster (MapUtility · .tu-layers). */
+.vrail-layers .vrail-glyph { position: relative; }
+.layers-mark { position: absolute; top: calc(50% - 13px); left: calc(50% + 5px); width: 8px; height: 8px;
+  border-radius: 50%; background: var(--sel); box-shadow: 0 0 0 2px var(--float-bg, var(--surface)); pointer-events: none; }
 .vrail-label { display: none; white-space: nowrap; font-size: 13.5px; font-weight: 600; }
 .vrail.expanded:not(.dragging) .vrail-label { display: block; }
 

@@ -39,6 +39,7 @@ export const en: Localizable<Copy> = {
     showAll: 'Show all',
     hideAll: 'Hide all',
     reset: 'Default',
+    custom: 'Custom',
   },
   help: {
     menu: 'Features & help',
