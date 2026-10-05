@@ -127,6 +127,29 @@ export function withAnswer(doc: VisitDoc, itemId: string, a: Answer | undefined)
   return { ...doc, answers }
 }
 
+/**
+ * A draft moves to another checklist (or to none) — owner, 05.10.2026: «allow changing the
+ * checklist type». Answers whose item exists in the new one with the same input type stay; the
+ * rest are dropped (`dropped` counts them, so the page can ask first). Photos always stay — one
+ * linked to an item the new checklist does not have becomes a general photo. Pure.
+ */
+export function switchChecklist(doc: VisitDoc, next: VisitTemplate | null): { doc: VisitDoc; dropped: number } {
+  const keep = new Map(checklistItems(next).map((i) => [i.id, inputOf(i)]))
+  const old = new Map(checklistItems(doc.checklist).map((i) => [i.id, inputOf(i)]))
+  const answers: VisitDoc['answers'] = {}
+  let dropped = 0
+  for (const [id, a] of Object.entries(doc.answers)) {
+    if (keep.has(id) && keep.get(id) === (old.get(id) ?? keep.get(id))) answers[id] = a
+    else if (old.get(id) !== 'photo') dropped++
+  }
+  const photos = doc.photos.map((p) => {
+    if (!p.item || keep.has(p.item)) return p
+    const { item: _unlinked, ...rest } = p
+    return rest
+  })
+  return { doc: syncPhotoAnswers({ ...doc, checklist: next ? structuredClone(next) : null, answers, photos }), dropped }
+}
+
 /** Keep each photo item's `"photo"` marker in step with the photos that link it (contract:
  *  set when ≥1 photo links the item). */
 export function syncPhotoAnswers(doc: VisitDoc): VisitDoc {

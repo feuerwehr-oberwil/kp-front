@@ -9,7 +9,7 @@ import { LoadingStatus } from '../ShellLoader'
 import { Segmented } from '../Segmented'
 import type { Item } from '../../lib/checklists'
 import { newId } from '../../lib/ids'
-import type { ProposalField, VisitPhoto, VisitProposal } from '../../objectVisits/types'
+import type { ProposalField, VisitPhoto, VisitProposal, VisitTemplate } from '../../objectVisits/types'
 import { usePhotoUrl } from './ovFormat'
 import s from './ObjectVisits.module.css'
 
@@ -160,6 +160,38 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
         <span>{C.proposalReason}</span>
         <input className={s.input} value={reason} placeholder={C.proposalReasonPlaceholder} onChange={(e) => setReason(e.target.value)} />
       </label>
+    </Sheet>
+  )
+}
+
+/** «Checkliste wechseln» on a draft: the station's visit checklists and «Ohne Checkliste», the
+ *  current one marked. Choosing hands the template (or null) up; the page asks before it drops answers. */
+export function ChecklistSheet({ templates, current, onPick, onClose }: {
+  templates: VisitTemplate[]
+  current: VisitTemplate | null
+  onPick: (t: VisitTemplate | null) => void
+  onClose: () => void
+}) {
+  const C = appConfig.copy.objectVisits
+  const isCurrent = (t: VisitTemplate | null) =>
+    (t?.id ?? null) === (current?.id ?? null) && (t == null || (t.version ?? 0) === (current?.version ?? 0))
+  const row = (t: VisitTemplate | null) => (
+    <button key={t?.id ?? '__none__'} type="button" className={s.row} onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined}>
+      {t && <Icon id="checklist" className={s.rowGlyph} />}
+      <span className={s.rowMain}>
+        <span className={s.rowTitle}>{t ? t.title : C.noChecklist}</span>
+        {t?.subtitle && <span className={s.rowSub}>{t.subtitle}</span>}
+      </span>
+      {isCurrent(t) ? <span className="ip-badge ip-badge-ok">{C.checklistCurrent}</span> : <Icon id="chevron" className={s.chev} />}
+    </button>
+  )
+  return (
+    <Sheet open onClose={onClose} title={C.changeChecklist}>
+      <p className={s.secNote}>{C.changeChecklistLead}</p>
+      <div className={s.card}>
+        {templates.map(row)}
+        {row(null)}
+      </div>
     </Sheet>
   )
 }

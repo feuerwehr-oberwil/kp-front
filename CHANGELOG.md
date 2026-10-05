@@ -31,6 +31,12 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Objektbesuche: change the checklist of a draft, read the plans in the app.** The visit's ⋯
+  menu gets «Checkliste wechseln»: answers that also exist in the new checklist stay, the rest
+  are named before they are dropped, photos always stay. A plan from the «Pläne» card now opens
+  in the app's own reader (tabs for the object's other sheets, «‹» or the back gesture returns to
+  the visit). Opened from inside an Einsatz, the Übersicht offers the Einsatz's object first
+  («Im Einsatz»). The «Foto hinzufügen» tile got its padding. *No action needed.*
 - **Objektbesuche: the object's plans on the visit.** A «Pläne» card above the checklist lists the
   object's Modul-PDFs (station code and title, in module order); a tap opens the sheet. It reads
   the object through the offline cache, so a visit opened without a signal still lists them. No

@@ -69,6 +69,10 @@ export function Overview() {
     )
   }
 
+  const suggested = catalogue && ov.suggestedObjectId
+    ? catalogue.objects.find((o) => o.id === ov.suggestedObjectId) ?? null
+    : null
+
   /** a capture role starts (or resumes) a visit; a reader opens the last one, if there is one */
   const openObject = (o: CatalogueObject, workRef: string | null = null) => {
     if (ov.canCapture) ov.go({ kind: 'new', object: o.id, ref: workRef })
@@ -138,6 +142,13 @@ export function Overview() {
           )}
 
           {!ov.canCapture && catalogue && <p className={s.secNote}>{C.viewerNote}</p>}
+
+          {/* opened from inside an Einsatz: its object first — the one whose plans are on the board */}
+          {suggested && (
+            <Section title={C.suggestedHead}>
+              <div className={s.card}>{objectRow(suggested)}</div>
+            </Section>
+          )}
 
           {drafts.length + serverDrafts.length > 0 && (
             <Section title={C.myDrafts} count={drafts.length + serverDrafts.length}>
