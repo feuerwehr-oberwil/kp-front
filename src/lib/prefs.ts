@@ -46,6 +46,12 @@ export interface Prefs {
    *  arrived? An alarm older than that decision must not override it (lib/incidentAlerts ·
    *  pickBootIncident). */
   incidentChosenAt?: number
+  /** when the operator closed an Einsatz on this device and landed on the launcher (epoch ms).
+   *  Until they open one by hand, a cold start stays on the launcher too — only an alarm that
+   *  arrived AFTER the close may open by itself (lib/incidentAlerts · pickBootIncident). Without
+   *  it the boot fell back to the first open Einsatz, so every launch after an Abschluss stood
+   *  inside whatever Übung was still open. */
+  landedAt?: number
   /** LEGACY: the manually-picked Einsatzobjekt now lives in the synced workspace blob
    *  (Saved.pickedObjectId), per incident + shared across devices. Kept only so deriveInitial
    *  can one-time import an in-flight cookie pick on upgrade; cleared at boot afterwards. */
