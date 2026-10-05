@@ -201,7 +201,7 @@ MANUAL = {
     "updated": "2026-10-05",
     "keywords": ["generator"],
     "steps": [
-        {"text": "Standort wählen", "warning": "Nie in Räumen"},
+        {"text": "Standort wählen", "warning": "Nie in Räumen", "details": ["eben", "im Freien"]},
         {"text": "Starten", "hint": "Choke", "images": [{"page": 1, "caption": "Bedienfeld"}]},
     ],
 }
@@ -219,6 +219,8 @@ def test_manual_template_is_valid():
         ({"steps": []}, "Schritt"),
         ({"steps": [{"text": " "}]}, "Schritt 1"),
         ({"steps": [{"text": "a", "warning": 3}]}, "warning"),
+        ({"steps": [{"text": "a", "details": "x"}]}, "details"),
+        ({"steps": [{"text": "a", "details": [" "]}]}, "details"),
         ({"steps": [{"text": "a", "images": [{"page": -1}]}]}, "page"),
         ({"steps": [{"text": "a", "images": [{"page": True}]}]}, "page"),
         ({"steps": [{"text": "a", "images": "p1"}]}, "images"),

@@ -1711,6 +1711,7 @@ first time without network still shows them.
 | --- | --- | --- |
 | `device` | ✅ | the Gerät; the picker groups by it (same string = same group) |
 | `steps[].text` | ✅ | the step, shown big and numbered; phone numbers become tappable |
+| `steps[].details` | – | sub-points of the step (a list of strings), shown as a bullet list under it |
 | `steps[].warning` | – | a red «Achtung:» line – what hurts people or the device |
 | `steps[].hint` | – | a quiet tip line |
 | `steps[].images[]` | – | `{ "page": N, "caption"? }` – an asset page of this entry: a photo, or a page of the device's PDF manual exported as an image (one image per PDF page) |

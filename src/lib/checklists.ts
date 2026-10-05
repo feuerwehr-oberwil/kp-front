@@ -94,6 +94,9 @@ export interface ManualImage { page: number; caption?: string }
  *  device), `hint` the quiet one (a tip). Both optional. */
 export interface ManualStep {
   text: string
+  /** sub-points of the step, in order («Becken 1 – grober Schmutz entfernen», …) — the second
+   *  list level of the station's Word Anleitungen, kept as such rather than flattened into steps */
+  details?: string[]
   warning?: string
   hint?: string
   images?: ManualImage[]

@@ -25,7 +25,7 @@ const MANUAL: ChecklistTemplate = {
   id: 'stromerzeuger', kind: 'manual', title: 'Stromerzeuger starten', device: 'Stromerzeuger 8 kVA',
   version: 1, updated: '2026-10-05', source: 'Demo',
   steps: [
-    { text: 'Standort wählen', warning: 'Nie in geschlossenen Räumen' },
+    { text: 'Standort wählen', warning: 'Nie in geschlossenen Räumen', details: ['im Freien', 'eben'] },
     { text: 'Choke schliessen', hint: 'Nur bei kaltem Motor', images: [{ page: 1, caption: 'Bedienfeld' }] },
   ],
 }
@@ -36,6 +36,7 @@ describe('ManualReader', () => {
     expect([...container.querySelectorAll('ol > li')].map((li) => li.textContent?.slice(0, 2))).toEqual(['1S', '2C'])
     expect(screen.getByText('Nie in geschlossenen Räumen')).toBeTruthy()
     expect(screen.getByText('Nur bei kaltem Motor')).toBeTruthy()
+    expect([...container.querySelectorAll('ol > li:first-child ul > li')].map((li) => li.textContent)).toEqual(['im Freien', 'eben'])
     expect(screen.getByText(/Stromerzeuger 8 kVA · Stand 05\.10\.2026/)).toBeTruthy()
     expect(container.querySelector('input, [role="checkbox"]')).toBeNull()
   })

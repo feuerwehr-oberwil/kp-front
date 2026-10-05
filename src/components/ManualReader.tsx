@@ -37,6 +37,11 @@ export function ManualReader({ manual }: { manual: ChecklistTemplate }) {
             <span className={s['mn-num']} aria-hidden="true">{i + 1}</span>
             <div className={s['mn-body']}>
               <p className={s['mn-text']}><PhoneLinked text={step.text} /></p>
+              {step.details && step.details.length > 0 && (
+                <ul className={s['mn-details']}>
+                  {step.details.map((d, j) => <li key={j}><PhoneLinked text={d} /></li>)}
+                </ul>
+              )}
               {step.warning && (
                 <p className={s['mn-warn']}>
                   <Icon id="warn" />

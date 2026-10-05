@@ -55,7 +55,8 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 def _manual_problem(tpl: dict[str, Any]) -> str | None:
     """An Anleitung: ``device`` (the rail groups by it) and a non-empty ``steps`` list, each step
-    a ``text`` with optional ``warning`` / ``hint`` strings and optional ``images``
+    a ``text`` with optional ``details`` (sub-points, a list of strings), ``warning`` / ``hint``
+    strings and optional ``images``
     (``[{"page": 3, "caption": "…"}]`` — the ``checklists:<id>:p<N>`` assets)."""
     if "phases" in tpl or "entries" in tpl:
         return "Anleitung hat 'steps', keine 'phases' oder 'entries'"
@@ -78,6 +79,11 @@ def _manual_problem(tpl: dict[str, Any]) -> str | None:
         for field in ("warning", "hint"):
             if field in step and not isinstance(step[field], str):
                 return f"Anleitung: Schritt {n}: {field!r} muss Text sein"
+        details = step.get("details")
+        if details is not None and (
+            not isinstance(details, list) or not all(isinstance(d, str) and d.strip() for d in details)
+        ):
+            return f"Anleitung: Schritt {n}: 'details' muss eine Liste von Texten sein"
         images = step.get("images")
         if images is None:
             continue
