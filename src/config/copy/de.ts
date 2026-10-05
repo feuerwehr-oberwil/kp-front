@@ -68,6 +68,9 @@ export const de = {
     showAll: 'Alle ein',
     hideAll: 'Alle aus',
     reset: 'Standard',
+    // Ebenen-Knopf, wenn die Ebenen weder Standard noch «Alle ein/aus» sind (05.10.2026):
+    // ein Punkt am Knopf, dieses Wort im Screenreader und Tooltip
+    custom: 'Eigene Auswahl',
   },
   help: {
     menu: 'Funktionen & Hilfe',

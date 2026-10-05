@@ -1,5 +1,5 @@
 import { LoadingStatus } from './ShellLoader'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import type { ChecklistState, ChecklistTemplate, Item, TemplateState } from '../lib/checklists'
 import { allEntries, warmTemplates, matchDiveraEntries, searchEntries, templateProgress } from '../lib/checklists'
@@ -15,12 +15,41 @@ import s from './Checklists.module.css'
 
 const EMPTY_STATE: TemplateState = { ticks: {}, activeBranch: {} }
 
+/* Where each list was left (05.10.2026, owner: «remember the checklist scroll position on closing
+   an open checklist»). Per Einsatz and per list — the open checklist's pane and the picker each
+   keep their own offset, so closing a list onto the picker and opening it again lands both where
+   the reader was — the chooser above all («to quickly go through potentially similar checklists»:
+   back from one list, the neighbouring one is right under the thumb). In memory only: it is a reading position for this session, not a record; a
+   reload starts at the top. Module scope because the surface unmounts whenever another tab is
+   shown (IncidentWorkspace · mode). */
+const scrollMemory = new Map<string, number>()
+/** the scroller's offset under `key`: restored when the key (or the element) appears, saved on
+ *  every scroll. The returned ref goes on the element that scrolls. */
+function useRememberedScroll<T extends HTMLElement>(key: string | null) {
+  const ref = useRef<T>(null)
+  // what was last restored: only a NEW element or a NEW key puts the offset back — a tick
+  // re-renders the pane and must not jump it
+  const restored = useRef<{ node: T | null; key: string | null }>({ node: null, key: null })
+  useLayoutEffect(() => {
+    const node = ref.current
+    if (!node || key === null) return
+    if (restored.current.node !== node || restored.current.key !== key) {
+      node.scrollTop = scrollMemory.get(key) ?? 0
+      restored.current = { node, key }
+    }
+    const save = () => scrollMemory.set(key, node.scrollTop)
+    node.addEventListener('scroll', save, { passive: true })
+    return () => node.removeEventListener('scroll', save)
+  })
+  return ref
+}
+
 // The Checkliste surface: a left rail with the action checklists (FU, Lagerapport) and —
 // directly below, not behind a tab — the searchable EL tactical Stichworte. The main pane
 // renders the selection: an action checklist runs as a checkable phase list; a Stichwort
 // opens its reading view (with inline diagrams). Ticking/branch are lifted to App.
 export function ChecklistsView({
-  checklists, canTick, divera, onTick, onBranch, onAction, offersAction,
+  checklists, canTick, divera, onTick, onBranch, onAction, offersAction, scrollKey = '',
 }: {
   checklists: ChecklistState
   canTick: boolean
@@ -29,6 +58,9 @@ export function ChecklistsView({
   onBranch: (templateId: string, phaseId: string, branchId: string) => void
   onAction: (item: Item, a: NonNullable<Item['action']>) => void
   offersAction?: (a: NonNullable<Item['action']>) => boolean
+  /** whose reading positions these are — the Einsatz id; each list's scroll offset is kept
+   *  under it (scrollMemory above) */
+  scrollKey?: string
 }) {
   const CL = appConfig.copy.checklists
   // Templates are fetched from the reference registry (offline-cached, bundled fallback) — async,
@@ -92,6 +124,9 @@ export function ChecklistsView({
   const activeEntryTemplateId =
     sel?.kind === 'entry' ? templates.find((t) => (t.entries ?? []).some((e) => e.id === sel.id))?.id ?? null : null
 
+  const railRef = useRememberedScroll<HTMLElement>(`${scrollKey}|rail`)
+  const mainRef = useRememberedScroll<HTMLElement>(sel ? `${scrollKey}|${sel.kind}:${sel.id}` : null)
+
   if (ready && !templates.length) {
     return (
       <div className={s['cl-surface']}>
@@ -101,13 +136,26 @@ export function ChecklistsView({
   }
 
   const selTitle = activeTemplate?.title ?? activeEntry?.title ?? CL.railLabel
+  const activeProgress = activeTemplate ? templateProgress(activeTemplate, checklists[activeTemplate.id] ?? EMPTY_STATE) : null
 
   return (
     <div className={s['cl-surface']}>
       {railNarrow && !railOpen ? (
         <button className={s['cl-rail-toggle']} onClick={() => setRailOpen(true)} aria-expanded={false} aria-label={CL.showList}>
-          <Icon id="search" />
+          {/* what is open, in the rail's own glyph — not a 🔍 (05.10.2026, owner: «remove the search
+              icon … when having a checklist opened»): the row is the list's name and the way back
+              to the chooser, and the magnifier promised a search it only reached one tap later.
+              The chooser it opens still starts with the search field. A Stichwort carries its
+              category chip below instead. */}
+          {activeTemplate && <Icon id={activeTemplate.kind === 'rapport' ? 'history' : 'check'} />}
+          {activeEntry && !activeEntry.hazardColor && <Icon id="doc" />}
           <span className={s['cl-rail-toggle-title']}>{selTitle}</span>
+          {/* the open list's «n/m» — here, in a row that stands anyway, instead of a progress row
+              of its own under it (05.10.2026, owner: «don't need a progress indicator. Occupies
+              too much space»; ChecklistRunner) */}
+          {activeProgress && activeProgress.total > 0 && (
+            <span className={s['cl-rail-toggle-prog']}>{activeProgress.done}/{activeProgress.total}</span>
+          )}
           {/* the Stichwort's category as a word in the head (27.09.2026, owner-r2-5): it was a
               filled «BRAND» pill inside the document card, over a title the chooser had just
               shown — the card is gone on a phone (Checklists.module.css), so its two facts moved
@@ -120,7 +168,7 @@ export function ChecklistsView({
           <Icon id="chevron-down" />
         </button>
       ) : (
-      <nav className={cx(s['cl-rail'], railNarrow && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
+      <nav ref={railRef} className={cx(s['cl-rail'], railNarrow && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
         <SearchField className={s['cl-rail-search']} value={query} onChange={setQuery} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
         {/* ⚠️ ALL matches, not the best one (31.08.). «VU Strasse» is Verkehrsunfall AND
             E-Autobrand AND Ölspur — which of them this Einsatz is cannot be read off the
@@ -185,7 +233,7 @@ export function ChecklistsView({
       {/* #4: on a phone, while the list is open show ONLY the list (no small preview underneath).
           Opening an item collapses the list to the toggle row and gives the checklist the screen. */}
       {!(railNarrow && railOpen) && (
-        <main className={s['cl-main']}>
+        <main ref={mainRef} className={s['cl-main']}>
           {activeTemplate ? (
             <ChecklistRunner
               template={activeTemplate}

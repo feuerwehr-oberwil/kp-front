@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
+import { layerPreset, layerPresetLabel } from './lib/layerPreset'
 import { motionDuration, prefersReducedMotion } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
@@ -2534,6 +2535,9 @@ export function IncidentWorkspace({
     }
     setLayers(next)
   }
+  // which quick-tap the Ebenen on screen match — lit in the panel, named in the Ebenen button's
+  // tooltip / accessible name (lib/layerPreset, 05.10.2026)
+  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type)), [layers, incidentMeta.type])
   const setOpacity = (id: LayerId, v: number) => {
     if (isTwinLayerId(id)) {
       // written outside the updater — see the note on persistTwinLayers
@@ -5471,6 +5475,7 @@ export function IncidentWorkspace({
               coordsOn={coord.mode !== 'off'}
               onToggleCoords={coord.cycle}
               layersOn={panel === 'layers'}
+              layersPreset={layersPreset}
               onToggleLayers={() => togglePanel('layers')}
             />
           )}
@@ -5532,6 +5537,7 @@ export function IncidentWorkspace({
           onShowAll={() => setAllLayers(true)}
           onHideAll={() => setAllLayers(false)}
           onReset={resetLayers}
+          preset={layersPreset}
           onClose={() => setPanel(null)}
         />
       )}
@@ -6036,7 +6042,9 @@ export function IncidentWorkspace({
                     Basiskarte choice lives inside its panel (the BaseSwitcher popover and
                     the standalone Koordinaten button are folded away — coords is a row in
                     the compass menu now, testing feedback 2026-07-14) */}
-                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
+                {/* which preset the Ebenen match is lit in the panel and said in the name — no mark
+                    on the glyph (05.10.2026, owner: «no need for this indicator») */}
+                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). `|| isEl` as on MapUtility's twin: saved views
@@ -6422,6 +6430,7 @@ export function IncidentWorkspace({
           onAction={checklistAction}
           // «Zeichnen» arms the Karte's line tool, which a locked device disarms on arrival
           offersAction={(a) => a !== 'draw' || !tacticalLocked}
+          scrollKey={incidentMeta.id}
         />
       ))}
 

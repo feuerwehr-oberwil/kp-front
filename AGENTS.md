@@ -1691,8 +1691,11 @@ to prod.
   - *A head's quiet line is said WHOLE or not at all* (30.09.2026): free text there (the
     Checkliste's subtitle) wears `data-fit-check` and the ladder's FIRST rank, so it folds away
     whole before the tiles give up words — never «Aktions-Checkliste Fü…». On a phone the
-    Checkliste runner shows no titles at all: the chooser row names the list, the row under it is
-    the progress alone (bar + «0/8 erledigt», no percentage — owner: the count already says it).
+    Checkliste runner shows no head row at all: the chooser row names the list and carries its
+    «n/m» at the right. **No progress bar anywhere in an open checklist** (05.10.2026, owner: «the
+    checklists don't need a progress indicator. Occupies too much space») — the count is the
+    progress: «n/m erledigt» in the tablet head, «n/m» in the narrow chooser row and on each phase
+    head; no bar, no percentage. The chooser row leads with the list's rail glyph, never a 🔍.
   - *No card inside the page card* (30.09.2026, owner: «in the rapport we have double stacked
     cards on mobile»). A surface's sections sit ON the page card: no frame, no fill, the content
     at the head's inset, a `--glass-edge` hairline over each section with its eyebrow (or its
