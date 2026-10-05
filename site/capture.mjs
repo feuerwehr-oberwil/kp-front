@@ -118,6 +118,11 @@ const HIDE_CSS = `
      behaviour, but transient chrome: in a still it reads like an error state covering the
      heading. Same family as the toasts. */
   .dv-banner { display: none !important; }
+  /* The Meldeleiste (.ml) for the same reason (06.10.2026): the demo's seeded AS-Trupps run
+     overdue within minutes of a reset, so «Atemschutz überfällig» lay across the head of every
+     picture, and a deploy mid-capture added «Update bereit». The Trupps board still shows the
+     overdue Trupps; only the floating row goes. */
+  .ml { display: none !important; }
 `
 
 /**
