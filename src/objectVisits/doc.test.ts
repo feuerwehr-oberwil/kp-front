@@ -81,6 +81,11 @@ describe('switchChecklist — a draft moves to another checklist', () => {
     expect(doc.photos.every((p) => !p.item)).toBe(true)
   })
 
+  it('a photo linked to a check item keeps its link when that item stays (a defect photo)', () => {
+    const d = { ...filled(), photos: [photo('ova3', 'zugaenglich')] }
+    expect(switchChecklist(d, plan).doc.photos[0].item).toBe('zugaenglich')
+  })
+
   it('takes a copy of the template, never the catalogue\'s object', () => {
     expect(switchChecklist(filled(), plan).doc.checklist).not.toBe(plan)
   })

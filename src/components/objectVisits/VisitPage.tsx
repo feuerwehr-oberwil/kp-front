@@ -295,7 +295,7 @@ export function VisitPage({ id }: { id: string }) {
     const { dropped } = switchChecklist(cur, t)
     if (dropped > 0) {
       const ok = await confirmDialog({
-        title: C.changeChecklist, message: fillTemplate(C.changeChecklistDrop, { n: dropped }), confirmLabel: C.changeChecklistConfirm,
+        title: C.changeChecklist, message: plural(dropped, C.changeChecklistDropOne, C.changeChecklistDropMany), confirmLabel: C.changeChecklistConfirm,
       })
       if (!ok) return
     }

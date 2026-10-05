@@ -143,7 +143,7 @@ export function switchChecklist(doc: VisitDoc, next: VisitTemplate | null): { do
     else if (old.get(id) !== 'photo') dropped++
   }
   const photos = doc.photos.map((p) => {
-    if (!p.item || keep.get(p.item) === 'photo') return p
+    if (!p.item || keep.has(p.item)) return p
     const { item: _unlinked, ...rest } = p
     return rest
   })

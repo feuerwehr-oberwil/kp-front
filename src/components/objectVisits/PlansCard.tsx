@@ -12,6 +12,7 @@ import { referenceUrl } from '../../lib/api/reference'
 import type { VisitPlanRow } from '../../objectVisits/plans'
 import { LoadingStatus } from '../ShellLoader'
 import { Segmented } from '../Segmented'
+import { Overlay } from '../../lib/overlays'
 import { Head } from './common'
 import s from './ObjectVisits.module.css'
 
@@ -51,7 +52,9 @@ export function PlanReader({ rows, index, objectName, onShow, onClose }: {
   const r = rows[index] ?? rows[0]
   if (!r) return null
   return (
-    <div className={s.page} role="dialog" aria-modal="true" aria-label={r.title}>
+    // the shared dialog behaviour (focus in, trapped and restored, Escape) — and no swipe-to-close:
+    // a vertical drag here scrolls the plan
+    <Overlay open onClose={onClose} className={`${s.page} ${s.reader}`} ariaLabel={r.title} swipeToClose={false}>
       <Head title={r.sub ? `${r.title} · ${r.sub}` : r.title} sub={objectName} onBack={onClose} />
       {rows.length > 1 && (
         <div className={s.planTabs}>
@@ -64,6 +67,6 @@ export function PlanReader({ rows, index, objectName, onShow, onClose }: {
           <PdfScroller key={r.id} url={referenceUrl(r.id, r.version)} bare />
         </Suspense>
       </div>
-    </div>
+    </Overlay>
   )
 }

@@ -259,6 +259,8 @@
 
 
 /* ── the plan reader (PlansCard · PlanReader): the visit's head, the sheets as tabs, the PDF ── */
+/* over the visit and over the dialog scrim the Overlay draws under it */
+.reader { z-index: var(--z-dialog); }
 .planTabs {
   flex: none; background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge);
   padding: 8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
