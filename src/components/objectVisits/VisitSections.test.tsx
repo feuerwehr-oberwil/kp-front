@@ -13,7 +13,7 @@ afterEach(() => { cleanup(); resetPopoverGuard(); vi.unstubAllGlobals(); vi.useR
 
 const doc = (over: Partial<VisitDoc> = {}): VisitDoc => ({
   schema: 'kp-front.object-visit/1', id: 'ov1759473240123-0kf9', lifecycle: 'draft',
-  object: { id: 'o1', name: 'Gemeindeverwaltung' }, visitedAt: '2026-10-01T08:14:00+02:00',
+  object: { id: 'o1', name: 'Gemeindeverwaltung' }, visitedAt: new Date(2026, 9, 1, 8, 14).toISOString(),
   checklist: null, answers: {}, notes: '', photos: [], proposals: [], ...over,
 } as VisitDoc)
 

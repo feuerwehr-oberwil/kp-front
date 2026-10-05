@@ -542,8 +542,8 @@ async def _broadcast_committed(
             from .credentials import load
 
             await load(send_db)
-            narrowed = {"user_ids": await audience(send_db)} if audience is not None else {}
-            await broadcast(send_db, title=title, body=body, tag=tag, target=target, **narrowed)
+            user_ids = await audience(send_db) if audience is not None else None
+            await broadcast(send_db, title=title, body=body, tag=tag, target=target, user_ids=user_ids)
             await send_db.commit()
     except Exception:  # push must never affect already-committed intake
         logger.exception("Push after commit failed (%s)", tag)

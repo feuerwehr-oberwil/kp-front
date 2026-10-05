@@ -23,7 +23,9 @@ test('touch time picker stays reachable, commits a wheel selection and can clear
   const field = page.getByRole('button', { name: 'Einsatzende', exact: true })
   await field.tap()
   const picker = page.locator('.wheelpop')
-  await expect(picker.locator('.wheel')).toHaveCount(5)
+  // one date-time control (05.10.2026): hour + minute, plus a day column when the Einsatz spans days
+  await expect(picker.locator('.wheel').nth(1)).toBeVisible()
+  expect(await picker.locator('.wheel').count()).toBeLessThanOrEqual(3)
   await expect(picker.getByRole('textbox')).toHaveCount(0)
   const ok = picker.getByRole('button', { name: 'OK', exact: true })
   const box = (await ok.boundingBox())!

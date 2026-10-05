@@ -85,15 +85,17 @@ async def _notify_state(db: AsyncSession) -> dict[str, Any]:
 
     await load_credentials(db)
     cutoff = datetime.now(UTC) - timedelta(days=SUBSCRIPTION_TTL_DAYS)
-    devices = dict(
-        (
+    devices: dict[uuid.UUID, int] = {
+        uid: n
+        for uid, n in (
             await db.execute(
                 select(PushSubscription.user_id, func.count())
                 .where(PushSubscription.user_id.is_not(None), PushSubscription.created_at >= cutoff)
                 .group_by(PushSubscription.user_id)
             )
         ).all()
-    )
+        if uid is not None
+    }
     users = (await db.execute(select(User).where(User.is_active.is_(True)).order_by(User.display_name))).scalars()
     return {
         "pushEnabled": push_enabled(),
