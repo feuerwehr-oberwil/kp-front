@@ -353,19 +353,21 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // signal next to the sync badge. Read alongside the status (it lands together).
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(sync.lastSyncedAt)
   // Sync-trouble surfacing: entering 'error' — or staying 'offline' beyond the grace window —
-  // fires ONE toast per episode with a «Jetzt synchronisieren» action; the badge in the
-  // switcher stays the always-visible indicator. The 2026-07-18 «no persistent banner» half of
-  // that decision was reversed 2026-09-07 for the offline case only: a device offline past
-  // 60 s additionally shows a standing Meldung (components/OfflineMeldung), withdrawn the
-  // moment the link is back. syncNow via ref so the subscription effect stays keyed on `sync`.
+  // fires ONE toast per episode; the «● Offline» / «Sync-Fehler» chip in the head stays the
+  // always-visible indicator, and there is no standing banner (the 07.09. one was removed
+  // 05.10.2026). ⚠️ «Jetzt synchronisieren» rides ONLY on the error toast, and only while the
+  // device has a link: offline there is nothing it could do (owner, 05.10.2026: «pointless when
+  // offline»), and the queue pushes by itself the moment the link is back. syncNow via ref so
+  // the subscription effect stays keyed on `sync`.
   const syncNowRef = useRef(syncNow)
   useEffect(() => { syncNowRef.current = syncNow }, [syncNow])
   useEffect(() => {
     const tracker = createSyncAlertTracker((kind) => {
       const cp = appConfig.copy.incidentSwitcher
+      const canSync = kind === 'error' && navigator.onLine !== false
       toast(kind === 'error' ? cp.syncErrorToast : cp.syncOfflineToast, {
         icon: 'warn', tone: 'warn',
-        action: { label: cp.syncNow, onClick: () => syncNowRef.current() },
+        ...(canSync ? { action: { label: cp.syncNow, onClick: () => { void syncNowRef.current() } } } : {}),
       })
     })
     const onStatus = (s: SyncStatus) => { setSyncStatus(s); setLastSyncedAt(sync.lastSyncedAt); tracker.onStatus(s) }

@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { loadDocTimed, pdfWorkerUrl, PdfFailDetail, usePdfLoad } from './PdfViewport'
@@ -33,7 +34,9 @@ const MAX_COL_W = 1100 // cap the page column so wide screens don't render huge 
 const pageBoxes = (host: HTMLElement | null): Box[] =>
   host ? Array.from(host.children).map((c) => c.getBoundingClientRect()) : []
 
-export function PdfScroller({ url }: { url: string }) {
+/** `bare`: no rail lanes to keep clear — the reader fills a surface of its own (the plans on an
+ *  object visit, components/objectVisits/PlansCard), so the pages get a plain margin. */
+export function PdfScroller({ url, bare = false }: { url: string; bare?: boolean }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const pagesRef = useRef<HTMLDivElement>(null)
   /** how the render pass in flight hands its pixels back – set by that pass, called by its
@@ -298,6 +301,7 @@ export function PdfScroller({ url }: { url: string }) {
     <div ref={wrapRef} className={s.scroller} onDoubleClick={onDoubleClick}>
       {status !== 'ready' && (
         <div className={s.hint}>
+          {status !== 'error' && <ShellLoader size="surface" />}
           <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>
           {fail && <PdfFailDetail fail={fail} reasonClass={s.reason} codeClass={s.code} />}
           {(status === 'error' || slow) && (
@@ -305,7 +309,7 @@ export function PdfScroller({ url }: { url: string }) {
           )}
         </div>
       )}
-      <div ref={pagesRef} className={`${s.pages}${zoom > 1 ? ` ${s.zoomed}` : ''}`} />
+      <div ref={pagesRef} className={`${s.pages}${bare ? ` ${s.bare}` : ''}${zoom > 1 ? ` ${s.zoomed}` : ''}`} />
     </div>
   )
 }

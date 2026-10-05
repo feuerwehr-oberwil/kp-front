@@ -494,14 +494,14 @@
 /* a note of the LIST rather than of a record — a result line, the dashed «hinzufügen» row.
    It is no longer a table row: the flex gap above spaces it, and it has no hairline to carry. */
 .adm-records > .adm-set-note { padding: 0; border-bottom: 0; }
-.adm-records > .adm-set-note.warn { padding: 10px 12px; border-radius: 10px; }
+.adm-records > .adm-set-note.warn { padding: 10px 12px; border-radius: var(--r-sm); }
 
 /* one record */
 .adm-rec {
   display: grid;
   grid-template-columns: minmax(0, 180px) minmax(0, 1fr) 28px;
   align-items: stretch;
-  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden;
   background: var(--surface);
 }
 /* the head line: the record's identity and its own action, never one of its values */
@@ -582,7 +582,7 @@
 .adm-swatch-auto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--border-soft); border-radius: var(--r-pill);
   padding: 5px 10px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer;
   box-shadow: 6px 0 6px -4px var(--surface); }
-.adm-swatch-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
+.adm-swatch-auto.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
 
 /* a comfortably tall textarea (Journal Bausteine) — big enough to see the whole list */
 .adm-textarea-tall { min-height: 360px; max-height: 72vh; overflow-y: auto; scrollbar-gutter: stable; }
@@ -630,33 +630,34 @@
   white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
 .adm-formlink-warn { color: var(--amber-strong); }
 /* ── «hier kommt der nächste dazu» (ui.tsx · AddRow, and every bare .adm-formlink-add) ────────
-   ONE shape for adding, wherever a list ends: a dashed row the full width of the list, inside the
-   card's padding. Dashed because nothing is there yet — the same reason `EmptyState` below is
-   dashed, and the two sit in the same place saying the same kind of thing.
+   ONE shape for adding, wherever a list ends: a row the full width of the list, inside the
+   card's padding.
+   28.09.2026: FRAMED, not dashed — the app's ONE «add» look (13-incident `.cv-btn-add`: solid
+   edge, the surface, 14/700 ink). Dashed means «missing» (27.09. sweep); an add is an action.
+   The dashed `AddRow` / `EmptyState` below stay: they are the placeholder the button sits in.
 
    ⚠️ The button alone IS the row when it stands alone (no caller had to change). Inside an
    `AddRow` — which adds the dim half-sentence on the left — it goes back to being a button and
-   rides at the right edge, or the row would be a dashed box inside a dashed box. */
+   rides at the right edge. */
 .adm-formlink-add { display: flex; width: 100%; align-items: center; gap: 8px;
   min-height: var(--tap); margin-top: 12px; padding: 13px 14px; cursor: pointer;
-  border: 1px dashed var(--border); border-radius: 10px;
-  background: transparent; color: var(--ink); font: 700 13px var(--body); text-align: left; }
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: 700 14px var(--body); text-align: left; }
 @media (hover: hover) {
   .adm-formlink-add:hover { border-color: var(--ink-faint); }
 }
 .adm-formlink-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.adm-formlink-add:disabled { color: var(--ink-faint); cursor: not-allowed; }
+.adm-formlink-add:disabled { opacity: var(--disabled); cursor: default; }
 .adm-formlink-add .i { width: 16px; height: 16px; }
 
 .adm-addrow { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%;
   margin-top: 12px; padding: 13px 14px;
-  border: 1px dashed var(--border); border-radius: 10px;
+  border: 1px dashed var(--border); border-radius: var(--r-sm);
   color: var(--ink-dim); font-size: 12.5px; line-height: 1.45; }
 .adm-addrow-label { min-width: 0; overflow-wrap: anywhere; }
 .adm-addrow-act { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 /* the button in an AddRow is a button again */
-.adm-addrow .adm-formlink-add { width: auto; margin: 0; padding: 0 15px; border-style: solid;
-  border-radius: var(--r-ctl); }
+.adm-addrow .adm-formlink-add { width: auto; margin: 0; padding: 0 15px; }
 
 /* color field */
 .adm-color-row { display: flex; align-items: center; gap: 10px; }
@@ -666,7 +667,7 @@
   background: var(--surface); cursor: pointer;
 }
 .adm-color-swatch::-webkit-color-swatch-wrapper { padding: 4px; }
-.adm-color-swatch::-webkit-color-swatch { border: none; border-radius: 10px; }
+.adm-color-swatch::-webkit-color-swatch { border: none; border-radius: var(--r-sm); }
 .adm-color-row .adm-input { flex: 1; }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -915,7 +916,7 @@
 .adm-empty {
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
   padding: 13px 14px;
-  border: 1px dashed var(--border); border-radius: 10px;
+  border: 1px dashed var(--border); border-radius: var(--r-sm);
 }
 .adm-empty.err { border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
 .adm-empty-txt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -982,23 +983,24 @@
 
 .adm-save-btn {
   flex: 0 0 auto; min-height: var(--tap); padding: 9px 18px; font-size: 12.5px;
-  color: var(--on-fill); background: var(--blue); border: 1px solid var(--blue);
+  /* THE primary fill (28.09.2026) — blue now means «chosen» (01-tokens · --sel) */
+  color: var(--on-btn-primary); background: var(--btn-primary); border: 1px solid var(--btn-primary);
   transition: background .16s var(--ease), border-color .16s var(--ease), transform .12s var(--ease);
 }
 @media (hover: hover) {
-  .adm-save-btn:not(:disabled):hover { background: var(--blue-strong); border-color: var(--blue-strong); }
+  .adm-save-btn:not(:disabled):hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 }
 .adm-save-btn:not(:disabled):active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* destructive secondary (Deaktivieren): red-tinted, never the visual primary */
 .adm-danger-btn {
   flex: 0 0 auto; min-height: var(--tap); padding: 8px 14px; font-size: 12.5px;
-  color: var(--red); border: 1px solid color-mix(in srgb, var(--red) 45%, transparent);
-  background: color-mix(in srgb, var(--red) 8%, transparent);
+  /* THE delete look (01-tokens · --del-*, 28.09.2026): outline on the surface */
+  color: var(--del-ink); border: 1px solid var(--del-edge); background: var(--surface);
   transition: background .16s var(--ease), border-color .16s var(--ease), transform .12s var(--ease);
 }
 @media (hover: hover) {
-  .adm-danger-btn:not(:disabled):hover { background: color-mix(in srgb, var(--red) 16%, transparent); }
+  .adm-danger-btn:not(:disabled):hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 }
 
 /* CopyChip: one input-shaped group — mono value with a square icon-only copy button
@@ -1385,7 +1387,7 @@
 /* disabled is visibly distinct from "enabled but idle" */
 .adm-int-btn:disabled,
 .adm-save-btn:disabled {
-  opacity: var(--disabled); cursor: not-allowed;
+  opacity: var(--disabled); cursor: default;
 }
 
 /* ── Mitglieder: row hover + clearer status/role badges ───────────────────── */
@@ -1571,24 +1573,14 @@
   .adm-sys-bar-fill { transition: none; }
 }
 /* running work (ui · ProgressBar): the label sentence, the percentage where it is known, and —
-   where it is not — a stripe that travels rather than a fill that lies */
+   where it is not — Shell trail rather than a guessed fraction */
 .adm-progress { width: 100%; margin-top: 2px; }
 .adm-progress-label {
   display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
   margin: 0 0 4px; font-size: 12.5px; color: var(--ink-dim);
 }
 .adm-progress-label b { color: var(--ink); font-variant-numeric: tabular-nums; }
-.adm-sys-bar-fill.adm-bar-wait {
-  width: 34%; animation: adm-bar-travel 1.4s var(--ease) infinite;
-}
-@keyframes adm-bar-travel {
-  0% { transform: translateX(-110%); }
-  100% { transform: translateX(310%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  /* no travel: a static third of the bar still says «läuft», and nothing moves */
-  .adm-sys-bar-fill.adm-bar-wait { animation: none; opacity: .6; }
-}
+.adm-progress-wait { display: flex; align-items: center; color: var(--ink-dim); }
 /* Two buttons that belong together read as a pair at the gap a toolbar uses, not at the gap
    between two unrelated blocks. */
 .adm-sys-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -1702,7 +1694,7 @@ p.adm-sys-path { margin: 3px 0 0; }
 /* open trigger: Base UI sets [data-popup-open] on the trigger (the old .adm-menu.open class
    is gone with the hand-rolled menu) */
 .adm-menu-btn[data-popup-open] { background: var(--surface); color: var(--ink); border-color: var(--blue); }
-.adm-menu-btn:disabled { opacity: var(--disabled); cursor: not-allowed; }
+.adm-menu-btn:disabled { opacity: var(--disabled); cursor: default; }
 .adm-menu-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .adm-menu-ic { width: 18px; height: 18px; }
 
@@ -1889,9 +1881,10 @@ p.adm-sys-path { margin: 3px 0 0; }
   .adm-pick-opt:hover:not(:disabled) { border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
 }
 .adm-pick-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.adm-pick-opt:disabled { opacity: var(--disabled); cursor: not-allowed; }
-.adm-pick-opt.on { background: color-mix(in srgb, var(--blue) 12%, var(--surface));
-  border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); box-shadow: var(--shadow-sm); }
+.adm-pick-opt:disabled { opacity: var(--disabled); cursor: default; }
+/* an option CARD with its radio mark: the row wash (01-tokens · --sel-wash), not the chip fill */
+.adm-pick-opt.on { background: color-mix(in srgb, var(--blue) 14%, var(--surface));
+  border-color: var(--sel); box-shadow: var(--shadow-sm); }
 .adm-pick-head { display: flex; align-items: center; gap: 8px; font: 700 14px var(--body); }
 .adm-pick-mark { width: 18px; height: 18px; flex: none; border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 60%, transparent);

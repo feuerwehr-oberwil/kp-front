@@ -42,6 +42,10 @@
       calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)) 10px;
   }
 }
+/* a surface without rails (an object visit's plan reader): a plain margin, the safe areas kept */
+.pages.bare {
+  padding: 12px max(10px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+}
 /* ⚠️ No `background` here, and deliberately not a themed one either. This element IS the sheet
    of paper: pdf.js fills the whole canvas #ffffff before it draws a single glyph
    (`beginDrawing` → `fillStyle = background || "#ffffff"`), and the canvas is only put into the

@@ -498,6 +498,18 @@ _PARAM_VALUES = {
     "person_id": "1",
     "slot": "logo",
     "user_id": "00000000-0000-0000-0000-000000000001",
+    # Objektbesuche (api/object_visits, api/integrations, api/object_visits_admin) — station
+    # business, never an Einsatz's: a link session is refused every one of them
+    "visit_id": "ov1759473240123-0kf9",
+    "att_id": "ova1759473250456-1a2b",
+    "revision": "1",
+    "destination_id": "sharepoint-fu",
+    "source": "fwo",
+    "external_id": "a/b",
+    "ref": "fwo-admin:fu-2026/B4",
+    # A programme is one path segment; a published list's ref above contains a slash.
+    "programme_ref": "fwo-admin:fu",
+    "year": "2027",
 }
 
 

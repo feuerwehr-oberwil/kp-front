@@ -1,4 +1,5 @@
 import { formatDateTime } from './report'
+import { fillTemplate } from './format'
 import { describe, it, expect } from 'vitest'
 import { closeTimeOf } from './api/incidents'
 import { buildDirectReportPayload, einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf, usedStackFloors } from './reportPdfDirect'
@@ -321,6 +322,24 @@ describe('buildDirectReportPayload · trupps', () => {
     expect(out.trupps[0].readings.map((r) => r.kindLabel)).toEqual(['Angemeldet', 'Eintritt'])
   })
 
+  // staging r3 F4: a crew still inside at the Abschluss printed an OPEN sortie («Einsatz 1: 19:37»)
+  it('ends a sortie still open at the close AT the close, and says so — only once the Einsatz is closed', () => {
+    const t = trupp({
+      id: 'a', no: 1, name: 'Muster Leo', status: 'aktiv',
+      readings: [{ t: '2026-09-03T10:05:00.000Z', bar: 300, kind: 'entry' }],
+    })
+    const build = (incident: Record<string, unknown>) => (buildDirectReportPayload({
+      incident: { id: 'i1', title: 'Brand', started_at: '2026-09-03T09:50:00.000Z', ...incident } as never,
+      draft: { meta: {}, generatedAt: '2026-09-03T12:00:00.000Z', proof: {}, options: { atemschutz: true } } as never,
+      trupps: [t], attendance: {}, events: [], plans: [],
+    }) as unknown as { trupps: { cycles: { exit?: string }[] }[] }).trupps[0].cycles[0]
+    const at = '2026-09-03T10:52:00.000Z'
+    expect(build({ is_archived: true, closed_at: at }).exit)
+      .toBe(fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime(at) }))
+    // still running, or opened again: the sortie is open, as it is
+    expect(build({ is_archived: false, closed_at: at }).exit).toBeUndefined()
+  })
+
   // a merge renumbered it (lib/truppNumbers): the heading names the first number too, and a Trupp
   // never renumbered sends nothing extra
   it('carries the numbers a renumbered Trupp had before, and nothing for any other', () => {
@@ -427,5 +446,22 @@ describe('buildDirectReportPayload · the close on paper', () => {
     const clock = (iso: string) => new Date(iso).toTimeString().slice(0, 5)
     expect(personal).toContain(clock('2026-09-25T22:15:00.000Z'))
     expect(personal).not.toContain(clock('2026-09-25T22:07:00.000Z'))
+  })
+
+  // #227 × #235: a crew still inside at the close ends at the SECOND close, like the Anwesenheit
+  it('ends a crew\'s sortie still open at the close («beim Abschluss noch drin») at the SECOND close', () => {
+    const t: Trupp = {
+      id: 'a', no: 1, name: 'Muster Leo', entryPressureBar: 300, entryTime: '2026-09-25T21:50:00.000Z',
+      lastContactTime: '2026-09-25T21:50:00.000Z', status: 'aktiv',
+      readings: [{ t: '2026-09-25T21:50:00.000Z', bar: 300, kind: 'entry' }],
+    }
+    const out = buildDirectReportPayload({
+      incident: { ...(incident as object), is_archived: true } as never,
+      draft: { meta: {}, generatedAt: '2026-09-25T22:20:00.000Z', proof: {}, options: { atemschutz: true } } as never,
+      trupps: [t], attendance: {}, events: [], plans: [],
+    }) as unknown as { trupps: { cycles: { exit?: string }[] }[] }
+    const exit = out.trupps[0].cycles[0].exit
+    expect(exit).toBe(fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime('2026-09-25T22:15:00.000Z') }))
+    expect(exit).not.toContain(formatDateTime('2026-09-25T22:07:00.000Z'))
   })
 })

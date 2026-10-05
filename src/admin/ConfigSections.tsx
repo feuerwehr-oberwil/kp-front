@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AlarmGroup, DeploymentConfig, DeploymentFleet, FleetVehicle } from '../lib/deploymentConfig'
 import { legacyFleetToAttributeLists, DEFAULT_MODULES } from '../lib/deploymentConfig'
@@ -911,6 +912,11 @@ export function DoctrineSection() {
           A zero Alarmdruck exists only in the public demo: it disables both pressure alarms, so
           the Rückzug line becomes a read-only 0 there. Station deployments require at least 1. */}
       {numField(C.defaultPressure, C.defaultPressureTip, 'defaultPressureBar')}
+      {/* The Eingangsdruck below which the Trupp form asks once (24.09.2026, Übung 23.09.: 60 and
+          180 bar went through as entries). It sits under the fill pressure it is read against.
+          0 is a real choice here — «never ask» — so the box takes it, unlike the alarm lines. */}
+      {numField(C.entryPressureMin, fillTemplate(C.entryPressureMinTip, { n: appConfig.atemschutz.entryPressureMin }),
+        'entryPressureMin', { kind: 'int', min: 0, max: 300, nullable: true })}
       {numberField({
           path: ['doctrine', 'alarmBar'],
           label: C.alarmBar,
@@ -1763,7 +1769,7 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
           <SettingsNote>
             <span className="adm-brand-row">
               <button type="button" className="btn adm-save-btn" disabled={!ready || busy} onClick={() => void commit()}>
-                {busy ? C.geojsonUploading : C.geojsonUpload}
+                {busy && <ShellLoader />}{busy ? C.geojsonUploading : C.geojsonUpload}
               </button>
               <button type="button" className="btn adm-int-btn" disabled={busy} onClick={reset}>
                 {C.geojsonCancel}

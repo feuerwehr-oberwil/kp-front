@@ -138,6 +138,15 @@ describe('FloorPage', () => {
     expect(container.querySelector('.wb-floor-page-wait')).toBeNull()
   })
 
+  it('ends the loading trail if both raster paths fail, leaving the operational outline', async () => {
+    planRegionCropUrl.mockRejectedValueOnce(new Error('Offline'))
+    planRegionUrl.mockRejectedValueOnce(new Error('Offline'))
+    const { container } = sheet(<FloorPage url="/offline.pdf" corners={PAGE} region={EG} w={400} h={300} floors={2} />)
+    expect(container.querySelector('.wb-floor-page-wait')).toBeTruthy()
+    await waitFor(() => expect(container.querySelector('.wb-floor-page-wait')).toBeNull())
+    expect(container.querySelector('image')).toBeNull()
+  })
+
   it('renders the whole page when a storey has no rectangle of its own', async () => {
     sheet(<FloorPage url="/p.pdf" corners={PAGE} w={400} h={300} floors={1} />)
     await waitFor(() => expect(planRegionUrl).toHaveBeenCalled())

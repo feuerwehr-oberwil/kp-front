@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { SearchField } from './SearchField'
 import { Overlay } from '../lib/overlays'
 import { scrollBehavior } from '../lib/reducedMotion'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { atemschutzDoctrine, getDeploymentConfig } from '../lib/deploymentConfig'
 import { DEFAULT_HOURS_ROUNDING } from '../lib/attendanceHours'
+import { useIsPhone, useMediaQuery } from '../lib/useIsPhone'
+import { helpShows } from '../lib/helpDevice'
 
 // In-app capabilities/help overlay reached from the incident menu ("Funktionen &
 // Hilfe"). One scrollable column of feature sections with a sticky TOC + scroll-spy.
@@ -101,7 +104,18 @@ function sectionHaystack(s: HelpSection, intro: string): string {
 
 export function HelpOverlay({ onClose }: { onClose: () => void }) {
   const C = appConfig.copy.help
-  const allSections = C.sections
+  const phone = useIsPhone()
+  // a finger and nothing else = no keyboard to speak of. ⚠️ Two plain queries rather than one
+  // with a nested `not (…)`, which older WebKit does not parse; and where there is no matchMedia
+  // at all (jsdom) both read false, i.e. a desk — the shortcuts are never silently missing there.
+  const coarse = useMediaQuery('(pointer: coarse)')
+  const anyFine = useMediaQuery('(any-pointer: fine)')
+  const allSections = useMemo(() => {
+    const d = { phone, finePointer: anyFine || !coarse }
+    return C.sections
+      .filter((sec) => helpShows(sec.only, d))
+      .map((sec) => ({ ...sec, blocks: sec.blocks.filter((b) => b.kind === 'intro' || helpShows(b.only, d)) }))
+  }, [C.sections, phone, coarse, anyFine])
   const intro = getDeploymentConfig().identity?.helpIntro ?? C.introFallback
   const [query, setQuery] = useState('')
   // The help is long and gets opened WITH a question, not to be read. The filter narrows the
@@ -152,20 +166,13 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
           <div className="help-head-tt">
             <h2>{C.title}</h2>
           </div>
-          <button className="help-x" onClick={onClose} aria-label={C.close}><Icon id="close" /></button>
+          <button className="ip-x" onClick={onClose} aria-label={C.close}><Icon id="close" /></button>
         </div>
         {/* the search lives in the HEADER, not above the TOC: the TOC is hidden on a phone,
             and that is exactly where someone is standing with one question and no patience */}
         <div className="help-search">
-          <Icon id="search" />
-          <input type="search" value={query} placeholder={C.search} aria-label={C.search}
-            autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search"
-            onChange={(e) => setQuery(e.target.value)} />
-          {query && (
-            <button type="button" className="help-search-x" aria-label={C.searchClear} onClick={() => setQuery('')}>
-              <Icon id="close" />
-            </button>
-          )}
+          <SearchField value={query} onChange={setQuery} placeholder={C.search} aria-label={C.search}
+            autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
         </div>
         <div className="help-body">
           <nav className="help-toc">
@@ -180,9 +187,10 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
           <div className="help-content" ref={scrollRef}>
             {sections.length === 0 && (
               <div className="help-empty">
-                {/* the verdict first and loudest, the way out under it — not the other way round */}
-                <p className="help-sub">{fillTemplate(C.searchNone, { q: query.trim() })}</p>
-                <p className="help-lead">{C.searchHint}</p>
+                {/* the verdict first, the way out under it — not the other way round. The verdict is
+                    the app's one «no hits» line (`.no-hits`, 29.09.2026) */}
+                <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>
+                <p className="help-empty-hint">{C.searchHint}</p>
               </div>
             )}
             {sections.map((s) => (

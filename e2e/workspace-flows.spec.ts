@@ -22,8 +22,8 @@ import { test, expect, ensureIncidentOpen, expectNoCrash, login } from './helper
 // The backend also serves a `pnpm build` from ../dist, so E2E_BASE_URL=http://localhost:8095 runs
 // the same flows (and smoke.spec, whose offline case needs the service worker a dev server does
 // not register) against the built app. Then stop both processes and `docker stop kp-e2e-db`.
-// The flag stays because CI's image job runs every spec against its own container, and these
-// flows are a pre-merge check for the workspace seams rather than a white-screen smoke.
+// CI enables the flag against its disposable image container. Local runs remain opt-in so
+// pointing the suite at a shared deployment cannot accidentally run these mutations.
 
 test.skip(!process.env.E2E_WORKFLOWS, 'workflow e2e is opt-in (E2E_WORKFLOWS=1): it writes to the open incident — run it on a private stack')
 
@@ -127,13 +127,13 @@ test('F4 · keyboard: K / C / A / R switch surfaces; an open Hilfe leaves the ke
   await page.keyboard.press('Escape')
 })
 
-test('F5 · Abschluss from the Einsatz menu: the confirm names the open points, Abbrechen leaves the Einsatz open', async ({ page }) => {
+test('F5 · Abschluss from the Einsatz menu: the confirm names the open points, «Zurück» leaves the Einsatz open', async ({ page }) => {
   await page.locator('.ip-switch-btn').click()
   await page.getByRole('button', { name: 'Einsatz abschliessen' }).click()
   const ask = page.getByRole('alertdialog')
   await expect(ask).toBeVisible()
   await expect(ask).toContainText('Einsatz abschliessen')
-  await ask.getByRole('button', { name: 'Abbrechen' }).click()
+  await ask.getByRole('button', { name: 'Zurück', exact: true }).click()
   await expect(ask).toHaveCount(0)
   await expect(page.locator('nav.navrail')).toBeVisible()
   await expect(page.getByText('Einsatz abgeschlossen')).toHaveCount(0)

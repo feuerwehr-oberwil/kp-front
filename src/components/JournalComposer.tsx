@@ -1,4 +1,6 @@
+import { ShellLoader } from './ShellLoader'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useIsPhone } from '../lib/useIsPhone'
 import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
@@ -27,7 +29,7 @@ import { startChips } from '../lib/startChips'
 import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
-import { useKeyboardInset } from '../lib/useKeyboardInset'
+import { keyboardMargin, useKeyboardInset } from '../lib/useKeyboardInset'
 import { nextCompact } from '../lib/composerFit'
 
 // `C` (appConfig.copy.journal) is read at the top of each component below rather than captured
@@ -184,7 +186,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   onClearNote?: () => void
   /** every still-open Pendenz, so an entry being written can be attached to one without leaving
    *  this sheet. Absent/empty ⇒ nothing is offered and the row behaves exactly as before. */
-  openPendenzen?: { id: string; text: string; urgent?: boolean }[]
+  /** `createdAt` breaks a tie between two items the sentence names equally well (lib/reminders ·
+   *  suggestPendenzen) — without it the composer threw mid-sentence (05.10.2026) */
+  openPendenzen?: Pick<OpenReminder, 'id' | 'text' | 'urgent' | 'createdAt'>[]
   /** attach the entry being written to one of them (the workspace owns `noteOn`) */
   onLinkPendenz?: (p: { id: string; text: string }) => void
   /** this incident's own rows, for the chips offered while the field is still empty (see
@@ -236,6 +240,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // silent drop is precisely the failure this guard exists to end.
   const restKey = `${draftKey}:rest`
   const [rest0] = useState(() => readDraft<KeptRest>(restKey, EMPTY_REST))
+  const phone = useIsPhone()
   const textRef = useRef<HTMLTextAreaElement>(null)
   const marksRef = useRef<HTMLDivElement>(null)
   const [selection, setSelection] = useState<TextSelection>(() => ({ start: text.length, end: text.length }))
@@ -302,7 +307,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // …and the open Pendenzen this sentence already names. Offered only while writing an ordinary
   // entry: once it IS a Meldung the question is answered.
   const pendenzHits = useMemo(
-    () => (noteOn ? [] : suggestPendenzen(text, openPendenzen as OpenReminder[])),
+    () => (noteOn ? [] : suggestPendenzen(text, openPendenzen)),
     [text, openPendenzen, noteOn],
   )
   const canLink = openPendenzen.length > 0 && !!onLinkPendenz
@@ -332,10 +337,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       {active && <Icon id="check" />}
     </>
   )
-  // Who said it, and what kind of statement it is. Both OPTIONAL and both empty by
-  // default: the composer's job is still to take a sentence, and a form that asks two
-  // questions before it accepts one is a form nobody opens at 3am.
-  const [entryType, setEntryType] = useState<JournalEntryType | null>(rest0.entryType)
+  // What kind of statement it is: ONE of three, «Info» picked from the start (29.09.2026, owner
+  // pick A). Nothing picked and «Info» picked said the same thing two ways, and three unlit chips
+  // read as a question still waiting for its answer. The sentence is still all the sheet needs —
+  // the default IS the ordinary case. `null` in a kept draft (from before) reads as «Info».
+  const [entryType, setEntryType] = useState<JournalEntryType>(rest0.entryType ?? 'info')
+  /** …and what gets WRITTEN is unchanged: «Info» files as an ordinary row with no `entryType`
+   *  at all, exactly what an untouched composer wrote before the preselect (lib/journalEntry
+   *  prints no marker for it either way). */
+  const writtenType = entryType === 'info' ? undefined : entryType
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [clip, setClip] = useState<{ url: string; secs: number; startedAt: string } | null>(rest0.clip)
@@ -606,7 +616,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       clearDraft(draftKey); clearDraft(restKey) // filed — the next open starts empty
       onSubmit({
         text: text.trim(), photoUrls: photos.length ? photos : undefined,
-        entryType: entryType ?? undefined,
+        entryType: writtenType,
         // …and the same three facts the typed entry carries. An imported memo used to drop them
         // silently: the ring could be set on the sheet and the row landed as an ordinary line.
         dueAt,
@@ -659,7 +669,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     onSubmit({
       text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined,
       files: attached.length ? attached : undefined,
-      entryType: entryType ?? undefined,
+      entryType: writtenType,
       dueAt,
       // «Wer»: the first name the sentence marks. No field asks for it — whoever writes «Trupp 2
       // entraucht Treppenhaus» has already said who it is for, and a Trupp is titled by its
@@ -777,7 +787,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     // but «does the card still fit», measured (see lib/composerFit · 10-journal.css).
     <Overlay open onClose={onClose} className={`journal-composer ${kbInset > 0 ? 'is-kb' : ''}${compact ? ' is-compact' : ''}`} backdropClassName="modal-backdrop"
       ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef} grab
-      style={{ marginBottom: kbInset, '--jc-kb': `${kbInset}px` } as React.CSSProperties}
+      // the lift is the keyboard LESS iOS's pan (keyboardMargin · --vv-foot, 30.09.2026), the cap
+      // (--jc-kb) the whole keyboard — so the sheet stands on the keys and never outgrows the band
+      style={{ marginBottom: kbInset > 0 ? keyboardMargin(kbInset) : 0, '--jc-kb': `${kbInset}px` } as React.CSSProperties}
       popupRef={setCard}>
         {/* What this sheet is, and the ✕ beside it.
             ⚠️ There is no «Eintrag · Erinnerung» switch here any more (17.08.). It asked which KIND
@@ -868,7 +880,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
           ? <div className="jc-phrases is-empty" aria-hidden /> : (
           // Keep the keyboard focused on mousedown (the chips' own onMouseDown); the row itself
           // scrolls NATIVELY — see .jc-phrases in 18-audio.css for why the hand-rolled pan went.
-          <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
+          <div className="jc-phrases" data-swipe-ignore onMouseDown={(e) => { if (phone) e.preventDefault() }} role="group" aria-label={C.quickPhrasesAria}>
             {suggestions.map((c) => (
               <button
                 key={c.label}
@@ -908,8 +920,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             nothing. */}
         <div className="jc-controls">
           <div className="jc-meta">
-            {/* Art — quiet by design: three small chips, none preselected. «Info» is the
-                ordinary case and prints no marker at all (lib/journalEntry).
+            {/* Art — quiet by design: three small chips, one of three, «Info» preselected
+                (29.09.2026). «Info» is the ordinary case and prints no marker at all
+                (lib/journalEntry); a tap on the lit chip leaves it lit — «Info» is the way back.
                 ⚠️ No «ART» eyebrow above them. Info · Auftrag · Sofortmassnahme say what they
                 are; a heading that only repeated it cost a row on the one surface fighting the
                 keyboard for every row it has. The group keeps the word as its accessible name,
@@ -919,6 +932,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <button
                   key={t}
                   type="button"
+                  onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
                   className={`jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
                   aria-pressed={entryType === t}
                   // ⚠️ The WORD is the accessible name on both rungs of the ladder — the compact
@@ -927,7 +941,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   // in what a screen reader reads out or a tooltip shows.
                   title={C.entryTypes[t]}
                   aria-label={C.entryTypes[t]}
-                  onClick={() => setEntryType((cur) => (cur === t ? null : t))}
+                  onClick={() => setEntryType(t)}
                 >
                   {/* ⚠️ …the label with its break points written in (copy · entryTypesWrap), never
                       the plain one. This chip is the narrowest control on the sheet; the word that
@@ -967,6 +981,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   an open item, because a banner nobody can tick off has no answer. */}
               <span className="jc-openwrap">
               <Menu
+                keepFocusRef={phone ? textRef : undefined}
+                modal={!phone}
                 side="top"
                 align="end"
                 popupClassName="rp-print-menu jc-pendenz-menu"
@@ -989,6 +1005,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 trigger={(
                   <button
                     type="button"
+                    onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
                     className="jc-due-btn"
                     data-on={dueAt ? '1' : undefined}
                     title={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
@@ -1004,6 +1021,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
               </span>
               <span className="jc-openwrap">
               <Menu
+                keepFocusRef={phone ? textRef : undefined}
+                modal={!phone}
                 side="top"
                 align="end"
                 popupClassName="rp-print-menu jc-pendenz-menu"
@@ -1069,6 +1088,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 trigger={(
                   <button
                     type="button"
+                    onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
                     className="jc-open"
                     data-state={noteOn ? 1 : openState}
                     title={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
@@ -1190,7 +1210,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             that must never share a row with anything else. */}
         <div className="jc-foot">
           <button className="jc-send" disabled={!canSend || uploading} onClick={submit}>
-            <Icon id="check" />{uploading ? C.audioUploading : C.send}
+            {uploading ? <ShellLoader /> : <Icon id="check" />}{uploading ? C.audioUploading : C.send}
           </button>
         </div>
       {/* «Uhrzeit …» — the one answer that is not a row in a menu. A dialog rather than a strip

@@ -4,7 +4,7 @@ import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
 import { boundedKey, normalizeSpread, tidySpread, type SpreadDir } from '../lib/spread'
 import { openPhoto } from '../lib/ui'
-import { formatSymbolName, stripUnprintable } from '../lib/format'
+import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { allStoffNames, decodeKemler, lookupUN, lookupUNByName, type UnHazardEntry } from '../lib/unHazard'
@@ -120,6 +120,10 @@ export interface ContextPanelProps {
   /** The inverse of «Zum Original»: show this source object on its linked surface. */
   onProjection?: () => void
   projectionLabel?: string
+  /** the plan a Karte object is shown on: «Auf {plan} zeigen» (copy.contextPanel.showOnPlan) with
+   *  the plan's NAME as the part that gives way, so the verb stays readable — wins over
+   *  `projectionLabel` */
+  projectionPlan?: string
   /** commit the final label on blur (folds the whole edit into one undo step / audit event) */
   onTitle: (label: string) => void
   /** stream the label on every keystroke so the on-surface glyph/note updates live while
@@ -255,6 +259,11 @@ const ROT_STEP = 15   // degrees per tap — same control on both surfaces
  *  (−180, 180], the stepper's own range: read raw, a stored 270° pinned it at its max and the
  *  first − jumped to 180°. What the stepper hands back is stored in [0, 360) again. */
 const signedDeg = (d: number) => { const b = bearing360(d); return b > 180 ? b - 360 : b }
+/** the stepper's read-out: WHOLE degrees, as every angle the app shows (SelectionTurn, the Kurs).
+ *  A turn by hand (the two-finger twist, the selection dial) stores whatever the fingers said —
+ *  «−46.50917745051447°» stood in the panel (owner, staging 30.09.2026: «fix this»). Only the
+ *  display rounds; the stored bearing is untouched until a ± or a typed value replaces it. */
+const fmtDeg = (v: number) => `${Math.round(v)}°`
 
 type Row = { k: string; v: string }
 const toRows = (fields?: Record<string, string>): Row[] => Object.entries(fields ?? {}).map(([k, v]) => ({ k, v }))
@@ -269,7 +278,25 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+/** A door to the object's other surface («Zum Original», «Auf Modul 1 zeigen») — the foot's link
+ *  tone. Its label may not outgrow its tile (30.09.2026, owner: «Auf Modul 1 zeigen» ran out of its
+ *  frame into «Zentrieren»): with a `name` in `{plan}` it is the NAME that is cut, so the verb
+ *  around it stays; a plain label is cut at its end. The whole sentence is the title. */
+function LinkBtn({ onClick, text, name }: { onClick: () => void; text: string; name?: string }) {
+  const [pre, post = ''] = name != null ? text.split('{plan}') : [text]
+  const full = name != null ? `${pre}${name}${post}` : text
+  return (
+    <button className="btn link" onClick={onClick} title={full} aria-label={full}>
+      <Icon id="external" />
+      <span className="btn-t" aria-hidden>
+        {name != null ? <>{pre && <span>{pre}</span>}<span className="btn-t-cut">{name}</span>{post && <span>{post}</span>}</>
+          : <span className="btn-t-cut">{text}</span>}
+      </span>
+    </button>
+  )
+}
+
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, projectionPlan, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -295,6 +322,15 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, origi
     if (k === EL_NAME) return appConfig.copy.anwesenheit.roleEinsatzleiterShort
     if (k === EL_STV) return appConfig.copy.anwesenheit.roleEinsatzleiterStvShort
     return k
+  }
+  // what an empty box says (27.09.2026 — it said «Wert» everywhere): a person field asks for a
+  // name, any other field repeats its own label with an ellipsis, a field still without a label
+  // shows only the ellipsis; a field that needs a unit keeps its own line (fieldPlaceholders).
+  const valuePlaceholder = (key: string) => {
+    const k = key.trim()
+    if (C.fieldPlaceholders[k]) return C.fieldPlaceholders[k]
+    if (ROSTER_FIELDS.has(k)) return C.fieldNamePlaceholder
+    return k ? fillTemplate(C.fieldValuePlaceholder, { label: rowLabel(k) }) : '…'
   }
 const SPREAD_GLYPH: Record<SpreadDir, string> = { left: '←', right: '→', up: '↑', down: '↓' }
 // The Entwicklungsgrenze is the bar ACROSS the arrow tip, so it stands perpendicular to its own
@@ -374,16 +410,6 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // vehicle override), and naming one puts that person on the Anwesenheit — so the draft stays
   // here until the field is left and exactly one name is committed. null = nothing being typed.
   const [driverDraft, setDriverDraft] = useState<string | null>(null)
-  // A tap on the header title of a labelled Fahrzeug falls through to its «Bezeichnung» field:
-  // the header is where the name SHOWS, so it is where people tap to change it — and whoever
-  // does not spot the field further down was stuck. The tap brings the field into view and
-  // pops its menu (Combo · openTick).
-  const bezRef = useRef<HTMLLabelElement>(null)
-  const [bezTick, setBezTick] = useState(0)
-  const openBezeichnung = () => {
-    bezRef.current?.scrollIntoView?.({ block: 'center' })
-    setBezTick((t) => t + 1)
-  }
   // a note edits its content in a textarea; every other symbol's header is read-only now
   const noteTextRef = useRef<HTMLTextAreaElement>(null)
   // Follow the label when it changes OUTSIDE this panel. A note is the case that needs it: its
@@ -647,14 +673,28 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
         onChange={(v) => onCaption(v)} />
     </div>
   )
+  /* ── «Erledigt» (lib/objectDone, review item 21b 24.09.2026; slim sweep 27.09.2026, item 9 / D8)
+     ── the foot's middle tile while the matter is open: one word for every family (the fire is
+     gelöscht, the symbol erledigt), its title says what the press will NOT do — the symbol stays,
+     grey. It was a full-width row in the body («bleibt grau sichtbar — ✓ Gelöscht / erledigt»,
+     first on a damage symbol, last elsewhere); the foot is pinned on a phone, so it is at hand on
+     every symbol without a reflex tap landing on it. Set, the body STATES the answer («Erledigt
+     20:40») with its one way back, «Wieder aktiv» — see doneRow. */
+  const doneState = !isNote ? doneStateText(entity) : null
+  const O = appConfig.copy.objectDone
+  const doneTile = onDone && !readOnly && !isNote && !doneState ? (
+    <button type="button" className="btn ctx-done" onClick={() => onDone(true)} title={O.actionHint}>{O.action}</button>
+  ) : null
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
   const actions = (
     <div className="ctx-actions">
       {/* first, and in the link tone: on a read-only panel it is the only thing that DOES anything,
           and what it does is leave for the real object. */}
-      {onOriginal && <button className="btn link" onClick={onOriginal}><Icon id="external" />{originalLabel ?? C.toOriginal}</button>}
-      {onProjection && <button className="btn link" onClick={onProjection}><Icon id="external" />{projectionLabel ?? C.toProjection}</button>}
+      {onOriginal && <LinkBtn onClick={onOriginal} text={originalLabel ?? C.toOriginal} />}
+      {onProjection && (projectionPlan != null
+        ? <LinkBtn onClick={onProjection} text={C.showOnPlan} name={projectionPlan} />
+        : <LinkBtn onClick={onProjection} text={projectionLabel ?? C.toProjection} />)}
       {onCenter && <button className="btn" onClick={onCenter}><Icon id="cross" />{C.center}</button>}
       {/* «GPS» (reset a vehicle's manual override) and «Löschen» are alternatives, and a live
           entity gets neither — `readOnly` is already true for anything externally sourced.
@@ -669,26 +709,27 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
           hold this vehicle where it stands, or give it back to the feed. Only ONE is ever
           live — a pinned vehicle has nothing to pin, a following one has nothing to reset. */}
       {onPinGps && <button className="btn" onClick={onPinGps} title={C.pinGpsTitle}><Icon id="coords" />{C.pinGps}</button>}
+      {doneTile}
       {onResetGps
         ? <button className="btn" disabled={!hasOverride} onClick={onResetGps} title={C.resetGpsTitle}><Icon id="compass" />{C.resetGps}</button>
         // «Entfernen», the one word for taking a tactical object off the picture (25.09.2026) —
-        // «gelöscht» is what a Feuer becomes (objectDone), so it can no longer name this press
+        // «gelöscht» is what a Feuer becomes (objectDone), so it can no longer name this press.
+        // A SQUARE with the bin (27.09.2026): removal is rare and should not be a wide target;
+        // the word is its label and title, beside «Erledigt» the title also says what it is for.
         : (!readOnly || allowDelete) && !onStopSharing && (
-          <button className="btn warn" onClick={onDelete} title={onDone ? appConfig.copy.objectDone.removeHint : undefined}>
-            <Icon id="close" />{appConfig.copy.remove}
+          <button className="btn warn btn-sq" onClick={onDelete} aria-label={appConfig.copy.remove}
+            title={onDone ? `${appConfig.copy.remove} – ${O.removeHint}` : appConfig.copy.remove}>
+            <Icon id="trash" />
           </button>
         )}
     </div>
   )
 
-  /* ── «Gelöscht / erledigt» (review item 21b, 24.09.2026) ── the FIRST row of the body, above
-     every property: it is the one question about a Feuer that is asked when the Feuer is out, and
-     the answer used to be «Löschen», which took the fire off the record. Unset it is one press
-     (`.de-action`: no state to be in yet); set it STATES «Erledigt 20:40»
-     and its one way back, «Wieder aktiv». A read-only panel still states it — who reads the
-     Karte in the Führungsansicht wants to know that the fire was declared out, and when. */
-  const doneState = !isNote ? doneStateText(entity) : null
-  const O = appConfig.copy.objectDone
+  /* ── the SET state (review item 21b, 24.09.2026) ── the first row of the body on a damage
+     symbol, the last elsewhere: it STATES «Erledigt 20:40» and its one way back, «Wieder aktiv».
+     A read-only panel still states it — who reads the Karte in the Führungsansicht wants to know
+     that the fire was declared out, and when. (The press that sets it is the foot's «Erledigt»
+     tile since 27.09.2026 — see doneTile.) */
   const doneRow = doneState ? (
     <div className="ctx-done-row">
       <span className="ctx-done-state"><Icon id="check" />{doneState}</span>
@@ -698,12 +739,6 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
         </button>
       )}
     </div>
-  ) : onDone && !readOnly && !isNote ? (
-    // `.de-action`, the panel's one-press row (DrawEditor · «Richtung umkehren»): glyph + word at
-    // the controls' edge, and a bare check — never a ring, which read as an unticked checkbox
-    <button type="button" className="de-action ctx-done" onClick={() => onDone(true)}>
-      <span className="ctx-done-hint">{O.actionHint}</span><Icon id="check" />{O.action}
-    </button>
   ) : null
 
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
@@ -735,19 +770,14 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               one symbol, that is what Notizen is for. The one real exception is the generic
               Fahrzeug, whose label IS its identity; that moved to a «Bezeichnung» field below,
               where it reads like every other field and does not fight the header's drag on a
-              phone (components/SheetGrip · useSheetDrag). Its header title stays a BUTTON that
-              falls through to that field (openBezeichnung) — the header is where the name
-              shows, so it is where people tap to change it. */}
-          {labelled && !readOnly ? (
-            <button type="button" className="ctx-title-input ctx-title-btn" title={C.labelField}
-              onClick={openBezeichnung}>
-              {title || C.titlePlaceholder}
-            </button>
-          ) : (
-            <span className="ctx-title-input ctx-title-ro">
-              {isNote ? N.section : labelled ? (title || C.titlePlaceholder) : (symbolName || title || C.titlePlaceholder)}
-            </span>
-          )}
+              phone (components/SheetGrip · useSheetDrag).
+              ⚠️ …and its header says the TYPE too («Fahrzeug», or the pack's name), like every
+              other symbol (29.09.2026, sweep K12). It showed «TLF» as an underlined button that
+              jumped to the field: one value in two places, and the underline read as a second
+              field. The name lives in «Bezeichnung» only. */}
+          <span className="ctx-title-input ctx-title-ro">
+            {isNote ? N.section : (symbolName || title || C.titlePlaceholder)}
+          </span>
           {/* a note's subtitle IS «Notiz», which the title above already says — one word is enough */}
           {entity.subtitle && !isNote && <p>{entity.subtitle}</p>}
         </div>
@@ -888,7 +918,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               )}
               {showRotate && (
                 // when a fan rotation is also present (Grosslüfter) the body stepper reads «Fahrzeug»
-                <LabeledStepper label={showRotate2 ? C.rotationVehicle : C.rotation} value={signedDeg(entity.rotation ?? 0)} step={ROT_STEP} format={(v) => `${v}°`}
+                <LabeledStepper label={showRotate2 ? C.rotationVehicle : C.rotation} value={signedDeg(entity.rotation ?? 0)} step={ROT_STEP} snap format={fmtDeg}
                   onChange={(v) => onRotate!(bearing360(v))} onClear={() => onRotate!(null)} canClear={(entity.rotation ?? 0) !== 0}
                   min={-180} max={180} readOnly={readOnly} ariaLabel={showRotate2 ? C.rotationVehicle : C.rotation} />
               )}
@@ -896,7 +926,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                 // the part stepper reads «Lüfter», «Leiter» … per the composite (fan vs ladder/boom)
                 const partLabel = C[compositeSpec(entity.symbol)?.partLabel ?? 'rotationFan']
                 return (
-                  <LabeledStepper label={partLabel} value={signedDeg(entity.rotation2 ?? 0)} step={ROT_STEP} format={(v) => `${v}°`}
+                  <LabeledStepper label={partLabel} value={signedDeg(entity.rotation2 ?? 0)} step={ROT_STEP} snap format={fmtDeg}
                     onChange={(v) => onRotate2!(bearing360(v))} onClear={() => onRotate2!(null)} canClear={(entity.rotation2 ?? 0) !== 0}
                     min={-180} max={180} readOnly={readOnly} ariaLabel={partLabel} />
                 )
@@ -952,12 +982,11 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
           {labelled && (readOnly ? (
             <div className="field"><span>{C.labelField}</span><b className="kv-val-ro">{title || '–'}</b></div>
           ) : (
-            <label className="field" ref={bezRef}>
+            <label className="field">
               <span>{C.labelField}</span>
               <Combo
                 value={title} options={titleOptions ?? []} placeholder={C.titlePlaceholder}
                 allowCustom
-                openTick={bezTick}
                 onChange={(v) => { changeTitle(v); onTitle(v) }}
               />
             </label>
@@ -986,12 +1015,12 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                   <>
                     {stoffSearch ? (
                       <Combo value={r.v} options={stoffOptions} allowCustom limit={40}
-                        placeholder={C.fieldPlaceholders[r.k.trim()] ?? C.fieldValuePlaceholder}
+                        placeholder={valuePlaceholder(r.k)}
                         searchPlaceholder={C.stoffSearch}
                         onChange={(v) => setRowValue(i, v)} />
                     ) : (
                     <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]}
-                      placeholder={C.fieldPlaceholders[r.k.trim()] ?? C.fieldValuePlaceholder}
+                      placeholder={valuePlaceholder(r.k)}
                       officerFilter={officerSym} rankOf={rankOf} statusOf={personStatus}
                       onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />
                     )}
@@ -1004,23 +1033,27 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                 // a preset / read-only field reads like the Darstellung rows above — a plain label and
                 // the control, no editable-key box, no delete — so a «Typ» sits identically to a
                 // «Luftrichtung». A user-added custom field keeps its editable key + delete.
-                // …and the Einsatzleiter pair gets the ⇄ between its two rows: the handover is a
-                // swap, and a swap is one gesture. Offered only once there is something to swap.
-                const swap = elSym && r.k.trim() === EL_NAME
-                  && rows.some((x) => x.k.trim() === EL_STV)
+                // …and the Einsatzleiter pair gets the ⇄: the handover is a swap, and a swap is one
+                // gesture. A 44px square at the right end of the EL row (27.09.2026 — it was a
+                // sentence between the rows), and the Stv. row leaves the same space empty so the
+                // two fields align. Offered only once there is something to swap.
+                const k = r.k.trim()
+                const pair = elSym && rows.some((x) => x.k.trim() === EL_NAME) && rows.some((x) => x.k.trim() === EL_STV)
                   && rows.some((x) => (x.k.trim() === EL_NAME || x.k.trim() === EL_STV) && x.v.trim())
+                const swap = pair && k === EL_NAME
+                const swapGap = pair && k === EL_STV
                 return fixed ? (
                   <Fragment key={i}>
                     <div className="field">
                       <span className="kv-key-ro">{rowLabel(r.k)}</span>
                       {readOnly ? <b className="kv-val-ro">{r.v || '–'}</b> : field}
+                      {swap && (
+                        <button type="button" className="kv-swap" onClick={swapEl} title={C.swapEl} aria-label={C.swapEl}>
+                          <Icon id="swap" />
+                        </button>
+                      )}
+                      {swapGap && <span className="kv-swap-gap" aria-hidden />}
                     </div>
-                    {swap && (
-                      <button type="button" className="kv-swap" onClick={swapEl}
-                        title={C.swapEl} aria-label={C.swapEl}>
-                        <Icon id="swap" /><span>{C.swapEl}</span>
-                      </button>
-                    )}
                   </Fragment>
                 ) : (
                   <Fragment key={i}>
@@ -1041,8 +1074,9 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                 )
               })}
 
+              {/* «+ Feld» — a small framed tile like its neighbours, not a dashed call-out (27.09.2026) */}
               {!readOnly && (
-                <button className="kv-add" onClick={addRow}><Icon id="plus" />{C.addField}</button>
+                <button className="kv-add" onClick={addRow} aria-label={C.addField} title={C.addField}><Icon id="plus" />{C.addFieldShort}</button>
               )}
             </div>
           )}

@@ -37,9 +37,10 @@
 .replay-transport { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .replay-play {
   flex: none; width: 38px; height: 38px; border-radius: var(--r-sm); border: none; cursor: pointer;
-  background: var(--ink-fill); color: var(--on-accent-ink); display: grid; place-items: center; font-size: 15px;
+  /* THE primary of the bar (28.09.2026) — --ink-fill directly had no edge on the night sheet */
+  background: var(--btn-primary); color: var(--on-btn-primary); display: grid; place-items: center; font-size: 15px;
 }
-@media (hover: hover) { .replay-play:hover { background: var(--ink-fill-hover); } }
+@media (hover: hover) { .replay-play:hover { background: var(--btn-primary-hover); } }
 .replay-play:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .replay-skip {
   flex: none; display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 8px;

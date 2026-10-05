@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { ApiError } from '../lib/api'
@@ -54,7 +55,7 @@ export function AdminUnlock({ onUnlocked, onLogout }: { onUnlocked: () => void; 
           {/* same admin pair as the «Verwaltung deaktiviert» card — never `.btn primary`,
               which is the field app's fill and reads as a different product here */}
           <button type="submit" className="btn adm-save-btn" disabled={busy || !secret}>
-            {busy ? c.submitting : c.submit}
+            {busy && <ShellLoader />}{busy ? c.submitting : c.submit}
           </button>
           <button type="button" className="btn adm-int-btn" onClick={onLogout} disabled={busy}>{c.logout}</button>
         </div>

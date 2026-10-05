@@ -1,0 +1,10 @@
+.loader {
+  display: inline-block; width: 20px; height: 20px; flex: none;
+  vertical-align: middle; overflow: visible; pointer-events: none;
+}
+.surface { width: 48px; height: 48px; }
+.trail { stroke-dasharray: 36 64; animation: shellTrail 2.4s linear infinite; }
+@keyframes shellTrail { to { stroke-dashoffset: -100; } }
+.status { display: inline-flex; align-items: center; gap: 9px; vertical-align: middle; }
+.stacked { flex-direction: column; gap: 12px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .trail { animation: none; } }

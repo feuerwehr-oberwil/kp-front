@@ -30,7 +30,11 @@ self.addEventListener('notificationclick', (event) => {
       // Cold start (app was killed — the case server push exists for): a postMessage would
       // arrive before the page mounts its listener and be lost, so carry the target in the
       // URL instead; the app consumes ?kpn= once at boot (src/lib/notifyTarget.ts).
-      await self.clients.openWindow(target ? '/?kpn=' + encodeURIComponent(target) : '/')
+      // «Neuer Objektbesuch» (target 'besuch:<id>') has an address of its own: the visit's
+      // page, which the app opens as a deep link (objectVisits/route).
+      const visit = target && target.indexOf('besuch:') === 0 ? target.slice(7) : null
+      await self.clients.openWindow(visit ? '/besuche/' + encodeURIComponent(visit)
+        : target ? '/?kpn=' + encodeURIComponent(target) : '/')
     }
   })())
 })

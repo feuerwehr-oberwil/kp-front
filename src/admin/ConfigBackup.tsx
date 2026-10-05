@@ -241,7 +241,7 @@ export function ConfigBackup({ config, onImported }: {
           modal
           footer={
             <>
-              <button type="button" className="ip-btn ghost" onClick={cancelImport}>{Cc.cancel}</button>
+              <button type="button" className="ip-btn" onClick={cancelImport}>{Cc.cancel}</button>
               <button type="button" className="ip-btn ip-btn-danger" onClick={() => void runImport(pending)}>
                 {C.replaceGo}
               </button>

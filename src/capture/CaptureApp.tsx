@@ -20,6 +20,7 @@ import { scrollBehavior } from '../lib/reducedMotion'
 import { fillTemplate, hhmm, stripUnprintable, telHref } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
+import { ShellLoader } from '../components/ShellLoader'
 import { currentLineFor, mittelLineCount, visibleMittel } from '../lib/mittel'
 import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd, missingSteps, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
@@ -33,6 +34,8 @@ import { trackPrintJob } from '../lib/printJobToast'
 import type { AttendanceEntry, MittelEntry } from '../types'
 import type { PartnerContact, ReportMeta } from '../lib/workspace'
 import { Combo } from '../components/Combo'
+import { SearchField } from '../components/SearchField'
+import { InfoToggle } from '../components/InfoToggle'
 import { Stepper } from '../components/Stepper'
 import { TimeField } from '../components/TimeField'
 import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock } from '../lib/alarmzeiten'
@@ -157,7 +160,8 @@ function AccHead({ open, label, sub, onToggle }: { open: boolean; label: string;
     <button type="button" className={`cv-acc-head${open ? ' on' : ''}`} aria-expanded={open} onClick={onToggle}>
       <span className="cv-acc-label">{label}</span>
       <span className="cv-acc-sub">{sub}</span>
-      <Icon id={open ? 'chevron-up' : 'chevron-down'} />
+      {/* the one fold grammar: the global `.chev`, turned by aria-expanded (29.09.2026) */}
+      <Icon id="chevron-down" className="chev" />
     </button>
   )
 }
@@ -981,10 +985,10 @@ export default function CaptureApp() {
       <p className="cv-hint">{C.footNote}</p>
 
       {saveError && (
-        <div className="cv-error" role="alert">
+        <div className="form-warn cv-error" role="alert">
           <Icon id="warn" />
-          <span className="cv-error-text">{saveError === 'offline' ? C.saveFailedOffline : C.saveFailed}</span>
-          {lastFailed && <button type="button" className="cv-btn cv-retry" disabled={busy} onClick={() => void retryLast()}>{C.retry}</button>}
+          <span className="form-warn-text">{saveError === 'offline' ? C.saveFailedOffline : C.saveFailed}</span>
+          {lastFailed && <button type="button" className="form-warn-act" disabled={busy} onClick={() => void retryLast()}>{C.retry}</button>}
         </div>
       )}
 
@@ -995,8 +999,8 @@ export default function CaptureApp() {
           {openSection === 'personen' && (
             <div className="cv-acc-body">
               <div className="cv-search-row cv-sticky-search">
-                <input className="cv-input" placeholder={C.searchName} value={search} onChange={(e) => setSearch(e.target.value)}
-                  autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search" />
+                <SearchField className="cv-search" placeholder={C.searchName} aria-label={C.searchName} value={search} onChange={setSearch}
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
                 {/* «Erfasste N» — the check-back filter. Only once there IS something to check
                     back on: on an untouched roster it would filter to an empty list, and a
                     control that can only produce nothing is a trap on a phone at a door.
@@ -1012,8 +1016,7 @@ export default function CaptureApp() {
                     <span>{fillTemplate(C.filterRecorded, { n: recordedCount })}</span>
                   </button>
                 )}
-                <button type="button" className={`cv-info${showTapHelp ? ' on' : ''}`} aria-label={C.tapHelp}
-                  aria-expanded={showTapHelp} onClick={() => setShowTapHelp((v) => !v)}><Icon id="info" /></button>
+                <InfoToggle open={showTapHelp} onToggle={() => setShowTapHelp((v) => !v)} label={C.tapHelp} />
               </div>
               {showTapHelp && <p className="cv-hint">{C.tapHint}</p>}
               <div className="cv-people">
@@ -1115,18 +1118,22 @@ export default function CaptureApp() {
           {openSection === 'material' && (
             <div className="cv-acc-body">
               <div className="cv-search-row cv-sticky-search">
-                <input className="cv-input" placeholder={C.searchMaterial} value={matSearch} onChange={(e) => setMatSearch(e.target.value)}
-                  autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search" />
+                <SearchField className="cv-search" placeholder={C.searchMaterial} aria-label={C.searchMaterial} value={matSearch} onChange={setMatSearch}
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
               </div>
               {/* «Nichts verwendet» — the same tick the tablet's Rapport carries (lib/abschluss ·
                   stepDone). Without it the Material chip in the «noch offen» list could not be
                   cleared from this page at all: an Einsatz where nothing was used is a legitimate
-                  rapport, but only once somebody has SAID so. */}
+                  rapport, but only once somebody has SAID so.
+                  A CHOICE, not a yes/no switch (28.09.2026): it is the «none of these» answer to
+                  the list under it and goes away with the first line, so it keeps ONE text and
+                  shows «picked» by its fill – it used to grow a «✓» into its label, a chip whose
+                  words flipped (AGENTS.md · one control per kind of question). */}
               {lines.length === 0 && (
                 <button type="button" className={`cv-none${rm?.mittelConfirmedNone ? ' on' : ''}`} disabled={busy}
                   aria-pressed={!!rm?.mittelConfirmedNone}
                   onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: !rm?.mittelConfirmedNone } }).then((ok) => { if (ok) savedToast() }) }}>
-                  {rm?.mittelConfirmedNone ? AB.mittelNoneOn : AB.mittelNone}
+                  {AB.mittelNone}
                 </button>
               )}
               {shownGroups.map(([cat, items]) => (
@@ -1274,16 +1281,18 @@ export default function CaptureApp() {
               </div>
               <div className="cv-row">
                 <span>{C.gerettete}</span>
+                {/* «–» while unanswered and the ✕ only with a value — the Rapport's Gerettete pair, one
+                    look for one question (29.09.2026) */}
                 <div className="cv-row-controls cv-counts">
                   <label className="cv-count-row"><span>{C.gerettetePersonen}</span>
-                    <Stepper value={savedPersonen} min={0} max={999} seed={1} placeholder="0" ariaLabel={C.gerettetePersonen}
+                    <Stepper value={savedPersonen} min={0} max={999} seed={1} ariaLabel={C.gerettetePersonen}
                       onChange={(v) => setGerettete(v, savedTiere)}
-                      onClear={() => setGerettete(null, savedTiere)} canClear={savedPersonen != null} />
+                      onClear={savedPersonen != null ? () => setGerettete(null, savedTiere) : undefined} canClear />
                   </label>
                   <label className="cv-count-row"><span>{C.geretteteTiere}</span>
-                    <Stepper value={savedTiere} min={0} max={999} seed={1} placeholder="0" ariaLabel={C.geretteteTiere}
+                    <Stepper value={savedTiere} min={0} max={999} seed={1} ariaLabel={C.geretteteTiere}
                       onChange={(v) => setGerettete(savedPersonen, v)}
-                      onClear={() => setGerettete(savedPersonen, null)} canClear={savedTiere != null} />
+                      onClear={savedTiere != null ? () => setGerettete(savedPersonen, null) : undefined} canClear />
                   </label>
                 </div>
               </div>
@@ -1367,7 +1376,7 @@ export default function CaptureApp() {
                     not tappable. */}
                 <fieldset className="cv-partner-add" disabled={busy}>
                   <input
-                    className="cv-input" value={partnerDraft} placeholder={C.partnerAdd} aria-label={C.partnerAdd}
+                    className="cv-input" value={partnerDraft} placeholder={C.partnerPlaceholder} aria-label={C.partnerAdd}
                     maxLength={80}
                     onChange={(e) => setPartnerDraft(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitPartner() } }}
@@ -1418,7 +1427,7 @@ export default function CaptureApp() {
                 <label className={`cv-btn cv-btn-add cv-beilagen-add${uploading ? ' busy' : ''}`}>
                   {/* while the upload runs the control eats taps at 60% opacity — the house busy
                       glyph says WHY instead of leaving a silently dead button (App.tsx idiom) */}
-                  {uploading ? <Icon id="rotate" className="spin" /> : <Icon id="photo" />}<span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
+                  {uploading ? <ShellLoader /> : <Icon id="photo" />}<span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
                   <input type="file" accept="image/*" multiple disabled={busy || uploading}
                     onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; if (files.length) void addBeilagen(files) }} />
                 </label>
@@ -1503,14 +1512,14 @@ export default function CaptureApp() {
         {/* KP active → the buttons step back to quiet secondary styling (never hidden or
             disabled — a phone print must stay possible, it's just no longer the main path) */}
         <button className={`cv-btn cv-pdf${kpActive ? ' cv-quiet' : ''}`} disabled={busy || pdfBusy} onClick={() => setConfirmOut('pdf')}>
-          <Icon id="doc" /> {pdfBusy ? R.sending : C.rapportPdf}
+          {pdfBusy ? <ShellLoader /> : <Icon id="doc" />} {pdfBusy ? R.sending : C.rapportPdf}
         </button>
         {printStatus?.available && (
           <button className={`cv-btn print-send${kpActive ? ' cv-quiet' : ''}${printStatus.online ? '' : ' offline'}`}
             disabled={busy || printBusy} onClick={() => setConfirmOut('print')}
             title={printStatus.online ? R.online : R.offline}>
             <span className="print-send-main">
-              <Icon id="printer" />
+              {printBusy ? <ShellLoader /> : <Icon id="printer" />}
               <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
               {printBusy ? R.sending : R.send}
             </span>

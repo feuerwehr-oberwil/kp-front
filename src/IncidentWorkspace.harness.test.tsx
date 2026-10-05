@@ -21,8 +21,8 @@ import type { MittelDraft } from './components/MittelView'
  *   (e) the two-device loop: a merge that changes nothing must write nothing back.
  *   (f) a merge reaches the screen: what another device wrote shows here, and this device's next
  *       save carries it — a slice the merge never handed to its setter is saved back as a delete.
- *   (g) a close on ANOTHER device: the same mount goes read-only, the alarm stops, one row says so.
- *   (h) a reopen with a crew inside: no instant «Überfällig» — the clock restarts at the reopen.
+ *   (i) a close on ANOTHER device: the same mount goes read-only, the alarm stops, one row says so.
+ *   (j) a reopen with a crew inside: no instant «Überfällig» — the clock restarts at the reopen.
  *
  * The two heavy surfaces are prop recorders. The Plan's stand-in runs the REAL useBoardDoc, so
  * a plan step is exactly the checkpoint the Whiteboard lays down.
@@ -36,9 +36,11 @@ const rec = vi.hoisted(() => ({
   planFit: vi.fn(),
   order: [] as string[],
   answer: false,
+  /** answers for the next confirms, in order — `answer` once they run out */
+  answers: [] as (boolean | 'alt')[],
   confirms: 0,
-  report: null as null | { events: { text?: string }[] },
   mittel: [] as Record<string, unknown>[],
+  report: null as null | { events: { text?: string }[] },
 }))
 type MapProps = Record<string, unknown> & {
   entities: Entity[]; drawings: Drawing[]; onSelect: (e: Entity) => void; onFreehand: (c: [number, number][]) => void
@@ -91,7 +93,7 @@ vi.mock('./components/ReportPreflight', () => ({
 }))
 vi.mock('./lib/ui', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/ui')>()
-  return { ...mod, confirmDialog: () => { rec.confirms++; return Promise.resolve(rec.answer) } }
+  return { ...mod, confirmDialog: () => { rec.confirms++; return Promise.resolve(rec.answers.length ? rec.answers.shift()! : rec.answer) } }
 })
 vi.mock('./lib/mediaQueue', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/mediaQueue')>()
@@ -105,8 +107,9 @@ import type { IncidentMeta } from './lib/api/incidents'
 import type { Saved } from './lib/workspace'
 import { georefDispatch } from './lib/georefMode'
 import { appConfig } from './config/appConfig'
-import { fillTemplate } from './lib/format'
+import { getMeldeleisteHost } from './lib/meldeleisteHost'
 import { loadPrefs, savePrefs } from './lib/prefs'
+import { fillTemplate } from './lib/format'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -118,7 +121,7 @@ beforeAll(() => {
 })
 beforeEach(() => {
   rec.map.length = 0; rec.board.length = 0; rec.order.length = 0; rec.boardDoc = null; rec.mittel.length = 0
-  rec.answer = false; rec.confirms = 0; rec.report = null
+  rec.answer = false; rec.answers.length = 0; rec.confirms = 0; rec.report = null
   vi.clearAllMocks()
   // every request the workspace makes (journal, audit, alignments, weather …) is simply absent
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -156,6 +159,8 @@ const mount = async (over: Partial<WsProps> = {}) => {
   await settle()
   return { ...utils, onCompleteRapport }
 }
+/** the form's own «Trupp anmelden» — the last of that name on the page (the door says it too) */
+const lastBtn = (name: string) => { const all = screen.getAllByRole('button', { name }); return all[all.length - 1] }
 const key = (k: string, o: KeyboardEventInit = {}) => {
   const e = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o })
   act(() => { window.dispatchEvent(e) })
@@ -311,6 +316,38 @@ describe('(c) the Abschluss', () => {
     expect(onCompleteRapport).not.toHaveBeenCalled()
   })
 
+  /* A Sicherungstrupp still angemeldet (24.09.2026, D1 ⑦): the workspace wires the Abschluss's
+     «nicht eingesetzt» to the card's own stand-down, and only after the final «Abschliessen». */
+  const standing = {
+    id: 'sich', no: 6, name: 'Muster Leo', entryPressureBar: 280, entryTime: '', lastContactTime: '',
+    status: 'angemeldet', auftrag: 'sichern', readings: [],
+  }
+  const withSafety = () => ({ workspace: { entities: [truck], trupps: [standing] } as unknown as Saved })
+  const statusOnBoard = async () => {
+    key('a')
+    await settle()
+    return document.body.textContent ?? ''
+  }
+
+  it('«nicht eingesetzt», then «Abbrechen»: the Sicherungstrupp is still angemeldet', async () => {
+    const { onCompleteRapport } = await mount(withSafety())
+    rec.answers.push(true, false)
+    await pressAbschluss()
+    expect(rec.confirms).toBe(2)
+    expect(onCompleteRapport).not.toHaveBeenCalled()
+    // still at the door: its card offers «Im Einsatz», not the way back in of a closed Trupp
+    expect(await statusOnBoard()).not.toContain(appConfig.copy.atemschutz.actEnterFirst)
+  })
+
+  it('«nicht eingesetzt», then «Abschliessen»: stood down through the card\'s own close-out, then handed over', async () => {
+    const { onCompleteRapport } = await mount(withSafety())
+    rec.answers.push(true, true)
+    await pressAbschluss()
+    // the stand-down takes one task before the handover (useAbschluss) — wait for it, not a clock
+    await waitFor(() => expect(onCompleteRapport).toHaveBeenCalledTimes(1), { timeout: 10_000 })
+    expect(await statusOnBoard()).toContain(appConfig.copy.atemschutz.actEnterFirst)
+  })
+
   it('OK drains the media queue FIRST, then hands the Einsatz over', async () => {
     const { onCompleteRapport } = await mount()
     rec.answer = true
@@ -323,7 +360,7 @@ describe('(c) the Abschluss', () => {
   })
 })
 
-describe('(g) closed on ANOTHER device while open here (N3, staging 25.09.2026)', () => {
+describe('(i) closed on ANOTHER device while open here (N3, staging 25.09.2026)', () => {
   // App flips the live meta when the close is heard (App · onIncidentClosed) and hands the moment
   // down — no remount. The same mount must go read-only, stop the Atemschutz alarm (its Meldung is
   // the audible alarm's own row) and say what happened, with the time.
@@ -374,7 +411,7 @@ describe('(g) closed on ANOTHER device while open here (N3, staging 25.09.2026)'
   })
 })
 
-describe('(h) «Wieder öffnen» with a crew still inside (staging r3, F4)', () => {
+describe('(j) «Wieder öffnen» with a crew still inside (staging r3, F4)', () => {
   it('holds the alarm until the reopen row is there, then restarts the clock at it — one row, no instant «Überfällig»', async () => {
     const m = meta()
     const longAgo = new Date(Date.now() - 60 * 60_000).toISOString()
@@ -530,5 +567,116 @@ describe('(e) acts on the picture that the Verlauf used to miss (3am test r3, 25
     await settle()
     expect(lastMap().entities.find((e) => e.id === 'pl1')?.dockedTo).toBeUndefined()
     expect(await rows()).toContain(fillTemplate(appConfig.copy.log.placardUndocked, { name: 'Tafel', host: 'TLF' }))
+  })
+})
+
+/* ── Staging walk-through r2 (25.09.2026), N1: every Gast typed into the Trupp form was filed
+   TWICE in the Anwesenheit, and the Verlauf printed ids. The workspace wiring is what broke — the
+   save filed the Gäste, then the crew filing read a render-old Anwesenheit and filed them again. */
+describe('(f) Gäste from the Trupp form reach the Anwesenheit once', () => {
+  it('two Gäste in, two people on the Anwesenheit — each once', async () => {
+    await mount()
+    key('a')
+    await settle()
+    fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.atemschutz.newTrupp })[0])
+    await settle()
+    const az = appConfig.copy.atemschutz
+    for (const name of ['Tst Anna', 'Tst Ben']) {
+      fireEvent.change(screen.getByLabelText(az.teamSearchPlaceholder), { target: { value: name } })
+      fireEvent.click(screen.getByRole('option', { name: new RegExp(`${name}.*als Gast`) }))
+    }
+    fireEvent.click(lastBtn(az.start))
+    await settle(60)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Anwesenheit' })[0])
+    await settle(300)
+    const text = document.body.textContent ?? ''
+    // the Anwesenheit's own head count (the roster list itself needs a network the harness has
+    // not got): two people, not four
+    expect(text).toMatch(/(?<!\d)2 anwesend/)
+  })
+})
+
+/* staging r3 F1: a registration with two Gäste left «Rückgängig: Anwesenheit» on top — it stripped
+   the crew's AS-Funktion, kept them present and kept the Trupp. One act, one ↶. */
+describe('(f2) a Trupp registration with its Gäste is ONE undo step', () => {
+  it('↶ reads «Trupp … angemeldet» and takes the Trupp and the Gäste it filed back together', async () => {
+    await mount()
+    key('a')
+    await settle()
+    const az = appConfig.copy.atemschutz
+    fireEvent.click(screen.getAllByRole('button', { name: az.newTrupp })[0])
+    await settle()
+    for (const name of ['Tst Anna', 'Tst Ben']) {
+      fireEvent.change(screen.getByLabelText(az.teamSearchPlaceholder), { target: { value: name } })
+      fireEvent.click(screen.getByRole('option', { name: new RegExp(`${name}.*als Gast`) }))
+    }
+    fireEvent.click(lastBtn(az.start))
+    await settle(60)
+    // the label ↶ promises is the Trupp's own, not «Anwesenheit»
+    const undoBtn = screen.getAllByRole('button').find((b) => (b.getAttribute('aria-label') ?? b.getAttribute('title') ?? '').startsWith('Rückgängig:'))
+    const promise = undoBtn?.getAttribute('aria-label') ?? undoBtn?.getAttribute('title') ?? ''
+    expect(promise).toContain('angemeldet')
+    expect(promise).not.toContain(appConfig.copy.undoDomains.anwesenheit)
+    key('z', { metaKey: true }); await settle(60)
+    // the Trupp is off the board…
+    expect(document.body.textContent ?? '').not.toContain('Tst Anna / Tst Ben')
+    // …and the two people it filed are off the Anwesenheit
+    fireEvent.click(screen.getAllByRole('button', { name: 'Anwesenheit' })[0])
+    await settle(300)
+    expect(document.body.textContent ?? '').not.toMatch(/(?<!\d)2 anwesend/)
+    expect(document.body.textContent ?? '').toMatch(/(?<!\d)0 anwesend/)
+  })
+})
+
+/* N2: a crew registered on the Atemschutz-Link (names, no ids — the link cannot write the record)
+   is filed by the editor device that SEES it, under derived ids, once. */
+describe('(g) a Link-registered crew reaches the Anwesenheit through the editor device', () => {
+  it('files both names once when the Trupp arrives, and nothing more on the next render', async () => {
+    const linkTrupp = {
+      id: 'tl1', no: 1, name: 'Tst Ida', members: ['Tst Jan'], entryPressureBar: 300, entryTime: '', lastContactTime: '',
+      status: 'angemeldet', readings: [],
+    }
+    await mount({ workspace: { entities: [truck], trupps: [linkTrupp] } as unknown as Saved })
+    await settle(60)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Anwesenheit' })[0])
+    await settle(120)
+    expect(document.body.textContent ?? '').toMatch(/(?<!\d)2 anwesend/)
+  })
+})
+
+/* N9 (staging r2): on the phone the Eintrag FAB sat on the third crew's «Kontakt». It is not
+   drawn over the Atemschutz board; everywhere else it stays. */
+describe('(h) the phone FAB never sits over the Atemschutz board', () => {
+  it('shows on the Karte and is gone on the Trupps page', async () => {
+    const before = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: q.includes('max-width: 600px'), media: q, onchange: null, addListener: () => {}, removeListener: () => {},
+      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      await mount()
+      expect(document.querySelector('.fab-entry')).toBeTruthy()
+      key('a')
+      await settle()
+      expect(mode()).toBe('atemschutz')
+      expect(document.querySelector('.fab-entry')).toBeNull()
+    } finally {
+      window.matchMedia = before
+    }
+  })
+})
+
+/* staging r5 N3: the Meldeleiste paints INSIDE the open Einsatz's `.app` (lib/meldeleisteHost) —
+   beside it, at App root, it outranked the whole stacking context and lay over the Einsatz menu. */
+describe('(k) the workspace is where the Meldeleiste paints', () => {
+  it('registers its .app as the strip\'s host, and lets go when it unmounts', async () => {
+    const { unmount } = await mount()
+    expect(getMeldeleisteHost()?.classList.contains('app')).toBe(true)
+    unmount()
+    expect(getMeldeleisteHost()).toBeNull()
+    // the last test of the file: let the unmounted workspace's IndexedDB round-trips (the media
+    // queue's mount flush) land while jsdom still stands — under a loaded full run they settled
+    // after the teardown and failed the suite with «window is not defined» (useMediaQueue)
+    await settle(100)
   })
 })

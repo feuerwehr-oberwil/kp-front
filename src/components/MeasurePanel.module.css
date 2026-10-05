@@ -25,7 +25,7 @@
 .mp-v { font-family: var(--mono); font-size: 17px; font-weight: 700; color: var(--ink); letter-spacing: -.3px; }
 .mp-v.up { color: var(--green); }
 .mp-v.down { color: var(--red); }
-.mp-prof-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.mp-prof-title { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .mp-prof-msg { font-size: 12px; color: var(--ink-faint); padding: 10px 0; text-align: center; }
 .mp-chart-wrap { width: 100%; }
 .mp-chart-plot { position: relative; }

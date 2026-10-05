@@ -76,6 +76,32 @@ describe('pickBootIncident', () => {
     expect(pickBootIncident([manualNewer, webhook, saved], 'a', { now: NOW })?.id).toBe('b')
   })
 
+  // 05.10.2026: after an Abschluss every launch stood inside whatever other Einsatz was open
+  describe('after an Abschluss on this device (landedAt)', () => {
+    const open = inc({ id: 'u', source: 'manual', started_at: '2026-07-08T08:00:00Z' })
+    const landedAt = Date.parse('2026-07-08T11:00:00Z')
+
+    it('stays on the launcher instead of falling back to the first open Einsatz', () => {
+      expect(pickBootIncident([open], undefined, { now: NOW })?.id).toBe('u') // unchanged without it
+      expect(pickBootIncident([open], undefined, { now: NOW, landedAt })).toBeUndefined()
+    })
+
+    it('an alarm that was already open at the close does not open either', () => {
+      const alarm = inc({ id: 'b', source: 'divera', started_at: '2026-07-08T10:30:00Z' })
+      expect(pickBootIncident([alarm, open], undefined, { now: NOW, landedAt })).toBeUndefined()
+    })
+
+    it('…but a fresh alarm that arrived after the close still opens', () => {
+      const alarm = inc({ id: 'b', source: 'divera', started_at: '2026-07-08T11:30:00Z' })
+      expect(pickBootIncident([alarm, open], undefined, { now: NOW, landedAt })?.id).toBe('b')
+      expect(pickBootIncident([alarm, open], undefined, { now: Date.parse('2026-07-09T12:00:00Z'), landedAt })).toBeUndefined()
+    })
+
+    it('an Einsatz opened by hand since then is remembered as usual', () => {
+      expect(pickBootIncident([open], 'u', { now: NOW, landedAt })?.id).toBe('u')
+    })
+  })
+
   it('never picks archived incidents — all archived boots to the clean landing', () => {
     const arch = inc({ id: 'a', source: 'divera', is_archived: true })
     expect(pickBootIncident([arch], 'a')).toBeUndefined()

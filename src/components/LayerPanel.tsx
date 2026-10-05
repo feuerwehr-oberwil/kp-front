@@ -3,7 +3,9 @@ import type { LayerDef } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { Slider } from './Slider'
+import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import type { TwinLayerRow } from '../lib/georefTwins'
+import type { LayerPreset } from '../lib/layerPreset'
 
 interface Props {
   layers: LayerDef[]
@@ -32,9 +34,13 @@ interface Props {
   onShowAll?: () => void
   onHideAll?: () => void
   onReset?: () => void
+  /** which of the three the layers on screen match (lib/layerPreset): that quick-tap is drawn
+   *  selected, none of them for a hand-switched set (05.10.2026, owner: «ebenen should have an
+   *  indication when using standard or all on / off») */
+  preset?: LayerPreset
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset, preset }: Props) {
   /* One transparency row, for a real `LayerDef` and for a Georeferenz twin alike — the twin ids
      are not `LayerDef` ids and persist elsewhere (georefTwins · isTwinLayerId → the device's
      `twinLayerOpacity`), but the row is the panel's, so both go through the same control and the
@@ -98,87 +104,94 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
   // whole list is immediately Tab/Enter navigable from the keyboard — the rows are real buttons.
   const cardRef = useRef<HTMLDivElement>(null)
   useEffect(() => { cardRef.current?.querySelector<HTMLButtonElement>('.lrow')?.focus() }, [])
+  /* On a phone the card IS a bottom sheet (29.09.2026, owner: «ebenen, search, etc. should be a
+     slide-up rather than a modal» — 15-mobile · .layers-card): push it down and it goes, like every
+     other phone sheet. The gesture measures that the card sits on the bottom edge, so the tablet's
+     side card never has it. */
+  const swipe = useSwipeDismiss({ onClose: onClose ?? (() => {}), enabled: !!onClose })
 
   return (
-    <div className="layers-card" ref={cardRef}>
+    <div className="layers-card" ref={cardRef} {...swipe}>
+      <SheetGrab />
       <div className="lc-title">
-        <Icon id="layers" />{appConfig.copy.panels.layers}
-        {onClose && <button type="button" className="lc-x" aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>}
+        {appConfig.copy.panels.layers}
+        {onClose && <button type="button" className="ip-x lc-x" aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>}
       </div>
-
-      {/* quick-taps under the title: the whole panel in one gesture — all on, all off, back to
-          the Einsatz default. Rows stay the fine control; these answer «too much on the map»
-          and «where did everything go» without ten taps. */}
-      {onShowAll && onHideAll && onReset && (
-        <div className="lc-quick">
-          {/* words only (22.09.2026): three columns of a 264px dock give each button ~67px, and the
-              eye / eye-off / undo glyphs took 20 of them — «Standard» ran past its edge and even
-              «Alle ein» broke in two. The rows' eyes already say what «ein / aus» means. */}
-          <button type="button" onClick={onShowAll}>{appConfig.copy.layerPanel.showAll}</button>
-          <button type="button" onClick={onHideAll}>{appConfig.copy.layerPanel.hideAll}</button>
-          <button type="button" onClick={onReset}>{appConfig.copy.layerPanel.reset}</button>
-        </div>
-      )}
-
-      {/* Basiskarte as the panel's first group — the base IS a layer; this replaced the separate
-          BaseSwitcher popover so one pinned button covers all of it. A ONE-OF-N choice between
-          three named maps reads as a row of tiles, not as three full-width rows: it says «pick
-          one» at a glance and hands ~90px of sheet height back to the layers below it, which
-          matters most on the phone, where the sheet is the whole screen. The grid auto-fits, so
-          a deployment with two or four bases still lays out. */}
-      {bases.length > 0 && (
-        <>
-          <div className="lgroup">{appConfig.copy.baseMap}</div>
-          <div className="lbases" role="radiogroup" aria-label={appConfig.copy.baseMap}>
-            {bases.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                className={`lbase ${b.visible ? 'on' : ''}`}
-                role="radio"
-                aria-checked={b.visible}
-                /* the full name stays reachable for anyone who doesn't know the short one */
-                title={b.label}
-                onClick={() => onToggle(b.id)}
-              >
-                <span className="lbase-ic"><Icon id={b.icon} /></span>
-                <span className="lbase-t">{b.shortLabel ?? b.label}</span>
-              </button>
-            ))}
+      <div className="lc-body">
+        {/* quick-taps under the title: the whole panel in one gesture — all on, all off, back to
+            the Einsatz default. Rows stay the fine control; these answer «too much on the map»
+            and «where did everything go» without ten taps. */}
+        {onShowAll && onHideAll && onReset && (
+          <div className="lc-quick">
+            {/* words only (22.09.2026): three columns of a 264px dock give each button ~67px, and the
+                eye / eye-off / undo glyphs took 20 of them — «Standard» ran past its edge and even
+                «Alle ein» broke in two. The rows' eyes already say what «ein / aus» means. */}
+            <button type="button" className={preset === 'all' ? 'on' : undefined} aria-pressed={preset === 'all'} onClick={onShowAll}>{appConfig.copy.layerPanel.showAll}</button>
+            <button type="button" className={preset === 'none' ? 'on' : undefined} aria-pressed={preset === 'none'} onClick={onHideAll}>{appConfig.copy.layerPanel.hideAll}</button>
+            <button type="button" className={preset === 'standard' ? 'on' : undefined} aria-pressed={preset === 'standard'} onClick={onReset}>{appConfig.copy.layerPanel.reset}</button>
           </div>
-        </>
-      )}
+        )}
 
-      {Object.entries(groups).map(([group, rows]) => (
-        <Fragment key={group}>
-          <div className="lgroup">{group}</div>
-          {rows.map((l) => (
-            <Fragment key={l.id}>
-              {/* a real <button> so the toggle is keyboard-operable + focusable; the inline
-                  resets strip native button chrome without touching .lrow's :hover rule */}
-              <button
-                type="button"
-                className={`lrow ${l.visible ? '' : 'off'}`}
-                style={{ appearance: 'none', WebkitAppearance: 'none', border: 'none', width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit' }}
-                aria-pressed={l.visible}
-                aria-label={`${l.label} – ${l.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}`}
-                onClick={() => onToggle(l.id)}
-              >
-                <span className="ic"><Icon id={l.icon} /></span>
-                <span className="name">{l.label}</span>
-                {l.locked && <span className="lock"><Icon id="lock" /></span>}
-                <span className="eye"><Icon id={l.visible ? 'eye' : 'eyeoff'} /></span>
-              </button>
-              {l.opacity !== undefined && l.visible && opacityRow(l.id, l.opacity, l.label)}
-            </Fragment>
-          ))}
-          {twinsAnchored && group === twinsAfterGroup && twinBlocks}
-        </Fragment>
-      ))}
+        {/* Basiskarte as the panel's first group — the base IS a layer; this replaced the separate
+            BaseSwitcher popover so one pinned button covers all of it. A ONE-OF-N choice between
+            three named maps reads as a row of tiles, not as three full-width rows: it says «pick
+            one» at a glance and hands ~90px of sheet height back to the layers below it, which
+            matters most on the phone, where the sheet is the whole screen. The grid auto-fits, so
+            a deployment with two or four bases still lays out. */}
+        {bases.length > 0 && (
+          <>
+            <div className="lgroup">{appConfig.copy.baseMap}</div>
+            <div className="lbases" role="radiogroup" aria-label={appConfig.copy.baseMap}>
+              {bases.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className={`lbase ${b.visible ? 'on' : ''}`}
+                  role="radio"
+                  aria-checked={b.visible}
+                  /* the full name stays reachable for anyone who doesn't know the short one */
+                  title={b.label}
+                  onClick={() => onToggle(b.id)}
+                >
+                  <span className="lbase-ic"><Icon id={b.icon} /></span>
+                  <span className="lbase-t">{b.shortLabel ?? b.label}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-      {!twinsAnchored && twinBlocks}
+        {Object.entries(groups).map(([group, rows]) => (
+          <Fragment key={group}>
+            <div className="lgroup">{group}</div>
+            {rows.map((l) => (
+              <Fragment key={l.id}>
+                {/* a real <button> so the toggle is keyboard-operable + focusable; the inline
+                    resets strip native button chrome without touching .lrow's :hover rule */}
+                <button
+                  type="button"
+                  className={`lrow ${l.visible ? '' : 'off'}`}
+                  style={{ appearance: 'none', WebkitAppearance: 'none', border: 'none', width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit' }}
+                  aria-pressed={l.visible}
+                  aria-label={`${l.label} – ${l.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}`}
+                  onClick={() => onToggle(l.id)}
+                >
+                  <span className="ic"><Icon id={l.icon} /></span>
+                  <span className="name">{l.label}</span>
+                  {l.locked && <span className="lock"><Icon id="lock" /></span>}
+                  <span className="eye"><Icon id={l.visible ? 'eye' : 'eyeoff'} /></span>
+                </button>
+                {l.opacity !== undefined && l.visible && opacityRow(l.id, l.opacity, l.label)}
+              </Fragment>
+            ))}
+            {twinsAnchored && group === twinsAfterGroup && twinBlocks}
+          </Fragment>
+        ))}
 
-      {credits.length > 0 && <p className="lc-credits">{credits.join(', ')}</p>}
+        {!twinsAnchored && twinBlocks}
+
+        {credits.length > 0 && <p className="lc-credits">{credits.join(', ')}</p>}
+      </div>
     </div>
   )
 }

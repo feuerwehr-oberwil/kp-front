@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, ty
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
+import { LoadingStatus, ShellLoader } from '../components/ShellLoader'
 import { joinShifts } from '../lib/floorPackBinding'
 import { ActionMenu } from './ui'
 import { hasMarkerWarnings } from './markerNotes'
@@ -28,7 +29,7 @@ import {
  *
  * Every row is a record row – index · name · its state as WORDS – and the SELECTED one expands in
  * place into its inspector, so what is being edited stands where it was read. The COLUMN owns
- * everything that is not one floor's business: the dashed row at its foot adds the next storey
+ * everything that is not one floor's business: the add row at its foot adds the next storey
  * BELOW the lowest (which is how a building is read downwards), the kebab in its head holds what
  * concerns the whole list («Wie im PDF», «Umkehren», «Zurücksetzen»), and reordering is the grip.
  *
@@ -433,7 +434,7 @@ function FloorSheet({ zoom, item, page, entries, selected, mode, labelOf, indexO
   return <div className="adm-floors-paper"><div ref={viewport} className="adm-floors-viewport"><div style={{ width: viewportSize.width ? Math.min(viewportSize.width, viewportSize.height * pageAspect) * zoom : `${zoom * 100}%` }} ref={box} className={`adm-floors-sheet${mode ? ' drawing' : ''}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={() => setAim(null)} onPointerCancel={() => { setAim(null); moving.current = null; setShift(null); setHeld(null); setDraft(null) }}>
     {failed ? <div className="adm-floors-sheet-wait" role="alert">{appConfig.copy.admin.alignment.previewFailed}</div>
       : url ? <img src={url} alt={fillTemplate(C.page, { n: page + 1 })} draggable={false} onLoad={(e) => { if (e.currentTarget.naturalHeight) setPageAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight) }} />
-      : <div className="adm-floors-sheet-wait" role="status">{C.sheetLoading}</div>}
+      : <div className="adm-floors-sheet-wait"><LoadingStatus size="surface">{C.sheetLoading}</LoadingStatus></div>}
     {visibleEntries.map((e) => {
       const d = shift?.key === e.key ? shift : { dx: 0, dy: 0 }
       return e.clip ? <div key={e.key} className={`adm-floors-box${e.key === selected ? ' active' : ''}${shift?.key === e.key ? ' moving' : ''}`} style={{ left: pct(e.clip[0] + d.dx), top: pct(e.clip[1] + d.dy), width: pct(e.clip[2] - e.clip[0]), height: pct(e.clip[3] - e.clip[1]) }}>
@@ -526,7 +527,7 @@ function FloorPreview({ item, floors, fitPage, map }: { item: AlignmentItem; flo
       const chip = signedIndex(index)
       const name = (parts.length === 1 && parts[0].name) || standardFloorName(index)
       return <div className="adm-floor-tile" key={index}>
-        <svg viewBox={`${frame[0]} ${frame[1]} ${width} ${height}`} preserveAspectRatio="none" style={{ aspectRatio: `${width * (item.aspect ?? 1.414)} / ${height}` }} role="img" aria-label={`${chip} · ${name}`}>
+        <svg viewBox={`${frame[0]} ${frame[1]} ${width} ${height}`} preserveAspectRatio="none" style={{ aspectRatio: `${width * (item.aspect ?? 1.414)} / ${height}` }} role="img" aria-label={`${chip} · ${name}`} aria-busy={!failed && parts.some(floor => !images[floor.page]) || undefined}>
           {parts.map((floor) => {
             const shift = shifts.get(floorKey(floor)) ?? [0, 0]
             const clip = floor.clip ?? [0, 0, 1, 1]
@@ -537,6 +538,7 @@ function FloorPreview({ item, floors, fitPage, map }: { item: AlignmentItem; flo
             </g>
           })}
         </svg>
+        {!failed && parts.some(floor => !images[floor.page]) && <div className="adm-floor-tile-wait" aria-hidden><ShellLoader size="surface" /></div>}
         <span className="adm-floor-tile-cap" aria-hidden><span className="adm-floor-index">{chip}</span><b>{name}</b>
           {parts.length > 1 && <small>{parts.map((f, n) => f.name || fillTemplate(C.partName, { n: n + 1 })).join(' · ')}</small>}
         </span>

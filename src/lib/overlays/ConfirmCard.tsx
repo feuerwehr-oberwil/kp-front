@@ -36,6 +36,13 @@ export interface ConfirmSpec {
    *  still resolves `false`: an alternative is chosen, never defaulted into. */
   altLabel?: string
   altDanger?: boolean
+  /** Which answer is the SAFE one to press (25.09.2026) — `'cancel'` or `'alt'`. That button
+   *  becomes the filled primary on the right and takes the initial focus; the confirm steps back
+   *  to a quiet button. For an ask whose «yes» WRITES something a reflex tap or an Enter must not:
+   *  the double-contact question («Nochmals» writes a second Kontakt, «OK» nothing), the low
+   *  Eingangsdruck («180 bestätigen» / «Ändern»), the Abschluss's «Zur Tafel». It is NOT `danger`:
+   *  nothing is destroyed, so no red. Every dismissal still resolves `false`. */
+  safeAnswer?: 'cancel' | 'alt'
 }
 
 /**
@@ -51,12 +58,30 @@ export interface ConfirmSpec {
  * app answers to. A modal that does not respond to a tap beside it reads as a frozen app, and
  * that is the wrong thing to be wondering about with an Einsatz open.
  */
-export function ConfirmCard({ open, title, message, items, note, confirmLabel, cancelLabel, danger, altLabel, altDanger, onResolve }: ConfirmSpec & {
+export function ConfirmCard({ open, title, message, items, note, confirmLabel, cancelLabel, danger, altLabel, altDanger, safeAnswer, onResolve }: ConfirmSpec & {
   open: boolean
   onResolve: (confirmed: boolean | 'alt') => void
 }) {
   const confirmRef = useRef<HTMLButtonElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
+  const altRef = useRef<HTMLButtonElement>(null)
+  const cancelBtn = (
+    <button key="cancel" ref={cancelRef} className={safeAnswer === 'cancel' ? 'ip-btn primary' : 'ip-btn'} onClick={() => onResolve(false)}>{cancelLabel}</button>
+  )
+  const altBtn = altLabel ? (
+    <button key="alt" ref={altRef} className={`ip-btn${altDanger ? ' ip-btn-danger' : ''}${safeAnswer === 'alt' ? ' primary' : ''}`} onClick={() => onResolve('alt')}>{altLabel}</button>
+  ) : null
+  /* the OUTLINE danger, not a solid red fill: the same treatment every other destructive action in
+     the app wears (Anwesenheit, Verlauf, BandGrid), and this confirm is also what «Einsatz
+     abschliessen» goes through — which is not destructive at all. With a `safeAnswer` it is the
+     quiet one. */
+  const confirmBtn = (
+    <button key="confirm" ref={confirmRef} className={safeAnswer ? 'ip-btn' : `ip-btn ${danger ? 'ip-btn-danger' : 'primary'}`} onClick={() => onResolve(true)}>{confirmLabel}</button>
+  )
+  // the filled answer always stands on the right, where the thumb expects the primary
+  const actions = safeAnswer === 'cancel' ? [confirmBtn, altBtn, cancelBtn]
+    : safeAnswer === 'alt' ? [cancelBtn, confirmBtn, altBtn]
+    : [cancelBtn, altBtn, confirmBtn]
   return (
     // every route out of here — backdrop, Esc, ✕-less cancel — resolves FALSE. There is no path
     // by which not answering counts as yes.
@@ -68,7 +93,7 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
             is «Abbrechen» (23.09.2026): an Enter or Space from a tablet's keyboard cover — pressed to
             «get the dialog away» — would otherwise confirm the one thing that cannot be taken
             back. Going ahead is still one tap away. */}
-        <Dialog.Popup role="alertdialog" className="confirm-card ui-dialog" initialFocus={danger ? cancelRef : confirmRef} aria-label={title ?? message}>
+        <Dialog.Popup role="alertdialog" className="confirm-card ui-dialog" initialFocus={safeAnswer === 'alt' && altLabel ? altRef : danger || safeAnswer === 'cancel' ? cancelRef : confirmRef} aria-label={title ?? message}>
           {title && <Dialog.Title className="confirm-title" render={<h3 />}>{title}</Dialog.Title>}
           {/* An empty message renders NOTHING, not an empty paragraph with its own margin: some
               confirms are a title and two buttons («Stationsdrucker offline» — the title already
@@ -95,16 +120,7 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
             </ul>
           )}
           {note && <p className="confirm-note">{note}</p>}
-          <div className="confirm-actions">
-            <button ref={cancelRef} className="ip-btn" onClick={() => onResolve(false)}>{cancelLabel}</button>
-            {altLabel && (
-              <button className={`ip-btn${altDanger ? ' ip-btn-danger' : ''}`} onClick={() => onResolve('alt')}>{altLabel}</button>
-            )}
-            {/* the OUTLINE danger, not a solid red fill: the same treatment every other destructive
-                action in the app wears (Anwesenheit, Verlauf, BandGrid), and this confirm is also
-                what «Einsatz abschliessen» goes through — which is not destructive at all. */}
-            <button ref={confirmRef} className={`ip-btn ${danger ? 'ip-btn-danger' : 'primary'}`} onClick={() => onResolve(true)}>{confirmLabel}</button>
-          </div>
+          <div className="confirm-actions">{actions}</div>
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

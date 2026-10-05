@@ -38,7 +38,11 @@ export async function login(page: Page) {
     await expect(page.locator('.pinpad')).toBeVisible()
     for (const digit of PIN) await page.keyboard.press(digit)
     // the pad no longer auto-submits on a fixed length (06.09.) — Enter is the ✓
+    const authenticated = page.waitForResponse((response) => response.url().endsWith('/api/auth/login') && response.request().method() === 'POST')
     await page.keyboard.press('Enter')
+    const response = await authenticated
+    expect(response.ok(), 'seeded kiosk login must succeed').toBe(true)
+    await response.finished()
   }
 
   // The demo's first-visit contract intentionally owns the screen until acknowledged. Read the

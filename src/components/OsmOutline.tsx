@@ -8,7 +8,9 @@ import { idbGet, idbSet } from '../lib/idb'
 import { apiPost } from '../lib/api'
 import { georefFromPick, M_PER_LAT, matchStoredRings, mPerLon } from '../lib/buildingTransfer'
 import type { LngLat, SrcGeoref } from '../types'
+import { Icon } from '../lib/icons'
 import { RetryButton } from './RetryButton'
+import { LoadingStatus } from './ShellLoader'
 import s from './OsmOutline.module.css'
 
 // A building footprint as a normalized 0..1 ring in board space (north-up).
@@ -243,7 +245,7 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
   )
   if (!rings) return (
     <div className={s['wb-osm-hint']}>
-      <span>{copy.osmLoading}</span>
+      <LoadingStatus>{copy.osmLoading}</LoadingStatus>
       {slow && <RetryButton label={copy.osmRetry} onClick={retry} />}
     </div>
   )
@@ -284,7 +286,7 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
           {/* ONE line of context above the buttons, and the loss always wins it: a saved outline
               that is not in this fetch would otherwise vanish from the selection unannounced. */}
           {missing > 0
-            ? <div className={s['wb-osm-warn']}>{fillTemplate(copy.osmPickMissing, { n: missing })}</div>
+            ? <div className={s['wb-osm-warn']}><Icon id="warn" /><span>{fillTemplate(copy.osmPickMissing, { n: missing })}</span></div>
             : preselected && <div className={s['wb-osm-note']}>{copy.osmPickHintAmend}</div>}
           <div className={s['wb-osm-bar']}>
             {n === 0 ? (

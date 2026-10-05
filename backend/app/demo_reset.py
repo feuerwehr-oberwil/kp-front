@@ -37,6 +37,8 @@ from .models import (
     JournalEntry,
     Media,
     ObjectSite,
+    ObjectVisit,
+    ObjectVisitAttachment,
     Personnel,
     PlanAlignment,
     PlanAlignmentEvent,
@@ -44,6 +46,7 @@ from .models import (
     PlanRevision,
     ReferenceDataset,
     User,
+    VisitList,
     WorkspaceSnapshot,
 )
 from .personnel import format_name
@@ -552,6 +555,14 @@ async def reset(wipe_objects: bool = True) -> None:
         for key in keys:
             for derived in ("", ".thumb.jpg", ".peaks.json"):
                 storage.delete_after_commit(db, key + derived)
+        # Objektbesuche are station records, not incident-scoped — the demo wipes them too, with
+        # their photo originals (+ derived thumbnails); revisions, photos and the delivery outbox
+        # cascade from the visit row. Organizer work lists go with them.
+        for key in (await db.execute(select(ObjectVisitAttachment.storage_key))).scalars():
+            for derived in ("", ".thumb.jpg"):
+                storage.delete_after_commit(db, key + derived)
+        await db.execute(delete(ObjectVisit))
+        await db.execute(delete(VisitList))
         # Deleting incidents cascades to all incident-scoped tables (ON DELETE CASCADE).
         await db.execute(delete(Incident))
         # Roster is standalone (no incident FK) — clear manual/demo additions, then re-seed

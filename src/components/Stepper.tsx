@@ -19,7 +19,7 @@ const numericDraft = (s: string) => (s.startsWith('-') ? '-' : '') + s.replace(/
  * first tap on + seeds `seed ?? min` — on − too when `seedOnDec` is set. `onChange` always
  * receives a concrete clamped number.
  */
-export function Stepper({ value, min, max, step = 1, seed, seedOnDec, format, placeholder = '–', onChange, onClear, canClear, readOnly, over, ariaLabel }: {
+export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, format, placeholder = '–', onChange, onClear, canClear, readOnly, over, ariaLabel }: {
   value: number | null
   min: number
   max: number
@@ -31,11 +31,16 @@ export function Stepper({ value, min, max, step = 1, seed, seedOnDec, format, pl
    *  EG (0), and the next − is the first Untergeschoss. Off ⇒ − stays disabled while empty (a
    *  count has nothing below its seed). */
   seedOnDec?: boolean
+  /** ± from a value OFF the step grid lands on the grid's next line that way, not on
+   *  value ± step (30.09.2026: a symbol turned by hand to −46.5° stepped to −31.5°, −16.5° …
+   *  forever off the 15° marks). On the grid it is plain ± step. */
+  snap?: boolean
   /** format the numeric value for display (e.g. signed floor "+2", "47 m") */
   format?: (v: number) => string
   placeholder?: string
   onChange: (v: number) => void
-  /** reset to the default/empty state. Omit to hide the ✕ entirely. */
+  /** reset to the default/empty state. Keep wired when the field supports reset and use
+   *  `canClear` to disable it when empty; omit only for fields without a reset action. */
   onClear?: () => void
   /** whether a reset would do anything; false ⇒ the ✕ stays visible but greyed/disabled */
   canClear?: boolean
@@ -47,15 +52,24 @@ export function Stepper({ value, min, max, step = 1, seed, seedOnDec, format, pl
   const clamp = (v: number) => Math.max(min, Math.min(max, v))
   const has = value != null
   const seedVal = clamp(seed ?? min)
+  // the grid line below / above `v`; a hair off a line (a stored 45.0000001) counts as ON it
+  const line = (v: number, off: (q: number) => number) => {
+    const q = v / step
+    return Math.abs(q - Math.round(q)) < 1e-6 ? Math.round(q) : off(q)
+  }
+  const down = (v: number) => (snap ? (line(v, Math.ceil) - 1) * step : v - step)
+  const up = (v: number) => (snap ? (line(v, Math.floor) + 1) * step : v + step)
   const dec = useHoldRepeat(() => {
-    if (has) onChange(clamp(value - step))
+    if (has) onChange(clamp(down(value)))
     else if (seedOnDec) onChange(seedVal)
   })
-  const inc = useHoldRepeat(() => onChange(has ? clamp(value + step) : seedVal))
+  const inc = useHoldRepeat(() => onChange(has ? clamp(up(value)) : seedVal))
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
-  const startEdit = () => { if (readOnly) return; setDraft(has ? String(value) : ''); setEditing(true) }
+  // a whole number to type over — the field takes whole numbers only (parseInt below), and a stored
+  // −46.50917745051447 is not a thing to edit character by character
+  const startEdit = () => { if (readOnly) return; setDraft(has ? String(Math.round(value)) : ''); setEditing(true) }
   const commit = () => {
     setEditing(false)
     const n = parseInt(draft, 10)

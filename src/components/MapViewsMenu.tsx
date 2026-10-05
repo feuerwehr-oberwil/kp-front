@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CameraView, LngLat } from '../types'
 import { Icon } from '../lib/icons'
@@ -7,6 +7,8 @@ import { cx } from '../lib/cx'
 import { DockInfo } from './DockInfo'
 import { useLongPress } from '../lib/useLongPress'
 import { useIsPhone } from '../lib/useIsPhone'
+import { usePopoverGuard } from '../lib/overlays/popoverGuard'
+import { useLiveBearing } from '../lib/liveBearing'
 import s from './MapViewsMenu.module.css'
 
 /** Everything the saved-views control needs from App — the synced list plus the camera ops. */
@@ -69,18 +71,26 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
   const [editingId, setEditingId] = useState<string | null>(null)
   const isPhone = useIsPhone()
   const commitRename = (id: string, name: string) => { api.onRename(id, name.trim()); setEditingId(null) }
+  // the ⓘ at the end of the last row opens its sentence under that row (DockInfo's inline rule:
+  // the menu has the room, a floating tip would land on the map) — and keeps it in view
+  const [help, setHelp] = useState(false)
+  const helpRef = useRef<HTMLParagraphElement>(null)
+  useLayoutEffect(() => { if (help) helpRef.current?.scrollIntoView?.({ block: 'nearest' }) }, [help])
+  const helpBtn = (
+    <button type="button" className={cx(s.mini, help && s.miniOn)} aria-label={cp.hint} title={cp.hint}
+      aria-expanded={help} onClick={() => setHelp((v) => !v)}><Icon id="info" /></button>
+  )
 
   // No backdrop scrim — exactly like the measure/draw ToolDock: the dock just sits over the map,
   // the map stays fully draggable + clickable underneath, and it closes by tapping the compass
-  // again, the ✕, or activating another tool. (A scrim would swallow map drags/clicks.)
+  // again, a row, or activating another tool. (A scrim would swallow map drags/clicks.)
+  // ⚠️ No ✕ row (29.09.2026, sweep K14): a menu closes on its own tile or on a row, like the
+  // Einsatz menu, which has neither ✕ nor a lone ⓘ tile — the two cost ~120px on a phone.
   return createPortal(
     <>
       {/* same dark dock as the measure/draw ToolDock, in the same spot: centred just left of
-          the right tool rail, ✕ on top, ⓘ at the bottom (see .wb-dock / .wb-dock-map). */}
+          the right tool rail (see .wb-dock / .wb-dock-map); the ⓘ ends the last row. */}
       <div className={cx(s.pop, s.dock, "mv-dock")} role="dialog" aria-label={cp.title}>
-        <div className={s.head}>
-          <button className={s.close} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
-        </div>
         <button className={cx(s.row, s.north)} onClick={() => { api.onResetNorth(); onClose() }}>
           <span className={s.ico}><Icon id="compass" /></span>
           <span className={s.name}>{cp.north}</span>
@@ -163,19 +173,36 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
         {!readOnly && (
           <>
             <div className={s.sep} />
-            <button className={cx(s.row, s.save)} onClick={() => api.onSave()}>
-              <span className={s.ico}><Icon id="plus" /></span>
-              <span className={s.name}>{cp.save}</span>
-            </button>
+            {/* the last row carries the ⓘ at its end (K14) — a row of its own for one icon was
+                44px of menu for nothing */}
+            <div className={s.row}>
+              <button className={s.save} onClick={() => api.onSave()}>
+                <span className={s.ico}><Icon id="plus" /></span>
+                <span className={s.name}>{cp.save}</span>
+              </button>
+              {helpBtn}
+            </div>
+            {help && <p ref={helpRef} className={s.help}>{cp.hint}</p>}
           </>
         )}
-        {/* no separator here on purpose — see .foot in the module CSS: a rule this close to
-            the ⓘ's own padding just doubled up the empty band around it. */}
-        <div className={s.foot}><DockInfo text={cp.hint} inline /></div>
+        {/* a locked device has no «Ansicht speichern» row to end with: the ⓘ keeps its foot */}
+        {readOnly && <div className={s.foot}><DockInfo text={cp.hint} inline /></div>}
       </div>
     </>,
     document.body,
   )
+}
+
+/** The compass needle. It turns WITH the finger while the Karte is being rotated (03.10.2026,
+ *  owner: «live-update the compass while rotating similar to the wind direction») — the same
+ *  per-frame store the wind arrow reads (lib/liveBearing), so only this span re-renders per
+ *  frame, never the button, its menu or IncidentWorkspace. `bearing` is the settled one, used
+ *  while no Karte is mounted. NO transition on it (MapUtility.module.css · .compass,
+ *  07-toolrail · .vrail-compass): per frame it would only trail the finger, and at the ±180°
+ *  seam MapLibre's bearing flips sign, which a transition spins the long way round. */
+function CompassGlyph({ bearing, className }: { bearing: number; className: string }) {
+  const live = useLiveBearing(bearing)
+  return <span className={className} style={{ transform: `rotate(${-live}deg)` }}><Icon id="compass" /></span>
 }
 
 /**
@@ -203,12 +230,24 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   onToggleCoords?: () => void
 }) {
   const cp = appConfig.copy.mapViews
-  const glyph = <span className={glyphClassName} style={{ transform: `rotate(${-bearing}deg)` }}><Icon id="compass" /></span>
+  const glyph = <CompassGlyph bearing={bearing} className={glyphClassName} />
 
   // Hold the compass to fit the incident into view, without going through the menu. A quiet
   // shortcut for the one row that gets used over and over — deliberately undiscoverable by
   // accident (500 ms, cancels on any movement, so a pan or a scroll of the rail never trips
   // it) and never the ONLY way there: «Einpassen» stays a plain row one tap in.
+  const phone = useIsPhone()
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  usePopoverGuard(open && phone)
+  useEffect(() => {
+    if (!open || !phone) return
+    const outside = (e: PointerEvent) => {
+      const target = e.target instanceof Element ? e.target : null
+      if (target && !target.closest('.mv-dock') && !triggerRef.current?.contains(target)) onOpenChange(false)
+    }
+    document.addEventListener('pointerdown', outside, true)
+    return () => document.removeEventListener('pointerdown', outside, true)
+  }, [open, phone, onOpenChange])
   const hold = useLongPress()
   // A fired hold must not also open the menu: the browser still delivers the click on release.
   // Cleared at the START of every press, not only when that click arrives — a hold whose click
@@ -220,6 +259,7 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   return (
     <>
       <button
+        ref={triggerRef}
         className={cx(btnClassName, open && activeClassName)}
         title={cp.title}
         aria-label={cp.title}

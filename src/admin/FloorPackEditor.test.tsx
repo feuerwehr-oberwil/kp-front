@@ -168,7 +168,7 @@ describe('regions of one sheet', () => {
 })
 
 describe('«Geschoss hinzufügen»', () => {
-  it('the dashed row at the foot adds the next storey BELOW the lowest, on that floor\'s page', () => {
+  it('the add row at the foot adds the next storey BELOW the lowest, on that floor\'s page', () => {
     const onDraft = vi.fn()
     const twoPages = { ...item, page_count: 2, floors: [{ page: 0, index: 1, name: null }, { page: 1, index: 0, name: null }] }
     render(<FloorPackEditor item={twoPages} view="edit" onDraft={onDraft} />)

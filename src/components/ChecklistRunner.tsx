@@ -2,6 +2,8 @@ import { Icon } from '../lib/icons'
 import type { ChecklistTemplate, Item, Phase, TemplateState } from '../lib/checklists'
 import { phaseItems, phaseProgress, templateProgress } from '../lib/checklists'
 import { cx } from '../lib/cx'
+import { useRef } from 'react'
+import { usePageHeadFit } from '../lib/pageHeadFit'
 import { Segmented } from './Segmented'
 import { formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
@@ -20,14 +22,6 @@ const actionIcon: Record<NonNullable<Item['action']>, string> = {
   journal: 'history',
   plan: 'doc',
   draw: 'pen',
-}
-
-function Bar({ done, total, pct }: { done: number; total: number; pct: number }) {
-  return (
-    <div className={s['cl-bar']} title={`${done}/${total}`}>
-      <span className={s['cl-bar-fill']} style={{ width: `${pct}%` }} />
-    </div>
-  )
 }
 
 function ItemRow({
@@ -106,7 +100,6 @@ function PhaseBlock({
         </div>
         <span className={s['cl-phase-count']}>{pr.done}/{pr.total}</span>
       </header>
-      {pr.total > 0 && <Bar {...pr} />}
       {phase.note && <p className={s['cl-note']}>{phase.note}</p>}
 
       {phase.branches?.length ? (
@@ -157,17 +150,38 @@ export function ChecklistRunner({
 }) {
   const CL = appConfig.copy.checklists
   const overall = templateProgress(template, state)
+  // ONE ROW, like every page head (28.09.2026 — it stood 150px on the 820 tablet: a 21px title, a
+  // subtitle wrapping to two lines, then «0%», the bar and «0/8 erledigt» stacked in a column of
+  // their own). The title and its one quiet line left, the progress right on one line; what does
+  // not fit gives up words (lib/pageHeadFit): the subtitle, whole (never cut mid-word, 30.09.2026),
+  // then «erledigt».
+  const headRef = useRef<HTMLElement>(null)
+  usePageHeadFit(headRef, `${template.id}|${overall.done}|${overall.total}`)
   return (
     <div className={s['cl-runner']}>
-      <header className={s['cl-runner-head']}>
+      <header ref={headRef} className={s['cl-runner-head']}>
         <div className={s['cl-runner-titles']}>
           <h2>{template.title}</h2>
-          {template.subtitle && <p>{template.subtitle}</p>}
+          {/* the quiet line: ONE line, said WHOLE or not at all (30.09.2026 — «Aktions-Checkliste
+              Führ…» on the 820 tablet, «…Fü…» on the phone, is a word and a half that names
+              nothing). It is checked text and the ladder's FIRST fold, as every head's quiet line
+              is: the title above says which list it is either way. Whole in `title`. The phone
+              shows none of the titles: its chooser row names the list and this row is the
+              progress alone (Checklists.module.css). */}
+          {template.subtitle && (
+            <p title={template.subtitle} data-fit-check data-fold={1}><span className="fold-long">{template.subtitle}</span></p>
+          )}
         </div>
+        {/* «n/m erledigt» and nothing more (05.10.2026, owner: «the checklists don't need a progress
+            indicator. Occupies too much space»). The bar is gone — here and under every phase,
+            where the head's «n/m» already said it — and so is the «%» (30.09.2026: «0/8
+            erledigt» already says it). The words sit in the head row the title needs anyway;
+            on a narrow screen they move into the chooser row (ChecklistsView) and this row
+            goes. */}
         <div className={s['cl-overall']}>
-          <span className={s['cl-overall-num']}>{overall.pct}%</span>
-          <Bar {...overall} />
-          <span className={s['cl-overall-sub']}>{overall.done}/{overall.total} {CL.done}</span>
+          <span className={s['cl-overall-sub']} data-fold={2}>
+            {overall.done}/{overall.total}<span className="fold-long"> {CL.done}</span>
+          </span>
         </div>
       </header>
       {(template.phases ?? []).map((p) => (

@@ -1,3 +1,4 @@
+import { ShellLoader } from './ShellLoader'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Layer, Marker, Source, type MapRef } from 'react-map-gl/maplibre'
 import type { Map as MapLibreMap } from 'maplibre-gl'
@@ -14,7 +15,7 @@ import { SHAPE_DEFS, SHAPE_MAX_PX, ShapeGlyph, shapeAspect } from '../lib/shapes
 import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
 import { truppForLine, truppTagText } from '../lib/truppLines'
 import { lerpPoint } from '../lib/lineStyle'
-import { Segmented } from './Segmented'
+import { OnOff, Segmented } from './Segmented'
 import { krokiEntity, krokiSymbolMul } from '../lib/krokiPayload'
 import { forkBearing, pxPerM, shapePx, symPx, worldPx } from '../lib/mapView'
 import { ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
@@ -437,7 +438,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
           not a preview. The plate stays light at night (the sheet always is — `buildKrokiPayload`
           sends `base.tiles[0]`, never the night tiles); the CSS dims it to 80 % in the dark and
           gives it full brightness back under the hand. Everything that only helps with FRAMING —
-          the hint line, Hoch/Quer, ±, «Auf Einsatz zoomen» — stays outside it. */}
+          the hint line, Hoch/Quer, ±, «Folgt der Karte» — stays outside it. */}
       <div className={cx('kf-paper', !landscape && 'portrait')}>
         <div className={cx('kf-map', !landscape && 'portrait')}>
           {/* Something is placed outside this crop. An ARROW, not a forced zoom-out: what is
@@ -694,11 +695,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             {/* The DRAG is local; the reconstruction runs when the thumb comes to rest. Firing
                 it on every notch meant a fetch per pixel — the busy line blinked, the map
                 redrew mid-drag and the whole sheet flickered. */}
-            {/* The reconstruction reports itself ON the slider — a bar that runs along the
-                track it belongs to. The old «Lage wird rekonstruiert …» line sat beside the
-                control, needed a fixed slot so its coming and going didn't resize the bar
-                under the finger, and still said in eleven words what the track can say by
-                moving. */}
+            {/* The busy trail owns a fixed slot beside the time, so the slider stays still. */}
             {/* WHEN anything happened, as hairlines under the track. Without them «drag until
                 the picture shows it» is a blind search across the whole Einsatz — and the
                 moments worth stopping at are exactly the ones that left a Verlauf row or a
@@ -722,12 +719,12 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                 onKeyUp={() => commitDrag()}
                 onBlur={() => commitDrag()}
               />
-              <span className="kf-at-prog" aria-hidden="true" />
             </span>
+            <span className="kf-at-wait" aria-hidden="true">{atBusy && <ShellLoader />}</span>
             <b className="kf-at-val">{label}</b>
           </div>
         )}
-        {/* «Auf Einsatz zoomen» joins the ± pair: all three answer «show me more / less / all
+        {/* «Folgt der Karte» joins the ± pair: all three answer «show me more / less / all
             of it», and the old action row they were split across is gone with the confirm. */}
         {/* «Auf Einsatz zoomen» AND «folgt der Lage» are the same wish, so they are one control:
             pressing it fits now and keeps fitting, and the first hand-made pan turns it off. */}
@@ -736,9 +733,15 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             of its own — two ragged half-rows where the eye expects one row. Nesting them makes
             the button give up the width instead; the ± targets never shrink. */}
         <div className="kf-ctl-cluster">
-          <button type="button" className={cx('ip-btn kf-ctl-fit', follow && 'kf-ctl-follow')}
-            aria-pressed={follow} title={follow ? P.framingFollowOn : P.framingFollowOff}
-            onClick={fitAndFollow}><Icon id="cross" /> <span>{follow ? P.framingFollows : P.framingFit}</span></button>
+          {/* «Folgt der Karte» is a yes/no, so it is the `OnOff` pair (28.09.2026). It was ONE
+              button whose words flipped – «Auf Einsatz zoomen» off, «Folgt der Karte» on – so the
+              label said the state on one tap and the action on the next. «An» fits and keeps
+              fitting; a hand-made pan still sets it back to «Aus» (onMoveEnd). */}
+          <div className="kf-ctl-follow" title={P.framingFollowOn}>
+            <span className="kf-ctl-follow-l">{P.framingFollows}</span>
+            <OnOff ariaLabel={P.framingFollows} value={follow}
+              onChange={(v) => { if (v) fitAndFollow(); else setFollow(false) }} />
+          </div>
           {/* ± stays: with gloves on a tablet, pinching a crop into place is the fiddliest
               gesture the app asks for, and this is the one place where the exact framing IS
               the point. Beside the picture rather than on top of it. */}

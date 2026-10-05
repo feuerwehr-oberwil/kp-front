@@ -1,3 +1,4 @@
+import { ShellLoader } from '../ShellLoader'
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
@@ -21,12 +22,12 @@ import { Modal } from './_shared'
 // needs no station key AND it survives the Abschluss. (The alerting gateway's JWT still exists
 // on the wire and in every alarm text — nothing mints one by hand any more; see lib/viewLink.)
 //
-// The two doors (see lib/viewLink · shareDoors):
-//   · «Ganzer Einsatz – nur lesen» — Karte, Pläne, Verlauf, Fotos, Zeiten. For the Zentrale, den
-//                                    EL or a Nachbarwehr mid-Einsatz, and for der Gemeinde or a
-//                                    Nachbarwehr afterwards: it outlives the Abschluss.
-//   · «Nur Atemschutz – bedienen»  — the Überwachungstafel of this one Einsatz on somebody
-//                                    else's phone, and they operate it. Dies at the Abschluss.
+// The two doors (see lib/viewLink · shareDoors; one-line labels since 27.09.2026):
+//   · «Einsatz · lesen»    — Karte, Pläne, Verlauf, Fotos, Zeiten. For the Zentrale, den EL or a
+//                            Nachbarwehr mid-Einsatz, and for der Gemeinde or a Nachbarwehr
+//                            afterwards: it outlives the Abschluss.
+//   · «Trupps · bedienen»  — the Überwachungstafel of this one Einsatz on somebody else's phone,
+//                            and they operate it. Dies at the Abschluss.
 //
 // Where this surface is reached from, and why each is contextual rather than a link of its own:
 //   · «Teilen» im Einsatzkopf and on der Einsatz-Karte — the plain way in, opens on the
@@ -246,10 +247,10 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
 
   const kc = kindCopy(kind)
 
-  /* ⚠️ TWO LINES per segment, and the second one is the whole point: «Ganzer Einsatz» and «Nur
-     Atemschutz» say what the link shows, but the difference that matters at 3am is lesen ↔
-     bedienen. The shared `.useg` control is a one-line track, so `.esh-kind` gives it the
-     stacked geometry (13-incident.css) rather than a second segmented control existing.
+  /* ONE LINE per segment (27.09.2026, slim sweep 4b): «Einsatz · lesen» · «Trupps · bedienen».
+     It was two lines — «Ganzer Einsatz» over «nur lesen» — the app's only stacked segment; what
+     «Ganzer» and «Nur» carried, «lesen / bedienen» say more plainly, so the shared `.useg` track
+     is used as it is (`.esh-kind` only stretches it to the sheet's width, 13-incident.css).
      Absent with one door left (an abgeschlossener Einsatz): a chooser offering one choice is a
      question with one answer, and it would read as if something were missing. */
   const picker = doors.length > 1 && (
@@ -258,10 +259,7 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
         ariaLabel={C.shareKindLabel}
         value={kind}
         onChange={setPicked}
-        options={doors.map((d) => ({
-          value: d.kind,
-          label: <><b>{d.label}</b><small>{d.sub}</small></>,
-        }))}
+        options={doors.map((d) => ({ value: d.kind, label: d.label }))}
       />
     </div>
   )
@@ -275,7 +273,7 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
       <>
         {picker}
         <p className="esh-lede esh-pending" aria-busy="true">
-          <Icon id="rotate" className="spin" />{C.shareLoading}
+          <ShellLoader />{C.shareLoading}
         </p>
       </>
     )
@@ -306,7 +304,7 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
         <p className="esh-lede">{kc.lede}</p>
         <button type="button" className="ip-btn primary" disabled={busy}
           onClick={() => void run(() => createShareLink(incidentId, kind), C.shareCreateFailed)}>
-          <Icon id="external" />{busy ? C.shareBusy : C.shareCreate}
+          {busy ? <ShellLoader /> : <Icon id="external" />}{busy ? C.shareBusy : C.shareCreate}
         </button>
       </>
     )

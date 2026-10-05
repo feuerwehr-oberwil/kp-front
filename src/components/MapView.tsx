@@ -49,7 +49,7 @@ import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { uiBlue } from '../lib/themeToken'
 import { useIsPhone } from '../lib/useIsPhone'
-import { reportClientError } from '../lib/reportError'
+import { reportMapError } from '../lib/mapError'
 import { isTypingTarget } from '../lib/hotkeys'
 import { QuietAttributionControl } from './MapAttribution'
 import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
@@ -328,6 +328,9 @@ interface Props {
   /** a base-layer tile failed while offline — there is no cached basemap for this view. Fires
    *  per failed tile; the caller decides how often to say so (IncidentWorkspace · NoBasemapMeldung). */
   onBasemapUnavailable?: () => void
+  /** ONCE per MapView: the incident is framed and the first view has drawn everything it asked
+   *  for (tiles and sources loaded or failed). The opening cover lifts on it (lib/bootCover). */
+  onSettled?: () => void
   /** coordinate picker: while aiming the map shows a crosshair, the cursor lng/lat
    *  streams to onCursor, and the next map click locks the point via onPick. */
   picking?: boolean
@@ -422,7 +425,7 @@ export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
-    onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
+    onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
     onSelectionDone, georefPlanRasters = [] } = props
@@ -1109,6 +1112,20 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       } catch { /* map gone */ }
     }, 0)
   }, [fitPoints, initialBearing, initialZoom, mapReady])
+
+  // The first COMPLETE frame: framed (the fit above runs in a timeout-0 scheduled before this
+  // one) and every tile and source of that view loaded or failed — MapLibre's `idle`. Before it,
+  // the basemap arrives in patches and the content sits where the initial center put it.
+  const settled = useRef(false)
+  const onSettledRef = useRef(onSettled)
+  useEffect(() => { onSettledRef.current = onSettled })
+  useEffect(() => {
+    const map = mapInst.current
+    if (!map || !mapReady || settled.current) return
+    const fire = () => { if (!settled.current) { settled.current = true; onSettledRef.current?.() } }
+    const t = setTimeout(() => { try { map.once('idle', fire) } catch { /* map gone */ } }, 0)
+    return () => { clearTimeout(t); try { map.off('idle', fire) } catch { /* map gone */ } }
+  }, [mapReady])
 
   // The point symbols (hydrant, Schieber …), the arrowheads and the Schraffur tiles are
   // registered by <MapImages> — the first child of <Map>, because an effect waiting for
@@ -1906,7 +1923,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // field failure was invisible to the deployer. Report, but never rethrow: a failed tile
       // must not take the incident down.
       onError={(e) => {
-        reportClientError(e.error ?? new Error('map error'), { kind: 'error' })
+        reportMapError(e.error)
         // A BASE tile failing while the device is offline = no cached basemap for this view: the
         // map is a flat colour with symbols on it and nothing says why. MapLibre re-fires a
         // source's error at the map with the `sourceId` it belongs to (style.ts · setEventedParent);
@@ -1942,9 +1959,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Keep only the LOCAL bearing live per rotate frame (the tactical glyphs re-render with the
       // −bearing offset so they stay geographically pinned). Deliberately NOT calling onView here:
       // that re-renders all of IncidentWorkspace every frame of a two-finger rotate. onMoveEnd
-      // fires at the end of the gesture and updates App's view state then — the App-level compass /
-      // coord readout just settle on release instead of tracking every frame. The wind arrow is
-      // the exception – it turns WITH the finger, through its own store (lib/liveBearing).
+      // fires at the end of the gesture and updates App's view state then — the coord readout
+      // just settles on release instead of tracking every frame. The wind arrow and the compass
+      // needle are the exceptions – they turn WITH the finger, through their own store
+      // (lib/liveBearing), which re-renders only the two glyphs.
       onRotate={(e) => { setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing) }}
       // MapLibre says a genuine pan began. That (a) opens the pan gesture the trailing click is
       // measured against (see panGesture), (b) peeks the phone detail sheet down for as long as

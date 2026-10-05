@@ -31,7 +31,8 @@
 .eb-warn { margin: 0; color: var(--ink-faint); font-size: 12.5px; line-height: 1.4; }
 /* «Lokale Kopie verwerfen» while offline: the button disabled, and the REASON under it in the
    warning's register — amber glyph, the sentence beside it, read left to right like prose */
-.eb-actions .ip-btn:disabled { opacity: var(--disabled); cursor: default; background: var(--surface); }
+/* the ONE disabled (28.09.2026): the dim alone — the extra `background: var(--surface)` repainted the fill */
+.eb-actions .ip-btn:disabled { opacity: var(--disabled); cursor: default; }
 .eb-blocked { display: flex; gap: 8px; align-items: flex-start; text-align: left; color: var(--ink-dim); }
 .eb-blocked .i { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--amber-strong); }
 /* SurfaceBoundary — the same card, INSIDE one view. Not the fixed .login cover: it fills the
@@ -50,12 +51,14 @@
 /* brand lockup — app logo + wordmark, separated from the body by a hairline */
 .login-brand { display: flex; align-items: center; gap: 15px; padding-bottom: 22px;
   border-bottom: 1px solid var(--glass-edge); }
-.login-logo { width: 44px; height: 44px; flex: none; border-radius: 10px; box-shadow: 0 1px 4px color-mix(in srgb, #000 22%, transparent); }
+.login-logo { width: 44px; height: 44px; flex: none; border-radius: var(--r-sm); box-shadow: 0 1px 4px color-mix(in srgb, #000 22%, transparent); }
 .login-name { font-size: 16px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--ink); line-height: 1; }
 .login-sub { font-family: var(--mono); font-size: 11.5px; letter-spacing: .01em; color: var(--ink-faint); margin-top: 5px; }
 
-.login-hint { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-  color: var(--ink-faint); margin-bottom: -6px; }
+.login-hint {
+  margin-bottom: -6px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .login-state { display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: 30px 0; font-size: 13.5px; font-weight: 500; color: var(--ink-faint); text-align: center; }
 /* the roster-failed state carries a retry action: the headline reads in red, the instruction
@@ -89,9 +92,12 @@
   box-shadow: 0 2px 8px rgba(30, 45, 70, .25), inset 0 0 0 2px rgba(255, 255, 255, .22); }
 .roster-name { font-size: 14.5px; font-weight: 600; line-height: 1.25; color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.roster-role { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-  padding: 3px 9px; border-radius: var(--r-xs); background: rgba(30, 45, 70, .08); color: var(--ink-faint); }
-.roster-role.editor { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+/* the role is a neutral TAG — the .ip-badge recipe (10/700 uppercase .03em, 2px 7px, --r-xs) in
+   ink 10%, the same for every role (29.09.2026). «BEARBEITER» was red here and grey under the user
+   in the Einsatz menu; red means danger, and on the first screen at 3am it read as «something is
+   wrong with this account». Only the avatar wears the person's colour. */
+.roster-role { font: 700 10px var(--body); letter-spacing: .03em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: var(--r-xs); background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--ink-dim); }
 .roster-go { display: grid; place-items: center; flex: none; color: var(--ink-faint); }
 .roster-go .i { width: 18px; height: 18px; }
 /* single-user keeps its slightly roomier row */
@@ -150,9 +156,10 @@
 }
 .pin-key-fn .i { width: 22px; height: 22px; color: var(--ink-faint); }
 /* the ✓ — a digit-key body (same 76px target), its mark green once the PIN is long enough
-   to submit. Greying the ICON, not the key: a whole key fading in and out beside the digits
-   read as the pad itself becoming unavailable. */
+   to submit. Dimming the ICON, not the key: a whole key fading in and out beside the digits
+   read as the pad itself becoming unavailable. 28.09.2026: dimmed by the ONE disabled
+   (--disabled), not repainted grey — a colour-only «off» was the last one in the app. */
 .pin-key-ok .i { width: 26px; height: 26px; color: var(--green-strong); }
 .pin-key-ok:disabled { opacity: 1; }
-.pin-key-ok:disabled .i { color: var(--ink-tint); }
+.pin-key-ok:disabled .i { opacity: var(--disabled); }
 .pin-key-spacer { width: 76px; height: 76px; }

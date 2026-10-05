@@ -49,3 +49,27 @@ export function fmtStartValue(startedAt: string, days: Date[]): string {
   const t = hhmm(d)
   return days.length > 1 ? `${fmtDayShort(d)} ${t}` : t
 }
+
+/**
+ * «Mo 05.10.» — the day wheel's label. Not fmtDayShort («Mo., 05.10.»): the wheel column is the
+ * narrowest place that label ever goes, and on a 390px phone the comma version wrapped onto two
+ * lines and clipped under the selection band (owner, 05.10.2026). Weekday without its dot/comma,
+ * then the locale's own day.month.
+ */
+export function fmtWheelDay(d: Date): string {
+  const wd = d.toLocaleDateString(appConfig.locale, { weekday: 'short' }).replace(/[.,]+$/, '')
+  return `${wd} ${d.toLocaleDateString(appConfig.locale, { day: '2-digit', month: '2-digit' })}`
+}
+
+/** How far back the day column reaches when the caller names no days — an analog Einsatz entered
+ *  afterwards, a visit written up later. Bounded like every day wheel: a list, not a calendar. */
+export const RECENT_DAYS = 60
+
+/** Midnight of each calendar day from `from` to `to` (inclusive), oldest first. */
+export function dayRange(from: Date, to: Date): Date[] {
+  const out: Date[] = []
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  const last = new Date(to.getFullYear(), to.getMonth(), to.getDate())
+  while (d <= last && out.length < 400) { out.push(new Date(d)); d.setDate(d.getDate() + 1) }
+  return out
+}

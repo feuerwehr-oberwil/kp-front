@@ -1,3 +1,4 @@
+import { ShellLoader } from '../ShellLoader'
 import { useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { matchesQuery, searchQuery } from '../../lib/search'
@@ -18,6 +19,7 @@ import {
 } from '../../lib/incidents'
 import { getAdminSession } from '../../admin/adminAuth'
 import { Modal, fmtWhen } from './_shared'
+import { SearchField } from '../SearchField'
 
 // --- Datenquellen (Phase 7) ---------------------------------------------------------
 export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
@@ -127,7 +129,7 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
       )}
 
       <details className="ip-group" open>
-        <summary className="ip-group-head">{ds.globalDatasets} <span className="ip-group-count">{refs.length}</span></summary>
+        <summary className="ip-group-head">{ds.globalDatasets} <span className="ip-group-count">{refs.length}</span><Icon id="chevron-down" className="chev" /></summary>
         {refs.map((d) => (
           <div key={d.id} className="ip-ds">
             <div className="ip-ds-main">
@@ -161,16 +163,16 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
               <input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) { setNf(f); if (!nLabel) setNLabel(f.name.replace(/\.[^.]+$/, '')) } }} />
             </label>
-            <input className="ip-search" placeholder={ds.labelPlaceholder} value={nLabel} onChange={(e) => setNLabel(e.target.value)} />
-            <input className="ip-search" placeholder={ds.groupPlaceholder} value={nGroup} onChange={(e) => setNGroup(e.target.value)} />
+            <input className="ip-input" placeholder={ds.labelPlaceholder} aria-label={ds.labelPlaceholder} value={nLabel} onChange={(e) => setNLabel(e.target.value)} />
+            <input className="ip-input" placeholder={ds.groupPlaceholder} aria-label={ds.groupPlaceholder} value={nGroup} onChange={(e) => setNGroup(e.target.value)} />
             <div className="ip-addlayer-row">
               <Segmented<'line' | 'point'> ariaLabel={ds.kindLines} value={nKind} onChange={setNKind}
                 options={[{ value: 'line', label: ds.kindLines }, { value: 'point', label: ds.kindPoints }]} />
               <input type="color" value={nColor} onChange={(e) => setNColor(e.target.value)} aria-label={ds.color} />
               <button type="button" className="ip-btn" disabled={!nf || !nLabel.trim() || busy} onClick={() => void addLayer()}>
-                {busy ? ds.adding : ds.add}
+                {busy && <ShellLoader />}{busy ? ds.adding : ds.add}
               </button>
-              <button type="button" className="ip-btn ghost" disabled={busy} onClick={resetAdd}>{appConfig.copy.cancel}</button>
+              <button type="button" className="ip-btn" disabled={busy} onClick={resetAdd}>{appConfig.copy.cancel}</button>
             </div>
             <div className="ip-ds-note">{ds.geojsonNoteBefore}<code>geo:…</code>{ds.geojsonNoteAfter}</div>
           </div>
@@ -180,11 +182,9 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
       <div className="ip-group-head ip-objects-head">
         {ds.incidentObjects} <span className="ip-group-count">{objects.length} · {totalPlans} {ds.plansWord}</span>
       </div>
-      <input
-        className="ip-search"
-        placeholder={appConfig.copy.intake.objectSearchPlaceholder}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
+      <SearchField
+        className="ip-ds-search" value={query} onChange={setQuery}
+        placeholder={appConfig.copy.intake.objectSearchPlaceholder} aria-label={appConfig.copy.intake.objectSearchPlaceholder}
       />
 
       {near.length > 0 && (
@@ -197,8 +197,9 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
       <details className="ip-group" open={!!q || near.length === 0}>
         <summary className="ip-group-head">
           {near.length > 0 ? ds.allOther : ds.allObjects} <span className="ip-group-count">{rest.length}</span>
+          <Icon id="chevron-down" className="chev" />
         </summary>
-        {rest.length === 0 && <div className="ip-ds-note" style={{ padding: '6px 2px' }}>{appConfig.copy.noSymbolMatches}</div>}
+        {q && rest.length === 0 && <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</div>}
         {rest.map(ObjectRow)}
       </details>
     </Modal>

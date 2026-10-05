@@ -1,3 +1,4 @@
+import { LoadingStatus } from '../components/ShellLoader'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -75,7 +76,7 @@ function AlignmentCard({ item, busy, mark, onMark, onDecide, onOpen }: {
     : (item.page_count ?? 0) > 1 ? fillTemplate(G.pages, { n: item.page_count ?? 0 }) : null
   return <article ref={card} className={`adm-card${busy ? ' busy' : ''}${mark ? ` ${mark}` : ''}`} role="listitem" aria-label={label} aria-busy={busy}>
     <button type="button" className="adm-card-pic" onClick={() => onOpen(item)} aria-label={fillTemplate(G.open, { name: label })} disabled={busy}>
-      {image.url ? <img src={image.url} alt="" /> : <span className="adm-card-wait">{image.failed ? C.previewFailed : C.previewLoading}</span>}
+      {image.url ? <img src={image.url} alt="" /> : <span className="adm-card-wait">{image.failed ? C.previewFailed : <LoadingStatus size="surface">{C.previewLoading}</LoadingStatus>}</span>}
       {image.url && outlines.length > 0 && <svg viewBox={`0 0 ${aspect} 1`} aria-hidden>
         <g fill="none" stroke="#d012d6" strokeWidth=".004" vectorEffect="non-scaling-stroke">{outlines.map((points, i) => <polygon key={i} points={points} />)}</g>
       </svg>}

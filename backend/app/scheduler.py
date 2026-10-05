@@ -294,6 +294,21 @@ async def _sharepoint_pull() -> None:
             logger.exception("SharePoint-Pull failed")
 
 
+#: The Objektbesuche delivery outbox (app/object_visit_delivery). Registered unconditionally and
+#: idle while the module is off, no destination is enabled or the `sharepoint_export` credentials
+#: are incomplete — all three are set from the browser.
+OBJECT_VISIT_DELIVERY_TICK_SECONDS = 30
+
+
+async def _object_visit_delivery_tick() -> None:
+    from .object_visit_delivery import tick
+
+    try:
+        await tick()
+    except Exception:
+        logger.exception("Objektbesuche delivery tick failed")
+
+
 PRINT_JOB_RETENTION_DAYS = 7  # the paper is the artefact — the queue is transient
 PRINT_JOB_SWEEP_SECONDS = 3600
 
@@ -787,6 +802,17 @@ def _start_scheduler_jobs() -> None:
         coalesce=True,
     )
     jobs.append(f"SharePoint-Pull ({SHAREPOINT_TICK_SECONDS}s tick, idle without an app registration)")
+    _scheduler.add_job(
+        _object_visit_delivery_tick,
+        "interval",
+        seconds=OBJECT_VISIT_DELIVERY_TICK_SECONDS,
+        id="object_visit_delivery",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(
+        f"Objektbesuche-Ablage ({OBJECT_VISIT_DELIVERY_TICK_SECONDS}s tick, idle without an enabled destination)"
+    )
     # Nightly, and idle on a station that has not asked for it (`roster.autoSync: "off"`) or has
     # no Divera key — the same unconditional registration as the jobs above, for the same reason.
     _scheduler.add_job(

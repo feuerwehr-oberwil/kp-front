@@ -95,3 +95,35 @@ describe('Stepper — typing the value in', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 })
+
+// 30.09.2026: a rotation turned by hand is stored off the 15° grid (−46.509…°); ± lands on the
+// grid's next mark that way instead of carrying the odd fraction along forever
+describe('Stepper — snap', () => {
+  const rot = { min: -180, max: 180, step: 15, snap: true, ariaLabel: 'Drehung' }
+
+  it('steps from an off-grid value onto the next mark in that direction', () => {
+    const onChange = vi.fn()
+    render(<Stepper {...rot} value={-46.50917745051447} onChange={onChange} />)
+    tap(MORE)
+    expect(onChange).toHaveBeenLastCalledWith(-45)
+    fireEvent.pointerUp(screen.getByLabelText(MORE))
+    tap(LESS)
+    expect(onChange).toHaveBeenLastCalledWith(-60)
+  })
+
+  it('is plain ± step on the grid (and on a hair past it)', () => {
+    const onChange = vi.fn()
+    render(<Stepper {...rot} value={45.0000001} onChange={onChange} />)
+    tap(MORE)
+    expect(onChange).toHaveBeenLastCalledWith(60)
+    fireEvent.pointerUp(screen.getByLabelText(MORE))
+    tap(LESS)
+    expect(onChange).toHaveBeenLastCalledWith(30)
+  })
+
+  it('offers a whole number to type over', () => {
+    render(<Stepper {...rot} value={-46.50917745051447} format={(v) => `${Math.round(v)}°`} onChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('-47°'))
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('-47')
+  })
+})

@@ -10,7 +10,7 @@
 .ip-switch-glyph .i { width: 17px; height: 17px; }
 .ip-switch-btn {
   display: inline-flex; align-items: center; gap: 8px; max-width: 46vw; min-width: 0;
-  padding: 6px 12px; border: none; border-radius: var(--r-nested, var(--r-sm));   /* concentric with the bar — 01-tokens · --r-nested */
+  padding: 6px 12px; border: none; border-radius: var(--r-sm);   /* the bar around it is --r-bar — 01-tokens · «ONE corner» */
   background: var(--glass); box-shadow: var(--shadow-sm); color: var(--ink);
   font: 700 14px/1.1 var(--body); cursor: pointer;
 }
@@ -36,9 +36,10 @@
 /* loud offline pill in the switcher header — only shows while offline, so it never causes the
    constant saving↔saved layout flip; amber-on-tint so it reads at a glance at 3am */
 .ip-offline-chip { display: inline-flex; align-items: center; gap: 5px; flex: none;
-  padding: 2px 8px; border-radius: var(--r-pill); font-size: 12.5px; font-weight: 600; line-height: 1;
-  color: var(--amber); background: color-mix(in srgb, var(--amber) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 38%, transparent); }
+  padding: 2px 8px; border-radius: var(--r-xs); font-size: 12.5px; font-weight: 600; line-height: 1;
+  color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 16%, transparent); }
+/* ↑ the tag's corner and no edge (29.09.2026): roundness is map furniture's, and the tone is the
+   tint + ink, never an outline besides */
 .ip-offline-chip .ip-status-dot { width: 7px; height: 7px; }
 /* sync-error variant of the chip — red-on-tint with the warn glyph, same slot/behaviour */
 .ip-error-chip { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent);
@@ -90,12 +91,14 @@
    own actions along its bottom. Everything below it is deliberately lighter, so one look
    sorts the menu into «jetzt» and «läuft auch» (field feedback 2026-08-25: every row carried the
    same weight). Replaces the old flat .ip-menu-head + the two action rows. */
-/* the fill is a soft tile with a breath of the status green in it — over the white day surface
-   `--surface-2` alone was invisible, and the tint says «läuft» in the same colour as the edge */
+/* ONE green on this card (29.09.2026, owner pick A): the «✓ Gespeichert» pill. The 4px green
+   left stripe and the green breath in the fill said «läuft» a second and third time, and with the
+   green ages under it turned green into decoration, dulling the one green that is a state. The
+   fill is a soft ink tile — over the white day surface `--fill-soft` alone was invisible. */
 .ip-card { display: flex; flex-direction: column; gap: 3px; margin: 2px 2px 6px;
   padding: 10px 12px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--green) 6%, var(--fill-soft));
-  border: 1px solid var(--glass-edge); border-left: 4px solid var(--green); }
+  background: color-mix(in srgb, var(--ink) 4%, var(--fill-soft));
+  border: 1px solid var(--glass-edge); }
 /* Title row: Einsatzname · ÜBUNG · Sync, in that order of who gives way. It does NOT wrap —
    the marker and the button would drop to a line of their own and the button would stop being
    «top right» — so the NAME is the flexible one and everything else is `flex: none`. */
@@ -112,10 +115,13 @@
    «Einsatzbeginn 20:14 · 1 h 32» never fit on one line, and both are read, not glanced at */
 .ip-card-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
 .ip-card-pill { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%;
-  padding: 3px 9px; border-radius: var(--r-pill); font: 600 11.5px var(--body);
+  padding: 3px 9px; border-radius: var(--r-xs); font: 600 11.5px var(--body);   /* a tag's corner, not a pill (29.09.2026) */
   color: var(--ink-dim); background: color-mix(in srgb, var(--ink-faint) 14%, transparent); }
 .ip-card-pill > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ip-card-pill svg, .ip-card-pill .i { width: 12px; height: 12px; flex: none; }
+/* (27.09.2026, slim sweep · mockup 10, decision D1) the pills say «✓ Gespeichert» — the Trupps
+   head's words for the same fact, the time in the title — and «🕓 21:22 · 1 h 54», where the
+   clock glyph is the label and «Einsatzbeginn» rides along as the title. */
 /* the sync pill wears its state — same colours as the mark in the top bar (.ip-status-*),
    spelled out here because the pill's own rule would otherwise win on order */
 .ip-card-pill.ip-status-synced { color: var(--green-strong); background: color-mix(in srgb, var(--green) 14%, transparent); }
@@ -138,27 +144,47 @@
    267.1px, against 297px on a 360px phone and 325px on a 390px one. Only a 320px viewport
    (260px of row) falls 7px short, and there the label ellipsises rather than wrapping — which
    is the whole reason it is its own <span>. */
-.ip-card-acts { display: flex; align-items: center; flex-wrap: nowrap; gap: 3px;
-  margin: 8px -6px -4px; padding-top: 6px; border-top: 1px solid var(--glass-edge); }
-.ip-card-act { display: inline-flex; align-items: center; gap: 5px; min-height: 40px; min-width: 0;
-  padding: 6px 9px; border: none; background: none; border-radius: var(--r-sm);
-  color: var(--ink); cursor: pointer; font: 600 12.5px var(--body); }
-.ip-card-act > span:not(.ip-badge) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ⚠️ THREE TILES, not three bare words (27.09.2026, slim sweep · mockup 10): this was the only
+   place in the app with naked text buttons side by side. Each is a `.head-tile.sm` (the family
+   above — 36px inside a card, the one corner, the 1px edge). «Abschliessen» is the amber one — it
+   ends the Einsatz — and its open count sits on the tile's CORNER (below), because «Abschliessen»
+   alone fills a third of a 320px card.
+   ⚠️ CONTENT-SIZED, never truncated (owner screenshot 27.09.2026 evening, r2-6): the first build
+   made them three EQUAL thirds with an ellipsis for the word that did not fit — and on the
+   owner's phone that word was the verb itself, «Abschliess…». The sums above were also wrong
+   about the row: inside the phone's ÜBUNG menu it MEASURES 308px at 390 and ~278px at 360 (menu
+   inset + card edge + card padding), so a third is 97px, and «Abschliessen» plus the family's
+   padding wants 103. A verb never ellipsises: each tile is as wide as its word plus 8px each side,
+   and the row's slack is added to all three alike (`flex-grow` on top of the content width, so
+   «Abschliessen» stays the widest, «Teilen» the narrowest, and the row still runs edge to edge).
+   `min-width: max-content` is the no-truncation rule in one property — a tile can never be
+   squeezed under its word; if a locale ever outgrows the row, the row overflows visibly instead of
+   lying. Measured 27.09.2026 (Sora, 12px, 8px padding): de 248px, fr «Modifier · Transmettre ·
+   Clore» and it «Modifica · Condividi · Chiudi» shorter, en shortest — all inside 278px at 360. */
+.ip-card-acts { display: flex; gap: 6px; margin-top: 10px; }
+.ip-card-act { position: relative; flex: 1 1 auto; min-width: max-content; }
+/* three classes, so it outranks `.head-tile.sm` (declared later, same two-class weight): the
+   family's 8px is the floor a tile keeps inside the card — 6px read as a chip, not a tile */
+.ip-card .ip-card-acts .ip-card-act { padding: 0 8px; }
+.ip-card-act > span:not(.ip-badge) { white-space: nowrap; }
 @media (max-width: 479px) {
-  .ip-card-act { font-size: 12px; padding: 6px 7px; }
+  .ip-card .ip-card-acts .ip-card-act { font-size: 12px; }
   .ip-card-act svg { display: none; }
 }
-@media (hover: hover) {
-  .ip-card-act:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
-}
-.ip-card-act:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-card-act svg { width: 15px; height: 15px; opacity: .65; flex: none; }
+/* the open count as a CORNER badge — the phone nav's amber count (05-navrail · .nav-count.nav-open),
+   same fill, same digits (11/800 since 28.09.2026), same 16px — riding the tile's top-right corner instead of taking a
+   word's width inside it */
+.ip-card-act > .ip-badge-todo { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;
+  box-sizing: border-box; padding: 0 4px; border-radius: var(--r-xs); background: var(--amber); color: var(--on-fill);
+  font: 800 11px/16px var(--body); letter-spacing: 0; text-align: center; }
 /* «Jetzt synchronisieren» at the title row's right edge — pinned there at every width, so the
    Einsatz's connection state and the button that refreshes it sit on the same line. Pulled
    slightly out of the card's padding so the ICON, not the button's box, lines up with the
-   right edge of the text below it. */
-.ip-card-sync { flex: none; display: grid; place-items: center; width: 32px; height: 32px;
-  margin: -3px -4px 0 0; padding: 0; border: none; border-radius: var(--r-sm);
+   right edge of the text below it. A --tap square at every width (29.09.2026) — it was 32px
+   off a touch screen, under the 44px floor; the negative margins keep the title row's height. */
+.ip-card-sync { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
+  margin: -9px -10px -9px 0; padding: 0; border: none; border-radius: var(--r-sm);
   background: none; color: var(--blue-strong); cursor: pointer; }
 @media (hover: hover) {
   .ip-card-sync:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); }
@@ -166,28 +192,22 @@
 .ip-card-sync:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-card-sync svg { width: 16px; height: 16px; opacity: 1; }
 .ip-card-sync:disabled { cursor: default; }
-/* Spinner → tick, as ONE circle rather than two icons swapped: r=9 ⇒ circumference ≈ 56.5, and
-   every dash length below is cut to that. Busy draws a ~quarter arc and rotates it; done closes
-   the arc to a full ring and strokes the tick through it, so the eye follows the same shape from
-   «working» to «erledigt» and no words are needed for the most boring outcome there is.
-   The component is src/components/SyncGlyph.tsx — shared by the Einsatz sync button, the
-   Offline-Bereitschaft load (.or-done below) and the Anwesenheit reload. */
+/* Shared sync controls use Shell trail while busy and the existing ring/tick on success. */
 .sync-glyph { display: block; overflow: visible; fill: none; stroke: currentColor;
   stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.sync-ring { stroke-dasharray: 14 43; transform-origin: 50% 50%; animation: spin .75s linear infinite; }
+.sync-ring { stroke-dasharray: 57 57; }
 .sync-tick { stroke-dasharray: 14; stroke-dashoffset: 14; }
-/* done: the ring completes (no longer spinning) and the tick draws in just behind it */
+/* Done: a full ring and the completion tick. */
 .sync-glyph.on { color: var(--green); }
 .sync-glyph.on .sync-ring { animation: none; stroke-dasharray: 57 57; stroke-dashoffset: 0;
   transition: stroke-dasharray .26s var(--ease); }
 .sync-glyph.on .sync-tick { stroke-dashoffset: 0; transition: stroke-dashoffset .3s var(--ease) .14s; }
-/* reduced motion: keep the STATES (arc → closed ring + tick), drop the spin and the draw-on */
+/* Reduced motion keeps the completion state and drops the draw-on. */
 @media (prefers-reduced-motion: reduce) {
-  .sync-ring { animation: none; }
   .sync-glyph.on .sync-ring, .sync-glyph.on .sync-tick { transition: none; }
 }
 /* small-caps section label inside the dropdown (e.g. "Dieser Einsatz") — same idiom as .set-group-t */
-.ip-menu-label { margin-top: 8px; padding: 4px 12px 2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.ip-menu-label { margin-top: 8px; padding: 4px 12px 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 
 .ip-menu {
   position: absolute; top: calc(100% + 8px); left: 0; min-width: min(300px, 88vw); max-width: min(430px, 92vw);
@@ -207,11 +227,12 @@
 .ip-menu-row { display: flex; align-items: flex-start; gap: 10px; width: 100%; min-width: 0;
   text-align: left; padding: 7px 12px; min-height: 44px; border: none; background: none;
   border-radius: var(--r-ctl); cursor: pointer; color: var(--ink); font: 700 13.5px var(--body); }
-/* the green says «läuft» — every row in this list is a running Einsatz. --accent is the brand
-   red and would say something else entirely. The 1px nudges the smaller type onto the same
-   baseline as the title beside it (align-items is flex-start, for the two-line rows). */
+/* a read-out, so --ink-dim (29.09.2026): every row here is a running Einsatz, and a green age on
+   each of them made green the menu's decoration — the card's «✓ Gespeichert» is its one green.
+   The 1px nudges the smaller type onto the same baseline as the title beside it (align-items is
+   flex-start, for the two-line rows). */
 .ip-menu-when { flex: none; width: 62px; padding-top: 1px; font: 600 11.5px var(--body);
-  font-variant-numeric: tabular-nums; color: var(--green-strong); }
+  font-variant-numeric: tabular-nums; color: var(--ink-dim); }
 @media (hover: hover) {
   .ip-menu-row:hover, .ip-menu-act:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 }
@@ -235,7 +256,7 @@
    iOS-style — small-caps group label, hairline-divided rows in a soft card, footnote below */
 .set-sheet { display: flex; flex-direction: column; gap: 24px; }
 .set-group { display: flex; flex-direction: column; gap: 8px; }
-.set-group-t { margin: 0 0 0 4px; font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+.set-group-t { margin: 0 0 0 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .set-card { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2); overflow: hidden; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 14px; min-height: 56px; }
 .set-row + .set-row { border-top: 1px solid var(--glass-edge); }
@@ -267,8 +288,13 @@
   .set-dl:hover:not(:disabled) { border-color: var(--glass-line); }
 }
 .set-dl:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.set-dl:disabled { opacity: var(--disabled); }
+.set-dl:disabled { opacity: var(--disabled); cursor: default; }
 .set-dl svg { width: 15px; height: 15px; }
+/* the Standort name: the value IS the button (SettingsSheet), so a long name ellipsises instead
+   of pushing the row wider than a phone; right-aligned like the Aus/An pairs above it (owner, 05.10.2026) */
+.set-name { max-width: 100%; min-width: 0; margin-left: auto; }
+.set-name-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.set-name svg { flex: none; }
 
 /* Offline-Bereitschaft sheet — a glanceable readiness checklist + one load-all action */
 .or-sheet { display: flex; flex-direction: column; gap: 14px; }
@@ -315,12 +341,14 @@
 /* the download sits UNDER the install button in a browser tab — still offered, not the headline.
    Doubled selector: .or-load is declared further down, so equal specificity would let it win. */
 
+/* ⚠️ THE primary (28.09.2026): it wore --ink-fill directly, which at night is a #2b3545 patch on a
+   #232c3a sheet (1.14:1) — the one action of the sheet had no edge. 800: it is the single action. */
 .or-load { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap);
-  border: none; border-radius: var(--r-sm); background: var(--ink-fill); color: var(--on-accent-ink);
-  font: 700 14px var(--body); cursor: pointer; }
+  border: none; border-radius: var(--r-sm); background: var(--btn-primary); color: var(--on-btn-primary);
+  font: 800 14px var(--body); cursor: pointer; }
 .or-load svg { width: 17px; height: 17px; }
 @media (hover: hover) {
-  .or-load:hover:not(:disabled) { background: var(--ink-fill-hover); }
+  .or-load:hover:not(:disabled) { background: var(--btn-primary-hover); }
 }
 .or-load:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .or-load:disabled { opacity: var(--disabled); cursor: default; }
@@ -331,10 +359,11 @@
   transition: width .25s var(--ease); min-width: 10px; }
 .or-prog-meta { display: flex; align-items: center; justify-content: space-between; font: 600 12.5px var(--body); color: var(--ink-dim); }
 .or-prog-pct { font-family: var(--mono); font-weight: 700; color: var(--blue-strong); font-variant-numeric: tabular-nums; }
-/* percentage + the ghost «Abbrechen» beside it — 44px tall so the glove finds it, pulled in so
-   its invisible border lines up with the bar's edge */
+/* percentage + «Abbrechen» beside it — 44px tall so the glove finds it. ⚠️ Framed since
+   28.09.2026 (owner pick A: a cancel is a framed `.ip-btn`, never a bare word), so it no longer
+   pulls itself in: its edge IS the bar's edge now. */
 .or-prog-end { display: flex; align-items: center; gap: 10px; }
-.or-prog-cancel { min-height: var(--tap); padding: 0 10px; font-size: 12.5px; margin-right: -10px; }
+.or-prog-cancel { min-height: var(--tap); padding: 0 12px; font-size: 12.5px; }
 /* a finished load: the bar's place closes into the sync vocabulary — ring + tick + «bereit» —
    for a moment before the button returns (component · justLoaded). Same 44px slot as the button
    and roughly the bar block's height, so nothing under it jumps. */
@@ -379,11 +408,12 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* «Jetzt aktualisieren» — only while a build is actually waiting, so the foot is a build stamp
    the rest of the time. Quiet: the update is good news, not a demand. */
-.ip-menu-update { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 32px;
-  padding: 4px 10px; border: 1px solid var(--glass-line); border-radius: var(--r-pill);
+.ip-menu-update { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: var(--tap);
+  padding: 4px 12px; border: 1px solid var(--glass-line); border-radius: var(--r-sm);   /* a button: one corner, --tap (29.09.2026) */
   background: var(--surface); color: var(--blue); font: 700 12px var(--body); cursor: pointer; }
 .ip-menu-update .i { width: 13px; height: 13px; stroke-width: 2.2; }
-.ip-menu-update:disabled { color: var(--ink-faint); cursor: default; }
+/* the ONE disabled (28.09.2026): the dim, not a colour swap */
+.ip-menu-update:disabled { opacity: var(--disabled); cursor: default; }
 @media (hover: hover) {
   .ip-menu-update:hover:not(:disabled) { background: var(--fill-soft); }
 }
@@ -429,8 +459,12 @@
    so without a keyboard nothing here applies. The layout viewport does NOT shrink for the
    keyboard (iOS never did), so a centred sheet kept its middle and its footer sat behind the
    keys on an iPad. Ride to the top edge and cap the frame against the measured keyboard — the
-   composer's own answer (10-journal.css · --jc-kb). Phones lift by margin instead (15-mobile). */
-.ip-sheet.ui-dialog.is-kb { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+   composer's own answer (10-journal.css · --jc-kb). Phones lift by margin instead (15-mobile).
+   ⚠️ `+ --vv-pan` (30.09.2026): the top is measured in the LAYOUT viewport, and once iOS has panned
+   the page to reveal the caret the screen shows that viewport from `offsetTop` down — a frame at a
+   bare 12px stood the pan above the screen's top and ended the pan above the keys. Plus the pan it
+   is the visible band inset by 12px, whatever iOS did (lib/useViewportPan). */
+.ip-sheet.ui-dialog.is-kb { top: calc(max(12px, env(safe-area-inset-top)) + var(--vv-pan, 0px)); transform: translateX(-50%);
   height: min(800px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 .ip-sheet.ip-fit.ui-dialog.is-kb { height: auto; max-height: min(800px, calc(100dvh - 24px - var(--kb-inset, 0px))); }
 /* …and the same answer for every OTHER dialog, because `.ip-sheet` was never the only one with a
@@ -441,7 +475,7 @@
    six copies: three classes (`:not()` weighs as one), so it outranks every `.x.ui-dialog` pair
    that owns the centring, and `.ip-sheet` opts out because it is handled above with its own 800px
    frame. Without a keyboard `is-kb` is absent and none of this exists. */
-.ui-dialog.is-kb:not(.ip-sheet) { top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+.ui-dialog.is-kb:not(.ip-sheet) { top: calc(max(12px, env(safe-area-inset-top)) + var(--vv-pan, 0px)); transform: translateX(-50%);
   max-height: calc(100dvh - 24px - var(--kb-inset, 0px)); }
 /* ── overlays leave the way they came ──
    Base UI keeps [data-starting-style]/[data-ending-style] on Backdrop + Popup and delays the
@@ -467,8 +501,9 @@
 /* 800, like EVERY other title in the app — Anwesenheit, Mittel, Atemschutz, Checklists, Hilfe and
    the Rapport all set their h2 at 800/19. At 700 the dialog heads («Weitere Person erfassen»,
    «Anderes Objekt») were a visibly lighter cut of Sora than the surface behind them, which reads
-   as a different typeface rather than as a smaller heading. */
-.ip-head h2 { margin: 0; font: 800 19px var(--body); color: var(--ink); }
+   as a different typeface rather than as a smaller heading. 17, not 19, since 28.09.2026: the
+   one sheet-title size (01-tokens · --sheet-title), a step under the page head behind it. */
+.ip-head h2 { margin: 0; font: var(--sheet-title); color: var(--ink); }
 /* ⚠️ `display: grid`, not the default inline flow. The ✕ is an inline SVG in a padding-only box,
    so it sat on the text BASELINE: the box came out taller than it is wide (the descender space
    below the glyph) and the ✕ itself rode a couple of pixels high of centre — which is what made
@@ -494,7 +529,7 @@
 .ip-body { padding: 6px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
 
 .ip-field { display: flex; flex-direction: column; gap: 5px; }
-.ip-field > span { font: 600 12px var(--body); color: var(--ink-dim); }
+.ip-field > span { font: var(--field-label); color: var(--ink-dim); } /* the one field label (28.09.2026; was 600) */
 .ip-field input, .ip-field select, .ip-input {
   padding: 11px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); font: 500 15px var(--body); color: var(--ink);
@@ -503,10 +538,10 @@
    Anwesenheit remark) — same control, just not wrapped in a label block */
 .ip-input { width: 100%; min-width: 0; }
 /* One focus ring for every intake/wizard field — a visible blue halo so the EL always
-   sees which control is live (gloved, 3am), instead of the browser default outline. */
-.ip-field input:focus, .ip-field select:focus, .ip-textarea:focus, .ip-search:focus, .ip-input:focus {
-  outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent);
+   sees which control is live (gloved, 3am), instead of the browser default outline. Since
+   28.09.2026 it is THE field focus of the whole app, as the --focus-* pair (01-tokens). */
+.ip-field input:focus, .ip-field select:focus, .ip-textarea:focus, .ip-input:focus {
+  outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo);
 }
 /* ── field with a ✕ that empties it (components/ClearableInput) ───────────────────────────
    The ✕ OVERLAPS the field's right padding rather than sitting beside it, so a clearable field
@@ -528,38 +563,105 @@
 }
 .ci-clear svg { width: 15px; height: 15px; }
 
-/* spinning glyph for in-progress actions (taking an alarm, opening/saving an Einsatz) so the
-   rotate icon reads as "working", not a frozen refresh button */
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { animation: spin .9s linear infinite; transform-origin: 50% 50%; }
-/* reduced motion: without this the spin freezes into a static glyph that reads as a dead refresh
-   button. An opacity pulse is exempt from the catch-all on purpose — it is an activity signal
-   without motion (nothing travels or rotates). !important on the duration so 03-map's global
-   .001ms rule does not zero it (same-origin !important: .spin outranks `*`); same idiom as the
-   .sync-ring guard above, which swaps its spin for the completed-states story. */
-@keyframes spin-pulse { 50% { opacity: .35; } }
-@media (prefers-reduced-motion: reduce) {
-  .spin { animation: spin-pulse ease-in-out infinite; animation-duration: 1.4s !important; }
-}
-/* The «Übung» toggle chip (EinsatzWizard) — a proper button, not a native `<input
-   type="checkbox">` (05.09. fix). One control, self-aligned left like the fields above it rather
-   than centred like `.ip-btn`, so it reads as a property of the form and not a footer action. */
-.ip-ex-toggle { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px;
-  min-height: var(--tap); padding: 0 12px 0 8px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
-  background: var(--surface-2); color: var(--ink-dim); font: 700 12.5px var(--body); cursor: pointer; }
-@media (hover: hover) {
-  .ip-ex-toggle:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--glass-edge)); }
-}
-.ip-ex-toggle:active { background-image: linear-gradient(var(--press), var(--press)); }
-.ip-ex-toggle.on { background: color-mix(in srgb, var(--blue) 12%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 50%, transparent); color: var(--blue-strong); }
-/* the box: an empty outline until pressed, then the same tick every other confirm chip draws —
-   recognisable as «a checkbox» at a glance without being a checkbox */
-.ip-ex-toggle-box { flex: none; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid currentColor;
-  display: grid; place-items: center; color: var(--ink-faint); }
-.ip-ex-toggle.on .ip-ex-toggle-box { color: var(--blue-strong); }
-.ip-ex-toggle-box .i { width: 11px; height: 11px; opacity: 0; transition: opacity .12s var(--ease); }
-.ip-ex-toggle.on .ip-ex-toggle-box .i { opacity: 1; }
+/* ── THE search field (components/SearchField, 29.09.2026 · sweep C1) ─────────────────────
+   «Type to narrow this list» had ten recipes — a framed white box (Anwesenheit, Mittel, the
+   Trupp form), a grey pill (Palette, PlanPicker, Verlauf), a veil with a shadow and no ✕ (Alle
+   Einsätze), a ruled band (Hilfe, the Combo list), a bare native `type=search` (SharePosition,
+   Datenquellen) — and a ✕ in five sizes, the smallest ~23px on the two busiest tablet lists.
+   ONE look now, the pill the majority already wore: `--fill-soft`, --tap tall, the one corner,
+   and on focus it turns white with the one field focus on the BOX (the input wears nothing).
+   A surface places it with its own class (flex, margin); it never re-skins it. The ✕ is a full
+   --tap square at the pill's right end, so the pill needs no right padding. 16px text: iOS
+   zooms the page into anything smaller the moment it takes focus. */
+.ui-search { display: flex; align-items: center; gap: 8px; min-width: 0; height: var(--tap);
+  padding: 0 0 0 13px; border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-faint);
+  cursor: text; }
+/* placement at zero specificity, so a host's one class (`.search { flex: 1 1 240px }`) wins
+   whichever stylesheet loads first */
+:where(.ui-search) { flex: none; }
+.ui-search > .i { flex: none; width: 17px; height: 17px; }
+.ui-search:focus-within { background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
+/* the bare input: TWO classes, so a host form's `.field input` (one class + one element) cannot
+   draw a second box inside the pill — the Trupp form did */
+.ui-search .ui-search-input { flex: 1 1 auto; min-width: 0; align-self: stretch; margin: 0; padding: 0 12px 0 0;
+  border: none; border-radius: 0; background: transparent; outline: none; box-shadow: none;
+  font: 500 16px var(--body); color: var(--ink); }
+.ui-search .ui-search-input:focus, .ui-search .ui-search-input:focus-visible { border: none; outline: none; box-shadow: none; }
+.ui-search .ui-search-input::placeholder { color: var(--ink-faint); }
+.ui-search .ui-search-input::-webkit-search-cancel-button { display: none; }
+/* the live «2 von 42» — read at a glance, never wrapped; the ✕ (or the pill's end) follows it */
+.ui-search-count { flex: none; padding-right: 12px; font: 700 12px var(--body); color: var(--ink-faint);
+  white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ui-search-count + .ui-search-x { margin-left: -12px; }
+.ui-search-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
+  padding: 0; border: none; border-radius: var(--r-sm); background: none; color: var(--ink-dim); cursor: pointer;
+  -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) { .ui-search-x:hover { color: var(--ink); } }
+.ui-search-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.ui-search-x .i { width: 16px; height: 16px; }
+/* THE one modifier — a card whose whole head IS the search (TruppFinder): the card is the
+   surface, so no pill and no focus ring of its own, and the query is the loudest thing on it
+   (18/700), because answering it is what the overlay is for. */
+.ui-search-head { flex: 1 1 auto; height: auto; min-height: var(--tap); padding: 0; background: none; }
+.ui-search-head:focus-within { background: none; box-shadow: none; }
+.ui-search-head > .i { width: 19px; height: 19px; }
+.ui-search-head .ui-search-input { font: 700 18px var(--body); }
+.ui-search-head .ui-search-input::placeholder { font-weight: 600; }
+
+/* ── THE ⓘ toggle (components/InfoToggle, 29.09.2026 · sweep C2) ─────────────────────────
+   It had four «open» looks in three sizes: white 14→28% (dark docks), an accent-red frame
+   (QR-Bogen — station red saying «help is open»), the ink «where you are» pill (Verlauf) and the
+   blue choice fill (Georef). One now: the grey icon chip of the sheet ✕ (36px, 18px glyph, a 44px
+   pad), and OPEN = the blue wash with a `--blue-strong` glyph. The dark docks keep DockInfo. */
+.ui-info { position: relative; flex: none; display: grid; place-items: center; width: 36px; height: 36px;
+  padding: 0; border: none; border-radius: var(--r-sm); cursor: pointer;
+  background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim);
+  -webkit-tap-highlight-color: transparent; }
+.ui-info::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
+  transform: translate(-50%, -50%); }
+@media (hover: hover) { .ui-info:not(.on):hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); } }
+.ui-info:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.ui-info.on { background: var(--sel-wash); color: var(--blue-strong); }
+.ui-info .i { width: 18px; height: 18px; }
+
+/* ── THE warning inside a form (29.09.2026 · sweep C3) ────────────────────────────────────
+   Lifted from the Trupp form (Atemschutz.module.css · .formWarn, 28.09.) so every other warning
+   wears it too: a rounded --r-sm box over a 10% tint of the tone, the LEADING GLYPH in the tone,
+   the sentence ink 13/700 — never red or amber body text, never a border, never a full band.
+   `--warn-tone` / `--warn-glyph` switch it: red (the default) blocks or is broken, `.form-warn-amber`
+   does not block. `.form-warn-act` is its one action: compact (12.5/700, 36px, 44 hit), FRAMED
+   in the tone, never filled and never 800. `.form-warn-compact` is the one-line note under a
+   field (no --tap floor). Sites: Trupp form, Rapport Kontrolle, Zeiten, QR-Bogen save, Georef
+   quality, Demo, Zeitplan double booking. */
+.form-warn { --warn-tone: var(--red); --warn-glyph: var(--red-strong);
+  margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; min-height: var(--tap);
+  border: 0; border-radius: var(--r-sm); background: color-mix(in srgb, var(--warn-tone) 10%, transparent);
+  font: 700 13px/1.4 var(--body); color: var(--ink); text-align: left; }
+.form-warn-amber { --warn-tone: var(--amber); --warn-glyph: var(--amber-strong); }
+.form-warn > .i, .form-warn > svg { width: 16px; height: 16px; flex: none; color: var(--warn-glyph); }
+.form-warn-text { flex: 1 1 0; min-width: 12em; }
+.form-warn-compact { min-height: 0; padding: 7px 10px; font-size: 12.5px; }
+.form-warn-act { position: relative; flex: none; min-height: 36px; padding: 0 12px; border-radius: var(--r-sm);
+  border: 1px solid color-mix(in srgb, var(--warn-tone) 40%, transparent); background: var(--surface);
+  font: 700 12.5px var(--body); color: var(--warn-glyph); cursor: pointer; }
+.form-warn-act::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+.form-warn-act:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.form-warn-act:disabled { opacity: var(--disabled); cursor: default; }
+@media (hover: hover) { .form-warn-act:hover:not(:disabled) { background: color-mix(in srgb, var(--warn-tone) 10%, var(--surface)); } }
+
+/* ── «no hits» (29.09.2026 · sweep C8) — one line, one look, for every search that came back
+   empty: «Keine Treffer für «{q}».» (`copy.noHits`), or a noun where the noun helps («Kein Trupp
+   gefunden»). It had six recipes, one of them the app's only italic line — read as a quote. */
+.no-hits { margin: 0; padding: 20px 12px; text-align: center; font: 500 13px var(--body); color: var(--ink-faint);
+  font-style: normal; overflow-wrap: anywhere; list-style: none; }
+
+/* The «Übung» row (EinsatzWizard) — an `OnOff` pair beside its name (28.09.2026; it was a
+   tick-box chip). The `.set-row` recipe without the card: name + consequence left, the pair
+   right. The label gives way (min-width 0), never the pair — at 360px «Zählt nicht zur
+   Einsatzstatistik» wraps to two lines and «Aus | An» keeps its full tap width. */
+.ip-onoff-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: var(--tap); }
+.ip-onoff-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; font: 600 14.5px var(--body); color: var(--ink); }
+.ip-onoff-l small { font: 500 12px var(--body); color: var(--ink-faint); }
 
 .ip-actions, .ip-row-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
 /* The footer row of a SHEET pays for its own breathing room. It used to have none, so every new
@@ -588,19 +690,69 @@
   .ip-btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 }
 .ip-btn.primary:disabled { opacity: var(--disabled); cursor: default; }
-/* delete (Übungen in «Alle Einsätze») — red-tinted outline, never a solid destructive button */
-.ip-btn-danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); }
-@media (hover: hover) {
-  .ip-btn-danger:hover { background: color-mix(in srgb, var(--red) 10%, transparent); }
-}
-.ip-btn.ghost { background: none; border-color: transparent; }
-/* ⚠️ `.ip-btn danger` was written at a call site that predates the rename (BandGrid's
+/* delete (Übungen in «Alle Einsätze», a confirm's destructive answer) — THE delete look
+   (01-tokens · --del-*, 28.09.2026): red outline on the surface, never a solid destructive button.
+   ⚠️ `.ip-btn danger` was written at a call site that predates the rename (BandGrid's
    «Schicht entfernen»); an alias costs nothing and stops the destructive button rendering
    identical to «Abbrechen» the next time somebody reaches for the obvious name. */
-.ip-btn.danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); }
+.ip-btn-danger, .ip-btn.danger { color: var(--del-ink); border-color: var(--del-edge); background: var(--surface); }
 @media (hover: hover) {
-  .ip-btn.danger:hover { background: color-mix(in srgb, var(--red) 10%, transparent); }
+  .ip-btn-danger:hover, .ip-btn.danger:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 }
+.ip-btn.ghost { background: none; border-color: transparent; }
+/* ── THE ROW IS THE BUTTON (28.09.2026, owner pick A) ──
+   No bare blue word as an action. Where a text action ends a row («Standard: 300 bar · Kanal 11 —
+   Ändern») the WHOLE row is one <button>: its text in ink, the verb in --ink-dim 12.5/700 with a
+   16px › after it, one press wash across all of it, ≥44px. A blue word at the end of a line was a
+   44px target on a 300px row — and blue means «chosen» now (01-tokens · --sel). The surface gives
+   the row its ground (a soft inset, a card); the idiom is only the shape and the ink. */
+.row-go { display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--tap); margin: 0;
+  padding: 0 8px 0 14px; border: none; border-radius: var(--r-sm); background: none; color: var(--ink);
+  font: 700 13px var(--body); text-align: left; cursor: pointer; }
+.row-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.row-go:disabled { opacity: var(--disabled); cursor: default; }
+.row-go-text { flex: 1 1 auto; min-width: 0; }
+.row-go-word { flex: none; display: inline-flex; align-items: center; gap: 2px; font: 700 12.5px var(--body); color: var(--ink-dim); }
+.row-go-word .i { width: 16px; height: 16px; }
+
+/* ═══ ONE TILE FAMILY for the controls of a page head (27.09.2026, slim sweep · mockups 2 + 10) ═══
+   The Rapport head wore three recipes on one row — an amber OUTLINE pill, two framed squares and
+   a light-FILLED split button — and the Einsatz card in the switcher menu a fourth (three bare
+   words in a row). One recipe now, the phone Trupp card's tile (Atemschutz.module · .trowActs):
+   --tap tall, the one corner, a 1px edge, bold 13.5px. MEANING is the text colour plus a faint
+   tint of it (`.amber` = something waits for the operator) — never an outline of its own, never
+   a fill. `.sq` is the --tap square a glyph-only control takes; `.sm` is the 36px a tile takes
+   INSIDE a card, where --tap would out-weigh the card's own text.
+   Composed onto the classes the controls already wear (.ip-btn, .rp-state, .ip-card-act), so
+   what they DO is untouched — only their coat is shared. ⚠️ Declared AFTER .ip-btn: same
+   specificity, so this is the one that has to be later for its font and padding to win. */
+.head-tile { display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: var(--tap); padding: 0 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: 700 13.5px var(--body); white-space: nowrap;
+  cursor: pointer; }
+.head-tile.sq { width: var(--tap); min-width: var(--tap); padding: 0; flex: none; }
+.head-tile.sm { min-height: 36px; padding: 0 8px; font-size: 12.5px; }
+/* one glyph size, centred by the flex line — no baseline offsets to fix per glyph */
+.head-tile svg, .head-tile .i { width: 16px; height: 16px; flex: none; }
+.head-tile.amber { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
+@media (hover: hover) {
+  .head-tile:hover:not(:disabled) { background: var(--hover-strong); }
+  .head-tile.amber:hover:not(:disabled) { background: color-mix(in srgb, var(--amber) 16%, var(--surface)); }
+}
+.head-tile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.head-tile:disabled { opacity: var(--disabled); cursor: default; }
+/* an icon-only head tile is still a tap wide (the page head's ladder folds a tile to its glyph) */
+.head-tile:not(.sm) { min-width: var(--tap); }
+/* ── fold: what a page head gives up, measured (lib/pageHeadFit) ──────────────────────────────
+   A part that can give wears `data-fold="<rank>"`; the ladder sets `data-folded` on it when its
+   rank's turn comes. Inside it, `.fold-long` shows until then and `.fold-short` after — the word
+   a tile drops (no short: the glyph stays alone), the time the quiet line drops, «Trupp anmelden»
+   → «Trupp». The word is always the tile's aria-label / title too, so the hold-tooltip says it.
+   A part that folds twice (`data-fold="1 8"`) loses its short word too at its second rank and
+   keeps only its glyph — the quiet «✓ Gespeichert» becoming «✓». */
+[data-fold]:not([data-folded]) .fold-short, [data-folded] .fold-long, [data-folded="2"] .fold-short { display: none; }
+
 .ip-note { color: var(--ink-faint); font: 500 13px var(--body); }
 /* ⚠️ THIS RULE DID NOT EXIST. `.ip-hint` is rendered in the Gast dialog (and read as the
    house hint class), so that paragraph fell through to the UA default: 16px in full --ink
@@ -638,12 +790,19 @@
 .ip-hist-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* incident status badge in the Einsätze list (own class — must NOT collide with the
    fixed-size sync .ip-status above, which would clamp it to 16px and clip the label) */
-.ip-badge { font: 700 10px var(--body); letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--r-xs); flex: none; white-space: nowrap; }
-.ip-badge-open { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
-.ip-badge-work { background: color-mix(in srgb, var(--red) 13%, transparent); color: var(--red); }
+/* …and the ONE tag recipe (28.09.2026): the poster's «ÜBUNG» (.cv-badge-exercise) wears it too —
+   it was a 10.5/800 pill beside the tablet's 10/700 corner for the same word. */
+.ip-badge, .cv-badge-exercise { font: 700 10px var(--body); letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--r-xs); white-space: nowrap; }
+.ip-badge { flex: none; }
+/* ONE status tag, «Abgeschlossen» (29.09.2026, owner: «we just need tags to say an emergency is
+   closed. open is the default state»). «Offen» and «In Arbeit» (a blue pill until today) are gone
+   from every list: a running Einsatz is the normal case, and a tag on the normal case is noise. */
 .ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
-/* Übung — amber so a training is never mistaken for a real Einsatz (switcher + lists) */
-.ip-badge-exercise { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+/* a good-news tag («empfohlen») — the green of «done», never a fill */
+.ip-badge-ok { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green-strong); }
+/* Übung — amber so a training is never mistaken for a real Einsatz (top bar switcher, lists,
+   and the poster: one look for one word, 28.09.2026) */
+.ip-badge-exercise, .cv-badge-exercise { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 /* «2 offen» — the same amber, named after what it means rather than after the Übung it borrows
    from: something is outstanding and the operator is about to act as if it were not. */
 .ip-badge-todo { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); text-transform: none; }
@@ -651,18 +810,23 @@
    ellipsises, and a drill must never lose the word that says so (the card's title line spaces
    its own badge via flex gap) */
 .ip-menu-row .ip-badge { flex: none; }
+/* the per-row «Abschliessen» is COMPACT (29.09.2026): 12.5/700 at its word's width, still --tap
+   tall — five 14px buttons down the list out-shouted the row's real action, opening it */
+.ip-hist-close { font-size: 12.5px; padding: 0 12px; min-height: var(--tap); flex: none; }
 .ip-hist-sub, .ip-ds-sub { font: 500 12px var(--body); color: var(--ink-faint); margin-top: 2px; }
+/* when it ran (05.10.2026): day · start–end · duration, a step stronger than the address under it —
+   it is what tells two «Brand» rows apart at 3am. Tabular figures so the spans line up. */
+/* offline line over the list: viewing works, the lifecycle buttons need the server */
+.ip-hist-offline { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; font: 500 12.5px var(--body); color: var(--amber-strong); }
+.ip-hist-offline svg { width: 15px; height: 15px; flex: none; }
+.ip-hist-when { font: 600 12.5px var(--body); color: var(--ink-dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
 /* rapport lifecycle badges (derived, lib/rapportStatus) */
 /* Alle Einsätze: search + time-group headers — the list grows by one row per Einsatz
    forever, so an old incident must stay findable without endless scrolling */
-.ip-hist-search { display: flex; align-items: center; gap: 9px; padding: 4px 14px; min-height: 48px;
-  border-radius: var(--r-ctl); background: var(--surface-veil); box-shadow: var(--shadow-sm); }
-.ip-hist-search .i { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
-.ip-hist-search input { border: none; outline: none; background: transparent; width: 100%;
-  font: 500 14px var(--body); color: var(--ink); }
-.ip-hist-group { margin: 10px 2px 0; font: 800 11.5px var(--body); color: var(--ink-faint);
-  text-transform: uppercase; letter-spacing: .05em; }
-.ip-hist-nores { margin: 4px 2px; font: 500 13px var(--body); color: var(--ink-faint); font-style: italic; }
+.ip-hist-group {
+  margin: 10px 2px 0;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 
 /* --- Rapport closing checklist (inside the Einsatzrapport sheet) --------------------- */
 /* Not a card any more — a plain stack of them. The four rows sit at COLUMN level, beside the
@@ -739,12 +903,22 @@
 @media (max-width: 520px) {
   .rp-check-extra { padding-left: 12px; }
 }
-/* floating way back to the Rapport sheet after a checklist row navigated away */
+/* floating way back to the Rapport sheet after a checklist row navigated away.
+   ⚠️ A piece of the floating family since 26.09.2026 (01-tokens · --float-*): it was a filled
+   primary capsule of its own height and shadow, the one pill-shaped rectangle left in the app. */
+/* «Zurück zum Rapport» — a FILLED primary pill, not the glass float it was until 05.10.2026: a
+   white chip over a list of white cards read as one more row («make the zurück zum Rapport button
+   more obvious», owner). It is the one way back to the task the operator came from, so it wears
+   the app's primary fill (like OK / Übernehmen) and leads with a back chevron. */
 .rp-return { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
-  z-index: var(--z-topbar); display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 18px;
-  border: none; border-radius: var(--r-pill); background: var(--btn-primary); color: var(--on-btn-primary);
-  font: 700 14px var(--body); cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
-.rp-return svg { width: 16px; height: 16px; }
+  z-index: var(--z-topbar); display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box;
+  min-height: var(--float-h); padding: 0 calc(var(--float-pad-x) + 4px) 0 var(--float-pad-x);
+  border: none; border-radius: var(--r-sm); color: var(--on-btn-primary);
+  background: var(--btn-primary);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--ink) 28%, transparent);
+  font: 700 14px var(--body); cursor: pointer; white-space: nowrap; }
+.rp-return:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.rp-return svg { width: 18px; height: 18px; color: currentColor; flex: none; }
 
 /* --- Standing links: the WAITING screen (/terminal · /l/s…) ---------------------------- */
 /* «Bereitschaft» (Entwurf B, maintainer pick 09.09.) — see src/link/StandingApp · IdleScreen
@@ -764,8 +938,10 @@
 .sl-glyph svg { width: 100%; height: 100%; stroke-width: .8; }
 @media (min-width: 760px) { .sl-glyph { width: 300px; height: 300px; transform: translate(-50%, -54%); } }
 /* which surface this is, in the voice a kicker uses — small, tracked, quiet */
-.sl-kicker { display: inline-flex; align-items: center; gap: 8px; flex: none;
-  font: 600 12px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+.sl-kicker {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .sl-kicker svg { width: 14px; height: 14px; flex: none; }
 .sl-middle { position: relative; margin: auto 0; display: flex; flex-direction: column; align-items: center; }
 
@@ -798,7 +974,7 @@
 /* «Zuletzt geprüft 03:14:22» — the proof that a calm screen is not a dead one (the last
    standing poll, STANDING_POLL_MS). The dot blips once per 10s cycle and then stands down. */
 .sl-checked { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px;
-  border-radius: var(--r-pill); background: var(--surface-veil);
+  border-radius: var(--r-sm); background: var(--surface-veil);   /* a read-out: the one corner, not a pill (29.09.2026) */
   font: 500 12px var(--body); color: var(--ink-faint); }
 .sl-checked b { font: 500 12px var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .sl-blip { width: 6px; height: 6px; border-radius: 50%; background: var(--green);
@@ -888,25 +1064,25 @@
 .cv-item-sub { font: 500 12.5px var(--body); color: var(--ink-faint); }
 /* group divider — only rendered when the list actually mixes tonight's Einsatz with the
    unreported backlog, so the common single-row list stays header-free */
-.cv-list-head { margin: 6px 2px 0; font: 800 11.5px var(--body); color: var(--ink-faint);
-  text-transform: uppercase; letter-spacing: .05em; }
+.cv-list-head {
+  margin: 6px 2px 0;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .cv-list + .cv-list { margin-top: 4px; }
-/* Übung — same amber as the tablet's .ip-badge-exercise: a drill or a test run must never
-   be mistaken for the real Einsatz, on the surface where untrained people tick names off */
-.cv-badge-exercise { display: inline-block; margin-left: 6px; padding: 1px 7px; vertical-align: 1px;
-  border-radius: var(--r-pill); font: 800 10.5px var(--body); text-transform: uppercase; letter-spacing: .04em;
-  white-space: nowrap; /* wraps to its own line on a narrow phone rather than splitting */
-  background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+/* Übung — the tablet's .ip-badge-exercise itself (shape, type and amber are shared above): a
+   drill or a test run must never be mistaken for the real Einsatz, on the surface where
+   untrained people tick names off. Only its place in the title line is its own; nowrap (above)
+   sends it to its own line on a narrow phone rather than splitting it. */
+.cv-badge-exercise { display: inline-block; margin-left: 6px; vertical-align: 1px; }
 .cv-input { min-height: 44px; padding: 8px 12px; border-radius: var(--r-ctl); border: 1px solid var(--glass-line);
   background: var(--surface); color: var(--ink); font: 500 15px var(--body); width: 100%; }
 /* search + ⓘ: the tap-cycle explanation hides behind the info toggle (inline it crowded the card) */
 .cv-search-row { display: flex; align-items: center; gap: 8px; }
-/* ⚠️ The field is RECESSED against the sticky band, not the same white as it. Both carried
-   `--surface`, so the input's own hairline border vanished into the band behind it and the
-   search read as a seamless white bar with the ⓘ floating on it — no edges, no field. */
-.cv-search-row .cv-input { flex: 1; min-width: 0; background: var(--fill-soft); }
-.cv-search-row .cv-input:focus { background: var(--surface); outline: none;
-  border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
+/* the field is THE search (components/SearchField, 29.09.2026): the grey pill is RECESSED against
+   the sticky band — a white field on the white band read as a seamless bar with no edges */
+.cv-search { flex: 1; }
+/* every other QR-Bogen field: the one field focus (28.09.2026) */
+.cv-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* The search stays put while its list scrolls. A roster is long enough that filtering it means
    scrolling to the name, and the field that filtered it had already scrolled off the top — so
    correcting a typo meant scrolling back up to find the box. Stacks UNDER the section head,
@@ -924,10 +1100,8 @@
   /* it floats OVER the list while scrolling, so it needs an edge — without one the band and
      the first row underneath it merged into one white shape */
   border-bottom: 1px solid var(--glass-line); }
-.cv-info { display: grid; place-items: center; width: 44px; height: 44px; flex: none; cursor: pointer;
-  border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-sm); }
-.cv-info.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-.cv-info svg { width: 18px; height: 18px; }
+/* (the ⓘ beside the search is THE InfoToggle since 29.09.2026 — it wore a 44px frame that
+   turned station red while its help was open) */
 /* «Erfasste N» — the check-back filter beside the search box. GREEN when on, the same ink the
    anwesend rows carry, so the filter and what it keeps read as one idea; --accent is the brand
    red and never means state. Off it is a plain neutral control, so an unfiltered roster can
@@ -946,7 +1120,7 @@
 .cv-none.on { border-style: solid; color: var(--green-strong);
   border-color: color-mix(in srgb, var(--green) 50%, transparent);
   background: color-mix(in srgb, var(--green) 14%, transparent); }
-.cv-none:disabled { opacity: var(--disabled); }
+.cv-none:disabled { opacity: var(--disabled); cursor: default; }
 /* Partnerorganisationen on the poster: organisation + one free line, same two fields the
    tablet asks for. Stacks on a phone, which is what the poster is scanned with. */
 .cv-partners { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -983,9 +1157,9 @@
 .cv-beilagen-list img { flex: none; width: 52px; height: 52px; object-fit: cover; border-radius: var(--r-sm);
   border: 1px solid var(--glass-edge); background: var(--fill-soft); }
 .cv-beilagen-list .cv-input { flex: 1 1 auto; min-width: 0; }
-.cv-beilagen-add { cursor: pointer; }
+.cv-beilagen-add { cursor: pointer; background: none; border: 1px dashed var(--glass-edge); }
 .cv-beilagen-add input { display: none; }
-.cv-beilagen-add.busy { opacity: .6; pointer-events: none; }
+.cv-beilagen-add.busy { opacity: var(--disabled); pointer-events: none; }
 
 /* The poster's button, on the app's ONE button spec (AGENTS.md · Buttons): neutral secondary by
    default, `--btn-primary` for the single action a screen is about (.cv-pdf / .cv-primary below).
@@ -998,8 +1172,12 @@
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
   color: var(--ink); font: 700 14px var(--body); cursor: pointer; white-space: nowrap; }
 .cv-btn:disabled { opacity: var(--disabled); cursor: default; }
-/* «hinzufügen» rows: a dashed outline that reads as «there is room for one more». */
-.cv-btn-add { background: none; border: 1px dashed var(--glass-edge); color: var(--ink); }
+/* «hinzufügen» rows (the Gast door): framed like every other .cv-btn (27.09.2026, slim sweep ·
+   mockup 5). They wore a dashed outline «that reads as there is room for one more» — but dashed
+   means «missing / hidden / placeholder» everywhere else in the app, and it was the third frame
+   style on one poster. The ONE dashed add that stays is the Beilagen «Foto hinzufügen» below:
+   decision D6, it is also the drop target for a file, and a target is a placeholder. */
+.cv-btn-add { color: var(--ink); }
 @media (hover: hover) {
   .cv-btn-add:hover:not(:disabled) { border-color: var(--ink-faint); }
 }
@@ -1022,7 +1200,8 @@
   background: color-mix(in srgb, var(--blue) 12%, var(--surface)); }
 .cv-person.station .cv-person-state { color: var(--blue-strong);
   background: color-mix(in srgb, var(--blue) 18%, transparent); }
-.cv-person.left { opacity: .65; }
+/* gegangen = GONE: the ONE done dim (01-tokens · --done-opacity, 28.09.2026 — it was .65) */
+.cv-person.left { opacity: var(--done-opacity); }
 /* «Gast» — a row that no Mannschaftsliste is behind. Neutral, quiet, and BEFORE the state chip:
    it says where the name came from, not how the person is doing. */
 .cv-person-guest { flex: none; margin-left: auto; padding: 2px 7px; border-radius: var(--r-pill);
@@ -1056,15 +1235,9 @@
   gap: 8px 10px; justify-content: end; width: 100%; }
 .cv-counts .cv-count-row { display: contents; }
 .cv-counts .cv-count-row > span { text-align: right; }
-.cv-error { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); font: 600 13.5px var(--body);
-  flex-wrap: wrap; }
-.cv-error svg { width: 16px; height: 16px; flex: none; }
-.cv-error-text { flex: 1; min-width: 0; }
-/* the retry INSIDE the red error banner — the one place red is right on an action here
-   («broken, act now»), and now the only red button on the page rather than the default skin */
-.cv-retry { background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red);
-  border-color: color-mix(in srgb, var(--red) 30%, transparent); }
+/* the save failure is THE form warning (`.form-warn`, 29.09.2026 — it was red body text with a
+   red-tinted retry); its retry is the compact framed `.form-warn-act`. This only places it. */
+.cv-error { flex: none; }
 .cv-row { display: grid; grid-template-columns: minmax(112px, 148px) 1fr; align-items: center;
   gap: 8px 12px; font: 600 13.5px var(--body); color: var(--ink); }
 .cv-row > span:first-child { min-width: 0; }
@@ -1112,11 +1285,11 @@
   color: var(--ink); font: 600 14.5px var(--body); font-variant-numeric: tabular-nums; }
 .timefield-input.dt { width: 176px; }
 .timefield-input::placeholder { color: var(--ink-faint); font-weight: 500; }
-.timefield-input:disabled { opacity: var(--disabled); }
+.timefield-input:disabled { opacity: var(--disabled); cursor: default; }
 .timefield-now { min-height: 44px; padding: 6px 12px; border: 1px solid var(--glass-line);
   border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
   font: 600 13px var(--body); cursor: pointer; }
-.timefield-now:disabled { opacity: var(--disabled); }
+.timefield-now:disabled { opacity: var(--disabled); cursor: default; }
 
 /* the wheel popover: snap-scrolling columns under a fixed center band */
 .wheelpop { z-index: var(--z-picker); padding: 10px; border-radius: var(--r-ctl);
@@ -1134,14 +1307,20 @@
      NOT on yet is the entire job of this popover. */
   font: 600 15px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .wheel-item.on { color: var(--ink); font-weight: 750; }
+/* the day column: the widest label, so the widest column — and ONE line, always. It used to share
+   flex:1 with hour and minute, and «Mo. 05.10.» wrapped into two lines that clipped under the
+   band on a phone (owner, 05.10.2026). Hour/minute rows stay full-width 44px targets. */
+.wheel.wheel-day { flex: 1.6 1 0; min-width: 0; }
+.wheel-day .wheel-item { white-space: nowrap; font-size: 14px; }
 .wheelpop-sep { width: 1px; background: var(--glass-line); margin: 28px 2px; }
 /* the SELECTION band of the time wheel — --blue for the same reason as .combo-toggle.on above:
    it marks what is chosen, and brand red does not mean «chosen» anywhere else in the app */
 .wheelpop-band { position: absolute; left: 0; right: 0; top: 88px; height: 44px;
   pointer-events: none; border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--blue) 10%, transparent);
-  border-top: 1px solid color-mix(in srgb, var(--blue) 40%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--blue) 40%, transparent); }
+  /* all four sides: with top/bottom only, the rounded ends showed two lines fading into
+     nothing at the left and right — «the border on the side isn't showing» (owner, 05.10.2026) */
+  border: 1px solid color-mix(in srgb, var(--blue) 40%, transparent); }
 .wheelpop-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 10px; }
 .wheelpop-actions .wheelpop-btn.clear { margin-right: auto; }
 .wheelpop-btn { min-height: 44px; padding: 6px 12px; border-radius: var(--r-sm);
@@ -1152,8 +1331,10 @@
 .wheelpop-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
 
 .cv-matgroup { display: flex; flex-direction: column; gap: 2px; }
-.cv-matgroup-head { font: 700 11.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
-  color: var(--ink-faint); padding: 6px 0 2px; }
+.cv-matgroup-head {
+  padding: 6px 0 2px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .cv-mittel li.used .cv-mittel-label { color: var(--accent); font-weight: 700; }
 .cv-rueck { flex-wrap: wrap; }
 .cv-textarea { min-height: 64px; resize: vertical; width: 100%; box-sizing: border-box; }
@@ -1284,7 +1465,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    page you arrive at from three different places the only one that did not look like the others.
    Same paddings/typography as .head in Anwesenheit.module.css — kept here rather than moved into
    a module because every other class on this surface already lives in app.css. */
-/* ⚠️ The head WRAPS. Four controls plus their gaps want ~756px; on a 1024px iPad in portrait —
+/* (history — superseded 28.09.2026 by the one-row head below) The head WRAPPED. Four controls plus their gaps want ~756px; on a 1024px iPad in portrait —
    a primary orientation — the head has 876px of content box, and the title was handed 104px of
    it. `.rp-head-actions` was `flex: none`, which pins a flex item at its max-content width and
    makes its own `flex-wrap` unreachable: nothing could ever constrain it enough to wrap. So the
@@ -1296,26 +1477,33 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    actions are asked to wrap before the title is squeezed to nothing, the actions may shrink, and
    the head itself may become two rows. A second row costs ~52px of a surface that scrolls; a
    clipped print button costs the paper. */
-/* THE surface header (tokens · --head-*) — the same object as the Anwesenheit, Atemschutz and
-   Mittel heads. This one's proportions became the shared spec: it is the head that had already
-   worked out both problems (a titles block that takes its own row rather than squeezing, and a
-   summary allowed to wrap), so the other three were levelled to it rather than the other way. */
-.rp-head { flex: none; display: flex; align-items: center; gap: var(--head-gap); flex-wrap: wrap;
-  padding: var(--head-pad);
-  background: var(--surface); border-bottom: 1px solid var(--glass-edge); }
-.rp-head-titles { flex: 1 1 var(--head-titles-min); min-width: 0; }
+/* THE surface header (tokens · --head-*) — the same object as the Trupps, Anwesenheit, Material
+   and Checkliste heads (components/Surface.module.css · .head, restated here because every other
+   class on this surface lives in app.css): ONE ROW at every width since 28.09.2026 — the title
+   and its quiet line left, the tiles right. What does not fit gives up words, measured
+   (lib/pageHeadFit · ReportPreflight `RP_FOLD`); a second row (`data-fit-wrap`) is the last
+   resort. The squeeze the old wrap answered is now the ladder's: a cut <h2> or chip count is
+   «does not fit», so the words go before the title is ever squeezed. */
+.rp-head { flex: none; display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap;
+  padding: var(--head-pad); min-height: calc(var(--tap) + 2 * var(--head-pad-y));
+  background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge); }
+.rp-head-titles { flex: 1 1 auto; min-width: 0; }
+.rp-head[data-fit-wrap] { flex-wrap: wrap; }
+.rp-head[data-fit-wrap] > .rp-head-titles { flex-basis: 100%; }
+/* on the second row the chip may give again (its label ellipsizes) — the row is then all there is */
+.rp-head[data-fit-wrap] .rp-head-actions { flex: 0 1 auto; max-width: 100%; }
 /* it truncates, exactly as the line under it always did — an <h2> that does not is an <h2> that
    paints over whatever is beside it */
 .rp-head-titles h2 { margin: 0; font: var(--head-title); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the verdict line — only «alle Angaben erfasst» since 23.09.2026; what is still open is the
    Kontrolle chip's business (ReportPreflight · openInControl) */
-.rp-head-sum { margin: var(--head-sub-gap) 0 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
-  font-size: var(--head-sub); color: var(--ink-dim); min-width: 0; }
+.rp-head-sum { margin: var(--head-sub-gap) 0 0; display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 10px;
+  font-size: var(--head-sub); line-height: 16px; color: var(--ink-dim); min-width: 0; overflow: hidden; }
 .rp-head-done { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .rp-head-done svg { width: 13px; height: 13px; }
-.rp-head-actions { flex: 0 1 auto; min-width: 0; margin-left: auto;
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.rp-head-actions { flex: none; margin-left: auto;
+  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-content: flex-end; }
 /* Each control keeps its own width when the cluster wraps — only the print split may give, and
    it gives by truncating its label, never by dropping its ▾. The readiness chip is NOT allowed
    to become icon-only here: it is the one control on this row that reports a problem, and the
@@ -1337,13 +1525,22 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    `nowrap` block below). The rule above levels both halves (it matches however deep they sit);
    what is overridden here is only the SEAM between them, and that is what says this is one
    control rather than two that happen to touch. The outer silhouette keeps the row's --r-sm. */
+/* ⚠️ FRAMED, not filled (27.09.2026, slim sweep · mockup 2): the split pair was the row's one
+   light-filled control, and a fourth recipe beside the amber pill and the grey squares. It wears
+   the head's tile now — the halves share ONE frame and meet on a hairline seam (the main half
+   gives up its right edge, the ▾ keeps its left one), so the pair still reads as one control with
+   two doors and never as two buttons that happen to touch. What each half does is unchanged. */
 .rp-split { display: inline-flex; align-items: stretch; min-width: 0; max-width: 100%; }
-.rp-split .rp-split-main { min-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0;
+.rp-split .rp-split-main { min-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: none;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-split .rp-split-more { flex: none; width: var(--tap); padding: 0; justify-content: center;
-  border-top-left-radius: 0; border-bottom-left-radius: 0;
-  border-left: 1px solid color-mix(in srgb, var(--on-btn-primary) 35%, transparent); }
-.rp-print-menu { min-width: 240px; max-width: min(340px, 92vw); padding: 6px; border-radius: var(--r-ctl);
+  border-top-left-radius: 0; border-bottom-left-radius: 0; }
+/* the short word for the main half — «PDF», where the full «Einsatzrapport (PDF)» does not fit
+   (`.fold-short`, lib/pageHeadFit); the doc glyph goes with the long label, so the folded tile is
+   the word and the ▾, as in mockup 2, and the busy spinner still takes its place */
+.rp-pdf-short { position: relative; }
+.rp-pdf-wait { position: absolute; inset: 0; display: grid; place-items: center; }
+.rp-print-menu { min-width: 240px; max-width: min(340px, 92vw); padding: var(--bar-pad); border-radius: var(--r-bar);
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — the radius, the hover/press wash and the red row live on `.ui-menu-item` /
    `.ui-menu-danger` (see «ONE menu row» below), which every row of this menu also wears. */
@@ -1361,9 +1558,18 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    transformed positioner, so a z-index on it is inert (see the ⚠️ in lib/overlays/Menu.tsx).
    The admin raises this while it is mounted — see the scoped block at the end of admin.css. */
 .ui-menu-pos { z-index: var(--z-menu); }
+/* EVERY menu fits the screen and scrolls inside itself (05.10.2026, owner's iPhone: the Rapport's
+   «PDF ▾» Abschnitte ran off the bottom). `--available-height` is what the positioner measured
+   between the trigger and the viewport edge on the side it chose, less `collisionPadding`; the
+   dvh is the fallback before the first measure. `:where` keeps this at one class of weight, so a
+   menu that sets its own cap (`.jc-pendenz-menu`, SurfaceControls' menus) still wins. */
+:where(.ui-menu-pos) > .ui-pop { max-height: var(--available-height, 70dvh); overflow-y: auto;
+  overscroll-behavior: contain; }
 .ui-menu-sep { height: 1px; margin: 5px 8px; background: var(--glass-edge); }
-.ui-menu-head { padding: 6px 10px 3px; font: 700 10.5px var(--body); letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ink-faint); }
+.ui-menu-head {
+  padding: 6px 10px 3px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .ui-menu-check { flex: none; display: grid; place-items: center; width: 17px; height: 17px;
   border-radius: 4px; border: 1.5px solid var(--border-strong, var(--border)); }
 .ui-menu-check svg { width: 12px; height: 12px; fill: none; stroke: var(--surface); stroke-width: 3;
@@ -1406,13 +1612,15 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* Same material as the buttons it stands in line with — .ip-btn is `--surface` on `--glass-edge`.
    On `--surface-2` + `--border` the chip read as a slightly translucent hole between two solid
    buttons; the row levelled height and corner but never the surface. */
-.rp-state { display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; cursor: pointer;
-  min-width: 0; border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
-  font: 700 12.5px var(--body); }
-.rp-state svg { width: 15px; height: 15px; flex: none; }
-.rp-state.ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
-.rp-state.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
-  background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
+/* ⚠️ Content CENTRED (owner, staging 26.09.2026: «fix the padding of the noch offen button»): on
+   a phone the chip takes the row's slack (below · `flex: 1 1 auto`), and with its glyph and words
+   hugging the left it stood as a wide box with 12px on one side and ~120px on the other — a text
+   field, not a button. Centred, the air is even; on a wide head it hugs its content anyway. */
+/* (27.09.2026) The chip IS a head tile — `.head-tile.amber` above carries its whole coat (the
+   amber text + faint tint that says «something waits», 13.5px like its neighbours; it was 12.5px
+   and read as a pill among buttons). What is left here is only what the chip does that a tile
+   does not: it may shrink, and its label gives before its neighbours do. */
+.rp-state { min-width: 0; }
 /* the count is the one part of the chip allowed to give — its text is the most variable in the
    row («4 noch offen · 2 Hinweise»), so it ellipsizes before it pushes a neighbour. */
 .rp-state-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1436,11 +1644,11 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow);
   max-height: 46vh; overflow-y: auto; }
 /* long personnel lists in the Einsatzstunden warning must wrap, not push the panel wider */
-.rp-control .report-pre-warn { min-width: 0; overflow-wrap: anywhere; }
+.rp-control .form-warn { min-width: 0; overflow-wrap: anywhere; }
 /* «Noch offen» inside the Kontrolle popover (every width since 23.09.2026): a list of doors,
    each a full-width 44px row */
 .rp-control-open { display: flex; flex-direction: column; margin-bottom: 10px; }
-.rp-control-open-head { font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); padding: 0 2px 4px; }
+.rp-control-open-head { padding: 0 2px 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .rp-control-step { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: var(--tap);
   padding: 0 10px; border: none; background: none; border-radius: var(--r-ctl); cursor: pointer; text-align: left;
   font: 600 13.5px var(--body); color: var(--ink); }
@@ -1499,39 +1707,57 @@ select.cv-input { appearance: none; -webkit-appearance: none;
     align-items: start;
   }
 }
+/* ONE SURFACE while the Rapport is one column (30.09.2026, owner on the phone: «in the rapport we
+   have double stacked cards»). Below 1080px every section — the four form sections, the round-up
+   rows (Anwesenheit · Mittel · Partner · Beilagen), the Kroki and «Weitergeben» — stood as a
+   framed card inside the page's own card: a box in a box, and on a phone 26px of each line spent
+   on two edges. Now they sit ON the page like the Checkliste's phone sections (Checklists.module.css
+   · «ONE level»): no frame, no fill, the content at the head's inset, a hairline over each section
+   and its eyebrow (or the round-up row's title) as the head. The first section of the page — of
+   the TAB on a phone, below — draws no line: the head's own edge is right above it. Two columns
+   (1080+) keep their cards: there they are what faces the column opposite. */
+@media (max-width: 1079px) {
+  .report-preflight-body, .report-preflight-body > .rp-col, .rp-col-form > .report-fieldset, .rp-checks { gap: 16px; }
+  .report-preflight-body :is(.report-pre-section, .rp-check) {
+    border: 0; border-top: 1px solid var(--glass-edge); border-radius: 0; background: none; padding: 16px 0 0;
+  }
+  .report-preflight-body .rp-check { padding-top: 5px; } /* + the title row's own 11px = 16 */
+  .report-preflight-body .rp-col-form > .report-fieldset > [data-tab]:not([data-tab] ~ *) { border-top: 0; padding-top: 0; }
+  /* a round-up row is a row of the page now: no card inset — the title row keeps its --tap
+     height, the body stays under the label (26px dot + 10px gap) */
+  .report-preflight-body .rp-check-main { padding-inline: 0; }
+  .report-preflight-body .rp-check-extra { padding: 0 0 4px 36px; }
+  /* the whole row still opens it (the stretched ::after); with no edge to light, a mouse hover
+     keeps the hairline as it is */
+  .report-preflight-body .rp-check:has(.rp-check-main:not(:disabled)):hover { border-color: var(--glass-edge); }
+}
 /* (the phone inset — one breakpoint for every surface, at 600px — is the shared shell's, in
    components/Surface.module.css.) */
 /* Phone: the cards get the width Anwesenheit's rows get. 22px of body padding plus 16px of card
    padding put the content 38px in from each edge — on a 390px screen that is a fifth of the
    screen spent on margin, and the rapport visibly ran narrower than the surface beside it in the
    rail. Anwesenheit's grid is at 14px here, so this is. */
-/* ⚠️ Icons from the two-column breakpoint DOWN, not only on a phone. Three labelled buttons want
-   ~600px, so anywhere below ~1080 the head wrapped them onto a second row — and the surface that
-   is one column below 1080 is exactly the one that has no width to spare. The split is clean:
-   two columns and words, or one column and a toolbar. The naming survives in aria-label/title
-   (see the component); what is dropped is a word the surface's own title already says. Square,
-   so they read as a toolbar rather than as buttons whose text failed to load. */
-@media (max-width: 1080px) {
-  .rp-head-actions .rp-btn-label { display: none; }
-  .rp-head-actions .ip-btn { width: var(--tap); padding: 0; justify-content: center; }
-  .rp-head-actions .rp-split .rp-split-main { width: var(--tap); }
-  /* «Ausdrucken» keeps its offline reason, so it is the one that may stay wider than a square */
-  .rp-head-actions .ip-btn.print-send.offline { width: auto; padding: 0 10px; }
-  .rp-head-actions .print-send-main { gap: 5px; }
-  /* ⚠️ The row no longer WRAPS here (05.09. fix). At this width the archive/print squares and the
-     split pair are fixed, so the only thing that ever grows is the chip with counted text — the
-     Kontrolle chip («4 noch offen · 2 Hinweise»; until 20.09. a second «N offen» menu beside it)
-     — and wrapping used to move the split PDF button (the one with a distinct fill, the one action
-     a glance has to find) onto a second line whenever a count changed. That chip gives: it
-     keeps `flex: none` everywhere else in this row (see above), but here it takes the squeeze and
-     ellipsizes instead of pushing its neighbours down. The archive/print squares and the split
-     pair stay pinned at their exact widths (`flex: none`) so none of them can be squeezed into a
-     clipped icon by the same rule — the surface shell clips overflow, so a control that cannot
-     shrink and cannot wrap would run off the edge instead. */
-  .rp-head-actions { flex-wrap: nowrap; }
-  .rp-head-actions > .rp-state { flex: 1 1 auto; min-width: 0; }
-  .rp-head-actions > .rp-split { flex: none; }
-}
+/* A FOLDED tile is a square (lib/pageHeadFit): the word it gave up survives as aria-label/title,
+   what is dropped is a word the surface's own title already says. Measured since 28.09.2026 — it
+   was «icons below 1080px», which dropped every word on an 820 tablet that had room for two. The
+   PDF half is the one that keeps a WORD when folded («PDF», mockup 2 — a bare doc glyph beside a
+   ▾ was a control «whose meaning you have to know»), so it is as wide as that word. */
+.rp-head-actions .ip-btn[data-folded]:not(.rp-split-main) { width: var(--tap); padding: 0; justify-content: center; }
+/* folded, the chip («⚠ 4») and the PDF half («PDF») sit 10px in: on a 390 phone that is what lets
+   «Rapport» share the one row with all four tiles (it came to 2px short at 12) */
+.rp-head-actions .rp-split .rp-split-main[data-folded], .rp-head-actions .rp-state[data-folded] { padding: 0 10px; }
+/* the ladder's «close up» step: 6px apart, 8px inside */
+.rp-head[data-fit-tight] .rp-head-actions { gap: 6px; }
+.rp-head[data-fit-tight] .rp-head-actions :is(.rp-state, .rp-split-main)[data-folded] { padding: 0 8px; }
+/* ⚠️ «Ausdrucken» is ONE line in every state (owner, staging 26.09.2026). It used to keep its
+   offline reason as a second line and grow to fit it: «Stationsdrucker offline» took two thirds of
+   a phone's row and stood twice as tall as the squares. The relay's dot says it (amber = offline) —
+   beside the glyph while the word stands, as a badge on the printer's corner once the tile is a
+   square — and the reason is said where it matters: a press asks «Stationsdrucker offline» before
+   it queues anything (ReportPreflight · startOutput), and it is the button's name. */
+.rp-head-actions .ip-btn.print-send.offline { flex-direction: row; align-items: center; padding-block: 0; }
+.rp-head-actions .print-send-main { position: relative; }
+.rp-head-actions .print-send[data-folded] .print-relay-dot { position: absolute; top: -3px; right: -6px; box-shadow: 0 0 0 2px var(--surface); }
 /* ⚠️ Rendered on every width, hidden everywhere but the phone — so the tab STATE is always
    there (a resize cannot land on a surface with no tab chosen) while the layout above 600px
    never sees it. Declared BEFORE the media query below, which turns it back on.
@@ -1542,7 +1768,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-tabs { display: none; }
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  .rp-head { padding: 10px 14px; gap: 10px 12px; }
+  /* (the head is one row here too — the paddings are the shared phone tokens, 15-mobile ·
+     --head-pad-*; the 26.09. «actions on their own row, edge to edge» is superseded) */
   .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }
   .report-pre-section { padding: 12px 13px; }
 
@@ -1562,7 +1789,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   /* the same amber the head's «noch offen» chips carry — one page, one meaning for «offen» */
   .rp-tab-dot { position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%;
     background: var(--amber); }
-  .useg-btn.on .rp-tab-dot { background: var(--on-fill); }
 
   /* One rule per tab: everything carrying a DIFFERENT tab is off screen. Blocks with no
      `data-tab` at all (the fieldset, the columns) are structure and are not addressed here —
@@ -1591,6 +1817,16 @@ select.cv-input { appearance: none; -webkit-appearance: none;
      different one on each tab. The chip above is inside `.rp-col-side`, which the «Bericht» rule
      takes away wholesale; it keeps its own rule because the chip is also hidden on «Beilagen»,
      where the column around it very much stays. */
+  /* the first section of the TAB draws no hairline (the one-column rule above names the page's
+     first; on «Personal & Mittel» and «Beilagen» the first is a round-up row in the other column,
+     and on «Beilagen» the Kroki after the rows' box is not a first). */
+  .report-preflight-body[data-phone-tab="werwas"] [data-tab="werwas"]:not([data-tab="werwas"] ~ *, :has([data-tab="werwas"]) ~ *),
+  .report-preflight-body[data-phone-tab="beilagen"] [data-tab="beilagen"]:not([data-tab="beilagen"] ~ *, :has([data-tab="beilagen"]) ~ *) {
+    border-top: 0; padding-top: 0;
+  }
+  /* 360–390px: the round-up rows' body starts at the dot, not under the label — the Partner
+     fields and the names want the width more than the indent */
+  .report-preflight-body .rp-check-extra { padding-left: 0; }
   .report-preflight-body[data-phone-tab="bericht"] > .rp-col:not(:has([data-tab="bericht"])),
   .report-preflight-body[data-phone-tab="werwas"] > .rp-col:not(:has([data-tab="werwas"])),
   .report-preflight-body[data-phone-tab="beilagen"] > .rp-col:not(:has([data-tab="beilagen"])) { display: none; }
@@ -1601,26 +1837,30 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* Datenquellen: collapsible groups + search so the 150+ object list stays manageable */
 .ip-group { margin: 8px 0 2px; }
 .ip-group > :not(summary) { margin-top: 6px; }
-.ip-group-head, summary.ip-group-head { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
-  font: 700 12px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); padding: 8px 2px; user-select: none; }
+.ip-group-head, summary.ip-group-head {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; padding: 8px 2px; user-select: none;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 /* a foldable head is a TARGET, so it carries the --tap floor and answers a press; the static
    `.ip-objects-head` below is not one and keeps its text height. */
 summary.ip-group-head { min-height: var(--tap); border-radius: var(--r-ctl); margin: 0 -6px; padding-left: 8px; padding-right: 8px; }
 summary.ip-group-head:active { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { summary.ip-group-head:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
 summary.ip-group-head::-webkit-details-marker { display: none; }
-summary.ip-group-head::before { content: '▸'; font-size: 10px; transition: transform .15s var(--ease); color: var(--ink-faint); }
-details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
+/* the one fold grammar (29.09.2026): the global `.chev` at the row's end, turned by `details[open]`
+   (02-base) — it was a text «▸» turning sideways at the start */
+summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-left: auto; }
 .ip-objects-head { cursor: default; margin-top: 10px; }
 .ip-group-count { font-weight: 600; color: var(--ink-faint); text-transform: none; letter-spacing: 0; }
 /* section subhead = the shared uppercase eyebrow (.ctx-section-label spec), not a blue sentence-case one-off */
-.ip-sub2 { margin: 8px 0 2px; font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
-.ip-search { width: 100%; box-sizing: border-box; margin: 4px 0 6px; padding: 9px 12px; border: 1px solid var(--glass-edge);
-  border-radius: var(--r-ctl); background: var(--surface); font: 500 13px var(--body); color: var(--ink); }
+.ip-sub2 { margin: 8px 0 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+/* the object search (Datenquellen, the Einsatz form's object picker) is THE search
+   (components/SearchField, 29.09.2026) — it was a bare native `type=search` box at 13px */
+.ip-ds-search { margin: 4px 0 6px; }
+.ip-objpick-search { margin-bottom: 6px; }
 /* "Neue Geo-Ebene" form: a small card under the global datasets list */
 .ip-addlayer { margin-top: 6px; padding: 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--surface) 70%, transparent); display: flex; flex-direction: column; gap: 6px; }
-.ip-addlayer .ip-search { margin: 0; }
 .ip-addlayer-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ip-addlayer-row select { flex: 1 1 auto; min-height: 38px; padding: 7px 10px; border: 1px solid var(--glass-edge);
   border-radius: var(--r-ctl); background: var(--surface); font: 500 13px var(--body); color: var(--ink); }
@@ -1630,19 +1870,23 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-ds-compact .ip-ds-title { font-size: 13.5px; }
 .ip-ds-dist { color: var(--blue); font-weight: 600; }
 /* --- Einsatz eröffnen wizard --- */
-.ip-ix-head { margin: 4px 0 -2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.ip-ix-head { margin: 4px 0 -2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 /* «Objekt aus Feuerwehrplänen» / «Auf Karte setzen» — the two location fallbacks share a row;
    «Hier» (GPS) lives as an icon-only button on the address field itself (`.ip-ac-locate`
    below), because it is the PRIMARY method and has to be reachable without opening anything. */
+/* «Aus Plänen» · «Auf Karte» — ONE line each, --tap tall (27.09.2026, slim sweep · mockup 4a): they
+   were the form's only two-line buttons («Objekt aus / Feuerwehrplänen»). The words are short now
+   (copy · intake.objectButton/mapPickButton); nowrap keeps a longer locale from wrapping again,
+   and 12px of padding gives «Dai piani» its icon at 360px. */
 .ip-ix-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.ip-ix-methods .ip-btn { justify-content: center; min-width: 0; }
-.ip-btn.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
+.ip-ix-methods .ip-btn { justify-content: center; min-width: 0; min-height: var(--tap); padding: 0 12px; white-space: nowrap; }
+.ip-btn.on { background: var(--sel); color: var(--on-sel); border-color: var(--sel); }
 
 /* address autocomplete */
 .ip-ac { position: relative; }
 .ip-ac-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin-top: 4px;
   max-height: 220px; overflow-y: auto; background: var(--surface); border: 1px solid var(--glass-edge);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow); padding: 4px; }
+  border-radius: var(--r-bar); box-shadow: var(--shadow); padding: var(--bar-pad); }
 .ip-ac-row { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px; border: none;
   background: none; cursor: pointer; text-align: left; border-radius: var(--r-ctl);
   font: 500 13.5px var(--body); color: var(--ink); }
@@ -1666,13 +1910,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-ac-locate:disabled { opacity: var(--disabled); cursor: default; }
 .ip-ac-locate svg { width: 17px; height: 17px; }
 .ip-ac-note { padding: 9px 10px; font: 500 12.5px var(--body); color: var(--ink-faint); }
-/* terse transient "no matches" note, centered for a filtered list/grid destination */
-.ip-ac-note-center { text-align: center; padding: 18px 12px; }
 
 /* object library picker */
 .ip-objpick { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 6px 8px; background: var(--surface-2); }
 .ip-objlist { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
-.ip-objgroup { font: 700 10.5px var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); padding: 6px 8px 2px; }
+.ip-objgroup { padding: 6px 8px 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 /* ⚠️ flex: none – the list is a scrolling flex COLUMN, and a flex item may shrink below its
    content: once the list overflowed, every row was squeezed to its min-height and a name that
    wrapped onto two lines painted its sub-line under the next row's title (20.09.2026). */
@@ -1698,7 +1940,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* open, the head IS the coordinate line (EinsatzWizard): same row, the ✕ beside it */
 .ip-fold-row { display: flex; align-items: center; gap: 4px; margin: 4px 0 -2px; }
 .ip-fold-row .ip-fold-head { flex: 1 1 auto; min-width: 0; margin: 0; }
-.ip-fold-title { font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.ip-fold-title { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 @media (hover: hover) {
   .ip-fold-head:hover .ip-fold-title, .ip-fold-head:hover .i { color: var(--ink-dim); }
 }
@@ -1769,7 +2011,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-launch-sub { font: 500 12.5px var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Divera-alarm row: red kicker + pulse to read as the loud, fresh thing */
 .ip-launch.alarm { border-color: color-mix(in srgb, var(--red) 35%, var(--glass-edge)); }
-.ip-launch-kicker { font: 800 10px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+.ip-launch-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red); }
 .ip-launch-pulse { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
   background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
 .ip-launch-pulse svg { width: 16px; height: 16px; }
@@ -1822,19 +2064,14 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    while the Rapport was the only door; it is an Einsatz thing, so it lives with the Einsatz card
    now. `.rp-share` itself stays in 17-rapport.css — that is the SECTION around it, not this. */
 .esh { display: flex; flex-direction: column; gap: 11px; align-items: flex-start; }
-/* The chooser — and it IS the chooser (03.09.): «Ganzer Einsatz / nur lesen» ↔ «Nur Atemschutz /
-   bedienen», with no menu in front of the sheet. The shared `.useg` track carries one nowrap
-   line per option, and the second line is exactly what makes the choice readable at 3am — so
-   this stacks it. Full width, because two options over a 520px sheet centred on nothing read as
-   a stray toggle rather than the sheet's first question. */
+/* The chooser — and it IS the chooser (03.09.): «Einsatz · lesen» ↔ «Trupps · bedienen», with no
+   menu in front of the sheet. ONE line per option since 27.09.2026 (slim sweep 4b) — it was the
+   app's only stacked segment («Ganzer Einsatz» over «nur lesen»). The shared `.useg` track as it
+   is, at the tap height; full width, because two options over a 520px sheet centred on nothing
+   read as a stray toggle rather than the sheet's first question. */
 .esh-kind { width: 100%; }
 .esh-kind .useg { display: flex; width: 100%; }
-.esh-kind .useg-btn { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 1px;
-  min-height: var(--tap); padding: 6px 10px; line-height: 1.2; }
-.esh-kind .useg-btn b { font: 700 12.5px var(--body); }
-/* the differentiator, one notch quieter — it is a qualifier of the label above it, not a
-   second label. Inherits the segment's colour, so the active pill keeps its contrast. */
-.esh-kind .useg-btn small { font: 600 11px var(--body); opacity: .8; }
+.esh-kind .useg-btn { flex: 1 1 0; min-width: 0; min-height: var(--tap); padding: 6px 10px; }
 .esh-lede { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); }
 /* The window before the link's state is known. Deliberately the quietest thing this sheet can
    draw — the alternative was the whole «Link erstellen» block for a link that may already exist
@@ -1842,11 +2079,12 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .esh-pending { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-faint); }
 .esh-pending .i { width: 15px; height: 15px; }
 /* The QR is the handover: the Nachbarwehr's phone scans the tablet instead of typing an
-   address. Black on white in BOTH themes — it is a machine target, not a surface. */
-.esh-qr { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 14px; border-radius: var(--r-ctl); background: var(--fill-soft); border: 1px solid var(--border-soft); }
+   address. Black on white in BOTH themes — it is a machine target, not a surface.
+   The white tile IS the frame (29.09.2026, sweep 3 T14): the grey box with its own border around
+   it framed the QR a second time and said nothing; the caption stays under it. */
+.esh-qr { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .esh-qr img { display: block; width: min(224px, 58vw); height: auto; aspect-ratio: 1;
-  padding: 8px; border-radius: 8px; background: #fff; }
+  padding: 8px; border-radius: var(--r-sm); background: #fff; }
 .esh-qr-cap { font: 600 12px var(--body); color: var(--ink-dim); }
 .esh-row { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; width: 100%; }
 /* The WHOLE address copies. A 12px «Kopieren» beside a URL is a miss waiting to happen with a
@@ -1865,11 +2103,13 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* Red never FILLS an action — it means danger, and revoking is the danger here. */
 .esh-revoke { flex: none; color: var(--red); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 40%, transparent); }
 /* Under the address, not behind a tooltip: it is the one thing somebody has to have read
-   BEFORE sending the link on. */
+   BEFORE sending the link on. The ONE warning look (AGENTS · «Fields, titles, eyebrows, warnings»,
+   29.09.2026 — it was dim 12.5 text in a 13% tint): ink 13/700, the glyph in the tone
+   (`--amber-strong`, it does not block) over a 10% tint of it, the one corner. */
 .esh-warn { display: flex; align-items: flex-start; gap: 8px; margin: 0; width: 100%;
-  padding: 9px 11px; border-radius: var(--r-sm); font-size: 12.5px; line-height: 1.45;
-  background: color-mix(in srgb, var(--amber) 13%, transparent); color: var(--ink-dim); }
-.esh-warn .i { flex: none; width: 15px; height: 15px; margin-top: 1px; color: var(--amber); }
+  padding: 10px 12px; border-radius: var(--r-sm); font: 700 13px/1.45 var(--body);
+  background: color-mix(in srgb, var(--amber) 10%, transparent); color: var(--ink); }
+.esh-warn .i { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--amber-strong); }
 
 /* ── «Tafel pur»: the Atemschutz-Link shell (IncidentWorkspace · asLink) ────────────────────
    The board handed to somebody's own phone is the whole app for that session, so the shell is

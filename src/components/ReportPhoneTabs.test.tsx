@@ -81,7 +81,7 @@ describe('Einsatzrapport · phone tabs', () => {
   // `display: none` element lands nowhere at all, silently. So the row has to change tabs first.
   it('a «Noch offen» row carries the tab with it', async () => {
     const { body } = setup()
-    fireEvent.click(screen.getByRole('button', { name: /noch offen/ }))
+    fireEvent.click(screen.getByRole('button', { name: /\d+ offen/ }))
     const list = await waitFor(() => {
       const el = document.querySelector('.rp-control-open') as HTMLElement | null
       if (!el) throw new Error('popover not open')
@@ -96,7 +96,7 @@ describe('Einsatzrapport · phone tabs', () => {
   it('draws no «noch offen» chips under the title — the one chip counts them', () => {
     setup()
     expect(document.querySelector('.rp-head-open-go')).toBeNull()
-    expect(screen.getByRole('button', { name: /^\d+ noch offen$/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^\d+ offen$/ })).toBeTruthy()
   })
 
   // ── the strip moved to the FOOT of the page on phones (19.09.2026) ──
@@ -164,7 +164,7 @@ describe('Einsatzrapport · phone tabs', () => {
 // ── the head→first-card distance, which has to be the same on all three tabs ──────────────
 //
 // jsdom measures nothing, so this reads the REAL rules out of 13-incident.css (every rule keyed
-// on `[data-phone-tab]` — they are all `display: none`) and asks the DOM which of them match.
+// on `[data-phone-tab]` that hides — `display: none`) and asks the DOM which of them match.
 // That is the whole mechanism: a block is off screen iff one of those selectors matches it or an
 // ancestor. What is then asserted is structural and is exactly what the gap bug was —
 //
@@ -182,11 +182,35 @@ const phoneTabCss = (() => {
   const out: string[] = []
   for (const [, sel, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     if (!sel.includes('[data-phone-tab')) continue
-    // every one of them hides; if that ever stops being true this test has to be re-read
-    expect(body.replace(/\s/g, '')).toBe('display:none;')
+    // every one of them hides — except the one that only drops the hairline over a tab's first
+    // section (one surface, 30.09.2026), which must never touch `display`. Anything else keyed
+    // on the tab means this test has to be re-read.
+    const flat = body.replace(/\s/g, '')
+    if (flat === 'border-top:0;padding-top:0;') continue
+    expect(flat).toBe('display:none;')
     out.push(...sel.split(',').map((s) => s.trim()).filter(Boolean))
   }
   return out
+})()
+
+/** the selectors that drop the hairline over a section (one surface, 30.09.2026): the page's
+ *  first (the one-column rule) and each tab's first (the phone rules) */
+const noLineCss = (() => {
+  const css = readFileSync(`${process.cwd()}/src/styles/13-incident.css`, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+  const out: string[] = []
+  for (const [, sel, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (body.replace(/\s/g, '') !== 'border-top:0;padding-top:0;') continue
+    // split on the commas BETWEEN selectors only — `:not(a, b)` carries its own
+    let depth = 0, cur = ''
+    for (const ch of sel) {
+      if (ch === '(') depth++
+      if (ch === ')') depth--
+      if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = '' } else cur += ch
+    }
+    out.push(cur.trim())
+  }
+  return out.filter(Boolean)
 })()
 
 /** off screen because one of the tab rules matches it, or matches something it sits in */
@@ -254,6 +278,23 @@ describe('Einsatzrapport · phone tabs · the first card sits at the same height
       const sibs = [...box.parentElement!.children]
       for (const before of sibs.slice(0, sibs.indexOf(box))) expect(offScreen(before)).toBe(true)
     }
+  })
+
+  // ONE surface (30.09.2026): the sections sit on the page, a hairline over each — except the
+  // first one of the tab, right under the head's own edge. Exactly one section per tab drops it.
+  it.each([
+    ['bericht', /Bericht/, '.report-pre-meta'],
+    ['werwas', /Personal & Mittel/, '.rp-check[data-step="anwesenheit"]'],
+    ['beilagen', /Beilagen/, '.rp-check[data-tab="beilagen"]'],
+  ])('draws no hairline over the first section of %s, and one over every other', (tab, name, first) => {
+    const { body } = setup()
+    pick(name)
+    expect(body().dataset.phoneTab).toBe(tab)
+    const sections = [...body().querySelectorAll('.report-pre-section, .rp-check')].filter((el) => !offScreen(el))
+    const bare = sections.filter((el) => noLineCss.some((sel) => el.matches(sel)))
+    expect(bare).toHaveLength(1)
+    expect(bare[0]).toBe(sections[0])
+    expect(bare[0].matches(first)).toBe(true)
   })
 
   // The three paths are different lengths (a column, a fieldset and four sections on «Bericht»;

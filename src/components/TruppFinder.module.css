@@ -17,20 +17,12 @@
    header used to add around a 36px button (10 + 44 + 10 = the same 64px row) */
 .head { flex: none; display: flex; align-items: center; gap: 12px;
   padding: 10px 10px 10px 18px; border-bottom: 1px solid var(--border-soft); }
-.headIcon { flex: none; display: grid; place-items: center; color: var(--ink-faint); }
-.headIcon svg { width: 19px; height: 19px; }
-/* the query is the loudest thing on the card — it is what the whole overlay is for */
-.input { flex: 1; min-width: 0; border: none; background: none; outline: none;
-  font: 700 18px var(--body); color: var(--ink); }
-.input::placeholder { color: var(--ink-faint); font-weight: 600; }
-/* var(--tap), like every other dialog ✕ that stands alone in its header: at 36px this one was
-   below the touch floor and read a size smaller than the 18px query beside it. A module class
-   gets no help from the shared 44px pad in 02-base.css, so it has to BE 44. */
-.x { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center; padding: 0;
-  border: none; border-radius: var(--r-sm); background: none; color: var(--ink-faint); cursor: pointer; }
-@media (hover: hover) { .x:hover { background: var(--fill-soft); color: var(--ink); } }
-.x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.x svg { width: 18px; height: 18px; }
+/* the query field is THE search's `head` modifier (`.ui-search-head`, 13-incident.css,
+   29.09.2026): glyph, 18/700 query and its ✕, with the card as its surface */
+/* The ✕ IS the global `.ip-x` (28.09.2026 — it was a bare, unfilled copy); the head is a search
+   field, so it takes the one exception to the 36px: var(--tap) beside a 44px field (AGENTS ·
+   Buttons follow one spec). Doubled with the global class so the size beats `.ip-x`'s own 36. */
+.x:global(.ip-x) { flex: none; width: var(--tap); height: var(--tap); }
 
 .list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 8px; list-style: none; }
 .row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
@@ -49,12 +41,10 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the crew is context, not the answer — it may be long and it yields first */
 .members { color: var(--ink-faint); }
-.chip { flex: none; font: 800 11px var(--body); padding: 3px 8px; border-radius: var(--r-pill);
-  background: var(--fill-soft); color: var(--ink-faint); }
-/* «AS» — under Atemschutz. A FACT about the crew, not an alarm, so it wears the quiet status
-   tone; amber and red are reserved for a clock running out and must not appear on a picker. */
-.as { flex: none; font: 800 11px var(--body); padding: 3px 7px; border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--blue) 13%, transparent); color: var(--blue); }
+/* «AS» and «raus» — facts about the crew, not alarms: the ONE tag recipe (`.ip-badge`, 13-incident)
+   in ink on grey (29.09.2026; «AS» was a blue pill, «raus» an 800 pill). Amber and red are
+   reserved for a clock running out and must not appear on a picker. */
+.tag { background: var(--fill-soft); color: var(--ink-dim); }
 .go { flex: none; display: grid; place-items: center; color: var(--ink-faint); }
 .go svg { width: 16px; height: 16px; }
 .rowOn .go { color: var(--blue); }

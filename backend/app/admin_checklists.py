@@ -1,7 +1,7 @@
 """Admin CLI for per-station CHECKLISTS — checklist templates as code (sibling to admin_objects).
 
-A station's checklists are STATION DATA: the FU phase task list, the Lagerapport agenda, and the
-EL tactical playbook are the brigade's own documents and never live in the open-source repo. They
+A station's checklists are STATION DATA: the FU phase task list, the Lagerapport agenda, the
+EL tactical playbook and the device Anleitungen (``kind: "manual"``) are the brigade's own documents and never live in the open-source repo. They
 live in a private data repo as a ``checklists/`` folder (one JSON ``ChecklistTemplate`` per list,
 plus playbook diagram images) + a ``checklists.manifest.json``. This command loads that manifest
 into a running deployment — each template becomes a ``ReferenceDataset`` (``checklists:<id>``) and
@@ -48,16 +48,19 @@ from sqlalchemy import select
 from . import storage
 from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
+from .checklist_templates import TEMPLATE_KINDS, manual_pages, template_problem
 from .database import async_session_maker
 from .models import ReferenceDataset
 
-_TEMPLATE_KINDS = {"action", "rapport", "reference"}
+_TEMPLATE_KINDS = set(TEMPLATE_KINDS)
 _IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".svg"}
 
 
 class AssetEntry(BaseModel):
-    """One diagram image for a reference template (a page from the source playbook PDF).
-    Stored as ``checklists:<template>:p<page>`` and rendered inline by the reference reader."""
+    """One image for a reference template (a page from the source playbook PDF) or a manual
+    (an Anleitung's step photo / a page of the device's PDF manual, exported as an image).
+    Stored as ``checklists:<template>:p<page>``; a reference entry's ``image`` block and a manual
+    step's ``images[].page`` name it by that page number."""
 
     model_config = ConfigDict(extra="forbid")
     page: int
@@ -92,8 +95,8 @@ class ChecklistEntry(BaseModel):
             raise ValueError(f"entry {self.id!r}: unknown kind {self.kind!r} (expected {sorted(_TEMPLATE_KINDS)})")
         if not self.file.lower().endswith(".json"):
             raise ValueError(f"entry {self.id!r}: 'file' must be a .json template ({self.file!r})")
-        if self.assets and self.kind != "reference":
-            raise ValueError(f"entry {self.id!r}: only reference templates carry diagram assets")
+        if self.assets and self.kind not in ("reference", "manual"):
+            raise ValueError(f"entry {self.id!r}: only reference and manual templates carry image assets")
         seen: set[int] = set()
         for a in self.assets:
             if a.page in seen:
@@ -131,6 +134,15 @@ EXAMPLE_MANIFEST: dict[str, Any] = {
                 {"page": 12, "file": "checklists/assets/el-p12.jpg"},
                 {"page": 14, "file": "checklists/assets/el-p14.jpg"},
             ],
+        },
+        {
+            "id": "stromerzeuger",
+            "kind": "manual",
+            "title": "Stromerzeuger starten",
+            "file": "checklists/stromerzeuger.json",
+            "sourceNote": "Bedienungsanleitung Stromerzeuger 8 kVA",
+            "order": 10,
+            "assets": [{"page": 1, "file": "checklists/assets/stromerzeuger-p1.jpg"}],
         },
     ]
 }
@@ -190,10 +202,14 @@ def _validate_template_json(src: Path, entry: ChecklistEntry) -> None:
         fail(f"ERROR: {src}: template id {tpl.get('id')!r} != manifest id {entry.id!r}.")
     if tpl.get("kind") != entry.kind:
         fail(f"ERROR: {src}: template kind {tpl.get('kind')!r} != manifest kind {entry.kind!r}.")
-    has_phases = isinstance(tpl.get("phases"), list) and tpl["phases"]
-    has_entries = isinstance(tpl.get("entries"), list) and tpl["entries"]
-    if bool(has_phases) == bool(has_entries):
-        fail(f"ERROR: {src}: needs exactly one of 'phases' (action/rapport) or 'entries' (reference).")
+    problem = template_problem(tpl)
+    if problem:
+        fail(f"ERROR: {src}: {problem}")
+    if entry.kind == "manual":
+        # a step image the manifest does not upload would be a blank box on the tablet at 3am
+        missing = sorted(manual_pages(tpl) - {a.page for a in entry.assets})
+        if missing:
+            fail(f"ERROR: {src}: steps show image page(s) {missing} that the manifest entry has no asset for.")
 
 
 def _validate_files(manifest_path: Path, entries: list[ChecklistEntry]) -> tuple[int, int]:

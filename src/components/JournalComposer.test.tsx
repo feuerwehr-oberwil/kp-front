@@ -8,8 +8,8 @@ import { clearAllDrafts } from '../lib/draftKeep'
 afterEach(() => { cleanup(); clearAllDrafts() })
 
 const OPEN = [
-  { id: 'p1', text: 'Absperrmaterial Kreuzung, Werkhof Oberwil', urgent: true },
-  { id: 'p2', text: 'Patient an Sanität übergeben' },
+  { id: 'p1', text: 'Absperrmaterial Kreuzung, Werkhof Oberwil', urgent: true, createdAt: '2026-06-24T03:00:00.000Z' },
+  { id: 'p2', text: 'Patient an Sanität übergeben', createdAt: '2026-06-24T03:10:00.000Z' },
 ]
 
 function setup(over: Partial<React.ComponentProps<typeof JournalComposer>> = {}) {
@@ -63,6 +63,20 @@ describe('JournalComposer · the ○ switch', () => {
     type('Fahrzeug unterwegs')
     fireEvent.click(await menuRow(/Absperrmaterial Kreuzung/))
     expect(onLinkPendenz).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
+  })
+
+  // 05.10.2026: two open items the sentence names EQUALLY well went to the tie-break on their
+  // creation time — which the workspace never handed over. The composer threw on render
+  // («reading 'localeCompare'») mid-sentence, on a busy Einsatz with several Pendenzen.
+  it('offers two equally named items without crashing', async () => {
+    // the shape the workspace hands over (IncidentWorkspace · openPendenzen)
+    setup({ openPendenzen: [
+      { id: 'w1', text: 'Werkhof Lüfter holen', createdAt: '2026-06-24T03:10:00.000Z' },
+      { id: 'w2', text: 'Werkhof Leiter holen', createdAt: '2026-06-24T03:00:00.000Z' },
+    ] })
+    type('Werkhof meldet')
+    await menuRow(/Werkhof Leiter holen/)
+    expect(screen.getByRole('menuitem', { name: /Werkhof Lüfter holen/ })).toBeTruthy()
   })
 })
 
@@ -183,6 +197,36 @@ describe('JournalComposer · what an empty field offers', () => {
   it('offers them while writing a Meldung too', () => {
     setup({ vocab: VOCAB, timeline: TL, noteOn: { id: 'p1', text: 'Absperrmaterial' } })
     expect(document.querySelector('.jc-phrase-starter')).toBeTruthy()
+  })
+})
+
+// «Info» is picked from the start (29.09.2026): the Art is one of three, never «none of them» —
+// and an entry left on it files exactly what an untouched composer filed before, no entryType.
+describe('JournalComposer · the Art', () => {
+  const chip = (name: string) => screen.getByRole('button', { name })
+
+  it('starts on «Info», and an untouched entry files without an entryType', () => {
+    const { onSubmit } = setup()
+    expect(chip('Info').getAttribute('aria-pressed')).toBe('true')
+    expect(chip('Auftrag').getAttribute('aria-pressed')).toBe('false')
+    type('Lüfter im EG gestellt')
+    send()
+    const d = onSubmit.mock.calls[0][0]
+    expect(d.entryType).toBeUndefined()
+    expect(d.text).toBe('Lüfter im EG gestellt')
+  })
+
+  it('is one of three: a lit chip stays lit, «Info» is the way back', () => {
+    const { onSubmit } = setup()
+    fireEvent.click(chip('Auftrag'))
+    fireEvent.click(chip('Auftrag'))
+    expect(chip('Auftrag').getAttribute('aria-pressed')).toBe('true')
+    expect(chip('Info').getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(chip('Info'))
+    expect(chip('Info').getAttribute('aria-pressed')).toBe('true')
+    type('Strom abgestellt')
+    send()
+    expect(onSubmit.mock.calls[0][0].entryType).toBeUndefined()
   })
 })
 
@@ -592,5 +636,26 @@ describe('JournalComposer · swiping the suggestion band', () => {
     type('Meier')
     const row = chip().parentElement as HTMLElement
     expect(row.className).toContain('jc-phrases')
+  })
+})
+
+
+describe('the mobile composer caret', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it('keeps the sentence focused through Pendenz and relative-time picks', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
+    setup()
+    const field = screen.getByRole('textbox')
+    fireEvent.change(field, { target: { value: 'EL meldet' } })
+    field.focus()
+    fireEvent.mouseDown(ring())
+    fireEvent.click(ring())
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Neue Pendenz$/ }))
+    await waitFor(() => expect(document.activeElement).toBe(field))
+    const due = document.querySelector('.jc-due-btn')!
+    fireEvent.mouseDown(due)
+    fireEvent.click(due)
+    fireEvent.click(await screen.findByRole('menuitem', { name: /in 5 min/i }))
+    await waitFor(() => expect(document.activeElement).toBe(field))
   })
 })

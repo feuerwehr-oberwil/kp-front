@@ -151,7 +151,7 @@ export function PersonField({
         {!value.name && <span className={s.comboChev} aria-hidden><Icon id="chevron-down" className="chev" /></span>}
         {value.name && (
           <button
-            type="button" className={s.comboClear} title={appConfig.copy.clear} aria-label={az.clearName}
+            type="button" className={s.comboClear} title={az.clearName} aria-label={az.clearName}
             onMouseDown={(e) => e.preventDefault()}
             onClick={clear}
           ><Icon id="close" /></button>
@@ -162,7 +162,7 @@ export function PersonField({
           classes={CLASSES}
           // the search row doubles as the name field (see `custom` below), so its placeholder
           // has to invite typing a NEW name and not only searching the roster
-          copy={{ search: appConfig.copy.combo.searchOrType, empty: az.noRoster, noMatches: az.teamNoMatches }}
+          copy={{ search: appConfig.copy.combo.searchOrType, empty: az.noRoster, noMatches: appConfig.copy.noHits }}
           entries={entries}
           // below this the whole roster is on screen anyway and a search box is one more control
           // between the finger and the name it came for — but `custom` below shows the row

@@ -1,10 +1,11 @@
+import { ShellLoader } from './ShellLoader'
 import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { deploymentName } from '../lib/deploymentConfig'
 import { SnailLoader } from './SnailLoader'
 
 /**
- * Shared boot screen: the brand pulse + station wordmark, optionally a status line.
+ * Shared boot screen: the animated snail + station wordmark, optionally a status line.
  * Every pre-incident loading stage (auth probe, incident-list fetch, admin chunk,
  * symbol library) renders this, so a cold launch reads as one continuous sequence —
  * no blank colour flash, no jump between layouts. The 3am tenet: the operator always
@@ -13,6 +14,9 @@ import { SnailLoader } from './SnailLoader'
  * `inApp` switches from the full-screen pre-app cover (own background, above the login
  * layer) to the lighter in-workspace overlay used once an incident is mounted and the
  * TopBar is already painted.
+ *
+ * `leaving` fades the pre-app cover out: the Einsatz's opening cover (lib/bootCover) lifts off
+ * a finished workspace rather than cutting to it.
  */
 
 /** How long a launch may pulse silently before the splash admits something is wrong. Past a
@@ -23,7 +27,7 @@ import { SnailLoader } from './SnailLoader'
  *  cases where the operator otherwise has nothing on screen to tap. */
 const STUCK_MS = 9_000
 
-export function Splash({ sub, inApp }: { sub?: string; inApp?: boolean }) {
+export function Splash({ sub, inApp, leaving }: { sub?: string; inApp?: boolean; leaving?: boolean }) {
   const [stuck, setStuck] = useState(false)
   useEffect(() => {
     const t = setTimeout(() => setStuck(true), STUCK_MS)
@@ -31,9 +35,9 @@ export function Splash({ sub, inApp }: { sub?: string; inApp?: boolean }) {
   }, [])
   const c = appConfig.copy.splash
   return (
-    <div className={inApp ? `loading${stuck ? ' stuck' : ''}` : 'login splash'}>
+    <div className={inApp ? `loading${stuck ? ' stuck' : ''}` : `login splash${leaving ? ' leaving' : ''}`}>
       <div className="loading-card">
-        <SnailLoader />
+        {inApp ? <ShellLoader size="surface" /> : <SnailLoader />}
         <div className="loading-name">{deploymentName()}</div>
         {/* Always rendered, empty when there is nothing to say: the card is centred, so a sub
             line that APPEARS (App's «Einsatz wird geöffnet …» after this bare splash) used to

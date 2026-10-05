@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { Icon, PrinterFeedIcon } from './icons'
+import { Icon } from './icons'
+import { ShellLoader } from '../components/ShellLoader'
 import { appConfig } from '../config/appConfig'
 import { ConfirmCard, type ConfirmSpec } from './overlays/ConfirmCard'
 import { Overlay } from './overlays'
 import { safeHref } from './mediaUrl'
 import { watchRecords, type RecordKey } from './undoKeys'
+import { useToastLane } from './toastLane'
 
 // Lightweight app-wide toast + confirm host. Replaces native alert()/confirm()
 // so transient feedback and destructive confirmations stay inside the glass
@@ -18,7 +20,7 @@ type Tone = 'default' | 'warn' | 'success'
  * changes that are safe on the device — read as an alarm, and the app has real alarms (the
  * Atemschutz clock, the Meldeleiste) that must keep that register to themselves. The live print
  * job wore the edge first, for the same reason. `success` stays a fill: it is short and calm.
- * Same idea as the Meldeleiste's `.ml-row.t-*`. */
+ * (The Meldeleiste's rows wore the same edge until 29.09.2026; there the glyph alone carries the tone now.) */
 type ToneStyle = 'fill' | 'edge'
 const defaultToneStyle = (tone: Tone): ToneStyle => (tone === 'warn' ? 'edge' : 'fill')
 /** Is this toast a FAILURE, as opposed to a live status that wears the warn edge? A step chain is
@@ -34,7 +36,10 @@ export interface ToastStep {
   state: 'done' | 'now' | 'future' | 'fail'
   icon?: 'check' | 'warn' | 'printer'
 }
-interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean; kind?: string }
+/** How long a toast that goes away by itself has, for the line that runs out along its foot
+ *  (08-toasts.css · .toast-life). `key` restarts that line when updateToast resets the clock. */
+interface ToastLife { ms: number; key: number }
+interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean; life?: ToastLife; kind?: string }
 /** A confirm that is on screen and waiting for its answer — the shared `ConfirmSpec` plus what
  *  only the pending state needs: which request it is, and the promise to settle. */
 interface ConfirmReq extends ConfirmSpec {
@@ -47,6 +52,9 @@ interface PhotoReq { url: string; filename: string; caption?: string; download?:
 
 let toasts: Toast[] = []
 let confirmReq: ConfirmReq | null = null
+/** The id of the newest confirm — the card's React key, kept while it closes (so it animates out
+ *  as itself). See Overlays: every question is its own mount. */
+let lastConfirmId = 0
 let photoReq: PhotoReq | null = null
 const listeners = new Set<() => void>()
 let seq = 1
@@ -89,11 +97,12 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
   // Rückgängig» pills over the stack's own «+ UG»). The replaced toast's act stays on ↶.
   if (opts?.kind) for (const t of toasts) if (t.kind === opts.kind && !t.leaving) dismissToast(t.id)
   const id = seq++
-  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss, kind: opts?.kind }]
+  // sticky toasts stay until updateToast/dismissToast decides (live status, a mode's instruction).
+  // Otherwise an action (e.g. confirm-with-undo) needs time to be seen and tapped.
+  const ms = opts?.sticky ? undefined : opts?.duration ?? defaultToastDuration(text, !!opts?.action)
+  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss, life: ms ? { ms, key: seq++ } : undefined, kind: opts?.kind }]
   emit()
-  // sticky toasts stay until updateToast/dismissToast decides (live status). Otherwise an
-  // action (e.g. confirm-with-undo) needs time to be seen and tapped.
-  if (!opts?.sticky) scheduleDismiss(id, opts?.duration ?? defaultToastDuration(text, !!opts?.action))
+  if (ms) scheduleDismiss(id, ms)
   return id
 }
 
@@ -139,7 +148,9 @@ export function updateToast(id: number, text: string, opts?: { icon?: string; to
   const cur = toasts.find((t) => t.id === id)
   if (!cur || cur.leaving) return
   toasts = toasts.map((t) => t.id === id
-    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action ?? undefined, steps: opts?.steps ?? undefined }
+    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action ?? undefined, steps: opts?.steps ?? undefined,
+        // a new clock is a new line; no clock keeps whatever the toast already had
+        life: opts?.duration ? { ms: opts.duration, key: seq++ } : t.life }
     : t)
   emit()
   if (opts?.duration) scheduleDismiss(id, opts.duration)
@@ -156,6 +167,7 @@ export function confirmDialog(opts: ConfirmOpts): Promise<boolean | 'alt'> {
   return new Promise((resolve) => {
     // a fresh request supersedes any pending one (resolve the old as cancelled)
     confirmReq?.resolve(false)
+    lastConfirmId = seq
     confirmReq = {
       id: seq++,
       title: opts.title,
@@ -167,6 +179,7 @@ export function confirmDialog(opts: ConfirmOpts): Promise<boolean | 'alt'> {
       danger: opts.danger,
       altLabel: opts.altLabel,
       altDanger: opts.altDanger,
+      safeAnswer: opts.safeAnswer,
       resolve,
     }
     emit()
@@ -229,7 +242,8 @@ function ToastSteps({ steps, text }: { steps: ToastStep[]; text: string }) {
           <Fragment key={s.label}>
             {i > 0 && <span className="toast-chev"><Icon id="chevron" /></span>}
             <span className={`toast-step ${s.state}`}>
-              {s.icon === 'printer' ? <PrinterFeedIcon /> : s.icon ? <Icon id={s.icon} /> : <span className="toast-pip" />}
+              {s.state === 'now' && s.icon !== 'check' && s.icon !== 'warn'
+                ? <ShellLoader /> : s.icon ? <Icon id={s.icon} /> : <span className="toast-pip" />}
               <span className="toast-step-label">{s.label}</span>
             </span>
           </Fragment>
@@ -242,8 +256,8 @@ function ToastSteps({ steps, text }: { steps: ToastStep[]; text: string }) {
 /** The success toast's tick, drawn in once (~250ms stroke draw, 08-toasts.css) instead of
  * popping on statically — the toast pill's small cousin of the sync glyph's closing tick
  * (components/SyncGlyph). Written out rather than `<Icon id="check"/>` because a CSS animation
- * on a path inside a `<use>` shadow tree is not reliably applied (same reason as
- * PrinterFeedIcon). Same geometry and box as the sprite's #check, so nothing shifts. */
+ * on a path inside a `<use>` shadow tree is not reliably applied.
+ * Same geometry and box as the sprite's #check, so nothing shifts. */
 function ToastCheck() {
   return (
     <svg className="i toast-check" viewBox="0 0 24 24" aria-hidden>
@@ -328,12 +342,12 @@ function ToastAction({ toast: t }: { toast: Toast }) {
  * (03-map.css `* { transition-duration: .001ms !important }`); a reduced-motion viewer sees the
  * same jump to «gone» without the travel, with no separate code path needed here.
  *
- * A tap must still work: a plain toast (no action/steps) dismisses on tap exactly as before —
- * that's still the DOM `onClick`, unchanged, firing after a release the browser judged small
- * enough to count as a tap rather than a swipe. The drag only ever *adds* the sideways follow;
- * it never calls `preventDefault`, so the native click is never swallowed. And the cluster's own
- * buttons stop the drag from arming under them (`onPointerDown` `stopPropagation`) — those keep
- * their own tap and flick untouched, exactly as before this pill-wide swipe existed.
+ * A tap on the pill itself does NOTHING (05.10.2026, owner: «toasts should close on tapping the
+ * close button not the entire toast»). It used to dismiss a plain toast, which threw away a
+ * message the finger only brushed on its way to the map or a bar under it. Only the ✕ closes,
+ * the action button runs its action (and closes), and the swipe stays. The drag never calls
+ * `preventDefault`, and the cluster's own buttons stop the drag from arming under them
+ * (`onPointerDown` `stopPropagation`) — those keep their own tap and flick untouched.
  */
 function ToastRow({ t }: { t: Toast }) {
   const [dx, setDx] = useState(0)
@@ -363,7 +377,7 @@ function ToastRow({ t }: { t: Toast }) {
 
   return (
     <div
-      className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${isFailure(t) ? ' toast-fail' : ''}${t.leaving ? ' out' : ''}${!t.action && !t.steps ? ' tap' : ''}`}
+      className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${isFailure(t) ? ' toast-fail' : ''}${t.leaving ? ' out' : ''}`}
       style={dx ? {
         transform: `translateX(${dx}px)`,
         opacity: flung ? 0 : Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)),
@@ -373,10 +387,6 @@ function ToastRow({ t }: { t: Toast }) {
       onPointerMove={onMove}
       onPointerUp={onUp}
       onPointerCancel={onUp}
-      // a pill with no action had NO way off the screen but waiting, while still eating
-      // the taps aimed underneath it — plain toasts dismiss on a tap. Action pills keep
-      // their own controls (button + flick), live step toasts stay until their job ends.
-      onClick={!t.action && !t.steps ? () => dismissToast(t.id) : undefined}
     >
       {t.steps ? <ToastSteps steps={t.steps} text={t.text} /> : (
         <>
@@ -387,12 +397,26 @@ function ToastRow({ t }: { t: Toast }) {
         </>
       )}
       {t.action && <ToastAction toast={t} />}
+      {/* ⚠️ Everything that goes away BY ITSELF says so (25.09.2026): a ✕ and a line that runs out
+          with its time. An instruction or a live status (sticky) has neither — it stays until its
+          mode or its job ends. The action cluster brings its own ✕. The pill-wide drag must not
+          arm under the ✕ (same reason as ToastAction's own stopPropagation). */}
+      {t.life && !t.action && (
+        <button type="button" className="toast-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); dismissToast(t.id) }}
+        ><Icon id="close" /></button>
+      )}
+      {t.life && <span key={t.life.key} className="toast-life" style={{ animationDuration: `${t.life.ms}ms` }} aria-hidden />}
     </div>
   )
 }
 
 export function Overlays() {
   useForceUpdate()
+  // the phone's lane stands ON an open bottom sheet instead of flipping to the top (lib/toastLane)
+  const toasterRef = useRef<HTMLDivElement>(null)
+  useToastLane(toasterRef, toasts.length > 0)
   const req = confirmReq
   const photo = photoReq
   const closePhoto = () => { photoReq = null; emit() }
@@ -412,11 +436,19 @@ export function Overlays() {
           scroll port at that end for free. Plain `column` with the natural order looks identical
           until the stack overflows its lane, and then starts the scroll at the OLDEST toast, so a
           burst hides the pill carrying «Rückgängig» below the fold with nothing saying so. */}
-      <div className="toaster" aria-live="polite" aria-atomic="false">
+      <div className="toaster" ref={toasterRef} aria-live="polite" aria-atomic="false">
         {[...toasts].reverse().map((t) => <ToastRow key={t.id} t={t} />)}
       </div>
 
+      {/* ⚠️ KEYED per question (staging r3 F5). A chain of questions — the Abschluss asks «noch
+          drin», then «vermisst», then the paperwork — is answered and re-asked in ONE render
+          batch, so the card never closed in between: React kept the node, Base UI's initial
+          focus did not run again, and the focus of the «Trotzdem abschliessen» just tapped stood
+          on the same button of the next question. Enter then closed the Einsatz through «5
+          Personen noch vermisst». A fresh mount per question lands on ITS safe answer, for every
+          caller at once. */}
       <ConfirmCard
+        key={req?.id ?? lastConfirmId}
         open={!!req}
         title={req?.title}
         message={req?.message ?? ''}
@@ -427,6 +459,7 @@ export function Overlays() {
         danger={req?.danger}
         altLabel={req?.altLabel}
         altDanger={req?.altDanger}
+        safeAnswer={req?.safeAnswer}
         onResolve={close}
       />
 

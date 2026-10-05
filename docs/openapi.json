@@ -8176,6 +8176,7 @@
           "objects"
         ],
         "summary": "List Objects",
+        "description": "Every Einsatzobjekt — for the field's pickers WITHOUT the plan-less objects an Objektbesuche\norganizer created (a key box is not a plan to open at an Einsatz; `object_visits ·\nis_integration_only`). The admin session keeps the complete list.",
         "operationId": "list_objects_api_objects_get",
         "parameters": [
           {
@@ -8211,22 +8212,6 @@
             }
           },
           {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          },
-          {
             "name": "admin_session",
             "in": "cookie",
             "required": false,
@@ -8240,6 +8225,22 @@
                 }
               ],
               "title": "Admin Session"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
             }
           }
         ],
@@ -8475,7 +8476,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ObjectIn"
+                "$ref": "#/components/schemas/ObjectUpsertIn"
               }
             }
           }
@@ -11249,6 +11250,2424 @@
         }
       }
     },
+    "/api/object-visits/catalogue": {
+      "get": {
+        "tags": [
+          "object-visits"
+        ],
+        "summary": "Get Catalogue",
+        "description": "Everything the field app caches for offline use: objects, visit templates, work lists.",
+        "operationId": "get_catalogue_api_object_visits_catalogue_get",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Catalogue Api Object Visits Catalogue Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/object-visits": {
+      "get": {
+        "tags": [
+          "object-visits"
+        ],
+        "summary": "List Visits",
+        "operationId": "list_visits_api_object_visits_get",
+        "parameters": [
+          {
+            "name": "object",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Object"
+            }
+          },
+          {
+            "name": "workRef",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workref"
+            }
+          },
+          {
+            "name": "mine",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Mine"
+            }
+          },
+          {
+            "name": "lifecycle",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lifecycle"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List Visits Api Object Visits Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/object-visits/{visit_id}": {
+      "get": {
+        "tags": [
+          "object-visits"
+        ],
+        "summary": "Get Visit",
+        "operationId": "get_visit_api_object_visits__visit_id__get",
+        "parameters": [
+          {
+            "name": "visit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Visit Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Visit Api Object Visits  Visit Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "object-visits"
+        ],
+        "summary": "Put Visit",
+        "description": "``{opId, baseRevision, doc}`` → ``{revision, ready, missing, visit}``; see the contract\nfor the 409 (stale base) and the idempotent replay of a known ``opId``.",
+        "operationId": "put_visit_api_object_visits__visit_id__put",
+        "parameters": [
+          {
+            "name": "visit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Visit Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Put Visit Api Object Visits  Visit Id  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/object-visits/{visit_id}/attachments/{att_id}": {
+      "put": {
+        "tags": [
+          "object-visits"
+        ],
+        "summary": "Put Attachment",
+        "description": "Raw photo bytes. 201 new · 200 the same bytes were already stored · 409 another body.",
+        "operationId": "put_attachment_api_object_visits__visit_id__attachments__att_id__put",
+        "parameters": [
+          {
+            "name": "visit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Visit Id"
+            }
+          },
+          {
+            "name": "att_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Att Id"
+            }
+          },
+          {
+            "name": "content-type",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content-Type"
+            }
+          },
+          {
+            "name": "x-content-sha256",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Content-Sha256"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "object-visits"
+        ],
+        "summary": "Get Attachment",
+        "operationId": "get_attachment_api_object_visits__visit_id__attachments__att_id__get",
+        "parameters": [
+          {
+            "name": "visit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Visit Id"
+            }
+          },
+          {
+            "name": "att_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Att Id"
+            }
+          },
+          {
+            "name": "thumb",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Thumb"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/object-visits/{visit_id}/revisions": {
+      "get": {
+        "tags": [
+          "object-visits"
+        ],
+        "summary": "List Revisions",
+        "operationId": "list_revisions_api_object_visits__visit_id__revisions_get",
+        "parameters": [
+          {
+            "name": "visit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Visit Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List Revisions Api Object Visits  Visit Id  Revisions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/object-visits/{visit_id}/revisions/{revision}": {
+      "get": {
+        "tags": [
+          "object-visits"
+        ],
+        "summary": "Get Revision",
+        "operationId": "get_revision_api_object_visits__visit_id__revisions__revision__get",
+        "parameters": [
+          {
+            "name": "visit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Visit Id"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Revision"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Revision Api Object Visits  Visit Id  Revisions  Revision  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/object-visits/{visit_id}/report.pdf": {
+      "get": {
+        "tags": [
+          "object-visits"
+        ],
+        "summary": "Get Report",
+        "operationId": "get_report_api_object_visits__visit_id__report_pdf_get",
+        "parameters": [
+          {
+            "name": "visit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Visit Id"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/visit-programmes/{programme_ref}": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Get Programme",
+        "operationId": "get_programme_api_integrations_visit_programmes__programme_ref__get",
+        "parameters": [
+          {
+            "name": "programme_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Programme Ref"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Programme Api Integrations Visit Programmes  Programme Ref  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/visit-programmes/{programme_ref}/routes": {
+      "put": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Put Programme Routes",
+        "operationId": "put_programme_routes_api_integrations_visit_programmes__programme_ref__routes_put",
+        "parameters": [
+          {
+            "name": "programme_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Programme Ref"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutesUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Put Programme Routes Api Integrations Visit Programmes  Programme Ref  Routes Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/visit-programmes/{programme_ref}/years/{year}": {
+      "put": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Publish Programme",
+        "operationId": "publish_programme_api_integrations_visit_programmes__programme_ref__years__year__put",
+        "parameters": [
+          {
+            "name": "programme_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Programme Ref"
+            }
+          },
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Year"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Publish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Publish Programme Api Integrations Visit Programmes  Programme Ref  Years  Year  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/object-visits/catalogue": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Catalogue",
+        "operationId": "organizer_catalogue_api_integrations_object_visits_catalogue_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Organizer Catalogue Api Integrations Object Visits Catalogue Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/object-visits/changes": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Changes",
+        "description": "One item per visit at its latest state, ordered by ``seq``. Poll with ``after=nextAfter``.",
+        "operationId": "organizer_changes_api_integrations_object_visits_changes_get",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "After"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Organizer Changes Api Integrations Object Visits Changes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/object-visits/{visit_id}": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Visit",
+        "operationId": "organizer_visit_api_integrations_object_visits__visit_id__get",
+        "parameters": [
+          {
+            "name": "visit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Visit Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Organizer Visit Api Integrations Object Visits  Visit Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/object-visits/{visit_id}/report.pdf": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Report",
+        "operationId": "organizer_report_api_integrations_object_visits__visit_id__report_pdf_get",
+        "parameters": [
+          {
+            "name": "visit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Visit Id"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/object-visits/{visit_id}/attachments/{att_id}": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Attachment",
+        "operationId": "organizer_attachment_api_integrations_object_visits__visit_id__attachments__att_id__get",
+        "parameters": [
+          {
+            "name": "visit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Visit Id"
+            }
+          },
+          {
+            "name": "att_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Att Id"
+            }
+          },
+          {
+            "name": "thumb",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Thumb"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/objects/by-ref/{source}/{external_id}": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Object By Ref",
+        "description": "Resolve the organizer's own id to this deployment's object: ``{objectId, name, address,\nlat, lng, folder, refs, hasPlans}`` (404 when no such ref).",
+        "operationId": "organizer_object_by_ref_api_integrations_objects_by_ref__source___external_id__get",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source"
+            }
+          },
+          {
+            "name": "external_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "External Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Organizer Object By Ref Api Integrations Objects By Ref  Source   External Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/objects/{object_id}/plans": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Object Plans",
+        "description": "The object's current plans, one per Modul-Slot (read-only): ``[{module, title, revision,\ncontentType, size}]``. ``revision`` is the plan's current version — pass it back as\n``?revision=`` to get exactly those bytes later.",
+        "operationId": "organizer_object_plans_api_integrations_objects__object_id__plans_get",
+        "parameters": [
+          {
+            "name": "object_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Object Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Organizer Object Plans Api Integrations Objects  Object Id  Plans Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/objects/{object_id}/plans/{module}": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Object Plan",
+        "description": "The plan's bytes — current, or the pinned ``revision`` (the same store the field reads).",
+        "operationId": "organizer_object_plan_api_integrations_objects__object_id__plans__module__get",
+        "parameters": [
+          {
+            "name": "object_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Object Id"
+            }
+          },
+          {
+            "name": "module",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Module"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revision"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/objects/{source}/{external_id}": {
+      "delete": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Delete Object",
+        "description": "Remove the organizer's ref: ``{removed: \"ref\" | \"object\" | \"none\"}`` (idempotent).",
+        "operationId": "organizer_delete_object_api_integrations_objects__source___external_id__delete",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source"
+            }
+          },
+          {
+            "name": "external_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "External Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Organizer Delete Object Api Integrations Objects  Source   External Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Put Object",
+        "description": "Resolve-or-create an object by the organizer's id: ``{objectId, created}``.",
+        "operationId": "organizer_put_object_api_integrations_objects__source___external_id__put",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source"
+            }
+          },
+          {
+            "name": "external_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "External Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Organizer Put Object Api Integrations Objects  Source   External Id  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/visit-lists/{ref}": {
+      "put": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Put List",
+        "operationId": "organizer_put_list_api_integrations_visit_lists__ref__put",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ref"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Organizer Put List Api Integrations Visit Lists  Ref  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Organizer Delete List",
+        "operationId": "organizer_delete_list_api_integrations_visit_lists__ref__delete",
+        "parameters": [
+          {
+            "name": "ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ref"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Organizer Delete List Api Integrations Visit Lists  Ref  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/object-visits": {
+      "get": {
+        "tags": [
+          "admin-object-visits"
+        ],
+        "summary": "Admin List",
+        "operationId": "admin_list_api_admin_object_visits_get",
+        "parameters": [
+          {
+            "name": "object",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Object"
+            }
+          },
+          {
+            "name": "workRef",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workref"
+            }
+          },
+          {
+            "name": "lifecycle",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lifecycle"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Admin List Api Admin Object Visits Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/object-visits/notify": {
+      "get": {
+        "tags": [
+          "admin-object-visits"
+        ],
+        "summary": "Admin Notify",
+        "description": "Which accounts get «Neuer Objektbesuch» — every active account with its flag and how many\nof its browsers can receive a push. Nobody until an admin picks somebody.",
+        "operationId": "admin_notify_api_admin_object_visits_notify_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Notify Api Admin Object Visits Notify Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin-object-visits"
+        ],
+        "summary": "Admin Set Notify",
+        "description": "``{userIds: [uuid, …]}`` — exactly these accounts are told, everybody else is not.",
+        "operationId": "admin_set_notify_api_admin_object_visits_notify_put",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Set Notify Api Admin Object Visits Notify Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/object-visits/deliveries": {
+      "get": {
+        "tags": [
+          "admin-object-visits"
+        ],
+        "summary": "Admin Deliveries",
+        "operationId": "admin_deliveries_api_admin_object_visits_deliveries_get",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "name": "destination",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Destination"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Admin Deliveries Api Admin Object Visits Deliveries Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/object-visits/deliveries/retry": {
+      "post": {
+        "tags": [
+          "admin-object-visits"
+        ],
+        "summary": "Admin Retry",
+        "description": "«Erneut versuchen»: ``failed`` → ``pending``, attempts reset. With ``visitId`` it also\nenqueues that visit if the destination does not have it yet.",
+        "operationId": "admin_retry_api_admin_object_visits_deliveries_retry_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Retry Api Admin Object Visits Deliveries Retry Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/object-visits/destinations/{destination_id}/test": {
+      "post": {
+        "tags": [
+          "admin-object-visits"
+        ],
+        "summary": "Admin Test Destination",
+        "description": "Upload one small ``_kp-front-test.txt`` into the destination root; Graph's answer back.",
+        "operationId": "admin_test_destination_api_admin_object_visits_destinations__destination_id__test_post",
+        "parameters": [
+          {
+            "name": "destination_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Destination Id"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Test Destination Api Admin Object Visits Destinations  Destination Id  Test Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/object-visits/export.zip": {
+      "get": {
+        "tags": [
+          "admin-object-visits"
+        ],
+        "summary": "Admin Export",
+        "description": "Visits as JSON + report PDF + photo originals, one folder per visit — the station's own\ncopy where no destination is configured.",
+        "operationId": "admin_export_api_admin_object_visits_export_zip_get",
+        "parameters": [
+          {
+            "name": "object",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Object"
+            }
+          },
+          {
+            "name": "workRef",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workref"
+            }
+          },
+          {
+            "name": "lifecycle",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lifecycle"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 500,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/manifest.webmanifest": {
       "get": {
         "tags": [
@@ -11783,6 +14202,27 @@
           "edit_version"
         ],
         "title": "AlignmentMutation"
+      },
+      "Assignment": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,39}$",
+            "title": "Code"
+          },
+          "scheduledOn": {
+            "type": "string",
+            "format": "date",
+            "title": "Scheduledon"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "scheduledOn"
+        ],
+        "title": "Assignment"
       },
       "Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post": {
         "properties": {
@@ -12644,6 +15084,9 @@
           },
           "setup": {
             "$ref": "#/components/schemas/SetupConfig"
+          },
+          "objectVisits": {
+            "$ref": "#/components/schemas/ObjectVisitsConfig"
           }
         },
         "type": "object",
@@ -12708,6 +15151,9 @@
           },
           "setup": {
             "$ref": "#/components/schemas/SetupConfig"
+          },
+          "objectVisits": {
+            "$ref": "#/components/schemas/ObjectVisitsConfig"
           },
           "integrations": {
             "$ref": "#/components/schemas/ConfigIntegrations"
@@ -13119,6 +15565,17 @@
               }
             ],
             "title": "Defaultpressurebar"
+          },
+          "entryPressureMin": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entrypressuremin"
           },
           "pressureStep": {
             "anyOf": [
@@ -15728,6 +18185,17 @@
             "format": "uuid",
             "title": "Id"
           },
+          "filing_folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing Folder"
+          },
           "source_key": {
             "anyOf": [
               {
@@ -15752,6 +18220,275 @@
           "updated_at"
         ],
         "title": "ObjectOut"
+      },
+      "ObjectRef": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+            "title": "Source"
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "id"
+        ],
+        "title": "ObjectRef"
+      },
+      "ObjectRefIn": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+            "title": "Source"
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "id"
+        ],
+        "title": "ObjectRefIn",
+        "description": "An outside system's id for an object (``{\"source\": \"fwo-schlue\", \"id\": \"…\"}``)."
+      },
+      "ObjectUpsertIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          },
+          "source_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Note"
+          },
+          "filing_folder": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing Folder"
+          },
+          "refs": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ObjectRefIn"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ObjectUpsertIn",
+        "description": "``PUT /api/objects/{id}`` — ``ObjectIn`` plus the two OPTIONAL fields the manifest push\ncarries for Objektbesuche: where the object's documents are filed, and its outside ids. Both\nare written only when SENT, so a caller that does not know them (the admin's object mask)\nnever clears them; ``refs`` are added, never removed."
+      },
+      "ObjectVisitDestination": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "const": "sharepoint",
+            "title": "Kind",
+            "default": "sharepoint"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          },
+          "timing": {
+            "type": "string",
+            "enum": [
+              "every-sync",
+              "completed"
+            ],
+            "title": "Timing",
+            "default": "every-sync"
+          },
+          "siteUrl": {
+            "type": "string",
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Siteurl"
+          },
+          "library": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Library"
+          },
+          "root": {
+            "type": "string",
+            "maxLength": 400,
+            "title": "Root",
+            "default": ""
+          },
+          "objectFolder": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Objectfolder",
+            "default": "{object.folder}"
+          },
+          "visitFolder": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Visitfolder",
+            "default": "Objektbesuche/{date} {checklist} ({short})"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "siteUrl"
+        ],
+        "title": "ObjectVisitDestination",
+        "description": "Where the server files a copy of every visit (docs/object-visits.md «Delivery»).\n\n⚠️ NO CREDENTIAL HERE — this document is served by the public ``GET /api/config``. The\nwriter's app registration lives in the encrypted credential group ``sharepoint_export``."
+      },
+      "ObjectVisitProposalField": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "ObjectVisitProposalField",
+        "description": "One entry of the Korrekturvorschlag field list. The id is opaque to KP Front — the\norganizer maps it to its own master data (docs/object-visits.md)."
+      },
+      "ObjectVisitsConfig": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": false
+          },
+          "captureRoles": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "editor",
+                "el",
+                "viewer"
+              ]
+            },
+            "type": "array",
+            "title": "Captureroles"
+          },
+          "proposalFields": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitProposalField"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Proposalfields"
+          },
+          "destinations": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectVisitDestination"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Destinations"
+          }
+        },
+        "type": "object",
+        "title": "ObjectVisitsConfig",
+        "description": "The optional Objektbesuche module (docs/object-visits.md). Off unless switched on."
       },
       "ObjectWithPlans": {
         "properties": {
@@ -15807,6 +18544,17 @@
             "type": "string",
             "format": "uuid",
             "title": "Id"
+          },
+          "filing_folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing Folder"
           },
           "source_key": {
             "anyOf": [
@@ -16513,6 +19261,30 @@
         "title": "ProviderRegistration",
         "description": "One provider this build knows about, whether or not this station uses it.\n\nThe list is what makes personnel/alarms/vehicles a *choice* rather than a vendor: a\nstation reads it to see what it could point at. ``implemented`` is false for a provider\nwhose contract is published but whose ingestion is not built yet — an entry that is\ndiscoverable and honest about being inert, rather than a registry that quietly implies\neverything listed works."
       },
+      "Publish": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revision"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/Assignment"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Assignments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "assignments"
+        ],
+        "title": "Publish"
+      },
       "RankConfig": {
         "properties": {
           "key": {
@@ -17186,6 +19958,67 @@
         ],
         "title": "RosterUser",
         "description": "A login tile — never includes anything secret."
+      },
+      "Route": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,39}$",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectRef"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Objects"
+          },
+          "retired": {
+            "type": "boolean",
+            "title": "Retired",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "objects"
+        ],
+        "title": "Route"
+      },
+      "RoutesUpdate": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revision"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/Route"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Routes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "routes"
+        ],
+        "title": "RoutesUpdate"
       },
       "SegmentPatch": {
         "properties": {

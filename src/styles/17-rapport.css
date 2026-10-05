@@ -19,10 +19,10 @@
    line was what separated the read-only dispatch facts from the fields below. The block is its
    own section now, and the section's own edge is the separator. */
 .report-meta-dispatch-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-/* --ink-dim, the same ink as every other eyebrow on this surface (.report-pre-section h3). It sat
-   on --ink-faint, one shade quieter, directly above three headings that did not — same size,
-   same weight, same tracking, different colour, stacked in one column. */
-.report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+/* The same ink as every other eyebrow on this surface (.report-pre-section h3) — once it was one
+   shade apart from three headings stacked in the same column. Since 28.09.2026 all of them are
+   the app's ONE eyebrow (01-tokens · --eyebrow, --ink-faint). */
+.report-meta-dispatch-head > span { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 /* the icon-only «Bearbeiten» — the whole card is the press target for a pointer (see
    `.report-meta-dispatch-click` below), so this exists as the keyboard/AT target the card can
    never be (ReportPreflight keeps the <dl> readable content rather than a button's label) and as
@@ -58,8 +58,8 @@
    owns the placement, so this styles the popup only — same surface vocabulary as .ip-menu,
    without its absolute anchoring. */
 .ui-ctxmenu-pos { z-index: var(--z-menu); }
-.ui-ctxmenu { min-width: 208px; max-width: min(320px, 92vw); padding: 6px;
-  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
+.ui-ctxmenu { min-width: 208px; max-width: min(320px, 92vw); padding: var(--bar-pad);
+  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-bar);
   box-shadow: var(--shadow); outline: none; }
 /* skin only — the row radius, the hover/keyboard wash, the press wash and the red row are the
    shared `.ui-menu-item` / `.ui-menu-danger` this menu's rows also wear (13-incident.css). */
@@ -73,29 +73,8 @@
 /* fixed tick slot so the labels do not shift sideways as the state changes */
 .ui-ctxmenu-tick { flex: none; width: 12px; color: var(--blue); font-weight: 800; }
 
-/* A folded Rapport section: the head stays a real
-   row (44px, chevron, title) and carries a summary on the right so the fold can be read
-   without being opened — the only reason folding these is safe. */
-.report-fold { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
-/* A fold that IS its own card (.report-pre-section.report-fold — the Kroki panel is the one
-   left, «Abschnitte» having moved onto the print action): the section supplies border, radius
-   and background, the summary/body supply the padding — otherwise both pad and the head sits
-   22px in. A fold nested INSIDE a card gets no chrome of its own, so the page reads as one card
-   per block, exactly like Beilagen. */
-.report-pre-section.report-fold { padding: 0; }
-.report-pre-section > .report-fold { border: 0; border-radius: 0; background: none; }
-/* …and both heads are the same height: one fold IS its card (Abschnitte) and pads itself, the
-   other sits INSIDE one (Alles bereit) and inherits that card's padding — without this the two
-   summaries differ by the card's 10px and the sheet looks misaligned. */
-.report-pre-section > .report-fold > summary { padding-inline: 0; min-height: 20px; }
-.report-pre-section > .report-fold .report-fold-body { padding: 6px 0 0; }
-.report-pre-section.report-fold > summary { min-height: 40px; }
-.report-fold > summary { display: flex; align-items: center; gap: 8px; min-height: 40px;
-  padding: 0 12px; cursor: pointer; list-style: none; font: 700 13px var(--body); color: var(--ink); }
-.report-fold > summary::-webkit-details-marker { display: none; }
-.report-fold > summary > .i:first-child { flex: none; width: 16px; height: 16px; color: var(--ink-faint);
-  transition: transform .15s var(--ease); }
-.report-fold[open] > summary > .i:first-child { transform: rotate(180deg); }
+/* the body of the «Alles bereit» note (the `<details class="report-fold">` it once sat in is
+   gone; its rules went with it, 29.09.2026) */
 .report-fold-body { padding: 2px 10px 10px; }
 .report-fold-body p { margin: 0 0 6px; display: flex; align-items: flex-start; gap: 8px;
   font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
@@ -167,7 +146,10 @@
    than at the end of their line — the control above is a pair of steppers in a two-column grid,
    and a third item on that row would have had to be a third column. The gap is the form's own
    row gap, so it reads as the next line of the same field, not as a control of its own. */
-.rz-none-trail { margin-top: 8px; }
+/* …and at the RIGHT edge, under the steppers it answers for — the column every value of this
+   form ends in, like «Entfällt» at the end of its line (owner, 05.10.2026: it sat alone at the
+   left, under the labels). The answered state's dashed value still fills the row. */
+.rz-none-trail { margin-top: 8px; justify-content: flex-end; }
 /* Ende input takes the full row so it matches the Beginn field's width; "Jetzt" wraps below */
 /* min-width:0 on the flex CONTAINER too (not just the input) so it can shrink below the native
    datetime control's intrinsic width inside the grid column; input keeps flex-basis:100% so it
@@ -187,10 +169,9 @@
 .rz-derived { align-items: baseline; gap: 10px; }
 .rz-derived b { font: 700 15px var(--body); color: var(--ink); }
 /* an impossible clock is SAID, not enforced — the field keeps the value, the print keeps going.
-   Amber, not --accent: this is «schau nochmal hin», not an error the app is refusing over. */
-.rz-warn { display: flex; align-items: center; gap: 6px; margin-top: 5px;
-  font: 600 12px var(--body); color: var(--amber-strong); }
-.rz-warn svg { width: 14px; height: 14px; flex: none; }
+   THE form warning, amber and compact (`.form-warn`, 13-incident · 29.09.2026 — it was amber
+   body text with no box); this only places it under the time field. */
+.rz-warn { margin-top: 5px; }
 /* Gerettete: two labelled ±steppers (Personen / Tiere), each a label-left / stepper-right row like
    the details-modal count control */
 .rz-counts { display: flex; flex-direction: column; gap: 6px; }
@@ -223,8 +204,10 @@
 .report-pre-section { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 14px 16px; background: var(--surface-2); }
 /* section header = the SAME uppercase eyebrow as the details modal (.ctx-section-label) so every
    header across the app reads identically (was a one-off 14px sentence-case here) */
-.report-pre-section h3 { margin: 0 0 12px; font: 700 11px var(--body); letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ink-dim); }
+.report-pre-section h3 {
+  margin: 0 0 12px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 /* «Stand» on the crop map: Jetzt / a time + the reconstruction hint. Top-left, opposite the
    ± buttons, so neither sits where the framing itself needs to be read. */
 .kf-at { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; }
@@ -251,25 +234,13 @@
    paint above the input, so a tick starting any higher would draw ON the handle */
 .kf-at-marks i { position: absolute; top: 8px; width: 1.5px; height: 12px; margin-left: -0.75px;
   border-radius: 1px; background: var(--ink-faint); opacity: .7; }
-/* «wird rekonstruiert» as MOTION on the track it belongs to, not a sentence beside it: a thin
-   bar sweeping the slider says the same thing without a fixed text slot resizing the bar.
-   margin-top 20px = below the ticks (they end 20px past the centre), flush with the track's
-   44px (--tap) bottom edge. */
-.kf-at-prog { position: absolute; left: 0; right: 0; top: 50%; margin-top: 20px; height: 2px; border-radius: 1px;
-  overflow: hidden; opacity: 0; transition: opacity .15s ease; pointer-events: none; }
-.kf-at-track.busy .kf-at-prog { opacity: 1; }
-.kf-at-prog::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 38%; border-radius: 1px;
-  background: color-mix(in srgb, var(--blue) 85%, transparent); animation: kf-at-sweep 1.05s ease-in-out infinite; }
-@keyframes kf-at-sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(305%); } }
-@media (prefers-reduced-motion: reduce) {
-  .kf-at-prog::after { animation: none; width: 100%; opacity: .55; }
-}
+.kf-at-wait { display: grid; place-items: center; width: 20px; height: 20px; flex: none; color: var(--ink-dim); }
 .kf-at-val { flex: none; min-width: 8.5em; font: 800 13px var(--mono); color: var(--ink); }
 
 /* ============================================================
    Kroki-Ausschnitt — THE PAPER. The crop, the legend under it and the three plates the server
    pastes on last. Everything in here is a facsimile of what `backend/app/kroki.py` prints; the
-   framing controls around it (hint line, Hoch·Quer, ±, «Auf Einsatz zoomen») are chrome and
+   framing controls around it (hint line, Hoch·Quer, ±, «Folgt der Karte») are chrome and
    live in 14-intake.css with the rest of the panel shell.
    ============================================================ */
 
@@ -389,10 +360,12 @@
 .report-partner-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .report-partner-go .i { width: 18px; height: 18px; }
 
-/* «+ Zeile» under a repeating block (Beilage) */
-.report-row-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; cursor: pointer;
-  border: 1px dashed var(--border); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
-  font: 700 13px var(--body); }
+/* «+ Zeile» under a repeating block (Beilage). The ONE «add» look (28.09.2026 · 13-incident
+   `.cv-btn-add`): framed, --tap tall, the one corner, 14/700 ink. It was dashed and 40px — but
+   dashed means «missing» (27.09. sweep), and an add is an action, not a gap. */
+.report-row-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 14px; cursor: pointer;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
+  font: 700 14px var(--body); }
 @media (hover: hover) {
   .report-row-add:hover { border-color: var(--ink-faint); }
 }
@@ -528,6 +501,10 @@
 .report-att-x .i { width: 16px; height: 16px; }
 /* the file input itself is invisible — the label IS the button (see .report-row-add) */
 .report-att-add input { display: none; }
+/* «Foto hinzufügen» STAYS dashed (owner decision D6, 28.09.2026 re-confirmed): the one add that
+   is a placeholder for a file — the same look as the poster's .cv-beilagen-add (13-incident), so
+   the two «Foto hinzufügen» are one control. Every other add is framed (.report-row-add). */
+.report-att-add { border: 1px dashed var(--glass-edge); background: none; }
 
 /* (the Abschnitte tile grid is gone — the sections are checkbox rows in the print menu now,
    see lib/overlays · Menu and .rp-print-menu) */
@@ -538,19 +515,9 @@
    paper you are about to make will not have it» rendered as a plain ink-coloured paragraph with
    the browser's own 1em margins — no amber, no tint, no flex, and «Transkripte ergänzen» inline
    in the sentence. Unscoped, and the rule survives the next move.
-   missing-transcript warning: amber + a button that jumps to the Verlauf to fill them, so it
-   actually gets actioned rather than read past. */
-.report-pre-warn { display: flex; align-items: center; gap: 9px; margin: 0; flex-wrap: wrap;
-  font: 600 12.5px/1.45 var(--body); color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 10%, transparent); border-radius: var(--r-ctl); padding: 9px 12px; }
-.report-pre-warn .i { flex: none; width: 17px; height: 17px; color: var(--amber-strong); }
-.report-pre-warn span { flex: 1 1 auto; min-width: 0; }
-.report-pre-fix { flex: none; border: none; cursor: pointer; background: var(--amber); color: var(--on-fill);
-  font: 700 12.5px var(--body); padding: 7px 12px; border-radius: var(--r-sm); }
-@media (hover: hover) {
-  .report-pre-fix:hover { filter: brightness(.96); }
-}
-.report-pre-fix:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+   They are THE form warning now (`.form-warn .form-warn-amber`, 13-incident · 29.09.2026): ink
+   text on the tint, and the fix a compact FRAMED action (`.form-warn-act`) — it was amber body
+   text and an amber-FILLED button, a second primary on the popover. */
 
 /* The transcript TEXT (or the field to write it in) wraps onto its own line below the (flex)
    event row, indented to sit under the event text rather than the time/icon columns.
@@ -616,8 +583,10 @@
 @media (min-width: 560px) { .rp-conf-sides { grid-template-columns: 1fr 1fr; } }
 .rp-conf-side { border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
   background: var(--surface); padding: 8px 11px; min-width: 0; }
-.rp-conf-side h6 { margin: 0 0 2px; font: 800 10.5px var(--body); letter-spacing: .06em;
-  text-transform: uppercase; color: var(--ink-faint); }
+.rp-conf-side h6 {
+  margin: 0 0 2px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .rp-conf-val { font: 700 13px var(--mono); overflow-wrap: anywhere; }
 /* the answers wrap rather than shrink — a button whose label is «Angabe vom Erfassungsbogen
    übernehmen» must not ellipsize into a different sentence */

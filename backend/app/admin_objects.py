@@ -79,13 +79,16 @@ from .models import (
     Incident,
     IncidentEvent,
     JournalEntry,
+    ObjectRef,
     ObjectSite,
+    ObjectVisit,
     PlanAlignment,
     PlanAlignmentEvent,
     PlanPageFloor,
     PlanRevision,
     ReferenceDataset,
 )
+from .object_visits import attach_refs
 
 
 class PlanEntry(BaseModel):
@@ -209,6 +212,14 @@ def folder_identity(folder: str) -> FolderIdentity:
     return FolderIdentity(key=name.strip(), name=name.strip(), address=address.strip())
 
 
+class ManifestRef(BaseModel):
+    """One outside id of an object in the manifest."""
+
+    model_config = ConfigDict(extra="forbid")
+    source: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9][a-z0-9._-]{0,63}$")
+    id: str = Field(min_length=1, max_length=300)
+
+
 class ObjectEntry(BaseModel):
     """One Einsatzobjekt in a station's objects manifest."""
 
@@ -244,6 +255,12 @@ class ObjectEntry(BaseModel):
     #: Set it if a scheduled pull should be able to match plans to this object.
     sourceKey: str | None = None
     sourceNote: str | None = None
+    #: The plan-library folder this object's documents live in («Hauptstrasse 24 - Gemeinde-
+    #: verwaltung»). Optional; the Objektbesuche delivery files visits next to the plans there.
+    folder: str | None = None
+    #: Outside systems' ids for this object (``[{"source": "fwo-schlue", "id": "…"}]``), so an
+    #: organizer can address it by its own id (docs/object-visits.md). Optional; added, never removed.
+    refs: list[ManifestRef] = []
     plans: list[PlanEntry] = []
 
     @property
@@ -454,6 +471,11 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> WriteResult:
             existing.lng = o.lng
             existing.source_key = o.sourceKey
             existing.source_note = o.sourceNote
+            if o.folder is not None:
+                existing.filing_folder = o.folder.strip() or None
+            if o.refs:
+                await db.flush()
+                await attach_refs(db, oid, [(r.source, r.id) for r in o.refs])
 
             for p in o.plans:
                 ds_id = f"plan:{oid}:{p.module}"
@@ -520,6 +542,10 @@ def _push(manifest_path: Path, objects: list[ObjectEntry], base: str, admin_secr
                     "lng": o.lng,
                     "source_key": o.sourceKey,
                     "source_note": o.sourceNote,
+                    # Only when the manifest names them: an older server ignores the keys, and a
+                    # manifest without them must not clear what the server already knows.
+                    **({"filing_folder": o.folder} if o.folder is not None else {}),
+                    **({"refs": [r.model_dump() for r in o.refs]} if o.refs else {}),
                 },
             )
             if ro.status_code != 200:
@@ -1207,6 +1233,23 @@ async def _copy_row(db: AsyncSession, model: Any, where: Any, overrides: dict[st
     await db.execute(insert(table).from_select(columns, select(*picked).where(where)))
 
 
+async def _move_object_links(db: AsyncSession, old_id: uuid.UUID, new_id: uuid.UUID) -> None:
+    """Objektbesuche and outside ids follow an object that is re-keyed or merged away. Without
+    this a visit's ``object_id`` would be nulled by the FK and its refs deleted with the row."""
+    await db.execute(
+        update(ObjectVisit)
+        .where(ObjectVisit.object_id == old_id)
+        .values(object_id=new_id)
+        .execution_options(synchronize_session=False)
+    )
+    await db.execute(
+        update(ObjectRef)
+        .where(ObjectRef.object_id == old_id)
+        .values(object_id=new_id)
+        .execution_options(synchronize_session=False)
+    )
+
+
 async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
     """Move the survivor itself onto the NFC-key id. Only under ``--apply``, same transaction.
 
@@ -1224,9 +1267,11 @@ async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
         lat=lat,
         lng=lng,
         source_note=old.source_note,
+        filing_folder=old.filing_folder,
     )
     db.add(fresh)
     await db.flush()
+    await _move_object_links(db, old.id, plan.target)
     for old_id, new_id in plan.datasets:
         await _rekey_dataset(db, old_id, new_id, plan.target)
     for incident_id in plan.incidents:
@@ -1267,6 +1312,9 @@ async def _apply_pair(db: AsyncSession, pair: MergePair) -> None:
     for incident_id in pair.incidents:
         await _retarget_incident(db, incident_id, pair.loser.id, pair.survivor.id)
     if pair.deletable:
+        await _move_object_links(db, pair.loser.id, pair.survivor.id)
+        if not pair.survivor.filing_folder and pair.loser.filing_folder:
+            pair.survivor.filing_folder = pair.loser.filing_folder
         if pair.source_key:
             pair.loser.source_key = None  # source_key is UNIQUE — free it before the survivor takes it
             await db.flush()

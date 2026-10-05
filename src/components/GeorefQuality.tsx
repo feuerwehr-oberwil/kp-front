@@ -18,6 +18,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { confirmDialog } from '../lib/ui'
+import { cx } from '../lib/cx'
 import { georefWarnings, type GeorefWarning } from '../lib/georefMode'
 import { residualClaim, type GeorefFit } from '../lib/georef'
 import s from './GeorefMode.module.css'
@@ -88,7 +89,7 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
     <div className={s.quality}>
       <div className={s.qHead}>
         <span>{C.qualityTitle}</span>
-        <button className={s.qX} onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+        <button className={`ip-x ${s.qX}`} onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className={s.qSummary}>
         {/* the value column stays SHORT — «· 1 Punkt» in the head plus «ungemessen» beside it
@@ -106,8 +107,8 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
       {linked
         ? <div className={s.qNote}>{C.lampApprovedBody}</div>
         : auto
-        ? <div className={s.qWarn}><Icon id="warn" />{realPoints > 0 ? C.autoOneBody : C.warnAuto}</div>
-        : warning && <div className={s.qWarn}><Icon id="warn" />{warningText(warning, fit)}</div>}
+        ? <div className={cx('form-warn form-warn-amber form-warn-compact', s.qWarn)}><Icon id="warn" /><span className="form-warn-text">{realPoints > 0 ? C.autoOneBody : C.warnAuto}</span></div>
+        : warning && <div className={cx('form-warn form-warn-amber form-warn-compact', s.qWarn)}><Icon id="warn" /><span className="form-warn-text">{warningText(warning, fit)}</span></div>}
       <div className={`${s.qActions} ${onTransfer ? s.qActionsFour : ''}`}>
         {/* ⚠️ This action always ADDS a point; it does not pick up the pair with the largest
             residual. Calling it «Punkt 2 korrigieren» made the result depend on a calculation the

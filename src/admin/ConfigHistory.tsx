@@ -273,7 +273,7 @@ export function ConfigHistory({ onRestored }: { onRestored: (cfg: DeploymentConf
           modal
           footer={
             <>
-              <button type="button" className="ip-btn ghost" onClick={() => setPending(null)}>{Cc.cancel}</button>
+              <button type="button" className="ip-btn" onClick={() => setPending(null)}>{Cc.cancel}</button>
               <button type="button" className="ip-btn ip-btn-danger" onClick={() => void restore(pending)}>
                 {C.histRestoreGo}
               </button>

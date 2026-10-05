@@ -1,3 +1,4 @@
+import { LoadingStatus } from './ShellLoader'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { prefersReducedMotion } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
@@ -241,7 +242,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
         </button>
       )}
-      <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.remove}</button>
+      <button className="btn warn" onClick={onDelete}><Icon id="trash" />{appConfig.copy.remove}</button>
     </div>
   )
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
@@ -638,7 +639,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               <>
                 <div className="de-conn-title">{appConfig.copy.measure.profile}</div>
                 {profileLoading ? (
-                  <div className="de-prof-msg">{appConfig.copy.measure.profileLoading}</div>
+                  <div className="de-prof-msg"><LoadingStatus>{appConfig.copy.measure.profileLoading}</LoadingStatus></div>
                 ) : profile ? (
                   <><ProfileChart p={profile} path={profileCoords} /><ProfileStats p={profile} /></>
                 ) : (

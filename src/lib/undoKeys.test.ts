@@ -240,3 +240,11 @@ describe('undoKeys — a toast that outlives a merge', () => {
     expect(released.ok()).toBe(true) // no longer watched — its toast is gone
   })
 })
+
+describe('undoKeys — slices other PRs added (staging integration 25.09.2026)', () => {
+  it('a Trupp whose crew-filing marker only grew is not a changed record — every inverse keeps the marker', () => {
+    const t = { id: 't1', no: 1, status: 'bereit' }
+    expect(workspaceChanges({ trupps: [t] }, { trupps: [{ ...t, crewFiled: ['p1'] }] }).size).toBe(0)
+    expect([...workspaceChanges({ trupps: [t] }, { trupps: [{ ...t, status: 'drin', crewFiled: ['p1'] }] })]).toEqual(['trupps:t1'])
+  })
+})

@@ -39,7 +39,7 @@ export function IncidentHistoryView() {
 
   return (
     <Card>
-      {state.kind === 'loading' && <EmptyState message={C.loading} />}
+      {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
       {state.kind === 'error' && <EmptyState tone="err" message={C.error} />}
       {err && <EmptyState tone="err" message={err} />}
       {state.kind === 'ok' && (

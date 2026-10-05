@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
@@ -6,16 +6,17 @@ import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { newId } from '../lib/ids'
 import { Segmented } from './Segmented'
-import { Stepper } from './Stepper'
-import { Menu, Overlay, Popover } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
-import { serverNow } from '../lib/serverClock'
+import { Menu, Overlay, Popover, SheetFoot, SheetGrab } from '../lib/overlays'
+import { alarmBarFor, currentRunStart, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
+import { foreignContactAgo } from '../lib/contactEcho'
+import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { readingBarShown, truppAuftragLabel, truppEquipmentLabels, truppStatusLabel } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
+import { usePageHeadFit } from '../lib/pageHeadFit'
 import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields, TruppKind, TruppReading } from '../types'
-import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
+import { assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import { markerHolderNote, type MarkerOption } from '../lib/placedTrupps'
 import { ClearableInput } from './ClearableInput'
@@ -25,12 +26,13 @@ import { ensureNotifyPermission, notificationsSupported, unlockAlarm } from '../
 import { atemschutzDoctrine, atemschutzEquipment, isDemoMode } from '../lib/deploymentConfig'
 import type { SyncStatus } from '../lib/api/workspaceSync'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
-import { useKeptState } from '../lib/draftKeep'
-import { useHoldRepeat } from '../lib/useHoldRepeat'
+import { keepDraft, useKeptState } from '../lib/draftKeep'
 import { truppOrderKey } from '../lib/useTruppActions'
-import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
-import { TruppNo } from './TruppNo'
+import { AuftragSheet, KanalPickSheet, KanalSheet, LeitungField, PressureSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
+import { fileGuestSlots, teamConflict, truppSheetSub } from '../lib/truppQuickEdit'
+import { crewAfterChange, type CrewChange } from '../lib/truppLeader'
+import { rankOrder } from '../lib/rank'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
@@ -64,12 +66,6 @@ const NO_ASSIGNED: Set<string> = new Set()
 /** How the board is arranged — mirrors Prefs.atemschutzOrder. */
 export type TruppOrder = 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
 
-/** snap a raw bar value to the step grid, clamped to [0, ceiling] */
-function snapBar(v: number): number {
-  const dz = atemschutzDoctrine()
-  return Math.max(0, Math.min(dz.pressureMax, Math.round(v / dz.pressureStep) * dz.pressureStep))
-}
-
 /** Non-AS Trupp wording — APP ONLY (09.09., field ask). A work squad reports a task done, not a
  *  radio check, so the app says «Auftrag erledigt» / «Ohne Auftrag» / «Ohne Auftrag seit» for
  *  one, instead of borrowing Atemschutz vocabulary. The handed-over link board (`lite`) keeps
@@ -94,6 +90,13 @@ function plainWords(t: Trupp, lite: boolean) {
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 /** the tier every Trupp has on a CLOSED Einsatz — silent (R3) */
 const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
+
+/** The Trupps head's ladder (lib/pageHeadFit, 28.09.2026): what gives first when the one row runs
+ *  out — the quiet line's time, then the tiles' words, lowest priority first (a way of LOOKING at
+ *  the board before the handover, the handover before the way back to a deleted card, the alarm's
+ *  word before the bell's honest state — the ⚠ and its count stay), then «Trupp anmelden» → «Trupp»,
+ *  and last «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
+const HEAD_FOLD = { saved: 1, order: 2, share: 3, restore: 4, overdue: 5, bell: 6, newTrupp: 7, savedMark: 8 } as const
 
 export function AtemschutzView({
   trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
@@ -146,7 +149,7 @@ export function AtemschutzView({
   recordContact: (id: string) => void
   recordPressure: (id: string, bar: number) => void
   /** `exitBar` = the Restdruck asked at «Raus melden» (PressureSheet); absent = without one */
-  setTruppStatus: (id: string, status: Trupp['status'], exitBar?: number) => void
+  setTruppStatus: (id: string, status: Trupp['status'], exitBar?: number, opts?: { undoToast?: boolean }) => void
   editTrupp: (id: string, f: TruppFields) => void
   /** Take one person out of the Trupp that still holds them — the «bereits in einem anderen
    *  Trupp» warning's own fix (useTruppActions · transferOutOfTrupp). `toName` is the
@@ -262,6 +265,11 @@ export function AtemschutzView({
   // the shared create / edit / re-deploy form — null when closed
   // `adoptMarkerId`: the loose marker a create form was opened FROM — joined to the Trupp on save
   const [form, setForm] = useState<{ mode: FormMode; trupp?: Trupp; focus?: 'auftrag'; adoptMarkerId?: string; presetAuftrag?: TruppAuftrag } | null>(null)
+  /* The mini sheets (26.09.2026, phone card slim-down — components/TruppSheets): one fact of the
+   * card, one short sheet, every save through `editTrupp`. Opened from the card's chips on every
+   * width (the tablet's Kennzeile entries are the same doors), so the sheet is what a tap on a fact
+   * does — the big form stays for Art and Eingangsdruck, behind «Bearbeiten». */
+  const [quick, setQuick] = useState<{ id: string; kind: 'kanal' | 'auftrag' | 'trupp' } | null>(null)
   /* The one pressure picker (PressureSheet, 24.09.2026): a Druckmeldung from the phone row or card,
    * and the Restdruck at «Raus melden» on every width. Null when closed. */
   const [pressureAsk, setPressureAsk] = useState<{ id: string; kind: 'pressure' | 'exit' } | null>(null)
@@ -601,7 +609,8 @@ export function AtemschutzView({
    *   · the Sicherungstrupp — standing ready (Auftrag «Sichern»), or a placeholder asking for one
    *     while anybody is inside
    *   · Bereit — registered, not yet in · Draussen — came out
-   * The tablet grid, and the handed-over Tafel (one Trupp per screen), are untouched. The 2 s
+   * The tablet grid, and the handed-over Tafel (one Trupp per screen), keep their arrangement
+   * (their CARD is this board's opened row since 29.09.2026 — see TruppCard). The 2 s
    * freeze still holds the order under the finger (`freezeOrder` captures THIS arrangement). */
   const phoneMode = compact && !lite
   const inFieldNow = (t: Trupp) => t.status === 'aktiv' || t.status === 'rueckzug'
@@ -622,6 +631,36 @@ export function AtemschutzView({
   // render, which is exactly what react-hooks/refs warns about.)
   const freezeOrder = () => {
     setFrozenIds((phoneMode ? [...phoneIn, ...phoneSafety, ...phoneReady, ...phoneOut, ...plainBoard] : board).map((t) => t.id))
+  }
+
+  /* ── A Kontakt another device confirmed a moment ago ASKS first (24.09.2026, D1 ⑧a) ──────────
+   * On 23.09. the iPad and the phone both answered T1 and the record got two contacts 21 s apart.
+   * The synced log says when the last confirmation was and whether this device wrote it
+   * (lib/contactEcho); a foreign one under 60 s old turns the tap into «Kontakt wurde vor 21 s
+   * schon bestätigt (anderes Gerät). Nochmals / OK». «OK» — and every way of dismissing the
+   * question — writes nothing. A second tap on the SAME device is unchanged (no question, the
+   * 2 s order freeze).
+   * ⚠️ On EVERY board — tablet grid, phone board and the handed-over Tafel (25.09.2026): it guards
+   * the ACT, not a layout, and the 23.09. case was an iPad and a phone. «OK» is the default
+   * (filled, focused — `ConfirmSpec · safeAnswer`): a reflex tap or an Enter writes nothing. */
+  const contactTap = async (id: string): Promise<boolean> => {
+    const t = trupps.find((x) => x.id === id)
+    const ago = t ? foreignContactAgo(t, serverNow()) : null
+    if (t && ago != null) {
+      /* Recognition over reading (owner review 26.09.2026): a TITLE that states the fact, one
+         short line for which crew and when, the verbs on the buttons. */
+      const again = await confirmDialog({
+        title: az.contactEchoTitle,
+        message: fillTemplate(az.contactEchoMsg, { name: typeof t.no === 'number' ? fillTemplate(az.contactEchoWho, { n: t.no }) : t.name, s: ago }),
+        confirmLabel: az.contactEchoAgain,
+        cancelLabel: az.contactEchoOk,
+        safeAnswer: 'cancel',
+      })
+      if (!again) return false
+    }
+    freezeOrder()
+    recordContact(id)
+    return true
   }
 
   // roster of everyone already entered on any Trupp (GF + AdF) — offered as quick-select chips
@@ -701,26 +740,78 @@ export function AtemschutzView({
     unlockAlarm(); if (!isDemoMode()) void ensureNotifyPermission()
   }
 
-  const submitForm = async (f: TruppFields, standby = false) => {
-    if (!form) return
-    // One Leitung, one Trupp. Typing a number that someone else is already on used to save
-    // silently and leave two Trupps claiming one hose — the tag then picked one of them and the
-    // Überwacher had no way of knowing. Name both and let the operator decide: a takeover IS the
-    // normal case (Ablösung), it just has to be said out loud. Cancel returns to the form with
-    // everything still typed.
+  /**
+   * One Leitung, one Trupp. Typing a number that someone else is already on used to save silently
+   * and leave two Trupps claiming one hose — the tag then picked one of them and the Überwacher had
+   * no way of knowing. Name both and let the operator decide: a takeover IS the normal case
+   * (Ablösung), it just has to be said out loud. Cancel returns to the form with everything still
+   * typed. ⚠️ ONE helper for every save that can set a Leitung — the form's (`submitForm`) and the
+   * Auftrag sheet's (`saveQuick`, 26.09.2026) — so no door around the question exists.
+   * `true` when the write may go ahead (the previous Trupp has let go by then) — a plain `true`
+   * with no clash, so a save that asks nothing still writes in the same tick it was tapped (the
+   * board's tests, and the create form's kept draft, count on that); a Promise only while asking.
+   */
+  const confirmLineTake = (f: TruppFields, ownId?: string): true | Promise<boolean> => {
     const clash = f.lineNo == null ? undefined
-      : trupps.find((t) => t.id !== form.trupp?.id && t.status !== 'raus' && truppLineNo(t) === f.lineNo)
-    if (clash) {
-      const ok = await confirmDialog({
-        title: fillTemplate(az.lineTakeTitle, { n: String(f.lineNo) }),
-        message: fillTemplate(az.lineTakeMsg, { n: String(f.lineNo), from: clash.name, to: f.name }),
-        confirmLabel: az.lineTakeConfirm,
-        cancelLabel: appConfig.copy.cancel,
-      })
-      if (!ok) return
+      : trupps.find((t) => t.id !== ownId && t.status !== 'raus' && truppLineNo(t) === f.lineNo)
+    if (!clash) return true
+    return confirmDialog({
+      title: fillTemplate(az.lineTakeTitle, { n: String(f.lineNo) }),
+      message: fillTemplate(az.lineTakeMsg, { n: String(f.lineNo), from: clash.name, to: f.name }),
+      confirmLabel: az.lineTakeConfirm,
+      cancelLabel: appConfig.copy.cancel,
+    }).then((ok) => {
+      if (!ok) return false
       unlinkTruppLine(clash.id) // the previous Trupp lets go — its Leitung is now this one's
+      return true
+    })
+  }
+  /** A mini sheet's save (components/TruppSheets): the same question in front of a Leitung, then
+   *  the ONE write path. `true` = written, the sheet closes; `false` = the operator said no and the
+   *  sheet stays open with everything still picked. */
+  const saveQuick = async (id: string, f: TruppFields): Promise<boolean> => {
+    const take = confirmLineTake(f, id)
+    if (take !== true && !(await take)) return false
+    editTrupp(id, f)
+    return true
+  }
+
+  /** Resolves `true` once the Trupp is written — the form drops its kept draft only then, so every
+   *  «Zurück» / «Abbrechen» on a question in front of the save returns to a form still filled in. */
+  const submitForm = async (f0: TruppFields, standby = false, extra?: TruppSubmitExtra): Promise<boolean> => {
+    if (!form) return false
+    let f = f0
+    /* ⚠️ An EDIT is a patch (staging walk-through 25.09.2026: phone B's older open form saved its
+     * stale Auftrag over phone A's change). Only the groups this form touched are written, onto
+     * the Trupp as it stands NOW; and a touched group that another device changed since the form
+     * opened is said in one line first, with «Zurück zum Formular» as the safe, focused answer. */
+    if (form.mode === 'edit' && form.trupp && extra) {
+      const current = trupps.find((t) => t.id === form.trupp!.id) ?? form.trupp
+      const changedElsewhere = truppFieldGroupsChanged(truppFieldsOf(form.trupp), truppFieldsOf(current))
+      const conflicts = extra.touched.filter((g) => changedElsewhere.includes(g))
+      if (conflicts.length) {
+        const ok = await confirmDialog({
+          message: conflicts.length === 1
+            ? fillTemplate(az.editConflictOne, { field: az.editFieldLabels[conflicts[0]], now: fieldNow(current, conflicts[0]) })
+            : fillTemplate(az.editConflictMany, { fields: conflicts.map((g) => az.editFieldLabels[g]).join(', ') }),
+          confirmLabel: az.editConflictOverwrite,
+          cancelLabel: az.editConflictBack,
+          safeAnswer: 'cancel',
+        })
+        if (!ok) return false
+      }
+      f = truppEditPatch(current, f0, extra.touched)
+    }
+    const take = confirmLineTake(f, form.trupp?.id)
+    if (take !== true && !(await take)) return false
+    // every question is answered — NOW the Gäste typed into the form reach the Anwesenheit
+    // (TruppForm · fileGuests), and only if the crew is part of what this save writes
+    const fileCrew = () => {
+      if (!extra || (form.mode === 'edit' && !extra.touched.includes('crew'))) return
+      f = { ...f, ...extra.fileGuests() }
     }
     if (form.mode === 'create') {
+      fileCrew()
       const id = newId('tr')
       createTrupp({
         id,
@@ -731,7 +822,12 @@ export function AtemschutzView({
         name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal,
         leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, equipment: f.equipment,
         entryPressureBar: f.pressure, entryTime: '', lastContactTime: '', lowestBar: f.pressure,
-        status: 'angemeldet', readings: [],
+        status: 'angemeldet',
+        // an Eingangsdruck set on purpose opens the log as a MEASURED Anmeldung, so the first
+        // Druckmeldung never «corrects» it (lib/atemschutz · entryPressureConfirmed); the default
+        // one leaves the log to createTrupp, as ever
+        readings: f.pressureMeasured && f.kind !== 'einfach'
+          ? [{ t: serverNowIso(), bar: f.pressure, kind: 'registered', measured: true }] : [],
       })
       // The phone focus board («ein Trupp, ein Bildschirm») otherwise left the PREVIOUS Trupp
       // selected — a new Trupp existed, but the operator was still looking at somebody else's
@@ -755,13 +851,16 @@ export function AtemschutzView({
           cancelLabel: appConfig.copy.cancel,
           danger: true,
         })
-        if (!ok) return
+        if (!ok) return false
       }
+      fileCrew()
       editTrupp(form.trupp.id, f)
     } else if (form.mode === 'redeploy' && form.trupp) {
+      fileCrew()
       reactivateTrupp(form.trupp.id, f, standby)
     }
     setForm(null)
+    return true
   }
 
   /* Compact rows vs cards — a NARROW-SCREEN layout, nothing else (decided 16.08.).
@@ -787,8 +886,17 @@ export function AtemschutzView({
   const undoWord = undoLabel ? fillTemplate(appConfig.copy.undoNamed, { action: undoLabel }) : appConfig.copy.undo
   const redoWord = redoLabel ? fillTemplate(appConfig.copy.redoNamed, { action: redoLabel }) : appConfig.copy.redo
   const [picked, setPicked] = useState<string | null>(null)
+  /* The handed-over phone board OPENS on the crew that needs the Überwacher first — the most
+   * urgent one inside (the «Drin» order: tier, how far past its line, longest running) — never
+   * simply the first Trupp of the board (staging walk-through r2, N18: it opened on a Trupp that
+   * was out, its biggest control «Wieder in den Einsatz», while another crew was inside). With
+   * nobody inside it is the board's first Trupp, as before. */
+  const firstFocus = focusMode
+    ? [...board.filter((t) => isAtemschutzTrupp(t) && inFieldNow(t))].sort((a, b) =>
+      (sevOf(b.id) - sevOf(a.id)) || (urgency(b) - urgency(a)) || (runningSec(b) - runningSec(a)))[0] ?? board[0]
+    : undefined
   const focusId = focusMode
-    ? (picked && board.some((t) => t.id === picked) ? picked : board[0]?.id ?? null)
+    ? (picked && board.some((t) => t.id === picked) ? picked : firstFocus?.id ?? null)
     : null
   const lastOverdue = useRef<string | null>(null)
   const mostOverdueId = mostOverdue?.id ?? null
@@ -810,6 +918,7 @@ export function AtemschutzView({
    * scroll against. */
   const bodyRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const openRowStatus = trupps.find((t) => t.id === openRow)?.status
   useEffect(() => {
     const list = listRef.current, port = bodyRef.current
     if (!list || !port) return
@@ -837,7 +946,9 @@ export function AtemschutzView({
     let frame = 0
     const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure() }) }
     measure()
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const top = port.scrollTop + card.getBoundingClientRect().top - port.getBoundingClientRect().top
+    if (typeof port.scrollTo === 'function') port.scrollTo({ top, behavior: 'smooth' })
+    else port.scrollTop = top
     port.addEventListener('scroll', schedule, { passive: true })
     window.addEventListener('resize', schedule)
     window.visualViewport?.addEventListener('resize', schedule)
@@ -851,7 +962,7 @@ export function AtemschutzView({
       window.visualViewport?.removeEventListener('resize', schedule)
       ro?.disconnect()
     }
-  }, [compact, openRow])
+  }, [compact, openRow, openRowStatus])
 
   /* WHICH cards the current pointer marks — and which one the board scrolls to.
    *
@@ -881,7 +992,7 @@ export function AtemschutzView({
       <TruppRow
         key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
         focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
-        onContact={(id) => { freezeOrder(); recordContact(id) }}
+        onContact={(id) => { void contactTap(id) }}
         onPressure={(id) => setPressureAsk({ id, kind: 'pressure' })}
         onOpen={() => setOpenRow(t.id)}
         lite={!!lite}
@@ -898,14 +1009,18 @@ export function AtemschutzView({
       key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
       intervalMin={intervalMin} frozen={frozenAt != null}
       focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
-      onContact={(id) => { freezeOrder(); recordContact(id) }}
-      onPressure={(id, bar) => { freezeOrder(); recordPressure(id, bar) }}
+      onContact={(id) => { void contactTap(id) }}
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
+      onStandDown={(id) => { freezeOrder(); setTruppStatus(id, 'raus', undefined, { undoToast: true }) }}
       // the Restdruck question at «Raus melden» — every width (24.09.2026, see PressureSheet)
       onAskExit={(id) => setPressureAsk({ id, kind: 'exit' })}
-      // …and on the phone the card's Druck is the same picker instead of the ± stepper
-      onAskPressure={phoneMode ? (id) => setPressureAsk({ id, kind: 'pressure' }) : undefined}
+      // …and the card's Druck is the same picker, on EVERY board since 29.09.2026 (the tablet's
+      // ± stepper went with the tablet card — see TruppCard)
+      onAskPressure={(id) => setPressureAsk({ id, kind: 'pressure' })}
+      // the phone board's section heads say Drin / Bereit / Draussen; everywhere else the card does
+      headed={phoneMode}
       onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
+      onQuick={canEdit ? (kind) => setQuick({ id: t.id, kind }) : undefined}
       onDelete={deleteTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
       // ⚠️ never on a work squad. The arrows move one GLOBAL order while the board renders two
       // filtered sections, so a step can swap a Trupp past the section boundary and look like it
@@ -920,6 +1035,55 @@ export function AtemschutzView({
     />
     )
   )})
+
+  /* ── The due clocks stay in view while a Trupp is being registered (24.09.2026, D1 ⑥) ──────────
+   * On 23.09. T4 and T5 were registered on a full-screen form while T3, T1 and T2 went überfällig
+   * one after the other behind it. On the phone board the form is a bottom sheet now, and ABOVE
+   * it stand the Trupps that are due or overdue — at most two, the most urgent first (the «Drin»
+   * order), each with its live clock and a live «Kontakt» that confirms without leaving the form.
+   * Nothing due ⇒ nothing pinned. After a tap the pinned set holds for the same 2 s the board's
+   * order does: the tapped row drops out of «due» the instant its clock resets, and the row below
+   * would otherwise slide up under the finger that is about to tap again. */
+  // …and the row just confirmed shows «✓ Bestätigt», disabled, for that hold (review 25.09.2026):
+  // it stays under the finger, and a second tap on it was a second Kontakt from the same device
+  const [pinHeld, setPinHeld] = useState<{ ids: string[]; done: string[] } | null>(null)
+  useEffect(() => {
+    if (!pinHeld) return
+    const h = window.setTimeout(() => setPinHeld(null), FREEZE_MS)
+    return () => window.clearTimeout(h)
+  }, [pinHeld])
+  const pinnedDue: Trupp[] = !phoneMode || !form ? []
+    : pinHeld ? pinHeld.ids.map((id) => trupps.find((t) => t.id === id)).filter((t): t is Trupp => !!t && inFieldNow(t))
+    : phoneIn.filter((t) => isAtemschutzTrupp(t) && sevOf(t.id) >= 1).slice(0, 2)
+  const pinnedRows = pinnedDue.length > 0 ? (
+    <div className={s.formPinned} role="region" aria-label={az.pinnedLabel} data-swipe-ignore="">
+      {pinnedDue.map((t) => (
+        <PinnedRow key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} color={truppColors[t.id]}
+          confirmed={!!pinHeld?.done.includes(t.id)}
+          onContact={(id) => {
+            // marked at once (a double tap lands in the same frame), taken back if the double-contact
+            // question was answered «OK» and nothing was written
+            setPinHeld({ ids: pinnedDue.map((x) => x.id), done: [...(pinHeld?.done ?? []), id] })
+            void contactTap(id).then((ok) => {
+              if (!ok) setPinHeld((h) => (h ? { ...h, done: h.done.filter((x) => x !== id) } : h))
+            })
+          }} />
+      ))}
+    </div>
+  ) : null
+
+  /* «Bestimmen» at the SICHERUNGSTRUPP head (24.09.2026, D1 ⑦; a section head like DRIN /
+   * DRAUSSEN since 26.09.2026, phone card slim-down — the dashed «Kein Sicherungstrupp · Ein Trupp
+   * ist drin» box said in two sentences what an empty section under its own head says by itself):
+   * take one of the Trupps standing ready (its Auftrag becomes «Sichern» — an ordinary edit: its
+   * own Verlauf row, its own ↶), or register a new one with «Sichern» preset. With nobody ready it
+   * is the form directly. */
+  const safetyPickNew = () => openForm('create', undefined, undefined, undefined, 'sichern')
+  const safetyPickButton = (
+    <button type="button" className={s.sectAct} onClick={phoneReady.length ? undefined : safetyPickNew}>
+      {az.safetyPick}
+    </button>
+  )
 
   // What the bell says of itself. The order matters: «nicht freigegeben» only applies while the
   // alarm claims to be on — a muted bell promises no tone anyway, so two warnings about the same
@@ -950,16 +1114,19 @@ export function AtemschutzView({
   // two copies that could drift.
   const bellButton = (
     <button
-      className={cx(s.muteBtn, !isPhone && s.wordBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
+      className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
+      data-fold={HEAD_FOLD.bell}
       onClick={audioBlocked ? onUnlockAudio : onToggleMuted}
       aria-pressed={muted}
       aria-label={bellLabel} title={bellLabel}
     >
       <Icon id={muted ? 'bell-off' : 'bell'} />
-      {/* the WORD on a wide head (22.09.2026): three unlabelled squares beside «Trupp erstellen»
-          were a guess for anybody who had not held them. A phone keeps the square — its bar has
-          no room, and the hold-tooltip is the phone's way of asking. */}
-      {!isPhone && <span>{muted ? az.alarmMutedWord : audioBlocked ? az.alarmBlockedWord : az.alarmWord}</span>}
+      {/* the WORD wherever the head has room (22.09.2026; measured since 28.09.2026 — the head's
+          ladder, `HEAD_FOLD`): three unlabelled squares beside «Trupp anmelden» were a guess for
+          anybody who had not held them. Where the row runs out the bell gives it up last of the
+          tiles — it is its honest state — and the hold-tooltip is the way of asking. The focus
+          board keeps the square: its row belongs to the Einsatz name. */}
+      {!focusMode && <span className="fold-long">{muted ? az.alarmMutedWord : audioBlocked ? az.alarmBlockedWord : az.alarmWord}</span>}
     </button>
   )
 
@@ -986,9 +1153,10 @@ export function AtemschutzView({
    * title's popover trigger, and a <button> may only contain phrasing content. `.az-syncline` is
    * `display: flex`, which a span wears exactly as a div does — the tablet header is unchanged. */
   const syncLine = (syncStatus || skewLoud) && (
-    <span className="az-syncline">
+    <span className="az-syncline" data-fit-check>
       {syncStatus === 'synced' || syncStatus === 'pending' ? (
         <span className={cx('az-sync-quiet', syncStatus === 'pending' && 'az-sync-pending')}
+          data-fold={focusMode ? undefined : `${HEAD_FOLD.saved} ${HEAD_FOLD.savedMark}`}
           title={syncStatus === 'pending' ? cpSync.badgePending : savedAtText}>
           {syncStatus === 'synced' ? <Icon id="check" /> : <span className="ip-status-dot" />}
           {/* ⚠️ On the phone focus board the QUIET state is the mark ALONE — no «18:05» beside
@@ -1001,7 +1169,16 @@ export function AtemschutzView({
               is that this surface says ITSELF whether what it shows is saved; the mark still
               says it, at a glance, and so do the LOUD states below, which keep printing their
               Stand inline because they are the states that rule exists for. */}
-          {!focusMode && <span>{savedAtText}</span>}
+          {/* …and on the full board the word loses its time FIRST when the head runs out of room
+              (owner, staging 26.09.2026: «Gespeichert um 14:49» was cut to «Gespeichert um …» —
+              the time lost anyway, the sentence broken). Measured since 28.09.2026: the first rung
+              of the head's ladder (`HEAD_FOLD.saved`); the time stands in `title` either way. */}
+          {!focusMode && (
+            <span>
+              <span className="fold-long">{savedAtText}</span>
+              <span className="fold-short">{cpSync.saved}</span>
+            </span>
+          )}
         </span>
       ) : syncStatus ? (
         <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}
@@ -1063,9 +1240,19 @@ export function AtemschutzView({
     </div>
   )
 
+  // ONE ROW (lib/pageHeadFit): the head folds words — the quiet line's time, the tiles' words,
+  // «Trupp anmelden» → «Trupp» — until it fits, re-measured whenever what it carries changes
+  const headRef = useRef<HTMLElement>(null)
+  usePageHeadFit(headRef, [
+    focusMode, overdueCount > 0 && overdueCount, removedTrupps.length > 0, trupps.length > 1, muted, audioBlocked,
+    shareLinkActive, syncStatus, lastSyncedAt, skewLoud, canEdit,
+  ].join('|'))
+
   return (
-    <div className={cx(s.surface, lite && s.surfaceLite, frozenAt != null && s.surfaceFrozen)} onPointerDownCapture={primeOnFirstTap}>
-      <header className={cx(s.head, focusMode && s.headCompact)}>
+    // `az-tafel`: the global hook the Meldeleiste folds itself to one row for, and moves the
+    // Tafel below itself on (08-toasts · staging r3)
+    <div className={cx(s.surface, lite && s.surfaceLite, frozenAt != null && s.surfaceFrozen, 'az-tafel')} onPointerDownCapture={primeOnFirstTap}>
+      <header ref={headRef} className={cx(s.head, focusMode && s.headCompact)}>
         <div className={cx(s.headTitles, focusMode && s.headTitlesCompact)}>
           {focusMode ? (
             /* mock 03: the kicker is GONE here — «Atemschutzüberwachung» cost a whole row's
@@ -1080,7 +1267,8 @@ export function AtemschutzView({
                   cut has to be reachable, and the truncated title is the one place anybody would
                   look for it. It opens the same three facts the two-row head used to print in
                   full: Stichwort, Adresse, und ob der Stand gespeichert ist. */}
-              <h2 className={s.headTitleH}>
+              {/* the one title that is SUPPOSED to be cut — its door opens the rest */}
+              <h2 className={s.headTitleH} data-fit-free>
                 <Popover
                   side="bottom" align="start" popupClassName="az-head-detail"
                   ariaLabel={az.headDetailTitle}
@@ -1119,22 +1307,33 @@ export function AtemschutzView({
                   session sees only the Atemschutz, so for it the old title stays TRUE — and it
                   is the one screen whose holder has nothing else telling them what they are
                   looking at. */}
-              <h2>{lite ? az.title : az.boardTitle}</h2>
-              {/* ⚠️ The second line exists only on the handed-over Tafel, and it is the EINSATZ.
-                  Nothing else on that screen names it, and «welcher Einsatz ist das» is the first
-                  question somebody scanning a code from a stranger's tablet has.
-                  In the full app there is no second line: it used to carry a sentence about what
-                  the board is for («Lückenlose Überwachung jedes Atemschutztrupps»), which is a
-                  claim the operator standing at the board has already made — dropped 04.09. */}
-              {lite && <p>{lite.subtitle}</p>}
-              {syncLine}
+              {lite ? (
+                /* the handed-over Tafel: the kicker and the sync state share the quiet top line, the
+                   Einsatz its own below — two lines, like every other head (28.09.2026; it stood three) */
+                <>
+                  <span className={s.liteKicker}><h2>{az.title}</h2>{syncLine}</span>
+                  {/* ⚠️ The second line exists only on the handed-over Tafel, and it is the EINSATZ.
+                      Nothing else on that screen names it, and «welcher Einsatz ist das» is the first
+                      question somebody scanning a code from a stranger's tablet has.
+                      In the full app there is no second line: it used to carry a sentence about what
+                      the board is for («Lückenlose Überwachung jedes Atemschutztrupps»), which is a
+                      claim the operator standing at the board has already made — dropped 04.09. */}
+                  <p title={lite.subtitle}>{lite.subtitle}</p>
+                </>
+              ) : (
+                <>
+                  <h2>{az.boardTitle}</h2>
+                  {syncLine}
+                </>
+              )}
             </>
           )}
         </div>
-        {/* ⚠️ ONE group, not four siblings. `.head` wraps, and as direct children the badge, the
-            sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
-            filter stayed up beside the title while the other two dropped to a second row and
-            left-aligned under it. Grouped, they wrap as a block and stay together. */}
+        {/* ⚠️ ONE group, not four siblings. `.head` used to wrap, and as direct children the badge,
+            the sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
+            filter stayed up beside the title while the other two dropped to a second row. Grouped,
+            they stand as one block at the right end of the one row, and on the ladder's last step
+            (lib/pageHeadFit) they move to the second row together. */}
         <div className={s.headActs}>
         {/* not in focus mode: the red tab and the red card already say it, and the badge cost the
             header a whole extra row on a phone */}
@@ -1145,15 +1344,17 @@ export function AtemschutzView({
               card the app-wide TopBar chip points at (the most overdue one, which is also the
               one sortTrupps floats to the top), and a repeat press points again. */
           <button
-            type="button" className={s.overdueBadge}
+            /* muted (27.09.2026): the same tile in plain grey — the count still counts, the
+               head just does not shout a tone it has promised not to play */
+            type="button" className={cx(s.overdueBadge, muted && s.overdueQuiet)} data-fold={HEAD_FOLD.overdue}
             aria-live="assertive"
             title={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             onClick={() => setSelfFocus({ id: mostOverdue.id, nonce: Date.now(), markAll: true })}
           >
-            <Icon id="warn" /><span className={s.overdueWord}>{az.overdueBadge(overdueCount)}</span>
-            {/* the phone's crowded head keeps only the number (Atemschutz.module.css) */}
-            <span className={s.overdueShort} aria-hidden="true">{overdueCount}</span>
+            <Icon id="warn" /><span className="fold-long">{az.overdueBadge(overdueCount)}</span>
+            {/* a crowded head keeps the ⚠ and the number (the head's ladder, `HEAD_FOLD`) */}
+            <span className="fold-short" aria-hidden="true">{overdueCount}</span>
           </button>
         )}
         {/* ⚠️ The way back that does not expire. Deleting a Trupp raises a «Rückgängig» toast for six
@@ -1170,8 +1371,8 @@ export function AtemschutzView({
         {canEdit && removedTrupps.length > 0 && (
           <Menu
             trigger={
-              <button type="button" className={cx(s.orderBtn, !isPhone && s.wordBtn)} aria-label={az.restoreMenu} title={az.restoreMenu}>
-                <Icon id="archive" />{!isPhone && <span>{az.restoreMenu}</span>}
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.restore} aria-label={az.restoreMenu} title={az.restoreMenu}>
+                <Icon id="archive" /><span className="fold-long">{az.restoreMenu}</span>
               </button>
             }
             popupClassName="rp-print-menu"
@@ -1215,8 +1416,8 @@ export function AtemschutzView({
         {trupps.length > 1 && onOrder && !lite && !phoneMode && (
           <Menu
             trigger={
-              <button type="button" className={cx(s.orderBtn, !isPhone && s.wordBtn)} aria-label={az.orderLabel} title={az.orderLabel}>
-                <Icon id="filter" />{!isPhone && <span>{az.orderLabel}</span>}
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.order} aria-label={az.orderLabel} title={az.orderLabel}>
+                <Icon id="filter" /><span className="fold-long">{az.orderLabel}</span>
               </button>
             }
             popupClassName="rp-print-menu"
@@ -1244,11 +1445,11 @@ export function AtemschutzView({
         {onShareLink && (
           <button
             type="button"
-            className={cx(s.orderBtn, !isPhone && s.wordBtn, shareLinkActive && s.shareOn)}
+            className={cx(s.orderBtn, shareLinkActive && s.shareOn)} data-fold={HEAD_FOLD.share}
             onClick={onShareLink}
             aria-label={shareLabel} title={shareLabel}
           >
-            <Icon id="qr" />{!isPhone && <span>{az.shareLink}</span>}
+            <Icon id="qr" /><span className="fold-long">{az.shareLink}</span>
           </button>
         )}
         {/* ⚠️ Stays HERE even on the lite/phone focus board (maintainer correction, 03.09.): an
@@ -1258,8 +1459,10 @@ export function AtemschutzView({
         {bellButton}
         {/* in focus mode «+ Trupp» lives in the rail beside the strip — not a second one up here */}
         {canEdit && !focusMode && (
-          <button className={s.newBtn} onClick={() => openForm('create')}>
-            <Icon id="plus-bold" /><span>{az.newTrupp}</span>
+          <button className={s.newBtn} data-fold={HEAD_FOLD.newTrupp} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
+            {/* the full word where it fits, the short one where the head's ladder has run out of
+                everything else — never a bare «+» (AGENTS.md: every button on the ASÜ board has a word) */}
+            <Icon id="plus-bold" /><span className="fold-long">{az.newTrupp}</span><span className="fold-short">{az.newTruppShort}</span>
           </button>
         )}
         </div>
@@ -1271,9 +1474,16 @@ export function AtemschutzView({
             <Icon id="warn" />
             <p>{az.empty}</p>
             <span>{az.emptyHint}</span>
-            {/* «+ Trupp» lives in the bottom rail below (focusMode) whether or not the board is
-                empty — the rail renders regardless of `trupps.length`, so there is no second
-                door to keep in sync here. */}
+            {/* The door the empty board is asking for (staging walk-through 25.09.2026): the big
+                round «+» at the bottom right is the app's Verlauf-Eintrag, and on an empty board it
+                is the one a first-timer taps. On the handed-over phone board «+ Trupp» is the
+                bottom rail's own cell, so it is not repeated here. */}
+            {canEdit && !focusMode && (
+              <button type="button" className={cx('ip-btn primary', s.emptyAct)} onClick={() => openForm('create')}>
+                {/* the whole «Trupp anmelden» (newTrupp): `start` is the form's one-verb footer since 27.09.2026 */}
+                <Icon id="plus-bold" /><span>{az.newTrupp}</span>
+              </button>
+            )}
           </div>
         ) : focusMode ? (
           /* top-aligned: the card takes only what it needs, never stretched to fill the port
@@ -1282,30 +1492,56 @@ export function AtemschutzView({
              the thumb lives»). */
           <div className={s.focusCard}>{cards(board.filter((t) => t.id === focusId))}</div>
         ) : phoneMode ? (
-          <div ref={listRef} className={cx(openRow && s.rowListOpen)}>
+          // `.phoneBoard`: the one rule for the air above every section after the first (30.09.2026)
+          <div ref={listRef} className={cx(s.phoneBoard, openRow && s.rowListOpen)}>
             {phoneIn.length > 0 && (
               <>
                 <div className={s.sect}><span className={s.sectTitle}>{az.phoneSectionIn}</span><span className={s.sectCount}>{phoneIn.length}</span></div>
                 <div className={s.rowList}>{cards(phoneIn)}</div>
               </>
             )}
-            {/* the Sicherungstrupp keeps ONE place: under the crews inside, above everybody else */}
-            {(phoneSafety.length > 0 || phoneIn.length > 0) && (
+            {/* the Sicherungstrupp keeps ONE place: under the crews inside, above everybody else —
+                ALWAYS, filled or empty (D1 ⑦, 24.09.2026). Since 26.09.2026 (phone card slim-down)
+                it is a section head like DRIN / DRAUSSEN — «SICHERUNGSTRUPP ——— Bestimmen» — with
+                the standing Trupp as an ordinary row under it, or nothing: the empty section IS the
+                statement, and the head's title turns amber the moment a crew is inside and nobody
+                stands ready (`sectDue`, a hint in the warn tone — the alarm rules do not know it).
+                The dashed box with «Kein Sicherungstrupp · Ein Trupp ist drin» went with the
+                slim-down: two sentences for what the empty section says by itself.
+                ⚠️ Not once every Trupp is OUT (review 25.09.2026): with nobody in and nobody
+                waiting there is nothing to secure, and «Bestimmen» would register a crew for an
+                Einsatz that is winding down. */}
+            {(phoneIn.length > 0 || phoneReady.length > 0 || phoneSafety.length > 0) && (
               <div className={cx(s.rowList, s.safetyZone)}>
-                {phoneSafety.length > 0 ? phoneSafety.map((t) => (openRow === t.id ? cards([t]) : (
+                <div className={cx(s.sect, s.sectSafety, phoneSafety.length === 0 && phoneIn.length > 0 && s.sectDue)}>
+                  <span className={s.sectTitle}>{az.safetyTitle}</span>
+                  {phoneSafety.length > 0 && <span className={s.sectCount}>{phoneSafety.length}</span>}
+                  {canEdit && phoneSafety.length === 0 && (phoneReady.length === 0 ? safetyPickButton : (
+                    <Menu
+                      trigger={safetyPickButton}
+                      // the app's shared menu skin (13-incident.css — despite its name, every
+                      // Atemschutz menu and the audio picker wear it)
+                      popupClassName="rp-print-menu"
+                      itemClassName={() => 'rp-print-menu-item'}
+                      items={[
+                        { kind: 'head' as const, label: az.safetyPickTitle },
+                        ...phoneReady.map((t) => ({
+                          label: [t.name, ...(t.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
+                          onClick: () => editTrupp(t.id, truppFieldsOf(t, { auftrag: 'sichern' })),
+                        })),
+                        { kind: 'sep' as const },
+                        { label: az.safetyPickNew, onClick: safetyPickNew },
+                      ]}
+                    />
+                  ))}
+                </div>
+                {phoneSafety.map((t) => (openRow === t.id ? cards([t]) : (
+                  // «Einsetzen» is an ordinary Eintritt; its Verlauf row says «Sicherungstrupp
+                  // eingesetzt» because the Trupp is on «Sichern» (useTruppActions · setTruppStatus)
                   <SafetyRow key={t.id} t={t} canEdit={canEdit}
                     onDeploy={(id) => { freezeOrder(); setTruppStatus(id, 'aktiv') }}
                     onOpen={() => setOpenRow(t.id)} />
-                ))) : (
-                  <div className={s.safetyNone}>
-                    <span className={s.safetyNoneTxt}><b>{az.safetyNone}</b><small>{phoneIn.length === 1 ? az.safetyNoneHint : fillTemplate(az.safetyNoneHintMany, { n: phoneIn.length })}</small></span>
-                    {canEdit && (
-                      <button type="button" className={s.safetyPick} onClick={() => openForm('create', undefined, undefined, undefined, 'sichern')}>
-                        {az.safetyPick}
-                      </button>
-                    )}
-                  </div>
-                )}
+                )))}
               </div>
             )}
             {phoneReady.length > 0 && (
@@ -1401,7 +1637,7 @@ export function AtemschutzView({
                       not say – the badge stays on the card head, the phone row and the map. */}
                   <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
                   {/* the same collapsed-time split the list row and the card make (collapsedClock) */}
-                  <span className={s.tabClock}>{collapsedClock(t, lv).val}</span>
+                  <span className={s.tabClock}><ClockVal val={collapsedClock(t, lv).val} /></span>
                 </button>
               )
             })}
@@ -1414,9 +1650,11 @@ export function AtemschutzView({
                 same reason a browser's own tab strip carries one — the thing that adds a tab
                 belongs where the tabs are. The bell stays in the header (03.09.). */}
             {canEdit && (
+              // ⚠️ «+ Trupp», with its word (29.09.2026, T9): the Add rule says «+ word» wherever there
+              // is room, and this is a full cell — a bare «+» on the one screen a stranger gets
               <button type="button" className={cx(s.tab, s.tabAdd)} onClick={() => openForm('create')}
                 aria-label={az.newTrupp} title={az.newTrupp}>
-                <Icon id="plus-bold" />
+                <span className={s.tabName}><Icon id="plus-bold" />{az.newTruppShort}</span>
               </button>
             )}
           </div>
@@ -1455,6 +1693,10 @@ export function AtemschutzView({
           // and EVERY Art of Trupp gets the same three sections — a Trupp ohne Atemschutz simply
           // has no Druck row inside «Luft & Funk» — see TruppForm.
           stack={compact}
+          // the phone board's bottom sheet with the due clocks above it (D1 ⑥) — never on the
+          // handed-over Tafel's phone board, which keeps its full-screen form
+          sheet={phoneMode}
+          pinned={pinnedRows}
           onAddGuest={onAddGuest}
           onCancel={() => setForm(null)} onSubmit={submitForm}
         />
@@ -1467,15 +1709,45 @@ export function AtemschutzView({
         const lv = live.get(t.id)!
         const close = () => setPressureAsk(null)
         return pressureAsk.kind === 'exit' ? (
-          <PressureSheet title={fillTemplate(az.exitSheetTitle, { name: t.name })} hint={az.exitSheetHint}
+          <PressureSheet t={t} title={az.exitSheetTitle} hint={az.exitSheetHint}
             last={lv.currentBar} alarmBar={alarmBarFor(t, atemschutzDoctrine())} onClose={close}
             onPick={(bar) => { freezeOrder(); setTruppStatus(t.id, 'raus', bar); close() }}
             footer={{ label: az.exitNoBar, onClick: () => { freezeOrder(); setTruppStatus(t.id, 'raus'); close() } }} />
         ) : (
-          <PressureSheet title={fillTemplate(az.pressureSheetTitle, { name: t.name })} hint={az.pressureSheetHint}
+          /* ⚠️ The first reading within minutes of the Eintritt REPLACES the Eingangsdruck
+             (useTruppActions · recordPressure) — and the sheet says so in words instead of a
+             promise it does not keep (staging walk-through 25.09.2026). It still counts as a
+             Kontakt. An Eingangsdruck set on purpose is never replaced, and then the ordinary
+             line stands (lib/atemschutz · earlyEntryCorrection). */
+          <PressureSheet t={t} title={az.pressureSheetTitle}
+            hint={earlyEntryCorrection(t, serverNow()) ? fillTemplate(az.pressureSheetFirst, { bar: t.entryPressureBar }) : az.pressureSheetHint}
             last={lv.currentBar} alarmBar={alarmBarFor(t, atemschutzDoctrine())} onClose={close}
             onPick={(bar) => { freezeOrder(); recordPressure(t.id, bar); close() }} />
         )
+      })()}
+
+      {quick && (() => {
+        const t = trupps.find((x) => x.id === quick.id)
+        // the Trupp left the board on another device while the sheet stood open — nothing to edit
+        if (!t) return null
+        const close = () => setQuick(null)
+        const save = (f: TruppFields) => saveQuick(t.id, f)
+        return quick.kind === 'kanal'
+          ? <KanalSheet t={t} onSave={save} onClose={close} />
+          : quick.kind === 'auftrag'
+          ? <AuftragSheet t={t} leitungOptions={leitungOptions(t.id)} lite={!!lite}
+              onSave={save} onClose={close} />
+          /* the crew and the Ausrüstung — the same roster, presence and «one person, one Trupp»
+             answers the form gets (see TruppForm's props below); a Trupp that has come OUT binds
+             nobody, for the reason given there */
+          : <TruppSheet t={t} personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
+              assignedIds={t.status === 'raus' ? NO_ASSIGNED : assignedPersonIds(trupps.filter((x) => x.id !== t.id))}
+              transferState={(personId) => truppTransferState(truppOfPerson.get(personId), personId)}
+              onTransfer={transferOutOfTrupp && ((personId, toName) => {
+                const from = truppOfPerson.get(personId)
+                if (from) transferOutOfTrupp(from.id, personId, toName)
+              })}
+              onAddGuest={onAddGuest} onSave={save} onClose={close} />
       })()}
 
       {placePick && (() => {
@@ -1484,7 +1756,7 @@ export function AtemschutzView({
         return (
         <Overlay open onClose={() => setPlacePick(null)} className={cx(s.modal, s.placeModal)} ariaLabel={az.placeWhere}>
           <div className={s.modalHead}><h3>{az.placeWhere}</h3>
-            <button className={s.iconBtn} aria-label={az.cancel} onClick={() => setPlacePick(null)}><Icon id="close" /></button>
+            <button className="ip-x" aria-label={az.cancel} onClick={() => setPlacePick(null)}><Icon id="close" /></button>
           </div>
           <div className={s.placeOpts}>
             {placeTargets.map((tgt) => (
@@ -1527,63 +1799,14 @@ export function AtemschutzView({
   )
 }
 
-/**
- * The ONE pressure picker (24.09.2026, Übung 23.09.): three columns — 300…220, 200…120, 100…20 —
- * in steps of 20, and a tap SAVES. Used for a Druckmeldung from the phone (row and card) and for
- * the Restdruck at «Raus melden» on every width.
- *
- * ⚠️ Why a grid and not the ± stepper the card has: a Druckmeldung arrives over the radio as one
- * number while the other hand holds the handset. A stepper is five to ten taps and a «Bestätigen»;
- * this is one. 20-bar steps because nobody reads a gauge closer than that under a mask («nobody
- * counts that exact», maintainer, 24.09.) — so there is deliberately no «genau…» way out.
- * The column a value sits in is its meaning at a glance: full · half · at or below the line (red).
- * The last known value is outlined, so the eye starts where the Trupp was. */
 /** re-entry within this many minutes of the Austritt asks «gleiche oder neue Flasche?» */
 const BOTTLE_ASK_MIN = 10
 
-const PRESSURE_GRID: number[][] = [[300, 280, 260, 240, 220], [200, 180, 160, 140, 120], [100, 80, 60, 40, 20]]
-
-function PressureSheet({ title, hint, last, alarmBar, onPick, onClose, footer }: {
-  title: string
-  hint?: string
-  /** the Trupp's current bar — its nearest grid value is outlined */
-  last: number
-  /** this Trupp's turn-back line (lib/atemschutz · alarmBarFor) — values at or below it are red */
-  alarmBar: number
-  onPick: (bar: number) => void
-  onClose: () => void
-  /** a second way out that is not a number (the exit's «Ohne Druck raus») */
-  footer?: { label: string; onClick: () => void }
-}) {
-  const az = appConfig.copy.atemschutz
-  // DOWN to the grid, never up: a Trupp last read at 250 has not got 260 (clamped to the grid's ends)
-  const near = Math.min(300, Math.max(20, Math.floor(last / 20) * 20))
-  return (
-    <Overlay open onClose={onClose} className={cx(s.modal, s.pressureSheet)} ariaLabel={title}>
-      <div className={s.modalHead}><h3>{title}</h3>
-        <button className={s.iconBtn} aria-label={az.cancel} onClick={onClose}><Icon id="close" /></button>
-      </div>
-      {hint && <p className={s.pressureSheetHint}>{hint} · {fillTemplate(az.pressureSheetLast, { bar: last })}</p>}
-      <div className={s.pressureGrid}>
-        {PRESSURE_GRID.map((col, i) => (
-          <div key={i} className={s.pressureCol}>
-            {col.map((bar) => (
-              <button key={bar} type="button"
-                className={cx(s.pressureCell, bar <= alarmBar && s.pressureCellLow, bar === near && s.pressureCellLast)}
-                onClick={() => onPick(bar)}>
-                {bar}
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
-      {footer && <button type="button" className={s.pressureSheetFooter} onClick={footer.onClick}>{footer.label}</button>}
-    </Overlay>
-  )
-}
-
 /** The Sicherungstrupp standing ready, on the phone board (24.09.2026): its own row in its own
- *  place, with the one action it exists for. The whole row opens its card, like every other row. */
+ *  place, with the one action it exists for. The whole row opens its card, like every other row.
+ *  Since 26.09.2026 (phone card slim-down) it stands under a SICHERUNGSTRUPP head, so the row
+ *  leads with the NAME like every other row and the Eingangsdruck under it — the head says what
+ *  it is, the row said it a second time. */
 function SafetyRow({ t, canEdit, onDeploy, onOpen }: {
   t: Trupp; canEdit: boolean; onDeploy: (id: string) => void; onOpen: () => void
 }) {
@@ -1591,8 +1814,8 @@ function SafetyRow({ t, canEdit, onDeploy, onOpen }: {
   return (
     <button type="button" className={cx(s.trow, s.trowSafety)} onClick={onOpen} aria-label={`${az.safetyTitle}: ${t.name}`}>
       <span className={s.trowId}>
-        <span className={s.trowName}><span className={s.trowNameTxt}>{az.safetyTitle}</span></span>
-        <span className={s.trowSafetyWho}>{t.name}{t.entryPressureBar ? ` · ${t.entryPressureBar} bar` : ''}</span>
+        <span className={s.trowName}><span className={s.trowNameTxt}>{t.name}</span></span>
+        {t.entryPressureBar ? <span className={s.trowSafetyWho}>{t.entryPressureBar} bar</span> : null}
       </span>
       <span className={s.trowAct}>
         {canEdit && (
@@ -1607,129 +1830,96 @@ function SafetyRow({ t, canEdit, onDeploy, onOpen }: {
   )
 }
 
-// A gloved-friendly ±stepper for cylinder pressure (step + ceiling from config; 320 bar allows
-// an overfull bottle). Big targets, snaps to the step grid; tap the value to type an exact bar.
-function PressureStepper({ value, onChange, compact }: { value: number; onChange: (v: number) => void; compact?: boolean }) {
-  const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
-  const dz = atemschutzDoctrine()
-  const dec = useHoldRepeat(() => onChange(snapBar(value - dz.pressureStep)))
-  const inc = useHoldRepeat(() => onChange(snapBar(value + dz.pressureStep)))
-  const edit = useTapToType({ min: 0, max: dz.pressureMax, onCommit: (v) => onChange(snapBar(v)), clamp: snapBar })
-  return (
-    <div className={cx(s.stepper, compact && s.stepperSmall)}>
-      <button type="button" className={s.stepBtn} aria-label={fillTemplate(az.pressureDown, { step: dz.pressureStep })} {...dec}>
-        <Icon id="minus" />
-      </button>
-      {edit.editing ? (
-        <div className={s.stepVal}><input className={s.stepInput} {...edit.inputProps} /><span>bar</span></div>
-      ) : (
-        <button type="button" className={s.stepVal} onClick={() => edit.start(value)} title={appConfig.copy.stepper.typeToEnter}><b>{value}</b><span>bar</span></button>
-      )}
-      <button type="button" className={s.stepBtn} aria-label={fillTemplate(az.pressureUp, { step: dz.pressureStep })} {...inc}>
-        <Icon id="plus" />
-      </button>
-    </div>
-  )
+/** What the Trupp form hands the board besides its fields: the groups the operator touched (an
+ *  edit writes only those) and the door that files its Gäste, called once every question in
+ *  front of the save is answered (AtemschutzView · submitForm). */
+type TruppSubmitExtra = {
+  touched: TruppFieldGroup[]
+  fileGuests: () => Pick<TruppFields, 'leaderPersonId' | 'memberPersonIds'>
 }
 
-// The Funkkanal ±stepper in the create/edit form: hold to repeat, tap the value to type an
-// exact channel. Clamped to the configured channel range.
-function FunkkanalStepper({ value, onChange, compact }: { value: number; onChange: (v: number) => void; compact?: boolean }) {
+/** One field group of a Trupp as it reads NOW — the value the edit-conflict line names. */
+function fieldNow(t: Trupp, g: TruppFieldGroup): string {
   const az = appConfig.copy.atemschutz
-  const dz = atemschutzDoctrine()
-  const clamp = (v: number) => Math.max(dz.funkkanalMin, Math.min(dz.funkkanalMax, v))
-  const dec = useHoldRepeat(() => onChange(clamp(value - 1)))
-  const inc = useHoldRepeat(() => onChange(clamp(value + 1)))
-  const edit = useTapToType({ min: dz.funkkanalMin, max: dz.funkkanalMax, onCommit: onChange })
-  return (
-    <div className={cx(s.stepper, compact && s.stepperSmall)}>
-      <button type="button" className={s.stepBtn} aria-label={az.funkkanalDown} {...dec}><Icon id="minus" /></button>
-      {edit.editing ? (
-        <div className={s.stepVal}><input className={s.stepInput} {...edit.inputProps} /><span>{az.funkkanalUnit}</span></div>
-      ) : (
-        <button type="button" className={s.stepVal} onClick={() => edit.start(value)} title={appConfig.copy.stepper.typeToEnter}><b>{value}</b><span>{az.funkkanalUnit}</span></button>
-      )}
-      <button type="button" className={s.stepBtn} aria-label={az.funkkanalUp} {...inc}><Icon id="plus" /></button>
-    </div>
-  )
+  switch (g) {
+    case 'crew': return truppLogName({ name: t.name, members: t.members })
+    case 'auftrag': return truppAuftragLabel(t.auftrag) ?? '–'
+    case 'ziel': return t.ziel?.trim() || '–'
+    case 'lineNo': return t.lineNo != null ? String(t.lineNo) : '–'
+    case 'funkkanal': return t.funkkanal != null ? String(t.funkkanal) : '–'
+    case 'pressure': return `${t.entryPressureBar} bar`
+    case 'kind': return isAtemschutzTrupp(t) ? az.kindAtemschutz : az.kindPlain
+    case 'equipment': return truppEquipmentLabels(t.equipment).join(', ') || '–'
+  }
 }
 
-// The inline Druck control on a live card: ± is immediately reachable, but changes remain
-// pending until «Bestätigen». This deliberately is not a collapsible card zone — Druckmeldung
-// is a critical operation and must never cost an opening tap.
-// ⚠️ «Bestätigen» exists only while the value is DIRTY (decided 29.08., reversing Wave 3's
-// «Druck unverändert» commit): an unchanged reading is what the big Kontakt button is for.
-function PressureInline({ value, onCommit, alarmBar }: {
-  value: number
-  onCommit: (bar: number) => void
-  /** the line THIS Trupp is held to — lower while it is in Rückzug (lib/atemschutz · alarmBarFor) */
-  alarmBar?: number
+/** A due or overdue Trupp pinned ABOVE the phone's Trupp form (24.09.2026, D1 ⑥): name and state,
+ *  the live clock, and a worded «Kontakt» that confirms without leaving the form. ONE line, not
+ *  the board row's two: the form needs the height, and these rows carry exactly one action. Not a
+ *  button as a whole — opening a card from here would close the form over a half-typed Trupp. */
+function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
+  t: Trupp; live: TruppLive; alarm: TruppAlarm; color?: string
+  /** confirmed a moment ago on this form — the button says so and takes no second tap */
+  confirmed: boolean
+  onContact: (id: string) => void
 }) {
-  const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
-  // keyed on `value` by the caller, so an external change remounts with a fresh pending value
-  const dz = atemschutzDoctrine()
-  const [bar, setBar] = useState(value)
-  const dirty = bar !== value
-  const bump = (d: number) => setBar((b) => snapBar(b + d))
-  const dec = useHoldRepeat(() => bump(-dz.pressureStep))
-  const inc = useHoldRepeat(() => bump(dz.pressureStep))
-  const edit = useTapToType({ min: 0, max: dz.pressureMax, onCommit: (v) => setBar(snapBar(v)), clamp: snapBar })
-  // flag the PENDING value too, so the Überwacher sees «that reading is at the Alarmdruck»
-  // while dialling it in – before committing, not after
-  // ⚠️ the same line the card uses for this Trupp — a crew in Rückzug is held to the lower one
-  const low = pressureAlarm(bar, alarmBar ?? dz.alarmBar)
+  const az = appConfig.copy.atemschutz
+  const sev = alarm.sev
+  // ⚠️ Confirmed a moment ago, the row says only THAT (staging walk-through 25.09.2026): «✓
+  // Bestätigt» beside an amber «0:01 Kontakt fällig» — the tier the hold kept from before the
+  // tap — read as two answers at once. A pressure alarm is not answered by a Kontakt and stays.
+  const done = confirmed && alarm.reason !== 'pressure'
+  const word = done ? az.clockOk : alarm.reason === 'pressure' ? az.clockAlarmPressure : sev >= 2 ? az.clockOverdue : az.clockWarn
+  // ⚠️ «Überfällig» / «Kontakt fällig» are not SHOWN (owner, 29.09.2026: «red is already pretty
+  // obvious» — the same call as the card's state line): the row's red or amber and its Kontakt say
+  // it; the word stays for a screen reader. «Alarmdruck» and «Bestätigt» stay: colour can't say those.
+  const tierOnly = !done && alarm.reason !== 'pressure'
   return (
-    <div className={s.pressureBlock}>
-      <div className={s.pressureRow}>
-        <span className={s.pressureLbl}>{az.currentPressure}</span>
-        <div className={s.pressureCtl}>
-          <button type="button" className={s.pBtn} aria-label={fillTemplate(az.pressureDown, { step: dz.pressureStep })} {...dec}>
-            <Icon id="minus" />
-          </button>
-          {edit.editing ? (
-            <span className={cx(s.pVal, dirty && s.pPending, low && s.metaAlarm)}><input className={s.pInput} {...edit.inputProps} /><span>bar</span></span>
-          ) : (
-            <button type="button" className={cx(s.pVal, s.pValBtn, dirty && s.pPending, low && s.metaAlarm)} onClick={() => edit.start(bar)} title={appConfig.copy.stepper.typeToEnter}>{bar}<span>bar</span></button>
-          )}
-          <button type="button" className={s.pBtn} aria-label={fillTemplate(az.pressureUp, { step: dz.pressureStep })} {...inc}>
-            <Icon id="plus" />
-          </button>
-        </div>
-      </div>
-      {/* Air does not come back — a value above the last one is almost always a typo. Almost:
-          it is also how a wrong Eingangsdruck gets corrected, so this says so and gets out of
-          the way (see copy · pressureRose). Shown BEFORE the commit, where it can still be
-          fixed rather than undone. */}
-      {dirty && bar > value && (
-        <div className={s.pressureWarn} role="status">
-          <Icon id="warn" /><span>{fillTemplate(az.pressureRose, { from: value })}</span>
-        </div>
-      )}
-      {dirty && (
-        <div className={s.pressureConfirm}>
-          <button type="button" className={s.pConfirm} onClick={() => onCommit(bar)} title={az.pressureConfirmHint}>
-            <Icon id="check" /><span>{az.pressureConfirm}</span>
-          </button>
-          <button type="button" className={s.pCancel} aria-label={az.cancel} title={az.cancel} onClick={() => setBar(value)}>
-            <Icon id="close" />
-          </button>
-        </div>
+    <div className={cx(s.pinRow, done ? s.pinRowDone : sev >= 2 ? s.trowCrit : s.trowWarn)}>
+      <span className={s.pinName}>
+        {color && <span className={s.trowDot} style={{ background: color }} aria-hidden />}
+        <span className={s.pinNameTxt}>{t.name}</span>
+      </span>
+      <span className={s.pinTime}>
+        <span className={s.pinClock}>{fmtClock(live.sinceContactSec)}</span>
+        <span className={tierOnly ? 'sr-only' : s.pinState}>{word}</span>
+      </span>
+      {confirmed ? (
+        <button type="button" className={cx(s.kontaktBtn, s.pinKontakt, s.pinDone)} disabled
+          aria-label={`${az.contactDone}: ${t.name}`}>
+          <Icon id="check" /><span>{az.contactDone}</span>
+        </button>
+      ) : (
+        <button type="button" className={cx(s.kontaktBtn, s.pinKontakt, sev === 1 && s.kontaktWarn, sev >= 2 && s.kontaktCrit)}
+          onClick={() => onContact(t.id)} aria-label={`${az.actContact}: ${t.name}`}>
+          <Icon id="radio" /><span>{az.actContact}</span>
+        </button>
       )}
     </div>
   )
 }
 
-// One big glanceable monitoring card. The dominant element is the contact clock (time since last
-// Funkkontakt) with a large Kontakt reset. The always-visible Druck stepper sits below, lifecycle
-// actions run along the bottom, and the Verlauf footer (latest event as preview) closes the card.
-/** One Trupp as a single comparable line — see `.rowList` in Atemschutz.module.css for why the
- *  board needs this view at all. The whole row is the button that opens the full card; the only
- *  control that survives onto the row is «Kontakt», because it is the one action the comparison
- *  leads to. Everything else (Druck, Rückzug, Raus, Leitung, Bearbeiten, Entfernen) stays in the
- *  card, one tap deeper — including delete, which is a good place for it to be. */
-/** What a COLLAPSED representation (list row, focus-strip tab) says about time — the same split
- *  the open card's band makes (`breakClock` there), so the closed and the open view of one Trupp
- *  never disagree: a crew inside ticks its own clock (Kontakt under PA, Einsatzzeit on a work
+// (`PressureStepper` and `FunkkanalStepper`, the form's ± steppers, went on 30.09.2026: the form's
+// rows open the Druck sheet's grid and the Kanal sheet's pad — TruppSheets · PressureSheet /
+// KanalPickSheet, where the Kanal stepper lives on for a range too wide for a pad.)
+// (`PressureInline`, the tablet card's ± Druck stepper with its own «Bestätigen», went on
+// 29.09.2026 with the tablet card: every board's Druck is the pressure tile → PressureSheet.)
+/** A day-long clock drawn compact (30.09.2026, owner: «the group leader name needs more space»):
+ *  «3 d 9 h» in the clock's mono spent a full character on every space and every unit, the widest
+ *  thing on the card's head after the name. The digits stay mono; each unit is a small letter in
+ *  the body face hard against its number, and the groups stand a third of an em apart — «3d 9h»,
+ *  about two thirds the width. Every other clock passes through as it is. The card's foot draws its
+ *  day-long Einsatzzeit / «Draussen seit» through here too, so one card never shows both spellings;
+ *  mm:ss and «17:00 min» are untouched. */
+function ClockVal({ val }: { val: string }) {
+  const m = /^(\d+) d (\d+) h$/.exec(val)
+  if (!m) return <>{val}</>
+  // the space rides in the unit's small face, so the text (and what a screen reader reads) is «3d 9h»
+  return <>{m[1]}<span className={s.clockUnit}>d </span><span className={s.clockGroup}>{m[2]}<span className={s.clockUnit}>h</span></span></>
+}
+
+/** What a Trupp's clock says — the phone row, every card's first line (RowLine) and the
+ *  focus-strip tab all read it here, so no two views of one Trupp ever disagree: a crew inside ticks its own clock (Kontakt under PA, Einsatzzeit on a work
  *  squad), an Atemschutz-Trupp that is out ticks «Draussen seit» in the quiet tone, a work squad
  *  that is out says nothing, and «Nicht eingesetzt» keeps its static Anmeldezeit. */
 function collapsedClock(t: Trupp, live: TruppLive): { val: string; sub: string } {
@@ -1800,8 +1990,7 @@ function TruppRow({
   // phone board reads as one list rather than two kinds of thing. What differs is only what the
   // row can truthfully say: its clock is the Einsatzzeit, not a contact clock; it carries no
   // Schätzung and no «Kontakt», because there is nothing to check in and no cylinder to run down.
-  const tone = !monitored ? (status === 'raus' ? s.trowOut : status === 'angemeldet' ? s.trowIdle : s.trowPlain)
-    : sev >= 2 ? s.trowCrit : sev === 1 ? s.trowWarn : inField ? '' : status === 'raus' ? s.trowOut : s.trowIdle
+  const tone = rowTone(t, status, sev)
   const rowRef = useRef<HTMLButtonElement>(null)
   // A nonce, not a boolean: tapping the same alarm again must replay the pointing gesture.
   // `onFlashed` rides in a ref so its (per-render) identity never restarts the flash effect.
@@ -1822,6 +2011,40 @@ function TruppRow({
     // animation to end, so that stuck class is a permanent one.
     return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
   }, [focusNonce, focusScroll])
+  return (
+    <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone)} onClick={onOpen}
+      aria-label={`${t.name} — ${words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))}`}>
+      <RowLine t={t} live={live} color={color} lite={lite} />
+      {/* ⚠️ always rendered, even when there is no button in it: these are fixed grid tracks, so a
+          missing cell would pull every column after it out of line on that one row */}
+      <span className={cx(s.trowAct, acts && s.trowActs)}>
+        {/* nested: the row itself opens the card, and the two things you must be able to do
+            without opening anything are the Druckmeldung and the radio check */}
+        {acts && <TruppPair t={t} live={live} sev={sev} nested onPressure={onPressure} onContact={onContact} />}
+      </span>
+      {/* DOWN, not right: this expands the card in place, it does not navigate anywhere. The
+          collapse control it turns into points back up, so the pair reads as one toggle. */}
+      <span className={s.trowChevron}><Icon id="chevron-down" /></span>
+    </button>
+  )
+}
+
+/** The phone row's tone (left edge + wash) — the collapsed row's and, since 26.09.2026, the opened
+ *  card's too, so a Trupp keeps its colour when it is opened. See TruppRow for why each is what it is. */
+function rowTone(t: Trupp, status: TruppLive['status'], sev: number): string {
+  const inField = t.status === 'aktiv' || t.status === 'rueckzug'
+  if (!isAtemschutzTrupp(t)) return status === 'raus' ? s.trowOut : status === 'angemeldet' ? s.trowIdle : s.trowPlain
+  return sev >= 2 ? s.trowCrit : sev === 1 ? s.trowWarn : inField ? '' : status === 'raus' ? s.trowOut : s.trowIdle
+}
+
+/** The phone row's first line — dot · name, and the clock — drawn by the collapsed row AND by the
+ *  opened card's head (26.09.2026, owner: «keep the same UI whether the card is collapsed or
+ *  not»). One drawing, so opening a Trupp never moves, resizes or recolours the line the thumb
+ *  just pressed; the chevron beside it is the caller's, because it points the other way. */
+function RowLine({ t, live, color, lite }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
+}) {
+  const az = appConfig.copy.atemschutz
+  const words = plainWords(t, lite)
   const team = (t.members ?? []).filter(Boolean).join(' / ')
   const clock = collapsedClock(t, live)
   // ⚠️ Defence in depth: `collapsedClock`'s own `!isAtemschutzTrupp` branch already returns an
@@ -1831,86 +2054,120 @@ function TruppRow({
   // wording test below.
   const clockSub = clock.sub === az.outFor ? words.outFor : clock.sub
   return (
-    <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone)} onClick={onOpen}
-      aria-label={`${t.name} — ${words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))}`}>
+    <>
       <span className={s.trowId}>
         <span className={s.trowName}>
-          <span className={s.trowDot} style={color ? { background: color } : undefined} />
-          {/* no «#N» badge on the row either (Bastian, 14.09.) – it sat between the name and
-              the clock as a third thing to read; the open card head still carries it */}
+          {/* no colour, no dot: the handed-over Tafel never shows the Lage, so a Truppfarbe there
+              carries no identity (round 2 review) — and an empty 11px slot would indent the name */}
+          {color && <span className={s.trowDot} style={{ background: color }} />}
           <span className={s.trowNameTxt}>{t.name}</span>
+          {/* ⚠️ Name only — no «#N», no «SiTr», on the row AND the opened card (owner, staging
+              26.09. and 30.09.2026: «the group leader name needs more space … drop the number #»).
+              The number stays in the TruppFinder and in the Verlauf's «Trupp N» rows. */}
         </span>
         {team && <span className={s.trowTeam}>{team}</span>}
       </span>
       {/* one derivation with the card's band (collapsedClock) — the row used to freeze a work
           squad's Einsatzzeit after the exit and show «–:––» for an out crew's break clock */}
       <span className={s.trowClock}>
-        <span className={s.trowClockVal}>{clock.val}</span>
+        <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
         <span className={s.trowSub}>{clockSub}</span>
       </span>
-      {/* ⚠️ always rendered, even when there is no button in it: these are fixed grid tracks, so a
-          missing cell would pull every column after it out of line on that one row */}
-      <span className={cx(s.trowAct, acts && s.trowActs)}>
-        {acts && (
-          <>
-            {/* stopPropagation: the row itself opens the card, and the two things you must be able
-                to do without opening anything are the Druckmeldung and the radio check */}
-            <span role="button" tabIndex={0} className={cx(s.kontaktBtn, s.trowPressBtn)}
-              onClick={(e) => { e.stopPropagation(); onPressure(t.id) }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onPressure(t.id) } }}>
-              <span>{az.actPressure}</span>
-            </span>
-            <span role="button" tabIndex={0}
-              className={cx(s.kontaktBtn, s.trowKontakt, sev === 1 && s.kontaktWarn, sev >= 2 && s.kontaktCrit)}
-              onClick={(e) => { e.stopPropagation(); onContact(t.id) }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onContact(t.id) } }}>
-              <Icon id="radio" /><span>{az.actContact}</span>
-            </span>
-          </>
-        )}
-      </span>
-      {/* DOWN, not right: this expands the card in place, it does not navigate anywhere. The
-          collapse control it turns into points back up, so the pair reads as one toggle. */}
-      <span className={s.trowChevron}><Icon id="chevron-down" /></span>
-    </button>
+    </>
+  )
+}
+
+/** «⌓ 240 bar» | «Kontakt» — the two things a Trupp inside needs from the phone board, drawn ONCE
+ *  for the collapsed row and the opened card (26.09.2026): same tiles, same sizes, same colours,
+ *  same place, so opening a Trupp only ADDS what stands below them. The pressure tile carries the
+ *  last reported bar behind the Manometer glyph (red at or under this Trupp's line) — it is the one
+ *  number the band used to show beside it, and on the row it answers «how much air» without
+ *  opening. ⚠️ No word «Druck» on it since the slim-down (26.09.2026 evening, owner's screenshot):
+ *  «unit, verb, value» — a number with its unit behind a gauge IS the pressure, and the word only
+ *  made the tile wider than its neighbour. The word stays its accessible name.
+ *  `nested`: inside the row's own button a <button> may not stand, so there they are spans with
+ *  the button role, and a tap on them does not also open the card. */
+function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
+  t: Trupp; live: TruppLive
+  /** the shared tier — the Kontakt colour, identical on the row and on the card */
+  sev: number
+  nested?: boolean
+  onPressure: (id: string) => void
+  onContact: (id: string) => void
+}) {
+  const az = appConfig.copy.atemschutz
+  const low = pressureAlarm(live.currentBar, alarmBarFor(t, atemschutzDoctrine()))
+  const pressCls = cx(s.kontaktBtn, s.trowPressBtn)
+  const kontaktCls = cx(s.kontaktBtn, s.trowKontakt, sev === 1 && s.kontaktWarn, sev >= 2 && s.kontaktCrit)
+  const press = <><Icon id="manometer" /><b className={cx(s.pairBar, low && s.pairBarLow)}>{live.currentBar} bar</b></>
+  // the spoken name keeps the word the tile dropped («Druck 240 bar»)
+  const pressName = `${az.actPressure} ${live.currentBar} bar`
+  const kontakt = <><Icon id="radio" /><span>{az.actContact}</span></>
+  if (!nested) {
+    return (
+      <div className={s.trowActs}>
+        <button type="button" className={pressCls} aria-label={pressName} onClick={() => onPressure(t.id)}>{press}</button>
+        <button type="button" className={kontaktCls} onClick={() => onContact(t.id)}>{kontakt}</button>
+      </div>
+    )
+  }
+  const act = (fn: (id: string) => void) => ({
+    role: 'button', tabIndex: 0,
+    onClick: (e: MouseEvent) => { e.stopPropagation(); fn(t.id) },
+    onKeyDown: (e: ReactKeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); fn(t.id) } },
+  })
+  return (
+    <>
+      <span className={pressCls} aria-label={pressName} {...act(onPressure)}>{press}</span>
+      <span className={kontaktCls} {...act(onContact)}>{kontakt}</span>
+    </>
   )
 }
 
 /**
- * One Trupp as a card — ONE arrangement, at every width and on every board (03.09.).
+ * One Trupp as a card — ONE arrangement, at every width and on every board (03.09.), and since
+ * 29.09.2026 ONE DRAWING too: the phone's opened row is the card everywhere.
  *
  * There used to be three drawings of this object: this card, `cardBig` for the handed-over phone
  * board, and `PlainTruppRow` for a Trupp without Atemschutz. Three drawings of one thing drift
  * apart, and these had begun to. This is the card; what varies is only what a Trupp actually HAS.
  *
- * Seven zones, always all seven — one card means one zone list, whatever a Trupp turns out to
- * carry; a zone with nothing to say renders empty and costs nothing (see `.grid` in
- * Atemschutz.module.css, where the cards stopped sharing grid rows on 04.09.):
+ * ⚠️ The tablet grid wore its own card until 29.09.2026 (owner: «for the trupps things you can
+ * assimilate the tablet / desktop view closer / equal to the mobile view»): a head with the ⋯,
+ * a grey Kennzeile sentence with a blue Auftrag, a framed band with the clock in 40px, a
+ * full-width Kontakt, a ± Druck stepper with its own Bestätigen, a loud amber «Rückzug melden»
+ * beside a ghost «Raus melden», and a Sockel line over a «Verlauf · zuletzt: 11:52 Druck 300 bar»
+ * preview — the bar said three times on one card. The phone had slimmed all of that away on
+ * 26./27.09. and the owner reviewed that version, so it is the reference and the tablet takes it
+ * whole, top to bottom:
  *
- *   1 Kopf       ‹ zurück · Truppfarbe · Name · ⋯
- *   2 Kennzeile  Mannschaft · Auftrag · Ziel · Leitung · Kanal, in one grey
- *   3 Block      the state band, «Kontakt» and the Druck setter — everything one ENTERS
+ *   1 line       dot · name · #N · the clock (RowLine) — the collapse toggle on the phone board
+ *   2 tiles      «⌓ 240 bar | Kontakt» (TruppPair), then Rückzug | Raus in the same tile shape
+ *   3 state      the tier in words where colour alone would say it (`stateLine`)
  *   4 Hinweis    the Alarmdruck note, for the case where only the projection has crossed
- *   5 Aktionen   the lifecycle buttons
- *   6 Sockel     Einsatzzeit · Schätzung · tiefster Druck — everything one LOOKS UP
- *   7 Verlauf    the per-Trupp log, with the contact times as its head
+ *   5 facts      crew · Auftrag · Kanal … as chips, each the door to its sheet (the ⋯ ends the foot)
+ *   6 foot       Einsatzzeit · Schätzung, the whole line the Verlauf's toggle
  *
- * ⚠️ The state is said ONCE, in the band. It used to be said three times over: «Überfällig» in
- * the banner, «Überfällig» again as the clock's state word — at tier 2 those are literally the
- * same string — above «Seit letztem Kontakt», a label for a card that is about nothing else.
+ * What the tablet keeps because it has the room: every card open at once in a grid (the phone
+ * opens one row at a time because a card is taller than its port), the hand-set order with ‹ ›
+ * in the ⋯ (the phone board is arranged by urgency and has none), and its cards' own state words
+ * (`headed`: the phone's section heads say Drin / Bereit / Draussen, the grid has no such heads).
+ * The Druck is the same `PressureSheet` everywhere — 20-bar steps, a tap saves.
  *
- * ⚠️ In the Aktionen zone the QUIET button comes first in the markup and the loud one second.
- * The row is `auto` + `1fr` (see `.actions`): the card's own action takes the room, the quiet way
- * out takes only its words. Swapping the order swaps the weights.
+ * ⚠️ In the lifecycle tiles the order is the order the Einsatz runs: Rückzug, then Raus.
  *
  * ⚠️ The secondary controls are a MENU with words, not a row of glyphs. Every one of them
  * already had a German name that only ever surfaced in a `title`: «Platzieren», «Leitung
- * wählen», «Karte nach vorne schieben». That a footprint means «platzieren» and a droplet means
+ * wählen», «Nach oben holen». That a footprint means «platzieren» and a droplet means
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onPressure, onStatus, onAskExit, onAskPressure, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false,
+  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false,
 }: {
+  /** the mini sheets (26.09.2026 — components/TruppSheets): a tap on the Kanal opens the Kanal
+   *  sheet, a tap on the Auftrag / Ziel / a missing Auftrag the Auftrag sheet, a tap on the crew or
+   *  the Ausrüstung the Trupp sheet. Absent for a viewer. */
+  onQuick?: (kind: 'kanal' | 'auftrag' | 'trupp') => void
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
   alarm: TruppAlarm
@@ -1922,12 +2179,18 @@ function TruppCard({
    *  every Trupp, automatic ones included */
   color?: string
   onContact: (id: string) => void
-  onPressure: (id: string, bar: number) => void
   onStatus: (id: string, status: Trupp['status']) => void
+  /** «Nicht eingesetzt» — the stand-down of a Trupp that never went in, with its undo toast */
+  onStandDown: (id: string) => void
   /** «Raus melden» asks the Restdruck first (PressureSheet) — absent = straight out, as before */
   onAskExit?: (id: string) => void
-  /** the phone's Druck: the PressureSheet instead of the inline ± stepper (24.09.2026) */
+  /** the pressure tile's door: the PressureSheet (24.09.2026 on the phone, every board since
+   *  29.09.2026 — the tablet's inline ± stepper is gone) */
   onAskPressure?: (id: string) => void
+  /** the board's own section heads name the lifecycle state (the phone board's Drin / Bereit /
+   *  Draussen) — then the card does not say «Bereit» / «Draussen» a second time. The tablet grid
+   *  and the handed-over Tafel have no such heads, so their cards do. */
+  headed?: boolean
   /** this is the card somebody was just sent to — scroll it under their eyes and mark it */
   focusNonce?: number
   /** ring, but do NOT scroll — the header badge marks every alarmed Trupp and only ONE of them
@@ -1952,7 +2215,8 @@ function TruppCard({
   dockedAt?: string
   /** the number the Trupp's drawn hose carries right now — wins over the stored copy */
   drawnLineNo?: number
-  /** set only in compact mode, where this card was opened from a row — collapses back to it */
+  /** set only on the phone board, where this card was opened from a row — collapses back to it:
+   *  the card's first line is then the toggle, with the chevron in the pixel that opened it */
   onCollapse?: () => void
   /** the handed-over «Tafel pur» (see AtemschutzView · lite): drop every control that points at
    *  a surface this session cannot reach — Platzieren, auf Plan zeigen, Leitung zeigen,
@@ -2026,73 +2290,47 @@ function TruppCard({
     : null
 
 
-  /* ── the band: the state, said once, over the number it is about ───────────────────────────
-   * The word and the number swap for a pressure alarm, because a radio check does not fix that
-   * one and the word must never read «überfällig» for it (the Verlauf records two different
-   * events). The state word carries the tier as TEXT, so it survives colourblindness and a muted
-   * alarm — which is why the band may never be colour alone.
-   *
-   * A Trupp still at the door has no clock to show, and one without Atemschutz has none at all:
-   * both keep the band and fill it with what they DO have, rather than leaving a hole. That is
-   * also what the grid's `subgrid` needs — see the zone list above. */
+  /* The state words (29.09.2026: there is no band any more, on any board — see the zone list
+   * above). The clock stands on the card's first line, its colour and the Kontakt tile's carry the
+   * tier, and what colour may never carry ALONE is said in words, once, under the tiles. */
   const pressureCrit = monitored && alarm.reason === 'pressure'
   const preEntry = status === 'angemeldet'
   /* ⚠️ «Draussen» does NOT get a contact word. A Trupp that has come out has no running clock
-     (deriveTruppLive) and no tier, so the tier ladder would have called it «Kontakt ok» over
-     «–:––» — an OK statement about somebody nobody is watching, and `truppStatusLabel`'s
-     distinction between «Draussen» and «Nicht eingesetzt» would have reached no screen at all.
-     WHICH TIME an out card carries is the question that took three passes (settled 05.09.
-     evening): the break clock is back for ATEMSCHUTZ, and only for it. A crew that has been
-     under PA cannot go back in until it has rested and re-equipped, so «wie lange ist der schon
-     draussen» is the next operational question about it and the card answers it. A work squad
-     has no such rule — nothing about it is being monitored — so «Draussen» is the whole
-     statement there and no clock stands under it. */
+     (deriveTruppLive) and no tier; its first line carries the break clock in the quiet tone
+     (RowLine · collapsedClock, `.trowOut`) — for ATEMSCHUTZ only: a crew that has been under PA
+     cannot go back in until it has rested, so «wie lange ist der schon draussen» is the next
+     operational question about it. A work squad has no such rule and no clock stands there. */
   const out = status === 'raus'
-  /* ⚠️ «Nicht eingesetzt» gets NO running clock (04.09.). A Sicherungstrupp that was stood down
-     without ever going under PA wore the break clock — big, bold, ticking, under «Draussen seit» —
-     and the whole treatment was a lie twice over: it claimed the crew had come out of something,
-     and its urgency pressed for a recovery nobody has to take. What it has is the moment it was
-     announced, which is a TIME and does not tick (lib/atemschutz · truppRegisteredAt). A record
-     old enough to carry no `registered` row simply shows the word alone rather than a dash. */
+  /* ⚠️ «Nicht eingesetzt» gets NO running clock (04.09.): a Sicherungstrupp stood down without
+     ever going under PA shows the moment it was announced, a TIME that does not tick
+     (collapsedClock · truppRegisteredAt), and its state line says «Nicht eingesetzt». */
   const neverDeployed = out && truppNeverDeployed(t)
-  const registeredAt = neverDeployed ? truppRegisteredAt(t) : null
-  /* The break clock — a ticking duration beside the bare word «Draussen», in the band's quiet
-     type. No «Draussen seit» sub-line (22.09., screenshot): it said the word above it a second
-     time, and a ticking number reads as a duration on its own. Only an Atemschutz-Trupp that
-     actually came out of something gets it: `neverDeployed` is the crew
-     that never went under PA (its own line below) and a work squad has no recovery time to
-     count. `outSec` is null until an `exitTime` exists, so a Trupp stood down without one keeps
-     the word alone rather than showing «00:00». */
-  const breakClock = out && monitored && !neverDeployed && live.outSec != null
-  const bandWord = out || preEntry || !monitored
-    ? (preEntry ? az.bandPreEntry : statusLabel)
-    : frozen ? az.clockFrozen
-    : pressureCrit ? az.clockAlarmPressure
-    : sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
-  const bandSub = neverDeployed ? (registeredAt != null ? az.bandRegisteredAt : '')
-    : out ? ''
-    // ⚠️ the long «…sobald der Trupp unter Atemschutz…» hint is NOT the sub-line: it repeats the
-    // word above it and it names Atemschutz, which a work squad does not have. It is a hint, and
-    // it sits in the hint zone (below) on the cards it is actually true for.
-    : preEntry || !monitored ? az.elapsed
-    : pressureCrit ? fillTemplate(az.clockAlarmLimit, { bar: line })
-    : az.sinceContact
-  const bandValue = neverDeployed ? (registeredAt != null ? fmtTime(new Date(registeredAt).toISOString()) : '')
-    // break clock and work-squad elapsed are LONG durations read as one, so they roll into
-    // hours (a long Draussen read «343:17» beside the plinth's «5:43:17», field shot 11.09.);
-    // the contact clock below stays raw minutes on purpose — see fmtElapsedFull's doc.
-    : breakClock ? fmtElapsedFull(live.outSec)
-    : out ? ''
-    : preEntry ? fmtClock(null)
-    : !monitored ? fmtElapsedFull(t.entryTime ? live.elapsedSec : null)
-    : pressureCrit ? `${live.currentBar} bar`
-    : fmtClock(live.sinceContactSec)
-  /* ⚠️ A Trupp that is OUT does not get the card's loudest element (04.09.). The 40px bold number
-     is reserved for a crew that is inside — that is the whole reading order of this board. The
-     break clock runs in this quiet type (`.bandQuiet`, Atemschutz.module.css), which is also what
-     the never-deployed card's static Anmeldezeit and the bare word of an out work squad wear:
-     one out state, one weight, whatever the band happens to hold. */
-  const bandQuiet = out
+
+  /* What the band said in WORDS — the tier as text, which colour may never carry alone — is ONE
+   * line directly under the tiles (`stateLine`; 26.09.2026 on the phone, every board since
+   * 29.09.2026), and only where there is something to say: fällig / überfällig / Alarmdruck, the
+   * stopped clock of a closed Einsatz, «Nicht eingesetzt» (the one out state the «Draussen»
+   * heading cannot say), and a work squad's state (its section has no state headings).
+   * «Kontakt ok» says nothing the green does not, and «Rückzug» is a fact chip of its own.
+   * ⚠️ On a board WITHOUT state heads (`!headed`: the tablet grid, the handed-over Tafel) the card
+   * also says «Bereit» and «Draussen» in the quiet tone — on the phone those are the section it
+   * stands in, and there they would be the same word twice. */
+  const rowMode = !!onCollapse
+  /* ⚠️ 29.09.2026 (owner on staging): «drop the überfällig – if the card is red it's pretty obvious»,
+   * and «the draussen subtitle is probably not even required». So fällig / überfällig are no
+   * longer SHOWN: the red or amber card, its red clock and its Kontakt say it, and the word stays
+   * for a screen reader only (`hidden`). An out Trupp's «Draussen» goes on every board — its card
+   * is the grey one with «Wieder in den Einsatz» on it. What stays in words is what colour cannot
+   * carry: the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
+   * squad's state. */
+  const rowWord: { text: string; tone?: string; hidden?: boolean } | null = !monitored ? { text: statusLabel, tone: s.kennQuiet }
+    : out ? (neverDeployed ? { text: statusLabel, tone: s.kennQuiet } : null)
+    : preEntry ? (headed ? null : { text: az.phoneSectionReady, tone: s.kennQuiet })
+    : frozen ? { text: az.clockFrozen, tone: s.kennQuiet }
+    : pressureCrit ? { text: `${az.clockAlarmPressure} · ${fillTemplate(az.clockAlarmLimit, { bar: line })}`, tone: s.kennCrit }
+    : sev >= 2 ? { text: az.clockOverdue, hidden: true }
+    : sev === 1 ? { text: az.clockWarn, hidden: true }
+    : null
 
   // The Leitung chip: the numeric field, else the free text an older record still carries. Shown
   // as typed either way — an incident is a legal record, so nothing rewrites what was entered.
@@ -2121,6 +2359,24 @@ function TruppCard({
   // preEntry && monitored, so it logs and prints as one). «Entfernen» stays a button away for
   // the erroneous Anmeldung; dismissing does nothing.
   const doDelete = async () => {
+    /* ⚠️ A crew that is INSIDE is asked about first (staging walk-through 25.09.2026, N4): one tap
+       on «Entfernen» took a crew under PA off the board and out of every alarm, with no question.
+       What the operator almost always means is «they are out» — so «Raus melden» is the filled,
+       focused answer, and removing them anyway is the quiet one. */
+    if (inField) {
+      const a = await confirmDialog({
+        title: fillTemplate(az.removeInsideTitle, { name: t.no != null ? `${t.no}` : t.name }),
+        message: az.removeInsideMsg,
+        confirmLabel: az.remove,
+        altLabel: words.exit,
+        cancelLabel: az.cancel,
+        safeAnswer: 'alt',
+      })
+      if (a === 'alt') { askExit(); return }
+      if (a !== true) return
+      onDelete(t.id)
+      return
+    }
     if (preEntry && monitored) {
       const a = await confirmDialog({
         title: az.removeUnusedTitle,
@@ -2129,7 +2385,7 @@ function TruppCard({
         altLabel: az.remove,
         altDanger: true,
       })
-      if (a === true) { onStatus(t.id, 'raus'); return }
+      if (a === true) { onStandDown(t.id); return }
       if (a !== 'alt') return
     }
     onDelete(t.id)
@@ -2141,19 +2397,24 @@ function TruppCard({
    * yet ⇒ put it down, placed ⇒ go there — which is precisely the kind of thing an icon cannot
    * say and a word says for free.
    *
-   * «Entfernen» is last, behind a rule, and red. It is the reason the back control could move to
-   * the other end of the header (see below). */
+   * «Entfernen» is last, behind a rule, and red. */
+  /* ⚠️ «Bearbeiten» in EVERY status, `raus` included (09.09., Feldentscheid). The other two
+   * gates below act on a LIVE deployment — placing a symbol for a crew that has come out, or
+   * handing it a hose — and keep theirs. This one edits the RECORD, and the record is exactly
+   * what stays wrong otherwise: a crew member never entered, a typo in the Auftrag, the wrong
+   * Gruppenführer — all of it prints on the Rapport, and the Trupp is `raus` by the time
+   * anybody reads it back. Correcting an Eingangsdruck here rewrites the finished run's entry
+   * reading, which is the point (useTruppActions · editTrupp · pressurePatch, and the form
+   * says so under the field). Everything it writes reaches the Verlauf exactly as a live edit
+   * does — one `logEditFields` row naming what changed.
+   * ⚠️ On the PHONE it is the LAST resort, not the first row (26.09.2026, phone card slim-down ⑤):
+   * every fact the form edits has its own chip and sheet on that card — the crew, the Auftrag,
+   * the Ziel, the Leitung, the Kanal, the Ausrüstung — so the form is left for what has no sheet,
+   * the Art and the Eingangsdruck-Korrektur. It stands after the jumps,
+   * above the rule that separates the closing actions — on the tablet too since 29.09.2026, which
+   * wears the same chips (it kept «Bearbeiten» first while its Kennzeile was a sentence). */
+  const editItem = canEdit ? [{ label: az.edit, onClick: () => onEdit() }] : []
   const menuItems = [
-    /* ⚠️ «Bearbeiten» in EVERY status, `raus` included (09.09., Feldentscheid). The other two
-     * gates below act on a LIVE deployment — placing a symbol for a crew that has come out, or
-     * handing it a hose — and keep theirs. This one edits the RECORD, and the record is exactly
-     * what stays wrong otherwise: a crew member never entered, a typo in the Auftrag, the wrong
-     * Gruppenführer — all of it prints on the Rapport, and the Trupp is `raus` by the time
-     * anybody reads it back. Correcting an Eingangsdruck here rewrites the finished run's entry
-     * reading, which is the point (useTruppActions · editTrupp · pressurePatch, and the form
-     * says so under the field). Everything it writes reaches the Verlauf exactly as a live edit
-     * does — one `logEditFields` row naming what changed. */
-    ...(canEdit ? [{ label: az.edit, onClick: () => onEdit() }] : []),
     ...(lite ? [] : (t.annoId || t.entityId)
       ? [{ label: t.entityId ? az.showOnMap : az.showOnPlan, onClick: () => onShowPlan(t.id) }]
       : canEdit && status !== 'raus' ? [{ label: az.place, onClick: () => onPlace(t.id) }] : []),
@@ -2161,6 +2422,7 @@ function TruppCard({
     // form's Ltg-Nr. quick-picks, from the line's own editor, or by snapping a hose end to the
     // Trupp's marker – never from an armed, invisible tap mode.
     ...(lite || !hasLine ? [] : [{ label: az.lineShow, onClick: () => onShowLine(t.id) }]),
+    ...editItem,
     // Only while the hand-set order is the one on screen: moving a card under any other sort
     // would rearrange something the sort is about to rearrange back.
     ...(onMove && canEdit && !lite ? [
@@ -2168,6 +2430,8 @@ function TruppCard({
       { label: az.moveBack, onClick: () => onMove(t.id, -1) },
       { label: az.moveForward, onClick: () => onMove(t.id, 1) },
     ] : []),
+    /* («Nicht eingesetzt» is a visible button on its own row again — see the Aktionen zone; the
+     * ⋮ no longer carries it, owner review 26.09.2026.) */
     ...(canEdit ? [{ kind: 'sep' as const }, { label: az.remove, onClick: doDelete, danger: true }] : []),
   // ⚠️ a separator may never LEAD. On a Trupp that has come out and was never placed, every row
   // above «Entfernen» is withheld and the menu opened on a bare rule.
@@ -2175,38 +2439,26 @@ function TruppCard({
 
   const crewNames = t.members?.filter(Boolean) ?? []
   const crew = crewNames.join(' · ')
-  /* One Kennzeile entry. The «·» is INSIDE the entry, in front of it (14.09., screenshot: a line
-   * wrapped between the dot and «1 Ug…», so the second line opened with a stray separator). With
-   * the dot bound to the entry it precedes, a wrap can only fall between entries, and the first
-   * entry's dot is hidden in CSS (`.kennItem:first-child`). The entry's own text still wraps
-   * inside itself — a long Ziel is not forced onto one line. */
-  const kennItem = (key: string, node: ReactNode) => (
-    <span key={key} className={s.kennItem}><span className={s.kennSep} aria-hidden>·</span>{node}</span>
-  )
   /** the Ausrüstung as Kürzel (copy · equipmentShort), in the order it was recorded; an id
    *  without a Kürzel prints the word the Rapport prints (lib/report · truppEquipmentLabels) */
   const equipmentTags = (t.equipment ?? []).map((id) => ({ id, tag: az.equipmentShort[id] ?? truppEquipmentLabels([id])[0] ?? id }))
-
-  // the closed row's «zuletzt: …» preview — the last MEASURED or lifecycle row; a crew row is
-  // in the list, but «und dann?» asks about the clock and the cylinder
-  const lastReading = readings.filter((r) => r.kind !== 'crew').slice(-1)[0] ?? null
 
   /* ── The one line the Sockel leaves standing (09.09.) ──────────────────────────────────────
    * See the markup at «6 + 7» below for what folded and why. This is the part that may not:
    * the two clocks-and-numbers somebody reads WHILE a Trupp is inside, in one compact,
    * label-and-value line instead of four stacked rows.
-   * ⚠️ The aktueller Druck joins it only where the ± block above is NOT showing it. That is not
+   * ⚠️ The aktueller Druck joins it only where the pressure tile is NOT showing it. That is not
    * a saving, it is the guard on one: hiding a viewer's only pressure readout behind a chevron
    * would make this pass cost exactly the kind of number it exists to keep in view.
    * ⚠️ Built as data rather than markup so the separators are the LINE's business (CSS), not
    * four call sites each remembering to print a «·» — and so «what stays out» is one list to
    * read when somebody asks that question again. */
-  const sockelLine: { key: string; label: string; value: string; alarm?: boolean; dim?: boolean; title?: string }[] = [
+  const sockelLine: { key: string; label: string; value: string; alarm?: boolean; labelled?: boolean; title?: string }[] = [
     ...(monitored && t.entryTime
       // a DURATION that says so — «23:39» read at 23:58 was taken for a clock time (staging r4)
       ? [{ key: 'elapsed', label: az.elapsed, value: fmtDuration(live.elapsedSec) }] : []),
     ...(live.outSec != null && !out
-      ? [{ key: 'out', label: words.outFor, value: fmtDuration(live.outSec) }] : []),
+      ? [{ key: 'out', label: words.outFor, value: fmtDuration(live.outSec), labelled: true }] : []),
     ...(monitored && !(canEdit && inField)
       ? [{ key: 'bar', label: az.currentPressure, value: `${live.currentBar} bar`, alarm: pressureLow }] : []),
     ...(estimate
@@ -2215,9 +2467,10 @@ function TruppCard({
         label: az.estimatedShort,
         value: `≈ ${estimate.bar} bar`,
         alarm: estimateLow,
-        // …and it keeps the row's dimming (`.metaEst`): on a line that also carries a MEASURED
-        // «Druck 240 bar», a Schätzung in full ink is exactly the mix-up that rule prevents
-        dim: true,
+        // …and it keeps its WORD on the terse line (29.09.2026): on a line that can also carry a
+        // MEASURED «240 bar», an unnamed «≈ 0 bar» is exactly the mix-up this guards against — the
+        // word does it now, not a dimmed grey that also made the number easy to read past
+        labelled: true,
         // the Planungshilfe caveat travels with the number, exactly as it did on the old row
         title: estimate.source === 'history'
           ? az.estimatedHintHistory
@@ -2245,9 +2498,11 @@ function TruppCard({
    * Trupp whose Art was changed mid-run carries `paOn`/`paOff` rows right there in this list,
    * which say it more precisely than a re-labelled Eintritt could.
    */
-  const readingLabel = (r: Pick<TruppReading, 'kind' | 'crew'>) => {
+  const readingLabel = (r: Pick<TruppReading, 'kind' | 'crew'>, idx: number) => {
     // a crew row IS its names — «Meier Anna / Frei Nina» says who the Trupp was from then on
     if (r.kind === 'crew' && r.crew) return [r.crew.name, ...r.crew.members].map((n) => n.trim()).filter(Boolean).join(' / ')
+    // …and the close of a run that never went in is «Nicht eingesetzt», never an «Austritt» (N8)
+    if (isStandDownExit(readings, idx)) return az.statusNotDeployed
     const what = az.readingKind[r.kind] ?? r.kind
     return !monitored && r.kind === 'entry' ? fillTemplate(az.readingNoAs, { what }) : what
   }
@@ -2266,131 +2521,62 @@ function TruppCard({
   const lowestShown = monitored && live.lowestBar < live.currentBar
   const timingShown = timesShown && lastContactAt != null && !lite
 
-  return (
-    /* ⚠️ The border colour follows the TIER, not the lifecycle status: a Trupp at its Alarmdruck
-       is red even while it is «Im Einsatz». The WORD stays the lifecycle state — what kind of
-       alarm it is belongs to the band, which says so in full. */
-    <div ref={cardRef} data-az-open={onCollapse ? "" : undefined}
-      className={cx(s.card, !monitored && s.cardPlain, s[`st-${sev >= 2 ? 'ueberfaellig' : status}`])}>
-
-      {/* ── 1 Kopf ─────────────────────────────────────────────────────────────────────────── */}
-      <div className={s.cardHead}>
-        {/* the colour this Trupp wears on the Lage / plan, so the card and the symbol out there
-            read as the same Trupp.
-            ⚠️ NOT on the lite board: a link session never sees the Lage or the plan, so the
-            colour carries no identity there — it read as an arbitrary dot on somebody's phone. */}
-        {color && !lite && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
-        <span className={s.nameStatic}>{t.name}<TruppNo no={t.no} /></span>
-        {menuItems.length > 0 && (
-          <Menu
-            trigger={
-              <button type="button" className={s.headMenu} aria-label={az.cardMenu} title={az.cardMenu}>
-                <Icon id="more-vert" />
-              </button>
-            }
-            popupClassName="rp-print-menu"
-            itemClassName={() => 'rp-print-menu-item'}
-            items={menuItems}
-          />
-        )}
-        {/* ⚠️ THE CHEVRON STAYS PUT (04.09., field report). This toggle is one control drawn
-            twice: on the closed row it is the ⌄ at the far right, and opening the card used to
-            move its ⌃ to the far LEFT — so the pixel the thumb had just pressed became the ⋯,
-            whose menu carries «Entfernen». A toggle that swaps ends between its two states is not
-            one control any more, and here the swap handed a mis-tap the one destructive menu on
-            the card. So it keeps the right edge, outside the ⋯, and the pair reads down the same
-            column as the Verlauf's own chevron at the foot of the card.
-            (It takes the trailing inset the ⋯ used to have — the head's own 8px right padding —
-            so `.headBack` no longer needs a pull of its own.)
-            The far-right slot was originally left free to shield a BIN that used to sit up here;
-            that bin has been inside the ⋯ since 03.09., and «open a menu» is a mis-tap one can
-            walk back out of. */}
-        {onCollapse && (
-          <button type="button" className={s.headBack} aria-label={az.collapse} title={az.collapse} onClick={onCollapse}>
-            <Icon id="chevron-up" />
-          </button>
-        )}
-      </div>
-
-      {/* ── 2 Kennzeile ────────────────────────────────────────────────────────────────────────
-          One line, one grey, dot separators — five pill-shaped chips of four different colours
-          were louder than the name above them. Two of the entries are still buttons: the missing
-          Auftrag, and the Leitung that has actually been drawn. */}
-      <div className={s.kenn}>
-        {/* ⚠️ «Rückzug» is a FACT and it is not a tier: a Trupp on its way out with a calm clock
-            reads «Kontakt ok» in the band, and for a viewer — whose action bar is empty — the
-            amber top border would otherwise be the only thing saying so. It also changes the
-            turn-back pressure (alarmBarFor), so it must never be carried by colour alone. Only
-            for the states the band does not already name. */}
-        {monitored && status === 'rueckzug' && kennItem('state', <span className={s.kennState}>{statusLabel}</span>)}
-        {!!crewNames.length && kennItem('crew', <span className={s.kennCrew}>{crew}</span>)}
-        {/* ⚠️ The Auftrag is optional in the form (it must never hold a Trupp at the door), so its
-            ABSENCE has to be visible — a Trupp with no job is a question the Überwacher has to be
-            able to see, not one nobody thinks to ask. */}
-        {kennItem('auftrag', auftrag
-          ? <span className={s.kennAuftrag}>{auftrag}</span>
-          : <button type="button" className={s.kennOpen} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>)}
-        {t.ziel && kennItem('ziel', <span>{t.ziel}</span>)}
-        {/* where the marker stands (15.09.): docked to a symbol on the Karte, the card says so –
-            the same jump the marker itself offers, so a tap lands on it */}
-        {dockedAt && kennItem('docked', lite
-          ? <span>{fillTemplate(az.dockedAt, { host: dockedAt })}</span>
-          : <button type="button" className={s.kennGo} title={az.showOnMap} onClick={() => onShowPlan(t.id)}>
-              {fillTemplate(az.dockedAt, { host: dockedAt })}<Icon id="chevron" />
-            </button>)}
-        {/* ⚠️ On the lite board the number still SHOWS (a Trupp's Leitung is a fact the Überwacher
-            needs) but stops being a jump: there is no Karte to land on. */}
-        {lineTag && kennItem('line', hasLine && !lite
-          ? <button type="button" className={s.kennGo} title={az.lineShow} onClick={() => onShowLine(t.id)}>
-              {az.lineField} {lineTag}<Icon id="chevron" />
-            </button>
-          : <span>{az.lineField} {lineTag}</span>)}
-        {t.funkkanal != null && kennItem('kanal', <span>Kanal {t.funkkanal}</span>)}
-        {/* the Ausrüstung as short tags at the end — RH · WBK — nothing when nothing was ticked;
-            a station-defined id without a Kürzel shows its full label */}
-        {equipmentTags.map(({ id, tag }) => kennItem(`eq-${id}`, <span className={s.kennTag}>{tag}</span>))}
-      </div>
-
-      {/* ── 3 Block: everything one ENTERS ─────────────────────────────────────────────────────
-          The band, «Kontakt» and the Druck setter in one framed object. The Druck used to sit as
-          the third of four rows in the value table below — the only input on the card, filed
-          among numbers that are only ever read. */}
-      <div className={cx(s.block, sev === 1 && s.blockWarn, sev >= 2 && s.blockCrit)}>
-        {/* ⚠️ a live region ONLY where a clock is being watched. A work squad's band holds its
-            Einsatzzeit, which changes every second — as a polite live region that is one spoken
-            announcement per second per Trupp, for a number nobody is being alerted about.
-            ⚠️ The spoken label joins only the pieces that EXIST: a never-deployed Trupp on a record
-            with no `registered` row has neither a sub-line nor a value, and «Nicht eingesetzt — »
-            read out with the dash still attached is a sentence that promises a number. */}
-        <div className={cx(s.band, bandQuiet && s.bandQuiet, sev === 1 && s.bandWarn, sev >= 2 && s.bandCrit)}
-          role={monitored ? 'status' : undefined}
-          aria-live={!monitored ? undefined : sev >= 2 ? 'assertive' : 'polite'}
-          aria-label={monitored ? [bandWord, [bandValue, bandSub].filter(Boolean).join(' ')].filter(Boolean).join(' — ') : undefined}>
-          <span className={s.bandTxt}>
-            <span className={s.bandWord}>{bandWord}</span>
-            {bandSub && <small className={s.bandSub}>{bandSub}</small>}
-          </span>
-          <span className={s.bandVal}>{bandValue}</span>
-        </div>
-        {monitored && canEdit && inField && (
-          <>
-            <button className={cx(s.kontaktBtn, sev === 1 && s.kontaktWarn, sev >= 2 && s.kontaktCrit)} onClick={() => onContact(t.id)}>
-              <Icon id="radio" /><span>{az.actContact}</span>
-            </button>
-            {onAskPressure ? (
-              <button type="button" className={cx(s.actBtn, s.cardPressBtn)} onClick={() => onAskPressure(t.id)}>
-                <span>{az.actPressure}</span><b>{live.currentBar} bar</b>
-              </button>
-            ) : (
-              <PressureInline key={snapBar(live.currentBar)} value={snapBar(live.currentBar)} alarmBar={line} onCommit={(bar) => onPressure(t.id, bar)} />
-            )}
-          </>
-        )}
-      </div>
-
+  const menu = menuItems.length > 0 && (
+    <Menu
+      trigger={
+        <button type="button" className={s.footMore} aria-label={az.cardMenu} title={az.cardMenu}>
+          <Icon id="more" />
+        </button>
+      }
+      popupClassName="rp-print-menu"
+      itemClassName={() => 'rp-print-menu-item'}
+      items={menuItems}
+    />
+  )
+  /* ── The facts as CHIPS (26.09.2026 evening, phone card slim-down, ③; every board 29.09.2026) ──
+   * The entries the tablet's grey Kennzeile sentence carried until 29.09.2026 («Meier Anna· Löschen·
+   * 2. OG· Kanal 11», its Auftrag in blue), each a 36px chip with one 1px edge and no colour of
+   * its own — a strip of things to TAP, where the sentence was a line to read: the crew → Trupp
+   * sheet, «Löschen · Test» → Auftrag sheet, «Kanal 11» → Kanal sheet, «Ltg 1» → the drawn hose
+   * (else the Auftrag sheet), the Ausrüstung → Trupp sheet (the ⋯ moved to the foot line on 29.09.2026). The one
+   * thing allowed a colour is the GAP: a dashed amber «+ Auftrag» where the Auftrag is missing —
+   * a Trupp with no job is a question the Überwacher must be able to see. No chip for a missing
+   * Leitung (it lives in the Auftrag sheet), no small-caps labels, no «#N» (that is on the head).
+   * `chip(key, node, onTap, cls)`: a button when it has somewhere to go, a plain chip otherwise
+   * (a viewer's card, the lite board's jumps).
+   * ⚠️ «Rückzug» leads as a FACT, and it is not a tier: a Trupp on its way out with a calm clock
+   * shows no state word, and for a viewer — who has no Rückzug tile — this chip is the only thing
+   * saying so. It also lowers the turn-back pressure (alarmBarFor), so it is never colour alone. */
+  const chip = (key: string, node: ReactNode, onTap?: () => void, cls?: string) => onTap
+    ? <button key={key} type="button" className={cx(s.fact, cls)} onClick={onTap}>{node}</button>
+    : <span key={key} className={cx(s.fact, cls)}>{node}</span>
+  const facts = (
+    <div className={s.facts}>
+      {monitored && status === 'rueckzug' && chip('state', statusLabel, undefined, s.factState)}
+      {!!crewNames.length && chip('crew', <span className={s.factTxt}>{crew}</span>, onQuick && (() => onQuick('trupp')))}
+      {auftrag
+        ? chip('auftrag', <span className={s.factTxt}>{auftrag}{t.ziel ? ` · ${t.ziel}` : ''}</span>, onQuick && (() => onQuick('auftrag')))
+        : <>
+            {chip('auftrag', az.auftragAdd, () => (onQuick ? onQuick('auftrag') : onEdit('auftrag')), s.factDash)}
+            {t.ziel && chip('ziel', <span className={s.factTxt}>{t.ziel}</span>, onQuick && (() => onQuick('auftrag')))}
+          </>}
+      {dockedAt && chip('docked', <>{fillTemplate(az.dockedAt, { host: dockedAt })}{!lite && <Icon id="chevron" />}</>,
+        lite ? undefined : () => onShowPlan(t.id), s.factGo)}
+      {lineTag && chip('line', <>{fillTemplate(az.lineChip, { n: lineTag })}{hasLine && !lite && <Icon id="chevron" />}</>,
+        hasLine && !lite ? () => onShowLine(t.id) : onQuick && (() => onQuick('auftrag')), hasLine && !lite ? s.factGo : undefined)}
+      {t.funkkanal != null && chip('kanal', `${az.funkkanalUnit} ${t.funkkanal}`, onQuick && (() => onQuick('kanal')))}
+      {equipmentTags.map(({ id, tag }) => chip(`eq-${id}`, tag, onQuick && (() => onQuick('trupp'))))}
+    </div>
+  )
+  /* the card says in WORDS what its line and its Kontakt say in colour — one line under the tile
+   * grid, red or amber with the tier (26.09.2026 — see `rowWord`) */
+  const stateLine = rowWord && (rowWord.hidden
+    ? <span className="sr-only" role="status">{rowWord.text}</span>
+    : <div className={cx(s.stateLine, rowWord.tone)} role={monitored ? 'status' : undefined}>{rowWord.text}</div>)
+  const noteZone = (
+    <>
       {/* ── 4 Hinweis ─────────────────────────────────────────────────────────────────────────
-          Always rendered, usually empty: the grid aligns zone by zone (subgrid), so a card that
-          simply left this out would pull every zone below it out of line with its neighbours. */}
+          Usually empty, and then it costs nothing (`.noteZone:empty`). */}
       <div className={s.noteZone}>
         {monitored && preEntry && <div className={s.preHint}>{az.preEntryHint}</div>}
         {airNote && (
@@ -2399,7 +2585,10 @@ function TruppCard({
           </div>
         )}
       </div>
-
+    </>
+  )
+  const actZone = (
+    <>
       {/* ── 5 Aktionen: the lifecycle bar stays explicit — only these buttons commit a status ── */}
       <div className={s.actZone}>
         {canEdit && preEntry && (
@@ -2411,18 +2600,19 @@ function TruppCard({
             <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
               <Icon id="flag" /><span>{az.actEnter}</span>
             </button>
-            {/* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one
-                was the bin — which throws away the one record that says a crew stood ready, on a
-                document that is the legal account of the Einsatz. This closes it like any other
-                Trupp: under «Draussen», break clock running, «Wieder in den Einsatz» right there.
-                ⚠️ Only under Atemschutz: a Sicherungstrupp is by definition under PA, so on a
-                work squad this is a second button offering an answer to a question nobody asks. */}
-            {monitored && (
-              <button className={cx(s.actBtn, s.actStandDown)} title={az.actNotDeployedHint}
-                onClick={() => onStatus(t.id, 'raus')}>
-                <Icon id="logout" /><span>{az.actNotDeployed}</span>
-              </button>
-            )}
+          </div>
+        )}
+        {/* «Nicht eingesetzt» — VISIBLE, but never beside «Im Einsatz» (owner review 26.09.2026,
+            after staging N8 had put it behind ⋮): two equal buttons side by side, one of which
+            closes the Trupp in a tap, are a reflex away from the wrong one, and hidden behind ⋮
+            nobody found it. So: its own row, a quiet secondary at the far edge, a full 44 px,
+            and the tap answers with a confirm-with-undo toast («Trupp N: nicht eingesetzt ·
+            Rückgängig»). The row it writes still says «nicht eingesetzt», never «Austritt». */}
+        {canEdit && preEntry && monitored && (
+          <div className={s.standDownRow}>
+            <button type="button" className={s.standDownBtn} onClick={() => onStandDown(t.id)}>
+              <Icon id="logout" /><span>{az.actNotDeployed}</span>
+            </button>
           </div>
         )}
         {canEdit && inField && (
@@ -2436,17 +2626,25 @@ function TruppCard({
                 the only button, and then it takes the whole row.
                 Rückzug is an Atemschutz manoeuvre — it lowers the turn-back pressure (alarmBarFor)
                 and there is no pressure to lower on a Trupp without a cylinder. */}
+            {/* ⚠️ These are the second row of the tile grid (26.09.2026 on the phone, every board
+                since 29.09.2026 — T11): the same 48px tiles as «⌓ 240 bar | Kontakt» above them,
+                the verb alone («Rückzug», «Raus» — `tileRueckzug`/`tileExit`; the long form stays
+                the spoken name), both framed grey, and colour only by state — Rückzug amber-tinted
+                while the Trupp is at or under its Alarmdruck (`actAlarm`), nothing else tinted.
+                The tablet's always-amber «Rückzug melden» beside a ghost «Raus melden» said
+                «warning» about a Trupp at 300 bar. */}
             {monitored && (t.status === 'aktiv' ? (
-              <button className={cx(s.actBtn, s.actRueckzug)} onClick={() => onStatus(t.id, 'rueckzug')}>
-                <Icon id="undo" /><span>{az.actRueckzug}</span>
+              <button className={cx(s.actBtn, s.actRueckzug, pressureLow && s.actAlarm)} aria-label={az.actRueckzug}
+                onClick={() => onStatus(t.id, 'rueckzug')}>
+                <Icon id="undo" /><span>{az.tileRueckzug}</span>
               </button>
             ) : (
               <button className={cx(s.actBtn, s.actContinue)} onClick={() => onStatus(t.id, 'aktiv')}>
                 <Icon id="redo" /><span>{az.actContinue}</span>
               </button>
             ))}
-            <button className={cx(s.actBtn, s.actExit)} onClick={askExit}>
-              <Icon id="logout" /><span>{words.exit}</span>
+            <button className={cx(s.actBtn, s.actExit)} aria-label={monitored ? words.exit : undefined} onClick={askExit}>
+              <Icon id="logout" /><span>{monitored ? az.tileExit : words.exit}</span>
             </button>
           </div>
         )}
@@ -2455,12 +2653,16 @@ function TruppCard({
         {status === 'raus' && canEdit && (
           <div className={s.actions}>
             <button className={cx(s.actBtn, s.actReenter)} onClick={onReenter}>
-              <Icon id="flag" /><span>{az.actReenter}</span>
+              {/* a crew that was never in goes «In den Einsatz», not «wieder» (N8) */}
+              <Icon id="flag" /><span>{neverDeployed ? az.actEnterFirst : az.actReenter}</span>
             </button>
           </div>
         )}
       </div>
-
+    </>
+  )
+  const footZone = (
+    <>
       {/* ── 6 + 7 Sockel und Verlauf, EIN Block (09.09., Maintainer-Entscheid) ────────────────
           The Sockel used to be a standing stack of look-up rows between the actions and the
           Verlauf — «Einsatzzeit», «Geschätzter Druck» with its provenance line under it,
@@ -2483,36 +2685,38 @@ function TruppCard({
           ⚠️ The line WRAPS rather than ellipsizing. Three items only meet on a read-only card,
           and a cut «≈ 20…» is a wrong number where a second line is merely a second line. */}
       <div className={s.vfoot}>
-        {sockelLine.length > 0 && (
-          <div className={s.metaLine}>
-            {sockelLine.map((it) => (
+        {/* ⚠️ The Sockel line and the Verlauf head are ONE line (26.09.2026 on the phone, every board
+            since 29.09.2026 — T2): «8:18 min · Schätzung ≈ 241 bar ⌄» — the values with their
+            units, no «Einsatzzeit» / «Verlauf» words, no «zuletzt: 11:52 Druck 300 bar» preview (its
+            content is the Verlauf's first row anyway, and its bar was the pressure tile's number a
+            second time), and the whole line is the tap that opens the Verlauf. A viewer's Druck
+            and «Draussen seit» join in the same terse form. With nothing to say (a Trupp at the
+            door) the line says «Verlauf», so the tap still has a word.
+            ⚠️ The Schätzung KEEPS its word and full ink (owner, 29.09.2026: «we still need the
+            schätzung clearly visible»): it is the one number on the card that is not a reading,
+            and «≈ 0 bar» dimmed at the card's foot was easy to read past. The word is what keeps
+            it from being taken for a logged Druck — the dimming that used to do that is gone. */}
+        {/* ⚠️ The ⋯ ends THIS line (29.09.2026, owner pick B): as the facts' last chip it wrapped
+            onto a row of its own on most cards, 44px of height for one glyph. Beside the Verlauf's
+            ⌄ it costs nothing, stands at the same place on every card and every board, and the
+            FAB guard (`data-az-foot` on the row, AtemschutzView · the parking effect) keeps both
+            clear of the Eintrag button. */}
+        <div className={s.vfootRow} data-az-foot="">
+        <button type="button" className={cx(s.vrow, s.vrowTerse)} aria-expanded={logOpen} aria-label={az.verlauf}
+          onClick={() => setLogOpen((o) => !o)}>
+          <span className={s.metaLine}>
+            {sockelLine.length > 0 ? sockelLine.map((it) => (
               <span key={it.key} title={it.title}>
-                <i>{it.label}</i>
-                <b className={cx(it.dim && s.metaEst, it.alarm && s.metaAlarm)}>{it.value}</b>
+                {it.labelled && <i>{it.label}</i>}
+                {/* the Einsatzzeit / «Draussen seit» past a day in the head's compact «3d 10h» — one card, one spelling */}
+                <b className={cx(it.alarm && s.metaAlarm)}><ClockVal val={it.value} /></b>
               </span>
-            ))}
-          </div>
-        )}
-        {(lastReading || timesShown) && (
-          <>
-            <button type="button" className={s.vrow} data-az-foot="" aria-expanded={logOpen} onClick={() => setLogOpen((o) => !o)}>
-              <Icon id="history" /><span className={s.vrowLbl}>{az.verlauf}</span>
-              {/* ⚠️ The preview belongs to the CLOSED row only (09.09.). Its whole job is to
-                  answer «und dann?» without opening anything — and open, it printed the newest
-                  Ablesung ~40px above the list that starts with that very row. The span stays
-                  (it is the row's flexible middle) so the chevron does not walk left when the
-                  words go. */}
-              <span className={s.vrowLast}>
-                {logOpen ? null : lastReading
-                  ? fillTemplate(az.verlaufLatest, {
-                      time: fmtTime(lastReading.t),
-                      what: (az.readingKind[lastReading.kind] ?? lastReading.kind)
-                        + (barShown(lastReading) ? ` ${lastReading.bar} bar` : ''),
-                    })
-                  : az.zoneTimes}
-              </span>
-              <Icon id={logOpen ? 'chevron-up' : 'chevron-down'} className={s.logChev} />
-            </button>
+            )) : <span><i>{az.verlauf}</i></span>}
+          </span>
+          <Icon id={logOpen ? 'chevron-up' : 'chevron-down'} className={s.logChev} />
+        </button>
+        {menu}
+        </div>
             {logOpen && (
               <div className={s.vopen}>
                 {/* ── ONE panel of look-up rows, then the list (09.09., maintainer review) ────
@@ -2584,7 +2788,7 @@ function TruppCard({
                                   one it carries is the last reported value, not a fresh reading —
                                   and a Trupp without Atemschutz shows none at all (barShown) */}
                               <span className={s.logBar}>{barShown(r) ? `${r.bar} bar` : ''}</span>
-                              <span className={s.logKind}>{readingLabel(r)}</span>
+                              <span className={s.logKind}>{readingLabel(r, idx)}</span>
                             </li>
                           )
                         })}
@@ -2594,9 +2798,47 @@ function TruppCard({
                 })()}
               </div>
             )}
-          </>
-        )}
       </div>
+    </>
+  )
+
+  /* ── The card IS the phone's row, grown downwards (26.09.2026, owner on staging) ─────────────────
+   * «Keep the same UI whether the card is collapsed or not.» The card used to swap the row's line
+   * and its «Druck | Kontakt» pair for a head, a band with the clock again in 40px, a full-width
+   * Kontakt and a Druck row — the same two buttons in a second shape, one tap after the first.
+   * Now the card IS the row, grown downwards: the same frame and tone, the same line (RowLine),
+   * the same pair (TruppPair), at the same place; opening only adds what stands below.
+   * On the phone board the line itself is the collapse control, as the row was the open control,
+   * so the chevron stays in the pixel the thumb just pressed; on the tablet grid and the handed-
+   * over Tafel nothing collapses (every card stands open) and the line is just the line.
+   * ⚠️ ORDER since the slim-down (26.09.2026 evening, owner: «unit, verb, value»): the line, then
+   * ONE 2×2 tile grid — the pair on top, Rückzug / Raus under it (`actZone`, styled as the same
+   * tiles here) — then the state in words where there is one, the note, the facts with the ⋯,
+   * and the one-line foot. The actions stand ABOVE the facts: what a thumb does on this card is
+   * the four tiles, and they stand together under the clock.
+   * ⚠️ ONE drawing on every board since 29.09.2026 — see the zone list above TruppCard. */
+  const head = rowMode ? (
+    <button type="button" className={s.trowHead} aria-expanded="true" onClick={onCollapse}
+      aria-label={`${t.name} — ${az.collapse}`}>
+      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} />
+      <span className={s.trowChevron}><Icon id="chevron-up" /></span>
+    </button>
+  ) : (
+    <div className={cx(s.trowHead, s.trowHeadStatic)}>
+      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} />
+    </div>
+  )
+  return (
+    <div ref={cardRef} data-az-open={rowMode ? '' : undefined} className={cx(s.trow, s.trowCard, rowTone(t, status, sev))}>
+      {head}
+      {monitored && canEdit && inField && (
+        <TruppPair t={t} live={live} sev={sev} onPressure={(id) => onAskPressure?.(id)} onContact={onContact} />
+      )}
+      {actZone}
+      {stateLine}
+      {noteZone}
+      {facts}
+      {footZone}
     </div>
   )
 }
@@ -2659,8 +2901,21 @@ function inScrollPort(el: HTMLElement): boolean {
   return r.top >= 0 && r.bottom <= window.innerHeight
 }
 
+/** What a kept edit / re-entry draft belongs to (TruppForm · draftKey): the sortie and every field
+ *  the form writes, as one short string. Pure; the draft store is per session and per incident. */
+function truppDraftStamp(t: Trupp): string {
+  const last = t.readings?.[t.readings.length - 1]
+  const s = JSON.stringify([t.status, t.entryTime, t.exitTime ?? '', last?.t ?? '', last?.kind ?? '',
+    t.name, t.members ?? [], t.auftrag ?? '', t.ziel ?? '', t.lineNo ?? null, t.lineNumber ?? '', t.funkkanal ?? null,
+    t.entryPressureBar, t.kind ?? '', t.equipment ?? []])
+  // FNV-1a — only has to tell two states apart, never to be read
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) }
+  return (h >>> 0).toString(36)
+}
+
 function TruppForm({
-  mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, onAddGuest, onCancel, onSubmit,
+  mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, sheet = false, pinned, onAddGuest, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
@@ -2700,16 +2955,35 @@ function TruppForm({
    *  two-shapes note above the component: nothing about the Art may change the SHAPE of the
    *  form, only what «Luft & Funk» contains. */
   stack?: boolean
+  /** The phone board's frame (24.09.2026, D1 ⑥): a BOTTOM SHEET instead of the full-screen form,
+   *  so the due clocks stay in view above it. With it come the grab bar and push-down-to-close —
+   *  it is a real bottom sheet now (AGENTS.md · overlays), and closing it that way is «not now»:
+   *  every entry is kept (draftKeep) until «Abbrechen» or the save. */
+  sheet?: boolean
+  /** the due / overdue Trupps pinned ABOVE the sheet (AtemschutzView · pinnedRows), or nothing */
+  pinned?: ReactNode
   /** record a hand-typed Gast on the Anwesenheit as well — being put in a Trupp IS being here */
   onAddGuest?: (name: string) => string | undefined
   /** `standby` (re-deploy only) parks the Trupp as Reserve instead of sending it straight in */
-  onSubmit: (f: TruppFields, standby?: boolean) => void
+  /** resolves `true` once the Trupp is written — the draft is dropped only then */
+  onSubmit: (f: TruppFields, standby?: boolean, extra?: TruppSubmitExtra) => Promise<boolean> | void
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   // ⚠️ The typed Trupp survives a mis-tap. Only «Abbrechen» throws it away — an ✕ or a tap on
   // the backdrop is «not now», and losing three names and a Ziel to a fat finger at 3am is the
   // expensive half of that pair (see lib/draftKeep, the same rule the Gast name follows).
-  const draftKey = `atemschutz:trupp:${mode}:${initial?.id ?? 'new'}`
+  /* ⚠️ …but a draft belongs to ONE state of the Trupp (review 25.09.2026). Keyed on the id alone,
+   * a re-entry abandoned after one sortie handed its «Gleiche Flasche · 120 bar» to the NEXT
+   * sortie's re-entry, and an edit draft wrote back a Leitung somebody had linked on the Karte in
+   * between. So an edit / re-entry draft is keyed on the Trupp as the form opened it — its
+   * sortie (status, Eintritt, Austritt, last log row) and every field the form writes
+   * (`truppDraftStamp`): anything that changed since makes it a fresh form. A new Trupp has no
+   * such state, and its draft stays keyed on «new». */
+  const draftKey = `atemschutz:trupp:${mode}:${initial ? `${initial.id}:${truppDraftStamp(initial)}` : 'new'}`
+  /* «Sicherungstrupp bestimmen» opens the create form on «Sichern» (`presetAuftrag`) — and that
+   * door is the answer, so it wins over a kept create draft's Auftrag. Written into the draft
+   * store BEFORE the Auftrag's own state reads it (a lazy initializer runs once, at mount). */
+  useState(() => { if (mode === 'create' && presetAuftrag) keepDraft(`${draftKey}:auftrag`, presetAuftrag); return 0 })
   // The two roster indexes the slot resolution needs: name → id, and id → Person (to check that
   // a stored positional id really belongs to the name beside it — see lib/personnel · truppSlots).
   const rosterByName = useMemo(() => rosterIdByName(personnel), [personnel])
@@ -2725,9 +2999,13 @@ function TruppForm({
   // Leitung: numeric since 2026-08-05. A Trupp carrying only the old free text starts empty and
   // keeps that text visible underneath — the record stays as its Überwacher typed it, and a
   // legacy «1» still auto-matches the drawn Leitung 1 (lib/truppLines · truppLineNo).
-  const [lineNo, setLineNo] = useState<number | null>(initial?.lineNo ?? null)
+  // ⚠️ KEPT like the crew and the Auftrag (24.09.2026): the phone form is a bottom sheet now, and
+  // pushing it down is «not now» — the same as the ✕ and the backdrop, which never threw these
+  // away either… except that they did, for Ltg-Nr., Kanal, Art and Druck, the four fields that
+  // were plain state. Only «Abbrechen» and the save drop a draft (`dropDraft`).
+  const [lineNo, setLineNo, clearLineNo] = useKeptState<number | null>(`${draftKey}:lineNo`, initial?.lineNo ?? null)
   const legacyLine = initial?.lineNo == null ? initial?.lineNumber?.trim() : undefined
-  const [funkkanal, setFunkkanal] = useState<number>(initial?.funkkanal ?? defaultFunkkanal)
+  const [funkkanal, setFunkkanal, clearFunkkanal] = useKeptState<number>(`${draftKey}:funkkanal`, initial?.funkkanal ?? defaultFunkkanal)
   // ⚠️ Read, never written (04.09.): the picker is gone from every layout. `null` means
   // «automatic» — the station colour for this Auftrag, else the next free palette colour (see
   // Trupp.color) — and that is what every new Trupp gets. A Trupp created while the picker
@@ -2752,6 +3030,18 @@ function TruppForm({
     // would fight the operator's own edits
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  /* The crown follows the Dienstgrad while a NEW Trupp is being formed (30.09.2026, owner: «auto-set
+   * the highest person rank wise as group leader unless … a group leader was set manually»):
+   * until a name is tapped, the most senior member leads (lib/truppLeader · crewAfterChange).
+   * Kept with the draft, so a pushed-away form that had its leader crowned by hand comes back with
+   * that answer. Never on an edit or a re-entry — a crew joined later keeps its leader. */
+  const [leaderAuto, setLeaderAuto, clearLeaderAuto] = useKeptState<boolean>(`${draftKey}:leaderAuto`, mode === 'create')
+  const rankById = useMemo(() => new Map(personnel.map((p) => [p.id, rankOrder(p.rank)])), [personnel])
+  const changeTeam = (next: Slot[], why: CrewChange) => {
+    const r = crewAfterChange(next, why, leaderAuto, (sl) => (sl.personId ? rankById.get(sl.personId) ?? Infinity : Infinity))
+    setTeam(r.team)
+    if (r.auto !== leaderAuto) setLeaderAuto(r.auto)
+  }
   /* «Art des Trupps» — asked on creation, and changeable while EDITING one (04.09.). What the
    * board could not do until then is the ordinary case: a Verkehrstrupp that ends up going in
    * under PA, and a Trupp registered under Atemschutz by mistake. Both were a delete and a
@@ -2768,7 +3058,7 @@ function TruppForm({
    * own what that writes, and the confirm in front of a downgrade lives in `submitForm` below,
    * where saying no still leaves the operator in the form. (A re-deploy needs none: the Trupp is
    * out, so there is no running watch to take away.) */
-  const [kind, setKind] = useState<TruppKind>(initial?.kind ?? 'atemschutz')
+  const [kind, setKind, clearKind] = useKeptState<TruppKind>(`${draftKey}:kind`, initial?.kind ?? 'atemschutz')
   /** The Funkkanal follows the Art while it is still the seeded default: stations may run their
    *  ohne-AS Trupps on a separate channel (doctrine.defaultFunkkanalEinfach). The form always
    *  opens under PA, so the ohne-AS seed can only apply on the «Ohne Atemschutz» tap — and a
@@ -2784,27 +3074,24 @@ function TruppForm({
   /** This edit is turning the Überwachung ON — the Trupp had no cylinder until a moment ago, so
    *  the Druck field asks for a first Eingangsdruck rather than offering a correction. */
   const upgrading = mode === 'edit' && isPa && !!initial && !isAtemschutzTrupp(initial)
-  /** Druck + Kanal folded behind the «Standard: … — Ändern» line (see `luftFields`), in the
-   *  CREATE form only (08.09., field ask): there the pair is an OFFER — the station defaults,
-   *  right on almost every Anmeldung — and two steppers nobody touches cost the form its calm.
-   *  Every other mode keeps the classic fields open, because there the number is a QUESTION
-   *  with a real answer: an edit exists to correct the Eingangsdruck, an upgrade asks its
-   *  first one, and a Wieder-einrücken's fresh cylinder has a gauge reading that must not be
-   *  assumed at 300. Opens for good once tapped. */
-  const [defaultsOpen, setDefaultsOpen] = useState(mode !== 'create')
+  /** Which of the two number sheets is open over the form (30.09.2026, owner: «Eingangsdruck and
+   *  Funkkanal must open in a pop-up»): the Druck sheet's grid and the Kanal sheet's pad, opened from
+   *  the rows «Eingangsdruck 300 bar ›» / «Funkkanal 11 ›» (see `luftFields`). A pick fills the
+   *  draft and closes; nothing is written until the form's own save. They replace the «Standard:
+   *  300 bar · Kanal 11 — Ändern» fold of 08.09. — it hid two steppers nobody touched; a row that
+   *  opens a sheet costs the form what the fold did. */
+  const [picker, setPicker] = useState<'pressure' | 'kanal' | null>(null)
   // …and the Auftrag tiles follow it: each kind has its own six-word vocabulary (config ·
   // atemschutz.auftrag / .auftragEinfach). Only the OFFER is narrowed — an already-stored value
   // from the other list keeps rendering everywhere (lib/report · truppAuftragLabel).
   const auftragTypes: { id: TruppAuftrag; label: string }[] = isPa ? cfg.auftrag : cfg.auftragEinfach
   // a fresh cylinder for create / re-deploy; edit never touches pressure. A Trupp without
   // Atemschutz has no cylinder at all — 0, and the field is not shown (see `showPressure`).
-  const [pressure, setPressure] = useState<number>(() => {
-    const dz = atemschutzDoctrine()
-    // ⚠️ `||`, not `??`: a Trupp without Atemschutz carries 0 and has no number to correct, so
-    // upgrading one from this form would open the stepper at 0 — a value the submit then refuses,
-    // with the operator left to find out why. It gets the station's default, like a new Trupp.
-    return mode === 'edit' ? (initial?.entryPressureBar || dz.defaultPressureBar) : dz.defaultPressureBar
-  })
+  // ⚠️ `||`, not `??`: a Trupp without Atemschutz carries 0 and has no number to correct, so
+  // upgrading one from this form would open the stepper at 0 — a value the submit then refuses,
+  // with the operator left to find out why. It gets the station's default, like a new Trupp.
+  const [pressure, setPressure, clearPressure] = useKeptState<number>(`${draftKey}:pressure`,
+    mode === 'edit' ? (initial?.entryPressureBar || atemschutzDoctrine().defaultPressureBar) : atemschutzDoctrine().defaultPressureBar)
   /* «Gleiche Flasche oder neue?» (24.09.2026, Übung 23.09.: a Trupp out at 19:55 after twelve
    * minutes went back in at 19:56 «with 300 bar» — the default nobody had touched). Asked only on
    * a re-entry within BOTTLE_ASK_MIN of the Austritt, where the answer is genuinely open; after
@@ -2813,6 +3100,8 @@ function TruppForm({
   const lastExit = mode === 'redeploy' ? [...(initial?.readings ?? [])].reverse().find((r) => r.kind === 'exit') : undefined
   const outMin = lastExit ? Math.floor((serverNow() - Date.parse(lastExit.t)) / 60_000) : null
   const bottleAsk = isPa && lastExit != null && outMin != null && outMin < BOTTLE_ASK_MIN && lastExit.bar > 0
+  // ⚠️ NOT kept (review 25.09.2026): the answer is about THIS break, and a kept «Gleiche Flasche»
+  // skipped both questions on a later sortie with the old Restdruck
   const [bottle, setBottle] = useState<'same' | 'new' | null>(null)
   // No autofocus on a TABLET: the on-screen keyboard would immediately cover the form's other
   // fields, and the Mannschaft is a list that can simply be ticked. The EL taps the field they
@@ -2822,12 +3111,14 @@ function TruppForm({
   // already folds the other sections away while it has the keyboard (Atemschutz.module.css).
   const teamSearchRef = useRef<HTMLInputElement | null>(null)
   const focusTeamFirst = !!stack && mode === 'create'
-  // Esc closes the form (keyboard parity with the scrim/close-button)
+  // Esc closes the form (keyboard parity with the scrim/close-button) — but not while one of its
+  // number sheets is open: that Escape is the sheet's (it closes itself first, and this closure
+  // still sees it open, because the close has not rendered yet)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !picker) onCancel() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
+  }, [onCancel, picker])
   const auftragRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (focusSection !== 'auftrag') return
@@ -2850,6 +3141,16 @@ function TruppForm({
   // «Speichern» blocked on `pressure > 0` for a number that does not exist would be a dead button.
   const showPressure = isPa
   const isEdit = mode === 'edit'
+  /* ⚠️ …except once the Trupp is OUT (24.09.2026, item 2). On 23.09. the Restdruck had nowhere to
+   * go, so it was typed into «Eingangsdruck korrigieren» after the Austritt three times, and the
+   * Rapport shows crews going in with 60, 170 and 180 bar. The exit has its own Restdruck now
+   * (PressureSheet), and a finished run's entry reading is locked: it says so, and points at the
+   * Restdruck where there is one. A correction to a finished sortie is an appended Verlauf row,
+   * never an overwrite. While the Trupp is inside or still registered the field stays open. */
+  const pressureLocked = isEdit && !!initial && initial.status === 'raus' && isAtemschutzTrupp(initial) && isPa
+  const lockedExit = pressureLocked
+    ? [...(initial?.readings ?? [])].reverse().find((r) => r.kind === 'exit' && r.measured)
+    : undefined
   const isAnderes = auftrag === 'anderes'
   // «Anderes» needs its word: it is a label that says nothing on its own.
   const auftragOk = !isAnderes || ziel.trim().length > 0
@@ -2881,33 +3182,48 @@ function TruppForm({
   /* ⚠️ The person, not just their name (11.09.): the warning now carries an ACTION — take them
      out of the other Trupp — and that needs the id it is about and whether that Trupp is one a
      person may be quietly moved out of at all (lib/atemschutz · truppTransferState). */
-  const assignedConflict = useMemo(() => {
-    for (const sl of team) {
-      if (sl.personId && assignedIds.has(sl.personId)) {
-        return {
-          personId: sl.personId,
-          name: sl.name.trim() || az.assignedFallbackName,
-          state: transferState?.(sl.personId) ?? 'blocked',
-        }
-      }
-    }
-    return null
-  }, [team, assignedIds, transferState])
+  // ONE answer for the form and the Trupp sheet (lib/truppQuickEdit · teamConflict, 26.09.2026)
+  const assignedConflict = useMemo(() => teamConflict(team, assignedIds, transferState, az.assignedFallbackName),
+    [team, assignedIds, transferState, az.assignedFallbackName])
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
   const bottleOk = !bottleAsk || bottle != null
-  const canSubmit = auftragOk && leaderOk && (!showPressure || pressure > 0) && bottleOk && !assignedConflict
+  const canSubmit = auftragOk && leaderOk && (!showPressure || pressureLocked || pressure > 0) && bottleOk && !assignedConflict
   /* No sections on the phone any more (08.09., field ask): with the Mannschaft reduced to the
    search + populate-on-pick list and Druck/Kanal folded into the Standard line, the flat form
    fits — the three collapsible sections and their summary lines went with the space problem
    they were built for. */
 
-  const dropDraft = () => { clearAuftrag(); clearZiel(); clearEquipment(); clearTeam() }
+  /* The fields exactly as this form would save them UNTOUCHED — its own defaults off `initial`,
+   * computed once at mount. What differs from them at the save is what the operator touched
+   * (`truppFieldGroupsChanged`), and an edit writes only that (AtemschutzView · submitForm). */
+  const [pristine] = useState<TruppFields>(() => {
+    const dz = atemschutzDoctrine()
+    const slots = initial ? truppSlots(initial, rosterByName, rosterById) : []
+    const k = initial?.kind ?? 'atemschutz'
+    return {
+      name: slots[0]?.name.trim() ?? '',
+      members: slots.slice(1).map((m) => m.name.trim()).filter(Boolean),
+      auftrag: initial?.auftrag ?? (mode === 'create' ? presetAuftrag : undefined),
+      ziel: initial?.ziel, lineNo: initial?.lineNo, funkkanal: initial?.funkkanal ?? defaultFunkkanal,
+      pressure: k !== 'atemschutz' ? 0 : mode === 'edit' ? (initial?.entryPressureBar || dz.defaultPressureBar) : dz.defaultPressureBar,
+      equipment: initial?.equipment, kind: k,
+    }
+  })
+
+  const dropDraft = () => {
+    clearAuftrag(); clearZiel(); clearEquipment(); clearTeam(); clearLeaderAuto()
+    clearLineNo(); clearFunkkanal(); clearKind(); clearPressure(); clearPressureSet()
+  }
   const submit = (standby = false) => {
     if (!canSubmit) return
-    dropDraft()
+    /* The Gäste typed into this form reach the Anwesenheit NOW, at the save — never earlier
+     * (staging walk-through 25.09.2026: «Abbrechen» left a person on the Rapport who never
+     * existed). Filed through the same door as before (`onAddGuest` · assignTypedName, which links
+     * a name that is already on the list instead of opening a second row), and the id it comes
+     * back with is written into the Trupp, so the card and the Personalblatt are one person. */
     const cleanMembers = team.slice(1).filter((m) => m.name.trim())
     const memberPersonIds = cleanMembers.map((m) => m.personId).filter(Boolean) as string[]
-    onSubmit({
+    const fields: TruppFields = {
       name: team[0].name.trim(),
       members: cleanMembers.length ? cleanMembers.map((m) => m.name.trim()) : undefined,
       auftrag: auftrag ?? undefined,
@@ -2917,7 +3233,9 @@ function TruppForm({
       // 0 for a Trupp without Atemschutz — there is no cylinder, and the field was never shown.
       // ⚠️ On an UPGRADE this is the Eingangsdruck of a cylinder opened just now, and editTrupp
       // logs it as such (`paOn`) rather than correcting the Eintritt the Trupp already has.
-      pressure: isPa ? pressure : 0,
+      // …and a LOCKED Eingangsdruck goes back exactly as stored — never the stepper's fallback
+      // for a Trupp that carries 0, which would have written 300 over a reading nobody took
+      pressure: isPa ? (pressureLocked ? initial!.entryPressureBar : pressure) : 0,
       // in the station's list order, so two operators ticking the same items record the same
       // array — and nothing at all for a work squad, whose form never showed the chips
       equipment: isPa && equipment.length ? atemschutzEquipment().map((e) => e.id).filter((id) => equipment.includes(id)) : undefined,
@@ -2930,7 +3248,22 @@ function TruppForm({
       // a Trupp that is already drawn on the Lage and on the plan.
       color,
       kind,
-    }, standby)
+      ...(isPa && (pressureSet || lowConfirmed === pressure) ? { pressureMeasured: true } : {}),
+    }
+    /* The Gäste typed into this form reach the Anwesenheit at the SAVE — never earlier (staging
+     * walk-through 25.09.2026: «Abbrechen» left a person on the Rapport who never existed) — and
+     * the view calls this only once every question in front of the save is answered. Filed
+     * through the same door as before (`onAddGuest` · assignTypedName, which links a name already
+     * on the list instead of opening a second row); the ids come back into the Trupp, so the card
+     * and the Personalblatt are one person. */
+    // (shared with the Trupp sheet since 26.09.2026 — lib/truppQuickEdit · fileGuestSlots)
+    const fileGuests = (): Pick<TruppFields, 'leaderPersonId' | 'memberPersonIds'> => fileGuestSlots(team, onAddGuest)
+    /* ⚠️ The draft is dropped only once the board SAYS the Trupp was written (staging walk-through
+     * 25.09.2026): a question in front of the save — a Leitung another Trupp is on, a field
+     * changed on another device, «Überwachung beenden?» — answered «Zurück» used to return to a
+     * form that had already thrown everything typed away. */
+    void Promise.resolve(onSubmit(fields, standby, { touched: truppFieldGroupsChanged(pristine, fields), fileGuests }))
+      .then((saved) => { if (saved !== false) dropDraft() })
   }
 
   /**
@@ -2955,7 +3288,7 @@ function TruppForm({
   const blocked = !blockedShown || canSubmit || assignedConflict ? null
     : !leaderOk ? az.saveBlockedTeam
     : !auftragOk ? az.saveBlockedAuftrag
-    : showPressure && pressure <= 0 ? az.saveBlockedPressure
+    : showPressure && !pressureLocked && pressure <= 0 ? az.saveBlockedPressure
     : !bottleOk ? az.saveBlockedBottle
     : null
 
@@ -2987,8 +3320,49 @@ function TruppForm({
    * in the same precedence `canSubmit` itself checks. On the stack a reason that lives in a
    * collapsed section opens that section first (`pointAt`).
    */
+  /* ── The ONE plausibility question (24.09.2026, item 2) ───────────────────────────────────────
+   * An Eingangsdruck below the station's minimum (`doctrine.entryPressureMin`, /admin › Doktrin)
+   * — at the Anmeldung, on a re-entry with a NEW cylinder, or corrected while the Trupp is inside
+   * or registered — asks once, with the value on the button: «180 bar ist für einen Eintritt tief
+   * (Station: ab 270). Stimmt das, …» «Ändern» / «180 bestätigen». No upper bound, and no second
+   * rule: the review decided on exactly one. «Gleiche Flasche» is not asked about (its bar is the
+   * Restdruck, low by definition), nor is an edit that leaves the number alone, nor a value this
+   * form already had confirmed. */
+  const [lowConfirmed, setLowConfirmed] = useState<number | null>(null)
+  /* The Eingangsdruck was SET on purpose in this form — dialled, typed, a bottle answer. Kept
+   * with the draft (a pushed-away form comes back with it); it marks the log row `measured`
+   * (types · TruppFields.pressureMeasured). */
+  const [pressureSet, setPressureSet, clearPressureSet] = useKeptState<boolean>(`${draftKey}:pressureSet`, false)
+  const entryIsAsked = showPressure && !pressureLocked
+    && (mode === 'create' || (mode === 'redeploy' && bottle !== 'same')
+      || (mode === 'edit' && (upgrading || pressure !== initial?.entryPressureBar)))
+  const lowEntryAsks = entryIsAsked && pressure !== lowConfirmed && entryPressureAsks(pressure, atemschutzDoctrine())
+  const askLowEntry = async (): Promise<boolean> => {
+    const dz = atemschutzDoctrine()
+    // a title stating the fact, one line with the two numbers, the value on the button (owner
+    // review 26.09.2026: the paragraph about the coming alarm was read by nobody)
+    const ok = await confirmDialog({
+      title: az.entryLowTitle,
+      message: fillTemplate(az.entryLowMsg, { bar: pressure, min: dz.entryPressureMin }),
+      confirmLabel: fillTemplate(az.entryLowConfirm, { bar: pressure }),
+      cancelLabel: az.entryLowChange,
+      // «Ändern» is the answer an Enter or a reflex tap gives — the value stays in the form
+      safeAnswer: 'cancel',
+    })
+    if (ok) { setLowConfirmed(pressure); return true }
+    // «Ändern»: straight back to the number — the Druck sheet, opened on the value it asked about
+    setPicker('pressure')
+    return false
+  }
+
   const attemptSubmit = (standby = false) => {
-    if (canSubmit) { setBlockedShown(false); submit(standby); return }
+    if (canSubmit) {
+      setBlockedShown(false)
+      // synchronous unless the question is due — a save with nothing to ask stays one tap, now
+      if (lowEntryAsks) { void askLowEntry().then((ok) => { if (ok) submit(standby) }); return }
+      submit(standby)
+      return
+    }
     if (!leaderOk) {
       setBlockedShown(true)
       pointAt(() => teamRef.current)
@@ -3017,12 +3391,7 @@ function TruppForm({
     }
     if ((showPressure && pressure <= 0) || !bottleOk) {
       setBlockedShown(true)
-      // the Druck may sit folded behind the Standard-line — unfold first, ring on the next
-      // frame (same contract pointAt keeps for a collapsed stack section)
-      if (!defaultsOpen) {
-        setDefaultsOpen(true)
-        requestAnimationFrame(() => pointAt(() => pressureRef.current))
-      } else pointAt(() => pressureRef.current)
+      pointAt(() => pressureRef.current)
     }
   }
 
@@ -3041,7 +3410,10 @@ function TruppForm({
    * Sicherungstrupp and therefore under PA by definition. */
   /* A compact pair at the HEAD's right since 08.09. (field ask): the two big tiles with their
      explainer subtitles said what every AdF already knows, and cost the form its first row.
-     The words alone carry it — and the buttons keep the TILE chrome the form has always worn
+     The words alone carry it — since 27.09.2026 without the «Art des Trupps» label over them
+     (slim sweep 6): «Unter Atemschutz / Ohne Atemschutz» name themselves, and the label stood
+     directly over «Art», two «Art»s in a row. It stays the radiogroup's NAME for a screen reader.
+     The buttons keep the TILE chrome the form has always worn
      (bordered `--surface` cards, ink outline + faint ink wash on the chosen one), just at a
      header's size. Deliberately NOT the Segmented track: the Art is which of two THINGS is
      being registered, not a property toggle — the same argument the original tiles made.
@@ -3065,74 +3437,101 @@ function TruppForm({
           the Mannschaft is a wrapping chip row and the roster appears only under a typed query.
           Same record, same handlers — see TruppTeam · `phone`. */}
       <TruppTeam
-        value={team} onChange={setTeam} phone={stack} wanted={mode === 'create'} searchInputRef={teamSearchRef}
+        value={team} onChange={changeTeam} phone={stack} wanted={mode === 'create'} searchInputRef={teamSearchRef}
         personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
-        assignedIds={assignedIds} rolesById={rolesById} onAddGuest={onAddGuest}
+        assignedIds={assignedIds} rolesById={rolesById}
       />
     </div>
   )
 
-  /* Druck + Kanal live behind ONE readable line since 08.09. («Standard: 300 bar · Kanal 11 —
-   * Ändern», field ask): on almost every Anmeldung both ARE the station defaults, and two
-   * steppers nobody touches cost the form its calm. The line always reads the ACTUAL current
-   * values — a corrected pair keeps showing itself (and drops the word «Standard»), so nothing
-   * true is ever hidden; «Ändern» unfolds the same two fields as before, for good (per mount).
-   * Auto-open where the number IS the question: an upgrade asks its first Eingangsdruck. */
-  const luftValue = [
-    showPressure ? fillTemplate(az.stackPressure, { n: pressure }) : null,
-    fillTemplate(az.stackFunk, { n: funkkanal }),
-  ].filter(Boolean).join(' · ')
-  const luftIsDefault = (!showPressure || pressure === atemschutzDoctrine().defaultPressureBar)
-    && funkkanal === (isPa ? defaultFunkkanal : atemschutzDoctrine().defaultFunkkanalEinfach)
-  const luftFields = defaultsOpen ? (
+  // ⚠️ An UPGRADE asks for a FIRST Eingangsdruck, never «korrigieren» — the latter would claim the
+  // Trupp already had one (04.09.). The row's word and the Druck sheet's title (the question).
+  const pressureFieldLabel = mode === 'redeploy' ? az.newPressureLabel
+    : isEdit && !upgrading ? az.editPressureLabel : az.pressureLabel
+  // the number sheets' second head line — whose (lib/truppQuickEdit · truppSheetSub), or the leader picked so far
+  const pickSub = initial ? truppSheetSub(initial) : team[0]?.name.trim() || undefined
+  const pickPressure = (v: number) => {
+    setPressure(v); setPressureSet(true)
+    if (bottleAsk && !bottle) setBottle('new')
+    setPicker(null)
+  }
+  /* Eingangsdruck and Funkkanal: ONE row each, in every mode — «Eingangsdruck 300 bar ›»,
+   * «Funkkanal 11 ›» (30.09.2026) — and the row opens the sheet that asks it everywhere else: the
+   * Druck sheet's 20-bar grid, the Kanal sheet's pad (`picker`, the sheets are rendered by the form
+   * body). The rows always read the ACTUAL values, so nothing true is hidden behind a fold. */
+  const luftFields = (
     <>
-      {showPressure && (
+      {pressureLocked && (
+        // «300 bar 🔒» and ONE line why (owner review 26.09.2026) — the number, the lock, the Restdruck
         <div ref={pressureRef} className={s.field}>
-          {/* ⚠️ An UPGRADE asks for a FIRST Eingangsdruck, never «korrigieren» — the latter would
-              claim the Trupp already had one (04.09.). */}
-          <span>{mode === 'redeploy' ? az.newPressureLabel
-            : isEdit && !upgrading ? az.editPressureLabel : az.pressureLabel}</span>
+          <span>{az.pressureLockedLabelPlain}</span>
+          <div className={s.pressureLocked}>
+            <b>{initial!.entryPressureBar} bar</b>
+            <Icon id="lock" className={s.pressureLockedIcon} />
+          </div>
+          <p className={s.fieldNote}>{lockedExit
+            ? fillTemplate(az.pressureLockedWhyExit, { bar: lockedExit.bar })
+            : az.pressureLocked}</p>
+        </div>
+      )}
+      {showPressure && !pressureLocked && (
+        <div ref={pressureRef} className={s.field}>
           {bottleAsk && (
             <div className={s.bottleAsk}>
               <p>{fillTemplate(outMin! < 1 ? az.bottleAskNow : az.bottleAsk, { min: String(outMin), bar: String(lastExit!.bar) })}</p>
               <div className={s.bottleBtns}>
                 <button type="button" className={cx(s.bottleBtn, bottle === 'same' && s.bottleOn)}
-                  onClick={() => { setBottle('same'); setPressure(lastExit!.bar) }}>
+                  onClick={() => { setBottle('same'); setPressure(lastExit!.bar); setPressureSet(true) }}>
                   {az.bottleSame}<b>{lastExit!.bar} bar</b>
                 </button>
                 <button type="button" className={cx(s.bottleBtn, bottle === 'new' && s.bottleOn)}
-                  onClick={() => { setBottle('new'); setPressure(atemschutzDoctrine().defaultPressureBar) }}>
+                  onClick={() => { setBottle('new'); setPressure(atemschutzDoctrine().defaultPressureBar); setPressureSet(true) }}>
                   {az.bottleNew}<b>{atemschutzDoctrine().defaultPressureBar} bar</b>
                 </button>
               </div>
             </div>
           )}
-          <PressureStepper value={pressure} onChange={(v) => { setPressure(v); if (bottleAsk && !bottle) setBottle('new') }} compact />
-          {/* said out loud, because the same ± on the CARD does the opposite: there it is a
+          <div className={s.pickRow}>
+            <button type="button" className="row-go" aria-haspopup="dialog" onClick={() => setPicker('pressure')}
+              aria-label={`${pressureFieldLabel} ${fillTemplate(az.stackPressure, { n: pressure })}`}>
+              <span className="row-go-text">{pressureFieldLabel}</span>
+              <span className={s.pickRowValue}>{fillTemplate(az.stackPressure, { n: pressure })}</span>
+              <span className="row-go-word"><Icon id="chevron" /></span>
+            </button>
+          </div>
+          {/* said out loud, because the same grid on the CARD does the opposite: there it is a
               Druckmeldung and resets the contact clock. Here it corrects the record. */}
           {isEdit && !upgrading && <p className={s.fieldNote}>{az.editPressureHint}</p>}
         </div>
       )}
-      {/* Kanal rides with the Druck: two short numbers between two big buttons, the pair you set
-          on every single Trupp.
+      {/* Kanal rides with the Druck: the pair you set on every single Trupp.
           ⚠️ No section headings in here. Uppercase labels over rules cut the form into boxes and
-          each rule cost a row; every field already says what it is, and «AUFTRAG» over a field
-          called «Auftrag / Ziel» was the same word twice. (On the stack the section header IS
-          that heading — which is why it is the only one.) */}
-      <div className={s.field}>
-        <span>{az.funkkanalSection}</span>
-        <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} compact />
+          each rule cost a row; every field already says what it is. */}
+      <div className={s.pickRow}>
+        <button type="button" className="row-go" aria-haspopup="dialog" onClick={() => setPicker('kanal')}
+          aria-label={`${az.funkkanalSection} ${funkkanal}`}>
+          <span className="row-go-text">{az.funkkanalSection}</span>
+          <span className={s.pickRowValue}>{funkkanal}</span>
+          <span className="row-go-word"><Icon id="chevron" /></span>
+        </button>
       </div>
     </>
-  ) : (
-    <div ref={pressureRef} className={s.luftDefaults}>
-      <span className={s.luftDefaultsText}>
-        {luftIsDefault ? fillTemplate(az.luftDefaults, { v: luftValue }) : luftValue}
-      </span>
-      <button type="button" className={s.luftDefaultsChange} onClick={() => setDefaultsOpen(true)}>
-        {az.luftChange}
-      </button>
-    </div>
+  )
+
+  /* The two number sheets over the form. ⚠️ Rendered INSIDE the form's popup, so they are nested
+   * dialogs (a tap in them is not an outside press that closes the form); and the host stops the
+   * pointerdown on its way up the React tree — a portal's events still bubble through it, and the
+   * form's own swipe-to-close would have dragged the form down under the sheet's drag. */
+  const pickers = picker && (
+    <span className={s.pickHost} onPointerDown={(e) => e.stopPropagation()}>
+      {picker === 'pressure' ? (
+        <PressureSheet sub={pickSub} title={pressureFieldLabel} hint={az.kanalSheetHint} last={pressure} chosen
+          alarmBar={atemschutzDoctrine().alarmBar} onPick={pickPressure} onClose={() => setPicker(null)} />
+      ) : (
+        <KanalPickSheet value={funkkanal} sub={pickSub} takeLabel={az.formPickTake}
+          onPick={(n) => { setFunkkanal(n); return true }} onClose={() => setPicker(null)} />
+      )}
+    </span>
   )
 
   const auftragFields = (
@@ -3170,21 +3569,21 @@ function TruppForm({
           onChange={(v) => setZiel(stripUnprintable(v))}
         />
       </label>
-      {/* Ausrüstung — multi-select chips with a tick box, so it reads as «several go» next to the
-          single-choice Art tiles above (mock 14.09.). Only under Atemschutz: a work squad takes no
-          Retthaube in. The list comes from the station (deploymentConfig · atemschutzEquipment). */}
+      {/* Ausrüstung — multi-select chips: selected = filled, unselected = framed, the SAME chip the
+          Trupp sheet draws (TruppSheets · TruppSheet, `.miniChip`). The tick box they wore until
+          27.09.2026 (mock 14.09.) was a second state mark inside a chip that already has one; the
+          checkbox ROLE stays, because «several go» is what a screen reader has to hear. Only under
+          Atemschutz: a work squad takes no Retthaube in. The list comes from the station
+          (deploymentConfig · atemschutzEquipment). */}
       {isPa && (
         <div className={s.field}>
           <span>{az.equipmentLabel}</span>
-          <div className={s.eqChips} role="group" aria-label={az.equipmentLabel}>
+          <div className={s.miniChips} role="group" aria-label={az.equipmentLabel}>
             {atemschutzEquipment().map((e) => {
               const on = equipment.includes(e.id)
               return (
-                <button
-                  key={e.id} type="button" role="checkbox" aria-checked={on}
-                  className={cx(s.eqChip, on && s.eqChipOn)} onClick={() => toggleEquipment(e.id)}
-                >
-                  <span className={s.eqBox} aria-hidden>{on && <Icon id="check" />}</span>
+                <button key={e.id} type="button" role="checkbox" aria-checked={on}
+                  className={cx(s.miniChip, on && s.miniChipOn)} onClick={() => toggleEquipment(e.id)}>
                   {az.equipmentLabels[e.id] ?? e.label}
                 </button>
               )
@@ -3205,51 +3604,23 @@ function TruppForm({
           it is part of what the Trupp is doing, and the Farbe it used to share a block with is
           gone (see `color` in submit). */}
       {!lite && (
-        <div className={cx(s.field, s.lineField)}>
-          <span>{az.lineNoLabel}</span>
-          {/* stepper and the drawn Leitungen share ONE row: the stepper is for a number that
-              isn't drawn yet, the chips are the common case, and stacking them cost three rows
-              of a form that has to fit on a tablet in one glance */}
-          <div className={s.lineRow}>
-            <Stepper
-              value={lineNo} min={1} max={99} placeholder="–"
-              onChange={setLineNo} onClear={() => setLineNo(null)} canClear={lineNo != null}
-              ariaLabel={az.lineNoLabel}
-            />
-            {/* The Leitungen that are actually DRAWN. Typing a number blind is how the two sides
-                end up disagreeing — the hose usually exists long before anyone registers the
-                Trupp. A number someone else is on stays pickable (real incidents need
-                corrections) but says whose it is. */}
-            {leitungOptions.length > 0 && (
-              <div className={s.lineOpts}>
-                <span className={s.lineOptsLabel}>{az.lineOptsLabel}</span>
-                {leitungOptions.map((o) => (
-                  <button
-                    key={o.no} type="button"
-                    className={cx(s.lineOpt, lineNo === o.no && s.on, !!o.takenBy && s.taken)}
-                    title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
-                    onClick={() => setLineNo(o.no)}
-                  >
-                    {o.no}{o.onPlan ? ' · P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+        /* ONE field with the Auftrag sheet (TruppSheets · LeitungField, 29.09.2026): «keine», the
+           Leitungen actually DRAWN («Ltg 1 · Müller H.»), and «Nr. …» for a number nobody has drawn
+           yet — typing a number blind is how the two sides end up disagreeing */
+        <LeitungField label={az.lineNoLabel} value={lineNo} options={leitungOptions} onChange={setLineNo}>
           {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
-        </div>
+        </LeitungField>
       )}
     </>
   )
 
-  // portal to <body> so the modal escapes the .surface stacking context (z-index 20) and covers
-  // the TopBar ("+ Eintrag", z-index 40) instead of rendering beneath it
-  return (
-    <Overlay open onClose={onCancel} className={cx(s.modal, stack && s.modalStack)} ariaLabel={title}
-      initialFocus={focusTeamFirst ? teamSearchRef : undefined}>
+  // The form itself — head, fields, the blocked line, the footer. On the phone board it sits in a
+  // bottom sheet under the pinned clocks (`sheet`), everywhere else it IS the dialog frame.
+  const formBody = (
+    <>
       <div className={s.modalHead}>
         <h3>{title}</h3>
-        <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
+        <button className="ip-x" aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
       </div>
       <div className={s.modalBody}>
         {stack ? (
@@ -3261,7 +3632,7 @@ function TruppForm({
              Auftrag / Ziel / Leitung, the folded Standard row last. */
           <div className={s.stack}>
             {teamFields}
-            {kindChooser && <div className={cx(s.field, s.kindField)}><span>{az.kindLabel}</span>{kindChooser}</div>}
+            {kindChooser && <div className={cx(s.field, s.kindField)}>{kindChooser}</div>}
             {auftragFields}
             {luftFields}
           </div>
@@ -3273,7 +3644,7 @@ function TruppForm({
               not typed, sit after everything that is actually asked. */}
           <div className={s.formCol}>{teamFields}</div>
           <div className={s.formCol}>
-            {kindChooser && <div className={cx(s.field, s.kindField)}><span>{az.kindLabel}</span>{kindChooser}</div>}
+            {kindChooser && <div className={cx(s.field, s.kindField)}>{kindChooser}</div>}
             {auftragFields}
             {luftFields}
           </div>
@@ -3289,18 +3660,10 @@ function TruppForm({
             withheld (the other crew is out there) it is the only door left. Two buttons inside
             one warn field, never a button inside a button. */}
         {assignedConflict && (
-          <div ref={conflictRef} className={cx(s.formColWide, s.formWarn)}>
-            <Icon id="warn" />
-            <button type="button" className={s.formWarnText} onClick={() => pointAt(() => teamRef.current)}>
-              {fillTemplate(assignedConflict.state === 'deployed' ? az.assignedConflictDeployed : az.assignedConflict,
-                { name: assignedConflict.name })}
-            </button>
-            {assignedConflict.state === 'ready' && onTransfer && (
-              <button type="button" className={s.formWarnAct}
-                onClick={() => onTransfer(assignedConflict.personId, team[0]?.name.trim() ?? '')}>
-                {az.assignedTransfer}
-              </button>
-            )}
+          <div ref={conflictRef} className={s.formColWide}>
+            {/* one row for the form and the Trupp sheet (TruppSheets · TeamConflictRow, 26.09.2026) */}
+            <TeamConflictRow conflict={assignedConflict} toName={team[0]?.name.trim() ?? ''}
+              onPoint={() => pointAt(() => teamRef.current)} onTransfer={onTransfer} />
           </div>
         )}
       </div>
@@ -3308,7 +3671,7 @@ function TruppForm({
       {/* Why the save did not happen, where the save is — see `blocked` above for why this is not
           a toast. `role="alert"` so it is spoken the moment it appears, exactly as the toast was. */}
       {blocked && (
-        <p className={s.formBlocked} role="alert">
+        <p className={cx('form-warn', s.formBlocked)} role="alert">
           <Icon id="warn" /><span>{blocked}</span>
         </p>
       )}
@@ -3316,16 +3679,17 @@ function TruppForm({
           registers as «Auftrag offen». `role="status"`, not alert: it is there from the first
           render of a fresh form and must not be shouted over the field the operator is filling. */}
       {!blocked && auftragMissing && (
-        <p className={cx(s.formBlocked, s.formHint)} role="status">
+        <p className={cx('form-warn form-warn-amber', s.formBlocked)} role="status">
           <Icon id="warn" /><span>{az.auftragMissingHint}</span>
         </p>
       )}
 
-      <div className={s.modalFoot}>
+      {/* the sheet's own footer row, so it pays the phone's safe area like every other (SheetFoot) */}
+      <SheetFoot className={s.modalFoot}>
         {/* the house button family — three private classes here were the last of this modal's
             own design system (see Atemschutz.module.css · .modal) */}
         {/* the ONLY control that throws the draft away — ✕ and the backdrop keep it */}
-        <button className="ip-btn ghost" onClick={() => { dropDraft(); onCancel() }}>{az.cancel}</button>
+        <button className={cx('ip-btn', s.footCancel)} onClick={() => { dropDraft(); onCancel() }}>{az.cancel}</button>
         {/* Re-deploy forks here: a re-equipped Trupp is just as often held back as
             Sicherungstrupp as it is sent straight in. Both buttons take the same filled-in form,
             so the choice costs nothing — and «Bereitstellen» is the one that must NOT start a
@@ -3350,7 +3714,32 @@ function TruppForm({
             «Weiter» in front of it any more. */}
         <button className={cx(mode === 'redeploy' && isPa ? 'ip-btn' : 'ip-btn primary', !canSubmit && s.btnBlocked)}
           aria-disabled={!canSubmit} onClick={() => attemptSubmit()}>{submitLabel}</button>
-      </div>
+      </SheetFoot>
+      {pickers}
+    </>
+  )
+
+  // portal to <body> so the modal escapes the .surface stacking context (z-index 20) and covers
+  // the TopBar ("+ Eintrag", z-index 40) instead of rendering beneath it
+  /* ⚠️ On the phone board (`sheet`, 24.09.2026, D1 ⑥) the popup is a transparent column: the
+   * pinned due Trupps on top, then the sheet with its grab bar. The pinned rows live INSIDE the
+   * popup on purpose — outside it they would sit under the scrim, their taps would be «outside
+   * presses» that close the form, and the focus trap would keep the keyboard off them. Swipe to
+   * close is the primitive's own (overlays/swipeDismiss): the popup is flush with the bottom edge
+   * and leaves headroom, so it measures as a bottom sheet; the pinned block opts out of starting
+   * the gesture (`data-swipe-ignore`). */
+  return (
+    <Overlay open onClose={onCancel} className={cx(s.modal, stack && s.modalStack, sheet && s.modalSheet)} ariaLabel={title}
+      initialFocus={focusTeamFirst ? teamSearchRef : undefined} swipeToClose={sheet}>
+      {sheet ? (
+        <>
+          {pinned}
+          <div className={s.sheetFrame}>
+            <SheetGrab />
+            {formBody}
+          </div>
+        </>
+      ) : formBody}
     </Overlay>
   )
 }

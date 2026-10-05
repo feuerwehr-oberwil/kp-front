@@ -19,7 +19,7 @@
 // placedTrupps · freshTeamLabel / teamNoTaken — and never waits for an unrelated 409.
 //
 // A renumbering is a merge OUTCOME, not an act of the operator: it reaches the view through a
-// hydrate (which drops the undo timeline, lib/undoTimeline) and is said ONCE in the Verlauf by
+// hydrate (which drops every undo step that touches a renumbered record, lib/undoKeys) and is said ONCE in the Verlauf by
 // `renumberRow`, under an id DERIVED from the change so every device that noticed it writes the
 // same row and the journal keeps one (backend · journal.append_rows). Rows already written under
 // the old number stay as they were written — the Verlauf is append-only — and the renumber row

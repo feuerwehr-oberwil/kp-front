@@ -6,6 +6,8 @@ import { SheetGrip } from '../../components/SheetGrip'
 import { keyboardLift, useKeyboardInset } from '../useKeyboardInset'
 import { useDismissGrace } from './dismissGrace'
 import { SheetGrab } from './SheetGrab'
+import { useMobileScrollLock } from './useMobileScrollLock'
+import { SheetFoot } from './SheetFoot'
 import { useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
 
@@ -66,6 +68,7 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
   // height (`is-kb` + `--kb-inset`, see keyboardLift) — without a keyboard neither is rendered
   const kbInset = useKeyboardInset(open)
   const cls = ['ip-sheet', 'ui-dialog', wide && 'ip-wide', fit && 'ip-fit', sheetClassName, kbInset > 0 && 'is-kb'].filter(Boolean).join(' ')
+  useMobileScrollLock(open)
   const isOpeningEcho = useDismissGrace(open)
   // phone bottom sheet: push it back down and it goes away (see swipeDismiss)
   const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose })
@@ -96,7 +99,7 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
             <Dialog.Close className="ip-x" aria-label={appConfig.copy.closeDialog}><Icon id="close" /></Dialog.Close>
           </div>
           <div className="ip-body">{children}</div>
-          {footer && <div className="ip-actions">{footer}</div>}
+          {footer && <SheetFoot className="ip-actions">{footer}</SheetFoot>}
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

@@ -1,7 +1,9 @@
+import { LoadingStatus } from './components/ShellLoader'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
+import { layerPreset, layerPresetLabel } from './lib/layerPreset'
 import { motionDuration, prefersReducedMotion } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
@@ -34,20 +36,23 @@ import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions
 import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
+import { stampCrewFiled, unfiledTruppCrew } from './lib/crewFiling'
+import { registerMeldeleisteHost } from './lib/meldeleisteHost'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
 import { trackPrintJob } from './lib/printJobToast'
 import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
-import { conflictResolvedRow, type OpenConflict } from './lib/attendanceConflict'
+import { connectedLineLabel } from './lib/connectedLines'
+import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { cartoRasterTiles } from './lib/carto'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
 import { boardViewOf, useObjectStore } from './lib/useObjectStore'
-import { annoRefs, carryUndoThroughMerge, fieldsOf, listById, planViewChanges, recordByKey, recordKey, workspaceChanges, type RecordKey, type RecordShape } from './lib/undoKeys'
+import { annoRefs, carryUndoThroughMerge, fieldsOf, listById, planViewChanges, recordByKey, recordKey, workspaceChanges, type RecordedField, type RecordKey, type RecordShape } from './lib/undoKeys'
 import { useGpsFollow } from './lib/useGpsFollow'
 import { fmtAway, freshBefore, gpsLineName, gpsReleaseRow, gpsRevertWords, hasTraced, onSiteAnchor, onSiteKnown, routingPatch, useGpsNotices, type GpsEnd } from './lib/gpsReturn'
 import { useUndoTimeline } from './lib/useUndoTimeline'
@@ -105,7 +110,6 @@ import { AudioPlayerSheet } from './components/AudioPlayerSheet'
 import { ReminderBanner } from './components/ReminderBanner'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
 import { UpdateBanner } from './components/UpdateBanner'
-import { OfflineMeldung } from './components/OfflineMeldung'
 import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
@@ -122,7 +126,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, type AtemschutzAlarmState, truppLogName } from './lib/atemschutz'
+import { azChipRedundant, isAtemschutzTrupp, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -165,6 +169,7 @@ import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineRe
 import { fetchShareLink } from './lib/viewLink'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
+import { useBootCover } from './lib/bootCover'
 import { fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
 import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit } from './lib/storageBudget'
 import { ChecklistsView } from './components/ChecklistsView'
@@ -177,7 +182,7 @@ import { rosterWithGuests } from './lib/guests'
 import type { ChecklistState, Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
 import { primeKeyboard } from './lib/keyboardPrime'
-import { flushSync } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import type { NoteSize } from './types'
 import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
 import { TruppFinder } from './components/TruppFinder'
@@ -297,6 +302,8 @@ interface WorkspaceProps {
   onTakeOverTab: () => void
   onSwitchIncident: (i: IncidentMeta) => void
   onOpenHistory: () => void
+  /** opens the Objektbesuche surface (App · enterObjectVisits); undefined = module off */
+  onOpenObjectVisits?: (objectId?: string | null) => void
   onOpenDivera: () => void
   onOpenDatenquellen: () => void
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
@@ -322,6 +329,11 @@ interface WorkspaceProps {
    *  25.09.2026), and when. App sets it as it flips the meta in place (App · onIncidentClosed /
    *  onIncidentReopened); the workspace says so in one Meldeleiste row. */
   lifecycleElsewhere?: { event: 'closed' | 'reopened'; at: number } | null
+  /** This mount OPENS the Einsatz (App · coverId): it assembles behind the snail until the first
+   *  screen is whole (lib/bootCover). Not on a background remount. */
+  openCover?: boolean
+  /** …and the cover has lifted — App forgets it, so a later remount comes up uncovered */
+  onOpenCoverDone?: () => void
 }
 
 
@@ -345,8 +357,8 @@ const ZEITPLAN_RECORDS = fieldsOf<{ shifts: Shift[]; bands: ShiftBand[] }>({ shi
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
-  onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
+  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
   // inspect, but every editing affordance is hidden and commit() is neutered so
@@ -436,13 +448,12 @@ export function IncidentWorkspace({
    *  closed Einsatz still takes (`canEditRapport`), so an Einsatz opened closed out of «Alle
    *  Einsätze» (forceReadOnly) delivers too. */
   const outboxReadOnly = roleReadOnly || tabLockLost || replayActive
-  // Führungsansicht: an EDITOR's deliberate hands-off mode — tactical editing locked
-  // like a phone, but journal capture and read-only symbol details stay live. Device toggle
-  // (Einstellungen), seeded by the login's server-side default (el_view_default) so a
-  // dedicated «Einsatzleiter» account starts hands-off without per-device setup.
-  const [elViewPref, setElViewPref] = useState<boolean | null>(() => loadPrefs().elView ?? null)
-  const elView = isEditor && (elViewPref ?? user?.el_view_default ?? false)
-  const setElView = (v: boolean) => { setElViewPref(v); savePrefs({ ...loadPrefs(), elView: v }) }
+  // Führungsansicht: an EDITOR's hands-off mode — tactical editing locked like a phone, but
+  // journal capture and read-only symbol details stay live. It belongs to the LOGIN, set by the
+  // admin (Benutzer · el_view_default), and nothing else (05.10.2026, owner: «drop
+  // Führungsansicht in settings. We can use users»). The per-device toggle in the Einstellungen
+  // is gone; a stored `prefs.elView` from an older build is ignored (lib/prefs).
+  const elView = isEditor && (user?.el_view_default ?? false)
   // «not edit anything» is broader than the tactical surfaces: EL view also locks the
   // Atemschutz / Mittel / checklist / dispatch actions that hang off this flag.
   //
@@ -773,7 +784,7 @@ export function IncidentWorkspace({
   // NOTHING opens this on its own: sharing somebody's location is never proposed by the app,
   // only reached by tapping «Standort teilen» in the compass menu. That is also why there is no
   // «nicht jetzt» state to remember — nobody is being asked in the first place.
-  const [sharePick, setSharePick] = useState<null | 'ask' | 'pick'>(null)
+  const [sharePick, setSharePick] = useState<null | 'ask' | 'pick' | 'rename'>(null)
 
   // Session-only tactical editing state (active tool, place gesture, selection) — see
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
@@ -813,10 +824,13 @@ export function IncidentWorkspace({
   /** The synced slices AS THIS RENDER HOLDS THEM — what a merge is diffed against to learn which
    *  records it changed (applyWorkspace · workspaceChanges). The objects are read live instead. */
   const liveWs = useRef<Partial<Record<keyof Saved, unknown>>>({})
-  liveWs.current = {
+  // (typed against undoKeys · RecordedField: a recorded slice missing here fails tsc — the objects
+  // are the one exception, read live from the store)
+  const liveSlices: Record<Exclude<RecordedField, 'objects'>, unknown> = {
     trupps: allTrupps, mittel, shifts, bands, cameraViews, trails, attachments, vehicleOverrides, checklists,
     attendance, planScale, settings: incidentSettings, reportMeta, planBindings, building, pickedObjectId, intakeReviewedAt,
   }
+  liveWs.current = liveSlices
   // ⚠️ The board list, filtered ONCE at the source. A deleted Trupp is stamped rather than
   // removed (types · Trupp.removedAt) so the Rapport can still print it — and everything else in
   // this component, from the alarm host to the map markers to the roster lock, must never see it
@@ -1269,7 +1283,7 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
@@ -1430,7 +1444,7 @@ export function IncidentWorkspace({
   // browser tab's cache is evicted too readily to call it «bereit». Re-armed when what there is
   // to warm changes (another Objekt's plans, a new Leitungs-Ebene), so a plan attached mid-
   // incident still gets pulled; the signature keeps one warm per state, not one per minute.
-  // «Nur manuell» (device pref) switches all of this off; the button always stays.
+  // Offline-Vorbereitung «Aus» (device pref) switches all of this off; the button always stays.
   // …and re-armed when the operator grows the offline radius (29.08.): the readiness probe
   // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
   // «nicht geladen» forever. Centre and raster-reference ids are explicit too: a corrected
@@ -1676,6 +1690,17 @@ export function IncidentWorkspace({
   // During replay the badge reads the folded reading.
   const liveWeather = useWeather(incidentView.center)
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
+
+  // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
+  // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
+  // (when the Karte is the surface it opens on), the rail's plan tiles and the weather in the
+  // top bar. Each of those used to arrive in view, one jump at a time (01.10.2026).
+  const [mapSettled, setMapSettled] = useState(false)
+  const onMapSettled = useCallback(() => setMapSettled(true), [])
+  const coverPhase = useBootCover(!!openCover, (sym.ready || !!sym.error)
+    && (mode !== 'map' || mapSettled)
+    && plansSettled
+    && (!!liveWeather.data || !!liveWeather.error), onOpenCoverDone)
   const openWeatherDetails = useCallback(() => {
     const [lng, lat] = incidentView.center
     const url = appConfig.copy.weather.detailsUrl.replace('{lat}', String(lat)).replace('{lng}', String(lng))
@@ -1811,6 +1836,9 @@ export function IncidentWorkspace({
   // App — that repainted the whole tree every second a Trupp was in the field (battery drain).
   // Declared up here (not with the Atemschutz block) because the sync loop below reads it.
   const [azAlarm, setAzAlarm] = useState<AtemschutzAlarmState>({ peak: 0, urgent: null, severities: {} })
+  // which Trupps the Meldeleiste names right now (AtemschutzAlarmMeldungen · onShown) — the TopBar
+  // chip steps aside while a row or the board's own badge already says its alarm (T1, 29.09.2026)
+  const [azRowsShown, setAzRowsShown] = useState<string[]>([])
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
@@ -2039,7 +2067,7 @@ export function IncidentWorkspace({
   const syncStatus = closedRefusedUnexported && baseSyncStatus === 'synced' ? 'pending' : baseSyncStatus
   const syncNow = async () => {
     await Promise.all([syncWorkspaceNow(), journal.retry(), auditDelivery.retry()])
-    await media.flush().catch(() => {})
+    await media.flush({ retry: true }).catch(() => {})
     if (combinedSyncStatus(sync.syncStatus, journal.getStatus(), auditDelivery.getStatus(), media.getStatus()) !== 'synced') {
       throw new Error('Operational records have not all been acknowledged')
     }
@@ -2059,16 +2087,31 @@ export function IncidentWorkspace({
   // «offen» for ever, while the identically-labelled path through the Rapport stamped and
   // counted. Two doors into one room are fine; two doors with the same sign into different rooms
   // are not. The confirm and the open-point count live HERE, above both of them.
+  /** «Als «nicht eingesetzt» schliessen» in the Abschluss (useAbschluss · standDownTrupps,
+   *  24.09.2026): the card's own stand-down, per Trupp. The Trupp actions are created much further
+   *  down, so the hook gets a stable door and the ref is pointed at them once they exist. */
+  const standDownRef = useRef<(ids: string[]) => void>(() => {})
+  const standDownTrupps = useCallback((ids: string[]) => standDownRef.current(ids), [])
+  // …and the row for a crew the Abschluss closes over (staging r3 F4), pointed the same way
+  const noteInsideRef = useRef<(ts: Trupp[]) => void>(() => {})
+  const noteInsideAtClose = useCallback((ts: Trupp[]) => noteInsideRef.current(ts), [])
   // What the Abschluss writes on its way to the close is part of the close (staging r6, F3):
   // `pushEvent` marks every row made between the confirm and the close's answer `atClose`, so it
   // never prints as a Nachtrag for being stamped a moment past the server's `closed_at`.
   const closingRowsRef = useRef(false)
   const markClosing = useCallback((on: boolean) => { closingRowsRef.current = on }, [])
-  const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
-    reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+  // the Rapport counts an unsettled Abweichung as open — so does every door to it (lib/abschluss ·
+  // abschlussFacts): the phone's «Einsatz» badge, the chooser, the Abschluss, the archive count
+  const openConflictCount = useMemo(() => openConflicts(timeline).length, [timeline])
+  const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
+    reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+    // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
+    standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
+    noteInsideAtClose: canWriteRecord ? noteInsideAtClose : undefined,
     // the Verlauf rows and audit events still queued go up BEFORE the close (review of #235) —
-    // after it they would be judged against a closed Einsatz
+    // after it they would be judged against a closed Einsatz. After the stand-down and the
+    // «beim Abschluss noch drin» rows (#227), so those go up with them.
     flushOutboxes: flushRecordOutboxes,
     markClosing,
   })
@@ -2101,7 +2144,8 @@ export function IncidentWorkspace({
   // a stronger signal than the browser's `online` event, which fires on link-up not reach.
   // ⚠️ On the RECORD status, not `syncStatus`: that one includes the media queue itself, and
   // would never read «synced» while anything is queued — the drain would wait for itself.
-  useEffect(() => { if (recordsSyncStatus === 'synced') void media.flush() }, [recordsSyncStatus, media])
+  const flushMedia = media.flush
+  useEffect(() => { if (recordsSyncStatus === 'synced') void flushMedia() }, [recordsSyncStatus, flushMedia])
 
   // Escape is the universal bail-out — it peels back one layer of transient state at a time so
   // there's always a quick way back to the plain map: (1) cancel an armed placement, (2) close the
@@ -2489,6 +2533,9 @@ export function IncidentWorkspace({
     }
     setLayers(next)
   }
+  // which quick-tap the Ebenen on screen match — lit in the panel, named in the Ebenen button's
+  // tooltip / accessible name (lib/layerPreset, 05.10.2026)
+  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type)), [layers, incidentMeta.type])
   const setOpacity = (id: LayerId, v: number) => {
     if (isTwinLayerId(id)) {
       // written outside the updater — see the note on persistTwinLayers
@@ -3828,10 +3875,36 @@ export function IncidentWorkspace({
       redo: () => stepAttendanceRef.current('redo', step),
     })
   }
-  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. */
-  // ⚠️ an entry only for a write that LAID a step (a viewer's write lays none — an entry for it
-  // would step the one below, somebody else's)
-  const attSet: typeof attHist.set = (update) => { const laid = attHist.set(update); if (laid) rememberAttendanceStep(); return laid }
+  /**
+   * A Trupp SAVE is one act (staging r3 F1): the Gäste its form files, the crew it marks present
+   * and the AS-Funktion it writes are part of «Trupp 2 … angemeldet» — ONE ↶ takes the Trupp and
+   * the people it filed back together, nothing half-done. Opened by the first write of a save
+   * (fileTruppGuest, or the create/edit/re-entry wrapper), it gathers every step pushed until the
+   * save's synchronous run ends (a microtask later) into one timeline entry, and folds the
+   * Anwesenheit writes of that run into ONE slice step.
+   * It used to leave «Rückgängig: Anwesenheit» on top, which stripped the crew's Funktion, kept
+   * them present, kept the Trupp — and wrote «Anwesenheit zurückgenommen» over it.
+   */
+  const truppSaveRef = useRef<{ laidAttendance: boolean } | null>(null)
+  const openTruppSave = () => {
+    if (truppSaveRef.current) return
+    const save = { laidAttendance: false }
+    truppSaveRef.current = save
+    const end = undoHist.group('trupps')
+    queueMicrotask(() => { if (truppSaveRef.current === save) truppSaveRef.current = null; end() })
+  }
+  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. Inside
+   *  a Trupp save the save's first write is its step and the rest fold into it.
+   *  ⚠️ An entry only for a write that LAID a step (a viewer's write lays none — an entry for it
+   *  would step the one below, somebody else's). */
+  const attSet: typeof attHist.set = (update) => {
+    const save = truppSaveRef.current
+    if (save?.laidAttendance) return attHist.set(update, { coalesce: () => true })
+    const laid = attHist.set(update)
+    if (laid) rememberAttendanceStep()
+    if (save && laid) save.laidAttendance = true
+    return laid
+  }
   /**
    * A Gebäude one-shot on the timeline. These own no stack at all — a storey added, a storey
    * removed, a building replaced — so the entry carries BOTH states itself, the way the
@@ -3857,6 +3930,26 @@ export function IncidentWorkspace({
     redo: () => { reapply(); oneShotRow('redo', label, rows); return true },
   })
   rememberOneShotRef.current = rememberOneShot
+  // the Abschluss's «nicht eingesetzt» door (standDownTrupps above) — read only when the question
+  // is answered, long after this commit, so an effect is the place to point it
+  // ⚠️ Re-checked against the Trupps as they stand NOW: a Sicherungstrupp sent in while the
+  // Abschluss stood open is inside, and «raus» on it would be a real Austritt nobody reported.
+  useEffect(() => {
+    standDownRef.current = (ids) => {
+      for (const id of ids) {
+        const t = truppsRef.current.find((x) => x.id === id)
+        if (t && truppStillRegistered(t)) setTruppStatus(id, 'raus')
+      }
+    }
+  })
+  useEffect(() => {
+    noteInsideRef.current = (ts) => {
+      for (const t of ts) {
+        log('logout', fillTemplate(appConfig.copy.atemschutz.logInsideAtClose, { name: truppLogName(t) }), 'team',
+          undefined, undefined, { subjectId: t.id })
+      }
+    }
+  })
   const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') =>
     rememberOneShot('gebaeude', label, restore, reapply, touches, rows)
   /** The row a one-shot's step owes the record, in either direction — its own words, or the generic ones. */
@@ -4352,13 +4445,18 @@ export function IncidentWorkspace({
   const ensurePresentForRole = (
     ids: (string | undefined)[], roleNote?: string, groupTemplate?: string,
     noteFor?: (id: string) => string | undefined,
+    /** Gäste the Trupp form filed a moment ago in the SAME act (fileTruppGuest): already present
+     *  — this render's `attendance` cannot know it yet — and named by the name they were filed
+     *  under, never by their id (staging N1: «Unter AS: g1790338070425-0etoa, …»). */
+    justFiled?: ReadonlyMap<string, string>,
   ) => {
     // Not on an Atemschutz-Link session: its Anwesenheit write is a no-op (the slice never
     // carries attendance), and a Verlauf row claiming «anwesend · AS» over a record that never
     // changed would be a lie on paper. The tablet marks the crew present when it takes the Trupp.
     if (!canWriteRecord) return
     const wanted = [...new Set(ids.filter(Boolean) as string[])]
-    const fresh = wanted.filter((id) => !isPresent(attendance[id]))
+    const fresh = wanted.filter((id) => !justFiled?.has(id) && !isPresent(attendance[id]))
+    const nameOf = (id: string) => justFiled?.get(id) ?? rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id
     // ⚠️ APPEND, don't fill-if-empty: one person routinely holds two jobs, and the Fahrer who
     // then goes under Atemschutz is «Fahrer Pio, AS». See lib/roleAssignment · mergeRoleNote for
     // when a part replaces an earlier one instead of joining it.
@@ -4397,7 +4495,7 @@ export function IncidentWorkspace({
     if (groupTemplate && roleNote) {
       const named = wanted
         .filter((id) => fresh.includes(id) || noted.has(id))
-        .map((id) => rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id)
+        .map(nameOf)
       if (named.length) log('people', fillTemplate(groupTemplate, { role: roleNote, list: named.join(', ') }), 'team')
       return
     }
@@ -4436,16 +4534,72 @@ export function IncidentWorkspace({
    *  picker (`leaderPersonId`) or the keyboard (the first name `unrecordedCrewNames` returns is
    *  `f.name`, which IS the leader — see types · Trupp.name). */
   const ensurePresentFromTrupp = (f: Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds' | 'kind'>) => {
+    /* ⚠️ Not on a session that cannot write the record (staging N2, 25.09.2026): on the
+       Atemschutz-Link every write below was a no-op while `addGuest` still logged «… als weitere
+       Person erfasst» — a line claiming a record that never changed. An editor device files that
+       crew when it SEES the Trupp (the observer effect below, lib/crewFiling). */
+    if (!canWriteRecord) { filedGuestsRef.current = new Map(); return }
     const { role, leaderRole, groupTemplate } = truppRoleNote(f)
+    // the Gäste the form's save filed a moment ago (fileTruppGuest) — this render's attendance
+    // does not hold them yet, and read from it they were filed a SECOND time (staging N1)
+    const filed = filedGuestsRef.current
+    filedGuestsRef.current = new Map()
     const ids = [f.leaderPersonId, ...(f.memberPersonIds ?? [])]
-    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined))
+    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined), filed)
     // 'presence': being in a Trupp contradicts nothing — the conflict check is about somebody
     // holding a SECOND job (lib/roleAssignment · roleConflictHint)
     const lead = f.name.trim()
-    for (const name of unrecordedCrewNames(f, (n) => personIdForName(rosterIdByName, n))) {
+    const filedIdOf = (n: string) => [...filed].find(([, nm]) => nm === n)?.[0]
+    for (const name of unrecordedCrewNames(f, (n) => filedIdOf(n) ?? personIdForName(rosterIdByName, n))) {
       assignTypedName(name, 'presence', name === lead ? leaderRole : role)
     }
   }
+  /** The Trupp form's Gast door (AtemschutzView · TruppForm · fileGuests), called at the SAVE.
+   *  A name the Mannschaft knows is that person; any other is a Gast row, filed QUIETLY — the
+   *  crew's one «Unter AS: …» row that `ensurePresentFromTrupp` writes right after names them
+   *  all — and remembered for that call (staging N1: one person, one row, one line). */
+  const filedGuestsRef = useRef<Map<string, string>>(new Map())
+  const fileTruppGuest = (name: string): string | undefined => {
+    openTruppSave()
+    const known = personIdForName(rosterIdByName, name)
+    if (known) return known
+    const id = addGuest(name, undefined, { quiet: true })
+    if (id) filedGuestsRef.current.set(id, name)
+    return id
+  }
+  /* ── A crew registered where the record cannot be written reaches it anyway (staging N2) ──
+     An Atemschutz-Link may write the Trupps and nothing else, so its crew — Gäste above all —
+     never reached the Anwesenheit. Every device that MAY write the record OBSERVES the Trupps and
+     files what is missing under ids every device derives the same way (lib/crewFiling), so two
+     tablets converge on one row per person and one Verlauf line per Trupp. A machine write: raw
+     `setAttendance`, never the undo timeline, and idempotent — once filed, nothing is left to
+     file (AGENTS.md · a machine writer writes nothing when nothing changed).
+     ⚠️ ONE-SHOT per (Trupp, person): the Trupp's `crewFiled` marker is stamped in the same pass,
+     for the people filed now AND those already on the list, so somebody taken OFF the Anwesenheit
+     later stays off on every device (types · Trupp.crewFiled). */
+  useEffect(() => {
+    if (!canWriteRecord || replayActive || incidentMeta.is_archived) return
+    const todo = unfiledTruppCrew(allTrupps, attendance, (n) => personIdForName(rosterIdByName, n))
+    if (!todo.length) return
+    const files = todo.filter((f) => f.entries.length)
+    if (files.length) {
+      setAttendance((cur) => {
+        let next = cur
+        for (const f of files) for (const e of f.entries) {
+          if (next[e.id]) continue
+          next = next === cur ? { ...cur } : next
+          next[e.id] = { ...openPresence(undefined, incidentMeta.started_at, e.name), note: e.note }
+        }
+        return next
+      })
+    }
+    setTrupps((ts) => stampCrewFiled(ts, todo))
+    for (const f of files) {
+      log('people', fillTemplate(f.groupTemplate, { role: f.role, list: f.entries.map((e) => e.name).join(', ') }), 'team',
+        undefined, undefined, { rowId: f.rowId })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTrupps, attendance, canWriteRecord, replayActive, incidentMeta.is_archived])
 
   /** Assign a role: presence + Bemerkung, and the hint if it contradicts the record (lib ·
    *  roleAssignment). The hint never blocks — it is shown after the assignment went through. */
@@ -4529,12 +4683,13 @@ export function IncidentWorkspace({
   // ⚠️ The CANONICALISED crew reaches the Anwesenheit too, not the raw form values: a Gast row is
   // opened under the name that is written down everywhere else, so «Hans Müller» typed into the
   // Trupp form cannot open a second row beside the roster's «Müller Hans».
-  const createTruppA = (t: Trupp) => { const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
-  const editTruppA = (id: string, f: TruppFields) => { const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
+  // ⚠️ Each is ONE step on the timeline with the crew filing it causes (openTruppSave).
+  const createTruppA = (t: Trupp) => { openTruppSave(); const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
+  const editTruppA = (id: string, f: TruppFields) => { openTruppSave(); const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
   // `standby` MUST be forwarded: this wrapper used to swallow it, so «Bereitstellen» ran the
   // «Wieder einrücken» path — a crew standing at the vehicle with a running contact clock, which
   // is exactly the case the standby fork exists to prevent (see useTruppActions · reactivateTrupp).
-  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
+  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { openTruppSave(); const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE
@@ -4626,7 +4781,7 @@ export function IncidentWorkspace({
       // this Einsatz) links that row instead of opening a second one beside it. No job
       // written here: the Trupp is not formed yet, and submitting it writes «AS» itself.
       // ⚠️ NOT for a link session: the Anwesenheit is not its slice, and the write would 403.
-      onAddGuest={canEditIncident ? (name) => assignTypedName(name, 'presence') : undefined}
+      onAddGuest={canEditIncident ? fileTruppGuest : undefined}
       createTrupp={createTruppA}
       placeTrupp={placeTrupp}
       placeTargets={placeTargets}
@@ -4704,7 +4859,7 @@ export function IncidentWorkspace({
    * Toasts + confirms are already mounted app-wide (App · Overlays), the icon sprite is not. */
   if (asLink) {
     return (
-      <div className="app as-link-shell">
+      <div className="app as-link-shell" ref={registerMeldeleisteHost}>
         <IconSprite />
         {/* ⚠️ Same tab-lock message as the full layout, WITHOUT its editor gate: an Atemschutz-
             Link session is role 'viewer' but genuinely writes, so losing the lock to another tab
@@ -4812,8 +4967,13 @@ export function IncidentWorkspace({
   )
 
   return (
-    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    // the Meldeleiste paints INSIDE this stacking context (lib/meldeleisteHost), under the top bar
+    <div ref={registerMeldeleisteHost} className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
+      {coverPhase !== 'off' && createPortal(
+        <Splash sub={appConfig.copy.incidentLink.opening} leaving={coverPhase === 'leaving'} />,
+        document.body,
+      )}
       <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
@@ -4942,6 +5102,7 @@ export function IncidentWorkspace({
           }}
           onView={setView}
           onBasemapUnavailable={onBasemapUnavailable}
+          onSettled={onMapSettled}
           picking={coord.mode === 'aim'}
           onCursor={coord.setAim}
           onPick={(c) => {
@@ -5047,6 +5208,10 @@ export function IncidentWorkspace({
         onOpenWeather={openWeatherDetails}
         bearing={view.bearing}
         azAlarm={azAlarm}
+        // ONE red door per alarm on screen (29.09.2026, sweep 3 T1): on the Trupps board the head's
+        // «⚠ n» badge is it, elsewhere the Meldeleiste row naming the same Trupp; the chip comes
+        // back once «Zum Trupp» took that row down, and the amber lead always keeps it
+        azChipHidden={azChipRedundant(azAlarm, mode === 'atemschutz', azRowsShown)}
         // …and the chip lands ON the urgent Trupp's card, like every other way in (Meldeleiste,
         // Anwesenheit, the notification tap) — the chip names a Trupp, so the tap must find it.
         onOpenAtemschutz={(truppId) => {
@@ -5093,6 +5258,7 @@ export function IncidentWorkspace({
             onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
+            onObjectVisits={linkScoped || !onOpenObjectVisits ? undefined : () => onOpenObjectVisits(activeObjectId ?? null)}
             onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
             onDatenquellen={onOpenDatenquellen}
@@ -5103,9 +5269,10 @@ export function IncidentWorkspace({
             // used to archive plainly (see confirmAndComplete). The badge puts the check where it
             // can be read before the row is pressed, not only after.
             onArchive={canEditIncident && !readOnly && !incidentMeta.is_archived ? () => { void confirmAndComplete() } : undefined}
-            // …the Trupps that are still out included: the badge exists so the open points can be
-            // read BEFORE the row is pressed, and «niemand hat den Trupp rausgemeldet» is one.
-            archiveOpenCount={abschlussMissing.length + (truppsStillOut > 0 ? 1 : 0)}
+            // ONE number, the nav tile's and the Rapport head's (29.09.2026): a +1 for Trupps still
+            // out made this badge say 5 where the nav said 4 one tap away. The confirm names
+            // the Trupps that are still out («Trupps noch drin»), so nothing is lost.
+            archiveOpenCount={abschlussMissing.length}
             // «Teilen» — THE door to the share sheet (06.09.): the bar's own Teilen button is
             // gone on every width, so this Einsatz-Karte row is the one place an Einsatz is
             // handed to somebody. Same gate as every minting door (`canShareLink`): editors,
@@ -5165,6 +5332,7 @@ export function IncidentWorkspace({
         // withheld while the board itself is on screen — it shows the alarm in full and the
         // strip only covered its controls (see AtemschutzAlarmMeldung's header)
         onBoard={mode === 'atemschutz'}
+        onShown={setAzRowsShown}
         // Reaching the named card is acknowledgement enough to stop the room's tone and tray
         // re-notifications. The row itself stays until a real contact/pressure event clears it.
         onAcknowledge={muteAtemschutz}
@@ -5208,16 +5376,16 @@ export function IncidentWorkspace({
           className="rp-return"
           onClick={() => { setRapportReturn(false); openRapport() }}
         >
-          <Icon id="doc" /> {appConfig.copy.abschluss.backToRapport}
+          <Icon id="chevron-left" /> {appConfig.copy.abschluss.backToRapport}
         </button>
       )}
 
       {/* non-blocking "new build ready" prompt — waits for the operator instead of auto-reloading */}
       <UpdateBanner />
 
-      {/* standing «Offline» row once the sync has sat in 'offline' past the grace window —
-          the one-shot toast announces, this stays until the link is back (field ask 07.09.) */}
-      <OfflineMeldung status={syncStatus} onSyncNow={() => void syncNow()} />
+      {/* No standing «Offline» row (removed 05.10.2026, owner: «no need for this large offline
+          banner at the top of the screen»): the head's «● Offline» chip stays on screen the
+          whole time, and the one-shot toast (useIncidentSync) announces the spell once. */}
 
       {/* "Als App installieren" nudge — browser-tab only, one «Später» dismisses it for good
           on this device (the menu keeps the permanent entry).
@@ -5305,6 +5473,7 @@ export function IncidentWorkspace({
               coordsOn={coord.mode !== 'off'}
               onToggleCoords={coord.cycle}
               layersOn={panel === 'layers'}
+              layersPreset={layersPreset}
               onToggleLayers={() => togglePanel('layers')}
             />
           )}
@@ -5366,6 +5535,7 @@ export function IncidentWorkspace({
           onShowAll={() => setAllLayers(true)}
           onHideAll={() => setAllLayers(false)}
           onReset={resetLayers}
+          preset={layersPreset}
           onClose={() => setPanel(null)}
         />
       )}
@@ -5435,9 +5605,7 @@ export function IncidentWorkspace({
           onClose={() => setSelectedId(null)}
           onCenter={() => flyToMapVisible(selected.coord, 18.4)}
           onProjection={selectedPlanProjection ? () => showMapSourceOnPlan(selected) : undefined}
-          projectionLabel={selectedPlanProjection
-            ? fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: selectedPlanProjection.plan.code })
-            : undefined}
+          projectionPlan={selectedPlanProjection?.plan.code}
           onTitleLive={(v) => {
             // stream into the doc so the note-pill / label updates live, but silently —
             // snapshot once for undo, no per-keystroke audit event
@@ -5562,7 +5730,14 @@ export function IncidentWorkspace({
               },
             }
             : undefined}
-          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({ id: d.id, label: lineLabel(d) }))}
+          // each row says what tells the lines apart — «Linie · 42 m → Hydrant H-142» (K11)
+          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({
+            id: d.id,
+            label: connectedLineLabel(d, selected.id, (id) => {
+              const e = entities.find((x) => x.id === id)
+              return e ? e.label || (e.symbol ? formatSymbolName(e.symbol) : undefined) : undefined
+            }),
+          }))}
           onFocusLine={focusDrawing}
         />
       )}
@@ -5739,7 +5914,7 @@ export function IncidentWorkspace({
         ]} />
       )}
       {mapUI && tool === 'line' && (
-        <ToolDock hint={lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodesShort : appConfig.copy.dockHints.lineFreeShort} groups={[
+        <ToolDock hint={isPhone ? undefined : lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodesShort : appConfig.copy.dockHints.lineFreeShort} groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
@@ -5750,7 +5925,7 @@ export function IncidentWorkspace({
           // «D pur» (09.09.): no colour/width/style here — the finished line lands selected in
           // the DrawEditor (useMapDrawing · one-shot to Select), which is where the styling
           // lives; new lines inherit the last-used style (the editor writes the defaults back)
-          [{ type: 'info', text: appConfig.copy.dockHints.line }],
+          [{ type: 'info', text: lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
         ]} />
       )}
       {mapUI && tool === 'area' && (
@@ -5785,7 +5960,8 @@ export function IncidentWorkspace({
           // things that gesture can mean. Disabled rather than hidden while nothing is placed:
           // on the tool's own dock, its absence would read as a tool that lost a button.
           [{
-            type: 'action', icon: 'search', label: appConfig.copy.truppFinder.title,
+            // its OWN glyph (29.09.2026, T8), not the lens the Suche's tile wears right below
+            type: 'action', icon: 'trupp-find', label: appConfig.copy.truppFinder.title,
             disabled: placed.length === 0, onClick: () => setFindTruppOpen(true),
           }],
           [{ type: 'info', text: appConfig.copy.dockHints.team }],
@@ -5811,7 +5987,7 @@ export function IncidentWorkspace({
       {mapUI && tool === 'shape' && pendingShape && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color={isPhone ? 'currentColor' : '#fff'} aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
           // meaning for it — the lock row is simply not offered
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
@@ -5864,7 +6040,9 @@ export function IncidentWorkspace({
                     Basiskarte choice lives inside its panel (the BaseSwitcher popover and
                     the standalone Koordinaten button are folded away — coords is a row in
                     the compass menu now, testing feedback 2026-07-14) */}
-                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
+                {/* which preset the Ebenen match is lit in the panel and said in the name — no mark
+                    on the glyph (05.10.2026, owner: «no need for this indicator») */}
+                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). `|| isEl` as on MapUtility's twin: saved views
@@ -5945,8 +6123,8 @@ export function IncidentWorkspace({
       {/* like the map: mounted once the pack has loaded OR failed for good (empty glyph table) */}
       {mode === 'plans' && (sym.ready || sym.error) && guarded('board', (
         /* the chunk is prefetched on idle (loadWhiteboard); on the rare cold switch the fallback is
-           the board's own empty paper, never a spinner */
-        <Suspense fallback={<div className="whiteboard" aria-hidden />}><Whiteboard
+           the paper frame with the shared loading state */
+        <Suspense fallback={<div className="whiteboard"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}><Whiteboard
           railLabels={railLabels}
           plans={planDocs}
           // on desktop the Verlauf drawer docks beside the plan's tool rail (same as the
@@ -6250,6 +6428,7 @@ export function IncidentWorkspace({
           onAction={checklistAction}
           // «Zeichnen» arms the Karte's line tool, which a locked device disarms on arrival
           offersAction={(a) => a !== 'draw' || !tacticalLocked}
+          scrollKey={incidentMeta.id}
         />
       ))}
 
@@ -6286,7 +6465,7 @@ export function IncidentWorkspace({
         /* onEditDispatch leaves the preflight open so the Einsatzdaten wizard stacks on top
            (later in DOM, same z-index) — canceling it reveals the rapport again instead of a
            dead end. (Saving still remounts the workspace and returns to the map.) */
-        <Suspense fallback={<div className="rp-backdrop" aria-hidden />}><ReportPreflight
+        <Suspense fallback={<div className="rp-backdrop"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}><ReportPreflight
           incident={incidentMeta}
           reportMeta={reportMeta}
           personnel={pickablePersonnel}
@@ -6442,7 +6621,7 @@ export function IncidentWorkspace({
           // …and the same list the Verlauf pins, so an entry being written can be attached to an
           // open item without going through the Verlauf at all — the sheet offers the ones the
           // sentence already names, and holds a picker for the rest.
-          openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent }))}
+          openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent, createdAt: r.createdAt }))}
           onLinkPendenz={(pdz) => setNoteOn(pdz)}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
@@ -6454,14 +6633,16 @@ export function IncidentWorkspace({
       {sharePick && (
         <SharePositionSheet
           roster={personnel}
-          pickOnly={sharePick === 'pick'}
+          pickOnly={sharePick !== 'ask'}
           lastPersonId={share.pref?.personId ?? null}
           // «Neuer Einsatz» rather than «Namen ändern»: the question is back because this
           // Einsatz has not been confirmed yet, and the sheet says so instead of looking like
-          // the app forgot.
-          reconfirm={!share.confirmed}
+          // the app forgot. Not for a rename — that is somebody choosing to change it.
+          reconfirm={sharePick !== 'rename' && !share.confirmed}
           onPick={(id, displayName) => {
-            share.start({ id, displayName })
+            // a rename from the Einstellungen changes the name only; it switches nothing on
+            if (sharePick === 'rename') share.rename({ id, displayName })
+            else share.start({ id, displayName })
             setSharePick(null)
             if (shareParent === 'views') setViewsOpen(false)
             shareStatusRestore.current = null
@@ -6528,8 +6709,6 @@ export function IncidentWorkspace({
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
           themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}
-          elView={elView}
-          onElView={isEditor ? setElView : undefined}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
           onFeedback={linkScoped ? undefined : () => { setFeedbackParent('settings'); setFeedbackOpen(true) }}
           // Einstellungen holds the PERMISSION only — «dieses Gerät darf meinen Standort
@@ -6545,6 +6724,10 @@ export function IncidentWorkspace({
               else share.revoke()
             }
             : undefined}
+          onChangeShareName={() => {
+            setShareParent('settings')
+            setSharePick('rename')
+          }}
         />
       )}
       {/* Rückmeldung, opened deliberately from Einstellungen. Nothing ever PUSHES this at the
@@ -6558,7 +6741,13 @@ export function IncidentWorkspace({
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
           always add a journal entry / photo / voice memo from the field — tap to compose,
           hold to record a voice memo (same gesture as the desktop TopBar Eintrag) */}
-      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && (
+      {/* ⚠️ …but NOT over the Atemschutz board (staging walk-through r2, 25.09.2026, N9). There it
+          sat on the third crew's «Kontakt» and on «Einsetzen»: a thumb at the right edge opened
+          the composer instead of confirming contact. A bottom inset cannot fix a button that
+          floats over a SCROLLING list, and a reserved 66px column would narrow every row's
+          Druck | Kontakt at 360px — the board's primary controls — to protect a secondary one.
+          The Verlauf stays one tap away in the phone's top bar. */}
+      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && mode !== 'atemschutz' && (
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}

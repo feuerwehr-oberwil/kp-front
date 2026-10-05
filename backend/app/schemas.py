@@ -38,7 +38,7 @@ class UserOut(BaseModel):
     role: str
     color: str | None = None
     last_login: datetime | None = None
-    # frontend default for the Einsatzleiter view (see models.User.el_view_default)
+    # this login works in the Führungsansicht (see models.User.el_view_default)
     el_view_default: bool = False
     # Present only on an incident-link session (auth/incident_link.py). The client reads
     # these to hide every control that would 403, so a link holder never meets a dead
@@ -441,6 +441,12 @@ class JournalAppendIn(BaseModel):
             rid = e.get("id")
             if not isinstance(rid, str) or not rid.strip():
                 raise ValueError("Jede Journalzeile braucht eine nichtleere String-id")
+            # The alarm clock trusts server boundary rows, including their legacy `sys…`
+            # spelling. Neither a client row nor a correction may impersonate/change one.
+            # Shared by the ordinary journal and the PIN-less capture endpoint.
+            target = e.get("patchOf")
+            if "lifecycle" in e or rid.startswith("sys") or (isinstance(target, str) and target.startswith("sys")):
+                raise ValueError("Systemzeilen des Einsatzverlaufs dürfen nicht vom Gerät geschrieben werden")
             if len(_json.dumps(e)) > 32_768:
                 raise ValueError(f"Journalzeile {rid!r} zu gross (max. 32 KB)")
             _validate_row_urls(e, rid)
@@ -741,9 +747,28 @@ class ObjectIn(BaseModel):
     source_note: str | None = None
 
 
+class ObjectRefIn(BaseModel):
+    """An outside system's id for an object (``{"source": "fwo-schlue", "id": "…"}``)."""
+
+    source: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9][a-z0-9._-]{0,63}$")
+    id: str = Field(min_length=1, max_length=300)
+
+
+class ObjectUpsertIn(ObjectIn):
+    """``PUT /api/objects/{id}`` — ``ObjectIn`` plus the two OPTIONAL fields the manifest push
+    carries for Objektbesuche: where the object's documents are filed, and its outside ids. Both
+    are written only when SENT, so a caller that does not know them (the admin's object mask)
+    never clears them; ``refs`` are added, never removed."""
+
+    filing_folder: str | None = Field(default=None, max_length=300)
+    refs: list[ObjectRefIn] | None = Field(default=None, max_length=50)
+
+
 class ObjectOut(ObjectIn):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    #: The plan-library folder this object's documents are filed under (Objektbesuche delivery).
+    filing_folder: str | None = None
     #: The station's own key for this object, read-only here – deliberately absent from
     #: ``ObjectIn``, so only ``admin_objects`` (and the plan pipelines) can write it. It is
     #: the object's provenance: a key means «loaded by the pipeline», no key means «typed in
@@ -1144,6 +1169,12 @@ class DoctrineConfig(BaseModel):
     contactIntervalMin: int | None = None
     contactGraceSec: int | None = None
     defaultPressureBar: int | None = None
+    #: The lowest Eingangsdruck the Trupp form takes without asking once (24.09.2026): below it,
+    #: registering, re-entering on a new cylinder or correcting asks «180 bar ist für einen Eintritt
+    #: tief (Station: ab 270)» with the value on the confirm button. ``0`` switches the question
+    #: off; unset is the shipped 270. No upper bound on purpose. A frontend-only question — the
+    #: server never refuses a reading over it (a low entry is sometimes simply true).
+    entryPressureMin: int | None = None
     pressureStep: int | None = None
     pressureMax: int | None = None
     #: The two numbers behind the Atemschutz air estimate («noch ≈ 246 bar»): the cylinder's
@@ -1193,6 +1224,17 @@ class DoctrineConfig(BaseModel):
                 self.alarmBarRueckzug,
             )
             self.alarmBarRueckzug = None
+        # The Eingangsdruck minimum only decides whether the form ASKS, so 0 («never ask») is a
+        # legitimate station choice here, unlike on the two alarm lines. Same stored-vs-fresh
+        # split as above: a hand-edited file row out of range degrades to the shipped value.
+        if self.entryPressureMin is not None and not (0 <= self.entryPressureMin <= 300):
+            if not stored:
+                raise ValueError(f"doctrine.entryPressureMin ({self.entryPressureMin}) must be between 0 and 300")
+            logger.warning(
+                "doctrine.entryPressureMin %r is out of range — serving the shipped minimum",
+                self.entryPressureMin,
+            )
+            self.entryPressureMin = None
         return self
 
     @model_validator(mode="after")
@@ -1750,6 +1792,95 @@ class SharePointConfig(BaseModel):
         return self
 
 
+#: The roles that may be named in ``objectVisits.captureRoles``.
+ObjectVisitRole = Literal["editor", "el", "viewer"]
+_DEFAULT_CAPTURE_ROLES: tuple[ObjectVisitRole, ...] = ("editor", "el")
+
+_OV_DEST_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+_OV_FIELD_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+
+
+class ObjectVisitProposalField(BaseModel):
+    """One entry of the Korrekturvorschlag field list. The id is opaque to KP Front — the
+    organizer maps it to its own master data (docs/object-visits.md)."""
+
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(min_length=1, max_length=64)
+    label: str = Field(min_length=1, max_length=120)
+
+    @field_validator("id")
+    @classmethod
+    def _plain_id(cls, v: str) -> str:
+        if not _OV_FIELD_ID_RE.match(v):
+            raise ValueError("objectVisits.proposalFields: 'id' must be letters, digits, '.', '_' or '-'")
+        return v
+
+
+class ObjectVisitDestination(BaseModel):
+    """Where the server files a copy of every visit (docs/object-visits.md «Delivery»).
+
+    ⚠️ NO CREDENTIAL HERE — this document is served by the public ``GET /api/config``. The
+    writer's app registration lives in the encrypted credential group ``sharepoint_export``.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(min_length=1, max_length=64)
+    kind: Literal["sharepoint"] = "sharepoint"
+    enabled: bool = True
+    timing: Literal["every-sync", "completed"] = "every-sync"
+    siteUrl: str = Field(min_length=1, max_length=_SHAREPOINT_URL_MAX)
+    #: Display name of the document library, when it is not the site's default one.
+    library: str | None = Field(default=None, max_length=200)
+    #: Folder inside the library that holds the object folders; empty = the library root.
+    root: str = Field(default="", max_length=_SHAREPOINT_PATH_MAX)
+    objectFolder: str = Field(default="{object.folder}", min_length=1, max_length=200)
+    visitFolder: str = Field(default="Objektbesuche/{date} {checklist} ({short})", min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def _addressable(self) -> "ObjectVisitDestination":
+        if not _OV_DEST_ID_RE.match(self.id):
+            raise ValueError(
+                f"objectVisits destination {self.id!r}: 'id' must be lower-case letters, digits, '-' or '_'"
+            )
+        site = self.siteUrl.strip()
+        if not site.startswith("https://"):
+            raise ValueError(f"objectVisits destination {self.id!r}: 'siteUrl' must start with https://")
+        self.siteUrl = site
+        root = (self.root or "").replace("\\", "/").strip().strip("/")
+        if any(part in ("..", ".") for part in root.split("/") if part):
+            raise ValueError(f"objectVisits destination {self.id!r}: 'root' must be a plain folder path")
+        self.root = root
+        self.library = (self.library or "").strip() or None
+        for name in ("objectFolder", "visitFolder"):
+            value = getattr(self, name).replace("\\", "/").strip().strip("/")
+            if not value or any(part.strip() in ("..", ".") for part in value.split("/")):
+                raise ValueError(f"objectVisits destination {self.id!r}: '{name}' must be a plain folder pattern")
+            setattr(self, name, value)
+        return self
+
+
+class ObjectVisitsConfig(BaseModel):
+    """The optional Objektbesuche module (docs/object-visits.md). Off unless switched on."""
+
+    model_config = ConfigDict(extra="ignore")
+    enabled: bool = False
+    captureRoles: list[ObjectVisitRole] = Field(default_factory=lambda: list(_DEFAULT_CAPTURE_ROLES))
+    proposalFields: list[ObjectVisitProposalField] = Field(default_factory=list, max_length=50)
+    destinations: list[ObjectVisitDestination] = Field(default_factory=list, max_length=5)
+
+    @model_validator(mode="after")
+    def _unique_ids(self) -> "ObjectVisitsConfig":
+        for what, ids in (
+            ("destination", [d.id for d in self.destinations]),
+            ("proposal field", [f.id for f in self.proposalFields]),
+        ):
+            dupes = sorted({i for i in ids if ids.count(i) > 1})
+            if dupes:
+                raise ValueError(f"objectVisits: {what} id(s) {dupes} used twice")
+        self.captureRoles = list(dict.fromkeys(self.captureRoles))
+        return self
+
+
 class SetupConfig(BaseModel):
     """Which rows of the «Einrichtung» card this station ticked off by hand.
 
@@ -1798,6 +1929,8 @@ class DeploymentConfigIn(BaseModel):
     # Same reason as sharepoint above: declared here or the hand ticks on the «Einrichtung»
     # card are dropped on the next save (see SetupConfig).
     setup: SetupConfig = Field(default_factory=SetupConfig)
+    # The optional Objektbesuche module — declared here for the same reason as the two above.
+    objectVisits: ObjectVisitsConfig = Field(default_factory=ObjectVisitsConfig)
     # Accepted on input but not authoritative (kept loose; not echoed from the document).
     # Future asset-upload slice: validate that identity.assets.* reference existing entries in
     # asset storage. Skipped while assets are still provisioned outside this document.

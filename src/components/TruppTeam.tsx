@@ -7,8 +7,10 @@ import { fillTemplate, stripUnprintable } from '../lib/format'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { useLongPress } from '../lib/useLongPress'
 import type { Person } from '../types'
+import type { CrewChange } from '../lib/truppLeader'
 import type { Slot } from './PersonField'
 import { ComboRank } from './ComboMenu'
+import { SearchField } from './SearchField'
 import s from './Atemschutz.module.css'
 // the Dienstgrad chip and the name cell of a roster row live with the picker they were shared
 // with (ComboMenu.module.css) — this list draws the same row, so it draws the same two marks
@@ -37,10 +39,10 @@ const PHONE_HITS = 4
  * print, so «who leads» is never stored twice and cannot disagree with itself.
  */
 export function TruppTeam({
-  value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById, onAddGuest,
+  value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById,
   phone = false, wanted = false, searchInputRef,
 }: {
-  /** this form is here to NAME a Trupp and has nobody in it yet («Trupp erstellen»): the search
+  /** this form is here to NAME a Trupp and has nobody in it yet («Trupp anmelden»): the search
    *  wears the ring until the first person stands in the list – who is going in matters more than
    *  what they will do there, and the field looked exactly as optional as the rest (20.09.2026) */
   wanted?: boolean
@@ -48,7 +50,9 @@ export function TruppTeam({
   searchInputRef?: React.RefObject<HTMLInputElement | null>
   /** the Trupp, in printed order — `value[0]` is the Gruppenführer */
   value: Slot[]
-  onChange: (next: Slot[]) => void
+  /** `why` says which move it was — a `lead` is the operator crowning somebody, which ends the
+   *  form's rank-follows-crown for a new Trupp (lib/truppLeader, 30.09.2026) */
+  onChange: (next: Slot[], why: CrewChange) => void
   personnel: Person[]
   /** names off older Trupps, used when no roster synced (Divera outage) */
   legacyRoster: string[]
@@ -61,9 +65,6 @@ export function TruppTeam({
   assignedIds: Set<string>
   /** the job somebody already holds on this Einsatz (Anwesenheits-Bemerkung) — a soft note */
   rolesById?: Map<string, string>
-  /** record a hand-typed Gast on the Anwesenheit too. Absent for a session that may not write. */
-  /** records the Gast on the Anwesenheit and hands back the id it filed them under */
-  onAddGuest?: (name: string) => string | undefined
   /** THE PHONE SKIN (05.09.). Same control, same words, same record — a wrapping row of chips
    *  instead of three full-width slot rows, and the Mannschaft appears only under a typed query
    *  (at most `PHONE_HITS` of it). On 375px the old block was three slot rows plus a 38dvh
@@ -169,10 +170,12 @@ export function TruppTeam({
 
   // Adding the FIRST person makes them Gruppenführer, because the overwhelmingly common case is
   // that the Trupp is entered leader-first. Nothing is locked by it — the crown moves with a tap.
-  const add = (slot: Slot) => { onChange([...value, slot]); setQ(''); searchRef.current?.focus() }
-  const remove = (i: number) => onChange(value.filter((_, j) => j !== i))
+  // (On a NEW Trupp the form then hands the crown to the most senior Dienstgrad until somebody is
+  // crowned by hand — lib/truppLeader, 30.09.2026; this list only says which move it made.)
+  const add = (slot: Slot) => { onChange([...value, slot], 'add'); setQ(''); searchRef.current?.focus() }
+  const remove = (i: number) => onChange(value.filter((_, j) => j !== i), 'remove')
   /** crown: the chosen person moves to the front, everyone else keeps their order */
-  const promote = (i: number) => onChange([value[i], ...value.filter((_, j) => j !== i)])
+  const promote = (i: number) => onChange([value[i], ...value.filter((_, j) => j !== i)], 'lead')
   // …by a tap OR by a hold. The row is a radio and a tap is the right gesture for one, but the
   // hand that has just learned «press and hold» on a node handle, a lock chip and a Trupp card
   // tries it here too — and a press that does nothing reads as a row that isn't a control.
@@ -209,27 +212,29 @@ export function TruppTeam({
    * to everything downstream: the roster row locks and wears the PA badge, the picker says «in
    * einem Trupp», and «einer, ein Trupp» holds for a Nachbarwehr too. Added by name only, the
    * Gast was two unrelated entries that happened to read alike. */
+  /* ⚠️ …but NOT here any more (staging walk-through 25.09.2026). The Gast used to be filed on the
+   * Anwesenheit the moment the chip appeared, so «Abbrechen» left a person on the Rapport who was
+   * never at the Einsatz. The chip belongs to the FORM until «Trupp anmelden» / «Speichern»: the
+   * form files it then and writes the id it comes back with into the Trupp (AtemschutzView ·
+   * TruppForm · submit), so the Trupp and the Personalblatt are still the same person. */
   const addGuest = () => {
     if (!guestOffer) return
-    add({ name: guestOffer, personId: onAddGuest?.(guestOffer) })
+    add({ name: guestOffer })
   }
 
   /* Enter keeps the keyboard flow one step, and it never has to be aimed: with matches on screen
    * it takes the first one that can be taken (the list is already sorted the way the hand
    * expects — present first, then alphabetical; confirmed 09.09. against the field ask for rank
-   * order); with NO matches the query can only have been a
-   * name, so it becomes the Gast. A list whose every match is already in another Trupp does
-   * nothing: those rows are shown greyed for a reason, and inventing a Gast with the same name is
-   * the one outcome nobody meant. */
+   * order). A list whose every match is already in another Trupp does nothing: those rows are
+   * shown greyed for a reason.
+   * ⚠️ With NO match, Enter does nothing either (staging walk-through 25.09.2026). It used to take
+   * the query as a Gast — the keyboard's «Go» on a half-remembered name made a person. A Gast is
+   * the list's own last row, tapped on purpose. */
   const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
     e.preventDefault()
-    if (visible.length) {
-      const first = visible.find((o) => !o.taken)
-      if (first) add({ name: first.name, personId: first.personId })
-      return
-    }
-    addGuest()
+    const first = visible.find((o) => !o.taken)
+    if (first) add({ name: first.name, personId: first.personId })
   }
 
   /* THE TWO SKINS of one control (05.09.). Full-width rows on a tablet, a wrapping row of chips
@@ -303,25 +308,19 @@ export function TruppTeam({
           not the search's: whatever stands here can end up on the Personalblatt.
           ⚠️ `stripUnprintable` on the way IN, for the same reason — the query is a search until
           the moment it is committed as a name, and there is no second field left to clean it. */}
-      <label className={cx(s.teamSearch, wanted && !value.length && s.teamSearchWant)}>
-        <Icon id="search" />
-        <input
-          ref={(el) => { searchRef.current = el; if (searchInputRef) searchInputRef.current = el }}
-          value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} inputMode="search"
-          maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
-          // ⚠️ The PLACEHOLDER moves on once the Trupp has somebody in it — «Weitere Person
-          // suchen …» — because on the phone this field is the only way in and «Person suchen»
-          // over three chips reads as if it were asking again for whoever is already standing
-          // there. The a11y NAME stays put: a label that renames itself under the same control
-          // is a second control to a screen reader.
-          placeholder={phone && value.length ? az.teamSearchMore : az.teamSearchPlaceholder}
-          aria-label={az.teamSearchPlaceholder}
-        />
-        {q && (
-          <button type="button" className={s.teamSearchClear} onClick={() => setQ('')}
-            aria-label={appConfig.copy.clear}><Icon id="close" /></button>
-        )}
-      </label>
+      <SearchField
+        className={cx(s.teamSearch, wanted && !value.length && s.teamSearchWant)}
+        ref={(el) => { searchRef.current = el; if (searchInputRef) searchInputRef.current = el }}
+        value={q} onChange={(v) => setQ(stripUnprintable(v))} inputMode="search"
+        maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
+        // ⚠️ The PLACEHOLDER moves on once the Trupp has somebody in it — «Weitere Person
+        // suchen …» — because on the phone this field is the only way in and «Person suchen»
+        // over three chips reads as if it were asking again for whoever is already standing
+        // there. The a11y NAME stays put: a label that renames itself under the same control
+        // is a second control to a screen reader.
+        placeholder={phone && value.length ? az.teamSearchMore : az.teamSearchPlaceholder}
+        aria-label={az.teamSearchPlaceholder}
+      />
 
       {/* ⚠️ On a PHONE the Mannschaft appears only under a typed query, and the list is the
           ANSWER to it rather than a surface to browse: `.teamHits` shrink-wraps its ≤4 rows
@@ -357,7 +356,9 @@ export function TruppTeam({
             </button>
           </li>
         ))}
-        {!visible.length && <li className={s.comboEmpty}>{needle ? az.teamNoMatches : az.noRoster}</li>}
+        {!visible.length && (needle
+          ? <li className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</li>
+          : <li className={s.comboEmpty}>{az.noRoster}</li>)}
         {/* THE GAST DOOR, and it exists only while something is typed (04.09.). It carries the
             query in its own label, so the row states what pressing it will do rather than opening
             a second field to say it again — «"Keller" als Gast hinzufügen». The label is short

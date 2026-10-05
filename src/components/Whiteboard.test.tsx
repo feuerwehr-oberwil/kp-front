@@ -1177,8 +1177,8 @@ describe('the nearby-object warning', () => {
 describe('drehen · Gebäude aus Geschossplänen', () => {
   const packBuilding: BuildingDoc = { ...aBuilding, ring: [], rings: [], ringAspect: 0.4, floors: [0, 1], pack: { aspect: 1.4 } }
 
-  // two doors to the one popover by design (the viewport's dial and the rail footer's button)
-  const turn = () => screen.getAllByRole('button', { name: 'Gebäude drehen' })[0]
+  // the north dial is the one door to the popover (the rail's tile went 29.09.2026, sweep K6)
+  const turn = () => screen.getByRole('button', { name: 'Gebäude drehen' })
 
   it('offers the turn control on a pack, where a plain outline has nothing to straighten', () => {
     renderBoard('gebaeude', [], false, packBuilding)
@@ -1230,11 +1230,18 @@ describe('the Gebäude north dial answers one tap, every time', () => {
       hist={{}} setHist={() => {}} focus={null}
     />)
     const canvas = container.querySelector('.wb-canvas')!
-    // the viewport's dial — the rail footer carries the other door, which is not on the canvas
+    // the viewport's dial, on the canvas
     const dial = () => within(canvas as HTMLElement).getByRole('button', { name: TURN })
     return { onReorient, canvas, dial }
   }
   const isOpen = (dial: HTMLElement) => dial.getAttribute('aria-expanded') === 'true'
+
+  // sweep K6 (29.09.2026): the rail's compass tile opened the same popover a second way
+  it('is the ONLY door — the rail carries no «Gebäude drehen» tile', () => {
+    const { dial } = renderStack()
+    expect(dial()).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: TURN })).toHaveLength(1)
+  })
 
   const commonAncestor = (a: Element, b: Element) => {
     let n: Element | null = a
@@ -1358,7 +1365,12 @@ describe('das Geschoss einer Leitung ändern', () => {
 // leaves behind is the whole way back.
 describe('ein Geschoss ausblenden', () => {
   const tiles = () => document.querySelectorAll('.wb-floor')
-  const eyeOf = (tile: Element) => within(tile as HTMLElement).getByRole('button', { name: 'Geschoss ausblenden' })
+  // the storey's acts live in its LABEL's menu since 29.09.2026 (sweep K5) — no eye on the canvas
+  const labelOf = (tile: Element) => within(tile as HTMLElement).queryByRole('button', { name: /ausblenden/ })
+  const eyeOf = (tile: Element) => {
+    fireEvent.click(labelOf(tile)!)
+    return screen.getByRole('menuitem', { name: appConfig.copy.whiteboard.floorHideShort })
+  }
 
   it('folds the tapped storey into a strip and brings it back from there', () => {
     renderBoard('gebaeude', [], false, { ...aBuilding, floors: [-1, 0, 1], pack: { aspect: 1 } })
@@ -1378,7 +1390,19 @@ describe('ein Geschoss ausblenden', () => {
   it('refuses to fold the last visible storey away', () => {
     renderBoard('gebaeude', [], false, aBuilding) // one storey
     expect(tiles()).toHaveLength(1)
-    expect(within(tiles()[0] as HTMLElement).queryByRole('button', { name: 'Geschoss ausblenden' })).toBeNull()
+    expect(labelOf(tiles()[0])).toBeNull()
+  })
+
+  it('the label shows the word only, and brings the signed chip back only for a custom name', () => {
+    renderBoard('gebaeude', [], false, { ...aBuilding, floors: [0, 1, 2], floorNames: { '2': 'Hauptebene' } })
+    const [top, mid] = [...tiles()] as HTMLElement[]
+    expect(top.querySelector('.wb-floor-label')!.textContent).toBe('+2Hauptebene')
+    expect(mid.querySelector('.wb-floor-label')!.textContent).toBe('1. OG')
+    // no bin and no eye on the canvas — the delete is the menu's danger row
+    expect(document.querySelector('.wb-floor-x, .wb-floor-eye')).toBeNull()
+    fireEvent.click(labelOf(mid)!)
+    const del = screen.getByRole('menuitem', { name: appConfig.copy.whiteboard.removeFloor })
+    expect(del.className).toContain('ui-menu-danger')
   })
 
   it('is offered on a read-only surface as well — it changes nothing about the Einsatz', () => {

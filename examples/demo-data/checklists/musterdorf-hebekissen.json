@@ -1,0 +1,42 @@
+{
+  "id": "musterdorf-hebekissen",
+  "kind": "manual",
+  "title": "Hebekissen einsetzen (Demo)",
+  "device": "Hebekissen-Satz 8 bar",
+  "subtitle": "Synthetische Demo-Anleitung – massgebend sind Herstellerangaben und Ausbildungsunterlagen.",
+  "version": 1,
+  "updated": "2026-10-05",
+  "source": "KP Front Demo — synthetische Anleitung",
+  "keywords": ["heben", "anheben", "luftkissen", "eingeklemmt", "vu"],
+  "steps": [
+    {
+      "text": "Lage beurteilen: Gewicht der Last, Untergrund, Ansatzpunkt und Platz für das Unterbaumaterial.",
+      "warning": "Nie unter eine nur mit Luft angehobene Last greifen – zuerst unterbauen."
+    },
+    {
+      "text": "Unterbaumaterial (Kanthölzer, Keile) griffbereit neben den Ansatzpunkt legen.",
+      "hint": "Kanthölzer kreuzweise stapeln (Krippe). Der Unterbau wächst mit jedem Zentimeter Hub."
+    },
+    {
+      "text": "Kissen auf festen Untergrund legen, Mitte möglichst unter den Lastschwerpunkt. Scharfe Kanten und heisse Teile abdecken.",
+      "images": [{ "page": 1, "caption": "Kissen unter dem Lastschwerpunkt, Krippe daneben" }]
+    },
+    {
+      "text": "Druckminderer an die Flasche, Steuerorgan an den Druckminderer, Füllschlauch an das Kissen anschliessen.",
+      "hint": "Kupplungen hörbar einrasten lassen und mit einem Zug kontrollieren."
+    },
+    {
+      "text": "Flaschenventil langsam öffnen. Arbeitsdruck am Druckminderer einstellen (Herstellerangabe, hier 8 bar)."
+    },
+    {
+      "text": "Auf Kommando langsam füllen und laufend mit unterbauen. Höchstens zwei Kissen übereinander, das kleinere oben.",
+      "warning": "Niemand im Gefahrenbereich der Last, solange gehoben oder abgelassen wird."
+    },
+    {
+      "text": "Ablassen: über das Steuerorgan langsam entlüften und den Unterbau Stück für Stück entfernen."
+    },
+    {
+      "text": "Nach dem Einsatz: Kissen und Schläuche auf Schäden prüfen, reinigen, Flaschendruck kontrollieren, Mängel dem Materialwart melden."
+    }
+  ]
+}
