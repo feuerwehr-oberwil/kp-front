@@ -191,6 +191,8 @@
 .add :global(.i), .add svg { width: 16px; height: 16px; }
 .add:active { background-image: linear-gradient(var(--press), var(--press)); }
 .rowGlyph + .rowMain .rowTitle { font-weight: 700; }
+/* a plan's full name wraps rather than losing its end — «Modul 2/3 · Zugang & Objekt» (owner, 05.10.2026) */
+.planName { white-space: normal; overflow-wrap: anywhere; }
 
 /* ── a sheet's body bits ── */
 .preview { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--r-sm); overflow: hidden; background: var(--fill-soft); }
@@ -228,13 +230,14 @@
   .col { padding-top: 18px; gap: 12px; }
 }
 
-/* iOS draws <input type="datetime-local"> at its own intrinsic width and ignores a plain
-   width: it ran out of its card on an iPhone (staging, 03.10.2026) */
-.dateInput {
-  display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%;
-  -webkit-appearance: none; appearance: none; min-height: var(--tap); text-align: left;
+/* «Besucht am»: the shared wheel-picker trigger (TimeField · DateTimeField), drawn as the field it
+   sits under «Von» with — same edge, height, type and left edge (its own --glass-line vanished on
+   the white card) */
+.dateField { display: flex; }
+.dateField :global(.timefield-trigger) {
+  flex: 1 1 auto; min-height: var(--tap); padding: 11px 12px; text-align: left;
+  border-color: var(--glass-edge); font: 500 16px var(--body); font-variant-numeric: tabular-nums;
 }
-.dateInput::-webkit-date-and-time-value { text-align: left; }
 
 /* the status as the head's second line (owner, staging 03.10.2026: no separate box) */
 .headStatus {

@@ -106,6 +106,10 @@ to prod.
   typed times stay open with an error; optional values expose «Leeren» left of «Jetzt» and «OK»
   in the action row. Named state choices such as «noch da» stay above the wheels. Hold-repeat
   buttons support click-only assistive activation without doubling pointer taps.
+- ONE date+time control: `DateTimeField` (`components/TimeField`, ISO in/out). The date is a
+  bounded day column («Mo 05.10.», `lib/zeitplanFormat · fmtWheelDay`) from `days` – the incident's (`incidentDays`)
+  or by default the last 60 days – never day/month/year wheels and never a native
+  `datetime-local`. A bare clock with an optional day column is `TimeField` (+`days`/`valueDay`).
 - Cancelled map requests (`AbortError`) are filtered only at `lib/mapError`, not globally.
   Timeouts, actual map failures and aborts outside the map still enter crash telemetry.
 - CI enables the six workspace workflows and phone/tablet touch checks on its disposable stack.
@@ -141,7 +145,10 @@ to prod.
   moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
   media queue metadata, reference/checklist/object metadata, and readiness; localStorage holds
   only tiny device flags (update banners, install prompts, once-per-device hints) and migration
-  flags. UI copy/locale/defaults/storage keys live in
+  flags. The Mannschaft (roster) is cached there too (`kp-front-roster`, `usePersonnel`); a one-off
+  read outside the hook — the Leeres Erfassungsblatt — goes through `loadRoster` (server, else the
+  cache), never a bare `listPersonnel()`, and the launcher warms it at sign-in (05.10.2026: the
+  blank sheet printed an empty «Personal / Anwesenheit» offline). UI copy/locale/defaults/storage keys live in
   `src/config/appConfig.ts`; the neutral fallback incident is `src/data/demoIncident.ts`.
 - **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
   outboxes and the media upload queue contribute to the shared sync status. Preserve rejected entries for retry/export;
@@ -202,6 +209,17 @@ to prod.
   forceReadOnly goes too), with its own row naming the reopen row's time. The live poll claims
   `open=` from the server's last `X-Incident-Open`, never only from the view, and a held poll that
   answers at once with nothing new eases off — a closed view must never spin (it did, 3.4/s). «Anhängen» is never offered onto a closed Einsatz.
+  **«Wieder öffnen» needs the server — there is no offline reopen** (05.10.2026, asked for after an
+  Übung in airplane mode). The reopen boundary row is server-owned (`sys` namespace, review
+  contract above), the Atemschutz alarm HOLDS until it has arrived (`reopenPending`), and the
+  crews' restart rows derive their ids from it — so an Einsatz reopened offline would run its
+  Tafel with no Überfällig alarm for as long as the device stays offline. Offline the doors stay
+  (useOnline is a hint) but say so: «Braucht Verbindung zum Server» under the chip's row, one
+  line over «Alle Einsätze», and an unreachable server answers with `reactivateNeedsServer`, not
+  a raw network error. An offline reopen would need a client-stamped reopen time and a
+  precondition on the close it saw (`last_closed_at`, so a later close elsewhere wins), a local
+  provisional boundary for the alarm, the reopen sent BEFORE any outbox on reconnect, and closed
+  signals for that Einsatz ignored until then — a design, not a patch.
   After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
   … erscheinen als Nachträge»); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
   until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped
@@ -1114,7 +1132,9 @@ to prod.
   the fields «Einsatzdaten bearbeiten» sends (`EL_META_FIELDS`); the full workspace PUT, the
   trupps slice, the incident lifecycle (`status`, `is_archived`, `report_done_at`) and
   everything tactical stay 403 for it), and `viewer`
-  (read-only). Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
+  (read-only). The Führungsansicht is the LOGIN's (`el_view_default`, the admin's Benutzer · «Führungsansicht»);
+  the per-device toggle in the Einstellungen is gone (05.10.2026, owner: «drop Führungsansicht in settings. We
+  can use users») and a stored `prefs.elView` is ignored. Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
   on, `readOnly` off) with `canEditRecord` unlocking the four surfaces, `canEditMeta` the
   Einsatzdaten panel, and the sync pushing `slice: 'record'`. ⚠️ **A door the role cannot go
   through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026). A
@@ -1196,6 +1216,16 @@ to prod.
   `src/lib/checklists.ts`, offline-cached), falling back to one neutral bundled example
   (`src/data/checklists/generic-action.json`) – never a station's real lists. GeoJSON must be WGS84
   `[lng,lat]` (LV95 is rejected).
+- **Anleitungen are a checklist kind, not a second pipeline** (05.10.2026). `kind: "manual"`
+  rides `checklists:<id>` + `checklists:<id>:p<N>` images, the same manifest, CLI, admin page and
+  SharePoint folder; format in [`docs/CONFIGURATION.md` §9f](docs/CONFIGURATION.md). It is READ,
+  never ticked: no tick state, no progress, nothing in the Verlauf/Rapport — tickable means
+  `isTickable` (action/rapport) only, so check new kind switches against it. The picker shows
+  them in their own «Anleitungen» group, one sub-head per `device` (`manualGroups`); the reader
+  is `ManualReader` (own CSS module). Step pictures are prefetched into the SW's
+  `checklist-assets` cache when the templates load (`warmManualImages`), because a manual is
+  opened when it is needed — offline, for the first time. A step image the manifest has no
+  asset for is refused by `admin_checklists validate`.
 - **Objektbesuche live beside the Einsatz, never inside it** (03.10.2026). The module
   (`objectVisits.enabled`, `src/objectVisits/`, `src/components/objectVisits/`, backend
   `object_visits*.py`, `api/integrations.py`) owns standalone visits: no incident, no workspace
@@ -1209,6 +1239,17 @@ to prod.
   IMPORTER stays GET-only (`sharepoint_graph.py`) and filing writes only through
   `object_visit_sharepoint.py` with the separate `sharepoint_export_*` credentials; nothing
   remote is ever deleted. Alarms and the new-Einsatz banner stay on the Objektbesuche surface.
+  «Neuer Objektbesuch» (05.10.2026) pushes once, at a visit's first completion, ONLY to the
+  accounts an admin ticked (`users.notify_object_visits`, default nobody) — never widen it to
+  every subscription; received visits are listed first on /admin › Objektbesuche.
+- **No history entry behind the operational screens** (05.10.2026, owner: iOS edge swipes «don't
+  always work as intended for modals»). iOS offers its standalone-app back swipe exactly when
+  there is an entry to go back to, and no CSS or event handler can switch it off — so the Karte,
+  the Plans and the launcher never have one. Sheets and modals do NOT push entries. The only
+  pushes are the Objektbesuche routes and the plan reader there, all through
+  `objectVisits/route` (`navigateTo` / `pushAppEntry`, counted in `history.state`), and the way
+  out is `leaveAppEntries`, which walks back over them rather than replacing the top entry
+  (which left one stale «/» behind the Karte per visit). Never call `history.pushState` directly.
 - **Visit planning keeps templates separate from rounds** (03.10.2026): `visit_programmes`
   holds reusable organizer routes, never visible to crews. Annual publication is one
   transaction with a stale-revision guard; a round's stable ref and stop snapshot survive
@@ -1364,11 +1405,15 @@ to prod.
     pill on a light UI), ink 13/600, the one corner, no outline of its own. A tone is the colour of
     the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
-    mode is on shows neither. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
+    mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
+    the action button acts, a sideways swipe throws it away. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
     bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
     never beside a piece of it. A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
-    its column, and «Rückgängig» + ✕ stay beside it — never a second row of buttons under the
-    text. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
+    its column, and «Rückgängig» + ✕ stay beside it. The column has a floor of 10em (05.10.2026):
+    only an action too wide to leave the sentence that much wraps under it, right-aligned. On
+    the launcher the lane is the card's own column. There is no standing «Offline» row
+    (removed 05.10.2026 — the head's «● Offline» chip says it), and «Jetzt synchronisieren» is
+    never offered while the device is offline. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
     its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet that
     leaves no room for a pill above it sends the lane to the top of the screen, never over the
     sheet's head. Non-modal owners of the foot (detail sheet, Ebenen, Messen, Passung) keep the
@@ -1713,8 +1758,11 @@ to prod.
   - *A head's quiet line is said WHOLE or not at all* (30.09.2026): free text there (the
     Checkliste's subtitle) wears `data-fit-check` and the ladder's FIRST rank, so it folds away
     whole before the tiles give up words — never «Aktions-Checkliste Fü…». On a phone the
-    Checkliste runner shows no titles at all: the chooser row names the list, the row under it is
-    the progress alone (bar + «0/8 erledigt», no percentage — owner: the count already says it).
+    Checkliste runner shows no head row at all: the chooser row names the list and carries its
+    «n/m» at the right. **No progress bar anywhere in an open checklist** (05.10.2026, owner: «the
+    checklists don't need a progress indicator. Occupies too much space») — the count is the
+    progress: «n/m erledigt» in the tablet head, «n/m» in the narrow chooser row and on each phase
+    head; no bar, no percentage. The chooser row leads with the list's rail glyph, never a 🔍.
   - *No card inside the page card* (30.09.2026, owner: «in the rapport we have double stacked
     cards on mobile»). A surface's sections sit ON the page card: no frame, no fill, the content
     at the head's inset, a `--glass-edge` hairline over each section with its eyebrow (or its

@@ -185,7 +185,7 @@ export async function deleteChecklistDatasets(ids: string[]): Promise<{ pruned: 
 
 // ─── checklist template validation (client-side mirror) ────────────────────────
 
-const TEMPLATE_KINDS = ['action', 'rapport', 'reference', 'visit'] as const
+const TEMPLATE_KINDS = ['action', 'rapport', 'reference', 'manual', 'visit'] as const
 export type ParsedChecklistKind = (typeof TEMPLATE_KINDS)[number]
 
 export interface ParsedChecklist {
@@ -193,7 +193,7 @@ export interface ParsedChecklist {
   kind: ParsedChecklistKind
   title: string
   order: number | null
-  /** phases (action/rapport) or entries (reference) — whichever the template carries */
+  /** phases (action/rapport), entries (reference) or steps (manual) — whichever the template carries */
   sections: number
   /** the parsed document, so the caller can stamp `order` back in before uploading */
   raw: Record<string, unknown>
@@ -233,10 +233,15 @@ export function parseChecklistTemplate(
   const id = (tpl.id as string).trim()
   // the dataset id is `checklists:<id>`, so a colon in the id would forge an asset id
   if (id.includes(':') || /\s/.test(id)) return { ok: false, error: msg.badId }
-  // exactly one of them, same rule as the server: phases → action/rapport/visit, entries → reference
+  // exactly one of them, same rule as the server: phases → action/rapport/visit, entries → reference,
+  // and an Anleitung (manual) has steps and a device instead (app/checklist_templates · _manual_problem)
   const phases = Array.isArray(tpl.phases) ? tpl.phases : []
   const entries = Array.isArray(tpl.entries) ? tpl.entries : []
-  if (Boolean(phases.length) === Boolean(entries.length)) return { ok: false, error: msg.needsPhasesOrEntries }
+  const steps = Array.isArray(tpl.steps) ? tpl.steps : []
+  if (kind === 'manual') {
+    const device = typeof tpl.device === 'string' ? tpl.device.trim() : ''
+    if (!steps.length || !device || 'phases' in tpl || 'entries' in tpl) return { ok: false, error: msg.needsPhasesOrEntries }
+  } else if (Boolean(phases.length) === Boolean(entries.length)) return { ok: false, error: msg.needsPhasesOrEntries }
   return {
     ok: true,
     value: {
@@ -244,7 +249,7 @@ export function parseChecklistTemplate(
       kind: kind as ParsedChecklistKind,
       title: (tpl.title as string).trim(),
       order: typeof tpl.order === 'number' ? tpl.order : null,
-      sections: phases.length || entries.length,
+      sections: phases.length || entries.length || steps.length,
       raw: tpl,
     },
   }

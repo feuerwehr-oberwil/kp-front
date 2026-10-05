@@ -5,6 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { Slider } from './Slider'
 import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import type { TwinLayerRow } from '../lib/georefTwins'
+import type { LayerPreset } from '../lib/layerPreset'
 
 interface Props {
   layers: LayerDef[]
@@ -33,9 +34,13 @@ interface Props {
   onShowAll?: () => void
   onHideAll?: () => void
   onReset?: () => void
+  /** which of the three the layers on screen match (lib/layerPreset): that quick-tap is drawn
+   *  selected, none of them for a hand-switched set (05.10.2026, owner: «ebenen should have an
+   *  indication when using standard or all on / off») */
+  preset?: LayerPreset
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset, preset }: Props) {
   /* One transparency row, for a real `LayerDef` and for a Georeferenz twin alike — the twin ids
      are not `LayerDef` ids and persist elsewhere (georefTwins · isTwinLayerId → the device's
      `twinLayerOpacity`), but the row is the panel's, so both go through the same control and the
@@ -121,9 +126,9 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
             {/* words only (22.09.2026): three columns of a 264px dock give each button ~67px, and the
                 eye / eye-off / undo glyphs took 20 of them — «Standard» ran past its edge and even
                 «Alle ein» broke in two. The rows' eyes already say what «ein / aus» means. */}
-            <button type="button" onClick={onShowAll}>{appConfig.copy.layerPanel.showAll}</button>
-            <button type="button" onClick={onHideAll}>{appConfig.copy.layerPanel.hideAll}</button>
-            <button type="button" onClick={onReset}>{appConfig.copy.layerPanel.reset}</button>
+            <button type="button" className={preset === 'all' ? 'on' : undefined} aria-pressed={preset === 'all'} onClick={onShowAll}>{appConfig.copy.layerPanel.showAll}</button>
+            <button type="button" className={preset === 'none' ? 'on' : undefined} aria-pressed={preset === 'none'} onClick={onHideAll}>{appConfig.copy.layerPanel.hideAll}</button>
+            <button type="button" className={preset === 'standard' ? 'on' : undefined} aria-pressed={preset === 'standard'} onClick={onReset}>{appConfig.copy.layerPanel.reset}</button>
           </div>
         )}
 

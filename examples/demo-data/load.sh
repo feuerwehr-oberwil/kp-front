@@ -2,7 +2,7 @@
 # Load the synthetic Musterdorf demo dataset into a deployment's database:
 # deployment config + the station brandmark + a hydrant/water reference layer + the Schloss
 # Musterdorf Einsatzobjekt with synthetic module PDFs + demo checklists (an action list +
-# tactical Stichworte).
+# tactical Stichworte + two device Anleitungen).
 #
 #   just demo-load                      # against the local dev DB (needs 'just db' running)
 #   DATABASE_URL=... bash examples/demo-data/load.sh   # against another DB
@@ -33,7 +33,7 @@ uv run python -m app.admin_geodata load "$HERE/geodata.manifest.json"
 echo "→ 4/6  Einsatzobjekt + synthetic Modul-PDFs"
 uv run python -m app.admin_objects load "$HERE/objects.manifest.json"
 
-echo "→ 5/6  Checklisten (Aufgaben FU + Taktik-Stichworte)"
+echo "→ 5/6  Checklisten (Aufgaben FU + Taktik-Stichworte + Anleitungen)"
 uv run python -m app.admin_checklists load "$HERE/checklists.manifest.json"
 
 # Additive, never destructive — a Divera-synced roster just gains the demo names.

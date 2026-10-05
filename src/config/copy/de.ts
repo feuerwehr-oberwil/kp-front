@@ -68,6 +68,9 @@ export const de = {
     showAll: 'Alle ein',
     hideAll: 'Alle aus',
     reset: 'Standard',
+    // Ebenen-Knopf, wenn die Ebenen weder Standard noch «Alle ein/aus» sind (05.10.2026):
+    // ein Punkt am Knopf, dieses Wort im Screenreader und Tooltip
+    custom: 'Eigene Auswahl',
   },
   help: {
     menu: 'Funktionen & Hilfe',
@@ -3679,11 +3682,8 @@ export const de = {
     offlineAutoSub: 'Lädt Karte und Pläne kurz nach dem Öffnen des Einsatzes automatisch herunter',
     keepScreenOn: 'Bildschirm eingeschaltet lassen',
     keepScreenOnSub: 'Verhindert das Abdunkeln während des Einsatzes',
-    // Used to be called «Einsatzleiter-Ansicht»: the mode locks the tactical layer and names no
-    // role – Kdt, Fourier and whoever reads along on the beamer use it just the same. The code
-    // identifier stays `elView` so stored device settings keep working.
-    elView: 'Führungsansicht',
-    elViewSub: 'Sperrt die taktische Bearbeitung – Verlauf & Symbol-Details bleiben verfügbar',
+    // No «Führungsansicht» row any more (05.10.2026): it is the login's, set in the admin's
+    // Benutzer (admin · members · elViewDefault), not a per-device switch.
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
     incidentGroup: 'Einsatz',
     contactInterval: 'Atemschutz-Funkkontakt',
@@ -4106,6 +4106,9 @@ export const de = {
     settingsLabel: 'Standort verwenden',
     settingsHint: 'Erlaubt diesem Gerät, deinen Standort zu verwenden. Geteilt wird erst, wenn du es auf der Karte einschaltest.',
     settingsAs: 'Als {name}',
+    // Einstellungen: the name row under «Standort verwenden» — the value is the button
+    settingsName: 'Name auf der Karte',
+    settingsNameSub: 'So sieht dich der Kommandoposten – tippen zum Ändern',
   },
   // Anwesenheit list: live position next to the name. Deliberately neutral – far away is the
   // normal case (Wassertransport), not a warning.
@@ -4136,11 +4139,6 @@ export const de = {
     // one-shot warning toasts (useIncidentSync) — once per episode
     syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',
-    // …and the standing Meldung once the device STAYS offline past the longer window
-    // (components/OfflineMeldung, syncAlert · createOfflinePresence). Half-reverses the
-    // 2026-07-18 «no permanent banner» decision on field request 2026-09-07.
-    offlineMeldungTitle: 'Offline – Änderungen werden lokal gespeichert',
-    offlineMeldungSub: 'Wird synchronisiert, sobald die Verbindung zurück ist.',
     // clock skew (useIncidentSync · X-Server-Time): device-local timestamps feed the legal
     // record, so a clock minutes off is said once per episode — same wording as the capture
     // surface's skew line (capture.clockSkew)
@@ -4211,6 +4209,10 @@ export const de = {
     hintViewOnly: 'Nur ansehen.',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
+    // offline (05.10.2026): «Wieder öffnen» is the server's call (it writes the reopen boundary
+    // the Atemschutz clocks restart from), so it is said up front, not discovered by a failure
+    reactivateOffline: 'Braucht Verbindung zum Server',
+    reactivateNeedsServer: 'Wieder öffnen braucht Verbindung zum Server – der Einsatz bleibt abgeschlossen. Online nochmals versuchen.',
     // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
     // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
     closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
@@ -4244,6 +4246,9 @@ export const de = {
     groupOpen: 'Offen',
     groupToday: 'Heute',
     groupWeek: 'Letzte 7 Tage',
+    offlineNote: 'Offline: Ansehen geht, Abschliessen und Wieder öffnen brauchen Verbindung zum Server.',
+    // a running Einsatz's span in its row: «seit 14:00» (no end yet)
+    since: 'seit {t}',
     reactivate: 'Wieder öffnen',
     reactivateConfirmTitle: 'Einsatz wieder öffnen',
     reactivateConfirmMsg: 'Der Einsatz wird wieder geöffnet und ist bearbeitbar. Spätere Änderungen erscheinen im Verlauf und Rapport als Nachträge.',
@@ -4497,8 +4502,6 @@ export const de = {
   wheel: {
     invalidTime: 'Bitte eine gültige Uhrzeit eingeben (00:00–23:59).',
     day: 'Tag',
-    month: 'Monat',
-    year: 'Jahr',
     hour: 'Stunde',
     minute: 'Minute',
     now: 'Jetzt',
@@ -5472,6 +5475,13 @@ export const de = {
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,
     diagramAlt: 'Diagramm Seite {page}',
     diagramOpen: 'Diagramm vergrössern',
+    // Anleitungen (kind: manual, 05.10.2026) — read-only Geräte-Anleitungen (ManualReader)
+    groupManuals: 'Anleitungen',
+    manualUpdated: 'Stand {date}',
+    manualWarning: 'Achtung:',
+    manualImageAlt: 'Bild zu Schritt {n}',
+    manualImageOpen: 'Bild vergrössern',
+    manualSource: 'Quelle: {source}',
   },
 
   // ── Admin / Verwaltung surface (the /admin back-office) ───────────────────────
@@ -5762,6 +5772,7 @@ export const de = {
       keyFailed: 'Schlüssel konnte nicht gespeichert werden',
       visits: 'Besuche',
       visitsTip: 'Alle Besuche dieser Wehr, neueste zuerst. Der Bericht ist die aktuelle Revision.',
+      visitsCaption: 'Abgeschlossene und laufende Besuche, mit Ablageort und Bericht. Mitteilungen dazu: «Benachrichtigung» unten.',
       visitsEmpty: 'Noch keine Besuche.',
       colDate: 'Datum',
       colObject: 'Objekt',
@@ -5769,6 +5780,19 @@ export const de = {
       colLifecycle: 'Zustand',
       colFindings: 'Mängel',
       colBy: 'Von',
+      colFiled: 'Ablage',
+      filedNone: '–',
+      notify: 'Benachrichtigung · Neuer Objektbesuch',
+      notifyCaption: 'Wird ein Besuch abgeschlossen, erhalten die Geräte der angekreuzten Konten eine Push-Mitteilung. Niemand, solange hier niemand angekreuzt ist.',
+      notifyTip: 'Die Mitteilung geht an jedes Gerät, das mit dem Konto angemeldet ist und Mitteilungen erlaubt hat – bei einem geteilten Konto (z. B. «fu») also an alle seine Geräte. Wer allein benachrichtigt werden soll, braucht ein eigenes Konto (Personen › Mitglieder & Zugriff). Ein Tipp auf die Mitteilung öffnet den Besuch.',
+      notifyPushOff: 'Push ist noch nicht eingerichtet (VAPID-Schlüssel fehlen) – die Auswahl wirkt erst danach.',
+      notifyNoAccounts: 'Keine aktiven Konten.',
+      notifyDevices: '{n} Geräte empfangen Mitteilungen',
+      notifyDevicesOne: '1 Gerät empfängt Mitteilungen',
+      notifyDevicesNone: 'noch kein Gerät mit Mitteilungen',
+      notifyFor: '{name} benachrichtigen',
+      notifySaved: 'Gespeichert',
+      notifyFailed: 'Konnte nicht gespeichert werden',
       pdf: 'PDF',
       exportZip: 'Export (ZIP)',
       exportTip: 'Besuche als JSON, Fotos und Berichte – für eine Wehr ohne Ablageziel.',
@@ -6766,8 +6790,8 @@ export const de = {
       roleViewer: 'Betrachter',
       roleEditor: 'Bearbeiter',
       roleEl: 'Einsatzleiter',
-      elViewDefault: 'Startet in Führungsansicht',
-      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – am Gerät umschaltbar',
+      elViewDefault: 'Führungsansicht',
+      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – auf jedem Gerät dieser Anmeldung',
       colorLabel: 'Farbe',
       colorOptional: 'optional',
       pickColor: 'Farbe wählen',
@@ -7164,11 +7188,12 @@ export const de = {
       kindRapport: 'Lagerapport',
       kindReference: 'Nachschlagen',
       kindVisit: 'Objektbesuch',
+      kindManual: 'Anleitung',
       added: '«{title}» hinzugefügt.',
       replaced: '«{title}» ersetzt.',
       assetTitle: 'Diagramme – {title}',
-      assetHint: 'Seitenbilder des Nachschlagewerks. Die Seitenzahl ist die, auf die sich die '
-        + 'Vorlage bezieht.',
+      assetHint: 'Seitenbilder des Nachschlagewerks oder Bilder einer Anleitung. Die Seitenzahl ist die, '
+        + 'auf die sich die Vorlage bezieht.',
       assetPage: 'Seite',
       assetPageHint: 'wie in der Vorlage',
       assetFile: 'Bild',
@@ -7177,9 +7202,9 @@ export const de = {
       notJson: 'Das ist keine gültige JSON-Datei.',
       notObject: 'Eine Vorlage muss ein JSON-Objekt sein.',
       fieldMissing: 'Vorlage: Feld «{field}» fehlt oder ist leer.',
-      badKind: 'Vorlage: unbekannte Art «{kind}» (erwartet: action, rapport oder reference).',
+      badKind: 'Vorlage: unbekannte Art «{kind}» (erwartet: action, rapport, reference oder manual).',
       needsPhasesOrEntries: 'Vorlage braucht genau eines von «phases» (Aufgaben/Lagerapport) oder '
-        + '«entries» (Nachschlagen).',
+        + '«entries» (Nachschlagen) – eine Anleitung (manual) hat stattdessen «steps» und «device».',
       badId: 'Die «id» der Vorlage darf keinen Doppelpunkt und keine Leerzeichen enthalten.',
     },
     modules: {

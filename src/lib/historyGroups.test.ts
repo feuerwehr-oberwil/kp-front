@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterIncidents, historyGroupKey, monthLabel } from './historyGroups'
+import { filterIncidents, historyGroupKey, historyWhen, monthLabel } from './historyGroups'
 
 const NOW = new Date('2026-07-12T18:00:00')
 const inc = (over: { is_archived?: boolean; started_at?: string; title?: string; address?: string | null }) => ({
@@ -51,4 +51,37 @@ describe('monthLabel', () => {
   it('falls back to — for the malformed-date bucket', () =>
     expect(monthLabel('m:0-0', 'de-CH')).toBe('—'))
   it('passes non-month keys through', () => expect(monthLabel('today', 'de-CH')).toBe('today'))
+})
+
+describe('historyWhen — when an Einsatz ran, for its row', () => {
+  it('a closed one: day, start–end and how long', () => {
+    const w = historyWhen({ is_archived: true, started_at: '2026-07-12T12:24:00', closed_at: '2026-07-12T13:00:00', last_closed_at: '2026-07-12T13:47:00' }, NOW, 'de-CH')!
+    expect(w.start).toBe('12:24')
+    expect(w.end).toBe('13:47') // the LAST close, as the clock and the Rapport read it
+    expect(w.endDay).toBeNull()
+    expect(w.durationMs).toBe(83 * 60_000)
+    expect(w.day).toMatch(/12\.07/)
+    expect(w.day).not.toMatch(/2026/) // this year's needs no year
+  })
+  it('a running one: no end, the duration runs to now', () => {
+    const w = historyWhen({ is_archived: false, started_at: '2026-07-12T17:30:00', closed_at: null }, NOW, 'de-CH')!
+    expect(w.end).toBeNull()
+    expect(w.durationMs).toBe(30 * 60_000)
+  })
+  it('names the end day when the Einsatz ran past midnight', () => {
+    const w = historyWhen({ is_archived: true, started_at: '2026-07-10T23:10:00', closed_at: '2026-07-11T01:05:00' }, NOW, 'de-CH')!
+    expect(w.end).toBe('01:05')
+    expect(w.endDay).toMatch(/11\.07/)
+  })
+  it('a closed one without a close time says no duration rather than inventing one', () => {
+    const w = historyWhen({ is_archived: true, started_at: '2026-07-10T23:10:00', closed_at: null }, NOW, 'de-CH')!
+    expect(w.end).toBeNull()
+    expect(w.durationMs).toBeNull()
+  })
+  it('carries the year for an Einsatz from another year', () => {
+    expect(historyWhen({ is_archived: true, started_at: '2025-09-12T10:00:00' }, NOW, 'de-CH')!.day).toMatch(/2025/)
+  })
+  it('gives up on an unreadable start', () => {
+    expect(historyWhen({ is_archived: true, started_at: 'nope' }, NOW, 'de-CH')).toBeNull()
+  })
 })
