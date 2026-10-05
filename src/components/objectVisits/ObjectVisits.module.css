@@ -191,6 +191,8 @@
 .add :global(.i), .add svg { width: 16px; height: 16px; }
 .add:active { background-image: linear-gradient(var(--press), var(--press)); }
 .rowGlyph + .rowMain .rowTitle { font-weight: 700; }
+/* a plan's full name wraps rather than losing its end — «Modul 2/3 · Zugang & Objekt» (owner, 05.10.2026) */
+.planName { white-space: normal; overflow-wrap: anywhere; }
 
 /* ── a sheet's body bits ── */
 .preview { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--r-sm); overflow: hidden; background: var(--fill-soft); }

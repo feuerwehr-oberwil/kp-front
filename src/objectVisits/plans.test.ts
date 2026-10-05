@@ -4,10 +4,11 @@ import type { DeploymentModule } from '../lib/deploymentConfig'
 import type { ReferenceDataset } from '../lib/api/reference'
 
 const modules: DeploymentModule[] = [
-  { id: 'modul1', code: 'Modul 1', title: 'Übersicht', order: 1 },
+  { id: 'modul1', code: 'Modul 1', title: 'Übersicht', subtitle: 'Situationsplan mit Zufahrt', order: 1 },
   { id: 'modul2', code: 'Modul 2', title: 'Wie komme ich herein', order: 2 },
   { id: 'modul2-3', code: 'Modul 2/3', title: 'Zugang & Objekt', order: 4 },
   { id: 'modul5', code: 'M5', title: 'Spezialpläne', order: 5, family: true },
+  { id: 'modul5-wasser', code: 'W', title: 'Wasser', subtitle: 'Löschwasser', order: 5 },
 ]
 const plan = (module: string | null, over: Partial<ReferenceDataset> = {}): ReferenceDataset => ({
   id: `plan:o:${module}`, object_id: 'o', module, kind: 'pdf', title: null, source_type: 'uploaded', source_note: null,
@@ -15,9 +16,20 @@ const plan = (module: string | null, over: Partial<ReferenceDataset> = {}): Refe
 })
 
 describe('visitPlanRows — the object\'s plans on a visit', () => {
-  it('lists the PDFs in module order with the station\'s code and title', () => {
+  it('lists the PDFs in module order by their full name, the description below', () => {
     const rows = visitPlanRows(modules, [plan('modul5-pv'), plan('modul2-3'), plan('modul1')])
-    expect(rows.map((r) => [r.title, r.sub])).toEqual([['Modul 1', 'Übersicht'], ['Modul 2/3', 'Zugang & Objekt'], ['M5', 'PV']])
+    expect(rows.map((r) => [r.title, r.sub])).toEqual([['Modul 1 · Übersicht', 'Situationsplan mit Zufahrt'], ['Modul 2/3 · Zugang & Objekt', ''], ['M5 · PV', '']])
+  })
+
+  it('never shows a letter code alone — «W» is «M5 · Wasser», its tab «Wasser» (owner, 05.10.2026)', () => {
+    const [w] = visitPlanRows(modules, [plan('modul5-wasser')])
+    expect(w).toMatchObject({ title: 'M5 · Wasser', short: 'Wasser', sub: 'Löschwasser' })
+    const [m1] = visitPlanRows(modules, [plan('modul1')])
+    expect(m1.short).toBe('Modul 1')
+  })
+
+  it('a module the catalogue does not know still gets a name', () => {
+    expect(visitPlanRows(modules, [plan('modul7')])[0]).toMatchObject({ title: 'Modul 7', short: 'Modul 7' })
   })
 
   it('carries the version, so a replaced sheet is never served from an old cache', () => {

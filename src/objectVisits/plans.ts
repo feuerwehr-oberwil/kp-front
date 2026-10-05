@@ -11,11 +11,21 @@ import type { ReferenceDataset } from '../lib/api/reference'
 export interface VisitPlanRow {
   id: string
   version: number
-  /** «Modul 1», «M5» — the station's own code, the way it is printed on the sheet */
+  /** the sheet's full name, the way the row and the reader's head print it — «Modul 1 · Übersicht»,
+   *  «M5 · Wasser». Never the bare letter code: «W» alone meant nothing on the visit (owner,
+   *  05.10.2026: «show the full name of plans (not just "w")»). */
   title: string
-  /** «Übersicht», «PV» — what the sheet is */
+  /** the reader's tab — the station's «Modul N» where it has one, else the word: «Modul 1», «Wasser» */
+  short: string
+  /** what the sheet holds — the catalogue's subtitle («Löschwasser / Wasserversorgung»), may be '' */
   sub: string
 }
+
+/** A code that is a NUMBERED module («Modul 1», «M5», «Modul 2/3») rather than a letter for a word («W», «PV»). */
+const numbered = (code: string) => /\d/.test(code)
+
+/** «Modul 5» for an id without any catalogue entry */
+const bareModule = (id: string) => `Modul ${/^modul(\d+)/i.exec(id)?.[1] ?? '?'}`
 
 /** The object's PDF plans as rows, in the order every plan list uses (lib/planOrder). Pure. */
 export function visitPlanRows(modules: readonly DeploymentModule[], plans: readonly ReferenceDataset[]): VisitPlanRow[] {
@@ -26,14 +36,21 @@ export function visitPlanRows(modules: readonly DeploymentModule[], plans: reado
     .sort((a, b) => cmp(a.module ?? '', b.module ?? ''))
     .map((p) => {
       const id = p.module as string
-      const exact = modules.find((m) => m.id === id)
-      if (exact) return { id: p.id, version: p.current_version, title: exact.code ?? moduleTileLabel(id), sub: exact.title ?? '' }
+      // a sub-slot (`modul5-wasser`) belongs to its family's number (`modul5` · «M5»)
       const family = modules.find((m) => m.family && id.startsWith(`${m.id}-`))
+      const exact = modules.find((m) => m.id === id)
+      const code = (exact?.code ?? '').trim()
+      // the word: the catalogue's title, else the sub-slot's own name, else the code
+      const word = (exact?.title ?? '').trim() || (exact ? '' : moduleTileLabel(id, p.title ?? undefined)) || code || moduleTileLabel(id)
+      // the number in front: the module's own numbered code, else its family's, else none
+      const number = code && numbered(code) ? code : (family?.code ?? (exact ? '' : bareModule(id))).trim()
+      const title = number && number !== word ? `${number} · ${word}` : word
       return {
         id: p.id,
         version: p.current_version,
-        title: family?.code ?? `Modul ${/^modul(\d+)/i.exec(id)?.[1] ?? '?'}`,
-        sub: moduleTileLabel(id, p.title ?? undefined),
+        title,
+        short: code && numbered(code) ? code : word,
+        sub: (exact?.subtitle ?? '').trim(),
       }
     })
 }
