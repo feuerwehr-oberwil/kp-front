@@ -1187,6 +1187,14 @@ to prod.
   IMPORTER stays GET-only (`sharepoint_graph.py`) and filing writes only through
   `object_visit_sharepoint.py` with the separate `sharepoint_export_*` credentials; nothing
   remote is ever deleted. Alarms and the new-Einsatz banner stay on the Objektbesuche surface.
+- **No history entry behind the operational screens** (05.10.2026, owner: iOS edge swipes «don't
+  always work as intended for modals»). iOS offers its standalone-app back swipe exactly when
+  there is an entry to go back to, and no CSS or event handler can switch it off — so the Karte,
+  the Plans and the launcher never have one. Sheets and modals do NOT push entries. The only
+  pushes are the Objektbesuche routes and the plan reader there, all through
+  `objectVisits/route` (`navigateTo` / `pushAppEntry`, counted in `history.state`), and the way
+  out is `leaveAppEntries`, which walks back over them rather than replacing the top entry
+  (which left one stale «/» behind the Karte per visit). Never call `history.pushState` directly.
 - **Visit planning keeps templates separate from rounds** (03.10.2026): `visit_programmes`
   holds reusable organizer routes, never visible to crews. Annual publication is one
   transaction with a stale-revision guard; a round's stable ref and stop snapshot survive
@@ -1342,11 +1350,15 @@ to prod.
     pill on a light UI), ink 13/600, the one corner, no outline of its own. A tone is the colour of
     the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
-    mode is on shows neither. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
+    mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
+    the action button acts, a sideways swipe throws it away. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
     bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
     never beside a piece of it. A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
-    its column, and «Rückgängig» + ✕ stay beside it — never a second row of buttons under the
-    text. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
+    its column, and «Rückgängig» + ✕ stay beside it. The column has a floor of 10em (05.10.2026):
+    only an action too wide to leave the sentence that much wraps under it, right-aligned. On
+    the launcher the lane is the card's own column. There is no standing «Offline» row
+    (removed 05.10.2026 — the head's «● Offline» chip says it), and «Jetzt synchronisieren» is
+    never offered while the device is offline. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
     its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet that
     leaves no room for a pill above it sends the lane to the top of the screen, never over the
     sheet's head. Non-modal owners of the foot (detail sheet, Ebenen, Messen, Passung) keep the
