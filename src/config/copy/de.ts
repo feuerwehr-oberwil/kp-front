@@ -5524,6 +5524,7 @@ export const de = {
     chooseChecklist: 'Welche Checkliste?',
     chooseChecklistLead: 'Für dieses Objekt gibt es mehrere Besuchs-Checklisten.',
     noChecklist: 'Ohne Checkliste',
+    plans: 'Pläne',
     startFailed: 'Besuch konnte nicht angelegt werden',
     menu: 'Weitere Aktionen',
     saveFile: 'Als Datei sichern',

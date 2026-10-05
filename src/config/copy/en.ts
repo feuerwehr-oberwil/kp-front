@@ -3377,6 +3377,7 @@ export const en: Localizable<Copy> = {
     chooseChecklist: 'Which checklist?',
     chooseChecklistLead: 'There are several visit checklists for this object.',
     noChecklist: 'Without a checklist',
+    plans: 'Plans',
     startFailed: 'The visit could not be created',
     menu: 'More actions',
     saveFile: 'Save as file',
