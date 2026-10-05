@@ -6,6 +6,7 @@
     <xhtml:link rel="alternate" hreflang="de-CH" href="https://kp-front.ch/"/>
     <xhtml:link rel="alternate" hreflang="fr-CH" href="https://kp-front.ch/fr/"/>
     <xhtml:link rel="alternate" hreflang="it-CH" href="https://kp-front.ch/it/"/>
+    <xhtml:link rel="alternate" hreflang="rm-CH" href="https://kp-front.ch/rm/"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://kp-front.ch/en/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kp-front.ch/"/>
   </url>
@@ -14,6 +15,7 @@
     <xhtml:link rel="alternate" hreflang="de-CH" href="https://kp-front.ch/"/>
     <xhtml:link rel="alternate" hreflang="fr-CH" href="https://kp-front.ch/fr/"/>
     <xhtml:link rel="alternate" hreflang="it-CH" href="https://kp-front.ch/it/"/>
+    <xhtml:link rel="alternate" hreflang="rm-CH" href="https://kp-front.ch/rm/"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://kp-front.ch/en/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kp-front.ch/"/>
   </url>
@@ -22,6 +24,16 @@
     <xhtml:link rel="alternate" hreflang="de-CH" href="https://kp-front.ch/"/>
     <xhtml:link rel="alternate" hreflang="fr-CH" href="https://kp-front.ch/fr/"/>
     <xhtml:link rel="alternate" hreflang="it-CH" href="https://kp-front.ch/it/"/>
+    <xhtml:link rel="alternate" hreflang="rm-CH" href="https://kp-front.ch/rm/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kp-front.ch/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kp-front.ch/"/>
+  </url>
+  <url>
+    <loc>https://kp-front.ch/rm/</loc>
+    <xhtml:link rel="alternate" hreflang="de-CH" href="https://kp-front.ch/"/>
+    <xhtml:link rel="alternate" hreflang="fr-CH" href="https://kp-front.ch/fr/"/>
+    <xhtml:link rel="alternate" hreflang="it-CH" href="https://kp-front.ch/it/"/>
+    <xhtml:link rel="alternate" hreflang="rm-CH" href="https://kp-front.ch/rm/"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://kp-front.ch/en/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kp-front.ch/"/>
   </url>
@@ -30,6 +42,7 @@
     <xhtml:link rel="alternate" hreflang="de-CH" href="https://kp-front.ch/"/>
     <xhtml:link rel="alternate" hreflang="fr-CH" href="https://kp-front.ch/fr/"/>
     <xhtml:link rel="alternate" hreflang="it-CH" href="https://kp-front.ch/it/"/>
+    <xhtml:link rel="alternate" hreflang="rm-CH" href="https://kp-front.ch/rm/"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://kp-front.ch/en/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://kp-front.ch/"/>
   </url>

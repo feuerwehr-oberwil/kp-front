@@ -54,7 +54,7 @@ path, the Karte's rendering, the Verlauf or the Replay, and compare against the 
 Einsatz on record (`e2e/journeys.journey.ts`) on every PR and every push to main, and fails when
 requests, bytes, writes, memory left behind or interaction times regress against
 `e2e/perf/baseline.json` (`scripts/perf-report.mjs`). For an agent this is part of «done»:
-- **Read the job summary on your PR**, not only its colour. A ⚠️ (drifting) or 🟢 (better) line
+- **Read the «Performance journeys» comment on your PR** (or the job summary), not only the colour. A ⚠️ (drifting) or 🟢 (better) line
   is worth a sentence in the PR description. You caused it, so you know why.
 - **A red Performance check blocks the merge** like a failing test. Fix the cause first: a new poll,
   a save on open, a chunk pulled into the entry bundle, a listener a surface never removes. The
@@ -131,6 +131,10 @@ to prod.
   and a static reduced-motion state. Keep the path in the mascot SVG, never copy its geometry.
   Use the decorative loader inside busy actions, or `LoadingStatus` beside existing loading
   copy. Do not add artificial minimum waits for in-app activity.
+  **KP Rück shows the same snail** (02.10.2026): kp-rueck carries a byte-identical copy at
+  `frontend/public/firefighter-snail-loader.svg` and the `fs-shell-trail` path in its own
+  `ShellLoader`. Its CI job «Snail loader matches KP Front» fails when they differ, so the SVG
+  is edited HERE and then copied over to kp-rueck in the same breath.
   `SnailLoader` keeps ONE `{ __html }` object per instance: React 19 rewrites `innerHTML` for a
   new object even with the same string, which re-inserts the SVG and restarts its animations, so
   every re-render of a loading stage replayed the arrival.
@@ -2033,6 +2037,12 @@ to prod.
   **batch related changes and commit once the chunk of work is done** (a coherent unit), rather
   than after every small edit. The user tests on production, so a needed-for-testing change
   still ships promptly – just don't pepper `main` with partial commits.
+- **An idea that should not reach the station yet goes to staging, not `main`.** Push it to the
+  `staging` branch; it deploys to the Railway `staging` environment
+  (`https://kp-front-staging.up.railway.app`, a separate PWA on prod's data, with push and
+  webhooks cut). `just staging-refresh` re-copies prod into it and overwrites whatever was tested
+  there. Pass `--environment` explicitly to every `railway` command: the checkout is linked to
+  `production`. See `docs/DEPLOYMENT.md` §3a.
 - **The user keeps uncommitted WIP and commits in parallel.** Never `git add -A` / `git commit
   -a`; stage only the specific files you changed, and don't assume the tree is clean.
 - **Verification before prod (the CI gate).** Prod deploys from `main`, so a red `main` reaches

@@ -138,7 +138,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
@@ -348,12 +348,17 @@ jobs:
             PERF_OUT=perf-results/run2 pnpm exec playwright test --project journeys
             walked=$?
           fi
-          node scripts/perf-report.mjs perf-results/run*
+          node scripts/perf-report.mjs --summary perf-results/report.md perf-results/run*
           judged=$?
           [ "$walked" = 0 ] || echo "::error::a journey failed to walk — its numbers are missing from the report"
+          [ "$walked" = 0 ] || printf '\n> [!WARNING]\n> A journey failed to walk, so its numbers are missing above. The Playwright report is in the run'"'"'s artifacts.\n' >> perf-results/report.md
+          cat perf-results/report.md >> "$GITHUB_STEP_SUMMARY"
+          # perf-comment.yml posts report.md on the PR; it runs with a write token this job never has
+          echo "${{ github.event.pull_request.number }}" > perf-results/pr-number
           exit $(( walked || judged ))
 
-      # `just perf-accept <run-id>` downloads this to make it the new baseline
+      # `just perf-accept <run-id>` downloads this to make it the new baseline; perf-comment.yml
+      # reads report.md + pr-number from it to post the table on the PR
       - name: Upload the numbers
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

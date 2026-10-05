@@ -37,6 +37,14 @@
       "dir": "it/"
     },
     {
+      "code": "rm",
+      "label": "RM",
+      "name": "Rumantsch",
+      "hreflang": "rm-CH",
+      "ogLocale": "rm_CH",
+      "dir": "rm/"
+    },
+    {
       "code": "en",
       "label": "EN",
       "name": "English",

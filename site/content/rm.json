@@ -1,0 +1,385 @@
+{
+  "notice": "Questa translaziun en Rumantsch Grischun n’è anc betg vegnida controllada d’ina persuna rumantscha spezialisada en il sectur dals pumpiers – <a href=\"#kontakt\">propostas e correcturas</a> èn bainvegnidas. La versiun demo da KP Front è per tudestg.",
+  "meta": {
+    "title": "KP Front – Direcziun digitala d’acziun per ils pumpiers",
+    "description": "KP Front è il post da commando digital al lieu d’acziun: charta, plans, gruppas, decurs e rapport – utilisabel offline ed open source.",
+    "ogTitle": "KP Front – Direcziun digitala d’acziun per ils pumpiers",
+    "ogDescription": "Il post da commando digital al lieu d’acziun: charta, plans, gruppas, decurs e rapport – utilisabel offline ed open source."
+  },
+  "nav": {
+    "aria": "Navigaziun principala",
+    "features": "Funcziuns",
+    "contact": "Contact",
+    "demo": "Demo",
+    "githubAria": "KP Front sin GitHub",
+    "languageAria": "Lingua"
+  },
+  "notFound": {
+    "pageTitle": "Pagina betg chattada – KP Front",
+    "code": "Errur 404",
+    "title": "Questa pagina n’exista betg.",
+    "body": "Forsa ina errur da tippar en l’adressa, forsa in link vegl.",
+    "home": "A la pagina da partenza",
+    "demo": "Avrir la demo"
+  },
+  "hero": {
+    "eyebrow": "Open source&nbsp;· Svizra",
+    "h1": "Direcziun digitala d’acziun per ils pumpiers.",
+    "lede": "KP Front è il post da commando digital al lieu d’acziun:\n      <strong>charta, plans, gruppas, decurs e rapport</strong> en ina applicaziun.",
+    "cta": "Avrir la demo",
+    "ctaNote": "Senza login – en la demo arda gist insatge a Musterdorf",
+    "frameAddr": "KARTE · ZIMMERBRAND · 2611624 / 1263070",
+    "frameAlt": "Vista da la charta: segns tactics tenor FKS, secturs e lingias da stizzar"
+  },
+  "fit": {
+    "whoLabel": "Per tgi",
+    "who": [
+      "Corps da pumpiers da milissa",
+      "Corps da pumpiers locals",
+      "Corps da pumpiers da basa",
+      "Corps da pumpiers professiunals",
+      "Corps da pumpiers d’interpresa"
+    ],
+    "whatLabel": "Per tge",
+    "what": [
+      "Incendis",
+      "Accidents da traffic",
+      "Agid tecnic",
+      "Defensiun chemica e cunter ieli",
+      "Eveniments gronds"
+    ],
+    "note": "Sviluppà or dal manaschi real d’acziun dals\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a>\n        – là testà e sviluppà vinavant cuntinuadamain.",
+    "own": {
+      "h2": "Vossas datas restan tar vus.",
+      "p": "KP Front è open source e funcziuna en voss magazin u en vossa atgna cloud. Datas d’acziun, plans, gruppas e rapports restan sut vossa controlla.",
+      "items": [
+        "Nagins custs da licenza",
+        "Nagina dependenza d’in producider",
+        "Manar e sviluppar vinavant sezs"
+      ]
+    }
+  },
+  "tenet": {
+    "eyebrow": "La mesira",
+    "quote": "«Utilisabel a las <em>3 la notg</em> – suenter sis mais senza exercizi»",
+    "expl": "En in corps da pumpiers da milissa na sesa nagin mintga di davant l’apparat. Perquai sto\n        l’applicaziun esser construida uschia ch’ins la po duvrar endretg era mez durment:\n        <strong>tut l’impurtant è visibel directamain, predefiniziuns raschunaivlas empè da bleras\n        configuraziuns, e mintga acziun po vegnir revocada.</strong>"
+  },
+  "incident": {
+    "eyebrow": "Da l’alarm fin al rapport",
+    "h2": "In’acziun, in’applicaziun.",
+    "lede": "Uschia vesa ina notg cun KP Front ora – la charta, las gruppas e la documentaziun\n        restan consistentas e chapiblas per tut las persunas participadas.",
+    "entries": [
+      {
+        "time": "03:01",
+        "tag": "Alarm",
+        "h3": "L’alarm arriva.",
+        "p": "Surpigliar cun in tip alarms dal sistem d’alarm (p.&nbsp;ex. Divera u FireHub) –\n            ubain cumenzar manualmain cun in’adressa, in object u la charta. Il lieu d’acziun e las datas\n            d’object depositadas stattan a disposiziun avant ch’il emprim vehichel parta."
+      },
+      {
+        "time": "03:07",
+        "tag": "Situaziun",
+        "h3": "L’emprim maletg da la situaziun è pront.",
+        "p": "Segns tactics tenor las convenziuns FKS, secturs, lingias da stizzar e notizias sin la charta digitala.\n            Idrants, conducts e posiziuns dals vehichels èn disponibels sco ulteriurs nivels."
+      },
+      {
+        "time": "03:12",
+        "tag": "Gruppas",
+        "h3": "La gruppa 1 entra.",
+        "p": "Pressiun, temp da retratga e temp dapi l’ultim contact vegnan registrads per mintga gruppa.\n            L’applicaziun avertescha avant che la situaziun daventia critica."
+      },
+      {
+        "time": "03:18",
+        "tag": "Plan",
+        "h3": "Il plan d’object daventa ina tavla.",
+        "p": "Avrir il plan d’acziun, dissegnar sin quel, plazzar gruppas e mesirar tenor scala –\n            cun ils medems instruments sco sin la charta."
+      },
+      {
+        "time": "03:40",
+        "tag": "Decurs",
+        "h3": "Tut è registrà en il decurs.",
+        "p": "Scriver u discurrer – cun in servetsch da transcripziun configurà pon notizias vocalas\n            vegnir transfurmadas en text; uschiglio restan ellas sco audio. Il decurs vegn mo cumplettà\n            e mai surscrit. Correcturas vegnan fatgas cun novas endataziuns."
+      },
+      {
+        "time": "04:30",
+        "tag": "Plan da temp",
+        "h3": "La remplazzada vegn planisada.",
+        "p": "Per acziuns lungas inditgescha il plan da temp per mintga persuna cura ch’ella è\n            disponibla e cura ch’ella è attribuida. La lingia da cuvrida mussa nua ch’i mancan persunas."
+      },
+      {
+        "time": "05:55",
+        "tag": "Rapport",
+        "h3": "Al return è il rapport quasi terminà.",
+        "p": "Situaziun, persunal, material e decurs vegnan integrads directamain en il rapport d’acziun."
+      },
+      {
+        "time": "Suenter",
+        "tag": "Viadi en il temp",
+        "h3": "La notg vegn reproducida.",
+        "p": "Per la discussiun finala reproducescha la funcziun l’entira acziun: situaziun, gruppas\n            e decurs sco ch’els eran en mintga minuta. Temps d’attesa lungs vegnan sursiglids."
+      }
+    ]
+  },
+  "shots": {
+    "eyebrow": "Ord la demo",
+    "h2": "Uschia vesa quai ora.",
+    "lede": "Tut ils maletgs derivan da la demo publica.",
+    "note": "Ils screenshots èn per tudestg, perquai che la versiun demo da KP Front è per tudestg. Els derivan da la medema instanza; maletgs inscenads fissan mo ina pretensiun.",
+    "items": [
+      {
+        "alt": "Vista dal plan: plan d’object sco tavla cun dissegn, simbols e scala",
+        "title": "Plan",
+        "sub": "Plans d’object e d’acziun cun segns tactics, marcaziuns e mesiraziun tenor scala"
+      },
+      {
+        "alt": "Vista da las gruppas: gruppas da protecziun respiratorica cun pressiun ed ura da contact",
+        "title": "Gruppas",
+        "sub": "Surveglianza da las gruppas engaschadas – temps, pressiuns e respostas, cun e senza protecziun respiratorica"
+      },
+      {
+        "alt": "Vista da l’edifizi: plauns superposts cun l’attribuziun da las gruppas",
+        "title": "Edifizi",
+        "sub": "Ils plauns in sur l’auter – tge gruppa lavura sin tge plaun"
+      },
+      {
+        "alt": "Decurs: endataziuns cronologicas sper la charta",
+        "title": "Decurs",
+        "sub": "Documentaziun cuntinuada da tut ils eveniments impurtants – cun in servetsch da transcripziun configurà pon notizias vocalas vegnir transfurmadas en text"
+      },
+      {
+        "alt": "Preschientscha: glista dal persunal cun las uras d’arriv",
+        "title": "Preschientscha",
+        "sub": "Tgi è arrivà, dapi cura e cun tge grad"
+      },
+      {
+        "alt": "Plan da temp: ina lingia per persuna cun ils servetschs planisads ed effectivs e la lingia da cuvrida",
+        "title": "Plan da temp",
+        "sub": "Disponibilitads e servetschs per acziuns lungas – vesair la cuvrida, planisar la remplazzada ed edir il formular da direcziun"
+      },
+      {
+        "alt": "Glista da controlla: incumbensas dal sustegn da direcziun cun il progress",
+        "title": "Glistas da controlla",
+        "sub": "Glistas da direcziun adattablas cun access direct als instruments necessaris"
+      },
+      {
+        "alt": "Vista dal material: quai ch’è vegnì utilisà, tenor provegnientscha",
+        "title": "Material",
+        "sub": "Registrar inventari, material utilisà e consum durant l’acziun"
+      },
+      {
+        "alt": "Rapport d’acziun avant la stampa: preschientscha e material gia surpigliads",
+        "title": "Rapport",
+        "sub": "Controllar e cumplettar persunal, material, temps, decurs, skizza, fotografias e surveglianza respiratorica – exportar sco PDF u stampar"
+      }
+    ]
+  },
+  "change": {
+    "eyebrow": "Midada",
+    "h2": "Tge che sa mida.",
+    "lede": "Nagut da quai n’è oz defect – la charta da situaziun sin palpiri funcziuna dapi\n        decennis. KP Front prenda la medema plazza, mo senza copiar a maun.",
+    "headToday": "Oz",
+    "headWith": "Cun KP Front",
+    "rows": [
+      {
+        "today": "Charta da situaziun sin palpiri",
+        "with": "Maletg da la situaziun sin mintga apparat"
+      },
+      {
+        "today": "Tavla da protecziun respiratorica e cronometra",
+        "with": "Surveglianza che avertescha automaticamain"
+      },
+      {
+        "today": "Fegls da notizias e memoria",
+        "with": "Decurs che vegn manà cuntinuadamain"
+      },
+      {
+        "today": "Plan d’object en l’ordinatur",
+        "with": "Plan per dissegnar directamain"
+      },
+      {
+        "today": "Rapport il di suenter",
+        "with": "Rapport al return"
+      },
+      {
+        "today": "Discussiun finala tenor memoria",
+        "with": "Reproducir anc ina giada l’entira acziun"
+      }
+    ]
+  },
+  "features": {
+    "eyebrow": "Volumen da funcziuns",
+    "h2": "Tge che fa part.",
+    "lede": "Il volumen da funcziuns è creschì en acziuns ed exercizis reals e betg sin basa d’ina glista\n        da funcziuns. Tut quai che vegn da servetschs externs – alarmaziun, GPS, stampaders – è\n        <strong>opziunal</strong>: KP Front funcziuna cumplettamain era senza questas colliaziuns.",
+    "groups": [
+      {
+        "h3": "Charta &amp; plan",
+        "items": [
+          "<strong>Segns tactics</strong> tenor las convenziuns FKS, cun attributs e designaziuns",
+          "Secturs, zonas serradas, surfatschas e dissegn liber",
+          "Lingias da stizzar cun annotaziuns FKS, mintga lingia è attribuida ad ina gruppa",
+          "Mesirar distanzas e surfatschas, era sin plans tenor scala",
+          "Nivels: idrants, cataster da conducts, servetschs chantunals da chartas",
+          "<strong>Register da materias privlusas</strong>: nums ONU, infurmaziuns davart substanzas e recumandaziuns per distanzas da bloccada e da protecziun, disponibel directamain durant l’acziun",
+          "Infurmaziuns meteorologicas e da vent per sustegnair la valitaziun da la situaziun",
+          "Plans d’object sco tavla da lavur, plauns superposts, tavla vida",
+          "<strong>Georeferenziaziun</strong>: colliar plan e charta sur puncts da referenza cuminaivels – in object, visibel sin omaduas surfatschas, cun indicaziun da la precisiun. Il corps da pumpiers po orientar e deliberar ils plans d’object ordavant",
+          "Revocar e restabilir sin mintga surfatscha – process documentads restan chapibels"
+        ]
+      },
+      {
+        "h3": "Persunal &amp; meds",
+        "items": [
+          "<strong>Surveglianza da la protecziun respiratorica</strong>: pressiun, temp da retratga, ura da contact, alarms",
+          "<strong>Gruppas cun u senza protecziun respiratorica</strong>: persunal, incumbensa e persuna da direcziun – sin charta, plan e plauns cun l’atgna colur da la gruppa, dapertut la medema",
+          "Preschientscha cun uras d’arriv e grads",
+          "<strong>Plan da temp</strong>: planisar disponibilitads e servetschs per mintga persuna,\n            vesair la cuvrida durant l’entira acziun ed edir in formular da direcziun",
+          "<strong>Cundivider la posiziun</strong>: tgi che avra il link cumpara sco punct sin la\n            charta da situaziun – voluntarmain, e mo per questa acziun",
+          "Dar vinavant l’access ad in’acziun cun in link; l’access è visibel e po vegnir\n            revocà",
+          "Material cun inventari e consum",
+          "Glistas da controlla adattablas cun access direct als instruments correspundents",
+          "Rolla da direcziun d’acziun: administrar preschientscha, meds, glistas da controlla e rapport – leger charta e gruppas senza dretg da modifitgar"
+        ]
+      },
+      {
+        "h3": "Documentaziun",
+        "items": [
+          "Il <strong>decurs</strong> vegn mo cumplettà e mai surscrit",
+          "Endataziuns cun text, audio, fotografias e memoraziuns; cun in servetsch da transcripziun configurà vegnan notizias vocalas transfurmadas en text",
+          "<strong>Viadi en il temp</strong>: reproducziun da l’acziun minuta per minuta, temps d’attesa\n            lungs vegnan sursiglids – per la discussiun finala",
+          "Rapport d’acziun sco PDF cun persunal, material, temps, decurs, skizza,\n            fotografias e surveglianza respiratorica",
+          "Fotografias sco annexas al rapport",
+          "<strong>Controlla finala</strong> che mussa indicaziuns mancantas",
+          "Organisaziuns partenarias cun remartgas",
+          "Fegl da registraziun via code QR per tut las persunas che contribueschan infurmaziuns",
+          "Temps d’alarm e d’acziun tenor il decurs real"
+        ]
+      },
+      {
+        "h3": "Manaschi",
+        "items": [
+          "<strong>Utilisabel offline</strong> sco applicaziun installabla – ina controlla da prontezza mussa avant l’acziun sche las datas necessarias èn memorisadas sin l’apparat",
+          "Plirs apparats lavuran cun il medem stadi – modificaziuns registradas durant in’interrupziun vegnan sincronisadas uschespert ch’ina connexiun è puspè disponibla",
+          "Rollas per modifitgar u mo leger",
+          "Modus da di e da notg, grondezza dals simbols e surfatschas grondas per tablets",
+          "Surpigliar alarms da Divera u FireHub ed integrar ulteriurs sistems d’alarmaziun sur ina interfatscha averta <span class=\"opt\">opziunal</span>",
+          "Posiziuns GPS dals vehichels <span class=\"opt\">opziunal</span>",
+          "Stampa PDF en il magazin <span class=\"opt\">opziunal</span>",
+          "<strong>Atgna administraziun</strong> per mintga corps da pumpiers: persunal, vehichels, glistas da controlla, nivels da charta e models",
+          "Interfatscha per tudestg, englais, franzos u talian – configurada per mintga corps da pumpiers"
+        ]
+      }
+    ]
+  },
+  "sibling": {
+    "eyebrow": "Project parent",
+    "h2": "KP Front maina davant. KP Rück mantegna la survista davos.",
+    "p": "<strong>KP Rück</strong> è la versiun digitala da la tavla magnetica en il post da commando\n          posteriur: ina tavla per persunal, vehichels e material. Las duas applicaziuns pon\n          transmetter alarms ina a l’autra, ma funcziunan independentamain.",
+    "cta": "Vesair KP Rück",
+    "setup": {
+      "h3": "Manar omaduas applicaziuns – senza configurar tut duas giadas",
+      "rows": [
+        {
+          "dt": "Alarmaziun",
+          "dd": "Las medemas datas d’alarm per omaduas. La colliaziun cun il sistem d’alarmaziun vegn realisada ina giada; mintga applicaziun survegn sia atgna adressa."
+        },
+        {
+          "dt": "Access a Divera",
+          "dd": "Ina clav per omaduas applicaziuns – ils medems alarms, la medema glista dal persunal. <span class=\"opt\">opziunal</span>"
+        },
+        {
+          "dt": "Agent da stampa",
+          "dd": "In servetsch en il magazin serva omaduas applicaziuns e las duas sorts da stampa: PDF e stampa directa."
+        },
+        {
+          "dt": "Glista dal persunal",
+          "dd": "La medema funtauna ed il medem format da datoteca – la medema persuna en omaduas applicaziuns."
+        },
+        {
+          "dt": "Chavazzins d’alarm",
+          "dd": "La medema glista procura per la medema classificaziun en omaduas applicaziuns."
+        }
+      ],
+      "foot": "<strong>Bancas da datas, actualisaziuns e logins restan separads.</strong> Nagina da las duas applicaziuns dovra l’autra per funcziunar.",
+      "link": "Instrucziun per manar omaduas sin in server"
+    }
+  },
+  "faq": {
+    "eyebrow": "Dumondas &amp; respostas",
+    "h2": "Dumondas frequentas.",
+    "items": [
+      {
+        "q": "Pertge midar?",
+        "a": "Tuts vesan il medem maletg a medem temp. Nagina annunzia va a perder. La surveglianza\n          avertescha automaticamain, il traffic da radio diminuescha ed il rapport è quasi terminà al return."
+      },
+      {
+        "q": "A tgi appartegnan las datas?",
+        "a": "A vus. Chartas, plans e datas d’acziun restan sin vossa installaziun."
+      },
+      {
+        "q": "Tge custa quai?",
+        "a": "La software sezza na custa nagut. KP Front è open source (AGPL) – <strong>nagina\n          licenza, nagin abunament, nagins custs per apparat</strong>. Restan ils agens custs da manaschi,\n          infrastructura ed eventual sustegn extern."
+      },
+      {
+        "q": "Tge dovri per il manaschi?",
+        "a": "In pitschen mini-PC u server en il magazin basta. Per l’installaziun, actualisaziuns e\n          backups dovri ina persuna cun experientscha da Docker e da la lingia da commandos, saja quai\n          en il corps da pumpiers, en la vischnanca u tar ina IT che sustegna. L’instrucziun ed il\n          sectur d’administraziun mainan tras l’installaziun. Nus respundain gugent a dumondas generalas;\n          las datas ed il manaschi restan en la responsabladad dal corps da pumpiers respectiv."
+      },
+      {
+        "q": "Funcziuna KP Front senza connexiun a l’internet?",
+        "a": "Gea. Sco applicaziun installada funcziuna KP Front sin l’apparat: charta, plans, gruppas e\n          decurs restan utilisabels, era sche la rait croda ora. Chartas e plans enturn l’acziun chargia\n          l’applicaziun sezza, curt suenter ch’ella è vegnida averta – e la <strong>controlla da prontezza</strong>\n          mussa avant l’acziun sche las datas necessarias èn memorisadas sin l’apparat. Suenter\n          in’interrupziun vegnan las modificaziuns sincronisadas uschespert ch’ina connexiun è puspè\n          disponibla; quai ch’è vegnì registrà en il fratemp resta conservà."
+      },
+      {
+        "q": "Po l’applicaziun vegnir adattada?",
+        "a": "Gea. Mintga corps da pumpiers ha ses agen sectur d’administraziun: persunal, vehichels,\n          doctrina e models pon vegnir configurads libramain. Glistas da controlla, plans d’object e\n          nivels da charta derivan da las atgnas datas dal magazin e vegnan chargiads cun ils utensils\n          da lingia da commandos furnids. Perquai che l’entir code è publitgà sin <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          pon tut las ulteriuras adattaziuns vegnir sviluppadas sez u incumbensadas."
+      },
+      {
+        "q": "En tge linguas è l’applicaziun disponibla?",
+        "a": "L’interfatscha è disponibla per tudestg, englais, franzos e talian. En in’atgna instanza po la\n          lingua vegnir adattada individualmain. La versiun demo da KP Front è per <strong>tudestg</strong>. Ils\n          screenshots derivan da la medema instanza da demo; maletgs inscenads fissan mo ina pretensiun."
+      },
+      {
+        "q": "Co cumenzar?",
+        "a": "Cun la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza registraziun. Suenter testar durant in exercizi. Sche l’applicaziun cunvegna, maina\n          l’<a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">instrucziun d’installaziun</a> a l’atgna instanza."
+      }
+    ]
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "h2": "Ans scrivai tge che vus pensais.",
+    "p": "Vulais testar KP Front en voss corps da pumpiers? Manca insatge u na funcziuna insatge betg\n          sco spetgà? As annunziai.",
+    "alt": "Per dumondas ed ideas avertas datti las\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front/discussions\" target=\"_blank\" rel=\"noopener\">discussiuns sin GitHub</a>.",
+    "bug": {
+      "t": "Annunziar in defect",
+      "s": "Tge è capità e tge avais vus spetgà? Screenshots pon vegnir tratgs directamain en il formular."
+    },
+    "idea": {
+      "t": "Proponer ina funcziun",
+      "s": "Manca in pass che fa part da voss process? Descrivai il cas d’applicaziun e betg mo la soluziun."
+    },
+    "mail": {
+      "t": "Scriver directamain",
+      "s": "Senza conto GitHub, u sch’insatge na duai betg esser public – era per «nus vulessan testar quai tar nus»."
+    },
+    "form": {
+      "honeypot": "Laschar vid quest champ",
+      "name": "Num",
+      "namePlaceholder": "Tgi scriva?",
+      "mail": "E-mail",
+      "mailPlaceholder": "Per che nus possian respunder",
+      "message": "Messadi",
+      "messagePlaceholder": "Da tge sa tracti?",
+      "send": "Trametter il messadi",
+      "sending": "Vegn tramess …",
+      "ok": "Grazia – il messadi è arrivà. Nus ans annunziain.",
+      "error": "Quai n’ha betg funcziunà. Scrivai per plaschair directamain a bastian.eichenberger@feuerwehr-oberwil.ch."
+    }
+  },
+  "lightbox": {
+    "close": "Serrar",
+    "prev": "Maletg precedent",
+    "next": "Proxim maletg",
+    "zoom": "Engrondir"
+  },
+  "footer": {
+    "origin": "Nascì dal manaschi d’acziun dals <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a> –\n      perquai che nus avain adina puspè vesì las medemas funtaunas d’errurs: attribuziuns dublas, infurmaziuns\n      sparpagliadas ed errurs da transcripziun a maun.\n      Mintga corps da pumpiers maina ses agen KP Front cun atgnas chartas, agens plans ed atgnas datas.",
+    "demo": "Demo",
+    "contact": "Contact"
+  }
+}
