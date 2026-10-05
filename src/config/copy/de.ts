@@ -4497,8 +4497,6 @@ export const de = {
   wheel: {
     invalidTime: 'Bitte eine gültige Uhrzeit eingeben (00:00–23:59).',
     day: 'Tag',
-    month: 'Monat',
-    year: 'Jahr',
     hour: 'Stunde',
     minute: 'Minute',
     now: 'Jetzt',

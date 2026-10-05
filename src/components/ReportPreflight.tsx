@@ -2005,6 +2005,7 @@ export function ReportPreflight({
                 <span>{A.ausgerueckt}</span>
                 <div className="report-meta-end dtrow">
                   <DateTimeField ariaLabel={A.ausgerueckt} value={dtLocalToIso(ausgerueckt)}
+                    days={incidentDays(meta.startedAt ?? incident.started_at, Date.now())}
                     onCommit={(iso) => { setAusgerueckt(dtLocalValue(iso ?? undefined)); persist({ ausgeruecktAt: iso ?? undefined }) }} />
                 </div>
                 {zeitWarn('ausgerueckt')}
@@ -2120,6 +2121,7 @@ export function ReportPreflight({
                 <span>{P.incidentEndLabel}</span>
                 <div className="report-meta-end dtrow">
                   <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
+                    days={incidentDays(meta.startedAt ?? incident.started_at, Date.now())}
                     onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
                   <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
                 </div>
@@ -2200,6 +2202,7 @@ export function ReportPreflight({
                         because the ordinary case is that the call has just been made. */}
                     <div className="report-meta-end dtrow">
                       <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt}
+                    days={incidentDays(meta.startedAt ?? incident.started_at, Date.now())}
                         onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
                       <button type="button" className="ip-btn"
                         onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>

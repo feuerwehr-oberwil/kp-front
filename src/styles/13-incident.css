@@ -1291,6 +1291,11 @@
      NOT on yet is the entire job of this popover. */
   font: 600 15px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .wheel-item.on { color: var(--ink); font-weight: 750; }
+/* the day column: the widest label, so the widest column — and ONE line, always. It used to share
+   flex:1 with hour and minute, and «Mo. 05.10.» wrapped into two lines that clipped under the
+   band on a phone (owner, 05.10.2026). Hour/minute rows stay full-width 44px targets. */
+.wheel.wheel-day { flex: 1.6 1 0; min-width: 0; }
+.wheel-day .wheel-item { white-space: nowrap; font-size: 14px; }
 .wheelpop-sep { width: 1px; background: var(--glass-line); margin: 28px 2px; }
 /* the SELECTION band of the time wheel — --blue for the same reason as .combo-toggle.on above:
    it marks what is chosen, and brand red does not mean «chosen» anywhere else in the app */
