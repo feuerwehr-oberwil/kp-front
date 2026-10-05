@@ -1036,10 +1036,14 @@ async def _sync_checklists(
             stored.append(file)
             continue
         doc = await _read_json(graph, state, file)
-        if doc is None or doc.get("id") != template_id or not (doc.get("phases") or doc.get("entries")):
+        if (
+            doc is None
+            or doc.get("id") != template_id
+            or not (doc.get("phases") or doc.get("entries") or doc.get("steps"))
+        ):
             out.skip("not a ChecklistTemplate whose id matches its file name")
             logger.warning(
-                "SharePoint checklists: %s is not a ChecklistTemplate with id %r and phases/entries — skipped",
+                "SharePoint checklists: %s is not a ChecklistTemplate with id %r and phases/entries/steps — skipped",
                 file.path,
                 template_id,
             )

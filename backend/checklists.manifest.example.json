@@ -5,14 +5,16 @@
       "kind": "action",
       "title": "Aufgaben FU",
       "file": "checklists/fu-aktion.json",
-      "sourceNote": "Checklisten FU.pdf"
+      "sourceNote": "Checklisten FU.pdf",
+      "order": 1
     },
     {
       "id": "lagerapport",
       "kind": "rapport",
       "title": "Lagerapport",
       "file": "checklists/lagerapport.json",
-      "sourceNote": "Lagerapport_BL_BS.pdf"
+      "sourceNote": "Lagerapport_BL_BS.pdf",
+      "order": 2
     },
     {
       "id": "el-playbook",
@@ -20,6 +22,7 @@
       "title": "Einsatzleiter-Checklisten",
       "file": "checklists/el-playbook.json",
       "sourceNote": "Checklisten EL.pdf",
+      "order": 3,
       "assets": [
         {
           "page": 12,
@@ -28,6 +31,20 @@
         {
           "page": 14,
           "file": "checklists/assets/el-p14.jpg"
+        }
+      ]
+    },
+    {
+      "id": "stromerzeuger",
+      "kind": "manual",
+      "title": "Stromerzeuger starten",
+      "file": "checklists/stromerzeuger.json",
+      "sourceNote": "Bedienungsanleitung Stromerzeuger 8 kVA",
+      "order": 10,
+      "assets": [
+        {
+          "page": 1,
+          "file": "checklists/assets/stromerzeuger-p1.jpg"
         }
       ]
     }

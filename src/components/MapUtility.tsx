@@ -2,6 +2,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { MapViewsButton, type ViewsApi } from './MapViewsMenu'
+import { layerPresetLabel, type LayerPreset } from '../lib/layerPreset'
 import s from './MapUtility.module.css'
 
 interface Props {
@@ -18,6 +19,9 @@ interface Props {
       also carries the Basiskarte choice) opens from this cluster instead */
   layersOn?: boolean
   onToggleLayers?: () => void
+  /** which quick-tap the layer set matches — named in the button's tooltip / accessible name
+   *  (lib/layerPreset, 05.10.2026) */
+  layersPreset?: LayerPreset
 }
 
 // Top-right map controls — [compass] | zoom · coordinates. The compass is the always-present,
@@ -27,7 +31,7 @@ interface Props {
 // into the top bar.
 export function MapUtility({
   onZoomIn, onZoomOut, bearing, views, readOnly, viewsOpen, onViewsOpenChange, coordsOn, onToggleCoords,
-  layersOn, onToggleLayers,
+  layersOn, onToggleLayers, layersPreset = 'standard',
 }: Props) {
   const c = appConfig.copy.nav
   // (Day/night toggle moved to the incident dropdown menu — see IncidentSwitcher. The
@@ -40,7 +44,7 @@ export function MapUtility({
       {onToggleLayers && (
         <>
           <span className={s['tu-divider']} aria-hidden />
-          <button className={cx(s['tu-btn'], layersOn && s.on)} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={layersOn} onClick={onToggleLayers}><Icon id="layers" /></button>
+          <button className={cx(s['tu-btn'], layersOn && s.on)} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-pressed={layersOn} onClick={onToggleLayers}><Icon id="layers" /></button>
         </>
       )}
     </div>

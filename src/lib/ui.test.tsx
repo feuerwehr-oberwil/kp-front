@@ -324,12 +324,17 @@ describe('swiping the whole toast pill', () => {
     await waitFor(() => expect(screen.queryByText('weggewischte Nachricht')).toBeNull())
   })
 
-  it('springs back below the threshold — the pill stays, and a tap still dismisses it', async () => {
+  it('springs back below the threshold — the pill stays, a tap on it keeps it, only the ✕ closes', async () => {
     render(<Overlays />)
     act(() => { toast('kaum bewegt') })
     swipe(pillFor('kaum bewegt'), 10)
     expect(screen.getByText('kaum bewegt')).toBeTruthy()
+    // 05.10.2026, owner: «close on tapping the close button not the entire toast»
     fireEvent.click(pillFor('kaum bewegt'))
+    fireEvent.click(screen.getByText('kaum bewegt'))
+    await new Promise((r) => setTimeout(r, 250))
+    expect(screen.getByText('kaum bewegt')).toBeTruthy()
+    fireEvent.click(pillFor('kaum bewegt').querySelector('.toast-x')!)
     await waitFor(() => expect(screen.queryByText('kaum bewegt')).toBeNull())
   })
 

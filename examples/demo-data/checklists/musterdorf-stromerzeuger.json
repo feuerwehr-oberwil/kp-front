@@ -1,0 +1,42 @@
+{
+  "id": "musterdorf-stromerzeuger",
+  "kind": "manual",
+  "title": "Stromerzeuger starten (Demo)",
+  "device": "Stromerzeuger 8 kVA",
+  "subtitle": "Synthetische Demo-Anleitung – massgebend ist die Bedienungsanleitung des Herstellers.",
+  "version": 1,
+  "updated": "2026-10-05",
+  "source": "KP Front Demo — synthetische Anleitung",
+  "keywords": ["generator", "strom", "aggregat", "notstrom"],
+  "steps": [
+    {
+      "text": "Standort wählen: im Freien, ebener Untergrund, Abgasseite weg von Personen, Fenstern und Lüftungen.",
+      "warning": "Nie in geschlossenen Räumen, Garagen oder Zelten betreiben – Kohlenmonoxid ist geruchlos und tödlich."
+    },
+    {
+      "text": "Treibstoff und Motoröl kontrollieren, bei Bedarf nachfüllen.",
+      "hint": "Ölstand nur bei waagrecht stehendem Gerät ablesen. Nachtanken nur bei abgestelltem, abgekühltem Motor."
+    },
+    {
+      "text": "Alle Verbraucher abschalten bzw. ausstecken. Fehlerstrom-Schutzschalter am Gerät einschalten.",
+      "images": [{ "page": 1, "caption": "Bedienfeld: Schalter, Choke, Treibstoffhahn" }]
+    },
+    {
+      "text": "Treibstoffhahn öffnen. Bei kaltem Motor Choke schliessen."
+    },
+    {
+      "text": "Motorschalter auf EIN und Starter zügig ziehen (oder Startknopf drücken).",
+      "hint": "Springt der Motor nach drei Versuchen nicht an: Choke und Treibstoffhahn kontrollieren."
+    },
+    {
+      "text": "Choke nach dem Anspringen langsam öffnen, Motor 1–2 Minuten warmlaufen lassen."
+    },
+    {
+      "text": "Verbraucher einzeln zuschalten, den grössten zuerst. Gesamtleistung unter der Nennleistung halten.",
+      "images": [{ "page": 2, "caption": "Steckdosen und Leistungsanzeige" }]
+    },
+    {
+      "text": "Abstellen: Verbraucher abschalten, Motor 1 Minute nachlaufen lassen, Motorschalter AUS, Treibstoffhahn schliessen."
+    }
+  ]
+}

@@ -60,10 +60,15 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(Text, nullable=False, default="")
     color: Mapped[str | None] = mapped_column(String(16), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    # start this login in the Einsatzleiter view (tactical editing locked, journal + detail
-    # viewing stay live). A frontend DEFAULT the device toggle can override — not a role:
-    # the user remains a full editor at the API.
+    # this login works in the Führungsansicht (tactical editing locked, journal + detail
+    # viewing stay live) on every device — the only switch for it since 05.10.2026, when the
+    # per-device toggle left the Einstellungen. A frontend mode, not a role: the user remains a
+    # full editor at the API.
     el_view_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # this login's devices get the «Neuer Objektbesuch» push when a visit is completed
+    # (docs/object-visits.md · «Notification»). Chosen per account in /admin › Objektbesuche;
+    # nobody by default — not every account, not every device that installed the app.
+    notify_object_visits: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Bumped whenever this account's sessions must all end at once — a PIN reset, a

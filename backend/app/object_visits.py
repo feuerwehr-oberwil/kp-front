@@ -52,6 +52,7 @@ from .models import (
     ReferenceDataset,
     VisitList,
 )
+from .push import notify_object_visit
 from .schemas import ObjectVisitDestination, ObjectVisitsConfig, load_stored_config
 
 logger = logging.getLogger("kpfront.objectvisits")
@@ -719,6 +720,7 @@ async def apply_put(
     missing = [p for p in photo_ids(doc) if p not in stored]
     ready = not missing
     revision = visit.revision + 1
+    was_completed = visit.lifecycle == "completed"
     visit.revision = revision
     visit.doc = doc
     visit.lifecycle = str(doc["lifecycle"])
@@ -748,6 +750,16 @@ async def apply_put(
         await enqueue_deliveries(db, visit, now=now)
     await bump_seq(db, visit)
     await db.flush()
+    if visit.lifecycle == "completed" and not was_completed:
+        # «Neuer Objektbesuch» to the accounts an admin picked — once, at the first completion
+        # (never a draft save point, never a correction); sent only after this commit
+        await notify_object_visit(
+            db,
+            visit_id=visit_id,
+            object_name=(doc.get("object") or {}).get("name"),
+            people=with_names(doc),
+            findings=visit.findings,
+        )
     response = {"revision": revision, "ready": ready, "missing": missing, "visit": await serialize_visit(db, visit)}
     rev.response = response
     await db.flush()

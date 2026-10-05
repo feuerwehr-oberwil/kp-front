@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answerStats, checklistItems, localIso, newVisitDoc, stripServer, syncPhotoAnswers } from './doc'
+import { answerStats, checklistItems, localIso, newVisitDoc, stripServer, switchChecklist, syncPhotoAnswers } from './doc'
 import { VISIT_SCHEMA, type VisitTemplate } from './types'
 
 const tpl: VisitTemplate = {
@@ -45,5 +45,48 @@ describe('visit document', () => {
     const d = newVisitDoc({ object: { id: 'o', name: 'O' }, checklist: null })
     const v = { ...d, revision: 3, ready: true, missing: [], url: 'x', deliveries: [], findings: 0, createdBy: { name: 'A' } }
     expect(stripServer(v)).toEqual(d)
+  })
+})
+
+describe('switchChecklist — a draft moves to another checklist', () => {
+  const plan: VisitTemplate = {
+    id: 'einsatzplan', kind: 'visit', version: 2, title: 'Kontrolle Einsatzplan', source: 'FU',
+    phases: [{ id: 'p', title: 'Plan', items: [
+      { id: 'zugaenglich', text: 'Zugang wie im Plan', input: 'check' },
+      { id: 'gereinigt', text: 'gleiche id, anderer Typ', input: 'check' },
+      { id: 'foto', text: 'Foto Zugang', input: 'photo' },
+    ] }],
+  }
+  const photo = (id: string, item?: string) => ({ id, caption: '', ...(item ? { item } : {}), sha256: 's', size: 1, type: 'image/jpeg' })
+  const filled = () => syncPhotoAnswers({
+    ...newVisitDoc({ object: { id: 'o', name: 'O' }, checklist: tpl }),
+    answers: { zugaenglich: { v: 'ok' }, gereinigt: { v: 'yes' }, anzahl: { v: 3 } },
+    photos: [photo('ova1', 'foto'), photo('ova2')],
+  })
+
+  it('keeps answers of the same item and type, counts the rest, keeps every photo', () => {
+    const { doc, dropped } = switchChecklist(filled(), plan)
+    expect(doc.checklist?.id).toBe('einsatzplan')
+    expect(doc.answers).toEqual({ zugaenglich: { v: 'ok' }, foto: { v: 'photo' } })
+    expect(dropped).toBe(2) // gereinigt changed type, anzahl is gone — the photo marker is not an answer
+    expect(doc.photos.map((p) => [p.id, p.item ?? null])).toEqual([['ova1', 'foto'], ['ova2', null]])
+  })
+
+  it('«Ohne Checkliste» drops every answer and unlinks the photos, which stay', () => {
+    const { doc, dropped } = switchChecklist(filled(), null)
+    expect(doc.checklist).toBeNull()
+    expect(doc.answers).toEqual({})
+    expect(dropped).toBe(3)
+    expect(doc.photos).toHaveLength(2)
+    expect(doc.photos.every((p) => !p.item)).toBe(true)
+  })
+
+  it('a photo linked to a check item keeps its link when that item stays (a defect photo)', () => {
+    const d = { ...filled(), photos: [photo('ova3', 'zugaenglich')] }
+    expect(switchChecklist(d, plan).doc.photos[0].item).toBe('zugaenglich')
+  })
+
+  it('takes a copy of the template, never the catalogue\'s object', () => {
+    expect(switchChecklist(filled(), plan).doc.checklist).not.toBe(plan)
   })
 })

@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
+import { layerPreset, layerPresetLabel } from './lib/layerPreset'
 import { motionDuration, prefersReducedMotion } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
@@ -109,7 +110,6 @@ import { AudioPlayerSheet } from './components/AudioPlayerSheet'
 import { ReminderBanner } from './components/ReminderBanner'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
 import { UpdateBanner } from './components/UpdateBanner'
-import { OfflineMeldung } from './components/OfflineMeldung'
 import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
@@ -303,7 +303,7 @@ interface WorkspaceProps {
   onSwitchIncident: (i: IncidentMeta) => void
   onOpenHistory: () => void
   /** opens the Objektbesuche surface (App · enterObjectVisits); undefined = module off */
-  onOpenObjectVisits?: () => void
+  onOpenObjectVisits?: (objectId?: string | null) => void
   onOpenDivera: () => void
   onOpenDatenquellen: () => void
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
@@ -448,13 +448,12 @@ export function IncidentWorkspace({
    *  closed Einsatz still takes (`canEditRapport`), so an Einsatz opened closed out of «Alle
    *  Einsätze» (forceReadOnly) delivers too. */
   const outboxReadOnly = roleReadOnly || tabLockLost || replayActive
-  // Führungsansicht: an EDITOR's deliberate hands-off mode — tactical editing locked
-  // like a phone, but journal capture and read-only symbol details stay live. Device toggle
-  // (Einstellungen), seeded by the login's server-side default (el_view_default) so a
-  // dedicated «Einsatzleiter» account starts hands-off without per-device setup.
-  const [elViewPref, setElViewPref] = useState<boolean | null>(() => loadPrefs().elView ?? null)
-  const elView = isEditor && (elViewPref ?? user?.el_view_default ?? false)
-  const setElView = (v: boolean) => { setElViewPref(v); savePrefs({ ...loadPrefs(), elView: v }) }
+  // Führungsansicht: an EDITOR's hands-off mode — tactical editing locked like a phone, but
+  // journal capture and read-only symbol details stay live. It belongs to the LOGIN, set by the
+  // admin (Benutzer · el_view_default), and nothing else (05.10.2026, owner: «drop
+  // Führungsansicht in settings. We can use users»). The per-device toggle in the Einstellungen
+  // is gone; a stored `prefs.elView` from an older build is ignored (lib/prefs).
+  const elView = isEditor && (user?.el_view_default ?? false)
   // «not edit anything» is broader than the tactical surfaces: EL view also locks the
   // Atemschutz / Mittel / checklist / dispatch actions that hang off this flag.
   //
@@ -785,7 +784,7 @@ export function IncidentWorkspace({
   // NOTHING opens this on its own: sharing somebody's location is never proposed by the app,
   // only reached by tapping «Standort teilen» in the compass menu. That is also why there is no
   // «nicht jetzt» state to remember — nobody is being asked in the first place.
-  const [sharePick, setSharePick] = useState<null | 'ask' | 'pick'>(null)
+  const [sharePick, setSharePick] = useState<null | 'ask' | 'pick' | 'rename'>(null)
 
   // Session-only tactical editing state (active tool, place gesture, selection) — see
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
@@ -2534,6 +2533,9 @@ export function IncidentWorkspace({
     }
     setLayers(next)
   }
+  // which quick-tap the Ebenen on screen match — lit in the panel, named in the Ebenen button's
+  // tooltip / accessible name (lib/layerPreset, 05.10.2026)
+  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type)), [layers, incidentMeta.type])
   const setOpacity = (id: LayerId, v: number) => {
     if (isTwinLayerId(id)) {
       // written outside the updater — see the note on persistTwinLayers
@@ -5256,7 +5258,7 @@ export function IncidentWorkspace({
             onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
-            onObjectVisits={linkScoped ? undefined : onOpenObjectVisits}
+            onObjectVisits={linkScoped || !onOpenObjectVisits ? undefined : () => onOpenObjectVisits(activeObjectId ?? null)}
             onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
             onDatenquellen={onOpenDatenquellen}
@@ -5374,16 +5376,16 @@ export function IncidentWorkspace({
           className="rp-return"
           onClick={() => { setRapportReturn(false); openRapport() }}
         >
-          <Icon id="doc" /> {appConfig.copy.abschluss.backToRapport}
+          <Icon id="chevron-left" /> {appConfig.copy.abschluss.backToRapport}
         </button>
       )}
 
       {/* non-blocking "new build ready" prompt — waits for the operator instead of auto-reloading */}
       <UpdateBanner />
 
-      {/* standing «Offline» row once the sync has sat in 'offline' past the grace window —
-          the one-shot toast announces, this stays until the link is back (field ask 07.09.) */}
-      <OfflineMeldung status={syncStatus} onSyncNow={() => void syncNow()} />
+      {/* No standing «Offline» row (removed 05.10.2026, owner: «no need for this large offline
+          banner at the top of the screen»): the head's «● Offline» chip stays on screen the
+          whole time, and the one-shot toast (useIncidentSync) announces the spell once. */}
 
       {/* "Als App installieren" nudge — browser-tab only, one «Später» dismisses it for good
           on this device (the menu keeps the permanent entry).
@@ -5471,6 +5473,7 @@ export function IncidentWorkspace({
               coordsOn={coord.mode !== 'off'}
               onToggleCoords={coord.cycle}
               layersOn={panel === 'layers'}
+              layersPreset={layersPreset}
               onToggleLayers={() => togglePanel('layers')}
             />
           )}
@@ -5532,6 +5535,7 @@ export function IncidentWorkspace({
           onShowAll={() => setAllLayers(true)}
           onHideAll={() => setAllLayers(false)}
           onReset={resetLayers}
+          preset={layersPreset}
           onClose={() => setPanel(null)}
         />
       )}
@@ -6036,7 +6040,9 @@ export function IncidentWorkspace({
                     Basiskarte choice lives inside its panel (the BaseSwitcher popover and
                     the standalone Koordinaten button are folded away — coords is a row in
                     the compass menu now, testing feedback 2026-07-14) */}
-                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
+                {/* which preset the Ebenen match is lit in the panel and said in the name — no mark
+                    on the glyph (05.10.2026, owner: «no need for this indicator») */}
+                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). `|| isEl` as on MapUtility's twin: saved views
@@ -6422,6 +6428,7 @@ export function IncidentWorkspace({
           onAction={checklistAction}
           // «Zeichnen» arms the Karte's line tool, which a locked device disarms on arrival
           offersAction={(a) => a !== 'draw' || !tacticalLocked}
+          scrollKey={incidentMeta.id}
         />
       ))}
 
@@ -6614,7 +6621,7 @@ export function IncidentWorkspace({
           // …and the same list the Verlauf pins, so an entry being written can be attached to an
           // open item without going through the Verlauf at all — the sheet offers the ones the
           // sentence already names, and holds a picker for the rest.
-          openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent }))}
+          openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent, createdAt: r.createdAt }))}
           onLinkPendenz={(pdz) => setNoteOn(pdz)}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
@@ -6626,14 +6633,16 @@ export function IncidentWorkspace({
       {sharePick && (
         <SharePositionSheet
           roster={personnel}
-          pickOnly={sharePick === 'pick'}
+          pickOnly={sharePick !== 'ask'}
           lastPersonId={share.pref?.personId ?? null}
           // «Neuer Einsatz» rather than «Namen ändern»: the question is back because this
           // Einsatz has not been confirmed yet, and the sheet says so instead of looking like
-          // the app forgot.
-          reconfirm={!share.confirmed}
+          // the app forgot. Not for a rename — that is somebody choosing to change it.
+          reconfirm={sharePick !== 'rename' && !share.confirmed}
           onPick={(id, displayName) => {
-            share.start({ id, displayName })
+            // a rename from the Einstellungen changes the name only; it switches nothing on
+            if (sharePick === 'rename') share.rename({ id, displayName })
+            else share.start({ id, displayName })
             setSharePick(null)
             if (shareParent === 'views') setViewsOpen(false)
             shareStatusRestore.current = null
@@ -6700,8 +6709,6 @@ export function IncidentWorkspace({
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
           themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}
-          elView={elView}
-          onElView={isEditor ? setElView : undefined}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
           onFeedback={linkScoped ? undefined : () => { setFeedbackParent('settings'); setFeedbackOpen(true) }}
           // Einstellungen holds the PERMISSION only — «dieses Gerät darf meinen Standort
@@ -6717,6 +6724,10 @@ export function IncidentWorkspace({
               else share.revoke()
             }
             : undefined}
+          onChangeShareName={() => {
+            setShareParent('settings')
+            setSharePick('rename')
+          }}
         />
       )}
       {/* Rückmeldung, opened deliberately from Einstellungen. Nothing ever PUSHES this at the

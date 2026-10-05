@@ -6,8 +6,8 @@ import type { ChecklistTemplate } from '../lib/checklists'
 
 afterEach(cleanup)
 
-// 30.09.2026 (owner): the list's progress is the bar and «n/m erledigt» — no «%» beside them,
-// «0/8 erledigt» already says it. The phases keep their own n/m.
+// 30.09.2026 (owner): «n/m erledigt», no «%» beside it. 05.10.2026 (owner): no progress bar
+// either, «occupies too much space» — not in the head, not under a phase. The phases keep n/m.
 const template = {
   id: 'fu-aktion', kind: 'action', title: 'Aufgaben FU', subtitle: 'Aktions-Checkliste Führungsunterstützung',
   phases: [
@@ -17,7 +17,7 @@ const template = {
 } as unknown as ChecklistTemplate
 
 describe('ChecklistRunner head', () => {
-  it('says the progress as «n/m erledigt» and a bar, without a percentage', () => {
+  it('says the progress as «n/m erledigt», without a bar or a percentage', () => {
     const { container } = render(
       <ChecklistRunner template={template} state={{ ticks: { a1: { t: '2026-09-30T21:14:00.000Z' } } }} canTick
         onToggle={() => {}} onBranch={() => {}} onAction={() => {}} />,
@@ -25,7 +25,8 @@ describe('ChecklistRunner head', () => {
     const head = container.querySelector('header')!
     expect(head.textContent).toContain('1/4 erledigt')
     expect(head.textContent).not.toMatch(/\d\s*%/)
-    expect(head.querySelector('[class*="cl-bar"]')).toBeTruthy()
+    expect(container.querySelector('[class*="cl-bar"]')).toBeNull()
+    expect(container.textContent).toContain('1/2')
     // the subtitle is whole — the ladder folds it away as a unit, never cuts it
     expect(head.querySelector('p')?.textContent).toBe('Aktions-Checkliste Führungsunterstützung')
   })

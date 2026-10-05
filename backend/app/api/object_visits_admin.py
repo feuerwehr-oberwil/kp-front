@@ -12,13 +12,14 @@ import json
 import logging
 import os
 import tempfile
+import uuid
 import zipfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Query
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTask
 
@@ -27,7 +28,7 @@ from .. import storage
 from ..auth.dependencies import CurrentAdmin
 from ..credentials import load as load_credentials
 from ..database import get_db
-from ..models import ObjectVisit, ObjectVisitDelivery, ObjectVisitRevision
+from ..models import ObjectVisit, ObjectVisitDelivery, ObjectVisitRevision, PushSubscription, User
 
 logger = logging.getLogger("kpfront.objectvisits")
 
@@ -48,7 +49,92 @@ async def admin_list(
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
     visits = await ov.list_visits(db, object_id=object, work_ref=workRef, lifecycle=lifecycle, limit=limit)
-    return [ov.summary(v) for v in visits]
+    # …plus where each one was filed: the admin's «Besuche» list answers «is it in SharePoint, and
+    # where» without a second table (owner, 05.10.2026: «where do filled out visits show»)
+    filed: dict[str, list[dict[str, Any]]] = {}
+    if visits:
+        rows = (
+            await db.execute(
+                select(ObjectVisitDelivery)
+                .where(ObjectVisitDelivery.visit_id.in_([v.id for v in visits]))
+                .order_by(ObjectVisitDelivery.destination)
+            )
+        ).scalars()
+        for d in rows:
+            if d.state == "delivered" and d.delivered_revision == 0:
+                continue  # owed nothing (drafts under `completed` timing) — same rule as the visit's own list
+            path = (d.remote_items or {}).get("_path")
+            filed.setdefault(d.visit_id, []).append(
+                {
+                    "destination": d.destination,
+                    "state": d.state,
+                    "revision": d.delivered_revision,
+                    "at": _iso(d.updated_at),
+                    "folder": path if isinstance(path, str) and path else None,
+                    **({"error": d.last_error} if d.last_error and d.state in ("failed", "pending") else {}),
+                }
+            )
+    return [{**ov.summary(v), "deliveries": filed.get(v.id, [])} for v in visits]
+
+
+# --- «Neuer Objektbesuch» — who is told -------------------------------------------------------
+
+
+async def _notify_state(db: AsyncSession) -> dict[str, Any]:
+    from ..push import SUBSCRIPTION_TTL_DAYS, push_enabled
+
+    await load_credentials(db)
+    cutoff = datetime.now(UTC) - timedelta(days=SUBSCRIPTION_TTL_DAYS)
+    devices: dict[uuid.UUID, int] = {
+        uid: n
+        for uid, n in (
+            await db.execute(
+                select(PushSubscription.user_id, func.count())
+                .where(PushSubscription.user_id.is_not(None), PushSubscription.created_at >= cutoff)
+                .group_by(PushSubscription.user_id)
+            )
+        ).all()
+        if uid is not None
+    }
+    users = (await db.execute(select(User).where(User.is_active.is_(True)).order_by(User.display_name))).scalars()
+    return {
+        "pushEnabled": push_enabled(),
+        "accounts": [
+            {
+                "id": str(u.id),
+                "name": u.display_name or u.username,
+                "username": u.username,
+                "role": u.role,
+                "notify": u.notify_object_visits,
+                "devices": int(devices.get(u.id, 0)),
+            }
+            for u in users
+        ],
+    }
+
+
+@router.get("/notify")
+async def admin_notify(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Which accounts get «Neuer Objektbesuch» — every active account with its flag and how many
+    of its browsers can receive a push. Nobody until an admin picks somebody."""
+    return await _notify_state(db)
+
+
+@router.put("/notify")
+async def admin_set_notify(
+    _admin: CurrentAdmin, body: Annotated[dict[str, Any], Body()], db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """``{userIds: [uuid, …]}`` — exactly these accounts are told, everybody else is not."""
+    raw = body.get("userIds")
+    if not isinstance(raw, list) or len(raw) > 500 or any(not isinstance(x, str) for x in raw):
+        raise ov.invalid("userIds muss eine Liste von Konto-ids sein")
+    try:
+        wanted = {uuid.UUID(x) for x in raw}
+    except ValueError as e:
+        raise ov.invalid("userIds enthält eine ungültige id") from e
+    await db.execute(update(User).values(notify_object_visits=User.id.in_(wanted) if wanted else False))
+    await db.flush()
+    return await _notify_state(db)
 
 
 @router.get("/deliveries")

@@ -46,6 +46,12 @@ export interface Prefs {
    *  arrived? An alarm older than that decision must not override it (lib/incidentAlerts ·
    *  pickBootIncident). */
   incidentChosenAt?: number
+  /** when the operator closed an Einsatz on this device and landed on the launcher (epoch ms).
+   *  Until they open one by hand, a cold start stays on the launcher too — only an alarm that
+   *  arrived AFTER the close may open by itself (lib/incidentAlerts · pickBootIncident). Without
+   *  it the boot fell back to the first open Einsatz, so every launch after an Abschluss stood
+   *  inside whatever Übung was still open. */
+  landedAt?: number
   /** LEGACY: the manually-picked Einsatzobjekt now lives in the synced workspace blob
    *  (Saved.pickedObjectId), per incident + shared across devices. Kept only so deriveInitial
    *  can one-time import an in-flight cookie pick on upgrade; cleared at boot afterwards. */
@@ -103,12 +109,14 @@ export interface Prefs {
   /** last Verwaltung (admin) section id, so reopening /admin returns to the same page.
    *  Kept loose (string) so prefs.ts doesn't depend on the admin's SectionId union. */
   adminSection?: string
-  /** Objektbesuche · «Von»: the names last typed on THIS device (the accounts are shared logins,
-   *  so the people are typed), prefilled into the next visit. Device-local, never synced. */
+  /** LEGACY: Objektbesuche · «Von» was kept here until 05.10.2026. It moved to localStorage
+   *  (`objectVisits/devicePrefs`, Safari caps this script cookie at seven days); read only as the
+   *  fallback for a name an older build left behind, never written any more. */
   ovWith?: string
-  /** Führungsansicht: tactical editing locked on this device (journal capture and
-   *  read-only symbol details stay live). Unset = follow the login's server-side default
-   *  (AuthUser.el_view_default); an explicit toggle here overrides it. Editors only. */
+  /** RETIRED (05.10.2026): the per-device Führungsansicht toggle. The Führungsansicht is now the
+   *  login's alone (AuthUser.el_view_default, set in the admin's Benutzer). Left documented rather
+   *  than dropped: a cookie written by an older build may still carry it, and it is ignored —
+   *  nothing reads it, so a device that once switched it on is not stuck hands-off. */
   elView?: boolean
   /** what the top Einsatzuhr shows — tap it to cycle. Default 'elapsed' (running duration). */
   clockMode?: 'elapsed' | 'now' | 'start'

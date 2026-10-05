@@ -24,14 +24,6 @@ const actionIcon: Record<NonNullable<Item['action']>, string> = {
   draw: 'pen',
 }
 
-function Bar({ done, total, pct }: { done: number; total: number; pct: number }) {
-  return (
-    <div className={s['cl-bar']} title={`${done}/${total}`}>
-      <span className={s['cl-bar-fill']} style={{ width: `${pct}%` }} />
-    </div>
-  )
-}
-
 function ItemRow({
   item, checked, tickInfo, canTick, onToggle, onAction,
 }: {
@@ -108,7 +100,6 @@ function PhaseBlock({
         </div>
         <span className={s['cl-phase-count']}>{pr.done}/{pr.total}</span>
       </header>
-      {pr.total > 0 && <Bar {...pr} />}
       {phase.note && <p className={s['cl-note']}>{phase.note}</p>}
 
       {phase.branches?.length ? (
@@ -181,10 +172,13 @@ export function ChecklistRunner({
             <p title={template.subtitle} data-fit-check data-fold={1}><span className="fold-long">{template.subtitle}</span></p>
           )}
         </div>
-        {/* the bar and «n/m erledigt», no «%» (30.09.2026, owner: «0/8 erledigt» already says it
-            — two numbers for one fact) */}
+        {/* «n/m erledigt» and nothing more (05.10.2026, owner: «the checklists don't need a progress
+            indicator. Occupies too much space»). The bar is gone — here and under every phase,
+            where the head's «n/m» already said it — and so is the «%» (30.09.2026: «0/8
+            erledigt» already says it). The words sit in the head row the title needs anyway;
+            on a narrow screen they move into the chooser row (ChecklistsView) and this row
+            goes. */}
         <div className={s['cl-overall']}>
-          <Bar {...overall} />
           <span className={s['cl-overall-sub']} data-fold={2}>
             {overall.done}/{overall.total}<span className="fold-long"> {CL.done}</span>
           </span>

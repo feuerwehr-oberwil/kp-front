@@ -8,8 +8,8 @@ import { clearAllDrafts } from '../lib/draftKeep'
 afterEach(() => { cleanup(); clearAllDrafts() })
 
 const OPEN = [
-  { id: 'p1', text: 'Absperrmaterial Kreuzung, Werkhof Oberwil', urgent: true },
-  { id: 'p2', text: 'Patient an Sanität übergeben' },
+  { id: 'p1', text: 'Absperrmaterial Kreuzung, Werkhof Oberwil', urgent: true, createdAt: '2026-06-24T03:00:00.000Z' },
+  { id: 'p2', text: 'Patient an Sanität übergeben', createdAt: '2026-06-24T03:10:00.000Z' },
 ]
 
 function setup(over: Partial<React.ComponentProps<typeof JournalComposer>> = {}) {
@@ -63,6 +63,20 @@ describe('JournalComposer · the ○ switch', () => {
     type('Fahrzeug unterwegs')
     fireEvent.click(await menuRow(/Absperrmaterial Kreuzung/))
     expect(onLinkPendenz).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
+  })
+
+  // 05.10.2026: two open items the sentence names EQUALLY well went to the tie-break on their
+  // creation time — which the workspace never handed over. The composer threw on render
+  // («reading 'localeCompare'») mid-sentence, on a busy Einsatz with several Pendenzen.
+  it('offers two equally named items without crashing', async () => {
+    // the shape the workspace hands over (IncidentWorkspace · openPendenzen)
+    setup({ openPendenzen: [
+      { id: 'w1', text: 'Werkhof Lüfter holen', createdAt: '2026-06-24T03:10:00.000Z' },
+      { id: 'w2', text: 'Werkhof Leiter holen', createdAt: '2026-06-24T03:00:00.000Z' },
+    ] })
+    type('Werkhof meldet')
+    await menuRow(/Werkhof Leiter holen/)
+    expect(screen.getByRole('menuitem', { name: /Werkhof Lüfter holen/ })).toBeTruthy()
   })
 })
 

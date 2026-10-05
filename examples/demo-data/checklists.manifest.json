@@ -13,6 +13,36 @@
       "title": "Taktik-Stichworte (Demo)",
       "file": "checklists/musterdorf-taktik.json",
       "sourceNote": "KP Front Demo — synthetische Taktik-Stichworte"
+    },
+    {
+      "id": "musterdorf-stromerzeuger",
+      "kind": "manual",
+      "title": "Stromerzeuger starten (Demo)",
+      "file": "checklists/musterdorf-stromerzeuger.json",
+      "sourceNote": "KP Front Demo — synthetische Anleitung",
+      "assets": [
+        {
+          "page": 1,
+          "file": "checklists/assets/stromerzeuger-p1.svg"
+        },
+        {
+          "page": 2,
+          "file": "checklists/assets/stromerzeuger-p2.svg"
+        }
+      ]
+    },
+    {
+      "id": "musterdorf-hebekissen",
+      "kind": "manual",
+      "title": "Hebekissen einsetzen (Demo)",
+      "file": "checklists/musterdorf-hebekissen.json",
+      "sourceNote": "KP Front Demo — synthetische Anleitung",
+      "assets": [
+        {
+          "page": 1,
+          "file": "checklists/assets/hebekissen-p1.svg"
+        }
+      ]
     }
   ]
 }
