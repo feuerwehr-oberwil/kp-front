@@ -243,6 +243,20 @@ bench:
 fat-perf *presets:
     bash scripts/fat-perf.sh {{presets}}
 
+# (Throwaway Postgres + built app; never touches the dev database. CI's «Performance» job runs the
+# same journeys and fails on a regression — docs/testing/perf-journeys.md.)
+# Walk the performance journeys and compare them against e2e/perf/baseline.json.
+[group('Quality')]
+perf *args:
+    bash scripts/perf-journeys.sh {{args}}
+
+# Accept a CI run's numbers as the new baseline (an intended change, or a gain to defend).
+[group('Quality')]
+perf-accept run-id:
+    rm -rf tmp/perf-accept && gh run download {{run-id}} -n perf-results -D tmp/perf-accept
+    PERF_SOURCE="CI run {{run-id}}" node scripts/perf-report.mjs --update $(ls -d tmp/perf-accept/run*)
+    rm -rf tmp/perf-accept
+
 # Type-check the frontend and the e2e specs without emitting.
 [group('Quality')]
 check:

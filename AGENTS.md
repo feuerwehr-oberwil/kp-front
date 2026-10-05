@@ -50,6 +50,28 @@ opens it on a CPU-throttled browser. Measurements, not gates. Run them when you 
 path, the Karte's rendering, the Verlauf or the Replay, and compare against the recorded run in
 [`docs/testing/fat-incident.md`](docs/testing/fat-incident.md).
 
+**Performance is gated** (05.10.2026): CI's «Performance» job walks real user journeys on the busiest
+Einsatz on record (`e2e/journeys.journey.ts`) on every PR and every push to main, and fails when
+requests, bytes, writes, memory left behind or interaction times regress against
+`e2e/perf/baseline.json` (`scripts/perf-report.mjs`). For an agent this is part of «done»:
+- **Read the job summary on your PR**, not only its colour. A ⚠️ (drifting) or 🟢 (better) line
+  is worth a sentence in the PR description. You caused it, so you know why.
+- **A red Performance check blocks the merge** like a failing test. Fix the cause first: a new poll,
+  a save on open, a chunk pulled into the entry bundle, a listener a surface never removes. The
+  summary names the routes that changed.
+- **Never accept a baseline to turn a check green.** `just perf-accept <run-id>` is for a cost the
+  change deliberately buys (a request a feature needs). Take it from a CI run (never a local one),
+  in its own commit, with the reason in the message, and say so in the PR. Accepting a 🟢 gain is
+  always welcome.
+- **Never loosen a tolerance or skip a journey to pass.** Gate on a count or a size where the
+  regression shows in one. Times are scaled by the runner's calibration and confirmed by a second
+  run.
+- **Touch the save path, polling, the Karte, a surface's mount, or the bundle?** Run `just perf` locally
+  first (a look, not a verdict).
+
+Read [`docs/testing/perf-journeys.md`](docs/testing/perf-journeys.md) before adding or changing a
+journey.
+
 **Sourcemaps are hidden** (24.09.2026): `build.sourcemap: 'hidden'` writes a `.map` beside every
 chunk. No bundle references it, and the service worker's precache excludes `*.map`.
 `scripts/check-sourcemaps.mjs` checks all of this in CI. Never switch to `true`, and never
