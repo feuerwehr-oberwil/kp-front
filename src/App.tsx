@@ -342,7 +342,10 @@ export default function App() {
     // auto-open, which would otherwise record the app's own choice as the operator's and let a
     // stale alarm keep re-confirming itself on every reload (lib/incidentAlerts · pickBootIncident).
     const prev = loadPrefs()
-    savePrefs({ ...prev, incidentId: id, incidentChosenAt: opts.boot ? prev.incidentChosenAt : Date.now() })
+    // …and a hand-opened Einsatz ends the «landed after an Abschluss» state (completeRapport)
+    savePrefs(opts.boot
+      ? { ...prev, incidentId: id }
+      : { ...prev, incidentId: id, incidentChosenAt: Date.now(), landedAt: undefined })
   }, [])
 
   // `selectIncident` for a HUMAN tap: the same open, but a failure is SAID. Every interactive
@@ -411,7 +414,7 @@ export default function App() {
       // Remembered incident normally wins, but a NEWER alarm-created incident takes
       // precedence: a killed app reopens onto the live alarm, not yesterday's Einsatz.
       const bootPrefs = loadPrefs()
-      const pick = pickBootIncident(list, bootPrefs.incidentId, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })
+      const pick = pickBootIncident(list, bootPrefs.incidentId, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt, landedAt: bootPrefs.landedAt })
       if (pick) { await bootOpen(pick); return }
       // ⚠️ Nothing picked does NOT mean «nothing to go back to». The list boot works from holds
       // only the OPEN Einsätze, so an abgeschlossener one — viewed read-only out of «Alle
@@ -636,13 +639,18 @@ export default function App() {
       if (id === activeId) {
         if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
         await refreshList()
-        /* ⚠️ STAY on the Einsatz just closed, read-only (staging walk-through 25.09.2026). This
-           used to open the first OTHER open Einsatz in the list — silently, so the phone that had
-           just closed an Übung stood inside somebody else's live Einsatz with its GPS banner, and
-           the next tap drew in it. The closed one shows what was closed (its ArchivedBanner
-           carries «Wieder öffnen»); «Zurück» goes to the list, never into another Einsatz. */
-        await selectIncident(id, { readOnly: true }).catch(() => { setActiveId(null); setActiveMeta(null) })
+        /* ⚠️ Land on the LAUNCHER, never inside another Einsatz. Until 25.09.2026 this opened the
+           first OTHER open Einsatz in the list — silently, so the phone that had just closed an
+           Übung stood inside somebody else's live Einsatz with its GPS banner, and the next tap
+           drew in it. The walk-through's fix stayed on the closed one read-only instead, and
+           remembered it, so the next launch fell through to the first open Einsatz anyway
+           (05.10.2026: «I'm now always in open emergencies»). Now the closed Einsatz is
+           forgotten on this device and `landedAt` keeps a cold start on the launcher too (lib/
+           incidentAlerts · pickBootIncident). It stays one tap away: «Alle Einsätze», where
+           «Wieder öffnen» lives. */
+        savePrefs({ ...loadPrefs(), incidentId: undefined, landedAt: Date.now() })
         archiveReturnRef.current = null
+        setActiveId(null); setActiveMeta(null); setWorkspace(null); setForceReadOnly(false)
       } else {
         await refreshList()
       }
@@ -653,7 +661,7 @@ export default function App() {
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [activeId, refreshList, selectIncident])
+  }, [activeId, refreshList])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away

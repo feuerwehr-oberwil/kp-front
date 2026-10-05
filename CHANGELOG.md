@@ -249,6 +249,11 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **«Einsatz abschliessen» lands on the launcher.** Since 25.09. the app stayed on the closed
+  Einsatz read-only, and the next launch then opened the first other open Einsatz. Now the
+  device forgets the closed Einsatz, shows the launcher, and a cold start stays there as well.
+  Only an alarm that comes in after the close opens by itself. The closed Einsatz is still one
+  tap away under «Alle Einsätze», with «Wieder öffnen».
 - **Three devices tapping «Neuer Trupp» at once no longer make three «Trupp 1».** Each device
   drew the next number from its own view of the Einsatz, and the merge rightly kept all three
   records under one number – on the Karte, in the Verlauf and on the Rapport. The merge now

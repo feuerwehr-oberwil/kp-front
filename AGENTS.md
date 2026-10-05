@@ -1881,7 +1881,9 @@ to prod.
     against the Trupps as they stand then — a crew sent in meanwhile never gets an Austritt.
     Crews still INSIDE are the Abschluss's own FIRST question, by name («2 Trupps sind noch drin:
     Trupp 1 (…), Trupp 2 (…).»), «Zur Tafel» focused, closing anyway the quiet answer — and after
-    the Abschluss the app stays on the closed Einsatz (App · completeRapport), never opens another.
+    the Abschluss the app lands on the LAUNCHER (App · completeRapport, 05.10.2026), never opens
+    another: the closed Einsatz is forgotten on the device and `prefs.landedAt` keeps a cold start
+    on the launcher too, until one is opened by hand or a NEWER alarm arrives (pickBootIncident).
     A Sicherungstrupp wears «SiTr» on its row and card at every width, sent in or not.
   - *The record is kept whole* (staging walk-through r2, 25.09.2026): the Gäste the form files at
     its save are filed QUIETLY and named once in the crew's «Unter AS: …» row — the crew filing
