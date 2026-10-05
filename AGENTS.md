@@ -50,6 +50,14 @@ opens it on a CPU-throttled browser. Measurements, not gates. Run them when you 
 path, the Karte's rendering, the Verlauf or the Replay, and compare against the recorded run in
 [`docs/testing/fat-incident.md`](docs/testing/fat-incident.md).
 
+**Performance is gated** (05.10.2026): CI's «Performance» job walks real user journeys on the busiest
+Einsatz on record (`e2e/journeys.journey.ts`) and fails when requests, bytes, writes, memory left
+behind or interaction times regress against `e2e/perf/baseline.json` (`scripts/perf-report.mjs`).
+A deliberate change is accepted with `just perf-accept <run-id>` from a CI run (never a local one),
+with the reason in the commit. Gate on a count or a size where the regression shows in one; times
+are scaled by the runner's calibration and confirmed by a second run. Read
+[`docs/testing/perf-journeys.md`](docs/testing/perf-journeys.md) before adding or loosening one.
+
 **Sourcemaps are hidden** (24.09.2026): `build.sourcemap: 'hidden'` writes a `.map` beside every
 chunk. No bundle references it, and the service worker's precache excludes `*.map`.
 `scripts/check-sourcemaps.mjs` checks all of this in CI. Never switch to `true`, and never

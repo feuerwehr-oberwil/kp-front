@@ -49,5 +49,9 @@ export default defineConfig({
     // `just fat-perf <preset>` — a measurement, skipped unless FAT_PRESET is set (e2e/fat-incident.perf.ts)
     // no trace: it would record every one of the thousands of API calls and become the bottleneck
     { name: 'perf', testMatch: '**/*.perf.ts', use: { browserName: 'chromium', trace: 'off', launchOptions: executablePath ? { executablePath } : {} } },
+    // `just perf` and CI's «Performance» job — the performance journeys, compared against a baseline
+    // (e2e/journeys.journey.ts, docs/testing/perf-journeys.md). Skipped unless PERF_JOURNEYS is set.
+    // No trace and no screenshots: both cost main-thread time inside the very numbers it measures.
+    { name: 'journeys', testMatch: '**/*.journey.ts', use: { browserName: 'chromium', trace: 'off', screenshot: 'off', launchOptions: executablePath ? { executablePath } : {} } },
   ],
 })
