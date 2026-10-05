@@ -31,6 +31,25 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Anleitungen – a second kind of checklist, read-only and offline.** A template with
+  `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
+  «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on
+  the device, so a guide opens without a network. Format in docs/CONFIGURATION.md §9f; the demo
+  ships two synthetic ones. *No action needed* – a station adds its own with `admin_checklists`.
+- **«Neuer Objektbesuch» reaches only the people who should hear it.** The web push for a
+  received visit goes to the accounts an admin ticks in /admin (new column
+  `users.notify_object_visits`, nobody by default), and received visits are the first card on
+  /admin with their SharePoint filing state. Plans on a visit show their full names, «Besucht am»
+  uses the shared picker, and «Von» is remembered on the device. *Migration runs on boot; tick
+  the recipients once, otherwise nobody gets the push.*
+- **CI walks a crew's day and gates its performance.** A «Performance» job boots the production
+  container and has Chromium walk the busiest Einsatz on record: cold start through the kiosk,
+  reloads, every surface four times, Linien and Absperrkreise, Meldungen, Funkkontakte, an idle
+  minute. Requests, bytes, writes, memory left behind and interaction times are compared against
+  `e2e/perf/baseline.json`; a confirmed regression fails the PR. The table is posted on the PR as
+  one comment that every push edits in place. `just perf` runs it locally,
+  `just perf-accept <run-id>` takes a CI run as the new baseline (docs/testing/perf-journeys.md).
+
 - **Objektbesuche: change the checklist of a draft, read the plans in the app.** The visit's ⋯
   menu gets «Checkliste wechseln»: answers that also exist in the new checklist stay, the rest
   are named before they are dropped, photos always stay. A plan from the «Pläne» card now opens
@@ -245,6 +264,16 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Changed
 
+- **One date-and-time picker everywhere.** `DateTimeField` (day column, hour, minute, «Jetzt»,
+  «OK») replaces the day/month/year wheels in the Rapport and the Objektbesuche; day labels stay
+  on one line. «Zurück zum Rapport» is a filled button.
+- **The Führungsansicht follows the person, not the device.** The per-device toggle is gone; the
+  user's `el_view_default` decides on every device.
+- **An open checklist is quieter.** No progress bars – the «n/m» count sits in the head, the
+  list's own icon replaces 🔍, and the scroll position is remembered per list and for the list
+  of checklists. The Ebenen panel lights the preset the layers match (Alle ein / Alle aus /
+  Standard).
+
 - **Divera is polled by the server only**: every 30 s while no Einsatz runs, every 120 s while
   one does, backing off on HTTP 429. The devices read the pool and no longer make the server
   poll (469 Divera calls in one Übung). The webhook stays the primary intake.
@@ -258,6 +287,18 @@ so this file – not the log – is the record of what shipped up to that point.
   server's record.
 
 ### Fixed
+
+- **The picked checklist survives a tab change.** The Checkliste surface fell back to the first
+  list (on a phone, to the chooser) every time another tab was shown. The pick is now kept per
+  Einsatz for the browser session, and survives a reload too.
+- **A Meldung naming two Pendenzen equally well no longer crashes the Verlauf composer.** The
+  open Pendenzen reached the suggestion without their creation time, and the tie-break threw.
+  Found by the new performance journeys.
+- **Offline, from the airplane-mode test of 05.10.2026.** The roster is cached on the device, so
+  the blank form and the Anwesenheit offer people offline; «Jetzt synchronisieren» is no longer
+  offered while offline, and «Wieder öffnen» says it needs the server. «Alle Einsätze» shows
+  start–end and duration. Toasts no longer squeeze their text and close only on ✕; overlay menus
+  stay on the screen and scroll inside (the Rapport's PDF ▾ ran off the bottom).
 
 - **«Einsatz abschliessen» lands on the launcher.** Since 25.09. the app stayed on the closed
   Einsatz read-only, and the next launch then opened the first other open Einsatz. Now the

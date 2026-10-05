@@ -54,7 +54,9 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
   alignment the station computed ahead of time; one object, drawn on both surfaces.
 - **Einsatz-Intake:** Guided incident creation from Divera, an address, an object, or the map.
 - **Checklisten:** The brigade's own command checklists, phase by phase, with direct jumps to
-  the plan, the Verlauf, and the tools – loaded from station data like everything else.
+  the plan, the Verlauf, and the tools – loaded from station data like everything else. Next to
+  them, read-only **Anleitungen** (step-by-step guides with pictures, grouped by Gerät) that work
+  offline.
 - **Trupps:** every Trupp on one board – Atemschutz or not – with its Auftragsliste; AS-Trupps
   add pressure and return estimates, alarms, map links, and the Überwachungs-Log.
 - **Anwesenheit:** Divera or manual attendance against the station's Personal roster, and
