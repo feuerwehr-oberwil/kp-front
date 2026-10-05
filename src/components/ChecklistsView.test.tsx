@@ -92,4 +92,28 @@ describe('Checklist chooser row and reading position', () => {
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.checklists.showList }))
     expect(container.querySelector('nav')!.scrollTop).toBe(520)
   })
+
+  // 05.10.2026 (owner): «selected checklists don't persist and on every tab change they disappear»
+  it('keeps the open list across a tab change (unmount → mount) and falls back when it is gone', async () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true)
+    const lists = [tpl('a', 'Aufgaben FU'), tpl('b', 'Lagerapport')]
+    vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve(lists), newer: null })
+    const noop = () => {}
+    const view = () => <ChecklistsView checklists={{}} canTick divera={{}}
+      onTick={noop} onBranch={noop} onAction={noop} scrollKey="inc-3" />
+    const first = render(view())
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: /Lagerapport/ }))
+    first.unmount() // another tab
+    const { container } = render(view())
+    await act(async () => {})
+    expect(container.querySelector('nav')).toBeNull() // the list, not the chooser
+    expect(screen.getByRole('button', { name: appConfig.copy.checklists.showList }).textContent).toContain('Lagerapport')
+    cleanup()
+    // the remembered list was removed from the station's set → the first list, as with no pick
+    vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve([lists[0]]), newer: null })
+    render(view())
+    await act(async () => {})
+    expect(screen.getByRole('button', { name: appConfig.copy.checklists.showList }).textContent).toContain('Aufgaben FU')
+  })
 })
