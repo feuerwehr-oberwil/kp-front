@@ -1637,9 +1637,9 @@ and `file` (relative to the manifest), and may carry `title`, `sourceNote` and `
 
 ### 9f. `admin_checklists` – checklist templates
 
-Checklist templates (the FU action list, the Lagerapport agenda, the EL tactical playbook) are
-station data too: one `ChecklistTemplate` JSON per list – plus playbook diagram images for
-`reference` templates – and a `checklists.manifest.json`, kept in the private data repo and
+Checklist templates (the FU action list, the Lagerapport agenda, the EL tactical playbook, the
+device Anleitungen) are station data too: one `ChecklistTemplate` JSON per list – plus images for
+`reference` and `manual` templates – and a `checklists.manifest.json`, kept in the private data repo and
 loaded with `backend/app/admin_checklists.py`. Each template becomes a `checklists:<id>`
 reference dataset (diagram pages as `checklists:<id>:p<N>`), served at
 `/api/reference/checklists:<id>` and fetched + offline-cached by the Checkliste surface
@@ -1660,6 +1660,78 @@ uv run python -m app.admin_checklists show               # list stored templates
 The manifest is the single place a station controls checklist rail ordering (`order`), and
 `load`/`push` **prune** stale `checklists:*` datasets not in the manifest, so renamed or removed
 lists don't linger.
+
+#### Template kinds
+
+| `kind` | What it is | Body | Ticked? | Images |
+| --- | --- | --- | --- | --- |
+| `action` | a task list (FU phases) | `phases[].items[]` (+ `branches`) | yes, per Einsatz | – |
+| `rapport` | the Lagerapport agenda | `phases[].items[]` | yes, per Einsatz | – |
+| `reference` | Merkblätter / tactical playbook (Stichworte) | `entries[].content[]` | no | `{"type": "image", "page": N}` blocks |
+| `manual` | an **Anleitung** for one device (05.10.2026) | `device` + `steps[]` | no | `steps[].images[].page` |
+| `visit` | an Objektbesuch checklist – [`object-visits.md`](object-visits.md) | `phases[].items[]` | answered on the visit | – |
+
+Images are manifest `assets` (`{"page": N, "file": "…jpg|png|webp|svg"}`), stored as
+`checklists:<id>:p<N>`; only `reference` and `manual` entries may carry them. Each kind's
+shape is checked by `app/checklist_templates.py · template_problem` on every door (CLI,
+`/admin › Checklisten`, the SharePoint pull).
+
+#### Anleitungen (`kind: "manual"`)
+
+A device's instructions – «Stromerzeuger starten», «Hebekissen einsetzen» – as big numbered
+steps on the Checkliste tab, in their own **Anleitungen** group below the checklists, one
+sub-head per device. They are **read, never ticked**: no state, no progress, nothing in the
+Verlauf or the Rapport. The picker search matches the title, the `device` and the `keywords`.
+Pictures are prefetched into the service worker's `checklist-assets` cache as soon as the
+templates load (`warmManualImages` in `src/lib/checklists.ts`), so an Anleitung opened for the
+first time without network still shows them.
+
+```json
+{
+  "id": "stromerzeuger",
+  "kind": "manual",
+  "title": "Stromerzeuger starten",
+  "device": "Stromerzeuger 8 kVA",
+  "subtitle": "optional one-line intro under the title",
+  "version": 3,
+  "updated": "2026-09-14",
+  "source": "Bedienungsanleitung Hersteller, Kap. 4",
+  "keywords": ["generator", "notstrom"],
+  "steps": [
+    { "text": "Standort im Freien wählen.",
+      "warning": "Nie in geschlossenen Räumen betreiben – Kohlenmonoxid." },
+    { "text": "Treibstoffhahn öffnen, bei kaltem Motor Choke schliessen.",
+      "hint": "Ölstand nur bei waagrechtem Gerät ablesen.",
+      "images": [{ "page": 1, "caption": "Bedienfeld" }] }
+  ]
+}
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `device` | ✅ | the Gerät; the picker groups by it (same string = same group) |
+| `steps[].text` | ✅ | the step, shown big and numbered; phone numbers become tappable |
+| `steps[].details` | – | sub-points of the step (a list of strings), shown as a bullet list under it |
+| `steps[].warning` | – | a red «Achtung:» line – what hurts people or the device |
+| `steps[].hint` | – | a quiet tip line |
+| `steps[].images[]` | – | `{ "page": N, "caption"? }` – an asset page of this entry: a photo, or a page of the device's PDF manual exported as an image (one image per PDF page) |
+| `updated` | – | «Stand», `YYYY-MM-DD` |
+| `keywords` | – | extra search words (model names, «Generator») |
+| `subtitle`, `version`, `source` | – | intro line, your own version counter, «Quelle:» footer |
+
+`admin_checklists validate` refuses an Anleitung whose steps show a `page` the manifest entry
+has no asset for – a blank box where the picture should be is exactly what must not happen at
+3am. A manifest entry:
+
+```json
+{ "id": "stromerzeuger", "kind": "manual", "title": "Stromerzeuger starten",
+  "file": "checklists/stromerzeuger.json", "order": 10,
+  "assets": [{ "page": 1, "file": "checklists/assets/stromerzeuger-p1.jpg" }] }
+```
+
+`examples/demo-data/` carries two worked examples (`musterdorf-stromerzeuger`,
+`musterdorf-hebekissen`) with SVG pictures; `/admin › Checklisten` offers a neutral one as
+«Beispiel-Vorlage: Anleitung».
 
 ### 9g. Maintenance tools (`reset_roster`, `demo_export`, `admin_visits`)
 

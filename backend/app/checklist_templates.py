@@ -1,6 +1,8 @@
 """The shape a checklist template must have — one rule for the upload API and the CLI.
 
-Three incident kinds (``action``, ``rapport``, ``reference``) and, since 2026-10-03, ``visit``:
+Three incident kinds (``action``, ``rapport``, ``reference``), since 2026-10-05 ``manual`` (an
+Anleitung: read-only numbered steps for one device, never ticked — docs/STATION-DATA.md
+«Anleitungen») and, since 2026-10-03, ``visit``:
 the Objektbesuche template (docs/object-visits.md «Checklist templates of kind visit»). A visit
 template uses ``phases`` like an action list, and its items may carry an answer type:
 
@@ -15,9 +17,10 @@ document, not in the template.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
-TEMPLATE_KINDS = frozenset({"action", "rapport", "reference", "visit"})
+TEMPLATE_KINDS = frozenset({"action", "rapport", "reference", "manual", "visit"})
 VISIT_INPUTS = frozenset({"check", "yesno", "text", "number", "choice", "photo"})
 
 #: An item id is a JSON key in every visit's ``answers`` — bounded so a template cannot make
@@ -34,6 +37,8 @@ def template_problem(tpl: Any) -> str | None:
             return f"Checkliste: Feld {field!r} fehlt oder ist leer"
     if tpl["kind"] not in TEMPLATE_KINDS:
         return f"Checkliste: unbekannte kind {tpl['kind']!r}"
+    if tpl["kind"] == "manual":
+        return _manual_problem(tpl)
     has_phases = isinstance(tpl.get("phases"), list) and tpl["phases"]
     has_entries = isinstance(tpl.get("entries"), list) and tpl["entries"]
     if bool(has_phases) == bool(has_entries):
@@ -43,6 +48,64 @@ def template_problem(tpl: Any) -> str | None:
             return "Besuchs-Checkliste braucht 'phases'"
         return _visit_problem(tpl["phases"])
     return None
+
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _manual_problem(tpl: dict[str, Any]) -> str | None:
+    """An Anleitung: ``device`` (the rail groups by it) and a non-empty ``steps`` list, each step
+    a ``text`` with optional ``details`` (sub-points, a list of strings), ``warning`` / ``hint``
+    strings and optional ``images``
+    (``[{"page": 3, "caption": "…"}]`` — the ``checklists:<id>:p<N>`` assets)."""
+    if "phases" in tpl or "entries" in tpl:
+        return "Anleitung hat 'steps', keine 'phases' oder 'entries'"
+    if not isinstance(tpl.get("device"), str) or not tpl["device"].strip():
+        return "Anleitung: Feld 'device' (Gerät) fehlt oder ist leer"
+    updated = tpl.get("updated")
+    if updated is not None and (not isinstance(updated, str) or not _DATE_RE.match(updated)):
+        return "Anleitung: 'updated' muss ein Datum JJJJ-MM-TT sein"
+    keywords = tpl.get("keywords")
+    if keywords is not None and (not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords)):
+        return "Anleitung: 'keywords' muss eine Liste von Texten sein"
+    steps = tpl.get("steps")
+    if not isinstance(steps, list) or not steps:
+        return "Anleitung braucht mindestens einen Schritt in 'steps'"
+    for n, step in enumerate(steps, start=1):
+        if not isinstance(step, dict):
+            return f"Anleitung: Schritt {n} ist kein Objekt"
+        if not isinstance(step.get("text"), str) or not step["text"].strip():
+            return f"Anleitung: Schritt {n} hat keinen 'text'"
+        for field in ("warning", "hint"):
+            if field in step and not isinstance(step[field], str):
+                return f"Anleitung: Schritt {n}: {field!r} muss Text sein"
+        details = step.get("details")
+        if details is not None and (
+            not isinstance(details, list) or not all(isinstance(d, str) and d.strip() for d in details)
+        ):
+            return f"Anleitung: Schritt {n}: 'details' muss eine Liste von Texten sein"
+        images = step.get("images")
+        if images is None:
+            continue
+        if not isinstance(images, list):
+            return f"Anleitung: Schritt {n}: 'images' muss eine Liste sein"
+        for img in images:
+            page = img.get("page") if isinstance(img, dict) else None
+            if not isinstance(page, int) or isinstance(page, bool) or page < 0:
+                return f"Anleitung: Schritt {n}: jedes Bild braucht eine Seitennummer 'page' >= 0"
+            if "caption" in img and not isinstance(img["caption"], str):
+                return f"Anleitung: Schritt {n}: 'caption' muss Text sein"
+    return None
+
+
+def manual_pages(tpl: dict[str, Any]) -> set[int]:
+    """Every asset page an Anleitung's steps show — the CLI checks the manifest carries them all."""
+    pages: set[int] = set()
+    for step in tpl.get("steps") or []:
+        for img in (step.get("images") or []) if isinstance(step, dict) else []:
+            if isinstance(img, dict) and isinstance(img.get("page"), int):
+                pages.add(img["page"])
+    return pages
 
 
 def _visit_problem(phases: list[Any]) -> str | None:

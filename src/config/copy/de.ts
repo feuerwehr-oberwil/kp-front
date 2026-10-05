@@ -5475,6 +5475,13 @@ export const de = {
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,
     diagramAlt: 'Diagramm Seite {page}',
     diagramOpen: 'Diagramm vergrössern',
+    // Anleitungen (kind: manual, 05.10.2026) — read-only Geräte-Anleitungen (ManualReader)
+    groupManuals: 'Anleitungen',
+    manualUpdated: 'Stand {date}',
+    manualWarning: 'Achtung:',
+    manualImageAlt: 'Bild zu Schritt {n}',
+    manualImageOpen: 'Bild vergrössern',
+    manualSource: 'Quelle: {source}',
   },
 
   // ── Admin / Verwaltung surface (the /admin back-office) ───────────────────────
@@ -7167,11 +7174,12 @@ export const de = {
       kindRapport: 'Lagerapport',
       kindReference: 'Nachschlagen',
       kindVisit: 'Objektbesuch',
+      kindManual: 'Anleitung',
       added: '«{title}» hinzugefügt.',
       replaced: '«{title}» ersetzt.',
       assetTitle: 'Diagramme – {title}',
-      assetHint: 'Seitenbilder des Nachschlagewerks. Die Seitenzahl ist die, auf die sich die '
-        + 'Vorlage bezieht.',
+      assetHint: 'Seitenbilder des Nachschlagewerks oder Bilder einer Anleitung. Die Seitenzahl ist die, '
+        + 'auf die sich die Vorlage bezieht.',
       assetPage: 'Seite',
       assetPageHint: 'wie in der Vorlage',
       assetFile: 'Bild',
@@ -7180,9 +7188,9 @@ export const de = {
       notJson: 'Das ist keine gültige JSON-Datei.',
       notObject: 'Eine Vorlage muss ein JSON-Objekt sein.',
       fieldMissing: 'Vorlage: Feld «{field}» fehlt oder ist leer.',
-      badKind: 'Vorlage: unbekannte Art «{kind}» (erwartet: action, rapport oder reference).',
+      badKind: 'Vorlage: unbekannte Art «{kind}» (erwartet: action, rapport, reference oder manual).',
       needsPhasesOrEntries: 'Vorlage braucht genau eines von «phases» (Aufgaben/Lagerapport) oder '
-        + '«entries» (Nachschlagen).',
+        + '«entries» (Nachschlagen) – eine Anleitung (manual) hat stattdessen «steps» und «device».',
       badId: 'Die «id» der Vorlage darf keinen Doppelpunkt und keine Leerzeichen enthalten.',
     },
     modules: {

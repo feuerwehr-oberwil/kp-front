@@ -1174,6 +1174,16 @@ to prod.
   `src/lib/checklists.ts`, offline-cached), falling back to one neutral bundled example
   (`src/data/checklists/generic-action.json`) – never a station's real lists. GeoJSON must be WGS84
   `[lng,lat]` (LV95 is rejected).
+- **Anleitungen are a checklist kind, not a second pipeline** (05.10.2026). `kind: "manual"`
+  rides `checklists:<id>` + `checklists:<id>:p<N>` images, the same manifest, CLI, admin page and
+  SharePoint folder; format in [`docs/CONFIGURATION.md` §9f](docs/CONFIGURATION.md). It is READ,
+  never ticked: no tick state, no progress, nothing in the Verlauf/Rapport — tickable means
+  `isTickable` (action/rapport) only, so check new kind switches against it. The picker shows
+  them in their own «Anleitungen» group, one sub-head per `device` (`manualGroups`); the reader
+  is `ManualReader` (own CSS module). Step pictures are prefetched into the SW's
+  `checklist-assets` cache when the templates load (`warmManualImages`), because a manual is
+  opened when it is needed — offline, for the first time. A step image the manifest has no
+  asset for is refused by `admin_checklists validate`.
 - **Objektbesuche live beside the Einsatz, never inside it** (03.10.2026). The module
   (`objectVisits.enabled`, `src/objectVisits/`, `src/components/objectVisits/`, backend
   `object_visits*.py`, `api/integrations.py`) owns standalone visits: no incident, no workspace

@@ -332,6 +332,23 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
+              // A checklist IMAGE (`/api/reference/checklists:<id>:p<N>`): an Anleitung's step
+              // picture or a playbook diagram (05.10.2026). Its own cache, filled in the
+              // background when the templates load (lib/checklists · warmManualImages), so an
+              // Anleitung opened for the first time offline still has its pictures — and so a
+              // few dozen images cannot evict the 50 symbol/geojson entries of the rule below.
+              // Stale-while-revalidate: the URL carries no version, a replaced picture arrives on
+              // the next online open. ⚠️ Before the generic reference rule; purged on an explicit
+              // denial with the others (public/sw-media-cache.js).
+              urlPattern: /\/api\/reference\/checklists(%3A|:)[^/?:%]+(%3A|:)p\d+$/i,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'checklist-assets',
+                cacheableResponse: { statuses: [200] },
+                expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 180, purgeOnQuotaError: true },
+              },
+            },
+            {
               // Reference datasets (symbols + geojson) — keep fresh when online, usable offline.
               urlPattern: /\/api\/reference\/.*/,
               handler: 'StaleWhileRevalidate',

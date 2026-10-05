@@ -13,6 +13,8 @@ const KP_REFERENCE_CACHE = 'reference-data'
 const KP_REFERENCE_PLAN_CACHE = 'reference-plans'
 // …and the same sheets as tiles, with their manifests (vite.config · plan-tiles).
 const KP_PLAN_TILE_CACHES = ['plan-tiles', 'plan-tile-manifests']
+// …and the checklist images: Anleitung step pictures + playbook diagrams (vite.config · checklist-assets).
+const KP_CHECKLIST_ASSET_CACHE = 'checklist-assets'
 const KP_MEDIA_OWNER_URL = new URL('/__kp/media-cache-owner', self.location.origin).toString()
 const KP_MEDIA_MAX_ENTRIES = 200
 const KP_MEDIA_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
@@ -41,6 +43,7 @@ async function kpClearOnDenial() {
     caches.delete(KP_REFERENCE_CACHE),
     caches.delete(KP_REFERENCE_PLAN_CACHE),
     ...KP_PLAN_TILE_CACHES.map((name) => caches.delete(name)),
+    caches.delete(KP_CHECKLIST_ASSET_CACHE),
   ])
 }
 

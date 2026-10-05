@@ -163,7 +163,7 @@ describe('Checklisten — the card head is the house style', () => {
   // One card, one head, and the order the job is done in: what you START FROM first, what you
   // SEND BACK last. The page used to be two cards, and the upload sat beside the example in the
   // body of the first one.
-  it('puts both examples before the upload, and makes only the upload primary', async () => {
+  it('puts the three examples (one per shape) before the upload, and makes only the upload primary', async () => {
     render(<ChecklistsView />)
     await screen.findByText('Aufgaben FU')
 
@@ -172,10 +172,11 @@ describe('Checklisten — the card head is the house style', () => {
     expect(acts.map((b) => b.textContent)).toEqual([
       fillTemplate(C.exampleDownloadKind, { kind: C.kindAction }),
       fillTemplate(C.exampleDownloadKind, { kind: C.kindReference }),
+      fillTemplate(C.exampleDownloadKind, { kind: C.kindManual }),
       C.upload,
     ])
     expect(acts.filter((b) => b.className.includes('adm-save-btn'))).toHaveLength(1)
-    expect(acts[2].className).toContain('adm-save-btn')
+    expect(acts[3].className).toContain('adm-save-btn')
   })
 })
 

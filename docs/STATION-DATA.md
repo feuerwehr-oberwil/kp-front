@@ -73,7 +73,7 @@ The complete field contract, including accepted properties and formats, is in
 | Hydrants and utility layers | GIS exports, WFS/WMS, open data | WGS84 GeoJSON + `geodata.manifest.json` | Station › **Kartenebenen** (one layer; a replace bumps the version in place) |
 | Einsatzobjekte | Object register or plan library | `objects.manifest.json` | Station › **Objektpläne** (no UUID typed – see below) |
 | Object plans | Approved pre-incident plans | PDF files referenced by the object manifest | Station › **Objektpläne**, per Modul slot |
-| Checklists and playbooks | Station doctrine | Template JSON, optional images, and `checklists.manifest.json` | Station › **Checklisten**, incl. diagram assets and deletion |
+| Checklists, playbooks and Anleitungen | Station doctrine, device manuals | Template JSON, optional images, and `checklists.manifest.json` (format: [`CONFIGURATION.md` §9f](CONFIGURATION.md#9f-admin_checklists--checklist-templates)) | Station › **Checklisten**, incl. image assets and deletion |
 | Mittel, Quellen, Partnerorganisationen, Symbolfeld-Optionen | Station decisions | `config.json` | the **Arbeitsmappe** `.xlsx` – there is no form for these ([`CONFIGURATION.md` §9h](CONFIGURATION.md#9h-the-station-workbook--one-xlsx-for-the-list-shaped-data)) |
 | Mannschaft | Divera sync, or the station's own list | – **personal data: keep it out of the repo unless the repo is as protected as the roster is** | Divera sync, a CSV import, or the **Arbeitsmappe** ([`CONFIGURATION.md`](CONFIGURATION.md) §4a/§4b) |
 | Source adapters | GIS, DMS, or roster-specific APIs | Optional scripts maintained by the station | – |

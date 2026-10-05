@@ -3,8 +3,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import type { ChecklistState, ChecklistTemplate, Item, TemplateState } from '../lib/checklists'
 import { allEntries, warmTemplates, matchDiveraEntries, searchEntries, templateProgress } from '../lib/checklists'
+import { isTickable, manualGroups } from '../lib/checklists'
 import { ChecklistRunner } from './ChecklistRunner'
 import { ChecklistEntryReader } from './ChecklistReference'
+import { ManualReader } from './ManualReader'
 import { cx } from '../lib/cx'
 import { EmptyState } from './EmptyState'
 import { SearchField } from './SearchField'
@@ -12,6 +14,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { useMediaQuery } from '../lib/useIsPhone'
 import s from './Checklists.module.css'
+import m from './ManualReader.module.css'
 
 const EMPTY_STATE: TemplateState = { ticks: {}, activeBranch: {} }
 
@@ -43,6 +46,9 @@ function useRememberedScroll<T extends HTMLElement>(key: string | null) {
   })
   return ref
 }
+
+/** what the main pane shows: a tickable list, a Stichwort, or an Anleitung */
+type Sel = { kind: 'tpl' | 'entry' | 'manual'; id: string }
 
 // The Checkliste surface: a left rail with the action checklists (FU, Lagerapport) and —
 // directly below, not behind a tab — the searchable EL tactical Stichworte. The main pane
@@ -85,18 +91,20 @@ export function ChecklistsView({
     }
   }, [])
 
-  const actionTemplates = useMemo(() => templates.filter((t) => t.kind !== 'reference'), [templates])
+  const actionTemplates = useMemo(() => templates.filter(isTickable), [templates])
   const referenceTemplates = useMemo(() => templates.filter((t) => t.kind === 'reference'), [templates])
   const entries = useMemo(() => allEntries(templates), [templates])
+  const manuals = useMemo(() => templates.filter((t) => t.kind === 'manual'), [templates])
   const autoMatches = useMemo(() => matchDiveraEntries(templates, divera), [templates, divera])
 
   // selection is either an action template or a tactical entry; defaults once templates arrive
-  const [sel, setSel] = useState<{ kind: 'tpl' | 'entry'; id: string } | null>(null)
+  const [sel, setSel] = useState<Sel | null>(null)
   useEffect(() => {
     if (sel || !ready) return
     if (actionTemplates[0]) setSel({ kind: 'tpl', id: actionTemplates[0].id })
     else if (entries[0]) setSel({ kind: 'entry', id: entries[0].id })
-  }, [sel, ready, actionTemplates, entries])
+    else if (manuals[0]) setSel({ kind: 'manual', id: manuals[0].id })
+  }, [sel, ready, actionTemplates, entries, manuals])
 
   // The picker rail collapses to a single toggle row once something is picked, so the
   // checklist/playbook text gets the full height; tapping the row reopens the list.
@@ -108,7 +116,7 @@ export function ChecklistsView({
   // fixes it already existed and simply stopped 160px short.
   const railNarrow = useMediaQuery('(max-width: 760px)')
   const [railOpen, setRailOpen] = useState(true)
-  const pick = (v: { kind: 'tpl' | 'entry'; id: string }) => { setSel(v); if (railNarrow) setRailOpen(false) }
+  const pick = (v: Sel) => { setSel(v); if (railNarrow) setRailOpen(false) }
 
   const [query, setQuery] = useState('')
   const results = useMemo(() => searchEntries(entries, query), [entries, query])
@@ -116,9 +124,12 @@ export function ChecklistsView({
   // reference entries by title/keyword — so Aufgaben, Taktik and Grundlagen are peer groups.
   const q = query.trim().toLowerCase()
   const actionResults = q ? actionTemplates.filter((t) => t.title.toLowerCase().includes(q)) : actionTemplates
-  const noMatches = ready && !actionResults.length && !results.length
+  // Anleitungen (kind: manual): the same search, over title, device and keywords
+  const manualResults = useMemo(() => manualGroups(templates, query), [templates, query])
+  const noMatches = ready && !actionResults.length && !results.length && !manualResults.length
 
   const activeTemplate = sel?.kind === 'tpl' ? actionTemplates.find((t) => t.id === sel.id) ?? null : null
+  const activeManual = sel?.kind === 'manual' ? manuals.find((t) => t.id === sel.id) ?? null : null
   const activeEntry = sel?.kind === 'entry' ? entries.find((e) => e.id === sel.id) ?? null : null
   // the reference template that owns the open entry — drives its diagram asset URLs
   const activeEntryTemplateId =
@@ -135,7 +146,7 @@ export function ChecklistsView({
     )
   }
 
-  const selTitle = activeTemplate?.title ?? activeEntry?.title ?? CL.railLabel
+  const selTitle = activeTemplate?.title ?? activeManual?.title ?? activeEntry?.title ?? CL.railLabel
   const activeProgress = activeTemplate ? templateProgress(activeTemplate, checklists[activeTemplate.id] ?? EMPTY_STATE) : null
 
   return (
@@ -149,6 +160,7 @@ export function ChecklistsView({
               category chip below instead. */}
           {activeTemplate && <Icon id={activeTemplate.kind === 'rapport' ? 'history' : 'check'} />}
           {activeEntry && !activeEntry.hazardColor && <Icon id="doc" />}
+          {activeManual && <Icon id="doc" />}
           <span className={s['cl-rail-toggle-title']}>{selTitle}</span>
           {/* the open list's «n/m» — here, in a row that stands anyway, instead of a progress row
               of its own under it (05.10.2026, owner: «don't need a progress indicator. Occupies
@@ -225,6 +237,28 @@ export function ChecklistsView({
               </div>
             )
           })}
+          {/* Anleitungen (05.10.2026): read-only device instructions, one group below the
+              checklists, a sub-head per Gerät (ManualReader) */}
+          {manualResults.length > 0 && (
+            <div className={s['cl-rail-group']}>
+              <div className={s['cl-rail-label']}>{CL.groupManuals}</div>
+              {manualResults.map((g) => (
+                <div key={g.device} className={m['mn-rail-device']} role="group" aria-label={g.device}>
+                  <div className={m['mn-rail-device-name']}>{g.device}</div>
+                  {g.manuals.map((t) => (
+                    <button
+                      key={t.id}
+                      className={cx(s['cl-rail-item'], sel?.kind === 'manual' && sel.id === t.id && s.on)}
+                      onClick={() => pick({ kind: 'manual', id: t.id })}
+                    >
+                      <Icon id="doc" />
+                      <span className={s['cl-rail-title']}>{t.title}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
           {noMatches && <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>}
         </div>
       </nav>
@@ -244,6 +278,8 @@ export function ChecklistsView({
               onAction={onAction}
               offersAction={offersAction}
             />
+          ) : activeManual ? (
+            <ManualReader manual={activeManual} />
           ) : (
             <ChecklistEntryReader entry={activeEntry} templateId={activeEntryTemplateId} />
           )}
