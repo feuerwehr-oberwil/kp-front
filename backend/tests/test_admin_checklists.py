@@ -187,3 +187,82 @@ def test_validate_checklist_template_rejects_bad():
         _validate_checklist_template(
             json.dumps({"id": "x", "kind": "action", "title": "X", "phases": [{}], "entries": [{}]}).encode()
         )
+
+
+# --- Anleitungen (kind: manual, 05.10.2026) ---------------------------------------------
+
+from app.checklist_templates import manual_pages, template_problem  # noqa: E402
+
+MANUAL = {
+    "id": "stromerzeuger",
+    "kind": "manual",
+    "title": "Stromerzeuger starten",
+    "device": "Stromerzeuger 8 kVA",
+    "updated": "2026-10-05",
+    "keywords": ["generator"],
+    "steps": [
+        {"text": "Standort wählen", "warning": "Nie in Räumen"},
+        {"text": "Starten", "hint": "Choke", "images": [{"page": 1, "caption": "Bedienfeld"}]},
+    ],
+}
+
+
+def test_manual_template_is_valid():
+    assert template_problem(MANUAL) is None
+    assert manual_pages(MANUAL) == {1}
+
+
+@pytest.mark.parametrize(
+    ("patch", "needle"),
+    [
+        ({"device": ""}, "device"),
+        ({"steps": []}, "Schritt"),
+        ({"steps": [{"text": " "}]}, "Schritt 1"),
+        ({"steps": [{"text": "a", "warning": 3}]}, "warning"),
+        ({"steps": [{"text": "a", "images": [{"page": -1}]}]}, "page"),
+        ({"steps": [{"text": "a", "images": [{"page": True}]}]}, "page"),
+        ({"steps": [{"text": "a", "images": "p1"}]}, "images"),
+        ({"updated": "5.10.2026"}, "Datum"),
+        ({"keywords": "generator"}, "keywords"),
+        ({"phases": [{"id": "p"}]}, "steps"),
+    ],
+)
+def test_manual_template_problems(patch, needle):
+    problem = template_problem({**MANUAL, **patch})
+    assert problem is not None and needle in problem
+
+
+def test_manual_upload_shape_check():
+    from fastapi import HTTPException
+
+    _validate_checklist_template(json.dumps(MANUAL).encode())
+    with pytest.raises(HTTPException):
+        _validate_checklist_template(json.dumps({**MANUAL, "steps": []}).encode())
+
+
+def test_manual_may_carry_assets():
+    ChecklistEntry(
+        id="stromerzeuger", kind="manual", title="S", file="s.json", assets=[{"page": 1, "file": "a/p1.svg"}]
+    )
+
+
+def test_validate_files_manual_needs_an_asset_for_every_step_image(tmp_path):
+    _write(tmp_path, "s.json", MANUAL)
+    (tmp_path / "p1.svg").write_text("<svg xmlns='http://www.w3.org/2000/svg'/>", encoding="utf-8")
+    entry = {"id": "stromerzeuger", "kind": "manual", "title": "S", "file": "s.json"}
+    ok = _write(tmp_path, "ok.json", [{**entry, "assets": [{"page": 1, "file": "p1.svg"}]}])
+    assert _validate_files(ok, _read_manifest(ok)) == (1, 1)
+    missing = _write(tmp_path, "missing.json", [entry])
+    with pytest.raises(SystemExit):
+        _validate_files(missing, _read_manifest(missing))
+
+
+def test_demo_manifest_validates():
+    """The demo data (examples/demo-data) carries two Anleitungen with step pictures — it must
+    stay loadable, it is what `just demo-load` and the nightly demo reset push."""
+    from pathlib import Path
+
+    manifest = Path(__file__).resolve().parents[2] / "examples" / "demo-data" / "checklists.manifest.json"
+    entries = _read_manifest(manifest)
+    assert {e.kind for e in entries} >= {"manual"}
+    _validate_files(manifest, entries)

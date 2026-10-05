@@ -32,7 +32,7 @@ _ALLOWED_REFERENCE_TYPES = {
     "application/geo+json",
     "text/json",
 }
-# Checklist diagram assets (checklists:<id>:p<N>) — the playbook figures.
+# Checklist image assets (checklists:<id>:p<N>) — the playbook figures and Anleitung step pictures.
 _ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/svg+xml"}
 
 
@@ -47,8 +47,9 @@ def _checklist_role(dataset_id: str) -> str | None:
 
 def _validate_checklist_template(data: bytes) -> None:
     """Cheap shape check on an uploaded checklist template so a malformed one is rejected at
-    upload, not shipped to the field. Requires id/kind/title and exactly one of phases/entries;
-    a ``visit`` template's items are checked for their answer types (app/checklist_templates)."""
+    upload, not shipped to the field. Requires id/kind/title and exactly one of phases/entries
+    (a ``manual`` Anleitung: ``device`` + ``steps`` instead); a ``visit`` template's items are
+    checked for their answer types (app/checklist_templates)."""
     try:
         tpl = json.loads(data)
     except (ValueError, TypeError) as e:
