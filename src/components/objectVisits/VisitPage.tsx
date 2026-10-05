@@ -31,6 +31,7 @@ import { personName, type Revision, type ServerVisit, type VisitDoc, type VisitP
 import { Head } from './common'
 import { fmtDate, fmtWhen, lifecycleLabel, plural } from './ovFormat'
 import { PhotoSheet, ProposalSheet } from './Sheets'
+import { PlansCard } from './PlansCard'
 import { AuthCard, ConflictCards, RefusedCard, UnsavedCard } from './StateCards'
 import { StatusLine } from './StatusLine'
 import { ChecklistSection, DetailsCard, NotesSection, PhotosSection, ProposalsSection, SummaryCard } from './VisitSections'
@@ -450,6 +451,7 @@ export function VisitPage({ id }: { id: string }) {
           )}
 
           <DetailsCard doc={doc} readOnly={readView} onEdit={(fn) => { void edit(fn) }} />
+          <PlansCard objectId={doc.object.id} />
           <ChecklistSection doc={doc} readOnly={readView} pending={pending}
             onEdit={(fn) => { void edit(fn) }} onTakePhoto={takePhoto}
             onOpenPhoto={(attId) => setPhotoSheet({ attId, preparing: false, stored: null })} />

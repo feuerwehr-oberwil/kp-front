@@ -31,6 +31,10 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Objektbesuche: the object's plans on the visit.** A «Pläne» card above the checklist lists the
+  object's Modul-PDFs (station code and title, in module order); a tap opens the sheet. It reads
+  the object through the offline cache, so a visit opened without a signal still lists them. No
+  card for an object without plans. *No action needed.*
 - **Objektbesuche: visit an object without an Einsatz, offline** (module `objectVisits`, off by
   default). A member opens «Objektbesuche» from the launcher, picks an object from a work list,
   the search or «In der Nähe», answers a station checklist of the new kind `visit` (OK / Mangel /

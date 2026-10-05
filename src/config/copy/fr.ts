@@ -3177,6 +3177,7 @@ export const fr: Localizable<Copy> = {
     chooseChecklist: 'Quelle liste de contrôle ?',
     chooseChecklistLead: 'Il existe plusieurs listes de contrôle de visite pour cet objet.',
     noChecklist: 'Sans liste de contrôle',
+    plans: 'Plans',
     startFailed: 'La visite n’a pas pu être créée',
     menu: 'Autres actions',
     saveFile: 'Enregistrer comme fichier',

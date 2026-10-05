@@ -63,6 +63,10 @@ links the item). A missing key = **nicht geprüft** (never «Nein»). `defect` a
 **Incident surfaces ignore `kind: "visit"`** (`loadTemplates` callers that render incident
 checklists filter it out), and visit surfaces only use `kind: "visit"`.
 
+**Plans on a visit.** The visit page lists the object's Modul-PDFs above the checklist
+(`GET /api/objects/{id}` through the offline cache, `src/objectVisits/plans.ts`); a row opens
+`/api/reference/<plan id>?v=<version>`. Nothing about plans is stored in the visit.
+
 ## The visit document (`schema: "kp-front.object-visit/1"`)
 
 What the client PUTs as `doc` and what every reader receives (server fields added on read):
