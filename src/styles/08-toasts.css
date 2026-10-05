@@ -321,8 +321,6 @@
    and removes the node .16s later (lib/ui.tsx). Leaving must never make the app wait. */
 .toast.out { opacity: 0; transform: translateY(8px) scale(.96); pointer-events: none;
   transition: opacity .14s var(--ease), transform .14s var(--ease); }
-/* a pill with no action dismisses on a tap (lib/ui.tsx puts `.tap` on exactly those) */
-.toast.tap { cursor: pointer; }
 .toast .i { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
 /* live job as a chain of stages (printJobToast): reached ones keep their tick and step back, the
    running one carries the label, unreached ones stay visible as pips — «what still has to
