@@ -19,7 +19,7 @@ interface Props {
       also carries the Basiskarte choice) opens from this cluster instead */
   layersOn?: boolean
   onToggleLayers?: () => void
-  /** which quick-tap the layer set matches — anything but «Standard» marks the button
+  /** which quick-tap the layer set matches — named in the button's tooltip / accessible name
    *  (lib/layerPreset, 05.10.2026) */
   layersPreset?: LayerPreset
 }
@@ -44,7 +44,7 @@ export function MapUtility({
       {onToggleLayers && (
         <>
           <span className={s['tu-divider']} aria-hidden />
-          <button className={cx(s['tu-btn'], s['tu-layers'], layersOn && s.on)} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-pressed={layersOn} onClick={onToggleLayers}><Icon id="layers" />{layersPreset !== 'standard' && <i className="layers-mark" aria-hidden />}</button>
+          <button className={cx(s['tu-btn'], layersOn && s.on)} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-pressed={layersOn} onClick={onToggleLayers}><Icon id="layers" /></button>
         </>
       )}
     </div>

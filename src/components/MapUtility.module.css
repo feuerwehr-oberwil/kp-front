@@ -8,7 +8,6 @@
 .tu-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .tu-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .tu-btn :global(.i) { width: 19px; height: 19px; }
-.tu-layers { position: relative; }   /* holds the «not Standard» mark (07-toolrail · .layers-mark) */
 .tu-divider { width: 6px; flex: none; }   /* spacing between the zoom pair and Ebenen, not a line (22.09.2026) */
 
 /* compass glyph rotates to the live bearing (inline transform), set on every rotate frame —
