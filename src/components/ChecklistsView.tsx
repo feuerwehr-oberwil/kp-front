@@ -50,6 +50,25 @@ function useRememberedScroll<T extends HTMLElement>(key: string | null) {
 /** what the main pane shows: a tickable list, a Stichwort, or an Anleitung */
 type Sel = { kind: 'tpl' | 'entry' | 'manual'; id: string }
 
+/* The pick (which list is open, and on a narrow screen whether the chooser or the list shows),
+   per Einsatz. sessionStorage so a reload of the tab keeps it too; memory as the fallback when
+   storage is blocked. */
+type Picked = { sel?: Sel | null; railOpen?: boolean }
+const pickedMemory = new Map<string, Picked>()
+const pickedKey = (k: string) => `kp.cl.picked.${k}`
+function readPicked(k: string): Picked | null {
+  if (pickedMemory.has(k)) return pickedMemory.get(k)!
+  try {
+    const raw = sessionStorage.getItem(pickedKey(k))
+    return raw ? (JSON.parse(raw) as Picked) : null
+  } catch { return null }
+}
+function writePicked(k: string, patch: Picked) {
+  const next = { ...readPicked(k), ...patch }
+  pickedMemory.set(k, next)
+  try { sessionStorage.setItem(pickedKey(k), JSON.stringify(next)) } catch { /* memory only */ }
+}
+
 // The Checkliste surface: a left rail with the action checklists (FU, Lagerapport) and —
 // directly below, not behind a tab — the searchable EL tactical Stichworte. The main pane
 // renders the selection: an action checklist runs as a checkable phase list; a Stichwort
@@ -97,13 +116,22 @@ export function ChecklistsView({
   const manuals = useMemo(() => templates.filter((t) => t.kind === 'manual'), [templates])
   const autoMatches = useMemo(() => matchDiveraEntries(templates, divera), [templates, divera])
 
-  // selection is either an action template or a tactical entry; defaults once templates arrive
-  const [sel, setSel] = useState<Sel | null>(null)
+  // selection is either an action template, a tactical entry or an Anleitung; defaults once
+  // templates arrive. Kept per Einsatz across tab changes and reloads (05.10.2026, owner:
+  // «selected checklists don't persist and on every tab change they disappear») — the surface
+  // unmounts whenever another tab is shown, so component state alone fell back to the first list.
+  const [sel, setSelState] = useState<Sel | null>(() => readPicked(scrollKey)?.sel ?? null)
+  const setSel = (v: Sel | null) => { setSelState(v); writePicked(scrollKey, { sel: v }) }
   useEffect(() => {
-    if (sel || !ready) return
+    if (!ready) return
+    // a remembered pick whose list was removed since falls back to the default, like no pick
+    if (sel && [...actionTemplates, ...manuals].some((t) => t.id === sel.id)) return
+    if (sel?.kind === 'entry' && entries.some((e) => e.id === sel.id)) return
     if (actionTemplates[0]) setSel({ kind: 'tpl', id: actionTemplates[0].id })
     else if (entries[0]) setSel({ kind: 'entry', id: entries[0].id })
     else if (manuals[0]) setSel({ kind: 'manual', id: manuals[0].id })
+    else if (sel) setSel(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSel is a fresh closure per render
   }, [sel, ready, actionTemplates, entries, manuals])
 
   // The picker rail collapses to a single toggle row once something is picked, so the
@@ -115,7 +143,9 @@ export function ChecklistsView({
   // Phones were never the problem; the band just above them was, and the collapse mechanism that
   // fixes it already existed and simply stopped 160px short.
   const railNarrow = useMediaQuery('(max-width: 760px)')
-  const [railOpen, setRailOpen] = useState(true)
+  // …and whether the phone showed the list or the open checklist comes back the same way
+  const [railOpen, setRailOpenState] = useState(() => readPicked(scrollKey)?.railOpen ?? true)
+  const setRailOpen = (v: boolean) => { setRailOpenState(v); writePicked(scrollKey, { railOpen: v }) }
   const pick = (v: Sel) => { setSel(v); if (railNarrow) setRailOpen(false) }
 
   const [query, setQuery] = useState('')
