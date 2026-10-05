@@ -245,6 +245,25 @@ describe('parseChecklistTemplate — the same refusals as the server, without th
   })
 })
 
+describe('parseChecklistTemplate — an Anleitung (kind: manual)', () => {
+  const manual = {
+    id: 'stromerzeuger', kind: 'manual', title: 'Stromerzeuger starten', device: 'Stromerzeuger 8 kVA',
+    version: 1, source: 'Demo', steps: [{ text: 'Standort wählen' }, { text: 'Starten' }],
+  }
+
+  it('accepts steps + device and counts the steps as its sections', () => {
+    expect(parseChecklistTemplate(JSON.stringify(manual), MSG)).toMatchObject({ ok: true, value: { kind: 'manual', sections: 2 } })
+  })
+
+  it.each([
+    ['no steps', { ...manual, steps: [] }],
+    ['no device', { ...manual, device: ' ' }],
+    ['phases instead of steps', { ...manual, phases: [{ id: 'p' }] }],
+  ])('refuses %s', (_case, tpl) => {
+    expect(parseChecklistTemplate(JSON.stringify(tpl), MSG)).toEqual({ ok: false, error: 'needsOne' })
+  })
+})
+
 describe('checklistUploadBlob', () => {
   it('stamps the rail order into the uploaded copy, like admin_checklists._template_bytes', async () => {
     const parsed = parseChecklistTemplate(

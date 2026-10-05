@@ -82,6 +82,11 @@ export interface ShareApi {
   stop: () => void
   /** withdraw the device's permission entirely (Einstellungen). Stops first. */
   revoke: () => void
+  /** change WHO this device reports as, from the Einstellungen, without switching anything on
+   *  (05.10.2026, owner: «have the selected person … be immediately editable»). Picking the name
+   *  is the confirmation for this Einsatz, exactly as in `start`. Already sharing → the old
+   *  name's dot goes and sharing carries on under the new one. */
+  rename: (person: { id: string; displayName: string }) => void
 }
 
 /** A browser with no Geolocation API at all. A fixed capability, not a state the watch moves
@@ -202,6 +207,24 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
     })
   }, [clearRow, persist])
 
+  const rename = useCallback((person: { id: string; displayName: string }) => {
+    if (incidentId && sharingFor === incidentId) {
+      // the row under the OLD name first — clearRow reads the stored pref, which `start` replaces
+      clearRow()
+      start(person)
+      return
+    }
+    const current = loadPrefs().sharePosition
+    persist({
+      ...current,
+      allowed: true,
+      personId: person.id,
+      displayName: person.displayName,
+      deviceId: ensureDeviceId(current),
+      confirmedIncidentId: incidentId ?? undefined,
+    })
+  }, [incidentId, sharingFor, clearRow, start, persist])
+
   useEffect(() => {
     if (!active || !hasGeolocation()) return
     let alive = true
@@ -300,5 +323,5 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
   const state: ShareState = demo
     ? (enabled && sharing && confirmed ? 'on' : 'off')
     : !active ? 'off' : !hasGeolocation() ? 'denied' : watch
-  return { state, ready, confirmed, pref, lastAt, imprecise, start, stop, revoke }
+  return { state, ready, confirmed, pref, lastAt, imprecise, start, stop, revoke, rename }
 }

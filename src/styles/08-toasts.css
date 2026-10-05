@@ -246,6 +246,13 @@
      (the toaster is pointer-events: none) */
   margin: -48px; padding: 48px; }
 .toaster > * { max-width: 100%; }
+/* On the launcher the lane IS the card's column (05.10.2026, owner: «this slight mismatch with
+   sizing» — the boot toast stood 8px from the screen's edges under a card inset 24px). The card
+   is `min(408px, 100%)` centred in `.ip-emptyapp`'s 24px padding (13-incident), so the lane
+   takes the same two edges; a pill narrower than the card still centres inside them. Outranks
+   the phone's bars-width lane (15-mobile · «THE message lane») by specificity, not by order. */
+:root:has(.ip-emptyapp-card) .toaster {
+  left: max(24px, calc(50% - 204px)); right: max(24px, calc(50% - 204px)); }
 /* While the Gebäude stack shows its «+ UG» (and the chip row under it), the lane starts above
    them: at the default fit the pill's top stands ~114px over the canvas foot (Whiteboard ·
    STACK_CHIP_ROW + STACK_VPAD, half the pill outside), and a toast at the 28px baseline lay on it
@@ -321,8 +328,6 @@
    and removes the node .16s later (lib/ui.tsx). Leaving must never make the app wait. */
 .toast.out { opacity: 0; transform: translateY(8px) scale(.96); pointer-events: none;
   transition: opacity .14s var(--ease), transform .14s var(--ease); }
-/* a pill with no action dismisses on a tap (lib/ui.tsx puts `.tap` on exactly those) */
-.toast.tap { cursor: pointer; }
 .toast .i { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
 /* live job as a chain of stages (printJobToast): reached ones keep their tick and step back, the
    running one carries the label, unreached ones stay visible as pips — «what still has to

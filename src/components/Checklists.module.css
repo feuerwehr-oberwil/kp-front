@@ -58,13 +58,9 @@
 .cl-runner-head[data-fit-wrap] { flex-wrap: wrap; }
 .cl-runner-head[data-fit-wrap] > .cl-runner-titles { flex-basis: 100%; }
 .cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
-.cl-overall .cl-bar { width: 96px; flex: none; }
 .cl-runner-head[data-fit-tight] .cl-overall { gap: 6px; }
 .cl-overall-sub { font-size: 12.5px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-.cl-bar { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
-.cl-bar-fill { display: block; height: 100%; background: var(--green); border-radius: 4px;
-  transition: width .25s var(--ease); }
 
 .cl-phase { margin-bottom: 22px; }
 .cl-phase-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
@@ -144,13 +140,9 @@
 /* the subtitle's last fold takes the whole line, not just its words (ChecklistRunner, 30.09.2026) */
 .cl-runner-titles p[data-folded] { display: none; }
 .cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
-.cl-overall .cl-bar { width: 96px; flex: none; }
 .cl-runner-head[data-fit-tight] .cl-overall { gap: 6px; }
 .cl-overall-sub { font-size: 12.5px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-.cl-bar { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
-.cl-bar-fill { display: block; height: 100%; background: var(--green); border-radius: 4px;
-  transition: width .25s var(--ease); }
 
 .cl-phase { margin-bottom: 22px; }
 .cl-phase-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
@@ -358,6 +350,10 @@
     font: 700 14px var(--body); color: var(--ink); }
   .cl-rail-toggle :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
   .cl-rail-toggle-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* the open list's «n/m» rides in this row (ChecklistsView); the runner head's own «n/m
+     erledigt» steps aside so it is said once (05.10.2026, owner: no progress row) */
+  .cl-rail-toggle-prog { flex: none; font: 600 12.5px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .cl-overall { display: none; }
   /* the open Stichwort's category, as a quiet word beside its title (ChecklistsView): the dot the
      rail's rows carry, then the word — ink-dim on the soft fill, the small shape's corner. The
      colour stays in the dot, as everywhere (a tone is a glyph's colour, never a fill). */
@@ -400,8 +396,9 @@
      (30.09.2026, owner on «Aktions-Checkliste Fü… 0%»: «what is this». The subtitle stood here,
      cut to a word and a half where the progress began, and read as a row with no name; the
      chooser right above already names the list.) */
-  .cl-runner-titles { display: none; }
-  .cl-overall { flex: 1 1 auto; margin-left: 0; }
-  .cl-overall .cl-bar { flex: 1 1 auto; width: auto; }
+  /* …and since 05.10.2026 not even that (owner: «the checklists don't need a progress indicator.
+     Occupies too much space»): the bar is gone and «n/m» sits in the chooser row, so the row has
+     nothing left to say and goes — the first phase starts right under the chooser. */
+  .cl-runner-head { display: none; }
   .cl-phase-titles h3 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 }

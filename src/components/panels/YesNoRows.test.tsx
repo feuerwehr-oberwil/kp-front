@@ -71,16 +71,35 @@ describe('the Einstellungen yes/no rows', () => {
     <SettingsSheet onClose={() => {}} symbolScale={{ map: 1, board: 1 }} onSymbolScale={() => {}}
       symbolCaptions="auto" onSymbolCaptions={() => {}} railLabels="off" onRailLabels={onRailLabels}
       offlineRadiusM={1000} onOfflineRadius={() => {}} offlineAuto onOfflineAuto={() => {}}
-      keepScreenOn onKeepScreenOn={onKeepScreenOn} themeCoord={null} elView={false} onElView={() => {}}
+      keepScreenOn onKeepScreenOn={onKeepScreenOn} themeCoord={null}
       shareAs={null} onSharePosition={() => {}} />)
 
   it('all read «Aus | An», in that order', () => {
     mount()
-    for (const label of [cp.railLabels, cp.offlineAuto, cp.keepScreenOn, cp.elView, appConfig.copy.sharePosition.settingsLabel]) {
+    for (const label of [cp.railLabels, cp.offlineAuto, cp.keepScreenOn, appConfig.copy.sharePosition.settingsLabel]) {
       expect(pair(label).words, label).toEqual([D.off, D.on])
     }
     expect(pair(cp.keepScreenOn).pressed).toEqual(['false', 'true'])
     expect(pair(cp.railLabels).pressed).toEqual(['true', 'false'])
+  })
+
+  // 05.10.2026: the Führungsansicht is the login's (admin · Benutzer), not a device switch
+  it('offer no Führungsansicht toggle', () => {
+    mount()
+    expect(screen.queryByText('Führungsansicht')).toBeNull()
+  })
+
+  // 05.10.2026: who the device reports as is one tap away — the name is on the button
+  it('show the Standort name as a button that opens the picker', () => {
+    const onChangeShareName = vi.fn()
+    render(
+      <SettingsSheet onClose={() => {}} symbolScale={{ map: 1, board: 1 }} onSymbolScale={() => {}}
+        symbolCaptions="auto" onSymbolCaptions={() => {}} railLabels="off" onRailLabels={() => {}}
+        offlineRadiusM={1000} onOfflineRadius={() => {}} offlineAuto onOfflineAuto={() => {}}
+        keepScreenOn onKeepScreenOn={() => {}} themeCoord={null}
+        shareAs="Muster Felix" onSharePosition={() => {}} onChangeShareName={onChangeShareName} />)
+    fireEvent.click(screen.getByRole('button', { name: /Muster Felix/ }))
+    expect(onChangeShareName).toHaveBeenCalledTimes(1)
   })
 
   it('hand the caller the answer', () => {

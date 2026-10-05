@@ -11,6 +11,7 @@ import { toast } from '../../lib/ui'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { runningOthers } from '../../lib/switcherLists'
 import { SyncGlyph } from '../SyncGlyph'
+import { useOnline } from '../../lib/useOnline'
 import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
@@ -27,7 +28,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -43,6 +44,8 @@ export function IncidentSwitcher({
   onSwitch: (i: IncidentMeta) => void
   /** «Alle Einsätze» — absent for an Einsatz-Link session, which may only ever see its own */
   onHistory?: () => void
+  /** Objektbesuche — set only where the station switched the module on and this is no link session */
+  onObjectVisits?: () => void
   onDivera: () => void
   onDatenquellen: () => void
   /** Einsatzrapport (PDF / Drucken) — absent for an Einsatz-Link session, which may not
@@ -95,6 +98,8 @@ export function IncidentSwitcher({
   // synchronisiert» was a sentence to read for the most boring outcome there is. Offline and
   // failure still get one, because those change what the operator should do next.
   const [syncPhase, setSyncPhase] = useState<'idle' | 'busy' | 'done'>('idle')
+  // offline the button is not drawn at all (see `syncButton`)
+  const online = useOnline()
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (doneTimer.current) clearTimeout(doneTimer.current) }, [])
   const runSyncNow = async () => {
@@ -171,7 +176,7 @@ export function IncidentSwitcher({
   const showIncidents = running.length > 0 || isEditor || !!onHistory || (incidents.length === 0 && !active)
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   /**
-   * «Jetzt synchronisieren» — always offered, not only on offline/error: it forces a push AND an
+   * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
    * immediate pull, the "make everything fresh right now" action when things feel stale. It has
    * to LOOK like it ran, because on an already-synced Einsatz — the normal case — the status
    * says the same thing before and after the tap; so Shell trail runs for the round trip and then
@@ -182,8 +187,11 @@ export function IncidentSwitcher({
    * (which on a phone has no room to spare anyway, see 15-mobile.css), and not down among
    * «Bearbeiten»/«Abschliessen», which are things you do to the Einsatz rather than to the
    * connection. Same place on every screen width.
+   * ⚠️ NOT while offline (owner, 05.10.2026: «pointless when offline»): the tap could only end in
+   * «Immer noch offline», and the queue pushes by itself the moment the link is back. The
+   * «● Offline» chip says why it is gone.
    */
-  const syncButton = (
+  const syncButton = online && (
     <button className={`ip-card-sync sync-${syncPhase}`} disabled={syncPhase === 'busy'}
       aria-busy={syncPhase === 'busy'} onClick={() => { void runSyncNow() }}
       aria-label={cp.syncNow} title={cp.syncNow}>
@@ -365,6 +373,14 @@ export function IncidentSwitcher({
           {/* «App»: device + installation, not this Einsatz. It always has rows — Hilfe is
               unconditional — so the label never heads an empty group the way «Einsätze» can. */}
           <div className="ip-menu-label">{cp.app}</div>
+          {/* Objektbesuche is no Einsatz, so it is not under «Einsätze»: it is the app's other job.
+              Here because a device that always opens its running Einsatz never sees the launcher
+              (staging 03.10.2026). */}
+          {onObjectVisits && (
+            <button className="ip-menu-act" onClick={() => { setOpen(false); onObjectVisits() }}>
+              <Icon id="clipboard" /> {appConfig.copy.objectVisits.launcher}
+            </button>
+          )}
           {onSettings && <button className="ip-menu-act" onClick={onSettings}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
           {active && <button className="ip-menu-act" onClick={onOfflineReadiness}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
           <button className="ip-menu-act" onClick={onHelp}><Icon id="info" /> {appConfig.copy.help.menu}</button>

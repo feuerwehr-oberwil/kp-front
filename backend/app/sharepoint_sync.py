@@ -682,6 +682,22 @@ async def _sync_plans(
         out.status, out.detail = "refused", refusal
         return out
 
+    # Where each object's plans LIVE (`filing_folder`, the Objektbesuche delivery files visits
+    # next to them) — refreshed for every folder this listing holds, not only for changed files:
+    # a folder renamed in SharePoint keeps its object (keyed on the name half) and must move the
+    # filing with it. Objects this pull created follow the listing; any other object only gets a
+    # folder where it has none (a manifest's own `folder` is that pipeline's statement).
+    listed_folders = {file.path.split("/")[0]: identity for file, identity, _ in usable}
+    for raw_folder, identity in listed_folders.items():
+        listed = await db.get(ObjectSite, identity.object_id)
+        folder_nfc = unicodedata.normalize("NFC", raw_folder).strip()
+        if (
+            listed is not None
+            and listed.filing_folder != folder_nfc
+            and (listed.source_note == "SharePoint" or not listed.filing_folder)
+        ):
+            listed.filing_folder = folder_nfc
+
     # What the memo may record: a file this run imported, or one it already had. Anything that
     # fell out below keeps its OLD eTag instead, so the next run tries it again (`_remember`).
     stored: list[RemoteFile] = []
@@ -711,7 +727,7 @@ async def _sync_plans(
             out.skip("not a PDF")
             logger.warning("SharePoint plans: %s is not a PDF — skipped", file.path)
             continue
-        obj = await _object_for(db, identity)
+        obj = await _object_for(db, identity, file.path.split("/")[0])
         await store_plan(
             db,
             obj,
@@ -739,7 +755,7 @@ async def _sync_plans(
     return out
 
 
-async def _object_for(db: AsyncSession, folder: FolderIdentity) -> ObjectSite:
+async def _object_for(db: AsyncSession, folder: FolderIdentity, raw_folder: str | None = None) -> ObjectSite:
     """The Einsatzobjekt a plans folder addresses — created on first sight, never renamed.
 
     ⚠️ The id is `uuid5(OBJECT_KEY_NAMESPACE, folder.key)`, not a fresh UUID, and the key is the
@@ -763,10 +779,18 @@ async def _object_for(db: AsyncSession, folder: FolderIdentity) -> ObjectSite:
     invented into that column here would claim a key some other pipeline's index means to use.
     """
     oid = folder.object_id
+    filing = unicodedata.normalize("NFC", raw_folder).strip() if raw_folder else None
     obj = (await db.execute(select(ObjectSite).where(ObjectSite.id == oid))).scalar_one_or_none()
     if obj is not None:
-        return obj  # named, geocoded or renamed by somebody — the connector creates, it does not curate
-    obj = ObjectSite(id=oid, name=folder.name, address=folder.address, source_note="SharePoint")
+        # named, geocoded or renamed by somebody — the connector creates, it does not curate. The
+        # one thing it fills in is where the plans LIVE (`filing_folder`, read by the Objektbesuche
+        # delivery), and only while nobody has said.
+        if filing and not obj.filing_folder:
+            obj.filing_folder = filing
+        return obj
+    obj = ObjectSite(
+        id=oid, name=folder.name, address=folder.address, source_note="SharePoint", filing_folder=filing or None
+    )
     if folder.address:
         coords = await _coordinates_for(folder.address)
         if coords:
@@ -1012,10 +1036,14 @@ async def _sync_checklists(
             stored.append(file)
             continue
         doc = await _read_json(graph, state, file)
-        if doc is None or doc.get("id") != template_id or not (doc.get("phases") or doc.get("entries")):
+        if (
+            doc is None
+            or doc.get("id") != template_id
+            or not (doc.get("phases") or doc.get("entries") or doc.get("steps"))
+        ):
             out.skip("not a ChecklistTemplate whose id matches its file name")
             logger.warning(
-                "SharePoint checklists: %s is not a ChecklistTemplate with id %r and phases/entries — skipped",
+                "SharePoint checklists: %s is not a ChecklistTemplate with id %r and phases/entries/steps — skipped",
                 file.path,
                 template_id,
             )

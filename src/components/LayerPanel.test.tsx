@@ -83,6 +83,22 @@ describe('LayerPanel · quick-taps', () => {
     expect(onReset).toHaveBeenCalledTimes(1)
   })
 
+  // 05.10.2026 (owner): «ebenen should have an indication when using standard or all on / off»
+  it.each([['standard', 'reset'], ['all', 'showAll'], ['none', 'hideAll']] as const)('draws «%s» as the selected quick-tap', (preset, key) => {
+    render(<LayerPanel layers={[plan]} onToggle={noop} onOpacity={noop}
+      onShowAll={noop} onHideAll={noop} onReset={noop} preset={preset} />)
+    const C = appConfig.copy.layerPanel
+    for (const k of ['showAll', 'hideAll', 'reset'] as const) {
+      expect(screen.getByText(C[k]).getAttribute('aria-pressed')).toBe(String(k === key))
+    }
+  })
+
+  it('selects none of them for a hand-switched set', () => {
+    const { container } = render(<LayerPanel layers={[plan]} onToggle={noop} onOpacity={noop}
+      onShowAll={noop} onHideAll={noop} onReset={noop} preset="custom" />)
+    expect(container.querySelectorAll('.lc-quick [aria-pressed="true"]')).toHaveLength(0)
+  })
+
   it('renders no quick row when the surface offers none (the Plan panel)', () => {
     const { container } = render(<LayerPanel layers={[plan]} onToggle={noop} onOpacity={noop} />)
     expect(container.querySelector('.lc-quick')).toBeNull()

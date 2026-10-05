@@ -1,21 +1,22 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { toast, confirmDialog } from '../../lib/ui'
-import { ApiError } from '../../lib/api'
-import { filterIncidents, historyGroupKey, monthLabel } from '../../lib/historyGroups'
+import { ApiError, isUnverifiable } from '../../lib/api'
+import { useOnline } from '../../lib/useOnline'
+import { filterIncidents, historyGroupKey, historyWhen, monthLabel } from '../../lib/historyGroups'
 import { getLocaleId } from '../../config/copy'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { EmptyState } from '../EmptyState'
 import { SearchField } from '../SearchField'
-import { fillTemplate } from '../../lib/format'
+import { fillTemplate, fmtSpanShort } from '../../lib/format'
 import {
   deleteIncident,
   listIncidents,
   reactivateIncident,
   type IncidentMeta,
 } from '../../lib/incidents'
-import { Modal, fmtWhen } from './_shared'
+import { Modal } from './_shared'
 
 // --- History (Phase 5) --------------------------------------------------------------
 // All incidents in one list — active and archived together, so you can switch to any of them.
@@ -34,6 +35,8 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
   onArchive?: (id: string) => Promise<void>
 }) {
   const [items, setItems] = useState<IncidentMeta[]>([])
+  // a HINT, not a gate (lib/useOnline): the buttons stay, the line says what they need
+  const online = useOnline()
   const reload = () => { void listIncidents().then(setItems).catch(() => setItems([])) }
   useEffect(reload, [])
   // reactivate is as deliberate as archive (its mirror confirm): the dialog also teaches
@@ -47,7 +50,14 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
       cancelLabel: appConfig.copy.cancel,
     })
     if (!ok) return
-    await reactivateIncident(id)
+    // ⚠️ caught: an offline reopen used to be an unhandled rejection and no word at all
+    try {
+      await reactivateIncident(id)
+    } catch (e) {
+      toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
+        : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+      return
+    }
     onOpen(id, false)
   }
   const archive = async (id: string) => { await onArchive?.(id); reload() }
@@ -84,6 +94,18 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
   const now = new Date()
   const groupTitle = (key: string) =>
     key === 'open' ? h.groupOpen : key === 'today' ? h.groupToday : key === 'week' ? h.groupWeek : monthLabel(key, getLocaleId())
+  // «Mo., 05.10. · 12:24–13:47 · 1 h 23», a running one «Mo., 05.10. · seit 14:00 · 32 min» —
+  // the day and the span lead the row's second line, the address follows on its own
+  const whenOf = (i: IncidentMeta): string | null => {
+    const w = historyWhen(i, now, getLocaleId())
+    if (!w) return null
+    const span = i.is_archived
+      ? (w.end ? `${w.start}–${w.endDay ? `${w.endDay} ` : ''}${w.end}` : w.start)
+      : fillTemplate(h.since, { t: w.start })
+    // each piece holds together («55 min» never splits over two lines); the row breaks between them
+    return [w.day, span, w.durationMs != null ? fmtSpanShort(w.durationMs) : null]
+      .filter((x): x is string => !!x).map((x) => x.replace(/ /g, '\u00a0')).join(' · ')
+  }
   const rows = shown.map((i, idx) => {
     const key = historyGroupKey(i, now)
     const prev = idx > 0 ? historyGroupKey(shown[idx - 1], now) : null
@@ -92,6 +114,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
   return (
     <Modal title={h.title} onClose={onClose} wide>
       {sorted.length === 0 && <EmptyState icon="history" title={h.empty} sub={h.emptySub} />}
+      {!online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="warn" /> {h.offlineNote}</p>}
       {sorted.length > 0 && (
         <SearchField value={query} onChange={setQuery} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
       )}
@@ -107,7 +130,8 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
                   {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
                   {i.is_archived && <span className="ip-badge ip-badge-arch">{h.statusArchived}</span>}
                 </div>
-                <div className="ip-hist-sub">{shortAddress(i.address) ?? h.noLocation} · {fmtWhen(i.started_at)}</div>
+                {whenOf(i) && <div className="ip-hist-when">{whenOf(i)}</div>}
+                <div className="ip-hist-sub">{shortAddress(i.address) ?? h.noLocation}</div>
               </button>
               {/* «Wieder öffnen» is the lifecycle too (PATCH is_archived, editor-only on the
                   server) — gated with «Abschliessen», or an el/viewer got a confirm and a 403 */}

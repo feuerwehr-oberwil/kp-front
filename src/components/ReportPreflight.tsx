@@ -808,6 +808,8 @@ export function ReportPreflight({
   // This is a read during render, not a ticking clock — nothing schedules a re-render, so the
   // battery footgun the frozen `nowRef` exists for is not reintroduced. The hint is re-evaluated
   // whenever anything on the form moves, which is precisely when it can change.
+  // one render clock for the Zeiten checks and the day columns below (lib/zeitplanFormat · incidentDays)
+  const renderNow = Date.now()
   const issues = zeitIssues(
     {
       alarmiertAt: alarmiert,
@@ -815,7 +817,7 @@ export function ReportPreflight({
       endedAt: dtLocalToIso(endedAt),
       rueckmeldungAt: rueckIso,
     },
-    Date.now(),
+    renderNow,
   )
   const issueFor = (kind: ZeitKind) => {
     const i = issues.find((x) => x.kind === kind)
@@ -1912,8 +1914,8 @@ export function ReportPreflight({
                     details-modal count control. over-object carries the fresh values (state set in the
                     same tick is stale). Empty = null: the value reads «–», not «0» (29.09.2026 — «0»
                     above «Keine» said «nobody» for an unanswered field, the very ambiguity «Keine»
-                    removes), and the ✕ is there only once there IS a value to clear (a column of
-                    greyed ✕ beside two empty steppers said nothing).
+                    removes). The ✕ stays visible, disabled while empty, so entering or clearing a
+                    count never moves the buttons.
                     `readOnly` while «Keine» is active (below): both fields are already empty when
                     that answer is given, and an enabled stepper let a tap edge one of them off zero
                     while still showing «niemand gerettet» — the same contradiction «Entfällt» guards
@@ -1925,14 +1927,14 @@ export function ReportPreflight({
                     <Stepper value={numOrU(geretteteP) ?? null} min={0} max={999} seed={1} ariaLabel={P.gerettetePersonen}
                       readOnly={meta.geretteteNone}
                       onChange={(v) => { setGeretteteP(String(v)); persist(geretteteOver(String(v), geretteteT)) }}
-                      onClear={geretteteP !== '' ? () => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) } : undefined} canClear />
+                      onClear={() => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) }} canClear={geretteteP !== ''} />
                   </div>
                   <div className="rz-count" data-sync="geretteteT">
                     <span>{P.geretteteTiere}</span>
                     <Stepper value={numOrU(geretteteT) ?? null} min={0} max={999} seed={1} ariaLabel={P.geretteteTiere}
                       readOnly={meta.geretteteNone}
                       onChange={(v) => { setGeretteteT(String(v)); persist(geretteteOver(geretteteP, String(v))) }}
-                      onClear={geretteteT !== '' ? () => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) } : undefined} canClear />
+                      onClear={() => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) }} canClear={geretteteT !== ''} />
                   </div>
                 </div>
                 {/* ⚠️ «Keine» — the answer an empty pair of steppers could not give (04.09.,
@@ -2005,6 +2007,7 @@ export function ReportPreflight({
                 <span>{A.ausgerueckt}</span>
                 <div className="report-meta-end dtrow">
                   <DateTimeField ariaLabel={A.ausgerueckt} value={dtLocalToIso(ausgerueckt)}
+                    days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                     onCommit={(iso) => { setAusgerueckt(dtLocalValue(iso ?? undefined)); persist({ ausgeruecktAt: iso ?? undefined }) }} />
                 </div>
                 {zeitWarn('ausgerueckt')}
@@ -2025,7 +2028,7 @@ export function ReportPreflight({
               // 23:50 and is still being written at 00:30 — the ordinary night Einsatz — then
               // offered only the day before, so a clock typed after midnight could not be put on
               // the day it actually happened.
-              const zeitDays = incidentDays(meta.startedAt ?? incident.started_at, Date.now())
+              const zeitDays = incidentDays(meta.startedAt ?? incident.started_at, renderNow)
               const onGruppe = (id: string, hhmm: string, day?: Date) => {
                 const iso = zeitFromClock(incident.started_at, hhmm, day)
                 const next = setGruppeZeit(gruppen, id, iso)
@@ -2120,6 +2123,7 @@ export function ReportPreflight({
                 <span>{P.incidentEndLabel}</span>
                 <div className="report-meta-end dtrow">
                   <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
+                    days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                     onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
                   <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
                 </div>
@@ -2200,6 +2204,7 @@ export function ReportPreflight({
                         because the ordinary case is that the call has just been made. */}
                     <div className="report-meta-end dtrow">
                       <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt}
+                        days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                         onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
                       <button type="button" className="ip-btn"
                         onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>

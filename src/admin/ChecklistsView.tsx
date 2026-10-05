@@ -7,6 +7,7 @@ import { fillTemplate } from '../lib/format'
 import { downloadBlob } from '../lib/download'
 import genericAction from '../data/checklists/generic-action.json'
 import genericReference from '../data/checklists/generic-reference.json'
+import genericManual from '../data/checklists/generic-manual.json'
 import type { ReferenceDataset } from '../lib/incidents'
 import { Card, EmptyState, Field, Table, fmtDate } from './ui'
 import { PlanSourceBadge } from './ObjectSheet'
@@ -51,11 +52,12 @@ type Async<T> = { kind: 'loading' } | { kind: 'ok'; data: T } | { kind: 'error' 
  * `phases[].items[]` and a reference one `entries[].content[]`, and somebody who downloads the
  * tick-list to write a Merkblatt learns that only from the upload's refusal.
  */
-function downloadExample(kind: 'action' | 'reference'): void {
-  const doc = kind === 'action' ? genericAction : genericReference
+function downloadExample(kind: 'action' | 'reference' | 'manual'): void {
+  // the third shape (05.10.2026): an Anleitung — `steps[]` for one `device`, read and never ticked
+  const doc = kind === 'action' ? genericAction : kind === 'manual' ? genericManual : genericReference
   downloadBlob(
     new Blob([`${JSON.stringify(doc, null, 2)}\n`], { type: 'application/json' }),
-    `checklisten-vorlage-${kind === 'action' ? 'aufgaben' : 'nachschlagen'}.json`,
+    `checklisten-vorlage-${kind === 'action' ? 'aufgaben' : kind === 'manual' ? 'anleitung' : 'nachschlagen'}.json`,
   )
 }
 
@@ -143,6 +145,9 @@ export function ChecklistsView() {
             </button>
             <button type="button" className="btn adm-int-btn" onClick={() => downloadExample('reference')}>
               {fillTemplate(C.exampleDownloadKind, { kind: C.kindReference })}
+            </button>
+            <button type="button" className="btn adm-int-btn" onClick={() => downloadExample('manual')}>
+              {fillTemplate(C.exampleDownloadKind, { kind: C.kindManual })}
             </button>
             <button type="button" className="btn adm-save-btn" onClick={() => setUploading(true)}>
               {C.upload}
@@ -393,9 +398,10 @@ function UploadSheet({ existing, onClose, onDone }: {
   )
 }
 
-const kindLabel = (kind: 'action' | 'rapport' | 'reference'): string => {
+const kindLabel = (kind: 'action' | 'rapport' | 'reference' | 'manual' | 'visit'): string => {
   const C = appConfig.copy.admin.checklists
-  return kind === 'action' ? C.kindAction : kind === 'rapport' ? C.kindRapport : C.kindReference
+  return kind === 'action' ? C.kindAction : kind === 'rapport' ? C.kindRapport : kind === 'visit' ? C.kindVisit
+    : kind === 'manual' ? C.kindManual : C.kindReference
 }
 
 // ─── diagram assets ────────────────────────────────────────────────────────────

@@ -31,6 +31,27 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Objektbesuche: change the checklist of a draft, read the plans in the app.** The visit's ⋯
+  menu gets «Checkliste wechseln»: answers that also exist in the new checklist stay, the rest
+  are named before they are dropped, photos always stay. A plan from the «Pläne» card now opens
+  in the app's own reader (tabs for the object's other sheets, «‹» or the back gesture returns to
+  the visit). Opened from inside an Einsatz, the Übersicht offers the Einsatz's object first
+  («Im Einsatz»). The «Foto hinzufügen» tile got its padding. *No action needed.*
+- **Objektbesuche: the object's plans on the visit.** A «Pläne» card above the checklist lists the
+  object's Modul-PDFs (station code and title, in module order); a tap opens the sheet. It reads
+  the object through the offline cache, so a visit opened without a signal still lists them. No
+  card for an object without plans. *No action needed.*
+- **Objektbesuche: visit an object without an Einsatz, offline** (module `objectVisits`, off by
+  default). A member opens «Objektbesuche» from the launcher, picks an object from a work list,
+  the search or «In der Nähe», answers a station checklist of the new kind `visit` (OK / Mangel /
+  n. a., Ja/Nein, Text, Zahl, Auswahl, Foto), writes Bemerkungen, takes photos and records
+  Korrekturvorschläge, which KP Front never applies. Everything is saved on the device first and
+  sent at save points; the server keeps every revision and the photos (backup-covered) and
+  renders a PDF report. Optional one-way filing to SharePoint through a separate write
+  credential (`sharepoint_export_*`) and a durable outbox; the SharePoint importer stays
+  read-only. An outside organizer (e.g. fwo-admin) can upsert objects and work lists and read a
+  change feed with its own key. Contract: [`docs/object-visits.md`](docs/object-visits.md).
+
 - **The morning after an Einsatz, one command lists what went wrong, even if nobody reported
   it.** `admin_postcheck <incident|latest>` (`just postcheck`) lists the devices that worked the
   incident. Per device it shows their crash reports and render storms, their HTTP errors and 409
@@ -238,6 +259,11 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **«Einsatz abschliessen» lands on the launcher.** Since 25.09. the app stayed on the closed
+  Einsatz read-only, and the next launch then opened the first other open Einsatz. Now the
+  device forgets the closed Einsatz, shows the launcher, and a cold start stays there as well.
+  Only an alarm that comes in after the close opens by itself. The closed Einsatz is still one
+  tap away under «Alle Einsätze», with «Wieder öffnen».
 - **Three devices tapping «Neuer Trupp» at once no longer make three «Trupp 1».** Each device
   drew the next number from its own view of the Einsatz, and the merge rightly kept all three
   records under one number – on the Karte, in the Verlauf and on the Rapport. The merge now

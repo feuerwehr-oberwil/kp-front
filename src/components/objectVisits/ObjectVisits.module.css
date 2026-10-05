@@ -1,0 +1,273 @@
+/* ===== Objektbesuche — the full-screen surface (components/objectVisits) ====================
+   Phone-first (360–430px): one column, the page scrolls, the head stays. On a tablet/desktop the
+   same column is centred at a reading width — a visit is a form, not a map.
+   Built from the app's tokens and shared recipes (.ip-btn, .useg, .ui-search, .form-warn,
+   .ip-badge, .row-go); only layout lives here. */
+
+.page {
+  position: fixed; inset: 0; z-index: var(--z-surface);
+  display: flex; flex-direction: column;
+  background: var(--app-bg); color: var(--ink);
+}
+
+/* ── head: back · titles · actions (the surface head's look: tokens · --head-*) ── */
+.headBar {
+  flex: none; background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge);
+  padding-top: env(safe-area-inset-top);
+}
+.head {
+  width: min(680px, 100%); margin: 0 auto; display: flex; align-items: center; gap: 8px;
+  min-height: calc(var(--tap) + 2 * var(--head-pad-y));
+  padding: var(--head-pad-y) max(10px, env(safe-area-inset-right)) var(--head-pad-y) max(6px, env(safe-area-inset-left));
+}
+.headTitles { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.headTitles h1 { margin: 0; font: var(--head-title); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.headTitles p { margin: 0; font: var(--head-sub); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iconBtn {
+  flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap); padding: 0;
+  border: none; border-radius: var(--r-sm); background: none; color: var(--ink); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.iconBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .iconBtn:hover { background: var(--hover-strong); } }
+.iconBtn :global(.i), .iconBtn svg { width: 20px; height: 20px; }
+
+/* ── the scrolling body ── */
+.body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.col {
+  width: min(680px, 100%); margin: 0 auto; display: flex; flex-direction: column; gap: 10px;
+  padding: 12px max(12px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+/* the foot of a visit (Abschliessen): sticky, the sheet-foot insets */
+.foot {
+  flex: none; background: var(--surface); box-shadow: inset 0 1px 0 var(--glass-edge);
+  padding: 10px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+.footRow { width: min(680px, 100%); margin: 0 auto; display: flex; gap: 10px; }
+.footRow > :global(.ip-btn) { min-height: 50px; justify-content: center; }
+.footRow > :global(.ip-btn.primary) { flex: 1 1 auto; font-weight: 800; }
+
+/* ── section eyebrow + count ── */
+.sec {
+  display: flex; align-items: center; gap: 8px; margin: 10px 4px 0;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
+.count {
+  display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-xs);
+  font: 800 11px var(--body); letter-spacing: 0; background: var(--ink-fill); color: var(--on-accent-ink);
+}
+.secNote { margin: 0 4px; font: 500 12.5px/1.45 var(--body); color: var(--ink-faint); }
+.lead { margin: 4px 4px 0; font: 500 14px/1.45 var(--body); color: var(--ink-dim); }
+
+/* ── cards of rows ── */
+.card {
+  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.cardPad { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; margin: 0;
+  padding: 8px 12px 8px 14px; border: none; background: none; color: var(--ink); text-align: left;
+  font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.row + .row, .row + .rowStatic, .rowStatic + .row, .rowStatic + .rowStatic { box-shadow: inset 0 1px 0 var(--glass-edge); }
+.row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .row:hover:not(:disabled) { background-color: var(--hover); } }
+.row:disabled { opacity: var(--disabled); cursor: default; }
+.rowStatic { composes: row; cursor: default; }
+.rowStatic:active { background-image: none; }
+.rowMain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rowTitle { font: 600 15px var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rowSub { font: 500 12.5px var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rowGlyph { flex: none; width: 18px; height: 18px; color: var(--ink-faint); }
+.chev { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
+.num {
+  flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--r-xs);
+  background: var(--fill-soft); font: 700 12.5px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums;
+}
+.dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--amber); }
+.mono { font: 600 12.5px var(--mono, var(--body)); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.bar { height: 4px; margin-top: 6px; border-radius: 2px; background: var(--fill-soft); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--blue); }
+
+/* ── readiness line ── */
+.ready { display: flex; align-items: center; gap: 8px; margin: 0 4px; font: 600 13px/1.4 var(--body); color: var(--ink-dim); }
+.ready :global(.i), .ready svg { flex: none; width: 16px; height: 16px; color: var(--green-strong); }
+.ready.stale :global(.i), .ready.stale svg { color: var(--amber-strong); }
+
+/* ── a state card (Konflikt, Speicher, Anmeldung, nicht vorbereitet) — the .form-warn recipe,
+   with a title line and its actions on a row of their own ── */
+.msg { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.msgHead { display: flex; align-items: center; gap: 8px; }
+.msgHead > :global(.i), .msgHead > svg { flex: none; width: 16px; height: 16px; color: var(--warn-glyph); }
+.msgTitle { font: 800 13.5px var(--body); color: var(--ink); }
+.msgBody { margin: 0; font: 500 13px/1.45 var(--body); color: var(--ink-dim); }
+.msgActs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.versions { display: grid; gap: 6px; margin: 2px 0; }
+.versions b { display: block; font: 700 12px var(--body); color: var(--ink); }
+.versions span { display: block; font: 500 13px/1.4 var(--body); color: var(--ink-dim); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ── status line ── */
+.status {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; width: 100%; min-height: var(--tap);
+  padding: 6px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
+  font: 600 13px var(--body); color: var(--ink-dim); text-align: left; cursor: pointer;
+}
+.status:active { background-image: linear-gradient(var(--press), var(--press)); }
+.seg { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.seg :global(.i), .seg svg { width: 14px; height: 14px; color: var(--ink-faint); }
+.sep { color: var(--ink-faint); }
+.lcDot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+.lcDot.done { background: var(--green); }
+.lcDot.gone { background: var(--ink-faint); }
+.toneOk { color: var(--green-strong); }
+.toneWarn { color: var(--amber-strong); }
+.toneBad { color: var(--red-strong); }
+.toneOk :global(.i), .toneOk svg { color: var(--green-strong); }
+.toneWarn :global(.i), .toneWarn svg { color: var(--amber-strong); }
+.toneBad :global(.i), .toneBad svg { color: var(--red-strong); }
+.statusRows { display: grid; gap: 12px; }
+.statusRows h3 { margin: 0 0 3px; font: var(--field-label); color: var(--ink-dim); }
+.statusRows p { margin: 0; font: 500 14px/1.45 var(--body); color: var(--ink); }
+
+/* ── checklist rows ── */
+/* no hairlines between questions: the section card separates enough, the air does the rest */
+.ck { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+.ck + .ck { padding-top: 6px; }
+.phase { padding: 10px 14px 0; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+.q { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; font: 600 15px/1.35 var(--body); color: var(--ink); }
+.q :global(.ip-badge) { align-self: center; }
+.wide :global(.useg) { display: flex; width: 100%; flex-wrap: nowrap; }
+.wide :global(.useg-btn) { flex: 1 1 0; min-height: 40px; justify-content: center; font-size: 14px; }
+.wide :global(.useg:has(> :nth-child(5))) { flex-wrap: wrap; }
+.wide :global(.useg:has(> :nth-child(5)) > .useg-btn) { flex: 0 1 auto; }
+.answerRead { font: 700 14px var(--body); color: var(--ink); }
+.answerRead.defect { color: var(--red-strong); }
+.answerRead.open { color: var(--ink-faint); font-weight: 600; }
+.defect { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.defect textarea { width: 100%; }
+.inline { display: flex; align-items: center; gap: 8px; }
+.inline > input { flex: 1 1 auto; min-width: 0; }
+.unit { flex: none; font: 600 14px var(--body); color: var(--ink-dim); }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > span { font: var(--field-label); color: var(--ink-dim); }
+.textarea { min-height: 88px; width: 100%; font-size: 16px; }
+.input { font-size: 16px; }
+
+/* ── photos ── */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; padding: 12px; }
+.tile { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 0; border: none; background: none; color: inherit; text-align: left; cursor: pointer; }
+.thumb {
+  position: relative; display: block; width: 100%; aspect-ratio: 1; border-radius: var(--r-sm); overflow: hidden;
+  background: var(--fill-soft);
+}
+.thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.thumbBadge {
+  position: absolute; right: 4px; top: 4px; display: grid; place-items: center; width: 22px; height: 22px;
+  border-radius: 50%; background: var(--surface); color: var(--amber-strong); box-shadow: var(--shadow-sm);
+}
+.thumbBadge :global(.i), .thumbBadge svg { width: 13px; height: 13px; }
+.cap { font: 600 12.5px/1.3 var(--body); color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.addTile {
+  display: grid; place-items: center; align-content: center; gap: 6px; width: 100%; aspect-ratio: 1; padding: 10px 8px;
+  text-align: center; line-height: 1.25;
+  border: 1.5px dashed var(--border); border-radius: var(--r-sm); background: var(--surface);
+  font: 700 12.5px var(--body); color: var(--ink-dim); cursor: pointer;
+}
+.addTile :global(.i), .addTile svg { width: 20px; height: 20px; }
+.addTile:active { background-image: linear-gradient(var(--press), var(--press)); }
+.linked { display: flex; flex-wrap: wrap; gap: 6px; }
+.linked .thumb { width: 56px; }
+.hiddenInput { display: none; }
+
+/* ── the add button (the ONE «add» look: framed, --tap, ink 14/700) ── */
+.add {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); padding: 0 14px;
+  border: none; background: none; font: 700 14px var(--body); color: var(--ink); cursor: pointer; text-align: left;
+}
+.add :global(.i), .add svg { width: 16px; height: 16px; }
+.add:active { background-image: linear-gradient(var(--press), var(--press)); }
+.rowGlyph + .rowMain .rowTitle { font-weight: 700; }
+/* a plan's full name wraps rather than losing its end — «Modul 2/3 · Zugang & Objekt» (owner, 05.10.2026) */
+.planName { white-space: normal; overflow-wrap: anywhere; }
+
+/* ── a sheet's body bits ── */
+.preview { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--r-sm); overflow: hidden; background: var(--fill-soft); }
+.preview img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.dashed {
+  padding: 11px 12px; border: 1px dashed var(--border); border-radius: var(--r-sm); background: transparent;
+  font: 500 15px var(--body); color: var(--ink);
+}
+.note { margin: 0; font: 500 12.5px/1.45 var(--body); color: var(--ink-faint); }
+.storedOk { display: flex; align-items: center; gap: 8px; font: 600 13px/1.4 var(--body); color: var(--ink-dim); }
+.storedOk :global(.i), .storedOk svg { flex: none; width: 15px; height: 15px; color: var(--green-strong); }
+.select { width: 100%; }
+
+/* ── menu popup (the SurfaceControls recipe) ── */
+.menuPop {
+  min-width: 200px; max-width: min(320px, 92vw);
+  max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
+  padding: var(--bar-pad); border-radius: var(--r-bar);
+  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge);
+}
+.menuItem {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
+  padding: 0 11px; cursor: pointer; font: 600 13.5px var(--body); color: var(--ink); outline: none;
+}
+
+/* ── completed view ── */
+.sumHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sumTitle { font: 700 15px var(--body); }
+.sumText { margin: 0; font: 500 13px/1.5 var(--body); color: var(--ink-dim); }
+.histList { display: flex; flex-direction: column; }
+.loadingLine { display: flex; align-items: center; gap: 8px; margin: 16px 4px; font: 600 13px var(--body); color: var(--ink-dim); }
+
+/* tablet & desktop: a little more air around the column */
+@media (min-width: 720px) {
+  .col { padding-top: 18px; gap: 12px; }
+}
+
+/* «Besucht am»: the shared wheel-picker trigger (TimeField · DateTimeField), drawn as the field it
+   sits under «Von» with — same edge, height, type and left edge (its own --glass-line vanished on
+   the white card) */
+.dateField { display: flex; }
+.dateField :global(.timefield-trigger) {
+  flex: 1 1 auto; min-height: var(--tap); padding: 11px 12px; text-align: left;
+  border-color: var(--glass-edge); font: 500 16px var(--body); font-variant-numeric: tabular-nums;
+}
+
+/* the status as the head's second line (owner, staging 03.10.2026: no separate box) */
+.headStatus {
+  display: flex; align-items: center; gap: 2px 6px; min-width: 0; max-width: 100%; min-height: 24px;
+  margin: 0; padding: 0; border: none; background: none; cursor: pointer; text-align: left;
+  font: 600 12.5px var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden;
+  -webkit-tap-highlight-color: transparent; position: relative;
+}
+/* a 44px hit area around a 24px line */
+.headStatus::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap); transform: translateY(-50%); }
+.headStatus .seg { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.headStatus .seg:last-child { flex: 0 1 auto; }
+/* «Entwurf» / «Abgeschlossen» is the one word that must never be cut («Entwur», iPhone 03.10.2026) */
+.headStatus .seg:first-child { flex: none; }
+/* the filing glyph needs no separator dot: a little air is enough, and it never shrinks away */
+.segIcon { flex: none; margin-left: 4px; }
+.headStatus .segIcon.toneOk :global(.i), .headStatus .segIcon.toneOk svg { color: var(--green); }
+.headStatus .segIcon.toneBad :global(.i), .headStatus .segIcon.toneBad svg { color: var(--red); }
+.place { display: flex; align-items: center; gap: 6px; margin: 0 4px; font: 500 13px/1.4 var(--body); color: var(--ink-dim); }
+.place :global(.i), .place svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
+.field { min-width: 0; }
+
+
+/* ── the plan reader (PlansCard · PlanReader): the visit's head, the sheets as tabs, the PDF ── */
+/* over the visit and over the dialog scrim the Overlay draws under it */
+.reader { z-index: var(--z-dialog); }
+.planTabs {
+  flex: none; background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge);
+  padding: 8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
+  overflow-x: auto;
+}
+.planTabs > * { width: min(680px, 100%); margin: 0 auto; }
+.planBody { position: relative; flex: 1 1 auto; min-height: 0; background: var(--app-bg); }

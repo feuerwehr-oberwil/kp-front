@@ -342,12 +342,12 @@ function ToastAction({ toast: t }: { toast: Toast }) {
  * (03-map.css `* { transition-duration: .001ms !important }`); a reduced-motion viewer sees the
  * same jump to «gone» without the travel, with no separate code path needed here.
  *
- * A tap must still work: a plain toast (no action/steps) dismisses on tap exactly as before —
- * that's still the DOM `onClick`, unchanged, firing after a release the browser judged small
- * enough to count as a tap rather than a swipe. The drag only ever *adds* the sideways follow;
- * it never calls `preventDefault`, so the native click is never swallowed. And the cluster's own
- * buttons stop the drag from arming under them (`onPointerDown` `stopPropagation`) — those keep
- * their own tap and flick untouched, exactly as before this pill-wide swipe existed.
+ * A tap on the pill itself does NOTHING (05.10.2026, owner: «toasts should close on tapping the
+ * close button not the entire toast»). It used to dismiss a plain toast, which threw away a
+ * message the finger only brushed on its way to the map or a bar under it. Only the ✕ closes,
+ * the action button runs its action (and closes), and the swipe stays. The drag never calls
+ * `preventDefault`, and the cluster's own buttons stop the drag from arming under them
+ * (`onPointerDown` `stopPropagation`) — those keep their own tap and flick untouched.
  */
 function ToastRow({ t }: { t: Toast }) {
   const [dx, setDx] = useState(0)
@@ -377,7 +377,7 @@ function ToastRow({ t }: { t: Toast }) {
 
   return (
     <div
-      className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${isFailure(t) ? ' toast-fail' : ''}${t.leaving ? ' out' : ''}${!t.action && !t.steps ? ' tap' : ''}`}
+      className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${isFailure(t) ? ' toast-fail' : ''}${t.leaving ? ' out' : ''}`}
       style={dx ? {
         transform: `translateX(${dx}px)`,
         opacity: flung ? 0 : Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)),
@@ -387,10 +387,6 @@ function ToastRow({ t }: { t: Toast }) {
       onPointerMove={onMove}
       onPointerUp={onUp}
       onPointerCancel={onUp}
-      // a pill with no action had NO way off the screen but waiting, while still eating
-      // the taps aimed underneath it — plain toasts dismiss on a tap. Action pills keep
-      // their own controls (button + flick), live step toasts stay until their job ends.
-      onClick={!t.action && !t.steps ? () => dismissToast(t.id) : undefined}
     >
       {t.steps ? <ToastSteps steps={t.steps} text={t.text} /> : (
         <>

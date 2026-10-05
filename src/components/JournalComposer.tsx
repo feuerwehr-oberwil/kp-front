@@ -186,7 +186,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   onClearNote?: () => void
   /** every still-open Pendenz, so an entry being written can be attached to one without leaving
    *  this sheet. Absent/empty ⇒ nothing is offered and the row behaves exactly as before. */
-  openPendenzen?: { id: string; text: string; urgent?: boolean }[]
+  /** `createdAt` breaks a tie between two items the sentence names equally well (lib/reminders ·
+   *  suggestPendenzen) — without it the composer threw mid-sentence (05.10.2026) */
+  openPendenzen?: Pick<OpenReminder, 'id' | 'text' | 'urgent' | 'createdAt'>[]
   /** attach the entry being written to one of them (the workspace owns `noteOn`) */
   onLinkPendenz?: (p: { id: string; text: string }) => void
   /** this incident's own rows, for the chips offered while the field is still empty (see
@@ -305,7 +307,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // …and the open Pendenzen this sentence already names. Offered only while writing an ordinary
   // entry: once it IS a Meldung the question is answered.
   const pendenzHits = useMemo(
-    () => (noteOn ? [] : suggestPendenzen(text, openPendenzen as OpenReminder[])),
+    () => (noteOn ? [] : suggestPendenzen(text, openPendenzen)),
     [text, openPendenzen, noteOn],
   )
   const canLink = openPendenzen.length > 0 && !!onLinkPendenz

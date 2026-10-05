@@ -39,11 +39,16 @@ const ts = (iso: string): number => {
  * schliessen» on the boundary card the poisoned Einsatz used to come straight back on the next
  * launch whenever it was the only open one, so the escape led back into the crash. `crash` is
  * injectable for tests and defaults to the device's own record.
+ *
+ * `landedAt` (lib/prefs) — the operator closed an Einsatz here and was put on the launcher. With
+ * no remembered Einsatz the boot then stays there instead of falling back to the first open one;
+ * only a fresh alarm that arrived after the close opens by itself (05.10.2026: after every
+ * Abschluss the next launch stood inside another open Einsatz).
  */
 export function pickBootIncident(
   list: IncidentMeta[],
   savedId: string | null | undefined,
-  opts: { now: number; chosenAt?: number; crash?: CrashRecord | null } = { now: Date.now() },
+  opts: { now: number; chosenAt?: number; landedAt?: number; crash?: CrashRecord | null } = { now: Date.now() },
 ): IncidentMeta | undefined {
   const crash = opts.crash === undefined ? readCrash() : opts.crash
   const open = list.filter((i) => !i.is_archived && !isLooping(crash, i.id, opts.now))
@@ -51,6 +56,12 @@ export function pickBootIncident(
   const newestAlarm = open
     .filter(isAlarmCreated)
     .reduce<IncidentMeta | undefined>((best, i) => (!best || ts(i.started_at) > ts(best.started_at) ? i : best), undefined)
+  if (opts.landedAt != null && !saved) {
+    const fresh = newestAlarm != null
+      && opts.now - ts(newestAlarm.started_at) < INCIDENT_ALERT_MAX_AGE_MS
+      && ts(newestAlarm.started_at) > opts.landedAt
+    return fresh ? newestAlarm : undefined
+  }
   const overrides = newestAlarm != null
     && opts.now - ts(newestAlarm.started_at) < INCIDENT_ALERT_MAX_AGE_MS
     && (opts.chosenAt == null || ts(newestAlarm.started_at) > opts.chosenAt)

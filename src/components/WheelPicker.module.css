@@ -37,7 +37,7 @@
    wheels they replace. */
 .tabs { display: flex; gap: 6px; margin: 0 0 8px; }
 .tab {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px;
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px;
   padding: 0 10px; border-radius: var(--r-sm); cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--blue) 38%, transparent);
   background: color-mix(in srgb, var(--blue) 10%, transparent);
@@ -51,12 +51,8 @@
 .tabOn { background: var(--sel); border-color: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 .green.tabOn { background: var(--green); border-color: var(--green); color: var(--on-fill); }
 
-/* desktop: the typed field and the day, side by side — one control per value.
-   With a full date it wraps: Tag · Monat · Jahr on their own line under the clock, so three
-   selects and a time field don't squeeze each other into unreadable slivers. */
+/* desktop: the typed field and the day, side by side — one control per value. */
 .typedRow { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
-.dateRow { display: flex; gap: 6px; width: 100%; }
-.dateRow .daySel { flex: 1 1 0; min-width: 0; }
 .daySel {
   flex: none; min-height: 44px; padding: 0 8px; border-radius: var(--r-sm);
   border: 1px solid var(--glass-edge); background: var(--fill-soft); color: var(--ink);
@@ -70,7 +66,7 @@
    asks, so they belong inside it — and the row is then the same shape for every field that has
    one, instead of every row in the sheet being a different width. */
 .shortcut {
-  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px;
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
   margin: 0 0 8px; padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--blue) 38%, transparent);
   border-radius: var(--r-sm);
@@ -95,3 +91,5 @@
 
 /* A NAMED clear, replacing the bin glyph. Emptying a «bis» does not delete anything — it says the
    person is still here — and a bin said the opposite of what it did. */
+
+.error { margin: 8px 0; color: var(--red-strong); font-size: 13px; line-height: 1.4; }
