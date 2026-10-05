@@ -6,7 +6,7 @@ import { IconSprite, Icon } from './lib/icons'
 import { demoSeedRebase, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig } from './lib/deploymentConfig'
-import { isOvPath, navigateTo, OV_BASE, showsObjectVisits, useOvRoute } from './objectVisits/route'
+import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, showsObjectVisits, useOvRoute } from './objectVisits/route'
 import { startOutboxRunner } from './objectVisits/outbox'
 import { fillTemplate, initials, roleLabel } from './lib/format'
 import { Overlays, toast, confirmDialog } from './lib/ui'
@@ -173,8 +173,9 @@ export default function App() {
   const enterObjectVisits = useCallback((objectId: string | null = null) => {
     setOvSuggest(objectId); setOvEntered(true); navigateTo(OV_BASE)
   }, [])
-  // leaving REPLACES the entry: a later back gesture does not walk into the surface again
-  const leaveObjectVisits = useCallback(() => { setOvEntered(false); navigateTo('/', { replace: true }) }, [])
+  // leaving walks BACK over the surface's own entries (route · leaveAppEntries): nothing stays
+  // behind the Karte / the launcher for an iOS edge swipe to find (05.10.2026)
+  const leaveObjectVisits = useCallback(() => { setOvEntered(false); leaveAppEntries('/') }, [])
   // left by the browser's own back: the entry is spent (React's «adjust state while rendering»)
   if (!ovRoute && ovEntered) setOvEntered(false)
   // a back gesture onto /besuche over a running Einsatz: the Einsatz stays, and so does its address
