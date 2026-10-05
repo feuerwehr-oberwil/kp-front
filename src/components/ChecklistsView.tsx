@@ -1,5 +1,5 @@
 import { LoadingStatus } from './ShellLoader'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import type { ChecklistState, ChecklistTemplate, Item, TemplateState } from '../lib/checklists'
 import { allEntries, warmTemplates, matchDiveraEntries, searchEntries, templateProgress } from '../lib/checklists'
@@ -15,12 +15,40 @@ import s from './Checklists.module.css'
 
 const EMPTY_STATE: TemplateState = { ticks: {}, activeBranch: {} }
 
+/* Where each list was left (05.10.2026, owner: «remember the checklist scroll position on closing
+   an open checklist»). Per Einsatz and per list — the open checklist's pane and the picker each
+   keep their own offset, so closing a list onto the picker and opening it again lands both where
+   the reader was. In memory only: it is a reading position for this session, not a record; a
+   reload starts at the top. Module scope because the surface unmounts whenever another tab is
+   shown (IncidentWorkspace · mode). */
+const scrollMemory = new Map<string, number>()
+/** the scroller's offset under `key`: restored when the key (or the element) appears, saved on
+ *  every scroll. The returned ref goes on the element that scrolls. */
+function useRememberedScroll<T extends HTMLElement>(key: string | null) {
+  const ref = useRef<T>(null)
+  // what was last restored: only a NEW element or a NEW key puts the offset back — a tick
+  // re-renders the pane and must not jump it
+  const restored = useRef<{ node: T | null; key: string | null }>({ node: null, key: null })
+  useLayoutEffect(() => {
+    const node = ref.current
+    if (!node || key === null) return
+    if (restored.current.node !== node || restored.current.key !== key) {
+      node.scrollTop = scrollMemory.get(key) ?? 0
+      restored.current = { node, key }
+    }
+    const save = () => scrollMemory.set(key, node.scrollTop)
+    node.addEventListener('scroll', save, { passive: true })
+    return () => node.removeEventListener('scroll', save)
+  })
+  return ref
+}
+
 // The Checkliste surface: a left rail with the action checklists (FU, Lagerapport) and —
 // directly below, not behind a tab — the searchable EL tactical Stichworte. The main pane
 // renders the selection: an action checklist runs as a checkable phase list; a Stichwort
 // opens its reading view (with inline diagrams). Ticking/branch are lifted to App.
 export function ChecklistsView({
-  checklists, canTick, divera, onTick, onBranch, onAction, offersAction,
+  checklists, canTick, divera, onTick, onBranch, onAction, offersAction, scrollKey = '',
 }: {
   checklists: ChecklistState
   canTick: boolean
@@ -29,6 +57,9 @@ export function ChecklistsView({
   onBranch: (templateId: string, phaseId: string, branchId: string) => void
   onAction: (item: Item, a: NonNullable<Item['action']>) => void
   offersAction?: (a: NonNullable<Item['action']>) => boolean
+  /** whose reading positions these are — the Einsatz id; each list's scroll offset is kept
+   *  under it (scrollMemory above) */
+  scrollKey?: string
 }) {
   const CL = appConfig.copy.checklists
   // Templates are fetched from the reference registry (offline-cached, bundled fallback) — async,
@@ -92,6 +123,9 @@ export function ChecklistsView({
   const activeEntryTemplateId =
     sel?.kind === 'entry' ? templates.find((t) => (t.entries ?? []).some((e) => e.id === sel.id))?.id ?? null : null
 
+  const railRef = useRememberedScroll<HTMLElement>(`${scrollKey}|rail`)
+  const mainRef = useRememberedScroll<HTMLElement>(sel ? `${scrollKey}|${sel.kind}:${sel.id}` : null)
+
   if (ready && !templates.length) {
     return (
       <div className={s['cl-surface']}>
@@ -133,7 +167,7 @@ export function ChecklistsView({
           <Icon id="chevron-down" />
         </button>
       ) : (
-      <nav className={cx(s['cl-rail'], railNarrow && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
+      <nav ref={railRef} className={cx(s['cl-rail'], railNarrow && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
         <SearchField className={s['cl-rail-search']} value={query} onChange={setQuery} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
         {/* ⚠️ ALL matches, not the best one (31.08.). «VU Strasse» is Verkehrsunfall AND
             E-Autobrand AND Ölspur — which of them this Einsatz is cannot be read off the
@@ -198,7 +232,7 @@ export function ChecklistsView({
       {/* #4: on a phone, while the list is open show ONLY the list (no small preview underneath).
           Opening an item collapses the list to the toggle row and gives the checklist the screen. */}
       {!(railNarrow && railOpen) && (
-        <main className={s['cl-main']}>
+        <main ref={mainRef} className={s['cl-main']}>
           {activeTemplate ? (
             <ChecklistRunner
               template={activeTemplate}
