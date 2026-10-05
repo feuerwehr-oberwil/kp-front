@@ -8,6 +8,7 @@
 import { useRef, useState } from 'react'
 import { WheelPopover, type WheelValue } from './WheelPicker'
 import { hhmm, pad2 } from '../lib/format'
+import { dayRange, RECENT_DAYS } from '../lib/zeitplanFormat'
 
 /** '0715' | '7:15' | '19.30' → 'HH:MM' (24h), or null when not parseable/empty. */
 export function parseHHMM(raw: string): string | null {
@@ -121,15 +122,28 @@ export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowL
   )
 }
 
-/** Date + time variant — a day/month/year selector beside the clock, on every device.
- *  Emits ISO. */
-export function DateTimeField({ value, onCommit, disabled, ariaLabel, className, required }: {
+/**
+ * Date + time — THE date-time control (05.10.2026). Same popover as TimeField: a bounded day
+ * column («Mo 05.10.») beside the hour/minute wheels, «Jetzt» and «OK». Emits ISO.
+ *
+ * It used to open day/month/year wheels instead, so the Rapport asked for the same Einsatzende
+ * as «TT · MM · JJJJ» on one screen and as «Mo 05.10.» on the phone's capture view (owner,
+ * 05.10.2026: «some input fields use full ymd input while others use preselected days»).
+ *
+ * `days` = the days on offer, normally the incident's own (`incidentDays`). Omitted: the last
+ * RECENT_DAYS days up to today. The value's own day is always added, so a stamp outside the list
+ * still opens on itself instead of silently moving. With a single day no column shows — the
+ * trigger still reads the full date.
+ */
+export function DateTimeField({ value, onCommit, disabled, ariaLabel, className, days, required }: {
   /** ISO datetime ('' /undefined = unset) */
   value?: string
   onCommit: (iso: string | null) => void
   disabled?: boolean
   ariaLabel: string
   className?: string
+  /** the selectable days (see above); default: the last RECENT_DAYS days through today */
+  days?: Date[]
   /** a value that must always be there (a visit's «Besucht am»): the picker offers no «Leeren» */
   required?: boolean
 }) {
@@ -140,14 +154,16 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className,
   const display = valid
     ? `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()} ${hhmm(d)}`
     : ''
+  const offered = () => {
+    const now = new Date()
+    const base = days && days.length ? days : dayRange(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (RECENT_DAYS - 1)), now)
+    // the day the wheels open on is always in the list — else the column shows one day and OK
+    // commits another. WheelPopover de-duplicates and sorts.
+    return [...base, valid ? d : now]
+  }
 
   return (
     <span className={`timefield${className ? ` ${className}` : ''}`}>
-      {/* ONE way in, on every device — the same decision TimeField made. The desktop used to get
-          a bare `TT.MM.JJJJ HH:MM` text box: date and time typed together as one string, where a
-          mistyped year reads exactly like a correct one and nothing offers the day you almost
-          certainly mean. The popover asks the two separately — a day/month/year selector and a
-          clock — and still takes typing, inside, next to those choices. */}
       <button
         type="button" ref={btnRef} className={`timefield-trigger dt${valid ? '' : ' empty'}`}
         disabled={disabled} aria-label={ariaLabel} onClick={() => setOpen(true)}
@@ -158,7 +174,7 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className,
         <WheelPopover
           anchor={btnRef.current.getBoundingClientRect()}
           initial={valid ? d : new Date()}
-          withDate
+          days={offered()}
           onClose={() => setOpen(false)}
           onCommit={(v: WheelValue) => {
             setOpen(false)

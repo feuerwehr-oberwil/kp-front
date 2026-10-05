@@ -906,14 +906,19 @@
 /* floating way back to the Rapport sheet after a checklist row navigated away.
    ⚠️ A piece of the floating family since 26.09.2026 (01-tokens · --float-*): it was a filled
    primary capsule of its own height and shadow, the one pill-shaped rectangle left in the app. */
+/* «Zurück zum Rapport» — a FILLED primary pill, not the glass float it was until 05.10.2026: a
+   white chip over a list of white cards read as one more row («make the zurück zum Rapport button
+   more obvious», owner). It is the one way back to the task the operator came from, so it wears
+   the app's primary fill (like OK / Übernehmen) and leads with a back chevron. */
 .rp-return { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
   z-index: var(--z-topbar); display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box;
-  min-height: var(--float-h); padding: 0 var(--float-pad-x);
-  border: none; border-radius: var(--r-sm); color: var(--ink);
-  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
-  font: 700 12.5px var(--body); cursor: pointer; }
+  min-height: var(--float-h); padding: 0 calc(var(--float-pad-x) + 4px) 0 var(--float-pad-x);
+  border: none; border-radius: var(--r-sm); color: var(--on-btn-primary);
+  background: var(--btn-primary);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--ink) 28%, transparent);
+  font: 700 14px var(--body); cursor: pointer; white-space: nowrap; }
 .rp-return:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.rp-return svg { width: 16px; height: 16px; color: var(--blue); }
+.rp-return svg { width: 18px; height: 18px; color: currentColor; flex: none; }
 
 /* --- Standing links: the WAITING screen (/terminal · /l/s…) ---------------------------- */
 /* «Bereitschaft» (Entwurf B, maintainer pick 09.09.) — see src/link/StandingApp · IdleScreen
@@ -1302,14 +1307,20 @@
      NOT on yet is the entire job of this popover. */
   font: 600 15px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .wheel-item.on { color: var(--ink); font-weight: 750; }
+/* the day column: the widest label, so the widest column — and ONE line, always. It used to share
+   flex:1 with hour and minute, and «Mo. 05.10.» wrapped into two lines that clipped under the
+   band on a phone (owner, 05.10.2026). Hour/minute rows stay full-width 44px targets. */
+.wheel.wheel-day { flex: 1.6 1 0; min-width: 0; }
+.wheel-day .wheel-item { white-space: nowrap; font-size: 14px; }
 .wheelpop-sep { width: 1px; background: var(--glass-line); margin: 28px 2px; }
 /* the SELECTION band of the time wheel — --blue for the same reason as .combo-toggle.on above:
    it marks what is chosen, and brand red does not mean «chosen» anywhere else in the app */
 .wheelpop-band { position: absolute; left: 0; right: 0; top: 88px; height: 44px;
   pointer-events: none; border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--blue) 10%, transparent);
-  border-top: 1px solid color-mix(in srgb, var(--blue) 40%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--blue) 40%, transparent); }
+  /* all four sides: with top/bottom only, the rounded ends showed two lines fading into
+     nothing at the left and right — «the border on the side isn't showing» (owner, 05.10.2026) */
+  border: 1px solid color-mix(in srgb, var(--blue) 40%, transparent); }
 .wheelpop-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 10px; }
 .wheelpop-actions .wheelpop-btn.clear { margin-right: auto; }
 .wheelpop-btn { min-height: 44px; padding: 6px 12px; border-radius: var(--r-sm);

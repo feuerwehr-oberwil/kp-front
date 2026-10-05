@@ -2758,8 +2758,6 @@ export const en: Localizable<Copy> = {
   wheel: {
     invalidTime: 'Enter a valid time (00:00–23:59).',
     day: 'Day',
-    month: 'Month',
-    year: 'Year',
     hour: 'Hour',
     minute: 'Minute',
     now: 'Now',

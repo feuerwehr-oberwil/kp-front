@@ -2755,8 +2755,6 @@ export const fr: Localizable<Copy> = {
   wheel: {
     invalidTime: 'Saisir une heure valide (00:00–23:59).',
     day: 'Jour',
-    month: 'Mois',
-    year: 'Année',
     hour: 'Heure',
     minute: 'Minute',
     now: 'Maintenant',
