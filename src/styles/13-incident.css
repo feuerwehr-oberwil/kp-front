@@ -895,14 +895,19 @@
 /* floating way back to the Rapport sheet after a checklist row navigated away.
    ⚠️ A piece of the floating family since 26.09.2026 (01-tokens · --float-*): it was a filled
    primary capsule of its own height and shadow, the one pill-shaped rectangle left in the app. */
+/* «Zurück zum Rapport» — a FILLED primary pill, not the glass float it was until 05.10.2026: a
+   white chip over a list of white cards read as one more row («make the zurück zum Rapport button
+   more obvious», owner). It is the one way back to the task the operator came from, so it wears
+   the app's primary fill (like OK / Übernehmen) and leads with a back chevron. */
 .rp-return { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
   z-index: var(--z-topbar); display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box;
-  min-height: var(--float-h); padding: 0 var(--float-pad-x);
-  border: none; border-radius: var(--r-sm); color: var(--ink);
-  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
-  font: 700 12.5px var(--body); cursor: pointer; }
+  min-height: var(--float-h); padding: 0 calc(var(--float-pad-x) + 4px) 0 var(--float-pad-x);
+  border: none; border-radius: var(--r-sm); color: var(--on-btn-primary);
+  background: var(--btn-primary);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--ink) 28%, transparent);
+  font: 700 14px var(--body); cursor: pointer; white-space: nowrap; }
 .rp-return:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.rp-return svg { width: 16px; height: 16px; color: var(--blue); }
+.rp-return svg { width: 18px; height: 18px; color: currentColor; flex: none; }
 
 /* --- Standing links: the WAITING screen (/terminal · /l/s…) ---------------------------- */
 /* «Bereitschaft» (Entwurf B, maintainer pick 09.09.) — see src/link/StandingApp · IdleScreen

@@ -5374,7 +5374,7 @@ export function IncidentWorkspace({
           className="rp-return"
           onClick={() => { setRapportReturn(false); openRapport() }}
         >
-          <Icon id="doc" /> {appConfig.copy.abschluss.backToRapport}
+          <Icon id="chevron-left" /> {appConfig.copy.abschluss.backToRapport}
         </button>
       )}
 
