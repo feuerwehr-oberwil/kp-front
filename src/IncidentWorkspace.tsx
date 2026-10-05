@@ -6614,7 +6614,7 @@ export function IncidentWorkspace({
           // …and the same list the Verlauf pins, so an entry being written can be attached to an
           // open item without going through the Verlauf at all — the sheet offers the ones the
           // sentence already names, and holds a picker for the rest.
-          openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent }))}
+          openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent, createdAt: r.createdAt }))}
           onLinkPendenz={(pdz) => setNoteOn(pdz)}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
