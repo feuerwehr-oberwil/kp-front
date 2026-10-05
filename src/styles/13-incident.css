@@ -291,8 +291,8 @@
 .set-dl:disabled { opacity: var(--disabled); cursor: default; }
 .set-dl svg { width: 15px; height: 15px; }
 /* the Standort name: the value IS the button (SettingsSheet), so a long name ellipsises instead
-   of pushing the row wider than a phone */
-.set-name { max-width: 100%; min-width: 0; }
+   of pushing the row wider than a phone; right-aligned like the Aus/An pairs above it (owner, 05.10.2026) */
+.set-name { max-width: 100%; min-width: 0; margin-left: auto; }
 .set-name-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .set-name svg { flex: none; }
 
