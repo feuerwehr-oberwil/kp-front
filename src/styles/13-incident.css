@@ -1558,6 +1558,13 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    transformed positioner, so a z-index on it is inert (see the ⚠️ in lib/overlays/Menu.tsx).
    The admin raises this while it is mounted — see the scoped block at the end of admin.css. */
 .ui-menu-pos { z-index: var(--z-menu); }
+/* EVERY menu fits the screen and scrolls inside itself (05.10.2026, owner's iPhone: the Rapport's
+   «PDF ▾» Abschnitte ran off the bottom). `--available-height` is what the positioner measured
+   between the trigger and the viewport edge on the side it chose, less `collisionPadding`; the
+   dvh is the fallback before the first measure. `:where` keeps this at one class of weight, so a
+   menu that sets its own cap (`.jc-pendenz-menu`, SurfaceControls' menus) still wins. */
+:where(.ui-menu-pos) > .ui-pop { max-height: var(--available-height, 70dvh); overflow-y: auto;
+  overscroll-behavior: contain; }
 .ui-menu-sep { height: 1px; margin: 5px 8px; background: var(--glass-edge); }
 .ui-menu-head {
   padding: 6px 10px 3px;

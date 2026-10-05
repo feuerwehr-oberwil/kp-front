@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getObjectResilient } from '../../lib/api/objects'
 import { moduleCatalogue } from '../../lib/planOrder'
 import { visitPlanRows, type VisitPlanRow } from '../../objectVisits/plans'
+import { pushAppEntry } from '../../objectVisits/route'
 
 /** The object's plan rows, read through the offline cache. Empty while loading and for an object without plans. */
 export function useVisitPlans(objectId: string | null | undefined): VisitPlanRow[] {
@@ -31,14 +32,14 @@ export function usePlanReader(): { index: number | null; open: (i: number) => vo
   useEffect(() => {
     const onPop = () => { if (pushed.current) { pushed.current = false; setIndex(null) } }
     window.addEventListener('popstate', onPop)
-    // ⚠️ No history.back() on unmount: the surface is also left by a taken alarm (App ·
-    // leaveObjectVisits replaces the address with «/»), and a back() then would walk into the
-    // visit again. A spent entry only means one back gesture lands on the same visit.
+    // ⚠️ No history.back() on unmount: the surface is also left by a taken alarm, and App ·
+    // leaveObjectVisits already walks back over every entry the surface pushed — this one
+    // included (it is counted, route · pushAppEntry) — so a back() here would go one too far.
     return () => window.removeEventListener('popstate', onPop)
   }, [])
   const open = useCallback((i: number) => {
     // the same address: the visit's route does not change, only a back gesture has somewhere to go
-    if (!pushed.current) { window.history.pushState({ [READER_STATE]: true }, '', window.location.href); pushed.current = true }
+    if (!pushed.current) { pushAppEntry(window.location.href, { [READER_STATE]: true }); pushed.current = true }
     setIndex(i)
   }, [])
   const close = useCallback(() => {

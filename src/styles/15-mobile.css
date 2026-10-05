@@ -1093,8 +1093,13 @@
      answered a ~140px column that came from a narrower lane; at the bars' width the column is
      ~175px on a 390 phone, so «Studer Corinne Anwesenheit entfernt» is two lines — inside the
      row's one height (--float-h), where the two-row pill was 78px of mostly air. `break-word`
-     (08-toasts) never splits a word that fits the column. */
-  .toast:has(.toast-actions) > .toast-message { flex: 1 1 auto; }
+     (08-toasts) never splits a word that fits the column.
+     …but the column has a FLOOR (05.10.2026, owner: «Immer noch offline – …» stood as five lines
+     of 2–3 words beside a wide «Jetzt synchronisieren»): 10em is about what «Rückgängig» + ✕
+     leave on a 360 phone. An action that would squeeze the sentence below it wraps under it,
+     right-aligned, rather than the sentence becoming a narrow column. */
+  .toast:has(.toast-actions) { flex-wrap: wrap; }
+  .toast:has(.toast-actions) > .toast-message { flex: 1 1 10em; }
   .toast-actions { margin-left: auto; }
   /* the stage chain needs ~360px plus the undo button — more than a phone has, and it ran under
      «Rückgängig». Only the running stage keeps its label here: tick › printer «Wird gedruckt» ›

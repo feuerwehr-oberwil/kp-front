@@ -4139,11 +4139,6 @@ export const de = {
     // one-shot warning toasts (useIncidentSync) — once per episode
     syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',
-    // …and the standing Meldung once the device STAYS offline past the longer window
-    // (components/OfflineMeldung, syncAlert · createOfflinePresence). Half-reverses the
-    // 2026-07-18 «no permanent banner» decision on field request 2026-09-07.
-    offlineMeldungTitle: 'Offline – Änderungen werden lokal gespeichert',
-    offlineMeldungSub: 'Wird synchronisiert, sobald die Verbindung zurück ist.',
     // clock skew (useIncidentSync · X-Server-Time): device-local timestamps feed the legal
     // record, so a clock minutes off is said once per episode — same wording as the capture
     // surface's skew line (capture.clockSkew)
