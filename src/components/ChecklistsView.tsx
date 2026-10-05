@@ -101,13 +101,26 @@ export function ChecklistsView({
   }
 
   const selTitle = activeTemplate?.title ?? activeEntry?.title ?? CL.railLabel
+  const activeProgress = activeTemplate ? templateProgress(activeTemplate, checklists[activeTemplate.id] ?? EMPTY_STATE) : null
 
   return (
     <div className={s['cl-surface']}>
       {railNarrow && !railOpen ? (
         <button className={s['cl-rail-toggle']} onClick={() => setRailOpen(true)} aria-expanded={false} aria-label={CL.showList}>
-          <Icon id="search" />
+          {/* what is open, in the rail's own glyph — not a 🔍 (05.10.2026, owner: «remove the search
+              icon … when having a checklist opened»): the row is the list's name and the way back
+              to the chooser, and the magnifier promised a search it only reached one tap later.
+              The chooser it opens still starts with the search field. A Stichwort carries its
+              category chip below instead. */}
+          {activeTemplate && <Icon id={activeTemplate.kind === 'rapport' ? 'history' : 'check'} />}
+          {activeEntry && !activeEntry.hazardColor && <Icon id="doc" />}
           <span className={s['cl-rail-toggle-title']}>{selTitle}</span>
+          {/* the open list's «n/m» — here, in a row that stands anyway, instead of a progress row
+              of its own under it (05.10.2026, owner: «don't need a progress indicator. Occupies
+              too much space»; ChecklistRunner) */}
+          {activeProgress && activeProgress.total > 0 && (
+            <span className={s['cl-rail-toggle-prog']}>{activeProgress.done}/{activeProgress.total}</span>
+          )}
           {/* the Stichwort's category as a word in the head (27.09.2026, owner-r2-5): it was a
               filled «BRAND» pill inside the document card, over a title the chooser had just
               shown — the card is gone on a phone (Checklists.module.css), so its two facts moved
