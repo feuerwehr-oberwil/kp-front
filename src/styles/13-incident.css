@@ -1307,8 +1307,9 @@
 .wheelpop-band { position: absolute; left: 0; right: 0; top: 88px; height: 44px;
   pointer-events: none; border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--blue) 10%, transparent);
-  border-top: 1px solid color-mix(in srgb, var(--blue) 40%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--blue) 40%, transparent); }
+  /* all four sides: with top/bottom only, the rounded ends showed two lines fading into
+     nothing at the left and right — «the border on the side isn't showing» (owner, 05.10.2026) */
+  border: 1px solid color-mix(in srgb, var(--blue) 40%, transparent); }
 .wheelpop-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 10px; }
 .wheelpop-actions .wheelpop-btn.clear { margin-right: auto; }
 .wheelpop-btn { min-height: 44px; padding: 6px 12px; border-radius: var(--r-sm);
