@@ -11,6 +11,7 @@ import { toast } from '../../lib/ui'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { runningOthers } from '../../lib/switcherLists'
 import { SyncGlyph } from '../SyncGlyph'
+import { useOnline } from '../../lib/useOnline'
 import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
@@ -97,6 +98,8 @@ export function IncidentSwitcher({
   // synchronisiert» was a sentence to read for the most boring outcome there is. Offline and
   // failure still get one, because those change what the operator should do next.
   const [syncPhase, setSyncPhase] = useState<'idle' | 'busy' | 'done'>('idle')
+  // offline the button is not drawn at all (see `syncButton`)
+  const online = useOnline()
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (doneTimer.current) clearTimeout(doneTimer.current) }, [])
   const runSyncNow = async () => {
@@ -173,7 +176,7 @@ export function IncidentSwitcher({
   const showIncidents = running.length > 0 || isEditor || !!onHistory || (incidents.length === 0 && !active)
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   /**
-   * «Jetzt synchronisieren» — always offered, not only on offline/error: it forces a push AND an
+   * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
    * immediate pull, the "make everything fresh right now" action when things feel stale. It has
    * to LOOK like it ran, because on an already-synced Einsatz — the normal case — the status
    * says the same thing before and after the tap; so Shell trail runs for the round trip and then
@@ -184,8 +187,11 @@ export function IncidentSwitcher({
    * (which on a phone has no room to spare anyway, see 15-mobile.css), and not down among
    * «Bearbeiten»/«Abschliessen», which are things you do to the Einsatz rather than to the
    * connection. Same place on every screen width.
+   * ⚠️ NOT while offline (owner, 05.10.2026: «pointless when offline»): the tap could only end in
+   * «Immer noch offline», and the queue pushes by itself the moment the link is back. The
+   * «● Offline» chip says why it is gone.
    */
-  const syncButton = (
+  const syncButton = online && (
     <button className={`ip-card-sync sync-${syncPhase}`} disabled={syncPhase === 'busy'}
       aria-busy={syncPhase === 'busy'} onClick={() => { void runSyncNow() }}
       aria-label={cp.syncNow} title={cp.syncNow}>

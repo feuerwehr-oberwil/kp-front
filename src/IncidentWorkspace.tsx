@@ -109,7 +109,6 @@ import { AudioPlayerSheet } from './components/AudioPlayerSheet'
 import { ReminderBanner } from './components/ReminderBanner'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
 import { UpdateBanner } from './components/UpdateBanner'
-import { OfflineMeldung } from './components/OfflineMeldung'
 import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
@@ -5381,9 +5380,9 @@ export function IncidentWorkspace({
       {/* non-blocking "new build ready" prompt — waits for the operator instead of auto-reloading */}
       <UpdateBanner />
 
-      {/* standing «Offline» row once the sync has sat in 'offline' past the grace window —
-          the one-shot toast announces, this stays until the link is back (field ask 07.09.) */}
-      <OfflineMeldung status={syncStatus} onSyncNow={() => void syncNow()} />
+      {/* No standing «Offline» row (removed 05.10.2026, owner: «no need for this large offline
+          banner at the top of the screen»): the head's «● Offline» chip stays on screen the
+          whole time, and the one-shot toast (useIncidentSync) announces the spell once. */}
 
       {/* "Als App installieren" nudge — browser-tab only, one «Später» dismisses it for good
           on this device (the menu keeps the permanent entry).

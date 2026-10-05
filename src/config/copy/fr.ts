@@ -2450,8 +2450,6 @@ export const fr: Localizable<Copy> = {
     errorShort: 'Erreur de sync',
     syncErrorToast: 'Échec de la synchronisation – les modifications sont enregistrées localement.',
     syncOfflineToast: 'Toujours hors ligne – les modifications sont enregistrées localement.',
-    offlineMeldungTitle: 'Hors ligne – les modifications sont enregistrées localement',
-    offlineMeldungSub: 'La synchronisation reprend dès que la connexion revient.',
     clockSkewToast: 'L\'horloge de cet appareil dévie de {n} minutes – vérifie les heures saisies.',
     bootOffline: 'Hors ligne – les données enregistrées sont affichées.',
     bootListFailed: 'La liste des interventions n\'a pas pu être chargée',

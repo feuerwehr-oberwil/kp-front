@@ -2434,8 +2434,6 @@ export const en: Localizable<Copy> = {
     storageShort: 'Storage full',
     syncErrorToast: 'Sync failed – changes are saved locally.',
     syncOfflineToast: 'Still offline – changes are saved locally.',
-    offlineMeldungTitle: 'Offline – changes are saved locally',
-    offlineMeldungSub: 'Everything syncs as soon as the connection is back.',
     clockSkewToast: 'This device\'s clock is off by {n} minutes – check recorded times.',
     bootOffline: 'Offline – showing saved data.',
     bootListFailed: 'Incident list could not be loaded',

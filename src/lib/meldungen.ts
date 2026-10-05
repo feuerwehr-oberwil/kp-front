@@ -47,9 +47,6 @@ export const MELDUNG_RANK = {
   symbols: 9,
   /** offline with no cached basemap for this view — the map is a flat colour */
   basemap: 10,
-  /** the device has been offline past the grace window — edits are piling up locally
-   *  (syncAlert · createOfflinePresence); stands until the link is back */
-  offline: 11,
   /** the session cookie expired — the sync is standing still until the operator signs in again */
   session: 12,
   /** a new build is waiting for the next app start */
