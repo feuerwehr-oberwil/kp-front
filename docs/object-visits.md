@@ -65,7 +65,18 @@ checklists filter it out), and visit surfaces only use `kind: "visit"`.
 
 **Plans on a visit.** The visit page lists the object's Modul-PDFs above the checklist
 (`GET /api/objects/{id}` through the offline cache, `src/objectVisits/plans.ts`); a row opens
-`/api/reference/<plan id>?v=<version>`. Nothing about plans is stored in the visit.
+`/api/reference/<plan id>?v=<version>` in the in-app reader (PdfScroller, one history entry so
+the back gesture closes it). Nothing about plans is stored in the visit.
+
+**Changing the checklist.** A draft's ⋯ menu offers «Checkliste wechseln»
+(`doc.ts · switchChecklist`): the new snapshot replaces the old, answers of an item with the same
+id AND input type stay, the others are counted and confirmed before they go, photos stay (one
+linked to an item the new checklist lacks becomes general). The server already accepts a changed
+snapshot while the visit is a draft.
+
+**From an Einsatz.** Opened through the Einsatz menu, the Übersicht lists the Einsatz's active
+object (`useObjectPlans · activeObjectId`) first under «Im Einsatz»; from the launcher there is
+no such row.
 
 ## The visit document (`schema: "kp-front.object-visit/1"`)
 

@@ -167,7 +167,12 @@ export default function App() {
   // …ENTERED on purpose (the launcher's button, a deep link at start): only then may it cover an
   // open Einsatz — a back gesture onto an old /besuche entry must not (objectVisits/route)
   const [ovEntered, setOvEntered] = useState(() => isOvPath(window.location.pathname))
-  const enterObjectVisits = useCallback(() => { setOvEntered(true); navigateTo(OV_BASE) }, [])
+  // …from inside an Einsatz with the object whose plans are on the board: the Übersicht offers it
+  // first (owner, 05.10.2026). From the launcher there is none.
+  const [ovSuggest, setOvSuggest] = useState<string | null>(null)
+  const enterObjectVisits = useCallback((objectId: string | null = null) => {
+    setOvSuggest(objectId); setOvEntered(true); navigateTo(OV_BASE)
+  }, [])
   // leaving REPLACES the entry: a later back gesture does not walk into the surface again
   const leaveObjectVisits = useCallback(() => { setOvEntered(false); navigateTo('/', { replace: true }) }, [])
   // left by the browser's own back: the entry is spent (React's «adjust state while rendering»)
@@ -777,7 +782,7 @@ export default function App() {
             onDismiss={dismissFreshIncident}
           />
         )}
-        <Suspense fallback={<Splash />}><ObjectVisitsApp onExit={leaveObjectVisits} /></Suspense>
+        <Suspense fallback={<Splash />}><ObjectVisitsApp onExit={leaveObjectVisits} suggestedObjectId={activeId ? ovSuggest : null} /></Suspense>
         <Overlays />
       </>
     )
@@ -1000,7 +1005,7 @@ export default function App() {
                   {/* Objektbesuche: only where the station switched the module on; every account
                       may read, the surface hides what a role may not capture */}
                   {objectVisitsConfig().enabled && (
-                    <button className="ip-btn" onClick={enterObjectVisits}>
+                    <button className="ip-btn" onClick={() => enterObjectVisits()}>
                       <Icon id="clipboard" />{appConfig.copy.objectVisits.launcher}
                     </button>
                   )}

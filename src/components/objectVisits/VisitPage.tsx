@@ -16,8 +16,8 @@ import { Menu } from '../../lib/overlays'
 import { localThumb, prepareUploadImage } from '../../lib/imagePrep'
 import { LoadingStatus } from '../ShellLoader'
 import { getRevisions, getVisit, sha256Hex } from '../../objectVisits/api'
-import { knownVisits, lastSeen, listProgress, resolveObject } from '../../objectVisits/catalogue'
-import { answerStats, checklistItems, stripServer, syncPhotoAnswers } from '../../objectVisits/doc'
+import { knownVisits, lastSeen, listProgress, resolveObject, visitTemplates } from '../../objectVisits/catalogue'
+import { answerStats, checklistItems, stripServer, switchChecklist, syncPhotoAnswers } from '../../objectVisits/doc'
 import { resolveConflict, type Resolution } from '../../objectVisits/merge'
 import {
   adoptServerVisit, flushVisit, isFlushing, pendingUploads, requestSave, subscribeFlushing, type FlushOutcome,
@@ -27,11 +27,12 @@ import { deriveStatus } from '../../objectVisits/status'
 import {
   forgetVisit, isVisitDurable, onVisitChanged, putAttachment, readVisit, retryHeld, updateVisit, type LocalVisit,
 } from '../../objectVisits/store'
-import { personName, type Revision, type ServerVisit, type VisitDoc, type VisitPhoto, type VisitProposal } from '../../objectVisits/types'
+import { personName, type Revision, type ServerVisit, type VisitDoc, type VisitPhoto, type VisitProposal, type VisitTemplate } from '../../objectVisits/types'
 import { Head } from './common'
 import { fmtDate, fmtWhen, lifecycleLabel, plural } from './ovFormat'
-import { PhotoSheet, ProposalSheet } from './Sheets'
-import { PlansCard } from './PlansCard'
+import { ChecklistSheet, PhotoSheet, ProposalSheet } from './Sheets'
+import { PlanReader, PlansCard } from './PlansCard'
+import { usePlanReader, useVisitPlans } from './usePlans'
 import { AuthCard, ConflictCards, RefusedCard, UnsavedCard } from './StateCards'
 import { StatusLine } from './StatusLine'
 import { ChecklistSection, DetailsCard, NotesSection, PhotosSection, ProposalsSection, SummaryCard } from './VisitSections'
@@ -55,6 +56,8 @@ export function VisitPage({ id }: { id: string }) {
   const [correcting, setCorrecting] = useState(false)
   const [photoSheet, setPhotoSheet] = useState<{ attId: string | null; preparing: boolean; stored: boolean | null } | null>(null)
   const [proposalSheet, setProposalSheet] = useState<{ p: VisitProposal | null } | null>(null)
+  const [checklistSheet, setChecklistSheet] = useState(false)
+  const reader = usePlanReader()
   const [revisions, setRevisions] = useState<Revision[] | 'loading' | 'failed' | null>(null)
   const flushing = useSyncExternalStore(subscribeFlushing, () => isFlushing(id), () => false)
   const pendingEdits = useRef(0)
@@ -116,6 +119,7 @@ export function VisitPage({ id }: { id: string }) {
 
   const doc: VisitDoc | null = rec?.doc ?? (remote ? stripServer(remote) : null)
   const status = deriveStatus({ rec, durable, flushing, sessionExpired: ov.sessionExpired, remote })
+  const plans = useVisitPlans(doc?.object.id)
 
   // ── while the filing is pending, ask now and then (the worker runs every 30 s) ──
   const pollDelivery = !!rec?.base && (status.delivery.kind === 'waiting')
@@ -282,6 +286,21 @@ export function VisitPage({ id }: { id: string }) {
     setCorrecting(false)
     sayOutcome(await requestSave(id, undefined, { actor: ov.userId }))
   }
+  /** «Checkliste wechseln» (a draft only — the server refuses a changed snapshot after that) */
+  const changeChecklist = async (t: VisitTemplate | null) => {
+    setChecklistSheet(false)
+    const cur = rec?.doc
+    if (!cur || cur.lifecycle !== 'draft') return
+    if ((t?.id ?? null) === (cur.checklist?.id ?? null) && (t == null || (t.version ?? 0) === (cur.checklist?.version ?? 0))) return
+    const { dropped } = switchChecklist(cur, t)
+    if (dropped > 0) {
+      const ok = await confirmDialog({
+        title: C.changeChecklist, message: fillTemplate(C.changeChecklistDrop, { n: dropped }), confirmLabel: C.changeChecklistConfirm,
+      })
+      if (!ok) return
+    }
+    await edit((d) => switchChecklist(d, t).doc)
+  }
   const discard = async () => {
     const ok = await confirmDialog({ title: C.discardTitle, message: C.discardMsg, confirmLabel: C.discardBtn, danger: true })
     if (!ok) return
@@ -331,6 +350,7 @@ export function VisitPage({ id }: { id: string }) {
   const byName = personName(rec?.server?.createdBy ?? remote?.createdBy ?? null) || null
   const photo = photoSheet?.attId ? doc.photos.find((p) => p.id === photoSheet.attId) ?? null : null
   const sheetItems = checklistItems(doc.checklist)
+  const templates = catalogue ? visitTemplates(catalogue) : []
 
   // the next stop of the work list: the first object after this one without a completed visit
   const next = (() => {
@@ -365,7 +385,10 @@ export function VisitPage({ id }: { id: string }) {
             itemClassName={() => s.menuItem}
             // sending is automatic and «Als Datei sichern» lives in the cards that need it: the
             // menu holds the one thing that is not a save (owner, staging 03.10.2026)
-            items={[{ label: C.discard, onClick: () => { void discard() }, danger: true }]}
+            items={[
+              ...(templates.length ? [{ label: C.changeChecklist, onClick: () => setChecklistSheet(true) }] : []),
+              { label: C.discard, onClick: () => { void discard() }, danger: true },
+            ]}
           />
         ) : undefined}
       />
@@ -451,7 +474,7 @@ export function VisitPage({ id }: { id: string }) {
           )}
 
           <DetailsCard doc={doc} readOnly={readView} onEdit={(fn) => { void edit(fn) }} />
-          <PlansCard objectId={doc.object.id} />
+          <PlansCard rows={plans} onOpen={reader.open} />
           <ChecklistSection doc={doc} readOnly={readView} pending={pending}
             onEdit={(fn) => { void edit(fn) }} onTakePhoto={takePhoto}
             onOpenPhoto={(attId) => setPhotoSheet({ attId, preparing: false, stored: null })} />
@@ -521,6 +544,13 @@ export function VisitPage({ id }: { id: string }) {
           onRemove={removeProposal}
           onClose={() => setProposalSheet(null)}
         />
+      )}
+      {checklistSheet && (
+        <ChecklistSheet templates={templates} current={doc.checklist}
+          onPick={(t) => { void changeChecklist(t) }} onClose={() => setChecklistSheet(false)} />
+      )}
+      {reader.index != null && plans.length > 0 && (
+        <PlanReader rows={plans} index={reader.index} objectName={doc.object.name} onShow={reader.show} onClose={reader.close} />
       )}
     </>
   )

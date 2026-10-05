@@ -303,7 +303,7 @@ interface WorkspaceProps {
   onSwitchIncident: (i: IncidentMeta) => void
   onOpenHistory: () => void
   /** opens the Objektbesuche surface (App · enterObjectVisits); undefined = module off */
-  onOpenObjectVisits?: () => void
+  onOpenObjectVisits?: (objectId?: string | null) => void
   onOpenDivera: () => void
   onOpenDatenquellen: () => void
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
@@ -5256,7 +5256,7 @@ export function IncidentWorkspace({
             onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
-            onObjectVisits={linkScoped ? undefined : onOpenObjectVisits}
+            onObjectVisits={linkScoped || !onOpenObjectVisits ? undefined : () => onOpenObjectVisits(activeObjectId ?? null)}
             onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
             onDatenquellen={onOpenDatenquellen}
