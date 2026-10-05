@@ -1,0 +1,89 @@
+name: Performance comment
+
+# Posts the «Performance» job's table (ci.yml · perf) on the pull request, as ONE comment that each
+# new run edits in place — so the numbers are in front of whoever reviews the PR, not two clicks
+# deep in a job summary.
+#
+# Why a second workflow: the CI run of a pull request gets a read-only token (always for forks and
+# Dependabot), and the perf job runs the PR's own code, so it must not hold a write token anyway.
+# This one runs from main's copy of this file, never checks out the PR, and only reads the
+# `perf-results` artifact as data: report.md becomes the comment body, pr-number says where.
+# Before posting it checks that the PR's head is still the commit that was measured, so a slow
+# older run never overwrites a newer table.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  actions: read          # download the artifact of the CI run
+  pull-requests: write   # create / edit the comment
+
+concurrency:
+  group: perf-comment-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  comment:
+    name: Post the performance table on the PR
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the numbers
+        id: fetch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          if ! gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n perf-results -D perf; then
+            echo "::notice::no perf-results artifact on run $RUN_ID (the perf job did not get that far, or the run was cancelled)"
+            echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          pr=$(tr -dc '0-9' < perf/pr-number 2>/dev/null || true)
+          if [ -z "$pr" ] || [ ! -s perf/report.md ]; then
+            echo "::notice::the artifact has no report.md / pr-number (a run from before this workflow existed)"
+            echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update the comment
+        if: steps.fetch.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.fetch.outputs.pr }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          # the artifact names the PR; the API must agree that this PR is at the measured commit
+          current=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .head.sha)
+          if [ "$current" != "$HEAD_SHA" ]; then
+            echo "::notice::PR #$PR moved on to ${current:0:8}; not posting the numbers of ${HEAD_SHA:0:8}"
+            exit 0
+          fi
+
+          marker='<!-- kp-front:perf-journeys -->'
+          {
+            echo "$marker"
+            head -c 60000 perf/report.md   # a comment holds 65 536 characters
+            echo
+            echo "---"
+            echo "<sub>Measured on ${HEAD_SHA:0:8} · [CI run]($RUN_URL) ($CONCLUSION) · updated on every push · [how to read this](https://github.com/$GITHUB_REPOSITORY/blob/main/docs/testing/perf-journeys.md)</sub>"
+          } > body.md
+
+          id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -n1)
+          # Dependabot's runs get a read-only token even here: say so instead of going red
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@body.md >/dev/null \
+              || { echo "::warning::could not edit the comment (read-only token?)"; exit 0; }
+            echo "updated comment $id on #$PR"
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@body.md >/dev/null \
+              || { echo "::warning::could not post the comment (read-only token?)"; exit 0; }
+            echo "posted on #$PR"
+          fi
