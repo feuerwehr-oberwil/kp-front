@@ -54,7 +54,7 @@ path, the Karte's rendering, the Verlauf or the Replay, and compare against the 
 Einsatz on record (`e2e/journeys.journey.ts`) on every PR and every push to main, and fails when
 requests, bytes, writes, memory left behind or interaction times regress against
 `e2e/perf/baseline.json` (`scripts/perf-report.mjs`). For an agent this is part of «done»:
-- **Read the job summary on your PR**, not only its colour. A ⚠️ (drifting) or 🟢 (better) line
+- **Read the «Performance journeys» comment on your PR** (or the job summary), not only the colour. A ⚠️ (drifting) or 🟢 (better) line
   is worth a sentence in the PR description. You caused it, so you know why.
 - **A red Performance check blocks the merge** like a failing test. Fix the cause first: a new poll,
   a save on open, a chunk pulled into the entry bundle, a listener a surface never removes. The

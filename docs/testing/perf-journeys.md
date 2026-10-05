@@ -70,8 +70,10 @@ journey called. When a request count moves, the report shows which routes change
 
 ## When the check is red
 
-The job summary has the table: each metric that moved, its baseline, today's number, the limit,
-and, for request counts, the routes that changed. The raw numbers are the `perf-results` artifact.
+The PR has the table as a comment (one per PR, edited on every push, posted by
+`.github/workflows/perf-comment.yml` once CI finishes), and so does the job summary: each metric
+that moved, its baseline, today's number, the limit, and, for request counts, the routes that
+changed. The raw numbers are the `perf-results` artifact.
 
 1. **Unintended:** fix it. Typical causes are a new poll, a save on open, a chunk pulled into the
    entry bundle, or a listener a surface never removes.
