@@ -2547,6 +2547,7 @@ export const it: Localizable<Copy> = {
     groupOpen: 'Aperti',
     groupToday: 'Oggi',
     groupWeek: 'Ultimi 7 giorni',
+    since: 'dalle {t}',
     reactivate: 'Riapri',
     reactivateConfirmTitle: 'Riapri intervento',
     reactivateConfirmMsg: 'L\u2019intervento viene riaperto ed è modificabile. Le modifiche successive appaiono nel diario e nel rapporto come aggiunte.',

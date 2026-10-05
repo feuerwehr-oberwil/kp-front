@@ -2547,6 +2547,7 @@ export const fr: Localizable<Copy> = {
     groupOpen: 'Ouvertes',
     groupToday: 'Aujourd\u2019hui',
     groupWeek: '7 derniers jours',
+    since: 'depuis {t}',
     reactivate: 'Rouvrir',
     reactivateConfirmTitle: 'Rouvrir l\u2019intervention',
     reactivateConfirmMsg: 'L’intervention est rouverte et modifiable. Les modifications ultérieures apparaissent dans le journal et le rapport comme compléments.',

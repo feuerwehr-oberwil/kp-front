@@ -2551,6 +2551,7 @@ export const en: Localizable<Copy> = {
     groupOpen: 'Open',
     groupToday: 'Today',
     groupWeek: 'Last 7 days',
+    since: 'since {t}',
     reactivate: 'Reopen',
     reactivateConfirmTitle: 'Reopen incident',
     reactivateConfirmMsg: 'The incident is reopened and editable. Later changes appear in the log and report as addenda.',

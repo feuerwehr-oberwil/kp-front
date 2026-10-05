@@ -4241,6 +4241,8 @@ export const de = {
     groupOpen: 'Offen',
     groupToday: 'Heute',
     groupWeek: 'Letzte 7 Tage',
+    // a running Einsatz's span in its row: «seit 14:00» (no end yet)
+    since: 'seit {t}',
     reactivate: 'Wieder öffnen',
     reactivateConfirmTitle: 'Einsatz wieder öffnen',
     reactivateConfirmMsg: 'Der Einsatz wird wieder geöffnet und ist bearbeitbar. Spätere Änderungen erscheinen im Verlauf und Rapport als Nachträge.',
