@@ -19,6 +19,8 @@ the right failure direction for a safety alarm.
 import asyncio
 import json
 import logging
+import uuid
+from collections.abc import Awaitable, Callable, Collection
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -372,9 +374,20 @@ def _send_one(sub: dict, payload: str) -> SendOutcome:
 
 
 async def broadcast(
-    db: AsyncSession, *, title: str, body: str, tag: str, target: str | None, dedup_key: str | None = None
+    db: AsyncSession,
+    *,
+    title: str,
+    body: str,
+    tag: str,
+    target: str | None,
+    dedup_key: str | None = None,
+    user_ids: Collection[uuid.UUID] | None = None,
 ) -> int:
     """Push to every subscribed browser of an ACTIVE user; prunes dead endpoints.
+
+    ``user_ids`` narrows the audience to those accounts' browsers (no kiosk rows): the
+    «Neuer Objektbesuch» push goes to the accounts an admin picked, never to everybody.
+    An empty collection sends nothing.
 
     Returns the number of sends that actually COMPLETED. A deactivated login keeps no delivery:
     the row survives (the person may come back) but the alarm does not follow an account somebody
@@ -385,10 +398,15 @@ async def broadcast(
     round is skipped, and re-armed via ``_notified`` so a recipient still outstanding at the
     deadline is retried next sweep. The new-alarm path fires once and passes no key.
     """
+    if user_ids is not None and not user_ids:
+        return 0
     delivered_set = _delivered.setdefault(dedup_key, set()) if dedup_key is not None else None
+    audience = _deliverable()
+    if user_ids is not None:
+        audience = audience.where(PushSubscription.user_id.in_(list(user_ids)))
     subs = [
         s
-        for s in (await db.execute(_deliverable())).scalars()
+        for s in (await db.execute(audience)).scalars()
         if _sendable(s.endpoint) and not (delivered_set is not None and s.endpoint in delivered_set)
     ]
     if not subs:
@@ -506,19 +524,77 @@ async def notify_new_alarm(
 
 
 async def _broadcast_committed(
-    factory: async_sessionmaker[AsyncSession], *, title: str, body: str, tag: str, target: str | None
+    factory: async_sessionmaker[AsyncSession],
+    *,
+    title: str,
+    body: str,
+    tag: str,
+    target: str | None,
+    audience: Callable[[AsyncSession], Awaitable[Collection[uuid.UUID]]] | None = None,
 ) -> None:
-    """Best-effort post-commit delivery with independent dead-endpoint pruning."""
+    """Best-effort post-commit delivery with independent dead-endpoint pruning.
+
+    ``audience`` (optional) reads the recipient accounts in the SENDING session, after the
+    commit — so the list is the one that holds when the push leaves, not a stale copy."""
     try:
         async with factory() as send_db:
             # Refresh runtime-settable VAPID values before the blocking sender reads them.
             from .credentials import load
 
             await load(send_db)
-            await broadcast(send_db, title=title, body=body, tag=tag, target=target)
+            narrowed = {"user_ids": await audience(send_db)} if audience is not None else {}
+            await broadcast(send_db, title=title, body=body, tag=tag, target=target, **narrowed)
             await send_db.commit()
     except Exception:  # push must never affect already-committed intake
-        logger.exception("New-alarm push failed (%s)", tag)
+        logger.exception("Push after commit failed (%s)", tag)
+
+
+async def object_visit_recipients(db: AsyncSession) -> list[uuid.UUID]:
+    """The ACTIVE accounts an admin picked for «Neuer Objektbesuch» (``users.notify_object_visits``)."""
+    from .models import User
+
+    rows = await db.execute(select(User.id).where(User.notify_object_visits.is_(True), User.is_active.is_(True)))
+    return list(rows.scalars())
+
+
+def object_visit_message(object_name: str | None, people: list[str], findings: int) -> str:
+    """«Gemeindeverwaltung · Frei Nina, Muster Max · 2 Mängel» — what, who, and whether to look now."""
+    parts = [(object_name or "").strip() or "Objekt", ", ".join(p.strip() for p in people if p.strip())]
+    if findings:
+        parts.append("1 Mangel" if findings == 1 else f"{findings} Mängel")
+    return " · ".join(p for p in parts if p)
+
+
+async def notify_object_visit(
+    db: AsyncSession, *, visit_id: str, object_name: str | None, people: list[str], findings: int
+) -> int:
+    """Queue a «Neuer Objektbesuch» push to the picked accounts after the visit's transaction commits.
+
+    Fires once per visit — when it is first COMPLETED (the caller decides that), never for a draft
+    save point or a correction. Returns 1 when queued, 0 when push is disabled. Nobody picked ⇒
+    queued, but nothing is sent. A tap opens the visit (target ``besuch:<id>``, sw-notify.js).
+    """
+    if not push_enabled():
+        return 0
+    body = object_visit_message(object_name, people, findings)
+    factory = async_sessionmaker(db.bind, class_=AsyncSession, expire_on_commit=False, autoflush=False)
+
+    def schedule() -> None:
+        task = asyncio.create_task(
+            _broadcast_committed(
+                factory,
+                title="Neuer Objektbesuch",
+                body=body,
+                tag=f"ov-{visit_id}",
+                target=f"besuch:{visit_id}",
+                audience=object_visit_recipients,
+            )
+        )
+        _inflight.add(task)
+        task.add_done_callback(_inflight.discard)
+
+    after_commit(db, schedule)
+    return 1
 
 
 # ---------------------------------------------------------------------------------------

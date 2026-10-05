@@ -249,7 +249,8 @@ clears its visits' link (the visits stay) and drops its refs.
 
 ## Admin — `/api/admin/object-visits` (admin session)
 
-`GET /` (all visits, filters as the field list) · `GET /deliveries[?state=&destination=]`
+`GET /` (all visits, filters as the field list, each with its `deliveries` — see «Received visits»
+below) · `GET /notify` · `PUT /notify` (see «Notification») · `GET /deliveries[?state=&destination=]`
 (`[{destination, visitId, objectName, wantedRevision, deliveredRevision, state, attempts,
 nextAttemptAt, lastError, updatedAt}]`) · `POST /deliveries/retry {destination, visitId?}` →
 `{retried: n}` (failed → pending, attempts reset; with `visitId` it also enqueues that visit if the
@@ -260,6 +261,35 @@ answer; works for a disabled destination too) ·
 `GET /export.zip?…` (visits as JSON + photos + reports, for a station without a destination;
 written entry by entry to a temporary file; a visit that cannot be exported gets `FEHLER.txt` in
 its folder and the export goes on).
+
+**Received visits** (owner, 05.10.2026: «where do filled out object visits show»): the admin page
+Station › Objektbesuche opens on «Besuche» — every visit newest first with date, object, «Von»,
+state, findings, **Ablage** (per destination: state, the folder path below the library from
+`remote_items._path`, copyable, and the error while it fails) and the report PDF, which is the
+visit's detail view. `GET /` therefore adds `deliveries: [{destination, state, revision, at,
+folder, error?}]` to each summary (admin list only; same «owed nothing» rule as the visit's own
+`deliveries`).
+
+### Notification — «Neuer Objektbesuch»
+
+Web Push (the app's VAPID push, `app/push.py`) to the accounts an admin picked —
+`users.notify_object_visits` (Alembic `f9b8c7d6e5a4`, default false: **nobody** until somebody is
+ticked; never every account, never every installed device).
+
+- Fires once per visit, when an accepted PUT first takes it to `completed` (a create that is already
+  completed counts). Never for a draft save point, a correction or a discard. Queued with
+  `after_commit`; the audience is read in the sending session after the commit, so it is the list
+  that holds when the push leaves. Push off (no VAPID keys) ⇒ nothing is queued.
+- Audience: the picked ACTIVE accounts' browsers only (`broadcast(user_ids=…)`) — no kiosk rows, no
+  other account, nobody for an empty list. A shared account reaches every device signed in with it.
+- Payload: title «Neuer Objektbesuch», body «<Objekt> · <Von> · <n> Mängel» (findings only when
+  there are any), tag `ov-<id>`, target `besuch:<id>`. A tap opens `/besuche/<id>` — the service
+  worker opens that address on a cold start (`public/sw-notify.js`), a running app navigates there
+  (`App.tsx`).
+- Admin: `GET /notify` → `{pushEnabled, accounts: [{id, name, username, role, notify, devices}]}`
+  (active accounts; `devices` = that account's unexpired push registrations) · `PUT /notify
+  {userIds: [uuid…]}` → the same answer; exactly these accounts are told (unknown ids are ignored,
+  a non-list or a non-uuid is 422). UI: the «Benachrichtigung» card under «Besuche».
 
 ## Deployment config — section `objectVisits`
 

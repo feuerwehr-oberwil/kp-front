@@ -127,6 +127,25 @@ export interface VisitSummary {
   /** «Von» — the people typed on the visit (the account is only the fallback) */
   with?: string[] | null
   findings?: number
+  /** ADMIN list only: where the visit was filed, per destination — state, the folder path below
+   *  the library (once the first delivery made it), the error while it fails */
+  deliveries?: VisitFiling[]
+}
+
+/** One destination's filing of a visit, as the admin list reports it. */
+export interface VisitFiling {
+  destination: string
+  state: DeliveryRow['state']
+  revision: number
+  at?: string | null
+  folder?: string | null
+  error?: string | null
+}
+
+/** «Neuer Objektbesuch» — every active account, whether it is told and how many of its browsers can receive a push. */
+export interface NotifyState {
+  pushEnabled: boolean
+  accounts: { id: string; name: string; username: string; role: string; notify: boolean; devices: number }[]
 }
 
 export interface Revision {

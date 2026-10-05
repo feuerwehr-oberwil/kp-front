@@ -1,10 +1,12 @@
-// Station › Objektbesuche (docs/object-visits.md · «Admin», «Deployment config»).
+// Station › Objektbesuche (docs/object-visits.md · «Admin», «Deployment config», «Notification»).
 //
-// Six things, top to bottom, in the order a station sets the module up: the switch and who may
-// capture; the fields a Korrekturvorschlag can name; the filing destination (one SharePoint
-// card); the filing status with «Erneut versuchen»; the organizer's integration key; the visits
-// with their reports and the ZIP export. The first three are the shared config document (the
-// page autosaves like every Station page); the rest talk to /api/admin/object-visits.
+// What a station comes back for comes FIRST: the received visits — date, object, «Von», where each
+// was filed, the report — and who is told about a new one (owner, 05.10.2026: «where do filled out
+// object visits show»). Below them, in the order a station sets the module up: the switch and who
+// may capture; the fields a Korrekturvorschlag can name; the filing destination (one SharePoint
+// card); the filing status with «Erneut versuchen»; the organizer's integration key. The switch,
+// fields and destination are the shared config document (the page autosaves like every Station
+// page); the rest talk to /api/admin/object-visits.
 
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError, apiGet, apiPut } from '../lib/api'
@@ -15,11 +17,11 @@ import { downloadUrl } from '../lib/download'
 import { Icon } from '../lib/icons'
 import type { DeploymentObjectVisits, ObjectVisitDestination } from '../lib/deploymentConfig'
 import {
-  adminDeliveries, adminExportUrl, adminListVisits, adminRetryDeliveries, adminTestDestination,
-  getCatalogue, INTEGRATION_KEY_CREDENTIAL, mintIntegrationKey, OV_ROUTES,
+  adminDeliveries, adminExportUrl, adminListVisits, adminNotify, adminRetryDeliveries, adminSetNotify,
+  adminTestDestination, getCatalogue, INTEGRATION_KEY_CREDENTIAL, mintIntegrationKey, OV_ROUTES,
 } from '../objectVisits/api'
 import { DEFAULT_DESTINATION, destinationValid, previewFolder } from '../objectVisits/folders'
-import { personName, type DeliveryRow, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
+import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
 import { getPath, useConfig } from './ConfigContext'
 import {
   Card, ConfirmButton, CopyChip, EmptyState, RecordRows, RecordTable, ResultChip, SettingRow, SettingsNote,
@@ -38,12 +40,13 @@ const fieldSlug = (s: string) => fold(s).replace(/[^a-z0-9]+/g, '_').replace(/^_
 export function ObjectVisitsView({ onNavigate }: { onNavigate: (id: string) => void }) {
   return (
     <>
+      <VisitsCard />
+      <NotifyCard onNavigate={onNavigate} />
       <ModuleSheet onNavigate={onNavigate} />
       <ProposalFieldsEditor />
       <DestinationCard onNavigate={onNavigate} />
       <DeliveriesCard />
       <IntegrationKeyCard />
-      <VisitsCard />
     </>
   )
 }
@@ -388,6 +391,33 @@ function IntegrationKeyCard() {
 
 // ─── Besuche ───────────────────────────────────────────────────────────────────────────────
 
+const filingTone = (state: VisitFiling['state']): 'on' | 'off' | 'warn' | 'err' =>
+  state === 'delivered' ? 'on' : state === 'failed' ? 'err' : state === 'paused' ? 'off' : 'warn'
+
+/** «…/Hauptstrasse 24 - Gemeindeverwaltung/Objektbesuche/2026-10-05 Kontrolle (7f3a)» — the object's
+ *  and the visit's folders; the chip copies the whole path below the library. */
+const shortFolder = (path: string) => {
+  const parts = path.split('/').filter(Boolean)
+  return parts.length > 3 ? `…/${parts.slice(-3).join('/')}` : parts.join('/')
+}
+
+/** «Ablage»: the filing state per destination, and once filed the folder it went to (copyable). */
+function FilingCell({ filings }: { filings: VisitFiling[] }) {
+  const T = C()
+  if (!filings.length) return <span className="adm-ov-none">{T.filedNone}</span>
+  return (
+    <span className="adm-ov-filing">
+      {filings.map((f) => (
+        <span key={f.destination} className="adm-ov-filing-row">
+          <StatusBadge label="" state={T.deliveryStates[f.state] ?? f.state} tone={filingTone(f.state)} />
+          {f.folder && <CopyChip value={f.folder} display={shortFolder(f.folder)} />}
+          {f.error && <span className="adm-ov-err">{f.error}</span>}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function VisitsCard() {
   const T = C()
   const L = appConfig.copy.objectVisits.lifecycle
@@ -400,6 +430,7 @@ function VisitsCard() {
   return (
     <Card
       title={T.visits}
+      caption={T.visitsCaption}
       tip={T.visitsTip}
       action={<button type="button" className="btn adm-int-btn" title={T.exportTip} onClick={() => downloadUrl(adminExportUrl())}><Icon id="download" /> {T.exportZip}</button>}
     >
@@ -408,21 +439,22 @@ function VisitsCard() {
       {Array.isArray(rows) && rows.length === 0 && <EmptyState message={T.visitsEmpty} />}
       {Array.isArray(rows) && rows.length > 0 && (
         <Table columns={[
-          { key: 'date', label: T.colDate }, { key: 'obj', label: T.colObject }, { key: 'list', label: T.colList },
-          { key: 'lc', label: T.colLifecycle }, { key: 'rev', label: T.colRevision, num: true },
-          { key: 'f', label: T.colFindings, num: true }, { key: 'by', label: T.colBy }, { key: 'pdf', label: '' },
+          { key: 'date', label: T.colDate }, { key: 'obj', label: T.colObject }, { key: 'by', label: T.colBy },
+          { key: 'lc', label: T.colLifecycle }, { key: 'f', label: T.colFindings, num: true },
+          { key: 'filed', label: T.colFiled }, { key: 'list', label: T.colList }, { key: 'pdf', label: '' },
         ]}>
           {rows.map((v) => (
               <tr key={v.id}>
                 <td>{fmtDateTime(v.visitedAt)}</td>
                 <td>{v.objectName}</td>
-                <td className="adm-mono">{v.workRef ?? ''}</td>
-                <td>{L[v.lifecycle] ?? v.lifecycle}</td>
-                <td className="adm-num">{v.revision}</td>
-                <td className="adm-num">{v.findings ?? ''}</td>
                 {/* «Von»: the people typed on the visit; the (shared) account only as fallback */}
                 <td>{v.with?.length ? v.with.join(', ') : personName(v.by)}</td>
+                <td>{L[v.lifecycle] ?? v.lifecycle}</td>
+                <td className="adm-num">{v.findings ?? ''}</td>
+                <td><FilingCell filings={v.deliveries ?? []} /></td>
+                <td className="adm-mono">{v.workRef ?? ''}</td>
                 <td>
+                  {/* the report IS the visit's detail view: answers, notes, photos, proposals */}
                   <a className="adm-link" href={OV_ROUTES.report(v.id)} target="_blank" rel="noreferrer">{T.pdf}</a>
                 </td>
               </tr>
@@ -430,5 +462,70 @@ function VisitsCard() {
         </Table>
       )}
     </Card>
+  )
+}
+
+// ─── Benachrichtigung · Neuer Objektbesuch ─────────────────────────────────────────────────
+
+/** Which accounts' devices get «Neuer Objektbesuch» when a visit is completed. Nobody until an
+ *  admin ticks somebody (owner, 05.10.2026: «configurable and not all users / downloads»). Saves
+ *  on every tick, like the rest of the page. */
+function NotifyCard({ onNavigate }: { onNavigate: (id: string) => void }) {
+  const T = C()
+  const [state, setState] = useState<NotifyState | null | 'failed'>(null)
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+  useEffect(() => {
+    let alive = true
+    adminNotify().then((r) => { if (alive) setState(r) }).catch(() => { if (alive) setState('failed') })
+    return () => { alive = false }
+  }, [])
+  const toggle = async (id: string, on: boolean) => {
+    if (!state || state === 'failed') return
+    const ids = state.accounts.filter((a) => (a.id === id ? on : a.notify)).map((a) => a.id)
+    setBusy(true)
+    try {
+      setState(await adminSetNotify(ids))
+      setResult({ tone: 'ok', text: T.notifySaved })
+    } catch (e) {
+      setResult({ tone: 'err', text: e instanceof ApiError ? `${T.notifyFailed} · ${e.detail}` : T.notifyFailed })
+    } finally {
+      setBusy(false)
+    }
+  }
+  const devices = (n: number) => (n === 0 ? T.notifyDevicesNone : n === 1 ? T.notifyDevicesOne : fillTemplate(T.notifyDevices, { n }))
+  return (
+    <SettingsSheet title={T.notify} caption={T.notifyCaption} tip={T.notifyTip}>
+      {state === null && <EmptyState loading message={appConfig.copy.admin.common.configLoading} />}
+      {state === 'failed' && <EmptyState tone="err" message={T.loadFailed} />}
+      {state && state !== 'failed' && (
+        <>
+          {!state.pushEnabled && (
+            <SettingsNote tone="warn">
+              <span className="adm-brand-row">
+                {T.notifyPushOff}
+                <button type="button" className="btn adm-int-btn" onClick={() => onNavigate('zugaenge')}>{T.credentialsGo}</button>
+              </span>
+            </SettingsNote>
+          )}
+          {state.accounts.length === 0 && <SettingsNote>{T.notifyNoAccounts}</SettingsNote>}
+          {state.accounts.map((a) => (
+            <SettingRow key={a.id} label={a.name} hint={a.name !== a.username ? a.username : undefined}>
+              <span className="adm-brand-row">
+                <input className="adm-set-check" type="checkbox" checked={a.notify} disabled={busy}
+                  aria-label={fillTemplate(T.notifyFor, { name: a.name })}
+                  onChange={(e) => void toggle(a.id, e.target.checked)} />
+                <span className={`adm-ov-devices${a.devices ? '' : ' none'}`}>{devices(a.devices)}</span>
+              </span>
+            </SettingRow>
+          ))}
+          {result && (
+            <SettingsNote>
+              <ResultChip key={result.text} tone={result.tone} onExpire={() => setResult(null)}>{result.text}</ResultChip>
+            </SettingsNote>
+          )}
+        </>
+      )}
+    </SettingsSheet>
   )
 }

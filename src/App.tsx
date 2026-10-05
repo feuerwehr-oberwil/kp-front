@@ -6,7 +6,7 @@ import { IconSprite, Icon } from './lib/icons'
 import { demoSeedRebase, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig } from './lib/deploymentConfig'
-import { isOvPath, navigateTo, OV_BASE, showsObjectVisits, useOvRoute } from './objectVisits/route'
+import { isOvPath, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
 import { startOutboxRunner } from './objectVisits/outbox'
 import { fillTemplate, initials, roleLabel } from './lib/format'
 import { Overlays, toast, confirmDialog } from './lib/ui'
@@ -231,6 +231,20 @@ export default function App() {
     sw.addEventListener('message', onMsg)
     return () => sw.removeEventListener('message', onMsg)
   }, [isEditor, refreshPool])
+  // A tapped «Neuer Objektbesuch» push (target 'besuch:<id>') while the app runs: open that visit.
+  // A killed app is opened by the service worker straight onto /besuche/<id> (sw-notify.js).
+  useEffect(() => {
+    const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined
+    if (!sw || linkScoped) return
+    const onMsg = (e: MessageEvent) => {
+      const target = e.data?.type === 'kp-notification-click' ? e.data.target : null
+      if (typeof target !== 'string' || !target.startsWith('besuch:')) return
+      setOvEntered(true)
+      navigateTo(ovHref({ kind: 'visit', id: target.slice('besuch:'.length) }))
+    }
+    sw.addEventListener('message', onMsg)
+    return () => sw.removeEventListener('message', onMsg)
+  }, [linkScoped])
   const [taking, setTaking] = useState<number | null>(null) // divera_id mid-take
   // incident just opened one-tap → show the correct-in-place review banner until confirmed
   const [reviewPendingId, setReviewPendingId] = useState<string | null>(null)
