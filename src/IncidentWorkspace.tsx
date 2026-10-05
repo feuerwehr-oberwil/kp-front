@@ -449,13 +449,12 @@ export function IncidentWorkspace({
    *  closed Einsatz still takes (`canEditRapport`), so an Einsatz opened closed out of «Alle
    *  Einsätze» (forceReadOnly) delivers too. */
   const outboxReadOnly = roleReadOnly || tabLockLost || replayActive
-  // Führungsansicht: an EDITOR's deliberate hands-off mode — tactical editing locked
-  // like a phone, but journal capture and read-only symbol details stay live. Device toggle
-  // (Einstellungen), seeded by the login's server-side default (el_view_default) so a
-  // dedicated «Einsatzleiter» account starts hands-off without per-device setup.
-  const [elViewPref, setElViewPref] = useState<boolean | null>(() => loadPrefs().elView ?? null)
-  const elView = isEditor && (elViewPref ?? user?.el_view_default ?? false)
-  const setElView = (v: boolean) => { setElViewPref(v); savePrefs({ ...loadPrefs(), elView: v }) }
+  // Führungsansicht: an EDITOR's hands-off mode — tactical editing locked like a phone, but
+  // journal capture and read-only symbol details stay live. It belongs to the LOGIN, set by the
+  // admin (Benutzer · el_view_default), and nothing else (05.10.2026, owner: «drop
+  // Führungsansicht in settings. We can use users»). The per-device toggle in the Einstellungen
+  // is gone; a stored `prefs.elView` from an older build is ignored (lib/prefs).
+  const elView = isEditor && (user?.el_view_default ?? false)
   // «not edit anything» is broader than the tactical surfaces: EL view also locks the
   // Atemschutz / Mittel / checklist / dispatch actions that hang off this flag.
   //
@@ -786,7 +785,7 @@ export function IncidentWorkspace({
   // NOTHING opens this on its own: sharing somebody's location is never proposed by the app,
   // only reached by tapping «Standort teilen» in the compass menu. That is also why there is no
   // «nicht jetzt» state to remember — nobody is being asked in the first place.
-  const [sharePick, setSharePick] = useState<null | 'ask' | 'pick'>(null)
+  const [sharePick, setSharePick] = useState<null | 'ask' | 'pick' | 'rename'>(null)
 
   // Session-only tactical editing state (active tool, place gesture, selection) — see
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
@@ -6635,14 +6634,16 @@ export function IncidentWorkspace({
       {sharePick && (
         <SharePositionSheet
           roster={personnel}
-          pickOnly={sharePick === 'pick'}
+          pickOnly={sharePick !== 'ask'}
           lastPersonId={share.pref?.personId ?? null}
           // «Neuer Einsatz» rather than «Namen ändern»: the question is back because this
           // Einsatz has not been confirmed yet, and the sheet says so instead of looking like
-          // the app forgot.
-          reconfirm={!share.confirmed}
+          // the app forgot. Not for a rename — that is somebody choosing to change it.
+          reconfirm={sharePick !== 'rename' && !share.confirmed}
           onPick={(id, displayName) => {
-            share.start({ id, displayName })
+            // a rename from the Einstellungen changes the name only; it switches nothing on
+            if (sharePick === 'rename') share.rename({ id, displayName })
+            else share.start({ id, displayName })
             setSharePick(null)
             if (shareParent === 'views') setViewsOpen(false)
             shareStatusRestore.current = null
@@ -6709,8 +6710,6 @@ export function IncidentWorkspace({
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
           themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}
-          elView={elView}
-          onElView={isEditor ? setElView : undefined}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
           onFeedback={linkScoped ? undefined : () => { setFeedbackParent('settings'); setFeedbackOpen(true) }}
           // Einstellungen holds the PERMISSION only — «dieses Gerät darf meinen Standort
@@ -6726,6 +6725,10 @@ export function IncidentWorkspace({
               else share.revoke()
             }
             : undefined}
+          onChangeShareName={() => {
+            setShareParent('settings')
+            setSharePick('rename')
+          }}
         />
       )}
       {/* Rückmeldung, opened deliberately from Einstellungen. Nothing ever PUSHES this at the

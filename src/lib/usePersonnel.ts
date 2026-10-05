@@ -14,6 +14,25 @@ function cacheRoster(list: Person[]): void {
   void idbSet(ROSTER_CACHE, list)
 }
 
+/** The roster for a one-off read OUTSIDE the hook — the Leeres Erfassungsblatt, the launcher's
+ *  warm-up: the server's list (re-cached on the way), else the last one this device held.
+ *
+ *  ⚠️ Never a bare `listPersonnel()` for something a person needs offline. The blank sheet used
+ *  to call it directly and came out with an empty «Personal / Anwesenheit» in airplane mode
+ *  (05.10.2026, owner's Übung) although the same device showed the whole Mannschaft in the
+ *  Anwesenheit a minute before. Rejects only when there is neither a server answer nor a cache. */
+export async function loadRoster(): Promise<Person[]> {
+  try {
+    const list = await listPersonnel()
+    cacheRoster(list)
+    return list
+  } catch (e) {
+    const cached = await readCachedRoster().catch(() => [] as Person[])
+    if (cached.length) return cached
+    throw e
+  }
+}
+
 /** Same roster, same order, same rows? Then hand the CALLER back its own array.
  *
  *  The background refresh below runs while somebody is ticking people in and out, and a fresh

@@ -579,6 +579,9 @@
 .tb-uhr-row.on { background: var(--fill-soft); }
 .tb-uhr-row .i { width: 18px; height: 18px; color: var(--ink-dim); flex: none; }
 .tb-uhr-lbl { font-size: 13px; font-weight: 600; flex: 1; }
+/* a reason under a row's word («Braucht Verbindung zum Server») — the row grows to hold it */
+.tb-uhr-note { display: block; font-size: 12px; font-weight: 500; color: var(--ink-faint); }
+.tb-uhr-row:has(.tb-uhr-note) { height: auto; min-height: 42px; padding-block: 6px; }
 .tb-uhr-val { font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); }
 .tb-uhr-row .tb-uhr-chk { width: 16px; height: 16px; color: var(--green); flex: none; visibility: hidden; }
 .tb-uhr-row.on .tb-uhr-chk { visibility: visible; }

@@ -40,7 +40,7 @@ import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, re
 import { serverNow } from './lib/serverClock'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
-import { ApiError } from './lib/api'
+import { ApiError, isUnverifiable } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
@@ -50,6 +50,7 @@ import { Meldeleiste } from './components/Meldeleiste'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
+import { loadRoster } from './lib/usePersonnel'
 import { HelpOverlay } from './components/HelpOverlay'
 import { installHoldTooltip } from './lib/holdTooltip'
 
@@ -88,7 +89,6 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
       keepScreenOn={keepScreenOn}
       onKeepScreenOn={setKeepScreenOn}
       themeCoord={null}
-      elView={false}
       onFeedback={onFeedback}
     />
   )
@@ -122,6 +122,11 @@ export default function App() {
   // permission is already granted AND the deployment has VAPID keys) — killed-app alarms.
   // Never on a link session: /api/push/subscriptions writes rows tied to a user and 403s.
   useEffect(() => { if (!linkScoped) void ensurePushSubscription() }, [linkScoped])
+  // Keep the last-known Mannschaft on the device from the LAUNCHER on, not only once an Einsatz
+  // has been opened online: an Einsatz first opened offline, and the Leeres Erfassungsblatt, read
+  // that cache (usePersonnel · loadRoster). A link session may not list the roster (403).
+  const rosterUserId = user && !linkScoped ? user.id : null
+  useEffect(() => { if (rosterUserId) void loadRoster().catch(() => {}) }, [rosterUserId])
 
   // Objektbesuche: what a save point could not send (offline, a lapsed session) goes up on its
   // own — at every start and every reconnect, whether or not anybody opens that visit again.
@@ -748,7 +753,12 @@ export default function App() {
       try {
         await reactivateIncident(id)
       } catch (e) {
-        toast(e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+        // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
+        // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
+        // from, and until it arrives the alarm holds (lib/reopenClocks · reopenPending), so an
+        // Einsatz reopened offline would run its Tafel without an Überfällig alarm.
+        toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
+          : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
         return 'failed'
       }
       await refreshList()

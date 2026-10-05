@@ -2199,8 +2199,6 @@ export const fr: Localizable<Copy> = {
     captionsAll: 'Toutes',
     keepScreenOn: 'Garder l\'écran allumé',
     keepScreenOnSub: 'Ne pas assombrir l\'écran pendant l\'intervention',
-    elView: 'Vue de conduite',
-    elViewSub: 'Tactique verrouillée – le journal et les détails des symboles restent actifs',
     utilityGroup: 'Modèles',
     blankSheet: 'Feuille de saisie vierge (PDF)',
     blankSheetSub: 'Une feuille papier à remplir à la main',
@@ -2526,6 +2524,8 @@ export const fr: Localizable<Copy> = {
     hint: 'Le rapport reste corrigeable (ajouts) – rouvrir pour tout le reste.',
     hintViewOnly: 'Consultation seule.',
     reactivate: 'Rouvrir',
+    reactivateOffline: 'Nécessite une connexion au serveur',
+    reactivateNeedsServer: 'La réouverture nécessite une connexion au serveur – l’intervention reste close. Réessayer une fois en ligne.',
 
     back: 'Retour',
     closedElsewhere: 'L’intervention a été close sur un autre appareil ({t})',
@@ -2550,6 +2550,8 @@ export const fr: Localizable<Copy> = {
     groupOpen: 'Ouvertes',
     groupToday: 'Aujourd\u2019hui',
     groupWeek: '7 derniers jours',
+    offlineNote: 'Hors ligne : la consultation fonctionne ; clore et rouvrir nécessitent une connexion au serveur.',
+    since: 'depuis {t}',
     reactivate: 'Rouvrir',
     reactivateConfirmTitle: 'Rouvrir l\u2019intervention',
     reactivateConfirmMsg: 'L’intervention est rouverte et modifiable. Les modifications ultérieures apparaissent dans le journal et le rapport comme compléments.',
@@ -4249,8 +4251,8 @@ export const fr: Localizable<Copy> = {
       pinBack: 'Retour',
       pinSave: 'Enregistrer le NIP',
 
-      elViewDefault: 'Démarre en vue de conduite',
-      elViewDefaultHint: 'Tactique verrouillée, journal et détails actifs – commutable sur l\'appareil',
+      elViewDefault: 'Vue de conduite',
+      elViewDefaultHint: 'Tactique verrouillée, journal et détails actifs – sur chaque appareil de cet accès',
     },
     roster: {
       rankNoneOption: 'Sans grade',
@@ -5325,6 +5327,8 @@ export const fr: Localizable<Copy> = {
     settingsLabel: 'Utiliser la position',
     settingsHint: 'Autorise cet appareil à utiliser ta position. Rien n\'est partagé tant que tu ne l\'actives pas depuis la carte.',
     settingsAs: 'En tant que {name}',
+    settingsName: 'Nom sur la carte',
+    settingsNameSub: 'Ainsi te voit le poste de commandement – toucher pour changer',
   },
   livePosition: {
     chip: '{d} · il y a {n} min',

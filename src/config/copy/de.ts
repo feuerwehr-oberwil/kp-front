@@ -3682,11 +3682,8 @@ export const de = {
     offlineAutoSub: 'Lädt Karte und Pläne kurz nach dem Öffnen des Einsatzes automatisch herunter',
     keepScreenOn: 'Bildschirm eingeschaltet lassen',
     keepScreenOnSub: 'Verhindert das Abdunkeln während des Einsatzes',
-    // Used to be called «Einsatzleiter-Ansicht»: the mode locks the tactical layer and names no
-    // role – Kdt, Fourier and whoever reads along on the beamer use it just the same. The code
-    // identifier stays `elView` so stored device settings keep working.
-    elView: 'Führungsansicht',
-    elViewSub: 'Sperrt die taktische Bearbeitung – Verlauf & Symbol-Details bleiben verfügbar',
+    // No «Führungsansicht» row any more (05.10.2026): it is the login's, set in the admin's
+    // Benutzer (admin · members · elViewDefault), not a per-device switch.
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
     incidentGroup: 'Einsatz',
     contactInterval: 'Atemschutz-Funkkontakt',
@@ -4109,6 +4106,9 @@ export const de = {
     settingsLabel: 'Standort verwenden',
     settingsHint: 'Erlaubt diesem Gerät, deinen Standort zu verwenden. Geteilt wird erst, wenn du es auf der Karte einschaltest.',
     settingsAs: 'Als {name}',
+    // Einstellungen: the name row under «Standort verwenden» — the value is the button
+    settingsName: 'Name auf der Karte',
+    settingsNameSub: 'So sieht dich der Kommandoposten – tippen zum Ändern',
   },
   // Anwesenheit list: live position next to the name. Deliberately neutral – far away is the
   // normal case (Wassertransport), not a warning.
@@ -4214,6 +4214,10 @@ export const de = {
     hintViewOnly: 'Nur ansehen.',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
+    // offline (05.10.2026): «Wieder öffnen» is the server's call (it writes the reopen boundary
+    // the Atemschutz clocks restart from), so it is said up front, not discovered by a failure
+    reactivateOffline: 'Braucht Verbindung zum Server',
+    reactivateNeedsServer: 'Wieder öffnen braucht Verbindung zum Server – der Einsatz bleibt abgeschlossen. Online nochmals versuchen.',
     // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
     // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
     closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
@@ -4247,6 +4251,9 @@ export const de = {
     groupOpen: 'Offen',
     groupToday: 'Heute',
     groupWeek: 'Letzte 7 Tage',
+    offlineNote: 'Offline: Ansehen geht, Abschliessen und Wieder öffnen brauchen Verbindung zum Server.',
+    // a running Einsatz's span in its row: «seit 14:00» (no end yet)
+    since: 'seit {t}',
     reactivate: 'Wieder öffnen',
     reactivateConfirmTitle: 'Einsatz wieder öffnen',
     reactivateConfirmMsg: 'Der Einsatz wird wieder geöffnet und ist bearbeitbar. Spätere Änderungen erscheinen im Verlauf und Rapport als Nachträge.',
@@ -6790,8 +6797,8 @@ export const de = {
       roleViewer: 'Betrachter',
       roleEditor: 'Bearbeiter',
       roleEl: 'Einsatzleiter',
-      elViewDefault: 'Startet in Führungsansicht',
-      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – am Gerät umschaltbar',
+      elViewDefault: 'Führungsansicht',
+      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – auf jedem Gerät dieser Anmeldung',
       colorLabel: 'Farbe',
       colorOptional: 'optional',
       pickColor: 'Farbe wählen',

@@ -113,9 +113,10 @@ export interface Prefs {
    *  (`objectVisits/devicePrefs`, Safari caps this script cookie at seven days); read only as the
    *  fallback for a name an older build left behind, never written any more. */
   ovWith?: string
-  /** Führungsansicht: tactical editing locked on this device (journal capture and
-   *  read-only symbol details stay live). Unset = follow the login's server-side default
-   *  (AuthUser.el_view_default); an explicit toggle here overrides it. Editors only. */
+  /** RETIRED (05.10.2026): the per-device Führungsansicht toggle. The Führungsansicht is now the
+   *  login's alone (AuthUser.el_view_default, set in the admin's Benutzer). Left documented rather
+   *  than dropped: a cookie written by an older build may still carry it, and it is ignored —
+   *  nothing reads it, so a device that once switched it on is not stuck hands-off. */
   elView?: boolean
   /** what the top Einsatzuhr shows — tap it to cycle. Default 'elapsed' (running duration). */
   clockMode?: 'elapsed' | 'now' | 'start'

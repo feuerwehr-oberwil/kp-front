@@ -2258,8 +2258,6 @@ export const it: Localizable<Copy> = {
     captionsAll: 'Tutte',
     keepScreenOn: 'Mantieni acceso lo schermo',
     keepScreenOnSub: 'Non oscurare lo schermo durante l\'intervento',
-    elView: 'Vista di condotta',
-    elViewSub: 'Tattica bloccata – il diario e i dettagli dei simboli restano attivi',
     utilityGroup: 'Modelli',
     blankSheet: 'Foglio di registrazione vuoto (PDF)',
     blankSheetSub: 'Un foglio cartaceo da riempire a mano',
@@ -2526,6 +2524,8 @@ export const it: Localizable<Copy> = {
     hint: 'Il rapporto resta correggibile (aggiunte) – riaprire per tutto il resto.',
     hintViewOnly: 'Sola visualizzazione.',
     reactivate: 'Riapri',
+    reactivateOffline: 'Richiede una connessione al server',
+    reactivateNeedsServer: 'La riapertura richiede una connessione al server – l’intervento resta chiuso. Riprovare una volta online.',
 
     back: 'Indietro',
     closedElsewhere: 'L’intervento è stato chiuso su un altro dispositivo ({t})',
@@ -2550,6 +2550,8 @@ export const it: Localizable<Copy> = {
     groupOpen: 'Aperti',
     groupToday: 'Oggi',
     groupWeek: 'Ultimi 7 giorni',
+    offlineNote: 'Offline: la consultazione funziona; chiudere e riaprire richiedono una connessione al server.',
+    since: 'dalle {t}',
     reactivate: 'Riapri',
     reactivateConfirmTitle: 'Riapri intervento',
     reactivateConfirmMsg: 'L\u2019intervento viene riaperto ed è modificabile. Le modifiche successive appaiono nel diario e nel rapporto come aggiunte.',
@@ -4249,8 +4251,8 @@ export const it: Localizable<Copy> = {
       pinBack: 'Indietro',
       pinSave: 'Salva PIN',
 
-      elViewDefault: 'Parte in vista di condotta',
-      elViewDefaultHint: 'Tattica bloccata, diario e dettagli attivi – commutabile sul dispositivo',
+      elViewDefault: 'Vista di condotta',
+      elViewDefaultHint: 'Tattica bloccata, diario e dettagli attivi – su ogni dispositivo di questo accesso',
     },
     roster: {
       rankNoneOption: 'Nessun grado',
@@ -5326,6 +5328,8 @@ export const it: Localizable<Copy> = {
     settingsLabel: 'Usa la posizione',
     settingsHint: 'Consente a questo dispositivo di usare la tua posizione. Nulla viene condiviso finché non lo attivi dalla carta.',
     settingsAs: 'Come {name}',
+    settingsName: 'Nome sulla mappa',
+    settingsNameSub: 'Così ti vede il posto di comando – tocca per cambiare',
   },
   livePosition: {
     chip: '{d} · {n} min fa',

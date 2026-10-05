@@ -119,7 +119,10 @@ to prod.
   moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
   media queue metadata, reference/checklist/object metadata, and readiness; localStorage holds
   only tiny device flags (update banners, install prompts, once-per-device hints) and migration
-  flags. UI copy/locale/defaults/storage keys live in
+  flags. The Mannschaft (roster) is cached there too (`kp-front-roster`, `usePersonnel`); a one-off
+  read outside the hook — the Leeres Erfassungsblatt — goes through `loadRoster` (server, else the
+  cache), never a bare `listPersonnel()`, and the launcher warms it at sign-in (05.10.2026: the
+  blank sheet printed an empty «Personal / Anwesenheit» offline). UI copy/locale/defaults/storage keys live in
   `src/config/appConfig.ts`; the neutral fallback incident is `src/data/demoIncident.ts`.
 - **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
   outboxes and the media upload queue contribute to the shared sync status. Preserve rejected entries for retry/export;
@@ -180,6 +183,17 @@ to prod.
   forceReadOnly goes too), with its own row naming the reopen row's time. The live poll claims
   `open=` from the server's last `X-Incident-Open`, never only from the view, and a held poll that
   answers at once with nothing new eases off — a closed view must never spin (it did, 3.4/s). «Anhängen» is never offered onto a closed Einsatz.
+  **«Wieder öffnen» needs the server — there is no offline reopen** (05.10.2026, asked for after an
+  Übung in airplane mode). The reopen boundary row is server-owned (`sys` namespace, review
+  contract above), the Atemschutz alarm HOLDS until it has arrived (`reopenPending`), and the
+  crews' restart rows derive their ids from it — so an Einsatz reopened offline would run its
+  Tafel with no Überfällig alarm for as long as the device stays offline. Offline the doors stay
+  (useOnline is a hint) but say so: «Braucht Verbindung zum Server» under the chip's row, one
+  line over «Alle Einsätze», and an unreachable server answers with `reactivateNeedsServer`, not
+  a raw network error. An offline reopen would need a client-stamped reopen time and a
+  precondition on the close it saw (`last_closed_at`, so a later close elsewhere wins), a local
+  provisional boundary for the alarm, the reopen sent BEFORE any outbox on reconnect, and closed
+  signals for that Einsatz ignored until then — a design, not a patch.
   After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
   … erscheinen als Nachträge»); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
   until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped
@@ -1092,7 +1106,9 @@ to prod.
   the fields «Einsatzdaten bearbeiten» sends (`EL_META_FIELDS`); the full workspace PUT, the
   trupps slice, the incident lifecycle (`status`, `is_archived`, `report_done_at`) and
   everything tactical stay 403 for it), and `viewer`
-  (read-only). Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
+  (read-only). The Führungsansicht is the LOGIN's (`el_view_default`, the admin's Benutzer · «Führungsansicht»);
+  the per-device toggle in the Einstellungen is gone (05.10.2026, owner: «drop Führungsansicht in settings. We
+  can use users») and a stored `prefs.elView` is ignored. Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
   on, `readOnly` off) with `canEditRecord` unlocking the four surfaces, `canEditMeta` the
   Einsatzdaten panel, and the sync pushing `slice: 'record'`. ⚠️ **A door the role cannot go
   through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026). A
