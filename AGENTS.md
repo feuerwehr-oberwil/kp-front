@@ -131,6 +131,10 @@ to prod.
   and a static reduced-motion state. Keep the path in the mascot SVG, never copy its geometry.
   Use the decorative loader inside busy actions, or `LoadingStatus` beside existing loading
   copy. Do not add artificial minimum waits for in-app activity.
+  **KP Rück shows the same snail** (02.10.2026): kp-rueck carries a byte-identical copy at
+  `frontend/public/firefighter-snail-loader.svg` and the `fs-shell-trail` path in its own
+  `ShellLoader`. Its CI job «Snail loader matches KP Front» fails when they differ, so the SVG
+  is edited HERE and then copied over to kp-rueck in the same breath.
   `SnailLoader` keeps ONE `{ __html }` object per instance: React 19 rewrites `innerHTML` for a
   new object even with the same string, which re-inserts the SVG and restarts its animations, so
   every re-render of a loading stage replayed the arrival.
