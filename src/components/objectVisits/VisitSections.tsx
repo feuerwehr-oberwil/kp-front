@@ -5,9 +5,10 @@
 import { useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
-import { dtLocalToIso, dtLocalValue, fillTemplate } from '../../lib/format'
+import { fillTemplate } from '../../lib/format'
 import type { Item } from '../../lib/checklists'
 import { Segmented } from '../Segmented'
+import { DateTimeField } from '../TimeField'
 import { answerStats, inputOf, isAnswered, localIso } from '../../objectVisits/doc'
 import { rememberWith, splitPeople } from '../../objectVisits/devicePrefs'
 import type { Answer, VisitDoc, VisitPhoto, VisitProposal } from '../../objectVisits/types'
@@ -37,12 +38,13 @@ export function DetailsCard({ doc, readOnly, onEdit }: { doc: VisitDoc; readOnly
             return next
           })
         }} />
+      {/* the app's own wheel picker with «Jetzt», 24h on every device (owner, 05.10.2026) — the
+          native datetime-local showed «10/05/2026, 02:17 PM» on an English iPhone */}
       <label className={s.field}>
         <span>{C.visitedAt}</span>
-        <input
-          className={`ip-input ${s.input} ${s.dateInput}`} type="datetime-local" value={dtLocalValue(doc.visitedAt)}
-          onChange={(e) => {
-            const iso = dtLocalToIso(e.target.value)
+        <DateTimeField
+          className={s.dateField} ariaLabel={C.visitedAt} value={doc.visitedAt} required
+          onCommit={(iso) => {
             if (iso) onEdit((d) => ({ ...d, visitedAt: localIso(new Date(iso)) }))
           }}
         />

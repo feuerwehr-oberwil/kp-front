@@ -123,13 +123,15 @@ export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowL
 
 /** Date + time variant — a day/month/year selector beside the clock, on every device.
  *  Emits ISO. */
-export function DateTimeField({ value, onCommit, disabled, ariaLabel, className }: {
+export function DateTimeField({ value, onCommit, disabled, ariaLabel, className, required }: {
   /** ISO datetime ('' /undefined = unset) */
   value?: string
   onCommit: (iso: string | null) => void
   disabled?: boolean
   ariaLabel: string
   className?: string
+  /** a value that must always be there (a visit's «Besucht am»): the picker offers no «Leeren» */
+  required?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -162,7 +164,7 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className 
             setOpen(false)
             onCommit(new Date(v.y, v.mo - 1, v.d, v.h, v.mi, 0, 0).toISOString())
           }}
-          onClear={valid ? () => { setOpen(false); onCommit(null) } : undefined}
+          onClear={valid && !required ? () => { setOpen(false); onCommit(null) } : undefined}
         />
       )}
     </span>

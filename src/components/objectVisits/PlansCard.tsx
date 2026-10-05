@@ -30,7 +30,7 @@ export function PlansCard({ rows, onOpen }: { rows: VisitPlanRow[]; onOpen: (ind
           <button key={r.id} type="button" className={s.row} onClick={() => onOpen(i)}>
             <Icon id="doc" className={s.rowGlyph} />
             <span className={s.rowMain}>
-              <span className={s.rowTitle}>{r.title}</span>
+              <span className={`${s.rowTitle} ${s.planName}`}>{r.title}</span>
               {r.sub && <span className={s.rowSub}>{r.sub}</span>}
             </span>
             <Icon id="chevron" className={s.chev} />
@@ -55,11 +55,11 @@ export function PlanReader({ rows, index, objectName, onShow, onClose }: {
     // the shared dialog behaviour (focus in, trapped and restored, Escape) — and no swipe-to-close:
     // a vertical drag here scrolls the plan
     <Overlay open onClose={onClose} className={`${s.page} ${s.reader}`} ariaLabel={r.title} swipeToClose={false}>
-      <Head title={r.sub ? `${r.title} · ${r.sub}` : r.title} sub={objectName} onBack={onClose} />
+      <Head title={r.title} sub={objectName} onBack={onClose} />
       {rows.length > 1 && (
         <div className={s.planTabs}>
           <Segmented tabs ariaLabel={C.plans} value={index}
-            options={rows.map((x, i) => ({ value: i, label: x.title }))} onChange={onShow} />
+            options={rows.map((x, i) => ({ value: i, label: x.short, title: x.title }))} onChange={onShow} />
         </div>
       )}
       <div className={s.planBody}>

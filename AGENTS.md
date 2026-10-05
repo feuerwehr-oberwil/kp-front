@@ -1197,6 +1197,9 @@ to prod.
   IMPORTER stays GET-only (`sharepoint_graph.py`) and filing writes only through
   `object_visit_sharepoint.py` with the separate `sharepoint_export_*` credentials; nothing
   remote is ever deleted. Alarms and the new-Einsatz banner stay on the Objektbesuche surface.
+  «Neuer Objektbesuch» (05.10.2026) pushes once, at a visit's first completion, ONLY to the
+  accounts an admin ticked (`users.notify_object_visits`, default nobody) — never widen it to
+  every subscription; received visits are listed first on /admin › Objektbesuche.
 - **Visit planning keeps templates separate from rounds** (03.10.2026): `visit_programmes`
   holds reusable organizer routes, never visible to crews. Annual publication is one
   transaction with a stale-revision guard; a round's stable ref and stop snapshot survive

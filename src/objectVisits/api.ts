@@ -2,9 +2,9 @@
 // paths can be adjusted in one place if the server names a route differently. Typed, thin — the
 // policy (when to send, what a refusal means) lives in outbox.ts.
 
-import { ApiError, apiGet, apiPost, apiRequestRaw, throwResponseError, UPLOAD_REQUEST_TIMEOUT_MS } from '../lib/api'
+import { ApiError, apiGet, apiPost, apiPut, apiRequestRaw, throwResponseError, UPLOAD_REQUEST_TIMEOUT_MS } from '../lib/api'
 import type {
-  Catalogue, DeliveryRow, PutAccepted, Revision, ServerVisit, VisitDoc, VisitSummary,
+  Catalogue, DeliveryRow, NotifyState, PutAccepted, Revision, ServerVisit, VisitDoc, VisitSummary,
 } from './types'
 
 const FIELD = '/api/object-visits'
@@ -25,6 +25,7 @@ export const OV_ROUTES = {
   adminRetry: `${ADMIN}/deliveries/retry`,
   adminTest: (destination: string) => `${ADMIN}/destinations/${seg(destination)}/test`,
   adminExport: (q: string) => `${ADMIN}/export.zip${q ? `?${q}` : ''}`,
+  adminNotify: `${ADMIN}/notify`,
 } as const
 
 /** The credential the organizer's key is stored under (group `object_visits`). */
@@ -149,6 +150,9 @@ export const adminRetryDeliveries = (destination: string, visitId?: string) =>
 export const adminTestDestination = (destination: string) =>
   apiPost<{ ok: boolean; status?: number | null; detail?: string | null; webUrl?: string | null }>(OV_ROUTES.adminTest(destination))
 export const adminExportUrl = (f?: ListFilter) => OV_ROUTES.adminExport(filterQuery(f))
+/** Who gets «Neuer Objektbesuch» (docs/object-visits.md · Notification) — read, and set as the whole list. */
+export const adminNotify = () => apiGet<NotifyState>(OV_ROUTES.adminNotify)
+export const adminSetNotify = (userIds: string[]) => apiPut<NotifyState>(OV_ROUTES.adminNotify, { userIds })
 
 /** Did the server say the module is off (`404 {code: object_visits_disabled}`)? */
 export const isModuleDisabled = (e: unknown): boolean =>
