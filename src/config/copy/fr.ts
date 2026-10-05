@@ -5302,6 +5302,8 @@ export const fr: Localizable<Copy> = {
     settingsLabel: 'Utiliser la position',
     settingsHint: 'Autorise cet appareil à utiliser ta position. Rien n\'est partagé tant que tu ne l\'actives pas depuis la carte.',
     settingsAs: 'En tant que {name}',
+    settingsName: 'Nom sur la carte',
+    settingsNameSub: 'Ainsi te voit le poste de commandement – toucher pour changer',
   },
   livePosition: {
     chip: '{d} · il y a {n} min',

@@ -5303,6 +5303,8 @@ export const it: Localizable<Copy> = {
     settingsLabel: 'Usa la posizione',
     settingsHint: 'Consente a questo dispositivo di usare la tua posizione. Nulla viene condiviso finché non lo attivi dalla carta.',
     settingsAs: 'Come {name}',
+    settingsName: 'Nome sulla mappa',
+    settingsNameSub: 'Così ti vede il posto di comando – tocca per cambiare',
   },
   livePosition: {
     chip: '{d} · {n} min fa',

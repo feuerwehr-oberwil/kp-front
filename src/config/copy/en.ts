@@ -5496,6 +5496,8 @@ export const en: Localizable<Copy> = {
     settingsLabel: 'Use location',
     settingsHint: 'Allows this device to use your location. Nothing is shared until you switch it on from the map.',
     settingsAs: 'As {name}',
+    settingsName: 'Name on the map',
+    settingsNameSub: 'How the command post sees you – tap to change',
   },
   livePosition: {
     chip: '{d} · {n} min ago',

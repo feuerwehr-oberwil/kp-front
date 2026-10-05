@@ -4103,6 +4103,9 @@ export const de = {
     settingsLabel: 'Standort verwenden',
     settingsHint: 'Erlaubt diesem Gerät, deinen Standort zu verwenden. Geteilt wird erst, wenn du es auf der Karte einschaltest.',
     settingsAs: 'Als {name}',
+    // Einstellungen: the name row under «Standort verwenden» — the value is the button
+    settingsName: 'Name auf der Karte',
+    settingsNameSub: 'So sieht dich der Kommandoposten – tippen zum Ändern',
   },
   // Anwesenheit list: live position next to the name. Deliberately neutral – far away is the
   // normal case (Wassertransport), not a warning.

@@ -48,7 +48,7 @@ function ScaleRow({ surface, label, sub, value, onChange }: {
  *  at 3am (per-incident overrides already written keep working; the doctrine is the source). */
 export function SettingsSheet({
   onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, offlineAuto, onOfflineAuto, keepScreenOn, onKeepScreenOn, themeCoord, onFeedback,
-  shareAs, onSharePosition,
+  shareAs, onSharePosition, onChangeShareName,
 }: {
   onClose: () => void
   /** tactical-symbol size per surface, as multipliers (lib/prefs · SYMBOL_SCALE) */
@@ -81,6 +81,9 @@ export function SettingsSheet({
   shareAs?: string | null
   /** true → open the name picker; false → stop sharing and delete the reported position */
   onSharePosition?: (on: boolean) => void
+  /** open the name picker to change WHO this device reports as — the name row under «Standort
+   *  verwenden», shown while the permission stands. Omitted → no name row. */
+  onChangeShareName?: () => void
 }) {
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadPrefs().theme ?? 'auto')
   const setTheme = (m: ThemeMode) => {
@@ -190,9 +193,22 @@ export function SettingsSheet({
               <div className="set-row">
                 <span className="set-row-l">
                   {sp.settingsLabel}
-                  <small>{shareAs ? fillTemplate(sp.settingsAs, { name: shareAs }) : sp.settingsHint}</small>
+                  <small>{sp.settingsHint}</small>
                 </span>
                 <OnOff ariaLabel={sp.settingsLabel} value={!!shareAs} onChange={onSharePosition} />
+              </div>
+            )}
+            {/* WHO the device reports as — its own row with the name ON the button, so changing it
+                is one tap (05.10.2026, owner: «have the selected person … be immediately
+                editable»). It was a grey «Als …» under the switch, and the only way to another
+                name was off, on, and the consent sheet all over again. */}
+            {onSharePosition && shareAs && onChangeShareName && (
+              <div className="set-row">
+                <span className="set-row-l">{sp.settingsName}<small>{sp.settingsNameSub}</small></span>
+                <button type="button" className="set-dl set-name" onClick={onChangeShareName}
+                  aria-label={`${sp.settingsName}: ${shareAs} – ${sp.change}`}>
+                  <Icon id="pen" /> <span className="set-name-v">{shareAs}</span>
+                </button>
               </div>
             )}
           </div>
