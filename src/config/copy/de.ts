@@ -13,15 +13,21 @@
 
 // Help overlay content model (authored as data so it bundles offline, no markdown dep).
 // Inline markup in `lead`/`sub`/list items: **bold** for emphasis, [[Key]] for keyboard chips.
+// `only` (29.09.2026) — a block or section that describes ONE kind of device: 'phone' (the two
+// bars at the bottom), 'wide' (the rails left and right), 'keyboard' (shortcuts, mouse: never on
+// a phone, nor on a touch-only tablet). Help that describes the tablet on a phone contradicts the
+// screen it is read on. Absent = every device. See HelpOverlay · helpDevice.
+export type HelpOnly = 'phone' | 'wide' | 'keyboard'
 export type HelpBlock =
   | { kind: 'intro' } // the per-station helpIntro (or introFallback)
-  | { kind: 'lead'; text: string }
-  | { kind: 'sub'; text: string }
-  | { kind: 'note'; text: string }
-  | { kind: 'list'; items: string[] }
-export interface HelpSection { id: string; title: string; icon: string; blocks: HelpBlock[] }
+  | { kind: 'lead'; text: string; only?: HelpOnly }
+  | { kind: 'sub'; text: string; only?: HelpOnly }
+  | { kind: 'note'; text: string; only?: HelpOnly }
+  | { kind: 'list'; items: string[]; only?: HelpOnly }
+export interface HelpSection { id: string; title: string; icon: string; blocks: HelpBlock[]; only?: HelpOnly }
 
 export const de = {
+  loading: 'Wird geladen …',
   loadingSubtitle: 'Karte & Symbolbibliothek werden geladen …',
   // ⚠️ «Trupps», nicht «Atemschutz» (04.09.). Die Fläche führt seit 03.09. BEIDE Arten Trupp — die
   // Atemschutztrupps oben, die Arbeitstrupps darunter (atemschutz.sectionPlain) —, und ein Bereich,
@@ -40,9 +46,8 @@ export const de = {
   // Deliberately the same shape as «Welcher Trupp?»: a short list you tap, no surface of its own.
   truppFinder: {
     title: 'Trupp finden',
+    // «oder Name»: the list searches the people in a Trupp too — the foot said so a second time until 29.09.2026
     placeholder: 'Trupp oder Name …',
-    // …because the list searches the people in a Trupp too, not just its name
-    hint: 'Sucht auch nach Namen im Trupp.',
     noMatches: 'Kein Trupp gefunden',
     // shown INSTEAD of the list when nothing is placed anywhere — the honest answer, and it
     // says where a Trupp comes from rather than leaving an empty box
@@ -63,6 +68,9 @@ export const de = {
     showAll: 'Alle ein',
     hideAll: 'Alle aus',
     reset: 'Standard',
+    // Ebenen-Knopf, wenn die Ebenen weder Standard noch «Alle ein/aus» sind (05.10.2026):
+    // ein Punkt am Knopf, dieses Wort im Screenreader und Tooltip
+    custom: 'Eigene Auswahl',
   },
   help: {
     menu: 'Funktionen & Hilfe',
@@ -73,8 +81,6 @@ export const de = {
     // read — the search filters the table of contents AND the sections (on a phone there is no
     // table of contents, so filtering the sections is the whole search there).
     search: 'Hilfe durchsuchen …',
-    searchClear: 'Suche löschen',
-    searchNone: 'Keine Treffer für «{q}».',
     searchHint: 'Anderes Stichwort versuchen – gesucht wird in Überschriften und Text.',
     // Fallback intro when the station has not configured a helpIntro of its own.
     introFallback: 'KP Front ist die digitale Lage- und Einsatzführung deiner Feuerwehr: taktische Karte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll – alles live auf mehreren Geräten gleichzeitig.',
@@ -85,7 +91,8 @@ export const de = {
         id: 'ueberblick', title: 'Überblick', icon: 'info',
         blocks: [
           { kind: 'intro' },
-          { kind: 'sub', text: 'Die Arbeitsbereiche (linke Leiste)' },
+          { kind: 'sub', text: 'Die Arbeitsbereiche (linke Leiste)', only: 'wide' },
+          { kind: 'sub', text: 'Die Arbeitsbereiche (Leiste unten)', only: 'phone' },
           { kind: 'list', items: [
             '**Karte** – die taktische Karte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
             '**Pläne** – Module und Gebäudeansichten dieser Wehr als taktische Arbeitsflächen, geschossweise.',
@@ -101,17 +108,28 @@ export const de = {
       {
         id: 'navigation', title: 'Navigation & Oberfläche', icon: 'cursor',
         blocks: [
-          { kind: 'lead', text: 'Drei feste Zonen: die Bereichsleiste links, die Einsatzleiste oben, die Werkzeugleiste rechts.' },
-          { kind: 'sub', text: 'Linke Leiste' },
+          { kind: 'lead', text: 'Drei feste Zonen: die Bereichsleiste links, die Einsatzleiste oben, die Werkzeugleiste rechts.', only: 'wide' },
+          { kind: 'lead', text: 'Zwei Leisten unten, eine oben: ganz unten die Bereichsleiste, darüber die Werkzeugleiste, oben die Einsatzleiste.', only: 'phone' },
+          { kind: 'sub', text: 'Untere Leisten', only: 'phone' },
+          { kind: 'list', only: 'phone', items: [
+            'Die **Bereichsleiste** ganz unten hat fünf Felder: Karte, Pläne, Checkliste, Trupps und Rapport. **Pläne** und **Rapport** stehen für mehrere Seiten (Rapport · Anwesenheit · Material): das Feld nochmals antippen oder gedrückt halten öffnet die Auswahl.',
+            'Darüber die **Werkzeugleiste** der Karte bzw. des Plans. **+** ist die eine Tür zu allem, was darauf gesetzt wird.',
+            'Ein Knopf, auf dem nur ein Zeichen steht, sagt sein Wort, wenn man ihn **gedrückt hält**. In den **Einstellungen** schreibt «Beschriftung der Werkzeugleisten» die Wörter dauerhaft darunter.',
+          ] },
+          { kind: 'sub', text: 'Linke Leiste', only: 'wide' },
           { kind: 'list', items: [
             'Je nach Einstellung zeigt die linke Leiste die Bezeichnungen der Arbeitsbereiche oder deren Tastaturkürzel. Die Kürzel entsprechen dem ersten Buchstaben des deutschen Begriffs, bei Anwesenheit steht P für Personal.',
             'Im Kartenbereich sind **Ebenen** und der **Karten**-Umschalter unten angeheftet – immer sichtbar.',
             'Am rechten Rand der Leiste ziehen klappt sie mit Beschriftungen auf bzw. wieder zu.',
-          ] },
+          ], only: 'wide' },
           { kind: 'sub', text: 'Obere Einsatzleiste' },
           { kind: 'list', items: [
             'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, Offline-Bereitschaft, diese Hilfe …) und der **Einsatzuhr**.',
             'Rechts **Rückgängig/Wiederherstellen**, **Verlauf** und **+ Eintrag**.',
+          ], only: 'wide' },
+          { kind: 'list', only: 'phone', items: [
+            'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, Offline-Bereitschaft, diese Hilfe …), rechts **Rückgängig** und der **Verlauf**.',
+            'Der runde Knopf unten rechts ist **+ Eintrag**.',
           ] },
           { kind: 'sub', text: 'Meldeleiste' },
           { kind: 'list', items: [
@@ -119,14 +137,14 @@ export const de = {
             'Die Reihenfolge ist fest, nicht nach Eingang: zuerst der **Atemschutz**, dann der **Alarm**, dann die **Erinnerung**. Was auf jemanden wartet, steht immer über dem, was von selbst wieder verschwindet.',
             'Es wirken nur die beschrifteten Knöpfe, das **✕** und – wo die Meldung einen Ort hat – ihr **Titel**. Ein Tipp irgendwo sonst auf die Zeile tut nichts: Lesen darf nicht dasselbe sein wie Handeln. Steht nichts an, ist der Streifen gar nicht da.',
           ] },
-          { kind: 'sub', text: 'Rechte Werkzeugleiste' },
+          { kind: 'sub', text: 'Rechte Werkzeugleiste', only: 'wide' },
           { kind: 'list', items: [
             'Die Zeichen- und Platzierwerkzeuge; unten angeheftet die Karten-Navigation (Zoom, Einpassen, Koordinaten).',
-          ] },
+          ], only: 'wide' },
         ],
       },
       {
-        id: 'tastatur', title: 'Tastaturkürzel', icon: 'type',
+        id: 'tastatur', title: 'Tastaturkürzel', icon: 'type', only: 'keyboard',
         blocks: [
           { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird. Wo ein Feld in der linken Leiste eine Taste hat, steht sie darauf.' },
           { kind: 'sub', text: 'Bereiche wechseln' },
@@ -225,14 +243,14 @@ export const de = {
             'In den **Ebenen** bekommt jedes verknüpfte Blatt eine eigene Zeile («Plan (Modul 2)»): das Blatt selbst als Bild unter der Karte. Die Objekte darauf brauchen keine eigene Zeile mehr – sie gehören zu der Ebene, auf der sie gesetzt wurden.',
           ] },
           { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist (Umriss-Symbol), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Geschoss-Stapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Geschoss-Stapel des Gebäudes, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
-          { kind: 'note', text: '**Wie herum steht das Gebäude?** Der **Nordpfeil** auf dem Geschoss-Stapel und der **Kompass** unten in der linken Leiste öffnen dasselbe kleine Fenster «Gebäude drehen»: ein Regler **Drehung** mit Vorschau, dazu **Norden oben** und **Auf Längsachse drehen** als je ein Tipp. Der Umriss dreht sich mit, die Markierungen bleiben, wo sie am Gebäude liegen – und die gedruckten Geschossseiten zeigen den eingestellten Winkel.' },
+          { kind: 'note', text: '**Wie herum steht das Gebäude?** Ein Tipp auf den **Nordpfeil** oben rechts auf dem Geschoss-Stapel öffnet das kleine Fenster «Gebäude drehen»: ein Regler **Drehung** mit Vorschau, dazu **Norden oben** und **Auf Längsachse drehen** als je ein Tipp. Der Umriss dreht sich mit, die Markierungen bleiben, wo sie am Gebäude liegen – und die gedruckten Geschossseiten zeigen den eingestellten Winkel.' },
         ],
       },
       {
         id: 'atemschutz', title: 'Trupps & Atemschutzüberwachung', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Lückenlose Überwachung jedes Atemschutztrupps nach FKS – das Sicherheitssignal ist die **Zeit seit dem letzten Funkkontakt**, nicht eine geschätzte Restzeit.' },
-          { kind: 'sub', text: 'Trupp erstellen' },
+          { kind: 'sub', text: 'Trupp anmelden' },
           { kind: 'list', items: [
             '**Wer geht rein**: drei Slots, der oberste ist der **GF** – die ganze Zeile antippen macht jemanden zum Gruppenführer, das **✕** entfernt ihn. Ein grösserer Trupp hängt einfach weitere Zeilen an.',
             'Über die **Personensuche** wird das ganze Personal gefunden, nicht nur die Anwesenden; neben jedem Namen steht, was dagegen spricht (nicht anwesend, Magazin, schon in einem Trupp). **(+)** erfasst einen Gast (Nachbarwehr) – der landet zugleich in der Anwesenheit und gilt dort als derselbe Mensch.',
@@ -248,7 +266,7 @@ export const de = {
             '**Druck** direkt mit ± einstellen und mit **Bestätigen** übernehmen – das zählt als Kontakt und wird protokolliert; ein Fehlklick ohne Bestätigen ändert nichts. Niedriger Druck wird rot.',
             'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug melden** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder in den Einsatz** (neue Flasche) zurück in die Überwachung – der **Druckverlauf der ersten Ausrückung bleibt dabei erhalten** und steht später vollständig auf dem Rapport.',
             'Draussene Trupps behalten ihren Platz auf der Tafel (grau und gedämpft) statt in einen eigenen Abschnitt zu wandern – die Karte, die du suchst, steht dort, wo sie vorher stand.',
-            'Ein **gelöschter Trupp** verschwindet nur von der Tafel: auf dem Rapport steht er weiter, mit allem, was gemessen wurde, und als **«Von Tafel entfernt»**. Über **Entfernte Trupps** in der Kopfzeile kommt er zurück – der «Rückgängig»-Hinweis ist die schnelle Tür, nicht die einzige.',
+            'Ein **entfernter Trupp** verschwindet nur von der Tafel: auf dem Rapport steht er weiter, mit allem, was gemessen wurde, und als **«Von Tafel entfernt»**. Über **Entfernte Trupps** in der Kopfzeile kommt er zurück – der «Rückgängig»-Hinweis ist die schnelle Tür, nicht die einzige.',
             '**Verlauf** je Trupp (ausklappbar) zeigt jeden Kontakt mit Uhrzeit und Druck.',
             '**Bearbeiten** (Stift) passt Auftrag / Ziel oder Trupp mitten im Einsatz an.',
             'Wer unter AS ist, lässt sich in der **Anwesenheit** nicht abmelden – ein Tipp auf die Zeile springt stattdessen auf die Karte dieses Trupps und hebt sie kurz hervor.',
@@ -370,6 +388,7 @@ export const de = {
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
             'Kontaktperson und Rückmeldung ELZ haben am Ende der Zeile ein **Entfällt** – für den Fehlalarm oder die Ölspur, wo es beides nicht gibt. Das ist eine Antwort, keine Übergehung: sie wird festgehalten und steht so im Rapport.',
             '**Einsatz abschliessen** schliesst den Einsatz ab und hält das Einsatzende fest. Fotos und Sprachnotizen, die noch nicht hochgeladen sind, werden vorher gesendet; geht das nicht (offline), **bleiben sie gespeichert** und gehen beim nächsten Öffnen raus – die Bestätigung sagt, wie viele.',
+            '**Weitergeben** (unten im Rapport, und im Einsatz-Menü unter **Einsatz teilen**): ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. Nur lesen, kein Login, nichts lässt sich ändern. Für Zentrale, EL und Nachbarwehr mitten im Einsatz – und für Gemeinde und Nachbarwehr danach: er gilt über den Abschluss hinaus, bis ihn jemand aufhebt.',
           ] },
           { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** – spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
         ],
@@ -414,19 +433,19 @@ export const de = {
             'Ein Finger schiebt die Karte/den Plan; zwei Finger zoomen (Pinch).',
             'Nochmals auf **Auswahl** tippen schaltet den Knopf auf **Mehrfach**: ein gezogener Rahmen wählt mehrere Objekte; ausgewählte Objekte verschiebt man durch Ziehen.',
           ] },
-          { kind: 'sub', text: 'Maus' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Maus', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             'Scrollen zoomt; **Rechtsklick** (oder langes Tippen) auf einen Mess-/Linienpunkt entfernt ihn, Klick auf eine Linie fügt einen Zwischenpunkt ein.',
           ] },
-          { kind: 'sub', text: 'Tasten' },
-          { kind: 'list', items: [
+          { kind: 'sub', text: 'Tasten', only: 'keyboard' },
+          { kind: 'list', only: 'keyboard', items: [
             '[[Esc]] bricht das aktive Werkzeug ab bzw. hebt die Auswahl auf.',
             '[[Entf]] / [[Backspace]] löscht die Auswahl (nicht beim Tippen in ein Feld).',
           ] },
           { kind: 'sub', text: 'Beschriftete Leisten' },
           { kind: 'list', items: [
-            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Wörter** schreibt unter jedes Zeichen der beiden Leisten sein Wort. Für alle, die die Symbole noch nicht auswendig kennen – die Leiste wird dafür etwas breiter, und «Ausklappen» braucht es dann nicht mehr.',
-            'Ohne diese Einstellung bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
+            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Ein** schreibt unter jedes Zeichen der beiden Leisten sein Wort. Für alle, die die Symbole noch nicht auswendig kennen – die Leiste wird dafür etwas breiter, und «Ausklappen» braucht es dann nicht mehr. Auf dem **Telefon** ist sie von Anfang an ein.',
+            'Ist sie aus, bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
             'Überall sonst gilt: einen Knopf, auf dem nur ein Zeichen steht, **gedrückt halten** – nach einem kurzen Moment steht sein Wort als Blase darüber, auf Touch mit einem kurzen Summen. Das Loslassen löst den Knopf dabei **nicht** aus: fragen, was etwas ist, darf es nicht gleich auch tun. An der Maus genügt Draufzeigen.',
           ] },
           { kind: 'sub', text: 'Tag / Nacht' },
@@ -675,7 +694,6 @@ export const de = {
   hoseHint: '~{n} Schläuche',
   noHistoryRows: 'Noch keine Ereignisse erfasst.',
   symbolSearchPlaceholder: 'Suchen …',
-  noSymbolMatches: 'Keine Treffer',
   closeDialog: 'Schliessen',
   sheetGrip: 'Detailhöhe anpassen',
   edit: 'Bearbeiten',
@@ -686,6 +704,11 @@ export const de = {
   exerciseBadge: 'Übung',
   keepPlacing: 'Mehrere platzieren',
   delete: 'Löschen',
+  /** ⚠️ The ONE word for taking a tactical object (Symbol, Notiz, Form, Linie, Fläche,
+   *  Absperrkreis, Truppmarker) off the picture — its panel's button, its confirm and its Verlauf
+   *  row («… entfernt»), since 25.09.2026. «gelöscht» now means only an extinguished Feuer
+   *  (objectDone); «Löschen» stays for records that are not on the picture (views, checklists). */
+  remove: 'Entfernen',
   undo: 'Rückgängig',
   // ⚠️ «Wiederherstellen», nicht «Wiederholen» (11.09.): «wiederholen» heisst, die Aktion NOCH
   // EINMAL auszuführen – im Verlauf stand hintereinander «Druck 280 bar rückgängig gemacht» und
@@ -723,8 +746,53 @@ export const de = {
     zeitplan: 'Zeitplan',
     ansicht: 'Ansicht',
   },
+  /** ⚠️ Die FLÄCHE, auf der ein Schritt passiert ist — steht vor der Aktion in «Rückgängig: …»,
+   *  wo die Aktion sie nicht schon selbst nennt (lib/undoTimeline · undoCaption). Seit ein Merge
+   *  nur noch einzelne Schritte fallen lässt (25.09.2026), kann das ↶ nach einem fremden Speichern
+   *  auf eine ältere Aktion einer ANDEREN Fläche zeigen; ohne Fläche nimmt der zweite Tipp, der
+   *  der Karte galt, eine Trupp-Änderung zurück. */
+  undoSurfaces: {
+    karte: 'Karte',
+    plan: 'Plan',
+    trupps: 'Trupps',
+    anwesenheit: 'Anwesenheit',
+    mittel: 'Material',
+    checkliste: 'Checklisten',
+    gebaeude: 'Gebäude',
+    rapport: 'Rapport',
+    zeitplan: 'Zeitplan',
+    ansicht: 'Karte',
+    pendenz: 'Verlauf',
+  },
+  /** Ein anderes Gerät hat geändert, was der OBERSTE Schritt zurückgenommen hätte: der Schritt
+   *  fällt weg, und das ↶ zeigt jetzt auf etwas Älteres. Einmal sagen, statt still umzubenennen.
+   *  `{what}` aus `undoDroppedWhat`. */
+  undoTopDropped: 'Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät hat {what} geändert',
+  undoDroppedWhat: {
+    karte: 'die Karte',
+    plan: 'den Plan',
+    trupps: 'den Trupp',
+    anwesenheit: 'die Anwesenheit',
+    mittel: 'das Material',
+    checkliste: 'die Checkliste',
+    gebaeude: 'das Gebäude',
+    rapport: 'den Rapport',
+    zeitplan: 'den Zeitplan',
+    ansicht: 'die Ansichten',
+    pendenz: 'die Pendenz',
+  },
   play: 'Abspielen',
-  clear: 'Suche löschen',
+  // The ✕ that EMPTIES a field (29.09.2026): «leeren», never «löschen» — «löschen» is the delete
+  // verb (records are «gelöscht», removalWords.test), and this ✕ deletes nothing. ONE key for the
+  // bare word, one for the search, one template for a named field («Bemerkung leeren»); the
+  // four «Suche löschen» copies (help/anwesenheit/mittel/top) are gone.
+  clear: 'Leeren',
+  clearSearch: 'Suche leeren',
+  clearField: '{field} leeren',
+  // THE «no hits» line (29.09.2026) — says what was searched; a list keeps a noun of its own only
+  // where the noun helps («Kein Trupp gefunden»). Drawn as `.no-hits` (13-incident.css).
+  noHits: 'Keine Treffer für «{q}».',
+  savedLive: 'Alles wird laufend gespeichert.',
   // kind drives how the tool-rail button reads & behaves:
   //   'tool'   — modal, sticky (flat, lights up while active)
   //   'action' — one-shot, fires & gives toast feedback (push-button look)
@@ -811,6 +879,16 @@ export const de = {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
+    /** …per input mode, because the two take different gestures: «Freihand» draws only with a
+     *  drag (a tap does nothing), «Punkte» only with taps and ✓. */
+    lineFreehand: 'Auf der Karte ziehen, um eine Linie zu zeichnen. Für einzelne Punkte: «Punkte». Farbe, Breite und Stil danach im Editor.',
+    lineNodes: 'Punkte auf die Karte tippen, mit ✓ abschliessen. Farbe, Breite und Stil danach im Editor.',
+    // ONE line for the armed mode, on the phone dock itself (ToolDock · hint) — the text above
+    // stays behind ⓘ
+    lineFreeShort: 'Mit dem Finger über die Karte ziehen',
+    lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
+    areaFreeShort: 'Den Umriss mit dem Finger ziehen',
+    areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
     area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -852,13 +930,16 @@ export const de = {
     addressPlaceholder: 'Strasse Nr, PLZ Ort',
     addressSearching: 'Wird gesucht …',
     addressNoHits: 'Keine Adresse gefunden',
-    objectButton: 'Objekt aus Feuerwehrplänen',
+    // «Aus Plänen» · «Auf Karte» (27.09.2026, slim sweep · mockup 4a): the app's last two-line
+    // buttons. The verb «setzen» is where the buttons sit (under the address); «Feuerwehrpläne»
+    // is the only source of objects the app has, and the list that folds open says so.
+    objectButton: 'Aus Plänen',
     objectSearchPlaceholder: 'Objekt oder Adresse suchen …',
     objectNear: 'In der Nähe',
     objectNoHits: 'Keine Objekte gefunden',
     objectPlans: (n: number) => (n === 1 ? '1 Plan' : `${n} Pläne`),
     objectNoPlans: 'keine Pläne',
-    mapPickButton: 'Auf Karte setzen',
+    mapPickButton: 'Auf Karte',
     hereButton: 'Hier',
     hereFailed: 'Standort nicht verfügbar',
     coordSet: 'Koordinate gesetzt',
@@ -873,8 +954,11 @@ export const de = {
     categoryLabel: 'Kategorie',
     // Übungen stay fully operable, but do not feed the statistics and are the only ones
     // that can be deleted (Alle Einsätze)
-    exerciseToggle: 'Übung – zählt nicht zur Einsatzstatistik',
-    detailsLabel: 'Meldungstext (optional)',
+    // an OnOff row since 28.09.2026: the name on the row, the consequence under it
+    exerciseNo: 'Nein',
+    exerciseYes: 'Ja',
+    exerciseLabel: 'Übung',
+    exerciseSub: 'Zählt nicht zur Einsatzstatistik',
     // «Hier» moves the Einsatzort to the device's location. On a running Einsatz it always asks
     // first – the form is usually opened in the Magazin to correct an address, and a mis-tap
     // takes the map, the Kroki, the tile stock and the Objektpläne along with it.
@@ -893,7 +977,6 @@ export const de = {
     errorUpdate: 'Aktualisierung fehlgeschlagen',
     // --- edit mode + result toasts ---
     editTitle: 'Einsatzdaten bearbeiten',
-    back: 'Zurück',
     save: 'Speichern',
     saving: 'Speichert …',
     created: 'Einsatz erstellt',
@@ -1124,11 +1207,15 @@ export const de = {
      *  Zeile ohne Zahl, wie «Referenz entfernt». (georefTwins · handLinkRow) */
     referenceLinked: 'Plan mit Karte verknüpft – {plan}',
     referenceLinkedPlaced: 'Plan mit Karte verknüpft – {plan} – {n} Objekte verortet',
-    objectDeleted: '{name} gelöscht',
-    drawingDeleted: 'Zeichnung gelöscht',
+    /** ⚠️ «entfernt», nicht mehr «gelöscht» (25.09.2026): seit «Gelöscht / erledigt» (objectDone)
+     *  heisst «Feuer gelöscht» ein GELÖSCHTES Feuer. Ein Objekt, das von Karte oder Plan genommen
+     *  wird, ist «entfernt» – das Wort des Knopfs (copy · remove). Geschriebene Zeilen behalten
+     *  ihr «gelöscht» (append-only). */
+    objectDeleted: '{name} entfernt',
+    drawingDeleted: 'Zeichnung entfernt',
     // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is
     // wrong – the singular claims there was only one.
-    selectionDeleted: '{n} Objekte gelöscht',
+    selectionDeleted: '{n} Objekte entfernt',
     duplicated: 'Objekt dupliziert',
     undo: 'Aktion rückgängig gemacht',
     redo: 'Aktion wiederhergestellt',
@@ -1175,10 +1262,47 @@ export const de = {
      *  row: the Verlauf said a Fläche had been drawn and never what it turned out to be. */
     drawingLabelSet: '{kind} «{value}»',
     drawingLabelCleared: '{kind}: Beschriftung entfernt',
+    /** «Zurück auf Stand am Einsatzort» (24.09.2026, lib/gpsReturn): the Leitung had followed a
+     *  vehicle off site, and was put back as it stood when following began. The row names the
+     *  moment and the vehicle, because the Rapport's Kroki shows only the result. */
+    gpsReverted: '{name}: zurück auf Stand am Einsatzort ({time}), von {vehicle} gelöst',
+    /** …the vehicle out of the feed: no placeholder in its place */
+    gpsRevertedBare: '{name}: zurück auf Stand am Einsatzort ({time})',
+    /** «Am Einsatzort lösen» that took a DRIVE out of the line — a change of the record, so a row;
+     *  a release that removes nothing stays silent like every other detach */
+    gpsReleasedOnSite: '{name}: am Einsatzort von {vehicle} gelöst, Fahrt entfernt',
+    gpsReleasedOnSiteBare: '{name}: am Einsatzort gelöst, Fahrt entfernt',
     // ⚠️ `line: 'Linie'`, not 'Zeichnung' (31.08.): the tool is called Linie everywhere else, and
     // «Zeichnung» named a shape by the fact that somebody drew it — which every row here already
     // says. A line that carries a preset reports THAT instead (lib/lineStyle · linePresetLabel).
     drawKinds: { area: 'Fläche', line: 'Linie', circle: 'Absperrkreis' } as Record<string, string>,
+  },
+  /** «Gelöscht / erledigt» statt löschen (review item 21b, 24.09.2026, lib/objectDone). Das Feuer
+   *  im EG war aus, also wurde das Symbol um 20:40 GELÖSCHT – und der Rapport zeigte danach keinen
+   *  Brand mehr. Jetzt bleibt ein erledigtes Symbol stehen, grau, mit der Uhrzeit; «Entfernen» ist
+   *  nur noch für eine Fehleingabe. */
+  objectDone: {
+    /** ⚠️ EIN Wort, nach Familie: ein Feuer ist «gelöscht», alles andere «erledigt»
+     *  (appConfig.symbols.fireFamily). `title` steht am Zeilenanfang, `inline` mitten im Satz. */
+    word: {
+      fire: { title: 'Gelöscht', inline: 'gelöscht' },
+      other: { title: 'Erledigt', inline: 'erledigt' },
+    },
+    /** die Kachel im Fuss des Symbol-Editors – EIN Wort für jede Familie (D8, 27.09.2026: das
+     *  Feuer ist gelöscht, das Symbol erledigt; der Doppelname «Gelöscht / erledigt» war die
+     *  Brücke vom alten «Löschen» und ist gefallen). `actionHint` ist ihr title. */
+    action: 'Erledigt',
+    actionHint: 'bleibt grau sichtbar',
+    /** der gesetzte Zustand im Editor und auf dem Rapport: «Erledigt 20:40» */
+    state: '{word} {time}',
+    reopen: 'Wieder aktiv',
+    /** Der Knopf selbst heisst überall «Entfernen» (copy · remove); auf einem Symbol mit «Gelöscht /
+     *  erledigt» sagt dieser Hinweis, wofür er noch da ist: für die Fehleingabe. */
+    removeHint: 'nur bei Fehleingabe',
+    /** Verlauf: «Feuer EG gelöscht» – was und wo. Das Wann ist der Zeitstempel der Zeile selbst,
+     *  derselbe Moment, den `done.at` hält; eine Uhrzeit in Klammern sagte es zweimal. */
+    logDone: '{name} {word}',
+    logReopened: '{name} wieder aktiv',
   },
   // unified, append-only journal (Verlauf) shared by Karte + Plan
   // PHONE: the «+» tile's word and the first section of its sheet (lib/toolFold · Palette) —
@@ -1213,6 +1337,12 @@ export const de = {
       refusedTitleOne: '1 Protokollereignis für diese Rolle nicht vorgesehen',
       refusedTitle: '{n} Protokollereignisse für diese Rolle nicht vorgesehen',
       refusedBody: 'Der Server nimmt diese Ereignisse von dieser Anmeldung nicht an. Sie bleiben auf diesem Gerät und können gesichert werden; der Verlauf ist davon nicht betroffen.',
+      // 25.09.2026 (N3): was nach dem Abschluss des Einsatzes noch ankam — nicht übernommen, gesichert
+      closedTitleOne: '1 Eintrag nach dem Abschluss nicht übernommen',
+      closedTitle: '{n} Einträge nach dem Abschluss nicht übernommen',
+      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge den Server erreichten. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und können gesichert werden. Wird der Einsatz wieder geöffnet, werden sie nachgesendet.',
+      // die Statusleuchte, solange solche Einträge nur auf dem Gerät liegen
+      closedShort: 'Einträge nach dem Abschluss nicht übernommen – sichern',
     },
     open: 'Verlauf',
     add: 'Eintrag',
@@ -1226,7 +1356,10 @@ export const de = {
     stripLabel: 'Zeitstrahl – tippen, um zur passenden Stelle zu springen',
     replayHint: 'Karte und Plan zu einem früheren Zeitpunkt abspielen',
     // composer
-    composerTitle: 'Journaleintrag',
+    // «Verlauf» is the place, «Eintrag» the thing, on every screen (29.09.2026): the door says
+    // «Eintrag», the list «Verlauf» — «Journaleintrag» was a third word for the same row.
+    // «Einsatzjournal» survives only as the PRINTED section's name (report · journal).
+    composerTitle: 'Neuer Eintrag',
     textPlaceholder: 'Was ist passiert? Meldung, Beobachtung, Entscheid …',
     record: 'Aufnehmen',
     recordStop: 'Aufnahme stoppen',
@@ -1332,7 +1465,7 @@ export const de = {
     detailSource: 'Quelle',
     // …written by hand vs. logged by the app. The second is why the pen is missing on that row,
     // so the sheet says it rather than leaving an operator tapping a button that is not there.
-    detailSourceManual: 'Journal · von Hand erfasst',
+    detailSourceManual: 'Von Hand erfasst',
     detailSourceSystem: 'Von der App erfasst',
     detailSourceSystemHint: 'Systemzeilen sind nicht bearbeitbar',
     detailAttachments: 'Beilagen',
@@ -1409,7 +1542,7 @@ export const de = {
     // keeps `entryTypes` — an invisible character has no business in the row's own text.
     entryTypesWrap: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofort­massnahme' } as Record<string, string>,
     send: 'Erfassen',
-    saved: 'Journaleintrag erfasst',
+    saved: 'Eintrag erfasst',
     // audio-note transcript editing (Verlauf row)
     transcriptPlaceholder: 'Transkript ergänzen',
     transcriptSave: 'Speichern',
@@ -1608,7 +1741,7 @@ export const de = {
     asMark: 'AS',
     empty: 'Noch kein Trupp in Überwachung.',
     emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
-    newTrupp: 'Trupp erstellen',
+    newTrupp: 'Trupp anmelden',
     // «Überwachung abgeben» — der QR neben der Glocke: die Tafel dieses Einsatzes auf ein
     // fremdes Handy geben, damit jemand ohne Login nur den Atemschutz bedient. Nur für
     // Bearbeiter, und nicht auf der abgegebenen Tafel selbst.
@@ -1637,27 +1770,26 @@ export const de = {
      *  den keine Vorgabe beantworten kann */
     /** «Meier Thomas (GF) · Huber Simon» – der Gruppenführer trägt sein Kürzel mit */
     stackPressure: '{n} bar',
-    stackFunk: 'Kanal {n}',
-    // die zusammengefaltete Druck+Kanal-Zeile im Trupp-Formular (08.09.)
-    luftDefaults: 'Standard: {v}',
-    luftChange: 'Ändern',
     // Sync-/Uhr-Status im Tafelkopf (Sicherheitsreview 01.09.): die EINE Fläche, an der ein
     // Leben hängt, sagt selbst, ob ihr Stand gesichert und ihre Uhr richtig ist. Leise reicht
     // incidentSwitcher.savedAt; laut trägt der Chip das Kurzlabel des Zustands plus, wie alt
-    // der letzte gesicherte Stand ist.
-    syncStand: '{status} – Stand {t}',
+    // der letzte gesicherte Stand ist. Kurz (25.09.2026): der Kopf ist auf dem Telefon EINE Zeile,
+    // «– Stand» schnitt dort den Chip ab; der ganze Satz steht im title/aria-label.
+    syncStand: '{status} · {t}',
     // Geräteuhr-Chip (>3 Min. Abweichung, CLOCK_SKEW_WARN_MIN): jede Kontaktuhr auf der Tafel
     // ist Date.now() dieses Geräts. {d} trägt das Vorzeichen (+ = Gerät geht vor); die
     // Langfassung (Tooltip) ist incidentSwitcher.clockSkewToast – gleiche Formulierung wie die
     // Erfassungs-App (capture.clockSkew).
     clockSkewChip: 'Geräteuhr weicht ab ({d} Min.)',
     // create / edit / re-deploy form (one shared form, section labels + per-mode titles)
-    formCreateTitle: 'Trupp erstellen',
+    formCreateTitle: 'Trupp anmelden',
     formEditTitle: 'Trupp bearbeiten',
     // «in den Einsatz», nie «einrücken» (09.09.) – siehe die Notiz bei entryAskTitle
     formRedeployTitle: 'Wieder in den Einsatz',
     sectionTeam: 'Trupp',
-    auftragLabel: 'Art',
+    // «Auftrag» über den sechs Kacheln (27.09.2026, slim sweep 6) – nicht mehr «Art»: das Wort stand
+    // direkt unter «Art des Trupps», und die Karte sagt schon «Auftrag» (editFieldLabels)
+    auftragLabel: 'Auftrag',
     auftragOpen: 'Auftrag offen',
     // DISPLAY labels for the Auftrag types, keyed by the auftrag `id`. ONE flat map over BOTH
     // lists (appConfig.atemschutz.auftrag = unter Atemschutz, .auftragEinfach = ohne) — which is
@@ -1694,13 +1826,16 @@ export const de = {
       wbk: 'WBK',
       multiwarn: 'MW',
     } as Record<string, string>,
-    zielLabel: 'Auftrag / Ziel',
+    // «Ziel» (27.09.2026, slim sweep 6): der Auftrag ist die Kachelzeile darüber, das Feld ist das
+    // Ziel – wie auf der Karte und im Auftrag-Sheet (editFieldLabels.ziel)
+    zielLabel: 'Ziel',
     // EIN Platzhalter für jede Art – bis 03.09. stand hier «z. B. 2OG links» und nur bei Art
     // «Anderes» der allgemeine Satz. Ein Stockwerk ist Atemschutz-Vokabular: unter Art «Verkehr»
-    // oder «Sanität» schlug das Beispiel einen Ort vor, den es dort gar nicht gibt. Der
-    // allgemeine Satz stimmt für beide Arten von Trupp und für jeden Eintrag beider Auftragslisten.
-    zielPlaceholder: 'Auftrag beschreiben',
-    zielClear: 'Auftrag / Ziel löschen',
+    // oder «Sanität» schlug das Beispiel einen Ort vor, den es dort gar nicht gibt. «Wo / was …»
+    // stimmt für beide Arten von Trupp und für jeden Eintrag beider Auftragslisten – und fragt
+    // nicht mehr, den Auftrag zu beschreiben, der gerade gewählt wurde.
+    zielPlaceholder: 'Wo / was …',
+    zielClear: 'Ziel leeren',
     // Order of the cards on the board. Überfällige Trupps ALWAYS sit at the top – that is not a
     // setting, it is the reason this board exists.
     orderLabel: 'Reihenfolge',
@@ -1708,8 +1843,8 @@ export const de = {
     orderManual: 'Wie gesetzt',
     orderAuftrag: 'Auftrag',
     orderName: 'Name',
-    moveBack: 'Karte nach vorne schieben',
-    moveForward: 'Karte nach hinten schieben',
+    moveBack: 'Nach oben holen',
+    moveForward: 'Nach unten stellen',
     leaderLabel: 'Gruppenführer',
     // (`guestNamePlaceholder` / `teamAdd` / `typeName` sind mit dem zweiten Feld weg, zu dem sie
     //  gehörten – siehe `teamGuestAdd` unten. Seit 11.09. gilt das auch für PersonField: dort
@@ -1718,7 +1853,6 @@ export const de = {
     // fields could name a Trupp but not rearrange it: whoever was typed first was Gruppenführer
     // forever. The star is the correction, and it costs one tap.
     teamSearchPlaceholder: 'Person suchen …',
-    teamNoMatches: 'Kein Treffer',
     /* ── Die Chip-Zeile (nur Telefon, 05.09.) ───────────────────────────────────────────────
      * Auf 375px kosteten drei aufklappende Slot-Zeilen plus eine dauernd sichtbare
      * Mannschaftsliste die halbe Form. Der Trupp ist dort EINE umbrechende Chip-Zeile, und die
@@ -1759,9 +1893,12 @@ export const de = {
     teamGuestAdd: '«{name}» als Gast hinzufügen',
     // Leitung: the same number as on the drawn Leitung (Karte/Plan) — that is how Trupp and
     // Schlauchleitung find each other, without anybody typing anything twice.
-    lineNoLabel: 'Leitung Nr.',
+    // «Leitung» über den Chips «keine · Ltg 1 · …» (27.09.2026; vorher «Leitung Nr.» über einem
+    // Stepper mit «Gezeichnet:»-Zeile) – dieselben Chips wie im Auftrag-Sheet (lineNone / lineChip)
+    lineNoLabel: 'Leitung',
     lineLegacyNote: 'Früher erfasst: «{value}»',
-    lineOptsLabel: 'Gezeichnet:',
+    // der letzte Chip: eine Nummer, die noch nicht gezeichnet ist, tippt man im alten Stepper ein
+    lineTyped: 'Nr. …',
     lineTakeTitle: 'Leitung {n} ist vergeben',
     lineTakeMsg: 'Auf Leitung {n} ist Trupp {from}. Neu Trupp {to} darauf?',
     lineTakeConfirm: 'Übernehmen',
@@ -1798,14 +1935,14 @@ export const de = {
     entryAskTitle: 'Trupp in den Einsatz?',
     entryAskMsg: 'Trupp {name} ist angemeldet, aber noch nicht im Einsatz. Jetzt in den Einsatz? Die Kontaktuhr läuft ab sofort.',
     entryAskCancel: 'Noch nicht',
-    pressureLabel: 'Eingangsdruck (bar)',
-    newPressureLabel: 'Neuer Eingangsdruck (bar)',
+    pressureLabel: 'Eingangsdruck',
+    newPressureLabel: 'Neuer Eingangsdruck',
     // ⚠️ «Trupp bearbeiten» shows the Eingangsdruck too. It used to be the one field the form
     // hid, so a mistyped 200 for 300 at der Anmeldung could only be corrected by deleting the
     // Trupp — and the Eingangsdruck is what every Verbrauchsrechnung and the tiefster Druck on
     // the Rapport are measured against. Correcting it does NOT touch the contact clock: this is
     // a correction of what was written down, not a new Druckmeldung (that is the card's ± ).
-    editPressureLabel: 'Eingangsdruck korrigieren (bar)',
+    editPressureLabel: 'Eingangsdruck korrigieren',
     editPressureHint: 'Korrigiert den erfassten Eingangsdruck – zählt nicht als Funkkontakt.',
     funkkanalSection: 'Funkkanal',
     funkkanalDown: 'Funkkanal runter',
@@ -1848,11 +1985,13 @@ export const de = {
     // später über «Bearbeiten»; die Karte führt die Lücke als «Auftrag offen». Nur «Anderes»
     // braucht sein Wort, weil die Kachel allein nichts sagt.
     auftragMissingHint: 'Auftrag fehlt – der Trupp wird mit «Auftrag offen» angemeldet.',
-    saveBlockedAuftrag: '«Anderes» braucht einen Auftrag/Ziel-Text.',
+    saveBlockedAuftrag: '«Anderes» braucht ein Ziel.',
     saveBlockedPressure: 'Eingangsdruck fehlt.',
     cancel: 'Abbrechen',
     save: 'Speichern',
-    start: 'Trupp anmelden',
+    // der Fuss des Formulars: ein Verb – der Titel «Trupp anmelden» steht darüber (27.09.2026);
+    // der Knopf auf der leeren Tafel sagt weiter newTrupp
+    start: 'Anmelden',
     reenterSubmit: 'Im Einsatz',
     // Second path when re-entering: new cylinder, new Auftrag, but not under PA yet – the Trupp
     // waits as a Sicherungstrupp and is started later with «Im Einsatz».
@@ -1897,8 +2036,6 @@ export const de = {
     alarmNoteEst: 'Alarmdruck {bar} bar – laut Schätzung erreicht',
     lineField: 'Leitung',
     edit: 'Bearbeiten',
-    pressureDown: '{step} bar weniger',
-    pressureUp: '{step} bar mehr',
     pressureConfirm: 'Bestätigen',
     pressureConfirmHint: 'Neuen Druck bestätigen – zählt als Kontakt',
     // ⚠️ A HINT, never a block. Air does not come back, so a rising value is almost always a
@@ -1968,6 +2105,8 @@ export const de = {
     readingNoAs: '{what} – ohne Atemschutz',
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
+    // R3: ein abgeschlossener Einsatz alarmiert nicht – die Uhr steht beim Abschluss
+    clockFrozen: 'Stand beim Abschluss',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
     // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
@@ -2015,6 +2154,28 @@ export const de = {
     actRueckzug: 'Rückzug melden',
     actContinue: 'Fortsetzen',
     actExit: 'Raus melden',
+    /* ⚠️ Die KACHELN der Handy-Karte (26.09.2026, phone card slim-down): nur das Verb, ohne
+     * «melden» – die aufgeklappte Karte sagt «Rückzug · Raus» neben «Kontakt» und dem Druck, und
+     * vier Kacheln nebeneinander tragen keine zwei Wörter. Die Langformen (`actRueckzug`,
+     * `actExit`) bleiben der Tablet-Karte, dem Bestätigungsdialog («Raus melden» als sichere
+     * Antwort) und dem Screenreader-Namen der Kachel. */
+    tileRueckzug: 'Rückzug',
+    tileExit: 'Raus',
+    /* ── Die Mini-Sheets der Handy-Karte (26.09.2026, phone card slim-down; components/TruppSheets) ──
+     * Ein Chip auf der Karte öffnet EIN kurzes Sheet für genau diese Angabe. Titel sind die
+     * bestehenden Feldnamen (`editFieldLabels`, `funkkanalUnit`); hier nur, was es dort noch nicht gab. */
+    // die zweite Titelzeile: «Hirter Stephan · Trupp 2» – wessen Sheet über der abgedunkelten Tafel steht
+    quickTrupp: 'Trupp {no}',
+    // das Kanal-Pad hat kein Speichern – der eine Satz sagt, dass ein Tipp wählt und schliesst
+    kanalSheetHint: 'Antippen wählt und schliesst.',
+    // die Zahlen-Sheets aus dem Trupp-Formular übernehmen nur ins Formular (30.09.2026) – «Speichern» wäre gelogen
+    formPickTake: 'Übernehmen',
+    // die Leitung-Chips: «keine · Ltg 1 · Ltg 2 …»
+    lineNone: 'keine',
+    lineChip: 'Ltg {n}',
+    // der gestrichelte Chip auf der Handy-Karte, wo der Auftrag fehlt (die Tablet-Kennzeile behält
+    // «Auftrag offen»); das «+» gehört zum Wort – ein Chip, der etwas hinzufügt
+    auftragAdd: '+ Auftrag',
     // ⚠️ APP ONLY (09.09., Feldtest) – ein Trupp ohne Atemschutz meldet einen erledigten Auftrag,
     // keinen Funkkontakt. Die ausgehändigte Link-Tafel bleibt bei «Raus melden», für JEDEN
     // Trupp: das ist der eine Bildschirm, den eine externe Person bekommt, und er darf nicht
@@ -2144,6 +2305,11 @@ export const de = {
      * er ist der Normalfall, und sein Eingangsdruck sagt es ohnehin.
      */
     logEntryNoAs: 'Trupp {name}: Eintritt – ohne Atemschutz',
+    /** …und der Sicherungstrupp, der hineingeht (24.09.2026, D1 ⑦): er wird nur geschickt, wenn
+     *  drinnen etwas schiefgeht – die Zeile, nach der eine Rekonstruktion zuerst sucht. Abgeleitet
+     *  vom Trupp (Auftrag «Sichern», erster Eintritt), nicht vom Knopf (useTruppActions ·
+     *  setTruppStatus). */
+    logSafetyEntry: 'Trupp {name}: Sicherungstrupp eingesetzt',
     logContact: 'Trupp {name}: Kontakt bestätigt',
     logPressure: 'Trupp {name}: Druck {bar} bar',
     // Rückzug and Fortsetzen reset the contact clock; that has to be in the Verlauf, otherwise
@@ -2266,24 +2432,70 @@ export const de = {
       + 'und im Rapport.',
     kindOffConfirm: 'Überwachung beenden',
     logExit: 'Trupp {name}: Austritt',
-    /* ── Handy-Tafel und Druckwahl (24.09.2026, Übung 23.09. – siehe AtemschutzView · PressureSheet) ── */
+    /* ── Handy-Tafel und Druckwahl (24.09.2026, Übung 23.09. – siehe TruppSheets · PressureSheet; Kopf seit 29.09.2026 = die Frage + «Name · Trupp N») ── */
     logExitBar: 'Trupp {name}: Austritt – Restdruck {bar} bar',
     actPressure: 'Druck',
-    pressureSheetTitle: '{name} · Druck',
-    pressureSheetLast: 'Zuletzt {bar} bar',
+    pressureSheetTitle: 'Druck',
     pressureSheetHint: 'Tippen speichert – zählt als Kontakt.',
-    exitSheetTitle: '{name} · raus',
-    exitSheetHint: 'Restdruck des Trupps (tiefster Wert der Mannschaft)',
+    exitSheetTitle: 'Restdruck',
+    exitSheetHint: 'Tippen meldet raus – tiefster Wert der Mannschaft.',
     exitNoBar: 'Ohne Druck raus',
     phoneSectionIn: 'Drin',
     phoneSectionReady: 'Bereit',
     phoneSectionOut: 'Draussen',
     safetyTitle: 'Sicherungstrupp',
     safetyDeploy: 'Einsetzen',
-    safetyNone: 'Kein Sicherungstrupp',
-    safetyNoneHint: 'Ein Trupp ist drin',
-    safetyNoneHintMany: '{n} Trupps sind drin',
+    // «Bestimmen» am Abschnittskopf SICHERUNGSTRUPP (26.09.2026, phone card slim-down) – der
+    // gestrichelte Kasten «Kein Sicherungstrupp · Ein Trupp ist drin» ist weg; der Kopf steht wie
+    // DRIN/DRAUSSEN, und der leere Abschnitt IST die Aussage
     safetyPick: 'Bestimmen',
+    /* ── Handy-Tafel, zweite Runde (24.09.2026, D1 ⑥ ⑦ ⑧a, Punkt 2) ─────────────────────────── */
+    // «Bestimmen» mit bereiten Trupps: einen davon nehmen oder einen neuen anmelden
+    safetyPickTitle: 'Sicherungstrupp bestimmen',
+    safetyPickNew: 'Neuen Trupp anmelden (Sichern)',
+    // die fälligen Trupps über dem Anmelde-Sheet (Bereichsname für Screenreader)
+    pinnedLabel: 'Fällige Trupps',
+    // Kontakt, den ein ANDERES Gerät vor weniger als 60 s schon bestätigt hat (lib/contactEcho)
+    // Titel = die Tatsache, eine Zeile = wer und wann, die Verben auf den Knöpfen (Review 26.09.2026)
+    contactEchoTitle: 'Kontakt schon bestätigt',
+    contactEchoWho: 'Trupp {n}',
+    contactEchoMsg: '{name} · vor {s} s auf einem anderen Gerät',
+    contactEchoAgain: 'Nochmals bestätigen',
+    contactEchoOk: 'OK',
+    /* ── Staging-Durchgang 25.09.2026 ── */
+    // Bearbeiten als Patch: ein Feld, das inzwischen ein anderes Gerät geändert hat
+    editConflictOne: '{field} wurde inzwischen auf einem anderen Gerät geändert: {now} – trotzdem überschreiben?',
+    editConflictMany: '{fields} wurden inzwischen auf einem anderen Gerät geändert – trotzdem überschreiben?',
+    editConflictOverwrite: 'Überschreiben',
+    editConflictBack: 'Zurück zum Formular',
+    editFieldLabels: { crew: 'Mannschaft', auftrag: 'Auftrag', ziel: 'Ziel', lineNo: 'Leitung', funkkanal: 'Funkkanal', pressure: 'Eingangsdruck', kind: 'Art des Trupps', equipment: 'Ausrüstung' },
+    // die erste Druckmeldung nach dem Eintritt: ersetzt einen Eingangsdruck, den niemand gesetzt hat, und ist ein Kontakt
+    logFirstPressure: 'Trupp {name}: Kontakt – erste Druckmeldung {bar} bar ersetzt den Eingangsdruck {from} bar',
+    logFirstPressureSame: 'Trupp {name}: Kontakt – erste Druckmeldung {bar} bar (wie Eingangsdruck)',
+    pressureSheetFirst: 'Erste Druckmeldung – ersetzt den Eingangsdruck {bar} bar, zählt als Kontakt',
+    // der Knopf im Kopf der Tafel trägt auch am Handy sein Wort
+    newTruppShort: 'Trupp',
+    /* ── Staging-Durchgang 2, 25.09.2026 ── */
+    // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, AGENTS.md)
+    removedToast: 'Trupp {name} entfernt',
+    // «Nicht eingesetzt» vom sichtbaren Knopf der Karte – mit Rückgängig (Review 26.09.2026)
+    notDeployedToast: 'Trupp {name}: nicht eingesetzt',
+    // «Entfernen» auf einem Trupp, der DRIN ist: zuerst fragen, «Raus melden» ist die sichere Antwort
+    removeInsideTitle: 'Trupp {name} ist drin – erst rausmelden?',
+    removeInsideMsg: 'Entfernen nimmt den Trupp von der Tafel und aus jedem Alarm. Meist ist gemeint: Der Trupp ist draussen.',
+    // der Weg hinein für einen Trupp, der nie drin war («Wieder» wäre falsch)
+    actEnterFirst: 'In den Einsatz',
+    contactDone: 'Bestätigt',
+    // Eingangsdruck eines Trupps, der schon raus ist: gesperrt (Punkt 2)
+    pressureLockedLabelPlain: 'Eingangsdruck',
+    pressureLocked: 'Trupp ist raus',
+    pressureLockedWhyExit: 'Trupp ist raus · Restdruck {bar} bar',
+    // …und die EINE Plausibilitätsfrage: ein Eingangsdruck unter dem Stationsminimum
+    // (doctrine.entryPressureMin). Die Zahl steht auf dem Knopf.
+    entryLowTitle: 'Eingangsdruck tief',
+    entryLowMsg: '{bar} bar – üblich ab {min} bar',
+    entryLowConfirm: '{bar} bar übernehmen',
+    entryLowChange: 'Ändern',
     bottleAsk: 'Vor {min} min raus, zuletzt {bar} bar. Welche Flasche?',
     bottleAskNow: 'Gerade raus, zuletzt {bar} bar. Welche Flasche?',
     bottleSame: 'Gleiche Flasche',
@@ -2337,6 +2549,8 @@ export const de = {
     /** Fallback, wenn die letzte Messung nichts hergibt – der Alarm ist trotzdem beendet, und
      *  eine Zeile, die das sagt, ist mehr wert als gar keine. */
     alarmClearedOther: 'Kontakt wiederhergestellt',
+    // …und wenn die Kontaktuhr durch «Wieder öffnen» neu lief: kein Funkkontakt, sondern das (D5)
+    alarmClearedByReopen: 'Kontaktuhr neu gestartet (wieder geöffnet)',
     // The Alarmdruck used to be visible only on the card – the record was missing the moment the
     // Trupp had to turn back. Only on CROSSING it, not on every value below it.
     //
@@ -2349,8 +2563,16 @@ export const de = {
     logPressureAlarm: 'Trupp {name}: Druck {bar} bar – Alarmdruck erreicht',
     // A Trupp disappearing from the board is the one action that used to leave nothing behind at
     // all – the toast was gone and the Trupp had never existed.
-    logRemoved: 'Trupp {name} gelöscht',
+    logRemoved: 'Trupp {name} entfernt',
     logRestored: 'Trupp {name} wiederhergestellt',
+    // Der Einsatz wird abgeschlossen, während ein Trupp noch als drin geführt ist (staging r3 F4):
+    // eine Zeile pro Trupp, damit der Verlauf sagt, was beim Abschluss offen war – ein Austritt
+    // wird NICHT erfunden. Auf dem Rapport endet der Einsatz des Trupps mit dem Zusatz unten.
+    logInsideAtClose: 'Trupp {name} beim Abschluss noch drin',
+    cycleEndAtClose: '{t} (beim Abschluss noch drin)',
+    // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
+    // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
+    logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
@@ -2376,8 +2598,8 @@ export const de = {
     fallbackObjectName: 'Objekt',
   },
   notes: {
-    deleteTitle: 'Notiz löschen',
-    deleteMsg: 'Diese Notiz enthält Text. Wirklich löschen?',
+    deleteTitle: 'Notiz entfernen',
+    deleteMsg: 'Diese Notiz enthält Text. Wirklich entfernen?',
     // note styling — shared by the Karte map and the Plan whiteboard (same controls in the
     // armed-tool dock before placing and in the detail panel afterwards)
     section: 'Notiz',
@@ -2404,6 +2626,10 @@ export const de = {
     dockHints: {
       draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Breite und Stil danach im Editor.',
       line: 'Eckpunkte antippen. Doppeltippen oder «Fertig» schliesst die Linie ab. Farbe, Breite und Stil danach im Editor.',
+      lineFreeShort: 'Mit dem Finger über den Plan ziehen',
+      lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
+      areaFreeShort: 'Den Umriss mit dem Finger ziehen',
+      areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
       area: 'Ziehen zeichnet den Umriss frei. Oder Eckpunkte antippen (mind. 3) – Doppeltippen oder «Fertig» schliesst die Fläche ab.',
       circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
       text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -2653,9 +2879,9 @@ export const de = {
     insertVertex: 'Punkt einfügen',
     dragVertex: 'Eckpunkt ziehen · gedrückt halten zum Löschen',
     dragRadius: 'Radius ziehen',
-    groupDeleteTitle: 'Auswahl löschen',
-    groupDeleted: 'Auswahl gelöscht',
-    groupDeletedN: '{n} Objekte vom Plan gelöscht',
+    groupDeleteTitle: 'Auswahl entfernen',
+    groupDeleted: 'Auswahl entfernt',
+    groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',
     placeSymbol: 'Symbol «{name}» auf Plan gesetzt',
     placeLine: 'Linie auf Plan gezeichnet',
@@ -2675,10 +2901,10 @@ export const de = {
     // and the record is only destroyed where the operator said so. Both löschen rows are danger
     // rows, and both confirm first.
     removeMarker: 'Marker entfernen',
-    removeMarkerTrail: 'Marker und Spur löschen',
-    clearTrail: 'Spur löschen',
-    clearTrailConfirm: 'Alle {n} markierten Positionen von {name} löschen? Die Spur verschwindet von Karte und Plan.',
-    trailCleared: '{name}: Spur gelöscht',
+    removeMarkerTrail: 'Marker und Spur entfernen',
+    clearTrail: 'Spur entfernen',
+    clearTrailConfirm: 'Alle {n} markierten Positionen von {name} entfernen? Die Spur verschwindet von Karte und Plan.',
+    trailCleared: '{name}: Spur entfernt',
     trails: 'Spuren',
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
@@ -2687,7 +2913,7 @@ export const de = {
     ghostTrail: 'Spur {name}',
     ghostTrailHint: 'Spur von {name} – der Truppmarker wurde entfernt',
     ghostTrailTitle: 'Spur von {name}',
-    ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur löschen?',
+    ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur entfernen?',
     ghostTrailRestore: 'Trupp wieder platzieren',
     ghostTrailRestored: '{name} wieder platziert – Spur übernommen',
     // Umbenennen eines losen Trupp-Markers auf eine Nummer, die schon vergeben ist (ein Trupp,
@@ -2712,7 +2938,7 @@ export const de = {
     // Übernehmen weg – lieber laut gesagt als stillschweigend aus der Auswahl genommen.
     osmPickMissing: 'Umrisse des bestehenden Gebäudes fehlen hier ({n}) – sie fallen beim Übernehmen weg.',
     osmTransfer: 'Übernehmen ({n})',
-    osmClear: 'Auswahl löschen',
+    osmClear: 'Auswahl leeren',
     addFloorUp: 'Obergeschoss hinzufügen',
     noFloorPlan: 'Kein Geschossplan',
     stairTo: 'Weiter zu {floor}',
@@ -2721,19 +2947,31 @@ export const de = {
     climbDown: 'Ein Geschoss tiefer weiter',
     climbBack: 'Zurück auf {floor}',
     addFloorDown: 'Untergeschoss hinzufügen',
+    // the toast and ↶ of «+ OG / + UG», naming the storey (its Verlauf row comes with #226)
+    floorAddedToast: '{floor} hinzugefügt',
     floorHide: 'Geschoss ausblenden',
+    // the storey label's menu (29.09.2026, sweep K5): «Ausblenden · Geschoss entfernen»
+    floorHideShort: 'Ausblenden',
+    floorMenu: '{name}: ausblenden oder entfernen',
     floorShow: 'einblenden',
     floorHidden: 'ausgeblendet',
-    removeFloor: 'Geschoss löschen',
-    removeFloorConfirm: '{floor}: {n} Markierungen dieses Geschosses werden gelöscht oder gekürzt. Geschoss trotzdem löschen?',
-    removeFloorConfirmOne: '{floor}: 1 Markierung dieses Geschosses wird gelöscht oder gekürzt. Geschoss trotzdem löschen?',
-    floorRemoved: 'Geschoss gelöscht',
+    removeFloor: 'Geschoss entfernen',
+    removeFloorConfirm: '{floor}: {n} Markierungen dieses Geschosses werden entfernt oder gekürzt. Geschoss trotzdem entfernen?',
+    removeFloorConfirmOne: '{floor}: 1 Markierung dieses Geschosses wird entfernt oder gekürzt. Geschoss trotzdem entfernen?',
+    floorRemoved: 'Geschoss entfernt',
+    /** the Verlauf row for the act itself (25.09.2026) — it used to write only its ↶ row */
+    floorRemovedLog: 'Geschoss {floor} entfernt',
+    floorRemovedLogMarks: 'Geschoss {floor} entfernt – {n} Markierungen entfernt oder gekürzt',
+    floorRestoredLog: 'Geschoss {floor} wiederhergestellt',
+    floorAddedLog: 'Geschoss {floor} hinzugefügt',
     floorAdded: 'Geschoss hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
     buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',
     buildingReplacedKept: 'Gebäude gewechselt – Geschosse behalten',
     buildingReplacedCarried: 'Gebäude gewechselt – {n} Markierungen übertragen',
     buildingReplacedCarriedDropped: 'Gebäude gewechselt – {n} übertragen, {d} weggefallen',
+    /** Ein Gebäude zum ersten Mal übernommen (noch kein Stapel da) — der ↶-Schritt dafür. */
+    buildingTaken: 'Gebäude übernommen',
     replaceBuilding: 'Anderes Gebäude wählen',
     replaceBuildingConfirm: 'Der bisherige Geschoss-Stapel wird verworfen und durch den neuen Umriss ersetzt.',
     // ⚠️ Der LEGACY-Fall: ein Gebäude ohne Georeferenz lässt sich nicht auf dem Boden verorten,
@@ -2856,10 +3094,8 @@ export const de = {
     pinGps: 'Festhalten',
     pinGpsTitle: 'Fahrzeug hier festhalten – es bleibt stehen, auch wenn es wegfährt',
     logPinned: '{name} festgehalten',
-    // Verlauf rows from the Fahrzeug feed. They answer «wann ist wer weggefahren» – the question
-    // nobody can answer from memory hours later.
-    logVehicleArrived: '{name} vor Ort',
-    logVehicleLeft: '{name} hat den Einsatzort verlassen',
+    // (The «vor Ort» / «hat den Einsatzort verlassen» rows are written by the SERVER since
+    // 25.09.2026, in German like every server-written row — backend · app/vehicle_presence.)
     // Remove a self-reported position from the Kommandoposten: somebody drives home with sharing
     // still on, or a phone dies on its last fix – the dot then claims a Kraft is somewhere it
     // is not.
@@ -2881,13 +3117,19 @@ export const de = {
     captionAll: 'Alle',
     notes: 'Notizen',
     notesPlaceholder: 'Allgemeine Notizen …',
+    /** the «+ Feld» tile's label (aria/title) and its word */
     addField: 'Feld hinzufügen',
+    addFieldShort: 'Feld',
     removeField: 'Feld löschen',
-    // ⇄ between the Einsatzleiter glyph's two rows. Says what HAPPENS, not what the button is:
-    // an Ablösung is «übergeben», and both Anwesenheits-Bemerkungen follow the swap by themselves.
-    swapEl: 'Führung übergeben (EL ⇄ Stv.)',
+    // the ⇄ square at the end of the Einsatzleiter glyph's EL row (title/aria). Says what HAPPENS,
+    // not what the button is: an Ablösung is «übergeben», and both Anwesenheits-Bemerkungen follow
+    // the swap by themselves.
+    swapEl: 'Führung übergeben',
     fieldKeyPlaceholder: 'Bezeichnung',
-    fieldValuePlaceholder: 'Wert',
+    /** an empty box (27.09.2026 — it said «Wert»): a person field asks for a name, any other
+     *  repeats its own label ({label}) with an ellipsis */
+    fieldNamePlaceholder: 'Name …',
+    fieldValuePlaceholder: '{label} …',
     // ⚠️ A field whose value needs a UNIT has to say so in the box. «Kapazität: 80» is ambiguous
     // between litres and cubic metres on the one number a Wasserversorgung is planned from —
     // and the placeholder is the cheapest place to settle it, since it costs nothing to ignore.
@@ -3087,11 +3329,45 @@ export const de = {
     gpsFollowing: 'GPS folgt aktiv',
     gpsMovingAway: 'Fahrzeug bewegt sich weg',
     gpsContinue: 'Weiter folgen',
-    gpsDetachHere: 'Hier lösen',
-    gpsPause: 'Folgen pausieren',
+    /** ⚠️ Says WHERE (24.09.2026): «Hier lösen» read as «here, where the vehicle is now», and in
+     *  the line editor that is what it did — the depot spike of 23.09.2026. Letting go of a GPS end
+     *  now always happens at the Einsatzort (lib/gpsReturn · onSiteCoords). */
+    gpsDetachOnSite: 'Am Einsatzort lösen',
+    /** a traced hose may be KEPT (24.09.2026): let go where the end stands now, the drive stays
+     *  as the laid hose. Also the only release offered where the on-site point is not known. */
+    gpsDetachHere: 'Hier lösen (Spur behalten)',
+    /** the Meldung's ✕ on a «stopped» row */
+    gpsDismiss: 'Ausblenden',
+    gpsPause: 'Folgen stoppen',
+    // ── The Meldung when a coupled vehicle drives off / comes back (GpsFollowMeldung, D3) ──
+    gpsAwayTitle: '{vehicle} fährt weg · {distance} vom Einsatzort',
+    gpsAwayTitleBare: '{vehicle} fährt weg',
+    /** ⚠️ The sub-line is ONE line on a 360px phone (~44 characters) — keep these short */
+    gpsAwaySub: '{lines} endet noch am Einsatzort.',
+    gpsAwaySubMany: '{lines} enden noch am Einsatzort.',
+    /** the PRIMARY move of that Meldung: let go, with the end where it is — on site */
+    gpsKeepOnSite: 'Am Einsatzort lassen',
+    /** following was stopped after the line had traced the drive */
+    gpsStoppedTitle: '{vehicle} · {distance} vom Einsatzort',
+    gpsStoppedTitleBare: '{vehicle} · Folgen gestoppt',
+    gpsStoppedSub: 'Folgen gestoppt · {lines} zeigt die Fahrt.',
+    gpsStoppedSubMany: 'Folgen gestoppt · {lines} zeigen die Fahrt.',
+    /** the vehicle is on site again while the line still follows it (TLF went to refill) */
+    gpsBackTitle: '{vehicle} wieder am Einsatzort',
+    gpsBackSub: '{lines} zeigt die Fahrt seit {time}.',
+    gpsBackSubMany: '{lines} zeigen die Fahrt seit {time}.',
+    gpsRevert: 'Zurück auf Stand am Einsatzort',
+    gpsRevertAt: 'Zurück auf Stand am Einsatzort ({time})',
+    /** the ↶ bubble's word for that step */
+    gpsRevertStep: '{name} zurück auf Stand am Einsatzort',
+    // ── The line editor while an end follows (DrawEditor · the GPS block at the top) ──
+    gpsFollowingHead: '{line} · folgt {vehicle} seit {time}',
+    gpsFollowingHeadBare: '{line} · folgt {vehicle}',
+    gpsStoppedHead: '{line} · Folgen gestoppt · {vehicle}',
+    gpsDistanceNow: 'jetzt {distance} entfernt',
     hiddenTarget: 'Ziel ausgeblendet',
     revealTarget: 'Ebene einblenden',
-    removeConnectedTitle: '{name} löschen',
+    removeConnectedTitle: '{name} entfernen',
     removeConnectedMessage: '{n} Linien werden gelöst.',
     removeEMessage: 'Teilstück löschen? {n} angeschlossene Linien werden gelöst.',
   },
@@ -3131,7 +3407,6 @@ export const de = {
     // commit row mirrors «als Gast hinzufügen» — short, because long values ellipsize.
     searchOrType: 'Suchen oder eingeben …',
     useTyped: '«{name}» verwenden',
-    noMatches: 'Kein Treffer',
   },
   // Login gate (face picker + PIN pad)
   demo: {
@@ -3212,7 +3487,7 @@ export const de = {
   symbols: {
     loadFailedTitle: 'Symbolbibliothek konnte nicht geladen werden',
     loadFailedSub: 'Karte und Kroki laufen ohne Symbolgrafiken weiter',
-    retry: 'Nochmals laden',
+    retry: 'Erneut versuchen',
     dismiss: 'Ausblenden',
   },
   // PWA update prompt (UpdateBanner). A new build installs and waits (registerType 'prompt')
@@ -3292,6 +3567,11 @@ export const de = {
   // Wörter sind für Screenreader und Tooltips da, nicht für die Zeile selbst.
   meldeleiste: {
     region: 'Meldungen',
+    // Auf der Trupp-Tafel steht nur die dringendste Meldung offen (staging r3): zwei Zeilen
+    // deckten am Telefon die Uhr des ersten Trupps zu. Der Rest ist eine Zahl, die aufklappt.
+    more: '+{n} weitere Meldung',
+    moreMany: '+{n} weitere Meldungen',
+    less: 'Weniger anzeigen',
   },
   // single-editor tab lock: a second browser tab on the SAME incident is read-only
   // the session cookie expired mid-Einsatz (api.ts · SESSION_EXPIRED_EVENT): every request 401s
@@ -3354,6 +3634,10 @@ export const de = {
       fog: 'Nebel', drizzle: 'Niesel', rain: 'Regen', snow: 'Schnee',
       rainShowers: 'Regenschauer', snowShowers: 'Schneeschauer', thunder: 'Gewitter', cloudy: 'Bewölkt',
     } as Record<string, string>,
+    // The wind-shift Meldung (24.09.2026, D2). Its words are the server's Verlauf row
+    // («Wind dreht: W → NO (286° → 66°) · Lüfter prüfen»); these two are its doors.
+    windShiftOpen: 'Im Verlauf öffnen',
+    windShiftDismiss: 'Ausblenden',
   },
   // PDF rendering — status line in PdfScroller + first-load placeholder in PdfViewport (Plan)
   pdf: {
@@ -3387,8 +3671,6 @@ export const de = {
     symbolCaptionsSub: 'Kennwert unter dem Symbol',
     railLabels: 'Beschriftung der Werkzeugleisten',
     railLabelsSub: 'Wort unter jedem Zeichen in den beiden Leisten',
-    railLabelsOff: 'Aus',
-    railLabelsOn: 'Wörter',
     captionsOff: 'Aus',
     captionsAuto: 'Auto',
     captionsAll: 'Alle',
@@ -3398,19 +3680,10 @@ export const de = {
     // only). Two states — see lib/prefs · offlineAuto for why there is no «nur WLAN» tier.
     offlineAuto: 'Offline-Vorbereitung',
     offlineAutoSub: 'Lädt Karte und Pläne kurz nach dem Öffnen des Einsatzes automatisch herunter',
-    offlineAutoOn: 'Automatisch',
-    offlineAutoOff: 'Nur manuell',
     keepScreenOn: 'Bildschirm eingeschaltet lassen',
     keepScreenOnSub: 'Verhindert das Abdunkeln während des Einsatzes',
-    keepScreenOnOn: 'Ein',
-    keepScreenOnOff: 'Aus',
-    // Used to be called «Einsatzleiter-Ansicht»: the mode locks the tactical layer and names no
-    // role – Kdt, Fourier and whoever reads along on the beamer use it just the same. The code
-    // identifier stays `elView` so stored device settings keep working.
-    elView: 'Führungsansicht',
-    elViewSub: 'Sperrt die taktische Bearbeitung – Journal & Symbol-Details bleiben verfügbar',
-    elViewOn: 'Ein',
-    elViewOff: 'Aus',
+    // No «Führungsansicht» row any more (05.10.2026): it is the login's, set in the admin's
+    // Benutzer (admin · members · elViewDefault), not a per-device switch.
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
     incidentGroup: 'Einsatz',
     contactInterval: 'Atemschutz-Funkkontakt',
@@ -3574,7 +3847,7 @@ export const de = {
     // Diagnose. Bewusst ohne «Nochmals»: dieselben 404 kämen wieder.
     dlNoCoverage: 'Nichts geladen – die Kartenquelle kennt dieses Gebiet nicht. Kartenebene bzw. Kachel-URL prüfen.',
     dlContinue: 'Weiterladen',
-    dlRetry: 'Nochmals',
+    dlRetry: 'Erneut versuchen',
     dlFailed: 'Offline-Download fehlgeschlagen',
   },
   // App empty state — shown when no incident is open (viewer vs. editor variants)
@@ -3624,7 +3897,7 @@ export const de = {
     filterRecorded: 'Erfasste {n}',
     back: 'Zurück',
     alarmedAt: 'Alarm {t}',
-    saveFailed: 'Speichern fehlgeschlagen – nochmals versuchen',
+    saveFailed: 'Speichern fehlgeschlagen',
     saveFailedOffline: 'Kein Empfang – die letzte Änderung wurde nicht gespeichert.',
     retry: 'Erneut versuchen',
     savedOk: 'Gespeichert',
@@ -3645,6 +3918,9 @@ export const de = {
     partnerOrg: 'Organisation',
     partnerNote: 'Bemerkung',
     partnerAdd: 'Organisation hinzufügen',
+    // the field's placeholder — the verb is the «+» beside it (27.09.2026, slim sweep · mockup 5:
+    // «hinzufügen» rows lose the word; partnerAdd stays the name of the button and the field)
+    partnerPlaceholder: 'Organisation …',
     partnerRemove: 'Organisation entfernen',
     // header of the collapsible sections — says while collapsed whether anything is in there yet
     partnerCount: '{n} erfasst',
@@ -3693,7 +3969,7 @@ export const de = {
     add: 'Hinzufügen',
     notePlaceholder: 'Notiz für den Verlauf …',
     footNote: 'Alles wird laufend gespeichert.',
-    loadFailedOffline: 'Kein Empfang – bitte nochmals versuchen.',
+    loadFailedOffline: 'Kein Empfang',
     clockSkew: 'Die Uhr dieses Geräts weicht um {n} Minuten ab – erfasste Zeiten prüfen.',
     searchMaterial: 'Material suchen …',
     // Cross-visibility QR ↔ KP: the live-dot line in the capture header once the KP tablet
@@ -3724,16 +4000,21 @@ export const de = {
     pendingTitle: 'Einsatz noch nicht verfügbar',
     pendingHint: 'Der Alarm ist eben erst eingetroffen. Wird automatisch nochmals versucht …',
     notReadyTitle: 'Dieser Einsatz ist nicht abrufbar.',
-    notReadyHint: 'Der Link gilt nur, solange der Einsatz läuft. Falls der Alarm eben erst kam: nochmals versuchen. Sonst bei der Einsatzleitung melden.',
+    notReadyHint: 'Der Link gilt nur, solange der Einsatz läuft. Kam der Alarm eben erst, ist der Einsatz vielleicht noch nicht bereit – sonst bei der Einsatzleitung melden.',
     invalidTitle: 'Dieser Link gilt nicht mehr.',
     invalidHint: 'Öffne den Link direkt aus der aktuellen Alarmmeldung.',
     disabledTitle: 'Einsatz-Links sind bei dieser Feuerwehr nicht freigeschaltet.',
     disabledHint: 'Die Einsatzleitung kann sie in der Konfiguration aktivieren.',
     offlineTitle: 'Kein Empfang',
-    offlineHint: 'Ohne Verbindung lässt sich der Einsatz nicht öffnen. Sobald du wieder Empfang hast: nochmals versuchen.',
+    offlineHint: 'Ohne Verbindung lässt sich der Einsatz nicht öffnen.',
     errorTitle: 'Der Server antwortet nicht.',
-    errorHint: 'Bitte nochmals versuchen. Bleibt es dabei: bei der Einsatzleitung melden.',
+    errorHint: 'Bleibt es dabei: bei der Einsatzleitung melden.',
     retry: 'Erneut versuchen',
+    // an Atemschutz-Link reloaded while its Einsatz is closed (staging r6, F2): the page asks
+    // once a minute and opens the board by itself after «Wieder öffnen»
+    closedTitle: 'Einsatz abgeschlossen',
+    closedAt: 'Abgeschlossen um {time}.',
+    closedHint: 'Wird der Einsatz wieder geöffnet, erscheint die Tafel hier von selbst.',
     // the Einsatz could not be loaded after opening the link (signal gone) – the landing page
     // says so instead of showing an empty incident list
     unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
@@ -3825,8 +4106,9 @@ export const de = {
     settingsLabel: 'Standort verwenden',
     settingsHint: 'Erlaubt diesem Gerät, deinen Standort zu verwenden. Geteilt wird erst, wenn du es auf der Karte einschaltest.',
     settingsAs: 'Als {name}',
-    settingsOn: 'Erlaubt',
-    settingsOff: 'Aus',
+    // Einstellungen: the name row under «Standort verwenden» — the value is the button
+    settingsName: 'Name auf der Karte',
+    settingsNameSub: 'So sieht dich der Kommandoposten – tippen zum Ändern',
   },
   // Anwesenheit list: live position next to the name. Deliberately neutral – far away is the
   // normal case (Wassertransport), not a warning.
@@ -3840,7 +4122,10 @@ export const de = {
   incidentSwitcher: {
     noIncident: 'Kein Einsatz',
     savedAt: 'Gespeichert um {t}',
-    startedRow: 'Einsatzbeginn {t} · {d}',
+    // the card's clock pill (27.09.2026, slim sweep · mockup 10): the glyph is the label, the
+    // full sentence is its title (startedFull)
+    startedRow: '{t} · {d}',
+    startedFull: 'Einsatzbeginn {t} · {d}',
     saved: 'Gespeichert',
     badgePending: 'Nicht synchronisiert – wird gespeichert',
     badgeOffline: 'Offline – lokal gespeichert, wird synchronisiert sobald wieder verbunden',
@@ -3854,11 +4139,6 @@ export const de = {
     // one-shot warning toasts (useIncidentSync) — once per episode
     syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',
-    // …and the standing Meldung once the device STAYS offline past the longer window
-    // (components/OfflineMeldung, syncAlert · createOfflinePresence). Half-reverses the
-    // 2026-07-18 «no permanent banner» decision on field request 2026-09-07.
-    offlineMeldungTitle: 'Offline – Änderungen werden lokal gespeichert',
-    offlineMeldungSub: 'Wird synchronisiert, sobald die Verbindung zurück ist.',
     // clock skew (useIncidentSync · X-Server-Time): device-local timestamps feed the legal
     // record, so a clock minutes off is said once per episode — same wording as the capture
     // surface's skew line (capture.clockSkew)
@@ -3923,9 +4203,38 @@ export const de = {
   // was es beschreibt: die Liste.
   archived: {
     title: 'Einsatz abgeschlossen',
-    hint: 'Nur ansehen – zum Bearbeiten wieder öffnen.',
+    // r3, F10: der Rapport bleibt nach dem Abschluss korrigierbar (Nachträge) – alles andere nicht
+    hint: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    // …und wer gar nichts wieder öffnen kann (Link-Sitzungen)
+    hintViewOnly: 'Nur ansehen.',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
+    // offline (05.10.2026): «Wieder öffnen» is the server's call (it writes the reopen boundary
+    // the Atemschutz clocks restart from), so it is said up front, not discovered by a failure
+    reactivateOffline: 'Braucht Verbindung zum Server',
+    reactivateNeedsServer: 'Wieder öffnen braucht Verbindung zum Server – der Einsatz bleibt abgeschlossen. Online nochmals versuchen.',
+    // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
+    // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
+    closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
+    closedElsewhereSub: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    // …und was dieses Gerät danach noch schicken wollte (ein Kontakt, eine Tafel-Änderung von
+    // offline): nicht übernommen, aber nicht verloren.
+    closedRefusedOne: '1 Eintrag dieses Geräts kam nach dem Abschluss und wurde nicht mehr übernommen. Er bleibt auf diesem Gerät gespeichert.',
+    closedRefused: '{n} Einträge dieses Geräts kamen nach dem Abschluss und wurden nicht mehr übernommen. Sie bleiben auf diesem Gerät gespeichert.',
+    closedExport: 'Einträge sichern',
+    closedDismiss: 'Hinweis ausblenden',
+    // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
+    reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
+    // r3, F10: der Rapport eines abgeschlossenen Einsatzes bleibt korrigierbar – und sagt es
+    rapportClosedHint: 'Einsatz abgeschlossen – Änderungen am Rapport erscheinen als Nachträge.',
+    // …und die Atemschutz-Link-Tafel, deren Halter nichts wieder öffnen kann
+    linkClosedTitle: 'Einsatz abgeschlossen – diese Tafel zeigt nur noch an',
+    // D1: der Link wurde für seinen eigenen Einsatz abgelehnt (widerrufen) – nichts mehr annehmen
+    linkRefusedTitle: 'Dieser Link gilt nicht mehr – diese Tafel zeigt nur noch an',
+    reopenedElsewhereSub: 'Wieder bearbeitbar – spätere Einträge erscheinen als Nachträge.',
+    // was beim Abschluss zurückgestellt wurde, geht jetzt raus – als Nachtrag
+    reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt nachgesendet – als Nachtrag.',
+    reopenedParked: 'Wieder bearbeitbar. {n} Einträge dieses Geräts, die nach dem Abschluss nicht übernommen wurden, werden jetzt nachgesendet – als Nachträge.',
   },
   // Einsätze history list
   history: {
@@ -3934,17 +4243,17 @@ export const de = {
     emptySub: 'Eröffnete und abgeschlossene Einsätze erscheinen hier.',
     noLocation: 'ohne Ort',
     searchPlaceholder: 'Einsatz suchen …',
-    noMatches: 'Keine Treffer.',
     groupOpen: 'Offen',
     groupToday: 'Heute',
     groupWeek: 'Letzte 7 Tage',
+    offlineNote: 'Offline: Ansehen geht, Abschliessen und Wieder öffnen brauchen Verbindung zum Server.',
+    // a running Einsatz's span in its row: «seit 14:00» (no end yet)
+    since: 'seit {t}',
     reactivate: 'Wieder öffnen',
     reactivateConfirmTitle: 'Einsatz wieder öffnen',
     reactivateConfirmMsg: 'Der Einsatz wird wieder geöffnet und ist bearbeitbar. Spätere Änderungen erscheinen im Verlauf und Rapport als Nachträge.',
     reactivateConfirmBtn: 'Wieder öffnen',
     statusArchived: 'Abgeschlossen',
-    statusOpen: 'Offen',
-    statusInProgress: 'In Arbeit',
     archiveConfirmTitle: 'Einsatz abschliessen',
     archiveConfirmMsg: 'Der Einsatz wird abgeschlossen und das Einsatzende festgehalten. Spätere Ergänzungen erscheinen im Verlauf und Rapport als Nachträge.',
     archiveConfirmBtn: 'Abschliessen',
@@ -3973,12 +4282,13 @@ export const de = {
     },
     ausgerueckt: 'Ausgerückt',
     ende: 'Einsatzende',
-    personen: '{n} erfasst',
+    // «anwesend», the word the chooser and the Anwesenheit head use for this count (29.09.2026) —
+    // «erfasst» beside «anwesend» read as two different numbers
+    personen: '{n} anwesend',
     von: 'von',
     bis: 'bis',
     mittelCount: '{n} Positionen',
     mittelNone: 'Nichts verwendet',
-    mittelNoneOn: 'Nichts verwendet ✓',
     complete: 'Einsatz abschliessen',
     backToRapport: 'Zurück zum Rapport',
     confirmTitle: 'Einsatz abschliessen',
@@ -3987,6 +4297,24 @@ export const de = {
     // …und wenn noch etwas offen ist, sagt es der Knopf. Abschliessen ist erlaubt – das ist der
     // Ort, an dem das ausgesprochen wird, statt hinter einem gleich beschrifteten Knopf.
     confirmAnyway: 'Trotzdem abschliessen',
+    /* Ein Atemschutz-Trupp, der beim Abschluss noch ANGEMELDET ist (24.09.2026, D1 ⑦): typisch
+       der Sicherungstrupp, der bereitstand und nie hinein musste. Vor der eigentlichen Frage
+       gestellt; «nicht eingesetzt» ist derselbe Abschluss wie auf der Karte (Trupp … nicht
+       eingesetzt). */
+    registeredOne: '1 Trupp noch angemeldet ({list}).',
+    registeredMany: '{n} Trupps noch angemeldet ({list}).',
+    registeredSafety: '{name}, Sicherungstrupp',
+    registeredToBoard: 'Zur Tafel',
+    registeredTitle: 'Noch angemeldet',
+    registeredStandDown: 'Als «nicht eingesetzt» schliessen',
+    // Trupps, die beim Abschluss noch DRIN sind: eine eigene, erste Frage
+    insideOne: '1 Trupp ist noch drin: {list}.',
+    insideMany: '{n} Trupps sind noch drin: {list}.',
+    insideTrupp: 'Trupp {name}',
+    insideClose: 'Trotzdem abschliessen',
+    insideTitle: 'Trupps noch drin',
+    // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
+    confirmBack: 'Zurück',
     done: 'Rapport abgeschlossen',
     doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
     failed: 'Abschluss fehlgeschlagen',
@@ -4172,14 +4500,12 @@ export const de = {
   },
   // Einsatzrapport drucken — preflight sheet (ReportPreflight)
   wheel: {
+    invalidTime: 'Bitte eine gültige Uhrzeit eingeben (00:00–23:59).',
     day: 'Tag',
-    month: 'Monat',
-    year: 'Jahr',
     hour: 'Stunde',
     minute: 'Minute',
     now: 'Jetzt',
     ok: 'OK',
-    clear: 'Löschen',
   },
   preflight: {
     pdfFull: 'Einsatzrapport (PDF)',
@@ -4282,6 +4608,24 @@ export const de = {
     ausgeruecktDerived: 'aus den Fahrzeugzeiten übernommen',
     vorOrtShort: 'vor Ort',
     zurueckShort: 'zurück',
+    // The vehicle table (24.09.2026, D2): what the SERVER observed from the GPS positions,
+    // display only. an = first arrival, ab = last departure, both GPS fix times.
+    gpsTableTitle: 'Fahrzeuge GPS · live',
+    gpsTableNote: 'Zeiten aus den GPS-Positionen, vom Server erfasst',
+    gpsColFzg: 'Fzg',
+    gpsColStatus: 'Status',
+    gpsColAn: 'an',
+    gpsColAb: 'ab',
+    gpsColFahrten: 'Fahrten',
+    gpsColPos: 'Pos.',
+    gpsStatusScene: 'vor Ort',
+    gpsStatusAway: 'unterwegs',
+    gpsAgeSec: 'vor {n} s',
+    gpsAgeMin: 'vor {n} min',
+    gpsAgeHour: 'vor {n} h',
+    gpsAgeStale: 'Position veraltet',
+    // …and on paper, where a vehicle was on scene more than once (a supply vehicle shuttling to the depot)
+    fahrtenCount: '{n} Fahrten',
     rueckmeldungLabel: 'Rückmeldung ELZ',
     rueckmeldungName: 'Name',
     // ⚠️ Nicht bloss «Zeit»: das Feld steht jetzt neben dem Einsatzende, und zwei Zeitfelder
@@ -4372,6 +4716,9 @@ export const de = {
     partnerNoteShort: 'Bemerkung',
     partnersNone: 'keine erfasst',
     partnerAdd: 'Organisation hinzufügen',
+    // the field's placeholder — the verb is the framed «+» beside it (27.09.2026, slim sweep ·
+    // mockup 5); partnerAdd stays the accessible name of both
+    partnerPlaceholder: 'Organisation …',
     // Ein «Bereich Polizei» auf dem Kroki ist bereits die Antwort auf «war die da?» – der
     // Streifen sagt, was auf der Karte steht, und kreuzt die Zeilen erst auf Tipp an. Gleiche
     // Form und gleiches Versprechen wie bei den Geretteten (geretteteLageStrip): der Rapport
@@ -4398,17 +4745,14 @@ export const de = {
     // Eigene Sektion unter der Checkliste (Entscheid 01.09.). Der Link ist ein Ergebnis des
     // Rapports, kein Häkchen – und die Warnung steht UNTER der Adresse, nicht in einem Tooltip:
     // sie ist das eine, was jemand gelesen haben muss, bevor er ihn verschickt.
-    // ⚠️ Diese zwei Sätze sind die EINZIGE Stelle, an der dieser Link erklärt wird (03.09.) –
-    // seit er auch das kann, wofür es früher einen zweiten «Einsatz-Link» gab. Darum nennen sie
-    // beide Zielgruppen UND beide Zeiträume: mitten im Einsatz und lange danach. Wer nur die
-    // Hälfte liest, greift sonst wieder zum falschen Link – den es nun nicht mehr gibt.
+    // ⚠️ EINE Zeile (29.09.2026): der Reiter sagt schon «lesen»; die fünf Zeilen darunter sagten
+    // es nochmals und schoben «Link erstellen» auf dem Handy unter den Falz – im Teilen-Blatt und
+    // wortgleich in «Weitergeben». Die lange Erklärung (beide Zielgruppen, beide Zeiträume) steht
+    // jetzt in der Hilfe, «Rapport & Abschluss». Vor und nach dem Erstellen derselbe Satz: «bis du
+    // ihn aufhebst» sagt der Knopf «Link aufheben» direkt darunter.
     shareHead: 'Weitergeben',
-    shareLede: 'Ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. '
-      + 'Nur lesen, kein Login, nichts lässt sich ändern. Für Zentrale, EL und Nachbarwehr '
-      + 'mitten im Einsatz – und für Gemeinde und Nachbarwehr danach: er gilt über den '
-      + 'Abschluss hinaus.',
-    shareLiveLede: 'Für Zentrale, EL und Nachbarwehr mitten im Einsatz – und für Gemeinde und '
-      + 'Nachbarwehr danach. Gilt über den Abschluss hinaus, bis du ihn aufhebst.',
+    shareLede: 'Kein Login · gilt auch nach dem Abschluss.',
+    shareLiveLede: 'Kein Login · gilt auch nach dem Abschluss.',
     shareCreate: 'Link erstellen',
     shareBusy: 'Link wird erstellt …',
     // Solange die Antwort noch aussteht: «noch nicht gefragt» ist nicht «gibt es keinen», und
@@ -4420,7 +4764,7 @@ export const de = {
     // längst gab. Also sagt es, was passiert ist, und bietet die Frage nochmals an; erstellt
     // wird erst wieder, wenn die Antwort da ist.
     shareLoadFailed: 'Link konnte nicht geladen werden.',
-    shareRetry: 'Nochmals versuchen',
+    shareRetry: 'Erneut versuchen',
     shareCreateFailed: 'Link erstellen fehlgeschlagen',
     shareCopy: 'Adresse kopieren',
     shareCopied: 'Kopiert',
@@ -4451,19 +4795,21 @@ export const de = {
     // ⚠️ «Link», nie «Code» (02.09.): geteilt wird eine Adresse – QR ist nur einer der Wege,
     // sie aufs andere Gerät zu bringen, und der ganze übrige Abschnitt sagt schon «Link».
     shareKindLabel: 'Was der Link freigibt',
-    shareKindFull: 'Ganzer Einsatz',
-    shareKindFullSub: 'nur lesen',
-    // ⚠️ «Nur Trupps» (04.09.), wie der Bereich jetzt heisst (copy.modes) — der Reiter benennt die
-    // TÜR, und die Tür führt auf die Trupp-Tafel. Was hinter ihr bedient wird, ist trotzdem die
+    // EINZEILIG seit 27.09.2026 (slim sweep, 4b): «Ganzer Einsatz / nur lesen» und «Nur Trupps /
+    // bedienen» waren die einzigen zweizeiligen Segmente der App. Was «Ganzer» und «Nur» trugen,
+    // sagen «lesen / bedienen» deutlicher – ein Schlüssel pro Reiter, der «·» gehört zum String.
+    shareKindFull: 'Einsatz · lesen',
+    // ⚠️ «Trupps» (04.09.), wie der Bereich heisst (copy.modes) — der Reiter benennt die TÜR, und
+    // die Tür führt auf die Trupp-Tafel. Was hinter ihr bedient wird, ist trotzdem die
     // Atemschutzüberwachung, und genau das muss der Lauftext darunter weiterhin sagen: der Link
     // gibt eine Sicherheitsaufgabe aus der Hand, nicht eine Liste.
-    shareKindAtem: 'Nur Trupps',
-    shareKindAtemSub: 'bedienen',
+    shareKindAtem: 'Trupps · bedienen',
     shareAsLede: 'Wer den Link öffnet, sieht nur die Trupp-Tafel dieses Einsatzes – die '
       + 'Atemschutzüberwachung – und bedient sie mit: Trupp anmelden, Kontakt, Druck, Rückzug, '
       + 'Draussen. Keine Karte, kein Verlauf. Gilt, bis der Einsatz abgeschlossen ist.',
-    shareAsLiveLede: 'Gilt, bis der Einsatz abgeschlossen ist – oder bis du ihn aufhebst.',
-    shareAsWarn: 'Was hier eingetragen wird, steht im Atemschutz-Journal des Rapports. Gib den '
+    // «… oder bis du ihn aufhebst» sagt der rote Knopf «Link aufheben» direkt darunter (27.09.2026)
+    shareAsLiveLede: 'Gilt bis zum Abschluss.',
+    shareAsWarn: 'Was hier eingetragen wird, steht im Rapport unter «Atemschutzüberwachung». Gib den '
       + 'Link nur an die Person, die überwacht.',
     // …und heisst wie der Reiter darüber («Nur Trupps»), dieselbe Regel wie bei shareRevokeTitle:
     // ein Name pro Link.
@@ -4495,12 +4841,10 @@ export const de = {
     // more – which is also why there is nothing left to «übernehmen».
     krokiHead: 'Kroki-Ausschnitt',
     framingHint: 'Karte verschieben und zoomen – gedruckt wird genau dieser Ausschnitt.',
-    framingFit: 'Auf Einsatz zoomen',
     // Until 09.08. the crop did not follow along: picked once at 22:20, printed unchanged at
     // 01:30 — with everything added since then outside it, and nobody saying so.
     framingFollows: 'Folgt der Karte',
     framingFollowOn: 'Der Ausschnitt wächst mit der Karte mit. Verschieben schaltet das ab.',
-    framingFollowOff: 'Ausschnitt an die Karte anpassen – und mitwachsen lassen',
     // An arrow instead of zooming out: what lies outside is usually a Hydrant two streets away,
     // and shrinking half the picture for that costs more than it gains.
     framingOutside: '{n} ausserhalb – antippen zum Anpassen',
@@ -4518,7 +4862,13 @@ export const de = {
     // THE chip in the Rapport head (23.09.2026 — the separate «noch offen» chips under the title
     // are gone at every width): what is still open, and the warnings about the record, each
     // counted in its own words (lib/abschlussOpen · controlChipLabel). «Hinweis(e)» said both.
-    controlOpen: '{n} noch offen',
+    // «{n} offen», not «{n} noch offen» (27.09.2026, slim sweep · mockup 2): the number keeps
+    // its unit and nothing else — the chip is amber and counts, «noch» said what amber says.
+    // ONE wording for ONE number: the phone's «Einsatz» tile and the page chooser take the
+    // same words through controlChipLabel, so they lose the «noch» with it.
+    controlOpen: '{n} offen',
+    // the phone's word on the PDF tile («PDF ▾»); the tablet shows pdfFull
+    pdfShort: 'PDF',
     controlHint: '1 Hinweis',
     controlHints: '{n} Hinweise',
     // the heading of the open steps inside the chip's popover
@@ -4727,7 +5077,6 @@ export const de = {
     // Platzhalter sagt das aber NICHT mehr (18.09.): «Suchen …» ist die app-weite Beschriftung
     // jeder Suchzeile, und die Gast-Tür steht als eigene letzte Zeile in der Liste.
     searchPlaceholder: 'Suchen …',
-    clearSearch: 'Suche löschen',
     statusFrei: 'nicht anwesend',
     statusPresent: 'anwesend',
     statusLeft: 'gegangen',
@@ -4746,7 +5095,6 @@ export const de = {
     emptyHint: 'Personal wird in der Verwaltung erfasst oder synchronisiert.',
     emptyHintSync: 'Synchronisiere das Personal aus {provider}.',
     retry: 'Erneut versuchen',
-    noMatches: 'Keine Treffer.',
     // ⚠️ Nennt die TASTE, die den Trupp löst, und zwar wie sie heisst (04.09.). «zuerst Trupp
     // draussen melden» war eine Umschreibung: auf der Tafel steht «Raus melden», und wer eine
     // Anweisung liest, sucht danach das Wort daraus. Auch nicht mehr «Atemschutz-Trupp» – die
@@ -4791,7 +5139,6 @@ export const de = {
     ended: 'beendet',
     // on the head of the Zeitplan card, on hover: it looks like a heading
     flip: 'umschalten',
-    done: 'Fertig',
     // Switch over the same Mannschaft, three views: who is HERE, who can be there WHEN
     // (continuous time, person-major), and who staffs WHICH window (discrete time, Schicht-major).
     // «Anwes.» and not «Anwesenheit»: only abbreviated do three segments fit on 390 px (~278 px
@@ -5005,8 +5352,6 @@ export const de = {
     // Suche + Kategorie-Filter, gebaut wie in der Anwesenheit: eine Zeile über der Liste
     noSource: 'Ohne Zuordnung',
     searchPlaceholder: 'Suchen …',
-    clearSearch: 'Suche löschen',
-    noMatches: 'Keine Treffer.',
     categoryFilterLabel: 'Nach Kategorie filtern',
     categoryAll: 'Alle',
     categoryOther: 'Übrige',
@@ -5062,6 +5407,8 @@ export const de = {
     logSet: '{label}: {menge} {unit}',
     logRemoved: '{label} auf 0 gesetzt',
     logDeleted: '{label} gelöscht',
+    // an un-delete (the removal's «Rückgängig») is its own sentence
+    logRestored: '{label} wiederhergestellt',
     logNote: '{label} – Bemerkung: {note}',
     logStock: '{label} – Bestand: {stock}',
     // Angehängt an eine gesetzte Menge: WOHER die Zahl kommt. Ohne sie sagt die Zeile nur,
@@ -5111,7 +5458,6 @@ export const de = {
     searchPlaceholder: 'Stichwort suchen …',
     searchAria: 'Stichwort suchen',
     matching: 'Passend: {title}',
-    noMatches: 'Keine Treffer.',
     none: 'Keine Checklisten konfiguriert.',
     pickEntry: 'Stichwort wählen oder suchen.',
     // runner
@@ -5124,15 +5470,334 @@ export const de = {
     milestoneTag: 'wird im Verlauf notiert',
     // un-ticking a milestone — by tap or by ↶ — APPENDS this beside the ☑ row (lib/useChecklistActions)
     milestoneUndone: 'Meilenstein zurückgenommen: {text}',
-    actionLabels: { journal: 'Journal', plan: 'Plan', draw: 'Zeichnen' } as Record<string, string>,
+    actionLabels: { journal: 'Verlauf', plan: 'Plan', draw: 'Zeichnen' } as Record<string, string>,
     // reference reader: hazard-colour badge labels
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,
     diagramAlt: 'Diagramm Seite {page}',
     diagramOpen: 'Diagramm vergrössern',
+    // Anleitungen (kind: manual, 05.10.2026) — read-only Geräte-Anleitungen (ManualReader)
+    groupManuals: 'Anleitungen',
+    manualUpdated: 'Stand {date}',
+    manualWarning: 'Achtung:',
+    manualImageAlt: 'Bild zu Schritt {n}',
+    manualImageOpen: 'Bild vergrössern',
+    manualSource: 'Quelle: {source}',
   },
 
   // ── Admin / Verwaltung surface (the /admin back-office) ───────────────────────
+  // ── Objektbesuche (docs/object-visits.md) — launcher entry, Übersicht, Liste, Besuch ──
+  objectVisits: {
+    launcher: 'Objektbesuche',
+    title: 'Objektbesuche',
+    back: 'Zurück',
+    loading: 'Objektbesuche werden geladen …',
+    notPreparedTitle: 'Noch nicht offline vorbereitet',
+    notPreparedBody: 'Dieses Gerät hat die Objektliste und die Checklisten noch nie geladen. Öffne Objektbesuche einmal mit Verbindung, danach bleiben sie auf dem Gerät.',
+    notPreparedDrafts: 'Entwürfe auf diesem Gerät bleiben auch ohne Objektliste verfügbar.',
+    retry: 'Erneut versuchen',
+    refusedTitle: 'Objektbesuche nicht verfügbar',
+    refusedBody: 'Die Verwaltung hat Objektbesuche für diese Wehr nicht eingeschaltet, oder dieses Konto darf sie nicht öffnen.',
+    storageUnreadable: 'Der Gerätespeicher konnte nicht gelesen werden – Besuche auf diesem Gerät fehlen vielleicht in dieser Liste.',
+    myDrafts: 'Meine Entwürfe',
+    unsent: 'Noch nicht gespeichert',
+    lists: 'Listen',
+    listObjectsOne: '1 Objekt',
+    listObjectsMany: '{n} Objekte',
+    listOn: "am {date}",
+    listArchived: "Nicht mehr eingeplant",
+    schedule: {"today": "Heute", "overdue": "Noch offen", "upcoming": "Nächste Termine", "undated": "Ohne Termin", "recent": "Kürzlich erledigt"},
+    listUntil: 'bis {date}',
+    searchHead: 'Objekt suchen',
+    searchPlaceholder: 'Objekt suchen …',
+    nearby: 'In der Nähe',
+    nearbyUse: 'Standort verwenden',
+    nearbyLocating: 'Standort wird bestimmt …',
+    nearbyFailed: 'Standort nicht verfügbar',
+    nearbyNone: 'Kein Objekt im Katalog hat Koordinaten.',
+    distanceM: '{m} m',
+    distanceKm: '{km} km',
+    neverVisited: 'noch nie besucht',
+    lastVisit: 'zuletzt {date}',
+    intro: 'Wähle ein Objekt aus einer Liste, über die Suche oder «In der Nähe». Der Besuch wird zuerst auf diesem Gerät gespeichert und gesendet, sobald Netz da ist.',
+    viewerNote: 'Mit diesem Konto kannst du Besuche lesen, aber nicht erfassen.',
+    listSub: '{done} von {total} besucht',
+    listUnresolved: '{n} Objekte dieser Liste sind auf diesem Gerät nicht bekannt.',
+    listUnknown: 'Diese Liste ist auf diesem Gerät nicht bekannt.',
+    listDoneElsewhere: 'erledigt',
+    stateDraft: 'Entwurf',
+    stateDone: '✓ {date}',
+    statePhotos: 'Fotos ausstehend',
+    stateUnsent: 'nicht gesendet',
+    visitLoading: 'Besuch wird geladen …',
+    visitMissing: 'Dieser Besuch ist nicht auf diesem Gerät und konnte nicht geladen werden.',
+    objectUnknown: 'Das Objekt «{key}» ist im Katalog dieses Geräts nicht bekannt.',
+    chooseChecklist: 'Welche Checkliste?',
+    chooseChecklistLead: 'Für dieses Objekt gibt es mehrere Besuchs-Checklisten.',
+    noChecklist: 'Ohne Checkliste',
+    plans: 'Pläne',
+    changeChecklist: 'Checkliste wechseln',
+    changeChecklistLead: 'Antworten, die auch in der neuen Checkliste vorkommen, bleiben. Fotos bleiben immer.',
+    checklistCurrent: 'aktuell',
+    changeChecklistDropOne: '1 Antwort passt nicht zur neuen Checkliste und wird entfernt. Fotos bleiben.',
+    changeChecklistDropMany: '{n} Antworten passen nicht zur neuen Checkliste und werden entfernt. Fotos bleiben.',
+    changeChecklistConfirm: 'Wechseln',
+    planLoading: 'Plan wird geladen …',
+    suggestedHead: 'Im Einsatz',
+    startFailed: 'Besuch konnte nicht angelegt werden',
+    menu: 'Weitere Aktionen',
+    saveFile: 'Als Datei sichern',
+    discard: 'Entwurf verwerfen',
+    discardTitle: 'Entwurf verwerfen?',
+    discardMsg: 'Der Besuch wird als verworfen markiert und erscheint in keiner Liste mehr. Das lässt sich nicht rückgängig machen.',
+    discardBtn: 'Verwerfen',
+    details: 'Von & Datum',
+    visitedAt: 'Besucht am',
+    with: 'Von',
+    withPlaceholder: 'Namen, z. B. Muster Max, Frei Nina',
+    notChecked: 'nicht geprüft',
+    photoMissing: 'Foto fehlt',
+    answer: { ok: 'OK', defect: 'Mangel', na: 'n. a.', yes: 'Ja', no: 'Nein', photo: 'Foto' },
+    defectNote: 'Was ist der Mangel?',
+    defectNotePlaceholder: 'z. B. Deckel klemmt',
+    photosAdded: '{n} Fotos hinzugefügt',
+    photosOne: '1 Foto',
+    photosMany: '{n} Fotos',
+    takePhoto: 'Foto aufnehmen',
+    addPhoto: 'Foto hinzufügen',
+    valuePlaceholder: 'Wert',
+    notes: 'Bemerkungen',
+    notesPlaceholder: 'Was sonst auffiel …',
+    photos: 'Fotos',
+    proposals: 'Korrekturvorschläge',
+    proposalAdd: 'Vorschlag hinzufügen',
+    proposalRow: 'bisher: {current} · neu: {proposed}',
+    proposalRowNew: 'neu: {proposed}',
+    complete: 'Abschliessen',
+    completeOpenOne: '1 Punkt nicht geprüft',
+    completeOpenMany: '{n} Punkte nicht geprüft',
+    completeOpenMsg: 'Trotzdem abschliessen? Nicht geprüfte Punkte stehen im Bericht als «nicht geprüft».',
+    completeRequired: 'Darunter verlangt: {items}',
+    completeAnyway: 'Trotzdem abschliessen',
+    completed: 'Besuch abgeschlossen',
+    correctionNote: 'Korrektur: Der Besuch bleibt abgeschlossen, die Änderung wird eine neue Revision.',
+    correctionDone: 'Fertig',
+    lifecycle: { draft: 'Entwurf', completed: 'Abgeschlossen', discarded: 'Verworfen' },
+    sync: {
+      unsaved: 'Nicht gespeichert',
+      conflict: 'Konflikt',
+      auth: 'Anmeldung nötig',
+      error: 'Nicht gesendet',
+      sending: 'Wird gesendet',
+      local: 'Nur auf diesem Gerät',
+      localAt: 'auf Gerät {time}',
+      changes: 'Änderungen auf Gerät {time}',
+      photos: 'Fotos {done}/{total}',
+      saved: 'Gespeichert {time}',
+      remote: 'Revision {n}',
+      offline: 'offline',
+    },
+    delivery: { waiting: 'Ablage wartet', delivered: 'abgelegt', failed: 'Ablage: Fehler', paused: 'Ablage pausiert' },
+    statusTitle: 'Stand dieses Besuchs',
+    statusOpen: 'Stand anzeigen',
+    statusLifecycle: 'Besuch',
+    statusDevice: 'Gerät → Server',
+    statusFiling: 'Ablage',
+    statusSavedAt: 'Auf diesem Gerät gespeichert um {time}.',
+    statusRevision: 'Revision {n} auf dem Server.',
+    statusNeverSent: 'Noch nie an den Server gesendet.',
+    statusPending: 'Neuere Änderungen sind nur auf diesem Gerät.',
+    statusPhotos: '{done} von {total} Fotos auf dem Server.',
+    statusNoFiling: 'Keine Ablage eingerichtet.',
+    destinationSharePoint: 'SharePoint',
+    statusFilingRow: '{destination}: {state}',
+    conflictTitle: 'Zwei Fassungen: {what}',
+    conflictBody: 'Auf einem anderen Gerät wurde derselbe Punkt geändert.',
+    conflictMine: 'Meine',
+    conflictTheirs: 'Andere',
+    conflictBoth: 'Beide behalten',
+    conflictRemoved: '(entfernt)',
+    conflictWhat: {
+      notes: 'Bemerkungen', visitedAt: 'Besuchsdatum', with: 'Von', checklist: 'Checkliste',
+      workRef: 'Liste', object: 'Objekt', photo: 'Foto', proposal: 'Vorschlag',
+    },
+    unsavedTitle: 'Nicht auf dem Gerät gespeichert',
+    unsavedBody: 'Der Browser hat das Speichern abgelehnt (Speicher voll?). Was nicht gespeichert ist, gibt es nur in diesem Fenster.',
+    unsavedRetry: 'Erneut speichern',
+    authTitle: 'Anmeldung abgelaufen',
+    authBody: 'Der Besuch ist auf diesem Gerät sicher. Melde dich wieder an, um ihn zu senden.',
+    authLogin: 'Anmelden',
+    errorTitle: 'Der Server hat den Besuch nicht angenommen',
+    errorAttachment: 'Ein Foto wurde nicht angenommen',
+    errorForbidden: 'Dieses Konto darf keine Besuche erfassen.',
+    errorDisabled: 'Objektbesuche sind ausgeschaltet.',
+    photoTitle: 'Foto',
+    photoCaption: 'Beschriftung',
+    photoCaptionPlaceholder: 'z. B. Zugang Nord',
+    photoBelongs: 'Gehört zu',
+    photoGeneral: 'Allgemein',
+    photoStored: 'Auf diesem Gerät gespeichert · wird gesendet, sobald Netz da ist',
+    photoNotStored: 'Nicht auf dem Gerät gespeichert – nur in diesem Fenster',
+    photoAnother: 'Noch eins',
+    photoDone: 'Fertig',
+    photoRemove: 'Foto entfernen',
+    photoRemoved: 'Foto entfernt',
+    photoPreparing: 'Foto wird vorbereitet …',
+    photoFailed: 'Foto konnte nicht übernommen werden',
+    photoPending: 'noch nicht gesendet',
+    photoOpen: 'Foto öffnen: {caption}',
+    proposalTitle: 'Korrektur vorschlagen',
+    proposalField: 'Feld',
+    proposalOther: 'Anderes',
+    proposalOtherLabel: 'Welches Feld?',
+    proposalCurrent: 'Bisher',
+    proposalCurrentHint: 'wie in den Stammdaten',
+    proposalNew: 'Neu',
+    proposalReason: 'Begründung',
+    proposalReasonPlaceholder: 'z. B. Hauswart hat gewechselt',
+    proposalSave: 'Vorschlag speichern',
+    proposalRemove: 'Vorschlag entfernen',
+    proposalRemoved: 'Vorschlag entfernt',
+    defectsOne: '1 Mangel',
+    defectsMany: '{n} Mängel',
+    countOk: '{n} OK',
+    countOpen: '{n} nicht geprüft',
+    proposalsOne: '1 Vorschlag',
+    proposalsMany: '{n} Vorschläge',
+    report: 'Bericht (PDF)',
+    reportSub: 'Revision {n}',
+    reportFailed: 'Bericht konnte nicht geladen werden',
+    edit: 'Bearbeiten',
+    editSub: 'Korrektur · bleibt abgeschlossen, neue Revision',
+    history: 'Verlauf',
+    historyFailed: 'Verlauf konnte nicht geladen werden',
+    historyRow: 'r{n} · {time}',
+    nextInList: 'Nächstes in der Liste',
+    listDone: 'Alle Objekte dieser Liste sind besucht.',
+    by: 'Von {name}',
+    fileSaved: 'Datei gesichert',
+    fileSavedMissing: 'Datei gesichert – {n} Fotos waren nicht auf diesem Gerät',
+    fileFailed: 'Datei konnte nicht erstellt werden',
+    sent: 'Gesendet',
+    sendContended: 'Konflikt mit einem anderen Gerät – wird gleich erneut versucht',
+    conflictTakeOther: 'Andere übernehmen',
+    conflictKeep: 'Diese behalten',
+    conflictOther: 'Andere Fassung',
+    conflictCurrent: 'Im Besuch',
+    storageWait: 'Der Gerätespeicher konnte nicht gelesen werden. Damit kein zweiter Entwurf entsteht, wird jetzt kein neuer Besuch angelegt.',
+    sendOffline: 'Offline – wird gesendet, sobald der Server erreichbar ist',
+  },
   admin: {
+    // ── Station › Objektbesuche (admin/ObjectVisitsView) ──
+    objectVisits: {
+      module: 'Modul',
+      moduleTip: 'Objektbesuche ist ein eigenes Modul: Mitglieder erfassen Kontrollen bei Objekten (Checkliste, Bemerkungen, Fotos, Korrekturvorschläge) – offline auf dem Gerät, gesendet bei Verbindung. Aus = kein Knopf im Launcher und keine Schnittstelle.',
+      enabled: 'Objektbesuche',
+      enabledTip: 'Zeigt «Objektbesuche» im Launcher und öffnet die Schnittstellen für Geräte und den Organisator.',
+      captureRoles: 'Wer darf erfassen',
+      captureRolesTip: 'Konten dieser Rollen dürfen Besuche anlegen und ändern. Alle anderen Konten lesen nur.',
+      roles: { editor: 'Bearbeiten', el: 'Einsatzleitung', viewer: 'Ansicht' },
+      rolesNone: 'Mindestens eine Rolle muss erfassen dürfen.',
+      checklists: 'Checklisten',
+      checklistsTip: 'Besuchs-Checklisten sind Checklisten-Vorlagen mit «kind»: «visit». Sie werden wie alle Checklisten hochgeladen und erscheinen nur bei Objektbesuchen, nie im Einsatz.',
+      checklistsNone: 'Noch keine Besuchs-Checkliste.',
+      checklistsSome: '{n} Besuchs-Checklisten: {titles}',
+      checklistsOne: '1 Besuchs-Checkliste: {titles}',
+      checklistsUnknown: 'Nicht abrufbar.',
+      checklistsManage: 'Checklisten verwalten',
+      fields: 'Felder für Vorschläge',
+      fieldsTip: 'Was ein Mitglied als Korrektur vorschlagen kann. Die Kennung ist für den Organisator (z. B. fwo-admin), die Bezeichnung sieht das Mitglied. «Anderes» gibt es immer.',
+      fieldsRecord: 'Feld',
+      fieldsEmpty: 'Noch keine Felder – Vorschläge gehen dann nur als «Anderes».',
+      fieldLabel: 'Bezeichnung',
+      fieldLabelPlaceholder: 'z. B. Kontakt Eigentümer',
+      fieldId: 'Kennung',
+      fieldIdPlaceholder: 'z. B. owner_contact',
+      fieldAdd: 'Feld hinzufügen',
+      fieldRemove: 'Feld entfernen',
+      fieldRemoveConfirm: 'Feld entfernen?',
+      fieldIncomplete: 'Bezeichnung und Kennung fehlen noch – die Zeile wird erst dann gespeichert.',
+      fieldDuplicate: 'Diese Kennung gibt es schon – die Zeile wird nicht gespeichert.',
+      destination: 'Ablageziel · SharePoint',
+      destinationCaption: 'Einweg: KP Front legt Bericht, Daten und Fotos ab und liest nichts zurück.',
+      destinationTip: 'Der Server legt jede Revision eines Besuchs im Objektordner ab: Bericht (PDF), Daten (JSON), Fotos und den Verlauf. Nichts wird dort je gelöscht.',
+      destinationNone: 'Keine Ablage eingerichtet – Besuche bleiben in KP Front und lassen sich als ZIP exportieren.',
+      destinationAdd: 'SharePoint-Ablage einrichten',
+      destinationMore: 'Weitere Ablageziele stehen in der Konfiguration und werden dort verwaltet.',
+      destIncomplete: 'Die Website muss mit https:// beginnen, und beide Ordner brauchen einen Namen – bis dahin wird das Ablageziel nicht gespeichert.',
+      destEnabled: 'Ablegen',
+      destTiming: 'Wann',
+      timingEvery: 'Bei jedem Senden (auch Entwürfe)',
+      timingCompleted: 'Nur abgeschlossene',
+      siteUrl: 'Website',
+      siteUrlPlaceholder: 'https://…sharepoint.com/sites/…',
+      library: 'Bibliothek',
+      root: 'Stammordner',
+      objectFolder: 'Objektordner',
+      visitFolder: 'Besuchsordner',
+      foldersTip: 'Platzhalter: {object.folder} (Ordnername des Objekts, sonst «Adresse - Name»), {object.name}, {object.address}, {date} (Besuchsdatum), {checklist} (Titel der Checkliste), {short} (letzte 4 Zeichen der Besuchs-ID).',
+      preview: 'Beispiel',
+      previewObject: 'Gemeindeverwaltung',
+      previewAddress: 'Hauptstrasse 24',
+      previewChecklist: 'Kontrolle Schlüsselhülse',
+      credentials: 'Zugangsdaten',
+      credentialsBody: 'Eigene App-Registrierung mit «Sites.Selected · write» nur auf dieser Website – nicht die Lese-Anmeldung des Imports.',
+      credentialsGo: 'Zugangsdaten öffnen',
+      test: 'Testablage',
+      testOk: 'Testdatei abgelegt',
+      testFailed: 'Testablage fehlgeschlagen',
+      deliveries: 'Ablage-Status',
+      deliveriesTip: 'Ein Eintrag pro Besuch und Ablageziel. «Fehler» (Berechtigung, Ordner fehlt) wird erst nach «Erneut versuchen» wieder probiert; Netzfehler versucht der Server selbst wieder.',
+      deliveriesEmpty: 'Noch nichts abgelegt.',
+      colVisit: 'Besuch',
+      colDestination: 'Ziel',
+      colRevision: 'Revision',
+      colState: 'Zustand',
+      colAttempts: 'Versuche',
+      colNext: 'Nächster Versuch',
+      colError: 'Fehler',
+      deliveryStates: { pending: 'wartet', delivered: 'abgelegt', failed: 'Fehler', paused: 'pausiert' },
+      retry: 'Erneut versuchen',
+      retryAll: 'Alle Fehler erneut versuchen',
+      retried: 'Wird erneut versucht',
+      retryFailed: 'Erneut versuchen fehlgeschlagen',
+      integration: 'Integration',
+      integrationCaption: 'Schlüssel für einen Organisator (z. B. fwo-admin): liest Katalog und Änderungen, schreibt Listen. Er kann keine Besuche schreiben.',
+      keyState: 'Schlüssel',
+      keySet: 'gesetzt',
+      keyUnset: 'nicht gesetzt',
+      keyGenerate: 'Schlüssel erzeugen',
+      keyRotate: 'Neuen Schlüssel erzeugen',
+      keyRotateConfirm: 'Neuen Schlüssel erzeugen? Der bisherige gilt danach nicht mehr.',
+      keyShownOnce: 'Jetzt kopieren und beim Organisator eintragen – der Schlüssel wird nur dieses eine Mal angezeigt.',
+      keyFailed: 'Schlüssel konnte nicht gespeichert werden',
+      visits: 'Besuche',
+      visitsTip: 'Alle Besuche dieser Wehr, neueste zuerst. Der Bericht ist die aktuelle Revision.',
+      visitsCaption: 'Abgeschlossene und laufende Besuche, mit Ablageort und Bericht. Mitteilungen dazu: «Benachrichtigung» unten.',
+      visitsEmpty: 'Noch keine Besuche.',
+      colDate: 'Datum',
+      colObject: 'Objekt',
+      colList: 'Liste',
+      colLifecycle: 'Zustand',
+      colFindings: 'Mängel',
+      colBy: 'Von',
+      colFiled: 'Ablage',
+      filedNone: '–',
+      notify: 'Benachrichtigung · Neuer Objektbesuch',
+      notifyCaption: 'Wird ein Besuch abgeschlossen, erhalten die Geräte der angekreuzten Konten eine Push-Mitteilung. Niemand, solange hier niemand angekreuzt ist.',
+      notifyTip: 'Die Mitteilung geht an jedes Gerät, das mit dem Konto angemeldet ist und Mitteilungen erlaubt hat – bei einem geteilten Konto (z. B. «fu») also an alle seine Geräte. Wer allein benachrichtigt werden soll, braucht ein eigenes Konto (Personen › Mitglieder & Zugriff). Ein Tipp auf die Mitteilung öffnet den Besuch.',
+      notifyPushOff: 'Push ist noch nicht eingerichtet (VAPID-Schlüssel fehlen) – die Auswahl wirkt erst danach.',
+      notifyNoAccounts: 'Keine aktiven Konten.',
+      notifyDevices: '{n} Geräte empfangen Mitteilungen',
+      notifyDevicesOne: '1 Gerät empfängt Mitteilungen',
+      notifyDevicesNone: 'noch kein Gerät mit Mitteilungen',
+      notifyFor: '{name} benachrichtigen',
+      notifySaved: 'Gespeichert',
+      notifyFailed: 'Konnte nicht gespeichert werden',
+      pdf: 'PDF',
+      exportZip: 'Export (ZIP)',
+      exportTip: 'Besuche als JSON, Fotos und Berichte – für eine Wehr ohne Ablageziel.',
+      loadFailed: 'Konnte nicht geladen werden',
+    },
     common: {
       configLoading: 'Konfiguration wird geladen …',
       // Relative Zeitangaben für die ganze Verwaltung (ui · fmtRelTime): «Daten» schreibt damit
@@ -5219,6 +5884,12 @@ export const de = {
       disabledBody: 'Auf diesem Server ist kein Adminschlüssel (ADMIN_SECRET) konfiguriert. Die Verwaltung ist deshalb gesperrt. Bitte richte ADMIN_SECRET in der Deployment-Konfiguration ein.',
     },
     nav: {
+      objektbesuche: {
+        label: 'Objektbesuche',
+        title: 'Objektbesuche',
+        lede: 'Kontrollen bei Objekten: wer erfasst, was vorgeschlagen werden kann und wohin die Besuche abgelegt werden.',
+        tip: 'Mitglieder öffnen «Objektbesuche» im Launcher, wählen ein Objekt und erfassen Checkliste, Bemerkungen, Fotos und Korrekturvorschläge – zuerst auf dem Gerät, gesendet bei Verbindung. Ein Ablageziel bekommt nur Kopien; der Besuch selbst bleibt in KP Front.',
+      },
       groupStation: 'Station',
       groupPersonen: 'Personen',
       groupDaten: 'Daten',
@@ -5227,7 +5898,7 @@ export const de = {
       // ⚠️ Kein eigener Menüpunkt mehr – aber `title` benennt weiterhin die Karten- bzw.
       // Journal-Gruppe auf «Station & Karte» und «Rapport» (ConfigSections, ConfigContext).
       karte: { label: 'Karte', title: 'Karte', lede: 'Startansicht der Karte (Zentrum + Zoom), bevor ein Einsatz gewählt ist.' },
-      journal: { label: 'Journal', title: 'Journal', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
+      journal: { label: 'Verlauf', title: 'Verlauf', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
       doktrin: { label: 'Doktrin', title: 'Doktrin', lede: 'FKS-Vorgaben dieser Wehr: Standard-Funkkanal, AGT-Kontaktintervall und Warn-Vorlauf.' },
       rapport: { label: 'Rapport', title: 'Rapport', lede: 'Wie die Einsatzstunden auf dem gedruckten Rapport gerundet werden – und welche eigenen Formulare am Schluss noch auszufüllen sind.' },
       alarme: {
@@ -5316,7 +5987,7 @@ export const de = {
     workbook: {
       covers: 'Enthalten sind acht Blätter: Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen und Symbolfelder – so, wie sie in der Datei heissen.',
       notBackup: 'Das ist keine Sicherung.',
-      notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Journal stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
+      notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Verlauf stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
       carriesNot: 'Nicht enthalten – und absichtlich nicht: Schlüssel und Passwörter, Logos, Objektpläne, Kartenebenen, eigene Formulare und die Alarm-Stichwörter.',
       nameNote: 'Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert; nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – so leert man eine Liste absichtlich. Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt «Mannschaft» fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
       step1Title: 'Herunterladen und einspielen',
@@ -5552,6 +6223,14 @@ export const de = {
       removed: 'Gelöscht – Anbindung aus.',
       failed: 'Aktion fehlgeschlagen',
       groups: {
+        object_visits: {
+          title: 'Objektbesuche (Organisator)',
+          caption: 'Schlüssel, mit dem ein Organisator (z. B. fwo-admin) Katalog und Änderungen liest und Listen schreibt. Erzeugt wird er unter «Objektbesuche › Integration».',
+        },
+        sharepoint_export: {
+          title: 'SharePoint (Ablage Objektbesuche)',
+          caption: 'Eigene Azure-App-Registrierung mit Schreibrecht («Sites.Selected · write») nur auf der Website der Ablage. Die Lese-Anmeldung der Stationsdaten wird nie zum Schreiben verwendet.',
+        },
         divera: {
           title: 'Divera 24/7',
           caption: 'Accesskey für Alarme und Personal, plus das Secret für den Webhook. Der zweite Accesskey ist nur nötig, wenn die Dienstgrade aus den Qualifikationen kommen sollen.',
@@ -5874,6 +6553,8 @@ export const de = {
       alarmBarRueckzugInvalid: 'Wert noch nicht gespeichert – erwartet wird eine ganze Zahl über 0 und höchstens {max} (nicht über dem Alarmdruck; die Rückzugslinie meldet sich früher, nicht später).',
       defaultPressure: 'Eingangsdruck (bar)',
       defaultPressureTip: 'Fülldruck, mit dem der Trupp-Assistent startet (z. B. 300-bar-Flasche im Dienst).',
+      entryPressureMin: 'Eingangsdruck mindestens (bar)',
+      entryPressureMinTip: 'Ein Eingangsdruck darunter – bei der Anmeldung, beim Wiedereintritt mit neuer Flasche oder beim Korrigieren – wird einmal nachgefragt («180 bar ist für einen Eintritt tief»). Keine Obergrenze. 0 schaltet die Rückfrage ab. Ohne Eintrag gilt {n} bar.',
       pressureStep: 'Druck-Schrittweite (bar)',
       pressureStepTip: 'Schrittweite der ±Druckregler; Eingaben rasten auf dieses Raster ein.',
       pressureMax: 'Druck-Maximum (bar)',
@@ -6109,8 +6790,8 @@ export const de = {
       roleViewer: 'Betrachter',
       roleEditor: 'Bearbeiter',
       roleEl: 'Einsatzleiter',
-      elViewDefault: 'Startet in Führungsansicht',
-      elViewDefaultHint: 'Taktik gesperrt, Journal & Details aktiv – am Gerät umschaltbar',
+      elViewDefault: 'Führungsansicht',
+      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – auf jedem Gerät dieser Anmeldung',
       colorLabel: 'Farbe',
       colorOptional: 'optional',
       pickColor: 'Farbe wählen',
@@ -6145,7 +6826,7 @@ export const de = {
       roleQuestion: 'Was darf {name} im Einsatz?',
       roleQuestionAnon: 'diese Person',
       roleRequired: 'Pflichtangabe',
-      roleEditorMeans: 'Trägt im Einsatz ein: Journal, Anwesenheit, Karte und Rapport.',
+      roleEditorMeans: 'Trägt im Einsatz ein: Verlauf, Anwesenheit, Karte und Rapport.',
       roleElMeans: 'Liest alles mit und führt Anwesenheit, Material, Checklisten und den Rapport – Karte und Pläne bleiben Ansicht.',
       roleViewerMeans: 'Liest nur mit. Kann im Einsatz nichts eintragen – auch die eigene Anwesenheit nicht.',
       roleChangeableHint: 'Beides lässt sich später ändern. Nur nicht mitten im Einsatz, wenn niemand die Verwaltung offen hat.',
@@ -6506,11 +7187,13 @@ export const de = {
       kindAction: 'Aufgaben',
       kindRapport: 'Lagerapport',
       kindReference: 'Nachschlagen',
+      kindVisit: 'Objektbesuch',
+      kindManual: 'Anleitung',
       added: '«{title}» hinzugefügt.',
       replaced: '«{title}» ersetzt.',
       assetTitle: 'Diagramme – {title}',
-      assetHint: 'Seitenbilder des Nachschlagewerks. Die Seitenzahl ist die, auf die sich die '
-        + 'Vorlage bezieht.',
+      assetHint: 'Seitenbilder des Nachschlagewerks oder Bilder einer Anleitung. Die Seitenzahl ist die, '
+        + 'auf die sich die Vorlage bezieht.',
       assetPage: 'Seite',
       assetPageHint: 'wie in der Vorlage',
       assetFile: 'Bild',
@@ -6519,9 +7202,9 @@ export const de = {
       notJson: 'Das ist keine gültige JSON-Datei.',
       notObject: 'Eine Vorlage muss ein JSON-Objekt sein.',
       fieldMissing: 'Vorlage: Feld «{field}» fehlt oder ist leer.',
-      badKind: 'Vorlage: unbekannte Art «{kind}» (erwartet: action, rapport oder reference).',
+      badKind: 'Vorlage: unbekannte Art «{kind}» (erwartet: action, rapport, reference oder manual).',
       needsPhasesOrEntries: 'Vorlage braucht genau eines von «phases» (Aufgaben/Lagerapport) oder '
-        + '«entries» (Nachschlagen).',
+        + '«entries» (Nachschlagen) – eine Anleitung (manual) hat stattdessen «steps» und «device».',
       badId: 'Die «id» der Vorlage darf keinen Doppelpunkt und keine Leerzeichen enthalten.',
     },
     modules: {
@@ -6588,7 +7271,7 @@ export const de = {
       intro: 'Der Server rechnet für jedes Objektblatt voraus, wie es auf der Karte liegt. Erst deine Freigabe macht den Vorschlag für Einsätze verbindlich.',
       loading: 'Wird geladen …',
       refresh: 'Aktualisieren',
-      loadFailed: 'Laden fehlgeschlagen. Nochmals versuchen.',
+      loadFailed: 'Laden fehlgeschlagen',
       unavailableHint: 'Automatische Vorschläge sind auf diesem Server nicht eingerichtet – Ausrichtungen können nur von Hand gesetzt werden.',
       filterLabel: 'Filter',
       openCount: 'Offen ({n})',

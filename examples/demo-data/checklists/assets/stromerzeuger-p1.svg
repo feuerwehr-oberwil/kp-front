@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" font-family="Helvetica, Arial, sans-serif">
+  <rect width="640" height="400" fill="#f4f5f7"/>
+  <text x="24" y="38" font-size="20" font-weight="700" fill="#1d232b">Bedienfeld Stromerzeuger (Demo-Skizze)</text>
+  <rect x="24" y="60" width="592" height="300" rx="14" fill="#fff" stroke="#9aa3ad" stroke-width="2"/>
+  <!-- Motorschalter -->
+  <circle cx="120" cy="170" r="46" fill="#e9ecef" stroke="#1d232b" stroke-width="3"/>
+  <rect x="113" y="128" width="14" height="44" rx="4" fill="#c62828"/>
+  <text x="120" y="250" font-size="16" font-weight="700" text-anchor="middle" fill="#1d232b">1 Motorschalter</text>
+  <text x="120" y="272" font-size="14" text-anchor="middle" fill="#5b6570">AUS · EIN</text>
+  <!-- Choke -->
+  <rect x="235" y="140" width="90" height="60" rx="8" fill="#e9ecef" stroke="#1d232b" stroke-width="3"/>
+  <rect x="250" y="160" width="40" height="20" rx="4" fill="#1d232b"/>
+  <text x="280" y="250" font-size="16" font-weight="700" text-anchor="middle" fill="#1d232b">2 Choke</text>
+  <text x="280" y="272" font-size="14" text-anchor="middle" fill="#5b6570">kalt: zu · warm: offen</text>
+  <!-- Treibstoffhahn -->
+  <circle cx="440" cy="170" r="34" fill="#e9ecef" stroke="#1d232b" stroke-width="3"/>
+  <rect x="404" y="164" width="72" height="12" rx="4" fill="#1d232b"/>
+  <text x="440" y="250" font-size="16" font-weight="700" text-anchor="middle" fill="#1d232b">3 Treibstoffhahn</text>
+  <text x="440" y="272" font-size="14" text-anchor="middle" fill="#5b6570">ZU · AUF</text>
+  <!-- FI -->
+  <rect x="530" y="130" width="56" height="80" rx="6" fill="#e9ecef" stroke="#1d232b" stroke-width="3"/>
+  <rect x="546" y="146" width="24" height="28" rx="3" fill="#2e7d32"/>
+  <text x="558" y="250" font-size="16" font-weight="700" text-anchor="middle" fill="#1d232b">4 FI</text>
+  <text x="320" y="330" font-size="13" text-anchor="middle" fill="#5b6570">Synthetische Skizze für die KP-Front-Demo – keine Herstellerangabe.</text>
+</svg>

@@ -217,6 +217,48 @@ describe('report journal rows', () => {
     expect(rows[1].area).toBe('Manuell')
   })
 
+  // staging walk-through 25.09.2026: the paper printed «Symbol «Feuer» gesetzt» and dropped the
+  // ↶ row that withdrew it, so the journal described a fire the Kroki beside it did not show.
+  // Append-only means BOTH rows print.
+  it('prints the ↶ / ↷ rows too — a taken-back act is two rows, on paper as on screen', () => {
+    const events: TimelineEvent[] = [
+      { id: 'set', t: '09:00', at: '2026-06-23T07:00:00.000Z', icon: 'hex', text: 'Symbol «Feuer» gesetzt', kind: 'symbol' },
+      { id: 'undo', t: '09:01', at: '2026-06-23T07:01:00.000Z', icon: 'undo', text: 'Symbol «Feuer» gesetzt rückgängig gemacht', kind: 'history' },
+      { id: 'legacy', t: '09:02', at: '2026-06-23T07:02:00.000Z', icon: 'undo', text: appConfig.copy.log.undo, kind: 'history' },
+    ]
+    expect(journalRows(events, plans).map((r) => r.id)).toEqual(['set', 'undo', 'legacy'])
+  })
+
+  // F2(c) of the same walk-through: «Gefahrentafel angedockt» printed twice «with nothing in
+  // between». It was two real acts — dock, ↶, dock again — and the ↶ between them was the row the
+  // paper dropped; within two minutes the repeat fold even merged the two into ONE «2×» row
+  // (lib/verlauf · repeatRuns now ends every run at a ↶/↷). Only one writer produces the dock row
+  // (IncidentWorkspace · finishEntityMove, on the device whose hand made the gesture; a merge, a
+  // carried placard and ↶/↷ write none), and journal rows merge by id, so another device never
+  // adds a second copy.
+  it('prints the ↶ between two docks of the same placard, so the second «angedockt» makes sense', () => {
+    const row = (id: string, n: number, text: string, kind: TimelineEvent['kind']): TimelineEvent =>
+      ({ id, t: `09:0${n}`, at: `2026-06-23T07:0${n}:00.000Z`, icon: kind === 'history' ? 'undo' : 'select', text, kind, ...(kind === 'history' ? {} : { entityId: 'placard' }) })
+    const events = [
+      row('d1', 1, 'Gefahrentafel angedockt an «TLF»', 'symbol'),
+      row('u1', 2, 'Änderung auf der Karte rückgängig gemacht', 'history'),
+      row('d2', 3, 'Gefahrentafel angedockt an «TLF»', 'symbol'),
+    ]
+    expect(journalRows(events, plans).map((r) => r.id)).toEqual(['d1', 'u1', 'd2'])
+  })
+
+  // D6 of the final walk-through: a move prints no row, so its ↶ must not print either
+  it('prints a ↶ row only WITH the row it counters — a move’s undo stays off paper like the move', () => {
+    const events: TimelineEvent[] = [
+      { id: 'mv', t: '09:00', at: '2026-06-23T07:00:00.000Z', icon: 'select', text: 'KP Front verschoben', kind: 'symbol' },
+      { id: 'mvU', t: '09:01', at: '2026-06-23T07:01:00.000Z', icon: 'undo', text: 'KP Front verschoben rückgängig gemacht', kind: 'history' },
+      { id: 'set', t: '09:02', at: '2026-06-23T07:02:00.000Z', icon: 'hex', text: 'Symbol «Feuer» gesetzt', kind: 'symbol' },
+      { id: 'setU', t: '09:03', at: '2026-06-23T07:03:00.000Z', icon: 'undo', text: 'Symbol «Feuer» gesetzt rückgängig gemacht', kind: 'history' },
+      { id: 'setR', t: '09:04', at: '2026-06-23T07:04:00.000Z', icon: 'redo', text: 'Symbol «Feuer» gesetzt wiederhergestellt', kind: 'history' },
+    ]
+    expect(journalRows(events, plans).map((r) => r.id)).toEqual(['set', 'setU', 'setR'])
+  })
+
   it('names the Bereich each row actually came from', () => {
     const at = (n: number) => `2026-08-08T2${n}:00:00.000Z`
     const events: TimelineEvent[] = [
@@ -464,6 +506,9 @@ describe('report proof and Atemschutz labels', () => {
     expect(readingKindLabel('entry')).toBe('Eintritt')
     expect(readingKindLabel('contact')).toBe('Kontakt')
     expect(readingKindLabel('pressure')).toBe('Druck')
+    // a stand-down prints «Nicht eingesetzt», never «Austritt» (staging r2, N8)
+    expect(readingKindLabel('exit', true)).toBe(appConfig.copy.atemschutz.statusNotDeployed)
+    expect(readingKindLabel('exit')).toBe(appConfig.copy.atemschutz.readingKind.exit)
     /* ⚠️ …and the CARD's mini-log says the same words (04.09., Feldtest Manuel). It read
      * «Angemeldet · Eingerückt · Austritt» — one row in the button's language between two in the
      * record's. The buttons stay «Einrücken»/«Raus melden»: those are pressed by somebody
@@ -539,6 +584,20 @@ describe('server-PDF payload extras', () => {
     expect(metaExtrasForPdf({}).zeiten).toEqual([
       ['Gr. 1 (Rot)', ''], ['Gr. 9', ''], ['TLF', ''], ['Pio', ''],
     ])
+  })
+
+  // D2-a (24.09.2026): the shuttle trips are not Verlauf rows, so the paper is where they are
+  // counted — «3 Fahrten» beside a vehicle the server's GPS saw on scene more than once.
+  it('prints «n Fahrten» beside a vehicle that was on scene more than once', () => {
+    const out = metaExtrasForPdf({
+      fahrzeuge: [
+        { id: 'tlf', ausgerueckt: '2026-07-31T12:43:46', gps: { zone: 'scene', fahrten: 1 } },
+        { id: 'pio', gps: { zone: 'away', fahrten: 3 } },
+      ],
+    })
+    expect(out.zeiten.slice(2)).toEqual([['TLF', '12:43'], ['Pio', '3 Fahrten']])
+    const both = metaExtrasForPdf({ fahrzeuge: [{ id: 'tlf', ausgerueckt: '2026-07-31T12:43:46', gps: { zone: 'away', fahrten: 2 } }] })
+    expect(both.zeiten.find(([l]) => l === 'TLF')?.[1]).toBe('12:43 · 2 Fahrten')
   })
 
   it('builds the Material worksheet: full catalogue with stubs, recorded amounts filled', () => {
@@ -1173,5 +1232,31 @@ describe('krokiFitMaxZoom', () => {
     expect(krokiFitMaxZoom([[7.5704, 47.5241], [7.5709, 47.5241]])).toBe(20)    // ~38 m
     expect(krokiFitMaxZoom([[7.5704, 47.5241], [7.57041, 47.52411]])).toBe(21) // inside one building
     expect(krokiFitMaxZoom([[7.5704, 47.5241]])).toBe(20)                       // a lone symbol keeps its streets
+  })
+})
+
+describe('journalRows · Nachtrag (staging r3)', () => {
+  it('prints a row the server received after the close as a Nachtrag, in its own time order', () => {
+    const closed = '2026-07-02T18:00:00Z'
+    const events = [
+      { id: 'on-time', t: '', at: '2026-07-02T17:50:00Z', icon: 'radio', text: 'Trupp 1: Kontakt', kind: 'team' as const },
+      { id: 'late', t: '', at: '2026-07-02T17:55:00Z', icon: 'radio', text: 'Trupp 2: Kontakt', kind: 'team' as const, receivedAfterClose: true },
+    ]
+    const rows = journalRows(events, [], undefined, closed)
+    const byText = new Map(rows.map((r) => [r.text, r]))
+    expect(byText.get('Trupp 1: Kontakt')?.nachtrag).toBe(false)
+    expect(byText.get('Trupp 2: Kontakt')?.nachtrag).toBe(true)
+  })
+
+  it('prints what the Abschluss itself wrote as part of the close (staging r6, F3)', () => {
+    const closed = '2026-07-02T18:00:00Z'
+    const events = [
+      { id: 'close', t: '', at: closed, icon: 'lock', text: 'Einsatz abgeschlossen', lifecycle: 'closed' as const },
+      { id: 'inside', t: '', at: '2026-07-02T18:00:00.600Z', icon: 'logout', text: 'Trupp 2 beim Abschluss noch drin', kind: 'team' as const, atClose: true },
+      { id: 'later', t: '', at: '2026-07-02T18:30:00Z', icon: 'radio', text: 'Nachtrag Funk', kind: 'journal' as const },
+    ]
+    const byText = new Map(journalRows(events, [], undefined, closed).map((r) => [r.text, r]))
+    expect(byText.get('Trupp 2 beim Abschluss noch drin')?.nachtrag).toBe(false)
+    expect(byText.get('Nachtrag Funk')?.nachtrag).toBe(true)
   })
 })

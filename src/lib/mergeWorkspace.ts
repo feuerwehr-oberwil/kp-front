@@ -16,6 +16,7 @@
 // mine) apart from "I never had X" (absent in both base and mine). Without it a naive union
 // can't honor deletes and would resurrect everything the other device removed.
 
+import { followerOnlyChange } from './gpsReturn'
 import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
 import { landedClaims, resolveTruppNumbers, unwindUnlanded, type NumberScope } from './truppNumbers'
@@ -23,6 +24,7 @@ import type { TruppTrail } from './truppTrails'
 import type { BoardDoc, Drawing, Entity, Trupp } from '../types'
 import type { InitialState, Saved } from './workspace'
 import { jsonEqual } from './jsonEqual'
+import { unionCrewFiled } from './crewFiling'
 
 type Id = string
 interface HasId {
@@ -294,7 +296,7 @@ interface Readingish {
 /** Trupp fields that are ISO timestamps where "later" is the only safe answer when both sides
  *  wrote one: a contact clock that moves BACKWARDS would re-arm an überfällig alarm somebody
  *  already answered — or worse, silence one by resurrecting a fresher-looking stale time. */
-const TRUPP_TIME_FIELDS = new Set(['entryTime', 'lastContactTime', 'lastPressureTime', 'exitTime', 'removedAt'])
+const TRUPP_TIME_FIELDS = new Set(['entryTime', 'lastContactTime', 'lastPressureTime', 'exitTime', 'removedAt', 'contactRestartedAt', 'pausedFrom', 'contactBeforeRestart'])
 
 /** The later of two ISO timestamps, or null when either doesn't parse (caller falls back). */
 function laterIso(a: unknown, b: unknown): unknown | null {
@@ -352,7 +354,7 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
   const t = theirs as unknown as Record<string, unknown>
   const out: Record<string, unknown> = {}
   for (const k of new Set([...Object.keys(m), ...Object.keys(t)])) {
-    if (k === 'readings') continue // merged below
+    if (k === 'readings' || k === 'crewFiled') continue // merged below
     const inA = k in a, inM = k in m, inT = k in t
     if (inA && (!inM || !inT)) continue // a shared field removed on either side → delete wins
     if (!inM) { out[k] = t[k]; continue } // their new field
@@ -397,7 +399,21 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
     const rows = (v: unknown): Readingish[] => (Array.isArray(v) ? (v.filter(isObj) as unknown as Readingish[]) : [])
     out.readings = mergeReadings(rows(a.readings), rows(m.readings), rows(t.readings))
   }
+  // The crew filing's one-shot marker (types · Trupp.crewFiled) is GROW-ONLY: a union of all
+  // three, never a delete — a key lost here would let a device file again somebody a person took
+  // off the Anwesenheit.
+  const filed = unionCrewFiled(asStrings(a.crewFiled), asStrings(m.crewFiled), asStrings(t.crewFiled))
+  if (filed) out.crewFiled = filed
   return out as unknown as HasId
+}
+
+const asStrings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+
+/** A Trupp minus its machine-only fields — what a human edited. Two devices that differ only in
+ *  the crew-filing marker did not both CHANGE the Trupp in any sense a person should check. */
+const humanTrupp = (o: HasId): unknown => {
+  const { crewFiled: _m, ...rest } = o as HasId & { crewFiled?: unknown }
+  return rest
 }
 
 /**
@@ -490,7 +506,10 @@ export const MERGE_POLICY = {
   timeline: byId,
   // field-level, not whole-object LWW: see mergeTrupp for why trupps are the exception
   trupps: (b, m, t, cx) => mergeById(asList(b), asList(m), asList(t), (ancestor, mi, th) => {
-    cx.onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
+    // reported only when both sides changed what a person edits — a marker stamped on each side
+    // (the crew filing, a machine write) is no conflict
+    const [ha, hm, ht] = [humanTrupp(ancestor), humanTrupp(mi), humanTrupp(th)]
+    if (!eq(hm, ht) && !eq(hm, ha) && !eq(ht, ha)) cx.onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
     return mergeTrupp(ancestor, mi, th)
   }),
   mittel: byId, // append-only material-use events — merge by event id like timeline
@@ -569,6 +588,20 @@ const everySyncedFieldHasASlot: [SyncedWithoutSlot] extends [never] ? true : Syn
 void everySyncedFieldHasASlot
 
 /**
+ * Both sides changed the same tactical object: whole-object last-writer-wins (mine) — EXCEPT where
+ * one side's change is only the live-GPS follower's (traced coords, `lastSafe`, a pause) and the
+ * other's is not. Then the hand's change wins, whichever side it came from (24.09.2026, D3):
+ * another device polling the same vehicle feed would otherwise write its follower sample over a
+ * «Zurück auf Stand am Einsatzort» or an «Am Einsatzort lösen», and the drive came back.
+ */
+function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs: TacticalObject): TacticalObject {
+  const mineMachine = followerOnlyChange(ancestor, mine)
+  const theirsMachine = followerOnlyChange(ancestor, theirs)
+  if (mineMachine && !theirsMachine) return theirs
+  return mine
+}
+
+/**
  * Three-way merge of whole workspace blobs, built for TASK-SCOPED multi-editor use: two operators
  * working DIFFERENT domains of one incident (e.g. Atemschutz on one device, Lage/Plan/report on
  * another) must both keep their work. Every operational domain is merged so a save in one domain
@@ -622,7 +655,7 @@ export function mergeWorkspace(
           asList(ws.drawings) as Drawing[],
           asBoard(ws.board) as BoardDoc,
         )
-  const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs))
+  const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs), resolveTactical)
   const cx: MergeCx = { objects, views: viewsOf(objects), onAttendanceConflict, onTruppConflict }
   const out: Record<string, unknown> = { ...mine } // the 'local' rows (and keys this build doesn't know)
   for (const [k, policy] of Object.entries(MERGE_POLICY) as [keyof Saved, FieldPolicy][]) {

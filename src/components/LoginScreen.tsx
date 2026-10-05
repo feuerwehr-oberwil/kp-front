@@ -1,3 +1,4 @@
+import { LoadingStatus } from './ShellLoader'
 import { useEffect, useRef, useState } from 'react'
 import { apiGet, ApiError } from '../lib/api'
 import { useAuth, type RosterEntry } from '../lib/auth'
@@ -101,7 +102,7 @@ function Roster({ roster, error, onPick, onRetry }: {
     )
   }
   if (!roster) {
-    return <div className="login-state">{appConfig.copy.login.loadingRoster}</div>
+    return <div className="login-state"><LoadingStatus>{appConfig.copy.login.loadingRoster}</LoadingStatus></div>
   }
   if (roster.length === 0) {
     return <div className="login-state">{appConfig.copy.login.noUsers}</div>

@@ -1,3 +1,4 @@
+import { ShellLoader } from '../ShellLoader'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { initials, roleLabel, fillTemplate, fmtSpanShort } from '../../lib/format'
@@ -10,6 +11,7 @@ import { toast } from '../../lib/ui'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { runningOthers } from '../../lib/switcherLists'
 import { SyncGlyph } from '../SyncGlyph'
+import { useOnline } from '../../lib/useOnline'
 import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
@@ -21,12 +23,12 @@ function fmtClock(ms: number): string {
   }
 }
 
-// (the SyncGlyph — the spinning-arc-closes-into-tick vocabulary this button speaks — now lives
+// (the SyncGlyph — the shared activity and completion vocabulary — now lives
 // in ../SyncGlyph, shared with the Offline-Bereitschaft load and the Anwesenheit reload)
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -42,6 +44,8 @@ export function IncidentSwitcher({
   onSwitch: (i: IncidentMeta) => void
   /** «Alle Einsätze» — absent for an Einsatz-Link session, which may only ever see its own */
   onHistory?: () => void
+  /** Objektbesuche — set only where the station switched the module on and this is no link session */
+  onObjectVisits?: () => void
   onDivera: () => void
   onDatenquellen: () => void
   /** Einsatzrapport (PDF / Drucken) — absent for an Einsatz-Link session, which may not
@@ -89,11 +93,13 @@ export function IncidentSwitcher({
   const [applyingUpdate, setApplyingUpdate] = useState(false)
   useEffect(() => onUpdateAvailable(setUpdateWaiting), [])
   const updateReady = updateWaiting && canApplyInPlace(getInstallPlatform())
-  // «Jetzt synchronisieren» reports what it did on the button itself: the ring spins for the
-  // round trip, then closes and draws a tick. Success needs no words — a toast for «alles
+  // «Jetzt synchronisieren» reports what it did on the button itself: Shell trail runs for the
+  // round trip, then gives way to a tick. Success needs no words — a toast for «alles
   // synchronisiert» was a sentence to read for the most boring outcome there is. Offline and
   // failure still get one, because those change what the operator should do next.
   const [syncPhase, setSyncPhase] = useState<'idle' | 'busy' | 'done'>('idle')
+  // offline the button is not drawn at all (see `syncButton`)
+  const online = useOnline()
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (doneTimer.current) clearTimeout(doneTimer.current) }, [])
   const runSyncNow = async () => {
@@ -153,6 +159,10 @@ export function IncidentSwitcher({
   const savedText = syncStatus === 'synced'
     ? (lastSyncedAt != null ? fillTemplate(cp.savedAt, { t: fmtClock(lastSyncedAt) }) : cp.saved)
     : syncDetail ?? badgeTitle[syncStatus]
+  // The CARD's pill says «Gespeichert» without the time (27.09.2026, slim sweep · decision D1):
+  // one wording for one fact, the same the Trupps head shows; the time stays in the title (it
+  // was «Gespeichert um 23:16»). The other states keep their words — they are warnings.
+  const savedPill = syncStatus === 'synced' ? cp.saved : savedText
   const statusMark = syncStatus === 'synced'
     ? <Icon id="check" />
     : syncStatus === 'error' || syncStatus === 'storage'
@@ -166,19 +176,22 @@ export function IncidentSwitcher({
   const showIncidents = running.length > 0 || isEditor || !!onHistory || (incidents.length === 0 && !active)
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   /**
-   * «Jetzt synchronisieren» — always offered, not only on offline/error: it forces a push AND an
+   * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
    * immediate pull, the "make everything fresh right now" action when things feel stale. It has
    * to LOOK like it ran, because on an already-synced Einsatz — the normal case — the status
-   * says the same thing before and after the tap; so the ring spins for the round trip and then
-   * closes into a tick on the button itself.
+   * says the same thing before and after the tap; so Shell trail runs for the round trip and then
+   * gives way to a tick on the button itself.
    *
    * It sits in the CARD's title row, at the Einsatzname's right edge: the action belongs to that
    * one Einsatz, so it belongs to the line that names it — not to the app's own header bar
    * (which on a phone has no room to spare anyway, see 15-mobile.css), and not down among
    * «Bearbeiten»/«Abschliessen», which are things you do to the Einsatz rather than to the
    * connection. Same place on every screen width.
+   * ⚠️ NOT while offline (owner, 05.10.2026: «pointless when offline»): the tap could only end in
+   * «Immer noch offline», and the queue pushes by itself the moment the link is back. The
+   * «● Offline» chip says why it is gone.
    */
-  const syncButton = (
+  const syncButton = online && (
     <button className={`ip-card-sync sync-${syncPhase}`} disabled={syncPhase === 'busy'}
       aria-busy={syncPhase === 'busy'} onClick={() => { void runSyncNow() }}
       aria-label={cp.syncNow} title={cp.syncNow}>
@@ -229,7 +242,7 @@ export function IncidentSwitcher({
       {open && !sheetOpen && (
         <div className="ip-menu">
           {/* The menu is about what is RUNNING, in two weights (field feedback: every row carried
-              the same one): ① THIS Einsatz as a CARD — green status edge, Titel, Adresse, zwei
+              the same one): ① THIS Einsatz as a CARD — Titel, Adresse, zwei
               Status-Pills — carrying its OWN actions inside it; ② the other running Einsätze as
               rows led by their laufende Zeit. The card needs no label — it names itself.
               Nothing that is OVER is listed here (a «Frühere» section was tried and dropped on
@@ -256,9 +269,11 @@ export function IncidentSwitcher({
               </div>
               {active.address && <span className="ip-card-sub">{active.address}</span>}
               <div className="ip-card-pills">
-                <span className={`ip-card-pill ip-status-${syncStatus}`} title={savedText}>{statusMark}<span>{savedText}</span></span>
+                <span className={`ip-card-pill ip-status-${syncStatus}`} title={savedText}>{statusMark}<span>{savedPill}</span></span>
+                {/* «🕓 21:22 · 1 h 54» — the clock glyph is the label; «Einsatzbeginn» is the title */}
                 {active.started_at && (
-                  <span className="ip-card-pill">
+                  <span className="ip-card-pill"
+                    title={fillTemplate(cp.startedFull, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(now - Date.parse(active.started_at)) })}>
                     <Icon id="clock" />
                     <span>{fillTemplate(cp.startedRow, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(now - Date.parse(active.started_at)) })}</span>
                   </span>
@@ -268,30 +283,33 @@ export function IncidentSwitcher({
                   Einsatz one line above, so «Einsatz abschliessen» would say it twice — the full
                   wording rides along as the button's title/aria-label.
                   ⚠️ ONE LINE, always (decision 01.09.): three verbs that wrap to a second row
-                  stop reading as one set of choices. The label is its own <span> so the row can
-                  ellipsise instead of wrap when it truly cannot fit — see .ip-card-acts, which
-                  carries the measured widths.
+                  stop reading as one set of choices. The label is its own <span> (the badge is
+                  the tile's other child) — see .ip-card-acts, which carries the measured widths.
                   Order is Bearbeiten · Teilen · Abschliessen. Abschliessen goes LAST because it
                   is the one that ends the Einsatz; a terminal action sitting between two
                   everyday ones is a mis-tap waiting for a gloved thumb.
+                  Three tiles of the head's family since 27.09.2026 (slim sweep · mockup 10) —
+                  Abschliessen amber, its count on the tile's corner. Content-sized and NEVER
+                  truncated since the same evening (owner screenshot r2-6: «Abschliess…» — the
+                  equal thirds ellipsised the verb on a 390px phone; .ip-card-acts).
                   A wrong ADDRESS is noticed while looking at the map, long before anybody opens
                   the Rapport — whose «Bearbeiten» link was once the only way into the mask. */}
               {(onEditMeta || onArchive || onShare) && (
                 <div className="ip-card-acts">
                   {onEditMeta && (
-                    <button className="ip-card-act" title={cp.editMeta} aria-label={cp.editMeta}
+                    <button className="ip-card-act head-tile sm" title={cp.editMeta} aria-label={cp.editMeta}
                       onClick={onEditMeta}>
                       <Icon id="pen" /><span>{cp.editMetaShort}</span>
                     </button>
                   )}
                   {onShare && (
-                    <button className="ip-card-act" title={cp.share} aria-label={cp.share}
+                    <button className="ip-card-act head-tile sm" title={cp.share} aria-label={cp.share}
                       onClick={onShare}>
                       <Icon id="external" /><span>{cp.shareShort}</span>
                     </button>
                   )}
                   {onArchive && (
-                    <button className="ip-card-act" title={cp.archive} aria-label={cp.archive}
+                    <button className="ip-card-act head-tile sm amber" title={cp.archive} aria-label={cp.archive}
                       onClick={onArchive}>
                       <Icon id="archive" /><span>{cp.archiveShort}</span>
                       {/* The counter BEFORE the press, not only in the dialog after it. Bare
@@ -355,6 +373,14 @@ export function IncidentSwitcher({
           {/* «App»: device + installation, not this Einsatz. It always has rows — Hilfe is
               unconditional — so the label never heads an empty group the way «Einsätze» can. */}
           <div className="ip-menu-label">{cp.app}</div>
+          {/* Objektbesuche is no Einsatz, so it is not under «Einsätze»: it is the app's other job.
+              Here because a device that always opens its running Einsatz never sees the launcher
+              (staging 03.10.2026). */}
+          {onObjectVisits && (
+            <button className="ip-menu-act" onClick={() => { setOpen(false); onObjectVisits() }}>
+              <Icon id="clipboard" /> {appConfig.copy.objectVisits.launcher}
+            </button>
+          )}
           {onSettings && <button className="ip-menu-act" onClick={onSettings}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
           {active && <button className="ip-menu-act" onClick={onOfflineReadiness}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
           <button className="ip-menu-act" onClick={onHelp}><Icon id="info" /> {appConfig.copy.help.menu}</button>
@@ -380,7 +406,7 @@ export function IncidentSwitcher({
             {updateReady && (
               <button className="ip-menu-update" disabled={applyingUpdate}
                 onClick={() => { setApplyingUpdate(true); void applyUpdateNow() }}>
-                <Icon id="rotate" className={applyingUpdate ? 'spin' : undefined} />
+                {applyingUpdate ? <ShellLoader /> : <Icon id="rotate" />}
                 {applyingUpdate ? cu.applying : cu.apply}
               </button>
             )}

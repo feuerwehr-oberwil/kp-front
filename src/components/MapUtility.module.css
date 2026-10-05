@@ -1,7 +1,7 @@
 /* top-right map controls — compass | zoom | locate · coordinates */
 .toputil { position: absolute; top: 16px; right: 16px; z-index: var(--z-map-util); display: flex; align-items: center; gap: 3px;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-cluster); padding: 5px 6px; box-shadow: var(--shadow); white-space: nowrap; }
+  border-radius: var(--r-cluster); padding: var(--bar-pad); box-shadow: var(--shadow); white-space: nowrap; }
 .tu-btn { width: 42px; height: 42px; border: none; background: transparent; border-radius: var(--r-sm); display: grid; place-items: center;
   color: var(--ink); cursor: pointer; transition: background .14s var(--ease), transform .12s var(--ease); }
 @media (hover: hover) { .tu-btn:hover { background: var(--hover-strong); } }
@@ -10,8 +10,9 @@
 .tu-btn :global(.i) { width: 19px; height: 19px; }
 .tu-divider { width: 6px; flex: none; }   /* spacing between the zoom pair and Ebenen, not a line (22.09.2026) */
 
-/* compass glyph rotates to the live bearing (inline transform) */
-.compass { display: grid; place-items: center; width: 100%; height: 100%; transition: transform .15s ease; }
+/* compass glyph rotates to the live bearing (inline transform), set on every rotate frame —
+   no transition (MapViewsMenu · CompassGlyph) */
+.compass { display: grid; place-items: center; width: 100%; height: 100%; }
 
 /* ---- TopBar ⇄ top-right map utilities: never let them collide ----
    Below 860px the cluster drops below the bar so the bar gets full width. */

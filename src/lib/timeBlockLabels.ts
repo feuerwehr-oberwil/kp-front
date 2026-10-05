@@ -8,7 +8,6 @@ import { appConfig } from '../config/appConfig'
 export const timeBlockLabels = (remove: string) => ({
   from: appConfig.copy.anwesenheit.von,
   to: appConfig.copy.anwesenheit.bis,
-  done: appConfig.copy.anwesenheit.done,
   remove,
   fromStart: appConfig.copy.zeitplan.fromStart,
   // «noch da» — the named clear inside a «bis» picker. Only the Anwesenheit ever offers it: a

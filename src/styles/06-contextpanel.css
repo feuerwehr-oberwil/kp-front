@@ -57,7 +57,7 @@
 .ph { width: 46px; height: 46px; border-radius: var(--r-ctl); border: 2px solid var(--blue); color: var(--blue);
   display: grid; place-items: center; font-family: var(--mono); font-size: 12px; background: var(--surface-2); flex: none; }
 .ph svg { width: 30px; height: 30px; }
-.ctx-head h3 { margin: 0; font-size: 17px; font-weight: 700; }
+.ctx-head h3 { margin: 0; font: var(--sheet-title); } /* the one sheet title (28.09.2026; was 700) */
 .ctx-head p { margin: 2px 0 0; font-size: 12px; color: var(--ink-dim); font-weight: 500; }
 /* ⚠️ ink-mix, not --surface-2: the glass tokens are white-based and vanish on this white card —
    the ✕ family (ip-x / ctx-x / journal-x) shares this quiet ink pill so every close reads alike */
@@ -97,7 +97,10 @@
    Anwesenheit had already worked this out locally (`.controls > .useg { flex: none }`); this
    promotes it to the rule, which is where it belonged. Every caller that WANTS the control to
    stretch overrides it more specifically (.jc-mode, Mittel, Atemschutz, Anwesenheit). */
-.useg { display: inline-flex; flex: none; flex-wrap: wrap; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; max-width: 100%; }
+/* the TRACK is the control, so it wears the one corner; the options are parts of it, 3px inside,
+   and their corner is the track's less that gap (01-tokens · «ONE corner») */
+.useg { display: inline-flex; flex: none; flex-wrap: wrap; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; max-width: 100%;
+  --useg-in: calc(var(--r-ctl) - 3px); }
 .field .useg, .ctx-caprow .useg, .kv-row .useg { margin-left: auto; }
 /* ONE segmented spec, no per-surface overrides. The option radius was a stray 7px belonging to no
    tier, and the height was 28px / 34px / 46px in three places — two of them under the gloved floor
@@ -105,7 +108,7 @@
    side, so the CONTROL measures a full 44px (the thing a thumb aims at) while the well still shows
    around the active pill — the affordance that says "these are options in a group". That geometry
    is Anwesenheit's, worked out for its header row; this promotes it to the rule. */
-.useg-btn { appearance: none; border: 0; background: transparent; border-radius: var(--r-sm); padding: 6px 12px;
+.useg-btn { appearance: none; border: 0; background: transparent; border-radius: var(--useg-in, var(--r-sm)); padding: 6px 12px;
   min-height: calc(var(--tap) - 6px);
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font: 700 12.5px var(--body); color: var(--ink-dim); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
@@ -113,7 +116,11 @@
 @media (hover: hover) {
   .useg-btn:hover:not(.on):not(:disabled) { color: var(--ink); }
 }
-.useg-btn.on { background: var(--blue); color: var(--on-fill); box-shadow: 0 1px 2px rgba(20, 40, 80, .22); }
+.useg-btn.on { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
+/* …but a Segmented whose options are PAGES (`tabs`: the phone's docked strip, the Anwesenheit's
+   readings) marks «where you are» with the nav's ink pill — two bars 8px apart said the same thing
+   in two looks (sweep 3 · E2, 28.09.2026) */
+.useg-tabs > .useg-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); box-shadow: none; }
 .useg-btn:disabled { opacity: var(--disabled); cursor: default; }
 /* ⚠️ FIVE OR MORE OPTIONS STOP BEING A TRACK. A segmented control is a track with a pill sliding
    in it, and that reading only survives while the options fit on one line. At six — «Überdruck ·
@@ -128,7 +135,9 @@
    38px, so the same control was 6px shorter as chips than as a track — which is why the rank
    filter beside the Anwesenheit search sat lower than the search field it belongs to. The chip
    IS the control here, so it carries the whole tap target. */
-.useg:has(> :nth-child(5)) > .useg-btn { border: 1px solid var(--glass-edge); background: var(--surface); min-height: var(--tap); }
+/* a chip is an option standing on its own: ink, like every other option chip (the track's dim
+   words are dim because the well around them already says «options») */
+.useg:has(> :nth-child(5)) > .useg-btn { border: 1px solid var(--glass-edge); background: var(--surface); min-height: var(--tap); color: var(--ink); }
 @media (hover: hover) {
   .useg:has(> :nth-child(5)) > .useg-btn:hover:not(.on):not(:disabled) { border-color: var(--ink-faint); }
 }
@@ -136,12 +145,11 @@
    `.useg-btn.on`, so the active chip lost the blue fill but KEPT `color: var(--on-fill)` — white
    text on a white chip. The selected Auftrag («Retten», six options, therefore chips) was a blank
    outlined box: the one thing on that form the operator had chosen was the one thing they could
-   not read. So the active chip states its own colours rather than inheriting half of each rule —
-   a blue ring, a blue tint and blue text, which is «selected» without a fill this shape cannot
-   carry. */
+   not read. So the active chip states its own colours rather than inheriting half of each rule.
+   Since 28.09.2026 that is the SAME blue fill as the track's pill (01-tokens · --sel): a ring +
+   tint here and a fill two rows up was one of the four «selected» the Trupp form wore. */
 .useg:has(> :nth-child(5)) > .useg-btn.on {
-  border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue);
-  background: color-mix(in srgb, var(--blue) 12%, var(--surface)); color: var(--blue);
+  border-color: var(--sel); background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow);
 }
 /* press wash BELOW the chip rules: their `background:` shorthand resets background-image at the
    same specificity, so source order is what keeps the wash alive on a chip */
@@ -157,7 +165,8 @@
 .ctx-note-input { display: block; width: 100%; resize: vertical; min-height: 76px;
   font: 500 14px/1.45 var(--body); color: var(--ink); background: var(--fill-soft);
   border: 1px solid var(--border-soft); border-radius: var(--r-ctl); padding: 10px 12px; }
-.ctx-note-input:focus { outline: none; border-color: var(--blue); background: var(--surface); }
+/* focus: the one field focus (--focus-*, 28.09.2026), not a solid blue edge of its own */
+.ctx-note-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); background: var(--surface); }
 /* seven swatches (default note ink + the six drawing colours) have to sit on ONE line next to
    their label — at the full 30px they wrapped a single lonely circle onto a second row */
 .ctx-note-colors { display: flex; align-items: center; gap: 7px; margin-left: auto; justify-content: flex-end; }
@@ -178,8 +187,10 @@
 /* the untitled run of label+control rows (steppers, Bezeichnung, the symbol's own fields) — it
    continues the rows above it rather than starting something, so it opens no gap of its own */
 .ctx-rows { display: block; }
-.ctx-section-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
+.ctx-section-label {
+  display: block; margin-bottom: 6px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 
 /* Preset / read-only detail fields render as plain .field rows (label left, control right) — the
    SAME row as the Darstellung steppers above, so a «Typ» sits identically to a «Luftrichtung». Their
@@ -196,7 +207,9 @@
   padding: 8px 10px; min-width: 0; font-family: var(--body); }
 .kv-key { flex: 0 0 38%; font-weight: 600; color: var(--ink-dim); }
 .kv-val { flex: 1; font-family: var(--mono); }
-.kv-key:focus, .kv-val:focus { outline: none; background: color-mix(in srgb, var(--blue) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 35%, transparent); }
+/* borderless boxes, so the one field focus (--focus-*, 28.09.2026) draws its edge as an inset
+   ring; the field turns to the sheet's white like every other focused field — no blue wash */
+.kv-key:focus, .kv-val:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
 /* two rows can't share a Bezeichnung — details are stored as a key→value map, so the later row
    would silently swallow the earlier one. The row keeps its red key box (it stays red while
    focused, hence the higher specificity than :focus) and hands its border to the hint below. */
@@ -231,10 +244,14 @@
 }
 .combo-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-clear .i { width: 13px; height: 13px; }
-.combo-input { width: 100%; box-sizing: border-box; border: 1px solid var(--blue); border-radius: var(--r-sm); padding: 7px 10px;
+.combo-input { width: 100%; box-sizing: border-box; border: 1px solid var(--glass-edge); border-radius: var(--r-sm); padding: 7px 10px;
   font: 600 13px var(--body); color: var(--ink); background: var(--surface); outline: none; }
-.combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: 4px; list-style: none;
-  max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: var(--shadow); }
+/* it only exists while typing, and wears the one field focus (--focus-*, 28.09.2026) — it had a
+   solid blue edge of its own */
+.combo-input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
+/* a menu hugs its rows: even --bar-pad, and the corner is the rows' plus that gap (01-tokens · «ONE corner») */
+.combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: var(--bar-pad); list-style: none;
+  max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-bar); box-shadow: var(--shadow); }
 /* portalled to <body> so a scrollable/overflow-hidden panel can't clip or cut off the menu */
 /* z above the phone bottom sheet (.ctx @62), journal drawer (@61) AND the modal sheets
    (.ip-ovl @80 — the Einsatz wizard's Kategorie combo rendered BEHIND the modal at 70:
@@ -249,7 +266,7 @@
   .combo-opt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 }
 .combo-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.combo-opt.on { background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue); }
+.combo-opt.on { background: var(--sel-wash); color: var(--blue-strong); }
 /* The Dienstgrad chip, the option's name cell and the sticky search row are the SKINLESS parts
    of this control — identical here and in the Atemschutz copy, so ComboMenu draws them from
    ComboMenu.module.css and neither stylesheet names them any more. */
@@ -275,13 +292,15 @@
 /* ⚠️ --blue, not --accent. `.on` is literally «this one is selected», and --accent is the brand
    red — painting a selection alarm-red is the one thing the token rule forbids, and this control
    sits in a roster where red already means something. */
-.combo-toggle.on { color: var(--ink); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.combo-toggle.on { color: var(--ink); background: var(--sel-wash); }
 .combo-toggle .i { width: 14px; height: 14px; color: var(--blue); }
 .combo-empty { padding: 8px 10px; font-size: 12px; color: var(--ink-faint); }
 .combo-group { list-style: none; }
 .combo-group > ul { list-style: none; margin: 0; padding: 0; }
-.combo-group-head { padding: 7px 10px 3px; font-size: 10.5px; font-weight: 800; letter-spacing: .05em;
-  text-transform: uppercase; color: var(--ink-faint); }
+.combo-group-head {
+  padding: 7px 10px 3px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 .combo-group + .combo-group .combo-group-head { border-top: 1px solid var(--border-soft); margin-top: 2px; }
 
 /* read-only ADR hazard readout (UN-Nr → substance/hazard data on the Gefahrentafel) */
@@ -309,31 +328,30 @@
 }
 .kv-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-x .i { width: 13px; height: 13px; }
-/* «Führung übergeben» — the ⇄ BETWEEN the Einsatzleiter glyph's two rows, aligned under the
-   value column so it reads as belonging to the pair rather than to either row. Quiet at rest
-   (this is a handover, not a control anybody hunts for) and blue on hover like every other
-   affirmative action in the panel. */
-/* ⚠️ `.ctx-rows` is a BLOCK, so `align-self` does nothing here — a fit-content box with an auto
-   left margin is what pushes it under the value column. */
-.kv-swap { display: flex; align-items: center; gap: 7px; width: fit-content;
-  margin: -2px 0 4px auto; padding: 6px 10px; min-height: 32px;
-  border: 1px solid transparent; border-radius: var(--r-sm); background: none;
-  color: var(--ink-faint); font: 600 12px var(--body); cursor: pointer;
-  transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
+/* «Führung übergeben» — the ⇄ at the RIGHT END of the Einsatzleiter glyph's EL row (slim sweep
+   27.09.2026, item 9; it was a sentence with a parenthesis between the two rows): a 44px square
+   in the panel's tile family — the one corner, a faint fill, a 1px inset edge, an 18px glyph.
+   The Stv. row leaves the same 44px empty (.kv-swap-gap), so the two fields end on one line. */
+.kv-swap { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
+  border: 0; border-radius: var(--r-sm); background: var(--fill-soft); box-shadow: inset 0 0 0 1px var(--glass-edge);
+  color: var(--ink); cursor: pointer; }
 @media (hover: hover) {
-  .kv-swap:hover { background: color-mix(in srgb, var(--blue) 7%, transparent);
-    border-color: color-mix(in srgb, var(--blue) 30%, transparent); color: var(--blue); }
+  .kv-swap:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--blue); }
 }
 .kv-swap:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.kv-swap .i { width: 15px; height: 15px; }
-.kv-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; border: 1px dashed var(--glass-edge);
-  background: none; color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; font-size: 12.5px; font-weight: 600;
-  font-family: var(--body); cursor: pointer; transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
+.kv-swap .i { width: 18px; height: 18px; }
+.kv-swap-gap { flex: none; width: var(--tap); }
+/* «+ Feld» (27.09.2026; 28.09.2026 on the ONE «add» look, 13-incident `.cv-btn-add`): framed,
+   --tap tall, the one corner, 14/700 ink on the surface. It was a 36px grey tile — a second add
+   shape, and under the glove floor. */
+.kv-add { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; min-height: var(--tap); padding: 0 14px 0 12px;
+  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink);
+  border-radius: var(--r-sm); font: 700 14px var(--body); cursor: pointer; }
 @media (hover: hover) {
-  .kv-add:hover { background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); color: var(--blue); }
+  .kv-add:hover { border-color: var(--ink-faint); }
 }
 .kv-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.kv-add .i { width: 14px; height: 14px; }
+.kv-add .i { width: 16px; height: 16px; }
 /* FKS Entwicklung (spread) controls — a label + a row of small toggle buttons */
 .spread-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 7px 0; }
 .spread-row + .spread-row { border-top: 1px solid var(--border-soft); }
@@ -356,7 +374,7 @@
   .spread-btn:hover:not(:disabled):not(.on) { background: var(--surface); border-color: var(--border); }
 }
 .spread-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.spread-btn.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+.spread-btn.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
 .spread-btn:disabled { opacity: var(--disabled); cursor: default; }
 
 /* general free-text notes */
@@ -365,7 +383,7 @@
   border-radius: var(--r-ctl); padding: 9px 11px; font-family: var(--body); font-size: 13.5px; color: var(--ink);
   background: var(--fill-soft); }
 .ctx-notes-input::placeholder { color: var(--ink-faint); }
-.ctx-notes-input:focus { outline: none; background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 12%, transparent); }
+.ctx-notes-input:focus { outline: none; background: var(--surface); border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* compact per-symbol caption override, tucked above the Zentrieren/Entfernen row — small and
    low-emphasis since field values matter first; visibility is a rare tweak (a tiny inline seg). */
 /* ⚠️ Beschriftung stays at the BOTTOM, below the actions, and reads as what it is: a display
@@ -381,8 +399,48 @@
 /* the caption row keeps only its tighter LABEL — height/radius come from the one segmented spec */
 .ctx-caprow .useg-btn { padding: 4px 10px; }
 
+/* «Erledigt» (lib/objectDone, 24.09.2026): SET, the row STATES the answer («Erledigt 20:40», the
+   grey the glyph now wears) — first in a damage symbol's body, last elsewhere — and holds its one
+   way back at the controls' edge. No hairline under it (the sheets draw one only above a NAMED
+   section, AGENTS · editor-sheet grammar). The press that sets it is the foot's middle tile
+   (`.ctx-done`, 27.09.2026 — it was a full-width row with a hint beside it). */
+.ctx-done-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 4px 0;
+  margin: 2px 0 4px; }
+.ctx-done-row { justify-content: space-between; flex-wrap: wrap; row-gap: 2px; }
+.ctx-done-state { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--ink-dim);
+  font-variant-numeric: tabular-nums; }
+.ctx-done-state > .i { flex: none; width: 26px; height: 26px; padding: 5px; box-sizing: border-box; border-radius: 50%;
+  background: var(--ink-faint); color: var(--surface); stroke-width: 2.6; }
+.ctx-done-reopen { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; margin-left: auto; padding: 0 2px;
+  border: 0; background: transparent; color: var(--ink); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.ctx-done-reopen .i { width: 16px; height: 16px; color: var(--ink-dim); }
+@media (hover: hover) {
+  .ctx-done-reopen:hover, .ctx-done-reopen:hover .i { color: var(--blue); }
+}
+.ctx-done-reopen:active { background-image: linear-gradient(var(--press), var(--press)); }
+
 .ctx-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px 16px; }
 .ctx-actions > .btn { flex: 1 1 140px; }
+/* the foot's glyphs are one size (16px, the family's) — the bin's 18 in its square */
+.ctx-actions > .btn .i { width: 16px; height: 16px; }
+/* «Entfernen» as a SQUARE (27.09.2026): removal is rare and should not be a wide target — the
+   red glyph alone, the word in its label */
+.ctx-actions > .btn.btn-sq { flex: 0 0 var(--tap); width: var(--tap); padding: 0; }
+.ctx-actions > .btn.btn-sq .i { width: 18px; height: 18px; }
+/* «Erledigt» is the quiet middle: no colour of its own, it only greys the symbol — and where it
+   stands, the two word tiles share the row equally (mockup 9); a foot without it (a read-only
+   twin's five doors) keeps its content-sized wrap.
+   ⚠️ It wears the same ink as «Zentrieren» (29.09.2026, sweep K12): it was --ink-dim, which is
+   the look of «not available» — the one thing an action must not say. */
+.ctx-actions:has(> .ctx-done) > .btn:not(.btn-sq) { flex: 1 1 0; }
+/* A DOOR to the object's other surface («Zum Original», «Auf Modul 1 zeigen») takes a row of its
+   own, above the foot's acts (30.09.2026, owner: «fix this» — in the equal split above, «Auf
+   Modul 1 zeigen» ran out of its third of the row and over «Zentrieren»). Its label is cut, never
+   spilled: the plan's NAME gives way and the verb around it stays (ContextPanel · LinkBtn). */
+.ctx-actions > .btn.link:not(.btn-sq), .ctx-actions:has(> .ctx-done) > .btn.link:not(.btn-sq) { flex: 1 1 100%; }
+.btn-t { display: flex; min-width: 0; white-space: pre; }
+.btn-t > * { flex: none; }
+.btn-t > .btn-t-cut { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: 12.5px; font-weight: 700;
   padding: 11px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);
   cursor: pointer; color: var(--ink); white-space: nowrap; }
@@ -390,9 +448,13 @@
   .btn:hover { background: var(--surface); border-color: var(--border); }
 }
 .btn .i { width: 14px; height: 14px; }
-.btn.warn { color: var(--red); }
+/* ⚠️ THE delete look (28.09.2026, owner pick A · 01-tokens · --del-*): red ink, red edge, on the
+   surface — it wore red text on the grey tile and only showed its edge on hover, so on a tablet
+   (no hover) «Entfernen» was a grey button with a red word. The bin + the word; ✕ only closes.
+   «Teilen beenden» (not a delete) wears it too — its own glyph, the same «this ends something». */
+.btn.warn { color: var(--del-ink); border-color: var(--del-edge); background: var(--surface); }
 @media (hover: hover) {
-  .btn.warn:hover { background: color-mix(in srgb, var(--red) 8%, transparent); border-color: color-mix(in srgb, var(--red) 32%, transparent); }
+  .btn.warn:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); border-color: var(--del-edge); }
 }
 /* «Zum Original» on a Georeferenz twin's panel — the link tone (--blue), like every other part
    of «Karte verknüpfen», and never --accent: the station's alarm red is not a hyperlink. */
@@ -486,8 +548,8 @@
 /* reminder (Erinnerung) row: due label + checklist-style done toggle */
 .jr-text.jr-rem-struck { text-decoration: line-through; color: var(--ink-faint); }
 .jr-rem { display: inline-flex; align-items: center; gap: 7px; flex: none; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); border-radius: var(--r-pill); padding: 5px 11px 5px 6px; font-size: 12px; font-weight: 700; cursor: pointer;
-  font-family: inherit; min-height: 34px; }
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 5px 11px 5px 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: inherit; min-height: var(--tap); }   /* a button: one corner, --tap (29.09.2026; was a 34px pill) */
 /* In the pinned block the ring stands alone in the Verlauf's ICON SLOT — 26px wide, the width of
    `.hist-ev .ic`, so the text beside it lands on the log's own axis. No pill, no word: the block's
    heading already says these are Pendenzen, and the ring is this row's icon as much as its
@@ -697,5 +759,4 @@
    name: it explains the name, it is not part of it — and every second row of a busy Verlauf
    carries one, so it has to stay quiet. */
 .jr-link-role { font-style: normal; font-weight: 500; color: var(--ink-faint); }
-/* the optional storey span, opened on demand (ContextPanel · floorSpan) */
-.ctx-span-open { justify-self: start; font: 600 12.5px var(--body); color: var(--blue-strong); background: none; border: 0; padding: 4px 0; cursor: pointer; }
+/* (.ctx-span-open — a bare blue «Geschosse angeben» word — removed 28.09.2026: no caller left) */

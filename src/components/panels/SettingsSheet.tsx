@@ -3,12 +3,11 @@ import { Icon } from '../../lib/icons'
 import { toast } from '../../lib/ui'
 import { loadPrefs, savePrefs, applyTheme, resolveTheme, SYMBOL_SCALE, type ThemeMode, type RailLabels, type SymbolSurface } from '../../lib/prefs'
 import { appConfig } from '../../config/appConfig'
-import { fillTemplate } from '../../lib/format'
 import type { CaptionMode } from '../../types'
 import { getDeploymentConfig } from '../../lib/deploymentConfig'
-import { listPersonnel } from '../../lib/incidents'
+import { loadRoster } from '../../lib/usePersonnel'
 import { Modal } from './_shared'
-import { Segmented } from '../Segmented'
+import { OnOff, Segmented } from '../Segmented'
 import { Stepper } from '../Stepper'
 
 /** Percent for a symbol multiplier — «110 %» is a size anyone reads at a glance, «1.1» is not.
@@ -47,8 +46,8 @@ function ScaleRow({ surface, label, sub, value, onChange }: {
  *  /admin, where whoever set it up changes it — not under the finger of an unknowing operator
  *  at 3am (per-incident overrides already written keep working; the doctrine is the source). */
 export function SettingsSheet({
-  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, offlineAuto, onOfflineAuto, keepScreenOn, onKeepScreenOn, themeCoord, elView, onElView, onFeedback,
-  shareAs, onSharePosition,
+  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, offlineAuto, onOfflineAuto, keepScreenOn, onKeepScreenOn, themeCoord, onFeedback,
+  shareAs, onSharePosition, onChangeShareName,
 }: {
   onClose: () => void
   /** tactical-symbol size per surface, as multipliers (lib/prefs · SYMBOL_SCALE) */
@@ -57,26 +56,22 @@ export function SettingsSheet({
   /** on-canvas symbol captions (Aus/Auto/Alle) — device pref like the symbol sizes */
   symbolCaptions: CaptionMode
   onSymbolCaptions: (m: CaptionMode) => void
-  /** words under the rail glyphs — device pref, off by default (lib/prefs · railLabels). Both
-   *  rails at once: they are one decision («soll da Text stehen»), not two. */
+  /** words under the rail glyphs — device pref, off by default, ON on a phone (lib/prefs ·
+   *  railLabelsFor, 29.09.2026). Both rails at once: they are one decision («soll da Text
+   *  stehen»), not two. */
   railLabels: RailLabels
   onRailLabels: (v: RailLabels) => void
   /** radius (m) cached around the incident for offline + scope of the Leitungskataster layers */
   offlineRadiusM: number
   onOfflineRadius: (m: number) => void
   /** quiet self-warm shortly after opening an Einsatz (lib/prefs · offlineAuto). Default true;
-   *  false = «Nur manuell» — the button in the Offline-Bereitschaft sheet stays either way. */
+   *  false = «Aus» (manual only) — the button in the Offline-Bereitschaft sheet stays either way. */
   offlineAuto: boolean
   onOfflineAuto: (v: boolean) => void
   /** keep the screen awake while an incident is open — device pref, default on */
   keepScreenOn: boolean
   onKeepScreenOn: (v: boolean) => void
   themeCoord: [number, number] | null
-  /** Führungsansicht device toggle — undefined hides the row (viewers: their whole
-   *  session is read-only anyway, the toggle would be meaningless). Stays operable in EL
-   *  view itself (it must — it's the way back out). */
-  elView: boolean
-  onElView?: (v: boolean) => void
   /** open the Rückmeldung composer (the caller closes this sheet first — two stacked modals is
    *  not a thing we do). Omitted → the row is hidden. */
   onFeedback?: () => void
@@ -85,6 +80,9 @@ export function SettingsSheet({
   shareAs?: string | null
   /** true → open the name picker; false → stop sharing and delete the reported position */
   onSharePosition?: (on: boolean) => void
+  /** open the name picker to change WHO this device reports as — the name row under «Standort
+   *  verwenden», shown while the permission stands. Omitted → no name row. */
+  onChangeShareName?: () => void
 }) {
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadPrefs().theme ?? 'auto')
   const setTheme = (m: ThemeMode) => {
@@ -109,15 +107,16 @@ export function SettingsSheet({
 
   // Leeres Erfassungsblatt — per-device utility ACTION (not a setting): an AdFU can produce
   // a fresh paper hand-fill sheet in the field. Same generator as the admin's Erfassung view;
-  // the jsPDF chunk loads lazily so it stays out of the critical bundle. A failed roster
-  // fetch (offline) still yields a usable sheet with blank guest lines.
+  // the jsPDF chunk loads lazily so it stays out of the critical bundle. Offline it prints the
+  // last roster this device held (usePersonnel · loadRoster); with none at all it still yields a
+  // usable sheet with blank guest lines.
   const [sheetBusy, setSheetBusy] = useState(false)
   const downloadBlankSheet = async () => {
     if (sheetBusy) return
     setSheetBusy(true)
     let names: string[] = []
     try {
-      names = (await listPersonnel())
+      names = (await loadRoster())
         .filter((p) => p.active)
         .map((p) => p.displayName)
         .sort((a, b) => a.localeCompare(b, 'de-CH'))
@@ -163,30 +162,28 @@ export function SettingsSheet({
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.railLabels}<small>{cp.railLabelsSub}</small></span>
-              <Segmented<RailLabels> ariaLabel={cp.railLabels} value={railLabels} onChange={onRailLabels}
-                options={[{ value: 'off', label: cp.railLabelsOff }, { value: 'short', label: cp.railLabelsOn }]} />
+              {/* a yes/no too («soll da Text stehen»), so the same `OnOff` (28.09.2026) – it said
+                  «Aus | Wörter»; the stored value keeps its 'off' | 'short' names */}
+              <OnOff ariaLabel={cp.railLabels} value={railLabels === 'short'} onChange={(v) => onRailLabels(v ? 'short' : 'off')} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.offlineRadius}<small>{cp.offlineRadiusSub}</small></span>
               <Stepper value={offlineRadiusM} min={500} max={3000} step={250} format={(v) => (v < 1000 ? `${v} m` : `${v / 1000} km`)} onChange={onOfflineRadius} ariaLabel={cp.offlineRadius} />
             </div>
+            {/* The yes/no rows below are the ONE binary idiom, `OnOff` – «Aus | An», in that
+                order (28.09.2026). They each built their own pair, «Ein | Aus» or «Erlaubt | Aus»,
+                with «on» on the LEFT – the mirror image of every editor sheet's switch, so the same
+                thumb-position meant «on» here and «off» there. */}
             <div className="set-row">
               <span className="set-row-l">{cp.offlineAuto}<small>{cp.offlineAutoSub}</small></span>
-              <Segmented<boolean> ariaLabel={cp.offlineAuto} value={offlineAuto} onChange={onOfflineAuto}
-                options={[{ value: true, label: cp.offlineAutoOn }, { value: false, label: cp.offlineAutoOff }]} />
+              <OnOff ariaLabel={cp.offlineAuto} value={offlineAuto} onChange={onOfflineAuto} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.keepScreenOn}<small>{cp.keepScreenOnSub}</small></span>
-              <Segmented<boolean> ariaLabel={cp.keepScreenOn} value={keepScreenOn} onChange={onKeepScreenOn}
-                options={[{ value: true, label: cp.keepScreenOnOn }, { value: false, label: cp.keepScreenOnOff }]} />
+              <OnOff ariaLabel={cp.keepScreenOn} value={keepScreenOn} onChange={onKeepScreenOn} />
             </div>
-            {onElView && (
-              <div className="set-row">
-                <span className="set-row-l">{cp.elView}<small>{cp.elViewSub}</small></span>
-                <Segmented<boolean> ariaLabel={cp.elView} value={elView} onChange={onElView}
-                  options={[{ value: true, label: cp.elViewOn }, { value: false, label: cp.elViewOff }]} />
-              </div>
-            )}
+            {/* No Führungsansicht row (05.10.2026): it is the LOGIN's, set by the admin
+                (Benutzer · «Startet in Führungsansicht»), not a per-device switch. */}
             {/* Standort verwenden — the standing PERMISSION only, never the act of sharing:
                 that is switched on per Einsatz from the compass menu on the map. A device
                 preference, so it belongs in this group and NOT in the synced incident settings,
@@ -195,10 +192,22 @@ export function SettingsSheet({
               <div className="set-row">
                 <span className="set-row-l">
                   {sp.settingsLabel}
-                  <small>{shareAs ? fillTemplate(sp.settingsAs, { name: shareAs }) : sp.settingsHint}</small>
+                  <small>{sp.settingsHint}</small>
                 </span>
-                <Segmented<boolean> ariaLabel={sp.settingsLabel} value={!!shareAs} onChange={onSharePosition}
-                  options={[{ value: true, label: sp.settingsOn }, { value: false, label: sp.settingsOff }]} />
+                <OnOff ariaLabel={sp.settingsLabel} value={!!shareAs} onChange={onSharePosition} />
+              </div>
+            )}
+            {/* WHO the device reports as — its own row with the name ON the button, so changing it
+                is one tap (05.10.2026, owner: «have the selected person … be immediately
+                editable»). It was a grey «Als …» under the switch, and the only way to another
+                name was off, on, and the consent sheet all over again. */}
+            {onSharePosition && shareAs && onChangeShareName && (
+              <div className="set-row">
+                <span className="set-row-l">{sp.settingsName}<small>{sp.settingsNameSub}</small></span>
+                <button type="button" className="set-dl set-name" onClick={onChangeShareName}
+                  aria-label={`${sp.settingsName}: ${shareAs} – ${sp.change}`}>
+                  <Icon id="pen" /> <span className="set-name-v">{shareAs}</span>
+                </button>
               </div>
             )}
           </div>

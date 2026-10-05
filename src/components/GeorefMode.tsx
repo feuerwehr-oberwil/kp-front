@@ -1,21 +1,25 @@
+import { ShellLoader } from './ShellLoader'
 /** The PLAN half of «Karte verknüpfen» — crosses, tap capture, loupe, popover and mode panel.
  *
  *  The map half lives in GeorefMapLayer (inside MapView); the state both sides share lives in
  *  lib/georefMode. Nothing here owns state that has to survive: on a phone this whole component
  *  is unmounted between the plan tap and the map tap.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { confirmDialog, toast, undoToast } from '../lib/ui'
-import { acceptGeorefProposal, beginTap, endGeorefMode, georefDispatch, georefLamp, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, georefProposalScalePct, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, resetGeorefPlan, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
+import { acceptGeorefProposal, beginTap, georefStillIs, endGeorefMode, georefDispatch, georefLamp, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, georefProposalScalePct, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, resetGeorefPlan, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
 import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim } from '../lib/georef'
 import { incidentBindingApproved } from '../lib/incidentPlanBindings'
 import type { GeorefSuggestStep } from '../lib/georefSuggest'
 import { useIsPhone } from '../lib/useIsPhone'
+import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
+import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
 import type { GeorefPair, PlanPt } from '../lib/georef'
+import { InfoToggle } from './InfoToggle'
 import s from './GeorefMode.module.css'
 
 /** The loupe's magnification over the plan as it is currently displayed. */
@@ -522,10 +526,33 @@ function PlanLoupe({ aim, sW, sH, boardRef, corner = false }: { aim: Aim; sW: nu
 }
 
 /**
+ * The Passung's dock — the frame around `GeorefQuality` and `GeorefLinkChooser` (Whiteboard).
+ * On a tablet a card one row above the chip that opened it; on a PHONE a slide-up bottom sheet
+ * (29.09.2026, owner — AGENTS · «What a surface IS on a phone»): flush with the bottom edge and
+ * both sides, over the two bars, the grab bar on top, pushed down to close (`useSwipeDismiss`,
+ * the head is the handle). It stays NON-modal (no scrim, no trap), the dock's own rule: the plan
+ * above is live, so a tap on a symbol is a tap on that symbol.
+ * ⚠️ On the phone it PORTALS into the Einsatz's `.app` (the Meldeleiste's host): `.whiteboard`
+ * is its own stacking context at `--z-surface`, and nothing inside it can cover the bars (z 35).
+ */
+export function GeorefDock({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
+  const isPhone = useIsPhone()
+  const host = useSyncExternalStore(subscribeMeldeleisteHost, getMeldeleisteHost, () => null)
+  const swipe = useSwipeDismiss({ onClose, enabled: isPhone })
+  const dock = (
+    <div className="wb-georef-dock" role="group" aria-label={label} {...swipe}>
+      <SheetGrab />
+      {children}
+    </div>
+  )
+  return isPhone && host ? createPortal(dock, host) : dock
+}
+
+/**
  * The unlinked chip's chooser: «Automatisch ausrichten» or «Punkte selbst setzen».
  *
- * Content only — the Whiteboard wraps it in its `.wb-georef-dock` (the Passung's own panel
- * chrome and stay-live rule). While the matcher runs (3–14 s) the card shows the REAL phases
+ * Content only — the Whiteboard wraps it in `GeorefDock` (the Passung's own panel chrome and
+ * stay-live rule; a bottom sheet on a phone). While the matcher runs (3–14 s) the card shows the REAL phases
  * (`busyStep`, fed by the endpoint's own progress lines) as a checked-off step list with a
  * bar — never an indeterminate spinner over a 15-second wait. «kein Vorschlag» keeps the
  * card up, because the manual way out is right here.
@@ -548,7 +575,7 @@ export function GeorefLinkChooser({ busyStep, onAuto, onManual, onClose }: {
       <div className={s.chooserHeadRow}>
         {/* ONE title: while the matcher runs, what the card IS is the running alignment */}
         <strong className={s.chooserHead}>{busyStep ? C.autoBusy : C.linkTitle}</strong>
-        <button type="button" className={s.chooserX} onClick={onClose} aria-label={C.closeMode} title={C.closeMode}>
+        <button type="button" className={`ip-x ${s.chooserX}`} onClick={onClose} aria-label={C.closeMode} title={C.closeMode}>
           <Icon id="close" />
         </button>
       </div>
@@ -557,7 +584,7 @@ export function GeorefLinkChooser({ busyStep, onAuto, onManual, onClose }: {
           <div className={s.chooserBusy} role="status">
             {steps.map((st, i) => (
               <span key={st.id} className={`${s.stepRow} ${i < at ? s.stepDone : i === at ? s.stepNow : ''}`}>
-                {i < at ? <Icon id="check" /> : i === at ? <span className={s.chooserSpin} aria-hidden /> : <span className={s.stepDot} aria-hidden />}
+                {i < at ? <Icon id="check" /> : i === at ? <ShellLoader /> : <span className={s.stepDot} aria-hidden />}
                 {st.label}
               </span>
             ))}
@@ -694,7 +721,10 @@ function GeorefProposalActions({ mode }: { mode: GeorefModeState }) {
   const pct = georefProposalScalePct(mode)
   const accept = async () => {
     const key = mode.storageKey
-    if (await acceptGeorefProposal() && key) undoToast(C.acceptedToast, () => resetGeorefPlan(key))
+    const accepted = mode.pairs
+    // the reset takes back exactly what was accepted — never a reference somebody has corrected
+    // since (lib/georefMode · georefStillIs)
+    if (await acceptGeorefProposal() && key) undoToast(C.acceptedToast, () => resetGeorefPlan(key), () => georefStillIs(key, accepted))
   }
   if (!mode.adjusting) {
     return (
@@ -851,11 +881,7 @@ export function GeorefInstrument({ mode, inline = false, onReset }: { mode: Geor
         </>}
       </span>
       {!mode.check && (
-        <button
-          type="button" className={`${s.infoBtn} ${detail ? s.infoOn : ''}`}
-          aria-expanded={detail} title={C.detailsTitle} aria-label={C.detailsTitle}
-          onClick={() => setDetail((v) => !v)}
-        ><Icon id="info" /></button>
+        <InfoToggle className={s.infoBtn} open={detail} onToggle={() => setDetail((v) => !v)} label={C.detailsTitle} />
       )}
       <span className={s.acts}><GeorefActions mode={mode} onReset={onReset} /></span>
     </div>
@@ -961,11 +987,7 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
         <div className={s.statusRow}>
           <span className={`${s.sdot} ${s[`sdot_${st.lamp.tone}`]}`} />
           <span className={s.stext}><b>{st.lamp.head}</b>{st.sub ? <i>{st.sub}</i> : null}</span>
-          <button
-            type="button" className={`${s.infoBtn} ${detail ? s.infoOn : ''}`}
-            aria-expanded={detail} title={C.detailsTitle} aria-label={C.detailsTitle}
-            onClick={() => setDetail((v) => !v)}
-          ><Icon id="info" /></button>
+          <InfoToggle className={s.infoBtn} open={detail} onToggle={() => setDetail((v) => !v)} label={C.detailsTitle} />
         </div>
       )}
       {/* ── the quality detail, folded behind the (i): pair count, claimable ⌀, the one

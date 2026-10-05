@@ -5,14 +5,10 @@
 .ap-range { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .ap-body { display: flex; flex-direction: column; gap: 12px; padding: 8px 20px 18px; }
 .ap-wave-wrap { flex: none; position: relative; }
-.ap-wave { display: block; width: 100%; height: 96px; border-radius: 12px; background: var(--fill-soft); cursor: pointer; touch-action: none; }
-/* peaks are computing server-side — sweep a soft highlight until they arrive */
-.ap-wave-shimmer { position: absolute; inset: 0 0 21px 0; border-radius: 12px; overflow: hidden; pointer-events: none; }
-.ap-wave-shimmer::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 7%, transparent), transparent);
-  animation: apShimmer 1.6s ease-in-out infinite; }
-@keyframes apShimmer { to { transform: translateX(100%); } }
-@media (prefers-reduced-motion: reduce) { .ap-wave-shimmer::after { animation: none; opacity: .5; transform: none; } }
+.ap-wave { display: block; width: 100%; height: 96px; border-radius: var(--r-sm); background: var(--fill-soft); cursor: pointer; touch-action: none; }
+/* Peaks are computing; keep the real player's canvas and transport steady. */
+.ap-wave-loading { position: absolute; inset: 0 0 21px 0; display: grid; place-items: center;
+  color: var(--ink-dim); pointer-events: none; }
 .ap-clock { position: relative; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px;
   color: var(--ink-faint); padding: 5px 2px 0; font-variant-numeric: tabular-nums; min-height: 16px; }
 .ap-clock span[style] { transform: translateX(-50%); }
@@ -47,28 +43,24 @@
    the fill lives on the WRAPPER so the marks sit between it and the see-through input. Font,
    padding and border are repeated on both layers — any difference and the colours slide off
    their words. One line, so the backdrop follows horizontal scroll, not vertical. */
-.ap-add-field { position: relative; flex: 1; min-width: 0; background: var(--surface); border-radius: 12px; }
+.ap-add-field { position: relative; flex: 1; min-width: 0; background: var(--surface); border-radius: var(--r-sm); }
 .ap-add-marks { position: absolute; inset: 0; overflow: hidden; pointer-events: none; white-space: pre;
-  border: 1px solid transparent; border-radius: 12px; padding: 10px 12px;
+  border: 1px solid transparent; border-radius: var(--r-sm); padding: 10px 12px;
   font: inherit; font-size: 13px; line-height: normal; color: transparent; }
 .ap-add-marks mark { color: transparent; border-radius: 3px;
   background: color-mix(in srgb, var(--blue) 20%, transparent); }
-.ap-add-marks mark.jc-mark-material { background: color-mix(in srgb, var(--green) 22%, transparent); }
-.ap-add-marks mark.jc-mark-partner { background: color-mix(in srgb, var(--amber) 26%, transparent); }
-.ap-add-marks mark.jc-mark-vehicle { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.ap-add-marks mark.jc-mark-group { background: color-mix(in srgb, var(--ink) 14%, transparent); }
-.ap-add-row input { position: relative; display: block; width: 100%; min-width: 0; border: 1px solid var(--glass-edge); border-radius: 12px;
+.ap-add-row input { position: relative; display: block; width: 100%; min-width: 0; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
   background: transparent; padding: 10px 12px; font: inherit; font-size: 13px; line-height: normal; color: var(--ink); }
 .ap-add-row input::placeholder { color: var(--ink-faint); }
-.ap-add-row input:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
+.ap-add-row input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 .ap-send { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-sm); background: var(--btn-primary);
-  color: var(--on-accent-ink); padding: 0 16px; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+  color: var(--on-btn-primary); padding: 0 16px; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .ap-send:disabled { opacity: var(--disabled); cursor: default; }
 .ap-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
   border-top: 1px solid var(--border-soft); padding-top: 10px; }
-.ap-list-head { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 6px; }
+.ap-list-head { margin: 0 0 6px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .ap-empty { margin: 0; color: var(--ink-faint); font-size: 13px; }
-.ap-row { display: flex; align-items: center; gap: 10px; padding: 8px; border: none; border-radius: 10px; background: none;
+.ap-row { display: flex; align-items: center; gap: 10px; padding: 8px; border: none; border-radius: var(--r-sm); background: none;
   font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-align: left; }
 @media (hover: hover) {
   .ap-row:hover { background: var(--fill-soft); }
@@ -100,41 +92,55 @@
 .ap-stt-bar span { flex: 1; min-width: 0; }
 .ap-stt-all { border: none; border-radius: var(--r-sm); background: var(--btn-primary); color: var(--on-btn-primary);
   padding: 7px 13px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; flex: none; }
-.ap-draft { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 12px; }
+.ap-draft { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--r-sm); }
 /* in-progress = blue, the same answer the Zeitplan already gives for a running state.
    It is not a warning: nothing is wrong while a transcript is still being written. */
 .ap-draft-t { font-family: var(--mono); font-size: 11px; color: var(--blue); width: 38px; flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ap-draft-play { width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px dashed color-mix(in srgb, var(--blue) 55%, transparent);
   background: none; color: var(--amber); display: grid; place-items: center; cursor: pointer; flex: none; }
 .ap-draft-play .i { width: 11px; height: 11px; }
+/* 28px to the eye, 44 to the finger (29.09.2026 · «nothing under 44» on these rows) */
+.ap-draft-play { position: relative; }
+.ap-draft-play::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .ap-draft-tx { flex: 1; min-width: 0; border: none; background: none; font: inherit; font-size: 13px; font-style: italic;
-  color: var(--ink-dim); padding: 4px 6px; border-radius: 8px; }
+  color: var(--ink-dim); padding: 4px 6px; border-radius: var(--r-xs); }
 .ap-draft-tx:focus { outline: none; background: var(--surface); color: var(--ink); font-style: normal;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--blue) 50%, transparent); }
-.ap-d-btn { width: 32px; height: 32px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
-  display: grid; place-items: center; cursor: pointer; flex: none; }
-.ap-d-btn .i { width: 13px; height: 13px; }
-.ap-d-ok { color: var(--green); }
-.ap-d-no { color: var(--ink-faint); }
+  box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
+/* the in-place editors' pair (29.09.2026, owner pick: icon pair): ✕ = THE close (`.ip-x`, 36px
+   with its 44px pad, 13-incident / 02-base) and ✓ = the same square in the PRIMARY fill — the
+   save. It was a 32px framed pair with the ✓ in green, the «go» tone, not the primary. */
+.ap-d-no { flex: none; }
+.ap-d-ok { position: relative; flex: none; width: 36px; height: 36px; padding: 0; border: none; border-radius: var(--r-sm);
+  background: var(--btn-primary); color: var(--on-btn-primary); display: grid; place-items: center; cursor: pointer; }
+.ap-d-ok::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+@media (hover: hover) { .ap-d-ok:hover { background: var(--btn-primary-hover); } }
+.ap-d-ok:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.ap-d-ok .i { width: 18px; height: 18px; }
 /* marker-row in-place edit (mirrors the Verlauf pencil; suggestions themselves vanish
    once übernommen — the entry lives on here and stays correctable) */
-.ap-row-edit { width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
-  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; opacity: 0; }
+.ap-row-edit { position: relative; width: 36px; height: 36px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
+  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; opacity: 0; padding: 0; }
+/* the 44px floor under the 36px square (29.09.2026 — they were 28px beside a destructive one) */
+.ap-row-edit::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.ap-row-edit:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* the row's remove is THE delete look: a bin, --del-ink in the --del-edge outline */
+.ap-row-del { color: var(--del-ink); border-color: var(--del-edge); }
 .ap-row:focus-within .ap-row-edit { opacity: 1; }
 @media (hover: hover) {
   .ap-row:hover .ap-row-edit { opacity: 1; }
 }
 @media (hover: none) { .ap-row-edit { opacity: 1; } }
-.ap-row-edit .i { width: 12px; height: 12px; }
+.ap-row-edit .i { width: 16px; height: 16px; }
 .ap-row-editing { cursor: default; }
-.ap-row-input { flex: 1; min-width: 0; border: 1px solid var(--glass-edge); border-radius: 10px; background: var(--surface);
+.ap-row-input { flex: 1; min-width: 0; border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
   padding: 7px 10px; font: inherit; font-size: 13px; color: var(--ink); }
-.ap-row-input:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
+.ap-row-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* Abbrechen · Speichern under the transcript field. The two ways INTO the field are icon
    buttons up in the row itself (.jr-jump / .jr-jump-miss in 17-rapport.css). */
 .jr-transcript button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 6px 8px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .jr-transcript button .i { width: 14px; height: 14px; }
 .jr-transcript textarea { width: min(420px, 100%); resize: vertical; border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); color: var(--ink); padding: 8px; font: inherit; font-size: 12px; }
+.jr-transcript textarea:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 .jr-transcript-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
 /* «Der ursprüngliche Wortlaut bleibt im Protokoll» — beside the buttons, because the question it
    answers («überschreibe ich hier gerade den Einsatz?») is asked exactly while deciding to save. */
@@ -145,8 +151,9 @@
 .psync-counts li { display: flex; align-items: baseline; gap: 8px; border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 10px 12px; background: var(--surface-2); }
 .psync-counts b { font: 800 20px var(--mono); color: var(--ink); }
 .psync-counts span { font-size: 12px; color: var(--ink-dim); }
-.psync-stale { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
-.psync-stale input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--blue); flex: none; }
+/* the sentence left, the `OnOff` pair right (28.09.2026; it was a native checkbox) */
+.psync-stale { display: flex; gap: 14px; align-items: center; font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
+.psync-stale > span { flex: 1 1 auto; min-width: 0; }
 .psync-result { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-dim); }
 @media (max-width: 720px) {
   .report-meta-grid, .report-toggles { grid-template-columns: 1fr; }
@@ -191,8 +198,10 @@
 /* ⚠️ an ink mix, NOT --surface-2: that token is white at 60% in the day theme, which on this
    white sheet is nothing at all — the borderless chips read as bare bold text nobody would
    think to tap. A mix off --ink carries the same weight in both themes. */
+/* …and the ONE corner (29.09.2026): the chips were full-radius pills a row above the one-corner
+   Art tiles — two shapes for two neighbouring rows of the same sheet. */
 .jc-phrase { min-height: 44px; padding: 8px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
-  border: none; border-radius: var(--r-pill); color: var(--ink);
+  border: none; border-radius: var(--r-sm); color: var(--ink);
   /* like every other control on this sheet: the press is said by :active below, not by the
      platform's grey wash (which lingers on the chip a beat after the finger is gone) */
   -webkit-tap-highlight-color: transparent;
@@ -201,11 +210,10 @@
    cursor rather than the sentence, and what it carries is the spelling the rest of the app uses.
    The tints carry a touch more colour than they did as outlined chips: the border used to do
    half the work of telling them apart. */
+/* ONE tint for every kind of name (29.09.2026) — the Verlauf's own rule: a vehicle offered in the
+   station red and a partner in warning amber read as alarm and warning, and the kind of a word is
+   not a state. */
 .jc-phrase-link { background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue-strong); }
-.jc-link-material { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green-strong); }
-.jc-link-partner { background: color-mix(in srgb, var(--amber) 17%, transparent); color: var(--amber-strong); }
-.jc-link-vehicle { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
-.jc-link-group { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
 /* Spelling help — «AS», «RWA», «1. OG» (journalLinks · plain). The QUIETEST chip in the row on
    purpose: it is the only one that does not name a thing the Einsatz has a record of, and it
    leaves no mark behind in the Verlauf either, so it must not look like a name. */
@@ -216,7 +224,7 @@
    the sheet, a lit chip reads as «this one is selected», which is not a state this row has.
    Nothing is lost on touch: the inserted text is the feedback, and the press has its own. */
 @media (hover: hover) {
-  .jc-phrase:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .jc-phrase:hover { background-image: linear-gradient(var(--press), var(--press)); }
 }
 /* press = the house ink wash, like every other :active in the app (02-base.css). It is over when
    the finger is up, which is exactly what «tap, and the word is in the sentence» should feel like. */
@@ -292,18 +300,13 @@
 @media (hover: hover) {
   .jc-chip:hover { color: var(--ink); border-color: var(--ink-faint); }
 }
-/* --blue, never --accent: this is a SELECTED state, and --accent is the deployment's brand red */
-.jc-chip.on { color: var(--blue-strong); font-weight: 700;
-  background: color-mix(in srgb, var(--blue) 16%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 42%, transparent); }
-/* the three Arten carry their own ink ONCE CHOSEN — an unchosen row stays uniform, so nothing
-   on it competes with the text field above it */
-.jc-chip.jc-type-auftrag.on { color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 18%, transparent);
-  border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
-.jc-chip.jc-type-sofort.on { color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+/* THE choice fill (01-tokens · --sel), never --accent: --accent is the deployment's brand red */
+.jc-chip.on { color: var(--on-sel); font-weight: 700; background: var(--sel); border-color: var(--sel); }
+/* the three Arten carry their own colour ONCE CHOSEN — the same fill, in their tone (as the
+   Suche's toned chips); an unchosen row stays uniform, so nothing on it competes with the text
+   field above it */
+.jc-chip.jc-type-auftrag.on { color: var(--on-fill); background: var(--amber); border-color: var(--amber); }
+.jc-chip.jc-type-sofort.on { color: var(--on-accent-ink); background: var(--accent); border-color: var(--accent); }
 
 /* ── «bleibt offen» ────────────────────────────────────────────────────────────────────────
    The ring, after the three Arten. It answers a DIFFERENT question than they do — they say what
@@ -510,17 +513,17 @@
 }
 .jc-due-btn { position: relative; }
 .jc-due-btn .i { width: 17px; height: 17px; }
-.jc-due-btn[data-on] { color: var(--blue-strong);
-  background: color-mix(in srgb, var(--blue) 12%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 45%, transparent); }
+.jc-due-btn[data-on] { color: var(--on-sel); background: var(--sel); border-color: var(--sel); }
 /* ⚠️ The time hangs OUT of the button, absolutely positioned. Inline it would widen the control
    by ~40px, and the three Art chips are the only things in the row that can give that up — at
    which point «Sofortmassnahme» wraps and the row grows anyway. A lit clock alone says «something
    was chosen» without saying what, and «wann» is the half you can act on, so it has to be legible
-   rather than merely present. Same badge shape as the Verlauf's open-count (.tb-rem-count). */
-.jc-due-badge { position: absolute; top: -7px; right: -6px; height: 17px; padding: 0 5px;
-  border-radius: var(--r-sm); background: var(--blue); color: var(--on-fill);
-  font: 800 11px/17px var(--mono); letter-spacing: -.02em; white-space: nowrap;
+   rather than merely present. The ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px,
+   11/800, --r-xs, and INK — it was blue, the chosen button's own fill, so on a lit clock the
+   badge melted into it. The --surface ring stays to lift it off that fill. */
+.jc-due-badge { position: absolute; top: -7px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
+  font: 800 11px/16px var(--body); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: center;
   box-shadow: 0 0 0 2px var(--surface); }
 /* the plain minute rows have no glyph, but they keep the ring's WIDTH — a menu whose labels start
    on two different axes reads as two lists (see .jc-menu-ring, the same slot) */
@@ -528,7 +531,8 @@
 .jc-menu-lead .i { width: 16px; height: 16px; color: var(--blue-strong); }
 
 /* it replaces the Eintrag/Erinnerung track — the kind of row is already settled */
-.jc-mode-title { flex: 1 1 auto; min-width: 0; font: 800 14px var(--body); color: var(--ink);
+/* the sheet title's ONE type, --sheet-title (29.09.2026 — it was the last 14px title left) */
+.jc-mode-title { flex: 1 1 auto; min-width: 0; font: var(--sheet-title); color: var(--ink);
   /* ⚠️ the height of the Eintrag/Erinnerung track it stands in for (.useg-btn min-height + the
      track's 3px padding), or the same card is shorter as a Meldung than as an entry */
   min-height: var(--tap); display: flex; align-items: center; }
@@ -547,11 +551,13 @@
 .jc-mode-note em { flex: none; font-style: normal; font-weight: 700; color: var(--amber-strong); }
 .jc-mode-note-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-weight: 600; color: var(--ink-dim); }
+/* …the title is «Meldung»; what it is about stays read-out size under the 17px title type */
+.jc-mode-note em, .jc-mode-note-name { font-size: 14px; }
 
 /* Einsatzuhr: tap-to-cycle clock (duration / wall time / start) beside the wall clock. It's a
    <button> now — strip the native chrome and give it a comfortable tap area. */
 .tb-einsatzuhr { color: var(--ink-dim); background: none; border: none; cursor: pointer; font: inherit;
-  padding: 6px 4px; margin: -6px 0; border-radius: var(--r-nested, var(--r-sm)); -webkit-tap-highlight-color: transparent; }
+  padding: 6px 4px; margin: -6px 0; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) {
   .tb-einsatzuhr:hover { color: var(--ink); }
 }
@@ -561,7 +567,7 @@
 /* Einsatzuhr mode dropdown: labelled, selectable rows (Dauer / Uhrzeit / Beginn) so the reading
    is never ambiguous — recognition over the old blind tap-to-cycle. */
 .tb-uhr-menu { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow); padding: 6px; min-width: 236px; }
+  border-radius: var(--r-bar); box-shadow: var(--shadow); padding: var(--bar-pad); min-width: 236px; }
 /* a menu row, so it wears the app's one option-row treatment: --r-ctl, 8 % of --blue on hover,
    and the --press wash it had no answer of at all (13-incident.css · «ONE menu row»). */
 .tb-uhr-row { display: flex; align-items: center; gap: 11px; width: 100%; height: 42px; padding: 0 10px; border: 0;
@@ -573,6 +579,9 @@
 .tb-uhr-row.on { background: var(--fill-soft); }
 .tb-uhr-row .i { width: 18px; height: 18px; color: var(--ink-dim); flex: none; }
 .tb-uhr-lbl { font-size: 13px; font-weight: 600; flex: 1; }
+/* a reason under a row's word («Braucht Verbindung zum Server») — the row grows to hold it */
+.tb-uhr-note { display: block; font-size: 12px; font-weight: 500; color: var(--ink-faint); }
+.tb-uhr-row:has(.tb-uhr-note) { height: auto; min-height: 42px; padding-block: 6px; }
 .tb-uhr-val { font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); }
 .tb-uhr-row .tb-uhr-chk { width: 16px; height: 16px; color: var(--green); flex: none; visibility: hidden; }
 .tb-uhr-row.on .tb-uhr-chk { visibility: visible; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EARLY_PRESSURE_CORRECTION_MS, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, earlyEntryCorrection, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppTransferState } from './atemschutz'
+import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -453,6 +453,120 @@ describe('truppStillDeployed (the Abschluss question)', () => {
   })
 })
 
+describe('entryPressureConfirmed — an Eingangsdruck set on purpose', () => {
+  const at = (m: number) => new Date(REF + m * 60_000).toISOString()
+  it('is false for the untouched default, true for a measured run start or the Anmeldung before it', () => {
+    expect(entryPressureConfirmed({ readings: [{ t: at(0), bar: 300, kind: 'entry' }] })).toBe(false)
+    expect(entryPressureConfirmed({ readings: [{ t: at(0), bar: 250, kind: 'entry', measured: true }] })).toBe(true)
+    expect(entryPressureConfirmed({ readings: [
+      { t: at(0), bar: 250, kind: 'registered', measured: true },
+      { t: at(0), bar: 250, kind: 'crew', crew: { name: 'A', members: [] } },
+      { t: at(1), bar: 250, kind: 'entry' },
+    ] })).toBe(true)
+  })
+
+  it('belongs to the running deployment only', () => {
+    expect(entryPressureConfirmed({ readings: [
+      { t: at(0), bar: 250, kind: 'entry', measured: true },
+      { t: at(20), bar: 120, kind: 'exit' },
+      { t: at(30), bar: 300, kind: 'entry' },
+    ] })).toBe(false)
+  })
+
+  it('closes the early-correction window', () => {
+    const t: Trupp = { ...base, readings: [{ t: base.entryTime, bar: 250, kind: 'entry', measured: true }] }
+    expect(earlyEntryCorrection(t, REF + 60_000)).toBe(false)
+    expect(earlyEntryCorrection({ ...t, readings: [{ t: base.entryTime, bar: 300, kind: 'entry' }] }, REF + 60_000)).toBe(true)
+  })
+})
+
+describe('isStandDownExit — «nicht eingesetzt» is never an «Austritt»', () => {
+  const at = (m: number) => new Date(REF + m * 60_000).toISOString()
+  it('is a stand-down only when the run opened with an Anmeldung and never went in', () => {
+    const standDown = [
+      { t: at(0), bar: 300, kind: 'registered' as const },
+      { t: at(0), bar: 300, kind: 'crew' as const, crew: { name: 'A', members: [] } },
+      { t: at(5), bar: 300, kind: 'exit' as const },
+    ]
+    expect(isStandDownExit(standDown, 2)).toBe(true)
+    const real = [{ t: at(0), bar: 300, kind: 'registered' as const }, { t: at(1), bar: 300, kind: 'entry' as const }, { t: at(9), bar: 120, kind: 'exit' as const }]
+    expect(isStandDownExit(real, 2)).toBe(false)
+    expect(isStandDownExit(real, 1)).toBe(false)
+  })
+})
+
+describe('truppStillRegistered (the Abschluss asks about the crew that stood ready)', () => {
+  const ready: Trupp = { ...base, status: 'angemeldet', entryTime: '', lastContactTime: '', auftrag: 'sichern' }
+
+  it('counts an Atemschutz-Trupp still angemeldet, and nothing else', () => {
+    expect(truppStillRegistered(ready)).toBe(true)
+    expect(truppStillRegistered(base)).toBe(false)
+    expect(truppStillRegistered({ ...ready, status: 'raus' })).toBe(false)
+  })
+
+  it('leaves out a crew parked as Reserve after an earlier sortie — it WAS inside', () => {
+    expect(truppStillRegistered({ ...ready, readings: [
+      { t: '2026-06-21T10:00:00Z', bar: 300, kind: 'entry' },
+      { t: '2026-06-21T10:20:00Z', bar: 120, kind: 'exit' },
+      { t: '2026-06-21T10:30:00Z', bar: 300, kind: 'registered' },
+    ] })).toBe(false)
+  })
+
+  it('leaves out a work squad and a card taken off the board', () => {
+    expect(truppStillRegistered({ ...ready, kind: 'einfach' })).toBe(false)
+    expect(truppStillRegistered({ ...ready, removedAt: '2026-06-21T10:05:00Z' })).toBe(false)
+  })
+})
+
+describe('truppFieldsOf — an edit that changes one thing', () => {
+  it('hands the Trupp back as the form would, with the one override', () => {
+    const t: Trupp = { ...base, members: ['Meier'], auftrag: 'loeschen', ziel: '2. OG', lineNo: 3, funkkanal: 11, equipment: ['wbk'], color: '#e8392b' }
+    expect(truppFieldsOf(t, { auftrag: 'sichern' })).toEqual({
+      name: 'Müller', members: ['Meier'], auftrag: 'sichern', ziel: '2. OG', lineNo: 3, funkkanal: 11,
+      pressure: 300, leaderPersonId: undefined, memberPersonIds: undefined, kind: undefined, equipment: ['wbk'],
+    })
+  })
+})
+
+describe('truppEditPatch / truppFieldGroupsChanged — an edit writes only what it touched', () => {
+  const t: Trupp = { ...base, members: ['Meier'], auftrag: 'loeschen', ziel: 'UG', lineNo: 2, funkkanal: 11, equipment: ['wbk'] }
+
+  it('names the groups that differ, reading absent, empty and whitespace as one', () => {
+    const f = truppFieldsOf(t)
+    expect(truppFieldGroupsChanged(f, { ...f })).toEqual([])
+    expect(truppFieldGroupsChanged(f, { ...f, ziel: ' UG ' })).toEqual([])
+    expect(truppFieldGroupsChanged(f, { ...f, auftrag: 'retten', equipment: [] })).toEqual(['auftrag', 'equipment'])
+    // the form re-linking a typed name to the roster is not a crew change
+    expect(truppFieldGroupsChanged(f, { ...f, leaderPersonId: 'p9' })).toEqual([])
+    expect(truppFieldGroupsChanged(f, { ...f, members: ['Meier', 'Huber'] })).toEqual(['crew'])
+    expect(truppFieldGroupsChanged({ ...f, kind: undefined }, { ...f, kind: 'atemschutz' })).toEqual([])
+  })
+
+  it('keeps a change another device made to a field this form did not touch', () => {
+    const now: Trupp = { ...t, auftrag: 'retten', ziel: 'UG West' } // saved on phone A
+    const form = { ...truppFieldsOf(t), equipment: ['wbk', 'retthaube'] } // phone B ticked a chip
+    const out = truppEditPatch(now, form, ['equipment'])
+    expect(out).toMatchObject({ auftrag: 'retten', ziel: 'UG West', equipment: ['wbk', 'retthaube'] })
+  })
+})
+
+describe('entryPressureAsks — the ONE plausibility question', () => {
+  const d = { entryPressureMin: 270, defaultPressureBar: 300 }
+
+  it('asks below the station minimum, never at or above it, and never with no upper bound', () => {
+    expect(entryPressureAsks(180, d)).toBe(true)
+    expect(entryPressureAsks(260, d)).toBe(true)
+    expect(entryPressureAsks(270, d)).toBe(false)
+    expect(entryPressureAsks(320, d)).toBe(false)
+  })
+
+  it('is off at 0, and never asks about the station’s own default or about no reading', () => {
+    expect(entryPressureAsks(180, { ...d, entryPressureMin: 0 })).toBe(false)
+    expect(entryPressureAsks(200, { entryPressureMin: 270, defaultPressureBar: 200 })).toBe(false)
+    expect(entryPressureAsks(0, d)).toBe(false)
+  })
+})
+
 // ⚠️ 03.09.: every automatic Atemschutz row named the Truppführer and nobody else, so the
 // record said «Trupp Fabich Mischa überfällig» while two people were inside — and a genuine
 // one-man Trupp (Eichenberger) was indistinguishable from a pair whose second member had never
@@ -654,5 +768,42 @@ describe('fmtElapsedFull — long durations read as time, not as raw minutes', (
   it('stops pretending to tick past a day', () => {
     expect(fmtElapsedFull(7936 * 60 + 27)).toBe('5 d 12 h')
     expect(fmtElapsedFull(null)).toBe('–:––')
+  })
+})
+
+
+/* Staging r4: after a close and a reopen, every crew inside read «Alarmdruck … laut Schätzung
+ * erreicht» — the projection ran through the whole hour the Einsatz stood closed. Time spent
+ * closed is not time under PA. */
+describe('estimatePressure · time spent closed does not count', () => {
+  const at = (min: number) => new Date(Date.parse('2026-09-25T12:00:00Z') + min * 60_000).toISOString()
+  const base = {
+    id: 't', name: 'Tst', status: 'aktiv', entryPressureBar: 300, entryTime: at(0), lastContactTime: at(0),
+    readings: [{ t: at(10), bar: 250, kind: 'pressure' as const }],
+  } as unknown as Trupp
+  const now = Date.parse(at(75))
+
+  it('projects only the time the Einsatz ran: 10 min before the close + 5 after the reopen', () => {
+    const paused = { ...base, pausedFrom: at(20), contactRestartedAt: at(70) }
+    const open = estimatePressure(base, now, 6.8, 40)!
+    const withPause = estimatePressure(paused, now, 6.8, 40)!
+    // 5 bar/min measured: the running view projects 65 min, the paused one 15 min
+    expect(open.bar).toBe(0)
+    expect(withPause.bar).toBe(250 - 5 * 15)
+  })
+
+  it('a reading taken after the reopen rates over running time only', () => {
+    const paused = { ...base, pausedFrom: at(20), contactRestartedAt: at(70), readings: [{ t: at(72), bar: 240, kind: 'pressure' as const }] }
+    // 60 bar over 72 min wall clock — but 22 min of it under PA
+    expect(estimatePressure(paused, Date.parse(at(72)), 6.8, 40)!.rateBarPerMin).toBeCloseTo(60 / 22, 5)
+  })
+})
+
+describe('fmtDuration — a duration that says it is one (staging r4)', () => {
+  it('carries its unit, so «23:39» is never read as a clock time', () => {
+    expect(fmtDuration(23 * 60 + 39)).toBe('23:39 min')
+    expect(fmtDuration(3600 + 125)).toBe('1:02:05 h')
+    expect(fmtDuration(2 * 86_400 + 3 * 3600)).toBe('2 d 3 h')
+    expect(fmtDuration(null)).toBe('–:––')
   })
 })

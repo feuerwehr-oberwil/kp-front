@@ -263,7 +263,9 @@ describe('useIncidentSync — renumbered Trupps', () => {
 
 describe('useIncidentSync — live-follow loop', () => {
   it('long-polls while visible and starts the next round right after the answer', async () => {
-    pollWorkspaceSince.mockResolvedValue(null) // 304: nothing new
+    // 304 after the server HELD the request (~20 s) — a real long-poll answer (an INSTANT 304 is
+    // a poll that did not hold, and eases off instead: see the N1 block below)
+    pollWorkspaceSince.mockImplementation(() => new Promise((r) => setTimeout(() => r(null), 20_000)))
     const sync = makeSync()
     mount(sync)
 
@@ -275,7 +277,7 @@ describe('useIncidentSync — live-follow loop', () => {
     expect(opts.signal).toBeInstanceOf(AbortSignal)
 
     // no 2 s beat any more: the next round follows the answer, spaced only by the floor
-    await vi.advanceTimersByTimeAsync(LONG_POLL_SPACING_MS)
+    await vi.advanceTimersByTimeAsync(20_000 + LONG_POLL_SPACING_MS)
     expect(pollWorkspaceSince).toHaveBeenCalledTimes(2)
   })
 
@@ -326,13 +328,16 @@ describe('useIncidentSync — live-follow loop', () => {
   })
 
   it('skips the round while local edits are unsynced (the guard that prevents clobbering)', async () => {
-    pollWorkspaceSince.mockResolvedValue(null)
+    // …it still ASKS, no-wait, whether the Einsatz runs (review of #235: a device that is always
+    // a little dirty must hear a close too) — but it adopts nothing over the local edits
+    pollWorkspaceSince.mockResolvedValue({ workspace: { remote: true }, workspace_rev: 99 })
     const sync = makeSync()
     sync.hasUnsynced = true
     mount(sync)
 
     await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
-    expect(pollWorkspaceSince).not.toHaveBeenCalled()
+    expect(pollWorkspaceSince).toHaveBeenCalledWith(expect.any(String), expect.any(Number), expect.objectContaining({ wait: false }))
+    expect(sync.adoptServer).not.toHaveBeenCalled()
   })
 
   it('aborts the held request on teardown so a 20 s hold cannot outlive the loop', async () => {
@@ -457,5 +462,41 @@ describe('useIncidentSync — unmounting unhooks only its own sync callbacks', (
     expect(sync.onAttendanceConflicts).toBeUndefined()
     expect(sync.onTruppConflicts).toBeUndefined()
     expect(sync.onTruppRenumbered).toBeUndefined()
+  })
+})
+
+describe('useIncidentSync — a closed view never spins its poll (N1, staging 26.09.2026)', () => {
+  // A closed view that did not adopt a reopen kept claiming `open=0`; the server, open again,
+  // answered at once, and the loop went straight into the next round: 3.4 requests a second.
+  function mountClosed(sync: ReturnType<typeof makeSync>) {
+    const blob = {} as unknown as Saved
+    return renderHook(() => useIncidentSync({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sync: sync as any, readOnly: true, incidentId: 'i1', buildPayload: () => blob,
+      applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(), incidentOpen: false,
+    }))
+  }
+
+  it('claims what the SERVER last said, so the next poll parks — and never spins meanwhile', async () => {
+    const claims: (boolean | undefined)[] = []
+    pollWorkspaceSince.mockImplementation(async (_id: string, _since: number, o: { open?: boolean; onLifecycle?: (open: boolean) => void }) => {
+      claims.push(o.open)
+      o.onLifecycle?.(true) // the server is open again — and answers at once while the claim says 0
+      return null
+    })
+    mountClosed(makeSync())
+    await vi.advanceTimersByTimeAsync(10_000)
+    // the first claim is the view's (closed); every later one is what the server said
+    expect(claims[0]).toBe(false)
+    expect(claims.slice(1).every((c) => c === true)).toBe(true)
+    // 10 s: the spinning client made ~34 requests; an easing one a handful
+    expect(pollWorkspaceSince.mock.calls.length).toBeLessThanOrEqual(6)
+  })
+
+  it('also eases off when the server keeps answering at once for any other reason', async () => {
+    pollWorkspaceSince.mockImplementation(async () => null) // no header at all: an older backend
+    mountClosed(makeSync())
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(pollWorkspaceSince.mock.calls.length).toBeLessThanOrEqual(6)
   })
 })

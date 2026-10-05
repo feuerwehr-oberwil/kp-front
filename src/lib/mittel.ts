@@ -113,6 +113,17 @@ export function currentLineFor(entries: MittelEntry[], probe: Pick<MittelEntry, 
   return deriveCurrentMittel(entries).get(mittelKey(probe))
 }
 
+/**
+ * Is the removal written at `since` still the newest word on that line — the ONLY event for its
+ * key since then, and a tombstone? The removal toast's «Rückgängig» appends an un-delete, and
+ * after another device wrote to the line (a count, its own removal) that would overwrite them.
+ */
+export function tombstoneStands(entries: MittelEntry[], probe: Pick<MittelEntry, 'materialId' | 'label' | 'unit' | 'sourceId' | 'sourceLabel'>, since: string): boolean {
+  const key = mittelKey(probe)
+  const after = entries.filter((e) => mittelKey(e) === key && e.at >= since)
+  return after.length === 1 && !!after[0].deleted && currentLineFor(entries, probe)?.entryId === after[0].id
+}
+
 /** Source-first grouping (the default view): `TLF → Lüfter 1 Stk`. Items with no source fall
  *  into one trailing group labelled `noSourceLabel`. */
 export interface SourceGroup {

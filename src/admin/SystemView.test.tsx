@@ -289,7 +289,7 @@ describe('running it by hand', () => {
     )
     render(<SystemView />)
 
-    // no file count yet: the bar travels instead of claiming a fraction it does not have
+    // no file count yet: Shell trail runs without claiming a fraction
     const bar = await screen.findByRole('progressbar')
     expect(bar.getAttribute('aria-valuenow')).toBeNull()
     // …and it says WHICH area, even without a count («Geodaten» also names a row in the table)

@@ -41,6 +41,25 @@ describe('isNachtrag', () => {
     expect(isNachtrag(row('after', '2026-07-20T10:00:00Z'), null)).toBe(false) // never closed
     expect(isNachtrag(row('no-at'), closed)).toBe(false) // legacy rows can't be judged
   })
+
+  it('flags a row the server RECEIVED after the close, whatever time it carries (staging r3)', () => {
+    // a Kontakt from 17:55 that reached the server at 18:05, after an 18:00 close: in its time
+    // order — and late on paper
+    expect(isNachtrag({ ...row('late', '2026-07-02T17:55:00Z'), receivedAfterClose: true }, closed)).toBe(true)
+  })
+
+  it('a row the Abschluss itself wrote is part of the close, not a Nachtrag (staging r6, F3)', () => {
+    // «Trupp 2 beim Abschluss noch drin», stamped 0.6 s past the server's closed_at
+    const own = { ...row('inside', '2026-07-02T18:00:00.600Z'), atClose: true }
+    expect(isNachtrag(own, closed)).toBe(false)
+    // …delivered after the close as well
+    expect(isNachtrag({ ...own, receivedAfterClose: true }, closed)).toBe(false)
+    // the same row WITHOUT the mark is late, as before
+    expect(isNachtrag(row('inside', '2026-07-02T18:00:00.600Z'), closed)).toBe(true)
+    // …and the mark carries nothing off the paper that happened later than the close's tolerance
+    expect(isNachtrag({ ...row('later', '2026-07-02T18:05:00Z'), atClose: true }, closed)).toBe(true)
+    expect(isNachtrag({ ...row('undated'), atClose: true, receivedAfterClose: true }, closed)).toBe(true)
+  })
 })
 
 describe('rowTime', () => {
@@ -110,6 +129,31 @@ describe('repeatRuns', () => {
     ])
     expect(counts.get('a')).toBe(3)
     expect(lastAt.get('a')).toBe('2026-09-01T14:33:10.000Z')
+  })
+
+  // staging 25.09.2026 (F2c): dock, ↶, dock again folded into ONE «angedockt 2×»
+  it('ends every run at a ↶ / ↷ — the same line after it is a new act, not a repeat', () => {
+    const { hidden } = repeatRuns([
+      row('d1', '2026-09-01T14:32:00.000Z', 'Gefahrentafel angedockt an «TLF»', { kind: 'symbol', entityId: 'p' }),
+      row('u1', '2026-09-01T14:32:20.000Z', 'Änderung auf der Karte rückgängig gemacht', { kind: 'history', icon: 'undo' }),
+      row('d2', '2026-09-01T14:32:40.000Z', 'Gefahrentafel angedockt an «TLF»', { kind: 'symbol', entityId: 'p' }),
+    ])
+    expect(hidden.size).toBe(0)
+  })
+
+  // D6: storey rows name their storey as subject — entfernt, wiederhergestellt, entfernt,
+  // wiederhergestellt within two minutes are four acts, and two storeys never fold together
+  it('keeps a storey’s removals and restores apart, and two storeys apart', () => {
+    const at = (s: number) => `2026-09-01T14:3${s}:00.000Z`
+    const { hidden } = repeatRuns([
+      row('r1', at(0), 'Geschoss 3. OG entfernt', { kind: 'symbol', subjectId: 'storey:3' }),
+      row('w1', at(1), 'Geschoss 3. OG wiederhergestellt', { kind: 'symbol', subjectId: 'storey:3' }),
+      row('r2', at(2), 'Geschoss 3. OG entfernt', { kind: 'symbol', subjectId: 'storey:3' }),
+      row('w2', at(3), 'Geschoss 3. OG wiederhergestellt', { kind: 'symbol', subjectId: 'storey:3' }),
+      row('a4', at(4), 'Geschoss 4. OG hinzugefügt', { kind: 'symbol', subjectId: 'storey:4' }),
+      row('a5', at(5), 'Geschoss 5. OG hinzugefügt', { kind: 'symbol', subjectId: 'storey:5' }),
+    ])
+    expect(hidden.size).toBe(0)
   })
 
   it('leaves lastAt empty for a line that never repeated', () => {

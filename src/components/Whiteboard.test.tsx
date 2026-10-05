@@ -203,10 +203,24 @@ describe('the door between the two faces of the Gebäude tile', () => {
     expect(onBuildingFace).toHaveBeenCalledWith('stack')
   })
 
-  // Pure navigation between two surfaces — it mutates nothing, so a locked/viewer session keeps it.
-  it('stays for a locked session', () => {
+  // ⚠️ Reversed 25.09.2026 (3am test): the picker is NOT interactive for a locked session, so
+  // «Anderes Gebäude wählen» led an `el` to outlines it could not tap and no «Übernehmen».
+  // Locked, the stack's pill is only the building's name, read-only — and with no name, nothing.
+  it('is no door for a locked session: the name stays as a read-out, the verb goes', () => {
+    renderBoard('gebaeude', [], true, aBuilding, 'Mühlemattstrasse 8')
+    expect(screen.queryByRole('button', { name: OTHER })).toBeNull()
+    const pill = screen.getByRole('button', { name: 'Mühlemattstrasse 8' }) as HTMLButtonElement
+    expect(pill.disabled).toBe(true)
+  })
+
+  it('…and with no name to read, a locked stack shows no pill at all', () => {
     renderBoard('gebaeude', [], true, aBuilding)
-    expect(screen.getByRole('button', { name: OTHER })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: OTHER })).toBeNull()
+  })
+
+  it('the picker face keeps its way OUT for a locked session', () => {
+    renderBoard('osm', [], true, aBuilding)
+    expect(screen.getByRole('button', { name: BACK })).toBeTruthy()
   })
 })
 
@@ -249,7 +263,7 @@ describe('the plan chip’s trash', () => {
   }
   const openTrash = () => {
     fireEvent.pointerDown(screen.getByText('Trupp 1'))
-    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.delete }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.remove }))
   }
 
   it('takes the chip off the sheet without asking — its Spur stays behind as a ghost', () => {
@@ -511,16 +525,17 @@ describe('Plan round 3 (29.08.)', () => {
     const { container } = renderPlan([{ id: 's1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'brand', label: 'Brand' }])
     fireEvent.pointerDown(container.querySelector('.wb-symbol')!)
     expect(container.querySelector('.wb-del')).toBeNull()
-    // the ContextPanel opened by the same tap carries the delete
-    expect(screen.getAllByRole('button', { name: appConfig.copy.delete }).length).toBeGreaterThan(0)
+    // the ContextPanel opened by the same tap carries the delete — «Entfernen» on a symbol since
+    // it also offers «Gelöscht / erledigt» (review item 21b)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
   })
 
   it('opens a note’s panel on a plain TAP — the symbol grammar, no grips row', () => {
     const { container } = renderPlan([{ id: 'n1', kind: 'text', x: 0.5, y: 0.5, floor: 0, text: 'Hallo' }])
-    expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
+    expect(screen.queryByRole('button', { name: appConfig.copy.remove })).toBeNull()
     fireEvent.pointerDown(screen.getByText('Hallo'))
     expect(container.querySelector('.note-grips')).toBeNull()
-    expect(screen.getAllByRole('button', { name: appConfig.copy.delete }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
   })
 })
 
@@ -946,7 +961,7 @@ describe('the plan’s selection bar', () => {
   it('ends the editing state on «Fertig», and offers no trash at all', () => {
     const { container, onChange } = renderPlan([line])
     fireEvent.pointerDown(hitShape(container))
-    expect(within(bar()!).queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
+    expect(within(bar()!).queryByRole('button', { name: appConfig.copy.remove })).toBeNull()
     fireEvent.click(within(bar()!).getByRole('button', { name: appConfig.copy.done }))
     expect(bar()).toBeNull()
     // …and it deletes nothing on the way out
@@ -1067,6 +1082,17 @@ describe('the plan’s selection bar', () => {
     expect(log).toHaveBeenCalledWith('layers', appConfig.copy.log.duplicated, expect.objectContaining({ annoId: copy.id }))
   })
 
+  // «Gelöscht / erledigt» (lib/objectDone) belongs to the thing that is over, never to its copy
+  it('never copies «Gelöscht / erledigt» — a duplicated Feuer is a new, burning one', () => {
+    const f: BoardAnno = { id: 'f1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Feuer', label: 'Feuer', done: { at: '2026-09-23T18:40:00.000Z' } }
+    const { container, onChange, keysRef } = withKeys([f])
+    fireEvent.pointerDown(container.querySelector('.wb-symbol')!)
+    act(() => { keysRef.current!.duplicate() })
+    const copy = out(onChange).find((a) => a.id !== 'f1')!
+    expect(copy.symbol).toBe('VKF Feuer')
+    expect('done' in copy).toBe(false)
+  })
+
   // ⚠️ A recorded track belongs to the Trupp that walked it (`teamLocked` refuses to delete one),
   // so a copy that inherited it would fabricate a movement history AND arrive undeletable.
   it('never copies a Trupp’s recorded trail', () => {
@@ -1151,8 +1177,8 @@ describe('the nearby-object warning', () => {
 describe('drehen · Gebäude aus Geschossplänen', () => {
   const packBuilding: BuildingDoc = { ...aBuilding, ring: [], rings: [], ringAspect: 0.4, floors: [0, 1], pack: { aspect: 1.4 } }
 
-  // two doors to the one popover by design (the viewport's dial and the rail footer's button)
-  const turn = () => screen.getAllByRole('button', { name: 'Gebäude drehen' })[0]
+  // the north dial is the one door to the popover (the rail's tile went 29.09.2026, sweep K6)
+  const turn = () => screen.getByRole('button', { name: 'Gebäude drehen' })
 
   it('offers the turn control on a pack, where a plain outline has nothing to straighten', () => {
     renderBoard('gebaeude', [], false, packBuilding)
@@ -1204,11 +1230,18 @@ describe('the Gebäude north dial answers one tap, every time', () => {
       hist={{}} setHist={() => {}} focus={null}
     />)
     const canvas = container.querySelector('.wb-canvas')!
-    // the viewport's dial — the rail footer carries the other door, which is not on the canvas
+    // the viewport's dial, on the canvas
     const dial = () => within(canvas as HTMLElement).getByRole('button', { name: TURN })
     return { onReorient, canvas, dial }
   }
   const isOpen = (dial: HTMLElement) => dial.getAttribute('aria-expanded') === 'true'
+
+  // sweep K6 (29.09.2026): the rail's compass tile opened the same popover a second way
+  it('is the ONLY door — the rail carries no «Gebäude drehen» tile', () => {
+    const { dial } = renderStack()
+    expect(dial()).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: TURN })).toHaveLength(1)
+  })
 
   const commonAncestor = (a: Element, b: Element) => {
     let n: Element | null = a
@@ -1332,7 +1365,12 @@ describe('das Geschoss einer Leitung ändern', () => {
 // leaves behind is the whole way back.
 describe('ein Geschoss ausblenden', () => {
   const tiles = () => document.querySelectorAll('.wb-floor')
-  const eyeOf = (tile: Element) => within(tile as HTMLElement).getByRole('button', { name: 'Geschoss ausblenden' })
+  // the storey's acts live in its LABEL's menu since 29.09.2026 (sweep K5) — no eye on the canvas
+  const labelOf = (tile: Element) => within(tile as HTMLElement).queryByRole('button', { name: /ausblenden/ })
+  const eyeOf = (tile: Element) => {
+    fireEvent.click(labelOf(tile)!)
+    return screen.getByRole('menuitem', { name: appConfig.copy.whiteboard.floorHideShort })
+  }
 
   it('folds the tapped storey into a strip and brings it back from there', () => {
     renderBoard('gebaeude', [], false, { ...aBuilding, floors: [-1, 0, 1], pack: { aspect: 1 } })
@@ -1352,7 +1390,19 @@ describe('ein Geschoss ausblenden', () => {
   it('refuses to fold the last visible storey away', () => {
     renderBoard('gebaeude', [], false, aBuilding) // one storey
     expect(tiles()).toHaveLength(1)
-    expect(within(tiles()[0] as HTMLElement).queryByRole('button', { name: 'Geschoss ausblenden' })).toBeNull()
+    expect(labelOf(tiles()[0])).toBeNull()
+  })
+
+  it('the label shows the word only, and brings the signed chip back only for a custom name', () => {
+    renderBoard('gebaeude', [], false, { ...aBuilding, floors: [0, 1, 2], floorNames: { '2': 'Hauptebene' } })
+    const [top, mid] = [...tiles()] as HTMLElement[]
+    expect(top.querySelector('.wb-floor-label')!.textContent).toBe('+2Hauptebene')
+    expect(mid.querySelector('.wb-floor-label')!.textContent).toBe('1. OG')
+    // no bin and no eye on the canvas — the delete is the menu's danger row
+    expect(document.querySelector('.wb-floor-x, .wb-floor-eye')).toBeNull()
+    fireEvent.click(labelOf(mid)!)
+    const del = screen.getByRole('menuitem', { name: appConfig.copy.whiteboard.removeFloor })
+    expect(del.className).toContain('ui-menu-danger')
   })
 
   it('is offered on a read-only surface as well — it changes nothing about the Einsatz', () => {
@@ -1416,7 +1466,7 @@ describe('gesture contracts of the plan surface', () => {
 
   type Fn = (...args: unknown[]) => void
   type Spies = { onChange: Mock<Fn>; onCheckpoint: Mock<Fn>; emit: Mock<Fn> }
-  const history = { current: null as { undo: () => void; redo: () => void } | null }
+  const history = { current: null as { undo: (expect?: string) => boolean; redo: (expect?: string) => boolean } | null }
   const latest = { annos: [] as BoardAnno[] }
   function Controlled({ initial, spies, extra }: { initial: BoardAnno[]; spies: Spies; extra: Partial<React.ComponentProps<typeof Whiteboard>> }) {
     const [annos, setAnnos] = useState(initial)
@@ -1614,5 +1664,91 @@ describe('gesture contracts of the plan surface', () => {
       expect(onCheckpoint).toHaveBeenCalledTimes(1)
       expect(edits(emit)).toHaveLength(1)
     })
+  })
+})
+
+/* ── «Gelöscht / erledigt» statt löschen (review item 21b, 24.09.2026) ────────────────────────
+ * The Übung's EG Feuer was DELETED when it was out, and the plan wrote no row for it. The symbol
+ * now stays (greyed, with the time) and «Entfernen» — the mistake door — writes the Karte's row.
+ */
+describe('«Gelöscht / erledigt» on the plan', () => {
+  const O = appConfig.copy.objectDone
+  const lastSaved = (fn: Mock): BoardAnno[] => fn.mock.calls[fn.mock.calls.length - 1][0] as BoardAnno[]
+  const feuer: BoardAnno = { id: 'f1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Feuer', label: 'Feuer', storey: 0 }
+  const open = (annos: BoardAnno[], extra: Partial<React.ComponentProps<typeof Whiteboard>> = {}) => {
+    const log = vi.fn()
+    const emit = vi.fn()
+    const utils = renderPlan(annos, { log, emit, authorName: 'Muster Anna', ...extra })
+    fireEvent.pointerDown(utils.container.querySelector('.wb-symbol')!)
+    return { ...utils, log, emit }
+  }
+
+  it('offers the row at the top of the symbol’s panel and keeps the symbol — greyed, with the time', () => {
+    const { onChange, log, emit } = open([feuer])
+    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(O.action) })[0])
+    const saved = lastSaved(onChange)
+    expect(saved).toHaveLength(1) // still there
+    expect(saved[0].done?.at).toBeTruthy()
+    expect(saved[0].done?.by).toBe('Muster Anna')
+    // ONE row, naming what and where (the row's own timestamp says when) — «Feuer EG gelöscht»
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log.mock.calls[0][1]).toBe('Feuer EG gelöscht')
+    expect(log.mock.calls[0][2]).toMatchObject({ annoId: 'f1' })
+    expect(emit).toHaveBeenCalledWith('board.edit', expect.objectContaining({ id: 'f1', patch: { done: saved[0].done } }))
+    // …and the Karte's view of the same object, so the replay's map view greys it too
+    expect(emit).toHaveBeenCalledWith('entity.edit', { id: 'f1', patch: { done: saved[0].done } })
+  })
+
+  it('states a set one and takes it back with «Wieder aktiv» — a row, and `done: null` for the replay', () => {
+    const done = { at: '2026-09-23T18:40:00.000Z' }
+    const { onChange, log, emit, container } = open([{ ...feuer, done }])
+    // greyed on the board, the time in its corner
+    expect(container.querySelector('.ts.ts-done .sym-done')?.textContent).toMatch(/^\d\d:\d\d$/)
+    expect(screen.getAllByText(new RegExp(`^${O.word.fire.title} \\d\\d:\\d\\d$`)).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(O.reopen) })[0])
+    expect(lastSaved(onChange)[0].done).toBeUndefined()
+    expect(log.mock.calls[0][1]).toBe('Feuer EG wieder aktiv')
+    expect(emit).toHaveBeenCalledWith('board.edit', expect.objectContaining({ id: 'f1', patch: { done: null } }))
+    expect(emit).toHaveBeenCalledWith('entity.edit', { id: 'f1', patch: { done: null } })
+  })
+
+  it('«Entfernen» writes the same removal row the Karte writes — once, about the object', async () => {
+    const { onChange, log } = open([feuer])
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.remove })[0]) })
+    expect(lastSaved(onChange)).toEqual([])
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log.mock.calls[0][1]).toBe(fillTemplate(appConfig.copy.log.objectDeleted, { name: 'Feuer' }))
+    // the subject, never a jump target: the object is gone
+    expect(log.mock.calls[0][2]).toEqual({ subjectId: 'f1' })
+  })
+
+  it('the Delete key writes the same removal row as the panel’s «Entfernen»', async () => {
+    const { onChange, log } = open([feuer])
+    await act(async () => { fireEvent.keyDown(window, { key: 'Delete' }) })
+    expect(lastSaved(onChange)).toEqual([])
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log.mock.calls[0][1]).toBe('Feuer entfernt')
+    expect(log.mock.calls[0][2]).toEqual({ subjectId: 'f1' })
+  })
+
+  // owner's sign-off on #226: «we don't need "erledigt" for cars»
+  it('offers no row on a Fahrzeug — its editor has only «Entfernen»', () => {
+    const car: BoardAnno = { id: 'v1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Fahrzeug', label: 'TLF' }
+    open([car])
+    expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
+  })
+
+  it('…but a Fahrzeug that already carries `done` (an older record) can still be reopened', () => {
+    const car: BoardAnno = { id: 'v1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Fahrzeug', label: 'TLF', done: { at: '2026-09-23T18:40:00.000Z' } }
+    const { onChange } = open([car])
+    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(O.reopen) })[0])
+    expect(lastSaved(onChange)[0].done).toBeUndefined()
+  })
+
+  it('offers nothing on a read-only board — but still states that it is done', () => {
+    open([{ ...feuer, done: { at: '2026-09-23T18:40:00.000Z' } }], { readOnly: true })
+    expect(screen.queryByRole('button', { name: new RegExp(O.reopen) })).toBeNull()
+    expect(screen.getAllByText(new RegExp(`^${O.word.fire.title} `)).length).toBeGreaterThan(0)
   })
 })

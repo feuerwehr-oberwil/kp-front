@@ -329,8 +329,8 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
               marker is named by the Atemschutz board, so it gets no pen: renaming it here would
               fork the two names apart. */}
           {!truppId && rename && (
-            // blue while the field is open — the same `--blue` «this is armed» the bar's other
-            // state-carrying button wears, so the pen says which mode the pill is in
+            // lit while the field is open — the docks' pressed toggle (`--sel`), so the pen says
+            // which mode the pill is in; every other action on the bar is neutral (K3, 29.09.2026)
             // ⚠️ `preventDefault` on the press, like the ✕ beside the field: without it the pen
             // could never CLOSE the edit — pressing it blurred the input first (commit +
             // `setRenaming(false)`), so the click that followed found `renaming` already false
@@ -341,8 +341,10 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
               onClick={() => setRenaming(!renaming)}><Icon id="pen" /></button>
           )}
           {truppId && showTrupp && (
+            // the Trupps nav glyph (NavRail · stopwatch): this is a door to that page, not a
+            // warning — the ⚠ said «warning» on a Trupp that had none (K3, 29.09.2026)
             <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp}
-              onClick={() => showTrupp(truppId)}><Icon id="warn" /></button>
+              onClick={() => showTrupp(truppId)}><Icon id="stopwatch" /></button>
           )}
           {/* «Atemschutz-Trupp» — the join sheet (TruppJoinMenu above), whenever this surface
               offers the door at all */}
@@ -375,7 +377,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
               popupClassName="de-menu-pop"
               itemClassName={() => 'de-menu-item'}
               trigger={
-                <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}>
+                <button className="wb-pa wb-pa-del" title={appConfig.copy.remove} aria-label={appConfig.copy.remove}>
                   <Icon id="trash" />
                 </button>
               }
@@ -389,7 +391,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
               ]}
             />
           ) : (
-            <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
+            <button className="wb-pa wb-pa-del" title={appConfig.copy.remove} aria-label={appConfig.copy.remove}
               onClick={() => acts.remove()}><Icon id="trash" /></button>
           )}
         </div>

@@ -11,7 +11,8 @@ import { gateTouchRotation } from '../lib/mapTwist'
 import { Icon } from '../lib/icons'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { LockChip } from './LockChip'
-import { LINE_DASH_ML, ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
+import { LINE_DASH_ML } from '../lib/draw'
+import { MapImages } from './MapImages'
 import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, arrowEndIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
@@ -48,7 +49,7 @@ import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { uiBlue } from '../lib/themeToken'
 import { useIsPhone } from '../lib/useIsPhone'
-import { reportClientError } from '../lib/reportError'
+import { reportMapError } from '../lib/mapError'
 import { isTypingTarget } from '../lib/hotkeys'
 import { QuietAttributionControl } from './MapAttribution'
 import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
@@ -327,6 +328,9 @@ interface Props {
   /** a base-layer tile failed while offline — there is no cached basemap for this view. Fires
    *  per failed tile; the caller decides how often to say so (IncidentWorkspace · NoBasemapMeldung). */
   onBasemapUnavailable?: () => void
+  /** ONCE per MapView: the incident is framed and the first view has drawn everything it asked
+   *  for (tiles and sources loaded or failed). The opening cover lifts on it (lib/bootCover). */
+  onSettled?: () => void
   /** coordinate picker: while aiming the map shows a crosshair, the cursor lng/lat
    *  streams to onCursor, and the next map click locks the point via onPick. */
   picking?: boolean
@@ -421,7 +425,7 @@ export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
-    onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
+    onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
     onSelectionDone, georefPlanRasters = [] } = props
@@ -1109,32 +1113,23 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     }, 0)
   }, [fitPoints, initialBearing, initialZoom, mapReady])
 
-  // Register FireGIS point symbols (hydrant, valve…) as map icons, tinted to the layer
-  // colour, so the Leitungskataster point layers can render them via a symbol layer.
+  // The first COMPLETE frame: framed (the fit above runs in a timeout-0 scheduled before this
+  // one) and every tile and source of that view loaded or failed — MapLibre's `idle`. Before it,
+  // the basemap arrives in patches and the content sits where the initial center put it.
+  const settled = useRef(false)
+  const onSettledRef = useRef(onSettled)
+  useEffect(() => { onSettledRef.current = onSettled })
   useEffect(() => {
     const map = mapInst.current
-    if (!map || !mapReady) return
-    for (const l of layers) {
-      if (l.vectorKind !== 'point' || !l.symbol) continue
-      const raw = byName[l.symbol]
-      if (!raw) continue
-      // register the day-tinted icon and, when the layer has a nightColor, a brighter
-      // night-tinted variant (icon-<id>-night) so dark-map point symbols (hydrant/Schieber)
-      // stay legible — MapLayers swaps icon-image to the night variant in night mode
-      const variants: { id: string; color: string }[] = [{ id: `icon-${l.id}`, color: l.color ?? '#000' }]
-      if (l.nightColor) variants.push({ id: `icon-${l.id}-night`, color: l.nightColor })
-      for (const v of variants) {
-        if (map.hasImage(v.id)) continue
-        const svg = raw.replace(/#000000/gi, v.color).replace('<svg ', '<svg width="64" height="64" ')
-        const img = new Image(64, 64)
-        img.onload = () => {
-          const m = mapInst.current
-          if (m && !m.hasImage(v.id)) { m.addImage(v.id, img, { pixelRatio: 2 }); m.triggerRepaint() }
-        }
-        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
-      }
-    }
-  }, [mapReady, layers, byName])
+    if (!map || !mapReady || settled.current) return
+    const fire = () => { if (!settled.current) { settled.current = true; onSettledRef.current?.() } }
+    const t = setTimeout(() => { try { map.once('idle', fire) } catch { /* map gone */ } }, 0)
+    return () => { clearTimeout(t); try { map.off('idle', fire) } catch { /* map gone */ } }
+  }, [mapReady])
+
+  // The point symbols (hydrant, Schieber …), the arrowheads and the Schraffur tiles are
+  // registered by <MapImages> — the first child of <Map>, because an effect waiting for
+  // `mapReady` ran after the first tile had already asked for them (lib/mapImages).
 
   // Keep the base raster(s) pinned BELOW the tactical drawings. react-map-gl appends every layer
   // without a `beforeId` and re-adds late-loading sources on each `styledata`, so a base raster
@@ -1162,68 +1157,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     return () => { map.off('styledata', keepBaseBelowDrawings) }
   }, [mapReady])
 
-  // Register a single tintable arrowhead icon (SDF) used by annotated polylines (Messpfeil /
-  // Rettungsachse). SDF lets `icon-color` recolour it to the line colour. The glyph points
-  // UP (north / bearing 0); the symbol layer rotates it via the feature's `bearing`.
-  useEffect(() => {
-    const map = mapInst.current
-    if (!map || !mapReady) return
-    // (re)register the SDF arrowhead. A map style RELOAD (day/night swap, base-layer change) clears
-    // all registered images, so the once-on-mount registration left the icon missing afterwards and
-    // the arrowheads silently vanished (the Pfeil preset "did nothing"). Re-add it on every
-    // styledata when it's gone, so the tip survives theme/base switches.
-    const ensureArrow = () => {
-      if (map.hasImage('draw-arrow') && map.hasImage('draw-arrow-stop')) return
-      const S = 48 // render at a higher resolution so the arrowhead stays crisp when scaled up
-      const head = (stop: boolean) => {
-        const cv = document.createElement('canvas'); cv.width = S; cv.height = S
-        const ctx = cv.getContext('2d'); if (!ctx) return null
-        ctx.fillStyle = '#fff'
-        // the «Stopp» variant carries the Entwicklungsgrenze bar just past the tip — the same
-        // statement the fire's bounded spread arrow makes, on a line
-        const top = stop ? 10 : 4
-        if (stop) ctx.fillRect(8, 0, S - 16, 5)
-        ctx.beginPath()
-        ctx.moveTo(S / 2, top)          // tip (top)
-        ctx.lineTo(S - 6, S - 8)        // bottom-right
-        ctx.lineTo(S / 2, S - 16)       // notch
-        ctx.lineTo(6, S - 8)            // bottom-left
-        ctx.closePath()
-        ctx.fill()
-        return ctx.getImageData(0, 0, S, S)
-      }
-      for (const [name, stop] of [['draw-arrow', false], ['draw-arrow-stop', true]] as const) {
-        if (map.hasImage(name)) continue
-        const data = head(stop)
-        if (data) map.addImage(name, { width: S, height: S, data: data.data }, { sdf: true, pixelRatio: 2 })
-      }
-      map.triggerRepaint()
-    }
-    // The Schraffur tiles ride the same style lifecycle, in a pass of their OWN. ⚠️ Deliberately
-    // not inside `ensureArrow`: that function returns early the moment both arrowheads exist, so
-    // a guard reading «the arrowheads are here» would be what decides whether a Fläche has a fill.
-    const ensureHatch = () => {
-      ensureHatchImages(map, appConfig.drawing.colors)
-      map.triggerRepaint()
-    }
-    // …and a colour outside the palette (a legacy drawing, a station that re-cut `drawing.colors`)
-    // asks for a tile nobody registered — a missing `fill-pattern` paints NOTHING, so that Fläche
-    // would simply be gone from the Karte. Mint it the moment the style asks for it.
-    const onMissing = (e: { id: string }) => {
-      const c = hatchImageColor(e.id)
-      if (c) { ensureHatchImage(map, e.id, c); map.triggerRepaint() }
-    }
-    ensureArrow()
-    ensureHatch()
-    map.on('styledata', ensureArrow)
-    map.on('styledata', ensureHatch)
-    map.on('styleimagemissing', onMissing)
-    return () => {
-      map.off('styledata', ensureArrow)
-      map.off('styledata', ensureHatch)
-      map.off('styleimagemissing', onMissing)
-    }
-  }, [mapReady])
 
   // canvas-level pointer gestures (freehand drawing + marquee multi-select) live in a
   // dedicated hook; they bind directly to the MapLibre instance and toggle dragPan.
@@ -1990,7 +1923,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // field failure was invisible to the deployer. Report, but never rethrow: a failed tile
       // must not take the incident down.
       onError={(e) => {
-        reportClientError(e.error ?? new Error('map error'), { kind: 'error' })
+        reportMapError(e.error)
         // A BASE tile failing while the device is offline = no cached basemap for this view: the
         // map is a flat colour with symbols on it and nothing says why. MapLibre re-fires a
         // source's error at the map with the `sourceId` it belongs to (style.ts · setEventedParent);
@@ -2026,9 +1959,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Keep only the LOCAL bearing live per rotate frame (the tactical glyphs re-render with the
       // −bearing offset so they stay geographically pinned). Deliberately NOT calling onView here:
       // that re-renders all of IncidentWorkspace every frame of a two-finger rotate. onMoveEnd
-      // fires at the end of the gesture and updates App's view state then — the App-level compass /
-      // coord readout just settle on release instead of tracking every frame. The wind arrow is
-      // the exception – it turns WITH the finger, through its own store (lib/liveBearing).
+      // fires at the end of the gesture and updates App's view state then — the coord readout
+      // just settles on release instead of tracking every frame. The wind arrow and the compass
+      // needle are the exceptions – they turn WITH the finger, through their own store
+      // (lib/liveBearing), which re-renders only the two glyphs.
       onRotate={(e) => { setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing) }}
       // MapLibre says a genuine pan began. That (a) opens the pan gesture the trailing click is
       // measured against (see panGesture), (b) peeks the phone detail sheet down for as long as
@@ -2110,6 +2044,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       preserveDrawingBuffer={staticView}
     >
       <QuietAttributionControl />
+      <MapImages layers={layers} byName={byName} />
       <MapLayers layers={layers} preparedOverlays={preparedOverlays} isVisible={isVisible} mapReady={mapReady} />
 
       {/* Literal georeferenced Modul sheets are separate from their symbol projections. Ebenen

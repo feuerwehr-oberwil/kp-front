@@ -1,3 +1,4 @@
+import { LoadingStatus } from '../components/ShellLoader'
 import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtFileSize } from '../lib/format'
@@ -101,7 +102,7 @@ type PlanFacts = ReturnType<typeof planFacts>
  * ⚠️ It reads the admin's shared grammar and adds none of its own: `.adm-table` for BOTH tables
  * — the object list (name, plans, status, one action) and one object's Modulpläne —
  * `SettingsSheet`/`SettingRow` for the object's fields, StatusBadge for every status,
- * EmptyState for empty/loading/failed, the dashed `.adm-formlink-add` row for «Objekt
+ * EmptyState for empty/loading/failed, the framed `.adm-formlink-add` row for «Objekt
  * hinzufügen» (ui.tsx). Nothing nests. A sub-slot itself (`modul5-pv`) is never created here —
  * it arrives from a pull (Planspeicher/SharePoint) or the `admin_objects` CLI; this page only
  * uploads or replaces the PDF sitting in a slot that already exists.
@@ -224,7 +225,7 @@ export function ObjectPlansView({ modules, overview }: {
             options={[{ value: 'all', label: C.all }, { value: 'attention', label: C.attention }, { value: 'approved', label: C.approved }]} />
         </div>
         {objectsError && <div role="alert"><EmptyState tone="err" message={D.objectsError} action={retry} /></div>}
-        {!objects && !objectsError && <div role="status"><EmptyState message={D.objectsLoading} /></div>}
+        {!objects && !objectsError && <EmptyState loading message={D.objectsLoading} />}
         {alignmentError && <div role="alert"><EmptyState tone="err" message={A.loadFailed} action={retry} /></div>}
         {visible.length > 0 && <Table className="adm-vtable aop-table" columns={[
           { key: 'object', label: C.colObject },
@@ -269,7 +270,7 @@ export function ObjectPlansView({ modules, overview }: {
         {overview(rows)}
         {mapObjects.length > 0 && <Card title={C.map}>
           <div className="aop-map">
-            <Suspense fallback={<EmptyState message={D.mapLoading} />}>
+            <Suspense fallback={<EmptyState loading message={D.mapLoading} />}>
               <ObjectsMap objects={mapObjects} selectedId={null} onSelect={choose} hoveredId={null} onHover={() => {}} />
             </Suspense>
           </div>
@@ -400,7 +401,7 @@ function PlanRow({ slot, facts, busy, error, onUpload, onPrepare }: {
         {slot.offCatalogue && <span className="adm-view-badge adm-view-badge-warn">{O.offCatalogue}</span>}
       </td>
       <td>{busy
-        ? <span className="adm-fleet-freeval" role="status">{O.uploading}</span>
+        ? <span className="adm-fleet-freeval"><LoadingStatus>{O.uploading}</LoadingStatus></span>
         : plan
           ? <span className="aop-source">
             <span className="adm-view-key">{fillTemplate(O.planVersion, { n: plan.current_version, date: fmtDate(plan.updated_at) })}</span>

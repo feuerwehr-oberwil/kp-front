@@ -24,7 +24,7 @@ import {
   isPlacingTap,
   placeGeorefPhoneTarget,
   registerGeorefPhoneTarget,
-  resetGeorefMode,
+  resetGeorefMode, georefStillIs,
   resetGeorefPlan,
   settleSlots,
   trackTap,
@@ -1172,8 +1172,8 @@ describe('georefReduce · the scaffolding handover (auto pairs step aside)', () 
 // dot has to say exactly what the words did — and it must NOT be georefLamp, which reads the
 // armed mode's live pairs and would be red on every idle plan that is perfectly well referenced.
 describe('georefChipTone — the Ampel tone of the idle pill', () => {
-  it('is red while the sheet has no reference at all', () => {
-    expect(georefChipTone({ kind: 'unlinked', residualM: null, warn: false })).toBe('red')
+  it('is grey while the sheet has no reference yet — «not yet» is no alarm (K10)', () => {
+    expect(georefChipTone({ kind: 'unlinked', residualM: null, warn: false })).toBe('grey')
   })
 
   it('is amber for a fit nobody has checked', () => {
@@ -1194,6 +1194,25 @@ describe('georefChipTone — the Ampel tone of the idle pill', () => {
   it('tracks the chip it sits on', () => {
     const chip = georefChip(null, GEOREF_OFF, 'modul2')
     expect(chip.kind).toBe('unlinked')
-    expect(georefChipTone(chip)).toBe('red')
+    expect(georefChipTone(chip)).toBe('grey')
+  })
+})
+
+// 25.09.2026: «Übernehmen»'s toast resets the sheet — only while the reference is still exactly
+// what was accepted, never one another device has corrected since
+describe('georefStillIs — the accept toast takes back only what it accepted', () => {
+  const accepted: GeorefPair[] = [
+    { plan: { x: 0, y: 0 }, lngLat: { lng: 7.5, lat: 47.5 } },
+    { plan: { x: 1, y: 0 }, lngLat: { lng: 7.51, lat: 47.5 } },
+  ]
+  it('holds while the stored pairs are the accepted ones', () => {
+    mockGeorefForPlan.mockReturnValue({ pairs: accepted } as Georef)
+    expect(georefStillIs('modul2', accepted)).toBe(true)
+  })
+  it('declines once the reference moved — or went', () => {
+    mockGeorefForPlan.mockReturnValue({ pairs: [accepted[0], { ...accepted[1], lngLat: { lng: 7.52, lat: 47.5 } }] } as Georef)
+    expect(georefStillIs('modul2', accepted)).toBe(false)
+    mockGeorefForPlan.mockReturnValue(null)
+    expect(georefStillIs('modul2', accepted)).toBe(false)
   })
 })

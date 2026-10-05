@@ -9,10 +9,10 @@ import type { SyncStatus } from './incidents'
 // the offline→pending→offline flap of a retrying save must not restart the persistence clock.
 // Pure timer wiring; the caller renders the toast.
 //
-// The 2026-07-18 decision «one-shot toast, no persistent banner» was half-reversed on
-// 2026-09-07 (field request): the toast stays the one-shot ANNOUNCEMENT, and a device that
-// REMAINS offline past a longer window additionally shows a standing Meldung on the strip
-// until the link is back — `createOfflinePresence` below is that second threshold.
+// The 2026-07-18 decision «one-shot toast, no persistent banner» stands again: the standing
+// offline Meldung added on 2026-09-07 was removed on 2026-10-05 (owner, iPhone in airplane mode:
+// a big card at the top for something the head's «● Offline» chip already says the whole time,
+// with a «Jetzt synchronisieren» that cannot do anything offline).
 
 export type SyncAlertKind = 'error' | 'offline'
 
@@ -22,37 +22,6 @@ export interface SyncAlertTracker {
 }
 
 export const OFFLINE_ALERT_DELAY_MS = 30_000
-
-/** How long the sync must sit in 'offline' before the standing Meldung comes up. */
-export const OFFLINE_BANNER_DELAY_MS = 60_000
-
-/**
- * The standing-banner half of the offline story (Feldtest 07.09.: «add a clearer indicator when
- * the device is offline after a minute»): reports `true` once the status has PERSISTED in
- * 'offline' for `delayMs`, `false` the moment anything else proves the server reachable again.
- * Same flap tolerance as the toast tracker above — 'pending' is a retrying save and neither
- * clears the banner nor restarts the clock. 'error' and 'storage' DO clear it: both mean the
- * server answered, so «offline» would be the wrong word on the strip.
- */
-export function createOfflinePresence(
-  onChange: (offline: boolean) => void,
-  opts?: { delayMs?: number },
-): SyncAlertTracker {
-  const delayMs = opts?.delayMs ?? OFFLINE_BANNER_DELAY_MS
-  let shown = false
-  let timer: ReturnType<typeof setTimeout> | null = null
-  const clear = () => { if (timer != null) { clearTimeout(timer); timer = null } }
-  const hide = () => { clear(); if (shown) { shown = false; onChange(false) } }
-  return {
-    onStatus(s: SyncStatus) {
-      if (s === 'pending') return
-      if (s !== 'offline') { hide(); return }
-      if (shown || timer != null) return
-      timer = setTimeout(() => { timer = null; shown = true; onChange(true) }, delayMs)
-    },
-    dispose: clear,
-  }
-}
 
 /** Warn threshold for device-vs-server clock skew, in whole minutes — the same bound the
  *  capture surface uses (CaptureApp: warn when |serverSkewMinutes| > 3). */

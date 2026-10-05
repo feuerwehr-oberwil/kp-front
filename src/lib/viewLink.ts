@@ -31,8 +31,10 @@ import { apiDelete, apiGet, apiPost } from './api'
 export type ShareLinkKind = 'view' | 'atemschutz'
 
 /** «Teilen» — the two handovers, in the order somebody reaches for them, and in the shape the
- *  sheet's own chooser wants (components/panels/ShareIncident): a two-line label whose SECOND
- *  line is the distinction that matters at 3am — lesen ↔ bedienen.
+ *  sheet's own chooser wants (components/panels/ShareIncident): ONE line each — «Einsatz · lesen»,
+ *  «Trupps · bedienen» — whose second word is the distinction that matters at 3am, lesen ↔
+ *  bedienen (one line since 27.09.2026; the two-line «Ganzer Einsatz / nur lesen» segment was the
+ *  app's only stacked one).
  *
  *  A function, not a module constant: `appConfig.copy` is a getter and a capture at import time
  *  would freeze the language (see config/copy · getCopy).
@@ -44,18 +46,16 @@ export type ShareLinkKind = 'view' | 'atemschutz'
 export function shareDoors(opts: { archived?: boolean } = {}): ShareDoorRow[] {
   const C = appConfig.copy.preflight
   const rows: ShareDoorRow[] = [
-    { kind: 'view', label: C.shareKindFull, sub: C.shareKindFullSub, livesPastAbschluss: true },
-    { kind: 'atemschutz', label: C.shareKindAtem, sub: C.shareKindAtemSub, livesPastAbschluss: false },
+    { kind: 'view', label: C.shareKindFull, livesPastAbschluss: true },
+    { kind: 'atemschutz', label: C.shareKindAtem, livesPastAbschluss: false },
   ]
   return opts.archived ? rows.filter((r) => r.livesPastAbschluss) : rows
 }
 
 interface ShareDoorRow {
   kind: ShareLinkKind
-  /** what the link shows */
+  /** what the link shows, and what the holder may do with it: «Einsatz · lesen» */
   label: string
-  /** …and what the holder may do with it — the half a glance actually needs */
-  sub: string
   /** Does this link still work once the Einsatz is abgeschlossen? Only the read-only one does. */
   livesPastAbschluss: boolean
 }

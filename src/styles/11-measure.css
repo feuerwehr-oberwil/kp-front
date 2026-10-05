@@ -189,25 +189,57 @@
 
 /* Verbindungen — reuses the editor's own .de-row / .de-preset rows verbatim so it reads as one more
    FKS group, not a separate widget. Only the target value, the note line and the detach get styling. */
-.draw-editor .de-conn-title { padding: 4px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ink-dim); }
+.draw-editor .de-conn-title {
+  padding: 4px 0 2px;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
+}
 /* the same font-family: inherit as .de-prof-toggle above, for the same reason — these three are
    buttons sitting among .de-row labels, and a button that does not ask for the page font gets the
    browser's instead. */
 .draw-editor .de-conn-name { display: inline-flex; align-items: center; gap: 3px; max-width: 60%; padding: 0; border: 0;
   background: none; color: var(--ink); font-family: inherit; font-size: 13px; font-weight: 600; }
 .draw-editor .de-conn-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.draw-editor .de-conn-name:disabled { color: var(--ink-dim); }
+/* the ONE disabled (28.09.2026): the dim, not a colour swap */
+.draw-editor .de-conn-name:disabled { opacity: var(--disabled); cursor: default; }
 .draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
 .draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 6px; font-size: 12px; color: var(--ink-dim); }
 .draw-editor .de-conn-note.warn { color: var(--red); font-weight: 600; }
-.draw-editor .de-conn-reveal { color: var(--blue); font-family: inherit; font-size: 12px; font-weight: 600; text-decoration: underline; }
+/* ⚠️ a framed compact button at the note's end (28.09.2026, owner pick A) — it was an underlined
+   blue word, 12px, a hyperlink in a command app */
+.draw-editor .de-conn-reveal { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
+  font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.draw-editor .de-conn-reveal:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (pointer: coarse) { .draw-editor .de-conn-reveal { min-height: var(--tap); } }
 /* also a row: the 28px height and the 2px/4px margins made the last line of the panel sit tighter
    than everything above it, and its text started 4px in from the left edge the labels hold. */
 .draw-editor .de-conn-detach { display: inline-flex; align-items: center; margin: 0; min-height: 48px; padding: 2px 0;
   border: 0; background: transparent; color: var(--red); font-family: inherit; font-size: 12.5px; font-weight: 600; }
 @media (hover: hover) {
   .draw-editor .de-conn-detach:hover { text-decoration: underline; }
+}
+/* The GPS block at the head of the line editor while an end follows a vehicle (DrawEditor, D3):
+   what it follows and how far off it is, the way back as the ONE filled button (green: it puts
+   the line back where it was safe — the Meldung's «Am Einsatzort lassen» wears the same fill,
+   08-toasts · .ml-btn.prim.go), and the two quiet moves side by side under it. */
+.draw-editor .de-gps { padding: 6px 0 8px; }
+.draw-editor .de-gps-head { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 4px 0; }
+.draw-editor .de-gps-head .i { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--amber-strong); }
+.draw-editor .de-gps-head b { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+.draw-editor .de-gps-head span { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 500; color: var(--ink-dim); }
+.draw-editor .de-gps-back { display: flex; width: 100%; align-items: center; justify-content: center; min-height: 48px;
+  margin-top: 6px; padding: 0 12px; border: 1px solid var(--green); border-radius: var(--r-sm);
+  background: var(--green); color: var(--on-fill); font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.draw-editor .de-gps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+/* three moves (stop/continue · on site · here): the odd one out takes the whole second line */
+.draw-editor .de-gps-row > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+.draw-editor .de-gps-btn { min-height: 44px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--fill-soft); color: var(--ink); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.draw-editor .de-gps-back:active:not(:disabled),
+.draw-editor .de-gps-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) {
+  .draw-editor .de-gps-back:hover { background: var(--green-solid-hover); border-color: var(--green-solid-hover); }
+  .draw-editor .de-gps-btn:hover { background: var(--surface); }
 }
 /* Verbundene Linien — flat rows in the sidebar idiom (hairline separators, chevron affordance),
    not floating cards; the row label uses the friendly line name, not the raw id. */
@@ -243,7 +275,7 @@
 /* max-width beside the min: collision handling shifts a popup back onto the screen, it cannot
    shrink one that is wider than the screen. A long Trupp label is what would grow this past a
    phone's width — same guard the print menu and the context menu already carry. */
-.de-menu-pop { min-width: 200px; max-width: min(320px, 92vw); padding: 6px; border-radius: var(--r-ctl); background: var(--surface);
+.de-menu-pop { min-width: 200px; max-width: min(320px, 92vw); padding: var(--bar-pad); border-radius: var(--r-bar); background: var(--surface);
   box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — radius + hover/press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .de-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
@@ -272,7 +304,7 @@
    and «always the same spot» has to mean the same spot on the SCREEN. Nothing above it carries a
    transform, so the viewport is the containing block on both. */
 .sel-bar { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
-  display: flex; align-items: center; gap: 8px; padding: 6px;
+  display: flex; align-items: center; gap: 8px; padding: var(--bar-pad);
   border-radius: var(--r-cluster); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); box-shadow: var(--shadow); animation: pop .16s var(--ease); }
 /* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action) —

@@ -1,0 +1,23 @@
+{
+  "id": "generic-manual",
+  "kind": "manual",
+  "title": "Gerät in Betrieb nehmen",
+  "device": "Beispielgerät",
+  "subtitle": "Neutrale Beispiel-Anleitung — durch die eigenen Anleitungen der Wehr ersetzen",
+  "version": 1,
+  "updated": "2026-10-05",
+  "source": "KP Front — generische Vorlage",
+  "keywords": ["beispiel", "vorlage"],
+  "steps": [
+    { "text": "Gerät auf festen, ebenen Untergrund stellen." },
+    {
+      "text": "Sichtkontrolle: Schläuche, Kabel und Anschlüsse auf Schäden prüfen.",
+      "warning": "Beschädigtes Gerät nicht in Betrieb nehmen – ausser Dienst stellen und melden."
+    },
+    {
+      "text": "Gerät einschalten und Funktion prüfen.",
+      "hint": "Ein Bild zum Schritt: \"images\": [{ \"page\": 1, \"caption\": \"…\" }] – und das Bild unter «Diagramme» als Seite 1 hochladen."
+    },
+    { "text": "Nach dem Einsatz reinigen, Füllstände ergänzen, Mängel dem Materialwart melden." }
+  ]
+}

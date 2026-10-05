@@ -1,17 +1,19 @@
 // 24h wheel picker — the app's own time/date entry (decided 2026-07-14): native pickers
 // render AM/PM on English-language devices and can't be themed, so this popover gives the
 // iOS-style scroll wheels with a GUARANTEED 24h clock on every device. Columns are
-// scroll-snap lists (hour/minute, optionally day/month/year); the value is whatever rests
+// scroll-snap lists (hour/minute, plus a bounded day column when more than one day is on offer —
+// the ONE date control, 05.10.2026: no day/month/year wheels anywhere); the value is whatever rests
 // under the center band. «Jetzt» is the fast path (stamp current clock and close), «OK»
 // commits a scrolled selection. Portalled to <body> so no card/accordion can clip it.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
-import { fmtDayShort } from '../lib/zeitplanFormat'
 import { hhmm, pad2 } from '../lib/format'
+import { fmtWheelDay } from '../lib/zeitplanFormat'
 import { scrollBehavior } from '../lib/reducedMotion'
 import w from './WheelPicker.module.css'
+import { usePopoverGuard } from '../lib/overlays/popoverGuard'
 
 const ITEM_H = 44 // px, one wheel row — a full ≥44px tap target; must match .wheel-item/.wheel-pad/.wheelpop-band in app.css
 
@@ -27,7 +29,7 @@ const ITEM_H = 44 // px, one wheel row — a full ≥44px tap target; must match
 const LOOPS = 7
 const MID_BAND = 3
 
-function Wheel({ items, index, onIndex, ariaLabel, loop = false }: {
+function Wheel({ items, index, onIndex, ariaLabel, loop = false, day = false }: {
   items: string[]
   index: number
   onIndex: (i: number) => void
@@ -36,6 +38,8 @@ function Wheel({ items, index, onIndex, ariaLabel, loop = false }: {
    *  (the incident's days, a month, a year) must NOT loop: running off the end of those means
    *  the value does not exist, and a wheel that silently returns to January says it does. */
   loop?: boolean
+  /** the day column: wider than hour/minute and never wrapping (see fmtWheelDay) */
+  day?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const settle = useRef(0)
@@ -78,7 +82,7 @@ function Wheel({ items, index, onIndex, ariaLabel, loop = false }: {
     }, 90)
   }
   return (
-    <div className="wheel" data-scroll-physics ref={ref} onScroll={onScroll} role="listbox" aria-label={ariaLabel} tabIndex={0}>
+    <div className={`wheel${day ? ' wheel-day' : ''}`} data-scroll-physics ref={ref} onScroll={onScroll} role="listbox" aria-label={ariaLabel} tabIndex={0}>
       <div className="wheel-pad" aria-hidden />
       {rows.map((it, i) => {
         const value = loop ? i % n : i
@@ -107,7 +111,7 @@ export interface WheelValue { y: number; mo: number; d: number; h: number; mi: n
 const isCoarse = () =>
   typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
-/** '9', '930', '9:30', '09.30' → [h, mi]; null while it is still being typed or out of range. */
+/** '930', '9:30', '09.30' → [h, mi]; null while it is still being typed or out of range. */
 function parseTyped(raw: string): [number, number] | null {
   const t = raw.trim().replace(/[.\s]/g, ':')
   const m = /^(\d{1,2}):?(\d{2})$/.exec(t)
@@ -117,14 +121,13 @@ function parseTyped(raw: string): [number, number] | null {
   return h <= 23 && mi <= 59 ? [h, mi] : null
 }
 
-/** The popover itself. `withDate` adds day/month/year wheels (year: prev/this/next). */
-export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onClear, shortcut, clearLabel, clearActive, days }: {
+/** The popover itself. A day column appears when `days` holds more than one day. */
+export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shortcut, clearLabel, clearActive, days }: {
   anchor: DOMRect
   initial: Date
-  withDate?: boolean
   onCommit: (v: WheelValue) => void
   onClose: () => void
-  /** offered as «Löschen» when set (clears the underlying value) */
+  /** offered as «Leeren» when set (clears the underlying value) */
   onClear?: () => void
   /** A one-tap answer above the wheels — «ab Einsatzbeginn 07:29». It belongs here rather than
    *  beside the field because it answers the question the picker asks. */
@@ -146,16 +149,15 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
    */
   days?: Date[]
 }) {
+  usePopoverGuard(true)
+  const errorId = useId()
+  const [invalid, setInvalid] = useState(false)
   const C = appConfig.copy.wheel
   const coarse = isCoarse()
   const [v, setV] = useState<WheelValue>({
     y: initial.getFullYear(), mo: initial.getMonth() + 1, d: initial.getDate(),
     h: initial.getHours(), mi: initial.getMinutes(),
   })
-  const years = useMemo(() => {
-    const base = new Date().getFullYear()
-    return [base - 1, base, base + 1]
-  }, [])
   // the incident's days, de-duplicated to midnight so «same day» is a stable key
   const dayList = useMemo(() => {
     const seen = new Map<number, Date>()
@@ -167,9 +169,6 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   }, [days])
   const dayIndex = dayList.findIndex((d) =>
     d.getFullYear() === v.y && d.getMonth() + 1 === v.mo && d.getDate() === v.d)
-  const daysInMonth = new Date(v.y, v.mo, 0).getDate()
-  const monthDays = Array.from({ length: daysInMonth }, (_, i) => pad2(i + 1))
-  const months = Array.from({ length: 12 }, (_, i) => pad2(i + 1))
 
   // what the keyboard is holding right now; the wheels follow as soon as it parses
   const [typed, setTyped] = useState(() => hhmm(initial))
@@ -191,11 +190,19 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
         onClose()
       }
     }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose() } }
     document.addEventListener('pointerdown', onDoc, true)
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('pointerdown', onDoc, true); document.removeEventListener('keydown', onKey) }
+    window.addEventListener('keydown', onKey, true)
+    return () => { document.removeEventListener('pointerdown', onDoc, true); window.removeEventListener('keydown', onKey, true) }
   }, [onClose])
+
+  const commit = () => {
+    if (!coarse) {
+      const time = parseTyped(typed)
+      if (!time) { setInvalid(true); return }
+      onCommit({ ...v, h: time[0], mi: time[1] })
+    } else onCommit(v)
+  }
 
   const stampNow = () => {
     const n = new Date()
@@ -207,11 +214,15 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   // the popover grew past it, so «OK» ended up under the bottom edge of the screen with no way to
   // reach it. Measured: 9px padding ×2 + 5×44px of wheel + 40px actions + its 8px gap, plus the
   // shortcut row when there is one.
-  const height = 18 + (coarse ? 220 : withDate ? 96 : 52) + 48 + (shortcut || (onClear && clearLabel) ? 48 : 0)
+  const height = 18 + (coarse ? 220 : 52) + 48 + (shortcut || (onClear && clearLabel) ? 52 : 0) + (invalid ? 56 : 0)
   const up = window.innerHeight - anchor.bottom < height + 16
-  // a shortcut or a named clear needs its sentence on one line; the bare wheels do not
-  const dayWheel = dayList.length > 1 ? 76 : 0
-  const width = withDate ? (coarse ? 316 : 288) : (shortcut || clearLabel ? 236 : 196) + dayWheel
+  // Leave room for all three footer actions, including longer translations such as «Maintenant».
+  // A shortcut or a named state choice needs its sentence on one line; bare wheels do not.
+  // The day column is the widest label in the popover («Mo 05.10.», «lun 05.10.») and gets the
+  // room; hour and minute are two digits and keep a full-width 44px row each regardless.
+  const dayWheel = dayList.length > 1 ? 104 : 0
+  const width = Math.min(window.innerWidth - 16,
+    (onClear && !clearLabel ? 264 : shortcut || clearLabel ? 236 : 196) + dayWheel)
   const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))
   // Always positioned by `top`, so one clamp covers both directions: a popover that would hang off
   // either edge slides back in rather than putting its actions out of reach.
@@ -247,25 +258,14 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
           )}
           {onClear && clearLabel && (
             <button type="button" aria-pressed={!!clearActive}
-              className={`${w.tab} ${w.green}${clearActive ? ` ${w.tabOn}` : ''}`}
+              className={`${w.tab}${clearLabel ? ` ${w.green}` : ''}${clearActive ? ` ${w.tabOn}` : ''}`}
               onClick={onClear}>{clearLabel}</button>
           )}
         </div>
       )}
       <div className="wheelpop-cols">
-        {withDate && coarse && (
-          <>
-            <Wheel ariaLabel={C.day} items={monthDays} index={Math.min(v.d, daysInMonth) - 1}
-              onIndex={(i) => setV((p) => ({ ...p, d: i + 1 }))} />
-            <Wheel ariaLabel={C.month} items={months} index={v.mo - 1}
-              onIndex={(i) => setV((p) => ({ ...p, mo: i + 1, d: Math.min(p.d, new Date(p.y, i + 1, 0).getDate()) }))} />
-            <Wheel ariaLabel={C.year} items={years.map(String)} index={Math.max(0, years.indexOf(v.y))}
-              onIndex={(i) => setV((p) => ({ ...p, y: years[i] }))} />
-            <span className="wheelpop-sep" aria-hidden />
-          </>
-        )}
         {dayList.length > 1 && coarse && (
-          <Wheel ariaLabel={C.day} items={dayList.map(fmtDayShort)} index={Math.max(0, dayIndex)}
+          <Wheel day ariaLabel={C.day} items={dayList.map(fmtWheelDay)} index={Math.max(0, dayIndex)}
             onIndex={(i) => {
               const d = dayList[i]
               if (d) setV((p) => ({ ...p, y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate() }))
@@ -287,53 +287,34 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
             <input
               className={w.typed} value={typed} inputMode="numeric" enterKeyHint="done" autoFocus
               aria-label={`${C.hour} / ${C.minute}`} placeholder="--:--"
+              aria-invalid={invalid || undefined} aria-describedby={invalid ? errorId : undefined}
               onChange={(e) => {
                 setTyped(e.target.value)
+                setInvalid(false)
                 const hhmm = parseTyped(e.target.value)
                 if (hhmm) setV((p) => ({ ...p, h: hhmm[0], mi: hhmm[1] }))
               }}
-              onKeyDown={(e) => { if (e.key === 'Enter') onCommit(v) }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit() } }}
             />
-            {/* ⚠️ With a keyboard the date needs its OWN controls: the day/month/year wheels are
-                a touch affordance, and rendering them here left a tall empty box with nothing in
-                it but the clock. Three selects — the same choice the wheels offer, in the shape a
-                mouse can use. Native selects follow the day-list precedent right below. */}
-            {withDate && (
-              <span className={w.dateRow}>
-                <select className={w.daySel} aria-label={C.day} value={Math.min(v.d, daysInMonth)}
-                  onChange={(e) => setV((p) => ({ ...p, d: Number(e.target.value) }))}>
-                  {monthDays.map((d, i) => <option key={d} value={i + 1}>{d}</option>)}
-                </select>
-                <select className={w.daySel} aria-label={C.month} value={v.mo}
-                  onChange={(e) => setV((p) => {
-                    const mo = Number(e.target.value)
-                    return { ...p, mo, d: Math.min(p.d, new Date(p.y, mo, 0).getDate()) }
-                  })}>
-                  {months.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                </select>
-                <select className={w.daySel} aria-label={C.year} value={v.y}
-                  onChange={(e) => setV((p) => ({ ...p, y: Number(e.target.value) }))}>
-                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </span>
-            )}
-            {dayList.length > 1 && !withDate && (
+            {dayList.length > 1 && (
               <select className={w.daySel} aria-label={C.day} value={Math.max(0, dayIndex)}
                 onChange={(e) => {
                   const d = dayList[Number(e.target.value)]
                   if (d) setV((p) => ({ ...p, y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate() }))
                 }}>
-                {dayList.map((d, i) => <option key={i} value={i}>{fmtDayShort(d)}</option>)}
+                {dayList.map((d, i) => <option key={i} value={i}>{fmtWheelDay(d)}</option>)}
               </select>
             )}
           </div>
         )}
       </div>
+      {invalid && <p id={errorId} className={w.error} role="alert">{C.invalidTime}</p>}
       <div className="wheelpop-actions">
-        {/* «Jetzt» sits with OK because it, too, produces a clock reading — the tabs above produce
-            something that is NOT a clock reading, which is the whole distinction. */}
+        {onClear && !clearLabel && (
+          <button type="button" className="wheelpop-btn" onClick={onClear}>{appConfig.copy.clear}</button>
+        )}
         <button type="button" className="wheelpop-btn" onClick={stampNow}>{C.now}</button>
-        <button type="button" className="wheelpop-btn primary" onClick={() => onCommit(v)}>{C.ok}</button>
+        <button type="button" className="wheelpop-btn primary" onClick={commit}>{C.ok}</button>
       </div>
     </div>,
     document.body,

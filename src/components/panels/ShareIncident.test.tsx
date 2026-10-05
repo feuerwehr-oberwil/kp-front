@@ -39,7 +39,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('«Ganzer Einsatz – nur lesen»', () => {
+describe('«Einsatz · lesen»', () => {
   it('mints nothing on open: the address appears only after «Link erstellen»', async () => {
     render(<ShareIncident incidentId="i1" />)
     await screen.findByText(C.shareCreate)
@@ -57,13 +57,13 @@ describe('«Ganzer Einsatz – nur lesen»', () => {
     expect(screen.getByText(C.shareWarn)).toBeTruthy()
   })
 
-  // ⚠️ This lede is the ONLY place the read-only link is explained, and since it replaced the
-  // second read-only link it has to name both audiences and both lifetimes — the one before the
-  // Abschluss and the one long after it. Somebody who reads only half of it used to reach for
-  // the other link; there is no other link any more.
-  it('names both audiences and both lifetimes, with a link and without one', async () => {
+  // One line, before and after (29.09.2026): the tab already says «lesen», so the lede carries the
+  // two facts it does not — no login, and it outlives the Abschluss. The long explanation (both
+  // audiences, both lifetimes) is in Hilfe · «Rapport & Abschluss».
+  it('says in one line that it needs no login and outlives the Abschluss, with a link and without', async () => {
     render(<ShareIncident incidentId="i1" />)
     const before = await screen.findByText(C.shareLede)
+    expect(before.textContent).toMatch(/Login/)
     expect(before.textContent).toMatch(/Abschluss/)
 
     cleanup()
@@ -91,7 +91,7 @@ describe('«Ganzer Einsatz – nur lesen»', () => {
   })
 })
 
-describe('… und «Nur Atemschutz – bedienen»', () => {
+describe('… und «Trupps · bedienen»', () => {
   it('opens on the door the entry point meant, with that door’s sentences', async () => {
     render(<ShareIncident incidentId="i1" initialKind="atemschutz" />)
     await screen.findByText(C.shareAsLede)

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { Overlays, toast, updateToast, dismissToast, confirmDialog, openPhoto } from './ui'
+import { Overlays, toast, undoToast, updateToast, dismissToast, confirmDialog, openPhoto } from './ui'
+import { noteRemoteChanges } from './undoKeys'
 import { appConfig } from '../config/appConfig'
 
 afterEach(() => {
@@ -53,6 +54,64 @@ describe('confirmDialog (Base UI AlertDialog)', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Entfernen' }))
     await expect(p).resolves.toBe('alt')
+  })
+
+  /* staging r3 F5: a chain of questions (the Abschluss) reused ONE dialog node, so the focus of
+   * the button tapped in question 1 stayed on the same-placed button in question 2 — and Enter
+   * closed the Einsatz through «5 Personen noch vermisst». Every question mounts fresh and lands
+   * on its own safe answer. (The next question is asked in the SAME batch as the answer, the way
+   * the browser runs it — in jsdom a render between the two would hide the bug.) */
+  it('a chained question mounts fresh: tap «Trotzdem» on Q1, and Q2 has the focus on ITS safe answer', async () => {
+    render(<Overlays />)
+    let second!: Promise<boolean>
+    act(() => { void confirmDialog({ title: 'Q1', message: 'Noch drin', confirmLabel: 'Trotzdem abschliessen', cancelLabel: 'Zur Tafel', safeAnswer: 'cancel' }) })
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Zur Tafel' })))
+    // the tap moves the focus onto «Trotzdem» — exactly what used to be carried over
+    const go = screen.getByRole('button', { name: 'Trotzdem abschliessen' })
+    go.focus()
+    act(() => {
+      fireEvent.click(go)
+      second = confirmDialog({ title: 'Q2', message: 'Vermisst', confirmLabel: 'Trotzdem abschliessen', cancelLabel: 'Zur Suche', safeAnswer: 'cancel' })
+    })
+    expect(screen.getByRole('alertdialog').textContent).toContain('Vermisst')
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Zur Suche' })))
+    // …so Enter (a click on the focused button) answers the SAFE way
+    fireEvent.click(document.activeElement as HTMLElement)
+    await expect(second).resolves.toBe(false)
+  })
+})
+
+describe('undoToast outlives remote merges (25.09.2026)', () => {
+  it('declines once a merge changed a record its «Rückgängig» would write', () => {
+    vi.useFakeTimers() // afterEach flushes what these leave standing
+    render(<Overlays />)
+    const onUndo = vi.fn()
+    act(() => { undoToast('Block entfernt', onUndo, ['attendance:p1']) })
+    act(() => noteRemoteChanges(['attendance:p1']))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.undo }))
+    expect(onUndo).not.toHaveBeenCalled()
+    expect(screen.getByText(appConfig.copy.undoLost)).toBeTruthy()
+  })
+
+  it('acts when the merge changed other records, and when a predicate guard still holds', () => {
+    vi.useFakeTimers() // afterEach flushes what these leave standing
+    render(<Overlays />)
+    const onUndo = vi.fn()
+    act(() => { undoToast('Block entfernt', onUndo, ['attendance:p1']) })
+    act(() => noteRemoteChanges(['attendance:p2']))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.undo }))
+    expect(onUndo).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks a predicate guard at the press', () => {
+    vi.useFakeTimers() // afterEach flushes what these leave standing
+    render(<Overlays />)
+    const onUndo = vi.fn()
+    let standing = true
+    act(() => { undoToast('Geschoss gelöscht', onUndo, () => standing) })
+    standing = false
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.undo }))
+    expect(onUndo).not.toHaveBeenCalled()
   })
 })
 
@@ -136,6 +195,7 @@ describe('sticky/updatable toast (live print status)', () => {
   })
 
   it('a step chain renders every stage and keeps the plain sentence for screen readers', () => {
+    vi.useFakeTimers()
     render(<Overlays />)
     let id!: number
     act(() => {
@@ -162,7 +222,13 @@ describe('sticky/updatable toast (live print status)', () => {
         { label: 'Gedruckt', state: 'future' },
       ],
     }))
-    expect(document.querySelector('.toast-step.now .print-feed')).toBeTruthy()
+    const pill = screen.getByText('Wird gedruckt …').closest('.toast')!
+    const activity = pill.querySelector('.toast-step.now svg')
+    expect(activity?.getAttribute('aria-hidden')).toBe('true')
+    expect([...activity!.querySelectorAll('path')].some(path => path.getAttribute('pathLength') === '100')).toBe(true)
+    act(() => updateToast(id, 'Druck fehlgeschlagen', { steps: null, icon: 'warn', tone: 'warn' }))
+    expect(pill.querySelector('.toast-step.now')).toBeNull()
+    act(() => dismissToast(id))
   })
 
   // ⚠️ The red trace in the pill is for FAILURES (review 24.09.2026): the print pill wears the warn
@@ -198,8 +264,9 @@ describe('sticky/updatable toast (live print status)', () => {
 
 // Action toasts can be dismissed immediately when their bounded stack is in the way.
 describe('getting a confirm-with-undo toast out of the way', () => {
-  /** the toast just raised — the store is module-level, so a previous test's pill may still stand */
-  const last = (sel: string) => [...document.querySelectorAll(`.toast ${sel}`)].pop() as HTMLElement
+  /** a control of the toast carrying `text` — the store is module-level, so a previous test's pill
+   *  may still stand, and since 25.09.2026 every timed pill has a ✕ of its own (see the note below) */
+  const inPill = (text: string, sel: string) => screen.getByText(text).closest('.toast')!.querySelector(sel) as HTMLElement
   const drag = (el: Element, dx: number) => {
     fireEvent.pointerDown(el, { pointerId: 1, clientX: 0 })
     fireEvent.pointerMove(el, { pointerId: 1, clientX: dx })
@@ -211,7 +278,7 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     render(<Overlays />)
     const onClick = vi.fn()
     act(() => { toast('mit ✕ weg', { action: { label: 'Rückgängig', onClick } }) })
-    fireEvent.click(last('.toast-x'))
+    fireEvent.click(inPill('mit ✕ weg', '.toast-x'))
     await waitFor(() => expect(screen.queryByText('mit ✕ weg')).toBeNull())
     expect(onClick).not.toHaveBeenCalled()
   })
@@ -220,7 +287,7 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     render(<Overlays />)
     const onClick = vi.fn()
     act(() => { toast('weggewischt', { action: { label: 'Rückgängig', onClick } }) })
-    drag(last('.toast-action'), 90)
+    drag(inPill('weggewischt', '.toast-action'), 90)
     await waitFor(() => expect(screen.queryByText('weggewischt')).toBeNull())
     expect(onClick).not.toHaveBeenCalled()
   })
@@ -230,7 +297,7 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     render(<Overlays />)
     const onClick = vi.fn()
     act(() => { toast('zittrig gedrückt', { action: { label: 'Rückgängig', onClick } }) })
-    drag(last('.toast-action'), 6)
+    drag(inPill('zittrig gedrückt', '.toast-action'), 6)
     expect(onClick).toHaveBeenCalled()
     await waitFor(() => expect(screen.queryByText('zittrig gedrückt')).toBeNull())
   })
@@ -257,12 +324,17 @@ describe('swiping the whole toast pill', () => {
     await waitFor(() => expect(screen.queryByText('weggewischte Nachricht')).toBeNull())
   })
 
-  it('springs back below the threshold — the pill stays, and a tap still dismisses it', async () => {
+  it('springs back below the threshold — the pill stays, a tap on it keeps it, only the ✕ closes', async () => {
     render(<Overlays />)
     act(() => { toast('kaum bewegt') })
     swipe(pillFor('kaum bewegt'), 10)
     expect(screen.getByText('kaum bewegt')).toBeTruthy()
+    // 05.10.2026, owner: «close on tapping the close button not the entire toast»
     fireEvent.click(pillFor('kaum bewegt'))
+    fireEvent.click(screen.getByText('kaum bewegt'))
+    await new Promise((r) => setTimeout(r, 250))
+    expect(screen.getByText('kaum bewegt')).toBeTruthy()
+    fireEvent.click(pillFor('kaum bewegt').querySelector('.toast-x')!)
     await waitFor(() => expect(screen.queryByText('kaum bewegt')).toBeNull())
   })
 
@@ -281,7 +353,7 @@ describe('swiping the whole toast pill', () => {
     render(<Overlays />)
     act(() => { toast('nur Cluster', { action: { label: 'Rückgängig', onClick: vi.fn() } }) })
     const pill = pillFor('nur Cluster')
-    swipe(screen.getByRole('button', { name: 'Rückgängig' }), 30) // below the button's own 56px flick
+    swipe(pill.querySelector('.toast-action')!, 30) // below the button's own 56px flick
     expect(pill.style.transform).toBe('')
   })
 
@@ -318,5 +390,69 @@ describe('photo viewer download link', () => {
     expect(screen.getByRole('dialog', { name: 'Bild' })).toBeTruthy()
     expect(screen.queryByText(dl)).toBeNull()
     closeViewer()
+  })
+})
+
+describe('toast · a `kind` replaces its predecessor instead of stacking', () => {
+  // 3am test r4, 26.09.2026: three «+ OG» taps stacked three identical «Geschoss hinzugefügt ·
+  // Rückgängig» pills over the stack's own «+ UG»
+  it('the second toast of a kind takes the first one\'s place; other toasts are left alone', () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    act(() => { toast('Anderes') })
+    act(() => { toast('2. OG hinzugefügt', { kind: 'storey' }) })
+    act(() => { toast('3. OG hinzugefügt', { kind: 'storey' }) })
+    act(() => { vi.advanceTimersByTime(200) }) // the replaced pill's exit
+    expect(screen.queryByText('2. OG hinzugefügt')).toBeNull()
+    expect(screen.getByText('3. OG hinzugefügt')).toBeTruthy()
+    expect(screen.getByText('Anderes')).toBeTruthy()
+  })
+
+  it('without a kind, toasts still stack as before', () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    act(() => { toast('eins'); toast('zwei') })
+    expect(screen.getByText('eins')).toBeTruthy()
+    expect(screen.getByText('zwei')).toBeTruthy()
+  })
+})
+
+// ONE message surface (25.09.2026): what goes away by itself SAYS so — a ✕ and a line that runs
+// out with its time. What stays (a mode's instruction, a live status) has neither.
+describe('a message says whether it goes away by itself', () => {
+  const pillFor = (text: string) => screen.getByText(text).closest('.toast') as HTMLElement
+
+  it('gives a timed message a ✕ and a line that runs for exactly its time', () => {
+    render(<Overlays />)
+    act(() => { toast('läuft ab', { duration: 4000 }) })
+    const pill = pillFor('läuft ab')
+    expect(pill.querySelector('.toast-x')).toBeTruthy()
+    expect((pill.querySelector('.toast-life') as HTMLElement).style.animationDuration).toBe('4000ms')
+  })
+
+  it('gives a sticky message neither', () => {
+    render(<Overlays />)
+    let id = 0
+    act(() => { id = toast('bleibt stehen', { sticky: true }) })
+    const pill = pillFor('bleibt stehen')
+    expect(pill.querySelector('.toast-x')).toBeNull()
+    expect(pill.querySelector('.toast-life')).toBeNull()
+    act(() => { dismissToast(id) })
+  })
+
+  it('starts the line again when an update resets the clock', () => {
+    render(<Overlays />)
+    let id = 0
+    act(() => { id = toast('Stand läuft', { sticky: true }) })
+    expect(pillFor('Stand läuft').querySelector('.toast-life')).toBeNull()
+    act(() => { updateToast(id, 'Stand gesichert', { tone: 'success', duration: 3000 }) })
+    expect((pillFor('Stand gesichert').querySelector('.toast-life') as HTMLElement).style.animationDuration).toBe('3000ms')
+  })
+
+  it('closes on its ✕', async () => {
+    render(<Overlays />)
+    act(() => { toast('mit eigenem ✕') })
+    fireEvent.click(pillFor('mit eigenem ✕').querySelector('.toast-x')!)
+    await waitFor(() => expect(screen.queryByText('mit eigenem ✕')).toBeNull())
   })
 })

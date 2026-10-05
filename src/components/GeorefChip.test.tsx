@@ -161,10 +161,14 @@ describe('the «Karte verknüpfen» chip', () => {
     expect(screen.getByRole('button', { name: 'Dritten Punkt setzen' })).toBeTruthy()
   })
 
+  // sweep K10 (29.09.2026): until the sheet is linked, «Karte verknüpfen» is its ONE chip — a
+  // link gives the scale — and the hand calibration is reached through Messen, as ever
   it('keeps manual calibration available when no automatic reference scale exists', () => {
     renderBoard()
-    fireEvent.click(screen.getByRole('button', { name: 'nicht kalibriert' }))
-    expect(screen.getByText('Zwei Punkte des Massstabs antippen')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'nicht kalibriert' })).toBeNull()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Messen' })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
+    expect(screen.getAllByText('Zwei Punkte des Massstabs antippen').length).toBeGreaterThan(0)
   })
 
   it('offers to add points instead of claiming it will correct a calculated pair', () => {
@@ -204,11 +208,22 @@ describe('the «Karte verknüpfen» chip', () => {
     expect(screen.queryByRole('button', { name: /Automatisch ausrichten/ })).toBeNull()
   })
 
+  // A locked session (el, Führungsansicht, viewer, replay) keeps the READING — tone and words —
+  // with no tap: an unchecked automatic fit must never look like a checked one, whoever looks.
   it('a viewer sees the reading but is given no way to arm it', () => {
     store.pairs = TWO
     renderBoard('modul2', true)
     const chip = screen.getByText('Verknüpft').closest('button')
     expect(chip?.disabled).toBe(true)
+  })
+
+  it('…and the Massstab beside it is a read-out too: «Ref. auto», disabled, no Passung behind it', () => {
+    store.pairs = TWO
+    renderBoard('modul2', true)
+    const scale = screen.getByRole('button', { name: 'Ref. auto' }) as HTMLButtonElement
+    expect(scale.disabled).toBe(true)
+    fireEvent.click(scale)
+    expect(screen.queryByRole('group', { name: /Passung/ })).toBeNull()
   })
 })
 
@@ -496,10 +511,11 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
 describe('the pill row\'s lamps — the phone\'s whole reading', () => {
   const lamp = (el: HTMLElement | null) => el?.closest('button')?.querySelector('.wb-lamp')?.getAttribute('data-tone')
 
-  it('is red on both pills while the sheet has neither scale nor reference', () => {
+  // sweep K10 (29.09.2026): «not yet» is grey, never red at rest — and ONE chip says it
+  it('shows one grey «Karte verknüpfen» while the sheet has neither scale nor reference', () => {
     renderBoard()
-    expect(lamp(screen.getByText('nicht kalibriert'))).toBe('red')
-    expect(lamp(screen.getByText('Karte verknüpfen'))).toBe('red')
+    expect(screen.queryByText('nicht kalibriert')).toBeNull()
+    expect(lamp(screen.getByText('Karte verknüpfen'))).toBe('grey')
   })
 
   // two pairs solve EXACTLY, so the fit is unmeasured — and the scale derived from it inherits

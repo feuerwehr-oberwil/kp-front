@@ -157,6 +157,22 @@ export interface SymbolProps {
    *  sheet). The renderers add a `--note-halo` outline so bare text stays legible over an
    *  aerial / a dark plan — never a background-less plain colour. */
   notePlain?: boolean
+  /** «Gelöscht / erledigt» (review item 21b, 24.09.2026): the thing this symbol marks is OVER —
+   *  the fire is out, the Rettung done — but it happened, so the symbol STAYS on the picture,
+   *  greyed, with the time (lib/objectDone). Deleting it («Entfernen») is for a mistake only.
+   *  A PROP, not geometry: it lives in SymbolProps, so it is part of the vocabulary both bodies
+   *  share and crosses with every write-through and every bake (lib/tacticalObjects) like `count`
+   *  does. Setting and clearing it are ordinary undoable prop edits. Offered on `kind: 'symbol'`
+   *  only — a Fläche/Absperrkreis would need its own greyed ink on four renderers. */
+  done?: ObjectDone
+}
+
+/** When a symbol was marked «gelöscht / erledigt», and by whom. `at` is an ISO instant on the
+ *  deployment's clock (lib/serverClock · serverNowIso), the same clock every Verlauf row uses. */
+export interface ObjectDone {
+  at: string
+  /** author display name snapshot, when known (like `MittelEvent.by`) */
+  by?: string
 }
 
 /** Relative note text size. Absent = 'm'; see `NOTE_SIZE_SCALE` in lib/notes. */
@@ -294,7 +310,28 @@ export interface LineAttachment {
     confirmedAt: LngLat
     /** Last safely resolved endpoint; used while GPS following is paused/missing. */
     lastSafe: LngLat
+    /** The line as it stood ON SITE when «Weiter folgen» (or «Spur») was tapped — lib/gpsReturn.
+     *  Taken once and never overwritten while the end follows, so «Zurück auf Stand am
+     *  Einsatzort» can put the line back exactly. Optional and additive: an older client spreads
+     *  `gps` wherever it writes it, so the field rides along untouched and is simply never read.
+     *  ⚠️ Valid only while its `confirmedAt` is this coupling's (gpsReturn · freshBefore): an
+     *  older build re-confirming the end keeps a snapshot that no longer describes anything. */
+    before?: GpsFollowSnapshot
   }
+}
+/** `LineAttachment.gps.before` — the on-site line at the moment following began. */
+export interface GpsFollowSnapshot {
+  /** the line's vertices, its GPS end on the point the screen showed on site */
+  coords: LngLat[]
+  routing: LineRoutingMode
+  state: GpsFollowState
+  confirmedAt: LngLat
+  /** the coupling's `lastSafe` at the tap: the LAST ON-SITE SAMPLE (a paused end stopped taking
+   *  samples when the vehicle crossed the 20 m guard), not where the vehicle was at the tap. The
+   *  point every «vom Einsatzort» distance is measured from. */
+  lastSafe: LngLat
+  /** ISO time of the tap (server clock) */
+  at: string
 }
 export interface Drawing {
   id: string
@@ -389,6 +426,10 @@ export interface TimelineEvent {
   t: string             // HH:MM
   /** absolute timestamp for reports/exports. Older saved rows may only have `t`. */
   at?: string
+  /** When the SERVER wrote the row, where that differs from `at` — an observer's row is dated
+   *  by the fact it records (a wind reading, a GPS time) and may arrive long after it
+   *  (backend · app/observations). Read for «is this still news», never for ordering. */
+  writtenAt?: string
   icon: string
   text: string
   kind?: 'audio' | 'symbol' | 'vehicle' | 'layer' | 'note' | 'photo' | 'snapshot' | 'journal' | 'team' | 'history' | 'reminder'
@@ -471,6 +512,18 @@ export interface TimelineEvent {
    *  at display time and hides the patch row itself — rows are never edited in place
    *  (append-only record; same pattern as the reminder lifecycle above). */
   patchOf?: string
+  /** Stamped by the SERVER on a row it accepted while the Einsatz was closed (api/journal,
+   *  staging r3): a Kontakt from 14:44 that arrived at 14:47, after a 14:45 close, keeps its
+   *  place in time — and still prints as a Nachtrag, because it reached the record late. */
+  receivedAfterClose?: boolean
+  /** Written BY the Abschluss itself, between the operator's confirm and the close — the crews it
+   *  went over, the ones it stood down (staging r6, F3). Part of the close, never a Nachtrag, even
+   *  when the device's clock put it a moment past the server's `closed_at` (lib/verlauf ·
+   *  isNachtrag bounds how far past). */
+  atClose?: boolean
+  /** A server boundary row: the Einsatz was closed or reopened here (backend · append_system_row).
+   *  What the clients key the reopen's clock restart on — never the German sentence. */
+  lifecycle?: 'closed' | 'reopened'
   /** patch payload only: corrected text for the target row. Patch rows carry a filler
    *  `text: ''`, so a text correction needs its own field — the store folds it onto the
    *  target's `text` at display time (append-only correction, same as transcript). */
@@ -884,7 +937,11 @@ export type TruppAuftrag = AtemschutzAuftrag | EinfachAuftrag
  *  while it is being edited, and asked again for each re-deployment — a crew that fought the fire
  *  under PA goes back in to clear up without it. `editTrupp` and `reactivateTrupp` each own what
  *  that change writes, because it starts or stops a safety watch (see Trupp.kind). */
-export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind; equipment?: string[] }
+export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind; equipment?: string[]
+  /** the Eingangsdruck was set ON PURPOSE in the form (dialled, typed, a bottle answer, a low value
+   *  confirmed) — its log row is marked `measured`, so the first Druckmeldung never «corrects» it
+   *  (lib/atemschutz · entryPressureConfirmed). Absent = the untouched default. */
+  pressureMeasured?: boolean }
 
 /**
  * One Beilage to the Einsatzrapport — a photo that belongs to the REPORT rather than to the
@@ -995,6 +1052,19 @@ export interface Trupp {
    * Cleared again by the delete's own «Rückgängig». */
   removedAt?: string
   /**
+   * Whom of this crew the Anwesenheit has already been told about — the crew filing's one-shot
+   * marker (lib/crewFiling). One key per person: the roster id, or the derived Gast id
+   * `g-<truppId>-<hash>`. Sorted, grow-only, and MERGED AS A UNION (mergeWorkspace · mergeTrupp).
+   *
+   * ⚠️ Without it the filing was a reconciliation that wrote a deliberate deletion straight back:
+   * somebody takes a crew member off the Anwesenheit, and the next device that observes the Trupp
+   * files them again (the ghost-trail trap, AGENTS.md). A key here means «filed once, or already
+   * there when the Trupp was seen» — whatever happens to that entry afterwards is a person's
+   * decision, and no device undoes it. A machine field: undo restores keep it (useTruppActions ·
+   * remember / restoreTrupp), and a merge that differs only here is not a Trupp conflict.
+   */
+  crewFiled?: string[]
+  /**
    * The Trupp's own number — «Trupp 3» — handed out at registration from ONE counter per Einsatz
    * that unlinked plan chips and map markers («Trupp N», lib/placedTrupps · nextTeamName) draw
    * from too, so two things on the same incident are never both called Trupp 1. Never reused.
@@ -1068,6 +1138,18 @@ export interface Trupp {
    *  pressure update; seeded to entryTime on Eingerückt. Empty while `angemeldet`. The contact
    *  clock (now − this) is the safety signal: overdue past the interval ⇒ überfällig alarm. */
   lastContactTime: string
+  /** The contact clock was RESTARTED here by «Wieder öffnen», not by a Kontakt (lib/reopenClocks,
+   *  D5): equal to `lastContactTime` while that restart is the last thing that moved the clock.
+   *  What lets the alarm's «beendet» row name the reopen instead of claiming a Funkkontakt. */
+  contactRestartedAt?: string
+  /** …and when the Einsatz had been CLOSED before that reopen: `[pausedFrom, contactRestartedAt]`
+   *  is time spent closed, which the pressure estimate does not count as breathing (staging r4:
+   *  every crew inside read «Alarmdruck … laut Schätzung erreicht» right after the reopen). */
+  pausedFrom?: string
+  /** …and the contact time the restart REPLACED: an alarm opened on that contact was still running
+   *  at the reopen (the restart ends it); one opened on an older contact had already been ended
+   *  by this one (N4, staging 26.09.2026). */
+  contactBeforeRestart?: string
   /** last recorded cylinder pressure (bar) + when (ISO) — logged for the record, never predicted */
   lastPressureBar?: number
   lastPressureTime?: string

@@ -26,13 +26,33 @@ On top of that there is a third, small source: the server writes lifecycle rows 
 (`append_system_row`, `backend/app/api/journal.py:96`) – incident closed, reopened,
 Nachalarm, automatic archival.
 
+## What the server observes (since 24.09.2026)
+
+Observations of the outside world are written by the scheduler, never by a
+device (`docs/ARCHITECTURE.md` · «The server observes»). Their rows carry derived ids, `t: ""`
+(clients render the time from `at`) and German text, like the other server rows:
+
+| Row | Id | `at` | When |
+|---|---|---|---|
+| «TLF vor Ort» | `vps-<n>-scene-gps-<device>` | the tracker's FIRST report inside 150 m (Traccar `deviceTime`) | the vehicle's first arrival only; later arrivals are trips, counted in `reportMeta.fahrzeuge[].gps.fahrten` and printed as «3 Fahrten», never rows. No row when the external geofence already wrote «TLF vor Ort 19:23» for it (first writer wins) |
+| «TLF hat den Einsatzort verlassen» | `vps-<n>-away-gps-<device>` | the tracker's FIRST report beyond 300 m | the LAST departure only: written once the vehicle stayed away 20 min, or when observation ends — so it appears late but stands where it happened. A tracker the config cannot name writes no row where the external geofence is writing (it may name it differently) |
+| «Wind dreht: W → NO (286° → 66°) · Lüfter prüfen» | `wxd-<observed_at>` | the confirming reading | a turn ≥ 45° at ≥ 10 km/h, held over two readings on the same side, from one source + station; the devices show it once on the Meldeleiste for 30 min from the row's `writtenAt` (`WindShiftMeldung`, ✕ is remembered per device) |
+| «Automatische Beobachtung beendet (24 h ohne Eintrag) …» | `obs-end-<last activity>` | 24 h after the last human write | once per quiet spell of an OPEN, observed Einsatz; observation resumes at the next human write |
+
+Audit only (no row): `vehicle.presence` (every transition and the silent baseline, source
+`gps`) and `weather.observe` (every reading, source `weather`, id `wx:<incident>:<observed_at>`
+— the replay's wind badge). Rows written before the deploy by the devices (`vp-` rows stamped
+when a device noticed, `weather.observe` per device) stay as they are; the server's own `vps-`
+rows are written beside them, never swallowed by them. An older build's new ones are dropped at
+the endpoints.
+
 ## Atemschutz: the full cycle is on the record
 
 Every Trupp row names the Trupp as `Trupp N (Gruppenführer …)` since 12.09.
 ([`trupp-naming.md`](trupp-naming.md) §4): safety rows (angemeldet, Eintritt, Kontakt, Druck,
-Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names; housekeeping rows
-(platziert, Farbe, Leitung, bearbeitet, gelöscht, wiederhergestellt, nicht mehr gesetzt) name the
-leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
+Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names, and so do the edit
+rows («bearbeitet», since 25.09.2026); housekeeping rows (platziert, Farbe, Leitung, gelöscht,
+wiederhergestellt, nicht mehr gesetzt) name the leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
 that date keep their `Trupp {Gruppenführer}` wording – the log is append-only.
 
 A Trupp or loose «Trupp N» marker whose number a merge gave to another device's Trupp
@@ -53,6 +73,33 @@ Rapport as «Von Tafel entfernt».
 
 Everything else on the Atemschutz board is in the Verlauf: placing, radio contact, pressure
 report, status change, editing, returning, linking/unlinking a Leitung, alarm escalation.
+
+⚠️ **The Sicherungstrupp going in says so** (2026-09-24): the first Eintritt of an
+Atemschutz-Trupp on Auftrag «Sichern» writes «Trupp N (…): Sicherungstrupp eingesetzt»
+(`logSafetyEntry`) instead of the plain «Eintritt» – whether it came from the phone slot's
+«Einsetzen» or the card's «Im Einsatz». Derived from the Trupp, not from the button. The log row
+underneath is an ordinary `entry`, and ↶ takes it back like any Eintritt. The Abschluss's
+«Als «nicht eingesetzt» schliessen» writes the existing «Trupp … nicht eingesetzt» row, one per
+Trupp still angemeldet. «Sicherungstrupp bestimmen» on an existing Trupp is an ordinary edit
+(«Auftrag Sichern»). A double contact answered «OK» (another device confirmed it < 60 s ago)
+writes nothing at all.
+
+⚠️ **The first Druck after the Eintritt is a Kontakt that says what it replaced** (2026-09-25):
+within 3 min of the Eintritt, with no reading yet and an Eingangsdruck nobody set, a Druckmeldung
+writes ONE row — «Trupp N (…): Kontakt – erste Druckmeldung 260 bar ersetzt den Eingangsdruck 300
+bar» (`logFirstPressure`) — resets the contact clock and appends a `contact` log row beside the
+corrected baseline. It used to be only an edit row («Eingangsdruck 300 → 260 bar») with no Kontakt.
+A double tap on «Kontakt» writes one row, not two.
+
+⚠️ **The crew reaches the Anwesenheit once, and the row names people** (2026-09-25, staging r2):
+the Gäste a Trupp form files at its save are filed quietly and named in the crew's ONE «Unter AS:
+…» row (never twice, never by id). A crew registered on the Atemschutz-Link writes no «erfasst»
+row there (the link cannot write the Anwesenheit); an editor device that sees the Trupp files the
+crew under derived ids and writes that one row under a derived row id (`atc-<truppId>-…`,
+lib/crewFiling), so several devices write it once — and only once per (Trupp, person): the
+Trupp's `crewFiled` marker keeps a deliberate deletion from the Anwesenheit deleted. «Nicht eingesetzt» closes a Trupp with an
+`exit` log row that is LABELLED «Nicht eingesetzt» on the card and on the Rapport, never
+«Austritt» (lib/atemschutz · isStandDownExit).
 
 ⚠️ **Two contact kinds have been kinds of their own since 2026-08-19**, no longer «Kontakt»: the
 **exit** («Ausgerückt») and the **re-entry** after a Rückzug. The safety clock is untouched by
@@ -115,6 +162,27 @@ was a gap in the *docs*, not in the Verlauf – this is what the truth looks lik
   land only in the audit stream (`draw.edit`) – that's the deliberate silence from the table
   above, and it applies to the Fläche just like to every other drawing.
 
+**Two exceptions, and each is a row: a GPS-coupled Leitung loses a drive** (since 24.09.2026,
+`src/lib/gpsReturn.ts`, `useMapDrawing · revertGpsFollow` / `releaseGpsOnSite`). A Leitung end
+coupled to a vehicle's GPS that has *followed* the vehicle off site traced the drive into the
+line. Taking that drive out again is not arranging – it changes the hose line the Rapport prints –
+so both acts that do it write ONE row (icon `pen`), naming every line of the one vehicle the tap
+acted on:
+
+| Act | Row | ↶ |
+|---|---|---|
+| «Zurück auf Stand am Einsatzort» – the line exactly as it stood when following began, detached there | «{Leitungen}: zurück auf Stand am Einsatzort ({hh:mm}), von {Fahrzeug} gelöst» (`gpsReverted`; `gpsRevertedBare` without the vehicle when it is out of the feed) | one step, its bubble «{Leitungen} zurück auf Stand am Einsatzort rückgängig gemacht» |
+| «Am Einsatzort lassen» / «Am Einsatzort lösen» that CUT a trace back to its on-site end | «{Leitungen}: am Einsatzort von {Fahrzeug} gelöst, Fahrt entfernt» (`gpsReleasedOnSite` / `…Bare`) | one step |
+
+The audit stream gets `draw.edit` (the new coords) + `draw.detach`, so the replay folds the same
+line. The acts around them stay silent, like every other attachment change: «Weiter folgen»,
+«Folgen stoppen», «Hier lösen (Spur behalten)» (it keeps the drive: nothing leaves the record),
+«Am Einsatzort lassen» on an end that never traced, a hand dragging the end off (audit
+`draw.edit` / `draw.detach` only). The GPS Meldungen themselves («TLF fährt weg · 340 m vom
+Einsatzort», «TLF wieder am Einsatzort») write nothing – they are the Meldeleiste, see above – and
+answering the «back» offer with «Weiter folgen» or waving a «stopped» row away with ✕ is
+remembered on the device only.
+
 Why a real log can still show 0 «Fläche» hits: on the Lage people draw mostly with lines and
 symbols – the row appears the moment somebody drags out a Fläche.
 
@@ -175,6 +243,94 @@ have to be projected through a fit, and the only fit a replay has is *today's*.
   into the record that nobody made. The **snapshot** carries it – the re-bake marks the workspace
   dirty and the save that follows is snapshotted server-side. Between the two, a scrub shows the
   pre-correction positions. That is the one place the fold's coverage stops.
+
+## «Gelöscht / erledigt» and «Entfernen» (2026-09-24)
+
+Übung 23.09.2026: the fire on the EG was out, so somebody **deleted** the Feuer symbol at 20:40 –
+the Rapport's plan then showed no fire at all, and the plan wrote no row for the deletion (the
+Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
+
+| Act | Verlauf row | Audit | ↶ |
+|---|---|---|---|
+| «Gelöscht / erledigt» (the first row of the editor sheet of a damage/hazard symbol – never offered for a Fahrzeug, a KP, a Hydrant) | «Feuer EG gelöscht» – a Feuer is «gelöscht», every other symbol «erledigt» (`objectDone.logDone`), with the storey it stands on | `entity.edit` **and** `board.edit` with `{ done: {at, by?} }` – both views, see below | yes – one prop-edit step; the ↶ writes its own «… rückgängig gemacht» |
+| «Wieder aktiv» | «Feuer EG wieder aktiv» (`objectDone.logReopened`) | the same op with `{ done: null }` – `null`, because JSON drops `undefined` and the replay would fold an empty patch and keep the symbol grey | yes |
+| «Entfernen» (single object) on the **Plan** | «Feuer entfernt» – the Karte's own `log.objectDeleted`, named the way the Karte names it (`drawingEdit · annoLogName`), carried as `subjectId` | `board.delete` | yes, as before |
+
+- **One act, one row.** Each row is written by the act's own handler (`IncidentWorkspace ·
+  setEntityDone`, `Whiteboard · setAnnoDone` / `logRemoved`) and nowhere else: the store fold
+  writes none, the Karte's edit-settle window (`entityEditChanges`) does not read `done`, and a
+  plan removal of a *projected* Karte object goes through the plan's handler only.
+- **Replay stays coherent because the act emits BOTH views' op** – the pair, like an anchor flip.
+  The surface a finger is on speaks its own document, and the replay folds views: a mark on a
+  plan also emits `entity.edit` (the Karte's baked or own body; a symbol with no map body folds to
+  nothing), and a mark on the Karte of a sheet-anchored symbol also emits `board.edit` for the
+  sheet that owns it. With one op only, the other replayed view stayed red until the next
+  snapshot. (Other symbol props do not do this yet; `done` does because the record's claim «the
+  fire was out at 20:40» must hold in both views.)
+- ⚠️ **Accepted limitation, same as every object prop:** objects merge WHOLE (`mergeById`,
+  last-writer-wins per object), so device A's «Wieder aktiv» and device B's concurrent edit of the
+  same symbol (say its Anzahl) can leave the picture with B's version – still grey – while the
+  Verlauf holds A's «Feuer EG wieder aktiv». The row stays true as a record of the act; the
+  picture follows the merge.
+- **A group** of several removed on the Plan keeps «{n} Objekte vom Plan entfernt»; a «group» of
+  one writes the single-object row. An empty Notiz writes nothing, as on the Karte.
+- ⚠️ **The two acts never share a verb** (decided 2026-09-25). Every removal row – Karte and
+  Plan, every object kind – says «entfernt», the word of its button «Entfernen»: `objectDeleted`
+  «{name} entfernt», `drawingDeleted` «Zeichnung entfernt», `selectionDeleted` «{n} Objekte
+  entfernt», `groupDeleted` / `groupDeletedN` «Auswahl entfernt» / «{n} Objekte vom Plan
+  entfernt». «gelöscht» is left to the extinguished Feuer. Rows written before keep «… gelöscht»
+  – the journal is append-only, and the Rapport prints the row text as written.
+- **Audited app-wide after the second staging walk-through (2026-09-25).** Every other template
+  that takes something off the picture says «entfernt» too: `atemschutz.logRemoved` «Trupp {name}
+  entfernt» (the Trupp leaves the board; the Rapport already said «Von Tafel entfernt»),
+  `whiteboard.trailCleared` «{name}: Spur entfernt», `whiteboard.floorRemoved` «Geschoss
+  entfernt» (the ↶ label) plus the storey removal's own new row `floorRemovedLog` /
+  `floorRemovedLogMarks`; and the buttons and confirms before them («Spur entfernen», «Marker und
+  Spur entfernen», «Geschoss entfernen», «… entfernt oder gekürzt»). Kept on «gelöscht»: records
+  that are not on the picture – a Verlauf Eintrag, a Schicht, an Anwesenheits-Zeit, a Mittel
+  line, a saved Ansicht, an Übung. `config/copy/removalWords.test.ts` pins the picture's set.
+
+## A taken-back act is two rows – on paper too (2026-09-25)
+
+Round 3 of the staging walk-through: the printed Einsatzjournal described things that had been
+taken back. Two causes, both closed:
+
+- **The Rapport now prints the ↶ / ↷ rows** (`lib/report · journalRows`, `kind: 'history'`, and
+  the plain «Aktion rückgängig gemacht» rows it used to omit by text). With only the first half,
+  «Symbol «Feuer» gesetzt» stood on paper next to a Kroki that showed no fire. The journal is
+  append-only, so both rows print, in order.
+- **Every undo that RESTORES something writes its counter-row, whichever door it came through.**
+  A confirm-with-undo toast is the same act as the header's ↶ (`IncidentWorkspace ·
+  oneShotUndoToast`): it writes the same row the timeline would, then drops the timeline entry.
+  - Gebäude storey removed: «Geschoss 3. OG entfernt» (with the markings it took, if any) →
+    «Geschoss 3. OG wiederhergestellt» from the toast or ↶ (`whiteboard.floorRestoredLog`), and
+    ↷ writes «entfernt» again.
+  - Storey added, Gebäude replaced: the toast writes the same «… rückgängig gemacht» the ↶
+    writes (it wrote nothing).
+  - A Trupp undocked from its host: the toast's re-dock writes «{name} bei «{host}»».
+  - An Anwesenheit row cleared: the toast writes «Anwesenheit wiederhergestellt: {name}».
+  Toasts that undo an act which wrote no row (a shift, a Rapport-Beilage, an attendance block)
+  still write none: there is nothing on the record for them to answer.
+- ⚠️ **The rule, stated once (final walk-through, 2026-09-26, D6): a counter-row exists only
+  beside the row it counters.** Writing side: a one-shot whose act wrote no row takes its ↶ / ↷
+  silently (`rememberOneShot(…, 'silent')`) – an Ansicht saved, renamed or deleted, the Gebäude
+  Drehung, a Gebäude swap, a Rapport-Beilage added, captioned or removed. Paper side: a move
+  writes a row on screen but never prints (`report · printableTacticalText`), so its ↶ / ↷ does
+  not print either (`report · historyCountersPrintedRow`) – «KP Front verschoben rückgängig
+  gemacht» stood alone on paper. A ↶ row that names no act (the old «Aktion rückgängig gemacht»,
+  a domain word like «Änderung auf der Karte») still prints: it is the record's only statement
+  that something was taken back.
+- **Storey rows name their storey** (`subjectId` `storey:<n>`, `lib/storeyRemoval ·
+  storeySubject`), so the repeat fold keeps removals and restores apart («entfernt 2×» /
+  «wiederhergestellt 2×» on paper, where the order was entfernt, wiederhergestellt, entfernt,
+  wiederhergestellt) and never folds two storeys. Adding a storey writes «Geschoss 4. OG
+  hinzugefügt» now (it wrote nothing), taken back as «… entfernt».
+- **A ↶ / ↷ row ends every repeat run** (`lib/verlauf · repeatRuns`). «Gefahrentafel angedockt» ·
+  ↶ · «… angedockt» again within two minutes folded into ONE row «2×» – the paper then said the
+  placard was docked twice with nothing in between (F2c). It was two acts; the dock row has one
+  writer (the hand's own gesture, `IncidentWorkspace · finishEntityMove`), carried placards and
+  merges write none, and journal rows merge by id. («Lösen» in the placard's panel gets its
+  «… von «{host}» gelöst» row in PR #232.)
 
 ## What a Verlauf row can carry since 17.08.
 
@@ -265,11 +421,12 @@ not operator actions. Ordered by operational impact.
    Leitung – so the mapping can be shifted silently. ⚠️ Since 19.08. a renumber pulls the
    number onto the Trupp (**via the anchor, never via the number**), so the mapping *is*
    correct – but the shift is still recorded only machine-readably.
-3. **Deleting a single Plan annotation** – audit only (`src/components/useBoardDoc.ts` ·
-   `removeAnno`), while group deletion writes a row (`Whiteboard.tsx`).
+3. *(closed 2026-09-24, see «Gelöscht / erledigt» above)* ~~Deleting a single Plan annotation~~.
 4. **Rapport attachments** – adding/removing audit only, the image caption not at all
    (`src/IncidentWorkspace.tsx`, Rapport attachments block).
-5. **Driver of a GPS vehicle** and **creating a building/floor** have no channel.
+5. **Driver of a GPS vehicle** and **creating a building** have no channel. *(Adding and removing a
+   storey write their own rows since 2026-09-25/26 – «Geschoss 4. OG hinzugefügt», «Geschoss 3.
+   OG entfernt» with the markings it took or cut short.)*
 
 *(The file paths deliberately carry no line numbers: this file has gone stale twice because
 `IncidentWorkspace.tsx` moved, not because the behavior changed.)*

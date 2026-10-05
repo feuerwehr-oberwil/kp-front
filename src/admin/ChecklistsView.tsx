@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '../lib/api'
 import { Sheet } from '../lib/overlays'
@@ -6,6 +7,7 @@ import { fillTemplate } from '../lib/format'
 import { downloadBlob } from '../lib/download'
 import genericAction from '../data/checklists/generic-action.json'
 import genericReference from '../data/checklists/generic-reference.json'
+import genericManual from '../data/checklists/generic-manual.json'
 import type { ReferenceDataset } from '../lib/incidents'
 import { Card, EmptyState, Field, Table, fmtDate } from './ui'
 import { PlanSourceBadge } from './ObjectSheet'
@@ -50,11 +52,12 @@ type Async<T> = { kind: 'loading' } | { kind: 'ok'; data: T } | { kind: 'error' 
  * `phases[].items[]` and a reference one `entries[].content[]`, and somebody who downloads the
  * tick-list to write a Merkblatt learns that only from the upload's refusal.
  */
-function downloadExample(kind: 'action' | 'reference'): void {
-  const doc = kind === 'action' ? genericAction : genericReference
+function downloadExample(kind: 'action' | 'reference' | 'manual'): void {
+  // the third shape (05.10.2026): an Anleitung — `steps[]` for one `device`, read and never ticked
+  const doc = kind === 'action' ? genericAction : kind === 'manual' ? genericManual : genericReference
   downloadBlob(
     new Blob([`${JSON.stringify(doc, null, 2)}\n`], { type: 'application/json' }),
-    `checklisten-vorlage-${kind === 'action' ? 'aufgaben' : 'nachschlagen'}.json`,
+    `checklisten-vorlage-${kind === 'action' ? 'aufgaben' : kind === 'manual' ? 'anleitung' : 'nachschlagen'}.json`,
   )
 }
 
@@ -143,6 +146,9 @@ export function ChecklistsView() {
             <button type="button" className="btn adm-int-btn" onClick={() => downloadExample('reference')}>
               {fillTemplate(C.exampleDownloadKind, { kind: C.kindReference })}
             </button>
+            <button type="button" className="btn adm-int-btn" onClick={() => downloadExample('manual')}>
+              {fillTemplate(C.exampleDownloadKind, { kind: C.kindManual })}
+            </button>
             <button type="button" className="btn adm-save-btn" onClick={() => setUploading(true)}>
               {C.upload}
             </button>
@@ -151,7 +157,7 @@ export function ChecklistsView() {
       >
         <p className="adm-hint">{C.intro}</p>
         {flash && <p className="adm-save-ok">{flash}</p>}
-        {state.kind === 'loading' && <EmptyState message={C.loading} />}
+        {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.loadError} />}
         {state.kind === 'ok' && rows.length === 0 && <EmptyState message={C.none} hint={C.noneHint} />}
         {/* Typ und Quelle mirror the Geodaten table (DataView · GeodataView), down to the
@@ -339,7 +345,7 @@ function UploadSheet({ existing, onClose, onDone }: {
         <>
           <button type="button" className="ip-btn" onClick={onClose}>{Cc.cancel}</button>
           <button type="button" className="ip-btn primary" disabled={!parsed || !orderOk || busy} onClick={() => void submit()}>
-            {busy ? C.uploadingLabel : C.uploadConfirm}
+            {busy && <ShellLoader />}{busy ? C.uploadingLabel : C.uploadConfirm}
           </button>
         </>
       }
@@ -392,9 +398,10 @@ function UploadSheet({ existing, onClose, onDone }: {
   )
 }
 
-const kindLabel = (kind: 'action' | 'rapport' | 'reference'): string => {
+const kindLabel = (kind: 'action' | 'rapport' | 'reference' | 'manual' | 'visit'): string => {
   const C = appConfig.copy.admin.checklists
-  return kind === 'action' ? C.kindAction : kind === 'rapport' ? C.kindRapport : C.kindReference
+  return kind === 'action' ? C.kindAction : kind === 'rapport' ? C.kindRapport : kind === 'visit' ? C.kindVisit
+    : kind === 'manual' ? C.kindManual : C.kindReference
 }
 
 // ─── diagram assets ────────────────────────────────────────────────────────────
@@ -456,7 +463,7 @@ function AssetSheet({ row, onClose, onDone }: {
         <>
           <button type="button" className="ip-btn" onClick={onClose}>{Cc.cancel}</button>
           <button type="button" className="ip-btn primary" disabled={!file || !pageOk || busy} onClick={() => void submit()}>
-            {busy ? C.uploadingLabel : C.uploadConfirm}
+            {busy && <ShellLoader />}{busy ? C.uploadingLabel : C.uploadConfirm}
           </button>
         </>
       }
@@ -554,7 +561,7 @@ function DeleteSheet({ row, onClose, onDone }: {
         <>
           <button type="button" className="ip-btn" onClick={onClose}>{Cc.cancel}</button>
           <button type="button" className="ip-btn ip-btn-danger" disabled={busy} onClick={() => void submit()}>
-            {busy ? C.deleting : C.delete}
+            {busy && <ShellLoader />}{busy ? C.deleting : C.delete}
           </button>
         </>
       }

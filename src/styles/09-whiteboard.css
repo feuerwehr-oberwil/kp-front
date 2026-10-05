@@ -60,9 +60,9 @@
    thing that changes once an Einsatz and is already right 99 times out of 100. It shouted, it
    invented a recipe nobody else used, and it sat on the corner of the plan that is looked at.
    Both are the Maßstab pill now — one recipe, one corner, and the top-left is plan again. */
-.wb-botleft { position: absolute; z-index: 8; left: calc(var(--rail-w) + 28px); bottom: 12px;
+.wb-botleft { position: absolute; z-index: 8; left: calc(var(--rail-w) + 28px); bottom: 16px;
   max-width: calc(100% - var(--rail-w) - 44px);
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  display: flex; align-items: center; gap: var(--float-gap); flex-wrap: wrap; }
 /* ⚠️ While «Karte verknüpfen» is armed this row IS the mode's instrument (GeorefMode ·
    GeorefInstrument), and it has to lie OVER the split's dashed seam. `z-index: 8` above makes
    the row a stacking context, so the bar's own z 34 only ever ordered it inside that row — the
@@ -84,43 +84,38 @@
 .wb-georef-armed .wb-lock-anchor,
 .wb-georef-armed .wb-trail-dot,
 .wb-georef-armed .wb-trail-mark { display: none; }
-/* the chips position themselves through the row now, not against the stage — `relative` is the
-   containing block for their touch pad below, nothing more */
-.wb-botleft > .wb-scale-chip { position: relative; }
-/* ⚠️ The pills are 12px type in 6px of padding — ~30px tall, well under the 44px touch floor, and
-   gloved fingers are the whole point of this app. A transparent pad restores the target without
-   touching the row's look or its geometry, and it grows ONLY vertically, so two pills 8px apart
-   can never steal each other's taps. */
-.wb-botleft > .wb-scale-chip::after { content: ''; position: absolute; left: 0; right: 0; top: 50%;
-  height: 44px; transform: translateY(-50%); }
+/* (The chips were ~30px tall until 24.09.2026 and carried a transparent 44px touch pad here; since
+   26.09.2026 they are the floating family's row height, --float-h, so the target IS the chip.) */
 /* the object's ADDRESS may take the room the Maßstab does not — it is the longer of the two,
    and the Maßstab is a handful of characters */
 .wb-object { min-width: 0; max-width: 100%; }
 /* the auto-surfaced object is only the NEAREST one with plans, not the Einsatzadresse – the
-   read-out is the warning itself (Whiteboard · objectChip), so it wears amber, tappable or not */
-.wb-object.wb-object-nearby, .wb-object.wb-object-nearby:disabled {
-  color: var(--amber-strong);
-  border-color: color-mix(in srgb, var(--amber) 55%, transparent);
-  background: color-mix(in srgb, var(--amber) 14%, var(--surface)); }
+   read-out is the warning itself (Whiteboard · objectChip), so its leading glyph is the warn
+   triangle in amber, tappable or not. The GLYPH, not an amber ring and fill (26.09.2026): a state
+   is a glyph colour inside the floating family's piece (01-tokens · --float-*), as in a toast. */
+.wb-object.wb-object-nearby > .i, .wb-object.wb-object-nearby:disabled > .i { color: var(--amber-strong); }
 /* …and the banner half of that warning (Whiteboard · nearbyBanner): once per Einsatz and object,
    over the sheet's top edge, right of the rail. Amber like the chip, never red – nothing is on
    fire on the Plan; something may merely be the neighbour's. */
 .wb-nearby-banner { position: absolute; left: calc(var(--rail-w) + 16px); right: 16px; top: 12px; z-index: var(--z-dock);
-  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--amber) 16%, var(--glass)); backdrop-filter: blur(10px);
-  border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); box-shadow: var(--shadow-sm);
-  font-size: 12.5px; line-height: 1.4; color: var(--ink); }
+  /* the message surface; the tone is its amber glyph (08-toasts.css · «ONE message surface», 25.09.2026) */
+  display: flex; align-items: center; gap: 10px; padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); border: none; box-shadow: var(--float-edge);
+  font: 600 13px/1.35 var(--body); color: var(--ink); }
 .wb-nearby-banner > .i { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
 .wb-nearby-text { flex: 1 1 auto; min-width: 0; }
 .wb-nearby-text b { color: var(--amber-strong); }
-.wb-nearby-switch { flex: none; min-height: 44px; padding: 0 12px; border: none; border-radius: var(--r-sm);
-  background: transparent; font: 700 12.5px var(--body); color: var(--blue); cursor: pointer; white-space: nowrap; }
-.wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-sm); cursor: pointer;
+/* ⚠️ a framed compact button, like every message's own (08-toasts · .ml-btn) — it was a bare
+   blue word (28.09.2026, owner pick A: no bare blue word as an action) */
+.wb-nearby-switch { flex: none; min-height: 44px; padding: 0 13px; border: 1px solid var(--glass-edge); border-radius: var(--r-msg-in);
+  background: var(--surface); font: 700 12.5px var(--body); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.wb-nearby-switch:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-msg-in); cursor: pointer;
   background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); display: grid; place-items: center; }
 .wb-nearby-x .i { width: 16px; height: 16px; }
 @media (max-width: 600px) {
   /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions */
-  .wb-nearby-banner { left: 12px; right: 12px; flex-wrap: wrap; }
+  .wb-nearby-banner { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
   .wb-nearby-text { flex-basis: calc(100% - 28px); }
 }
 /* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). On the
@@ -143,17 +138,13 @@
    it can never disagree about whether a reference is good. */
 .wb-lamp { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .wb-lamp[data-tone='red'] { background: var(--red); }
+/* «not yet» — no scale, no link (29.09.2026, sweep K10): grey, never red at rest */
+.wb-lamp[data-tone='grey'] { background: var(--ink-faint); }
 .wb-lamp[data-tone='amber'] { background: var(--amber); }
 .wb-lamp[data-tone='green'] { background: var(--green); }
 /* a read-out with nowhere to go (a link-scoped viewer is bound to ONE object) is not greyed out
    — it is still the answer to «which building am I looking at», it simply cannot be tapped */
-.wb-object:disabled { cursor: default; opacity: 1; }
-@media (hover: hover) {
-  .wb-object:disabled:hover { border-color: var(--glass-edge); color: var(--ink-dim); }
-  /* the warning keeps its tone under the pointer, tappable or not – hover must not read as «fine» */
-  .wb-object.wb-object-nearby:hover, .wb-object.wb-object-nearby:disabled:hover {
-    color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
-}
+.wb-object:disabled, .wb-building:disabled { cursor: default; opacity: 1; }
 /* ⚠️ 600px, not 720px. The old chip switched to its phone position at ≤720px while the NavRail
    only becomes a bottom BAR at ≤600px — so through the whole 601–720px band (iPad Split View,
    a landscape phone) the chip was pushed to left:8px and landed ON the vertical rail. The row
@@ -172,19 +163,15 @@
   /* ⚠️ Counted from what is ACTUALLY on screen, one lane at a time. The base is the nav bar
      alone — a viewer-only PDF renders no tool rail at all (`phoneTools` excludes it), so
      reserving two lanes there left the chip hanging a whole bar's height above nothing. */
-  .wb-botleft { position: fixed; left: 10px; right: calc(10px + var(--fab-safe, 0px)); max-width: none;
-    bottom: calc(var(--rail-h) + 20px + env(safe-area-inset-bottom)); }
-  /* an editable surface adds the tool rail under it… */
-  .app.phone-tools .wb-botleft {
-    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
-  /* …and a third lane when the tool-SPECIFIC dock is out (a line/area tool's colours and widths).
-     That bar appears and disappears with the tool, so the chips move with it rather than being
-     covered by it half the time. Same `:has` idiom the FAB already uses to get out of its way. */
-  .app:has(.wb-dock) .wb-botleft {
-    bottom: calc(var(--rail-h) * 3 + 26px + env(safe-area-inset-bottom)); }
+  /* ⚠️ …and since 26.09.2026 all three cases (nav bar only · + tool bar · + a tool's option dock,
+     and its hint row) are ONE baseline, THE floating row's (15-mobile · --float-bottom): the
+     chips, the Grundgerüst strip and the FAB are one family on one line, 8px above whatever bar
+     is highest. They stood 6px above the tool bar here while the FAB beside them stood 14px. */
+  .wb-botleft { position: fixed; left: max(8px, env(safe-area-inset-left)); right: calc(max(8px, env(safe-area-inset-right)) + var(--fab-safe, 0px)); max-width: none;
+    bottom: var(--float-bottom); }
   /* ⚠️ ONE line, always (owner, 18.09.2026). The row used to wrap, and on a 360px phone the two
      status pills dropped onto a second line over the plan — a whole extra band of chrome across
-     the sheet, budgeted for in the toast lane (15-mobile · --plan-row-reserve) and read by
+     the sheet, budgeted for in the toast lane (15-mobile · --float-row) and read by
      nobody. So on a phone Massstab and «⌖ Karte» give up their WORDS and keep their icon and
      their lamp: what they said («Ref. 25 m», «Verknüpft») was a state, and a state is exactly
      what an Ampel dot says in 9px. The words are still there for a screen reader and a
@@ -200,15 +187,8 @@
    Frame (size/flex) comes from .ip-sheet, on its `.ip-wide` setting (13-incident.css): two columns
    side by side need the room, and at the standard 720px the list ellipsised the Strassennamen it
    is searched by while the map was too small to pick a pin out of a village. */
-/* Same header rule as the symbol palette (07-toolrail.css · .sym-search): the pill states its
-   own height — var(--tap) — instead of inheriting whatever the input's line-box comes to, and the
-   ✕ inside it carries no box of its own (fill-soft on fill-soft was an invisible square). */
-.pp-search { display: flex; align-items: center; height: var(--tap); gap: 10px; margin: 0 20px 12px; padding: 0 6px 0 14px;
-  background: var(--fill-soft); border-radius: var(--r-ctl); color: var(--ink-dim); }
-.pp-search .i { width: 19px; height: 19px; flex: none; }
-.pp-search input { flex: 1; min-width: 0; align-self: stretch; border: none; background: transparent; outline: none; font-family: var(--body); font-size: 16px; color: var(--ink); padding: 0; }
-.pp-clear { border: none; background: none; border-radius: var(--r-sm); width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; flex: none; }
-.pp-clear .i { width: 15px; height: 15px; }
+/* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026) — placement only */
+.pp-search { margin: 0 20px 12px; }
 .pp-body { display: flex; gap: 14px; padding: 0 20px 6px; min-height: 0; flex: 1; }
 .pp-list { flex: 1 1 60%; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .pp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 13px; border: 1px solid transparent;
@@ -218,15 +198,21 @@
   .pp-row:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 18%, transparent); }
 }
 .pp-row:active { background-image: linear-gradient(var(--press), var(--press)); }
-.pp-row.on { background: color-mix(in srgb, var(--blue) 14%, transparent); border-color: var(--blue); }
+/* a picked row is --sel-wash and nothing else (29.09.2026) — the blue ring on top was a second
+   channel for the one fact; the ✓ stays as the cue that is not a colour */
+.pp-row.on { background: var(--sel-wash); }
+/* ⚠️ The two columns share ONE line grid (owner-r2-4, 27.09.2026): 18px for the name line, 16px
+   for the address line, a 2px gap in both. Each side used to take its own font's line box and
+   the right one a 3px gap, so «0 m» stood ~2px above the name's line and «4 Pläne» drifted the
+   other way against the address — three values on a row and no two on a line. */
 .pp-row-main { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
-.pp-row-main b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pp-row-addr { font-size: 12px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pp-row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; }
-.pp-dist { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); }
-.pp-mods { font-size: 11px; font-weight: 700; color: var(--blue); }
+.pp-row-main b { font-size: 14px; line-height: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-row-addr { font-size: 12px; line-height: 16px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
+.pp-dist { font-family: var(--mono); font-size: 11.5px; line-height: 18px; color: var(--ink-dim); }
+.pp-mods { font-size: 11px; line-height: 16px; font-weight: 700; color: var(--blue); }
 .pp-mods-none { color: var(--ink-faint); font-weight: 600; }
-.pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-cluster); overflow: hidden; border: 1px solid var(--glass-edge); }
+.pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--glass-edge); }
 .pp-map .maplibregl-map { width: 100%; height: 100%; }
 .pp-map-note { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 6px 9px; border-radius: var(--r-sm);
   background: rgba(27, 35, 48, .82); color: var(--on-accent-ink); font-size: 11px; font-weight: 600; text-align: center; pointer-events: none; }
@@ -267,8 +253,15 @@
 /* floating zoom — top-right of the canvas, matching the map's MapUtility cluster */
 .wb-zoom { display: flex; align-items: center; gap: 2px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; flex: none; }
 .wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: var(--z-map-util); background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-cluster); padding: 4px; }
-.wb-zoom button { min-width: 40px; height: 40px; padding: 0 10px; border: none; background: none; border-radius: var(--r-sm); display: grid; place-items: center;
+  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-cluster); padding: var(--bar-pad); }
+/* Below 860px the top bar runs the full width, so the cluster drops under it — what the Karte's
+   own cluster does at the same width (MapUtility · .toputil). At 820 its «–» sat under the bar
+   and a tap on it hit the bar (3am test r4, 26.09.2026). */
+@media (max-width: 860px) {
+  .wb-zoom-float { top: calc(80px + env(safe-area-inset-top)); }
+}
+/* the zoom buttons are PARTS of the grouped control above (3px inside it), so their corner is the group's less that gap */
+.wb-zoom button { min-width: 40px; height: 40px; padding: 0 10px; border: none; background: none; border-radius: calc(var(--r-sm) - 3px); display: grid; place-items: center;
   color: var(--ink-dim); cursor: pointer; font-family: var(--body); font-size: 12.5px; font-weight: 700; transition: background .14s var(--ease); }
 @media (hover: hover) {
   .wb-zoom button:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }
@@ -338,39 +331,30 @@
 /* the storey's Geschossplan page under the outline – quiet, the outline stays legible over it */
 .wb-floor-page { opacity: 1; }
 .wb-floor-noplan { font: 600 13px var(--body); fill: var(--ink-faint); }
-/* the storey's drawing is still being rasterised – its rectangle, breathing quietly, so an
-   unfinished tile reads as «kommt gleich» instead of «kein Geschossplan» */
-.wb-floor-page-wait { fill: color-mix(in srgb, var(--ink) 7%, transparent); animation: wb-floor-wait 1.6s ease-in-out infinite; }
-@keyframes wb-floor-wait { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-  .wb-floor-page-wait { animation: none; opacity: .7; }
-}
+/* Preserve the drawing's footprint while Shell trail reports the pending raster. */
+.wb-floor-page-wait { fill: color-mix(in srgb, var(--ink) 4%, transparent); }
 .wb-floor-label { position: absolute; top: 8px; left: calc(var(--wb-floor-inset) - var(--wb-floor-plate-pad)); display: flex; align-items: center; gap: 6px; z-index: 1;
   flex-wrap: nowrap; white-space: nowrap;
   font-family: var(--body); font-weight: 700; font-size: 13px; line-height: 1; color: var(--ink-dim);
   background: var(--label-soft); border-radius: var(--r-xs); padding: var(--wb-floor-plate-pad); user-select: none; -webkit-user-select: none; }
-.wb-floor-x { position: relative; width: 18px; height: 18px; border: none; background: none; color: var(--ink-faint); cursor: pointer;
-  display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
-.wb-floor-x::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
+/* The label IS the storey's door (29.09.2026, sweep K5): a tap opens «Ausblenden · Geschoss
+   entfernen» (Whiteboard · the storey Menu). The per-storey eye and the red bin in the tile's
+   corner left the canvas — delete is the rarest act on this surface and was its loudest shape,
+   four bins at once on a tablet, half of each phone tile. The plate stays the plate; a small ⌄
+   says it opens something, and its hit area grows to --tap past the 21px plate (the eye's pad). */
+.wb-floor-menu { border: none; cursor: pointer; }
+.wb-floor-menu::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap); transform: translateY(-50%); }
+.wb-floor-menu > .i { width: 12px; height: 12px; stroke-width: 2.2; margin-left: -2px; color: var(--ink-faint); }
 @media (hover: hover) {
-  .wb-floor-x:hover { background: var(--fill-soft); color: var(--red); }
+  .wb-floor-menu:hover { color: var(--ink); }
 }
-.wb-floor-x .i { width: 12px; height: 12px; stroke-width: 2.4; }
-/* fold a storey away – device-local, so it is deliberately the QUIET control of the pair: the ✕
-   beside it deletes the Geschoss for everybody, this one only stops drawing it here. */
-.wb-floor-eye { position: relative; width: 18px; height: 18px; border: none; background: none; color: var(--ink-faint); cursor: pointer;
-  display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
-.wb-floor-eye::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
-@media (hover: hover) {
-  .wb-floor-eye:hover { background: var(--fill-soft); color: var(--ink); }
-}
-.wb-floor-eye .i { width: 13px; height: 13px; stroke-width: 2; }
-/* …and on a narrow tile it is not offered at all (18.09.2026): an 18px eye inside a 13px label on
-   a ~330px tile costs the room the storey's own name needs, and its 40px hit pad covers a quarter
-   of the header. Hiding a storey is simply not a thing you do at this zoom — the operator zooms in
-   for it — while the way BACK (the folded strip) stays reachable at every size. */
+.wb-floor-menu:active { background-image: linear-gradient(var(--press), var(--press)); }
+.wb-floor-menu[data-popup-open] { color: var(--ink); }
+/* …and on a narrow stack the top storey's label steps down out from under «+ OG» (which straddles
+   the stack's top edge, centred): a door that sits under another button is no door (phone,
+   29.09.2026) */
 @container (max-width: 359px) {
-  .wb-floor-eye { display: none; }
+  .wb-floor-under-add > .wb-floor-label { top: calc(var(--tap) / 2 + 4px); }
 }
 /* …and what it leaves behind: a strip where the storey belongs, which says what it is and how to
    get it back. Sits at the seam between the two drawn tiles, so the stack still reads in order. */
@@ -409,16 +393,20 @@
 /* add-storey control (mirrors the floating zoom) */
 /* add-storey pills positioned like a real building section: OG above the stack, UG below */
 .wb-floor-add { position: absolute; left: 50%; transform: translateX(-50%); z-index: 8;
-  display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 5px 12px 5px 9px; border-radius: var(--r-pill);
+  /* a full --tap tall (3am test r3, 25.09.2026: they were 34px); still straddling the edge, by half.
+     28.09.2026: the ONE «add» look (13-incident `.cv-btn-add`) — framed «+ word», the one corner
+     (it was the last --r-pill add), ink, 12.5/700 compact; it keeps the glass because it floats
+     over the plan. */
+  display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 5px 14px 5px 11px; border-radius: var(--r-sm);
   border: 1px solid var(--glass-line); background: var(--glass); box-shadow: var(--shadow-sm);
-  color: var(--ink-dim); font: 700 12px var(--body); line-height: 1; cursor: pointer;
+  color: var(--ink); font: 700 12.5px var(--body); line-height: 1; cursor: pointer;
   user-select: none; -webkit-user-select: none; }
 @media (hover: hover) {
   .wb-floor-add:hover { background: var(--surface); color: var(--ink); }
 }
 .wb-floor-add .i { width: 13px; height: 13px; stroke-width: 2.4; }
-.wb-floor-add-up { top: -17px; }     /* straddle the top edge of the stack */
-.wb-floor-add-down { bottom: -17px; } /* straddle the bottom edge of the stack */
+.wb-floor-add-up { top: calc(var(--tap) / -2); }     /* straddle the top edge of the stack */
+.wb-floor-add-down { bottom: calc(var(--tap) / -2); } /* straddle the bottom edge of the stack */
 
 /* (.wb-north-dial / -btn / -ring / -needle / -n are gone, 30.08.: the north dial was drawn ON the
    topmost storey tile, so it panned and zoomed with the paper. It is a fixed chip in the viewport's
@@ -493,9 +481,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* selection now reads as a coloured ring (in the team's own colour) + lift */
 .wb-anno.sel .wb-resource-pill { box-shadow: 0 0 0 2px var(--team), 0 6px 16px rgba(30, 45, 70, .28); }
 /* a Trupp marked «raus» (Atemschutz board): dim the chip + strike the name, and show a
-   small grey raus tag so the plan reflects that the team is out */
-.wb-resource-pill.raus { opacity: .5; }
-.wb-resource-pill.raus b { text-decoration: line-through; color: var(--ink-dim); }
+   small grey raus tag so the plan reflects that the team is out. «raus» is GONE, not disabled:
+   the ONE done dim (01-tokens · --done-opacity, 28.09.2026 — it was .5 plus a greyed name) */
+.wb-resource-pill.raus { opacity: var(--done-opacity); }
+.wb-resource-pill.raus b { text-decoration: line-through; }
 .wb-resource-raus { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--ink-dim); background: var(--fill-soft); border-radius: var(--r-xs); padding: 2px 6px; }
 
@@ -554,9 +543,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-ghost-label .i { width: 12px; height: 12px; }
 
 /* selected-team action bar — one compact toolbar under the pill, replacing the two
-   corner orbs (mark top-left + delete top-right) that used to crowd the pill */
+   corner orbs (mark top-left + delete top-right) that used to crowd the pill.
+   ⚠️ DARK in both themes on purpose (29.09.2026, owner K8): with the tool docks it is the ARMED
+   material — «this marker is in hand» — which the light floating family (Ebenen, Ansichten, the
+   Suche card) must never be mistaken for. Its inks are the on-ink tokens, never frozen white. */
 .wb-pill-acts { position: absolute; top: calc(100% + 9px); left: 50%; transform: translateX(-50%); z-index: 6;
-  display: flex; gap: 6px; background: var(--ink-fill); border-radius: var(--r-ctl); padding: 5px; box-shadow: var(--shadow); }
+  display: flex; gap: 6px; background: var(--ink-fill); border-radius: calc(var(--r-sm) + var(--bar-pad)); padding: var(--bar-pad); box-shadow: var(--shadow); }
 /* …flipped ABOVE the marker when it would otherwise land under the phone's fixed bottom lanes or
    past the canvas edge. The decision is measured in components/TwinTeamPill (`data-flip`), which
    also writes the horizontal nudge as an inline transform — here we only restate the anchor. */
@@ -567,23 +559,20 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   .wb-pa:hover:not(:disabled) { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); }
 }
 .wb-pa .i { width: 16px; height: 16px; }
-/* Truppfarbe on a placed team marker: the trigger wears the current colour, the popup is the same
-   palette the Trupp form shows (gloved 30px targets, wrapped two rows). */
-.wb-pa-mark { background: var(--blue); }
+/* ⚠️ Every action on this bar wears the bar's ONE neutral wash (29.09.2026, sweep K3). «Position
+   markieren» was a --blue fill and «Bei den Trupps zeigen» a --green one: blue means «chosen»
+   (--sel) and green the Eintritt tone, so three colours in five icon-only buttons said nothing
+   about which to press. The bin keeps THE delete outline (below); the rename pen, while its field
+   is open, is a pressed toggle and wears the docks' «on» (.wb-dock-tog.on). */
+/* ⚠️ the bin was a red FILL (28.09.2026: red never fills an action) — THE delete outline, lifted
+   for the dark bar: the red edge and a light red ink, on the bar's own wash (as the Suche card) */
+.wb-pa-del { color: color-mix(in srgb, var(--red) 60%, var(--on-accent-ink)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 55%, transparent); }
 @media (hover: hover) {
-  .wb-pa-mark:hover { background: var(--blue); filter: brightness(1.08); }
+  .wb-pa-del:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 22%, transparent); }
 }
-.wb-pa-del { background: var(--red); }
+.wb-pa-edit { background: var(--sel); color: var(--on-sel); }
 @media (hover: hover) {
-  .wb-pa-del:hover { background: var(--red); filter: brightness(1.06); }
-}
-.wb-pa-edit { background: var(--blue); }
-@media (hover: hover) {
-  .wb-pa-edit:hover { background: var(--blue); filter: brightness(1.08); }
-}
-.wb-pa-show { background: var(--green); }
-@media (hover: hover) {
-  .wb-pa-show:hover { background: var(--green); filter: brightness(1.08); }
+  .wb-pa-edit:hover:not(:disabled) { background: var(--sel); filter: brightness(1.08); }
 }
 /* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling */
 .wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 62px); }
@@ -650,8 +639,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   border: 2px solid #fff; box-shadow: 0 1px 3px rgba(15, 22, 34, .4); flex: none; }
 .team-dot b { font-size: 11.5px; font-weight: 700; color: var(--ink); background: var(--label-bg);
   border-radius: var(--r-xs); padding: 1px 6px; white-space: nowrap; box-shadow: 0 1px 3px rgba(15, 22, 34, .25); }
-.team-dot.raus { opacity: .5; }
-.team-dot.raus b { text-decoration: line-through; color: var(--ink-dim); }
+.team-dot.raus { opacity: var(--done-opacity); }
+.team-dot.raus b { text-decoration: line-through; }
 .wb-resource-input { border: none; outline: none; background: color-mix(in srgb, var(--blue) 8%, transparent); border-radius: var(--r-xs); font-family: var(--body);
   font-size: 12.5px; font-weight: 700; color: var(--ink); width: 76px; padding: 2px 5px; }
 /* the ✕ that empties the name field — pill-sized (the form's 44px ClearableInput would be
@@ -726,6 +715,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   .wb-dock-tog, .wb-dock-go { height: 30px; }
 }
 .wb-dock .wb-style-sep { width: 22px; height: 1px; } /* horizontal divider in the vertical stack */
+/* the armed mode's one-line hint (ToolDock · hint) is a PHONE row (15-mobile); the column dock
+   of a tablet has no room for a sentence and keeps ⓘ */
+.wb-dock-hint { display: none; }
 .wb-dock-ic { display: grid; place-items: center; height: 30px; color: rgba(255, 255, 255, .85); }
 .wb-dock-ic .i { width: 18px; height: 18px; }
 /* ⚠️ The ✕ STAYS on screen while the dock scrolls. It is the first item of the first group, so on
@@ -747,22 +739,27 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 }
 .wb-dock-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-dock-x .i { width: 16px; height: 16px; stroke-width: 2.4; }
-/* confirm action inside the dark dock (e.g. area "Fertig") — green check, enabled
-   only once the action is valid (≥3 area points) */
-.wb-dock-go { width: 38px; height: 34px; display: grid; place-items: center; background: var(--green);
-  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--on-accent-ink); padding: 0; }
+/* confirm action inside the dark dock (e.g. area "Fertig") — enabled only once the action is
+   valid (≥3 area points).
+   ⚠️ 28.09.2026: it was a GREEN fill; the one action of a surface is the primary, never green.
+   The dock is --ink-fill in BOTH themes, so --btn-primary (ink by day) would vanish into it: on a
+   dark surface the primary is the LIGHT fill with dock-ink glyph — the Suche dark card's
+   --sx-primary, same pair (≥ 11:1 day and night). */
+.wb-dock-go { width: 38px; height: 34px; display: grid; place-items: center; background: var(--on-accent-ink);
+  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--ink-fill); padding: 0; }
 @media (hover: hover) {
-  .wb-dock-go:hover:not(:disabled) { filter: brightness(1.08); }
+  .wb-dock-go:hover:not(:disabled) { background: color-mix(in srgb, var(--on-accent-ink) 86%, var(--ink-fill)); }
 }
 .wb-dock-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-dock-go:disabled { opacity: var(--disabled); cursor: default; background: rgba(255, 255, 255, .12); }
+/* the ONE disabled (28.09.2026): the dim alone, no repainted fill */
+.wb-dock-go:disabled { opacity: var(--disabled); cursor: default; }
 .wb-dock-go .i { width: 18px; height: 18px; stroke-width: 2.4; }
 /* (.wb-dock-info / .wb-dock-ibtn / .wb-dock-tip migrated → DockInfo.module.css) */
 /* toggle inside the dock (e.g. "keep placing" lock) — lights up white when engaged */
 .wb-dock-tog { width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12);
   border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--on-accent-ink); padding: 0; }
 .wb-dock-tog .i { width: 17px; height: 17px; }
-.wb-dock-tog.on { background: var(--blue); color: var(--on-fill); } /* active mode: blue accent, not stark white */
+.wb-dock-tog.on { background: var(--sel); color: var(--on-sel); } /* active mode: blue accent, not stark white */
 .wb-dock-tog:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* word/letter toggles (note size steps, Zettel↔Klartext) — the dock is narrow, so the label
    shrinks to fit rather than widening the whole column */
@@ -863,8 +860,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-orient-chip { flex: 1 1 0; min-height: var(--tap); padding: 0 10px; border: none; cursor: pointer;
   border-radius: var(--r-sm); background: var(--surface-2); font: 700 12.5px var(--body); color: var(--ink); }
 .wb-orient-chip:active { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-orient-chip.on { background: color-mix(in srgb, var(--blue) 14%, var(--surface-2));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 40%, transparent); color: var(--blue-strong); }
+.wb-orient-chip.on { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 
 /* FKS hose-line decorations — shared by the Lage map (in a Marker) and the Plan (wb-line-deco) */
 .line-fork { display: block; }
@@ -910,7 +906,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 @media (hover: hover) {
   .wb-cal-chip:hover { border-color: var(--blue); }
 }
-.wb-cal-chip.on { border-color: var(--blue); background: var(--blue); color: var(--on-fill); }
+.wb-cal-chip.on { border-color: var(--sel); background: var(--sel); color: var(--on-sel); }
 
 /* clean −/+ stepper for the real-length entry */
 .wb-cal-stepper { display: flex; align-items: stretch; gap: 8px; }
@@ -926,32 +922,44 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   font: 700 24px var(--mono); color: var(--ink); letter-spacing: -.5px; }
 .wb-cal-unit { flex: none; font: 700 14px var(--body); color: var(--ink-dim); }
 .wb-cal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+/* ⚠️ one family (28.09.2026, owner pick A): framed «Abbrechen» at its word's width, the primary
+   takes the rest — it was a ghost `.ip-btn` beside a 12.5px dock `.btn`, two families in one row */
+.wb-cal-actions > .ip-btn { min-height: var(--tap); justify-content: center; }
+.wb-cal-actions > .ip-btn.primary { flex: 1 1 auto; }
 
 /* Plan-Maßstab: trust chip — taps to (re)calibrate. Position comes from `.wb-botleft`, the row it
    shares with the Objekt read-out; clearing the rail is that row's job now, stated once.
    ⚠️ --r-sm, not a pill (24.09.2026): these are buttons, and on a touch screen they stand --tap
-   tall (20-touch-floors) – a row of 44px capsules along the plan's foot. */
-.wb-scale-chip { display: inline-flex; align-items: center; gap: 6px;
-  max-width: 100%; padding: 6px 10px; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--surface);
-  box-shadow: var(--shadow-sm); color: var(--ink-dim); font: 600 12px var(--body); cursor: pointer; }
-.wb-scale-chip svg { width: 14px; height: 14px; flex: none; }
+   tall (20-touch-floors) – a row of 44px capsules along the plan's foot.
+   ⚠️ …and since 26.09.2026 they are the FLOATING FAMILY (01-tokens · --float-*), at every width:
+   the bars' glass, one row height (--float-h), 14px before the glyph, 16px glyphs, ink words at
+   the compact button type. On a --surface card with a --glass-edge ring, 12px/600 dim, 44px tall,
+   beside a toast in glass at 52px and the Grundgerüst strip at 54, they read as a third thing. */
+.wb-scale-chip { display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box;
+  max-width: 100%; min-height: var(--float-h); padding: 0 var(--float-pad-x); border-radius: var(--r-sm); border: none;
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  color: var(--ink); font: 700 12.5px var(--body); cursor: pointer; }
+.wb-scale-chip svg { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
 .wb-scale-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-scale-chip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
-  .wb-scale-chip:hover { border-color: var(--blue); color: var(--ink); }
+  .wb-scale-chip:hover:where(:not(:disabled)) svg:not(.wb-chip-chev) { color: var(--ink); }
 }
-.wb-scale-chip.on { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
+/* …and the same pills on a LOCKED plan are read-outs (Whiteboard · the Maßstab / «⌖ Karte»
+   chips, `disabled`): the `.wb-object:disabled` recipe — full opacity, their own words and tone,
+   no hover, no touch pad. The tone is the point: «ungemessen» amber must read as amber. */
+.wb-scale-chip:disabled { cursor: default; opacity: 1; }
+/* ⚠️ NO state ring (26.09.2026, owner: the calibrated Massstab wore a blue outline beside a green
+   dot, and read as «selected»). `.on` (calibrated / derived) and `.stale` stay as classes, but
+   what they say is said by the chip's LAMP (planScale · scaleLampTone) — the one glyph that
+   carries a state in this row, the same dot on a phone and a tablet. */
 /* A scale derived from the Karte link is a source/status, not another calibration affordance.
-   It deliberately has no expanded touch pad or hover reaction; correction lives behind the
-   adjacent Verknüpft control so there can never be two scale authorities for one sheet. */
+   It deliberately has no hover reaction; correction lives behind the adjacent Verknüpft control
+   so there can never be two scale authorities for one sheet. */
 .wb-scale-status { cursor: default; }
-.wb-botleft > .wb-scale-status::after { display: none; }
-@media (hover: hover) {
-  .wb-scale-status:hover { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
-}
-/* --warn was never declared, so this rendered the DAY amber literal in both themes */
-.wb-scale-chip.stale { color: var(--amber-strong); border-color: var(--amber-strong); }
-/* #3: persist-a-calibration bar, sits just above the Maßstab chip after a fresh calibration */
-.wb-scale-persist { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 52px; z-index: 9;
+/* #3: persist-a-calibration bar, sits just above the Maßstab chip after a fresh calibration — one
+   --float-gap over the chip row (26.09.2026: the row is --float-h tall, 16px up on a tablet) */
+.wb-scale-persist { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--float-h) + var(--float-gap)); z-index: 9;
   display: inline-flex; align-items: center; gap: 8px; max-width: min(94%, 520px); padding: 7px 8px 7px 12px;
   border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
   box-shadow: var(--shadow); animation: panelIn .16s var(--ease); }
@@ -965,17 +973,21 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-persist-x svg { width: 15px; height: 15px; }
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* clear the two bottom bars on phones, and hug the left edge (no side rail) */
-  .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--rail-h) * 2 + 62px + env(safe-area-inset-bottom));
+  .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap));
     max-width: none; flex-wrap: wrap; }
 }
-.wb-scale-chip.arm { border-color: var(--blue); color: var(--blue); }
+/* armed (calibrating, or its Passung open) = the chip is LIT, the way an armed tile of the tool
+   bar is: a quiet blue wash mixed INTO the glass (never a see-through tint — see below) and a
+   blue glyph. Not a ring (26.09.2026). */
+.wb-scale-chip.arm { background: color-mix(in srgb, var(--blue) 14%, var(--float-bg)); }
+.wb-scale-chip.arm svg:not(.wb-chip-chev) { color: var(--blue); }
 
 /* Passung — the georeference's reading, docked one row above the chip that opened it. Same
    recipe, same corner and the same arithmetic as `.wb-scale-persist` above: the Massstab's
    follow-up already lives there, and this is its sibling.
    ⚠️ A DOCK, not a popover. The board underneath stays live and un-dismissing, so a tap on a
    symbol is a tap on that symbol — not a press that the overlay swallows to close itself. */
-.wb-georef-dock { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 52px; z-index: 9;
+.wb-georef-dock { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--float-h) + var(--float-gap)); z-index: 9;
   border-radius: var(--r-surface); border: 1px solid var(--glass-line); background: var(--surface);
   box-shadow: var(--shadow); }
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
@@ -984,27 +996,30 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
      table could clear it and a pill (z90) landed on that row. It is therefore listed among the
      variable-height bottom owners that push transient feedback to the top lane instead
      (15-mobile.css). Keep the two in step if this dock ever moves. */
-  .wb-georef-dock { position: fixed; left: 10px; right: 10px;
-    bottom: calc(var(--rail-h) * 2 + 62px + env(safe-area-inset-bottom)); }
+  /* ⚠️ …and since 29.09.2026 it is a slide-up BOTTOM SHEET here (owner; AGENTS · «What a surface
+     IS on a phone»): flush with the bottom edge and both sides, over the two bars (GeorefDock
+     portals it into `.app` for that — `.whiteboard` is its own stacking context), the grab bar on
+     top, pushed down to close. It was a card floating above the bars, 10px in from each side. It
+     hugs its content up to the sheet cap and pays the bottom inset itself. */
+  .wb-georef-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-drawer);
+    max-height: min(72dvh, calc(100dvh - 84px - env(safe-area-inset-top))); overflow-y: auto;
+    border-width: 1px 0 0; border-radius: var(--r-hero) var(--r-hero) 0 0;
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    animation: sheetUp .22s var(--ease); }
+  .wb-georef-dock > .ui-sheet-grab { margin-bottom: -4px; }
 }
 /* «⌖ Karte» — the georeference's own two linked tones. Amber whenever a warning stands (two
    pairs is the commonest: exact by construction, therefore UNMEASURED — and an unmeasured fit
    must never look like a checked one); the green tone only once a third point has measured it.
    ⚠️ Tokens, not frozen literals — both have to survive the day/night swap. */
-.wb-scale-chip.wb-georef-ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
-.wb-scale-chip.wb-georef-warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 50%, var(--glass-edge)); }
-@media (hover: hover) {
-  .wb-scale-chip.wb-georef-ok:hover, .wb-scale-chip.wb-georef-warn:hover { border-color: currentColor; }
-}
-/* the chip stays in its own tone while its Passung is open — «open» is a fill, not a recolour,
-   so the quality it reports is never overwritten by the state of a panel.
-   ⚠️ The fill is mixed INTO `--surface`, never `--fill-soft` on its own: that token is a 4.5 %
-   black wash, and setting it as the background REPLACED the chip's opaque white with an almost
-   transparent one — the plan showed straight through the open chip and amber text on a
-   Situationsplan is unreadable. A chip that states a fact has to be legible over anything. */
-.wb-scale-chip.wb-georef-ok.arm, .wb-scale-chip.wb-georef-warn.arm {
-  background: color-mix(in srgb, currentColor 10%, var(--surface));
-}
+/* ⚠️ Since 26.09.2026 the two tones live in the chip's LAMP only (georefMode · georefChipTone),
+   not in a green/amber ring and word as well — one glyph, one state, like the Massstab beside it.
+   «Open» stays a fill (`.arm` above), so the quality the lamp reports is never overwritten by the
+   state of a panel.
+   ⚠️ Every fill is mixed INTO the chip's own background, never `--fill-soft` on its own: that token
+   is a 4.5 % black wash, and setting it as the background REPLACED the chip's opaque white with an
+   almost transparent one — the plan showed straight through the open chip. A chip that states a
+   fact has to be legible over anything. */
 
 /* Vertex-editing handles for a selected line/area (board px, absolute on the board) — small dots
    visually, but with transparent hit pads (::after) like the map's handles; the vertex pad wins

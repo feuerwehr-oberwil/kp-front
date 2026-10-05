@@ -227,6 +227,29 @@ _SESSION_EXCHANGE: frozenset[tuple[str, str]] = frozenset(
 LINK_TOKEN_TYPE = "incident-link"  # noqa: S105 — a claim discriminator, not a credential
 
 
+class ClosedForLink(HTTPException):
+    """A link session on a CLOSED Einsatz (D1, 25.09.2026): the one refusal that says why.
+
+    The generic 403 is right for everything a link must not probe. «This Einsatz is closed» is not
+    such a secret — the holder was sent to it — and it is the one answer the page can act on:
+    the Atemschutz-Link that read a close as an unexplained 403 stayed live after a reopen and a
+    second close, took a re-entry locally and could never deliver it. The same `{code}` and the
+    same headers every other closed-Einsatz answer carries (api/incidents · incident_closed,
+    `_lifecycle_headers`), so the page freezes read-only through the path it already has."""
+
+    def __init__(self, closed_at: object | None) -> None:
+        at = closed_at.isoformat() if hasattr(closed_at, "isoformat") else None
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "incident_closed",
+                "message": "Einsatz ist abgeschlossen – nicht mehr übernommen",
+                "closed_at": at,
+            },
+            headers={"X-Incident-Open": "0", **({"X-Incident-Closed-At": at} if at else {})},
+        )
+
+
 class _Denied(HTTPException):
     """One message for every refusal. A link holder must not be able to tell 'that route
     exists but you may not have it' from 'no such route' — the difference is a map of the
@@ -835,6 +858,22 @@ async def _enforce_link_scope(request: Request, db: AsyncSession) -> None:
     if (request.method.upper(), path) in _LIVENESS_EXEMPT:
         return
 
+    # A CLOSED Einsatz is said as such on the Einsatz's OWN routes — the workspace, the Verlauf,
+    # the events, the incident — before any key check, so the answer is the same whatever else is
+    # true of the link (D1). Station-wide routes keep the one generic refusal (no probing), and
+    # the view link is meant to outlive the close anyway.
+    if not claims.get("vk") and any(request.path_params.get(p) is not None for p in _INCIDENT_PARAMS):
+        closed_at = await incident_closed_at(db, str(scoped))
+        if closed_at is not False:
+            logger.info(
+                "link-scope closed %s %s (link=%s inc=%s)",
+                request.method,
+                path[:200],
+                _session_kind(claims),
+                str(scoped)[:36],
+            )
+            raise ClosedForLink(closed_at)
+
     # A Rapport VIEW link is the other lifecycle, and it is the reason that link exists: the
     # Einsatz is over, and somebody outside the station — a Gemeinde, a Nachbarwehr, an
     # insurer — is being shown what was done. So «still open» is not asked, and the station's
@@ -875,6 +914,21 @@ async def _enforce_link_scope(request: Request, db: AsyncSession) -> None:
         raise _Denied("minting key rotated")
     if not await _incident_still_open(db, str(scoped)):
         raise _Denied("Einsatz closed")
+
+
+async def incident_closed_at(db: AsyncSession, incident_id: str) -> object:
+    """`False` while the Einsatz runs; otherwise when it was closed THIS time (or None)."""
+    from ..api.incidents import current_close
+    from ..models import Incident
+
+    try:
+        ident = uuid.UUID(str(incident_id))
+    except ValueError:
+        return False  # a malformed claim is refused by the checks below, never answered as closed
+    row = (await db.execute(select(Incident).where(Incident.id == ident))).scalar_one_or_none()
+    if row is None or row.is_open:
+        return False
+    return await current_close(db, ident, row.closed_at)
 
 
 def link_session_incident(request: Request) -> str | None:

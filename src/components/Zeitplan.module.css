@@ -159,6 +159,13 @@
    and the track box agreeing — they are laid out by two different mechanisms (flex basis vs
    width) and only one of them has to be off for a lane to show through the clock */
 .headRow .track { height: 22px; background: var(--surface); }
+/* PHONE: the corner holds the Zeitraum zoom (ZeitplanView · zoom, 30.09.2026), so the row is a
+   lane's height — the zoom's own --tap buttons, no padding round them — and the hours and the
+   «JETZT» flag sit at its FOOT, on the lanes they label, not 20px above them. */
+.headRowZoom .whoHead { padding: 0 2px 0 8px; text-transform: none; letter-spacing: normal; }
+.headRowZoom .track { height: auto; }
+.headRowZoom .tick { top: auto; bottom: 4px; }
+.headRowZoom .nowLineHead em { top: auto; bottom: 3px; }
 /* clamped at the edges: a label centred on the first or last rule hangs half outside the track —
    and at a window opening exactly at midnight that is the one label carrying the DATE */
 .tickStart { transform: translateX(0); }
@@ -571,5 +578,15 @@
    under the finger shows only geometry, and the bars' `title` times never fire on touch.
    Written imperatively by ZeitplanView (textContent + hidden) — no per-frame React state. */
 .dragReadout { position: absolute; top: 6px; right: 16px; z-index: 5; pointer-events: none;
-  background: var(--ink-fill); color: var(--on-accent-ink); border-radius: 9px; padding: 6px 11px;
-  font: 700 13px var(--mono); font-variant-numeric: tabular-nums; box-shadow: var(--shadow-sm); }
+  background: var(--surface); color: var(--ink); border: none; border-radius: var(--r-sm); padding: 6px 11px;
+  font: 700 13px var(--mono); font-variant-numeric: tabular-nums; box-shadow: var(--shadow); }
+
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  /* The empty-grid help shares the clock header; it takes no row from the Mannschaft. */
+  .emptyNote { position: absolute; top: 2px; right: 12px; z-index: 5; margin: 0; }
+  .emptyInfoBtn { width: var(--tap); justify-content: center; background: var(--surface); border: 1px solid var(--edge); color: var(--ink-dim); }
+  .emptyInfoBtn span, .emptyInfoBtn svg:first-child { display: none; }
+  .zeitplan:has(.emptyNote) .headRow .track { clip-path: inset(0 var(--tap) 0 0); }
+  .emptyNote .legendHint { position: absolute; top: 100%; right: 0; width: min(320px, calc(100vw - 40px));
+    padding: 12px; background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); color: var(--ink); }
+}

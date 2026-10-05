@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { caretToEnd } from '../lib/ui'
 import { ApiError } from '../lib/api'
@@ -393,7 +394,7 @@ export function ObjectEditor({ object, onChanged, plans }: {
                 disabled={!canSave || save.kind === 'busy'}
                 onClick={() => void submit()}
               >
-                {save.kind === 'busy' ? C.creating : C.create}
+                {save.kind === 'busy' && <ShellLoader />}{save.kind === 'busy' ? C.creating : C.create}
               </button>
             </div>
           </SettingsNote>
@@ -516,7 +517,7 @@ export function PdfButton({ label, busy, busyLabel, disabled, onPick }: {
         disabled={busy || disabled}
         onClick={() => ref.current?.click()}
       >
-        {busy ? busyLabel : label}
+        {busy && <ShellLoader />}{busy ? busyLabel : label}
       </button>
       <input
         ref={ref}

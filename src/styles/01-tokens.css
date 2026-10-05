@@ -30,21 +30,47 @@
      panel edge over dark aerial imagery where the white border alone vanishes */
   --shadow: 0 0 0 1px rgba(30, 45, 70, .08), 0 1px 2px rgba(30, 45, 70, .12), 0 14px 36px rgba(30, 45, 70, .16);
   --shadow-sm: 0 0 0 1px rgba(30, 45, 70, .07), 0 1px 2px rgba(30, 45, 70, .1), 0 6px 16px rgba(30, 45, 70, .12);
-  /* radius scale: control / button / surface / hero */
-  --r-ctl: 14px;
-  /* ⚠️ NOT a button radius, whatever the old name (`--r-btn`) claimed. Every button in the app
-     is --r-sm; this is the outer shell of a FLOATING GLASS CLUSTER (.toputil, .wb-zoom-float,
-     .phone-wx), which nests a --r-ctl group of --r-sm buttons inside it. The three radii are the
-     nesting. Renamed 27.08. after it had drifted onto one real button. */
-  --r-cluster: 16px;
-  --r-surface: 20px;
-  --r-hero: 22px;
-  /* ⚠️ A button that sits IN a bar's padding is not --r-sm (22.09.2026): its corner runs
-     concentric with the bar's — the bar's radius minus its padding — or the two curves fight
-     (a 10px card inside a 22px bar read as «way more angled than the container around it»).
-     Each bar states `--r-nested` beside its padding (.topbar, .rail and their phone rules), and
-     the buttons that sit directly in that padding read it, falling back to --r-sm anywhere else.
-     The .toputil cluster already IS this arithmetic: --r-cluster 16 − 6px = --r-sm. */
+  /* ── ONE corner (25.09.2026) ────────────────────────────────────────────────────────────
+     Every rectangle in the app wears --r-sm: a button, a field, a status box, a card, a row,
+     the page card, a sheet, a dialog, a message. The old scale (10 · 14 · 16 · 20 · 22, chosen per
+     element) put three different corners on three neighbouring buttons and read as a mess.
+     Only two things are NOT that one number, and both follow from a rule, never from taste:
+     · round things stay round (--r-pill / 50%: the ＋ button, dots, status chips), and anything
+       under ~32px tall wears --r-xs, which is the same SHAPE at that size (8/30 ≈ 12/44);
+     · a FLOATING BAR that hugs controls (top bar, nav bar, tool bar, glass clusters, messages)
+       keeps ONE even gap all round — --bar-pad plus its 1px border — and its corner is the
+       controls' corner plus that gap (--r-bar). Then the two curves run parallel, the way two
+       nested squares do; with 7px above a button and 11px beside it no radius could.
+     The role names below are kept so a rule still says what it is, but they are all --r-sm. */
+  --r-ctl: var(--r-sm);
+  --r-surface: var(--r-sm);
+  --r-hero: var(--r-sm);
+  --bar-pad: 6px;
+  --r-bar: calc(var(--r-sm) + var(--bar-pad) + 1px);
+  --r-cluster: var(--r-bar);
+  /* A MESSAGE (toast, instruction, tip) is not a bar: it stands beside cards and chips, so it wears
+     the one corner itself, and its buttons sit --msg-pad inside it with the corner less that gap
+     (08-toasts.css · «ONE message surface»). */
+  --msg-pad: 4px;
+  --r-msg-in: calc(var(--r-sm) - var(--msg-pad));
+  /* ── ONE floating family (26.09.2026, owner: «keep things unified in terms of those bottom
+     toasts, infos etc. so everything has the same shape, colour, padding») ────────────────
+     Everything small that floats over the Karte or a Plan — the messages above, the plan's chip
+     row (Objekt · Gebäude · Massstab · ⌖ Karte), the phone's Grundgerüst strip and the Eintrag
+     FAB — is ONE piece: the bars' own material (--glass, its blur, the --glass-line edge drawn as
+     an INSET ring so it costs no layout, and --shadow), ONE row height (a --tap button plus
+     --msg-pad all round — the height a toast with its ✕ already had), the one corner, 14px of air
+     before the first glyph, 16px glyphs. A state is the colour of a GLYPH inside it (a lamp, the
+     leading icon), never an outline: the Massstab chip wore a blue ring and the object chip an
+     amber one, and beside the toasts they read as four different things. The FAB stays round —
+     roundness is what makes it THE Eintrag button (AGENTS.md · one corner) — but it is the row's
+     height and stands on the row's baseline (15-mobile · --float-bottom). */
+  --float-bg: var(--glass);
+  --float-blur: blur(14px) saturate(1.4);
+  --float-edge: inset 0 0 0 1px var(--glass-line), var(--shadow);
+  --float-h: calc(var(--tap) + 2 * var(--msg-pad));
+  --float-pad-x: 14px;
+  --float-gap: 8px;
   --ease: cubic-bezier(.2, .7, .3, 1);
   /* THE app-wide :active wash — layered as a background-image overlay so it composes with
      any background underneath. Built on --ink, which flips for the night theme, so the wash
@@ -103,9 +129,9 @@
      the DrawEditor. Day = dark-on-light; night flips to light-on-dark. */
   --ink-tint: rgba(27, 35, 48, .15);
   --ink-tint-strong: rgba(27, 35, 48, .25);
-  /* small radius tier — chips, rows, badges, swatches (below the ctl/btn/surface scale) */
+  /* THE corner (see «ONE corner» above) and its small-size twin for chips/badges under ~32px */
   --r-xs: 8px;
-  --r-sm: 10px;
+  --r-sm: 12px;
   --r-pill: 999px;
   /* gloved tap target — small icon controls expand to this via a hit-pad or min-size */
   --tap: 44px;
@@ -184,29 +210,43 @@
                                 being asked about a button RIGHT NOW, wherever that button lives
                                 (a modal, the admin shell, a toast's own action), so nothing may
                                 cover it */
-  /* THE surface header — Anwesenheit · Atemschutz · Mittel · Einsatzrapport. Four panels the
-     operator switches between with one tap, so their heads have to be the same object: a title,
-     one quiet line under it, and the tools on the right. They had drifted to four specs — the
-     subtitle sat 3px under the title on two surfaces, 4px on a third and a whole flex row (8px,
-     below the buttons) on the fourth; the row gap was 8/12/16px; two heads wrapped and two
-     clipped. Nothing was far enough out to look broken and every switch felt like a small jolt.
-     ⚠️ Never inline these — one number, one place, or they drift again. The PHONE (≤600px) keeps
-     its own tuned block per surface: there the question is how few rows fit, not how alike they
-     look. A surface with more to say (the Anwesenheit's QR read-out) grows a row; it does not
-     get different metrics. */
-  --head-pad: 16px 22px;
-  --head-gap: 12px 16px;      /* row · column, once anything wraps */
+  /* THE surface header — Trupps · Anwesenheit · Material · Checkliste · Einsatzrapport. Five
+     panels the operator switches between with one tap, so their heads are the same object: ONE
+     ROW — a title with at most one quiet line under it on the left, the tiles on the right,
+     centred on each other (Surface.module.css · .head). They had drifted to five specs and three
+     shapes; the Trupps head stood 190px tall on the tablet beside a 78px Anwesenheit.
+     A head is `--tap` + `--head-pad-y` above and below: 68px here, 60 on a phone (15-mobile sets
+     the phone's numbers as these tokens). What does not fit gives up WORDS, one step at a time and
+     MEASURED (lib/pageHeadFit): the quiet line's time, then each tile's word lowest priority first
+     (the icon stays, the word is its aria-label), then the primary tile's long word; a second row
+     is the last resort, not a breakpoint.
+     ⚠️ Never inline these — one number, one place, or they drift again. */
+  --head-pad-y: 12px;
+  --head-pad-x: 22px;
+  --head-pad: var(--head-pad-y) var(--head-pad-x);
+  --head-gap: 12px 16px;      /* row (only on the last-resort second row) · titles ↔ tiles */
   --head-title: 800 19px/1.3 var(--body);
   --head-sub: 12.5px;
-  --head-sub-gap: 4px;        /* title → the quiet line under it */
-  /* the titles block yields to the tools down to here, then takes a row of its own instead of
-     squeezing a summary into a column too narrow to read it */
-  --head-titles-min: 240px;
+  --head-sub-gap: 2px;        /* title → the quiet line under it: 25 + 2 + 16 stays inside the 44px row */
+  /* THE title of a SHEET or dialog (28.09.2026) — one step under the page's --head-title, so a
+     sheet never out-shouts the surface it opens over. It was 19 on .ip-head and the confirm, 17 on
+     the Trupp sheets, 16 in the Suche, 15 on the Uhrzeit dialog, 18 on the Hilfe. Field labels
+     inside it: --field-label in --ink-dim, sentence case (uppercase is the eyebrow's, below). */
+  --sheet-title: 800 17px var(--body);
+  --field-label: 700 12px var(--body);
   /* THE dimming for a disabled control. It was six different numbers (.34–.6) across ~40 rules:
      at .35 a label is unreadable in daylight on a tablet, so you cannot see which action is
      coming back; at .55 it still looks tappable and you press it. .45 is the one that reads as
      "not now" while staying legible. Never inline the number — this is the only place it lives. */
   --disabled: .45;
+  /* «Gelöscht / erledigt» (lib/objectDone): a symbol whose matter is over STAYS, greyed. One rule
+     for the Karte, the Plan and the Gebäude (symbolRender · `.ts-done`), and the print mirrors
+     the same two numbers (backend kroki · DONE_ALPHA). Grey, not merely faint: a faded red flame
+     still reads as a fire. Lighter than --disabled's .45 would say «not now» about a control;
+     this is ink on a picture, and it has to stay findable on an aerial by day and a dark basemap
+     at night — the storey/time chips around it are not dimmed. */
+  --done-filter: grayscale(1);
+  --done-opacity: .5;
   /* THE primary-action fill, in one place. A "primary" button was --ink-fill on some surfaces,
      --blue on others and the station's --accent on four more — and --accent is alarm red in
      Oberwil, i.e. the same colour as delete. Red now only ever means danger/delete and never
@@ -216,6 +256,25 @@
   --btn-primary: var(--ink-fill);
   --btn-primary-hover: var(--ink-fill-hover);
   --on-btn-primary: var(--on-accent-ink);
+  /* THE «selected» of a CHOICE (28.09.2026, owner: «all buttons have different selected
+     states») — a segment, a chip, an option tile: ONE blue fill. The Trupp form alone wore four
+     (ink outline, blue ring, ink fill, blue segment). Blue, because it never collides with the
+     primary fill above (ink by day, light grey by night) nor with red/amber (danger/warning).
+     A ROW in a list (a menu option, a picker row) is picked by the wash instead — a filled
+     row is a slab. «Where you are» (rails, the armed tool) keeps its ink pill: that is a
+     place, not an answer. Night follows by itself: --blue / --on-fill are re-declared there. */
+  --sel: var(--blue);
+  --on-sel: var(--on-fill);
+  --sel-shadow: 0 1px 2px rgba(20, 40, 80, .22);
+  --sel-wash: color-mix(in srgb, var(--blue) 14%, transparent);
+  /* THE delete look (28.09.2026, owner pick A): a destructive action is a red OUTLINE — red ink,
+     a red edge, the surface it stands on — with the bin and the word. Never a red fill: red never
+     fills an action, and a filled red button beside a filled primary read as two primaries. The
+     ink is --red-strong, not --red: #e8392b on white is 3.9:1, too thin for a 14px label. Night
+     follows by itself (--red / --red-strong are re-declared there). */
+  --del-ink: var(--red-strong);
+  --del-edge: color-mix(in srgb, var(--red) 40%, transparent);
+  --del-wash: color-mix(in srgb, var(--red) 10%, transparent);
   /* sticky-note pills (map note + plan text). Day = warm paper yellow; night re-declares
      to a deep amber so the note still reads AS a note on the dark map/board instead of
      glaring as a bright daylight sticky. */
@@ -231,6 +290,20 @@
   /* VKF hazard-placard yellow (Gefahrentafel) — a fixed doctrinal semaphore colour,
      intentionally the same in both themes so the placard reads true */
   --hazard-yellow: #d4b106;
+  /* THE focus of a text field (28.09.2026) — the `.ip-field` look, everywhere a caret goes: the
+     edge turns half-blue and a soft 3px halo rings it. The Trupp form went solid ink, the
+     ContextPanel solid blue or a blue wash, the sheet title a blue underline — four answers to
+     «which field am I typing in». A borderless field draws the edge as an inset ring:
+     `box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo)`. Night follows --blue. */
+  --focus-edge: color-mix(in srgb, var(--blue) 50%, transparent);
+  --focus-halo: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent);
+  /* THE eyebrow — the small uppercase label over a section (28.09.2026). It came in 11/700,
+     12/800, 10.5/700 and .04–.1em of tracking across the sheets. Colour --ink-faint; where the
+     colour CARRIES a meaning (the amber Sicherungstrupp head, a red/amber state head) that colour
+     stays and only the type follows. `font: var(--eyebrow); letter-spacing: var(--eyebrow-track);
+     text-transform: uppercase`. */
+  --eyebrow: 700 11px/1.3 var(--body);
+  --eyebrow-track: .06em;
 }
 
 /* ---------------------------------------------------------------------------
@@ -240,6 +313,10 @@
    --------------------------------------------------------------------------- */
 :root[data-theme="night"] {
   color-scheme: dark;
+  /* «erledigt» at night: half the ink of a dark glyph on a dark board is nothing at all (checked
+     24.09.2026 on the Gebäude) — lifted and less transparent, so it recedes without vanishing */
+  --done-filter: grayscale(1) brightness(1.6);
+  --done-opacity: .75;
   /* near-opaque so glass panels (Ebenen, ctx, Verlauf, rails) read properly dark
      instead of letting the map bleed through the blur */
   --glass: rgba(20, 26, 36, .97);

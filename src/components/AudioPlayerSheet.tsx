@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
 import type { TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
+import { LoadingStatus, ShellLoader } from './ShellLoader'
 import { isPlayerRowId } from '../lib/ids'
 import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
@@ -120,10 +121,13 @@ function useStt(audioUrl: string | undefined, enabled: boolean) {
 // SECTIONS (offset + text) onto the memo's own row, listed as subtitle lines in the Verlauf.
 // A 8-second memo annotated with «ordinary» rows produced an unrelated-looking «Manuell» row
 // while the memo kept nagging for its transcript (19.08.).
-export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSection, onEditSection, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
+export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, onAddEntry, onAddSection, onEditSection, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
   row: TimelineEvent
   events: TimelineEvent[]
   readOnly: boolean
+  /** may this session ask for a transcript and decide its segments? The routes are editor-only
+   *  (api/media · CurrentEditor), so an `el` gets the player without the STT surface */
+  canTranscribe?: boolean
   /** everything this Einsatz has words for — same list the composer gets (lib/journalLinks ·
    *  journalVocabulary), so «Eintrag an dieser Stelle» completes and marks names identically */
   vocab?: JournalLink[]
@@ -158,7 +162,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
   const peaks = usePeaks(row.audioUrl)
 
   // STT: fail-closed — the whole surface exists only with a configured engine + editor
-  const sttAvailable = !!getDeploymentConfig().integrations?.sttConfigured && !readOnly && !!onAddEntry
+  const sttAvailable = !!getDeploymentConfig().integrations?.sttConfigured && !readOnly && canTranscribe && !!onAddEntry
   const { stt, setStt, start: startStt } = useStt(row.audioUrl, sttAvailable)
   // local text corrections to drafts before confirming (keyed by segment index)
   const [drafts, setDrafts] = useState<Record<number, string>>({})
@@ -422,7 +426,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
         </div>
         <div className="ip-body ap-body">
           <div className="ap-wave-wrap">
-            {peaks.status === 'loading' && <span className="ap-wave-shimmer" aria-hidden />}
+            {peaks.status === 'loading' && <span className="ap-wave-loading" aria-hidden><ShellLoader /></span>}
             <canvas
               ref={canvasRef}
               className="ap-wave"
@@ -521,7 +525,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
           )}
 
           {stt.phase === 'running' && (
-            <p className="ap-stt-note"><Icon id="rotate" />{C.sttRunning}</p>
+            <p className="ap-stt-note"><LoadingStatus>{C.sttRunning}</LoadingStatus></p>
           )}
           {stt.phase === 'failed' && (
             <p className="ap-stt-note ap-stt-failed">
@@ -553,8 +557,8 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
                     value={drafts[s.index] ?? s.text}
                     onChange={(e) => setDrafts((d) => ({ ...d, [s.index]: e.target.value }))}
                   />
-                  <button className="ap-d-btn ap-d-ok" title={C.sttTake} aria-label={C.sttTake} onClick={() => confirmDraft(s.index, s)}><Icon id="check" /></button>
-                  <button className="ap-d-btn ap-d-no" title={C.sttDismiss} aria-label={C.sttDismiss} onClick={() => void patchSegment(s.index, 'dismissed')}><Icon id="close" /></button>
+                  <button className="ip-x ap-d-no" title={C.sttDismiss} aria-label={C.sttDismiss} onClick={() => void patchSegment(s.index, 'dismissed')}><Icon id="close" /></button>
+                  <button className="ap-d-ok" title={C.sttTake} aria-label={C.sttTake} onClick={() => confirmDraft(s.index, s)}><Icon id="check" /></button>
                 </div>
               ))}
             </div>
@@ -582,8 +586,8 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
                         else if (e.key === 'Escape') { e.stopPropagation(); setEditSec(null) }
                       }}
                     />
-                    <button className="ap-d-btn ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditSec(null)}><Icon id="close" /></button>
-                    <button className="ap-d-btn ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveSecEdit}><Icon id="check" /></button>
+                    <button className="ip-x ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditSec(null)}><Icon id="close" /></button>
+                    <button className="ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveSecEdit}><Icon id="check" /></button>
                   </div>
                 ) : (
                   <div
@@ -628,8 +632,8 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
                       else if (e.key === 'Escape') { e.stopPropagation(); setEditMarker(null) }
                     }}
                   />
-                  <button className="ap-d-btn ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditMarker(null)}><Icon id="close" /></button>
-                  <button className="ap-d-btn ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveMarkerEdit}><Icon id="check" /></button>
+                  <button className="ip-x ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditMarker(null)}><Icon id="close" /></button>
+                  <button className="ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveMarkerEdit}><Icon id="check" /></button>
                 </div>
               ) : (
                 <div
@@ -653,14 +657,16 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
                   )}
                   {onRetractEntry && isPlayerRowId(m.row.id) && (
                     // only rows this player created — incident log lines are never deletable
+                    // THE delete look — a bin in the --del-* outline (29.09.2026): it was a ✕, and a
+                    // ✕ only ever closes or clears. The row itself seeks the audio, so the trailing
+                    // chevron that promised «opens something» is gone too.
                     <button
-                      className="ap-row-edit"
+                      className="ap-row-edit ap-row-del"
                       title={C.removeEntry}
                       aria-label={C.removeEntry}
                       onClick={(e) => { e.stopPropagation(); onRetractEntry(m.row.id) }}
-                    ><Icon id="close" /></button>
+                    ><Icon id="trash" /></button>
                   )}
-                  <Icon id="chevron" className="ap-row-go" />
                 </div>
               )
             ))}

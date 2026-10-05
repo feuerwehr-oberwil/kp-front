@@ -181,6 +181,17 @@ FIELDS: tuple[CredentialField, ...] = (
     # the station finds out because plans stopped arriving. Kept beside the secret so the
     # System page can warn WEEKS ahead instead of reporting an auth failure afterwards.
     CredentialField("sharepoint_secret_expires", "sharepoint", False, "Client-Secret läuft ab"),
+    # --- Objektbesuche ----------------------------------------------------------------
+    # The organizer's bearer key for /api/integrations (docs/object-visits.md). Write-only like
+    # every secret: the admin generates it, hands it to the organizer once, and can only rotate.
+    CredentialField("object_visits_integration_key", "object_visits", True, "Organizer-Schlüssel"),
+    # --- SharePoint EXPORT (Objektbesuche delivery) -----------------------------------
+    # ⚠️ A SECOND app registration, separate from the pull's on purpose: the pull is promised
+    # read-only (`Sites.Selected` READ), and the delivery needs WRITE on one site. Sharing one
+    # registration would mean granting the importer write access it must never have.
+    CredentialField("sharepoint_export_tenant_id", "sharepoint_export", False, "Azure Tenant-ID (Ablage)"),
+    CredentialField("sharepoint_export_client_id", "sharepoint_export", False, "Azure Client-ID (Ablage)"),
+    CredentialField("sharepoint_export_client_secret", "sharepoint_export", True, "Azure Client-Secret (Ablage)"),
 )
 
 BY_NAME: dict[str, CredentialField] = {f.name: f for f in FIELDS}
@@ -558,7 +569,12 @@ def validate(name: str, value: str) -> str:
         raise CredentialRefusedError("Der VAPID-Kontakt muss «mailto:…» oder «https://…» sein.")
     if name == "stt_language" and not (2 <= len(v) <= 8):
         raise CredentialRefusedError("Sprachcode wie «de» oder «de-CH».")
-    if name in ("sharepoint_tenant_id", "sharepoint_client_id"):
+    if name in (
+        "sharepoint_tenant_id",
+        "sharepoint_client_id",
+        "sharepoint_export_tenant_id",
+        "sharepoint_export_client_id",
+    ):
         # Both are GUIDs in the Azure portal. Checked because the alternative failure is a
         # 400 from a token endpoint half an hour later, in a log nobody is reading — and the
         # commonest paste here is the app's DISPLAY NAME, which is not a GUID at all.
@@ -570,6 +586,10 @@ def validate(name: str, value: str) -> str:
                 "«App-Registrierungen › Übersicht» und sehen aus wie "
                 "«00000000-0000-0000-0000-000000000000»."
             ) from e
+    if name == "object_visits_integration_key" and len(v) < 24:
+        # A key an organizer authenticates with over the internet: long enough that guessing it
+        # is not a plan. The admin page generates one; a hand-typed «fwo2026» is refused.
+        raise CredentialRefusedError("Der Schlüssel muss mindestens 24 Zeichen lang sein.")
     if name == "sharepoint_secret_expires":
         from datetime import date
 

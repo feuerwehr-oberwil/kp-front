@@ -466,3 +466,36 @@ async def test_the_log_redactor_strips_a_credential_out_of_a_query_string():
     rendered = logging.Formatter().format(record)
     assert _LEAKY_KEY not in rendered
     assert "<redacted>" in rendered
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "/e/FAKE-BEARER",
+        "/l/sFAKE-BEARER",
+        "/l/tFAKE-BEARER",
+        "/l/FAKE-BEARER",
+        "/api/stats/incidents?t=FAKE-BEARER&format=json",
+        "/api/capture/incidents?t=FAKE-BEARER",
+        "https://station.example/e/FAKE-BEARER?view=1",
+    ],
+)
+async def test_access_logs_mask_bootstrap_and_short_query_tokens(url):
+    import logging
+
+    from app.main import RedactSecretsInUrls
+
+    record = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        __file__,
+        1,
+        '%s - "%s %s HTTP/%s" %d',
+        ("localhost", "GET", url, "1.1", 200),
+        None,
+    )
+    RedactSecretsInUrls().filter(record)
+    rendered = logging.Formatter().format(record)
+    assert "FAKE-BEARER" not in rendered
+    assert "<redacted>" in rendered
+    assert "GET" in rendered

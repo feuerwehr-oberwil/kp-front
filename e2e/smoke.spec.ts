@@ -32,11 +32,18 @@ test('core surfaces render and survive reload', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Trupps', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expectNoCrash(page, 'Trupps')
 
-  // ⚠️ Checkliste / Anwesenheit / Material / Rapport are NOT driven here yet. Adding
-  // them turned main red: the first three switched in, «Material» never reported
-  // itself active, and this suite runs against the built image at CI's viewport — a
-  // layout this file has no evidence about. Reinstate them with a trace in hand, not
-  // by assuming the rail looks the way it does on a desk.
+  // Assert mounted content: rail selection alone cannot detect a lazy surface crashing.
+  await page.getByRole('button', { name: 'Checkliste', exact: true }).click()
+  await expect(page.locator('[class*="cl-surface"]')).toBeVisible()
+  await expectNoCrash(page, 'Checkliste')
+  for (const name of ['Anwesenheit', 'Material']) {
+    await page.locator('nav.navrail').getByRole('button', { name, exact: true }).click()
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
+    await expectNoCrash(page, name)
+  }
+  await page.locator('nav.navrail').getByRole('button', { name: 'Rapport', exact: true }).click()
+  await expect(page.locator('.report-preflight-body')).toBeVisible()
+  await expectNoCrash(page, 'Rapport')
 
   // Reload: the session cookie + the synced incident workspace + the surface pref must
   // all survive — i.e. no white-screen, no kicked-to-login, no lost incident.
@@ -97,6 +104,78 @@ test.describe(() => {
     await page.unroute(endpoint)
     await notice.getByRole('button', { name: 'Erneut versuchen' }).click()
     await expect(notice).toHaveCount(0)
+  })
+})
+
+test.describe('loading snail', () => {
+  test.use({ serviceWorkers: 'block' })
+
+  type Launch = { startedAt?: number; finishedAt?: number; arrivalElapsed?: number; replacedAt?: number; reactClock?: number }
+
+  async function prepareLaunch(page: Page, configDelay = 0) {
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.route('**/api/config', async route => {
+      if (configDelay) await new Promise(resolve => setTimeout(resolve, configDelay))
+      await route.fulfill({ json: {} })
+    })
+    await page.route('**/api/plan-scales', route => route.fulfill({ json: {} }))
+    await page.route('**/api/auth/me', async route => {
+      // Keep React's first Splash mounted briefly so its continued clock can be read.
+      await new Promise(resolve => setTimeout(resolve, 500))
+      await route.fulfill({ status: 401, json: { detail: 'Not authenticated' } })
+    })
+    await page.route('**/api/auth/refresh', route => route.fulfill({ status: 401, json: { detail: 'Not authenticated' } }))
+    await page.route('**/api/auth/roster', route => route.fulfill({ json: [] }))
+    await page.addInitScript(() => {
+      const state: Launch = {}
+      Object.assign(window, { __snailLaunch: state })
+      let sawBoot = false
+      document.addEventListener('animationstart', event => {
+        if (event.animationName === 'fs-arrival') state.startedAt = performance.now()
+      })
+      document.addEventListener('animationend', event => {
+        if (event.animationName === 'fs-arrival') { state.finishedAt = performance.now(); state.arrivalElapsed = event.elapsedTime }
+      })
+      new MutationObserver(() => {
+        if (document.querySelector('.boot-splash')) sawBoot = true
+        else if (sawBoot && state.replacedAt === undefined) {
+          state.replacedAt = performance.now()
+          const clock = document.querySelector('.snail-loader svg')?.getAnimations({ subtree: true })
+            .find(animation => (animation as CSSAnimation).animationName.endsWith('-shell'))?.currentTime
+          if (typeof clock === 'number') state.reactClock = clock
+        }
+      }).observe(document, { childList: true, subtree: true })
+    })
+  }
+
+  const observation = (page: Page) => page.evaluate(() => Reflect.get(window, '__snailLaunch') as Launch)
+
+  test('a fast startup shows the entire entrance before React takes over', async ({ page }) => {
+    await prepareLaunch(page)
+    await page.goto('/')
+    await expect.poll(async () => (await observation(page)).replacedAt).toBeDefined()
+    const launch = await observation(page)
+    expect(launch.startedAt).toBeDefined()
+    expect(launch.finishedAt).toBeDefined()
+    expect(launch.replacedAt!).toBeGreaterThanOrEqual(launch.finishedAt!)
+    // The animation's OWN clock says it ran to its end: `animationend` reports the elapsed time
+    // (0.63 s for the whole entrance). The wall clock between the two events is no measure of it —
+    // on a loaded runner `animationstart` arrives a few frames after the animation began, so the
+    // gap read 549–567 ms for a complete 630 ms run (CI, 01.10.2026).
+    expect(launch.arrivalElapsed).toBeGreaterThanOrEqual(0.629)
+    expect(launch.reactClock).toBeGreaterThanOrEqual(630)
+    await expect(page.locator('.boot-splash')).toHaveCount(0)
+    await expect(page.locator('.login-state')).toBeVisible()
+  })
+
+  test('a slow boot preserves the idle phase instead of replaying the entrance', async ({ page }) => {
+    await prepareLaunch(page, 2_500)
+    await page.goto('/')
+    await expect.poll(async () => (await observation(page)).reactClock).toBeGreaterThan(2_000)
+    const launch = await observation(page)
+    expect(launch.replacedAt!).toBeGreaterThanOrEqual(launch.finishedAt!)
+    await expect(page.locator('.login-state')).toBeVisible()
+    await expect(page.locator('.boot-splash')).toHaveCount(0)
   })
 })
 

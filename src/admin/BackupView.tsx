@@ -19,7 +19,7 @@ export function BackupView() {
       <SettingsSheet caption={C.backup.caption}>
         {cfg
           ? <ConfigBackup config={cfg} onImported={applyServerConfig} />
-          : <SettingsNote><EmptyState message={C.common.configLoading} /></SettingsNote>}
+          : <SettingsNote><EmptyState loading message={C.common.configLoading} /></SettingsNote>}
       </SettingsSheet>
       {/* The kept configurations, under the file export they belong with: both answer «how do I
           get the old one back». Until now this page offered only the half that requires having

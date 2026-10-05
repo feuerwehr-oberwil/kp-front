@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
+import { SearchField } from './SearchField'
+import { InfoToggle } from './InfoToggle'
 import { EmptyState } from './EmptyState'
 import { Menu, Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
@@ -243,8 +245,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // ── the search (mock verlauf-02, 14.09.) ──
   // `null` = closed; a string (even '') = the field has REPLACED the head row. Per-opening like
   // the legend: the drawer remounts on each open, so closing it is what resets the search.
-  // ⚠️ The Overlay keeps `dismissEscape={false}`: Escape in the field closes the SEARCH, not the
-  // drawer – the same «own the key» rule the transcript editors below follow.
+  // Escape closes ONE thing, innermost first (Overlay · onEscape, 26.09.2026): an open search or
+  // inline editor, and only then the drawer. It used to be `dismissEscape={false}` — the drawer
+  // owned the key and never closed on it, so on a tablet Esc did nothing at all.
   const [search, setSearch] = useState<string | null>(null)
   const query = useMemo(() => (search == null ? null : journalQuery(search)), [search])
   const searching = search != null
@@ -617,9 +620,19 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     ]
   }
 
+  /** Escape, innermost first (Overlay · onEscape): an inline editor, then the search, and only
+   *  when neither is open does the drawer close. A field's own Esc handler may already have closed
+   *  its layer in this same keydown — this still reads the render's state, so it answers «consumed»
+   *  and the drawer stays. */
+  const escapeInner = (): boolean => {
+    if (editTx) { setEditTx(null); return true }
+    if (editRow) { setEditRow(null); return true }
+    if (search != null) { setSearch(null); return true }
+    return false
+  }
 
   return (
-    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false} grab popupRef={setDrawerEl} style={heldStyle}>
+    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} onEscape={escapeInner} grab popupRef={setDrawerEl} style={heldStyle}>
         {/* ── the head STAYS while searching (22.09.2026) ──
             The field used to take the head's place – title · ⓘ · Replay · ✕ gone, a bare search
             box at the top – and with it went the answer to «where am I»: the drawer no longer said
@@ -632,11 +645,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               learned — but a panel that opens on its own, or one the app remembers having opened,
               is a thing to dismiss on the way to the record. This one is a question somebody asks
               once. No hover either: the primary device has none. */}
-          <button
-            type="button" className={`journal-legend-btn${showLegend ? ' on' : ''}`}
-            title={C.legend} aria-label={C.legend} aria-expanded={showLegend}
-            onClick={() => setShowLegend((v) => !v)}
-          ><Icon id="info" /></button>
+          <InfoToggle open={showLegend} onToggle={() => setShowLegend((v) => !v)} label={C.legend} />
           {/* the lens: same chip as the ⓘ, and it closes the legend on its way in – the legend
               explains discs the search is about to hide most of */}
           <button
@@ -644,7 +653,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-pressed={searching}
             onClick={() => { if (searching) { setSearch(null); return } holdHeight(); setShowLegend(false); setSearch('') }}
           ><Icon id="search" /></button>
-          {/* the funnel (feat 37 · B): lit with a dot while anything is ticked, like the Anwesenheit's
+          {/* the funnel (feat 37 · B): an active filter is the blue CHOICE fill and nothing else
+              (29.09.2026 — it was the ink «where you are» pill plus a dot), like the Anwesenheit's
               filter buttons — WHAT is ticked is in its name, in the menu and in the strip below,
               never printed on the button, whose width then never changes under the finger. */}
           {/* ⚠️ Standing whenever there is a row, even while every row is in one category: a head
@@ -653,10 +663,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             <Menu
               trigger={
                 <button
-                  type="button" className={`journal-legend-btn${filtering ? ' on' : ''}`}
+                  type="button" className={`journal-legend-btn${filtering ? ' jr-filter-on' : ''}`}
                   title={filtering ? `${C.filter} – ${filterOn}` : C.filter}
                   aria-label={filtering ? `${C.filter} – ${filterOn}` : C.filter}
-                ><Icon id="filter" />{filtering && <span className="journal-filter-dot" aria-hidden />}</button>
+                ><Icon id="filter" /></button>
               }
               align="start"
               popupClassName="jr-filter-menu"
@@ -677,21 +687,15 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
         {deliveryNotice}
         {searching && (
           <div className="journal-search-row">
-            <label className="journal-search">
-              <Icon id="search" />
-              <input
-                value={search} autoFocus inputMode="search" maxLength={80}
-                placeholder={C.searchPlaceholder} aria-label={C.search}
-                onChange={(ev) => setSearch(ev.target.value)}
-                onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setSearch(null) } }}
-              />
-              {/* the live count, only once there is a query to count against */}
-              {query && (
-                <span className="journal-search-count" aria-live="polite">
-                  {fillTemplate(C.searchCount, { n: totalRows, m: events.length })}
-                </span>
-              )}
-            </label>
+            {/* the live count rides in the field's count slot, only once there is a query. ONE ✕
+                (`noClear`, 29.09.2026, owner): the row's close beside it ends the search, query and all */}
+            <SearchField
+              className="journal-search" value={search ?? ''} onChange={setSearch} noClear
+              autoFocus inputMode="search" maxLength={80}
+              placeholder={C.searchPlaceholder} aria-label={C.search}
+              onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setSearch(null) } }}
+              count={query ? fillTemplate(C.searchCount, { n: totalRows, m: events.length }) : undefined}
+            />
             <button type="button" className="journal-x" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
           </div>
         )}

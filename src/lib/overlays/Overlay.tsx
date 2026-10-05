@@ -5,6 +5,7 @@ import { useDismissGrace } from './dismissGrace'
 import { useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
 import { SheetGrab } from './SheetGrab'
+import { useMobileScrollLock } from './useMobileScrollLock'
 
 /**
  * Lower-level sibling of <Sheet>: gives an EXISTING bespoke overlay — one with its own
@@ -44,6 +45,14 @@ export interface OverlayProps {
    * plus Space/←/→/↑/↓ transport) — then its own keydown handler calls `onClose` when appropriate.
    */
   dismissEscape?: boolean
+  /**
+   * A surface with its OWN inner layers (an open search, an inline editor) answers Escape first:
+   * return `true` when it consumed the key (it closed that layer), `false` to let the overlay close.
+   * «One gesture closes one thing» at the primitive, instead of a surface vetoing Escape wholesale
+   * with `dismissEscape={false}` and then never closing at all — which is what the Verlauf did on
+   * the tablet (3am test r4, 26.09.2026).
+   */
+  onEscape?: () => boolean
   /** Inline style for the popup frame. Merged OVER the keyboard lift every Overlay applies
    *  (keyboardLift · `is-kb`), so a surface with its own keyboard answer (the composer) wins. */
   style?: CSSProperties
@@ -71,7 +80,8 @@ export interface OverlayProps {
   children: ReactNode
 }
 
-export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, style, popupRef, swipeToClose = true, grab = false, children }: OverlayProps) {
+export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, onEscape, style, popupRef, swipeToClose = true, grab = false, children }: OverlayProps) {
+  useMobileScrollLock(open)
   const isOpeningEcho = useDismissGrace(open)
   const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose })
   // the on-screen keyboard, the same way <Sheet> answers it; only an `.ip-sheet` frame has the
@@ -93,6 +103,8 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
         if ((details.reason === 'outside-press' || details.reason === 'escape-key') && popoverOpen()) {
           details.cancel(); return
         }
+        // …and the surface's own inner layer (search, inline editor) before the surface itself
+        if (details.reason === 'escape-key' && onEscape?.()) { details.cancel(); return }
         onClose()
       }}
     >

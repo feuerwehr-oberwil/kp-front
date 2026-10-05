@@ -24,7 +24,9 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [1b. `report.hoursRounding` – Einsatzstunden on the printed rapport](#1b-reporthoursrounding--einsatzstunden-on-the-printed-rapport)
   - [1c. `report.attendanceMergeGapMin` – two ticks that are one arrival](#1c-reportattendancemergegapmin--two-ticks-that-are-one-arrival)
   - [1d. `report.links` – the station's own forms, on the Rapport](#1d-reportlinks--the-stations-own-forms-on-the-rapport)
+  - [1e. `objectVisits` – the optional Objektbesuche module](#1e-objectvisits--the-optional-objektbesuche-module)
   - [`doctrine.alarmBarRueckzug` – the quieter line on Rückzug](#doctrinealarmbarrueckzug--the-quieter-line-for-a-trupp-on-rückzug)
+  - [`doctrine.entryPressureMin` – the one question about a low Eingangsdruck](#doctrineentrypressuremin--the-one-question-about-a-low-eingangsdruck)
 - [2. Reference / Werkleitungs layers – station-supplied](#2-reference--werkleitungs-layers--station-supplied-nothing-bundled)
   - [2a. Raster layer (WMS / WMTS)](#2a-raster-layer-wms--wmts--paste-a-url-template) ·
     [2b. Vector layer (GeoJSON)](#2b-vector-layer-geojson--for-pointslines-you-own)
@@ -36,7 +38,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
     [4c. `"snapshot"` – the roster-snapshot contract](#4c-snapshot--a-roster-file-somebody-else-publishes)
 - [5. User accounts, roles, and deployment administration](#5-user-accounts-roles-and-deployment-administration)
 - [6. Environment variables (secrets / infra)](#6-environment-variables-secrets--infra--operator-not-admin)
-  - [The twenty-one integration credentials – env **or** `/admin`](#the-twenty-one-integration-credentials--env-or-admin--zugangsdaten)
+  - [The twenty-five integration credentials – env **or** `/admin`](#the-twenty-five-integration-credentials--env-or-admin--zugangsdaten)
   - [6a. Objektplan-Pull](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in)
   - [6b. Three things that look like env vars and are not](#6b-three-things-that-look-like-env-vars-and-are-not)
   - [6c. SharePoint-Pull – the station's own folders](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)
@@ -66,7 +68,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 |-------|------|-------|-------------|
 | **Defaults** | National/safe fallbacks (FKS doctrine, symbol presets) | `src/config/appConfig.ts` | developers |
 | **Deployment config** ← *this doc* | Per-station settings + uploaded assets | DB `deployment_config` row + asset storage | technical deployment owner – forms at `/admin`, or the same rows as a config file via CLI |
-| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-one integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Zugangsdaten for those twenty-one. **Env wins and locks the field** (§6) |
+| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-five integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Zugangsdaten for those twenty-five. **Env wins and locks the field** (§6) |
 | **Per-incident settings** | Live operational knobs (synced) | workspace blob (`IncidentSettings`) | any **user**, in-incident |
 
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
@@ -259,6 +261,8 @@ both now have browser pages – §9e and §9f.
     "contactIntervalMin": 5,                      // SCBA contact interval – "Kontakt fällig" (amber)
     "contactGraceSec": 60,                        // Nachfrist after the interval before the überfällig alarm
     "defaultPressureBar": 300, "pressureStep": 10, "pressureMax": 320,
+    "entryPressureMin": 270,                      // below this Eingangsdruck the Trupp form asks
+                                                  // once; 0 = never ask – see below
     "cylinderLiters": 7,                          // the two numbers behind the air estimate
     "estConsumptionLPerMin": 50,                  // («noch ≈ N bar») on the Trupp card
     "equipment": [                                // Ausrüstung a Trupp can take in – short labels,
@@ -414,6 +418,32 @@ until 2026-08-30, so a station configured entirely in the browser before that ne
 on the fallback while a CLI-template station adopted a 50-bar Rückzug line it never chose – worth
 one look at the field if that describes you. Either way, write the number down in your own
 doctrine: it is a safety threshold, not a preference.
+
+### `doctrine.entryPressureMin` – the one question about a low Eingangsdruck
+
+On the Übung of 2026-09-23 the Restdruck had nowhere to go, so it was typed into «Eingangsdruck
+korrigieren» after the Austritt, and the Rapport shows crews going in with 60, 170 and 180 bar.
+The exit has its own Restdruck since then, the Eingangsdruck of a Trupp that is out is locked,
+and an Eingangsdruck **below `entryPressureMin`** earns exactly one question in the Trupp form –
+at the Anmeldung, on a re-entry with a *new* cylinder, or when corrected while the Trupp is
+inside or registered: «180 bar ist für einen Eintritt tief (Station: ab 270). Stimmt das, meldet
+der Trupp gleich einen Alarm bei ≤100.» with «Ändern» / «180 bestätigen». Nothing is refused,
+and there is deliberately no upper bound: a low entry is sometimes simply true.
+
+| | |
+| --- | --- |
+| Range | integer, `0`–`300`; `0` switches the question off |
+| Unset in the config | the shipped `270` applies |
+| Shipped value | `270`, in the CLI template (`admin_config example`) and the frontend defaults (`src/config/appConfig.ts`) |
+| Never asked for | the station's own `defaultPressureBar`, and «Gleiche Flasche» on a re-entry (that bar is the Restdruck) |
+
+⚠️ **A station on 200-bar cylinders lowers it** – to about `180` – or sets `0`. The shipped 270 is
+sized for 300-bar bottles; left there, every full 200-bar cylinder typed in by hand would be
+questioned (the station's own `defaultPressureBar` is exempt, a corrected 190 is not), and a
+question asked every time is one nobody reads.
+
+Frontend only – the server stores it and never checks a reading against it. Set it on **Station ›
+Doktrin**, under the Eingangsdruck, or in the config file; read through `atemschutzDoctrine()`.
 
 ### ⚠️ `alarms.groups[].color` is not a colour
 
@@ -683,6 +713,16 @@ open to whoever has the address.
   app offers the tick once, when the operator **comes back** from the form – offered at the press
   it would expire on a tab that had just lost focus. The tick is per-incident, lives in the
   workspace blob, and merges per link id, so two devices ticking two different forms keep both.
+
+### 1e. `objectVisits` – the optional Objektbesuche module
+
+Off unless `objectVisits.enabled` is `true`. `captureRoles` (default `["editor","el"]`) says who may
+record a visit, `proposalFields` is the station's field list for Korrekturvorschläge, and
+`destinations[]` are the SharePoint folders the server files visits into. The full contract – the
+visit document, the APIs, the delivery – is [`object-visits.md`](object-visits.md); setting up a
+destination is [`object-visits-sharepoint.md`](object-visits-sharepoint.md). No credential lives in
+the section (`GET /api/config` is public): the writer's app registration is the
+`sharepoint_export` credential group, the organizer's key `object_visits_integration_key`.
 
 ---
 
@@ -1058,7 +1098,7 @@ The product role model is deliberately small:
 Set at deploy time, never in the repo. **Seventeen of them are also settable from the browser** –
 see the rule immediately below; everything else in the table really is deploy-time only.
 
-### The twenty-one integration credentials – env **or** `/admin` → Zugangsdaten
+### The twenty-five integration credentials – env **or** `/admin` → Zugangsdaten
 
 The station's integration settings – the three Divera keys, the Traccar trio, the VAPID trio, the
 four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET`,
@@ -1136,6 +1176,8 @@ and locks the field – see the rule above).
 | 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. It is deliberately not minted by the installer: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Zugangsdaten |
 | 🔐 `HEALTHCHECK_PING_URL` | dead-man's switch: **the job GETs this URL every 60 s** (healthchecks.io or any cron monitor), so the monitor alerts when the pings *stop*. Catches the class an HTTP probe of `/ready` cannot: a container stopped with nothing replacing it, or a wedged event loop. Point it at a check with a **1 min period and ~3 min grace** – matching the 60 s cadence, so two missed pings raise it. Nothing set anywhere = the heartbeat job still runs but returns on its first line, so nothing is pinged; a failed ping is logged and swallowed, so a monitoring outage never disturbs the deployment. The «Einrichtung» card on the admin landing page links straight to this field |
 | 🔐 `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_CLIENT_SECRET`, `SHAREPOINT_SECRET_EXPIRES` | the Azure app registration behind the SharePoint pull ([§6c](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)), read-only, client-credentials flow. ⚠️ These four are the credentials that have **no `Settings` field**: they were introduced after the credential table existed, so the environment half is read straight off the process environment and the normal path is the browser. The two ids are readable (an operator compares them against the Azure portal); the secret is write-only. `SHAREPOINT_SECRET_EXPIRES` is not a credential but the ISO date (`JJJJ-MM-TT`) the secret lapses on – Azure caps it at 24 months and says nothing when it does, so this is what the System card counts down. Nothing set = no pull, fail-closed |
+| 🔐 `OBJECT_VISITS_INTEGRATION_KEY` | the Objektbesuche organizer's bearer key for `/api/integrations` ([`object-visits.md`](object-visits.md)); ≥ 24 characters, write-only, no `Settings` field (read off the environment, normally set in the browser). Unset = the organizer API answers 403 |
+| 🔐 `SHAREPOINT_EXPORT_TENANT_ID`, `SHAREPOINT_EXPORT_CLIENT_ID`, `SHAREPOINT_EXPORT_CLIENT_SECRET` | a SECOND Azure app registration, the only one KP Front writes with: the Objektbesuche delivery files visit reports into a destination folder ([`object-visits-sharepoint.md`](object-visits-sharepoint.md)), `Sites.Selected` **write** on one site. Separate from the pull's read-only registration on purpose. No `Settings` fields; ids readable, secret write-only. Incomplete = no delivery, fail-closed |
 | 🔐 `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
 | 🔐 `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments |
 | 🔐 `CARTO_API_KEY` | browser key for the built-in CARTO Voyager and Dark Matter raster basemaps. Request it for the deployment domains at [CARTO Basemaps](https://carto.com/basemaps/apikey/). The runtime config appends it as `?key=` to every CARTO tile template the BROWSER fetches – map pickers, the admin object map, offline downloads. **⚠️ Restrict it to the deployment domains in CARTO**: it is necessarily visible in browser requests, and that restriction rather than secrecy is what stops it being spent elsewhere. Never commit a real value. Two things narrow it further: `/api/config` hands it only to callers that already hold a session (PIN user, admin, or an incident link – the login screen draws no map and does not get it), and **Rapport/Kroki tiles are fetched server-side with this same credential**, so the browser's copy never travels in a request body, a log line or a tile-cache filename. Empty = the provider's unkeyed/watermarked response is shown. |
@@ -1204,7 +1246,7 @@ is fetched, and plans stay exactly as they were loaded. Index format and the rea
 
 Each of these is a **token or key stored in the database** and managed in the admin UI, not set
 at deploy time. They are listed here because that is where people go looking for them. (Unlike
-the twenty-one 🔐 credentials above, these three have **no** environment variable at all – there is
+the twenty-five 🔐 credentials above, these three have **no** environment variable at all – there is
 nothing to put in `.env` and nothing that could outrank the stored value.)
 
 | Feature | Where it is managed | What it does |
@@ -1595,9 +1637,9 @@ and `file` (relative to the manifest), and may carry `title`, `sourceNote` and `
 
 ### 9f. `admin_checklists` – checklist templates
 
-Checklist templates (the FU action list, the Lagerapport agenda, the EL tactical playbook) are
-station data too: one `ChecklistTemplate` JSON per list – plus playbook diagram images for
-`reference` templates – and a `checklists.manifest.json`, kept in the private data repo and
+Checklist templates (the FU action list, the Lagerapport agenda, the EL tactical playbook, the
+device Anleitungen) are station data too: one `ChecklistTemplate` JSON per list – plus images for
+`reference` and `manual` templates – and a `checklists.manifest.json`, kept in the private data repo and
 loaded with `backend/app/admin_checklists.py`. Each template becomes a `checklists:<id>`
 reference dataset (diagram pages as `checklists:<id>:p<N>`), served at
 `/api/reference/checklists:<id>` and fetched + offline-cached by the Checkliste surface
@@ -1618,6 +1660,78 @@ uv run python -m app.admin_checklists show               # list stored templates
 The manifest is the single place a station controls checklist rail ordering (`order`), and
 `load`/`push` **prune** stale `checklists:*` datasets not in the manifest, so renamed or removed
 lists don't linger.
+
+#### Template kinds
+
+| `kind` | What it is | Body | Ticked? | Images |
+| --- | --- | --- | --- | --- |
+| `action` | a task list (FU phases) | `phases[].items[]` (+ `branches`) | yes, per Einsatz | – |
+| `rapport` | the Lagerapport agenda | `phases[].items[]` | yes, per Einsatz | – |
+| `reference` | Merkblätter / tactical playbook (Stichworte) | `entries[].content[]` | no | `{"type": "image", "page": N}` blocks |
+| `manual` | an **Anleitung** for one device (05.10.2026) | `device` + `steps[]` | no | `steps[].images[].page` |
+| `visit` | an Objektbesuch checklist – [`object-visits.md`](object-visits.md) | `phases[].items[]` | answered on the visit | – |
+
+Images are manifest `assets` (`{"page": N, "file": "…jpg|png|webp|svg"}`), stored as
+`checklists:<id>:p<N>`; only `reference` and `manual` entries may carry them. Each kind's
+shape is checked by `app/checklist_templates.py · template_problem` on every door (CLI,
+`/admin › Checklisten`, the SharePoint pull).
+
+#### Anleitungen (`kind: "manual"`)
+
+A device's instructions – «Stromerzeuger starten», «Hebekissen einsetzen» – as big numbered
+steps on the Checkliste tab, in their own **Anleitungen** group below the checklists, one
+sub-head per device. They are **read, never ticked**: no state, no progress, nothing in the
+Verlauf or the Rapport. The picker search matches the title, the `device` and the `keywords`.
+Pictures are prefetched into the service worker's `checklist-assets` cache as soon as the
+templates load (`warmManualImages` in `src/lib/checklists.ts`), so an Anleitung opened for the
+first time without network still shows them.
+
+```json
+{
+  "id": "stromerzeuger",
+  "kind": "manual",
+  "title": "Stromerzeuger starten",
+  "device": "Stromerzeuger 8 kVA",
+  "subtitle": "optional one-line intro under the title",
+  "version": 3,
+  "updated": "2026-09-14",
+  "source": "Bedienungsanleitung Hersteller, Kap. 4",
+  "keywords": ["generator", "notstrom"],
+  "steps": [
+    { "text": "Standort im Freien wählen.",
+      "warning": "Nie in geschlossenen Räumen betreiben – Kohlenmonoxid." },
+    { "text": "Treibstoffhahn öffnen, bei kaltem Motor Choke schliessen.",
+      "hint": "Ölstand nur bei waagrechtem Gerät ablesen.",
+      "images": [{ "page": 1, "caption": "Bedienfeld" }] }
+  ]
+}
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `device` | ✅ | the Gerät; the picker groups by it (same string = same group) |
+| `steps[].text` | ✅ | the step, shown big and numbered; phone numbers become tappable |
+| `steps[].details` | – | sub-points of the step (a list of strings), shown as a bullet list under it |
+| `steps[].warning` | – | a red «Achtung:» line – what hurts people or the device |
+| `steps[].hint` | – | a quiet tip line |
+| `steps[].images[]` | – | `{ "page": N, "caption"? }` – an asset page of this entry: a photo, or a page of the device's PDF manual exported as an image (one image per PDF page) |
+| `updated` | – | «Stand», `YYYY-MM-DD` |
+| `keywords` | – | extra search words (model names, «Generator») |
+| `subtitle`, `version`, `source` | – | intro line, your own version counter, «Quelle:» footer |
+
+`admin_checklists validate` refuses an Anleitung whose steps show a `page` the manifest entry
+has no asset for – a blank box where the picture should be is exactly what must not happen at
+3am. A manifest entry:
+
+```json
+{ "id": "stromerzeuger", "kind": "manual", "title": "Stromerzeuger starten",
+  "file": "checklists/stromerzeuger.json", "order": 10,
+  "assets": [{ "page": 1, "file": "checklists/assets/stromerzeuger-p1.jpg" }] }
+```
+
+`examples/demo-data/` carries two worked examples (`musterdorf-stromerzeuger`,
+`musterdorf-hebekissen`) with SVG pictures; `/admin › Checklisten` offers a neutral one as
+«Beispiel-Vorlage: Anleitung».
 
 ### 9g. Maintenance tools (`reset_roster`, `demo_export`, `admin_visits`)
 

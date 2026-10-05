@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { useState } from 'react'
 import { apiPost, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
@@ -94,7 +95,7 @@ export function PinSheet({ user, onClose, onSaved }: {
       sheetClassName="adm-pin-sheet"
       footer={setting ? (
         <>
-          <button type="button" className="ip-btn ghost" onClick={onClose}>{Cc.cancel}</button>
+          <button type="button" className="ip-btn" onClick={onClose}>{Cc.cancel}</button>
           <button
             type="button"
             className="ip-btn primary"
@@ -108,14 +109,14 @@ export function PinSheet({ user, onClose, onSaved }: {
         <>
           <button
             type="button"
-            className="ip-btn ghost"
+            className="ip-btn"
             onClick={() => { setSecond(''); setErr(null); setStep('set') }}
             disabled={busy}
           >
             {C.pinBack}
           </button>
           <button type="button" className="ip-btn primary" disabled={!matches || busy} onClick={() => void save()}>
-            {busy ? Cc.saving : C.pinSave}
+            {busy && <ShellLoader />}{busy ? Cc.saving : C.pinSave}
           </button>
         </>
       )}

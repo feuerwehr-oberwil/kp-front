@@ -515,7 +515,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           modal
           footer={
             <>
-              <button type="button" className="ip-btn ghost" onClick={cancelEmptyGuard}>
+              <button type="button" className="ip-btn" onClick={cancelEmptyGuard}>
                 {appConfig.copy.admin.common2.cancel}
               </button>
               <button type="button" className="ip-btn ip-btn-danger" onClick={() => confirmEmptyGuard(save.doc)}>
@@ -546,7 +546,7 @@ export function useConfig(): ConfigCtx {
 export function ConfigGate({ children }: { children: ReactNode }) {
   const { draft, loadError } = useConfig()
   if (loadError) return <EmptyState tone="err" message={loadError} />
-  if (!draft) return <EmptyState message={appConfig.copy.admin.common.configLoading} />
+  if (!draft) return <EmptyState loading message={appConfig.copy.admin.common.configLoading} />
   return <>{children}</>
 }
 

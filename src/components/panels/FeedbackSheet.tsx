@@ -133,7 +133,7 @@ export function FeedbackSheet({ trouble, onClose }: {
       <span className="fb-route-body">
         <span className="fb-route-t">
           {title}
-          <span className={`fb-route-badge${id === 'github' ? '' : ' grey'}`}>{badge}</span>
+          <span className={`ip-badge ${id === 'github' ? 'ip-badge-ok' : 'ip-badge-arch'}`}>{badge}</span>
         </span>
         <span className="fb-route-s">{note}</span>
       </span>
@@ -169,7 +169,7 @@ export function FeedbackSheet({ trouble, onClose }: {
             transmits now — they are about to read the whole report in their own mail client
             or in a GitHub form — so the block is one tap away and the routes get the space. */}
         <details className="fb-tech">
-          <summary>{cp.techTitle}</summary>
+          <summary>{cp.techTitle}<Icon id="chevron-down" className="chev" /></summary>
           <pre className="fb-tech-block">{techBlock}</pre>
           <p className="fb-tech-note">{cp.techNote}</p>
         </details>

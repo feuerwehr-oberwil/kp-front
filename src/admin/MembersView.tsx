@@ -1,3 +1,4 @@
+import { ShellLoader } from '../components/ShellLoader'
 import { useCallback, useEffect, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
 import { apiGet, apiPost, apiPatch, ApiError } from '../lib/api'
@@ -186,7 +187,7 @@ function AddMemberForm({ open, setOpen, onCreated }: {
             {appConfig.copy.admin.common2.cancel}
           </button>
           <button type="submit" className="btn adm-save-btn" disabled={!valid || busy}>
-            {busy ? appConfig.copy.admin.common2.saving : appConfig.copy.admin.common2.create}
+            {busy && <ShellLoader />}{busy ? appConfig.copy.admin.common2.saving : appConfig.copy.admin.common2.create}
           </button>
         </div>
       </>
@@ -287,7 +288,7 @@ function EditRow({ user, canDemote, onSaved, onCancel }: {
               {Cc.cancel}
             </button>
             <button type="button" className="btn adm-save-btn" onClick={() => void save()} disabled={busy}>
-              {busy ? Cc.saving : Cc.save}
+              {busy && <ShellLoader />}{busy ? Cc.saving : Cc.save}
             </button>
           </div>
         </div>
@@ -394,7 +395,7 @@ export function MembersView() {
       >
         {/* Directly under the header whose button opened it — see AddMemberForm. */}
         <AddMemberForm open={addOpen} setOpen={setAddOpen} onCreated={() => void load()} />
-        {state.kind === 'loading' && <EmptyState message={C.loading} />}
+        {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
         {state.kind === 'error' && <EmptyState tone="err" message={state.detail} />}
         {/* No button of its own: «Mitglied hinzufügen» is in the card header two lines above,
             and the same action twice in one card is what makes the page look improvised. */}

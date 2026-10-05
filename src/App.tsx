@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { ShellLoader } from './components/ShellLoader'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactivateResult } from './types'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
 import { demoSeedRebase, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
-import { shortAddress, isDemoMode, alarmProviderName } from './lib/deploymentConfig'
+import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig } from './lib/deploymentConfig'
+import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
+import { startOutboxRunner } from './objectVisits/outbox'
 import { fillTemplate, initials, roleLabel } from './lib/format'
 import { Overlays, toast, confirmDialog } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
@@ -32,9 +35,12 @@ import {
   migrateLegacyWorkspace, takeDiveraAlarm, patchIncident, attachDiveraAlarm, discardWorkspaceCache,
   type DiveraAlarm, type IncidentFull, type IncidentMeta,
 } from './lib/incidents'
+import { isIncidentRunning } from './lib/api/incidents'
+import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, reopenedMetaFor, reportIncidentClosed, reportIncidentReopened, type IncidentClosedSignal, type IncidentReopenedSignal } from './lib/incidentClosed'
+import { serverNow } from './lib/serverClock'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
-import { ApiError } from './lib/api'
+import { ApiError, isUnverifiable } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
@@ -44,9 +50,14 @@ import { Meldeleiste } from './components/Meldeleiste'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
+import { loadRoster } from './lib/usePersonnel'
 import { HelpOverlay } from './components/HelpOverlay'
 import { installHoldTooltip } from './lib/holdTooltip'
 
+
+// Objektbesuche (/besuche…, docs/object-visits.md): its own lazy chunk — precached with the field
+// app, so the surface opens offline — mounted in place of the launcher while its route is on.
+const ObjectVisitsApp = lazy(() => import('./components/objectVisits/ObjectVisitsApp'))
 
 // ---------------------------------------------------------------------------------
 // Incident root: owns the incident list, the active selection, and the per-incident
@@ -78,7 +89,6 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
       keepScreenOn={keepScreenOn}
       onKeepScreenOn={setKeepScreenOn}
       themeCoord={null}
-      elView={false}
       onFeedback={onFeedback}
     />
   )
@@ -112,6 +122,18 @@ export default function App() {
   // permission is already granted AND the deployment has VAPID keys) — killed-app alarms.
   // Never on a link session: /api/push/subscriptions writes rows tied to a user and 403s.
   useEffect(() => { if (!linkScoped) void ensurePushSubscription() }, [linkScoped])
+  // Keep the last-known Mannschaft on the device from the LAUNCHER on, not only once an Einsatz
+  // has been opened online: an Einsatz first opened offline, and the Leeres Erfassungsblatt, read
+  // that cache (usePersonnel · loadRoster). A link session may not list the roster (403).
+  const rosterUserId = user && !linkScoped ? user.id : null
+  useEffect(() => { if (rosterUserId) void loadRoster().catch(() => {}) }, [rosterUserId])
+
+  // Objektbesuche: what a save point could not send (offline, a lapsed session) goes up on its
+  // own — at every start and every reconnect, whether or not anybody opens that visit again.
+  // Never for a link session (the routes 403 for it); a device with no visits costs one IDB read.
+  // Only THIS account's pending sends: on a shared tablet a colleague's draft waits for them.
+  const runnerUser = user?.id ?? null
+  useEffect(() => (linkScoped || !runnerUser ? undefined : startOutboxRunner(undefined, { user: runnerUser })), [linkScoped, runnerUser])
 
   // hold an icon-only button to read its word — the tablet's title-tooltip (lib/holdTooltip)
   useEffect(() => installHoldTooltip(), [])
@@ -125,10 +147,19 @@ export default function App() {
   // the boot auto-open is running and nothing is on screen yet: hold the Splash instead of
   // flashing the launcher, whose card would only start a second, silent open of the same Einsatz
   const [bootOpening, setBootOpening] = useState(false)
+  // the boot has decided what to open (or that it opens nothing). Until then the launcher must not
+  // render: the always-on list watch can fill `incidents` BEFORE the boot's own list call returns,
+  // and the launcher then flashed between the splash and the Einsatz (01.10.2026)
+  const [bootDecided, setBootDecided] = useState(false)
   const bootOpenSeq = useRef(0) // StrictMode / re-run guard: only the LATEST boot open may clear it
   const [activeMeta, setActiveMeta] = useState<IncidentMeta | null>(null)
   const [workspace, setWorkspace] = useState<Saved | null>(null)
   const [remount, setRemount] = useState(0)
+  // the Einsatz whose OPENING is still behind the workspace's snail cover (lib/bootCover). Set
+  // by a genuine open only — never by a background remount, nor by re-selecting the Einsatz
+  // already on screen (the read-only stay after «Abschliessen») — and cleared as the cover lifts.
+  const [coverId, setCoverId] = useState<string | null>(null)
+  const clearCover = useCallback(() => setCoverId(null), [])
   // Demo instances greet a first-time visitor once per device with the can/can't intro.
   const [showWelcome, setShowWelcome] = useState(() => isDemoMode() && !hasSeenDemoWelcome())
   const [forceReadOnly, setForceReadOnly] = useState(false)
@@ -136,6 +167,25 @@ export default function App() {
   // IDB sync cache); a second tab is read-only with a one-tap take-over.
   const tabLock = useIncidentTabLock(activeId)
   const [overlay, setOverlay] = useState<null | 'create' | 'history' | 'daten'>(null)
+  // the Objektbesuche route (/besuche…) — a surface of its own, see the render below
+  const ovRoute = useOvRoute()
+  // …ENTERED on purpose (the launcher's button, a deep link at start): only then may it cover an
+  // open Einsatz — a back gesture onto an old /besuche entry must not (objectVisits/route)
+  const [ovEntered, setOvEntered] = useState(() => isOvPath(window.location.pathname))
+  // …from inside an Einsatz with the object whose plans are on the board: the Übersicht offers it
+  // first (owner, 05.10.2026). From the launcher there is none.
+  const [ovSuggest, setOvSuggest] = useState<string | null>(null)
+  const enterObjectVisits = useCallback((objectId: string | null = null) => {
+    setOvSuggest(objectId); setOvEntered(true); navigateTo(OV_BASE)
+  }, [])
+  // leaving walks BACK over the surface's own entries (route · leaveAppEntries): nothing stays
+  // behind the Karte / the launcher for an iOS edge swipe to find (05.10.2026)
+  const leaveObjectVisits = useCallback(() => { setOvEntered(false); leaveAppEntries('/') }, [])
+  // left by the browser's own back: the entry is spent (React's «adjust state while rendering»)
+  if (!ovRoute && ovEntered) setOvEntered(false)
+  // a back gesture onto /besuche over a running Einsatz: the Einsatz stays, and so does its address
+  const ovOverEinsatz = !!ovRoute && !ovEntered && !!activeId && !linkScoped
+  useEffect(() => { if (ovOverEinsatz) navigateTo('/', { replace: true }) }, [ovOverEinsatz])
   // landing-card utilities (no incident open): device settings / help / install guide
   const [landingSheet, setLandingSheet] = useState<null | 'settings' | 'help' | 'install'>(null)
   // Rückmeldung: something went wrong recently and the cooldown has passed → ask on the
@@ -187,6 +237,20 @@ export default function App() {
     sw.addEventListener('message', onMsg)
     return () => sw.removeEventListener('message', onMsg)
   }, [isEditor, refreshPool])
+  // A tapped «Neuer Objektbesuch» push (target 'besuch:<id>') while the app runs: open that visit.
+  // A killed app is opened by the service worker straight onto /besuche/<id> (sw-notify.js).
+  useEffect(() => {
+    const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined
+    if (!sw || linkScoped) return
+    const onMsg = (e: MessageEvent) => {
+      const target = e.data?.type === 'kp-notification-click' ? e.data.target : null
+      if (typeof target !== 'string' || !target.startsWith('besuch:')) return
+      setOvEntered(true)
+      navigateTo(ovHref({ kind: 'visit', id: target.slice('besuch:'.length) }))
+    }
+    sw.addEventListener('message', onMsg)
+    return () => sw.removeEventListener('message', onMsg)
+  }, [linkScoped])
   const [taking, setTaking] = useState<number | null>(null) // divera_id mid-take
   // incident just opened one-tap → show the correct-in-place review banner until confirmed
   const [reviewPendingId, setReviewPendingId] = useState<string | null>(null)
@@ -211,7 +275,20 @@ export default function App() {
   const archiveReturnRef = useRef<string | null>(null)
   const activeIdRef = useRef<string | null>(null)
   const forceReadOnlyRef = useRef(false)
+  /** the open Einsatz's meta, for the close signal (below) — it arrives from outside React */
+  const activeMetaRef = useRef<IncidentMeta | null>(null)
+  /** the Einsatz THIS device is closing right now (completeRapport): its own poll hears the close
+   *  before the handover finishes, and that is not «closed on another device» */
+  const closingLocallyRef = useRef<string | null>(null)
+  /** since when THIS device has had the open Einsatz on screen running — a `closed_at` older than
+   *  that is an earlier close, kept across «Wieder öffnen» (incidentClosed · closedNoticeAt) */
+  const runningSinceRef = useRef(0)
+  /** …and the one THIS device is reopening («Wieder öffnen» here remounts it editable itself) */
+  const reopeningLocallyRef = useRef<string | null>(null)
+  /** the Einsatz closed — or reopened — on ANOTHER device while it was open here, and when */
+  const [lifecycleElsewhere, setLifecycleElsewhere] = useState<{ id: string; event: 'closed' | 'reopened'; at: number } | null>(null)
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
+  useEffect(() => { activeMetaRef.current = activeMeta }, [activeMeta])
   useEffect(() => { forceReadOnlyRef.current = forceReadOnly }, [forceReadOnly])
 
   // Night ergonomics: when the theme pref is 'auto', track daylight at the incident
@@ -234,6 +311,7 @@ export default function App() {
     // the bell honestly saying «Ton nicht freigegeben» (see useAtemschutzMute).
     unlockAlarm()
     const my = ++selectReq.current // any newer call supersedes this one
+    const opening = activeIdRef.current !== id
     if (opts.readOnly) {
       if (!forceReadOnlyRef.current) archiveReturnRef.current = activeIdRef.current
     } else {
@@ -260,6 +338,8 @@ export default function App() {
     const { workspace: ws, rev } = await sync.init()
     if (selectReq.current !== my) { sync.dispose(); return } // superseded mid-flight
     syncRef.current = sync
+    runningSinceRef.current = serverNow()
+    setLifecycleElsewhere(null)
     setActiveMeta(meta as IncidentMeta)
     // Make sure the open switcher list contains the one we just opened. Normally it already
     // does, but a just-reactivated incident was archived (hence absent) — without this the
@@ -281,12 +361,16 @@ export default function App() {
     setWorkspace(seed)
     setForceReadOnly(!!opts.readOnly)
     setActiveId(id)
+    setCoverId(opening ? id : null)
     setRemount((n) => n + 1)
     // ⚠️ `incidentChosenAt` is stamped only when a HUMAN opened this — never on the boot
     // auto-open, which would otherwise record the app's own choice as the operator's and let a
     // stale alarm keep re-confirming itself on every reload (lib/incidentAlerts · pickBootIncident).
     const prev = loadPrefs()
-    savePrefs({ ...prev, incidentId: id, incidentChosenAt: opts.boot ? prev.incidentChosenAt : Date.now() })
+    // …and a hand-opened Einsatz ends the «landed after an Abschluss» state (completeRapport)
+    savePrefs(opts.boot
+      ? { ...prev, incidentId: id }
+      : { ...prev, incidentId: id, incidentChosenAt: Date.now(), landedAt: undefined })
   }, [])
 
   // `selectIncident` for a HUMAN tap: the same open, but a failure is SAID. Every interactive
@@ -325,7 +409,7 @@ export default function App() {
         if (bootOpenSeq.current === my) setBootOpening(false)
       }
     }
-    void (async () => {
+    void (async () => { try {
       // Link session: there is exactly one incident and no list to pick from — fetch it by id
       // and open it. (GET /api/incidents is not on the link allowlist, so listing here would
       // 403 and land a responder on an empty launcher instead of the Einsatz they were sent.)
@@ -349,10 +433,13 @@ export default function App() {
       }
       if (offline) toast(appConfig.copy.incidentSwitcher.bootOffline, { icon: 'warn' })
       setIncidents(list)
+      // A launch INTO Objektbesuche (a deep link, a reload on /besuche) opens no Einsatz behind
+      // it: leaving the surface lands on the launcher, not on yesterday's Einsatz.
+      if (isOvPath(window.location.pathname)) return
       // Remembered incident normally wins, but a NEWER alarm-created incident takes
       // precedence: a killed app reopens onto the live alarm, not yesterday's Einsatz.
       const bootPrefs = loadPrefs()
-      const pick = pickBootIncident(list, bootPrefs.incidentId, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })
+      const pick = pickBootIncident(list, bootPrefs.incidentId, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt, landedAt: bootPrefs.landedAt })
       if (pick) { await bootOpen(pick); return }
       // ⚠️ Nothing picked does NOT mean «nothing to go back to». The list boot works from holds
       // only the OPEN Einsätze, so an abgeschlossener one — viewed read-only out of «Alle
@@ -368,7 +455,7 @@ export default function App() {
       if (saved && shouldReopenClosed(saved, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })) {
         await bootOpen(saved, { readOnly: saved.is_archived })
       }
-    })()
+    } finally { setBootDecided(true) } })()
   }, [selectIncident, linkIncidentId])
 
   // Forget the crash streak once an incident has proven healthy: on a CLEAN leave (a switch, a
@@ -404,12 +491,15 @@ export default function App() {
   // (the take made it active) — no activeId dep, so the toast's captured closure can't go stale.
   const undoTake = useCallback(async (id: string) => {
     if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
+    // this device's own archive — not «auf einem anderen Gerät abgeschlossen» (lib/incidentClosed)
+    closingLocallyRef.current = id
     // ⚠️ SAY SO when the undo does not go through. A swallowed failure here left the incident on
     // the server, refreshed the list, and dropped the operator back onto it with no explanation —
     // an Einsatz that reappears by itself is how a tool stops being believed.
     try {
       await archiveIncident(id)
     } catch (e) {
+      closingLocallyRef.current = null
       toast(e instanceof ApiError ? e.detail : appConfig.copy.abschluss.failed, { icon: 'warn', tone: 'warn' })
       return
     }
@@ -417,6 +507,7 @@ export default function App() {
     // never have existed, so keeping its blobs would leave an orphan queue nothing ever drains.
     // Every other archive path keeps what is still pending (clearUploadedMedia).
     await clearIncidentMedia(id).catch(() => {})
+    if (closingLocallyRef.current === id) closingLocallyRef.current = null
     setReviewPendingId(null)
     const list = await refreshList() // returns non-archived only → the taken incident is gone
     setActiveId(null); setActiveMeta(null)
@@ -481,6 +572,70 @@ export default function App() {
     setIncidents((list) => (list ?? []).map((i) => (i.id === updated.id ? updated : i)))
   }, [])
 
+  // --- closed on ANOTHER device (N3, staging 25.09.2026) ---------------------------------------
+  // The live poll, a refused write or the list watch says the open Einsatz is over (lib/
+  // incidentClosed). The answer is the same Einsatz, read-only, IN PLACE: the meta flips and
+  // IncidentWorkspace turns every writer off and says so (its IncidentClosedMeldung) — no
+  // remount, so the operator keeps the surface they were on, and NEVER a jump into another
+  // Einsatz. «Zurück» from here goes to «Alle Einsätze», not into whatever was open before.
+  // The server's own meta is asked for first; a signal the SERVER sent (poll header, refusal)
+  // stands on its own if that read fails, the list's mere absence does not.
+  useEffect(() => {
+    const handle = async (sig: IncidentClosedSignal) => {
+      if (!closedMetaFor(activeMetaRef.current, { ...sig, source: 'poll' }, null, closingLocallyRef.current)) return
+      const fresh = (await getIncident(sig.incidentId).catch(() => null)) as IncidentMeta | null
+      // re-read after the await: a switch, a local close or an earlier signal may have settled it
+      const meta = closedMetaFor(activeMetaRef.current, sig, fresh, closingLocallyRef.current)
+      if (!meta) return
+      archiveReturnRef.current = null
+      setLifecycleElsewhere({ id: meta.id, event: 'closed', at: closedNoticeAt(meta.last_closed_at ?? meta.closed_at, runningSinceRef.current, serverNow()) })
+      setActiveMeta(meta)
+      setIncidents((list) => (list ?? []).map((i) => (i.id === meta.id ? meta : i)))
+    }
+    return onIncidentClosed((sig) => { void handle(sig) })
+  }, [])
+
+  // …and the way back: «Wieder öffnen» on ANOTHER device (same channels, lib/incidentClosed ·
+  // reopenedMetaFor). EVERY device showing this Einsatz closed follows it — the one a close signal
+  // switched, the one that closed it itself, one opened closed out of «Alle Einsätze» (N1): the
+  // meta flips back in place, forceReadOnly goes, and the workspace is live again; what was parked
+  // while it was closed is sent (IncidentWorkspace · requeue), and its row says so.
+  useEffect(() => {
+    const handle = async (sig: IncidentReopenedSignal) => {
+      if (!reopenedMetaFor(activeMetaRef.current, { ...sig, source: 'poll' }, null, reopeningLocallyRef.current)) return
+      const fresh = (await getIncident(sig.incidentId).catch(() => null)) as IncidentMeta | null
+      // re-read after the await: a switch, a local reopen or an earlier signal may have settled it
+      const meta = reopenedMetaFor(activeMetaRef.current, sig, fresh, reopeningLocallyRef.current)
+      if (!meta) return
+      // …and a view opened read-only (out of «Alle Einsätze», or re-shown closed after this
+      // device's own close) is live now too: a reopen is the current state, not a choice to undo
+      setForceReadOnly(false)
+      runningSinceRef.current = serverNow()
+      setLifecycleElsewhere({ id: meta.id, event: 'reopened', at: serverNow() })
+      setActiveMeta(meta)
+      setIncidents((list) => {
+        const arr = list ?? []
+        return arr.some((i) => i.id === meta.id) ? arr.map((i) => (i.id === meta.id ? meta : i)) : [meta, ...arr]
+      })
+    }
+    return onIncidentReopened((sig) => { void handle(sig) })
+  }, [])
+
+  // The open Einsatz is missing from the open list (the 30 s watch): it may have been closed
+  // elsewhere. Only a SUSPICION — the list is bounded, and an offline answer is a cache — so the
+  // handler above asks the server before it acts (lib/incidentClosed · closedMetaFor).
+  useEffect(() => {
+    if (!activeMeta || !isIncidentRunning(activeMeta) || !incidents?.length) return
+    if (!incidents.some((i) => i.id === activeMeta.id)) reportIncidentClosed({ incidentId: activeMeta.id, source: 'list' })
+  }, [incidents, activeMeta])
+  // …and the mirror: the CLOSED Einsatz on screen is back among the open ones — reopened elsewhere,
+  // or a stale list; the handler asks the server (lib/incidentClosed · reopenedMetaFor)
+  useEffect(() => {
+    if (!activeMeta || isIncidentRunning(activeMeta) || !incidents) return
+    const entry = incidents.find((i) => i.id === activeMeta.id)
+    if (entry && isIncidentRunning(entry)) reportIncidentReopened({ incidentId: activeMeta.id, source: 'list' })
+  }, [incidents, activeMeta])
+
   // THE close, and the only one. Both doors on the ACTIVE Einsatz (the Rapport's button/band and
   // the Einsatz-Menü row) run their counting confirm in IncidentWorkspace and land here; «Alle
   // Einsätze» runs the plain confirm below and lands here too. Flush the last workspace edits,
@@ -491,6 +646,7 @@ export default function App() {
   // the outcome on (a failed handover must not look like an Abschluss to anyone upstream).
   const completeRapport = useCallback(async (id: string): Promise<boolean> => {
     if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return false }
+    closingLocallyRef.current = id
     try {
       if (id === activeId && syncRef.current) await syncRef.current.flush().catch(() => {})
       await patchIncident(id, { report_done_at: new Date().toISOString() })
@@ -507,9 +663,19 @@ export default function App() {
         : appConfig.copy.abschluss.done, { icon: stillQueued ? 'warn' : 'check', tone: stillQueued ? 'warn' : 'success' })
       if (id === activeId) {
         if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
-        const list = await refreshList()
-        setActiveId(null); setActiveMeta(null)
-        if (list[0]) await selectIncident(list[0].id, { meta: list[0] })
+        await refreshList()
+        /* ⚠️ Land on the LAUNCHER, never inside another Einsatz. Until 25.09.2026 this opened the
+           first OTHER open Einsatz in the list — silently, so the phone that had just closed an
+           Übung stood inside somebody else's live Einsatz with its GPS banner, and the next tap
+           drew in it. The walk-through's fix stayed on the closed one read-only instead, and
+           remembered it, so the next launch fell through to the first open Einsatz anyway
+           (05.10.2026: «I'm now always in open emergencies»). Now the closed Einsatz is
+           forgotten on this device and `landedAt` keeps a cold start on the launcher too (lib/
+           incidentAlerts · pickBootIncident). It stays one tap away: «Alle Einsätze», where
+           «Wieder öffnen» lives. */
+        savePrefs({ ...loadPrefs(), incidentId: undefined, landedAt: Date.now() })
+        archiveReturnRef.current = null
+        setActiveId(null); setActiveMeta(null); setWorkspace(null); setForceReadOnly(false)
       } else {
         await refreshList()
       }
@@ -517,8 +683,10 @@ export default function App() {
     } catch (e) {
       toast(e instanceof ApiError ? e.detail : appConfig.copy.abschluss.failed, { icon: 'warn', tone: 'warn' })
       return false
+    } finally {
+      if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [activeId, refreshList, selectIncident])
+  }, [activeId, refreshList])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
@@ -576,27 +744,78 @@ export default function App() {
       cancelLabel: appConfig.copy.cancel,
     })
     if (!ok) return 'cancelled'
-    // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
-    // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
-    // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
+    // this device's own reopen: its poll hears «open» before the remount below, and that is not
+    // «auf einem anderen Gerät wieder geöffnet»
+    reopeningLocallyRef.current = id
     try {
-      await reactivateIncident(id)
-    } catch (e) {
-      toast(e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
-      return 'failed'
-    }
-    await refreshList()
-    try {
-      await selectIncident(id, { readOnly: false })
-      return 'ok'
-    } catch {
-      return 'failed'
+      // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
+      // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
+      // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
+      try {
+        await reactivateIncident(id)
+      } catch (e) {
+        // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
+        // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
+        // from, and until it arrives the alarm holds (lib/reopenClocks · reopenPending), so an
+        // Einsatz reopened offline would run its Tafel without an Überfällig alarm.
+        toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
+          : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+        return 'failed'
+      }
+      await refreshList()
+      try {
+        await selectIncident(id, { readOnly: false })
+        return 'ok'
+      } catch {
+        return 'failed'
+      }
+    } finally {
+      if (reopeningLocallyRef.current === id) reopeningLocallyRef.current = null
     }
   }, [refreshList, selectIncident])
 
+  // Objektbesuche: the whole screen, launcher or not — and it does not wait for the Einsatz list.
+  // The Meldeleiste and the toast/confirm host stay, the surface's own dialogs need them.
+  const ovShown = showsObjectVisits({ routeOn: !!ovRoute, entered: ovEntered, incidentOpen: !!activeId, linkSession: linkScoped })
+  if (ovShown) {
+    return (
+      <>
+        <Meldeleiste />
+        {sessionExpired && <SessionExpiredMeldung onRelogin={() => void logout()} />}
+        {/* ⚠️ An alarm reaches a member on a visit too — this is a fire brigade's app. The same
+            two messages the launcher and the workspace carry, in the same strip; taking one leaves
+            the surface (the visit is saved on the device and sent at its save point) and opens
+            the Einsatz exactly as the launcher would. */}
+        {isEditor && (
+          <IncomingAlarmBanner
+            alarms={poolAlarms}
+            taking={taking}
+            attachFirst={false}
+            onTake={(a) => { leaveObjectVisits(); void takeAndOpen(a) }}
+          />
+        )}
+        {freshIncident && poolAlarms.length === 0 && (
+          <NewIncidentBanner
+            inc={freshIncident}
+            active={!!activeId}
+            onSwitch={() => {
+              const f = freshIncident
+              dismissFreshIncident()
+              leaveObjectVisits()
+              void openIncident(f.id, { meta: f })
+            }}
+            onDismiss={dismissFreshIncident}
+          />
+        )}
+        <Suspense fallback={<Splash />}><ObjectVisitsApp onExit={leaveObjectVisits} suggestedObjectId={activeId ? ovSuggest : null} /></Suspense>
+        <Overlays />
+      </>
+    )
+  }
+
   // Incident list still loading after auth: keep the boot Splash up rather than a blank
   // colour flash, so the launch stays continuous from /me probe → list → workspace.
-  if (incidents === null) return <Splash />
+  if (incidents === null || (!bootDecided && !activeId)) return <Splash />
   // …and through the boot auto-open, named: the launcher would only flash for the seconds the
   // workspace takes to arrive. The splash's own 9 s «Neu starten» stays a harmless escape.
   if (bootOpening && !activeId) return <Splash sub={appConfig.copy.incidentLink.opening} />
@@ -657,6 +876,9 @@ export default function App() {
           ⚠️ Mounted at APP root, not in IncidentWorkspace: `NewIncidentBanner` publishes when a
           colleague takes an Einsatz or one auto-opens, and that can happen with NO incident open
           — inside the workspace the strip would not be mounted and the message would vanish.
+          ⚠️ …but while an Einsatz IS open it paints inside that workspace's `.app` (a portal,
+          lib/meldeleisteHost): `.app` is its own stacking context, and from out here the strip
+          lay over the top bar's menus (staging r5, N3).
           ⚠️ It replaced five top banners on one axis and four bottom cards on one coordinate.
           Do not add a sixth floating card: either the message has a PLACE — then it belongs in
           that surface, the way ShiftConflictNotice does — or it belongs in this strip. */}
@@ -692,6 +914,7 @@ export default function App() {
           // of running ones. «Wieder öffnen» stays the one way back to editing.
           onSwitchIncident={(i) => void openIncident(i.id, { meta: i, readOnly: i.is_archived })}
           onOpenHistory={() => setOverlay('history')}
+          onOpenObjectVisits={objectVisitsConfig().enabled && !linkScoped ? enterObjectVisits : undefined}
           // «Einsatz eröffnen» goes straight to the manual wizard — the pool sheet is gone
           // (testing feedback 2026-07-18): incoming alarms are taken via the landing card or
           // the mid-incident banner, never via a separate pool screen.
@@ -704,6 +927,9 @@ export default function App() {
           onCompleteRapport={() => completeRapport(activeMeta.id)}
           onReactivateActive={isEditor && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
+          lifecycleElsewhere={lifecycleElsewhere?.id === activeMeta.id ? lifecycleElsewhere : null}
+          openCover={coverId === activeId}
+          onOpenCoverDone={clearCover}
           needsReview={
             reviewPendingId === activeMeta.id ||
             // `intakeReviewedAt` = somebody already checked this Einsatz on another device. This
@@ -734,7 +960,7 @@ export default function App() {
               <div className="ip-launch-list">
                 {openIncidents.map((i) => (
                   <button key={i.id} type="button" className="ip-launch" disabled={opening != null} onClick={() => void openIncident(i.id, { meta: i })}>
-                    <Icon id={opening === i.id ? 'rotate' : 'flag'} className={opening === i.id ? 'spin' : undefined} />
+                    {opening === i.id ? <ShellLoader /> : <Icon id="flag" />}
                     <span className="ip-launch-main">
                       <span className="ip-launch-title">{i.title}</span>
                       <span className="ip-launch-sub">{shortAddress(i.address) ?? ''}</span>
@@ -748,7 +974,7 @@ export default function App() {
                   // NEVER archives a live dispatch for the crew (that would be a server delete)
                   <div key={a.id} className="ip-launch alarm">
                     <button type="button" className="ip-launch-hit" disabled={taking != null} onClick={() => void takeAndOpen(a)}>
-                      <span className="ip-launch-pulse"><Icon id={taking === a.divera_id ? 'rotate' : 'bell'} className={taking === a.divera_id ? 'spin' : undefined} /></span>
+                      <span className="ip-launch-pulse">{taking === a.divera_id ? <ShellLoader /> : <Icon id="bell" />}</span>
                       <span className="ip-launch-main">
                         <span className="ip-launch-kicker">{appConfig.copy.intake.newDiveraAlarm}</span>
                         <span className="ip-launch-title">{a.title}</span>
@@ -801,6 +1027,13 @@ export default function App() {
               {!linkScoped && (
                 <div className="ip-emptyapp-secondary">
                   <button className="ip-btn" onClick={() => setOverlay('history')}>{appConfig.copy.emptyApp.history}</button>
+                  {/* Objektbesuche: only where the station switched the module on; every account
+                      may read, the surface hides what a role may not capture */}
+                  {objectVisitsConfig().enabled && (
+                    <button className="ip-btn" onClick={() => enterObjectVisits()}>
+                      <Icon id="clipboard" />{appConfig.copy.objectVisits.launcher}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -862,9 +1095,11 @@ export default function App() {
         <IncomingAlarmBanner
           alarms={poolAlarms}
           taking={taking}
-          attachFirst={activeMeta.source === 'manual'}
+          // ⚠️ «Anhängen» only onto an Einsatz that is RUNNING (review of #235): attached to a closed
+          // one, the dispatch's Zeiten and Meldung would land in a closed record
+          attachFirst={activeMeta.source === 'manual' && isIncidentRunning(activeMeta)}
           onTake={(a) => void takeAndOpen(a)}
-          onAttach={(a) => void attachToActive(a)}
+          onAttach={isIncidentRunning(activeMeta) ? (a) => void attachToActive(a) : undefined}
         />
       )}
 

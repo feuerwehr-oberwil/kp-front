@@ -1,5 +1,7 @@
 import { formatDateTime } from './report'
+import { fillTemplate } from './format'
 import { describe, it, expect } from 'vitest'
+import { closeTimeOf } from './api/incidents'
 import { buildDirectReportPayload, einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf, usedStackFloors } from './reportPdfDirect'
 import { TILE_AR } from './whiteboard'
 import { appConfig } from '../config/appConfig'
@@ -320,6 +322,24 @@ describe('buildDirectReportPayload · trupps', () => {
     expect(out.trupps[0].readings.map((r) => r.kindLabel)).toEqual(['Angemeldet', 'Eintritt'])
   })
 
+  // staging r3 F4: a crew still inside at the Abschluss printed an OPEN sortie («Einsatz 1: 19:37»)
+  it('ends a sortie still open at the close AT the close, and says so — only once the Einsatz is closed', () => {
+    const t = trupp({
+      id: 'a', no: 1, name: 'Muster Leo', status: 'aktiv',
+      readings: [{ t: '2026-09-03T10:05:00.000Z', bar: 300, kind: 'entry' }],
+    })
+    const build = (incident: Record<string, unknown>) => (buildDirectReportPayload({
+      incident: { id: 'i1', title: 'Brand', started_at: '2026-09-03T09:50:00.000Z', ...incident } as never,
+      draft: { meta: {}, generatedAt: '2026-09-03T12:00:00.000Z', proof: {}, options: { atemschutz: true } } as never,
+      trupps: [t], attendance: {}, events: [], plans: [],
+    }) as unknown as { trupps: { cycles: { exit?: string }[] }[] }).trupps[0].cycles[0]
+    const at = '2026-09-03T10:52:00.000Z'
+    expect(build({ is_archived: true, closed_at: at }).exit)
+      .toBe(fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime(at) }))
+    // still running, or opened again: the sortie is open, as it is
+    expect(build({ is_archived: false, closed_at: at }).exit).toBeUndefined()
+  })
+
   // a merge renumbered it (lib/truppNumbers): the heading names the first number too, and a Trupp
   // never renumbered sends nothing extra
   it('carries the numbers a renumbered Trupp had before, and nothing for any other', () => {
@@ -368,5 +388,80 @@ describe('buildDirectReportPayload · plan pages', () => {
   it('…and a sheet whose only marks come from the Karte still gets its page', () => {
     expect(pages({ m2: [{ id: 'fromMap', kind: 'symbol', symbol: 'VKF Fahrzeug', x: 0.6, y: 0.4 }] })).toHaveLength(1)
     expect(pages({})).toHaveLength(0)
+  })
+})
+
+/* D2 + D4 (staging 25.09.2026): after a reopen and a second close the paper's Einsatzende is
+ * the SECOND close, and the rows that reached the record after the (first) close go to the PDF
+ * with their Nachtrag mark — the server prints it (report_pdf · JournalRowIn.nachtrag). */
+describe('buildDirectReportPayload · the close on paper', () => {
+  const incident = {
+    id: 'i1', title: 'Brand', started_at: '2026-09-25T21:36:00.000Z',
+    closed_at: '2026-09-25T22:07:00.000Z', last_closed_at: '2026-09-25T22:15:00.000Z',
+  } as never
+  const events: TimelineEvent[] = [
+    { id: 'on-time', t: '', at: '2026-09-25T22:00:00.000Z', icon: 'radio', text: 'Trupp 1: Kontakt', kind: 'team' },
+    { id: 'late', t: '', at: '2026-09-25T22:05:00.000Z', icon: 'radio', text: 'Trupp 2: Kontakt', kind: 'team', receivedAfterClose: true },
+    { id: 'reopened', t: '', at: '2026-09-25T22:13:00.000Z', icon: 'type', text: 'Nach dem Wiederöffnen', kind: 'journal' },
+  ]
+  const payload = () => buildDirectReportPayload({
+    incident,
+    draft: { meta: {}, generatedAt: '2026-09-25T22:20:00.000Z', proof: {}, options: { journal: true } } as never,
+    trupps: [], attendance: {}, events, plans: [],
+  }) as { journal: { text: string; nachtrag?: boolean }[]; meta: Record<string, unknown> }
+
+  it('marks every row that reached the record after the close — and only those', () => {
+    const byText = new Map(payload().journal.map((r) => [r.text, r.nachtrag]))
+    expect(byText.get('Trupp 1: Kontakt')).toBeUndefined()
+    expect(byText.get('Trupp 2: Kontakt')).toBe(true) // before the close, received after it
+    expect(byText.get('Nach dem Wiederöffnen')).toBe(true)
+  })
+
+  it('ends the Einsatzleitung (and every other open span) at the SECOND close, not the first', () => {
+    // a handover mid-Einsatz: the last span runs to the Einsatzende — which is the current close
+    const rows: TimelineEvent[] = [
+      { id: 'e2', t: '', at: '2026-09-25T22:10:00.000Z', icon: '', text: 'Rapportangaben: Einsatzleiter «Huber Beat»' },
+      { id: 'e1', t: '', at: '2026-09-25T21:40:00.000Z', icon: '', text: 'Rapportangaben: Einsatzleiter «Meier Anna»' },
+    ]
+    const out = buildDirectReportPayload({
+      incident,
+      draft: { meta: { einsatzleiter: 'Huber Beat' }, generatedAt: '2026-09-25T22:20:00.000Z', proof: {}, options: {} } as never,
+      trupps: [], attendance: {}, events: rows, plans: [],
+    }) as { meta: { einsatzleiter?: string } }
+    // same instant rendered through the sheet's clock: the handover prints, and nothing reads 00:07
+    expect(out.meta.einsatzleiter).toContain('Huber Beat')
+    expect(JSON.stringify(out)).not.toContain('00:07')
+    expect(closeTimeOf(incident as never)).toBe('2026-09-25T22:15:00.000Z')
+  })
+
+  it('ends an Anwesenheit still open at the close at the SECOND close (00:15), not the first (00:07)', () => {
+    const out = buildDirectReportPayload({
+      incident,
+      draft: { meta: {}, generatedAt: '2026-09-25T22:20:00.000Z', proof: {}, options: { attendance: true } } as never,
+      trupps: [], events: [], plans: [],
+      roster: [{ id: 'p1', name: 'Tst Emil' }],
+      attendance: { p1: { status: 'present', checkedInAt: '2026-09-25T21:40:00.000Z', displayNameSnapshot: 'Tst Emil' } } as never,
+    })
+    const personal = JSON.stringify((out as { personal: unknown }).personal)
+    const clock = (iso: string) => new Date(iso).toTimeString().slice(0, 5)
+    expect(personal).toContain(clock('2026-09-25T22:15:00.000Z'))
+    expect(personal).not.toContain(clock('2026-09-25T22:07:00.000Z'))
+  })
+
+  // #227 × #235: a crew still inside at the close ends at the SECOND close, like the Anwesenheit
+  it('ends a crew\'s sortie still open at the close («beim Abschluss noch drin») at the SECOND close', () => {
+    const t: Trupp = {
+      id: 'a', no: 1, name: 'Muster Leo', entryPressureBar: 300, entryTime: '2026-09-25T21:50:00.000Z',
+      lastContactTime: '2026-09-25T21:50:00.000Z', status: 'aktiv',
+      readings: [{ t: '2026-09-25T21:50:00.000Z', bar: 300, kind: 'entry' }],
+    }
+    const out = buildDirectReportPayload({
+      incident: { ...(incident as object), is_archived: true } as never,
+      draft: { meta: {}, generatedAt: '2026-09-25T22:20:00.000Z', proof: {}, options: { atemschutz: true } } as never,
+      trupps: [t], attendance: {}, events: [], plans: [],
+    }) as unknown as { trupps: { cycles: { exit?: string }[] }[] }
+    const exit = out.trupps[0].cycles[0].exit
+    expect(exit).toBe(fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime('2026-09-25T22:15:00.000Z') }))
+    expect(exit).not.toContain(formatDateTime('2026-09-25T22:07:00.000Z'))
   })
 })

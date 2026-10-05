@@ -230,7 +230,12 @@ const lsGet = <T>(key: string): T | null => {
  *  header: ~5 MB is too small for one), which is precisely why the caller must know. */
 const lsSet = (key: string, value: unknown): boolean => {
   try {
-    const encoded = JSON.stringify(value)
+    const encoded = JSON.stringify(value, (_key, item: unknown) => {
+      // JSON would silently replace binary captures with {}. Returning success would make
+      // their owner drop the only remaining Blob; refuse the fallback and keep it in memory.
+      if (typeof Blob !== 'undefined' && item instanceof Blob) throw new Error('Binary data requires IndexedDB')
+      return item
+    })
     if (encoded === undefined) return false
     localStorage.setItem(key, encoded)
     return true
@@ -288,6 +293,29 @@ export async function idbRead<T>(key: string): Promise<IdbRead<T>> {
   }
 }
 
+/** Every key that starts with `prefix` — IndexedDB and the localStorage fallback namespace alike.
+ *  `ok: false` when IndexedDB could not answer (then the fallback keys are not the whole truth).
+ *  For a store that writes a slot per item when it could not read its main one (workspaceSync ·
+ *  the refused slots), so a later read finds every one of them. */
+export async function idbKeys(prefix: string): Promise<IdbRead<string[]>> {
+  const found = new Set<string>()
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k?.startsWith(FB_PREFIX + prefix)) found.add(k.slice(FB_PREFIX.length))
+      else if (idbUnavailable && k?.startsWith(prefix)) found.add(k)
+    }
+  } catch { /* no localStorage — nothing can be in its namespace either */ }
+  if (idbUnavailable) return { ok: true, value: [...found] }
+  try {
+    const keys = await tx<IDBValidKey[]>('readonly', (s) => s.getAllKeys(IDBKeyRange.bound(prefix, `${prefix}\uffff`)))
+    for (const k of keys) found.add(String(k))
+    return { ok: true, value: [...found] }
+  } catch (error) {
+    return { ok: false, error }
+  }
+}
+
 /** Read a value (structured-clone object), or null if absent. Never rejects — a storage
  *  failure resolves to null so callers degrade gracefully (the same shape as a cache miss).
  *  Fine for re-fetchable caches; a caller that writes back what it read uses `idbRead`. */
@@ -329,6 +357,24 @@ export async function idbSet(key: string, value: unknown): Promise<boolean> {
   }
   setDegraded(false)
   return true
+}
+
+/**
+ * Write a value to IndexedDB ONLY — never to the localStorage fallback. Resolves true only once the
+ * transaction committed. For values the fallback cannot hold: a Blob serialises to `{}`, so the
+ * fallback would report «durable» over a photo it has just thrown away (object visits ·
+ * attachments). A false here means the value lives in page memory only, and the caller says so.
+ */
+export async function idbSetStrict(key: string, value: unknown): Promise<boolean> {
+  if (idbUnavailable) { setDegraded(true); return false }
+  try {
+    await tx('readwrite', (s) => s.put(value, key))
+    setDegraded(false)
+    return true
+  } catch {
+    setDegraded(true)
+    return false
+  }
 }
 
 /** Delete a key from every store it could be in. Clearing only IndexedDB would leave a quota

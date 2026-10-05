@@ -5,6 +5,7 @@ import { ApiError } from './api'
 import * as idb from './idb'
 import { AuditEventStore, type PendingAuditEvent } from './auditEventStore'
 import { eventScopeFor, type EventScope } from './eventScope'
+import { onIncidentClosed } from './incidentClosed'
 
 const { ingestEvents, ingestEventsBeacon } = vi.hoisted(() => ({ ingestEvents: vi.fn(), ingestEventsBeacon: vi.fn() }))
 vi.mock('./api/events', () => ({ ingestEvents, ingestEventsBeacon }))
@@ -302,6 +303,39 @@ describe('AuditEventStore · a 403 the role can never avoid is parked, not held 
     expect(store.refusedCount).toBe(5)
     expect(store.status).toBe('synced')
     expect(await idb.idbGet('kp-audit-incident:el-phone')).toMatchObject({ refused: five, rejected: [] })
+  })
+
+  it('what a CLOSED Einsatz refuses is parked for an editor too — the record events still land (N3)', async () => {
+    const heard: unknown[] = []
+    const off = onIncidentClosed((s) => heard.push(s))
+    const closed = new ApiError(409, 'Einsatz ist abgeschlossen – nicht mehr übernommen')
+    closed.code = 'incident_closed'
+    closed.data = { code: 'incident_closed', closed_at: '2026-09-25T12:45:00Z' }
+    ingestEvents.mockImplementation(async (_id: string, events: PendingAuditEvent[]) => {
+      if (events.some((e) => e.op_type.startsWith('atemschutz.'))) throw closed
+      return []
+    })
+    const store = open('editor', false, () => true)
+    store.append(event('kontakt', 'atemschutz.contact'))
+    store.append(event('rapport', 'report.edit'))
+    store.append(alarm('az-2'))
+    await store.flush()
+    expect(ingestEvents).toHaveBeenCalledWith('incident', [event('rapport', 'report.edit')])
+    expect(store.pendingCount).toBe(0)
+    expect(store.rejectedCount).toBe(0)
+    expect(store.refusedCount).toBe(0) // not a ROLE refusal — its own bucket, owed again on a reopen
+    expect(store.closedCount).toBe(2)
+    expect(store.status).toBe('synced')
+    expect(heard).toContainEqual({ incidentId: 'incident', closedAt: '2026-09-25T12:45:00Z', source: 'refusal' })
+    ingestEvents.mockClear()
+    await store.retry()
+    expect(ingestEvents).not.toHaveBeenCalled()
+    // …until the Einsatz runs again: then they are owed, and go out
+    ingestEvents.mockResolvedValue([])
+    await store.requeueClosed()
+    expect(ingestEvents.mock.calls.flatMap((c) => c[1]).map((e: PendingAuditEvent) => e.client_id).sort()).toEqual(['az-2', 'kontakt'].sort())
+    expect(store.closedCount).toBe(0)
+    off()
   })
 
   it('a 403 for an op the role SHOULD be able to write stays a visible error', async () => {

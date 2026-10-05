@@ -1,18 +1,19 @@
+import { LoadingStatus } from './components/ShellLoader'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
+import { layerPreset, layerPresetLabel } from './lib/layerPreset'
 import { motionDuration, prefersReducedMotion } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
 import { useVehicleLayer } from './lib/useVehicleLayer'
-import { useVehiclePresenceLog } from './lib/useVehiclePresenceLog'
 import { usePersonPositions } from './lib/usePersonPositions'
 import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
-import { applyInitialState, autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { applyInitialState, autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type InitialState, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
@@ -23,7 +24,7 @@ import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays 
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
 import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from './lib/docking'
-import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
+import type { AttendanceState, BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newId, newRowId } from './lib/ids'
@@ -35,32 +36,37 @@ import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions
 import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
+import { stampCrewFiled, unfiledTruppCrew } from './lib/crewFiling'
+import { registerMeldeleisteHost } from './lib/meldeleisteHost'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
 import { trackPrintJob } from './lib/printJobToast'
 import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
-import { conflictResolvedRow, type OpenConflict } from './lib/attendanceConflict'
+import { connectedLineLabel } from './lib/connectedLines'
+import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { cartoRasterTiles } from './lib/carto'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
-import { useObjectStore } from './lib/useObjectStore'
+import { boardViewOf, useObjectStore } from './lib/useObjectStore'
+import { annoRefs, carryUndoThroughMerge, fieldsOf, listById, planViewChanges, recordByKey, recordKey, workspaceChanges, type RecordedField, type RecordKey, type RecordShape } from './lib/undoKeys'
 import { useGpsFollow } from './lib/useGpsFollow'
+import { fmtAway, freshBefore, gpsLineName, gpsReleaseRow, gpsRevertWords, hasTraced, onSiteAnchor, onSiteKnown, routingPatch, useGpsNotices, type GpsEnd } from './lib/gpsReturn'
 import { useUndoTimeline } from './lib/useUndoTimeline'
-import type { UndoDomain } from './lib/undoTimeline'
+import { undoCaption, type Dropper, type UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { pushSliceStep } from './lib/sliceUndoStep'
-import { foldsIntoPrevious, keepMachineFields, reportStep as reportStepOf } from './lib/reportUndo'
+import { foldsIntoPrevious, keepMachineFields, REPORT_MACHINE_FIELDS, reportStep as reportStepOf } from './lib/reportUndo'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
 import { Overlay } from './lib/overlays'
-import { apiDelete } from './lib/api'
+import { apiDelete, LINK_REFUSED_EVENT } from './lib/api'
 import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
@@ -104,7 +110,6 @@ import { AudioPlayerSheet } from './components/AudioPlayerSheet'
 import { ReminderBanner } from './components/ReminderBanner'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
 import { UpdateBanner } from './components/UpdateBanner'
-import { OfflineMeldung } from './components/OfflineMeldung'
 import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
@@ -113,6 +118,7 @@ import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
 import { GpsFollowMeldung } from './components/GpsFollowMeldung'
+import { WindShiftMeldung } from './components/WindShiftMeldung'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { SymbolsFailedMeldung } from './components/SymbolsFailedMeldung'
 import { NoBasemapMeldung } from './components/NoBasemapMeldung'
@@ -120,21 +126,21 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, type AtemschutzAlarmState } from './lib/atemschutz'
+import { azChipRedundant, isAtemschutzTrupp, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
-import type { BoardHistory } from './components/useBoardDoc'
+import { keepPlanSteps, planStackTouches, type BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
 import { prewarmPlans } from './components/PdfViewport'
 import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
-import { amendBuilding } from './lib/buildingTransfer'
+import { amendBuilding, buildingPickStep } from './lib/buildingTransfer'
 import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
-import { askStoreyRemoval } from './lib/storeyRemoval'
+import { askStoreyRemoval, storeyAddedRow, storeyRemovedRow, storeyRestoredRow, storeySubject } from './lib/storeyRemoval'
 import { floorPackOf, packFloorNames, packStoreys } from './lib/floorPackBinding'
 import { floorLabel } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
@@ -143,8 +149,10 @@ import {
   type IncidentMeta,
   isIncidentRunning,
 } from './lib/incidents'
+import { closeTimeOf } from './lib/api/incidents'
+import { useExpire } from './lib/useExpire'
 import { useAuditEvents } from './lib/useAuditEvents'
-import { eventScopeFor } from './lib/eventScope'
+import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
 import { downloadBlob } from './lib/download'
 import { JournalDeliveryNotice } from './components/JournalDeliveryNotice'
@@ -161,6 +169,7 @@ import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineRe
 import { fetchShareLink } from './lib/viewLink'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
+import { useBootCover } from './lib/bootCover'
 import { fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
 import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit } from './lib/storageBudget'
 import { ChecklistsView } from './components/ChecklistsView'
@@ -173,12 +182,14 @@ import { rosterWithGuests } from './lib/guests'
 import type { ChecklistState, Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
 import { primeKeyboard } from './lib/keyboardPrime'
-import { flushSync } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import type { NoteSize } from './types'
 import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
 import { TruppFinder } from './components/TruppFinder'
 import { counterNames, freshTeamLabel, markerOptions, markerSite, placedTrupps, teamNoTaken, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
+import { clockRestartRowId, clocksAfterReopen, latestLifecycle } from './lib/reopenClocks'
+import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
 import { ghostRevival, ghostTrailLabel, mapGhostTrails, planGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
@@ -186,7 +197,9 @@ import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
-import { drawingLogName } from './lib/drawingEdit'
+import { canBeDone, doneAct, doneOf, donePlace, offersDone } from './lib/objectDone'
+import { createPlanStepLink, type PlanStepLink } from './lib/planStepLink'
+import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
@@ -275,6 +288,9 @@ function isFreeText(el: HTMLElement): boolean {
 // clear the legacy cookie field so a later reset can't be resurrected from a stale cookie.
 if (prefs.pickedObject) savePrefs({ ...loadPrefs(), pickedObject: undefined })
 
+/** A one-shot's own counter-rows for ↶ and ↷ (IncidentWorkspace · rememberOneShot) */
+interface OneShotRows { undo: () => void; redo: () => void }
+
 interface WorkspaceProps {
   incidentMeta: IncidentMeta
   incidents: IncidentMeta[]
@@ -286,6 +302,8 @@ interface WorkspaceProps {
   onTakeOverTab: () => void
   onSwitchIncident: (i: IncidentMeta) => void
   onOpenHistory: () => void
+  /** opens the Objektbesuche surface (App · enterObjectVisits); undefined = module off */
+  onOpenObjectVisits?: (objectId?: string | null) => void
   onOpenDivera: () => void
   onOpenDatenquellen: () => void
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
@@ -307,16 +325,40 @@ interface WorkspaceProps {
   /** leave the archived read-only view — back to the previously active incident, else the
    *  «Alle Einsätze» list it was entered from (everyone, not just editors) */
   onBackFromArchive?: () => void
+  /** The Einsatz was closed — or reopened — on ANOTHER device while it was open here (N3,
+   *  25.09.2026), and when. App sets it as it flips the meta in place (App · onIncidentClosed /
+   *  onIncidentReopened); the workspace says so in one Meldeleiste row. */
+  lifecycleElsewhere?: { event: 'closed' | 'reopened'; at: number } | null
+  /** This mount OPENS the Einsatz (App · coverId): it assembles behind the snail until the first
+   *  screen is whole (lib/bootCover). Not on a background remount. */
+  openCover?: boolean
+  /** …and the cover has lifted — App forgets it, so a later remount comes up uncovered */
+  onOpenCoverDone?: () => void
 }
 
+
+/** How long the «auf einem anderen Gerät abgeschlossen / wieder geöffnet» row stands (V2). */
+const LIFECYCLE_NOTICE_MS = 120_000
 
 /** One Drehung of the Gebäude is one drag, not forty slider frames — see onReorient. */
 const REORIENT_FOLD_MS = 1500
 
+
+/** How each undoable slice is made of records (lib/undoKeys) — the merge's own unit for each, so a
+ *  remote merge keeps every step that writes records it did not change. Module-level: a shape is
+ *  a constant, and the slice hooks take it as a stable argument. */
+const ATTENDANCE_RECORDS = recordByKey<AttendanceState[string]>('attendance')
+const MITTEL_RECORDS = listById<MittelEntry>('mittel')
+const CHECKLIST_RECORDS = recordByKey<ChecklistState[string]>('checklists')
+/** the app's own bookkeeping rides outside the Rapport's snapshots (lib/reportUndo), so it is no
+ *  record of a step either */
+const REPORT_RECORDS = recordByKey<ReportMeta[keyof ReportMeta]>('reportMeta', REPORT_MACHINE_FIELDS) as unknown as RecordShape<ReportMeta>
+const ZEITPLAN_RECORDS = fieldsOf<{ shifts: Shift[]; bands: ShiftBand[] }>({ shifts: listById<Shift>('shifts'), bands: listById<ShiftBand>('bands') })
+
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
-  onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
+  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
   // inspect, but every editing affordance is hidden and commit() is neutered so
@@ -342,7 +384,19 @@ export function IncidentWorkspace({
    *  on, and the sync pushes only the record slice, so a local doc write could never reach
    *  the server). Distinct from `elView` below, which is an EDITOR's hands-off mode. */
   const isEl = user?.role === 'el'
-  const baseReadOnly = (user?.role !== 'editor' && !asLink && !isEl) || forceReadOnly || tabLockLost
+  /** A LINK page whose own Einsatz answered 403 (api · LINK_REFUSED_EVENT, D1): nothing it takes
+   *  from here can ever be delivered, so it takes nothing — the Tafel freezes read-only and says
+   *  why. Permanent for this page: a revoked link does not come back. */
+  const [linkRefused, setLinkRefused] = useState(false)
+  useEffect(() => {
+    if (!asLink) return
+    const onRefused = (e: Event) => { if ((e as CustomEvent<string>).detail === incidentMeta.id) setLinkRefused(true) }
+    window.addEventListener(LINK_REFUSED_EVENT, onRefused)
+    return () => window.removeEventListener(LINK_REFUSED_EVENT, onRefused)
+  }, [asLink, incidentMeta.id])
+  /** the session may write nothing at all (a viewer, a view link, a refused Atemschutz-Link) */
+  const roleReadOnly = (user?.role !== 'editor' && !asLink && !isEl) || linkRefused
+  const baseReadOnly = roleReadOnly || forceReadOnly || tabLockLost
   const isEditor = user?.role === 'editor'
   // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. Read-only is not
   // enough here — a plain viewer may still generate the Rapport/Zeitplan PDFs and drive the
@@ -376,14 +430,30 @@ export function IncidentWorkspace({
   // …and the field you are actually typing in stays above it (one listener for the whole app)
   useScrollFocusIntoView()
   const { active: replayActive, setActive: setReplayActive, ws: replayWs, onState: onReplayState, onVehicles: onReplayVehicles, exit: exitReplay, entities: replayEntities, board: replayBoard, building: replayBuilding } = useReplay()
-  const readOnly = baseReadOnly || replayActive
-  // Führungsansicht: an EDITOR's deliberate hands-off mode — tactical editing locked
-  // like a phone, but journal capture and read-only symbol details stay live. Device toggle
-  // (Einstellungen), seeded by the login's server-side default (el_view_default) so a
-  // dedicated «Einsatzleiter» account starts hands-off without per-device setup.
-  const [elViewPref, setElViewPref] = useState<boolean | null>(() => loadPrefs().elView ?? null)
-  const elView = isEditor && (elViewPref ?? user?.el_view_default ?? false)
-  const setElView = (v: boolean) => { setElViewPref(v); savePrefs({ ...loadPrefs(), elView: v }) }
+  /** The Einsatz is still RUNNING (`isIncidentRunning`, the twin of the backend's `is_open`).
+   *  ⚠️ Read LIVE off `incidentMeta`, not only at the open (N3, staging 25.09.2026): when another
+   *  device closes the Einsatz, App flips this meta in place (App · onIncidentClosed) and the
+   *  workspace turns into the closed view WITHOUT a remount — the operator stays on the surface
+   *  they were on, every editing affordance goes, the Atemschutz clocks freeze and the alarm, the
+   *  GPS pass, the presence log, the weather stamp and the Wiedervorlagen stop writing. An
+   *  Einsatz opened closed (forceReadOnly) lands in the same place. */
+  const running = isIncidentRunning(incidentMeta)
+  const readOnly = baseReadOnly || replayActive || !running
+  /** Who may DELIVER what this device already queued — the outboxes' own read-only, which is about
+   *  owning the per-incident slot (a viewer, a demoted tab, a replay), NOT about the Einsatz being
+   *  over. A device that hears of the close with a Kontakt still in its outbox must send it, so
+   *  the server can refuse it and the store park it as «refused» (kept, exported, said out loud);
+   *  a read-only store would sit on it unclassified for ever. Nothing new is queued meanwhile:
+   *  every writer gates on the flags derived from `readOnly` above — except the Rapport, which a
+   *  closed Einsatz still takes (`canEditRapport`), so an Einsatz opened closed out of «Alle
+   *  Einsätze» (forceReadOnly) delivers too. */
+  const outboxReadOnly = roleReadOnly || tabLockLost || replayActive
+  // Führungsansicht: an EDITOR's hands-off mode — tactical editing locked like a phone, but
+  // journal capture and read-only symbol details stay live. It belongs to the LOGIN, set by the
+  // admin (Benutzer · el_view_default), and nothing else (05.10.2026, owner: «drop
+  // Führungsansicht in settings. We can use users»). The per-device toggle in the Einstellungen
+  // is gone; a stored `prefs.elView` from an older build is ignored (lib/prefs).
+  const elView = isEditor && (user?.el_view_default ?? false)
   // «not edit anything» is broader than the tactical surfaces: EL view also locks the
   // Atemschutz / Mittel / checklist / dispatch actions that hang off this flag.
   //
@@ -404,6 +474,14 @@ export function IncidentWorkspace({
    *  backend enforces the same boundary (`workspace/record` · RECORD_WORKSPACE_KEYS), so this
    *  flag is presentation, not the protection. */
   const canEditRecord = (isEditor || isEl) && !readOnly
+  /** «may correct the RAPPORT» — the record surfaces, AND the Rapport of a CLOSED Einsatz
+   *  (staging r3, F10). The Abschluss promises «Spätere Korrekturen bleiben möglich und
+   *  erscheinen als Nachträge», and the server takes exactly that after the close (the record
+   *  keys, the `report.` events, the Verlauf rows that are not live — api/incidents ·
+   *  incident_closed). The Rapport therefore stays editable once the Einsatz is closed, its
+   *  changes printing as Nachträge; the Tafel, the Karte, the Anwesenheit/Mittel/Checklisten
+   *  surfaces stay read-only there (their unlock is «Wieder öffnen», as decided on 28.08.). */
+  const canEditRapport = canEditRecord || ((isEditor || isEl) && !running && !outboxReadOnly)
   /** «may correct the EINSATZDATEN» — the dispatch facts at the head of the record: Stichwort,
    *  Kategorie, Priorität, Ort, Alarmierungszeit, Alarmmeldung, Übung. The `el` role keeps the
    *  record, so it owns the head of it too (10.09.) — the asLink pattern again: not an editor,
@@ -416,12 +494,13 @@ export function IncidentWorkspace({
    * `readOnly` now uses.
    *
    * ⚠️ It is not `canEditIncident`. That one also excludes the Führungsansicht, where journal
-   * capture, media upload and the weather log deliberately stay live (see `elView`); gating
-   * these on it would silently switch off half of what an EL device is for. What has to be
-   * excluded is the Atemschutz-Link: it is genuinely not read-only — it operates the Tafel —
-   * but it owns exactly ONE slice, and everything outside that slice is refused by the backend.
-   * Left on bare `readOnly`, those writers would emit `weather.observe` events into a 403,
-   * drain a media queue that cannot upload, and dirty a blob whose push carries only Trupps.
+   * capture and media upload deliberately stay live (see `elView`); gating these on it would
+   * silently switch off half of what an EL device is for. What has to be excluded is the
+   * Atemschutz-Link: it is genuinely not read-only — it operates the Tafel — but it owns
+   * exactly ONE slice, and everything outside that slice is refused by the backend. Left on
+   * bare `readOnly`, those writers would drain a media queue that cannot upload and dirty a
+   * blob whose push carries only Trupps. (The weather log it also gated is the SERVER's since
+   * 24.09.2026 — app/observations.)
    */
   const canWriteRecord = !readOnly && !asLink
   // Phones edit like tablets — the tool bar is simply always there on the drawing surfaces
@@ -447,6 +526,11 @@ export function IncidentWorkspace({
   /** the caption the NEXT store checkpoint carries, when its writer knows a better word than
    *  the domain's — see `onCheckpoint` below */
   const stepLabel = useRef<string | null>(null)
+  /** …and the same one-shot caption for the next PLAN step (rememberPlanStep), set by a plan writer
+   *  that knows the words for its act (Whiteboard · onStepLabel) */
+  const planStepLabel = useRef<string | null>(null)
+  /** ONE gesture on a plan is ONE undo step, whichever stack takes it (lib/planStepLink) */
+  const planStepLink = useRef<PlanStepLink | null>(null)
   // On open, fit the map to the incident's existing map content (symbols + drawings) instead of
   // zooming onto the bare Einsatzort point — so a pre-filled Lage is framed ("eingepasst"). One
   // snapshot per incident (mirrors `init`), so it never snaps the view back while you draw.
@@ -535,10 +619,6 @@ export function IncidentWorkspace({
   /** `log`/`emit` are built far below (they need half this component); a timeline entry pushed up
    *  here has to reach the versions that exist when the ↶ is actually pressed. */
   const histSide = useRef<{ log: typeof log; emit: typeof emit }>({ log: () => {}, emit: () => {} })
-  /** ⚠️ Through a ref: `applyWorkspace` below is a `useCallback` pinned to the incident, so it
-   *  must not close over a timeline handle from one particular render. */
-  const histClear = useRef(() => {})
-  histClear.current = () => undoHist.clear()
   /**
    * The Verlauf row + audit event one step owes the record — append-only, so this ADDS a row
    * saying the correction happened and never touches the row it corrects.
@@ -572,7 +652,7 @@ export function IncidentWorkspace({
   // action exactly, because there the timeline entry is written by hand anyway.
   const {
     objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
-    undo: undoDoc, redo: redoDoc, replaceObjects,
+    undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, stepKeys: storeStepKeys,
   } = useObjectStore(
     init.objects,
     readOnly,
@@ -584,14 +664,18 @@ export function IncidentWorkspace({
        *  saying «Änderung auf der Karte» for a corrected georeference described the wrong act
        *  entirely. One-shot: a writer sets it just before its checkpoint, everything else keeps
        *  the domain word, which for a store step is honest (the object IS the Karte's). */
-      onCheckpoint: () => {
+      onCheckpoint: (step) => {
         const label = stepLabel.current ?? C_HIST.undoDomains.karte
         stepLabel.current = null
         undoHist.push({
           domain: 'karte',
           label,
-          undo: () => histStep(undoDocRef.current(), 'undo', label, ''),
-          redo: () => histStep(redoDocRef.current(), 'redo', label, ''),
+          // ⚠️ the STORE step this entry stands for, and the objects it writes — what lets a remote
+          // merge keep it when it changed other objects only (lib/undoTimeline · rebase)
+          step,
+          touches: () => storeStepKeys(step),
+          undo: () => histStep(undoDocRef.current(step), 'undo', label, ''),
+          redo: () => histStep(redoDocRef.current(step), 'redo', label, ''),
         })
       },
       /**
@@ -621,6 +705,7 @@ export function IncidentWorkspace({
           else if (c.drawing) histSide.current.emit('draw.edit', { id: c.id, patch: { coords: c.drawing.coords } })
         }
       },
+      onForeignStep: () => planStepLink.current?.foreignTaken(),
       onForeignSheetEdit: (events) => {
         for (const event of events) histSide.current.emit(event.op, event.payload)
       },
@@ -637,7 +722,7 @@ export function IncidentWorkspace({
   // they auto-update and never get persisted. The operator can drag a vehicle to
   // reposition it and drag its handle to orient it; those overrides live here
   // (persisted) and win over the GPS value until reset via the "GPS" button.
-  const { gpsVehicles, liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides, gpsStale, gpsAgeMs } = useVehicleLayer(init.vehicleOverrides)
+  const { liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides, gpsStale, gpsAgeMs } = useVehicleLayer(init.vehicleOverrides)
   // Standort teilen. Two halves that deliberately do not meet: this device REPORTS where its
   // holder is (`share`, available to every session including a link-scoped phone), and the
   // command post READS the crew picture (`livePeople`, refused to a link session server-side,
@@ -699,7 +784,7 @@ export function IncidentWorkspace({
   // NOTHING opens this on its own: sharing somebody's location is never proposed by the app,
   // only reached by tapping «Standort teilen» in the compass menu. That is also why there is no
   // «nicht jetzt» state to remember — nobody is being asked in the first place.
-  const [sharePick, setSharePick] = useState<null | 'ask' | 'pick'>(null)
+  const [sharePick, setSharePick] = useState<null | 'ask' | 'pick' | 'rename'>(null)
 
   // Session-only tactical editing state (active tool, place gesture, selection) — see
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
@@ -736,6 +821,16 @@ export function IncidentWorkspace({
   // The bindings register as the georef home for `incident:` keys (pairing mode, Passung,
   // reset all route through it) and their corrections join the shared undo timeline.
   useIncidentPlanBindings(incidentMeta.id, planBindings, setPlanBindings, readOnly, undoHist)
+  /** The synced slices AS THIS RENDER HOLDS THEM — what a merge is diffed against to learn which
+   *  records it changed (applyWorkspace · workspaceChanges). The objects are read live instead. */
+  const liveWs = useRef<Partial<Record<keyof Saved, unknown>>>({})
+  // (typed against undoKeys · RecordedField: a recorded slice missing here fails tsc — the objects
+  // are the one exception, read live from the store)
+  const liveSlices: Record<Exclude<RecordedField, 'objects'>, unknown> = {
+    trupps: allTrupps, mittel, shifts, bands, cameraViews, trails, attachments, vehicleOverrides, checklists,
+    attendance, planScale, settings: incidentSettings, reportMeta, planBindings, building, pickedObjectId, intakeReviewedAt,
+  }
+  liveWs.current = liveSlices
   // ⚠️ The board list, filtered ONCE at the source. A deleted Trupp is stamped rather than
   // removed (types · Trupp.removedAt) so the Rapport can still print it — and everything else in
   // this component, from the alarm host to the map markers to the roster lock, must never see it
@@ -807,7 +902,7 @@ export function IncidentWorkspace({
     const r = dir === 'undo' ? undoHist.undo() : undoHist.redo()
     if (r.status === 'empty') return
     if (r.status === 'lost') { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
-    if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: r.entry.label }))
+    if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: undoCaption(r.entry) }))
   }
   /** …from a button, which anchors the caption at itself. Every ↶ ↷ in the app goes through this. */
   const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => stepHistory(dir, e.currentTarget)
@@ -815,7 +910,7 @@ export function IncidentWorkspace({
   // the Plan keeps its own per-document history (inside Whiteboard); it reports its
   // step fns up here so the GLOBAL TopBar undo/redo drives whichever
   // surface is showing — one control, both surfaces, no rail-level duplication.
-  const planHist = useRef<{ undo: () => void; redo: () => void } | null>(null)
+  const planHist = useRef<{ undo: (expect?: string) => boolean; redo: (expect?: string) => boolean } | null>(null)
   // ⚠️ …and the STACKS live here rather than inside the Whiteboard, because the Whiteboard is
   // mounted only while `mode === 'plans'`: as component state the plan's history was thrown away
   // every time somebody glanced at the Verlauf or the Karte and came back — «nichts, was sich
@@ -842,19 +937,16 @@ export function IncidentWorkspace({
    * we still go through `planHist`, because that path also clears the board's selection and
    * writes the Verlauf row the Whiteboard has always written.
    */
-  const planStepAt = (planId: string, dir: 'undo' | 'redo'): boolean => {
+  // `step` = the plan step the timeline entry stands for: a stack whose top is another is not
+  // stepped (the entry is then «lost», never applied to the wrong snapshot)
+  const planStepAt = (planId: string, dir: 'undo' | 'redo', step: string): boolean => {
     if (planId === activePlanIdRef.current && planHist.current) {
-      const can = planHistoryRef.current[planId]
-      const has = dir === 'undo' ? !!can?.past.length : !!can?.future.length
-      if (!has) return false
-      if (dir === 'undo') planHist.current.undo(); else planHist.current.redo()
-      return true
+      return dir === 'undo' ? planHist.current.undo(step) : planHist.current.redo(step)
     }
     const cur = planHistoryRef.current[planId]
-    const stack = dir === 'undo' ? cur?.past : cur?.future
-    if (!stack?.length) return false
-    const to = dir === 'undo' ? stack[stack.length - 1] : stack[0]
-    const from = boardRef.current[planId] ?? []
+    const to = dir === 'undo' ? cur?.past[cur.past.length - 1] : cur?.future[0]
+    if (!to || to.id !== step) return false
+    const from = { id: to.id, snap: boardRef.current[planId] ?? [] }
     setPlanHistory((m) => {
       const c = m[planId]
       if (!c) return m
@@ -864,7 +956,7 @@ export function IncidentWorkspace({
     })
     // ⚠️ a RESTORE, not a placement (`gesture: false`): the snapshot is the sheet's whole view,
     // projections included, and read as a hand it flipped any it still held at an older spot
-    setBoard((all) => ({ ...all, [planId]: to }), { gesture: false })
+    setBoard((all) => ({ ...all, [planId]: to.snap }), { gesture: false })
     return true
   }
   /** Record on the timeline that one plan document just gained a step. The Whiteboard pushes its
@@ -873,19 +965,33 @@ export function IncidentWorkspace({
    *  sweeps, a Gebäude amend) goes through the store's `setBoard` instead, which lays its step on
    *  the STORE's stack where the write touched an object the sheet does not own (lib/useObjectStore
    *  · touchedForeign) — the one stack such a write can reach. */
-  const rememberPlanStep = (planId: string) => {
+  const rememberPlanStep = (planId: string, step: string) => {
     // ⚠️ …and the STORE is told too, because a plan gesture may reach an object the sheet does
     // not own (lib/useObjectStore · setBoard): one gesture is one step on whichever stack owns
     // what it touched, and this is the signal that keeps it to one.
     beginSheetStep()
-    const label = fillTemplate(C_HIST.undoDomains.plan, { plan: planLabelRef.current(planId) })
-    undoHist.push({
+    const label = planStepLabel.current ?? fillTemplate(C_HIST.undoDomains.plan, { plan: planLabelRef.current(planId) })
+    planStepLabel.current = null
+    const drop = undoHist.push({
       domain: 'plan',
       scope: planId,
       label,
-      undo: () => histStep(planStepAt(planId, 'undo'), 'undo', label, ''),
-      redo: () => histStep(planStepAt(planId, 'redo'), 'redo', label, ''),
+      // ⚠️ A plan's stack holds whole-sheet VIEW snapshots, not per-object steps, so it survives a
+      // merge only WHOLE: every entry of it names every object the sheet's history or view holds,
+      // plus the sheet's view itself — a merge that touches any of them drops the plan's steps
+      // together (useBoardDoc · planStackTouches / keepPlanSteps). `step` is the snapshot's own id.
+      step,
+      touches: () => planStackTouches(planId, planHistoryRef.current[planId], boardRef.current[planId]),
+      undo: () => histStep(planStepAt(planId, 'undo', step), 'undo', label, ''),
+      redo: () => histStep(planStepAt(planId, 'redo', step), 'redo', label, ''),
     })
+    // if the fold that follows reaches an object this sheet does not own, the STORE takes the
+    // step and this entry (and its snapshot) is withdrawn — one gesture, one ↶ (lib/planStepLink)
+    planStepLink.current ??= createPlanStepLink((pid) => setPlanHistory((m) => {
+      const c = m[pid]
+      return c?.past.length ? { ...m, [pid]: { ...c, past: c.past.slice(0, -1) } } : m
+    }))
+    planStepLink.current.opened(planId, drop)
   }
   // …and the zoom/pan of each plan, for the same reason: coming back from the Karte to a board
   // that had reset itself to «eingepasst» means finding your place on it again, every time.
@@ -967,7 +1073,10 @@ export function IncidentWorkspace({
   // Verlauf rows live in the append-only journal store (server rows + offline outbox), NOT
   // in the synced blob — the one unbounded domain no longer re-syncs wholesale on every edit.
   // `legacy` seeds display + migration from an older incident's in-blob timeline.
-  const journal = useJournal({ incidentId: incidentMeta.id, readOnly, legacy: init.timeline })
+  // the Atemschutz-Link of a CLOSED Einsatz is refused on every request until a reopen: it
+  // follows once a minute (staging r3) — enough to notice the reopen, not a 403 every few seconds
+  const slowFollow = asLink && (!running || linkRefused)
+  const journal = useJournal({ incidentId: incidentMeta.id, readOnly: outboxReadOnly, legacy: init.timeline, slowFollow })
   // pulled out by name: `journal` itself is a fresh object every render, so a callback that
   // depends on it either churns or (the bug this replaced) silently keeps a stale `rows`
   const { swapPhoto, overlaySession: overlayRow, appendPatch: patchRow } = journal
@@ -1174,7 +1283,7 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
@@ -1335,7 +1444,7 @@ export function IncidentWorkspace({
   // browser tab's cache is evicted too readily to call it «bereit». Re-armed when what there is
   // to warm changes (another Objekt's plans, a new Leitungs-Ebene), so a plan attached mid-
   // incident still gets pulled; the signature keeps one warm per state, not one per minute.
-  // «Nur manuell» (device pref) switches all of this off; the button always stays.
+  // Offline-Vorbereitung «Aus» (device pref) switches all of this off; the button always stays.
   // …and re-armed when the operator grows the offline radius (29.08.): the readiness probe
   // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
   // «nicht geladen» forever. Centre and raster-reference ids are explicit too: a corrected
@@ -1562,22 +1671,36 @@ export function IncidentWorkspace({
   // the Atemschutz alarm engine like every device, and its `atemschutz.*` events 403'd into an
   // outbox that stayed red for the whole Einsatz.
   const auditScope = useMemo(() => eventScopeFor(user), [user?.role, user?.link_kind]) // eslint-disable-line react-hooks/exhaustive-deps
-  const auditDelivery = useAuditEvents(incidentMeta.id, readOnly, user ? `${user.id}:${user.link_kind ?? 'login'}` : null, auditScope)
-  const { emit, flushEvents, flushEventsBeacon } = auditDelivery
+  const auditDelivery = useAuditEvents(incidentMeta.id, outboxReadOnly, user ? `${user.id}:${user.link_kind ?? 'login'}` : null, auditScope)
+  const { emit: emitAudit, flushEvents, flushEventsBeacon } = auditDelivery
+  // ⚠️ The outbox still DELIVERS on a closed Einsatz (`outboxReadOnly`), so it must not be FED
+  // there: an Ebene toggled on the closed view would otherwise be queued, refused and counted as
+  // «nicht übernommen» — a refusal of something nobody meant to record. Nothing new is emitted
+  // once the Einsatz is over; what was queued before still goes out and is classified.
+  // …except the RECORD vocabulary, which a closed Einsatz still takes: a Rapport correction after
+  // the close emits its `report.` event like any other (canEditRapport).
+  const emit = useCallback<typeof emitAudit>((...args) => {
+    if (running || EL_EVENT_PREFIXES.some((p) => args[0].startsWith(p))) emitAudit(...args)
+  }, [emitAudit, running])
 
-  // Weather for the incident location. Polled live; each NEW observation is recorded as a
-  // `weather.observe` event so the replay fold can show the wind/condition as it stood at any
-  // past instant (see lib/replay · stateAt). During replay the badge reads the folded reading.
+  // Weather for the incident location — polled for the badge only. The RECORD of it (the
+  // `weather.observe` events the replay folds, lib/replay · stateAt) is written by the SERVER
+  // since 24.09.2026, once per reading per active Einsatz (backend · app/observations): every
+  // device used to emit its own copy of each reading, and none while every screen slept.
+  // During replay the badge reads the folded reading.
   const liveWeather = useWeather(incidentView.center)
-  const lastWxAt = useRef<string | null>(null)
-  useEffect(() => {
-    const w = liveWeather.data
-    if (!canWriteRecord || !w || !w.observed_at || w.observed_at === lastWxAt.current) return
-    lastWxAt.current = w.observed_at
-    emit('weather.observe', { weather: w })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveWeather.data, canWriteRecord])
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
+
+  // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
+  // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
+  // (when the Karte is the surface it opens on), the rail's plan tiles and the weather in the
+  // top bar. Each of those used to arrive in view, one jump at a time (01.10.2026).
+  const [mapSettled, setMapSettled] = useState(false)
+  const onMapSettled = useCallback(() => setMapSettled(true), [])
+  const coverPhase = useBootCover(!!openCover, (sym.ready || !!sym.error)
+    && (mode !== 'map' || mapSettled)
+    && plansSettled
+    && (!!liveWeather.data || !!liveWeather.error), onOpenCoverDone)
   const openWeatherDetails = useCallback(() => {
     const [lng, lat] = incidentView.center
     const url = appConfig.copy.weather.detailsUrl.replace('{lat}', String(lat)).replace('{lng}', String(lng))
@@ -1601,7 +1724,7 @@ export function IncidentWorkspace({
   // …reached through a ref because the Anwesenheit's history is created much further down (it
   // needs the roster and the attendance actions), while this merge path has to exist up here.
   // Same shape as `planHist` below.
-  const attHistClear = useRef<(() => void) | null>(null)
+  const sliceRebase = useRef<((next: InitialState, keep: ((step: string) => boolean) | null) => void) | null>(null)
   // …and the ghost-trail reconciliation's re-seed, for the same reason: the hook that owns it
   // (lib/useGhostTrails) needs the tactical store, which is built further down.
   const ghostReseedRef = useRef<(() => void) | null>(null)
@@ -1618,37 +1741,56 @@ export function IncidentWorkspace({
     reportGate(gate)
     syncedLayerState.current = gate.ws?.layerState ?? []
     const next = deriveInitial(gate.ws, incidentMeta.id, prefs, incidentMeta.type)
-    // replaceObjects swaps the whole store — the Karte AND every sheet, they are one collection
-    // now — AND drops undo history (the local stacks no longer apply to remote/merged state:
-    // undoing into it would resurrect remotely-deleted content).
+    // every synced slice takes the merged value (the objects come in with their history below)
     // ⚠️ One setter per slice, typed (lib/workspace · WorkspaceAppliers): a synced slice without
     // a line here fails tsc. This was a hand-kept list until 25.09.2026, and it had lost `mittel`.
     applyInitialState(next, {
-      objects: replaceObjects, layers: setLayers, timeline: journal.ingestLegacy,
+      // the store swaps in below, WITH its history (carryUndoThroughMerge: `rebaseObjects`, or
+      // `replaceObjects` when the bookkeeping fails) — a replace here would drop every Karte step
+      objects: () => {},
+      layers: setLayers, timeline: journal.ingestLegacy,
       recent: setRecent, building: setBuilding,
       vehicleOverrides: setVehicleOverrides, checklists: setChecklists, trupps: setTrupps, attendance: setAttendance, mittel: setMittel, shifts: setShifts, bands: setBands, cameraViews: setCameraViews, trails: setTrails, planScale: setPlanScale, reportMeta: setReportMeta, attachments: setAttachments, settings: setIncidentSettings, planBindings: setPlanBindings, pickedObjectId: setPickedObjectId, intakeReviewedAt: setIntakeReviewedAt,
     })
-    // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
-    // list that no longer exists, and stepping into one would write this device's rows back over
-    // what another device just merged in. The Plan's stacks go too — they now outlive the board's
-    // unmount (see `planHistory`), so nothing else drops them any more.
-    attHistClear.current?.(); setPlanHistory({})
+    /* ⚠️ WHAT THE MERGE CHANGED, record by record — and the undo timeline keeps everything else
+     * (25.09.2026, reversing 08.09.: this path used to drop the whole timeline, and with three
+     * devices on an Einsatz that greyed ↶ out within seconds of any save anywhere).
+     * `changed` is every record whose value differs between the live state and the one being
+     * written (lib/undoKeys · workspaceChanges — the objects read LIVE, the slices as rendered),
+     * plus every plan sheet whose drawn view that moves (derived only when an object changed).
+     * The timeline drops each entry whose inverse touches one of them (and the older ones behind
+     * a dropped one that touch what it touched); each domain then keeps exactly the steps whose
+     * entries survived, re-laid onto the merged state: the store per object, the slices per
+     * record, a plan's stack whole (useBoardDoc · planStackTouches); still-standing undo toasts
+     * are spent where their records moved. An echo changes nothing and drops nothing.
+     * ⚠️ All or nothing (undoKeys · carryUndoThroughMerge): if any of it throws, the old rule
+     * applies — the whole timeline and every history go — and the merged state still lands. */
+    carryUndoThroughMerge(undoHist, () => {
+      const changed = workspaceChanges({ ...liveWs.current, objects: liveObjects() }, next)
+      for (const k of planViewChanges(boardRef.current, () => boardViewOf(next.objects, getFits()), changed)) changed.add(k)
+      return changed
+    }, [
+      // the whole store swaps in — the Karte AND every sheet, they are one collection now
+      { rebase: (keep) => rebaseObjects(next.objects, keep), drop: () => replaceObjects(next.objects) },
+      // Anwesenheit, Mittel, Checklisten, Rapport, Zeitplan
+      { rebase: (keep) => sliceRebase.current?.(next, keep), drop: () => sliceRebase.current?.(next, null) },
+      // `keep` is a set captured by the merge — never re-read inside the lazy updater
+      { rebase: (keep) => setPlanHistory((h) => keepPlanSteps(h, keep)), drop: () => setPlanHistory({}) },
+    ], {
+      onFail: (e) => console.error('undo bookkeeping failed on merge — history dropped', e),
+      // F8: ↶ must never quietly turn into an older act on another surface — say it once
+      onTopDropped: (e) => toast(fillTemplate(appConfig.copy.undoTopDropped, { what: appConfig.copy.undoDroppedWhat[e.domain] }), { icon: 'warn' }),
+    })
     // …and the ghost-trail reconciliation re-seeds instead of running: the store was REPLACED, so
     // every marker on it would read as «vanished» and the merge would ghost the whole picture.
     // Through a ref, because the hook that owns it is declared further down this component.
     ghostReseedRef.current?.()
-    // …and every OPEN fold window with them. A burst that is still collecting (a Kurzbericht
-    // being typed, a Bildlegende, the Gebäude-Drehung) points at a state the merge has replaced:
+    // …and every OPEN fold window with them — the Rapport's typing burst, the Bildlegende, the
+    // Gebäude-Drehung (the plan sheet-step token is re-opened by the store itself when its step
+    // went, useObjectStore · rebaseObjects). A burst still collecting points at a state the merge has replaced:
     // folding the next write into it would write a pre-merge value back, and — worse — lay no
     // step of its own, so the edit that followed a merge would be the one thing with no way back.
     lastReportStep.current = null; lastCaptionStep.current = null; lastReorient.current = null
-    // ⚠️ …and the ONE global timeline goes with ALL of them. This path replaces every slice at
-    // once — the doc, the board, the trupps, the Anwesenheit, Mittel, Checklisten — so there is
-    // no entry left that describes anything real: a delegating one would step a stack that has
-    // just been emptied, and a closure one would write a pre-merge snapshot back over what
-    // another device merged in. Dropping the whole timeline is the honest answer, and it is why
-    // `invalidate(domain)` exists for the narrower case rather than being used here.
-    histClear.current()
     // Drop any selection pointing at an entity/drawing that no longer exists after the merge.
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
@@ -1694,11 +1836,17 @@ export function IncidentWorkspace({
   // App — that repainted the whole tree every second a Trupp was in the field (battery drain).
   // Declared up here (not with the Atemschutz block) because the sync loop below reads it.
   const [azAlarm, setAzAlarm] = useState<AtemschutzAlarmState>({ peak: 0, urgent: null, severities: {} })
+  // which Trupps the Meldeleiste names right now (AtemschutzAlarmMeldungen · onShown) — the TopBar
+  // chip steps aside while a row or the board's own badge already says its alarm (T1, 29.09.2026)
+  const [azRowsShown, setAzRowsShown] = useState<string[]>([])
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
   const { syncStatus: workspaceSyncStatus, lastSyncedAt, syncNow: syncWorkspaceNow, clockSkewMs } = useIncidentSync({
-    sync, readOnly, incidentId: incidentMeta.id,
+    // `outboxReadOnly`, not `readOnly`: a closed Einsatz still saves the Rapport corrections made
+    // on it (canEditRapport); nothing else writes a slice on a closed view — every writer gates
+    // on the flags derived from `readOnly`
+    sync, readOnly: outboxReadOnly, incidentId: incidentMeta.id,
     buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
     // Not for an Atemschutz-Link session: the server refuses every non-«team» row from it (403,
@@ -1711,6 +1859,9 @@ export function IncidentWorkspace({
     // a ringing device polls fast even when hidden — the Funkkontakt that ends its alarm is
     // usually entered on another device and arrives via this very poll
     alarmUrgent: azAlarm.peak >= 2,
+    // what this view shows — so a close/reopen elsewhere is answered at once (lib/incidentClosed)
+    incidentOpen: running,
+    slowFollow,
     // a Karte drag, a plan step, or typing (the Rapport saves per keystroke): while one is open
     // and a push is owed, the save skips its whole-blob compare
     gestureOpen: () => gestureOpen() || isTypingTarget(document.activeElement),
@@ -1718,6 +1869,78 @@ export function IncidentWorkspace({
   // The record outboxes alone — what the media drain waits for (below). The badge's status adds
   // the media queue to it once that exists (`syncStatus`, after useMediaQueue).
   const recordsSyncStatus = combinedSyncStatus(workspaceSyncStatus, journal.syncStatus, auditDelivery.status)
+
+  // --- closed (or reopened) on ANOTHER device while open here (N3, staging 25.09.2026) ---------
+  // App flips `incidentMeta` in place when the change is heard (App · onIncidentClosed /
+  // onIncidentReopened) and hands the moment down (`lifecycleElsewhere`); `running` above turns
+  // every writer off — or back on. Left for this mount: say so (one Meldeleiste row, with the
+  // time), hand what is still queued to the server once after a close — so it is refused and
+  // PARKED rather than left pending in a read-only view — and count what was parked, because
+  // «nicht übernommen, aber gesichert» is the other half of the sentence. Once the Einsatz runs
+  // again («Wieder öffnen», here or elsewhere), what was parked is SENT — it prints as Nachträge.
+  const [lifecycleHiddenAt, setLifecycleHiddenAt] = useState<number | null>(null)
+  const [workspaceRefused, setWorkspaceRefused] = useState(() => sync.refusedCount)
+  useEffect(() => sync.subscribeRefused(setWorkspaceRefused), [sync])
+  /** everything the CLOSED Einsatz refused and this device still holds (journal · audit · saves) */
+  const closedRefusedTotal = journal.refusedCount + auditDelivery.closedCount + workspaceRefused
+  useEffect(() => {
+    if (running) return
+    // the journal store drains on its own loop (outboxReadOnly keeps it delivering); these two
+    // wait for their next trigger otherwise. Both are no-ops with nothing queued.
+    void sync.flush()
+    void flushEvents()
+  }, [running, sync, flushEvents])
+  // …and once it RUNS again with anything parked — a reopen seen on screen, or a device opening
+  // an Einsatz that was reopened while it was away — the parked entries are owed again. How many
+  // went is remembered for the reopen's row («werden jetzt nachgesendet»).
+  const [resentOnReopen, setResentOnReopen] = useState(0)
+  const { requeueRefused: requeueJournal } = journal
+  const { requeueClosed: requeueAudit } = auditDelivery
+  useEffect(() => {
+    if (!running || outboxReadOnly || closedRefusedTotal === 0) return
+    const n = closedRefusedTotal
+    void Promise.all([requeueJournal(), requeueAudit(), sync.requeueRefused()]).catch(() => {}).then(() => setResentOnReopen(n))
+  }, [running, outboxReadOnly, closedRefusedTotal, requeueJournal, requeueAudit, sync])
+  /** «Einträge sichern»: everything this device still holds that the server has not taken — owed
+   *  (outbox, rejected) and refused (the closed Einsatz, a role) alike. Exporting acknowledges
+   *  nothing — but it is what lets the sync lamp stop saying «not everything is on the server»
+   *  about entries the closed Einsatz refused (see `syncStatus` below). */
+  const [exportedClosedRefused, setExportedClosedRefused] = useState(0)
+  const exportEntries = useCallback(() => {
+    const data = { ...journal.recoveryData(), audit: auditDelivery.getRecoveryData(), workspaceRefused: sync.refusedRecoveryData() }
+    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)
+    setExportedClosedRefused(closedRefusedTotal)
+  }, [journal, auditDelivery, sync, incidentMeta.id, closedRefusedTotal])
+  // the newest close/reopen boundary in the Verlauf, the server's own rows (lib/reopenClocks) —
+  // the reopen's clock restart keys on it below, and the reopen's row names ITS time (N6)
+  const lifecycleBoundary = useMemo(() => latestLifecycle(journal.rows), [journal.rows])
+  const lifecycleRefused = lifecycleElsewhere?.event === 'closed' ? closedRefusedTotal : resentOnReopen
+  // ⚠️ …and it EXPIRES (V2, staging 25.09.2026): «wieder geöffnet» sat 110 px tall on a 360 phone
+  // until somebody found the ✕. Two minutes, like every notice that only informs — unless it
+  // carries entries this device still holds, whose «Einträge sichern» must not vanish unseen.
+  useExpire(lifecycleElsewhere?.at ?? null, LIFECYCLE_NOTICE_MS, lifecycleRefused > 0, setLifecycleHiddenAt)
+  // the row matches the state on screen: a «closed» row never stands over a live Einsatz, nor a
+  // «reopened» one over a closed view; a new change shows again after an earlier ✕.
+  // ⚠️ Not over the Rapport (V3): the strip lay over its head and the «Einsatzrapport (PDF)»
+  // button at 820 and 1180, and the Rapport of a closed Einsatz says it itself (its own line).
+  const closedMeldung = lifecycleElsewhere != null
+    && mode !== 'rapport'
+    && (lifecycleElsewhere.event === 'closed') === !running
+    && lifecycleHiddenAt !== lifecycleElsewhere.at && (
+    <IncidentClosedMeldung
+      // the Link holder cannot reopen anything: its row says what the board still does
+      forLink={asLink}
+      event={lifecycleElsewhere.event}
+      // ⚠️ the time of the REOPEN, not of hearing it (N6, 26.09.2026): the Link hears on its
+      // minute poll, and «wieder geöffnet (02:46)» for a reopen at 02:45 is a wrong time on screen.
+      // The server's reopen row says when; until it has arrived, the moment it was heard.
+      at={lifecycleElsewhere.event === 'reopened' && lifecycleBoundary?.kind === 'reopened'
+        ? Date.parse(lifecycleBoundary.at) : lifecycleElsewhere.at}
+      refused={lifecycleRefused}
+      onExport={exportEntries}
+      onDismiss={() => setLifecycleHiddenAt(lifecycleElsewhere.at)}
+    />
+  )
 
   // Publish this device's «Einsatzdaten geprüft» to the crew. The question belongs to the Einsatz,
   // not to the tablet it was answered on (lib/incidentAlerts), and this component is the only
@@ -1765,7 +1988,7 @@ export function IncidentWorkspace({
    *
    * ⚠️ It is the undoable slice's `set` (see `reportSet` further down, where `canWriteRecord`
    * and the timeline are both in scope), while `saveReportMeta` itself is deliberately
-   * identity-stable per mount — the same shape `attHistClear` uses for the Anwesenheit. Before
+   * identity-stable per mount — the same shape `sliceRebase` uses for the slices' merge. Before
    * that assignment lands it is the plain setter, so a write on the very first render still
    * reaches the workspace; it simply lays no step down.
    */
@@ -1836,14 +2059,25 @@ export function IncidentWorkspace({
   // ⚠️ The media queue is an operational outbox too (23.09.2026): a Foto or Sprachnotiz that has
   // not reached the server is not saved, and one this device could not even store is `storage`.
   // It used to be left out, so the badge said «gespeichert» over captures that lived only here.
-  const syncStatus = combinedSyncStatus(recordsSyncStatus, media.syncStatus)
+  // ⚠️ …and entries the CLOSED Einsatz refused keep the lamp amber (review of #235) until they
+  // are exported or sent after a reopen: not red — nobody can fix them by retrying — but not
+  // «gespeichert» either, because they are on this device only.
+  const closedRefusedUnexported = closedRefusedTotal > exportedClosedRefused
+  const baseSyncStatus = combinedSyncStatus(recordsSyncStatus, media.syncStatus)
+  const syncStatus = closedRefusedUnexported && baseSyncStatus === 'synced' ? 'pending' : baseSyncStatus
   const syncNow = async () => {
     await Promise.all([syncWorkspaceNow(), journal.retry(), auditDelivery.retry()])
-    await media.flush().catch(() => {})
+    await media.flush({ retry: true }).catch(() => {})
     if (combinedSyncStatus(sync.syncStatus, journal.getStatus(), auditDelivery.getStatus(), media.getStatus()) !== 'synced') {
       throw new Error('Operational records have not all been acknowledged')
     }
   }
+
+  /** the closing device's own queue, drained before the archive PATCH (useAbschluss) */
+  const { flush: flushJournal } = journal
+  const flushRecordOutboxes = useCallback(async () => {
+    await Promise.all([flushJournal(), flushEvents()]).catch(() => {})
+  }, [flushJournal, flushEvents])
 
   // --- ONE «Einsatz abschliessen» ------------------------------------------------------------
   //
@@ -1853,14 +2087,46 @@ export function IncidentWorkspace({
   // «offen» for ever, while the identically-labelled path through the Rapport stamped and
   // counted. Two doors into one room are fine; two doors with the same sign into different rooms
   // are not. The confirm and the open-point count live HERE, above both of them.
-  const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
-    reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+  /** «Als «nicht eingesetzt» schliessen» in the Abschluss (useAbschluss · standDownTrupps,
+   *  24.09.2026): the card's own stand-down, per Trupp. The Trupp actions are created much further
+   *  down, so the hook gets a stable door and the ref is pointed at them once they exist. */
+  const standDownRef = useRef<(ids: string[]) => void>(() => {})
+  const standDownTrupps = useCallback((ids: string[]) => standDownRef.current(ids), [])
+  // …and the row for a crew the Abschluss closes over (staging r3 F4), pointed the same way
+  const noteInsideRef = useRef<(ts: Trupp[]) => void>(() => {})
+  const noteInsideAtClose = useCallback((ts: Trupp[]) => noteInsideRef.current(ts), [])
+  // What the Abschluss writes on its way to the close is part of the close (staging r6, F3):
+  // `pushEvent` marks every row made between the confirm and the close's answer `atClose`, so it
+  // never prints as a Nachtrag for being stamped a moment past the server's `closed_at`.
+  const closingRowsRef = useRef(false)
+  const markClosing = useCallback((on: boolean) => { closingRowsRef.current = on }, [])
+  // the Rapport counts an unsettled Abweichung as open — so does every door to it (lib/abschluss ·
+  // abschlussFacts): the phone's «Einsatz» badge, the chooser, the Abschluss, the archive count
+  const openConflictCount = useMemo(() => openConflicts(timeline).length, [timeline])
+  const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
+    reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+    // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
+    standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
+    noteInsideAtClose: canWriteRecord ? noteInsideAtClose : undefined,
+    // the Verlauf rows and audit events still queued go up BEFORE the close (review of #235) —
+    // after it they would be judged against a closed Einsatz. After the stand-down and the
+    // «beim Abschluss noch drin» rows (#227), so those go up with them.
+    flushOutboxes: flushRecordOutboxes,
+    markClosing,
   })
+  // --- the Atemschutz clocks across «Wieder öffnen» (staging r3, F4; lib/reopenClocks) ----------
+  // The newest close/reopen boundary in the Verlauf, the server's own rows. Right after a reopen
+  // the meta can say «running» a moment before the Verlauf has the reopen row: the alarm HOLDS
+  // for that moment, and once the row is there it counts every crew still inside from the
+  // reopen — never across the closed interval, which rang «Überfällig» the instant it ran again.
+  const reopenPending = running && lifecycleBoundary?.kind === 'closed'
+  const alarmTrupps = useMemo(() => clocksAfterReopen(trupps, running ? lifecycleBoundary : null), [trupps, running, lifecycleBoundary])
+  const azAlarmActive = azMonitoring && !reopenPending
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
    *  timeline helper is created much further down — the same shape `reportSetRef` uses. */
-  const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => () => void>(() => () => {})
+  const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => Dropper>(() => Object.assign(() => {}, { standing: () => false }))
   /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
    *  letter (same window and the same reason as the Rapportangaben above). */
   const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
@@ -1878,7 +2144,8 @@ export function IncidentWorkspace({
   // a stronger signal than the browser's `online` event, which fires on link-up not reach.
   // ⚠️ On the RECORD status, not `syncStatus`: that one includes the media queue itself, and
   // would never read «synced» while anything is queued — the drain would wait for itself.
-  useEffect(() => { if (recordsSyncStatus === 'synced') void media.flush() }, [recordsSyncStatus, media])
+  const flushMedia = media.flush
+  useEffect(() => { if (recordsSyncStatus === 'synced') void flushMedia() }, [recordsSyncStatus, flushMedia])
 
   // Escape is the universal bail-out — it peels back one layer of transient state at a time so
   // there's always a quick way back to the plain map: (1) cancel an armed placement, (2) close the
@@ -2059,7 +2326,7 @@ export function IncidentWorkspace({
     // ⚠️ Two rows in the same millisecond must never share an id — the server's idempotency skip
     // silently swallows the second (legal record). A per-mount counter kept ONE device's rows
     // apart but not two devices' (post-mortem 23.09.2026): newRowId adds the random tail (lib/ids).
-    journal.append({ id: id ?? newRowId(), t: formatTime(new Date(at)), at, ...rest })
+    journal.append({ id: id ?? newRowId(), t: formatTime(new Date(at)), at, ...rest, ...(closingRowsRef.current ? { atClose: true } : {}) })
   }
   // map events keep the positional signature, so every existing call site is unchanged
   // `opts` carries the two things a row may need that are not part of its sentence: `rowId`
@@ -2070,8 +2337,8 @@ export function IncidentWorkspace({
     opts?: { rowId?: string; subjectId?: string }) =>
     pushEvent({ icon, text, kind, audioUrl, entityId, subjectId: opts?.subjectId, surface: 'map' }, opts?.rowId)
   // plan events carry document + (optional) team / coordinate context for jump-back
-  const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) =>
-    pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor })
+  const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string }) =>
+    pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor, subjectId: extra?.subjectId })
   // …and now that both exist, hand them to the timeline's entries (see `histSide` far above:
   // an entry is pushed long before this line runs and pressed long after it).
   histSide.current = { log, emit }
@@ -2087,7 +2354,7 @@ export function IncidentWorkspace({
     draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
+    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   } = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
@@ -2105,7 +2372,7 @@ export function IncidentWorkspace({
         return a?.target.kind === 'line' && a.target.id === drawing.id && a.target.endpoint === 'end'
       }).map((endpoint) => ({ id: d.id, endpoint }))) : []
     if (incoming.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     const resolvedTarget = resolvedMapDrawings.find((d) => d.id === drawing.id)
@@ -2143,37 +2410,83 @@ export function IncidentWorkspace({
   // write the tactical document only reads the coupling, and a replay is the past.
   useGpsFollow({ liveVehicles, enabled: canEditIncident, setDocRaw })
 
-  // «Wann ist das TLF weggefahren?» — the feed answers it into the Verlauf, because an hour
-  // later nobody can. Reads the RAW feed (`gpsVehicles`), not the overridden view: a vehicle
-  // held in place by hand still really drives away, and that is the moment worth recording.
-  useVehiclePresenceLog({
-    vehicles: gpsVehicles,
-    center: incidentView.center,
-    enabled: canEditIncident && !replayActive,
-    log,
-    // the shared Verlauf: another device's row for the same transition is read back here, so
-    // three tablets on one login write ONE «hat den Einsatzort verlassen» (24.09.2026)
-    rows: journal.rows,
-  })
+  // «Wann ist das TLF weggefahren?» is answered by the SERVER now (24.09.2026, D2): its 30 s GPS
+  // sweep writes «vor Ort» / «hat den Einsatzort verlassen» on the GPS fix time (backend ·
+  // app/vehicle_presence). This device used to run the same rings and stamp the moment IT
+  // noticed — all five vehicles «vor Ort» at 19:43 in the Übung, when a tablet woke up; GPS said
+  // 19:23–19:28. The server observes; devices never write observations.
 
-  const pausedGpsConnections = useMemo(() => drawings.flatMap((drawing) => (['start', 'end'] as const).flatMap((endpoint) => {
-    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
-    return attachment?.gps?.state === 'paused' ? [{ drawing, endpoint, attachment }] : []
-  })), [drawings])
-  const setGpsRouting = (drawing: Drawing, endpoint: 'start' | 'end', routing: 'direct' | 'trace') => {
-    const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
-    const attachment = drawing[key]
-    if (!attachment) return
-    const target = attachment.target.kind === 'object' ? entities.find((e) => e.id === attachment.target.id) : null
-    const state = routing === 'trace' ? 'continuous' : attachment.gps?.state === 'continuous' ? 'paused' : 'guarded'
-    patchDrawingById(drawing.id, { [key]: { ...attachment, routing, ...(attachment.gps ? { gps: { ...attachment.gps, state, ...(target && state === 'guarded' ? { confirmedAt: target.coord, lastSafe: target.coord } : {}) } } : {}) } })
-  }
-  const detachGpsHere = (drawing: Drawing, endpoint: 'start' | 'end') => {
-    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
-    if (!attachment) return
+  // …and the write that makes the reopen's restart part of the record: every crew still inside
+  // gets its contact clock set to the reopen, and ONE Verlauf row per crew under a derived id
+  // (three tablets, one row). Only where the Tafel may be written; idempotent, so it settles
+  // once the Trupps carry the new time (lib/reopenClocks · clocksAfterReopen).
+  useEffect(() => {
+    if (!running || replayActive || !canEditTrupps || lifecycleBoundary?.kind !== 'reopened') return
+    const next = clocksAfterReopen(allTrupps, lifecycleBoundary)
+    if (next === allTrupps) return
+    const moved = next.filter((t, i) => t !== allTrupps[i])
+    setTrupps((ts) => clocksAfterReopen(ts, lifecycleBoundary))
+    const logged = new Set(journal.rows.map((r) => r.id))
+    for (const t of moved) {
+      const rowId = clockRestartRowId(lifecycleBoundary.id, t.id)
+      if (logged.has(rowId)) continue
+      log('radio', fillTemplate(appConfig.copy.atemschutz.logClockRestart, { name: truppLogName(t) }), 'team', undefined, undefined, { rowId, subjectId: t.id })
+      emit('atemschutz.clock.restart', { id: t.id }, { observed: rowId })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, replayActive, canEditTrupps, lifecycleBoundary, allTrupps])
+
+  // The GPS ends the Meldeleiste speaks about (lib/gpsReturn · gpsNotices) — ONE row per vehicle
+  // and question: drove off, following stopped, back on site while its Leitungen still follow.
+  const gpsMeld = useGpsNotices(drawings, entities)
+  /** The end as the SCREEN shows it now — on a paused coupling that is the on-site point. */
+  const resolvedEndOf = (drawing: Drawing, endpoint: 'start' | 'end'): LngLat => {
     const resolved = resolvedMapDrawings.find((d) => d.id === drawing.id)
-    const fallback = resolved?.coords[endpoint === 'start' ? 0 : resolved.coords.length - 1] ?? drawing.coords[endpoint === 'start' ? 0 : drawing.coords.length - 1]
-    setDrawingAttachment(drawing.id, endpoint, undefined, fallback)
+    return resolved?.coords[endpoint === 'start' ? 0 : resolved.coords.length - 1] ?? drawing.coords[endpoint === 'start' ? 0 : drawing.coords.length - 1]
+  }
+  const vehicleOf = (drawing: Drawing, endpoint: 'start' | 'end'): string | undefined => {
+    const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+    return a?.target.kind === 'object' ? entities.find((e) => e.id === a.target.id)?.label : undefined
+  }
+  /** «Weiter folgen» / «Spur» on a GPS end photographs the on-site line first (gps.before), once. */
+  const routingOf = (drawing: Drawing, endpoint: 'start' | 'end', routing: 'direct' | 'trace') => {
+    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+    if (!attachment) return null
+    const target = attachment.target.kind === 'object' ? entities.find((e) => e.id === attachment.target.id) : null
+    return routingPatch(drawing, endpoint, routing, { resolvedEnd: resolvedEndOf(drawing, endpoint), targetCoord: target?.coord, at: serverNowIso() })
+  }
+  const setGpsRouting = (drawing: Drawing, endpoint: 'start' | 'end', routing: 'direct' | 'trace') => {
+    const patch = routingOf(drawing, endpoint, routing)
+    if (patch) patchDrawingById(drawing.id, patch)
+  }
+  /** …on every end of one vehicle at once (the Meldung's «Weiter folgen») — one undo step. */
+  const followAll = (ends: readonly GpsEnd[]) => patchDrawingsById(ends.flatMap((e) => {
+    const patch = routingOf(e.drawing, e.endpoint, 'trace')
+    return patch ? [{ id: e.drawing.id, patch }] : []
+  }))
+  /** «Am Einsatzort lassen» / «Am Einsatzort lösen»: never at the vehicle's current position — a
+   *  followed trace is cut back to its snapshot (gpsReturn · onSiteCoords), in one step, with a
+   *  Verlauf row when that removed a drive. */
+  const releaseOnSite = (ends: readonly GpsEnd[]) => {
+    if (!ends.length) return
+    const vehicle = vehicleOf(ends[0].drawing, ends[0].endpoint)
+    releaseGpsOnSite(ends.map((e) => ({ id: e.drawing.id, endpoint: e.endpoint, fallback: resolvedEndOf(e.drawing, e.endpoint) })), (lines) => gpsReleaseRow(lines, vehicle))
+  }
+  /** «Hier lösen (Spur behalten)»: the end lets go where it stands now; the drive stays as the hose. */
+  const releaseHere = (drawing: Drawing, endpoint: 'start' | 'end') => {
+    setDrawingAttachment(drawing.id, endpoint, undefined, resolvedEndOf(drawing, endpoint))
+  }
+  /** «Zurück auf Stand am Einsatzort (hh:mm)»: one ↶ (named), one Verlauf row, snapshots cleared. */
+  const revertAll = (ends: readonly GpsEnd[]) => {
+    const kept = ends.filter((e) => e.before)
+    if (!kept.length) return
+    const words = gpsRevertWords(kept, vehicleOf(kept[0].drawing, kept[0].endpoint))
+    stepLabel.current = words.step
+    if (!revertGpsFollow(kept.map((e) => ({ id: e.drawing.id, endpoint: e.endpoint })), words.row)) stepLabel.current = null
+  }
+  const gpsEndOf = (drawing: Drawing, endpoint: 'start' | 'end'): GpsEnd => {
+    const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+    return { drawing, endpoint, before: freshBefore(a?.gps) }
   }
 
   const toggleLayer = (id: LayerId) => {
@@ -2220,6 +2533,9 @@ export function IncidentWorkspace({
     }
     setLayers(next)
   }
+  // which quick-tap the Ebenen on screen match — lit in the panel, named in the Ebenen button's
+  // tooltip / accessible name (lib/layerPreset, 05.10.2026)
+  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type)), [layers, incidentMeta.type])
   const setOpacity = (id: LayerId, v: number) => {
     if (isTwinLayerId(id)) {
       // written outside the updater — see the note on persistTwinLayers
@@ -2460,7 +2776,8 @@ export function IncidentWorkspace({
       pendenzDoneLog: appConfig.copy.journal.pendenzDoneLog, snoozeLog: appConfig.copy.journal.snoozeLog,
       reopenLog: appConfig.copy.journal.reopenLog, pendenzReopenLog: appConfig.copy.journal.pendenzReopenLog,
     },
-    !replayActive,
+    // …and a closed Einsatz rings no Wiedervorlage either (N3): nobody is there to act on it
+    !replayActive && running,
     incidentMeta.closed_at,
     // «Erledigt» is confirm-with-undo and joins the one timeline (useReminders · completeReminder)
     undoHist,
@@ -2730,7 +3047,8 @@ export function IncidentWorkspace({
       // cheap to make and was impossible to unmake except by deleting it through a confirm.
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => vs.filter((x) => x.id !== v.id)),
-        () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])))
+        () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])),
+        () => [recordKey('cameraViews', v.id)], 'silent')
       toast(appConfig.copy.mapViews.saved, { icon: 'compass', tone: 'success' })
     },
     onRename: (id, name) => {
@@ -2739,7 +3057,8 @@ export function IncidentWorkspace({
       setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v)))
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name: prev.name } : v))),
-        () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))))
+        () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))),
+        () => [recordKey('cameraViews', id)], 'silent')
     },
     onDelete: async (id) => {
       const index = cameraViews.findIndex((x) => x.id === id)
@@ -2751,7 +3070,8 @@ export function IncidentWorkspace({
       // comes back at the position it stood in, because the list is in save order
       rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
         () => setCameraViews((vs) => (vs.some((x) => x.id === id) ? vs : [...vs.slice(0, index), v, ...vs.slice(index)])),
-        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)))
+        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)),
+        () => [recordKey('cameraViews', id)], 'silent')
     },
   }
   // Open/close the views popover. Opening it first drops any active tool and the Ebenen
@@ -3018,7 +3338,7 @@ export function IncidentWorkspace({
       return a && ((a.target.kind === 'object' && ents.includes(a.target.id)) || (a.target.kind === 'line' && ids.includes(a.target.id))) ? [{ dr, endpoint, a }] : []
     }))
     if (affected.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     commit((d) => ({
@@ -3049,18 +3369,9 @@ export function IncidentWorkspace({
       emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
     })
     setSelectedDrawIds([]); setSelectedEntityIds([])
-    // «Zeichnung entfernt» after a lasso over eleven objects is not vague, it is wrong — the
-    // singular says one thing went. The count is right here; a reconstruction needs it. A single
-    // deletion is named like its creation row («Fläche gelöscht», «Einsatzleiter gelöscht»).
-    const gone = ids.length + ents.length
-    const lone = ids.length === 1 ? drawings.find((d) => d.id === ids[0]) : undefined
-    const loneEnt = ents.length === 1 ? entities.find((e) => e.id === ents[0]) : undefined
-    log('close', gone > 1
-      ? fillTemplate(appConfig.copy.log.selectionDeleted, { n: gone })
-      : lone ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(lone) })
-      : loneEnt ? fillTemplate(appConfig.copy.log.objectDeleted, { name: entityLogName(loneEnt) })
-      : appConfig.copy.log.drawingDeleted,
-      // …named by WHAT was removed, so two «Feuerwehr gelöscht» seconds apart stay two rows
+    // ONE row, counted or named (lib/drawingEdit · removalRowText) — «… entfernt»
+    log('close', removalRowText(drawings.filter((d) => ids.includes(d.id)), entities.filter((e) => ents.includes(e.id))),
+      // …named by WHAT was removed, so two «Feuerwehr entfernt» seconds apart stay two rows
       undefined, undefined, undefined, { subjectId: ids[0] ?? ents[0] })
   }
 
@@ -3206,18 +3517,38 @@ export function IncidentWorkspace({
    * The marker keeps its coordinate and simply stands on it again (lib/docking · dockSlotOffset:
    * only the RENDERED position was ever snapped to the host's corner).
    */
+  // «Lösen» — a Trupp marker off its host, or a Gefahrentafel off its Fahrzeug. Both write the
+  // row a drag-release already writes (3am test r3, 25.09.2026: the placard editor's «Lösen» wrote
+  // none — the record said «angedockt» and never that the bond ended).
   const undockTeam = (entityId: string) => {
     const ent = doc.entities.find((e) => e.id === entityId)
     const hostId = ent?.dockedTo
     if (!ent || !hostId) return
     const L = appConfig.copy.log
-    const line = fillTemplate(L.teamUndocked, {
+    const placard = isPlacard(ent)
+    const line = fillTemplate(placard ? L.placardUndocked : L.teamUndocked, {
       name: ent.label || appConfig.copy.entities.fallbackObjectName,
       host: doc.entities.find((e) => e.id === hostId)?.label || appConfig.copy.entities.fallbackObjectName,
     })
     patchEntity(entityId, { dockedTo: undefined })
-    log('select', line, 'team', undefined, entityId)
-    undoToast(line, () => patchEntity(entityId, { dockedTo: hostId }))
+    log('select', line, placard ? 'symbol' : 'team', undefined, entityId)
+    // …and the toast's way back says so too: the bond is restored, and the record has to hear it.
+    // It re-docks only onto a host that still stands, and only a marker that is still loose — by
+    // the time it is tapped the host may have been deleted, or the marker docked elsewhere
+    // (CodeRabbit on #232); `objectsRef` is the store as it is NOW, not at the release. The guard
+    // names the HOST too: it docks at wherever the host stands, and a host another device has
+    // moved since is not where this bond was broken
+    undoToast(line, () => {
+      const now = objectsRef.current
+      const hostStands = now.some((o) => o.entity?.id === hostId)
+      const stillLoose = now.find((o) => o.entity?.id === entityId)?.entity?.dockedTo == null
+      if (!hostStands || !stillLoose) return
+      patchEntity(entityId, { dockedTo: hostId })
+      log('select', fillTemplate(placard ? L.placardDocked : L.teamDocked, {
+        name: ent.label || appConfig.copy.entities.fallbackObjectName,
+        host: doc.entities.find((e) => e.id === hostId)?.label || appConfig.copy.entities.fallbackObjectName,
+      }), placard ? 'symbol' : 'team', undefined, entityId)
+    }, [recordKey('objects', entityId), recordKey('objects', hostId)])
   }
   /**
    * A live Fahrzeug was dragged on a Modul — «hier ist es wirklich».
@@ -3285,7 +3616,7 @@ export function IncidentWorkspace({
       const ok = await confirmDialog({
         title: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }) : appConfig.copy.notes.deleteTitle,
         message: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: connected.length }) : appConfig.copy.notes.deleteMsg,
-        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
       })
       if (!ok) return false
     }
@@ -3318,6 +3649,29 @@ export function IncidentWorkspace({
       }
     })
     return true
+  }
+  /**
+   * «Gelöscht / erledigt» on the Karte (review item 21b, lib/objectDone). A PROP edit — one undo
+   * step through `commit`, the `entity.edit` audit event, and the write-through onto the anno when
+   * the symbol stands on a sheet (lib/tacticalObjects) — plus its OWN Verlauf row, written here
+   * and nowhere else: the ↶ writes only its own «… rückgängig gemacht» (the timeline's row).
+   * ⚠️ The audit patch says `done: null` for «Wieder aktiv»: JSON drops an `undefined`, and the
+   * replay would then fold an empty patch and keep the symbol grey (lib/replay · entity.edit).
+   */
+  const setEntityDone = (ent: Entity, on: boolean) => {
+    if (tacticalLocked) return
+    const act = doneAct(ent, on, {
+      atIso: serverNowIso(), by: user?.display_name,
+      place: donePlace(ent.floorFrom ?? ent.floor, ent.floorTo),
+      // the sheet that draws it natively, if any — its view gets the event too (lib/objectDone)
+      sheetPlanId: objectsRef.current.find((o) => o.id === ent.id)?.sheet?.planId,
+      cat: sym.symbols.find((x) => x.name === ent.symbol)?.cat,
+    })
+    if (!act) return
+    stepLabel.current = act.text // the ↶ names the act, not «Änderung auf der Karte»
+    commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === ent.id ? { ...e, done: act.done } : e)) }))
+    for (const [op, payload] of act.events) emit(op, payload)
+    log(on ? 'check' : 'undo', act.text, 'symbol', undefined, ent.id)
   }
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({
@@ -3499,8 +3853,7 @@ export function IncidentWorkspace({
   // the stack the one you notice three names later. A toast undo is itself a write through `set`,
   // so ↶ after it re-applies the tap — «undo the last thing I did», consistently.
   // ⚠️ `canWriteRecord`, not `readOnly`: the Anwesenheit is not the Atemschutz-Link's slice.
-  const attHist = useUndoableSlice(attendance, setAttendance, !canWriteRecord)
-  attHistClear.current = attHist.clear
+  const attHist = useUndoableSlice(attendance, setAttendance, !canWriteRecord, undefined, ATTENDANCE_RECORDS)
   /** Record an Anwesenheits-Schritt on the global timeline. The slice keeps its own stack and
    *  performs the step (delegation); this only says WHEN it happened relative to everything else.
    *  ⚠️ Through a ref, and declared up here: `attSet` is handed to `useAttendanceActions` during
@@ -3508,15 +3861,50 @@ export function IncidentWorkspace({
    *  ⚠️ The label is the surface, not the names. At push time the write has not landed, so who
    *  moved is not knowable yet — and the Verlauf row `stepAttendance` writes still names them,
    *  which is where a reader six months later actually looks. */
-  const stepAttendanceRef = useRef<(dir: 'undo' | 'redo') => boolean>(() => false)
-  const rememberAttendanceStep = () => undoHist.push({
-    domain: 'anwesenheit',
-    label: C_HIST.undoDomains.anwesenheit,
-    undo: () => stepAttendanceRef.current('undo'),
-    redo: () => stepAttendanceRef.current('redo'),
-  })
-  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. */
-  const attSet: typeof attHist.set = (update) => { const laid = attHist.set(update); rememberAttendanceStep(); return laid }
+  const stepAttendanceRef = useRef<(dir: 'undo' | 'redo', step?: string) => boolean>(() => false)
+  const rememberAttendanceStep = () => {
+    // the slice step the write just laid, and the people it writes (lib/undoKeys)
+    const step = attHist.topStep() ?? undefined
+    return undoHist.push({
+      domain: 'anwesenheit',
+      label: C_HIST.undoDomains.anwesenheit,
+      step,
+      // (any render's `attHist` will do: its stacks are refs, shared by every render)
+      touches: () => (step ? attHist.stepKeys(step) : null),
+      undo: () => stepAttendanceRef.current('undo', step),
+      redo: () => stepAttendanceRef.current('redo', step),
+    })
+  }
+  /**
+   * A Trupp SAVE is one act (staging r3 F1): the Gäste its form files, the crew it marks present
+   * and the AS-Funktion it writes are part of «Trupp 2 … angemeldet» — ONE ↶ takes the Trupp and
+   * the people it filed back together, nothing half-done. Opened by the first write of a save
+   * (fileTruppGuest, or the create/edit/re-entry wrapper), it gathers every step pushed until the
+   * save's synchronous run ends (a microtask later) into one timeline entry, and folds the
+   * Anwesenheit writes of that run into ONE slice step.
+   * It used to leave «Rückgängig: Anwesenheit» on top, which stripped the crew's Funktion, kept
+   * them present, kept the Trupp — and wrote «Anwesenheit zurückgenommen» over it.
+   */
+  const truppSaveRef = useRef<{ laidAttendance: boolean } | null>(null)
+  const openTruppSave = () => {
+    if (truppSaveRef.current) return
+    const save = { laidAttendance: false }
+    truppSaveRef.current = save
+    const end = undoHist.group('trupps')
+    queueMicrotask(() => { if (truppSaveRef.current === save) truppSaveRef.current = null; end() })
+  }
+  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. Inside
+   *  a Trupp save the save's first write is its step and the rest fold into it.
+   *  ⚠️ An entry only for a write that LAID a step (a viewer's write lays none — an entry for it
+   *  would step the one below, somebody else's). */
+  const attSet: typeof attHist.set = (update) => {
+    const save = truppSaveRef.current
+    if (save?.laidAttendance) return attHist.set(update, { coalesce: () => true })
+    const laid = attHist.set(update)
+    if (laid) rememberAttendanceStep()
+    if (save && laid) save.laidAttendance = true
+    return laid
+  }
   /**
    * A Gebäude one-shot on the timeline. These own no stack at all — a storey added, a storey
    * removed, a building replaced — so the entry carries BOTH states itself, the way the
@@ -3526,15 +3914,62 @@ export function IncidentWorkspace({
    * drops its entry when it is used, so an act is never undoable twice. The label is the toast's
    * own sentence, so the header says «Rückgängig: Geschoss gelöscht» and not «… Gebäude».
    */
-  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => undoHist.push({
+  /** `rows` replaces the generic «… rückgängig gemacht / wiederhergestellt» with the act's own
+   *  counter-rows where it has better words («Geschoss 3. OG wiederhergestellt»). ⚠️ `'silent'`
+   *  for an act that wrote NO row (staging walk-through 26.09.2026, D6): a counter-row about an
+   *  act the record never mentioned is the paper describing something it never said happened —
+   *  an Ansicht, a Drehung, a Gebäude swap, a Beilage (verlauf-coverage · «taken back»).
+   *  ⚠️ `touches` names EVERY record `restore`/`reapply` write (lib/undoKeys) — that is what a
+   *  remote merge checks the step against; a record left out is one a ↶ could carry a pre-merge
+   *  value back into. A function, read when a merge lands, for a set only knowable then. */
+  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => undoHist.push({
     domain,
     label,
-    undo: () => { restore(); logHistStep('undo', label, ''); return true },
-    redo: () => { reapply(); logHistStep('redo', label, ''); return true },
+    touches,
+    undo: () => { restore(); oneShotRow('undo', label, rows); return true },
+    redo: () => { reapply(); oneShotRow('redo', label, rows); return true },
   })
   rememberOneShotRef.current = rememberOneShot
-  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) =>
-    rememberOneShot('gebaeude', label, restore, reapply)
+  // the Abschluss's «nicht eingesetzt» door (standDownTrupps above) — read only when the question
+  // is answered, long after this commit, so an effect is the place to point it
+  // ⚠️ Re-checked against the Trupps as they stand NOW: a Sicherungstrupp sent in while the
+  // Abschluss stood open is inside, and «raus» on it would be a real Austritt nobody reported.
+  useEffect(() => {
+    standDownRef.current = (ids) => {
+      for (const id of ids) {
+        const t = truppsRef.current.find((x) => x.id === id)
+        if (t && truppStillRegistered(t)) setTruppStatus(id, 'raus')
+      }
+    }
+  })
+  useEffect(() => {
+    noteInsideRef.current = (ts) => {
+      for (const t of ts) {
+        log('logout', fillTemplate(appConfig.copy.atemschutz.logInsideAtClose, { name: truppLogName(t) }), 'team',
+          undefined, undefined, { subjectId: t.id })
+      }
+    }
+  })
+  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') =>
+    rememberOneShot('gebaeude', label, restore, reapply, touches, rows)
+  /** The row a one-shot's step owes the record, in either direction — its own words, or the generic ones. */
+  const oneShotRow = (dir: 'undo' | 'redo', label: string, rows?: OneShotRows | 'silent') => {
+    if (rows === 'silent') { histSide.current.emit(dir); return }
+    if (!rows) { logHistStep(dir, label, ''); return }
+    rows[dir]()
+    histSide.current.emit(dir)
+  }
+  /**
+   * ⚠️ A one-shot's confirm-with-undo toast. Its «Rückgängig» is the SAME act as the header's ↶ —
+   * so it writes the SAME counter-row (staging walk-through, 25.09.2026: a storey restored from
+   * the toast left «Geschoss 3. OG entfernt» standing alone on the printed Einsatzjournal, about a
+   * storey that still existed) — and drops the timeline entry, so the act is never taken back twice.
+   * Guarded by the entry (`drop.standing`): once a merge dropped it, or a ↶ already took it, the
+   * toast declines instead of writing over another device's change. `opts.kind` (#232): a toast of
+   * the same kind still on screen gives way to this one.
+   */
+  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { kind?: string }) =>
+    undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) }, drop.standing, opts)
 
   /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
    *
@@ -3583,7 +4018,7 @@ export function IncidentWorkspace({
     const ok = await confirmDialog({
       title: appConfig.copy.whiteboard.removeMarkerTrail,
       message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: e.label ?? '', n: e.trail.length }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
     })
     if (!ok) return
     armTrailDrop(id, true)
@@ -3645,7 +4080,7 @@ export function IncidentWorkspace({
     } else {
       const ok = await confirmDialog({
         title: appConfig.copy.whiteboard.clearTrail, message,
-        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
       })
       if (!ok) return
     }
@@ -3656,7 +4091,8 @@ export function IncidentWorkspace({
     // header's «Rückgängig: …» names the surface the operator is standing on
     rememberOneShot(g.planId ? 'plan' : 'karte', appConfig.copy.whiteboard.clearTrail,
       () => setTrails((ts) => restoreGhostTrail(ts, id)),
-      () => setTrails((ts) => removeGhostTrail(ts, id, at)))
+      () => setTrails((ts) => removeGhostTrail(ts, id, at)),
+      () => [recordKey('trails', id)])
   }
   // …and what each person's Bemerkung said, for as long as this incident is open here. The record
   // loses it when a row is cycled to «frei» (the entry goes, as it must); this is what puts it back
@@ -3691,8 +4127,8 @@ export function IncidentWorkspace({
     journal.append(conflictResolvedRow(open, choice, user?.display_name))
     emit('attendance.conflict.resolved', { key: open.key, sig: open.sig })
   }
-  const stepAttendance = (dir: 'undo' | 'redo'): boolean => {
-    const moved = dir === 'undo' ? attHist.undo() : attHist.redo()
+  const stepAttendance = (dir: 'undo' | 'redo', step?: string): boolean => {
+    const moved = dir === 'undo' ? attHist.undo(step) : attHist.redo(step)
     if (!moved) return false
     const names = changedAttendanceNames(moved.from, moved.to, rosterById)
     const A = appConfig.copy.anwesenheit
@@ -3719,24 +4155,24 @@ export function IncidentWorkspace({
    * item 4» is not, once a merge has been through it.
    * ⚠️ `canEditRecord`, like the Anwesenheit: both are record surfaces an `el` may write.
    */
-  const mittelHist = useUndoableSlice(mittel, setMittel, !canWriteRecord)
-  const checklistHist = useUndoableSlice(checklists, setChecklists, !canWriteRecord)
+  const mittelHist = useUndoableSlice(mittel, setMittel, !canWriteRecord, undefined, MITTEL_RECORDS)
+  const checklistHist = useUndoableSlice(checklists, setChecklists, !canWriteRecord, undefined, CHECKLIST_RECORDS)
   /** One recorded step over a slice somebody else owns. `op` is the domain-scoped audit prefix —
    *  see `logHistStep` for why a bare `undo` would wedge an `el` session's outbox. */
   /*  `describe` lets the domain write the step's rows itself — the Checklisten write «☑ …» /
    *  «Meilenstein zurückgenommen: …» for a milestone, the same row a tap writes — and a `true`
    *  from it replaces the generic «… rückgängig gemacht», so one step is never two rows. */
   /*  ⚠️ The slice's history travels as a REF, read when the step is taken (lib/sliceUndoStep). */
-  const rememberSliceStep = <T,>(domain: UndoDomain, histRef: { readonly current: UndoableSlice<T> }, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) =>
+  const rememberSliceStep = <T,>(laid: boolean, domain: UndoDomain, histRef: { readonly current: UndoableSlice<T> }, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) =>
     pushSliceStep(undoHist, {
-      domain, label, histRef, onStep,
+      domain, label, laid, histRef, onStep,
       record: (moved, dir) => {
         if (moved && describe?.(moved)) { histSide.current.emit(`${op}${dir}`); return true }
         return histStep(!!moved, dir, label, op, icon, 'journal')
       },
     })
-  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
-  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
+  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep(laid, 'mittel', mittelHistRef, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
+  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep(laid, 'checkliste', checklistHistRef, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
   // ⚠️ The entry outlives the render that pushed it, and `hist` closes over that render's stacks.
   const mittelHistRef = useRef(mittelHist); mittelHistRef.current = mittelHist
   const checklistHistRef = useRef(checklistHist); checklistHistRef.current = checklistHist
@@ -3758,7 +4194,7 @@ export function IncidentWorkspace({
   // keepMachineFields): it lays no step of its own, so it travels inside whatever step stands —
   // and a ↶ that handed back an outstanding `printJob` would leave `settlePrintJob` nothing to
   // stamp, i.e. lose the «in der Warteschlange» / «Rapport erstellt» marks to an undone sentence.
-  const reportHist = useUndoableSlice(reportMeta, setReportMeta, !canWriteRecord, keepMachineFields)
+  const reportHist = useUndoableSlice(reportMeta, setReportMeta, !canWriteRecord, keepMachineFields, REPORT_RECORDS)
   const reportHistRef = useRef(reportHist); reportHistRef.current = reportHist
   const reportSet: typeof reportHist.set = (u) => {
     // ⚠️ A session that may not write the record still writes LOCALLY exactly as it did before
@@ -3781,7 +4217,7 @@ export function IncidentWorkspace({
     // ⚠️ …and the fold window closes on every ↶ ↷ (the last argument): the step it would fold
     // into has just moved to the other stack, so typing in the same field right after an undo
     // would lay no step of its own — and the next ↷ would overwrite it.
-    if (laid) rememberSliceStep('rapport', reportHistRef, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
+    rememberSliceStep(laid, 'rapport', reportHistRef, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
     return laid
   }
   reportSetRef.current = reportSet
@@ -3819,8 +4255,20 @@ export function IncidentWorkspace({
   const zeitplanHist = useUndoableSlice(zeitplanDoc, (v) => {
     const next = typeof v === 'function' ? v(zeitplanDoc) : v
     setShifts(next.shifts); setBands(next.bands)
-  }, !canWriteRecord)
+  }, !canWriteRecord, undefined, ZEITPLAN_RECORDS)
   const zeitplanHistRef = useRef(zeitplanHist); zeitplanHistRef.current = zeitplanHist
+  // A remote merge re-lays every slice's stack onto what it merged (applyWorkspace, far above,
+  // which runs before any of these exist — hence the ref). Called AFTER the timeline has decided
+  // which entries survive: `keep` is their step ids.
+  // `keep` null = the merge bookkeeping failed: every stack goes (undoKeys · carryUndoThroughMerge)
+  sliceRebase.current = (next, keep) => {
+    if (!keep) { for (const h of [attHist, mittelHist, checklistHist, reportHist, zeitplanHist]) h.clear(); return }
+    attHist.rebase(next.attendance, keep)
+    mittelHist.rebase(next.mittel, keep)
+    checklistHist.rebase(next.checklists, keep)
+    reportHist.rebase(next.reportMeta, keep)
+    zeitplanHist.rebase({ shifts: next.shifts, bands: next.bands }, keep)
+  }
   const zeitplanBurst = useRef(false)
   const zeitplanWrite = (next: (cur: { shifts: Shift[]; bands: ShiftBand[] }) => { shifts: Shift[]; bands: ShiftBand[] }) => {
     const fold = zeitplanBurst.current
@@ -3831,7 +4279,7 @@ export function IncidentWorkspace({
     }
     // `shift.` is on the `el` audit allowlist (backend · EL_EVENT_PREFIXES): an Einsatzleiter
     // plans shifts, so their ↶ must not 403 the batch — see logHistStep.
-    if (laid) rememberSliceStep('zeitplan', zeitplanHistRef, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
+    rememberSliceStep(laid, 'zeitplan', zeitplanHistRef, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
   }
   const setShiftsUndoable: Dispatch<SetStateAction<Shift[]>> = (u) =>
     zeitplanWrite((cur) => ({ ...cur, shifts: typeof u === 'function' ? u(cur.shifts) : u }))
@@ -3997,13 +4445,18 @@ export function IncidentWorkspace({
   const ensurePresentForRole = (
     ids: (string | undefined)[], roleNote?: string, groupTemplate?: string,
     noteFor?: (id: string) => string | undefined,
+    /** Gäste the Trupp form filed a moment ago in the SAME act (fileTruppGuest): already present
+     *  — this render's `attendance` cannot know it yet — and named by the name they were filed
+     *  under, never by their id (staging N1: «Unter AS: g1790338070425-0etoa, …»). */
+    justFiled?: ReadonlyMap<string, string>,
   ) => {
     // Not on an Atemschutz-Link session: its Anwesenheit write is a no-op (the slice never
     // carries attendance), and a Verlauf row claiming «anwesend · AS» over a record that never
     // changed would be a lie on paper. The tablet marks the crew present when it takes the Trupp.
     if (!canWriteRecord) return
     const wanted = [...new Set(ids.filter(Boolean) as string[])]
-    const fresh = wanted.filter((id) => !isPresent(attendance[id]))
+    const fresh = wanted.filter((id) => !justFiled?.has(id) && !isPresent(attendance[id]))
+    const nameOf = (id: string) => justFiled?.get(id) ?? rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id
     // ⚠️ APPEND, don't fill-if-empty: one person routinely holds two jobs, and the Fahrer who
     // then goes under Atemschutz is «Fahrer Pio, AS». See lib/roleAssignment · mergeRoleNote for
     // when a part replaces an earlier one instead of joining it.
@@ -4042,7 +4495,7 @@ export function IncidentWorkspace({
     if (groupTemplate && roleNote) {
       const named = wanted
         .filter((id) => fresh.includes(id) || noted.has(id))
-        .map((id) => rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id)
+        .map(nameOf)
       if (named.length) log('people', fillTemplate(groupTemplate, { role: roleNote, list: named.join(', ') }), 'team')
       return
     }
@@ -4081,16 +4534,72 @@ export function IncidentWorkspace({
    *  picker (`leaderPersonId`) or the keyboard (the first name `unrecordedCrewNames` returns is
    *  `f.name`, which IS the leader — see types · Trupp.name). */
   const ensurePresentFromTrupp = (f: Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds' | 'kind'>) => {
+    /* ⚠️ Not on a session that cannot write the record (staging N2, 25.09.2026): on the
+       Atemschutz-Link every write below was a no-op while `addGuest` still logged «… als weitere
+       Person erfasst» — a line claiming a record that never changed. An editor device files that
+       crew when it SEES the Trupp (the observer effect below, lib/crewFiling). */
+    if (!canWriteRecord) { filedGuestsRef.current = new Map(); return }
     const { role, leaderRole, groupTemplate } = truppRoleNote(f)
+    // the Gäste the form's save filed a moment ago (fileTruppGuest) — this render's attendance
+    // does not hold them yet, and read from it they were filed a SECOND time (staging N1)
+    const filed = filedGuestsRef.current
+    filedGuestsRef.current = new Map()
     const ids = [f.leaderPersonId, ...(f.memberPersonIds ?? [])]
-    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined))
+    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined), filed)
     // 'presence': being in a Trupp contradicts nothing — the conflict check is about somebody
     // holding a SECOND job (lib/roleAssignment · roleConflictHint)
     const lead = f.name.trim()
-    for (const name of unrecordedCrewNames(f, (n) => personIdForName(rosterIdByName, n))) {
+    const filedIdOf = (n: string) => [...filed].find(([, nm]) => nm === n)?.[0]
+    for (const name of unrecordedCrewNames(f, (n) => filedIdOf(n) ?? personIdForName(rosterIdByName, n))) {
       assignTypedName(name, 'presence', name === lead ? leaderRole : role)
     }
   }
+  /** The Trupp form's Gast door (AtemschutzView · TruppForm · fileGuests), called at the SAVE.
+   *  A name the Mannschaft knows is that person; any other is a Gast row, filed QUIETLY — the
+   *  crew's one «Unter AS: …» row that `ensurePresentFromTrupp` writes right after names them
+   *  all — and remembered for that call (staging N1: one person, one row, one line). */
+  const filedGuestsRef = useRef<Map<string, string>>(new Map())
+  const fileTruppGuest = (name: string): string | undefined => {
+    openTruppSave()
+    const known = personIdForName(rosterIdByName, name)
+    if (known) return known
+    const id = addGuest(name, undefined, { quiet: true })
+    if (id) filedGuestsRef.current.set(id, name)
+    return id
+  }
+  /* ── A crew registered where the record cannot be written reaches it anyway (staging N2) ──
+     An Atemschutz-Link may write the Trupps and nothing else, so its crew — Gäste above all —
+     never reached the Anwesenheit. Every device that MAY write the record OBSERVES the Trupps and
+     files what is missing under ids every device derives the same way (lib/crewFiling), so two
+     tablets converge on one row per person and one Verlauf line per Trupp. A machine write: raw
+     `setAttendance`, never the undo timeline, and idempotent — once filed, nothing is left to
+     file (AGENTS.md · a machine writer writes nothing when nothing changed).
+     ⚠️ ONE-SHOT per (Trupp, person): the Trupp's `crewFiled` marker is stamped in the same pass,
+     for the people filed now AND those already on the list, so somebody taken OFF the Anwesenheit
+     later stays off on every device (types · Trupp.crewFiled). */
+  useEffect(() => {
+    if (!canWriteRecord || replayActive || incidentMeta.is_archived) return
+    const todo = unfiledTruppCrew(allTrupps, attendance, (n) => personIdForName(rosterIdByName, n))
+    if (!todo.length) return
+    const files = todo.filter((f) => f.entries.length)
+    if (files.length) {
+      setAttendance((cur) => {
+        let next = cur
+        for (const f of files) for (const e of f.entries) {
+          if (next[e.id]) continue
+          next = next === cur ? { ...cur } : next
+          next[e.id] = { ...openPresence(undefined, incidentMeta.started_at, e.name), note: e.note }
+        }
+        return next
+      })
+    }
+    setTrupps((ts) => stampCrewFiled(ts, todo))
+    for (const f of files) {
+      log('people', fillTemplate(f.groupTemplate, { role: f.role, list: f.entries.map((e) => e.name).join(', ') }), 'team',
+        undefined, undefined, { rowId: f.rowId })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTrupps, attendance, canWriteRecord, replayActive, incidentMeta.is_archived])
 
   /** Assign a role: presence + Bemerkung, and the hint if it contradicts the record (lib ·
    *  roleAssignment). The hint never blocks — it is shown after the assignment went through. */
@@ -4174,12 +4683,13 @@ export function IncidentWorkspace({
   // ⚠️ The CANONICALISED crew reaches the Anwesenheit too, not the raw form values: a Gast row is
   // opened under the name that is written down everywhere else, so «Hans Müller» typed into the
   // Trupp form cannot open a second row beside the roster's «Müller Hans».
-  const createTruppA = (t: Trupp) => { const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
-  const editTruppA = (id: string, f: TruppFields) => { const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
+  // ⚠️ Each is ONE step on the timeline with the crew filing it causes (openTruppSave).
+  const createTruppA = (t: Trupp) => { openTruppSave(); const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
+  const editTruppA = (id: string, f: TruppFields) => { openTruppSave(); const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
   // `standby` MUST be forwarded: this wrapper used to swallow it, so «Bereitstellen» ran the
   // «Wieder einrücken» path — a crew standing at the vehicle with a running contact clock, which
   // is exactly the case the standby fork exists to prevent (see useTruppActions · reactivateTrupp).
-  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
+  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { openTruppSave(); const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE
@@ -4271,7 +4781,7 @@ export function IncidentWorkspace({
       // this Einsatz) links that row instead of opening a second one beside it. No job
       // written here: the Trupp is not formed yet, and submitting it writes «AS» itself.
       // ⚠️ NOT for a link session: the Anwesenheit is not its slice, and the write would 403.
-      onAddGuest={canEditIncident ? (name) => assignTypedName(name, 'presence') : undefined}
+      onAddGuest={canEditIncident ? fileTruppGuest : undefined}
       createTrupp={createTruppA}
       placeTrupp={placeTrupp}
       placeTargets={placeTargets}
@@ -4349,7 +4859,7 @@ export function IncidentWorkspace({
    * Toasts + confirms are already mounted app-wide (App · Overlays), the icon sprite is not. */
   if (asLink) {
     return (
-      <div className="app as-link-shell">
+      <div className="app as-link-shell" ref={registerMeldeleisteHost}>
         <IconSprite />
         {/* ⚠️ Same tab-lock message as the full layout, WITHOUT its editor gate: an Atemschutz-
             Link session is role 'viewer' but genuinely writes, so losing the lock to another tab
@@ -4357,9 +4867,11 @@ export function IncidentWorkspace({
             that looked read-only for no reason. The Meldeleiste is mounted at App root, so the
             row paints here too. */}
         {tabLockLost && <TabLockBanner onTakeOver={onTakeOverTab} />}
-        <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
+        <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
           logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
         <RemindersHost {...reminders.host} />
+        {closedMeldung}
+        {linkRefused && running && <LinkRefusedMeldung />}
         {guarded('atemschutz', atemschutzBoard, false)}
         {/* `onBoard` is unconditionally true here — the board IS the screen, and the strip's own
             rule (see AtemschutzAlarmMeldung's header) is that it steps aside for it. Mounted
@@ -4455,12 +4967,18 @@ export function IncidentWorkspace({
   )
 
   return (
-    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    // the Meldeleiste paints INSIDE this stacking context (lib/meldeleisteHost), under the top bar
+    <div ref={registerMeldeleisteHost} className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
-      <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
+      {coverPhase !== 'off' && createPortal(
+        <Splash sub={appConfig.copy.incidentLink.opening} leaving={coverPhase === 'leaving'} />,
+        document.body,
+      )}
+      <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
       <RemindersHost {...reminders.host} />
+      {closedMeldung}
 
       {/* the map mounts once the pack has loaded OR failed for good — with an empty glyph table a
           symbol renders as its empty chip, which beats a splash that never ends (02.09.) */}
@@ -4525,7 +5043,8 @@ export function IncidentWorkspace({
               const c = map.unproject([p.x + 36, p.y + 36])
               patchEntity(entityId, { coord: [c.lng, c.lat] })
             }
-            undoToast(appConfig.copy.atemschutz.lineUnlinkedToast, () => { linkTruppLine(truppId, lineId) })
+            undoToast(appConfig.copy.atemschutz.lineUnlinkedToast, () => { linkTruppLine(truppId, lineId) },
+              [recordKey('trupps', truppId), recordKey('objects', lineId), recordKey('objects', entityId)])
           }}
           // the pill's «Lösen» for the OTHER bond (15.09.): a docked marker lets go of its symbol
           // without the detail sheet – dragging cannot part them any more, it moves both
@@ -4583,6 +5102,7 @@ export function IncidentWorkspace({
           }}
           onView={setView}
           onBasemapUnavailable={onBasemapUnavailable}
+          onSettled={onMapSettled}
           picking={coord.mode === 'aim'}
           onCursor={coord.setAim}
           onPick={(c) => {
@@ -4634,7 +5154,11 @@ export function IncidentWorkspace({
         startedAt={incidentMeta.started_at}
         // the declared Einsatzende wins over the server's closure stamp: it is what the EL said
         // the Einsatz ended, and it is what the Rapport prints
-        endedAt={reportMeta.endedAt ?? incidentMeta.closed_at}
+        // ⚠️ `closed_at` only while CLOSED (staging r3, F3): it is the FIRST Einsatzende and is
+        // kept across «Wieder öffnen», so a reopened Einsatz's clock stood frozen at the close on
+        // every device. The Rapport's own Einsatzende still stops it — that is a stated fact.
+        // …and the CURRENT close, not the first, once it is closed again (D2)
+        endedAt={reportMeta.endedAt ?? (running ? undefined : closeTimeOf(incidentMeta))}
         recording={voice.recording}
         recStartedAt={voice.recStartedAt}
         journalOpen={journalOpen}
@@ -4684,6 +5208,10 @@ export function IncidentWorkspace({
         onOpenWeather={openWeatherDetails}
         bearing={view.bearing}
         azAlarm={azAlarm}
+        // ONE red door per alarm on screen (29.09.2026, sweep 3 T1): on the Trupps board the head's
+        // «⚠ n» badge is it, elsewhere the Meldeleiste row naming the same Trupp; the chip comes
+        // back once «Zum Trupp» took that row down, and the amber lead always keeps it
+        azChipHidden={azChipRedundant(azAlarm, mode === 'atemschutz', azRowsShown)}
         // …and the chip lands ON the urgent Trupp's card, like every other way in (Meldeleiste,
         // Anwesenheit, the notification tap) — the chip names a Trupp, so the tap must find it.
         onOpenAtemschutz={(truppId) => {
@@ -4723,12 +5251,14 @@ export function IncidentWorkspace({
             incidents={incidents}
             isEditor={isEditor}
             syncStatus={syncStatus}
-            syncDetail={(journal.syncStatus === 'error' || auditDelivery.status === 'error') && syncStatus !== 'storage' ? appConfig.copy.journal.delivery.short : undefined}
+            syncDetail={(journal.syncStatus === 'error' || auditDelivery.status === 'error') && syncStatus !== 'storage' ? appConfig.copy.journal.delivery.short
+              : closedRefusedUnexported && baseSyncStatus === 'synced' ? appConfig.copy.journal.delivery.closedShort : undefined}
             lastSyncedAt={lastSyncedAt}
             user={{ display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' }}
             onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
+            onObjectVisits={linkScoped || !onOpenObjectVisits ? undefined : () => onOpenObjectVisits(activeObjectId ?? null)}
             onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
             onDatenquellen={onOpenDatenquellen}
@@ -4739,9 +5269,10 @@ export function IncidentWorkspace({
             // used to archive plainly (see confirmAndComplete). The badge puts the check where it
             // can be read before the row is pressed, not only after.
             onArchive={canEditIncident && !readOnly && !incidentMeta.is_archived ? () => { void confirmAndComplete() } : undefined}
-            // …the Trupps that are still out included: the badge exists so the open points can be
-            // read BEFORE the row is pressed, and «niemand hat den Trupp rausgemeldet» is one.
-            archiveOpenCount={abschlussMissing.length + (truppsStillOut > 0 ? 1 : 0)}
+            // ONE number, the nav tile's and the Rapport head's (29.09.2026): a +1 for Trupps still
+            // out made this badge say 5 where the nav said 4 one tap away. The confirm names
+            // the Trupps that are still out («Trupps noch drin»), so nothing is lost.
+            archiveOpenCount={abschlussMissing.length}
             // «Teilen» — THE door to the share sheet (06.09.): the bar's own Teilen button is
             // gone on every width, so this Einsatz-Karte row is the one place an Einsatz is
             // handed to somebody. Same gate as every minting door (`canShareLink`): editors,
@@ -4801,6 +5332,7 @@ export function IncidentWorkspace({
         // withheld while the board itself is on screen — it shows the alarm in full and the
         // strip only covered its controls (see AtemschutzAlarmMeldung's header)
         onBoard={mode === 'atemschutz'}
+        onShown={setAzRowsShown}
         // Reaching the named card is acknowledgement enough to stop the room's tone and tray
         // re-notifications. The row itself stays until a real contact/pressure event clears it.
         onAcknowledge={muteAtemschutz}
@@ -4810,16 +5342,31 @@ export function IncidentWorkspace({
         }}
       />
 
-      {/* one row per paused GPS attachment — they queue behind each other instead of stacking */}
-      {mapUI && !tacticalLocked && pausedGpsConnections.map(({ drawing, endpoint, attachment }) => (
+      {/* one row per GPS end with something to say — they queue behind each other instead of
+          stacking (lib/gpsReturn · gpsNotices: drove off, following stopped, back on site) */}
+      {mapUI && !tacticalLocked && gpsMeld.notices.map((n) => (
         <GpsFollowMeldung
-          key={`${drawing.id}:${endpoint}`}
-          id={`${drawing.id}:${endpoint}`}
-          label={entities.find((e) => e.id === attachment.target.id)?.label ?? drawing.label ?? appConfig.copy.drawingEditor.drawing}
-          onContinue={() => setGpsRouting(drawing, endpoint, 'trace')}
-          onDetach={() => detachGpsHere(drawing, endpoint)}
+          key={n.key}
+          notice={n}
+          label={n.vehicle?.label ?? n.ends[0].drawing.label ?? appConfig.copy.drawingEditor.drawing}
+          onKeep={() => releaseOnSite(n.ends)}
+          onRevert={() => revertAll(n.ends)}
+          // on a «back» row, «Weiter folgen» changes nothing on the Karte: it answers the
+          // question for this return, on this device (gpsReturn · useGpsNotices)
+          onFollow={() => (n.kind === 'back' ? gpsMeld.answerBack(n) : followAll(n.ends))}
+          onDismiss={() => gpsMeld.dismissStopped(n)}
         />
       ))}
+
+      {/* the wind turned — the server observed it and wrote the Verlauf row; shown here once
+          per device while it is news (components/WindShiftMeldung, 24.09.2026) */}
+      {!replayActive && (
+        <WindShiftMeldung
+          incidentId={incidentMeta.id}
+          rows={journal.rows}
+          onOpenJournal={() => setJournalOpen(true)}
+        />
+      )}
 
       {/* one-tap way back after a Rapport checklist row navigated here — without it, the
           round trip went through the incident menu every time (feedback 2026-07-08) */}
@@ -4829,16 +5376,16 @@ export function IncidentWorkspace({
           className="rp-return"
           onClick={() => { setRapportReturn(false); openRapport() }}
         >
-          <Icon id="doc" /> {appConfig.copy.abschluss.backToRapport}
+          <Icon id="chevron-left" /> {appConfig.copy.abschluss.backToRapport}
         </button>
       )}
 
       {/* non-blocking "new build ready" prompt — waits for the operator instead of auto-reloading */}
       <UpdateBanner />
 
-      {/* standing «Offline» row once the sync has sat in 'offline' past the grace window —
-          the one-shot toast announces, this stays until the link is back (field ask 07.09.) */}
-      <OfflineMeldung status={syncStatus} onSyncNow={() => void syncNow()} />
+      {/* No standing «Offline» row (removed 05.10.2026, owner: «no need for this large offline
+          banner at the top of the screen»): the head's «● Offline» chip stays on screen the
+          whole time, and the one-shot toast (useIncidentSync) announces the spell once. */}
 
       {/* "Als App installieren" nudge — browser-tab only, one «Später» dismisses it for good
           on this device (the menu keeps the permanent entry).
@@ -4926,6 +5473,7 @@ export function IncidentWorkspace({
               coordsOn={coord.mode !== 'off'}
               onToggleCoords={coord.cycle}
               layersOn={panel === 'layers'}
+              layersPreset={layersPreset}
               onToggleLayers={() => togglePanel('layers')}
             />
           )}
@@ -4987,6 +5535,7 @@ export function IncidentWorkspace({
           onShowAll={() => setAllLayers(true)}
           onHideAll={() => setAllLayers(false)}
           onReset={resetLayers}
+          preset={layersPreset}
           onClose={() => setPanel(null)}
         />
       )}
@@ -5056,9 +5605,7 @@ export function IncidentWorkspace({
           onClose={() => setSelectedId(null)}
           onCenter={() => flyToMapVisible(selected.coord, 18.4)}
           onProjection={selectedPlanProjection ? () => showMapSourceOnPlan(selected) : undefined}
-          projectionLabel={selectedPlanProjection
-            ? fillTemplate(appConfig.copy.contextPanel.showOnPlan, { plan: selectedPlanProjection.plan.code })
-            : undefined}
+          projectionPlan={selectedPlanProjection?.plan.code}
           onTitleLive={(v) => {
             // stream into the doc so the note-pill / label updates live, but silently —
             // snapshot once for undo, no per-keystroke audit event
@@ -5101,7 +5648,7 @@ export function IncidentWorkspace({
           // Angedockte Gefahrentafel (lib/docking): name the host, offer the release — the drop
           // gesture that made the bond draws nothing, so this row is where it becomes visible.
           dockedToLabel={selected.dockedTo ? doc.entities.find((e) => e.id === selected.dockedTo)?.label || appConfig.copy.entities.fallbackObjectName : undefined}
-          onUndock={selected.dockedTo && !tacticalLocked ? () => patchEntity(selected.id, { dockedTo: undefined }) : undefined}
+          onUndock={selected.dockedTo && !tacticalLocked ? () => undockTeam(selected.id) : undefined}
           // …and the same bond from the HOST's side: the Trupps standing on THIS symbol, one row
           // each, worded «Trupp 4 · bei «Hydrant»» so a row names both sides before «Lösen»
           // separates them — the mirror of the marker's own join slot (components/TwinTeamPill).
@@ -5131,6 +5678,12 @@ export function IncidentWorkspace({
           fieldHints={rosterFieldHints(selected)}
           protectedKeys={selected.kind === 'symbol' ? new Set(symbolPresetFieldKeys(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)) : undefined}
           onDelete={() => deleteEntity(selected.id)}
+          // «Gelöscht / erledigt» only where being OVER means something — a Feuer, a Rauch, a
+          // Gefahr — never a Fahrzeug (lib/objectDone · offersDone); an older `done` elsewhere may
+          // still be reopened, so nothing recorded is stuck grey
+          onDone={canBeDone(selected.kind) && !selected.live && !tacticalLocked
+            && (offersDone(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat) || !!doneOf(selected))
+            ? (on) => setEntityDone(selected, on) : undefined}
           hasOverride={vehicleOverrides[selected.id] != null}
           // Vehicles only. «GPS» undoes an operator's drag/rotate of a live symbol — a person
           // dot has neither (both are blocked in MapMarkers), so the button sat there
@@ -5140,7 +5693,9 @@ export function IncidentWorkspace({
           onStopSharing={selected.live && selected.kind === 'person' && canEditIncident && !readOnly
             ? () => { void stopPersonSharing(selected.id) }
             : undefined}
-          onResetGps={selected.live && selected.kind !== 'person'
+          // not for a session whose override never leaves the device (the el record slice,
+          // a viewer): «GPS» would clear it here and the next hydrate would put it back
+          onResetGps={selected.live && selected.kind !== 'person' && !readOnly && !isEl
             ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest })
             : undefined}
           // «Hier festhalten»: the Kroki is printed hours later, and a vehicle that has since
@@ -5159,7 +5714,7 @@ export function IncidentWorkspace({
           // A live vehicle's Fahrer: the GPS feed reports where a vehicle IS, never who is in
           // it, and that is the one thing the FU needs to reach it. Kept in the override map
           // because the entity itself is rebuilt from the feed on every poll.
-          driver={selected.live && selected.kind !== 'person' && !readOnly
+          driver={selected.live && selected.kind !== 'person' && !readOnly && !isEl
             ? {
               value: vehicleOverrides[selected.id]?.fahrer ?? '',
               options: rosterNames,
@@ -5175,7 +5730,14 @@ export function IncidentWorkspace({
               },
             }
             : undefined}
-          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({ id: d.id, label: lineLabel(d) }))}
+          // each row says what tells the lines apart — «Linie · 42 m → Hydrant H-142» (K11)
+          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({
+            id: d.id,
+            label: connectedLineLabel(d, selected.id, (id) => {
+              const e = entities.find((x) => x.id === id)
+              return e ? e.label || (e.symbol ? formatSymbolName(e.symbol) : undefined) : undefined
+            }),
+          }))}
           onFocusLine={focusDrawing}
         />
       )}
@@ -5281,9 +5843,35 @@ export function IncidentWorkspace({
             return [[endpoint, label]]
           }))}
           onRouting={tacticalLocked ? undefined : (endpoint, routing) => setGpsRouting(selectedDrawing, endpoint, routing)}
+          // the GPS block at the head of the editor while an end follows or has followed (D3):
+          // how long, how far, and the way back — read off the same snapshot the Meldung reads
+          gpsInfo={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
+            const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
+            if (a?.target.kind !== 'object' || !a.gps || !hasTraced(a.gps)) return []
+            const vehicle = entities.find((e) => e.id === a.target.id)
+            const before = freshBefore(a.gps)
+            return [[endpoint, {
+              line: gpsLineName(selectedDrawing),
+              vehicle: vehicle?.label ?? a.target.id,
+              since: before ? formatTime(new Date(before.at)) : undefined,
+              distance: vehicle ? fmtAway(haversineM(onSiteAnchor(a.gps), vehicle.coord)) : undefined,
+              stopped: a.gps.state === 'paused',
+              onSite: onSiteKnown(a.gps),
+            }]]
+          }))}
+          onRevertGps={tacticalLocked ? undefined : (endpoint) => revertAll([gpsEndOf(selectedDrawing, endpoint)])}
+          onDetachHere={tacticalLocked ? undefined : (endpoint) => releaseHere(selectedDrawing, endpoint)}
           onDetach={tacticalLocked ? undefined : (endpoint) => {
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
             if (!a) return
+            // ⚠️ a GPS end lets go ON SITE where that point is known — never at the vehicle's
+            // current position, which is what this used to do and drew the depot into the hose
+            // line (23.09.2026). Where it is not known the editor offers «Hier lösen» instead.
+            if (a.gps) {
+              if (onSiteKnown(a.gps)) releaseOnSite([gpsEndOf(selectedDrawing, endpoint)])
+              else releaseHere(selectedDrawing, endpoint)
+              return
+            }
             const fallback: LngLat = a.target.kind === 'object'
               ? entities.find((e) => e.id === a.target.id)?.coord ?? (endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1])
               : (() => { const target = drawings.find((d) => d.id === a.target.id); return target ? (a.target.endpoint === 'start' ? target.coords[0] : target.coords[target.coords.length - 1]) : (endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1]) })()
@@ -5326,7 +5914,7 @@ export function IncidentWorkspace({
         ]} />
       )}
       {mapUI && tool === 'line' && (
-        <ToolDock groups={[
+        <ToolDock hint={isPhone ? undefined : lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodesShort : appConfig.copy.dockHints.lineFreeShort} groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
@@ -5337,11 +5925,11 @@ export function IncidentWorkspace({
           // «D pur» (09.09.): no colour/width/style here — the finished line lands selected in
           // the DrawEditor (useMapDrawing · one-shot to Select), which is where the styling
           // lives; new lines inherit the last-used style (the editor writes the defaults back)
-          [{ type: 'info', text: appConfig.copy.dockHints.line }],
+          [{ type: 'info', text: lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
         ]} />
       )}
       {mapUI && tool === 'area' && (
-        <ToolDock groups={[
+        <ToolDock hint={areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodesShort : appConfig.copy.dockHints.areaFreeShort} groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); setDraft([]) } },
@@ -5372,7 +5960,8 @@ export function IncidentWorkspace({
           // things that gesture can mean. Disabled rather than hidden while nothing is placed:
           // on the tool's own dock, its absence would read as a tool that lost a button.
           [{
-            type: 'action', icon: 'search', label: appConfig.copy.truppFinder.title,
+            // its OWN glyph (29.09.2026, T8), not the lens the Suche's tile wears right below
+            type: 'action', icon: 'trupp-find', label: appConfig.copy.truppFinder.title,
             disabled: placed.length === 0, onClick: () => setFindTruppOpen(true),
           }],
           [{ type: 'info', text: appConfig.copy.dockHints.team }],
@@ -5398,7 +5987,7 @@ export function IncidentWorkspace({
       {mapUI && tool === 'shape' && pendingShape && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color={isPhone ? 'currentColor' : '#fff'} aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
           // meaning for it — the lock row is simply not offered
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
@@ -5451,11 +6040,14 @@ export function IncidentWorkspace({
                     Basiskarte choice lives inside its panel (the BaseSwitcher popover and
                     the standalone Koordinaten button are folded away — coords is a row in
                     the compass menu now, testing feedback 2026-07-14) */}
-                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
+                {/* which preset the Ebenen match is lit in the panel and said in the name — no mark
+                    on the glyph (05.10.2026, owner: «no need for this indicator») */}
+                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
-                    framings · Ansicht speichern). */}
-                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
+                    framings · Ansicht speichern). `|| isEl` as on MapUtility's twin: saved views
+                    live in the shared blob, which the el record slice never pushes. */}
+                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly || isEl} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
                 {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px). Every touch form
                     factor pinches, and on a tablet the two buttons cost rail space that the
                     tools above need more. */}
@@ -5531,8 +6123,8 @@ export function IncidentWorkspace({
       {/* like the map: mounted once the pack has loaded OR failed for good (empty glyph table) */}
       {mode === 'plans' && (sym.ready || sym.error) && guarded('board', (
         /* the chunk is prefetched on idle (loadWhiteboard); on the rare cold switch the fallback is
-           the board's own empty paper, never a spinner */
-        <Suspense fallback={<div className="whiteboard" aria-hidden />}><Whiteboard
+           the paper frame with the shared loading state */
+        <Suspense fallback={<div className="whiteboard"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}><Whiteboard
           railLabels={railLabels}
           plans={planDocs}
           // on desktop the Verlauf drawer docks beside the plan's tool rail (same as the
@@ -5558,7 +6150,11 @@ export function IncidentWorkspace({
           // the anchor «Automatisch ausrichten» fetches its OSM reference box around: the active
           // object's own coordinate, else the Einsatzort (they coincide for a near object)
           georefAnchor={activeObjectPos ?? incidentView.center}
-          onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
+          // the Einsatzort on the Gebäude picker — only a REAL coordinate (0/0 is Divera's «none»)
+          incidentPos={incidentMeta.lng != null && incidentMeta.lat != null && (incidentMeta.lng !== 0 || incidentMeta.lat !== 0) ? [incidentMeta.lng, incidentMeta.lat] : null}
+          // not for el: the pick is `pickedObjectId` in the shared blob, which its record slice
+          // never pushes — the switch would hold on this device until the next hydrate
+          onObjectSwitch={linkScoped || isEl ? undefined : () => setPickerOpen(true)}
           // A georeferenced Modul has the Karte's real scale, so its tactical symbols follow the
           // Karte setting too. Standalone sheets keep the independent Modul preference.
           symMul={planSymbolScale(symbolScale, !!activeLinkedPlan)}
@@ -5643,19 +6239,22 @@ export function IncidentWorkspace({
             // a machine write (`gesture: false`): the amend re-anchors ink, nobody placed it
             setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false })
             setActivePlanId('gebaeude') // auto-jump to the floor-stack
-            if (hasWork) {
-              // confirm-with-undo: the previous stack (floors + markings) is restorable in place,
-              // and the toast repeats the counts — «Gebäude ersetzt» alone never said what happened.
-              const line = amend.legacy
-                ? (markCount > 0 ? fillTemplate(wb.buildingReplacedMarks, { n: markCount }) : wb.buildingReplaced)
-                : amend.dropped > 0 ? fillTemplate(wb.buildingReplacedCarriedDropped, { n: amend.carried, d: amend.dropped })
-                : markCount > 0 ? fillTemplate(wb.buildingReplacedCarried, { n: amend.carried })
-                : wb.buildingReplacedKept
-              const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
-              const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
-              const drop = rememberGebaeudeStep(line, restore, reapply)
-              undoToast(line, () => { restore(); drop() })
-            }
+            // ⚠️ EVERY pick is its own ↶ step — a first «Übernehmen» too (staging r3, 25.09.2026:
+            // ↶ stayed lit on an older Karte step, so the tap meant for the building took back
+            // something else). The toast only where work was at stake: it repeats the counts —
+            // «Gebäude ersetzt» alone never said what happened (lib/buildingTransfer · buildingPickStep).
+            const pick = buildingPickStep(prevBuilding, amend, markCount, hasWork, wb, fillTemplate)
+            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
+            const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
+            // the stack, and the stack's OWN annos before and after (never a lent one:
+            // withOwnAnnos hands those back untouched) — plus the stack's whole view, so a merge
+            // that changed anything drawn on it drops the step rather than sweeping it
+            const wrote = () => [recordKey('building'), recordKey('planview', 'gebaeude'),
+              ...[...owned, ...prevGebaeude.map((a) => a.id), ...amend.annos.map((a) => a.id)].map((id) => recordKey('objects', id)),
+              ...[...prevGebaeude, ...amend.annos].flatMap(annoRefs)]
+            // the swap writes no Verlauf row, so neither does taking it back (D6, 26.09.2026)
+            const drop = rememberGebaeudeStep(pick.label, restore, reapply, wrote, 'silent')
+            if (pick.toast) oneShotUndoToast(pick.label, pick.label, restore, drop, 'silent')
           }}
           // the two faces of the ONE «Gebäude» rail tile. Both plan ids stay real documents —
           // this only moves the active one, which is what makes the merged tile navigable at all
@@ -5673,7 +6272,7 @@ export function IncidentWorkspace({
             if (folding) prev.drop()
             setBuilding(next)
             if (!from) return
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next))
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next), () => [recordKey('building')], 'silent')
             lastReorient.current = { at: now, from, drop }
           }}
           onAddFloor={(dir) => {
@@ -5690,8 +6289,24 @@ export function IncidentWorkspace({
               setBuilding(prevBuilding)
               setBoard((b) => ({ ...b, gebaeude: withoutOwnOnStorey(b.gebaeude ?? [], sheetAnchoredIds(objectsRef.current, 'gebaeude'), newFloor) }), { gesture: false })
             }
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
-            undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
+            // the stack, and whatever of the stack's own now stands on the new storey — read when a
+            // merge asks, since that is what the sweep in `restore` would take (plus the view)
+            const wrote = () => {
+              const own = sheetAnchoredIds(objectsRef.current, 'gebaeude')
+              const swept = (boardRef.current.gebaeude ?? []).filter((a) => own.has(a.id) && (a.floor ?? 0) === newFloor)
+              return [recordKey('building'), recordKey('planview', 'gebaeude'), ...swept.map((a) => recordKey('objects', a.id)), ...swept.flatMap(annoRefs)]
+            }
+            // …and it says so, the way the removal does («Deleting and creating belong in the same
+            // channel»): «Geschoss 4. OG hinzugefügt», taken back as «… entfernt», per storey
+            const subject = { subjectId: storeySubject(newFloor) }
+            const addedRow = () => logPlan('plus', storeyAddedRow(floorLabel(newFloor)), subject)
+            const rows: OneShotRows = { undo: () => logPlan('undo', storeyRemovedRow(floorLabel(newFloor), 0), subject), redo: addedRow }
+            // the toast and the ↶ NAME the storey («2. OG hinzugefügt»), and a second «+ OG» replaces
+            // the first toast instead of stacking another identical pill (#232, 3am test r4, 26.09.2026)
+            const line = fillTemplate(appConfig.copy.whiteboard.floorAddedToast, { floor: floorLabel(newFloor) })
+            const drop = rememberGebaeudeStep(line, restore, () => setBuilding(nextBuilding), wrote, rows)
+            oneShotUndoToast(line, line, restore, drop, rows, { kind: 'gebaeude-storey' })
+            addedRow()
           }}
           onRemoveFloor={async (floor) => {
             if (building?.pack || floorPack?.tiles[floor]) return
@@ -5716,8 +6331,25 @@ export function IncidentWorkspace({
             // confirm-with-undo: the removed storey's annotations come back with it
             const restore = () => { setBuilding(prevBuilding); writeOwn(sweep.before) }
             const reapply = () => { setBuilding(nextBuilding); writeOwn(sweep.after) }
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply)
-            undoToast(appConfig.copy.whiteboard.floorRemoved, () => { restore(); drop() })
+            // …and the act's OWN rows (staging 25.09.2026: the Verlauf held only «… rückgängig
+            // gemacht», never the removal it took back, and the toast's undo wrote nothing at all)
+            // — «Geschoss 3. OG entfernt», and «… wiederhergestellt» when it comes back, by the
+            // toast or by ↶ alike; ↷ says «entfernt» again
+            // ⚠️ each row names its STOREY as its subject (D6, 26.09.2026): without one, the repeat
+            // fold matched «entfernt» across the «wiederhergestellt» between them and printed
+            // «Geschoss 3. OG entfernt 2×», and two different storeys could fold into one
+            const removedRow = storeyRemovedRow(floorLabel(floor), sweep.lost)
+            const subject = { subjectId: storeySubject(floor) }
+            const rows: OneShotRows = {
+              undo: () => logPlan('undo', storeyRestoredRow(floorLabel(floor)), subject),
+              redo: () => logPlan('close', removedRow, subject),
+            }
+            const wrote = () => [recordKey('building'), recordKey('planview', 'gebaeude'),
+              ...[...sweep.owned, ...sweep.before.map((a) => a.id), ...sweep.after.map((a) => a.id)].map((id) => recordKey('objects', id)),
+              ...[...sweep.before, ...sweep.after].flatMap(annoRefs)]
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply, wrote, rows)
+            oneShotUndoToast(appConfig.copy.whiteboard.floorRemoved, appConfig.copy.whiteboard.floorRemoved, restore, drop, rows)
+            logPlan('close', removedRow, subject)
           }}
           sym={sym}
           rosterNames={rosterNames}
@@ -5732,12 +6364,16 @@ export function IncidentWorkspace({
           // placed on Modul 1 books onto the Material sheet like one placed on the Karte
           onRecent={addRecent}
           log={logPlan}
+          authorName={user?.display_name}
           emit={emit}
           historyRef={planHist}
           hist={planHistory}
           setHist={setPlanHistory}
           onCheckpoint={rememberPlanStep}
-          onStepEnd={endSheetStep}
+          onStepEnd={() => { planStepLink.current?.closed(); endSheetStep() }}
+          // the words of a plan act for its ↶ — on both stacks, since whichever owns the object
+          // takes the step (lib/planStepLink)
+          onStepLabel={(label) => { planStepLabel.current = label; stepLabel.current = label }}
           views={planViews}
           fitRef={planFit}
           keysRef={planKeys}
@@ -5790,6 +6426,9 @@ export function IncidentWorkspace({
           onTick={toggleTick}
           onBranch={setBranch}
           onAction={checklistAction}
+          // «Zeichnen» arms the Karte's line tool, which a locked device disarms on arrival
+          offersAction={(a) => a !== 'draw' || !tacticalLocked}
+          scrollKey={incidentMeta.id}
         />
       ))}
 
@@ -5826,7 +6465,7 @@ export function IncidentWorkspace({
         /* onEditDispatch leaves the preflight open so the Einsatzdaten wizard stacks on top
            (later in DOM, same z-index) — canceling it reveals the rapport again instead of a
            dead end. (Saving still remounts the workspace and returns to the map.) */
-        <Suspense fallback={<div className="rp-backdrop" aria-hidden />}><ReportPreflight
+        <Suspense fallback={<div className="rp-backdrop"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}><ReportPreflight
           incident={incidentMeta}
           reportMeta={reportMeta}
           personnel={pickablePersonnel}
@@ -5861,14 +6500,17 @@ export function IncidentWorkspace({
           building={effBuilding}
           captureUsage={captureUsage}
           attachments={attachments}
-          onAddAttachments={canEditRecord ? addAttachments : undefined}
-          onCaptionAttachment={canEditRecord ? captionAttachment : undefined}
-          onRemoveAttachment={canEditRecord ? removeAttachment : undefined}
-          canEdit={canEditRecord}
+          onAddAttachments={canEditRapport ? addAttachments : undefined}
+          onCaptionAttachment={canEditRapport ? captionAttachment : undefined}
+          onRemoveAttachment={canEditRapport ? removeAttachment : undefined}
+          canEdit={canEditRapport}
+          canShare={canShareLink}
+          // a closed Einsatz's Rapport says so at the top: the changes are Nachträge (F10)
+          closedHint={!running && canEditRapport}
           onRolePicked={assignRole}
           // the Einsatzleiter / Rückmeldung pickers: a typed name is a Gast, so the EL named on
           // the front page of the rapport is on the Anwesenheit behind it even for a Nachbarwehr
-          onAddGuest={canEditRecord ? assignTypedName : undefined}
+          onAddGuest={canEditRapport ? assignTypedName : undefined}
           onSaveMeta={saveReportMeta}
           // dispatch data + Abschluss stay incident-level: PATCH /incidents is editor-only,
           // and archiving an Einsatz is not record-keeping (the el role reads both).
@@ -5895,8 +6537,9 @@ export function IncidentWorkspace({
             status={combinedSyncStatus(journal.syncStatus, auditDelivery.status)}
             count={journal.pendingCount + journal.rejectedCount + auditDelivery.pendingCount + auditDelivery.rejectedCount}
             refused={auditDelivery.refusedCount}
+            closedRefused={closedRefusedTotal}
             onRetry={async () => { await Promise.all([journal.retry(), auditDelivery.retry()]) }}
-            onExport={() => downloadBlob(new Blob([JSON.stringify({ ...journal.recoveryData(), audit: auditDelivery.getRecoveryData() }, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)}
+            onExport={exportEntries}
           />}
           vocab={journalVocab}
           events={timeline}
@@ -5936,6 +6579,8 @@ export function IncidentWorkspace({
           row={player.row}
           events={timeline}
           readOnly={readOnly}
+          // transcribing and deciding its segments is editor-only on the server (api/media)
+          canTranscribe={isEditor}
           initialSeekSec={player.seekSec}
           // the same vocabulary the composer gets — «Eintrag an dieser Stelle» writes into the
           // same Verlauf, so it completes and marks names identically
@@ -5976,7 +6621,7 @@ export function IncidentWorkspace({
           // …and the same list the Verlauf pins, so an entry being written can be attached to an
           // open item without going through the Verlauf at all — the sheet offers the ones the
           // sentence already names, and holds a picker for the rest.
-          openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent }))}
+          openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent, createdAt: r.createdAt }))}
           onLinkPendenz={(pdz) => setNoteOn(pdz)}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
@@ -5988,14 +6633,16 @@ export function IncidentWorkspace({
       {sharePick && (
         <SharePositionSheet
           roster={personnel}
-          pickOnly={sharePick === 'pick'}
+          pickOnly={sharePick !== 'ask'}
           lastPersonId={share.pref?.personId ?? null}
           // «Neuer Einsatz» rather than «Namen ändern»: the question is back because this
           // Einsatz has not been confirmed yet, and the sheet says so instead of looking like
-          // the app forgot.
-          reconfirm={!share.confirmed}
+          // the app forgot. Not for a rename — that is somebody choosing to change it.
+          reconfirm={sharePick !== 'rename' && !share.confirmed}
           onPick={(id, displayName) => {
-            share.start({ id, displayName })
+            // a rename from the Einstellungen changes the name only; it switches nothing on
+            if (sharePick === 'rename') share.rename({ id, displayName })
+            else share.start({ id, displayName })
             setSharePick(null)
             if (shareParent === 'views') setViewsOpen(false)
             shareStatusRestore.current = null
@@ -6062,8 +6709,6 @@ export function IncidentWorkspace({
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
           themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}
-          elView={elView}
-          onElView={isEditor ? setElView : undefined}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
           onFeedback={linkScoped ? undefined : () => { setFeedbackParent('settings'); setFeedbackOpen(true) }}
           // Einstellungen holds the PERMISSION only — «dieses Gerät darf meinen Standort
@@ -6079,6 +6724,10 @@ export function IncidentWorkspace({
               else share.revoke()
             }
             : undefined}
+          onChangeShareName={() => {
+            setShareParent('settings')
+            setSharePick('rename')
+          }}
         />
       )}
       {/* Rückmeldung, opened deliberately from Einstellungen. Nothing ever PUSHES this at the
@@ -6092,7 +6741,13 @@ export function IncidentWorkspace({
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
           always add a journal entry / photo / voice memo from the field — tap to compose,
           hold to record a voice memo (same gesture as the desktop TopBar Eintrag) */}
-      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && (
+      {/* ⚠️ …but NOT over the Atemschutz board (staging walk-through r2, 25.09.2026, N9). There it
+          sat on the third crew's «Kontakt» and on «Einsetzen»: a thumb at the right edge opened
+          the composer instead of confirming contact. A bottom inset cannot fix a button that
+          floats over a SCROLLING list, and a reserved 66px column would narrow every row's
+          Druck | Kontakt at 360px — the board's primary controls — to protect a secondary one.
+          The Verlauf stays one tap away in the phone's top bar. */}
+      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && mode !== 'atemschutz' && (
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}

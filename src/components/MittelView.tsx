@@ -2,25 +2,27 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { scrollBehavior } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
+import { SearchField } from './SearchField'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSource } from '../lib/deploymentConfig'
 import { fillTemplate, stripUnprintable } from '../lib/format'
 import { cx } from '../lib/cx'
 import { caretToEnd, toast } from '../lib/ui'
-import { Menu, Overlay, Sheet } from '../lib/overlays'
+import { Menu, Overlay, Sheet, SheetFoot } from '../lib/overlays'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { EmptyState } from './EmptyState'
 import type { MittelEntry, MittelStatus } from '../types'
 import {
   visibleMittel, groupBySource, currentLineFor, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
-  mittelRecommendations, defaultSourceFor,
+  mittelRecommendations, defaultSourceFor, tombstoneStands,
   type CurrentMittel, type MittelListCell, type MittelListRow, type MittelRecommendation, type SymbolMatch,
   type TruppForMittel,
 } from '../lib/mittel'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import s from './Mittel.module.css'
 import { useIsPhone } from '../lib/useIsPhone'
+import { usePageHeadFit } from '../lib/pageHeadFit'
 import c from './SurfaceControls.module.css'
 
 /** What the sheet hands back on every save: the material+unit+source identity plus the new
@@ -119,6 +121,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const sources = cfg?.sources ?? appConfig.mittel.sources
   const units = cfg?.units?.length ? cfg.units : appConfig.mittel.units
   const categorised = catalogue.some((c) => c.category)
+  // the list as it stands NOW, for a toast pressed renders later (see deleteLine)
+  const entriesLive = useRef(entries)
+  useEffect(() => { entriesLive.current = entries }, [entries])
 
   const [view, setView] = useState<'list' | 'source'>('list')
   /* The composer, and what it opens WITH. `{}` is the bare «+» (nothing typed yet); a `seed`
@@ -229,10 +234,19 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   /** Remove a hand-added line for good, with the usual undo — the entries are append-only, so
    *  undo is just another save that clears the tombstone. */
   const deleteLine = (probe: MatProbe, menge: number, label: string) => {
+    const since = new Date().toISOString()
     onSave({ ...probe, menge, deleted: true })
     toast(fillTemplate(M.removedToast, { label }), {
       icon: 'trash',
-      action: { label: appConfig.copy.undo, onClick: () => onSave({ ...probe, menge, deleted: false }) },
+      action: {
+        label: appConfig.copy.undo,
+        // …only while this removal is still the line's newest word (lib/mittel · tombstoneStands):
+        // another device's later write to it is not ours to overwrite
+        onClick: () => {
+          if (!tombstoneStands(entriesLive.current, probe, since)) { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
+          onSave({ ...probe, menge, deleted: false })
+        },
+      },
     })
   }
 
@@ -315,18 +329,26 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
     </button>
   ) : null
 
+  // ONE ROW (lib/pageHeadFit)
+  const headRef = useRef<HTMLElement>(null)
+  usePageHeadFit(headRef, [lines, captureUsage?.writes, captureUsage?.lastAt].join('|'))
+
   return (
     <>
       {/* opaque backdrop so the Mittel surface reads as its own screen, not a card over the map */}
       <div className={s.backdrop} aria-hidden />
       <div className={s.surface}>
-      <header className={s.head}>
+      <header ref={headRef} className={s.head}>
         <div className={s.headTitles}>
           <h2>{M.title}</h2>
-          <p>{lines ? fillTemplate(M.summary, { lines }) : M.summaryEmpty}</p>
+          <p data-fit-check>{lines ? fillTemplate(M.summary, { lines }) : M.summaryEmpty}</p>
         </div>
         <div className={s.headActions}>
-          <CaptureUsageChip usage={captureUsage} />
+          {/* the poster read-out: a footnote, so the first (and only) thing the head's ladder takes
+              away when the one row runs out (lib/pageHeadFit) */}
+          <span className={s.headQr} data-fold={1}>
+            <span className="fold-long"><CaptureUsageChip usage={captureUsage} /></span>
+          </span>
         </div>
       </header>
 
@@ -335,11 +357,8 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
           erfasse ich X» is one motion, and it used to end with a scroll to the bottom. */}
       {!empty && (
         <div className={c.controls}>
-          <label className={c.search}>
-            <Icon id="search" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={M.searchPlaceholder} inputMode="search" />
-            {q && <button className={c.searchClear} onClick={() => setQ('')} aria-label={M.clearSearch}><Icon id="close" /></button>}
-          </label>
+          <SearchField className={c.search} value={q} onChange={setQ} placeholder={M.searchPlaceholder}
+            aria-label={M.searchPlaceholder} inputMode="search" />
           {/* «In Verwendung» is a FILTER, not a second way of reading the surface — it narrows
               the same catalogue to what was actually used, grouped by Fahrzeug. As a tab beside
               «Alle» it claimed a whole segmented track in the header to say one bit. Always
@@ -369,7 +388,6 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                   aria-label={categoryOn ? `${M.categoryFilterLabel} – ${categoryOn}` : M.categoryFilterLabel}
                   title={categoryOn ? `${M.categoryFilterLabel} – ${categoryOn}` : M.categoryFilterLabel}>
                   <Icon id="filter" />{!phone && <span>{M.categoryFilterWord}</span>}
-                  {categorySel.size > 0 && <span className={c.filterDot} aria-hidden />}
                 </button>
               }
               popupClassName={c.menuPop}
@@ -441,7 +459,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
         )
       ) : !(sourceView ? bySourceShown : groups).length ? (
         <div className={s.noHits}>
-          <div className="ip-ac-note ip-ac-note-center">{M.noMatches}</div>
+          <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
           {createRow}
         </div>
       ) : sourceView ? (
@@ -832,7 +850,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
           />
         </label>
       </div>
-      <div className="ip-actions">
+      <SheetFoot className="ip-actions">
         {/* destructive action to the left, away from Speichern — and only where there is
             something the operator actually put there by hand */}
         {target.custom && (
@@ -842,7 +860,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
         )}
         <button type="button" className="ip-btn" onClick={onClose}>{M.cancel}</button>
         <button type="button" className="ip-btn primary" disabled={!valid} onClick={submit}>{M.save}</button>
-      </div>
+      </SheetFoot>
     </Overlay>
   )
 }

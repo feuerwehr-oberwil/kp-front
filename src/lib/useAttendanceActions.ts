@@ -3,6 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { newId } from './ids'
 import { undoToast } from './ui'
+import { recordKey } from './undoKeys'
 import type { AttendanceState, Person, TimelineEvent } from '../types'
 import { closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, withIntervals } from './attendanceIntervals'
 import { ortOf, otherOrt } from './attendanceOrt'
@@ -76,7 +77,7 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
       log('people', fillTemplate(appConfig.copy.anwesenheit.blockSplit, { name: p.displayName }), 'team')
       // splitting a running block is destructive in the sense that matters here — the earlier
       // block gets an end it never had — so it takes the house confirm-with-undo toast
-      undoToast(fillTemplate(appConfig.copy.anwesenheit.blockSplit, { name: p.displayName }), () => setAttendance((cur) => ({ ...cur, [p.id]: prev })))
+      undoToast(fillTemplate(appConfig.copy.anwesenheit.blockSplit, { name: p.displayName }), () => setAttendance((cur) => ({ ...cur, [p.id]: prev })), [recordKey('attendance', p.id)])
       return
     }
     // First tick: «von» defaults to the alarm time (Vorschlag ab Alarmzeit) — ticking often
@@ -108,7 +109,12 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
     log('people', fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), 'team')
     // confirm-with-undo: a mis-cycle to «frei» silently drops a corrected von/checkedInAt with
     // no way back — restore the exact prior entry (status + times) on undo.
-    undoToast(fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), () => setAttendance((cur) => ({ ...cur, [p.id]: prev })))
+    // …and the toast's way back writes its counter-row: the removal row above stays (append-only),
+    // and without this one the record said the person had gone while the list said present
+    undoToast(fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), () => {
+      setAttendance((cur) => ({ ...cur, [p.id]: prev }))
+      log('people', fillTemplate(appConfig.copy.anwesenheit.redone, { names: p.displayName }), 'team')
+    }, [recordKey('attendance', p.id)])
   }
   // Stunden editor (Abschluss-Assistent): correct ONE block's von–bis (`index` defaults to the
   // block the surface is showing). After the Rapport was declared complete, a correction
@@ -138,7 +144,7 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
       if (!rest.length) { const next = { ...cur }; delete next[personId]; return next }
       return { ...cur, [personId]: withIntervals(cur[personId], rest) }
     })
-    undoToast(fillTemplate(appConfig.copy.anwesenheit.blockRemoved, { name: prev.displayNameSnapshot }), () => setAttendance((cur) => ({ ...cur, [personId]: prev })))
+    undoToast(fillTemplate(appConfig.copy.anwesenheit.blockRemoved, { name: prev.displayNameSnapshot }), () => setAttendance((cur) => ({ ...cur, [personId]: prev })), [recordKey('attendance', personId)])
   }
   /** Write (or clear) the free remark on a person's attendance row. Not a presence change, so
    *  it touches no interval and writes no «anwesend/gegangen» Verlauf line — but it IS part of
@@ -187,7 +193,10 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
    * caller cannot mark somebody present who is only about to be created, and the Verlauf line it
    * would write knows the id but not the name. One act, one row, one line.
    */
-  const addGuest = (name: string, note?: string): string | undefined => {
+  /* `quiet` (25.09.2026, staging N1): the Trupp form files its Gäste at the save and the crew's
+   * ONE «Unter AS: …» row names them all — a second «… als weitere Person erfasst» per person
+   * would say the same thing twice (IncidentWorkspace · fileTruppGuest). */
+  const addGuest = (name: string, note?: string, opts?: { quiet?: boolean }): string | undefined => {
     const display = name.trim()
     if (!display) return undefined
     // ⚠️ `Date.now()` alone collides: two people walking in together are entered in the same
@@ -200,6 +209,7 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
       ...cur,
       [id]: { ...openPresence(undefined, startedAt, display), ...(job ? { note: job } : {}) },
     }))
+    if (opts?.quiet) return id
     const A = appConfig.copy.anwesenheit
     log('people', job
       ? fillTemplate(A.logGuestAddedAs, { name: display, role: job })

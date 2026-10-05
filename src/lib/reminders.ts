@@ -178,7 +178,7 @@ export function isDue(r: OpenReminder, nowMs: number): boolean {
  * unterwegs» is a Meldung on «Absperrmaterial Kreuzung, Werkhof Oberwil», and the word that says so
  * («Werkhof») is nowhere near the caret by the time the sentence is finished.
  */
-export function suggestPendenzen(text: string, open: readonly OpenReminder[], limit = 2): OpenReminder[] {
+export function suggestPendenzen<T extends Pick<OpenReminder, 'text' | 'createdAt'>>(text: string, open: readonly T[], limit = 2): T[] {
   const words = norm(text).split(/[\s]+/).filter((w) => w.length >= 2)
   if (!words.length) return []
   return open

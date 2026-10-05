@@ -71,7 +71,7 @@
    it letterboxes identically and stays registered with the raster. */
 .adm-card-pic { position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; min-height: 0; padding: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; appearance: none; background: #fff; cursor: zoom-in; overflow: hidden; }
 .adm-card-pic:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
-.adm-card-pic img, .adm-card-pic svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.adm-card-pic > img, .adm-card-pic > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .adm-card-pic img { object-fit: contain; }
 .adm-card-wait { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; color: var(--ink-dim); background: var(--fill-soft); }
 .adm-card-cap { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px 4px; min-width: 0; }
@@ -142,7 +142,7 @@
 .adm-floors-bar-tools .adm-hint { margin: 0; }
 .adm-floors-zoom { display: inline-flex; align-items: center; gap: 2px; flex: none;
   padding: 2px; border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); }
-.adm-floors-zoom button { appearance: none; border: 0; background: transparent; border-radius: var(--r-sm);
+.adm-floors-zoom button { appearance: none; border: 0; background: transparent; border-radius: calc(var(--r-ctl) - 3px);
   width: 40px; height: 40px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; }
 .adm-floors-zoom button:hover:not(:disabled) { background: var(--surface); color: var(--ink); }
 .adm-floors-zoom button:disabled { opacity: var(--disabled); cursor: default; }
@@ -196,7 +196,7 @@
 .adm-floors-colhead h4 { margin: 0; font-size: 14px; }
 .adm-floors-colhead .adm-menu { margin-left: auto; }
 .adm-floors-stack { display: flex; flex-direction: column; gap: 7px; }
-.adm-floor { border: 1px solid var(--border); border-radius: 10px; background: var(--fill-soft); }
+.adm-floor { border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--fill-soft); }
 .adm-floor.active { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); background: var(--surface); }
 .adm-floor.dragging { opacity: .5; }
 .adm-floor.over { box-shadow: 0 -2px 0 0 var(--blue-strong); }
@@ -204,7 +204,7 @@
    pill of its own inside that border – so the index chip's border read as a third box nested in
    a second one, and the two radii never quite met. Chip · Name · Zustand, on one plain row. */
 .adm-floor-head { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 7px 9px; }
-.adm-floor.active .adm-floor-head { border-radius: 9px 9px 0 0; border-bottom: 1px solid var(--border-soft); background: color-mix(in srgb, var(--blue) 8%, var(--surface)); }
+.adm-floor.active .adm-floor-head { border-radius: calc(var(--r-sm) - 1px) calc(var(--r-sm) - 1px) 0 0; border-bottom: 1px solid var(--border-soft); background: color-mix(in srgb, var(--blue) 8%, var(--surface)); }
 .adm-floor-grip { display: grid; place-items: center; width: 22px; flex: none; color: var(--ink-faint); cursor: grab; touch-action: none; }
 .adm-floor-grip .i { width: 16px; height: 16px; }
 .adm-floor-select { display: flex; align-items: center; min-width: 0; flex: 1 1 auto; min-height: var(--tap);
@@ -254,12 +254,12 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 .adm-floor-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .adm-floors .adm-floor-acts .btn { flex: 1 1 auto; min-height: var(--tap); }
 .adm-floor-acts .i { width: 15px; height: 15px; }
-.adm-floor-mode[aria-pressed="true"] { color: var(--blue-strong); border-color: var(--blue-strong); background: color-mix(in srgb, var(--blue) 8%, var(--surface)); }
+.adm-floor-mode[aria-pressed="true"] { color: var(--on-sel); border-color: var(--sel); background: var(--sel); }
 
 /* below the list: «hier kommt das nächste Geschoss dazu», then the Ablage */
 .adm-floors .adm-floors-add { margin: 0; }
 .adm-floors-tray { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 11px 14px;
-  border: 1px dashed var(--border); border-radius: 10px; color: var(--ink-dim); font-size: 12.5px; }
+  border: 1px dashed var(--border); border-radius: var(--r-sm); color: var(--ink-dim); font-size: 12.5px; }
 .adm-floors-tray-pages { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
 
 /* the Vorschau tab: a grid of floor tiles in building order, in place of the split. Level 0 on
@@ -284,7 +284,9 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 }
 /* one crop, captioned with the floors list's own chip so the two read as the same object */
 .adm-floor-tile { position: relative; min-width: 0; border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--board-bg); overflow: hidden; }
-.adm-floor-tile svg { display: block; width: 100%; }
+.adm-floor-tile > svg { display: block; width: 100%; }
+.adm-floor-tile-wait { position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--ink-dim); pointer-events: none; }
 /* ⚠️ The caption is the SHELL of the radius nesting (01-tokens: cluster → ctl → sm), not a pill:
    a pill around a square chip put a 999px curve a few pixels from an 8px one and the two fought
    (Bastian, 16.09.2026). --r-ctl outside, the chip's own --r-xs inside, and the chip drops the

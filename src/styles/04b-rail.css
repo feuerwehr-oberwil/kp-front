@@ -23,8 +23,8 @@
    and its own placement — .navrail positions itself, .vrail is placed by its wrapper class. */
 .rail { display: flex; flex-direction: column; gap: 4px;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  box-shadow: var(--shadow); border-radius: var(--r-surface); padding: 7px; transition: width .18s var(--ease);
-  --r-nested: calc(var(--r-surface) - 7px); }   /* the corner of a tile IN this padding — see 01-tokens · --r-nested */
+  box-shadow: var(--shadow); border-radius: var(--r-bar); padding: var(--bar-pad); transition: width .18s var(--ease); }
+/* a bar that hugs its tiles: one even gap, and the corner is the tiles' plus that gap (01-tokens · «ONE corner») */
 .rail.dragging { transition: none; }   /* live-resize follows the pointer without easing lag */
 
 /* the list scrolls if it outgrows the rail; whatever is pinned below it never scrolls away */
@@ -57,7 +57,7 @@
    up with the glyphs below it; transparent, with an item-style hover. 46px row + 13.5px label,
    so «Einklappen» reads the same on both sidebars. */
 .rail-exp { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent;
-  border-radius: var(--r-nested, var(--r-sm)); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700;
+  border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700;
   padding: 0; width: 100%; margin-bottom: 2px; transition: background .14s var(--ease), color .14s var(--ease); }
 .rail:not(.expanded) .rail-exp, .rail.dragging .rail-exp { justify-content: center; }
 @media (hover: hover) {

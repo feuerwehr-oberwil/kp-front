@@ -1,4 +1,4 @@
-import { useState, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type RefObject, type ReactElement, type ReactNode } from 'react'
 import { Menu as BaseMenu } from '@base-ui/react/menu'
 import { usePopoverGuard } from './popoverGuard'
 
@@ -81,7 +81,7 @@ function rowClass(skin: string | undefined, danger?: boolean, sticky?: boolean) 
     .filter(Boolean).join(' ')
 }
 
-export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, alignOffset = 0, collisionPadding = 10, scrollToEnd = false, modal = true }: {
+export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, alignOffset = 0, collisionPadding = 10, scrollToEnd = false, modal = true, keepFocusRef }: {
   trigger: ReactElement
   items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuRadioGroup)[]
   popupClassName?: string
@@ -118,11 +118,24 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
    *  than that protection and nothing underneath acts on a stray tap — today: the two Anwesenheit
    *  filter-bar menus. The dismiss itself (Base UI's useDismiss) and Esc work either way. */
   modal?: boolean
+  /** Pointer picks can keep a mobile composer's caret and keyboard in place. */
+  keepFocusRef?: RefObject<HTMLElement | null>
 }) {
   // A menu opened from inside a Sheet/Overlay must be the ONLY thing the dismissing tap or the
   // first Esc closes — the sheet stands down while this is open (see popoverGuard).
   const [open, setOpen] = useState(false)
   usePopoverGuard(open)
+  const keepFocus = useRef(false)
+  useEffect(() => {
+    if (!open || !keepFocusRef) return
+    // A pointer-opened menu may next be reached with Tab/arrow keys from the retained field
+    // or trigger. Release before Base UI moves focus into the portalled popup.
+    const release = (e: KeyboardEvent) => {
+      if (e.key === 'Tab' || e.target !== keepFocusRef.current) keepFocus.current = false
+    }
+    document.addEventListener('keydown', release, true)
+    return () => document.removeEventListener('keydown', release, true)
+  }, [open, keepFocusRef])
 
   const renderItem = (it: MenuActionItem | MenuCheckItem | MenuRadioGroup, key: number) => {
     if ('kind' in it && it.kind === 'radio') {
@@ -200,11 +213,15 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
   return (
     // MODAL by default — the backdrop that swallows the dismissing tap is what keeps that tap off
     // the map / the list underneath. Only the callers that ask for it go non-modal (see `modal`).
-    <BaseMenu.Root modal={modal} onOpenChange={setOpen}>
+    <BaseMenu.Root modal={modal} onOpenChange={(next) => { if (next) keepFocus.current = !!keepFocusRef?.current && document.activeElement === keepFocusRef.current; setOpen(next) }}>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
         <BaseMenu.Positioner className="ui-menu-pos" side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding}>
           <BaseMenu.Popup
+            finalFocus={() => keepFocus.current ? keepFocusRef?.current : true}
+            onFocusCapture={() => { if (keepFocus.current) keepFocusRef?.current?.focus({ preventScroll: true }) }}
+            onMouseDownCapture={(e) => { if (keepFocus.current) e.preventDefault() }}
+            onKeyDownCapture={() => { keepFocus.current = false }}
             // `ui-pop` is the exit hook: 13-incident.css fades every [data-ending-style] popup out
             className={popupClassName ? `ui-pop ${popupClassName}` : 'ui-pop'}
             // ⚠️ rAF as well as the immediate set: the popup attaches before its own rows have

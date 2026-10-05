@@ -8,11 +8,11 @@
    instead of inventing its own number — the old scattered 64/72/80/86px guesses each covered the
    place somebody remembered and missed the rest, and a hit-test found the circle sitting on the
    Atemschutz «Austritt» button, on Anwesenheit person rows, on a Mittel row and on the Checkliste
-   rail. 66px = the 58px circle plus 8px of air; it is the same in both axes because the FAB's
-   16/18px offsets and the surfaces' 8/18px insets cancel out to the same figure.
+   rail. 60px = the circle (--float-h, the floating family's one row height, 26.09.2026 — it was
+   58) plus the family's 8px gap.
    0 unless the FAB is actually on screen (viewer, composer, open panel, tool dock → no reserve). */
 .app { --fab-safe: 0px; }
-.app:has(.fab-entry) { --fab-safe: 66px; }
+.app:has(.fab-entry) { --fab-safe: calc(var(--float-h) + var(--float-gap)); }
 /* ⚠️ …and the same pair on :root, because the reserve has one consumer that is NOT inside .app:
    the toast host. `<Overlays />` is mounted at the ROOT on purpose (App.tsx — .app is a stacking
    context, so a confirm opened from a root-level sheet painted under it), so `.toaster` never
@@ -21,20 +21,21 @@
    `elementFromPoint` at the FAB's own visual centre returned the undo button. Tapping «+ Eintrag»
    undid the entry you had just made. Same values, so nothing inside .app changes. */
 :root { --fab-safe: 0px; }
-:root:has(.fab-entry) { --fab-safe: 66px; }
+:root:has(.fab-entry) { --fab-safe: calc(var(--float-h) + var(--float-gap)); }
 .fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: var(--z-fab);
   display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
-  border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--ink);
+  border: none; border-radius: var(--r-pill); color: var(--ink);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
   font: 700 15px var(--body); cursor: pointer; touch-action: none; user-select: none;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 34%, transparent), var(--shadow-sm);
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
 /* ⚠️ The FAB follows the THEME, not --btn-primary (20.09.2026, field report «flipped»). That token
    inverts at night on purpose – a form's one action needs an edge against the sheet it sits on
    (01-tokens.css) – but the FAB sits on no sheet: it floats over the map beside glass chrome, and
    there the inversion made it the one dark disc on a day screen and the one pale disc in a dark
-   cab. Day: the white surface. Night: the raised dark pill the tool docks wear. */
-:root[data-theme="night"] .fab-entry { background: var(--ink-fill); color: var(--on-accent-ink);
-  border-color: color-mix(in srgb, var(--ink) 18%, transparent); }
+   cab. ⚠️ …and since 26.09.2026 it wears the floating family's material itself (01-tokens ·
+   --float-*): the bars' glass by day and by night. Its own raised --ink-fill at night and a
+   heavier drop shadow made it the one piece of the bottom row in a colour of its own (owner,
+   staging 26.09.2026); round is what still says «this is THE Eintrag button». */
 @media (hover: hover) {
   .fab-entry:hover { filter: brightness(1.05); }
 }
@@ -45,7 +46,7 @@
   .fab-entry .i, .fab-entry .tb-act-label { position: relative; z-index: 1; }
 .fab-entry .i { width: 18px; height: 18px; }
 /* recording: the FAB turns red + shows the running timer, same as the TopBar Eintrag */
-.fab-entry.rec, :root[data-theme="night"] .fab-entry.rec { background: var(--red); color: var(--on-accent-ink); border-color: transparent; animation: recPulse 1.4s ease-in-out infinite; }
+.fab-entry.rec { background: var(--red); color: var(--on-accent-ink); border-color: transparent; animation: recPulse 1.4s ease-in-out infinite; }
 .fab-entry.rec span { font-family: var(--mono); }
 /* ⚠️ NO «quiet» step-back any more (18.09.2026, field ask). The circle used to shrink to .82
    and half-fade while anything underneath was scrolled: on the Journal, where the list is
@@ -92,14 +93,16 @@
      ⚠️ `span:not(.tb-act-ic)…` — Eintrag's glyph sits in a SPAN (`.tb-act-ic`, the hold ring's
      anchor), and the bare `span` took it with the word: on every tablet in portrait (601–860px)
      «Eintrag» was an empty blue square (22.09.2026). The recording square and the reminder count
-     are spans too, and neither is a label. */
-  .tb-actions .tb-act:not(.icon) span:not(.tb-act-ic):not(.tb-stop):not(.tb-rem-count) { display: none; }
+     are spans too, and neither is a label.
+     ⚠️ …except «Eintrag» (29.09.2026, sweep K2): it keeps its word at 820px and gives it up only
+     as the top bar's LAST ladder step (lib/useHeadFit · 'eintrag-word'), measured, not here. */
+  .tb-actions .tb-act:not(.icon):not(.tb-act-add) span:not(.tb-act-ic):not(.tb-stop):not(.tb-rem-count) { display: none; }
   /* ⚠️ …and once a button is ONLY an icon it has to be a full tap target. It was `padding: 8px`,
      which lands around 31px — under the gloved floor — and the --tap sizing only arrived at
      ≤600px. So every width between 601 and 860 offered the smallest buttons in the app on the
      row that logs a Verlauf entry. Icon-only and full size go together at every width. */
   .tb-actions .tb-act { padding: 8px; min-width: var(--tap); min-height: var(--tap); justify-content: center; }
-  .tb-act-add { min-width: var(--tap); }
+  .tb-actions .tb-act-add { min-width: var(--tap); padding-inline: 11px 12px; }
   /* The weather goes to a SHORTER form here, not only on a phone: the condition glyph is the
      one part that is pure context, so it goes first. The TEMPERATURE stays — an iPad in
      portrait is 820px wide, and hiding it here is why «the temperature indicator is missing on
@@ -132,6 +135,9 @@
      stylesheet and the Rapport never did, so «Einsatzrapport» stood 19px beside «Anwesenheit» at
      17 on two pages that are one tap apart (field report 19.09.2026). */
   :root { --head-title: 800 17px/1.3 var(--body); }
+  /* …and the phone's page head: 8px above and below the 44px tiles (a 60px head), 14px from the
+     card's edge, the one 8px gap between the titles and the tiles (tokens · --head-*, Surface.module.css) */
+  :root { --head-pad-y: 8px; --head-pad-x: 14px; --head-gap: 8px; }
 
   /* ── Phone editing ── the tool rail is ALWAYS there on the drawing surfaces (no edit
      mode): a horizontal bar stacked above the surface bar, so tools and view switching are
@@ -143,8 +149,7 @@
     position: fixed;
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
     bottom: calc(14px + var(--rail-h) + env(safe-area-inset-bottom)); top: auto; width: auto !important; height: var(--rail-h);
-    margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: 6px 8px;
-    --r-nested: calc(var(--r-surface) - 6px); }   /* 6px of padding now — the tiles' corner follows (01-tokens · --r-nested) */
+    margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: var(--bar-pad); }
   /* Rail chrome that has no meaning in a bar: expand/collapse and resize/overflow affordances.
      The footer stays: both surfaces pin Ebenen plus their one view reset at the right edge. */
   :is(.tool-rail, .wb-tools) :is(.vrail-exp, .vrail-grip, .vrail-more, .vrail-label) { display: none; }
@@ -202,17 +207,23 @@
      ⚠️ Every selector here carries the `:not(.expanded):not(.dragging)` pair the «Beschriftung ·
      Wörter» rules above carry: those set a width and a padding per tile, and at one class fewer
      these lost to them. */
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-scroll { overflow: hidden; -webkit-mask-image: none; mask-image: none; }
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-scroll > .vrail-tool { flex: 1 1 0; width: auto; min-width: 44px; padding: 0; }
+  /* ⚠️ ONE row of tiles, not a lane plus a footer (03.10.2026, owner from an iPhone: «auswahl
+     and messen is way bigger than ansichten»). The tools sat in the scroll lane and the pinned
+     controls in `.vrail-nav`, and the two boxes split the bar by a GUESS — the lane «holds three»,
+     so the footer got 25% / 40%. Any bar that is not exactly three tools broke it: the slim
+     read-only set, the Tafel without Messen, a tool more or less — two tools stretched over 60%
+     beside two pinned tiles squeezed into 40%. Both wrappers step aside here (`display:
+     contents`), so every tile is a direct item of the bar's own flex row and takes the same
+     share, whatever each box holds. Ansichten/Einpassen and Ebenen keep their place at the end
+     through `order` (above). The lane has nothing to scroll in this state; with no box of its own
+     lib/useRail measures nothing and lights no fade. */
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) :is(.vrail-scroll-wrap, .vrail-scroll, .vrail-nav) { display: contents; }
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) :is(.vrail-tool, .vrail-layers, .vrail-views, .vrail-fit) { flex: 1 1 0; width: auto; min-width: 44px; padding: 0; }
   /* NO hairline between the tools and the pinned controls (19.09.2026): with five even tiles it
      cut one row into «three and two» and said nothing — every tile here is a map control. The
-     2px it leaves is the lane's own gap, so the five stay evenly spaced. */
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-sep-foot { display: none; }
-  /* the pinned controls are tiles of the same row: the lane holds three, so the Karte's two take
-     two fifths of the bar and the Plan's one a quarter */
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav { flex: 0 0 25%; }
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav:has(.vrail-views) { flex-basis: 40%; }
-  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav > :is(.vrail-layers, .vrail-views, .vrail-fit) { flex: 1 1 0; width: auto; min-width: 44px; padding: 0; }
+     bar's own 2px gap is the only space between any two tiles. (lib/toolFold already drops the
+     lane's group dividers; hidden here too, or one would be a 9px item of the row.) */
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) :is(.vrail-sep-foot, .vrail-sep) { display: none; }
   /* the corner mark: «this tile holds more than one thing» — the two-state Auswahl ↔ Mehrfach
      here, and the nav bar's «Pläne» and «Einsatz».
      ⚠️ TOP right, not the conventional bottom right: with «Beschriftung · Wörter» on, the tile's
@@ -231,7 +242,7 @@
   .phone-tools .wb-dock { position: fixed; left: 50%; right: auto; top: auto; transform: translateX(-50%);
     /* 6px above the tool bar — the SAME gap the tool bar has above the nav bar (both are +6 offsets) */
     bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom));
-    flex-direction: row; align-items: center; gap: 10px;
+    flex-direction: row; align-items: center; justify-content: safe center; gap: 10px;
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
     width: max-content; max-width: calc(100vw - 16px); height: var(--rail-h); max-height: var(--rail-h);
@@ -241,6 +252,21 @@
        the bottom of the tool dock — under the buttons, on a control that is dragged with a thumb
        and needs no indicator to be discovered. It still scrolls. */
     scrollbar-width: none; -ms-overflow-style: none; }
+  /* Mobile tool options share the popup material. */
+  .phone-tools .wb-dock { background: var(--float-bg); backdrop-filter: var(--float-blur);
+    box-shadow: var(--float-edge); color: var(--ink);
+    --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface)); }
+  .phone-tools .wb-dock .wb-dock-ic { color: var(--ink-dim); }
+  .phone-tools .wb-dock .wb-style-sep { background: var(--glass-line); }
+  .phone-tools .wb-dock .wb-ls { --ls-ink: var(--ink); }
+  .phone-tools .wb-dock .wb-ww span { background: var(--ink); }
+  .phone-tools .wb-dock .wb-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--glass-line); }
+  .phone-tools .wb-dock .wb-ww.on, .phone-tools .wb-dock .wb-ls.on { background: var(--sel-wash); }
+  .phone-tools .wb-dock .wb-dock-x { background: var(--dock-control-bg); color: var(--ink-dim); }
+  .phone-tools .wb-dock .wb-dock-go { background: var(--btn-primary); color: var(--on-btn-primary); }
+  .phone-tools .wb-dock .wb-dock-tog.on { background: var(--sel-wash); color: var(--ink); }
+  .phone-tools .wb-dock .wb-dock-tog:not(.on), .phone-tools .wb-dock .wb-ww:not(.on),
+  .phone-tools .wb-dock .wb-ls:not(.on) { background: var(--dock-control-bg); color: var(--ink-dim); }
   .phone-tools .wb-dock::-webkit-scrollbar { display: none; }
   /* buttons keep their size instead of flex-shrinking when a busy dock overflows — otherwise the
      round × / ℹ squashed into ovals in line/area docks while the bar scrolled */
@@ -250,21 +276,27 @@
   /* colours: a single full-size row (not a cramped 2-row grid) */
   .phone-tools .wb-dock .wb-sw-grid { display: flex; grid-template-columns: none; gap: 8px; }
   .phone-tools .wb-dock .wb-sw { width: 30px; height: 30px; }
-  /* UNIFORM button + icon size across the whole bar: tool buttons 44×40 (r-ctl), the round × 40×40,
-     every icon 18px — was a jumble (34/38 buttons, 16/17/18 icons). ℹ already matches (DockInfo). */
+  /* UNIFORM button + icon size across the whole bar: every control a full --tap square (the bar
+     is --rail-h 60 with 6px padding, so 44 fits without growing it — 3am test r2, 25.09.2026:
+     ✕ · Freihand · Punkte · ✓ · ⓘ measured 40px high), every icon 18px — was a jumble (34/38
+     buttons, 16/17/18 icons). ℹ matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
-  .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: 44px; min-width: 44px; height: 40px; border-radius: var(--r-sm); }
-  /* ⚠️ The ✕ is sticky at the bar's leading end, and the ring that hides the options sliding
-     under it is a `box-shadow: 0 0 0 10px` — which reaches 10px past the button on EVERY side.
-     This bar clips its own overflow on both axes and carries 12px of side padding, so that ring
-     was sliced away exactly where an option scrolls into the padding: half a grey option chip
-     surfaced beside the ✕ and read as a ✕ with a bite taken out of it. Two flat offsets instead
-     — one covering the leading padding, one the gap to the next control — both at the button's
-     own height, so nothing has to reach outside the port to do its job. `z-index` because the
-     ✕ has to paint over what it is hiding, whatever order the dock ends up in. */
-  .phone-tools .wb-dock .wb-dock-x { width: 40px; height: 40px; z-index: 2;
-    box-shadow: -14px 0 0 var(--ink-fill), 12px 0 0 var(--ink-fill); }
+  .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: var(--tap); min-width: var(--tap); height: var(--tap); border-radius: var(--r-sm); }
+  /* The sticky ✕ keeps its neutral fill inside the button. Surface-coloured masking shadows
+     painted a second, mismatched block over the dock's glass. */
+  .phone-tools .wb-dock .wb-dock-x { width: var(--tap); height: var(--tap); z-index: 2;
+    box-shadow: none; }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
+  /* the armed mode's ONE line (ToolDock · hint): the dock grows a second row for it — the
+     buttons stay one scrolling row above it, the words wrap never and end in an ellipsis on the
+     narrowest phone. Only here: the tablet column dock leaves it hidden (09-whiteboard). */
+  .phone-tools .wb-dock:has(.wb-dock-hint) { flex-wrap: wrap; height: auto; max-height: none; row-gap: 2px;
+    padding-bottom: 8px; overflow: hidden; }
+  .phone-tools .wb-dock .wb-dock-hint { display: block; flex: 1 0 100%; order: 99; max-width: calc(100vw - 40px);
+    font: 600 12.5px var(--body); color: var(--ink-dim); opacity: .85; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* (…and the Gebäude's chip row steps up by that row: `--msg-dock-hint` is part of
+     --float-base, see «THE floating row» below) */
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   /* A Plan-side detail sheet is fixed, but its z-index still cannot escape the whiteboard's
      stacking context (09-whiteboard.css). Lift that surface just above the shared nav rail while
@@ -272,8 +304,7 @@
      the top bar (z 56) and modal overlays remain above it. */
   .phone-tools .whiteboard:has(.ctx) { z-index: var(--z-chrome-raised); }
   .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
-  /* the Eintrag-FAB clears both bars on the drawing surfaces */
-  .phone-tools .fab-entry { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); }
+  /* (the Eintrag-FAB clears both bars on the drawing surfaces through --float-bottom, below) */
 
   /* ── details as a bottom sheet ── the shared .ctx editors (ContextPanel / DrawEditor /
      ShapeEditor) become a drag-expandable bottom sheet: half-height default so the map and
@@ -364,6 +395,7 @@
      double-count the home indicator and float the row off the edge. */
   .ctx > .ctx-actions { border-top: 1px solid var(--border-soft); padding: 10px 14px; }
   .ctx > .ctx-actions > .btn { flex: 1 1 auto; }
+  .ctx > .ctx-actions > .btn.btn-sq { flex: 0 0 var(--tap); }
   /* compact sheet header: ONE handle, then the title row.
      ⚠️ The bar hangs at the BOTTOM of its band, not in the middle of it. Centred in a 20px band it
      landed inside the sheet's own 22px top radius (--r-hero) — pinched between the two corner
@@ -397,9 +429,8 @@
 
   /* top bar — one clean full-width row; the title truncates, Eintrag is the FAB.
      top/left/right hug the safe area so the bar clears the notch + rounded corners */
-  .topbar { top: calc(10px + env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left));
-    right: max(10px, env(safe-area-inset-right)); max-width: none; padding: 6px 10px; gap: 8px; flex-wrap: nowrap;
-    --r-nested: calc(var(--r-hero) - 6px); }   /* the padding shrank, so the nested corner grows to stay concentric */
+  .topbar { top: calc(10px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right)); max-width: none; gap: 8px; flex-wrap: nowrap; }
   .eaddr { display: none; }
   /* ⚠️ `0 1 auto`, not `0 0 auto`. With the title hidden every remaining child of the switcher
      is a fixed-size glyph or pill, so a bar that ran out of width had NOTHING left that could
@@ -439,8 +470,12 @@
      clock rendered at the inherited 16px — the largest text in the bar by a third, and ~10px of
      width the phone bar does not have. */
   .topbar .tb-einsatzuhr { font-size: 12.5px; padding: 6px 2px; }
-  /* the identity pill at phone spacing — the same 4px the action cluster already gives up */
-  .topbar .ip-switch-btn { padding: 6px 10px; gap: 6px; }
+  /* the identity pill at phone spacing — the same 4px the action cluster already gives up.
+     ⚠️ 7px sides and a 4px gap, not 10/6 (3am test r2, 25.09.2026): with ↶ ↷ Verlauf and the
+     Atemschutz chip up, a 360px bar left the ÜBUNG marker 49px of the 56 it needs and it read
+     «ÜBU…» or «Ü.». The 8px come out of the pill's own air, so the WORD survives; the ellipsis
+     below stays the last resort for a bar that is fuller still. */
+  .topbar .ip-switch-btn { padding: 6px 7px; gap: 4px; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
   /* Verlauf goes icon-only. :not(.tb-rem-count) — the bare `span` selector also caught the
      reminder-count badge, so the number of due reminders vanished on exactly the device most
@@ -485,7 +520,8 @@
      bar's own menu the moment the alarm ends, and the chip beside it is itself a ticking clock. */
   .tb-az-name { display: none; }
   .tb-az { gap: 5px; padding: 6px 9px; }
-  .topbar:has(.tb-az) .tb-einsatzuhr { display: none; }
+  /* (the Einsatzuhr yields by MEASURE now, not by rule — lib/useHeadFit, step 3: on a 390 px
+     phone it left the bar the moment a chip came up although there was room) */
 
   /* ── Chrome stays on the SCREEN while the keyboard is up ──
      The document cannot scroll any more (02-base.css · fixed body), but iOS still PANS the
@@ -500,18 +536,27 @@
      ⚠️ …and the Rapport's docked tab strip is the third BECAUSE it sits in the bar's own lane
      (19.09.2026): the bar riding back down while the strip 16px above it slid away with the pan
      would tear apart the one piece of chrome they are meant to read as.
-     ⚠️ NOT the FAB: it is a floating action, and those ride above a keyboard in native apps
-     too. (It also used to carry a transform of its own, and a second `transform` on the same
-     element replaces rather than composes.) */
+     ⚠️ NOT the FAB: it is not translated (it used to carry a transform of its own, and a second
+     `transform` on the same element replaces rather than composes) — with a keyboard up it is
+     hidden instead (`:root[data-kb]`, below, 30.09.2026). */
   .topbar, .navrail, .rp-tabs { transform: translateY(var(--vv-pan, 0px)); }
+  /* ⚠️ …and the strip ABOVE the pinned top bar is the bar's too (30.09.2026, staging phone pass:
+     «Alarmmeldung Nicht erfasst» peeked over the bar with the Kurzbericht focused). The page
+     stays in the layout viewport while iOS pans — it is the box holding the caret (above) — so it
+     slides up UNDER the bar, and the status-bar band plus the bar's 10px offset showed it passing
+     through. The bar carries a screen-wide backdrop up to the screen's edge, as tall as the pan
+     has gone (0 without one), so what slides under the bar disappears under it, as under a native
+     navigation bar. Its own 1px edge stays visible (+1px). */
+  .topbar::before { content: ''; position: absolute; pointer-events: none;
+    bottom: calc(100% + 1px); left: calc(-1px - max(8px, env(safe-area-inset-left))); right: calc(-1px - max(8px, env(safe-area-inset-right)));
+    height: min(var(--vv-pan, 0px), calc(10px + env(safe-area-inset-top))); background: var(--app-bg); }
 
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
      horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·
      Atemschutz · object · Ebenen/base). Desktop keeps the vertical left rail. */
   .navrail { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
     bottom: calc(8px + env(safe-area-inset-bottom)); top: auto; width: auto; height: var(--rail-h);
-    margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: 6px 8px;
-    --r-nested: calc(var(--r-surface) - 6px); }   /* 6px of padding now — the tiles' corner follows (01-tokens · --r-nested) */
+    margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: var(--bar-pad); }
   /* Alignment replaces the all-surface bar with its own Karte/Modul switch. Keeping both in the
      same thumb lane would be two navigation models at once and would leave the destructive
      destinations tappable behind the active task. */
@@ -550,7 +595,11 @@
      real distinction while there were eleven of them; with exactly one tile per group they
      separate a thing from a thing and cost the five tiles 10px between them (see NavRail ·
      `fold`, which stops rendering them).
-     The scroll path itself is untouched and still measures: it simply finds nothing to scroll. */
+     ⚠️ And ONE row (03.10.2026): the scroll lane and its wrap step aside (`display: contents`),
+     so the five tiles are items of the bar itself, on the bar's own 2px gap — the same row the
+     tool bar above is (see «ONE row of tiles» there). The scroll path finds no box to measure
+     and lights no fade; the unfolded bar (one tile per plan) still scrolls as before. */
+  .navrail.folded:not(.expanded):not(.dragging) :is(.rail-scroll-wrap, .nav-scroll) { display: contents; }
   .navrail.folded .nav-item { flex: 1 1 0; width: auto; }
 
   /* ── the folded «Pläne» tile ── NO rules of its own any more (18.09.2026). It wears the
@@ -580,7 +629,7 @@
   /* …and the folded bar shares its width in this mode too. Measured at 360px: «Checkliste», the
      longest of the five words, is ~55px of Sora at 9.5px and each tile's equal share is ~65px, so
      nothing truncates and the scroll the rule above kept for this variant finds nothing to do. */
-  .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-item { flex: 1 1 0; }
+  .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-item { flex: 1 1 0; min-width: 44px; padding: 0; }
   .navrail.labelled:not(.expanded):not(.dragging) .nav-glyph { height: 22px; }
   /* …and the same two corrections the desktop rule makes, one size smaller (see 05-navrail.css) */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-mono-chip { min-width: 22px; min-height: 22px; font-size: 11px; }
@@ -591,27 +640,47 @@
      visible without scrolling. */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-label {
     font-size: 9.5px; overflow: visible; text-overflow: clip; }
+  /* ⚠️ …but on the FOLDED bars a word never spills past its own tile (03.10.2026): every tile is
+     one equal share, so a word longer than its share (a translation, an armed tool's name on the
+     «+» tile, the narrowest phone) ends in «…» inside it, the same way on every tile — never
+     into its neighbour, never a tile of its own size. The 1.3 line box keeps the descenders of
+     «Hinzufügen» inside the clip. */
+  .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-label,
+  :is(.tool-rail, .wb-tools).folded.labelled:not(.expanded):not(.dragging) .vrail-label {
+    box-sizing: border-box; max-width: 100%; padding: 0 2px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
   .nav-foot { margin-top: 0; }
   .nav-sep { width: 1px; height: 26px; margin: 0 2px; flex: none; }   /* vertical divider in a row (see the width math on .nav-item) */
 
   /* zoom controls reposition (.toputil) migrated → MapUtility.module.css */
 
-  /* layers/history: the sheet opens ABOVE the bars (full width, scrolls, capped to the
-     viewport) instead of beside the rail */
+  /* ── Ebenen and the Suche card: a SLIDE-UP bottom sheet (29.09.2026, owner: «rethink what is a
+     modal and what a slide-up thing on mobile … ebenen, search, etc. should be a slide-up»).
+     They were cards floating ABOVE the two bars, 10px in from each side — neither a sheet you
+     push away nor a menu at its tile. On a phone a tool or a list you work in while you look at
+     the map is a bottom sheet: flush with the bottom edge and both sides, over the bars, the
+     grab bar on top, pushed down to close (LayerPanel / SucheCard · useSwipeDismiss, the head is
+     the handle), a tap on the map above closes it too (.mapctl-backdrop). NON-modal: no scrim,
+     no focus trap — the map above stays in sight while a layer is switched.
+     It HUGS its content up to the cap, so a short list stands low and a new row grows it upward
+     — the Suche's foot, the two buttons under the thumb, never moves. The cap keeps the top of
+     the map and the top bar clear: the sheet is a tool over the map, not a page.
+     ⚠️ The bottom inset is the sheet's own (the bars under it are covered), and the keyboard
+     lifts it through `--kb-inset` / the inline margin (SucheCard · keyboardLift). */
   .layers-card {
-    left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); width: auto; max-width: none;
-    top: auto; bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); transform: none; box-sizing: border-box;
-    /* Hug a short list (a linked Plan commonly has only Fahrzeuge + Symbole) against the tool
-       rail, where the opening button and the operator's thumb already are. Keep the former
-       top-to-bottom allowance as the cap when a deployment has many Karte layers. */
-    max-height: calc(100dvh - var(--rail-h) - 94px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    overflow-y: auto; overscroll-behavior: contain; }
-  /* …and where the tool bar is the SECOND bar, it clears both — the sheet used to start over
-     the tool rail, hiding the very Ebenen button that opened it (same clearance the measure
-     panel takes above) */
-  .phone-tools .layers-card {
-    bottom: calc(var(--rail-h) * 2 + 26px + env(safe-area-inset-bottom));
-    max-height: calc(100dvh - var(--rail-h) * 2 - 102px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+    left: 0; right: 0; bottom: 0; top: auto; width: auto; max-width: none; transform: none; box-sizing: border-box;
+    max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - 84px - env(safe-area-inset-top)));
+    border-radius: var(--r-hero) var(--r-hero) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: sheetUp .22s var(--ease); }
+  .layers-card[style*='--kb-inset'] { padding-bottom: 0; }
+  /* …in replay too, where the door is the top-right cluster (05-navrail · .map-util re-anchors the
+     tablet card under it, and at (0,2,0) it would hang this sheet from the top) */
+  .map-util .layers-card { top: auto; bottom: 0;
+    max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - 84px - env(safe-area-inset-top))); }
+  .layers-card .lc-title { padding: 4px 12px 6px 20px; touch-action: none; }
+  .layers-card .lc-title button { touch-action: auto; }
+  .layers-card > .ui-sheet-grab { margin-bottom: -4px; }
+  .layers-card .lc-body { padding: 0 max(12px, env(safe-area-inset-right)) 12px max(12px, env(safe-area-inset-left)); }
 
   /* coordinate readout + selection bar sit above the bottom bar + home indicator */
   :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
@@ -627,16 +696,23 @@
      the keyboard up, 8px + the home-indicator inset stood open between it and the keys. */
   .journal-drawer { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-width: none;
     max-height: calc(100dvh - 70px - env(safe-area-inset-top));
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    padding-bottom: 0;
     border-radius: var(--r-hero) var(--r-hero) 0 0; animation: sheetUp .22s var(--ease); }
   /* ⚠️ Keyboard up (the Verlauf search, 15.09.2026): the Overlay lifts this bottom-anchored
      drawer by the keyboard's height (keyboardLift · marginBottom), but the cap above is the whole
      screen – so a full drawer rode up with its HEAD, the row holding the search field, above the
      top of the screen, and the operator typed into a field they could not see. The cap gives the
      keyboard its share, the same way the incident sheet's `.is-kb` does (13-incident.css). */
-  /* …and the keyboard covers the home indicator, so its inset is not paid twice */
-  .journal-drawer.is-kb { padding-bottom: 10px;
-    max-height: calc(100dvh - 70px - env(safe-area-inset-top) - var(--kb-inset, 0px)); }
+  .journal-drawer.is-kb { max-height: calc(100dvh - 70px - env(safe-area-inset-top) - var(--kb-inset, 0px)); }
+  /* ⚠️ …and that bottom inset is the LOG's, not the drawer's (30.09.2026, staging phone pass:
+     «there is a gap at the bottom where things don't scroll down below»). As the drawer's own
+     padding it was a dead band — 10px + the home indicator, ~44px on an iPhone — under the
+     scroller, so every row was cut off at the band's top edge, the last one included. Paid by the
+     scroller's last row instead (AGENTS · «the bottom inset paid by its last row»), rows scroll
+     on down to the sheet's edge and the last one still comes to rest above the home indicator. */
+  .journal-drawer > .history-list { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  /* (the keyboard covers the home indicator, so its inset is not paid twice) */
+  .journal-drawer.is-kb > .history-list { padding-bottom: 10px; }
   /* ⚠️ The Pendenzen box needs a cap this side of a PERCENTAGE. Its `max-height: 45%` resolves
      against `.journal-drawer`, and on a phone this drawer is `height: auto` (bottom-anchored,
      capped by max-height) — an indefinite height, against which a percentage max-height computes
@@ -708,8 +784,23 @@
   /* ⚠️ …but where a sheet HAS a footer, the footer is its bottom edge, and it paid no inset at
      all: «Abbrechen» sat 16px off the glass, inside the phone's own corner curve and on the home
      indicator (20.09.2026). The footer takes the inset; the body above it no longer needs one. */
-  .ip-sheet > .ip-actions { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
-  .ip-sheet:has(> .ip-actions) .ip-body { padding-bottom: 12px; }
+  /* ⚠️ …and it is ONE rule for every sheet's footer (`SheetFoot` → `.ui-sheet-foot`, 26.09.2026):
+     the Trupp form's own footer class lost its insets to a later rule of the same weight, and on
+     the owner's iPhone «Abbrechen» and «Im Einsatz» sat 12px off the glass and 10px above the
+     edge, where the display's corner curve eats them. Three sides: the sheet's own 20px content
+     gutter or the landscape notch, whichever is wider, and the bottom inset ON TOP of the 16px —
+     the gap a field tester needed between his thumb and the home indicator (see the Tafel's
+     `.bottomRail`). `[role='dialog']` is the weight, so a surface's own footer class (one class,
+     a CSS module loaded after this file) can style the row but never move it; the keyboard-up
+     footer (`.modalStack.is-kb .modalFoot`, three classes) still outweighs it on purpose — the
+     keyboard covers the home indicator, so the reserve is dead space there. */
+  [role='dialog'] .ui-sheet-foot {
+    padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  /* ⚠️ owner pick A (28.09.2026): on a phone the footer's primary takes the rest of the row and
+     the framed «Abbrechen» beside it stays at its word's width — one row, one height */
+  [role='dialog'] .ui-sheet-foot > .ip-btn.primary { flex: 1 1 auto; justify-content: center; }
+  .ip-sheet:has(> .ui-sheet-foot) .ip-body { padding-bottom: 12px; }
   /* Base UI Dialog popup has no .ip-ovl grid parent, so bottom-anchor it here (the old
      .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + sheetUp entrance. */
   .ip-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; }
@@ -739,6 +830,32 @@
   .ip-sheet.ui-dialog.is-kb { top: auto; bottom: 0; left: 0; transform: none;
     height: auto; max-height: calc(100dvh - var(--kb-inset, 0px) - 10px - env(safe-area-inset-top)); }
 
+  /* The map picker (MapPicker · «Punkt auf der Karte wählen») is a slide-up bottom sheet too
+     (29.09.2026, owner; AGENTS · «What a surface IS on a phone»): it was a centred card 18px in
+     from every side. Flush with the bottom edge and both sides, the grab bar on top (Overlay ·
+     grab), pushed down by its head — the map inside keeps every drag (swipeDismiss · rule 3).
+     A map has no height of its own to hug, so it stands at the sheet cap; the footer is a
+     `SheetFoot` and pays the bottom inset through the one rule above. */
+  .rp-control { max-height: var(--rp-control-room, 46vh); }
+
+  /* One bounded list above the object map, with rows retaining their own height. */
+  .pp-sheet .pp-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+  .pp-sheet .pp-list { min-height: 0; flex: 1 1 0; }
+  .pp-sheet .pp-row { flex: none; }
+  .pp-sheet .pp-map { min-height: min(300px, 36dvh); height: min(300px, 36dvh); }
+  .pp-sheet.ip-sheet.ip-wide { height: 86dvh; }
+  .pp-sheet.is-kb .pp-map { display: none; }
+  .pp-sheet.ip-sheet.ui-dialog.is-kb { height: calc(100dvh - var(--kb-inset, 0px) - 12px); }
+
+  .mp-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; width: 100%;
+    height: min(72dvh, calc(100dvh - 84px - env(safe-area-inset-top)));
+    border-width: 1px 0 0; border-radius: var(--r-hero) var(--r-hero) 0 0; animation: sheetUp .22s var(--ease);
+    /* opaque: it opens OVER another sheet (Einsatzdaten), whose words showed through the glass head */
+    background: var(--surface); }
+  .mp-sheet > .ui-sheet-grab { margin-bottom: -4px; }
+  .mp-sheet .mp-head { padding: 4px 20px 8px; touch-action: none; }
+  .mp-sheet .mp-head button { touch-action: auto; }
+
   /* confirm dialog stays centred but fits the narrow screen with safe-area gutters */
   .confirm-card { width: min(420px, calc(100vw - 24px)); }
   /* ⚠️ The action row could neither shrink nor wrap, and it is right-aligned – so a long confirm
@@ -752,6 +869,25 @@
   .modal-backdrop:not(.confirm-backdrop) { place-items: end center; }
   .sym-modal { width: 100%; max-width: none; height: 92dvh;
     border-radius: var(--r-hero) var(--r-hero) 0 0; }
+  /* FOUR columns, not auto-fill (owner, 27.09.2026: «maybe change the symbol selection to 4
+     columns?»). The tablet's `minmax(94px, 1fr)` gave a 390px phone three 114px cells with the
+     glyph lost in the middle of each; four cells are ~86px at 390 and ~77px at 360 — still
+     nearly twice the tap floor, with a 40px glyph that reads at that size. The label gives
+     instead: 11px, and the part between two seams is what has to fit (lib/symbolWrap —
+     «Beobachtungs-» is 82px at 12px and 75px at 11px), so the seams do the wrapping and
+     `overflow-wrap` is left with only «Dekontaminations-», which no phone width holds whole.
+     ⚠️ TWO lines and an ellipsis on the third. A three-part compound («Angehörigen-sammel-
+     stelle») needs three lines at this width, and a cell that grows past its row put its
+     neighbours' glyphs on different heights; the first component is the one the eye recognises
+     the symbol by (symbolWrap), so it is the last part that goes behind the «…». */
+  .sym-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 4px; }
+  .sym-cell { padding: 10px 1px 8px; }
+  .sym-cell small { font-size: 11px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    line-clamp: 2; overflow: hidden;
+    /* ⚠️ 1.25, not the 1.1 the tablet label keeps: the clamp's `overflow: hidden` cuts whatever
+       stands above the first line box, and at 1.1 that was the dieresis — «Überschwemmung»
+       read «Uber-». */
+    line-height: 1.25; }
 
   /* incident switcher dropdown caps to the viewport so it can't run off the bottom */
   .ip-menu { max-height: calc(100dvh - 80px - env(safe-area-inset-top)); }
@@ -781,12 +917,20 @@
      `requestReportStep` performs are untouched — the tab is switched first and the body scrolls
      a frame later exactly as before, whichever end of the page the strip is at.
      ⚠️ Its height is RESERVED rather than measured: `--rp-tabs-safe`, the same idiom as
-     `--fab-safe` above. The .useg track is a full --tap (44px) plus this shell's 4px padding and
-     1px border top and bottom = 54px, and 6px of channel above it → 60px. Everything pinned to
+     `--fab-safe` above. The .useg track is a full --tap (44px) plus the track's own 3px padding
+     (06-contextpanel · .useg) and this shell's --bar-pad and 1px border, top and bottom = 64px,
+     and 6px of channel above it → 70px. ⚠️ Written as that SUM, not as a number (30.09.2026,
+     staging phone pass: «the journal entry slightly overlaps with the selector below»): it was a
+     literal 60px from the days of a 4px shell padding and no track padding, so the strip grew to
+     64px under a 54px reserve and the FAB, «Zurück zum Rapport», the message lane and the page's
+     own foot all stood 10px low — the FAB 2px INTO the strip. Everything pinned to
      a `--rail-h + …` baseline adds it: the Rapport surface (Surface.module.css · .shell, so
      its own «Drucken / Abschliessen» row clears the strip), the FAB and the toaster lane. Keep
-     the four in step if the shell's padding ever changes. */
-  .app.mode-rapport { --rp-tabs-safe: 60px; }
+     the four in step if the shell's padding ever changes.
+     ⚠️ Keyed on the STRIP being rendered, not on the Rapport (27.09.2026): the Anwesenheit's
+     three readings dock in the same strip (PhoneTabBar), and there it exists only once a Zeitplan
+     is wired up — so the reserve follows the element, on whichever page shows one. */
+  .app:has(.rp-tabs) { --rp-tabs-safe: calc(var(--tap) + 2 * 3px + 2 * var(--bar-pad) + 2px + 6px); }
   .rp-tabs {
     position: fixed; z-index: var(--z-chrome);
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
@@ -799,16 +943,32 @@
        floating over one (04b-rail.css · .rail) */
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
     border: 1px solid var(--glass-line); box-shadow: var(--shadow);
-    border-radius: var(--r-surface); padding: 4px; box-sizing: border-box;
+    border-radius: var(--r-bar); padding: var(--bar-pad); box-sizing: border-box;
   }
 
   /* with the bottom bar present, the FAB lifts above it and the map attribution ⓘ lifts
      above the FAB so the bottom-right reads bar → FAB → ⓘ with no overlap
-     …and above the Rapport's docked tab strip too, on the page that carries one. */
-  .fab-entry { bottom: calc(var(--rail-h) + 18px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom)); }
+     …and above the Rapport's docked tab strip too, on the page that carries one.
+     ⚠️ On THE floating row's baseline (--float-bottom, below), 26.09.2026: it stood 14px above the
+     tool bar while the plan's chips stood 6px above it and the Grundgerüst strip 14px, so the
+     three pieces of one row sat at three heights. */
+  .fab-entry { bottom: var(--float-bottom);
+    /* on the bars' own edge (8px), not 16: the circle ended 8px short of the nav bar under it */
+    right: max(8px, env(safe-area-inset-right)); }
+  /* ⚠️ …and it steps aside while a keyboard is up (`data-kb`, lib/useViewportPan · 30.09.2026).
+     Its baseline is the bars', which go behind the keys, so it stood wherever iOS's pan happened
+     to leave it — on the Rapport, over the Einsatzleiter field just under the Kurzbericht being
+     typed into — and with the page now ending ON the keyboard, the field the caret is revealed
+     in lies exactly in its corner. Typing into a page is not the moment for a new Eintrag; it is
+     back the moment the keys go. A running recording (`.rec`, its timer) stays in sight. */
+  :root[data-kb] .fab-entry:not(.rec) { visibility: hidden; }
   /* «Zurück zum Rapport» return pill (Anwesenheit/Mittel only → single nav bar) sat at 18px, i.e.
-     ON the nav bar; lift it clear like the FAB. */
-  .rp-return { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+     ON the nav bar; lift it clear like the FAB.
+     ⚠️ …onto THE floating row, at its left end where the row starts (26.09.2026): it stood
+     centred, a 48px filled capsule beside the 58px circle — now the row's height and material
+     (13-incident · .rp-return). */
+  .rp-return { bottom: var(--float-bottom); left: max(8px, env(safe-area-inset-left)); transform: none;
+    max-width: calc(100vw - 16px - var(--fab-safe)); }
   .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) + 86px + env(safe-area-inset-bottom)); }
   /* ⚠️ …but not on the Karte (owner, 24.09.2026). There the ⓘ stood beside the FAB – with the
      tool bar up it sat BEHIND it, a white half-moon peeking out at its right edge – and on a
@@ -820,35 +980,54 @@
   /* Notification lanes. A fixed amount of bottom chrome gets an equally fixed reserve: one nav
      bar normally, two on an editable drawing surface, three while its option dock is open. The
      host is a root sibling of `.app`, so every state selector starts at :root. */
-  /* ⚠️ …and the bars are not the only thing down there. The plan's bottom-left read-out row
-     (09-whiteboard · .wb-botleft: Objekt · Gebäude · Massstab · ⌖ Karte) is pinned to the SAME
-     rail-h baselines as the lanes below — 4px under the pill — so the toast that row's own
-     Massstab chip raises («Ref. automatisch – Massstab aus dem Gebäudegrundriss») landed square
-     on the chips that raised it, wedged between them and the tool bar. It lifts over the row the
-     way it already lifts over each bar. The row publishes no height, so like --ml-reserve below
-     this is a CAP, not a measurement: ONE ~30px chip row and an 8px channel. It was two rows
-     until 18.09.2026, when the row stopped wrapping — on a phone the Massstab and «⌖ Karte»
-     pills are icon + Ampel-lamp only and the whole row fits one line at 360px
-     (09-whiteboard · .wb-botleft, .wb-lamped). Keep the two in step if that ever changes.
-     ⚠️ ONE row of --tap, not of 30px (24.09.2026): on a touch screen the chips stand 44px tall
-     (20-touch-floors · .wb-scale-chip), so the 38px reserve still put the pill's foot on their
-     heads – the Gebäude's «Ref. automatisch» toast sat square on the Gebäude chip. */
-  :root:has(.wb-botleft) .toaster { --plan-row-reserve: calc(var(--tap) + 8px); }
-  /* …and the Rapport's docked tab strip is one more fixed piece of bottom chrome, on exactly the
-     one page that shows one. `:has`, like every other lane state here, because the host is a root
-     sibling of `.app`. (The strip is rendered at every width but only `display: block` here, so
-     the selector has to name the PAGE, not merely the element.) */
-  :root:has(.app.mode-rapport .rp-tabs) .toaster { --rp-tabs-safe: 60px; }
+  /* the Gebäude's «+ UG» above the floating row (08-toasts · --stack-foot-lift): here the row's
+     reserve already clears the chips, so the lift is only the pill's own band. On :root, like the
+     other reserves, because THE message lane below is computed there. */
+  :root:has(.wb-floor-add-down) { --stack-foot-lift: 70px; }
+  /* …and the docked tab strip (Rapport · Anwesenheit, PhoneTabBar) is one more fixed piece of
+     bottom chrome, on whichever page shows one. `:has`, like every other lane state here, because
+     the host is a root sibling of `.app`. Inside this media query a rendered strip is always
+     shown (13-incident.css turns it on here), so the element itself is the whole condition. */
+  :root:has(.app .rp-tabs) { --rp-tabs-safe: calc(var(--tap) + 2 * 3px + 2 * var(--bar-pad) + 2px + 6px); }
+  /* …and the thing that stands ON the tool bar and lifts everything above it: the armed tool's
+     hint row in the dock (ToolDock · hint, the 22px `.wb-botleft` steps up by). The lane is
+     computed on :root, which cannot read `.app`'s value, so it restates it here. */
+  :root:has(.phone-tools .wb-dock-hint) { --msg-dock-hint: 22px; }
+  /* ── THE floating row (26.09.2026) ── the one line just above the bars where the phone's small
+     floating pieces stand: the plan's chips (09-whiteboard · .wb-botleft) and the Eintrag FAB. They stood at three heights of their own (6px,
+     14px and 14px above the tool bar) in three looks; now they are ONE family (01-tokens ·
+     --float-*) on ONE baseline: --float-gap (8px) above the highest bar — the same 8px they keep
+     from each other and from the screen's edge, like the bars.
+     --float-base is where the bars end: the nav bar (8px + rail-h) and the Rapport's docked tab
+     strip on that one page; the tool bar on a drawing surface (its own 6px channel + rail-h); a
+     tool's option dock while one is out (it hides the FAB and the strip), plus its hint row. */
+  :root { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
+  :root:has(.phone-tools) { --float-base: calc(var(--rail-h) * 2 + 14px); }
+  :root:has(.phone-tools .wb-dock) { --float-base: calc(var(--rail-h) * 3 + 20px + var(--msg-dock-hint, 0px)); }
+  :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom)); }
+  /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
+     strip, the way back to the Rapport. It publishes no height because it has only one: --float-h. */
+  :root:has(:is(.fab-entry, .wb-botleft, .rp-return)) { --float-row: calc(var(--float-h) + var(--float-gap)); }
+  /* …but a tool's option dock hides the FAB (below) and the host drops the strip, so there only
+     the chips can stand in it */
+  :root:has(.phone-tools .wb-dock):not(:has(.wb-botleft)) { --float-row: 0px; }
+  /* ── THE message lane (25.09.2026) ── one baseline for every message that floats over the
+     foot of the screen: the toasts AND the instruction of a pick mode (OsmOutline ·
+     .wb-osm-barwrap) and a tool's tip (DockInfo · .wb-dock-tip), which used to sit at three
+     heights of their own. Declared on :root because two of them are portaled to <body>.
+     It spans the bars' own width (8px in from each side, like the nav bar, the tool bar and the
+     top bar) and stands ABOVE the floating row rather than beside the FAB: a pill that ended at
+     an arbitrary 66px reserve lined up with nothing, and read as pushed to one side.
+     So (26.09.2026): the floating row's baseline, plus that row and one --float-gap where it is
+     occupied — a message is the same family and keeps the same gap to its neighbour — plus the
+     Gebäude's «+ UG» band. With the row empty the message stands IN it. */
+  :root {
+    --msg-lane-bottom: calc(var(--float-bottom) + var(--float-row, 0px) + var(--stack-foot-lift, 0px));
+  }
   .toaster {
-    --toast-lane-bottom: calc(var(--rail-h) + 24px + var(--rp-tabs-safe, 0px) + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
-    bottom: var(--toast-lane-bottom);
-    max-height: calc(100dvh - var(--toast-lane-bottom) - 84px - env(safe-area-inset-top));
-  }
-  :root:has(.phone-tools) .toaster {
-    --toast-lane-bottom: calc(var(--rail-h) * 2 + 24px + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
-  }
-  :root:has(.phone-tools .wb-dock) .toaster {
-    --toast-lane-bottom: calc(var(--rail-h) * 3 + 30px + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
+    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+    bottom: var(--msg-lane-bottom); align-items: stretch;
+    max-height: calc(100dvh - var(--msg-lane-bottom) - 84px - env(safe-area-inset-top));
   }
   /* The Meldeleiste is pinned to the SAME 72px baseline as the relocated lane below, at z54
      under the toaster's z90 — so every pill landed square on its first row and on that row's
@@ -862,7 +1041,8 @@
      which beats a third copy of the state list. */
   :root:has(.ml) .toaster { --ml-reserve: calc(min(32dvh, 240px) + 8px); }
   /* Variable-height bottom owners cannot be cleared with another guessed pixel offset. While
-     alignment, a detail sheet, the Passung dock, a modal bottom sheet, or Messen owns that area,
+     alignment, a detail sheet, the Passung dock, a modal bottom sheet, Ebenen / the Suche (their
+     slide-up sheet, 29.09.2026) or Messen owns that area,
      transient feedback moves to one bounded lane below the top bar. Thus the controls at the
      bottom never disappear behind an undo/status pill even when their panel expands or scrolls. */
   :root:has(.phone-georef) .toaster,
@@ -870,15 +1050,27 @@
   :root:has(.wb-georef-dock) .toaster,
   :root:has(.app.maptool-measure) .toaster,
   :root:has(.wb-canvas.tool-measure) .toaster,
-  :root:has(.ip-sheet.ui-dialog) .toaster,
-  :root:has(.sym-modal) .toaster {
+  :root:has(.app .layers-card:not([data-picking])) .toaster {
     top: calc(72px + var(--ml-reserve, 0px) + env(safe-area-inset-top)); bottom: auto;
     max-height: min(32dvh, 240px);
-    /* ⚠️ …and no FAB reserve up here. `--fab-safe` (see below) exists to keep the pill out of the
-       bottom-RIGHT corner the Eintrag circle owns; this lane is at the top of the screen, which
-       the FAB never reaches — and in most of these states it is hidden outright anyway. Left
-       standing, the 66px reserve simply shoved every centred toast ~33px off-centre. */
-    padding-right: 0;
+  }
+  /* ⚠️ …but a MODAL bottom sheet no longer sends it up there (30.09.2026, owner, staging phone
+     pass: «slightly odd positioning of the toasts» — with «Seite wählen» open the undo pill jumped
+     from the foot of the list to the head of the page, over its blurred title). The sheet is the
+     foot of the screen now, so the lane stands ON it: one --float-gap above its top edge, measured
+     (lib/toastLane · useToastLane → `data-lane` + `--msg-sheet-bottom`), moving with the sheet as
+     it hugs its content or rides the keyboard. Only a sheet that leaves no room for a pill above
+     it sends the lane to the top of the SCREEN (`data-lane='top'`) — over the scrimmed top bar,
+     never over the sheet's own head. `:root:has(…)` so it outranks the list above whichever
+     other owner is open under the sheet. */
+  :root:has(.toaster[data-lane='sheet']) .toaster {
+    top: auto; bottom: var(--msg-sheet-bottom);
+    max-height: calc(100dvh - var(--msg-sheet-bottom) - 8px - env(safe-area-inset-top));
+  }
+  :root:has(.toaster[data-lane='top']) .toaster {
+    /* + the pan: fixed boxes sit in the LAYOUT viewport, and with a keyboard up iOS has panned the
+       visible band down by --vv-pan — without it the pill stood above the screen (CodeRabbit) */
+    top: calc(8px + env(safe-area-inset-top) + var(--vv-pan, 0px)); bottom: auto; max-height: min(32dvh, 240px);
   }
   /* Persistent messages use the same upper budget during variable-height map/plan tasks. Their
      rows remain reachable by scrolling instead of extending into the active bottom controls.
@@ -887,38 +1079,27 @@
   :root:has(.app .ctx) .ml,
   :root:has(.wb-georef-dock) .ml,
   :root:has(.app.maptool-measure) .ml,
-  :root:has(.wb-canvas.tool-measure) .ml {
+  :root:has(.wb-canvas.tool-measure) .ml,
+  :root:has(.app .layers-card:not([data-picking])) .ml {
     max-height: min(32dvh, 240px);
   }
-  /* …and clear the FAB sideways. Lifting the toast instead would put it over the content it is
-     reporting on; the pill is far narrower than the bar, so it simply stops short of the corner.
-     Pills accept vertical panning now that the stack is bounded, and action buttons need taps in
-     any case. The reserve therefore applies to every toast rather than relying on pass-through at
-     the exact place an operator expects the FAB.
-     ⚠️ Bottom lane only — the relocated top lane zeroes it again, see the rule above. */
-  .toaster { padding-right: var(--fab-safe); }
+  /* (no sideways FAB reserve any more: the lane stands above the FAB — see «THE message lane») */
   /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
      (same layout-viewport-widening failure mode as the banners) */
   .toast { white-space: normal; }
-  /* ⚠️ …and the ACTIONS drop to their own line when they no longer fit beside the sentence.
-     «Studer Corinne Anwesenheit entfernt» with «Rückgängig» and the ✕ next to it left the text a
-     ~140px column — four lines, one of them split mid-word — while the pill itself had the whole
-     screen width. Wrapping gives the sentence that width and puts the two controls under it,
-     right-aligned, where the thumb is anyway.
-     ⚠️ The ICON stays with the sentence: forcing the text onto a line of its own (`flex-basis:
-     100%`) left the ↶ alone on the first row and made the pill three rows tall.
-     ⚠️ And this holds for SHORT texts too — «Hofer Simon anwesend» also gets its buttons on the
-     second row. Deliberate: the alternative is a floor on the text column, and any floor wide
-     enough to help the long sentence pushes the short one into a wrap of its own. One shape for
-     every undo toast on a phone, two rows, with the controls where the thumb already is. */
-  /* ⚠️ Only a toast that HAS an action wraps. Unqualified, the rule also reached the print-job
-     chain, which has its own phone layout a few lines above — one shape being rearranged by a rule
-     written for another. */
+  /* ⚠️ ONE ROW (30.09.2026, owner, staging phone pass: the message on row 1, «Rückgängig» + ✕
+     alone on row 2 with a big empty left half). The sentence WRAPS FIRST, inside its column, and
+     the action cluster stays on the row beside it, centred on the pill. The two-row shape (18.09.)
+     answered a ~140px column that came from a narrower lane; at the bars' width the column is
+     ~175px on a 390 phone, so «Studer Corinne Anwesenheit entfernt» is two lines — inside the
+     row's one height (--float-h), where the two-row pill was 78px of mostly air. `break-word`
+     (08-toasts) never splits a word that fits the column.
+     …but the column has a FLOOR (05.10.2026, owner: «Immer noch offline – …» stood as five lines
+     of 2–3 words beside a wide «Jetzt synchronisieren»): 10em is about what «Rückgängig» + ✕
+     leave on a 360 phone. An action that would squeeze the sentence below it wraps under it,
+     right-aligned, rather than the sentence becoming a narrow column. */
   .toast:has(.toast-actions) { flex-wrap: wrap; }
-  /* ⚠️ `:not(.toast-actions)` — the action cluster is a <span> too, and without the guard it
-     inherited the grow, filled the whole wrapped line and swallowed its own `margin-left: auto`
-     (it was left-aligned under the sentence instead of sitting where the thumb is). */
-  .toast:has(.toast-actions) > .toast-message { flex: 1 1 auto; }
+  .toast:has(.toast-actions) > .toast-message { flex: 1 1 10em; }
   .toast-actions { margin-left: auto; }
   /* the stage chain needs ~360px plus the undo button — more than a phone has, and it ran under
      «Rückgängig». Only the running stage keeps its label here: tick › printer «Wird gedruckt» ›
@@ -931,7 +1112,10 @@
   /* + Eintrag FAB → a compact icon-only circle on a phone (the label crowded the weather
      pill on the same bottom baseline). The recording state keeps its label/timer so the
      running time stays legible. */
-  .fab-entry:not(.rec) { width: 58px; height: 58px; padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
+  /* the row's one height (--float-h, 52px — 58 until 26.09.2026, when the circle stood 6px taller
+     than every chip and toast beside it); still inside the 48–56px of a primary action */
+  .fab-entry:not(.rec) { width: var(--float-h); height: var(--float-h); padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
+  .fab-entry.rec { min-height: var(--float-h); padding-top: 0; padding-bottom: 0; }
   /* ⚠️ the LABEL, not every span: since the ring wrapper (da52f1f, 28.08.) the + sits inside
      `span.tb-act-ic`, and `span` here hid the glyph with it — a bare circle, nothing to read
      (same trap as the `.cancelling` selector, see 10-journal.css) */
@@ -953,10 +1137,10 @@
   /* Wind, floating top-right. It used to share this box with the compass; the compass lives in
      the tool bar (05.08.2026, and again since 19.09. after one day back up here) — the wind
      stayed: it is a READ-OUT, and the bar has no room for it. */
-  .phone-wx { position: absolute; top: calc(76px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: var(--z-map-util);
+  .phone-wx { position: absolute; top: calc(76px + env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); z-index: var(--z-map-util);
     display: flex; align-items: center;
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-    border-radius: var(--r-cluster); padding: 4px; box-shadow: var(--shadow); }
+    border-radius: var(--r-cluster); padding: var(--bar-pad); box-shadow: var(--shadow); }
   /* the bar's own weather readout is phone-hidden — it lives in this cluster instead */
   .topbar .tb-weather-wrap { display: none; }
   /* …and the GPS caveat leaves the bar for the same reason the weather did: there is no room
@@ -1012,6 +1196,11 @@
      pair to the right end, the flex gap holds them apart. */
   .ip-hist > .ip-btn { margin-left: auto; }
   .ip-hist > .ip-btn + .ip-btn { margin-left: 0; }
+  /* …an OPEN row has one compact action and at most one tag (ÜBUNG / In Arbeit), so it fits
+     BESIDE the text block: the row stays as tall as its title, not title + a button line
+     (29.09.2026) */
+  .ip-hist-live { flex-wrap: nowrap; }
+  .ip-hist-live > .ip-hist-main { flex: 1 1 0; }
 }
 
 /* Below ~355px even the 88px freed by dropping undo/redo is not enough for the Atemschutz
@@ -1035,4 +1224,14 @@
      It is therefore also the one condition `topBarUndoHidden` describes (IncidentWorkspace →
      AnwesenheitView): where the bar has no pair, the surface being tapped offers its own. */
   .topbar .tb-act-history { display: none; }
+}
+
+/* The narrowest phones' tool bar words (29.09.2026). At 360px the Karte's bar is SIX tiles of 52px
+   (Suche joined it 26.09.), where «Hinzufügen» at 9.5px is 59px and ran into «Auswahl» and
+   «Messen». Since the words are on by default on a phone (lib/prefs · railLabelsFor), these set
+   them a half-point tighter — measured: 54px, a hair over the tile, clear of both neighbours'
+   words. Its own block at the end, not nested in the phone gate: Sheet.test pins that gate as the
+   nearest @media above the sheet foot's rule. */
+@media (max-width: 374px) {
+  :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-label { font-size: 9px; letter-spacing: -.02em; }
 }

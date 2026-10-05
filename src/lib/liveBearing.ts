@@ -3,7 +3,8 @@ import { useSyncExternalStore } from 'react'
 /** The Karte's bearing FRAME BY FRAME, for the few read-outs that must turn with the map while a
  *  finger is still twisting it (the wind arrow, 24.09.2026: «only live-rotate the wind direction
  *  on map rotation» – it used to settle on release, so the arrow pointed the wrong way for the
- *  whole gesture).
+ *  whole gesture; the compass needle, 03.10.2026: «live-update the compass while rotating
+ *  similar to the wind direction» – MapViewsMenu · CompassGlyph).
  *
  *  ⚠️ A module store and not App state on purpose: MapView deliberately does NOT hand every
  *  rotate frame up (`onView` fires on move END), because that re-rendered all of

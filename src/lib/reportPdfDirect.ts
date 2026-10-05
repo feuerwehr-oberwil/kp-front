@@ -14,16 +14,18 @@ import { circleRing, clipConvex, clipStroke, edgeMarkSvg, markDeg, rectPoly, thi
 import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import { packFrameRing } from './stackFit'
 import type { IncidentMeta } from './incidents'
+import { closeTimeOf } from './api/incidents'
 import type { ReportDraft } from './report'
 import {
   annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
 } from './report'
-import { isAtemschutzTrupp } from './atemschutz'
+import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
 import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
 import { symbolLegendText } from './symbols'
+import { doneBadge } from './objectDone'
 import { SHAPE_DEFS, shapeAspect } from './shapes'
 import { placardSvgForSymbol } from './placard'
 import { ensureErg } from './erg'
@@ -66,6 +68,8 @@ export function planAnnosForPdf(annos: BoardAnno[], captionMode: CaptionMode = '
       // so a symbol reads the same on every sheet of the rapport. The server prints it as a
       // numbered disc + a legend line (backend · kroki · _number_words).
       out.caption = symbolLegendText(a, captionMode) ?? undefined
+      // «Gelöscht / erledigt»: grey on paper too, with the time (⚠️ mirrored in PlanAnnoIn)
+      out.done = doneBadge(a) ?? undefined
       const veh = a.symbol === appConfig.symbols.vehicleName
       const svg = veh ? vehicleSymbolSvg(a.label ?? '', a.rotation ?? 0) : placardSvgForSymbol(a.symbol, a.fields)
       if (svg) {
@@ -361,6 +365,11 @@ export function einsatzleiterForPdf(
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
   const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
   const meta = draft.meta
+  // the moment a CLOSED Einsatz was closed — ends the sorties nobody reported out (see trupps).
+  // ⚠️ The LATEST close (closeTimeOf): after a reopen and a second close the crew was still in
+  // until the second one, like every other open span on the sheet. `closed_at` stays the FIRST
+  // close below, where it marks what reached the record afterwards as Nachtrag (journalRows).
+  const closedAt = incident.is_archived ? closeTimeOf(incident) ?? undefined : undefined
 
   // journal photos: send the server-relative media URL — the composer loads the bytes
   // from its own media store (session-only blob: URLs can't be resolved there and are
@@ -378,6 +387,8 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // a corrected line prints its first wording beside the latest — the paper says the same
       // thing the «korrigiert»-chip says on screen
       correctedAt: r.correctedAt, textOriginal: r.textOriginal,
+      // …and a row that reached the record after the Einsatzende says so on paper (D4)
+      nachtrag: r.nachtrag || undefined,
       // only pictures the SERVER can fetch — a blob: URL is one that never finished uploading
       photoUrls: r.photoUrls?.filter((u) => u.startsWith('/')),
     }))
@@ -447,7 +458,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // the plain name when it never did — see einsatzleiterForPdf above
       einsatzleiter: einsatzleiterForPdf(
         meta.einsatzleiter, events,
-        { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at },
+        { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? closeTimeOf(incident) },
         meta.startedAt ?? incident.started_at,
       ),
       // «Entfällt» travels as the answer it is: the sheet prints the word on the line, where a
@@ -457,7 +468,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       kommandant: cfg.identity?.kommandant ?? undefined,
       // the same bounds the Personalblatt uses, so every clock on the sheet follows one
       // midnight rule instead of two
-      ...metaExtrasForPdf(meta, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at }),
+      ...metaExtrasForPdf(meta, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? closeTimeOf(incident) }),
       alarmiertAt: formatDateTime(meta.alarmiertAt ?? incident.started_at),
       ausgeruecktAt: meta.ausgeruecktAt ? formatDateTime(meta.ausgeruecktAt) : undefined,
       endedAt: meta.endedAt ? formatDateTime(meta.endedAt) : undefined,
@@ -471,12 +482,12 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       ? attachments.filter((a) => a.url.startsWith('/')).map((a) => ({ url: a.url, caption: a.caption || undefined }))
       : [],
     ...mittelFormForPdf(mittel, catalogue),
-    ...personalForPdf(roster, attendance, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at }),
+    ...personalForPdf(roster, attendance, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? closeTimeOf(incident) }),
     // Anwesende + Einsatzstunden as ONE line under the roster. Computed here, where the ISO
     // timestamps live: the printed rows carry «19:12 – 21:40», and re-deriving minutes from
     // formatted clock text on the server would be a second, disagreeing answer.
     personalSummary: (() => {
-      const bounds = { alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? incident.closed_at ?? null }
+      const bounds = { alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? closeTimeOf(incident) }
       const cfgRule = cfg.report?.hoursRounding
       const rule = {
         stepMin: cfgRule?.stepMin ?? DEFAULT_HOURS_ROUNDING.stepMin,
@@ -531,7 +542,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         return {
           leader,
           cycles: cycles.map((c) => ({
-            entry: formatDateTime(c.entry), exit: c.exit ? formatDateTime(c.exit) : undefined,
+            entry: formatDateTime(c.entry),
+            // ⚠️ A sortie still open when the Einsatz was CLOSED ends at the close, and says so
+            // (staging r3 F4): «19:37 – 19:52 (beim Abschluss noch drin)», not an open «19:37»
+            // that reads as a crew still inside today. No Austritt is invented — the words say
+            // nobody reported one. While the Einsatz is open (or open again) it stays open.
+            exit: c.exit ? formatDateTime(c.exit)
+              : closedAt ? fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime(closedAt) }) : undefined,
             crew: c.crew.join(' / '),
             changes: c.changes.map((ch) => ({ t: formatDateTime(ch.t), text: ch.text })),
           })),
@@ -566,9 +583,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         // ⚠️ no bar on a Kontakt/Rückzug row — that number was carried over, not read off a gauge
         // — and none on a row of 0, which is a Trupp that had no cylinder when it was written
         // (lib/report · readingBarShown)
-        .map((rr) => ({
+        .map((rr, i, all) => ({
           t: rr.t ? formatDateTime(rr.t) : '',
-          kindLabel: readingKindLabel(rr.kind),
+          kindLabel: readingKindLabel(rr.kind, isStandDownExit(all, i)),
           bar: rr.bar != null && readingBarShown(rr) ? String(rr.bar) : undefined,
         }))),
     })),

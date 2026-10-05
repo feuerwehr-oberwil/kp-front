@@ -1,8 +1,9 @@
+import { ShellLoader } from './ShellLoader'
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
-import { Overlay } from '../lib/overlays'
+import { Overlay, SheetFoot } from '../lib/overlays'
 import type { PlanDocument } from '../types'
 import s from './GeorefMode.module.css'
 
@@ -57,15 +58,15 @@ export function GeorefTransfer({ source, targets, onTransfer, onClose, onDone }:
               {completed.has(target.plan.id)
                 ? <span className={s.transferLinked}>{C.transferCompleted}</span>
                 : target.linked && <span className={s.transferLinked}>{C.transferLinked}</span>}
-              {busy === target.plan.id && <Icon id="rotate" className="spin" />}
+              {busy === target.plan.id && <ShellLoader />}
             </button>
           ))}
         </div>
       </div>
-      <div className="ip-actions">
+      <SheetFoot className="ip-actions">
         <button className={`btn ${completed.size ? 'primary' : ''}`} disabled={busy != null}
           onClick={completed.size ? onDone ?? onClose : close}>{completed.size ? C.done : C.cancel}</button>
-      </div>
+      </SheetFoot>
     </Overlay>
   )
 }

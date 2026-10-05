@@ -6,11 +6,14 @@ import { appConfig } from '../config/appConfig'
 import { applyLocale } from '../config/copy'
 import { fillTemplate } from '../lib/format'
 import type { AttendanceState, Person } from '../types'
+import { PHONE_QUERY } from '../lib/useIsPhone'
 
 afterEach(cleanup)
+/** jsdom has no matchMedia; the surface asks it whether it is on a phone (useIsPhone) */
+let phone = false
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null,
+    matches: phone && q === PHONE_QUERY, media: q, onchange: null,
     addEventListener: () => {}, removeEventListener: () => {},
     addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
@@ -117,7 +120,7 @@ describe('the search field records somebody who is not on the Mannschaftsliste',
     mount({ canEdit: false })
     fireEvent.change(search(), { target: { value: 'Muster Felix' } })
     expect(screen.queryByRole('button', { name: offer('Muster Felix') })).toBeNull()
-    expect(screen.getByText(A.noMatches)).toBeTruthy()
+    expect(screen.getByText(fillTemplate(appConfig.copy.noHits, { q: 'Muster Felix' }))).toBeTruthy()
   })
 })
 
@@ -203,7 +206,7 @@ describe('«Nur Anwesende» — the one-tap quick filter', () => {
     // «Meier» alone answers Anna AND Beat; Beat has gone home, so the ✓ takes him out
     expect(names()).toEqual(['Meier Anna'])
     fireEvent.change(screen.getByPlaceholderText(A.searchPlaceholder), { target: { value: 'Muster' } })
-    expect(screen.getByText(A.noMatches)).toBeTruthy()
+    expect(screen.getByText(fillTemplate(appConfig.copy.noHits, { q: 'Muster' }))).toBeTruthy()
   })
 
   it('is offered on the crew list, not only while planning', () => {
@@ -226,5 +229,67 @@ describe('«Nur Anwesende» — the one-tap quick filter', () => {
     mount({ people: crew, attendance, incidentId: 'i2' })
     expect(toggle().getAttribute('aria-pressed')).toBe('false')
     expect(names()).toHaveLength(4)
+  })
+})
+
+/* The three readings (Anwesenheit · Zeitplan · Schichten) moved to the FOOT of the page on a
+ * phone (27.09.2026, owner: «same as for the einsatzrapport») — the Rapport's docked strip
+ * (PhoneTabBar · `.rp-tabs`), which 15-mobile.css pins above the nav bar and reserves a lane for.
+ * jsdom applies no stylesheet, so what is pinned is the pair the CSS keys off: on a phone the
+ * <Segmented> stands in `.rp-tabs` and NOT in the head; on a tablet the other way round. Both
+ * offer the same three, from one list, and switch the same state. */
+describe('the view tabs — in the head on a tablet, in the docked strip on a phone', () => {
+  const A = appConfig.copy.anwesenheit
+  // a Zeitplan wired up, so the tabs are offered at all (planAvailable), Schichten included
+  const planned = () => ({
+    shifts: [], bands: [], onAddShift: vi.fn(), onAddShiftSpan: vi.fn(), onReplaceShift: vi.fn(),
+    onSetShiftTime: vi.fn(), onRemoveShift: vi.fn(), onCreateBand: vi.fn(), onSaveBand: vi.fn(),
+    onRemoveBand: vi.fn(), onCycleCell: vi.fn(), onSetCellState: vi.fn(),
+  })
+  const group = () => screen.getByRole('group', { name: A.viewLabel })
+  afterEach(() => { phone = false; sessionStorage.clear() })
+
+  it('tablet: the segment sits in the head and no strip is rendered', () => {
+    mount(planned())
+    const g = group()
+    expect(g.closest('header')).toBeTruthy()
+    expect(g.closest('.rp-tabs')).toBeNull()
+    expect(document.querySelector('.rp-tabs')).toBeNull()
+  })
+
+  it('phone: the same three stand in the docked strip, and the head carries none', () => {
+    phone = true
+    mount(planned())
+    const g = group()
+    expect(g.closest('.rp-tabs')).toBeTruthy()
+    expect(g.closest('header')).toBeNull()
+    expect(screen.getAllByRole('group', { name: A.viewLabel })).toHaveLength(1)
+    const labels = [...g.querySelectorAll('button')].map((b) => b.textContent)
+    expect(labels).toEqual([A.viewList, A.viewPlan, A.viewBands])
+  })
+
+  it('phone: the strip is a sibling of the head, not inside the scrolling grid, so it can be docked', () => {
+    phone = true
+    mount(planned())
+    const strip = document.querySelector('.rp-tabs') as HTMLElement
+    expect(strip.parentElement).toBe(document.querySelector('header')!.parentElement)
+  })
+
+  it('phone: picking «Zeitplan» in the strip switches the reading', () => {
+    phone = true
+    mount(planned())
+    fireEvent.click(screen.getByRole('button', { name: A.viewPlan }))
+    expect(screen.getByRole('button', { name: A.viewPlan }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: A.viewList }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('offers no tabs at all without a Zeitplan wired up, on either device', () => {
+    mount()
+    expect(screen.queryByRole('group', { name: A.viewLabel })).toBeNull()
+    cleanup()
+    phone = true
+    mount()
+    expect(screen.queryByRole('group', { name: A.viewLabel })).toBeNull()
+    expect(document.querySelector('.rp-tabs')).toBeNull()
   })
 })

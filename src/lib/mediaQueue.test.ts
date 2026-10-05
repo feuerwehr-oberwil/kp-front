@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from './api'
 import * as idb from './idb'
 import { __resetIdbForTests } from './idb'
@@ -33,6 +33,8 @@ beforeEach(() => {
   setOnline(true)
   vi.restoreAllMocks()
 })
+
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 
 describe('mediaQueue', () => {
   it('enqueues a captured blob and lists it as pending', async () => {
@@ -119,11 +121,11 @@ describe('mediaQueue', () => {
     await enqueueMedia(INC, 'e1', 'photo', blob(), 'p', '2026-07-01T10:00:00Z')
     const upload: MediaUploader = vi.fn(async () => { throw new ApiError(500, 'server') })
 
-    await flushMediaQueue(INC, upload) // attempt 1 → pending
+    await flushMediaQueue(INC, upload, { retry: true }) // attempt 1 → pending
     expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 1 })
-    await flushMediaQueue(INC, upload) // attempt 2 → pending
+    await flushMediaQueue(INC, upload, { retry: true }) // attempt 2 → pending
     expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 2 })
-    await flushMediaQueue(INC, upload) // attempt 3 → failed
+    await flushMediaQueue(INC, upload, { retry: true }) // attempt 3 → failed
     expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'failed', attempts: 3, lastError: 'server' })
   })
 
@@ -347,4 +349,46 @@ describe('clearUploadedMedia (what an archive is allowed to throw away)', () => 
   it('is a no-op on an incident that never queued anything', async () => {
     expect(await clearUploadedMedia('never-used')).toBe(0)
   })
+})
+
+
+it('retains actual bytes in memory when only the JSON storage fallback is available', async () => {
+  const stored = new Map<string, string>()
+  vi.stubGlobal('indexedDB', undefined)
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => stored.get(key) ?? null,
+    setItem: (key: string, value: string) => stored.set(key, value),
+    removeItem: (key: string) => stored.delete(key),
+  })
+  __resetIdbForTests()
+  const durable = await enqueueMedia(INC, 'binary', 'photo', blob('original bytes'), 'p.jpg', '')
+  expect(durable).toBe(false)
+  expect(isMediaQueueDurable(INC)).toBe(false)
+  const [item] = await listMediaQueue(INC)
+  expect(await item.blob.text()).toBe('original bytes')
+  expect(stored.has('kp-idb-fb:kp-front-mediaq-' + INC)).toBe(false)
+  const upload = vi.fn(async () => ({ url: '/api/media/saved' }))
+  expect((await flushMediaQueue(INC, upload)).uploaded).toHaveLength(1)
+})
+
+it('backs off automatic uploads, stops after three rejections, and allows an explicit retry', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  await enqueueMedia(INC, 'bad', 'audio', blob(), 'voice', '')
+  const upload = vi.fn().mockRejectedValue(new ApiError(413, 'too large'))
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await flushMediaQueue(INC, upload)
+    await flushMediaQueue(INC, upload)
+    expect(upload).toHaveBeenCalledTimes(attempt)
+    vi.setSystemTime(Date.now() + 60_000)
+  }
+  await flushMediaQueue(INC, upload)
+  expect(upload).toHaveBeenCalledTimes(3)
+  upload.mockResolvedValue({ url: '/api/media/saved' })
+  expect((await flushMediaQueue(INC, upload, { retry: true })).uploaded).toHaveLength(1)
+})
+
+it('keeps a backend restart retryable without burning rejection attempts', async () => {
+  await enqueueMedia(INC, 'restart', 'audio', blob(), 'voice', '')
+  await flushMediaQueue(INC, vi.fn().mockRejectedValue(new ApiError(503, 'restart')))
+  expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 0 })
 })

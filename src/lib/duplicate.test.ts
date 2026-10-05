@@ -10,6 +10,13 @@ describe('⌘D copies on the Karte', () => {
     expect(src.coord).toEqual([7.6, 47.5]) // the original is untouched
   })
 
+  it('a copy of an «erledigt» symbol is a new, active one — `done` is not copied', () => {
+    const src = { id: 'f1', kind: 'symbol', symbol: 'VKF Feuer', coord: [7.6, 47.5], done: { at: '2026-09-23T18:40:00.000Z' } } as Entity
+    const copy = duplicateEntity(src, 'f2')
+    expect('done' in copy).toBe(false)
+    expect(src.done).toBeTruthy() // the original keeps it
+  })
+
   it('a drawing moves every vertex by the same nudge', () => {
     const src = { id: 'd1', kind: 'line', coords: [[7.6, 47.5], [7.7, 47.6]], color: '#f00' } as Drawing
     const copy = duplicateDrawing(src, 'sh1')

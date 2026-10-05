@@ -104,22 +104,19 @@ describe('ContextPanel — basic wiring', () => {
     // station having configured a title list for it
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'] })
     expect(screen.getByText('Bezeichnung')).toBeTruthy()
-    // …and the header still SHOWS it (a Fahrzeug is known by its label, not by «Fahrzeug»),
-    // it just is not the place you change it any more
-    expect(screen.getAllByText('TLF').length).toBeGreaterThan(1)
   })
 
-  it('tapping the header title opens the Bezeichnung menu (people rename where the name shows)', () => {
+  // sweep K12 (29.09.2026): the head showed «TLF» as an underlined button AND the field said «TLF»
+  it('heads a Fahrzeug with its TYPE like every symbol — the name only in the Bezeichnung field', () => {
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'] })
-    // menu closed: the alternative type is nowhere on screen
-    expect(screen.queryByText('MTF')).toBeNull()
-    fireEvent.click(document.querySelector('.ctx-title-btn')!)
-    expect(screen.getByText('MTF')).toBeTruthy()
+    expect(document.querySelector('.ctx-title-ro')!.textContent).toBe('Fahrzeug')
+    expect(document.querySelector('.ctx-title-btn')).toBeNull()
+    expect(screen.getAllByText('TLF')).toHaveLength(1) // the Bezeichnung field, and only there
   })
 
-  it('keeps the read-only (viewer) Fahrzeug header a plain name, not a button', () => {
+  it('keeps the read-only (viewer) Fahrzeug header the type as well', () => {
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'], readOnly: true })
-    expect(document.querySelector('.ctx-title-btn')).toBeNull()
+    expect(document.querySelector('.ctx-title-ro')!.textContent).toBe('Fahrzeug')
   })
 
   it("a live vehicle's Fahrer sits in the same label+picker row as a placed vehicle's", () => {
@@ -137,6 +134,41 @@ describe('ContextPanel — basic wiring', () => {
     const p = setup({ controls: new Set<SymbolControl>(['rotation']), entity: { id: 's1', rotation: 0 } })
     fireEvent.pointerDown(screen.getByLabelText('mehr')) // hold-to-repeat: first step fires on pointer-down
     expect(p.onRotate).toHaveBeenCalledWith(15) // ROT_STEP
+  })
+
+  // 30.09.2026 (owner's screenshot: «−46.50917745051447°»): a hand-turned symbol shows whole
+  // degrees, and ± lands on the 15° marks from there — the stored value is only DISPLAYED rounded
+  it('shows a hand-turned rotation in whole degrees and steps onto the 15° grid', () => {
+    const p = setup({ controls: new Set<SymbolControl>(['rotation']), entity: { id: 's1', rotation: 360 - 46.50917745051447 } })
+    expect(screen.getByText('-47°')).toBeTruthy()
+    expect(screen.queryByText(/46\.5/)).toBeNull()
+    fireEvent.pointerDown(screen.getByLabelText('mehr'))
+    expect(p.onRotate).toHaveBeenLastCalledWith(360 - 45)
+    fireEvent.pointerUp(screen.getByLabelText('mehr'))
+    fireEvent.pointerDown(screen.getByLabelText('weniger'))
+    expect(p.onRotate).toHaveBeenLastCalledWith(360 - 60)
+    expect(p.onRotate).toHaveBeenCalledTimes(2)
+  })
+})
+
+// 30.09.2026 (owner: «fix this» — «Auf Modul 1 zeigen» ran out of its frame into «Zentrieren»):
+// the door to the linked plan is cut, never spilled, and the part that gives way is the plan's
+// NAME — the verb around it stays. The whole sentence is the button's name.
+describe('ContextPanel — the door to a linked plan', () => {
+  it('names the plan in the sentence and cuts only the name', () => {
+    const onProjection = vi.fn()
+    setup({ onProjection, projectionPlan: 'Modul 1 Untergeschoss Nord', onCenter: vi.fn() })
+    const btn = screen.getAllByRole('button', { name: 'Auf Modul 1 Untergeschoss Nord zeigen' })[0]
+    expect(btn.querySelector('.btn-t-cut')?.textContent).toBe('Modul 1 Untergeschoss Nord')
+    expect(btn.querySelector('.btn-t')?.textContent).toBe('Auf Modul 1 Untergeschoss Nord zeigen')
+    fireEvent.click(btn)
+    expect(onProjection).toHaveBeenCalled()
+  })
+
+  it('a plain label (Plan → Karte) is cut at its end, still one name', () => {
+    setup({ onProjection: vi.fn(), projectionLabel: 'Auf Karte zeigen' })
+    const btn = screen.getAllByRole('button', { name: 'Auf Karte zeigen' })[0]
+    expect(btn.querySelector('.btn-t-cut')?.textContent).toBe('Auf Karte zeigen')
   })
 })
 
@@ -387,7 +419,7 @@ describe('ContextPanel — Stoff → UN-Nr. (Gas/Chemie substance search)', () =
     entity: { id: 'c1', symbol: 'FW Gefahr C', fields } as SymbolView,
     protectedKeys: new Set(['Stoff', 'UN-Nr.']),
   })
-  const openStoff = () => fireEvent.click(screen.getByRole('button', { name: /Wert/ }))
+  const openStoff = () => fireEvent.click(screen.getByRole('button', { name: /^Stoff …/ }))
 
   it('a common substance is one pick away and fills its UN number', () => {
     const onFields = vi.fn()
@@ -509,7 +541,7 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
     protectedKeys: new Set(['Name', 'Stv.']),
     fieldOptions: { Name: ['Widmer Céline', 'Müller Hans'], 'Stv.': ['Widmer Céline', 'Müller Hans'] },
   })
-  const SWAP = 'Führung übergeben (EL ⇄ Stv.)'
+  const SWAP = appConfig.copy.contextPanel.swapEl
 
   it('labels the rows by the JOB, not by «Name»', () => {
     setup(el({ Name: 'Widmer Céline', 'Stv.': 'Müller Hans' }))
@@ -553,7 +585,7 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
 // not because the object is protected — and its original's own panel offers Löschen.
 describe('ContextPanel — Löschen on an otherwise read-only panel', () => {
   // rendered twice on purpose (pinned footer + the phone's inline copy); CSS shows exactly one
-  const del = () => screen.queryAllByRole('button', { name: appConfig.copy.delete })
+  const del = () => screen.queryAllByRole('button', { name: appConfig.copy.remove })
 
   it('is hidden on a read-only panel, as it always was', () => {
     setup({ readOnly: true })
@@ -673,5 +705,51 @@ describe('ContextPanel — the Trupps docked onto this symbol', () => {
   it('draws no section at all when nothing is docked', () => {
     setup({ entity: { id: 'h1', symbol: 'VKF Feuer', label: 'Hydrant' } })
     expect(screen.queryByText(az.dockedTeams)).toBeNull()
+  })
+})
+
+// «Gelöscht / erledigt» (review item 21b, 24.09.2026): the row the Übung's EG Feuer needed instead
+// of «Löschen». ONE panel for both surfaces, so these hold on the Karte and the Plan alike.
+describe('ContextPanel — «Gelöscht / erledigt»', () => {
+  const O = appConfig.copy.objectDone
+  const AT = '2026-09-23T18:40:00.000Z'
+
+  // slim sweep 27.09.2026 (D8): the press is the foot's middle tile, «Erledigt», wherever it is offered
+  // (a damage or hazard symbol, #226) — it was a full-width row in the body. The 3am
+  // walk-through of 25.09.2026 (a reflex tap on the first row greyed a fresh KP Front) holds: the
+  // foot is never the first thing under the finger.
+  it('offers «Erledigt» as a tile in the foot — between «Zentrieren» and the bin — and the delete is the «Entfernen» square', () => {
+    const p = setup({ onDone: vi.fn(), onCenter: vi.fn() })
+    const tile = screen.getAllByRole('button', { name: O.action })[0]
+    expect(tile.closest('.ctx-actions')).toBeTruthy()
+    expect(tile.title).toBe(O.actionHint)
+    expect(tile.closest('.ctx-body')?.firstElementChild?.contains(tile)).toBe(false)
+    const foot = tile.closest('.ctx-actions')!
+    expect([...foot.querySelectorAll('button')].map((b) => b.textContent || b.getAttribute('aria-label')))
+      .toEqual([appConfig.copy.contextPanel.center, O.action, appConfig.copy.remove])
+    fireEvent.click(tile)
+    expect(p.onDone).toHaveBeenCalledWith(true)
+    const bin = screen.getAllByRole('button', { name: appConfig.copy.remove })[0]
+    expect(bin.classList.contains('btn-sq')).toBe(true)
+    expect(bin.title).toContain(O.removeHint)
+    expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
+  })
+
+  it('states a set one — «Gelöscht 20:40 · Wieder aktiv» — and «Wieder aktiv» takes it back', () => {
+    const p = setup({ onDone: vi.fn(), entity: { id: 's1', symbol: 'VKF Feuer', label: 'Brand', done: { at: AT } } })
+    expect(screen.getByText(new RegExp(`^${O.word.fire.title} \\d\\d:\\d\\d$`))).toBeTruthy()
+    expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(O.reopen) }))
+    expect(p.onDone).toHaveBeenCalledWith(false)
+  })
+
+  it('a read-only panel states it and offers nothing; a surface that does not wire it has no row, and its delete is «Entfernen» too', () => {
+    setup({ readOnly: true, onDone: vi.fn(), entity: { id: 's1', symbol: 'VKF Rettungen', done: { at: AT } } })
+    expect(screen.getByText(new RegExp(`^${O.word.other.title} `))).toBeTruthy()
+    expect(screen.queryByRole('button', { name: new RegExp(O.reopen) })).toBeNull()
+    cleanup()
+    setup()
+    expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
   })
 })
