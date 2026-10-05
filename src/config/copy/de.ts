@@ -3679,11 +3679,8 @@ export const de = {
     offlineAutoSub: 'Lädt Karte und Pläne kurz nach dem Öffnen des Einsatzes automatisch herunter',
     keepScreenOn: 'Bildschirm eingeschaltet lassen',
     keepScreenOnSub: 'Verhindert das Abdunkeln während des Einsatzes',
-    // Used to be called «Einsatzleiter-Ansicht»: the mode locks the tactical layer and names no
-    // role – Kdt, Fourier and whoever reads along on the beamer use it just the same. The code
-    // identifier stays `elView` so stored device settings keep working.
-    elView: 'Führungsansicht',
-    elViewSub: 'Sperrt die taktische Bearbeitung – Verlauf & Symbol-Details bleiben verfügbar',
+    // No «Führungsansicht» row any more (05.10.2026): it is the login's, set in the admin's
+    // Benutzer (admin · members · elViewDefault), not a per-device switch.
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
     incidentGroup: 'Einsatz',
     contactInterval: 'Atemschutz-Funkkontakt',
@@ -6766,8 +6763,8 @@ export const de = {
       roleViewer: 'Betrachter',
       roleEditor: 'Bearbeiter',
       roleEl: 'Einsatzleiter',
-      elViewDefault: 'Startet in Führungsansicht',
-      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – am Gerät umschaltbar',
+      elViewDefault: 'Führungsansicht',
+      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – auf jedem Gerät dieser Anmeldung',
       colorLabel: 'Farbe',
       colorOptional: 'optional',
       pickColor: 'Farbe wählen',

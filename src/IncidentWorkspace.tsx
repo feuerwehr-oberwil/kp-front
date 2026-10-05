@@ -448,13 +448,12 @@ export function IncidentWorkspace({
    *  closed Einsatz still takes (`canEditRapport`), so an Einsatz opened closed out of «Alle
    *  Einsätze» (forceReadOnly) delivers too. */
   const outboxReadOnly = roleReadOnly || tabLockLost || replayActive
-  // Führungsansicht: an EDITOR's deliberate hands-off mode — tactical editing locked
-  // like a phone, but journal capture and read-only symbol details stay live. Device toggle
-  // (Einstellungen), seeded by the login's server-side default (el_view_default) so a
-  // dedicated «Einsatzleiter» account starts hands-off without per-device setup.
-  const [elViewPref, setElViewPref] = useState<boolean | null>(() => loadPrefs().elView ?? null)
-  const elView = isEditor && (elViewPref ?? user?.el_view_default ?? false)
-  const setElView = (v: boolean) => { setElViewPref(v); savePrefs({ ...loadPrefs(), elView: v }) }
+  // Führungsansicht: an EDITOR's hands-off mode — tactical editing locked like a phone, but
+  // journal capture and read-only symbol details stay live. It belongs to the LOGIN, set by the
+  // admin (Benutzer · el_view_default), and nothing else (05.10.2026, owner: «drop
+  // Führungsansicht in settings. We can use users»). The per-device toggle in the Einstellungen
+  // is gone; a stored `prefs.elView` from an older build is ignored (lib/prefs).
+  const elView = isEditor && (user?.el_view_default ?? false)
   // «not edit anything» is broader than the tactical surfaces: EL view also locks the
   // Atemschutz / Mittel / checklist / dispatch actions that hang off this flag.
   //
@@ -6700,8 +6699,6 @@ export function IncidentWorkspace({
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
           themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}
-          elView={elView}
-          onElView={isEditor ? setElView : undefined}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
           onFeedback={linkScoped ? undefined : () => { setFeedbackParent('settings'); setFeedbackOpen(true) }}
           // Einstellungen holds the PERMISSION only — «dieses Gerät darf meinen Standort

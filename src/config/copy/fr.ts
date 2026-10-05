@@ -2198,8 +2198,6 @@ export const fr: Localizable<Copy> = {
     captionsAll: 'Toutes',
     keepScreenOn: 'Garder l\'écran allumé',
     keepScreenOnSub: 'Ne pas assombrir l\'écran pendant l\'intervention',
-    elView: 'Vue de conduite',
-    elViewSub: 'Tactique verrouillée – le journal et les détails des symboles restent actifs',
     utilityGroup: 'Modèles',
     blankSheet: 'Feuille de saisie vierge (PDF)',
     blankSheetSub: 'Une feuille papier à remplir à la main',
@@ -4228,8 +4226,8 @@ export const fr: Localizable<Copy> = {
       pinBack: 'Retour',
       pinSave: 'Enregistrer le NIP',
 
-      elViewDefault: 'Démarre en vue de conduite',
-      elViewDefaultHint: 'Tactique verrouillée, journal et détails actifs – commutable sur l\'appareil',
+      elViewDefault: 'Vue de conduite',
+      elViewDefaultHint: 'Tactique verrouillée, journal et détails actifs – sur chaque appareil de cet accès',
     },
     roster: {
       rankNoneOption: 'Sans grade',

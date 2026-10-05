@@ -2257,8 +2257,6 @@ export const it: Localizable<Copy> = {
     captionsAll: 'Tutte',
     keepScreenOn: 'Mantieni acceso lo schermo',
     keepScreenOnSub: 'Non oscurare lo schermo durante l\'intervento',
-    elView: 'Vista di condotta',
-    elViewSub: 'Tattica bloccata – il diario e i dettagli dei simboli restano attivi',
     utilityGroup: 'Modelli',
     blankSheet: 'Foglio di registrazione vuoto (PDF)',
     blankSheetSub: 'Un foglio cartaceo da riempire a mano',
@@ -4228,8 +4226,8 @@ export const it: Localizable<Copy> = {
       pinBack: 'Indietro',
       pinSave: 'Salva PIN',
 
-      elViewDefault: 'Parte in vista di condotta',
-      elViewDefaultHint: 'Tattica bloccata, diario e dettagli attivi – commutabile sul dispositivo',
+      elViewDefault: 'Vista di condotta',
+      elViewDefaultHint: 'Tattica bloccata, diario e dettagli attivi – su ogni dispositivo di questo accesso',
     },
     roster: {
       rankNoneOption: 'Nessun grado',

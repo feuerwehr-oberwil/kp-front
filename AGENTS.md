@@ -1092,7 +1092,9 @@ to prod.
   the fields «Einsatzdaten bearbeiten» sends (`EL_META_FIELDS`); the full workspace PUT, the
   trupps slice, the incident lifecycle (`status`, `is_archived`, `report_done_at`) and
   everything tactical stay 403 for it), and `viewer`
-  (read-only). Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
+  (read-only). The Führungsansicht is the LOGIN's (`el_view_default`, the admin's Benutzer · «Führungsansicht»);
+  the per-device toggle in the Einstellungen is gone (05.10.2026, owner: «drop Führungsansicht in settings. We
+  can use users») and a stored `prefs.elView` is ignored. Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
   on, `readOnly` off) with `canEditRecord` unlocking the four surfaces, `canEditMeta` the
   Einsatzdaten panel, and the sync pushing `slice: 'record'`. ⚠️ **A door the role cannot go
   through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026). A

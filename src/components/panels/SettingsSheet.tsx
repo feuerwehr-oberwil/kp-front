@@ -47,7 +47,7 @@ function ScaleRow({ surface, label, sub, value, onChange }: {
  *  /admin, where whoever set it up changes it — not under the finger of an unknowing operator
  *  at 3am (per-incident overrides already written keep working; the doctrine is the source). */
 export function SettingsSheet({
-  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, offlineAuto, onOfflineAuto, keepScreenOn, onKeepScreenOn, themeCoord, elView, onElView, onFeedback,
+  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, offlineAuto, onOfflineAuto, keepScreenOn, onKeepScreenOn, themeCoord, onFeedback,
   shareAs, onSharePosition,
 }: {
   onClose: () => void
@@ -73,11 +73,6 @@ export function SettingsSheet({
   keepScreenOn: boolean
   onKeepScreenOn: (v: boolean) => void
   themeCoord: [number, number] | null
-  /** Führungsansicht device toggle — undefined hides the row (viewers: their whole
-   *  session is read-only anyway, the toggle would be meaningless). Stays operable in EL
-   *  view itself (it must — it's the way back out). */
-  elView: boolean
-  onElView?: (v: boolean) => void
   /** open the Rückmeldung composer (the caller closes this sheet first — two stacked modals is
    *  not a thing we do). Omitted → the row is hidden. */
   onFeedback?: () => void
@@ -172,7 +167,7 @@ export function SettingsSheet({
               <span className="set-row-l">{cp.offlineRadius}<small>{cp.offlineRadiusSub}</small></span>
               <Stepper value={offlineRadiusM} min={500} max={3000} step={250} format={(v) => (v < 1000 ? `${v} m` : `${v / 1000} km`)} onChange={onOfflineRadius} ariaLabel={cp.offlineRadius} />
             </div>
-            {/* The four yes/no rows below are the ONE binary idiom, `OnOff` – «Aus | An», in that
+            {/* The yes/no rows below are the ONE binary idiom, `OnOff` – «Aus | An», in that
                 order (28.09.2026). They each built their own pair, «Ein | Aus» or «Erlaubt | Aus»,
                 with «on» on the LEFT – the mirror image of every editor sheet's switch, so the same
                 thumb-position meant «on» here and «off» there. */}
@@ -184,12 +179,8 @@ export function SettingsSheet({
               <span className="set-row-l">{cp.keepScreenOn}<small>{cp.keepScreenOnSub}</small></span>
               <OnOff ariaLabel={cp.keepScreenOn} value={keepScreenOn} onChange={onKeepScreenOn} />
             </div>
-            {onElView && (
-              <div className="set-row">
-                <span className="set-row-l">{cp.elView}<small>{cp.elViewSub}</small></span>
-                <OnOff ariaLabel={cp.elView} value={elView} onChange={onElView} />
-              </div>
-            )}
+            {/* No Führungsansicht row (05.10.2026): it is the LOGIN's, set by the admin
+                (Benutzer · «Startet in Führungsansicht»), not a per-device switch. */}
             {/* Standort verwenden — the standing PERMISSION only, never the act of sharing:
                 that is switched on per Einsatz from the compass menu on the map. A device
                 preference, so it belongs in this group and NOT in the synced incident settings,

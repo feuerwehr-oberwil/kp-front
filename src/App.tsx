@@ -88,7 +88,6 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
       keepScreenOn={keepScreenOn}
       onKeepScreenOn={setKeepScreenOn}
       themeCoord={null}
-      elView={false}
       onFeedback={onFeedback}
     />
   )
