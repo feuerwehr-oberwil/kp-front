@@ -4211,6 +4211,10 @@ export const de = {
     hintViewOnly: 'Nur ansehen.',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
+    // offline (05.10.2026): «Wieder öffnen» is the server's call (it writes the reopen boundary
+    // the Atemschutz clocks restart from), so it is said up front, not discovered by a failure
+    reactivateOffline: 'Braucht Verbindung zum Server',
+    reactivateNeedsServer: 'Wieder öffnen braucht Verbindung zum Server – der Einsatz bleibt abgeschlossen. Online nochmals versuchen.',
     // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
     // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
     closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
@@ -4244,6 +4248,7 @@ export const de = {
     groupOpen: 'Offen',
     groupToday: 'Heute',
     groupWeek: 'Letzte 7 Tage',
+    offlineNote: 'Offline: Ansehen geht, Abschliessen und Wieder öffnen brauchen Verbindung zum Server.',
     // a running Einsatz's span in its row: «seit 14:00» (no end yet)
     since: 'seit {t}',
     reactivate: 'Wieder öffnen',

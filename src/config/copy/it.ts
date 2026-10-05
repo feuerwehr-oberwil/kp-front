@@ -2523,6 +2523,8 @@ export const it: Localizable<Copy> = {
     hint: 'Il rapporto resta correggibile (aggiunte) – riaprire per tutto il resto.',
     hintViewOnly: 'Sola visualizzazione.',
     reactivate: 'Riapri',
+    reactivateOffline: 'Richiede una connessione al server',
+    reactivateNeedsServer: 'La riapertura richiede una connessione al server – l’intervento resta chiuso. Riprovare una volta online.',
 
     back: 'Indietro',
     closedElsewhere: 'L’intervento è stato chiuso su un altro dispositivo ({t})',
@@ -2547,6 +2549,7 @@ export const it: Localizable<Copy> = {
     groupOpen: 'Aperti',
     groupToday: 'Oggi',
     groupWeek: 'Ultimi 7 giorni',
+    offlineNote: 'Offline: la consultazione funziona; chiudere e riaprire richiedono una connessione al server.',
     since: 'dalle {t}',
     reactivate: 'Riapri',
     reactivateConfirmTitle: 'Riapri intervento',

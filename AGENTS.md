@@ -183,6 +183,17 @@ to prod.
   forceReadOnly goes too), with its own row naming the reopen row's time. The live poll claims
   `open=` from the server's last `X-Incident-Open`, never only from the view, and a held poll that
   answers at once with nothing new eases off — a closed view must never spin (it did, 3.4/s). «Anhängen» is never offered onto a closed Einsatz.
+  **«Wieder öffnen» needs the server — there is no offline reopen** (05.10.2026, asked for after an
+  Übung in airplane mode). The reopen boundary row is server-owned (`sys` namespace, review
+  contract above), the Atemschutz alarm HOLDS until it has arrived (`reopenPending`), and the
+  crews' restart rows derive their ids from it — so an Einsatz reopened offline would run its
+  Tafel with no Überfällig alarm for as long as the device stays offline. Offline the doors stay
+  (useOnline is a hint) but say so: «Braucht Verbindung zum Server» under the chip's row, one
+  line over «Alle Einsätze», and an unreachable server answers with `reactivateNeedsServer`, not
+  a raw network error. An offline reopen would need a client-stamped reopen time and a
+  precondition on the close it saw (`last_closed_at`, so a later close elsewhere wins), a local
+  provisional boundary for the alarm, the reopen sent BEFORE any outbox on reconnect, and closed
+  signals for that Einsatz ignored until then — a design, not a patch.
   After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
   … erscheinen als Nachträge»); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
   until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped

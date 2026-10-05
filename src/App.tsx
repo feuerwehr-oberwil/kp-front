@@ -40,7 +40,7 @@ import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, re
 import { serverNow } from './lib/serverClock'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
-import { ApiError } from './lib/api'
+import { ApiError, isUnverifiable } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
@@ -739,7 +739,12 @@ export default function App() {
       try {
         await reactivateIncident(id)
       } catch (e) {
-        toast(e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+        // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
+        // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
+        // from, and until it arrives the alarm holds (lib/reopenClocks · reopenPending), so an
+        // Einsatz reopened offline would run its Tafel without an Überfällig alarm.
+        toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
+          : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
         return 'failed'
       }
       await refreshList()

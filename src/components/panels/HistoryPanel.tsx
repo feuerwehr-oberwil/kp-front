@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { toast, confirmDialog } from '../../lib/ui'
-import { ApiError } from '../../lib/api'
+import { ApiError, isUnverifiable } from '../../lib/api'
+import { useOnline } from '../../lib/useOnline'
 import { filterIncidents, historyGroupKey, historyWhen, monthLabel } from '../../lib/historyGroups'
 import { getLocaleId } from '../../config/copy'
 import { appConfig } from '../../config/appConfig'
@@ -34,6 +35,8 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
   onArchive?: (id: string) => Promise<void>
 }) {
   const [items, setItems] = useState<IncidentMeta[]>([])
+  // a HINT, not a gate (lib/useOnline): the buttons stay, the line says what they need
+  const online = useOnline()
   const reload = () => { void listIncidents().then(setItems).catch(() => setItems([])) }
   useEffect(reload, [])
   // reactivate is as deliberate as archive (its mirror confirm): the dialog also teaches
@@ -47,7 +50,14 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
       cancelLabel: appConfig.copy.cancel,
     })
     if (!ok) return
-    await reactivateIncident(id)
+    // ⚠️ caught: an offline reopen used to be an unhandled rejection and no word at all
+    try {
+      await reactivateIncident(id)
+    } catch (e) {
+      toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
+        : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+      return
+    }
     onOpen(id, false)
   }
   const archive = async (id: string) => { await onArchive?.(id); reload() }
@@ -104,6 +114,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
   return (
     <Modal title={h.title} onClose={onClose} wide>
       {sorted.length === 0 && <EmptyState icon="history" title={h.empty} sub={h.emptySub} />}
+      {!online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="warn" /> {h.offlineNote}</p>}
       {sorted.length > 0 && (
         <SearchField value={query} onChange={setQuery} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
       )}

@@ -2523,6 +2523,8 @@ export const fr: Localizable<Copy> = {
     hint: 'Le rapport reste corrigeable (ajouts) – rouvrir pour tout le reste.',
     hintViewOnly: 'Consultation seule.',
     reactivate: 'Rouvrir',
+    reactivateOffline: 'Nécessite une connexion au serveur',
+    reactivateNeedsServer: 'La réouverture nécessite une connexion au serveur – l’intervention reste close. Réessayer une fois en ligne.',
 
     back: 'Retour',
     closedElsewhere: 'L’intervention a été close sur un autre appareil ({t})',
@@ -2547,6 +2549,7 @@ export const fr: Localizable<Copy> = {
     groupOpen: 'Ouvertes',
     groupToday: 'Aujourd\u2019hui',
     groupWeek: '7 derniers jours',
+    offlineNote: 'Hors ligne : la consultation fonctionne ; clore et rouvrir nécessitent une connexion au serveur.',
     since: 'depuis {t}',
     reactivate: 'Rouvrir',
     reactivateConfirmTitle: 'Rouvrir l\u2019intervention',

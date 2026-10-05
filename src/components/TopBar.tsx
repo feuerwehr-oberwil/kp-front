@@ -12,6 +12,7 @@ import { useHoldEntry } from '../lib/useHoldEntry'
 import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useHeadFit } from '../lib/useHeadFit'
+import { useOnline } from '../lib/useOnline'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
  * The wind/condition maths, kept beside its only reader. It used to live in a `WindBadge`
@@ -372,6 +373,8 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
   const C = appConfig.copy.archived
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  // offline: «Wieder öffnen» stays (useOnline is a hint, never a gate) but says it needs the server
+  const online = useOnline()
   // ⚠️ A SUCCESSFUL «Wieder öffnen» unmounts this chip — the Einsatz stops being archived — and
   // the promise settles a tick later, so neither state write below may be made unconditionally.
   const alive = useRef(true)
@@ -404,7 +407,8 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
             .catch(() => {})
             .finally(() => { if (alive.current) setBusy(false) })
         }}>
-          <Icon id="pen" /><span className="tb-uhr-lbl">{C.reactivate}</span>
+          <Icon id="pen" />
+          <span className="tb-uhr-lbl">{C.reactivate}{!online && <small className="tb-uhr-note">{C.reactivateOffline}</small>}</span>
         </button>
       )}
     </Popover>
