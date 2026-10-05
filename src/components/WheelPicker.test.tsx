@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { WheelPopover, fmtWheelDay } from './WheelPicker'
+import { WheelPopover } from './WheelPicker'
+import { fmtWheelDay } from '../lib/zeitplanFormat'
 import { DateTimeField } from './TimeField'
 
 afterEach(cleanup)

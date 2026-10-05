@@ -10,6 +10,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { hhmm, pad2 } from '../lib/format'
+import { fmtWheelDay } from '../lib/zeitplanFormat'
 import { scrollBehavior } from '../lib/reducedMotion'
 import w from './WheelPicker.module.css'
 import { usePopoverGuard } from '../lib/overlays/popoverGuard'
@@ -104,17 +105,6 @@ function Wheel({ items, index, onIndex, ariaLabel, loop = false, day = false }: 
 
 const HOURS = Array.from({ length: 24 }, (_, i) => pad2(i))
 const MINUTES = Array.from({ length: 60 }, (_, i) => pad2(i))
-
-/**
- * «Mo 05.10.» — the day wheel's label. Not fmtDayShort («Mo., 05.10.»): the wheel column is the
- * narrowest place that label ever goes, and on a 390px phone the comma version wrapped onto two
- * lines and clipped under the selection band (owner, 05.10.2026). Weekday without its dot/comma,
- * then the locale's own day.month.
- */
-export function fmtWheelDay(d: Date): string {
-  const wd = d.toLocaleDateString(appConfig.locale, { weekday: 'short' }).replace(/[.,]+$/, '')
-  return `${wd} ${d.toLocaleDateString(appConfig.locale, { day: '2-digit', month: '2-digit' })}`
-}
 
 export interface WheelValue { y: number; mo: number; d: number; h: number; mi: number }
 

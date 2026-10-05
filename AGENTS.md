@@ -85,7 +85,7 @@ to prod.
   in the action row. Named state choices such as «noch da» stay above the wheels. Hold-repeat
   buttons support click-only assistive activation without doubling pointer taps.
 - ONE date+time control: `DateTimeField` (`components/TimeField`, ISO in/out). The date is a
-  bounded day column («Mo 05.10.», `fmtWheelDay`) from `days` – the incident's (`incidentDays`)
+  bounded day column («Mo 05.10.», `lib/zeitplanFormat · fmtWheelDay`) from `days` – the incident's (`incidentDays`)
   or by default the last 60 days – never day/month/year wheels and never a native
   `datetime-local`. A bare clock with an optional day column is `TimeField` (+`days`/`valueDay`).
 - Cancelled map requests (`AbortError`) are filtered only at `lib/mapError`, not globally.

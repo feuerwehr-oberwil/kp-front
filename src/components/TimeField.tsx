@@ -8,6 +8,7 @@
 import { useRef, useState } from 'react'
 import { WheelPopover, type WheelValue } from './WheelPicker'
 import { hhmm, pad2 } from '../lib/format'
+import { dayRange, RECENT_DAYS } from '../lib/zeitplanFormat'
 
 /** '0715' | '7:15' | '19.30' → 'HH:MM' (24h), or null when not parseable/empty. */
 export function parseHHMM(raw: string): string | null {
@@ -119,19 +120,6 @@ export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowL
       )}
     </span>
   )
-}
-
-/** How far back the day column reaches when the caller names no days — an analog Einsatz entered
- *  afterwards, a visit written up later. Bounded like every day wheel: a list, not a calendar. */
-export const RECENT_DAYS = 60
-
-/** Midnight of each calendar day from `from` to `to` (inclusive), oldest first. */
-export function dayRange(from: Date, to: Date): Date[] {
-  const out: Date[] = []
-  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate())
-  const last = new Date(to.getFullYear(), to.getMonth(), to.getDate())
-  while (d <= last && out.length < 400) { out.push(new Date(d)); d.setDate(d.getDate() + 1) }
-  return out
 }
 
 /**
