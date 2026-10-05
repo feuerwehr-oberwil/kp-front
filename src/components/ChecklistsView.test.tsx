@@ -74,4 +74,22 @@ describe('Checklist chooser row and reading position', () => {
     fireEvent.click(screen.getByRole('button', { name: /Lagerapport/ })) // another list starts at the top
     expect(container.querySelector('main')!.scrollTop).toBe(0)
   })
+
+  // 05.10.2026 (owner): «I also meant scrolling the original list (i.e. to quickly go through
+  // potentially similar checklists)» — the chooser comes back where it was left
+  it('brings the chooser back at the offset it was left at, after a list was opened from it', async () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true)
+    vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve([tpl('a', 'Aufgaben FU'), tpl('b', 'Lagerapport')]), newer: null })
+    const noop = () => {}
+    const { container } = render(<ChecklistsView checklists={{}} canTick divera={{}}
+      onTick={noop} onBranch={noop} onAction={noop} scrollKey="inc-2" />)
+    await act(async () => {})
+    const nav = container.querySelector('nav')!
+    nav.scrollTop = 520
+    fireEvent.scroll(nav)
+    fireEvent.click(screen.getByRole('button', { name: /Lagerapport/ }))
+    expect(container.querySelector('nav')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.checklists.showList }))
+    expect(container.querySelector('nav')!.scrollTop).toBe(520)
+  })
 })

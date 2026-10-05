@@ -18,7 +18,8 @@ const EMPTY_STATE: TemplateState = { ticks: {}, activeBranch: {} }
 /* Where each list was left (05.10.2026, owner: «remember the checklist scroll position on closing
    an open checklist»). Per Einsatz and per list — the open checklist's pane and the picker each
    keep their own offset, so closing a list onto the picker and opening it again lands both where
-   the reader was. In memory only: it is a reading position for this session, not a record; a
+   the reader was — the chooser above all («to quickly go through potentially similar checklists»:
+   back from one list, the neighbouring one is right under the thumb). In memory only: it is a reading position for this session, not a record; a
    reload starts at the top. Module scope because the surface unmounts whenever another tab is
    shown (IncidentWorkspace · mode). */
 const scrollMemory = new Map<string, number>()
