@@ -3327,6 +3327,12 @@ export const en: Localizable<Copy> = {
     hazardLabels: { red: 'Fire', orange: 'Hazards', green: 'Traffic', yellow: 'Technical', blue: 'Water' },
     diagramAlt: 'Diagram page {page}',
     diagramOpen: 'Enlarge diagram',
+    groupManuals: 'Manuals',
+    manualUpdated: 'As of {date}',
+    manualWarning: 'Caution:',
+    manualImageAlt: 'Picture for step {n}',
+    manualImageOpen: 'Enlarge picture',
+    manualSource: 'Source: {source}',
   },
 
   objectVisits: {
@@ -4732,10 +4738,11 @@ export const en: Localizable<Copy> = {
       kindRapport: 'Situation report',
       kindReference: 'Reference',
       kindVisit: 'Object visit',
+      kindManual: 'Manual',
       added: '“{title}” added.',
       replaced: '“{title}” replaced.',
       assetTitle: 'Diagrams – {title}',
-      assetHint: 'Page images of the reference playbook. The page number is the one the template refers to.',
+      assetHint: 'Page images of the reference playbook, or the pictures of a manual. The page number is the one the template refers to.',
       assetPage: 'Page',
       assetPageHint: 'as in the template',
       assetFile: 'Image',
@@ -4744,9 +4751,9 @@ export const en: Localizable<Copy> = {
       notJson: 'That is not valid JSON.',
       notObject: 'A template must be a JSON object.',
       fieldMissing: 'Template: field “{field}” is missing or empty.',
-      badKind: 'Template: unknown kind “{kind}” (expected action, rapport or reference).',
+      badKind: 'Template: unknown kind “{kind}” (expected action, rapport, reference or manual).',
       needsPhasesOrEntries: 'A template needs exactly one of “phases” (tasks/situation report) or '
-        + '“entries” (reference).',
+        + '“entries” (reference) – a manual has “steps” and “device” instead.',
       badId: 'The template “id” must not contain a colon or whitespace.',
     },
     modules: {

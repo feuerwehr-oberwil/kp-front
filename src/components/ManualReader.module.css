@@ -1,0 +1,46 @@
+/* ===== Anleitung reader (kind: manual, ManualReader.tsx) =========================================
+   A device's instructions as BIG numbered steps — read with gloves on, at arm's length, possibly
+   in the dark. Its own module so the checklist chrome (Checklists.module.css) stays untouched;
+   the step pictures reuse the playbook's figure (.cl-ref-fig via DiagramFigure). On a tablet the
+   document is a card beside the rail, like a Stichwort; on a phone it sits flat on the page and
+   the title is the chooser's (ChecklistsView), so the head keeps only the device line. */
+.mn-doc { max-width: 720px; background: var(--surface); border-radius: var(--r-surface); padding: 24px 28px;
+  box-shadow: 0 0 0 1px var(--border-soft); }
+.mn-head { margin-bottom: 14px; }
+.mn-head h2 { margin: 0; font-size: 20px; font-weight: 800; color: var(--ink); }
+.mn-meta { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
+.mn-meta :global(.i) { width: 14px; height: 14px; flex: none; color: var(--ink-faint); }
+.mn-intro { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }
+
+.mn-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+/* a hairline between steps, not a card per step: one surface, read top to bottom */
+.mn-step { display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid var(--border-soft); }
+.mn-step:first-child { border-top: 0; padding-top: 4px; }
+/* the number is what the eye hunts for when it comes back from the device — big and solid */
+.mn-num { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--ink-fill); color: var(--on-accent-ink); font: 800 16px var(--body); font-variant-numeric: tabular-nums; }
+.mn-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding-top: 5px; }
+.mn-text { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--ink); overflow-wrap: break-word; }
+.mn-warn, .mn-hint { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 9px 12px;
+  border-radius: var(--r-ctl); font-size: 14px; line-height: 1.4; overflow-wrap: break-word; }
+.mn-warn :global(.i), .mn-hint :global(.i) { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+/* red is the line that hurts someone — a light wash with red ink and glyph, never a red fill */
+.mn-warn { background: color-mix(in srgb, var(--red) 9%, transparent); color: var(--ink); }
+.mn-warn :global(.i), .mn-warn strong { color: var(--red); }
+.mn-hint { background: var(--fill-soft); color: var(--ink-dim); }
+.mn-hint :global(.i) { color: var(--ink-faint); }
+.mn-body :global(figure) { margin: 4px 0 0; }
+.mn-source { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--border-soft); font-size: 12.5px; color: var(--ink-faint); }
+
+@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+  .mn-doc { max-width: none; padding: 0; background: none; box-shadow: none; border-radius: 0; }
+  /* the chooser row above names the Anleitung — only the device line stays */
+  .mn-head h2 { display: none; }
+  .mn-meta { margin-top: 0; }
+}
+
+/* the picker rail (ChecklistsView): one quiet sub-head per Gerät inside the «Anleitungen» group */
+.mn-rail-device { display: flex; flex-direction: column; gap: 2px; }
+.mn-rail-device + .mn-rail-device { margin-top: 6px; }
+.mn-rail-device-name { padding: 4px 10px 0; font-size: 12.5px; font-weight: 700; color: var(--ink-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

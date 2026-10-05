@@ -3127,6 +3127,12 @@ export const fr: Localizable<Copy> = {
     hazardLabels: { red: 'Incendie', orange: 'Dangers', green: 'Circulation', yellow: 'Technique', blue: 'Eau' },
     diagramAlt: 'Diagramme page {page}',
     diagramOpen: 'Agrandir le schéma',
+    groupManuals: 'Modes d’emploi',
+    manualUpdated: 'État au {date}',
+    manualWarning: 'Attention :',
+    manualImageAlt: 'Image de l’étape {n}',
+    manualImageOpen: 'Agrandir l’image',
+    manualSource: 'Source : {source}',
   },
 
   objectVisits: {
@@ -4535,10 +4541,11 @@ export const fr: Localizable<Copy> = {
       kindRapport: 'Rapport de situation',
       kindReference: 'Aide-mémoire',
       kindVisit: 'Visite d’objet',
+      kindManual: 'Mode d’emploi',
       added: '« {title} » ajouté.',
       replaced: '« {title} » remplacé.',
       assetTitle: 'Schémas – {title}',
-      assetHint: 'Images de pages de l’aide-mémoire. Le numéro de page est celui auquel le modèle se réfère.',
+      assetHint: 'Images de pages de l’aide-mémoire ou images d’un mode d’emploi. Le numéro de page est celui auquel le modèle se réfère.',
       assetPage: 'Page',
       assetPageHint: 'comme dans le modèle',
       assetFile: 'Image',
@@ -4547,9 +4554,9 @@ export const fr: Localizable<Copy> = {
       notJson: 'Ce n’est pas un JSON valide.',
       notObject: 'Un modèle doit être un objet JSON.',
       fieldMissing: 'Modèle : le champ « {field} » manque ou est vide.',
-      badKind: 'Modèle : type « {kind} » inconnu (attendu : action, rapport ou reference).',
+      badKind: 'Modèle : type « {kind} » inconnu (attendu : action, rapport, reference ou manual).',
       needsPhasesOrEntries: 'Un modèle a besoin d’exactement un de « phases » (tâches/rapport de '
-        + 'situation) ou « entries » (aide-mémoire).',
+        + 'situation) ou « entries » (aide-mémoire) – un mode d’emploi (manual) a « steps » et « device ».',
       badId: 'L’« id » du modèle ne doit contenir ni deux-points ni espace.',
     },
     modules: {

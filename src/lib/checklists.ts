@@ -6,6 +6,9 @@
 //    and milestone ticks push a Verlauf row + an audit event.
 //  • reference — read-only tactical guidance (the EL playbook), searchable and
 //    keyword-indexed so a Divera alarm can auto-surface the matching tactics page.
+//  • manual — an Anleitung (05.10.2026): read-only numbered steps for ONE device (Hebekissen,
+//    Stromerzeuger), with optional warning/hint lines and step images. Never ticked, no state;
+//    grouped by `device` in the picker. Its images are prefetched for offline (warmManualImages).
 //
 // Templates are STATION DATA served from the reference registry (`checklists:<id>` datasets,
 // pushed by `admin_checklists` from the private data repo) — never bundled. The loader fetches
@@ -22,7 +25,7 @@ import genericAction from '../data/checklists/generic-action.json'
 
 /** `visit` = an Objektbesuch checklist (docs/object-visits.md): same distribution, answered on the
  *  Objektbesuche surface only — every INCIDENT surface leaves it out (`loadTemplates`). */
-export type ChecklistKind = 'action' | 'reference' | 'rapport' | 'visit'
+export type ChecklistKind = 'action' | 'reference' | 'rapport' | 'manual' | 'visit'
 
 /** How a `visit` item is answered (docs/object-visits.md · «Checklist templates of kind visit»).
  *  Missing = `check`. Incident checklists ignore it: their items are ticked. */
@@ -83,6 +86,19 @@ export interface RefEntry {
   content: ContentBlock[]
 }
 
+/** One picture on an Anleitung step: an asset page (`checklists:<template>:p<page>`) — a photo or a
+ *  page of the device's PDF manual exported as an image. */
+export interface ManualImage { page: number; caption?: string }
+
+/** One numbered step of an Anleitung. `warning` is the red line (what hurts people or the
+ *  device), `hint` the quiet one (a tip). Both optional. */
+export interface ManualStep {
+  text: string
+  warning?: string
+  hint?: string
+  images?: ManualImage[]
+}
+
 export interface ChecklistTemplate {
   id: string
   kind: ChecklistKind
@@ -97,6 +113,14 @@ export interface ChecklistTemplate {
   phases?: Phase[]
   /** reference templates */
   entries?: RefEntry[]
+  /** manual templates: the device the Anleitung is for — the picker groups by it */
+  device?: string
+  /** manual templates: when the content was last checked («Stand»), `YYYY-MM-DD` */
+  updated?: string
+  /** manual templates: extra search words (model names, «Generator» for a Stromerzeuger) */
+  keywords?: string[]
+  /** manual templates */
+  steps?: ManualStep[]
 }
 
 // --- per-incident tick state (lives in the Saved workspace blob) ------------------
@@ -141,7 +165,7 @@ export function checklistAssetUrl(templateId: string, page: number): string {
   return `/api/reference/checklists:${templateId}:p${page}`
 }
 
-const rankKind = (k: ChecklistKind) => (k === 'reference' ? 1 : 0)
+const rankKind = (k: ChecklistKind) => (k === 'manual' ? 2 : k === 'reference' ? 1 : 0)
 // Sort by the config-driven `order` (from the manifest), then action/rapport before reference as
 // a tiebreak for templates without an explicit order. The rail groups by kind, so this order
 // governs both the Aufgaben list and the sequence of reference groups (Taktik, Grundlagen, …).
@@ -180,6 +204,9 @@ export async function loadTemplates(): Promise<ChecklistTemplate[]> {
   return value.filter((t) => t.kind !== 'visit')
 }
 
+/** The kinds that are ticked: everything that is neither read (reference, manual) nor a visit. */
+export const isTickable = (t: ChecklistTemplate) => t.kind === 'action' || t.kind === 'rapport'
+
 /** how long a warmed list is handed out before a newer one is asked for behind it */
 export const TEMPLATES_FRESH_MS = 5 * 60_000
 let warm: { at: number; list: Promise<ChecklistTemplate[]> } | null = null
@@ -196,14 +223,61 @@ let warm: { at: number; list: Promise<ChecklistTemplate[]> } | null = null
  * caller may apply when it lands, so a station that corrected a list mid-Einsatz still sees it.
  */
 export function warmTemplates(now = Date.now()): { list: Promise<ChecklistTemplate[]>; newer: Promise<ChecklistTemplate[]> | null } {
-  if (!warm) { warm = { at: now, list: loadTemplates() }; return { list: warm.list, newer: null } }
+  if (!warm) { warm = { at: now, list: loadTemplates() }; void warm.list.then(warmManualImages); return { list: warm.list, newer: null } }
   if (now - warm.at <= TEMPLATES_FRESH_MS) return { list: warm.list, newer: null }
   const stale = warm.list
   warm = { at: now, list: loadTemplates() }
+  void warm.list.then(warmManualImages)
   return { list: stale, newer: warm.list }
 }
 /** test seam */
 export function resetWarmTemplates() { warm = null }
+
+/** Every image URL the read-only kinds show: an Anleitung's step images and a reference entry's
+ *  diagrams. The templates are offline-cached as JSON; these are what `warmManualImages` fills. */
+export function checklistImageUrls(templates: ChecklistTemplate[]): string[] {
+  const urls = new Set<string>()
+  for (const t of templates) {
+    for (const step of t.kind === 'manual' ? t.steps ?? [] : []) {
+      for (const img of step.images ?? []) urls.add(checklistAssetUrl(t.id, img.page))
+    }
+    for (const e of t.kind === 'reference' ? t.entries ?? [] : []) {
+      for (const b of e.content ?? []) if (b.type === 'image') urls.add(checklistAssetUrl(t.id, b.page))
+    }
+  }
+  return [...urls]
+}
+
+const imagesStarted = new Set<string>()
+
+/**
+ * Fetch every Anleitung step image (and playbook diagram) once in the background, so an
+ * Anleitung opened for the first time in a cellar shows its pictures (05.10.2026). The JSON was
+ * already offline (`loadTemplates`); the pictures were only cached once LOOKED at, which is the
+ * wrong moment for a manual: you read it when you need it, not beforehand.
+ *
+ * The fetches only pass through the service worker, whose `checklist-assets` route keeps them
+ * (vite.config) — same pattern as lib/planTilePrefetch. No controlling worker (dev server, first
+ * visit), offline, or «Datensparmodus» → nothing fetched. One at a time; each URL once a session.
+ */
+export async function warmManualImages(templates: ChecklistTemplate[]): Promise<void> {
+  if (typeof navigator === 'undefined' || typeof caches === 'undefined') return
+  if (!navigator.serviceWorker?.controller) return
+  if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true) return
+  for (const url of checklistImageUrls(templates)) {
+    if (imagesStarted.has(url)) continue
+    if (!navigator.onLine) return
+    imagesStarted.add(url)
+    try {
+      if (await caches.match(url)) continue
+      await fetch(url, { credentials: 'same-origin' }).then((r) => r.arrayBuffer())
+    } catch {
+      imagesStarted.delete(url) // try again on the next warm
+    }
+  }
+}
+/** test seam */
+export function resetWarmManualImages() { imagesStarted.clear() }
 
 // --- pure logic (unit-tested) ----------------------------------------------------
 
@@ -293,4 +367,25 @@ export function matchDiveraEntries(
   }
   hits.sort((a, b) => (b.len - a.len) || (a.entry.title < b.entry.title ? -1 : a.entry.title > b.entry.title ? 1 : 0))
   return hits.slice(0, limit).map((h) => h.entry)
+}
+
+// --- Anleitungen (kind: manual) ------------------------------------------------------
+
+export interface DeviceGroup { device: string; manuals: ChecklistTemplate[] }
+
+/** The Anleitungen matching a free-text query over title, device and keywords, grouped by
+ *  device. Devices sort by name (Swiss German collation), manuals keep their template order —
+ *  a station's «Aufbau» before «Abbau» is the station's call, made with `order`. */
+export function manualGroups(templates: ChecklistTemplate[], query: string): DeviceGroup[] {
+  const q = norm(query)
+  const groups = new Map<string, ChecklistTemplate[]>()
+  for (const t of templates) {
+    if (t.kind !== 'manual') continue
+    const device = (t.device ?? '').trim() || t.title
+    if (q && ![t.title, device, t.subtitle ?? '', ...(t.keywords ?? [])].some((w) => norm(w).includes(q))) continue
+    groups.set(device, [...(groups.get(device) ?? []), t])
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, 'de-CH'))
+    .map(([device, manuals]) => ({ device, manuals }))
 }

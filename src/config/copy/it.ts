@@ -3127,6 +3127,12 @@ export const it: Localizable<Copy> = {
     hazardLabels: { red: 'Incendio', orange: 'Pericoli', green: 'Traffico', yellow: 'Tecnico', blue: 'Acqua' },
     diagramAlt: 'Diagramma pagina {page}',
     diagramOpen: 'Ingrandisci lo schema',
+    groupManuals: 'Istruzioni',
+    manualUpdated: 'Stato al {date}',
+    manualWarning: 'Attenzione:',
+    manualImageAlt: 'Immagine del passo {n}',
+    manualImageOpen: 'Ingrandisci l’immagine',
+    manualSource: 'Fonte: {source}',
   },
 
   objectVisits: {
@@ -4536,10 +4542,11 @@ export const it: Localizable<Copy> = {
       kindRapport: 'Rapporto di situazione',
       kindReference: 'Prontuario',
       kindVisit: 'Visita all’oggetto',
+      kindManual: 'Istruzioni',
       added: '«{title}» aggiunto.',
       replaced: '«{title}» sostituito.',
       assetTitle: 'Schemi – {title}',
-      assetHint: 'Immagini di pagina del prontuario. Il numero di pagina è quello a cui si riferisce il modello.',
+      assetHint: 'Immagini di pagina del prontuario o immagini di istruzioni. Il numero di pagina è quello a cui si riferisce il modello.',
       assetPage: 'Pagina',
       assetPageHint: 'come nel modello',
       assetFile: 'Immagine',
@@ -4548,9 +4555,9 @@ export const it: Localizable<Copy> = {
       notJson: 'Non è un JSON valido.',
       notObject: 'Un modello deve essere un oggetto JSON.',
       fieldMissing: 'Modello: il campo «{field}» manca o è vuoto.',
-      badKind: 'Modello: tipo «{kind}» sconosciuto (attesi: action, rapport o reference).',
+      badKind: 'Modello: tipo «{kind}» sconosciuto (attesi: action, rapport, reference o manual).',
       needsPhasesOrEntries: 'Un modello ha bisogno esattamente di uno tra «phases» (compiti/rapporto '
-        + 'di situazione) o «entries» (prontuario).',
+        + 'di situazione) o «entries» (prontuario) – le istruzioni (manual) hanno «steps» e «device».',
       badId: 'L’«id» del modello non può contenere due punti né spazi.',
     },
     modules: {

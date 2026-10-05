@@ -39,6 +39,11 @@ function withPhoneLinks(text: string): ReactNode[] {
   return parts
 }
 
+/** Text with its phone numbers tappable — the same rule for an Anleitung step (ManualReader). */
+export function PhoneLinked({ text }: { text: string }) {
+  return <>{withPhoneLinks(text)}</>
+}
+
 /** A source-PDF diagram: a preview that opens the app's full-size picture viewer, because a
  *  Kommandoakten page scaled into a reading column is a picture OF a diagram rather than a
  *  readable one.
@@ -49,8 +54,9 @@ function withPhoneLinks(text: string): ReactNode[] {
  *  that set no `position`, so it rendered at the top of <body>, present in the DOM and invisible
  *  on screen. That is the exact failure `.ui-dialog` is documented against in 08-toasts.css.
  *  One viewer for every picture in the app also means one gesture to learn. */
-function DiagramFigure({ url, caption, alt }: { url: string; caption?: string; alt: string }) {
+export function DiagramFigure({ url, caption, alt, openLabel }: { url: string; caption?: string; alt: string; openLabel?: string }) {
   const CL = appConfig.copy.checklists
+  const open = openLabel ?? CL.diagramOpen
   return (
     <figure className={s['cl-ref-fig']}>
       {/* aria-label, not just title: the name would otherwise be computed from the inner img's
@@ -59,8 +65,8 @@ function DiagramFigure({ url, caption, alt }: { url: string; caption?: string; a
         type="button"
         className={s['cl-ref-figbtn']}
         onClick={() => openPhoto(url, { caption, download: false })}
-        title={CL.diagramOpen}
-        aria-label={caption ? `${CL.diagramOpen}: ${caption}` : CL.diagramOpen}
+        title={open}
+        aria-label={caption ? `${open}: ${caption}` : open}
       >
         <img src={url} alt={alt} loading="lazy" />
         <span className={s['cl-ref-zoomhint']} aria-hidden="true"><Icon id="search" /></span>
