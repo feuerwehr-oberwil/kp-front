@@ -342,9 +342,9 @@ railway ssh keys add                          # once, for the copy below
 ./scripts/railway-staging-refresh.sh          # prod → staging: database + volume, then the cuts
 ```
 
-- **Code** reaches staging through the `staging` branch: push or force-push anything there.
-  `main` and prod are untouched, and the CI gate does not apply. Keep the branch **on top of
-  `main`** (`git rebase origin/main`): the copy carries prod's migration state, and staging code
+- **Code** reaches staging through the `staging` branch: merge into it, never force-push (other work in flight lives there).
+  `main` and prod are untouched, and the CI gate does not apply. Keep the branch **up to date with
+  `main`** (`git merge origin/main`): the copy carries prod's migration state, and staging code
   older than that does not boot on it.
 - **Keep `SECRET_KEY` identical** (the duplicate copies it). It peppers every PIN and seals the
   stored credentials, so with a different key nobody can log in to the copy.
