@@ -365,6 +365,10 @@ entry may also carry `refs: [{source, id}]`, and `PUT /api/objects/{id}` accepts
   ready, missing}, lastError}`, `kp-front-ov-att-<attId>` `{blob, thumb, type, sha256, size}`.
   `idbSet` must return durable or the UI shows «Nicht gespeichert»; a failed read is never empty;
   blobs never go to the localStorage fallback.
+- «Von» starts with the names last typed on this device (localStorage `kp.ov.with`, editable on
+  every visit; no setting). Not the prefs cookie: Safari caps a script-written cookie at 7 days, so
+  the name was gone by the next tour (05.10.2026). «Besucht am» starts as now and is the shared
+  wheel picker (`DateTimeField`, «Jetzt», no «Leeren»).
 - Save points (a revision): leaving the visit, `visibilitychange → hidden`, «Abschliessen»,
   «Jetzt senden», and every 2 min while dirty. Photos upload as soon as the visit exists on the
   server.
