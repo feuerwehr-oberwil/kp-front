@@ -264,6 +264,11 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Changed
 
+- **Railway: no more `railway.json`.** Railway stops reading config-as-code files on 2026-12-01,
+  so the builder, healthcheck (`/ready`, 300 s), restart policy (`ALWAYS`), replica count (`1`)
+  and sleeping (off) now live in the service settings, not the repository. *Running this repo on
+  Railway yourself: set those five on your service before your next deploy from this version* –
+  docs/DEPLOYMENT.md §3a lists them. Compose stations are not affected.
 - **One date-and-time picker everywhere.** `DateTimeField` (day column, hour, minute, «Jetzt»,
   «OK») replaces the day/month/year wheels in the Rapport and the Objektbesuche; day labels stay
   on one line. «Zurück zum Rapport» is a filled button.

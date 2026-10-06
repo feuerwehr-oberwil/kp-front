@@ -1,7 +1,7 @@
 # DEPLOYMENT – self-hosting KP Front
 
 **Status:** Two supported paths, both tested: **docker-compose on a VPS** (§3) and
-**Railway** (`railway.json` + the repo Dockerfile – §3a). Same image, same
+**Railway** (the repo Dockerfile + a handful of service settings – §3a). Same image, same
 auto-migrate-on-boot behaviour – pick by who runs the server. Decisions it encodes: Docker,
 auto-migrate on boot (D8), local-volume storage (D10), one-instance-per-station (D3),
 individual accounts (D5).
@@ -218,16 +218,20 @@ disabled (fail-closed), so set it before you need to administer the station.
 The other supported path. Railway builds this repository's `Dockerfile` and runs **one** service;
 the database and the asset volume are the platform's. Same image, same auto-migrate-on-boot, same
 one-station shape – `docker-compose.yml`, `.env` and `scripts/setup.sh` are the compose path only
-and Railway users can ignore all three. What is different is that two platform defaults do not fit
-this image, and both fail *before* uvicorn binds, so there is no `/ready`, no log page in the app
-and no error screen – only a service that keeps restarting.
+and Railway users can ignore all three. What is different is that several platform defaults do
+not fit this image. The service settings in step 1 are the quiet ones; the volume mount and the
+container user (steps 3 and 4) fail *before* uvicorn binds, so there is no `/ready`, no log page
+in the app and no error screen – only a service that keeps restarting.
 
 Do it in this order. Steps 3 and 4 are the ones people discover afterwards.
 
 1. **Create the service from the repository.** New project → *Deploy from GitHub repo* (or
-   `railway init` and `railway up` from a checkout). The committed `railway.json` already sets the
-   builder, the healthcheck and the restart policy – see *What `railway.json` sets* below. The one
-   thing it deliberately leaves to you is the **region**; pick it on the service.
+   `railway init` and `railway up` from a checkout). Then, **before the first deploy**, set the
+   builder, the healthcheck, the restart policy, the replica count and sleeping on the service –
+   the exact values are in *Railway service settings for kp-front* below. The repository carries
+   none of them: Railway stops reading config-as-code (`railway.json`) on 2026-12-01, so a new
+   service starts from Railway's own defaults – no healthcheck and an `ON_FAILURE` restart
+   policy, the shape of the 2026-08-08 outage. The **region** is yours to pick on the same page.
 2. **Add Postgres to the same project** (New → *Database* → *PostgreSQL*) and reference it from the
    app service: `DATABASE_URL=${{Postgres.DATABASE_URL}}`. There is no bundled `db` service here.
 3. **Attach a volume and mount it at `/mnt/data`.** Not optional, and not `/data`: the image bakes
@@ -303,20 +307,40 @@ Do it in this order. Steps 3 and 4 are the ones people discover afterwards.
    never ran (§8 and [`SETUP.md` §1](SETUP.md)). Then open the app, log in as `fu` with your
    `SEED_PIN`, and continue at `/admin` exactly like a compose station ([`SETUP.md` §3](SETUP.md)).
 
-> **What `railway.json` sets, and why** (2026-08-08, after a 25-minute outage on 0/1 replicas).
-> `restartPolicyType: ALWAYS` – a station server has no successful exit, so a clean shutdown must
-> be restarted too; `ON_FAILURE` only covers a crash and left production stopped. `numReplicas: 1`
+> **Railway service settings for kp-front, and why** (2026-08-08, after a 25-minute outage on 0/1
+> replicas). These live in the **service settings** – the service's *Settings* tab in the
+> dashboard, or Railway's API – and **not in this repository**. Until 2026-10 a committed
+> `railway.json` carried them; Railway stops reading config-as-code on 2026-12-01, so the values
+> were moved onto the services (production `kp-front` and the demo `kp-front-demo` carry the same
+> set) and the file was deleted. If you run this repository on Railway yourself, set exactly
+> these:
+>
+> | Setting | Value |
+> | --- | --- |
+> | Builder · Dockerfile path | `Dockerfile` · `Dockerfile` (the repo root) |
+> | Healthcheck path · timeout | `/ready` · `300` seconds |
+> | Restart policy | `ALWAYS` |
+> | Replicas | `1` |
+> | App sleeping (serverless) | off |
+> | Region | your choice |
+>
+> Restart policy `ALWAYS` – a station server has no successful exit, so a clean shutdown must
+> be restarted too; `ON_FAILURE` only covers a crash and left production stopped. `1` replica
 > remains the supported topology: the local asset volume is not shared replica-safe. Scheduler jobs
 > themselves are protected by a PostgreSQL advisory-lock leader; standby replicas retry every 10
 > seconds and take over after the leader connection dies, so a transient overlap cannot double-fire
-> Divera polling, push sweeps, resets or heartbeats. `sleepApplication: false` – an app that sleeps
-> is an app that is not there when the pager goes off. `healthcheckTimeout: 300` because migrations
-> run on boot and a long history needs the room. **`region` is deliberately not in the file** –
-> that one is the deployer's choice, set it on the service.
+> Divera polling, push sweeps, resets or heartbeats. Sleeping off – an app that sleeps is an app
+> that is not there when the pager goes off. Healthcheck `/ready` because it is the endpoint that
+> says the database is reachable and the volume writable (step 6), with a `300`-second timeout
+> because migrations run on boot and a long history needs the room. **The region is deliberately
+> not prescribed** – that one is the deployer's choice.
 >
-> Two things no committed file can do for you: a Railway setting only takes effect **after the
-> service redeploys**, and a restart policy nobody has tested is a belief – stop the container on
-> a non-production service once and confirm it comes back by itself.
+> What changed with the move: a committed file used to win over the dashboard on every deploy, so
+> a hand edit on the service could not quietly undo the values above. That protection is gone –
+> whatever the service settings say is what runs, and a change there is the change. Two things
+> hold either way: a Railway setting only takes effect **after the service redeploys**, and a
+> restart policy nobody has tested is a belief – stop the container on a non-production service
+> once and confirm it comes back by itself.
 
 ⚠️ **A failed Railway healthcheck does not keep the previous deployment serving.** Treat any deploy
 that changes the runtime user, the volume mount or the healthcheck as a maintenance window. And on
