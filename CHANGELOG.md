@@ -401,6 +401,7 @@ so this file – not the log – is the record of what shipped up to that point.
 ### Security
 
 - **anyio 4.14.2** – three advisories published against 4.14.0.
+- **multidict 6.9.1** and **source-map-js 1.2.2** (build tooling) – advisories of 06.10.2026.
 
 ## [0.11.0] – 2026-09-13
 
