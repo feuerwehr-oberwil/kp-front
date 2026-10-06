@@ -264,6 +264,12 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Changed
 
+- **App icon is the mark alone.** The folded map + pin now fills the tile; the «kp front»
+  wordmark (set in Avenir Next, which only rendered on macOS) is gone, since the OS prints the
+  name under the icon anyway. The favicon – also the default login logo – gets its own small cut
+  (no shadow or hairlines, chunkier pin) on the same top-lit tile, so app icon, favicon and login
+  show one mark. Pairs with KP Rück's new magnet-board icon.
+
 - **One date-and-time picker everywhere.** `DateTimeField` (day column, hour, minute, «Jetzt»,
   «OK») replaces the day/month/year wheels in the Rapport and the Objektbesuche; day labels stay
   on one line. «Zurück zum Rapport» is a filled button.
