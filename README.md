@@ -170,7 +170,9 @@ write-only value can be given to both sides. `just self-host` runs the identical
 
 **On Railway instead?** Same image, different platform defaults – the volume has to be mounted at
 `/mnt/data` and the service needs `RAILWAY_RUN_UID=0`, and both fail before the app serves
-anything. The procedure in order is
+anything. The builder, healthcheck (`/ready`), restart policy (`ALWAYS`), replica count (`1`) and
+sleeping (off) are set in the service settings too – the repository carries no `railway.json`.
+The procedure in order, with the exact values, is
 [`docs/DEPLOYMENT.md` §3a](docs/DEPLOYMENT.md#3a-railway-in-order); `setup.sh` and
 `docker-compose.yml` are the compose path only.
 

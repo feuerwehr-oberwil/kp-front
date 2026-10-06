@@ -1,5 +1,6 @@
 # Self-hosting KP Front on a VPS: the app (SPA + API in one image) + its Postgres.
-# Railway users don't need this file — that path is driven by railway.json.
+# Railway users don't need this file — that path is the Dockerfile plus the service settings
+# listed in docs/DEPLOYMENT.md §3a.
 #
 #   ./scripts/setup.sh      # the install: domain, port and nightly backup, then .env, the
 #                           # stack, and the Web Push keys into the credential store
