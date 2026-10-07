@@ -336,13 +336,18 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    the label column keeps its width even if something one day exceeds that cap. */
 .adm-settings {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(200px, min(400px, 42%)) 34px;
+  grid-template-columns: minmax(160px, 1fr) minmax(200px, min(400px, 42%)) fit-content(180px) 34px;
   align-items: stretch;
 }
-/* ⚠️ Three tracks since 07.10.2026 (UI sweep E5): the Standard column and the column header
-   are gone. The shipped default now stands in the value cell, after its control, and only
-   when the value deviates (`standardNote`) — see .adm-set-std. The starvation note above is
-   history for the 4th track, but its floor on Einstellung still holds. */
+/* ⚠️ Still FOUR tracks, though the Standard column and the column header are gone (UI sweep
+   07.10.2026, E5) and the shipped default now stands inside the value cell. The third track is
+   the room a `span` row grows into: Anbindungen's «nicht gesetzt» pill + key box + Speichern
+   need Wert plus up to 180px to sit on one line. With three tracks a span row had only the Wert
+   column and every key row stacked to twice its height. On a plain row the ⓘ cell spans the
+   third track AND its own, so the row's hairline runs unbroken (the cells carry it); a span row's
+   control takes the third track and its ⓘ only the last one. No span row on a sheet → 0px. */
+.adm-settings .adm-set-info { grid-column: -3 / -1; }
+.adm-settings .adm-set-row.span > .adm-set-info { grid-column: -2 / -1; }
 
 /* group divider (Funk · Atemschutz – Druck …). Also the head of ONE RECORD in a list editor
    («Gr. 2», «TLF 1», a Formular) — same shape, plus the row's own action on the right. */
@@ -455,12 +460,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-settings > *:last-child,
 .adm-settings > *:last-child > * { border-bottom: 0; }
 
-/* Narrow screens give the label column its share back. Below the phone breakpoint the control
-   moves under its label, so a 13-character label never squeezes the value box into two
-   characters. */
-@media (max-width: 900px) {
-  .adm-settings { grid-template-columns: minmax(0, 1fr) minmax(170px, min(360px, 46%)) 34px; }
-}
+/* No narrower grid between the phone and the desktop: the column that used to be dropped here
+   (Standard) is gone, and the track that replaced it is what keeps a key row — pill, box,
+   Speichern — on one line on a portrait iPad. Below the phone breakpoint the control moves
+   under its label, so a 13-character label never squeezes the value box into two characters. */
 /* ⚠️ …and below the phone breakpoint it stops being a table at all: the row becomes a flex
    block (label + ⓘ on one line, control under them). NOT a narrower grid — `order` cannot
    reshuffle one row's cells without reshuffling every group divider with them, because a
