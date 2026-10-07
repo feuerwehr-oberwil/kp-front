@@ -54,6 +54,13 @@ body {
   overscroll-behavior: none;
   -webkit-touch-callout: none;
 }
+/* ⚠️ Form controls do not inherit the page font on their own: the UA stylesheet hands
+   <button>, <input>, <select> and <textarea> the browser's UI face (Arial), so every control that
+   forgot its own `font-family: inherit` came out in a second typeface – the symbol palette's
+   labels, the composer's quick phrases (UI sweep 07.10.2026). The FAMILY only, on purpose: the
+   size, weight and line-height stay the UA's until a rule sets them, so no control changes size
+   here. A control never needs its own `font-family: inherit` again. */
+button, input, select, textarea { font-family: inherit; }
 /* only the map + plan get raw multi-touch (their own JS owns the zoom) */
 #map, .maplibregl-map, .maplibregl-canvas, .wb-stage, .wb-canvas { touch-action: none; }
 .app { position: fixed; inset: 0; }

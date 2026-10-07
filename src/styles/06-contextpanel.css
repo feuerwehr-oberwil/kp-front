@@ -412,7 +412,7 @@
 .ctx-done-state > .i { flex: none; width: 26px; height: 26px; padding: 5px; box-sizing: border-box; border-radius: 50%;
   background: var(--ink-faint); color: var(--surface); stroke-width: 2.6; }
 .ctx-done-reopen { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; margin-left: auto; padding: 0 2px;
-  border: 0; background: transparent; color: var(--ink); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  border: 0; background: transparent; color: var(--ink); font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .ctx-done-reopen .i { width: 16px; height: 16px; color: var(--ink-dim); }
 @media (hover: hover) {
   .ctx-done-reopen:hover, .ctx-done-reopen:hover .i { color: var(--blue); }
@@ -549,7 +549,7 @@
 .jr-text.jr-rem-struck { text-decoration: line-through; color: var(--ink-faint); }
 .jr-rem { display: inline-flex; align-items: center; gap: 7px; flex: none; border: 1px solid var(--glass-edge); background: var(--surface-2);
   color: var(--ink-dim); border-radius: var(--r-sm); padding: 5px 11px 5px 8px; font-size: 12px; font-weight: 700; cursor: pointer;
-  font-family: inherit; min-height: var(--tap); }   /* a button: one corner, --tap (29.09.2026; was a 34px pill) */
+  min-height: var(--tap); }   /* a button: one corner, --tap (29.09.2026; was a 34px pill) */
 /* In the pinned block the ring stands alone in the Verlauf's ICON SLOT — 26px wide, the width of
    `.hist-ev .ic`, so the text beside it lands on the log's own axis. No pill, no word: the block's
    heading already says these are Pendenzen, and the ring is this row's icon as much as its

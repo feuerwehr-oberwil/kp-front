@@ -18,7 +18,7 @@
 .tb-share:empty { display: none; }
 .tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer;
   background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
-  font-weight: 700; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
+  font-weight: 700; transition: background .14s var(--ease), color .14s var(--ease); }
 .tb-act .i { width: 15px; height: 15px; }
 /* ⚠️ The undo/redo glyphs (lib/icons · #undo/#redo) are NOT centred in their own 24×24 viewBox
    the way the sprite's other icons are (their curve reaches y 22, the arrowhead only y 7 — true
@@ -159,7 +159,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 }
 /* compact wind readout folded into the bar on a phone — downwind arrow + speed, no temp */
 .tb-wind { display: inline-flex; align-items: center; gap: 4px; border: none; cursor: pointer; background: transparent;
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 6px; min-height: 42px; font-family: inherit;
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 6px; min-height: 42px;
   font-variant-numeric: tabular-nums; transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
   .tb-wind:hover:not(:disabled) { color: var(--ink); background: var(--fill-soft); }
@@ -171,7 +171,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tb-wind-arr svg { width: 16px; height: 16px; display: block; }
 /* weather readout in the bar (condition · temp · downwind arrow · speed), sat next to Eintrag */
 .tb-weather { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; background: transparent;
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 9px; min-height: 42px; font-family: inherit;
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 9px; min-height: 42px;
   font-variant-numeric: tabular-nums; white-space: nowrap; transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
   .tb-weather:hover:not(:disabled) { color: var(--ink); background: var(--fill-soft); }
@@ -831,7 +831,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .jc-audio .jc-clip { grid-column: 1 / -1; }
 .jc-rec { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--glass-edge); background: var(--surface-2);
   color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 10px; height: var(--tap); min-width: 0; font-size: 12.5px; font-weight: 700; cursor: pointer;
-  font-family: inherit; white-space: nowrap; }
+  white-space: nowrap; }
 .jc-rec .i { flex: none; }
 .jc-rec-time { font-family: var(--mono); }
 .jc-rec .i { width: 15px; height: 15px; }
@@ -880,7 +880,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .jc-foot { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .jc-send { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
   background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm); padding: 9px 16px; height: var(--tap); font-size: 14px; font-weight: 800;
-  font-family: inherit; white-space: nowrap; }
+  white-space: nowrap; }
 .jc-send .i { width: 15px; height: 15px; }
 @media (hover: hover) {
   .jc-send:hover { background: var(--btn-primary-hover); }
@@ -905,7 +905,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
 .jc-due-chip { display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink); border-radius: var(--r-sm); padding: 9px 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  color: var(--ink); border-radius: var(--r-sm); padding: 9px 10px; font-size: 13px; font-weight: 600; cursor: pointer;
   height: var(--tap); min-width: 0; white-space: nowrap; }
 .jc-due-chip .i { width: 14px; height: 14px; flex: none; }
 @media (hover: hover) {
@@ -963,7 +963,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    the rest (they were two equal halves, the cancel a dim word on the glass) */
 .jc-exact-actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
 .jc-exact-cancel, .jc-exact-ok { display: flex; align-items: center; justify-content: center; gap: 7px;
-  height: var(--tap); border-radius: var(--r-sm); font: 700 14px var(--body); cursor: pointer; font-family: inherit; }
+  height: var(--tap); border-radius: var(--r-sm); font: 700 14px var(--body); cursor: pointer; }
 .jc-exact-cancel { padding: 0 16px; border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink); }
 .jc-exact-ok { font-weight: 800; }
 /* the primary fill, never --blue: blue is a CHOSEN answer (01-tokens · --sel) since 28.09.2026 */

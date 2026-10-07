@@ -198,12 +198,8 @@
    a FIXED slot (visibility toggles, with a gap before it) so the + button never
    shifts under the finger between taps and never sits where clear will appear. */
 .step { display: inline-flex; align-items: center; gap: 6px; }
-/* font-family: inherit — the same <button> default that put «Höhenprofil» in the browser's face.
-   Invisible in practice, because the glyphs are only «−» and «+», but four of these steppers sit
-   inside the drawing detail column, and a panel that is font-consistent everywhere except its two
-   steppers is a trap for the next person who measures it. */
 .step-btn { width: 44px; height: 44px; flex: none; border-radius: var(--r-sm); border: 1px solid var(--border);
-  background: var(--surface-2); color: var(--ink); font-family: inherit; font-size: 19px; font-weight: 700; line-height: 1; cursor: pointer;
+  background: var(--surface-2); color: var(--ink); font-size: 19px; font-weight: 700; line-height: 1; cursor: pointer;
   display: grid; place-items: center; padding: 0; }
 @media (hover: hover) {
   .step-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); }

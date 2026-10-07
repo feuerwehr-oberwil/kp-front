@@ -163,11 +163,6 @@
 }
 /* the Höhenprofil discloser keeps the rows' rhythm — same label colour and left edge — and gains
    a real hover/expanded state so it reads as something you can open */
-/* font-family: inherit, and it is not optional. This is a <button>, and a button does NOT inherit
-   the page font on its own — it falls back to the browser's own UI face. Every other line in this
-   panel is a <span> inside .de-row, so «Höhenprofil» was the one label in the Messung block set in
-   a different typeface than the rows above and below it. Everything else here (13px/500/--ink-dim)
-   already matched .de-row exactly, which is what made the odd one out so hard to place. */
 /* it IS a row — same 48px rhythm, same 2px padding, same flush-right edge as every control above
    it. The old 8px of right padding pushed its chevron 8px inside the line the controls hold, and
    the 2px margin-top nudged it off the rhythm by exactly enough to notice without being able to
@@ -175,7 +170,7 @@
 .draw-editor .de-prof-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%;
   min-height: 48px; padding: 2px 0; border: 0; border-radius: var(--r-sm);
   background: transparent; color: var(--ink-dim); cursor: pointer;
-  font-family: inherit; font-size: 12.5px; font-weight: 700; -webkit-tap-highlight-color: transparent; }
+  font-size: 12.5px; font-weight: 700; -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) {
   .draw-editor .de-prof-toggle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
 }
@@ -193,11 +188,8 @@
   padding: 4px 0 2px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
-/* the same font-family: inherit as .de-prof-toggle above, for the same reason — these three are
-   buttons sitting among .de-row labels, and a button that does not ask for the page font gets the
-   browser's instead. */
 .draw-editor .de-conn-name { display: inline-flex; align-items: center; gap: 3px; max-width: 60%; padding: 0; border: 0;
-  background: none; color: var(--ink); font-family: inherit; font-size: 13px; font-weight: 600; }
+  background: none; color: var(--ink); font-size: 13px; font-weight: 600; }
 .draw-editor .de-conn-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the ONE disabled (28.09.2026): the dim, not a colour swap */
 .draw-editor .de-conn-name:disabled { opacity: var(--disabled); cursor: default; }
@@ -208,13 +200,13 @@
    blue word, 12px, a hyperlink in a command app */
 .draw-editor .de-conn-reveal { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
-  font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .draw-editor .de-conn-reveal:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (pointer: coarse) { .draw-editor .de-conn-reveal { min-height: var(--tap); } }
 /* also a row: the 28px height and the 2px/4px margins made the last line of the panel sit tighter
    than everything above it, and its text started 4px in from the left edge the labels hold. */
 .draw-editor .de-conn-detach { display: inline-flex; align-items: center; margin: 0; min-height: 48px; padding: 2px 0;
-  border: 0; background: transparent; color: var(--red); font-family: inherit; font-size: 12.5px; font-weight: 600; }
+  border: 0; background: transparent; color: var(--red); font-size: 12.5px; font-weight: 600; }
 @media (hover: hover) {
   .draw-editor .de-conn-detach:hover { text-decoration: underline; }
 }
@@ -229,12 +221,12 @@
 .draw-editor .de-gps-head span { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 500; color: var(--ink-dim); }
 .draw-editor .de-gps-back { display: flex; width: 100%; align-items: center; justify-content: center; min-height: 48px;
   margin-top: 6px; padding: 0 12px; border: 1px solid var(--green); border-radius: var(--r-sm);
-  background: var(--green); color: var(--on-fill); font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  background: var(--green); color: var(--on-fill); font-size: 14px; font-weight: 700; cursor: pointer; }
 .draw-editor .de-gps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 /* three moves (stop/continue · on site · here): the odd one out takes the whole second line */
 .draw-editor .de-gps-row > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 .draw-editor .de-gps-btn { min-height: 44px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--fill-soft); color: var(--ink); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  background: var(--fill-soft); color: var(--ink); font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .draw-editor .de-gps-back:active:not(:disabled),
 .draw-editor .de-gps-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
@@ -245,7 +237,7 @@
    not floating cards; the row label uses the friendly line name, not the raw id. */
 .ctx-connections button { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 8px 0; border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink);
-  font-family: inherit; font-size: 12.5px; font-weight: 700; text-align: left; }
+  font-size: 12.5px; font-weight: 700; text-align: left; }
 .ctx-connections button:first-of-type { border-top: 0; }
 .ctx-connections button > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctx-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }

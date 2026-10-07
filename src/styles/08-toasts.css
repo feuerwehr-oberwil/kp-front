@@ -710,7 +710,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    row so the whole 48px band stays tappable; only its glyph + word move to the controls' edge. */
 .de-action { display: flex; width: 100%; justify-content: flex-end; align-items: center;
   gap: 7px; min-height: 48px; padding: 2px 0;
-  border: 0; background: transparent; color: var(--ink); font-family: inherit; font-size: 12.5px;
+  border: 0; background: transparent; color: var(--ink); font-size: 12.5px;
   font-weight: 700; cursor: pointer; }
 .de-action .i { width: 16px; height: 16px; color: var(--ink-dim); }
 @media (hover: hover) {
