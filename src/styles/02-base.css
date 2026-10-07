@@ -107,6 +107,9 @@ button, input, select, textarea { font-family: inherit; }
 .ctx-x, .sym-close, .tl-play,
 .journal-x, .wb-dock-x, .ip-x, .jc-clip-x,
 .wb-dock-tog, .wb-dock-go, .jr-jump,
+/* the plan's «Massstab merken?» bar ✕ (34px): its neighbour is a .btn 8px away, a 5px pad reaches
+   neither it nor past the bar's own 7px padding (UI sweep 07.10.2026) */
+.wb-scale-persist-x,
 /* the Hilfe overlay's ✕ — a phone surface, alone in a padded row, so a pad cannot reach a
    neighbour (34px until 27.08.). The search fields' ✕ is a full --tap square (`.ui-search-x`). */
 .help-x { position: relative; }
@@ -115,7 +118,7 @@ button, input, select, textarea { font-family: inherit; }
 .journal-x::after, .wb-dock-x::after, .ip-x::after,
 .jc-clip-x::after,
 .wb-dock-tog::after, .wb-dock-go::after, .jr-jump::after,
-.help-x::after {
+.wb-scale-persist-x::after, .help-x::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
   transform: translate(-50%, -50%);
 }
