@@ -116,7 +116,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    box, but its overflow is clipped at the PADDING box: a `padding-top: 28px` here therefore
    pinned the settings table's column header 28px down while rows kept scrolling visibly
    through the band above it — a whole setting riding over the header that was meant to hide
-   it (admin.css · .adm-set-h). With the padding on the inner column the two edges coincide
+   it (admin.css · the settings sheet's former sticky column header). With the padding on the inner column the two edges coincide
    and `top: 0` means what it says.
    ⚠️ `scrollbar-gutter: stable` — the content column is the one box on /admin whose height
    changes under the reader (a page swap, a table that loads, a card that unfolds), and without
@@ -326,29 +326,13 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    the label column keeps its width even if something one day exceeds that cap. */
 .adm-settings {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(200px, min(400px, 42%)) fit-content(180px) 34px;
+  grid-template-columns: minmax(160px, 1fr) minmax(200px, min(400px, 42%)) 34px;
   align-items: stretch;
 }
-
-/* column header — sticky against the scrolling content column, so the four columns keep their
-   names on a long page. Opaque, not tinted: it scrolls OVER rows. */
-.adm-set-head { display: contents; }
-.adm-set-h {
-  position: sticky; top: 0; z-index: 2;
-  padding: 9px 8px; background: var(--surface);
-  border-bottom: 1px solid var(--border-soft);
-  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
-  color: var(--ink-faint);
-}
-.adm-set-h:first-child { padding-left: 18px; }
-.adm-set-h-info { padding-right: 14px; text-align: right; font-size: 12px; letter-spacing: normal; }
-/* ⚠️ The head is an opaque box painted OVER the card, and the card's corner is round. A square
-   head therefore filled the corner the card had just rounded away and cut straight across its
-   own hairline — a dark step at the top-left, visible on every titleless sheet. It has to carry
-   the same radius, minus the 1px border it sits inside of. Only where the grid IS the card's
-   first child: under a card head the corner is not the head's to round. */
-.adm-settings:first-child .adm-set-h:first-child { border-top-left-radius: calc(var(--r-surface) - 1px); }
-.adm-settings:first-child .adm-set-h-info { border-top-right-radius: calc(var(--r-surface) - 1px); }
+/* ⚠️ Three tracks since 07.10.2026 (UI sweep E5): the Standard column and the column header
+   are gone. The shipped default now stands in the value cell, after its control, and only
+   when the value deviates (`standardNote`) — see .adm-set-std. The starvation note above is
+   history for the 4th track, but its floor on Einstellung still holds. */
 
 /* group divider (Funk · Atemschutz – Druck …). Also the head of ONE RECORD in a list editor
    («Gr. 2», «TLF 1», a Formular) — same shape, plus the row's own action on the right. */
@@ -381,9 +365,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 }
 .adm-set-name { font-size: 13px; font-weight: 600; color: var(--ink); }
 .adm-set-unit { font: 500 11.5px var(--mono); color: var(--ink-faint); }
-/* the Standard column is empty on every row that still runs on the shipped value — it speaks
+/* the Standard note is empty on every row that still runs on the shipped value — it speaks
    only for a deviation, which is the whole reason it can sit there without adding noise */
 .adm-set-std { font: 500 11.5px var(--mono); color: var(--amber-strong); white-space: nowrap; }
+.adm-set-std:empty { display: none; }
 /* ⚠️ The Wert cell WRAPS. It is a flex row (`.adm-set-row > *` above), and a non-wrapping flex
    row's max-content width is every child laid out on ONE line — which on a `span` row is exactly
    the surplus the grid then pushes into the Standard column. Wrapping (plus `min-width: 0`)
@@ -394,6 +379,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-set-ctl > .adm-color-row,
 .adm-set-ctl > .adm-combo,
 .adm-set-ctl > .adm-select { width: 100%; }
+/* a number is sized to a number: «11» in a 380px box read as a form field nobody had filled
+   in. 10 characters of the mono face covers every doctrine and Rapport value. */
+.adm-set-ctl > .adm-input.adm-input-num { width: calc(10ch + 28px); flex: none; }
 /* A control in the table is a table control: `.adm-input`'s 44px is a gloved-tap floor, and at
    44 per row the table is a stack of cards again — which is the thing this layout set out to
    stop being.
@@ -414,12 +402,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 
 /* ⚠️ A control that cannot live in the Wert column alone and must not scroll sideways to hide
    the rest of itself — the Truppfarben swatches, a chip list, a long URL, a textarea. It takes
-   the Wert AND Standard columns and WRAPS; the ⓘ stays in its own column, so the row still
-   reads as a row.
-   `2 / -2` = «everything but the ⓘ», in BOTH layouts: the narrow grid below drops the Standard
-   column, and a hard `2 / 4` there would have pushed the ⓘ into a fourth column of its own. */
+   the Wert column and WRAPS; the ⓘ stays in its own column, so the row still reads as a row.
+   `2 / -2` = «everything but the ⓘ». */
 .adm-set-row.span > .adm-set-ctl { grid-column: 2 / -2; }
-.adm-set-row.span > .adm-set-std { display: none; }
 .adm-set-row.span > .adm-set-ctl > * { min-width: 0; }
 /* ⚠️ …and a textarea row is TALL, so its label must not float in the middle of 360px of empty
    column. Everything else on the row lines up with the first line of the box instead — which is
@@ -460,12 +445,11 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-settings > *:last-child,
 .adm-settings > *:last-child > * { border-bottom: 0; }
 
-/* ⚠️ Narrow screens drop the Standard column rather than scrolling the page sideways: it is the
-   one column that is commentary. Below the phone breakpoint the control moves under its label,
-   so a 13-character label never squeezes the value box into two characters. */
+/* Narrow screens give the label column its share back. Below the phone breakpoint the control
+   moves under its label, so a 13-character label never squeezes the value box into two
+   characters. */
 @media (max-width: 900px) {
   .adm-settings { grid-template-columns: minmax(0, 1fr) minmax(170px, min(360px, 46%)) 34px; }
-  .adm-set-h-std, .adm-set-row > .adm-set-std { display: none; }
 }
 /* ⚠️ …and below the phone breakpoint it stops being a table at all: the row becomes a flex
    block (label + ⓘ on one line, control under them). NOT a narrower grid — `order` cannot
@@ -473,7 +457,6 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    `display: contents` row's cells are the GRID's items, not the row's. */
 @media (max-width: 560px) {
   .adm-settings { display: block; }
-  .adm-set-h { display: none; }
   .adm-set-row {
     display: flex; flex-wrap: wrap; align-items: center;
     padding: 6px 0 8px; border-bottom: 1px solid var(--border-soft);
@@ -486,7 +469,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   .adm-set-lbl { flex: 1 1 auto; }
   .adm-set-info { flex: 0 0 auto; }
   .adm-set-ctl { order: 3; flex: 1 0 100%; }
-  .adm-set-ctl .adm-input { width: 100%; }
+  .adm-set-ctl .adm-input:not(.adm-input-num) { width: 100%; }
 }
 /* ── record cards (ui.tsx · RecordTable / RecordRows) ─────────────────────────────────────────
    «Karten für Datensätze, Zeilen für Werte» — the grammar of /admin. A list editor's records
@@ -1371,6 +1354,8 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   font-size: 14px; line-height: 1; border-radius: var(--r-pill);
   transition: color .14s var(--ease), background .14s var(--ease);
 }
+/* the #info line icon fills the trigger (the page title's is 20px, see .adm-h1) */
+.adm-tip-trigger .i { width: 100%; height: 100%; }
 /* invisible hit pad: the 18px glyph alone is untappable on touch */
 .adm-tip-trigger::before { content: ''; position: absolute; inset: -10px; border-radius: 50%; }
 @media (hover: hover) {

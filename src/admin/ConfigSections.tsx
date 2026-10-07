@@ -137,7 +137,7 @@ function useNumberField() {
       <Fragment key={key}>
         <SettingRow label={opts.label} tip={opts.tip} standard={standard}>
           <input
-            className="adm-input adm-input-mono"
+            className="adm-input adm-input-mono adm-input-num"
             type="number"
             step={opts.guard.kind === 'int' ? 1 : 'any'}
             min={opts.guard.min} max={opts.guard.max}
@@ -940,7 +940,7 @@ export function DoctrineSection() {
         })}
       {effectiveAlarmBar === 0 ? (
         <SettingRow label={C.alarmBarRueckzug} tip={C.alarmBarRueckzugDisabledTip}>
-          <input className="adm-input adm-input-mono" type="number" value="0" disabled />
+          <input className="adm-input adm-input-mono adm-input-num" type="number" value="0" disabled />
         </SettingRow>
       ) : numberField({
           path: ['doctrine', 'alarmBarRueckzug'],

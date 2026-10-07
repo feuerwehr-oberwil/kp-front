@@ -5814,18 +5814,12 @@ export const de = {
       // zurück ist sonst nirgends erwähnt, und die Konfiguration speichert nach 700 ms von
       // selbst.
       deleteRecovery: 'Gelöschte Zeilen holt «Sicherung › Letzte Änderungen» zurück.',
-      // Spaltentitel der Einstellungs-Tabelle. Eine Zeile je Einstellung – die Erklärung steht
-      // im ⓘ, nicht mehr als Fliesstext unter dem Feld.
-      colSetting: 'Einstellung',
-      colValue: 'Wert',
-      colStandard: 'Standard',
-      colInfo: 'Info',
       // ⚠️ Steht NUR, wenn der Wert vom mitgelieferten Standard abweicht. Ein leeres Feld läuft
       // auf dem Standard und ist keine Abweichung – sonst stünde die Spalte auf jeder Zeile und
       // wäre wieder das, was sie ersetzen soll.
-      // ⚠️ Ohne das Wort «Standard»: die Spaltenüberschrift sagt es bereits, und in jeder Zelle
-      // noch einmal war es die Wiederholung, die diese Tabelle abschaffen sollte.
-      standardChanged: '{value} · geändert',
+      // Mit dem Wort «Standard»: seit 07.10.2026 gibt es keine Spaltenüberschrift mehr, die es
+      // sagt – die Notiz steht direkt hinter dem Feld und muss für sich allein lesbar sein.
+      standardChanged: 'Standard {value}',
       standardOn: 'Ja',
       standardOff: 'Nein',
       // Überschrift einer Listen-Zeile, solange sie noch keinen eigenen Namen trägt

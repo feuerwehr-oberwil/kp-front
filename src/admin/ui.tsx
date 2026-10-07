@@ -143,7 +143,6 @@ export function SettingsSheet({ id, title, caption, tip, children }: {
   tip?: string
   children: ReactNode
 }) {
-  const C = appConfig.copy.admin.common
   return (
     <section className="adm-card adm-sheet" id={id}>
       {(title || caption) && (
@@ -157,13 +156,10 @@ export function SettingsSheet({ id, title, caption, tip, children }: {
           {caption && <p className="adm-card-cap">{caption}</p>}
         </header>
       )}
+      {/* No column header (UI sweep 07.10.2026, E5): every card repeated EINSTELLUNG / WERT /
+          STANDARD / ⓘ over rows that name themselves — label left, value right, the ⓘ at the end
+          — and the Standard column was empty on almost every row. */}
       <div className="adm-settings">
-        <div className="adm-set-head">
-          <span className="adm-set-h">{C.colSetting}</span>
-          <span className="adm-set-h">{C.colValue}</span>
-          <span className="adm-set-h adm-set-h-std">{C.colStandard}</span>
-          <span className="adm-set-h adm-set-h-info" aria-label={C.colInfo}>ⓘ</span>
-        </div>
         {children}
       </div>
     </section>
@@ -205,7 +201,7 @@ function readable(v: string | number | boolean): string {
 }
 
 /**
- * The Standard column's cell: «Standard 100 · geändert», or null when there is nothing to say.
+ * The Standard note after a control: «Standard 100», or null when there is nothing to say.
  *
  * ⚠️ The column is EMPTY on most rows on purpose. It answers one question — «is this still what
  * ships?» — so it speaks only when the answer is no. Printing «Standard 100» on every row would
@@ -227,7 +223,7 @@ export function standardNote(
 const FOCUSABLE = 'input:not([type="hidden"]), textarea, select, button, [tabindex]'
 
 /**
- * One setting: label | control | Standard | ⓘ.
+ * One setting: label | control (+ its Standard, when it deviates) | ⓘ.
  *
  * ⚠️ The rule, so that two controls that look alike are not laid out differently: EVERY setting
  * reads label-left / value-right. A control that does not fit the Wert column on its own takes
@@ -277,8 +273,12 @@ export function SettingRow({ label, hint, tip, standard, span, children }: {
         <label className="adm-set-name" ref={name}>{label}</label>
         {hint && <span className="adm-field-hint">{hint}</span>}
       </span>
-      <span className="adm-set-ctl" ref={ctl}>{children}</span>
-      <span className="adm-set-std">{standard}</span>
+      {/* the shipped default stands INSIDE the value cell, after the control, and only when the
+          value deviates from it — no column of its own that is empty on nine rows out of ten */}
+      <span className="adm-set-ctl" ref={ctl}>
+        {children}
+        <span className="adm-set-std">{standard}</span>
+      </span>
       <span className="adm-set-info">
         {tip && <InfoTip label={label} text={tip} />}
       </span>
