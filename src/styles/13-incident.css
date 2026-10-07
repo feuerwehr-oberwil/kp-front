@@ -1502,8 +1502,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    resort. The squeeze the old wrap answered is now the ladder's: a cut <h2> or chip count is
    «does not fit», so the words go before the title is ever squeezed. */
 .rp-head { flex: none; display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap;
-  padding: var(--head-pad); padding-inline: var(--content-pad-x, var(--head-pad-x));
-  min-height: calc(var(--tap) + 2 * var(--head-pad-y));
+  padding: var(--head-pad); min-height: calc(var(--tap) + 2 * var(--head-pad-y));
   background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge); }
 .rp-head-titles { flex: 1 1 auto; min-width: 0; }
 .rp-head[data-fit-wrap] { flex-wrap: wrap; }
@@ -1522,13 +1521,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-head-done svg { width: 13px; height: 13px; }
 .rp-head-actions { flex: none; margin-left: auto;
   display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-content: flex-end; }
-/* wide screens: the head's inset follows the capped content and the tiles follow the title — the
-   shared rule (Surface.module.css · «cap + columns»), restated because this head
-   is not composed from it (see .rp-head) */
-@media (min-width: 1300px) {
-  .rp-head-titles { flex: 0 1 auto; }
-  .rp-head-actions { margin-left: 8px; }
-}
 /* Each control keeps its own width when the cluster wraps — only the print split may give, and
    it gives by truncating its label, never by dropping its ▾. The readiness chip is NOT allowed
    to become icon-only here: it is the one control on this row that reports a problem, and the

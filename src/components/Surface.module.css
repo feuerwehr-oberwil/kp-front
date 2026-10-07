@@ -74,12 +74,16 @@
 :where(.head[data-fit-wrap]) > :where(.headTitles) > :where(p) { white-space: normal; }
 :where(.head[data-fit-wrap]) :where(.headActions) { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
 
-/* ===== Wide screens: cap + columns (B1, decided 07.10.2026) =============================== */
+/* ===== Wide screens: cap + columns (B1, decided 07.10.2026, revised the same day) ========== */
 /* At 1920 a surface is ~1800px wide, and a form or list that fills it puts a row's name 830px from
-   its «+», a stepper 650px from its label, the head's tiles 1700px from the title. FORM and LIST
-   surfaces therefore stop at the width their content needs and centre it on the surface ground;
-   BOARDS (Karte, Plan, Trupps, Anwesenheit grid, Zeitplan) stay full width.
-   ⚠️ How a surface takes part — and nothing else needs to change on it:
+   its «+» and a stepper 650px from its label. The BODY of a form or list surface therefore stops at
+   the width its content needs and stands centred on the surface ground; BOARDS (Karte, Plan,
+   Trupps, Anwesenheit grid, Zeitplan) stay full width.
+   ⚠️ The HEAD and the search line are NOT capped, on any surface (owner, 07.10.2026: «keep things
+   right aligned»): they stay full surface width with the tiles and the filters at the RIGHT edge,
+   exactly as on a tablet. A wide head only ever gains words (the ladder unfolds them by itself,
+   lib/pageHeadFit), never a new place for its tiles.
+   How a surface takes part:
    1. it sets `--content-max` (the width of its CONTENT box, the padding not included) on its
       shell, ONLY inside a `min-width` block of 1181px or more. Unset, the inset below is exactly
       `--head-pad-x`, so a phone and every tablet up to 1180 landscape are untouched by
@@ -87,20 +91,10 @@
    2. its scrolling body (a direct child of the shell) takes `padding-inline: var(--content-pad-x)`
       in that same block. The body stays full width, so its scrollbar stays at the surface edge;
       only its content is centred.
-   The HEAD needs nothing: it takes the same inset here, so its title starts where the content
-   starts. A `%` in padding is the containing block's width — the shell's for a direct child —
-   and an unregistered custom property is substituted where it is USED, so this one formula is
-   right on every child that reads it. */
+   A `%` in padding is the containing block's width — the shell's for a direct child — and an
+   unregistered custom property is substituted where it is USED, so this one formula is right on
+   every child that reads it. */
 :where(.shell) { --content-pad-x: max(var(--head-pad-x), calc((100% - var(--content-max, 100%)) / 2)); }
-:where(.head) { padding-inline: var(--content-pad-x, var(--head-pad-x)); }
-/* …and the head's tiles FOLLOW the title once the head is that wide (owner's decision: «actions
-   move next to the title once the head is wider than ~1200px»). The surface is the viewport less
-   104px of rail and inset, so 1300px is where a full-width head passes 1200. A tablet (≤ 1180) and
-   a phone keep the tiles at the right end, where the thumb knows them. */
-@media (min-width: 1300px) {
-  :where(.headTitles) { flex: 0 1 auto; }
-  :where(.headActions) { margin-left: 8px; }
-}
 
 /* Phone (and a short landscape tablet): the surface takes the full width below the floating top
    bar — 78px clears it with a visible gap, at 64px the header sat glued under it — and the

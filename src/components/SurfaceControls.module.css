@@ -22,14 +22,6 @@
    SearchField, `.ui-search` in 13-incident.css, 29.09.2026). It was a framed white box here with
    a ~23px ✕ of its own, on the two busiest tablet lists. */
 .search { flex: 1 1 240px; }
-/* Wide screens (B1, 07.10.2026 — Surface.module.css · «cap + columns»): the field stops at 640px
-   and the filters and the + stand right after it, instead of 1500px away at the far end of an
-   empty bar. On a capped surface (Mittel) the line also takes the content's inset, so it starts
-   where the list starts; on a board (Anwesenheit) that inset is the plain 22px. */
-@media (min-width: 1181px) {
-  .controls { padding-inline: var(--content-pad-x, 22px); }
-  .search { max-width: 640px; }
-}
 
 /* a filter button: one glyph, --tap square, opening a Menu */
 .iconBtn {
