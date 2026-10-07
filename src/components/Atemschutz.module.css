@@ -173,10 +173,17 @@
    ~13.5px the 44px tap floor leaves above the row's own text made the gap BETWEEN them twice
    the gap above the line. Dropping the bottom padding hands that job entirely to the row's own
    centring — one gap, not two stacked ones — and takes 5px off the card while doing it. */
-.metaLine { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 9px;
+/* ⚠️ The «·» stands IN the gap, not in the item after it: inside the item it travelled with it,
+   so a wrapped line (the portrait iPad's «22:01 min · Schätzung ≈ 135 bar») STARTED with the
+   dot. Placed in the gap, a line-leading dot falls left of the line's own box and
+   `overflow-x: clip` drops it; a line break between two values shows no separator at all
+   (UI sweep 07.10.2026). Where `clip` is unknown (iOS < 16) the dot simply stays visible. */
+.metaLine { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 15px; overflow-x: clip;
   padding: 6px 14px 0; font: 600 12px/17px var(--body); color: var(--ink-dim); }
 .metaLine > span { display: inline-flex; align-items: baseline; gap: 5px; white-space: nowrap; }
-.metaLine > span + span::before { content: '·'; margin-right: 4px; color: var(--ink-faint); opacity: .7; }
+.metaLine > span + span { position: relative; }
+.metaLine > span + span::before { content: '·'; position: absolute; right: 100%; width: 15px; text-align: center;
+  color: var(--ink-faint); opacity: .7; }
 .metaLine i { font-style: normal; }
 .metaLine b { font: 700 12.5px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 /* (`.metaEst`, the Schätzung's dimmed + lighter value, went on 29.09.2026, T2: the owner wants the
