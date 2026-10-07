@@ -1394,6 +1394,15 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
   transition: opacity .12s var(--ease), transform .12s var(--ease);
 }
+/* ⚠️ A CLOSED pop is not in the layout at all. `visibility: hidden` still lays it out, centred
+   on its trigger and un-shifted (--tip-shift is only measured on open), so an ⓘ near the right
+   edge of a phone left a 248px box hanging past the content column — Personal and Objektbesuche
+   scrolled ~80px sideways for nothing. The measurement in InfoTip runs after `data-open` is set,
+   so it still sees a laid-out box; the fade-in starts from `@starting-style`. */
+.adm-tip-pop:not([data-open]) { display: none; }
+@starting-style {
+  .adm-tip-pop[data-open] { opacity: 0; }
+}
 /* little caret — compensates the shift so it stays centered on the trigger */
 .adm-tip-pop::after {
   content: '';
