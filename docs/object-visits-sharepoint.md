@@ -34,7 +34,7 @@ note its expiry.
 
 ## 2 – the three values in KP Front
 
-`/admin` → **Zugangsdaten** → group **SharePoint-Ablage** (`sharepoint_export`):
+`/admin` → **Anbindungen** → group **SharePoint-Ablage** (`sharepoint_export`):
 «Azure Tenant-ID (Ablage)», «Azure Client-ID (Ablage)», «Azure Client-Secret (Ablage)».
 Like every credential they are encrypted at rest and the secret is write-only.
 

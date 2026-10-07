@@ -219,7 +219,7 @@ async def test_a_traccar_failure_is_written_at_once_however_recently_it_succeede
 
 async def test_a_quiet_feed_is_still_a_working_connector(db_session, incident, traccar, run_job):
     """Traccar answered; no tracker had anything to say. «Verbunden, niemand meldet sich» is a
-    state of its own, and reading it as a dead connector would send somebody to Zugangsdaten."""
+    state of its own, and reading it as a dead connector would send somebody to Anbindungen."""
     await run_job(scheduler._vehicle_samples_sweep)
 
     row = await _row(db_session, connector_state.TRACCAR)

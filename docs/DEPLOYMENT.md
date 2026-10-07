@@ -288,7 +288,7 @@ Do it in this order. Steps 3 and 4 are the ones people discover afterwards.
    per-source login throttle keys every request on the proxy's address instead of the real
    client (the backend warns at startup about that shape). **Integration
    credentials do not belong here** – Divera, Traccar, Web Push, STT, CARTO, the webhook secrets
-   and the monitor ping go into `/admin` → Zugangsdaten, encrypted in the deployment's own
+   and the monitor ping go into `/admin` → Anbindungen, encrypted in the deployment's own
    database and changeable without a redeploy (§4).
 
 6. **Deploy, then verify two URLs, not one.**
@@ -368,7 +368,7 @@ railway ssh keys add                          # once, for the copy below
 | What | Where | Who |
 |------|-------|-----|
 | Host + boot secrets | `.env` (env vars) | operator, at deploy time |
-| Integration credentials | `/admin` → Zugangsdaten, encrypted in the DB – **or** `.env`, which wins | operator or technical deployment owner, any time |
+| Integration credentials | `/admin` → Anbindungen, encrypted in the DB – **or** `.env`, which wins | operator or technical deployment owner, any time |
 | Station config + assets | forms at `/admin`, writing the DB/reference store directly; or a private config/data repo → CLI, for config as code | technical deployment owner |
 | Per-incident settings | in-app | any user, during an incident |
 
@@ -385,7 +385,7 @@ automatically. For a managed Postgres, set `DATABASE_URL` directly instead. Set 
 Seventeen of the optional variables in `.env.example` – every Divera, Traccar, Web Push,
 speech-to-text and webhook setting, plus `CARTO_API_KEY`, `PRINT_AGENT_SECRET` and
 `HEALTHCHECK_PING_URL` – can
-instead be set at `/admin` → **Zugangsdaten**, stored encrypted in this deployment's own database
+instead be set at `/admin` → **Anbindungen**, stored encrypted in this deployment's own database
 and applied **without a restart**. `SETUP.md` §5 is the operator's version, including which
 variables deliberately stay env-only and why; `API.md` has the endpoints.
 
@@ -532,7 +532,7 @@ to one that is merely broken – an app answering 503 because its disk is full s
 wrong, and the compose healthcheck has no consumer that alerts anybody.
 
 The app has a **dead-man's switch** built in and switched off. Point `HEALTHCHECK_PING_URL` at a
-ping URL (healthchecks.io is free and enough) – at `/admin` → **Zugangsdaten**, where it takes
+ping URL (healthchecks.io is free and enough) – at `/admin` → **Anbindungen**, where it takes
 effect immediately, or in `.env`, which wins and locks the field (§4) – and it pings **every 60 s**
 after its database and storage readiness checks succeed (`backend/app/scheduler.py` – the
 heartbeat job is registered with `seconds=60`). Failed or timed-out checks withhold the ping.
@@ -734,7 +734,7 @@ what makes the data usable:
   account is locked out, with no way to tell that from "wrong PIN".
 - It **derives the key every stored integration credential is encrypted under** (§4). Under a
   different `SECRET_KEY` those rows cannot be opened at all: Divera, Traccar, Web Push, STT, both
-  webhook intakes and the monitor ping report themselves in «Zugangsdaten» as
+  webhook intakes and the monitor ping report themselves in «Anbindungen» as
   «unlesbar, bitte neu setzen» and stay off until somebody types each one in again. That is
   deliberately loud rather than silent – an undecryptable value is never shown as merely
   "not configured" – but it is still every integration down at once.
@@ -805,7 +805,7 @@ producing files. It prints the command that fixes what it finds. It is the same 
   and deactivates everyone not in it, so run it with the *target* deployment's `SECRET_KEY` and
   `DATABASE_URL` (`CONFIGURATION.md` §9g has the exact invocation and the caveats). On a
   Docker-only host it needs no toolchain either:
-  `docker compose exec app uv run python -m app.reset_roster`. Check `/admin` → Zugangsdaten in
+  `docker compose exec app uv run python -m app.reset_roster`. Check `/admin` → Anbindungen in
   the same pass: the stored credentials are encrypted under a key derived from that same value,
   and they will be showing «unlesbar» (§6).
 - **`ADMIN_SECRET` is lost – nobody can open `/admin`:** this one is **not** a

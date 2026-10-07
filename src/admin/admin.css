@@ -314,7 +314,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    `2 / -2`, i.e. Wert AND Standard — handed its whole max-content surplus to Standard. Standard
    ballooned, the free space the `1fr` lives on went to zero, and Einstellung collapsed to 0px
    for EVERY row of that sheet, the labels spilling visibly over the value cells (Rapport's
-   chip lists, Zugangsdaten's key rows). `fit-content` caps what a span row can push into
+   chip lists, Anbindungen' key rows). `fit-content` caps what a span row can push into
    Standard — 180px is well past the widest «#e8392b · geändert» — and the `160px` floor means
    the label column keeps its width even if something one day exceeds that cap. */
 .adm-settings {

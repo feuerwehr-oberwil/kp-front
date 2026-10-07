@@ -1,4 +1,4 @@
-// Zugangsdaten — the station's integration credentials, set from a browser instead of a
+// Anbindungen («Zugangsdaten der Anbindungen») — the station's integration credentials, set from a browser instead of a
 // terminal. Backed by GET/PUT/DELETE /api/integrations/credentials (app/api/credentials.py).
 //
 // Three rules shape this page, and each one is visible in the markup:

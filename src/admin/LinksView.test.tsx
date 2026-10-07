@@ -8,7 +8,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 //
 //   · every configured card shows ITS OWN address, once — four cards built from four endpoints
 //     is four chances to hand out the wrong one, or the same one twice.
-//   · the page is ADDRESSES. The Einsatz-Link minting key left for «Zugangsdaten» on
+//   · the page is ADDRESSES. The Einsatz-Link minting key left for «Anbindungen» on
 //     2026-09-11 because it never had one, and the test below holds it gone: not merely
 //     invisible, but not even fetched from here.
 //   · ⚠️ THE TWO GENERAL GUARDS, and the reason they are written over ALL cards rather than per
@@ -56,7 +56,7 @@ const COMMON = appConfig.copy.admin.common
  *  else's address is visible as such.
  *
  *  ⚠️ `/api/incident-link/secret` is deliberately NOT in here: the minting key belongs to
- *  «Zugangsdaten» now, and a GET for it from this page falls into the rejection below. */
+ *  «Anbindungen» now, and a GET for it from this page falls into the rejection below. */
 const KEYS: Record<string, string> = {
   '/api/capture/secret': 'cap-1',
   '/api/incident-link/terminal/secret': 'term-1',

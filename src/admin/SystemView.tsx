@@ -369,7 +369,7 @@ function SharePointCard({
   }
 
   // «Verbindung testen» — the setupOf()-gated pattern DataView's provider pages use (unconfigured
-  // hides the probe and offers Zugangsdaten, configured-but-unreachable keeps it), applied to a
+  // hides the probe and offers Anbindungen, configured-but-unreachable keeps it), applied to a
   // connector whose OWN status already tells credentials and folders apart: here that fact is
   // simply `status.credentials`, since the probe (api/sharepoint · POST /probe) only needs a
   // token — it works with zero folders configured, exactly like this button does.
@@ -421,7 +421,7 @@ function SharePointCard({
     <Card title={C.sharepoint} tip={C.sharepointTip}>
       {!status.credentials ? (
         // Unconfigured: no probe offered — it can only fail, and the failure would teach an
-        // operator nothing they cannot already read off «nicht eingerichtet». Zugangsdaten is
+        // operator nothing they cannot already read off «nicht eingerichtet». Anbindungen is
         // where this is actually fixed (same move as DataView's OpenCredentials).
         <EmptyState
           message={C.spNotSetUp}

@@ -5740,7 +5740,7 @@ export const de = {
       previewChecklist: 'Kontrolle Schlüsselhülse',
       credentials: 'Zugangsdaten',
       credentialsBody: 'Eigene App-Registrierung mit «Sites.Selected · write» nur auf dieser Website – nicht die Lese-Anmeldung des Imports.',
-      credentialsGo: 'Zugangsdaten öffnen',
+      credentialsGo: 'Anbindungen öffnen',
       test: 'Testablage',
       testOk: 'Testdatei abgelegt',
       testFailed: 'Testablage fehlgeschlagen',
@@ -5960,7 +5960,7 @@ export const de = {
         tip: 'Jede Zeile ist ein eigener Schlüssel: Erfassungs-Poster, Stations-Terminal, fixer Atemschutz-Code und der Statistik-Export. Rotieren macht die alte Adresse sofort ungültig.',
       },
       zugaenge: {
-        label: 'Zugangsdaten',
+        label: 'Anbindungen',
         title: 'Zugangsdaten der Anbindungen',
         lede: 'Divera, Fahrzeugortung, Push-Meldungen, Spracherkennung, Webhooks und Überwachung – hier eintragen statt in .env, ohne Neustart.',
         tip: 'Eingetragene Schlüssel werden verschlüsselt gespeichert und nie wieder angezeigt – auch hier nicht. Ersetzen ist möglich, Auslesen nicht. Ausnahme ist der Einsatz-Link-Schlüssel weiter unten: den erzeugt KP Front selbst und zeigt ihn deshalb wieder an.',
@@ -6179,12 +6179,12 @@ export const de = {
       cardHead: 'Atemschutzüberwachung',
       cardHint: 'QR-Code scannen – öffnet die Überwachungstafel des laufenden Einsatzes. Keine Anmeldung nötig.',
     },
-    // Zugangsdaten — die Schlüssel der Anbindungen, aus dem Terminal in den Browser geholt.
+    // Anbindungen — die Schlüssel der Anbindungen, aus dem Terminal in den Browser geholt.
     // ⚠️ Der Text sagt an jeder Stelle dasselbe wie die API: gesetzt ja/nein, nie der Wert.
     // «Ersetzen» statt «Ändern», weil man einen Schlüssel hier nicht sieht und deshalb auch
     // nicht bearbeitet – man legt einen neuen hin.
     links: {
-      secretAppend: 'Das Secret kommt noch dazu – als ?secret=… angehängt oder als Header X-Webhook-Secret. Es wird unter Zugangsdaten gesetzt und ist nie wieder lesbar.',
+      secretAppend: 'Das Secret kommt noch dazu – als ?secret=… angehängt oder als Header X-Webhook-Secret. Es wird unter «Anbindungen» gesetzt und ist nie wieder lesbar.',
       addressLabel: 'Adresse',
       keyLabel: 'Schlüssel',
       purposeFirehub: 'FireHub (Tercero) meldet Alarme an diese Adresse',
@@ -6197,7 +6197,7 @@ export const de = {
       purposeStats: 'Lesetoken für externe Auswertungen',
       purposeAlarm: 'Die Alarmierung meldet Alarme an diese Adresse',
       keyMissing: 'Schlüssel fehlt',
-      toCredentials: 'Zugangsdaten',
+      toCredentials: 'Anbindungen',
       notConfigured: 'nicht eingerichtet',
     },
     zugaenge: {
@@ -6955,8 +6955,8 @@ export const de = {
       // «nicht konfiguriert» plus ein Verbindungstest, der zwangsläufig scheitert, war bisher
       // eine Sackgasse: Der Schlüssel wird eine Seite weiter eingetragen.
       trackingSetupTitle: 'Fahrzeugortung ist nicht eingerichtet.',
-      trackingSetupBody: 'Ohne Traccar-Adresse und Anmeldung holt diese Installation keine Positionen ab – ein Verbindungstest kann bis dahin nur scheitern. Beides wird unter Zugangsdaten eingetragen.',
-      openCredentials: 'Zugangsdaten öffnen',
+      trackingSetupBody: 'Ohne Traccar-Adresse und Anmeldung holt diese Installation keine Positionen ab – ein Verbindungstest kann bis dahin nur scheitern. Beides wird unter «Anbindungen» eingetragen.',
+      openCredentials: 'Anbindungen öffnen',
       // ─── «Anbindung einrichten» ──────────────────────────────────────────────────────
       // Die Seite, die «nicht konfiguriert» meldet, sagt jetzt auch WIE – denn genau hier
       // landet eine frische Station, und die beiden Wege liegen nebeneinander, statt dass
@@ -6969,13 +6969,13 @@ export const de = {
       pathDiveraMeans: 'KP Front holt die Alarme selbst ab. Nötig ist ein Accesskey – sonst nichts. Die Leitstelle muss nichts umstellen.',
       pathWebhook: 'Webhook-Eingang',
       pathWebhookMeans: 'Die Leitstelle schickt den Alarm an eine Adresse dieser Installation – FireHub (Tercero), Pager-Gateway oder ein eigenes Skript.',
-      diveraNote: 'Der Accesskey der Wehr wird unter Zugangsdaten eingetragen. Sobald er steht, holt diese Installation die Alarme von selbst ab – hier ist nichts weiter einzurichten.',
-      diveraGo: 'Accesskey in Zugangsdaten hinterlegen',
+      diveraNote: 'Der Accesskey der Wehr wird unter «Anbindungen» eingetragen. Sobald er steht, holt diese Installation die Alarme von selbst ab – hier ist nichts weiter einzurichten.',
+      diveraGo: 'Accesskey unter Anbindungen hinterlegen',
       genericLabel: 'Allgemeine Schnittstelle · POST',
       firehubLabel: 'FireHub (Tercero) · Webhook-Ziel',
       secretTitle: 'Ohne Alarm-Webhook-Secret bleibt dieser Eingang zu.',
-      secretBody: 'Solange es fehlt, weist der Server jeden eingehenden Alarm ab (403) – auch den der richtigen Leitstelle. Gesetzt wird es unter Zugangsdaten; hier steht es nie.',
-      secretGo: 'Secret in Zugangsdaten hinterlegen',
+      secretBody: 'Solange es fehlt, weist der Server jeden eingehenden Alarm ab (403) – auch den der richtigen Leitstelle. Gesetzt wird es unter «Anbindungen»; hier steht es nie.',
+      secretGo: 'Secret unter Anbindungen hinterlegen',
       setupDocsNote: 'Feldliste, Beispielaufruf und Wiederholverhalten:',
       setupDocs: 'Integrations-Doku',
       provider: 'Quelle',
@@ -7242,11 +7242,11 @@ export const de = {
       pullAnd: '{a} und {b}',
       pullOn: 'Zeitgesteuerter Abgleich läuft.',
       pullOnTip: 'Ein Teil der Pläne kommt darüber automatisch herein. Was der letzte Lauf getan '
-        + 'hat, steht unter «System», der Zugang unter «Zugangsdaten › SharePoint» und die Ordner '
+        + 'hat, steht unter «System», der Zugang unter «Anbindungen › SharePoint» und die Ordner '
         + 'in der Konfiguration.',
-      pullOff: 'Kein zeitgesteuerter Abgleich – einrichten unter «Zugangsdaten › SharePoint».',
+      pullOff: 'Kein zeitgesteuerter Abgleich – einrichten unter «Anbindungen › SharePoint».',
       pullOffTip: 'Das ist der Normalfall, kein Fehler: Alle Pläne kommen von Hand in die Maske. '
-        + 'Zum Einrichten zuerst der Zugang unter «Zugangsdaten › SharePoint», danach die Ordner '
+        + 'Zum Einrichten zuerst der Zugang unter «Anbindungen › SharePoint», danach die Ordner '
         + 'in der Konfiguration.',
       pullSkips: '{n} von {total} Objekten haben keinen Ordner-Schlüssel – der Abgleich aus dem '
         + 'Planspeicher lässt sie aus.',
@@ -7647,12 +7647,12 @@ export const de = {
       // 401, und an der App sieht man nichts – auf den Tablets stehen einfach die Pläne von
       // vorher. «Zuletzt geprüft» wäre dann grün und gelogen.
       sharepoint: 'SharePoint-Anbindung',
-      sharepointTip: 'Holt Objektpläne, Geodaten, Checklisten und die Arbeitsmappe aus den SharePoint-Ordnern der Wehr – nur lesend, geschrieben wird dort nie. Welche Ordner: Konfiguration; Zugang: Zugangsdaten › SharePoint.',
+      sharepointTip: 'Holt Objektpläne, Geodaten, Checklisten und die Arbeitsmappe aus den SharePoint-Ordnern der Wehr – nur lesend, geschrieben wird dort nie. Welche Ordner: Konfiguration; Zugang: Anbindungen › SharePoint.',
       spNotSetUp: 'Nicht eingerichtet.',
-      spNotSetUpHint: 'Tenant-ID, Client-ID und Client-Secret unter Zugangsdaten eintragen, danach die Ordner in der Konfiguration. Die Anleitung steht in docs/sharepoint-connector.md.',
+      spNotSetUpHint: 'Tenant-ID, Client-ID und Client-Secret unter «Anbindungen» eintragen, danach die Ordner in der Konfiguration. Die Anleitung steht in docs/sharepoint-connector.md.',
       spNoSources: 'Zugang steht, es ist aber kein Ordner hinterlegt.',
       spNoSourcesHint: 'In der Konfiguration unter «sharepoint.sources» je Bereich einen Ordner angeben – nur die Bereiche, die es bei euch gibt. Die Anleitung steht in docs/sharepoint-connector.md.',
-      spOpenCredentials: 'Zugangsdaten öffnen',
+      spOpenCredentials: 'Anbindungen öffnen',
       spTestConnection: 'Verbindung testen',
       spTesting: 'Wird geprüft …',
       spTestOk: 'Verbindung erfolgreich.',

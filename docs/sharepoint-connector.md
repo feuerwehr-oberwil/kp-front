@@ -139,7 +139,7 @@ The secret is the app's password. Microsoft shows it **once**.
 
 ## Step 4 – enter the three values in KP Front
 
-Open `/admin` on your deployment → **Zugangsdaten** → the **SharePoint (Stationsdaten)** group.
+Open `/admin` on your deployment → **Anbindungen** → the **SharePoint (Stationsdaten)** group.
 
 | Field | What to paste |
 |-------|---------------|
@@ -367,7 +367,7 @@ Two things stand between you and that:
    the annual Offiziersrapport agenda – for two months before that date.
 
 Renewing is step 3 again: create a **new** client secret, paste the value and the new expiry into
-`/admin` → Zugangsdaten, then delete the old secret in Azure. Nothing else changes; the app
+`/admin` → Anbindungen, then delete the old secret in Azure. Nothing else changes; the app
 registration, the permission and the folders all stay as they are.
 
 ---

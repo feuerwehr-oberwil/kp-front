@@ -80,7 +80,7 @@ offer – a container runtime, a monitor, or the browser itself:
 
 ## Integration credentials – `/api/integrations/*`
 
-The sixteen integration settings a station may set from `/admin` → Zugangsdaten instead of
+The sixteen integration settings a station may set from `/admin` → Anbindungen instead of
 `.env`: the three Divera keys, the Traccar trio, the VAPID trio, the four STT settings,
 `ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET` and `HEALTHCHECK_PING_URL`. Stored encrypted
 (AES-256-GCM, key derived from `SECRET_KEY` via HKDF) and live without a restart. Contract and

@@ -135,7 +135,7 @@ describe('ModulesViewer — where the plans come from', () => {
     apiGet.mockResolvedValue({ bucket: true, sharepoint: true })
     render(<ModulesViewer modules={modules} objects={mixed} />)
     expect(await screen.findByText('Planspeicher und SharePoint')).toBeTruthy()
-    expect(screen.getByText(/Zugangsdaten › SharePoint/)).toBeTruthy()
+    expect(screen.getByText(/Anbindungen › SharePoint/)).toBeTruthy()
   })
 
   it('counts the objects the Planspeicher-Abgleich will never touch', async () => {

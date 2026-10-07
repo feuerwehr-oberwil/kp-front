@@ -60,15 +60,17 @@ const NAV: NavGroup[] = [
     // sidebar that opens with the active entry two groups down reads as if it had opened
     // somewhere else.
     heading: 'groupSystem',
-    // «Zugangsdaten» sits under System rather than under Daten: it is not one integration's
+    // «Anbindungen» sits under System rather than under Daten: it is not one integration's
     // page, it is the one place every integration's key is entered — and the question that
     // brings somebody here («warum kommt kein Alarm an?») is a system question.
     entries: [
       // FIRST of the first group: this is where /admin lands, so it is also the entry the eye
       // starts on. Anything above it makes the landing page look like a detour.
       { id: 'system', icon: 'gauge' },
-      { id: 'zugaenge', icon: 'lock' },
-      // Directly under Zugangsdaten, and for the same reason: «Links & Zugänge» is the one
+      // One glyph per entry (UI sweep 07.10.2026, E7): the lock is «Mitglieder & Zugriff» (who
+      // may log in, with which PIN); the keys every integration connects with wear the chain.
+      { id: 'zugaenge', icon: 'link' },
+      // Directly under Anbindungen, and for the same reason: «Links & Zugänge» is the one
       // place every address this Wehr gives out is listed, so it belongs beside the one place
       // every key it receives is entered — not on the integration page that happens to use it.
       { id: 'links', icon: 'external' },
@@ -80,7 +82,8 @@ const NAV: NavGroup[] = [
     entries: [
       { id: 'identitaet', icon: 'flag' },
       { id: 'doktrin', icon: 'compass' },
-      { id: 'rapport', icon: 'doc' },
+      // the printer, not #doc: Objektpläne below wear #doc, as the plan tiles do in the field app
+      { id: 'rapport', icon: 'printer' },
       { id: 'alarme', icon: 'bell' },
       { id: 'fahrzeuge', icon: 'truck' },
       // Next to Fahrzeuge, not under Daten: the Mittel catalogue is the station's own inventory,
@@ -105,7 +108,8 @@ const NAV: NavGroup[] = [
     entries: [
       { id: 'einsaetze', icon: 'history' },
       { id: 'divera', icon: 'radio' },
-      { id: 'traccar', icon: 'truck' },
+      // a position, not a second #truck: Fahrzeuge & Symbole already wears it
+      { id: 'traccar', icon: 'pin' },
       { id: 'arbeitsmappe', icon: 'download' },
     ],
   },
@@ -142,7 +146,7 @@ function initialSection(): SectionId {
   if (saved === 'statistik' || saved === 'erfassung') return 'links'
   // «Einsatz-Link» went further on 2026-09-11: it is a signing key, not an address — the
   // alerting system signs a per-incident token with it — so it lives with the other integration
-  // keys under «Zugangsdaten» (CredentialsView · IncidentLinkKey), not on the page of addresses.
+  // keys under «Anbindungen» (CredentialsView · IncidentLinkKey), not on the page of addresses.
   if (saved === 'einsatzlink') return 'zugaenge'
   return ALL_ENTRIES.some((e) => e.id === saved) ? (saved as SectionId) : 'system'
 }

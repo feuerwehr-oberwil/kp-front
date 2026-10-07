@@ -9,7 +9,7 @@ Prints ``VAPID_PUBLIC_KEY`` / ``VAPID_PRIVATE_KEY`` in the URL-safe base64 form 
 (and the browser's ``applicationServerKey``) expect: the public key as an uncompressed
 P-256 point (65 bytes), the private key as the raw 32-byte scalar.
 
-⚠️ **Both halves belong in /admin → Zugangsdaten, not in ``.env``.** A value present in the
+⚠️ **Both halves belong in /admin → Anbindungen, not in ``.env``.** A value present in the
 environment outranks the credential store and *locks* that field in the browser: the station
 then cannot rotate its own push keys without a shell and a restart, which is the outcome the
 credential store exists to prevent. ``.env`` / Railway variables remain the deliberate way to
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     # docs because this is where the operator is standing with a fresh pair in their terminal,
     # and the wrong destination costs them the ability to ever rotate it from the browser.
     print(
-        "\nPaste BOTH halves into /admin -> Zugangsdaten -> Web Push. They take effect on the\n"
+        "\nPaste BOTH halves into /admin -> Anbindungen -> Web Push. They take effect on the\n"
         "next request; no restart. Do NOT put them in .env unless you mean to: a value in the\n"
         "environment outranks the stored one and locks that field in /admin, so the station can\n"
         "no longer rotate its own push keys without a shell.\n"

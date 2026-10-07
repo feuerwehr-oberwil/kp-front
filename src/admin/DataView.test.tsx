@@ -148,13 +148,13 @@ describe('DataView — neutral states', () => {
 
   // ⚠️ The reason this exists: both pages used to report «nicht konfiguriert» and offer nothing
   // but «Verbindung testen», which on an unconfigured instance fails by construction. The key
-  // is entered on «Zugangsdaten», and until the shell passed a navigator down here these two
+  // is entered on «Anbindungen», and until the shell passed a navigator down here these two
   // pages structurally could not say so.
   //
   // The Fahrzeugortung page carries it inside its «nicht eingerichtet»-Offer; the Alarmierung page
   // absorbed it into «Anbindung einrichten» (below), because two buttons to the same page on one
-  // screen is one too many — so exactly ONE «Zugangsdaten öffnen» is the correct count now.
-  it('offers the way out of «nicht konfiguriert» — the tracking page links to Zugangsdaten', async () => {
+  // screen is one too many — so exactly ONE «Anbindungen öffnen» is the correct count now.
+  it('offers the way out of «nicht konfiguriert» — the tracking page links to Anbindungen', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/config') return Promise.resolve({ integrations: { diveraConfigured: false } })
       if (path === '/api/traccar/status') return Promise.resolve({ configured: false })
@@ -164,7 +164,7 @@ describe('DataView — neutral states', () => {
 
     render(<><AlarmProviderView onNavigate={onNavigate} /><VehicleProviderView onNavigate={onNavigate} /></>)
 
-    const buttons = await screen.findAllByRole('button', { name: 'Zugangsdaten öffnen' })
+    const buttons = await screen.findAllByRole('button', { name: 'Anbindungen öffnen' })
     expect(buttons.length).toBe(1)
     fireEvent.click(buttons[0])
     expect(onNavigate.mock.calls).toEqual([['zugaenge']])
@@ -250,7 +250,7 @@ describe('DataView — die Alarmierungs-Seite richtet die Anbindung ein', () => 
     expect(screen.getByText(C.diveraNote)).toBeTruthy()
   })
 
-  it('leads to «Zugangsdaten», the only page that can set the secret', async () => {
+  it('leads to «Anbindungen», the only page that can set the secret', async () => {
     unconfigured()
     const onNavigate = vi.fn()
     render(<AlarmProviderView onNavigate={onNavigate} />)

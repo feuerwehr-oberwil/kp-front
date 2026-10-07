@@ -38,7 +38,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
     [4c. `"snapshot"` – the roster-snapshot contract](#4c-snapshot--a-roster-file-somebody-else-publishes)
 - [5. User accounts, roles, and deployment administration](#5-user-accounts-roles-and-deployment-administration)
 - [6. Environment variables (secrets / infra)](#6-environment-variables-secrets--infra--operator-not-admin)
-  - [The twenty-five integration credentials – env **or** `/admin`](#the-twenty-five-integration-credentials--env-or-admin--zugangsdaten)
+  - [The twenty-five integration credentials – env **or** `/admin`](#the-twenty-five-integration-credentials--env-or-admin--anbindungen)
   - [6a. Objektplan-Pull](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in)
   - [6b. Three things that look like env vars and are not](#6b-three-things-that-look-like-env-vars-and-are-not)
   - [6c. SharePoint-Pull – the station's own folders](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)
@@ -68,7 +68,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 |-------|------|-------|-------------|
 | **Defaults** | National/safe fallbacks (FKS doctrine, symbol presets) | `src/config/appConfig.ts` | developers |
 | **Deployment config** ← *this doc* | Per-station settings + uploaded assets | DB `deployment_config` row + asset storage | technical deployment owner – forms at `/admin`, or the same rows as a config file via CLI |
-| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-five integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Zugangsdaten for those twenty-five. **Env wins and locks the field** (§6) |
+| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-five integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Anbindungen for those twenty-five. **Env wins and locks the field** (§6) |
 | **Per-incident settings** | Live operational knobs (synced) | workspace blob (`IncidentSettings`) | any **user**, in-incident |
 
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
@@ -115,10 +115,10 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `roster.ranks` | ✅ | the CSV import's «Grade zuordnen» → `adopt` (§4b) – **and** the Arbeitsmappe (§9h). There is no rank *form* |
 | `mittel.units` | ❌ | **file only** – the Arbeitsmappe does not carry it |
 | `alarmKeywords` | ❌ | **file only** – it is a paste-a-document, not a fill-a-form (§1a) |
-| `sharepoint.intervalMinutes`, `.sources` | ❌ | **file only** – which folders the station pulls from is set up once and then wants to be reviewable and reproducible (§6c). The four Azure **credentials** are in the browser, at `/admin` → Zugangsdaten › SharePoint; System › SharePoint-Anbindung is the read-out |
+| `sharepoint.intervalMinutes`, `.sources` | ❌ | **file only** – which folders the station pulls from is set up once and then wants to be reviewable and reproducible (§6c). The four Azure **credentials** are in the browser, at `/admin` → Anbindungen › SharePoint; System › SharePoint-Anbindung is the read-out |
 
 Two things that are **not** part of this document and are managed on their own pages: the
-integration credentials (`/admin` → **Zugangsdaten**, §6) and the three database-stored tokens
+integration credentials (`/admin` → **Anbindungen**, §6) and the three database-stored tokens
 in §6b. Einsatzobjekte + Modul-PDFs and checklist templates are not config paths either, and
 both now have browser pages – §9e and §9f.
 
@@ -1098,12 +1098,12 @@ The product role model is deliberately small:
 Set at deploy time, never in the repo. **Seventeen of them are also settable from the browser** –
 see the rule immediately below; everything else in the table really is deploy-time only.
 
-### The twenty-five integration credentials – env **or** `/admin` → Zugangsdaten
+### The twenty-five integration credentials – env **or** `/admin` → Anbindungen
 
 The station's integration settings – the three Divera keys, the Traccar trio, the VAPID trio, the
 four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET`,
 `HEALTHCHECK_PING_URL` and the four SharePoint fields (§6c) – no
-longer have to come from `.env`. An admin can set and rotate them at `/admin` → **Zugangsdaten**,
+longer have to come from `.env`. An admin can set and rotate them at `/admin` → **Anbindungen**,
 where they are stored **encrypted** in the `integration_credentials` table (AES-256-GCM, key
 derived from `SECRET_KEY` via HKDF-SHA256, the credential's own name as AAD) and take effect
 **without a restart** – the resolver re-reads the stored half every 30 s and immediately on a
@@ -1155,7 +1155,7 @@ Four rules, and none of them is optional reading:
 The `PLANS_S3_*` pair is the one genuinely secret-shaped thing that is **not** in the store: the
 plan pull is scheduled at boot from the environment (§6a), not per tick.
 
-🔐 = also settable at `/admin` → **Zugangsdaten** (encrypted in the database; a value here wins
+🔐 = also settable at `/admin` → **Anbindungen** (encrypted in the database; a value here wins
 and locks the field – see the rule above).
 
 | Env var | Purpose |
@@ -1171,9 +1171,9 @@ and locks the field – see the rule above).
 | `APP_BIND` | *(read by `docker-compose.yml`, not by the app)* which host address the app's port is published on: `0.0.0.0` (default) for a trusted LAN, `127.0.0.1` as soon as anything terminates TLS in front. ⚠️ A published port is open whatever `ufw` says. The four shapes and why: [`DEPLOYMENT.md` §3](DEPLOYMENT.md#app_port-and-app_bind) |
 | 🔐 `DIVERA_ACCESS_KEY`, `DIVERA_WEBHOOK_SECRET` | if `diveraEnabled` |
 | 🔐 `DIVERA_PERSONNEL_ACCESS_KEY` | optional second Divera key used **only** for the «Personal» pull. It must belong to a user whose read scope includes members' Qualifikationen – the alarm key above usually does not – and it is what makes the roster sync derive a Dienstgrad. Empty = falls back to `DIVERA_ACCESS_KEY` (names only, no rank) |
-| 🔐 `ALARM_WEBHOOK_SECRET` | generic alarm intake `POST /api/alarms` for non-Divera alerting systems – auto-opens an incident per alarm, idempotent on `source`+`source_id` (nothing set anywhere = endpoint disabled, fail-closed). Create it during the integration handoff and paste the same value into `/admin` → Zugangsdaten and the sender; it is write-only and deliberately not pre-generated at install – [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §1 |
-| 🔐 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push. Generate the pair once – on a Docker-only host `docker compose exec app uv run python -m app.gen_vapid`, or `cd backend && uv run python -m app.gen_vapid` where the toolchain is installed – then paste both halves into `/admin` → Zugangsdaten, which takes effect without a restart. `./scripts/setup.sh` does exactly that on a fresh install, into the credential store rather than into `.env`. Nothing set anywhere = push disabled, fail-closed. ⚠️ Generate **once** and keep the pair stable: rotating it invalidates every stored subscription |
-| 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. It is deliberately not minted by the installer: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Zugangsdaten |
+| 🔐 `ALARM_WEBHOOK_SECRET` | generic alarm intake `POST /api/alarms` for non-Divera alerting systems – auto-opens an incident per alarm, idempotent on `source`+`source_id` (nothing set anywhere = endpoint disabled, fail-closed). Create it during the integration handoff and paste the same value into `/admin` → Anbindungen and the sender; it is write-only and deliberately not pre-generated at install – [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §1 |
+| 🔐 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push. Generate the pair once – on a Docker-only host `docker compose exec app uv run python -m app.gen_vapid`, or `cd backend && uv run python -m app.gen_vapid` where the toolchain is installed – then paste both halves into `/admin` → Anbindungen, which takes effect without a restart. `./scripts/setup.sh` does exactly that on a fresh install, into the credential store rather than into `.env`. Nothing set anywhere = push disabled, fail-closed. ⚠️ Generate **once** and keep the pair stable: rotating it invalidates every stored subscription |
+| 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. It is deliberately not minted by the installer: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Anbindungen |
 | 🔐 `HEALTHCHECK_PING_URL` | dead-man's switch: **the job GETs this URL every 60 s** (healthchecks.io or any cron monitor), so the monitor alerts when the pings *stop*. Catches the class an HTTP probe of `/ready` cannot: a container stopped with nothing replacing it, or a wedged event loop. Point it at a check with a **1 min period and ~3 min grace** – matching the 60 s cadence, so two missed pings raise it. Nothing set anywhere = the heartbeat job still runs but returns on its first line, so nothing is pinged; a failed ping is logged and swallowed, so a monitoring outage never disturbs the deployment. The «Einrichtung» card on the admin landing page links straight to this field |
 | 🔐 `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_CLIENT_SECRET`, `SHAREPOINT_SECRET_EXPIRES` | the Azure app registration behind the SharePoint pull ([§6c](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)), read-only, client-credentials flow. ⚠️ These four are the credentials that have **no `Settings` field**: they were introduced after the credential table existed, so the environment half is read straight off the process environment and the normal path is the browser. The two ids are readable (an operator compares them against the Azure portal); the secret is write-only. `SHAREPOINT_SECRET_EXPIRES` is not a credential but the ISO date (`JJJJ-MM-TT`) the secret lapses on – Azure caps it at 24 months and says nothing when it does, so this is what the System card counts down. Nothing set = no pull, fail-closed |
 | 🔐 `OBJECT_VISITS_INTEGRATION_KEY` | the Objektbesuche organizer's bearer key for `/api/integrations` ([`object-visits.md`](object-visits.md)); ≥ 24 characters, write-only, no `Settings` field (read off the environment, normally set in the browser). Unset = the organizer API answers 403 |
@@ -1253,7 +1253,7 @@ nothing to put in `.env` and nothing that could outrank the stored value.)
 |---------|---------------------|--------------|
 | **Erfassungs-Poster** (station capture) | `/admin` → System › Links & Zugänge: activate / rotate / disable, print the A4 poster | Scanning it opens `/e/<token>`, where attendance, Material and notes for incidents of the last `alarms.captureWindowHours` are recorded **without a login**. Fail-closed: no token → the whole `/api/capture/*` surface answers 403. Rotation invalidates every printed poster at once. |
 | **Statistik-Export** | `/admin` → System › Links & Zugänge | `GET /api/stats/incidents?year=` returns one flat read-only JSON record per incident (metadata, Zeiten, Anwesenheit von–bis, Mittel totals, Rapport status) for external analytics – auth via the `X-Stats-Token` header or `?t=`. Fail-closed: no token → 403. Full field reference: [`STATS-EXPORT.md`](STATS-EXPORT.md). |
-| **Einsatz-Link** (read-only link into one incident) | `/admin` → System › Zugangsdaten: show, rotate or delete the station's `incident_link_key` | Copy the key into the alerting system, which signs a token with it and puts `/l/<token>` into the alert it sends out. A responder taps that on a personal phone and sees **one** incident the way a `viewer` does – no login, nothing that writes, prints or costs money – for as long as the Einsatz runs: closing or archiving it revokes every open link at once (12 h is the backstop for the one nobody closes). Fail-closed: no key → the link surface answers 403 and nothing exists, which is also what an existing deployment gets from the migration. Rotation or deletion invalidates every link already sent out and requires reconfiguring the alerting system. Trust model and reachable surface: [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §4. |
+| **Einsatz-Link** (read-only link into one incident) | `/admin` → System › Anbindungen: show, rotate or delete the station's `incident_link_key` | Copy the key into the alerting system, which signs a token with it and puts `/l/<token>` into the alert it sends out. A responder taps that on a personal phone and sees **one** incident the way a `viewer` does – no login, nothing that writes, prints or costs money – for as long as the Einsatz runs: closing or archiving it revokes every open link at once (12 h is the backstop for the one nobody closes). Fail-closed: no key → the link surface answers 403 and nothing exists, which is also what an existing deployment gets from the migration. Rotation or deletion invalidates every link already sent out and requires reconfiguring the alerting system. Trust model and reachable surface: [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §4. |
 
 ### 6c. SharePoint-Pull (the station's own folders, imported on a schedule)
 
@@ -1264,7 +1264,7 @@ pull-only** – nothing is ever written back to SharePoint.
 
 It is split the way everything else in this doc is. The **credentials** (Azure tenant id, client
 id, client secret, plus the date the secret expires) are four of the 🔐 integration credentials
-above, set at `/admin` → Zugangsdaten › SharePoint. The **folders** are config-as-code, in the
+above, set at `/admin` → Anbindungen › SharePoint. The **folders** are config-as-code, in the
 document's `sharepoint` section:
 
 ```jsonc
