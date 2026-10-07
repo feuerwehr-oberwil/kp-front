@@ -1724,6 +1724,16 @@ select.cv-input { appearance: none; -webkit-appearance: none;
     align-items: start;
   }
 }
+/* Wide screens (B1, 07.10.2026 — Surface.module.css · «cap + columns»): the two columns stop at
+   ~670px each, the whole Rapport at 1360 + its padding, centred on the surface ground. At 1920 a
+   column was 840px: a 840px text field, and the Gerettete stepper 650px from its label. Two
+   columns, not three: the left one is the form and the right one the round-up of what the other
+   surfaces recorded, and a third would split one of them for width's sake. Below 1181px
+   `--content-max` is unset and the inset is the 22px it always was. */
+@media (min-width: 1181px) {
+  .report-preflight-surface { --content-max: 1360px; }
+  .report-preflight-surface > .ip-body { padding-inline: var(--content-pad-x); }
+}
 /* ONE SURFACE while the Rapport is one column (30.09.2026, owner on the phone: «in the rapport we
    have double stacked cards»). Below 1080px every section — the four form sections, the round-up
    rows (Anwesenheit · Mittel · Partner · Beilagen), the Kroki and «Weitergeben» — stood as a

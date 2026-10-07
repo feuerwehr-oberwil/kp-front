@@ -54,6 +54,21 @@
   }
   .list > .group:nth-child(-n+2) { margin-top: 4px; }
 }
+/* …and CAPPED beyond that (B1, 07.10.2026 — Surface.module.css · «cap + columns»): a column stops
+   at 640px of row, so a name and its «+» stay one glance apart; the list and the strip are centred
+   on the surface ground. The head and the search line are NOT — they stay full width, their tiles
+   and filters at the right edge. From 1600px a THIRD column: the groups are independent lists, and
+   three of ~470–560px hold more Positionen above the fold than two capped ones would. */
+@media (min-width: 1200px) {
+  .surface { --content-max: 1302px; }   /* 2 × 640 + the 22px column gap */
+  .list, .noHits { padding-inline: var(--content-pad-x); }
+  .recStrip { margin-inline: var(--content-pad-x); }
+}
+@media (min-width: 1600px) {
+  .surface { --content-max: 1964px; }   /* 3 × 640 + 2 × 22 */
+  .list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .list > .group:nth-child(-n+3) { margin-top: 4px; }
+}
 /* padding-left aligns the header label with the item labels inside the cards
    (card border 1px + row padding-left 12px) */
 .groupHead {
