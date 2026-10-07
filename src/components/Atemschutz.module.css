@@ -1586,8 +1586,12 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   background: color-mix(in srgb, var(--green) 7%, var(--surface)); }
 .trowSafetyWho { display: block; font-size: 13px; font-weight: 600; color: var(--ink-dim); margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the Sicherungstrupp's one action, worded and filled like the tablet card's (07.10.2026, UI sweep):
+   «Im Einsatz» (`actEnter` — the button names the state it makes) in the card's ONE ink-filled
+   tile (`.actEnter`), never a green band. It was a green «Einsetzen» on the phone only. The row's
+   green edge and tint stay: they say WHICH Trupp this is, not what the button does. */
 .safetyDeploy { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
-  border-radius: var(--r-ctl); background: var(--green); color: var(--on-accent-ink); font: 800 14px var(--body); }
+  border-radius: var(--r-ctl); background: var(--ink); color: var(--surface); font: 800 14px var(--body); }
 .safetyDeploy:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* The SICHERUNGSTRUPP head (26.09.2026, phone card slim-down): a section head like DRIN / DRAUSSEN,
    and «Bestimmen» at the row's right — a 36px pill of the count badge's family, so the
