@@ -113,11 +113,6 @@
 .who:active:not(:disabled)::before { background-image: linear-gradient(var(--press), var(--press)); }
 .whoHead:active:not(:disabled)::before { background-image: none; }
 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rank {
-  flex: none; padding: 1px 5px; border-radius: var(--r-xs);
-  background: color-mix(in srgb, var(--ink) 8%, transparent);
-  font: 700 10px var(--mono); color: var(--ink-dim); text-transform: uppercase;
-}
 /* a row that carries a plan reads as "done", like .isPresent does in the Anwesenheit list.
    The hairline lives on ::before now — that is where the card is drawn. */
 .rowPlanned .who::before { border-color: color-mix(in srgb, var(--st-planned) 45%, var(--edge)); }

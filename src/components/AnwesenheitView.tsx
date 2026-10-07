@@ -12,7 +12,8 @@ import { usePageHeadFit } from '../lib/pageHeadFit'
 import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
 import { personnelProviderName } from '../lib/deploymentConfig'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
-import { rankAbbr, rankDisplay, rankOrder } from '../lib/rank'
+import { rankDisplay, rankOrder } from '../lib/rank'
+import { RankBadge } from './RankBadge'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { isOnlyPresentMatch, matchesAny, stateMatches, toggled, type StateKey } from '../lib/attendanceFilter'
@@ -1020,11 +1021,9 @@ export function AnwesenheitView({
                   {/* no status dot (29.09.2026, owner: the tint alone says «anwesend»); the state
                       word rides in the button's name for a screen reader instead */}
                   <span className="sr-only">{present ? A.statusPresent : left ? A.statusLeft : A.statusFrei}: </span>
-                  {/* …and only when there is an abbreviation to put in it: a rank the station's
-                      list does not cover gave `rankAbbr` '' and rendered an EMPTY badge — a
-                      small blank chip in front of the name. No chip is better than a blank one;
-                      the full label (or the raw key) is still in the tooltip. */}
-                  {p.rank && rankAbbr(p.rank) && <span className={s.rank} title={rankDisplay(p.rank)}>{rankAbbr(p.rank)}</span>}
+                  {/* the app's one Dienstgrad chip — it renders nothing for a rank the station's
+                      list has no abbreviation for (an EMPTY badge in front of the name, once) */}
+                  <RankBadge rank={p.rank} />
                   {/* somebody recorded for this Einsatz only — the badge sits where a Grad would,
                       so the row still reads «who is this» before it reads the name */}
                   {p.guest && <span className={cx(s.rank, s.guestBadge)}>{A.guestBadge}</span>}
