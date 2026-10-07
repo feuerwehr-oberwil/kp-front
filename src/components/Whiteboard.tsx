@@ -55,7 +55,7 @@ import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
-import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
+import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
@@ -520,9 +520,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // view hook because the stack zooms one step deeper than a sheet does (see MAX_SCALE_STACK).
   const stack = !!(active.floorStack && building && building.floors.length)
   // the Gebäude also keeps its «+ UG» off the bottom-left chip row (lib/whiteboard ·
-  // STACK_CHIP_ROW); `vShift` is where the centre of the lane between bar and row lies — the
-  // board transform, the zoom focus (useBoardView) and «centre on» all read it
-  const botRes = stack ? STACK_CHIP_ROW : 0
+  // STACK_CHIP_ROW), and an ordinary sheet keeps its foot off it (chipRowInset, sweep B8);
+  // `vShift` is where the centre of the lane between bar and row lies — the board transform,
+  // the zoom focus (useBoardView) and «centre on» all read it
+  const botRes = stack ? STACK_CHIP_ROW : chipRowInset(isPhone)
   const vShift = (TOP_INSET - botRes) / 2
   // ⚠️ A sheet drawn from tiles zooms by its PAPER size (lib/planTiles · paperMaxScale): the fit it
   // is measured against is computed further down, so the ceiling lives in state and the view hook
@@ -747,10 +748,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // both rails still in place (lib/whiteboard · sideInsets).
   const side = useMemo(() => sideInsets(vp.w, isPhone), [vp.w, isPhone])
   const fit = useMemo(() => {
-    const w = Math.max(0, vp.w - side.l - side.r)
-    const h = Math.max(0, vp.h - TOP_INSET - botRes - (stack ? 2 * STACK_VPAD : 0)); if (!w || !h) return { w: 0, h: 0 }
-    const byW = { w, h: w * effAspect }
-    return byW.h <= h ? byW : { w: h / effAspect, h }
+    const pad = stack ? STACK_VPAD : 0
+    return containFit(vp, effAspect, { top: TOP_INSET + pad, bottom: botRes + pad, l: side.l, r: side.r })
   }, [vp, effAspect, stack, side, botRes])
   // a storey says its density at the CURRENT zoom; the ceiling wants it at fit. Rounded, so the
   // sub-pixel wobble of a re-layout cannot move the ceiling under a finger.

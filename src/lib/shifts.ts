@@ -27,6 +27,12 @@ export const WINDOW_HOURS = 12
 export const LOOKBACK_HOURS = 2
 /** Hard ceiling on the axis — four days, the longest Zeitraum the control offers. */
 export const MAX_SPAN_HOURS = 96
+/** The FITTED window (the Zeitplan's opening view, sweep B5 07.10.2026): the Einsatz so far plus
+ *  this much ahead — the next hour is what a shift change is planned against. */
+export const FIT_AHEAD_HOURS = 1
+/** …and never shorter than this, so a just-started Einsatz still opens on a readable stretch
+ *  instead of a 20-minute window blown up to the whole screen. */
+export const FIT_MIN_HOURS = 2
 
 const ms = (iso: string | null | undefined): number | null => {
   if (!iso) return null
@@ -41,7 +47,8 @@ export const ceilSlot = (t: number): number => Math.ceil(t / SLOT_MS) * SLOT_MS
 export interface Span { from: number; to: number }
 
 /**
- * The window the grid covers — exactly `windowH` hours of it.
+ * The window the grid covers — exactly `windowH` hours of it, or the fitted opening window
+ * (`fitSpan`) while `windowH` is null, i.e. nobody has picked a Zeitraum for this Einsatz yet.
  *
  * The Zeitraum control sets the LENGTH of the axis, so 6 h means six hours end to end. It is not
  * a minimum that content then stretches: a plan reaching into tomorrow used to blow the axis out
@@ -55,12 +62,47 @@ export interface Span { from: number; to: number }
  */
 export function timelineSpan(
   startedAt: string | null, _shifts: Shift[], _attendance: AttendanceState, nowMs: number,
-  windowH: number = WINDOW_HOURS,
+  windowH: number | null = WINDOW_HOURS,
 ): Span {
+  if (windowH == null) return fitSpan(startedAt, nowMs)
   const startMs = ms(startedAt) ?? nowMs
   const hours = Math.min(MAX_SPAN_HOURS, Math.max(1, windowH))
   const start = floorSlot(Math.max(startMs, nowMs - LOOKBACK_HOURS * HOUR))
   return { from: start, to: ceilSlot(start + hours * HOUR) }
+}
+
+/**
+ * The window the Zeitplan OPENS on, before anybody touches the zoom: the Einsatz so far plus
+ * `FIT_AHEAD_HOURS`, at least `FIT_MIN_HOURS`. A fixed 12 h opened a 37-minute Einsatz as a
+ * sliver on the left and a screen of empty grid (sweep B5); a 10-hour one now opens on ~11 h.
+ *
+ * The left edge is the Einsatz start — the alarm, never time before it — so a young Einsatz that
+ * the minimum stretches gets its extra room AHEAD, where shifts are planned. «Jetzt» therefore
+ * sits at about ¾ once the Einsatz has run ~3 h, further left before, further right after.
+ * Past `MAX_SPAN_HOURS` the window keeps its right end and gives up the oldest hours.
+ */
+export function fitSpan(startedAt: string | null, nowMs: number): Span {
+  const startMs = Math.min(ms(startedAt) ?? nowMs, nowMs)
+  const to = ceilSlot(nowMs + FIT_AHEAD_HOURS * HOUR)
+  const from = Math.max(floorSlot(startMs), to - MAX_SPAN_HOURS * HOUR)
+  return { from, to: Math.max(to, from + FIT_MIN_HOURS * HOUR) }
+}
+
+/** Where the scroll box parks a fitted window that overflows: «Jetzt» at ¾ of the `visible`
+ *  lane width, on a track `trackW` px wide. Pure, so the arithmetic is tested on its own. */
+export function fitScrollLeft(span: Span, nowMs: number, trackW: number, visible: number): number {
+  const total = span.to - span.from
+  if (total <= 0) return 0
+  const nowX = ((nowMs - span.from) / total) * trackW
+  return Math.min(trackW - visible, Math.max(0, nowX - 0.75 * visible))
+}
+
+/** The Zeitraum ladder's next stop from `h`, which may sit BETWEEN two stops (a fitted window
+ *  does): «−» (dir 1) shows more time, «+» (dir −1) less, clamped to the ladder's ends. So the
+ *  first tap from the fit always visibly zooms rather than landing on the length already shown. */
+export function nextHorizon(ladder: readonly number[], h: number, dir: 1 | -1): number {
+  const next = dir > 0 ? ladder.find((x) => x > h) : [...ladder].reverse().find((x) => x < h)
+  return next ?? (dir > 0 ? ladder[ladder.length - 1] : ladder[0])
 }
 
 /** Where a block sits in the window, as fractions 0..1 — null when it lies entirely outside. */

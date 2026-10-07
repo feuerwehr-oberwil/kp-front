@@ -370,11 +370,13 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    «ONE size for the ✕») and left ⓘ, the lens and ▶ standing at 28 beside it – one row, two sizes. */
 .journal-replay { position: relative; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
   height: 36px; min-width: 36px; justify-content: center; padding: 0 10px; border: none; border-radius: var(--r-sm); cursor: pointer;
-  background: var(--amber); color: var(--on-fill); font-family: var(--body); font-weight: 700; font-size: 12px; }
+  background: var(--btn-primary); color: var(--on-btn-primary); font-family: var(--body); font-weight: 700; font-size: 12px; }
+/* the normal primary, not amber (sweep B7, 07.10.2026): amber means «needs attention» everywhere
+   else («4 offen», Kontakt fällig), and a play button is not asking for any */
 /* full-height transparent pad — visually compact chip, finger-sized target */
 .journal-replay::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 @media (hover: hover) {
-  .journal-replay:hover { filter: brightness(.96); }
+  .journal-replay:hover { background: var(--btn-primary-hover); }
 }
 .journal-replay:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-replay .i { width: 15px; height: 15px; }

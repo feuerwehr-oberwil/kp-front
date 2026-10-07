@@ -1715,6 +1715,14 @@ to prod.
     the mark is the old default the app saved for everybody, not a choice.
   - *«Einpassen» on a Plan is the bar's tile*; the top bar's twin (`TopBar · mapNav`) survives only
     where there is no bar at all (viewer-only Modul, Gebäude pick surface, replay — 20.09.2026).
+  - *A plan opens with the WHOLE sheet between the bars* (sweep B8, 07.10.2026, owner option 1):
+    `lib/whiteboard · containFit` contains it in the canvas less the top bar (`TOP_INSET`), the
+    side rails (`sideInsets`) and the bottom-left chip row (`chipRowInset` — 76px on a tablet,
+    58px on a phone, where the row stands just above the tool bar; the Gebäude keeps
+    `STACK_CHIP_ROW`). The chips never cover the sheet's legend at fit, and «Einpassen» is scale 1
+    of the same box. The constants mirror the CSS like `TOP_INSET` does: move the chip row and
+    they move with it. (The Karte has no inset-aware fit to follow: its `fitBounds` takes a flat
+    padding.)
   - *The FAB follows the THEME, not `--btn-primary`*: it wears the floating family's glass
     (26.09.2026 — the white surface by day and a raised `--ink-fill` at night until then made it
     the one piece of the bottom row in a colour of its own). `--btn-primary` inverts at night so a
@@ -1789,6 +1797,16 @@ to prod.
     thing … uses up a lot of vertical space»): on a phone it stands in the clock row's empty
     corner over the names (`ZeitplanView · zoom`, the row grows to a lane's 44px and the hours sit
     at its foot); a tablet keeps it at the end of the search line. Never a row of its own.
+  - *The Zeitplan opens FITTED* (sweep B5, 07.10.2026, owner option 1): the Einsatz so far + 1 h,
+    at least 2 h, from the alarm (never before it), filling the visible width (`lib/shifts ·
+    fitSpan`; the read-out says e.g. «3.5 h»). «Jetzt» lands at ~¾ once the Einsatz has run ~3 h;
+    a 10 h Einsatz opens on ~11 h. A fitted window wider than the screen opens scrolled with
+    «Jetzt» at ¾ of the lanes (`fitScrollLeft`). The zoom steps from the fitted length to the next
+    ladder stop (`nextHorizon`). ⚠️ The Zeitraum is NEVER stored (not per device, not per
+    Einsatz): every open starts fitted, and a picked zoom lasts while the Zeitplan stays on screen.
+    A stored zoom reopened later Einsätze on an empty grid, and leaving the view is the way back
+    to the fit, so no button is needed for it. Hour labels are spaced on the track's MEASURED
+    width, and the JETZT flag reads into the larger side of the axis.
   - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
     (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the
     steps) — the same chip on a phone as on a wide screen. A fixed square was tried and cannot

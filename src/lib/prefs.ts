@@ -61,8 +61,6 @@ export interface Prefs {
    *  choice made last week deciding where a fresh launch lands is not, and it must not follow
    *  you into the next Einsatz. Left documented rather than silently dropped: a stale cookie
    *  from an older build may still carry the field, and it is simply ignored. */
-  /** hours of axis the Zeitplan shows at once (the Zeitraum control) */
-  zeitplanHorizonH?: number
   /** UI colour scheme — see ThemeMode. Default 'auto' (daylight-driven). */
   theme?: ThemeMode
   /** LEGACY global tactical-symbol size — see SymbolSize. Kept (and never deleted) so a cookie

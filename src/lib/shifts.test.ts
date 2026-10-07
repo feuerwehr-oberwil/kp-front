@@ -6,7 +6,7 @@ import {
   ceilSlot, unshownShifts,
   conflictingShiftIds, coverage, draftBand, draftShift, dragShift, floorSlot, freehandShifts,
   intervalSpan, overlaps, plannedPersonCount, shiftInBand, shiftSpan, shiftsFor, sortBands,
-  timeAtFraction, timelineSpan,
+  timeAtFraction, timelineSpan, fitSpan, fitScrollLeft, nextHorizon,
 } from './shifts'
 import type { AttendanceState, Shift, ShiftBand } from '../types'
 
@@ -19,6 +19,95 @@ describe('slot grid', () => {
     expect(floorSlot(ms(T(14, 17)))).toBe(ms(T(14, 0)))
     expect(ceilSlot(ms(T(14, 17)))).toBe(ms(T(14, 30)))
     expect(ceilSlot(ms(T(14, 30)))).toBe(ms(T(14, 30))) // already on the grid
+  })
+})
+
+describe('fitSpan — the Zeitplan opens on the Einsatz so far + 1 h (sweep B5)', () => {
+  const H = 3_600_000
+
+  it('a 10-hour Einsatz opens on ~11 h, from its start to an hour past now', () => {
+    const sp = fitSpan(T(2), ms(T(12)))
+    expect(sp.from).toBe(ms(T(2)))
+    expect(sp.to).toBe(ms(T(13)))
+    expect((sp.to - sp.from) / H).toBe(11)
+  })
+
+  it('puts «Jetzt» at ¾ once the Einsatz has run 3 h', () => {
+    const sp = fitSpan(T(9), ms(T(12)))
+    expect((ms(T(12)) - sp.from) / (sp.to - sp.from)).toBe(0.75)
+  })
+
+  it('a just-started Einsatz still opens on 2 h, with the room ahead, never before the alarm', () => {
+    const sp = fitSpan(T(12), ms(T(12, 37)))
+    expect(sp.from).toBe(ms(T(12)))
+    expect(sp.to - sp.from).toBe(2 * H)
+    // an Einsatz with no start yet behaves like one that starts now
+    const none = fitSpan(null, ms(T(12, 10)))
+    expect(none.from).toBe(ms(T(12)))
+    expect(none.to - none.from).toBe(2 * H)
+  })
+
+  it('sits on the slot grid, so bars never start on half a column', () => {
+    const sp = fitSpan(T(8, 7), ms(T(12, 41)))
+    expect(sp.from % SLOT_MS).toBe(0)
+    expect(sp.to % SLOT_MS).toBe(0)
+    expect(sp.to).toBe(ms(T(14))) // 13:41 rounded up
+  })
+
+  it('past four days keeps the right end and gives up the oldest hours', () => {
+    const now = ms(T(12)) + 5 * 24 * H
+    const sp = fitSpan(T(12), now)
+    expect(sp.to).toBe(now + H)
+    expect(sp.to - sp.from).toBe(96 * H)
+  })
+
+  it('a start in the future (clock skew) does not push the window past now', () => {
+    const sp = fitSpan(T(14), ms(T(12)))
+    expect(sp.from).toBe(ms(T(12)))
+  })
+
+  it('is what timelineSpan gives while no Zeitraum is picked', () => {
+    expect(timelineSpan(T(2), [], {}, ms(T(12)), null)).toEqual(fitSpan(T(2), ms(T(12))))
+  })
+})
+
+describe('fitScrollLeft — an overflowing fitted window parks «Jetzt» at ¾ of the lanes', () => {
+  const span = { from: ms(T(2)), to: ms(T(13)) } // 11 h
+
+  it('scrolls so now stands at ¾ of the visible width', () => {
+    // 11 h on 506px (46px/h): now (10 h in) is at 460px; 160px visible → 460 − 120 = 340
+    const left = fitScrollLeft(span, ms(T(12)), 506, 160)
+    expect(left).toBe(340)
+    expect((460 - left) / 160).toBe(0.75)
+  })
+
+  it('a phone too wide for ¾ (the hour ahead is less than a quarter) ends flush right', () => {
+    // 220px visible: ¾ would leave 55px ahead, the track has only 46 → parked at the end
+    expect(fitScrollLeft(span, ms(T(12)), 506, 220)).toBe(286)
+  })
+
+  it('never scrolls past either end', () => {
+    expect(fitScrollLeft(span, ms(T(12, 55)), 506, 220)).toBe(506 - 220)
+    expect(fitScrollLeft(span, ms(T(2, 30)), 506, 220)).toBe(0)
+    expect(fitScrollLeft({ from: 1, to: 1 }, 1, 506, 220)).toBe(0)
+  })
+})
+
+describe('nextHorizon — the zoom steps on from wherever the axis is', () => {
+  const L = [3, 6, 9, 12, 18, 24]
+  it('steps along the ladder', () => {
+    expect(nextHorizon(L, 12, 1)).toBe(18)
+    expect(nextHorizon(L, 12, -1)).toBe(9)
+  })
+  it('from a fitted length between stops, the first tap always moves', () => {
+    expect(nextHorizon(L, 2, 1)).toBe(3)
+    expect(nextHorizon(L, 11, 1)).toBe(12)
+    expect(nextHorizon(L, 11, -1)).toBe(9)
+  })
+  it('is clamped to the ends', () => {
+    expect(nextHorizon(L, 24, 1)).toBe(24)
+    expect(nextHorizon(L, 2, -1)).toBe(3)
+    expect(nextHorizon(L, 40, 1)).toBe(24)
   })
 })
 

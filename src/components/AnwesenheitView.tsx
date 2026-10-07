@@ -19,7 +19,7 @@ import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { isOnlyPresentMatch, matchesAny, stateMatches, toggled, type StateKey } from '../lib/attendanceFilter'
 import { ortCounts, ortOf } from '../lib/attendanceOrt'
 import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
-import { loadPrefs, savePrefs } from '../lib/prefs'
+import { fitSpan, nextHorizon, timelineSpan } from '../lib/shifts'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
 import { PhoneTabBar } from './PhoneTabBar'
@@ -58,6 +58,10 @@ type AnwesenheitTab = 'list' | 'plan' | 'bands'
  *  covers switching. Anything else falls back to the crew list, which is what this surface is
  *  for and the only one of the three that is useful before anyone has planned anything. */
 const TAB_KEY = 'kp-front-anwesenheit-tab'
+
+/** A Zeitraum length for the read-out: «12», or «2,5» for a fitted half-hour window. */
+const fmtHours = (h: number): string =>
+  h.toLocaleString(appConfig.locale, { maximumFractionDigits: 1 })
 
 function rememberedTab(incidentId: string | undefined): AnwesenheitTab | null {
   if (!incidentId) return null
@@ -429,20 +433,28 @@ export function AnwesenheitView({
   const [view, setView] = useState<AnwesenheitTab>(() => rememberedTab(incidentId) ?? 'list')
   const pickView = (v: AnwesenheitTab) => {
     setView(v)
+    // the Zeitplan's zoom lasts only while the Zeitplan is on screen; the next visit opens fitted
+    if (v !== 'plan') setHorizonH(null)
     try { sessionStorage.setItem(TAB_KEY, JSON.stringify({ incidentId, view: v })) } catch { /* private mode */ }
   }
   // one clock for the whole surface: it drives the «jetzt» line and the growing open bar. Only
   // ticks while the Zeitplan is on screen — the attendance list has nothing that moves.
   const [nowMs, setNowMs] = useState(() => Date.now())
-  // how many hours of axis fit on screen; a device preference of the moment, not incident data
-  const [horizonH, setHorizonH] = useState(() => loadPrefs().zeitplanHorizonH ?? 12)
-  const pickHorizon = (h: number) => { setHorizonH(h); savePrefs({ ...loadPrefs(), zeitplanHorizonH: h }) }
+  // how many hours of axis fit on screen. null = not zoomed, and the grid shows the Einsatz so
+  // far + 1 h (lib/shifts · fitSpan, sweep B5 07.10.2026). Deliberately NOT stored: every open
+  // starts fitted, and a picked Zeitraum lasts while the Zeitplan stays on screen (switching to
+  // another tab resets it, see pickView). A stored 12 h (or
+  // a 48 h from last month's Unwetter) opened tonight's Zimmerbrand on an empty grid, and
+  // leaving the view is the way back to the fit, so no extra button is needed.
+  const [horizonH, setHorizonH] = useState<number | null>(null)
+  // the fitted window's length, for the read-out and as the zoom's starting stop
+  const fitted = fitSpan(startedAt ?? null, nowMs)
+  const fittedH = (fitted.to - fitted.from) / 3_600_000
+  const shownH = horizonH ?? fittedH
   // finer steps than a doubling ladder: the difference between «tonight» and «the next two days»
-  // is worth several stops, not two
-  const stepHorizon = (dir: 1 | -1) => {
-    const i = HORIZONS.indexOf(horizonH)
-    pickHorizon(HORIZONS[Math.min(HORIZONS.length - 1, Math.max(0, (i < 0 ? 2 : i) + dir))])
-  }
+  // is worth several stops, not two. From the fit, a step goes to the next stop past the fitted
+  // length in that direction, so the first tap always visibly zooms.
+  const stepHorizon = (dir: 1 | -1) => setHorizonH(nextHorizon(HORIZONS, shownH, dir))
   // person whose recorded presence blocks are open in a sheet
   const [blocksFor, setBlocksFor] = useState<string | null>(null)
   // which paper sheet was picked from the printer menu, and is now naming itself before it goes
@@ -593,12 +605,11 @@ export function AnwesenheitView({
     }
   }
 
-  // where the axis reaches, in words — mirrors timelineSpan's own anchoring
+  // where the axis reaches, in words — the grid's own span, so the two can never disagree
   const horizonEndLabel = useMemo(() => {
-    const startMs = startedAt ? Date.parse(startedAt) : nowMs
-    const from = Math.max(Number.isFinite(startMs) ? startMs : nowMs, nowMs - 2 * 3_600_000)
-    const end = new Date(from + horizonH * 3_600_000)
-    return `${isOtherDay(end, new Date(from)) ? `${fmtDayShort(end)} ` : ''}${hhmm(end)}`
+    const sp = timelineSpan(startedAt ?? null, [], {}, nowMs, horizonH)
+    const end = new Date(sp.to)
+    return `${isOtherDay(end, new Date(sp.from)) ? `${fmtDayShort(end)} ` : ''}${hhmm(end)}`
   }, [startedAt, nowMs, horizonH])
 
   // ⚠️ Guests are NOT in `people` — they are synthesised from attendance entries that have no
@@ -636,14 +647,14 @@ export function AnwesenheitView({
           the number beside it grows — magnifier glyphs rather than −/+ so nobody reads
           it as «make this number smaller». */}
       <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(1)}
-        disabled={horizonH >= HORIZONS[HORIZONS.length - 1]} aria-label={appConfig.copy.zeitplan.zoomOut}><Icon id="zoom-out" /></button>
-      <b className={s.horizonValue}>{horizonH} h</b>
+        disabled={shownH >= HORIZONS[HORIZONS.length - 1]} aria-label={appConfig.copy.zeitplan.zoomOut}><Icon id="zoom-out" /></button>
+      <b className={s.horizonValue}>{fmtHours(shownH)} h</b>
       {/* At a constant px-per-hour the view is pixel-identical when you widen the window —
           only this number moved, and the scrollbar that would have hinted at more axis is
           ignored by iPadOS. Naming the end makes the control answer its own question. */}
       <span className={s.horizonEnd}>{fillTemplate(appConfig.copy.zeitplan.horizonUntil, { t: horizonEndLabel })}</span>
       <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(-1)}
-        disabled={horizonH <= HORIZONS[0]} aria-label={appConfig.copy.zeitplan.zoomIn}><Icon id="zoom-in" /></button>
+        disabled={shownH <= HORIZONS[0]} aria-label={appConfig.copy.zeitplan.zoomIn}><Icon id="zoom-in" /></button>
     </div>
   ) : null
 

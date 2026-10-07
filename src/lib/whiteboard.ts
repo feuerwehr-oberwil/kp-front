@@ -54,6 +54,34 @@ export const STACK_VPAD = 36
 // canvas edge put that pill ON the chips (3am test r2, 25.09.2026 — at 820 and at 360). The
 // Gebäude fit reserves the row; an ordinary sheet does not, it has no pill down there.
 export const STACK_CHIP_ROW = 56
+/**
+ * …and an ordinary sheet reserves the chip row too (sweep B8, 07.10.2026, owner option 1): the
+ * fit is «the WHOLE sheet inside the free area between the bars», and the bottom-left chips
+ * (Objekt · Ref. · Karte verknüpfen) are part of what bounds it. Without this a portrait sheet
+ * ran to the canvas foot and the chips sat on its legend — at 1440 over the title block, on a
+ * phone over the plan's footer. Like TOP_INSET these must match the CSS:
+ * - tablet/desktop: `.wb-botleft` stands 16px off the canvas foot, --float-h (52px) tall, + 8px air;
+ * - phone: the row is fixed at --float-bottom, 8px above the tool bar, where the canvas ends —
+ *   so it reaches 50px into the canvas, + 8px air.
+ * The Gebäude keeps its own STACK_CHIP_ROW (its «+ UG» pill straddles the edge besides).
+ */
+export const CHIP_ROW_INSET = 76
+export const CHIP_ROW_INSET_PHONE = 58
+export const chipRowInset = (phone: boolean): number => (phone ? CHIP_ROW_INSET_PHONE : CHIP_ROW_INSET)
+/**
+ * THE fitted board: the plan's sheet contained in the free area — the canvas less the top bar,
+ * the side rails and the bottom reserve. Every «eingepasst» (the opening view, «Einpassen», a
+ * zoom out through fit) is scale 1 of this box, so they cannot disagree.
+ */
+export function containFit(
+  vp: { w: number; h: number }, aspect: number,
+  inset: { top: number; bottom: number; l: number; r: number },
+): { w: number; h: number } {
+  const w = Math.max(0, vp.w - inset.l - inset.r)
+  const h = Math.max(0, vp.h - inset.top - inset.bottom)
+  if (!w || !h || !(aspect > 0)) return { w: 0, h: 0 }
+  return w * aspect <= h ? { w, h: w * aspect } : { w: h / aspect, h }
+}
 export const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 export const floorLabel = (f: number) => {
   const c = appConfig.copy.floor
