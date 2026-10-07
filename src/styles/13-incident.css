@@ -1023,6 +1023,14 @@
 .cv-card h2 { font: 700 14.5px var(--body); color: var(--ink); margin: 0; display: flex; justify-content: space-between; align-items: baseline; }
 .cv-center { align-items: center; text-align: center; padding: 32px 16px; color: var(--ink-faint); }
 .cv-hint { font: 500 13px var(--body); color: var(--ink-dim); margin: 0; }
+/* the notice's own line is its TITLE: the darkest ink on the card, the hint under it grey. It was
+   a bare <p> in the card's --ink-faint, so the title read lighter than its own explanation
+   (UI sweep 07.10.2026, the Stations-Terminal's «nicht eingerichtet»). The glyph keeps the faint. */
+.cv-center > p:not(.cv-hint) { margin: 0; font: 700 15px/1.35 var(--body); color: var(--ink); }
+/* A page that is ONLY a notice (no .cv-head: a link/terminal failure, «geschlossen», the capture
+   app's load error) stands the card in the middle of the screen. It sat flush against the top
+   edge, its upper corners cut by the screen's own. */
+.cv-shell:not(:has(.cv-head)) { justify-content: center; padding-top: calc(24px + env(safe-area-inset-top)); }
 /* Amber, not --accent (the brand red must never mean state) and not grey: this says the paper
    will have holes in it, which is worth noticing but is not an error — printing a form with
    blanks is a normal, deliberate thing to do here. Full row so it never shares a line with the
