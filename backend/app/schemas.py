@@ -1014,7 +1014,9 @@ class IdentityConfig(BaseModel):
     # Einsatzrapport; purely informational, grants no role/permission.
     kommandant: str | None = None
     # Demo deployments: render a persistent "DEMO" ribbon everywhere and an optional note
-    # (e.g. login credentials / reset cadence). Off/empty for real stations.
+    # (e.g. login credentials / reset cadence). Off/empty for real stations. The client shows
+    # demoNote only while demoMode is true (lib/deploymentConfig · demoNote), so switching demo
+    # mode off also retires the «PIN 000000 für alle» line without anyone having to clear it.
     demoMode: bool | None = None
     demoNote: str | None = None
 
