@@ -119,17 +119,20 @@
 /* marker-row in-place edit (mirrors the Verlauf pencil; suggestions themselves vanish
    once übernommen — the entry lives on here and stays correctable) */
 .ap-row-edit { position: relative; width: 36px; height: 36px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
-  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; opacity: 0; padding: 0; }
+  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; padding: 0; }
 /* the 44px floor under the 36px square (29.09.2026 — they were 28px beside a destructive one) */
 .ap-row-edit::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .ap-row-edit:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the row's remove is THE delete look: a bin, --del-ink in the --del-edge outline */
 .ap-row-del { color: var(--del-ink); border-color: var(--del-edge); }
-.ap-row:focus-within .ap-row-edit { opacity: 1; }
-@media (hover: hover) {
-  .ap-row:hover .ap-row-edit { opacity: 1; }
+/* ⚠️ Hidden-until-hover ONLY where nothing but a mouse can reach the row. `(hover: hover)` alone
+   is true on a touch laptop (its trackpad hovers), where a finger on the screen never does — the
+   pencil was invisible to exactly the hand reaching for it (UI sweep 07.10.2026). Any coarse
+   pointer on the device keeps it shown; a browser that cannot parse the query shows it too. */
+@media (hover: hover) and (pointer: fine) and (not (any-pointer: coarse)) {
+  .ap-row-edit { opacity: 0; }
+  .ap-row:hover .ap-row-edit, .ap-row:focus-within .ap-row-edit { opacity: 1; }
 }
-@media (hover: none) { .ap-row-edit { opacity: 1; } }
 .ap-row-edit .i { width: 16px; height: 16px; }
 .ap-row-editing { cursor: default; }
 .ap-row-input { flex: 1; min-width: 0; border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);

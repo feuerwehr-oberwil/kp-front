@@ -4,7 +4,7 @@ import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import { cx } from '../lib/cx'
 import { fillTemplate } from '../lib/format'
-import { rankAbbr, rankLabel } from '../lib/rank'
+import { RankBadge } from './RankBadge'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { usePopoverGuard } from '../lib/overlays/popoverGuard'
 import { visibleViewportBottom } from '../lib/useKeyboardInset'
@@ -265,9 +265,9 @@ export interface ComboEntry<V> {
 /** Section headers with their own options, rendered instead of the flat list. */
 export interface ComboEntryGroup<V> { label: string; options: ComboEntry<V>[] }
 
-/** The Dienstgrad chip — the same badge on both pickers, so it is drawn in one place. */
+/** The Dienstgrad chip on a picker row — the app's one RankBadge. */
 export function ComboRank({ rank }: { rank: string }) {
-  return <span className={c.rank} title={rankLabel(rank)}>{rankAbbr(rank)}</span>
+  return <RankBadge rank={rank} />
 }
 
 export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, showSearch, limit, toggle, custom, onPick }: {

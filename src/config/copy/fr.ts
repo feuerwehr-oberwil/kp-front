@@ -1348,7 +1348,6 @@ export const fr: Localizable<Copy> = {
     phoneSectionReady: 'Prêts',
     phoneSectionOut: 'Sortis',
     safetyTitle: 'Équipe de sécurité',
-    safetyDeploy: 'Engager',
     safetyPick: 'Désigner',
     safetyPickTitle: 'Désigner l’équipe de sécurité',
     safetyPickNew: 'Annoncer un nouveau binôme (sécurité)',

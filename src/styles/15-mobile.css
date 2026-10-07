@@ -476,6 +476,23 @@
      «ÜBU…» or «Ü.». The 8px come out of the pill's own air, so the WORD survives; the ellipsis
      below stays the last resort for a bar that is fuller still. */
   .topbar .ip-switch-btn { padding: 6px 7px; gap: 4px; }
+  /* ── «name over the clock» (07.10.2026, UI sweep · owner pick B3 D) ──
+     The pill is the Stichwort (13.5/700, ellipsis) over the Einsatzuhr (mono 12.5, its mode's
+     glyph): panels/IncidentSwitcher · twoLine. The bar's own clock button is not rendered here
+     any more (TopBar), so the pill may take the width the clock had; it is still the bar's
+     yielder, and only the title ellipsises. The quiet «gespeichert» ✓ comes back beside it — a
+     fixed 16px slot, so a save never shifts the line — because the pill now has the room. */
+  .topbar .ip-switch-two { max-width: 100%; gap: 6px; padding-block: 4px; }
+  .ip-switch-lines { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; flex: 0 1 auto;
+    line-height: 1.15; text-align: left; }
+  /* ⚠️ also past the bar's ladder: its title step (fit-9) is the TABLET's last resort and hides
+     `.ip-switch-title`; here the title is half of what the pill says and never goes */
+  .ip-switch-two .ip-switch-title, .topbar.fit-9 .ip-switch-two .ip-switch-title {
+    display: block; max-width: 100%; font-size: 13.5px; font-weight: 700; }
+  .ip-switch-clock { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;
+    font: 700 12.5px/1.1 var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .ip-switch-btn .ip-switch-clock svg { width: 12px; height: 12px; opacity: .8; }
+  .topbar .ip-switch-two .ip-status { display: inline-flex; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
   /* Verlauf goes icon-only. :not(.tb-rem-count) — the bare `span` selector also caught the
      reminder-count badge, so the number of due reminders vanished on exactly the device most
@@ -836,7 +853,7 @@
      grab), pushed down by its head — the map inside keeps every drag (swipeDismiss · rule 3).
      A map has no height of its own to hug, so it stands at the sheet cap; the footer is a
      `SheetFoot` and pays the bottom inset through the one rule above. */
-  .rp-control { max-height: var(--rp-control-room, 46vh); }
+  .rp-control { max-height: var(--rp-control-room, 46dvh); }
 
   /* One bounded list above the object map, with rows retaining their own height. */
   .pp-sheet .pp-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }

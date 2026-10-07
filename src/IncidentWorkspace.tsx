@@ -5254,6 +5254,8 @@ export function IncidentWorkspace({
             syncDetail={(journal.syncStatus === 'error' || auditDelivery.status === 'error') && syncStatus !== 'storage' ? appConfig.copy.journal.delivery.short
               : closedRefusedUnexported && baseSyncStatus === 'synced' ? appConfig.copy.journal.delivery.closedShort : undefined}
             lastSyncedAt={lastSyncedAt}
+            startedAt={incidentMeta.started_at}
+            endedAt={reportMeta.endedAt ?? (running ? undefined : closeTimeOf(incidentMeta))}
             user={{ display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' }}
             onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}

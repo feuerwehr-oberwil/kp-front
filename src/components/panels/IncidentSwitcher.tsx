@@ -1,7 +1,7 @@
 import { ShellLoader } from '../ShellLoader'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
-import { initials, roleLabel, fillTemplate, fmtSpanShort } from '../../lib/format'
+import { initials, roleLabel, fillTemplate, fmtSpanShort, streetPart } from '../../lib/format'
 import { buildLabel } from '../../lib/buildInfo'
 import { applyUpdateNow, onUpdateAvailable } from '../../lib/swUpdate'
 import { canApplyInPlace } from '../../lib/updatePolicy'
@@ -13,6 +13,9 @@ import { runningOthers } from '../../lib/switcherLists'
 import { SyncGlyph } from '../SyncGlyph'
 import { useOnline } from '../../lib/useOnline'
 import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
+import { useIsPhone } from '../../lib/useIsPhone'
+import { CLOCK_ICON, useEinsatzuhr } from '../../lib/einsatzuhr'
+import { EinsatzuhrChoices } from '../Einsatzuhr'
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
 function fmtClock(ms: number): string {
@@ -28,7 +31,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -37,6 +40,10 @@ export function IncidentSwitcher({
   syncDetail?: string
   lastSyncedAt: number | null
   user: { display_name: string; color: string | null; role: string }
+  /** the Einsatzuhr's start and (for a closed Einsatz) end — the SAME two the top bar's clock gets.
+   *  On a phone the clock is the pill's second line (see `twoLine` below). */
+  startedAt?: string | null
+  endedAt?: string | null
   /** open the Einstellungen sheet (device prefs + synced incident settings) */
   /** Omitted hides the Einstellungen row — an Einsatz-Link has no device or incident
       settings to change, and every write behind them is refused anyway. */
@@ -126,6 +133,21 @@ export function IncidentSwitcher({
     pending: cp.badgePending, offline: cp.badgeOffline, error: cp.badgeError, storage: cp.badgeStorage,
   }
   const [open, setOpen] = useState(false)
+  // ⚠️ PHONE: «where over the clock» (07.10.2026, UI sweep · owner pick B3 D). The pill carried a
+  // doc glyph and nothing else — the Stichwort was hidden as a useless «C…» — while the bar spent
+  // a second control on the Einsatzuhr beside it. Now the pill IS both: the ADDRESS's street part
+  // (owner: «the address is more important than the type»; the Stichwort where there is none),
+  // 13.5/700 with an ellipsis, over the Einsatzuhr (mono 12.5, its mode's glyph); the bar's own
+  // clock button goes (TopBar). The clock's modes are an INLINE choice under the Einsatz card's
+  // Beginn pill below (never a popover over this menu) — the same per-device choice as the
+  // tablet's bar menu (lib/einsatzuhr). Tablet unchanged.
+  const isPhone = useIsPhone()
+  const uhr = useEinsatzuhr(startedAt, endedAt, undefined, !isPhone)
+  const twoLine = isPhone && !!active
+  const street = streetPart(active?.address)
+  const pillName = street || active?.title || ''
+  // the inline clock choice starts folded every time the menu is opened (the switch button below)
+  const [clockOpen, setClockOpen] = useState(false)
   // Einsatzbeginn/-dauer row in the dropdown (phones hide the TopBar clocks, so the times
   // live here) — tick once a minute while open so the Dauer stays current
   const [now, setNow] = useState(() => Date.now())
@@ -202,12 +224,26 @@ export function IncidentSwitcher({
   )
   return (
     <div className="ip-switch" ref={ref}>
-      <button className="ip-switch-btn" onClick={() => setOpen((v) => !v)}
-        aria-label={active ? active.title : cp.noIncident} aria-expanded={open && !sheetOpen}>
-        {/* phones: the title is CSS-hidden (a one-letter stump helped nobody) — a doc glyph
-            marks the button; the full title heads the dropdown instead */}
-        <span className="ip-switch-glyph" aria-hidden><Icon id="doc" /></span>
-        <span className="ip-switch-title">{active ? active.title : cp.noIncident}</span>
+      <button className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} onClick={() => { setClockOpen(false); setOpen((v) => !v) }}
+        aria-label={twoLine
+          ? [street, active.title, uhr.text ? `${uhr.label[uhr.mode]} ${uhr.text}` : ''].filter(Boolean).join(', ')
+          : active ? active.title : cp.noIncident}
+        aria-expanded={open && !sheetOpen}>
+        {twoLine ? (
+          <span className="ip-switch-lines">
+            <span className="ip-switch-title">{pillName}</span>
+            {uhr.text && (
+              <span className="ip-switch-clock"><Icon id={CLOCK_ICON[uhr.mode]} /><b>{uhr.text}</b></span>
+            )}
+          </span>
+        ) : (
+          <>
+            {/* a narrow TABLET bar's last step (fit-9): the title gives way to a doc glyph; the full
+                title heads the dropdown instead */}
+            <span className="ip-switch-glyph" aria-hidden><Icon id="doc" /></span>
+            <span className="ip-switch-title">{active ? active.title : cp.noIncident}</span>
+          </>
+        )}
         {/* persistent ÜBUNG marker in the chrome — a training must never read as a real
             Einsatz mid-use (it also survives the phone's CSS-hidden title) */}
         {active?.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
@@ -271,14 +307,27 @@ export function IncidentSwitcher({
               <div className="ip-card-pills">
                 <span className={`ip-card-pill ip-status-${syncStatus}`} title={savedText}>{statusMark}<span>{savedPill}</span></span>
                 {/* «🕓 21:22 · 1 h 54» — the clock glyph is the label; «Einsatzbeginn» is the title */}
-                {active.started_at && (
-                  <span className="ip-card-pill"
-                    title={fillTemplate(cp.startedFull, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(now - Date.parse(active.started_at)) })}>
-                    <Icon id="clock" />
-                    <span>{fillTemplate(cp.startedRow, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(now - Date.parse(active.started_at)) })}</span>
-                  </span>
-                )}
+                {active.started_at && (() => {
+                  // a closed Einsatz stops its clock at the end, as the bar's Einsatzuhr does
+                  const until = endedAt ? Date.parse(endedAt) : now
+                  const title = fillTemplate(cp.startedFull, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(until - Date.parse(active.started_at)) })
+                  const body = <><Icon id="clock" /><span>{fillTemplate(cp.startedRow, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(until - Date.parse(active.started_at)) })}</span></>
+                  // PHONE: the pill is the door to the Einsatzuhr's modes, which have no button of
+                  // their own in the phone bar any more (see `twoLine`): it folds the inline choice
+                  // out under the pills (below), ▾/▴ like every other fold
+                  return twoLine && startedAt ? (
+                    <button type="button" className="ip-card-pill ip-card-pill-btn" title={title} aria-label={title}
+                      aria-expanded={clockOpen} onClick={() => setClockOpen((v) => !v)}>
+                      {body}<Icon id="chevron-down" className="chev" />
+                    </button>
+                  ) : (
+                    <span className="ip-card-pill" title={title}>{body}</span>
+                  )
+                })()}
               </div>
+              {twoLine && clockOpen && (
+                <EinsatzuhrChoices uhr={uhr} ariaLabel={appConfig.copy.einsatzuhr.modeElapsed} onPicked={() => setClockOpen(false)} />
+              )}
               {/* The Einsatz's own actions, inside its own card. Short labels: the card names the
                   Einsatz one line above, so «Einsatz abschliessen» would say it twice — the full
                   wording rides along as the button's title/aria-label.

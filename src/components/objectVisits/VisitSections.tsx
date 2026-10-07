@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
-import { fillTemplate } from '../../lib/format'
+import { fillTemplate, unitLabel } from '../../lib/format'
 import type { Item } from '../../lib/checklists'
 import { Segmented } from '../Segmented'
 import { DateTimeField } from '../TimeField'
@@ -227,7 +227,7 @@ function NumberField({ value, unit, label, onChange }: { value: number | null; u
           if (Number.isFinite(n)) onChange(n)
         }}
       />
-      {unit && <span className={s.unit}>{unit}</span>}
+      {unit && <span className={s.unit}>{unitLabel(unit)}</span>}
     </div>
   )
 }

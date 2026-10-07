@@ -2444,7 +2444,6 @@ export const de = {
     phoneSectionReady: 'Bereit',
     phoneSectionOut: 'Draussen',
     safetyTitle: 'Sicherungstrupp',
-    safetyDeploy: 'Einsetzen',
     // «Bestimmen» am Abschnittskopf SICHERUNGSTRUPP (26.09.2026, phone card slim-down) – der
     // gestrichelte Kasten «Kein Sicherungstrupp · Ein Trupp ist drin» ist weg; der Kopf steht wie
     // DRIN/DRAUSSEN, und der leere Abschnitt IST die Aussage

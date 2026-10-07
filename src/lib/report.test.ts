@@ -615,7 +615,8 @@ describe('server-PDF payload extras', () => {
       // a catalogue entry with no unit of its own is counted in «Stk.» — WITH the dot, the
       // one spelling (appConfig.mittel.defaultUnit); five call sites used to disagree about it
       { label: 'Sandsäcke', menge: undefined, unit: 'Stk.' },
-      { label: 'Spezialschaum', menge: '20', unit: 'l' },
+      // the litre prints as «L»: a lowercase l beside «20» on the sheet reads as «20 1»
+      { label: 'Spezialschaum', menge: '20', unit: 'L' },
     ])
     // blank form: the whole catalogue as stubs, nothing dropped
     expect(mittelFormForPdf([], catalogue).mittelForm.every((r) => r.menge === undefined)).toBe(true)

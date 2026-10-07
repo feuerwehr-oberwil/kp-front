@@ -2123,7 +2123,7 @@ describe('the phone board (full app)', () => {
     // the head stays, its door goes: a Trupp stands under it
     expect(screen.getByText(az.safetyTitle)).toBeTruthy()
     expect(screen.queryByRole('button', { name: az.safetyPick })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: az.safetyDeploy }))
+    fireEvent.click(screen.getByRole('button', { name: az.actEnter }))
     expect(setTruppStatus).toHaveBeenCalledWith('sich', 'aktiv')
   })
 })

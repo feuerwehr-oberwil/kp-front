@@ -5,7 +5,7 @@ import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSource } from '../lib/deploymentConfig'
-import { fillTemplate, stripUnprintable } from '../lib/format'
+import { fillTemplate, stripUnprintable, unitLabel } from '../lib/format'
 import { cx } from '../lib/cx'
 import { caretToEnd, toast } from '../lib/ui'
 import { Menu, Overlay, Sheet, SheetFoot } from '../lib/overlays'
@@ -486,13 +486,13 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                       {/* qty and unit read as one value («3 Stk») — unit trails the number */}
                       {canEdit ? (
                         <div className={s.rowEdit}>
-                          <Stepper value={c.menge} min={0} max={9999} over={over} ariaLabel={`${c.label} ${c.unit}`} onChange={(v) => editRow(c, v)} />
-                          <span className={s.rowUnit}>{c.unit}</span>
+                          <Stepper value={c.menge} min={0} max={9999} over={over} ariaLabel={`${c.label} ${unitLabel(c.unit)}`} onChange={(v) => editRow(c, v)} />
+                          <span className={s.rowUnit}>{unitLabel(c.unit)}</span>
                         </div>
                       ) : (
                         <>
                           <span className={cx(s.rowQty, over && s.over)}>{c.menge}</span>
-                          <span className={s.rowUnit}>{c.unit}</span>
+                          <span className={s.rowUnit}>{unitLabel(c.unit)}</span>
                         </>
                       )}
                     </div>
@@ -549,13 +549,13 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                             )}
                             {canEdit ? (
                               <div className={s.rowEdit}>
-                                <Stepper value={cell.used} min={0} max={9999} over={over} ariaLabel={`${row.label} ${row.unit}`} onChange={(v) => { mark(row.key, v); saveCell(row, cell, v) }} />
-                                <span className={s.rowUnit}>{row.unit}</span>
+                                <Stepper value={cell.used} min={0} max={9999} over={over} ariaLabel={`${row.label} ${unitLabel(row.unit)}`} onChange={(v) => { mark(row.key, v); saveCell(row, cell, v) }} />
+                                <span className={s.rowUnit}>{unitLabel(row.unit)}</span>
                               </div>
                             ) : (
                               <>
                                 <span className={cx(s.rowQty, over && s.over)}>{cell.used}</span>
-                                <span className={s.rowUnit}>{row.unit}</span>
+                                <span className={s.rowUnit}>{unitLabel(row.unit)}</span>
                               </>
                             )}
                           </>
@@ -589,7 +589,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                         {!compact && <>
                           {/* #8: allow over-use but flag it — count turns red past the available stock */}
                           <span className={cx(s.rowQty, row.totalStock != null && row.totalUsed > row.totalStock && s.over)}>{row.totalUsed}</span>
-                          <span className={s.rowUnit}>{row.unit}</span>
+                          <span className={s.rowUnit}>{unitLabel(row.unit)}</span>
                         </>}
                       </button>
                       {compact && (
@@ -622,12 +622,12 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                                 {/* a sub-row's write is marked with the ROW's new total, not the
                                     cell's: what folds the head back up is every Quelle at 0 */}
                                 <Stepper value={cell.used} min={0} max={9999} over={cellOver} ariaLabel={`${row.label} · ${cell.sourceLabel ?? M.noSource}`} onChange={(v) => { mark(row.key, row.totalUsed - cell.used + v); saveCell(row, cell, v) }} />
-                                <span className={s.rowUnit}>{row.unit}</span>
+                                <span className={s.rowUnit}>{unitLabel(row.unit)}</span>
                               </div>
                             ) : (
                               <>
                                 <span className={cx(s.rowQty, cellOver && s.over)}>{cell.used}</span>
-                                <span className={s.rowUnit}>{row.unit}</span>
+                                <span className={s.rowUnit}>{unitLabel(row.unit)}</span>
                               </>
                             )}
                           </div>
@@ -760,7 +760,7 @@ function MittelPickSheet({ M, recommendations, sources, catalogue, entries, onCa
             <div key={r.item.id} className={cx(s.pickOpt, s.pickFixed)}>
               <span className={s.pickTick} aria-hidden><Icon id="check" /></span>
               <span className={s.pickTxt}><b>{r.item.label}</b><small>{srcLabel(defaultSourceFor(r.item)) ?? M.noSource}</small></span>
-              <span className={s.pickStk}>{r.missing} {r.item.unit || appConfig.mittel.defaultUnit}</span>
+              <span className={s.pickStk}>{r.missing} {unitLabel(r.item.unit || appConfig.mittel.defaultUnit)}</span>
             </div>
           ))}
         </div>
@@ -819,7 +819,9 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
             <div className={s.dialogRow}>
               <div className="ip-field">
                 <span>{M.unitLabel}</span>
-                <Combo value={unit} options={units} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={setUnit} />
+                {/* the picker SHOWS «L» (unitLabel) but stores the catalogue's «l»: a picked «L» saved as-is
+                    would be a different unit to mittelKey and split the line in two */}
+                <Combo value={unitLabel(unit)} options={units.map(unitLabel)} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={(v) => setUnit(v.trim() === 'L' ? 'l' : v)} />
               </div>
               <label className="ip-field">
                 <span>{M.stockLabel}</span>
@@ -899,7 +901,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
   const [materialId, setMaterialId] = useState<string | undefined>(seeded ? seedItem?.id : kept.materialId)
   // same fallback chain as `pickMaterial` below, so a seeded name and a picked one land on the
   // same Einheit — the catalogue's, else whatever the draft carried, else the first configured
-  const [unit, setUnit] = useState(seeded ? (seedItem?.unit || kept.unit || units[0] || appConfig.mittel.defaultUnit) : kept.unit)
+  const [unit, setUnit] = useState(unitLabel(seeded ? (seedItem?.unit || kept.unit || units[0] || appConfig.mittel.defaultUnit) : kept.unit))
   const [sourceId, setSourceId] = useState<string | undefined>(kept.sourceId)
   const [sourceLabel, setSourceLabel] = useState<string | undefined>(kept.sourceLabel)
   const [menge, setMenge] = useState(kept.menge)
@@ -911,7 +913,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
     const item = catalogue.find((c) => c.label === val)
     setMaterialId(item?.id)
     setLabel(val)
-    setUnit((u) => item?.unit || u || units[0] || appConfig.mittel.defaultUnit)
+    setUnit((u) => unitLabel(item?.unit || u || units[0] || appConfig.mittel.defaultUnit))
   }
   const pickSource = (val: string) => {
     if (!val) { setSourceId(undefined); setSourceLabel(undefined); return }
@@ -965,7 +967,9 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
         </div>
         <div className={cx(s.field, s.fieldNarrow)}>
           <label>{M.unitLabel}</label>
-          <Combo value={unit} options={units} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={setUnit} />
+          {/* the picker SHOWS «L» (unitLabel) but stores the catalogue's «l»: a picked «L» saved as-is
+                    would be a different unit to mittelKey and split the line in two */}
+                <Combo value={unitLabel(unit)} options={units.map(unitLabel)} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={(v) => setUnit(v.trim() === 'L' ? 'l' : v)} />
         </div>
         {/* shown even where the station configured NO sources: with the free-text escape there
             is still something to pick, and «woher kam das» is worth recording either way */}

@@ -333,10 +333,10 @@
   .cl-surface { flex-direction: column; gap: 0; }
   /* the picker rail collapses to the .cl-rail-toggle row after a pick (ChecklistsView), so
      while open it may take real height — picking is the only job of that moment */
-  .cl-rail { flex: none; max-height: 44vh; width: auto; border-right: none;
+  .cl-rail { flex: none; max-height: 44dvh; width: auto; border-right: none;
     border-bottom: 1px solid var(--glass-edge); padding: 8px; gap: 8px; }
   /* #4: list-only mode (nothing opened yet) — the list owns the whole surface instead of
-     being capped at 44vh with a preview beneath it */
+     being capped at 44dvh with a preview beneath it */
   /* while the list owns the whole surface it is the thing the FAB lands on — .cl-main got its
      clearance long ago, the rail never did, so the last checklist in the picker sat under the
      circle. Same shared reserve, 0 for a viewer. */

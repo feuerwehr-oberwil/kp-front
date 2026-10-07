@@ -1822,7 +1822,7 @@ function SafetyRow({ t, canEdit, onDeploy, onOpen }: {
           <span role="button" tabIndex={0} className={s.safetyDeploy}
             onClick={(e) => { e.stopPropagation(); onDeploy(t.id) }}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onDeploy(t.id) } }}>
-            {az.safetyDeploy}
+            {az.actEnter}
           </span>
         )}
       </span>

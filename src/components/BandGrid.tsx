@@ -6,7 +6,7 @@ import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd } from 
 import { cx } from '../lib/cx'
 import { ContextMenu } from '../lib/overlays'
 import { useIsPhone } from '../lib/useIsPhone'
-import { rankAbbr, rankLabel } from '../lib/rank'
+import { RankBadge } from './RankBadge'
 import { fmtDayShort, incidentDays } from '../lib/zeitplanFormat'
 import {
   bandCell, bandCellNeedsResolve, bandCellWindow, bandCounts, bandSplitPlan, conflictingShiftIds,
@@ -437,7 +437,7 @@ export function BandGrid({
                       112px phone column a bare wrap put the badge above the name and made that
                       row a head taller than its neighbours for no information at all */}
                   <span className={s.whoMain}>
-                    {p.rank && <span className={s.rank} title={rankLabel(p.rank)}>{rankAbbr(p.rank)}</span>}
+                    <RankBadge rank={p.rank} />
                     <span className={s.name}>{p.displayName}</span>
                   </span>
                   {/* Somebody whose own times reach no column at all sits empty everywhere —

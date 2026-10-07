@@ -1031,7 +1031,9 @@ to prod.
   block where it belongs and renumber, rather than appending for tidiness – `20-touch-floors.css`
   is last precisely because its `(pointer: coarse)` targets have to beat every surface above it.
   Component-specific layout still goes in `*.module.css` files that reference `var(--token)`;
-  the admin UI uses `src/admin/admin.css`.
+  the admin UI uses `src/admin/admin.css`. Form controls take the page's family from ONE reset
+  in 02-base (`button, input, select, textarea { font-family: inherit }`, 07.10.2026): never add
+  a per-control `font-family: inherit`. The reset is the family only; sizes stay per rule.
 - **Overlays go through `src/lib/overlays/`** (`Sheet`/`SheetClose`, `Overlay`, `ConfirmCard`,
   `Menu`, `Popover`/`PopoverClose`) – thin wrappers over **Base UI** (`@base-ui/react`, headless)
   that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,

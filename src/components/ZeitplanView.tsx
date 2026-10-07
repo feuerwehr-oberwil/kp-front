@@ -6,7 +6,7 @@ import { fmtDayShort } from '../lib/zeitplanFormat'
 import { cx } from '../lib/cx'
 import { ContextMenu } from '../lib/overlays'
 import { useIsPhone } from '../lib/useIsPhone'
-import { rankAbbr, rankLabel } from '../lib/rank'
+import { RankBadge } from './RankBadge'
 import { intervalsOf } from '../lib/attendanceIntervals'
 import { useLaneGesture } from '../lib/useLaneGesture'
 import {
@@ -130,7 +130,7 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
       <button type="button" className={s.who} onClick={onOpen}
         aria-label={fillTemplate(Z.openFor, { name: person.displayName })}
         title={fillTemplate(Z.openFor, { name: person.displayName })}>
-        {person.rank && <span className={s.rank} title={rankLabel(person.rank)}>{rankAbbr(person.rank)}</span>}
+        <RankBadge rank={person.rank} />
         <span className={s.name}>{person.displayName}</span>
         {/* the clash may be scrolled off the visible axis; the name cell is sticky, so this is
             where you can still see WHOSE plan has one */}

@@ -90,11 +90,6 @@
   border: 1px solid var(--edge); border-radius: var(--r-ctl); background: var(--surface);
 }
 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rank {
-  flex: none; padding: 1px 5px; border-radius: var(--r-xs);
-  background: color-mix(in srgb, var(--ink) 8%, transparent);
-  font: 700 10px var(--mono); color: var(--ink-dim); text-transform: uppercase;
-}
 /* «eigene Zeiten»: this person planned on the axis and belongs to no column, so all their cells
    are empty — the mark carries their real hours so the grid cannot read as «has offered nothing».
    margin-left: auto — it rides the right edge of the name cell, against the first column, where

@@ -65,8 +65,24 @@
   .ip-card-act, .ip-menu-logout, .ip-btn { min-height: var(--tap); }
   /* (the plan's trust chips along its foot — Einsatzobjekt · Massstab · Karte verknüpfen — were 29px
      and stood --tap here; since 26.09.2026 they are --float-h at every width, 09-whiteboard) */
-  /* the Rapport's pencil on the Einsatzdaten card (26) and the ± stepper's reset (32) */
-  .report-meta-dispatch-hint, .step-clear { width: var(--tap); height: var(--tap); }
+  /* the Rapport's pencil on the Einsatzdaten card (26). (The ± stepper's reset is --tap at every
+     pointer since 07.10.2026, 07-toolrail.) */
+  .report-meta-dispatch-hint { width: var(--tap); height: var(--tap); }
+}
+
+/* ---- Small controls with a close neighbour (UI sweep 07.10.2026) ----------------------------
+   Under the floor and with something within a pad's reach, so they GROW under a finger instead
+   of getting an ::after pad (02-base): a pad would make the neighbour's edge answer for them. */
+@media (pointer: coarse) {
+  /* a Detail field's remove ✕ (32px), right after the value input it would otherwise overlap —
+     and a stray tap there deletes the row */
+  .kv-x { width: var(--tap); height: var(--tap); }
+  /* the drawing editor's «›» to the coupled Trupp (32px), beside the Trupp picker's trigger */
+  .draw-editor .de-trupp-go { width: var(--tap); min-height: var(--tap); }
+  /* the capture app's «fehlt noch» chips (32px), wrapping in a 6px-gap row */
+  .cv-missing-go { min-height: var(--tap); }
+  /* the Verlauf's «wieder in …» offers on a closed Pendenz (≈24px), side by side 5px apart */
+  .jr-again-btn { min-height: var(--tap); }
 }
 
 /* ---- The drawing controls stay as they are — decided, not overlooked ------------------------

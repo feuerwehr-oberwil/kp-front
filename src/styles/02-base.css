@@ -54,6 +54,13 @@ body {
   overscroll-behavior: none;
   -webkit-touch-callout: none;
 }
+/* ⚠️ Form controls do not inherit the page font on their own: the UA stylesheet hands
+   <button>, <input>, <select> and <textarea> the browser's UI face (Arial), so every control that
+   forgot its own `font-family: inherit` came out in a second typeface – the symbol palette's
+   labels, the composer's quick phrases (UI sweep 07.10.2026). The FAMILY only, on purpose: the
+   size, weight and line-height stay the UA's until a rule sets them, so no control changes size
+   here. A control never needs its own `font-family: inherit` again. */
+button, input, select, textarea { font-family: inherit; }
 /* only the map + plan get raw multi-touch (their own JS owns the zoom) */
 #map, .maplibregl-map, .maplibregl-canvas, .wb-stage, .wb-canvas { touch-action: none; }
 .app { position: fixed; inset: 0; }
@@ -98,17 +105,20 @@ body {
         because a pad would overlap a neighbour.
    Adding one here is the default; reach for (3) when the control sits in a dense row. */
 .ctx-x, .sym-close, .tl-play,
-.journal-x, .wb-dock-x, .ip-x, .jc-clip-x, .step-clear,
+.journal-x, .wb-dock-x, .ip-x, .jc-clip-x,
 .wb-dock-tog, .wb-dock-go, .jr-jump,
+/* the plan's «Massstab merken?» bar ✕ (34px): its neighbour is a .btn 8px away, a 5px pad reaches
+   neither it nor past the bar's own 7px padding (UI sweep 07.10.2026) */
+.wb-scale-persist-x,
 /* the Hilfe overlay's ✕ — a phone surface, alone in a padded row, so a pad cannot reach a
    neighbour (34px until 27.08.). The search fields' ✕ is a full --tap square (`.ui-search-x`). */
 .help-x { position: relative; }
 .ctx-x::after, .sym-close::after,
 .tl-play::after, .wb-del::after,
 .journal-x::after, .wb-dock-x::after, .ip-x::after,
-.jc-clip-x::after, .step-clear::after,
+.jc-clip-x::after,
 .wb-dock-tog::after, .wb-dock-go::after, .jr-jump::after,
-.help-x::after {
+.wb-scale-persist-x::after, .help-x::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
   transform: translate(-50%, -50%);
 }
