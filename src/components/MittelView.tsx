@@ -819,7 +819,9 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
             <div className={s.dialogRow}>
               <div className="ip-field">
                 <span>{M.unitLabel}</span>
-                <Combo value={unit} options={units.map(unitLabel)} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={setUnit} />
+                {/* the picker SHOWS «L» (unitLabel) but stores the catalogue's «l»: a picked «L» saved as-is
+                    would be a different unit to mittelKey and split the line in two */}
+                <Combo value={unitLabel(unit)} options={units.map(unitLabel)} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={(v) => setUnit(v.trim() === 'L' ? 'l' : v)} />
               </div>
               <label className="ip-field">
                 <span>{M.stockLabel}</span>
@@ -965,7 +967,9 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
         </div>
         <div className={cx(s.field, s.fieldNarrow)}>
           <label>{M.unitLabel}</label>
-          <Combo value={unit} options={units.map(unitLabel)} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={setUnit} />
+          {/* the picker SHOWS «L» (unitLabel) but stores the catalogue's «l»: a picked «L» saved as-is
+                    would be a different unit to mittelKey and split the line in two */}
+                <Combo value={unitLabel(unit)} options={units.map(unitLabel)} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={(v) => setUnit(v.trim() === 'L' ? 'l' : v)} />
         </div>
         {/* shown even where the station configured NO sources: with the free-text escape there
             is still something to pick, and «woher kam das» is worth recording either way */}

@@ -308,8 +308,10 @@ export function IncidentSwitcher({
                 <span className={`ip-card-pill ip-status-${syncStatus}`} title={savedText}>{statusMark}<span>{savedPill}</span></span>
                 {/* «🕓 21:22 · 1 h 54» — the clock glyph is the label; «Einsatzbeginn» is the title */}
                 {active.started_at && (() => {
-                  const title = fillTemplate(cp.startedFull, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(now - Date.parse(active.started_at)) })
-                  const body = <><Icon id="clock" /><span>{fillTemplate(cp.startedRow, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(now - Date.parse(active.started_at)) })}</span></>
+                  // a closed Einsatz stops its clock at the end, as the bar's Einsatzuhr does
+                  const until = endedAt ? Date.parse(endedAt) : now
+                  const title = fillTemplate(cp.startedFull, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(until - Date.parse(active.started_at)) })
+                  const body = <><Icon id="clock" /><span>{fillTemplate(cp.startedRow, { t: fmtClock(Date.parse(active.started_at)), d: fmtSpanShort(until - Date.parse(active.started_at)) })}</span></>
                   // PHONE: the pill is the door to the Einsatzuhr's modes, which have no button of
                   // their own in the phone bar any more (see `twoLine`): it folds the inline choice
                   // out under the pills (below), ▾/▴ like every other fold
