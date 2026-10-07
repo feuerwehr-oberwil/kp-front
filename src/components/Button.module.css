@@ -1,0 +1,55 @@
+/* THE button and THE icon button (07.10.2026, UI sweep C4). The app's primary action was defined
+   in 24 rules across 13 files, at heights from 32 to 54px and labels from 12 to 15px, and every new
+   surface wrote a 25th; 20-touch-floors.css exists to patch the ones that came out too small.
+   These two components are where a button's look lives now — new buttons use them, old ones move
+   onto them surface by surface. Built only from tokens (01-tokens · «THE SCALES»).
+   The secondary look is `.ip-btn`'s (13-incident), so moving an `.ip-btn` here changes nothing but
+   its floor: 44px always, 52 for the one big action of a screen. */
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  box-sizing: border-box; min-height: var(--tap); padding: 0 var(--sp-4);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  background: var(--surface); color: var(--ink);
+  /* the shorthand, never a bare size: <button> does not inherit the app font */
+  font: var(--fw-bold) var(--fs-2)/var(--lh-2) var(--body);
+  text-align: center; text-decoration: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn svg { width: 16px; height: 16px; flex: none; }
+@media (hover: hover) { .btn:hover { background: var(--hover-strong); } }
+.btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.btn:disabled { opacity: var(--disabled); cursor: default; }
+
+.lg { min-height: var(--tap-lg); padding: 0 var(--sp-5); font-size: var(--fs-3); line-height: var(--lh-3); }
+.lg svg { width: 20px; height: 20px; }
+.block { display: flex; width: 100%; }
+
+/* primary: THE primary fill (--btn-primary: ink by day, light grey by night) — never --accent,
+   which is the station's red and would make every «OK» read as an alarm */
+.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
+@media (hover: hover) { .primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); } }
+
+/* quiet: a word on the surface — «Später», «Abbrechen» beside a primary */
+.quiet { background: none; border-color: transparent; }
+@media (hover: hover) { .quiet:hover { background: var(--ink-8); } }
+
+/* danger: THE delete look (01-tokens · --del-*) — a red outline on the surface, never a red fill */
+.danger { background: var(--surface); border-color: var(--del-edge); color: var(--del-ink); }
+@media (hover: hover) { .danger:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); } }
+
+/* ── IconButton: a glyph, a word for the ear and the hold-tooltip (lib/holdTooltip), the 44px floor ── */
+.icon {
+  display: inline-grid; place-items: center; flex: none; box-sizing: border-box;
+  width: var(--tap); height: var(--tap); padding: 0;
+  border: 1px solid transparent; border-radius: var(--r-ctl);
+  background: none; color: var(--ink); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.icon svg { width: 20px; height: 20px; }
+@media (hover: hover) { .icon:hover { background: var(--ink-8); } }
+.icon:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.icon:disabled { opacity: var(--disabled); cursor: default; }
+/* secondary: a free-standing control on a bar or the map — the surface and its hairline */
+.icon.iconSecondary { background: var(--surface); border-color: var(--glass-edge); }
+@media (hover: hover) { .icon.iconSecondary:hover { background: var(--hover-strong); } }

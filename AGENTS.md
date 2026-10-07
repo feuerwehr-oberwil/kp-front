@@ -1076,6 +1076,14 @@ to prod.
   `styleDebt.baseline.json` and fails when one goes up – or when one went down and the baseline
   was not lowered (`STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts`, which
   only ever lowers it). Like the lint ceiling: never raise it to pass.
+- **New buttons are `<Button>` / `<IconButton>` / `<Chip>`** (07.10.2026, UI sweep C4;
+  `components/Button.tsx`, `components/Chip.tsx`). `Button` variant `primary | secondary
+  (default) | quiet | danger`, size `md` (44) `| lg` (52, the one big action of a screen),
+  `block`, `icon`; `IconButton` requires `label` (aria-label + title, which the hold-tooltip
+  reads), variant `quiet | secondary`; `Chip` is a choice (`selected` → `--sel` + aria-pressed).
+  All default to `type="button"`. A surface's `className` on them is for placement only; a new
+  look is a new variant there, not a local override. Do not write a new `.foo-btn` rule. The
+  secondary look is `.ip-btn`'s, so moving an `.ip-btn` changes only its floor.
 - **Breakpoints have one source** (07.10.2026): `src/lib/breakpoints.ts`. Stylesheets write
   `@media (--phone)` (also `--phone-landscape`, `--not-phone`, `--tablet`), and
   `vite.config · customMedia` writes the query in; `useIsPhone` re-exports the same

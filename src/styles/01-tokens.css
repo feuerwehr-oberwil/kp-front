@@ -135,6 +135,9 @@
   --r-pill: 999px;
   /* gloved tap target — small icon controls expand to this via a hit-pad or min-size */
   --tap: 44px;
+  /* the ONE big action of a screen (a welcome's «Los», a form's commit on a phone) — the 3am
+     tenet's 48–56px for primary actions; `<Button size="lg">` */
+  --tap-lg: 52px;
 
   /* ── The layer ladder ────────────────────────────────────────────────────────────────────
      Every z-index an app-level surface uses, in order, named for what the surface IS. Before
