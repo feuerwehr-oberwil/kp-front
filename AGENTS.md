@@ -1050,6 +1050,11 @@ to prod.
   A new capped body uses this token rather than a hand-rolled `max-width` + `margin: auto` box
   (the Checkliste runner's 720px predates it). Inside a row, a control stays near its label (the
   Rapport's Gerettete steppers sit in a 320px row).
+  ⚠️ Dev-server gotcha: a module that `composes` from `Surface.module.css` (Atemschutz,
+  Anwesenheit, Mittel, Checklists) gets its OWN inlined copy of that file. `pnpm dev` does not
+  refresh that copy when `Surface.module.css` changes. The surfaces keep the old rules until the
+  composing module itself is edited. A screenshot taken after an edit there therefore needs a
+  restart with `pnpm dev --force` first. `pnpm build` is not affected.
 - **Overlays go through `src/lib/overlays/`** (`Sheet`/`SheetClose`, `Overlay`, `ConfirmCard`,
   `Menu`, `Popover`/`PopoverClose`) – thin wrappers over **Base UI** (`@base-ui/react`, headless)
   that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,
