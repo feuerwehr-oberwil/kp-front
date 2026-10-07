@@ -251,26 +251,15 @@ html.rail-dragging .layers-card { transition: none; }
    (29.09.2026); `.lc-x` only places it. The dark card's on-ink ✕ is gone with the dark card. */
 .lc-x { flex: none; margin-left: auto; }
 .lc-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 10px 10px; }
-/* Ebenen quick-taps under the title — all on / all off / Standard. The .ip-x's grey wash, one
-   step up; colour via tokens, never frozen white. Labels are 12.5/700 compact per the button
-   spec, height stays the --tap floor. */
+/* Ebenen quick-taps under the title — all on / all off / Standard. They are <Chip>s (07.10.2026,
+   UI sweep C4 — this rule WAS the chip's look, now it lives in Chip.module.css); the preset the
+   layers on screen match is drawn CHOSEN, none of the three for a hand-switched set (LayerPanel ·
+   preset, 05.10.2026). Only the fit is local: words only (the glyphs left 22.09.2026 — see
+   LayerPanel.tsx), and a word may take two lines inside the 44px: «Tout afficher» / «Nascondi
+   tutti» are ~85px at 12.5/700 and a third of the 264px dock is 67 — nowrap ran them past the
+   button's edge. */
 .lc-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px 4px 2px; }
-.lc-quick button { height: var(--tap); border: none; border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink);
-  font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;
-  gap: 5px; padding: 0 4px; cursor: pointer; transition: background .14s var(--ease);
-  /* words only (the glyphs left 22.09.2026 — see LayerPanel.tsx), and a word may take two lines
-     inside the 44px: «Tout afficher» / «Nascondi tutti» are ~85px at 12.5/700 and a third of the
-     264px dock is 67 — nowrap ran them past the button's edge */
-  min-width: 0; min-height: var(--tap); height: auto; white-space: normal; line-height: 1.1; text-align: center; }
-.lc-quick button:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* the preset the layers on screen match is drawn CHOSEN — a choice's one look (AGENTS.md · Selected,
-   the same as the Basiskarte tile below it); none of the three for a hand-switched set
-   (LayerPanel · preset, 05.10.2026) */
-.lc-quick button.on { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
-@media (hover: hover) {
-  .lc-quick button:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); }
-}
+.lc-quick > button { min-width: 0; padding: 0 var(--sp-1); white-space: normal; line-height: 1.1; }
 /* a section head is an EYEBROW (29.09.2026, K9 — AGENTS.md · Fields, titles, eyebrows) */
 .lgroup { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
   padding: 14px 8px 6px; }
@@ -334,7 +323,7 @@ html.rail-dragging .layers-card { transition: none; }
    line under every plan row turns a short list into a scrolling one for a fact already told once.
    ⚠️ Twin rows only — no other `.lrow` has a sub-line today, and if one arrives it should decide
    for itself. Desktop keeps the sentence: there is room for it there. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .lrow.lrow-twin .name small { display: none; }
 }
 .lrow .lock { display: grid; place-items: center; font-size: 13px; color: var(--ink-faint); }

@@ -66,7 +66,7 @@
    tablet in the band even if something shortens its layout viewport below 521px (the old
    `resizes-content` keyboard shrink did exactly that — see lib/useIsPhone). Change these here
    and in the phone blocks together. ---- */
-@media (min-width: 601px) and (min-height: 521px) and (max-width: 1024px), (min-width: 1001px) and (max-width: 1024px) {
+@media (--tablet) {
   /* `.layers-card` needs no narrowing here any more: 264px IS its base width (05-navrail), and
      it tracks --vrail-w on its own — the rule that used to sit here said nothing the base did
      not. Don't put it back. */
@@ -129,7 +129,7 @@
   .mode-map.map-util .topbar:has(.tb-az) { max-width: calc(100vw - 200px); }
 }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* ONE page-title size on a phone, set where the title's font is defined — as the token, not
      per surface. Anwesenheit, Material and Trupps each dropped their <h2> to 17px in their own
      stylesheet and the Rapport never did, so «Einsatzrapport» stood 19px beside «Anwesenheit» at

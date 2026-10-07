@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { defineConfig, loadEnv, type Plugin, type Rollup } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { resolveCustomMedia } from './src/lib/breakpoints.ts'
 
 // Build stamp surfaced in the app menu so a tablet in the field can be matched to a
 // known deploy: package version + short git SHA + build date. Docker/Railway builds have
@@ -137,6 +138,49 @@ function adminOutsidePrecache(): { plugin: Plugin; isAdminOnly: (url: string) =>
   return { plugin, isAdminOnly: (url) => adminOnly.has(url) }
 }
 
+// `@media (--phone)` → the query `lib/breakpoints` holds for the JS side too (07.10.2026). A
+// ten-line PostCSS plugin instead of postcss-custom-media: that one resolves a name only inside
+// the file that declares it, and every CSS module is its own file, so it needs a second package
+// to inject the definitions everywhere. This reads them from the module useIsPhone re-exports,
+// which is the point — the CSS cannot drift from PHONE_QUERY. Runs in dev and build alike;
+// an unknown name or a name inside a compound query stops the build (resolveCustomMedia).
+// ⚠️ A file another module `composes: … from` is read by postcss-modules' own loader, which
+// runs NO user plugin: a name in Surface.module.css reached the browser as `@media (--phone)`
+// and never matched. Such a file keeps the literal query (breakpoints.test pins it), and
+// `customMediaResolved` fails the build if a name survives into any emitted stylesheet.
+function customMedia() {
+  return {
+    postcssPlugin: 'kp-custom-media',
+    AtRule: {
+      media(rule: { params: string }) {
+        const params = resolveCustomMedia(rule.params)
+        if (params !== rule.params) rule.params = params
+      },
+    },
+  }
+}
+
+function customMediaResolved(): Plugin {
+  return {
+    name: 'kp-custom-media-resolved',
+    apply: 'build',
+    enforce: 'post',   // after vite:css-post has emitted the stylesheets
+    generateBundle(_, bundle) {
+      for (const f of Object.values(bundle)) {
+        if (f.type !== 'asset' || !f.fileName.endsWith('.css')) continue
+        const css = typeof f.source === 'string' ? f.source : new TextDecoder().decode(f.source)
+        const hit = /@media[^{]*\(--[a-z0-9-]+\)/.exec(css)
+        if (!hit) continue
+        const msg = `${f.fileName}: unresolved custom media «${hit[0]}» — see vite.config · customMedia`
+        // printed as well as thrown: vite-plugin-pwa's closeBundle then fails on the half-written
+        // dist and its error is the one the build reports
+        console.error(`✗ ${msg}`)
+        throw new Error(msg)
+      }
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const adminPrecache = adminOutsidePrecache()
@@ -160,8 +204,10 @@ export default defineConfig(({ mode }) => {
     // same URL died the same way («Setting up fake worker failed», 08.09.). It is one
     // self-contained minified ESM with nothing to pre-bundle, so serving it as source is free.
     optimizeDeps: { exclude: ['pdfjs-dist/build/pdf.worker.min.mjs'] },
+    css: { postcss: { plugins: [customMedia()] } },
     plugins: [
       inlineSnailLoader(),
+      customMediaResolved(),
       react(),
       VitePWA({
         // 'prompt' (not 'autoUpdate'): a fresh deploy installs and WAITS instead of silently

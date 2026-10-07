@@ -175,7 +175,7 @@
    selected state gets a (status-coloured) fill */
 
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* (the full-width inset is the shared shell's — Surface.module.css) */
   /* ONE row (every page head, 28.09.2026 — Surface.module.css): title + summary, the QR read-out
      beside them as the first thing the head's ladder takes away (MittelView). The paddings are the
@@ -246,7 +246,7 @@
   border: none; border-radius: var(--r-sm); background: none; color: var(--ink-faint); cursor: pointer; }
 @media (hover: hover) { .recHide:hover { color: var(--ink); } }
 .recHide :global(.i) { width: 15px; height: 15px; }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .recStrip { margin: 0 14px; }
 }
 

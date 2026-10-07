@@ -1,0 +1,22 @@
+/* THE choice chip (07.10.2026, UI sweep C4): one answer out of a few, tapped in place — a preset,
+   a filter, a quick phrase. The look the Ebenen quick-taps already had (05-navrail · `.lc-quick`):
+   a faint ink wash, no edge, 12.5/700, the 44px floor; CHOSEN is THE «selected» of a choice
+   (01-tokens · --sel), a blue fill. A chip is a rectangle like every control (the one corner); a
+   round, read-only status pill is a badge (`.ip-badge`), not this. */
+
+.chip {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  box-sizing: border-box; min-height: var(--tap); padding: 0 var(--sp-3);
+  border: none; border-radius: var(--r-sm);
+  background: var(--ink-8); color: var(--ink);
+  font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body);
+  text-align: center; cursor: pointer;
+  transition: background .14s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.chip svg { width: 16px; height: 16px; flex: none; }
+@media (hover: hover) { .chip:hover { background: var(--ink-12); } }
+.chip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.chip:disabled { opacity: var(--disabled); cursor: default; }
+
+.on, .on:hover { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }

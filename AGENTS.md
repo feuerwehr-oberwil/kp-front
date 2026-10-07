@@ -1063,6 +1063,35 @@ to prod.
   Tag the status and ⋮ cells so the actions stay on the row's first line; never hide a cell.
   A viewer whose rows span (`rowSpan`) opts out with `.adm-table-scroll` and scrolls instead.
   The /admin sidebar is the drawer up to 1024px; header links move into it at ≤720px.
+- **New CSS picks from the scales** (07.10.2026, UI sweep C1–C5; `01-tokens.css` · «THE SCALES»,
+  «THE TINTS»): type `--fs-1…7` (12.5 · 14 · 16 · 19 · 24 · 32 · 40, each with its `--lh-*`) and
+  `--fs-micro` (11, read-only captions, never a tappable label); weight `--fw-regular/medium/
+  bold/heavy` (400/500/700/800 – 600 is not a step); space `--sp-1…8` (4/8/12/16/24/32/48/64;
+  1–2px optical nudges stay literal); elevation `--e1…e5` (with night values; `--shadow-sm` and
+  `--shadow` are `--e3`/`--e4`); tints `--{blue,red,amber,green,ink}-{5,8,12,16,22,28,45,62}`
+  (= that hue at that % over transparent). The old literals move onto them surface by surface
+  (staged; the owner sees pairs for anything visible), so do not mass-convert a file on the side.
+  **The pile only shrinks**: `src/styles/styleDebt.test.ts` counts per stylesheet the literal
+  font sizes, off-step weights, off-grid spacings and literal-colour shadows against
+  `styleDebt.baseline.json` and fails when one goes up – or when one went down and the baseline
+  was not lowered (`STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts`, which
+  only ever lowers it). Like the lint ceiling: never raise it to pass.
+- **New buttons are `<Button>` / `<IconButton>` / `<Chip>`** (07.10.2026, UI sweep C4;
+  `components/Button.tsx`, `components/Chip.tsx`). `Button` variant `primary | secondary
+  (default) | quiet | danger`, size `md` (44) `| lg` (52, the one big action of a screen),
+  `block`, `icon`; `IconButton` requires `label` (aria-label + title, which the hold-tooltip
+  reads), variant `quiet | secondary`; `Chip` is a choice (`selected` → `--sel` + aria-pressed).
+  All default to `type="button"`. A surface's `className` on them is for placement only; a new
+  look is a new variant there, not a local override. Do not write a new `.foo-btn` rule. The
+  secondary look is `.ip-btn`'s, so moving an `.ip-btn` changes only its floor.
+- **Breakpoints have one source** (07.10.2026): `src/lib/breakpoints.ts`. Stylesheets write
+  `@media (--phone)` (also `--phone-landscape`, `--not-phone`, `--tablet`), and
+  `vite.config · customMedia` writes the query in; `useIsPhone` re-exports the same
+  `PHONE_QUERY`. Never hand-copy a query (`breakpoints.test.ts` fails). A name must stand alone
+  in its query (`(--phone) and (hover: none)` stops the build). ⚠️ A file another module
+  `composes: … from` (Surface.module.css) is read by postcss-modules WITHOUT our plugin and keeps
+  the literal query; the test pins it to `PHONE_QUERY`, and the build fails if a name ever
+  reaches an emitted stylesheet unresolved.
 - **Overlays go through `src/lib/overlays/`** (`Sheet`/`SheetClose`, `Overlay`, `ConfirmCard`,
   `Menu`, `Popover`/`PopoverClose`) – thin wrappers over **Base UI** (`@base-ui/react`, headless)
   that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,

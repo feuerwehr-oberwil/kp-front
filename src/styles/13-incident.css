@@ -1794,7 +1794,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    chrome and reserves room for it. */
 .rp-tabs { display: none; }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* (the head is one row here too — the paddings are the shared phone tokens, 15-mobile ·
      --head-pad-*; the 26.09. «actions on their own row, edge to edge» is superseded) */
   .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }

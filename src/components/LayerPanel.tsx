@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef } from 'react'
 import type { LayerDef } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { Chip } from './Chip'
 import { Slider } from './Slider'
 import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import type { TwinLayerRow } from '../lib/georefTwins'
@@ -126,9 +127,9 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
             {/* words only (22.09.2026): three columns of a 264px dock give each button ~67px, and the
                 eye / eye-off / undo glyphs took 20 of them — «Standard» ran past its edge and even
                 «Alle ein» broke in two. The rows' eyes already say what «ein / aus» means. */}
-            <button type="button" className={preset === 'all' ? 'on' : undefined} aria-pressed={preset === 'all'} onClick={onShowAll}>{appConfig.copy.layerPanel.showAll}</button>
-            <button type="button" className={preset === 'none' ? 'on' : undefined} aria-pressed={preset === 'none'} onClick={onHideAll}>{appConfig.copy.layerPanel.hideAll}</button>
-            <button type="button" className={preset === 'standard' ? 'on' : undefined} aria-pressed={preset === 'standard'} onClick={onReset}>{appConfig.copy.layerPanel.reset}</button>
+            <Chip selected={preset === 'all'} onClick={onShowAll}>{appConfig.copy.layerPanel.showAll}</Chip>
+            <Chip selected={preset === 'none'} onClick={onHideAll}>{appConfig.copy.layerPanel.hideAll}</Chip>
+            <Chip selected={preset === 'standard'} onClick={onReset}>{appConfig.copy.layerPanel.reset}</Chip>
           </div>
         )}
 

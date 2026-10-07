@@ -146,7 +146,7 @@ button.tb-mode { cursor: pointer; }
   button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transparent); }
 }
 button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* the phone bar has room for the glyph, not the word — the state stays visible, the sentence
      is one tap away in the chip's own menu */
   .tb-mode { padding: 5px 8px; font-size: 0; gap: 0; }
@@ -355,7 +355,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    (keyboardLift · --vv-foot) and the top follows iOS's pan, so the drawer is the visible band less
    its insets (13-incident.css · `.is-kb`, 30.09.2026). The phone's drawer is a bottom sheet
    (15-mobile), hence the tablet-only gate — the complement of its query. */
-@media (min-width: 601px) and (min-height: 521px), (min-width: 1001px) {
+@media (--not-phone) {
   .journal-drawer.is-kb { top: calc(88px + var(--vv-pan, 0px)); }
 }
 .journal-head { display: flex; align-items: center; gap: 8px; padding: 4px 4px 10px; }
@@ -489,7 +489,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
    that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
    above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .journal-replay span { display: none; }
   .journal-replay { padding: 0 8px; }
   /* …and since the funnel joined it the head is SIX items: at 360px a real Einsatz's

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PHONE_QUERY } from './breakpoints'
 
 /** Reactive `matchMedia` — the one place the resize/orientation plumbing lives, so a surface that
  *  needs its own threshold doesn't hand-roll the same effect. Query must be a constant.
@@ -39,15 +40,16 @@ export function useMediaQuery(query: string): boolean {
 // keeps its job: the largest phones are ~960px sideways, the smallest tablets 1024, and width
 // is the dimension that separates them regardless of what the keyboard does.
 //
-// ⚠️ This string is the JS half of a rule the stylesheets carry too — the same trio of
-// conditions heads every phone `@media` block in src/styles and the CSS modules. They decide the
-// same layout from two places and MUST be changed together; a JS/CSS disagreement here means a
-// phone bottom sheet inside a desktop shell. The sharpest case is TruppForm's two-step wizard
-// (AtemschutzView · `wizard={compact}`, Atemschutz.module.css): this hook decides WHETHER there
-// are two steps, that file decides what a step looks like. Its blocks sat at a bare 560px until
-// 03.09., so every viewport this query called a phone but that one did not — 561–600px wide, and
-// every landscape phone — showed one step of a wizard laid out on the tablet's two-column grid.
-export const PHONE_QUERY = '(max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px)'
+// ⚠️ The CSS asks the SAME string: a phone `@media` block in src/styles or a CSS module is written
+// `@media (--phone)`, and vite.config · customMedia writes PHONE_QUERY in (lib/breakpoints, the one
+// source since 07.10.2026). Until then the trio of conditions was hand-copied into 44 blocks, and a
+// JS/CSS disagreement meant a phone bottom sheet inside a desktop shell. The sharpest case is
+// TruppForm's two-step wizard (AtemschutzView · `wizard={compact}`, Atemschutz.module.css): this
+// hook decides WHETHER there are two steps, that file decides what a step looks like. Its blocks
+// sat at a bare 560px until 03.09., so every viewport this query called a phone but that one did
+// not — 561–600px wide, and every landscape phone — showed one step of a wizard laid out on the
+// tablet's two-column grid. breakpoints.test.ts fails on a hand-copied phone string.
+export { PHONE_QUERY }
 
 export function useIsPhone(): boolean {
   return useMediaQuery(PHONE_QUERY)
