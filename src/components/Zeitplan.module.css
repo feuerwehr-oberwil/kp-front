@@ -161,14 +161,17 @@
 .headRowZoom .track { height: auto; }
 .headRowZoom .tick { top: auto; bottom: 4px; }
 .headRowZoom .nowLineHead em { top: auto; bottom: 3px; }
-/* clamped at the edges: a label centred on the first or last rule hangs half outside the track —
-   and at a window opening exactly at midnight that is the one label carrying the DATE */
-.tickStart { transform: translateX(0); }
-.tickEnd { transform: translateX(-100%); }
 .tick {
   position: absolute; top: 2px; transform: translateX(-50%);
   font: 600 10.5px var(--mono); color: var(--ink-faint); white-space: nowrap;
 }
+/* clamped at the edges: a label centred on the first or last rule hangs half outside the track —
+   and at a window opening exactly at midnight that is the one label carrying the DATE.
+   ⚠️ AFTER .tick, not before it: same specificity, so source order decides, and with the clamps
+   written first .tick's centring won and they never applied — the first hour of every window
+   hung half under the sticky name column and read «:00» (UI sweep 07.10.2026). */
+.tickStart { transform: translateX(0); }
+.tickEnd { transform: translateX(-100%); }
 /* midnight carries the DATE, not «00:00» — over several days the hour alone never said which
    night — so it is set apart from the plain hour ticks */
 .tickDay { color: var(--ink-dim); font-weight: 700; }
@@ -411,8 +414,12 @@
    this surface that must never scroll out of reach, because without it the three colours mean
    nothing. `align-self: flex-start` keeps the sticky box to its own width instead of the whole
    axis, so it slides rather than dragging a full-width band along with it. */
+/* ⚠️ ABOVE the «jetzt» line (z 2) and on the surface colour, like the JETZT flag: the red rule
+   ran straight through «eingeteilt» on a phone, so the key read as struck out (UI sweep
+   07.10.2026). The line passes behind the words and carries on into the chart below them. */
 .covKeys {
-  position: sticky; left: var(--name-w); z-index: 1; align-self: flex-start;
+  position: sticky; left: var(--name-w); z-index: 3; align-self: flex-start;
+  background: var(--surface); border-radius: var(--r-xs);
   display: flex; flex-wrap: wrap; align-items: center; gap: 1px 7px; flex: none;
   /* it is inside a track far wider than the screen, so nothing would ever make it wrap on its own
      — it would simply run off the right edge with «anwesend» beyond the fold. Capped, it wraps to
