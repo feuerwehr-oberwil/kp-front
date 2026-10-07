@@ -1502,7 +1502,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    resort. The squeeze the old wrap answered is now the ladder's: a cut <h2> or chip count is
    «does not fit», so the words go before the title is ever squeezed. */
 .rp-head { flex: none; display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap;
-  padding: var(--head-pad); min-height: calc(var(--tap) + 2 * var(--head-pad-y));
+  padding: var(--head-pad); padding-inline: var(--content-pad-x, var(--head-pad-x));
+  min-height: calc(var(--tap) + 2 * var(--head-pad-y));
   background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge); }
 .rp-head-titles { flex: 1 1 auto; min-width: 0; }
 .rp-head[data-fit-wrap] { flex-wrap: wrap; }
@@ -1521,6 +1522,13 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-head-done svg { width: 13px; height: 13px; }
 .rp-head-actions { flex: none; margin-left: auto;
   display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-content: flex-end; }
+/* wide screens: the head's inset follows the capped content and the tiles follow the title — the
+   shared rule (Surface.module.css · «cap + columns»), restated because this head
+   is not composed from it (see .rp-head) */
+@media (min-width: 1300px) {
+  .rp-head-titles { flex: 0 1 auto; }
+  .rp-head-actions { margin-left: 8px; }
+}
 /* Each control keeps its own width when the cluster wraps — only the print split may give, and
    it gives by truncating its label, never by dropping its ▾. The readiness chip is NOT allowed
    to become icon-only here: it is the one control on this row that reports a problem, and the
@@ -1723,6 +1731,16 @@ select.cv-input { appearance: none; -webkit-appearance: none;
        out to the other's height — the checklist would grow a hole under its last row */
     align-items: start;
   }
+}
+/* Wide screens (B1, 07.10.2026 — Surface.module.css · «cap + columns»): the two columns stop at
+   ~670px each, the whole Rapport at 1360 + its padding, centred on the surface ground. At 1920 a
+   column was 840px: a 840px text field, and the Gerettete stepper 650px from its label. Two
+   columns, not three: the left one is the form and the right one the round-up of what the other
+   surfaces recorded, and a third would split one of them for width's sake. Below 1181px
+   `--content-max` is unset and the inset is the 22px it always was. */
+@media (min-width: 1181px) {
+  .report-preflight-surface { --content-max: 1360px; }
+  .report-preflight-surface > .ip-body { padding-inline: var(--content-pad-x); }
 }
 /* ONE SURFACE while the Rapport is one column (30.09.2026, owner on the phone: «in the rapport we
    have double stacked cards»). Below 1080px every section — the four form sections, the round-up

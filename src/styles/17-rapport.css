@@ -177,6 +177,12 @@
 .rz-counts { display: flex; flex-direction: column; gap: 6px; }
 .rz-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--tap); }
 .rz-count > span { font: 600 13px var(--body); color: var(--ink-dim); }
+/* …and on a wide screen the pair stays a PAIR (B1, 07.10.2026): the stepper sits at the right end
+   of a 320px row, not of the column — at 1920 it stood 650px from «Personen». «Keine» keeps its
+   place at the end of the line (05.10.2026), which is now the end of the same 320px. */
+@media (min-width: 1181px) {
+  .rz-counts, .rz-none-trail { max-width: 320px; }
+}
 /* «Auf der Lage: 2 Personen · 1 Tier — Übernehmen». Same recipe as the Material surface's
    reconciliation strip (Mittel.module.css · .recStrip), because it is the same promise: the app
    says what it read and where, and the number only reaches the Rapport on a tap. */

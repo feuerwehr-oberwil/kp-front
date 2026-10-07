@@ -1034,6 +1034,20 @@ to prod.
   the admin UI uses `src/admin/admin.css`. Form controls take the page's family from ONE reset
   in 02-base (`button, input, select, textarea { font-family: inherit }`, 07.10.2026): never add
   a per-control `font-family: inherit`. The reset is the family only; sizes stay per rule.
+- **Wide screens: forms and lists are capped, boards are not** (B1, decided 07.10.2026). Above
+  1180px a FORM or LIST surface (Rapport, Material, the Checkliste runner, the sheets) stops at the
+  width its content needs and stands centred on the surface ground. It adds columns of
+  independent groups rather than stretching: Material has 2 columns from 1200px and 3 from
+  1600px. A BOARD (Karte, Plan, Trupps, the Anwesenheit grid, Zeitplan) stays full width. The
+  mechanism lives in `components/Surface.module.css` · «cap + columns». A surface sets
+  `--content-max` (its content box, padding excluded) on its shell, only inside a
+  `min-width` block of 1181px or more. Its scrolling body and its search line then take
+  `padding-inline: var(--content-pad-x)`, and the shared head follows by itself. Because
+  `--content-max` is unset at 1180 and below, phones and tablets get exactly the old 22px inset.
+  Never cap a phone or tablet layout this way. A new capped surface uses this token rather than a
+  hand-rolled `max-width` + `margin: auto` box (the Checkliste runner's 720px predates it). Two more rules hold from there up. At ≥1300px the head's tiles follow the title instead of
+  standing at the far end. Inside a row, a control stays near its label (the Rapport's Gerettete
+  steppers sit in a 320px row).
 - **Overlays go through `src/lib/overlays/`** (`Sheet`/`SheetClose`, `Overlay`, `ConfirmCard`,
   `Menu`, `Popover`/`PopoverClose`) – thin wrappers over **Base UI** (`@base-ui/react`, headless)
   that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,
