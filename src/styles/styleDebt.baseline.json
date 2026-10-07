@@ -1,8 +1,8 @@
 {
   "src/admin/admin.css": {
-    "fontSize": 132,
-    "weight": 41,
-    "spacing": 230
+    "fontSize": 137,
+    "weight": 42,
+    "spacing": 235
   },
   "src/admin/credentials.css": {
     "fontSize": 4,
@@ -14,7 +14,7 @@
     "spacing": 7
   },
   "src/admin/objectPlans.css": {
-    "fontSize": 4,
+    "fontSize": 5,
     "spacing": 6
   },
   "src/admin/objectVisits.css": {
@@ -47,9 +47,9 @@
     "spacing": 125
   },
   "src/components/BandGrid.module.css": {
-    "fontSize": 26,
+    "fontSize": 25,
     "weight": 9,
-    "spacing": 35
+    "spacing": 34
   },
   "src/components/Checklists.module.css": {
     "fontSize": 40,
@@ -58,8 +58,7 @@
     "shadow": 2
   },
   "src/components/ComboMenu.module.css": {
-    "fontSize": 1,
-    "spacing": 2
+    "spacing": 1
   },
   "src/components/DockInfo.module.css": {
     "fontSize": 2,
@@ -112,6 +111,10 @@
   "src/components/PlanCompass.module.css": {
     "fontSize": 1
   },
+  "src/components/RankBadge.module.css": {
+    "fontSize": 1,
+    "spacing": 1
+  },
   "src/components/ReplayBar.module.css": {
     "fontSize": 11,
     "weight": 4,
@@ -163,9 +166,9 @@
     "spacing": 6
   },
   "src/components/Zeitplan.module.css": {
-    "fontSize": 13,
+    "fontSize": 12,
     "weight": 2,
-    "spacing": 22
+    "spacing": 21
   },
   "src/components/objectVisits/ObjectVisits.module.css": {
     "fontSize": 33,
@@ -239,9 +242,9 @@
     "shadow": 3
   },
   "src/styles/13-incident.css": {
-    "fontSize": 135,
+    "fontSize": 137,
     "weight": 53,
-    "spacing": 235,
+    "spacing": 237,
     "shadow": 1
   },
   "src/styles/14-intake.css": {
@@ -251,9 +254,9 @@
     "shadow": 2
   },
   "src/styles/15-mobile.css": {
-    "fontSize": 8,
+    "fontSize": 10,
     "weight": 1,
-    "spacing": 40
+    "spacing": 42
   },
   "src/styles/16-help.css": {
     "fontSize": 9,
