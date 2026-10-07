@@ -1,0 +1,280 @@
+{
+  "src/admin/admin.css": {
+    "fontSize": 132,
+    "weight": 41,
+    "spacing": 230
+  },
+  "src/admin/credentials.css": {
+    "fontSize": 4,
+    "spacing": 4
+  },
+  "src/admin/links.css": {
+    "fontSize": 6,
+    "weight": 2,
+    "spacing": 7
+  },
+  "src/admin/objectPlans.css": {
+    "fontSize": 4,
+    "spacing": 6
+  },
+  "src/admin/objectVisits.css": {
+    "fontSize": 3,
+    "weight": 1,
+    "spacing": 3
+  },
+  "src/admin/planAlignment.css": {
+    "fontSize": 38,
+    "weight": 6,
+    "spacing": 86
+  },
+  "src/admin/stationData.css": {
+    "fontSize": 6,
+    "spacing": 13
+  },
+  "src/admin/system.css": {
+    "fontSize": 2,
+    "weight": 1,
+    "spacing": 9
+  },
+  "src/components/Anwesenheit.module.css": {
+    "fontSize": 10,
+    "weight": 1,
+    "spacing": 11
+  },
+  "src/components/Atemschutz.module.css": {
+    "fontSize": 78,
+    "weight": 13,
+    "spacing": 125
+  },
+  "src/components/BandGrid.module.css": {
+    "fontSize": 26,
+    "weight": 9,
+    "spacing": 35
+  },
+  "src/components/Checklists.module.css": {
+    "fontSize": 40,
+    "weight": 12,
+    "spacing": 78,
+    "shadow": 2
+  },
+  "src/components/ComboMenu.module.css": {
+    "fontSize": 1,
+    "spacing": 2
+  },
+  "src/components/DockInfo.module.css": {
+    "fontSize": 2,
+    "weight": 1,
+    "spacing": 1
+  },
+  "src/components/GeorefMode.module.css": {
+    "fontSize": 37,
+    "weight": 9,
+    "spacing": 49,
+    "shadow": 1
+  },
+  "src/components/ManualReader.module.css": {
+    "fontSize": 9,
+    "weight": 2,
+    "spacing": 12
+  },
+  "src/components/MapUtility.module.css": {
+    "spacing": 1
+  },
+  "src/components/MapViewsMenu.module.css": {
+    "fontSize": 4,
+    "weight": 1,
+    "spacing": 6
+  },
+  "src/components/MeasurePanel.module.css": {
+    "fontSize": 7,
+    "weight": 1,
+    "spacing": 9
+  },
+  "src/components/Mittel.module.css": {
+    "fontSize": 15,
+    "weight": 3,
+    "spacing": 35
+  },
+  "src/components/OsmOutline.module.css": {
+    "fontSize": 3,
+    "weight": 1,
+    "spacing": 4
+  },
+  "src/components/PdfScroller.module.css": {
+    "fontSize": 2,
+    "spacing": 11,
+    "shadow": 1
+  },
+  "src/components/PdfViewport.module.css": {
+    "fontSize": 2,
+    "spacing": 1
+  },
+  "src/components/PlanCompass.module.css": {
+    "fontSize": 1
+  },
+  "src/components/ReplayBar.module.css": {
+    "fontSize": 11,
+    "weight": 4,
+    "spacing": 20,
+    "shadow": 1
+  },
+  "src/components/RetryButton.module.css": {
+    "fontSize": 1,
+    "spacing": 2
+  },
+  "src/components/SharePosition.module.css": {
+    "fontSize": 6,
+    "weight": 2,
+    "spacing": 7
+  },
+  "src/components/ShellLoader.module.css": {
+    "spacing": 1
+  },
+  "src/components/ShiftConflictNotice.module.css": {
+    "fontSize": 5,
+    "weight": 2,
+    "spacing": 6
+  },
+  "src/components/Surface.module.css": {
+    "spacing": 1
+  },
+  "src/components/SurfaceControls.module.css": {
+    "fontSize": 2,
+    "weight": 1,
+    "spacing": 6
+  },
+  "src/components/TimeBlockSheet.module.css": {
+    "fontSize": 11,
+    "weight": 3,
+    "spacing": 15
+  },
+  "src/components/TruppFinder.module.css": {
+    "fontSize": 6,
+    "weight": 3,
+    "spacing": 14
+  },
+  "src/components/VehicleGpsTable.module.css": {
+    "fontSize": 3,
+    "spacing": 3
+  },
+  "src/components/WheelPicker.module.css": {
+    "fontSize": 6,
+    "weight": 1,
+    "spacing": 6
+  },
+  "src/components/Zeitplan.module.css": {
+    "fontSize": 13,
+    "weight": 2,
+    "spacing": 22
+  },
+  "src/components/objectVisits/ObjectVisits.module.css": {
+    "fontSize": 33,
+    "weight": 12,
+    "spacing": 33
+  },
+  "src/fonts.css": {
+    "weight": 4
+  },
+  "src/styles/02-base.css": {
+    "fontSize": 1,
+    "spacing": 1
+  },
+  "src/styles/03-map.css": {
+    "fontSize": 5,
+    "spacing": 2,
+    "shadow": 9
+  },
+  "src/styles/04-topbar.css": {
+    "fontSize": 5,
+    "weight": 2,
+    "spacing": 4
+  },
+  "src/styles/04b-rail.css": {
+    "fontSize": 1,
+    "spacing": 3
+  },
+  "src/styles/05-navrail.css": {
+    "fontSize": 27,
+    "weight": 5,
+    "spacing": 22
+  },
+  "src/styles/06-contextpanel.css": {
+    "fontSize": 40,
+    "weight": 12,
+    "spacing": 73
+  },
+  "src/styles/07-toolrail.css": {
+    "fontSize": 8,
+    "weight": 5,
+    "spacing": 26,
+    "shadow": 5
+  },
+  "src/styles/08-toasts.css": {
+    "fontSize": 30,
+    "weight": 10,
+    "spacing": 53,
+    "shadow": 5
+  },
+  "src/styles/09-whiteboard.css": {
+    "fontSize": 48,
+    "weight": 11,
+    "spacing": 66,
+    "shadow": 15
+  },
+  "src/styles/10-journal.css": {
+    "fontSize": 59,
+    "weight": 14,
+    "spacing": 101
+  },
+  "src/styles/11-measure.css": {
+    "fontSize": 25,
+    "weight": 7,
+    "spacing": 21,
+    "shadow": 9
+  },
+  "src/styles/12-login.css": {
+    "fontSize": 15,
+    "weight": 5,
+    "spacing": 22,
+    "shadow": 3
+  },
+  "src/styles/13-incident.css": {
+    "fontSize": 135,
+    "weight": 53,
+    "spacing": 235,
+    "shadow": 1
+  },
+  "src/styles/14-intake.css": {
+    "fontSize": 7,
+    "weight": 1,
+    "spacing": 15,
+    "shadow": 2
+  },
+  "src/styles/15-mobile.css": {
+    "fontSize": 8,
+    "weight": 1,
+    "spacing": 40
+  },
+  "src/styles/16-help.css": {
+    "fontSize": 9,
+    "weight": 1,
+    "spacing": 26
+  },
+  "src/styles/17-rapport.css": {
+    "fontSize": 30,
+    "weight": 12,
+    "spacing": 44,
+    "shadow": 2
+  },
+  "src/styles/18-audio.css": {
+    "fontSize": 42,
+    "weight": 8,
+    "spacing": 53,
+    "shadow": 1
+  },
+  "src/styles/19-rueckmeldung.css": {
+    "fontSize": 13,
+    "weight": 3,
+    "spacing": 15
+  }
+}
