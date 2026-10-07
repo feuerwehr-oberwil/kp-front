@@ -7139,7 +7139,7 @@ export const de = {
     // kennt nur «behalte genau diese» (prune), nicht «lösche jene». Eine umbenannte Vorlage
     // bliebe sonst als Geist liegen und würde weiter an jedes Tablet ausgeliefert.
     checklists: {
-      exampleDownloadKind: 'Beispiel-Vorlage: {kind}',
+      exampleMenu: 'Beispiel-Vorlage',
       intro: 'Die Checklisten dieser Wehr – Aufgabenlisten (FU), Lagerapport und Merkblätter '
         + 'zum Nachschlagen (z. B. «Verkehrsunfall»), die nur gelesen und nicht abgehakt werden.',
       upload: 'Vorlage hochladen',
@@ -7153,7 +7153,6 @@ export const de = {
       colUpdated: 'Stand',
       colAssets: 'Diagramme',
       colActions: 'Aktionen',
-      deleteAria: '{title} löschen',
       addAsset: 'Diagramme',
       delete: 'Löschen',
       deleting: 'Wird gelöscht …',

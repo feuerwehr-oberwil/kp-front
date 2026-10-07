@@ -4705,7 +4705,7 @@ export const en: Localizable<Copy> = {
         + 'named “{key}”.',
     },
     checklists: {
-      exampleDownloadKind: 'Example template: {kind}',
+      exampleMenu: 'Example template',
       intro: 'This brigade’s checklists – task lists (FU), the situation report and reference '
         + 'sheets to look things up (say «Verkehrsunfall»), which are read rather than ticked.',
       upload: 'Upload template',
@@ -4719,7 +4719,6 @@ export const en: Localizable<Copy> = {
       colUpdated: 'Updated',
       colAssets: 'Diagrams',
       colActions: 'Actions',
-      deleteAria: 'Delete {title}',
       addAsset: 'Diagrams',
       delete: 'Delete',
       deleting: 'Deleting…',

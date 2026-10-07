@@ -4508,7 +4508,7 @@ export const fr: Localizable<Copy> = {
         + 'plans s’appellera « {key} ».',
     },
     checklists: {
-      exampleDownloadKind: 'Modèle d’exemple : {kind}',
+      exampleMenu: 'Modèle d’exemple',
       intro: 'Les checklists de ce corps – listes de tâches (FU), rapport de situation et '
         + 'aide-mémoires à consulter (p. ex. « Verkehrsunfall »), qui se lisent au lieu de se cocher.',
       upload: 'Envoyer un modèle',
@@ -4522,7 +4522,6 @@ export const fr: Localizable<Copy> = {
       colUpdated: 'État',
       colAssets: 'Schémas',
       colActions: 'Actions',
-      deleteAria: 'Supprimer {title}',
       addAsset: 'Schémas',
       delete: 'Supprimer',
       deleting: 'Suppression…',

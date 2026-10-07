@@ -4509,7 +4509,7 @@ export const it: Localizable<Copy> = {
         + 'cartella dei piani si chiamerà «{key}».',
     },
     checklists: {
-      exampleDownloadKind: 'Modello di esempio: {kind}',
+      exampleMenu: 'Modello di esempio',
       intro: 'Le checklist di questo corpo – elenchi di compiti (FU), rapporto di situazione e '
         + 'promemoria da consultare (p. es. «Verkehrsunfall»), che si leggono invece di spuntarli.',
       upload: 'Carica modello',
@@ -4523,7 +4523,6 @@ export const it: Localizable<Copy> = {
       colUpdated: 'Stato',
       colAssets: 'Schemi',
       colActions: 'Azioni',
-      deleteAria: 'Elimina {title}',
       addAsset: 'Schemi',
       delete: 'Elimina',
       deleting: 'Eliminazione…',

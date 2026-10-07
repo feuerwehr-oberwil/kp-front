@@ -1,7 +1,8 @@
 import { ShellLoader } from '../components/ShellLoader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '../lib/api'
-import { Sheet } from '../lib/overlays'
+import { Menu, Sheet } from '../lib/overlays'
+import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { downloadBlob } from '../lib/download'
@@ -9,7 +10,7 @@ import genericAction from '../data/checklists/generic-action.json'
 import genericReference from '../data/checklists/generic-reference.json'
 import genericManual from '../data/checklists/generic-manual.json'
 import type { ReferenceDataset } from '../lib/incidents'
-import { Card, EmptyState, Field, Table, fmtDate } from './ui'
+import { ActionMenu, Card, EmptyState, Field, Table, fmtDate } from './ui'
 import { PlanSourceBadge } from './ObjectSheet'
 import {
   checklistSlug,
@@ -140,15 +141,23 @@ export function ChecklistsView() {
       <Card
         action={(
           <>
-            <button type="button" className="btn adm-int-btn" onClick={() => downloadExample('action')}>
-              {fillTemplate(C.exampleDownloadKind, { kind: C.kindAction })}
-            </button>
-            <button type="button" className="btn adm-int-btn" onClick={() => downloadExample('reference')}>
-              {fillTemplate(C.exampleDownloadKind, { kind: C.kindReference })}
-            </button>
-            <button type="button" className="btn adm-int-btn" onClick={() => downloadExample('manual')}>
-              {fillTemplate(C.exampleDownloadKind, { kind: C.kindManual })}
-            </button>
+            {/* ONE «Beispiel-Vorlage ▾», not three equal buttons beside the primary (UI sweep
+                07.10.2026, E6): the three are one decision — which shape to start from — and the
+                menu names the shapes. */}
+            <Menu
+              trigger={(
+                <button type="button" className="btn adm-int-btn adm-ck-examples">
+                  {C.exampleMenu}<Icon id="chevron-down" />
+                </button>
+              )}
+              items={[
+                { label: C.kindAction, onClick: () => downloadExample('action') },
+                { label: C.kindReference, onClick: () => downloadExample('reference') },
+                { label: C.kindManual, onClick: () => downloadExample('manual') },
+              ]}
+              popupClassName="adm-menu-list adm-menu-portal"
+              itemClassName={() => 'adm-menu-item'}
+            />
             <button type="button" className="btn adm-save-btn" onClick={() => setUploading(true)}>
               {C.upload}
             </button>
@@ -191,31 +200,17 @@ export function ChecklistsView() {
                   <PlanSourceBadge sourceType={row.dataset.source_type} />
                   {row.dataset.source_note && <span className="adm-ref-note">{row.dataset.source_note}</span>}
                 </td>
-                {/* Deliberately NOT the shared `ActionMenu`: two actions do not need a menu.
-                    (The stacking bug that ALSO argued against it — the popup painting behind
-                    `.adm` on v0.6.0 — is fixed; see `.ui-menu-pos` in lib/overlays/Menu.) */}
+                {/* The row's ⋮ (UI sweep 07.10.2026, E6): a red «Löschen» on every row was the
+                    loudest thing in the table. Löschen still opens the same confirm sheet, which
+                    names every dataset that goes. */}
                 <td className="adm-ck-actions adm-c-act">
-                  {/* The flex row is this inner box, never the `<td>` itself: `display: flex`
-                      on a table-cell takes it out of the table box tree and the row wraps it
-                      in an anonymous cell, which drifts out of the column alignment. */}
-                  <div className="adm-ck-actbar">
-                    <button
-                      type="button"
-                      className="btn adm-int-btn"
-                      onClick={() => setAssetFor(row)}
-                      aria-label={fillTemplate(C.assetTitle, { title: row.dataset.title ?? row.slug })}
-                    >
-                      {C.addAsset}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn adm-int-btn adm-ck-del"
-                      onClick={() => setDeleting(row)}
-                      aria-label={fillTemplate(C.deleteAria, { title: row.dataset.title ?? row.slug })}
-                    >
-                      {C.delete}
-                    </button>
-                  </div>
+                  <ActionMenu
+                    ariaLabel={`${row.dataset.title ?? row.slug} – ${C.colActions}`}
+                    actions={[
+                      { label: C.addAsset, onClick: () => setAssetFor(row) },
+                      { label: C.delete, onClick: () => setDeleting(row), danger: true },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}
