@@ -105,7 +105,7 @@ button, input, select, textarea { font-family: inherit; }
         because a pad would overlap a neighbour.
    Adding one here is the default; reach for (3) when the control sits in a dense row. */
 .ctx-x, .sym-close, .tl-play,
-.journal-x, .wb-dock-x, .ip-x, .jc-clip-x, .step-clear,
+.journal-x, .wb-dock-x, .ip-x, .jc-clip-x,
 .wb-dock-tog, .wb-dock-go, .jr-jump,
 /* the Hilfe overlay's ✕ — a phone surface, alone in a padded row, so a pad cannot reach a
    neighbour (34px until 27.08.). The search fields' ✕ is a full --tap square (`.ui-search-x`). */
@@ -113,7 +113,7 @@ button, input, select, textarea { font-family: inherit; }
 .ctx-x::after, .sym-close::after,
 .tl-play::after, .wb-del::after,
 .journal-x::after, .wb-dock-x::after, .ip-x::after,
-.jc-clip-x::after, .step-clear::after,
+.jc-clip-x::after,
 .wb-dock-tog::after, .wb-dock-go::after, .jr-jump::after,
 .help-x::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;

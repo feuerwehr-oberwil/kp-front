@@ -222,14 +222,18 @@
   background: var(--surface); padding: 3px 4px; outline: none; }
 /* typed-value mode: the one field focus (--focus-*, 28.09.2026), not a solid blue edge */
 .step-input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
-.step-clear { width: 32px; height: 32px; flex: none; margin-left: 8px; border-radius: var(--r-sm); border: none; padding: 0;
-  background: var(--fill-soft); color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
+/* the reset ✕: a full --tap square at every pointer, QUIET — no fill of its own, the glyph in
+   --ink-dim, like a sheet's ✕. It was a pale 32px tile (44 only under a coarse pointer), which
+   read as a disabled fourth button beside − value + (UI sweep 07.10.2026). Disabled while the
+   value is empty, so entering or clearing a count never moves the buttons. */
+.step-clear { width: var(--tap); height: var(--tap); flex: none; margin-left: 4px; border-radius: var(--r-sm); border: none; padding: 0;
+  background: transparent; color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
 @media (hover: hover) {
   .step-clear:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 }
 .step-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .step-clear:disabled { opacity: var(--disabled); cursor: default; }
-.step-clear .i { width: 14px; height: 14px; }
+.step-clear .i { width: 16px; height: 16px; }
 
 /* ── The app's own slider (components/Slider) ────────────────────────────────────────────────
    Shared chrome, like `.step` above it: a 44px hit band with a thin painted track inside, so a
