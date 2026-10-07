@@ -1715,6 +1715,14 @@ to prod.
     the mark is the old default the app saved for everybody, not a choice.
   - *«Einpassen» on a Plan is the bar's tile*; the top bar's twin (`TopBar · mapNav`) survives only
     where there is no bar at all (viewer-only Modul, Gebäude pick surface, replay — 20.09.2026).
+  - *A plan opens with the WHOLE sheet between the bars* (sweep B8, 07.10.2026, owner option 1):
+    `lib/whiteboard · containFit` contains it in the canvas less the top bar (`TOP_INSET`), the
+    side rails (`sideInsets`) and the bottom-left chip row (`chipRowInset` — 76px on a tablet,
+    58px on a phone, where the row stands just above the tool bar; the Gebäude keeps
+    `STACK_CHIP_ROW`). The chips never cover the sheet's legend at fit, and «Einpassen» is scale 1
+    of the same box. The constants mirror the CSS like `TOP_INSET` does: move the chip row and
+    they move with it. (The Karte has no inset-aware fit to follow: its `fitBounds` takes a flat
+    padding.)
   - *The FAB follows the THEME, not `--btn-primary`*: it wears the floating family's glass
     (26.09.2026 — the white surface by day and a raised `--ink-fill` at night until then made it
     the one piece of the bottom row in a colour of its own). `--btn-primary` inverts at night so a

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clamp01, floorGeometry, floorLabel, OFF_BOARD_Y, planUrl, storeyTowards, TILE_AR, tileAspectOf, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings } from './whiteboard'
+import { clamp01, floorGeometry, floorLabel, OFF_BOARD_Y, planUrl, storeyTowards, TILE_AR, tileAspectOf, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings, containFit, chipRowInset, sideInsets } from './whiteboard'
 
 describe('planUrl', () => {
   it('leaves absolute http(s) URLs untouched', () => {
@@ -155,5 +155,54 @@ describe('storeyTowards', () => {
     expect(storeyTowards(floors, 3, 4)).toBeNull()
     expect(storeyTowards(floors, -1, -2)).toBeNull()
     expect(storeyTowards(floors, 0, 0)).toBeNull()
+  })
+})
+
+describe('containFit — a plan opens WHOLE between the bars (sweep B8)', () => {
+  const A4P = Math.SQRT2 // portrait sheet: height / width
+  const A4L = 1 / Math.SQRT2 // landscape sheet
+  const insets = (w: number, phone: boolean) => {
+    const side = sideInsets(w, phone)
+    return { top: TOP_INSET, bottom: chipRowInset(phone), l: side.l, r: side.r }
+  }
+
+  it('laptop 1440×900, portrait: fitted to the HEIGHT, its foot above the chip row', () => {
+    const f = containFit({ w: 1440, h: 900 }, A4P, insets(1440, false))
+    expect(f.h).toBe(900 - TOP_INSET - chipRowInset(false))
+    expect(f.w).toBeCloseTo(f.h / A4P, 6)
+    // the sheet's foot (centred in the free lane) ends at the chip row's top less its air
+    expect(TOP_INSET + f.h).toBe(900 - 76)
+  })
+
+  it('laptop 1440×900, landscape: whole sheet inside both the rails and the bars', () => {
+    const f = containFit({ w: 1440, h: 900 }, A4L, insets(1440, false))
+    expect(f.w).toBeLessThanOrEqual(1440 - 88 - 92)
+    expect(f.h).toBeLessThanOrEqual(900 - TOP_INSET - 76)
+    expect(f.h / f.w).toBeCloseTo(A4L, 6)
+  })
+
+  it('phone 390, portrait: never wider than the screen nor taller than the lane above the chips', () => {
+    // the phone canvas ends at the tool bar (700px tall at 390×844)
+    const f = containFit({ w: 390, h: 700 }, A4P, insets(390, true))
+    expect(f.w).toBeLessThanOrEqual(390)
+    expect(f.h).toBeLessThanOrEqual(700 - TOP_INSET - chipRowInset(true))
+    expect(f.w === 390 || f.h === 700 - TOP_INSET - chipRowInset(true)).toBe(true)
+  })
+
+  it('iPad 820×1180 (portrait) and 1180×820 (landscape) contain either sheet', () => {
+    for (const vp of [{ w: 820, h: 1180 }, { w: 1180, h: 820 }]) {
+      for (const ar of [A4P, A4L]) {
+        const f = containFit(vp, ar, insets(vp.w, false))
+        expect(f.w).toBeLessThanOrEqual(vp.w - 180 + 1e-9)
+        expect(f.h).toBeLessThanOrEqual(vp.h - TOP_INSET - 76 + 1e-9)
+        expect(f.h / f.w).toBeCloseTo(ar, 6)
+      }
+    }
+  })
+
+  it('degenerate inputs give an empty box rather than NaN', () => {
+    expect(containFit({ w: 0, h: 900 }, A4P, insets(0, true))).toEqual({ w: 0, h: 0 })
+    expect(containFit({ w: 1440, h: 100 }, A4P, insets(1440, false))).toEqual({ w: 0, h: 0 })
+    expect(containFit({ w: 1440, h: 900 }, NaN, insets(1440, false))).toEqual({ w: 0, h: 0 })
   })
 })
