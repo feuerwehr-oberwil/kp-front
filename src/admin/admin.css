@@ -274,7 +274,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-input:focus { border-color: var(--blue); background: var(--surface); }
 .adm-input::placeholder { color: var(--ink-faint); font-weight: 500; }
 .adm-input-mono { font-family: var(--mono); font-weight: 500; }
-.adm-textarea { min-height: 0; resize: vertical; line-height: 1.5; padding-top: 10px; }
+.adm-textarea { min-height: 0; resize: vertical; line-height: 1.5; padding-top: 10px;
+  /* running text is read, not scanned: 600 is the weight of a one-word value, and a
+     650px block of Textbausteine in it read as one shout */
+  font-weight: 400; }
 
 /* two-up rows on desktop, stack on narrow */
 .adm-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
