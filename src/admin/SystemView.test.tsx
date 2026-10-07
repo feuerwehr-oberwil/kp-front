@@ -356,7 +356,7 @@ describe('running it by hand', () => {
 })
 
 describe('«Verbindung testen» — the setupOf()-gated probe (POST /api/sharepoint/probe)', () => {
-  it('offers Zugangsdaten instead of a probe while nothing is set up at all', async () => {
+  it('offers Anbindungen instead of a probe while nothing is set up at all', async () => {
     serve({ configured: false, credentials: false, intervalMinutes: 60, secretExpiresInDays: null, areas: [] })
     const onNavigate = vi.fn()
     render(<SystemView onNavigate={onNavigate} />)

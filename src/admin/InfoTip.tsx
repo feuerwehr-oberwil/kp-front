@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { Icon } from '../lib/icons'
 
 // A small, dependency-free, accessible "ⓘ" hint. The trigger is a real <button>
 // so it's keyboard-focusable and announced; the popover is linked via
@@ -118,7 +119,9 @@ export function InfoTip({
         onFocus={() => { if (!pointerFocus.current) setPinned(true) }}
         onBlur={() => { pointerFocus.current = false; setPinned(false) }}
       >
-        <span aria-hidden>ⓘ</span>
+        {/* the sprite's #info, not the «ⓘ» character: a font without that glyph drew a ▯ on
+            every row (UI sweep 07.10.2026, E5) */}
+        <Icon id="info" />
       </button>
       <span
         ref={popRef}

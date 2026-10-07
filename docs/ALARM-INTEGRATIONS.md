@@ -24,7 +24,7 @@ attends is kept out of the statistics afterwards (`editor_opened_at`,
 
 - **Auth:** the alarm webhook secret, sent as `?secret=` or `X-Webhook-Secret`. Fail-closed:
   unset → 403 for everyone. Setting it is the opt-in.
-  - **Where a station sets and rotates it: `/admin` → Zugangsdaten.** Create one long random
+  - **Where a station sets and rotates it: `/admin` → Anbindungen.** Create one long random
     value during the integration handoff and paste it into both KP Front and the sending system
     in the same sitting. It takes effect **without a restart**; rotating it invalidates every
     sender still using the old value.
@@ -336,7 +336,7 @@ difference is inside the token: an app-minted one names the incident by its own 
 than by `src`/`ref`, because that pair exists so an *alerting system* never has to learn our
 UUIDs – and a manually created Einsatz or an Übung carries no `source_ref` at all. With no
 `incident_link_key` configured the endpoint answers 403, exactly like the exchange, and the app
-points at Verwaltung › System › Zugangsdaten.
+points at Verwaltung › System › Anbindungen.
 
 ```
 alert text …  https://front.example.org/l/<token>
@@ -530,9 +530,9 @@ person could reach the paper board on the same wall.
 - All four secrets are independent and fail-closed: the alarm webhook secret (inbound), the
   poster token (capture), `incident_link_key` (Einsatz-Link), `ADMIN_SECRET` (administration).
   Three of the four are managed in the browser and stored in the database – the alarm webhook
-  secret at `/admin` → **Zugangsdaten** (encrypted; `ALARM_WEBHOOK_SECRET` in `.env` outranks and
+  secret at `/admin` → **Anbindungen** (encrypted; `ALARM_WEBHOOK_SECRET` in `.env` outranks and
   locks it), the poster token under System › **Links & Zugänge** and `incident_link_key` under
-  System › **Zugangsdaten** (it is a signing key, not an address).
+  System › **Anbindungen** (it is a signing key, not an address).
   **Only `ADMIN_SECRET` is env-only**, and deliberately so: it gates writing the
   very document it would otherwise live in.
 - Outbound webhook URLs are admin-set config, pinned to `http(s)`; the payload contains the

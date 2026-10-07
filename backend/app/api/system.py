@@ -389,6 +389,6 @@ async def get_system(
         # Whether this deployment can tell anybody it has died. A BOOLEAN, never the URL: the
         # ping address is a write endpoint for the monitor, and anyone holding it can keep the
         # monitor believing a dead station is alive — so it stays write-only even though the
-        # admin UI can now SET it (Zugangsdaten · Monitor). See scheduler · _heartbeat.
+        # admin UI can now SET it (Anbindungen · Monitor). See scheduler · _heartbeat.
         "monitoring": {"heartbeatConfigured": bool(credential("healthcheck_ping_url").strip())},
     }

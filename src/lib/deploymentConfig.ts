@@ -761,8 +761,12 @@ export function isDemoMode(): boolean {
   return resolved.identity?.demoMode === true
 }
 
-/** Optional demo note (e.g. login credentials / reset cadence), shown on the login screen. */
+/** Optional demo note (e.g. login credentials / reset cadence), shown on the login screen.
+ *  Only while demoMode is ON: the note is independent config, so a station that started from
+ *  the demo dataset and switched demo mode off kept announcing «PIN 000000 für alle» on its
+ *  real login screen. The field stays (it comes back with demoMode); it is just not shown. */
 export function demoNote(): string | null {
+  if (!isDemoMode()) return null
   const n = resolved.identity?.demoNote
   return n && n.trim() ? n : null
 }

@@ -60,15 +60,17 @@ const NAV: NavGroup[] = [
     // sidebar that opens with the active entry two groups down reads as if it had opened
     // somewhere else.
     heading: 'groupSystem',
-    // «Zugangsdaten» sits under System rather than under Daten: it is not one integration's
+    // «Anbindungen» sits under System rather than under Daten: it is not one integration's
     // page, it is the one place every integration's key is entered — and the question that
     // brings somebody here («warum kommt kein Alarm an?») is a system question.
     entries: [
       // FIRST of the first group: this is where /admin lands, so it is also the entry the eye
       // starts on. Anything above it makes the landing page look like a detour.
       { id: 'system', icon: 'gauge' },
-      { id: 'zugaenge', icon: 'lock' },
-      // Directly under Zugangsdaten, and for the same reason: «Links & Zugänge» is the one
+      // One glyph per entry (UI sweep 07.10.2026, E7): the lock is «Mitglieder & Zugriff» (who
+      // may log in, with which PIN); the keys every integration connects with wear the chain.
+      { id: 'zugaenge', icon: 'link' },
+      // Directly under Anbindungen, and for the same reason: «Links & Zugänge» is the one
       // place every address this Wehr gives out is listed, so it belongs beside the one place
       // every key it receives is entered — not on the integration page that happens to use it.
       { id: 'links', icon: 'external' },
@@ -80,7 +82,8 @@ const NAV: NavGroup[] = [
     entries: [
       { id: 'identitaet', icon: 'flag' },
       { id: 'doktrin', icon: 'compass' },
-      { id: 'rapport', icon: 'doc' },
+      // the printer, not #doc: Objektpläne below wear #doc, as the plan tiles do in the field app
+      { id: 'rapport', icon: 'printer' },
       { id: 'alarme', icon: 'bell' },
       { id: 'fahrzeuge', icon: 'truck' },
       // Next to Fahrzeuge, not under Daten: the Mittel catalogue is the station's own inventory,
@@ -105,7 +108,8 @@ const NAV: NavGroup[] = [
     entries: [
       { id: 'einsaetze', icon: 'history' },
       { id: 'divera', icon: 'radio' },
-      { id: 'traccar', icon: 'truck' },
+      // a position, not a second #truck: Fahrzeuge & Symbole already wears it
+      { id: 'traccar', icon: 'pin' },
       { id: 'arbeitsmappe', icon: 'download' },
     ],
   },
@@ -142,7 +146,7 @@ function initialSection(): SectionId {
   if (saved === 'statistik' || saved === 'erfassung') return 'links'
   // «Einsatz-Link» went further on 2026-09-11: it is a signing key, not an address — the
   // alerting system signs a per-incident token with it — so it lives with the other integration
-  // keys under «Zugangsdaten» (CredentialsView · IncidentLinkKey), not on the page of addresses.
+  // keys under «Anbindungen» (CredentialsView · IncidentLinkKey), not on the page of addresses.
   if (saved === 'einsatzlink') return 'zugaenge'
   return ALL_ENTRIES.some((e) => e.id === saved) ? (saved as SectionId) : 'system'
 }
@@ -253,7 +257,7 @@ export function AdminShell() {
               aria-expanded={navOpen}
               onClick={() => setNavOpen((o) => !o)}
             >
-              <Icon id={navOpen ? 'close' : 'layers'} />
+              <Icon id={navOpen ? 'close' : 'menu'} />
             </button>
             <span className="adm-station">{appName}</span>
             <span className="adm-verwaltung">{C.shell.verwaltung}</span>
@@ -262,10 +266,10 @@ export function AdminShell() {
             {/* docs/ is written for exactly this reader and was linked from nowhere in /admin.
                 Persistent rather than per-page: whatever the question is, the answer is in the
                 same manual. Address lives in the copy layer so a fork retargets it once. */}
-            <a className="adm-link" href={`${C.docs.repo}${C.docs.root}`} target="_blank" rel="noreferrer">
+            <a className="adm-link adm-header-out" href={`${C.docs.repo}${C.docs.root}`} target="_blank" rel="noreferrer">
               {C.shell.docs}
             </a>
-            <a className="adm-link" href="/">{C.shell.toLageMap}</a>
+            <a className="adm-link adm-header-out" href="/">{C.shell.toLageMap}</a>
             <button type="button" className="btn adm-logout" onClick={() => void fullLogout()}>
               {C.shell.logout}
             </button>
@@ -277,6 +281,26 @@ export function AdminShell() {
             className={`adm-side${navOpen ? ' open' : ''}`}
             aria-label={C.shell.navAria}
           >
+            {/* Phone only (admin.css · .adm-side-out): the header's two links move in here, so the
+                bar keeps room for the station name and Abmelden — at 390px the four of them had
+                squeezed the name down to «F…». On top of the drawer, not under its 20 entries:
+                «Zur Karte» is the way out and should not need a scroll to find. */}
+            <div className="adm-side-group adm-side-out">
+              <ul className="adm-side-list">
+                <li>
+                  <a className="adm-side-item" href="/">
+                    <Icon id="map" className="adm-side-ic" />
+                    <span className="adm-side-label">{C.shell.toLageMapNav}</span>
+                  </a>
+                </li>
+                <li>
+                  <a className="adm-side-item" href={`${C.docs.repo}${C.docs.root}`} target="_blank" rel="noreferrer">
+                    <Icon id="info" className="adm-side-ic" />
+                    <span className="adm-side-label">{C.shell.docs}</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
             {NAV.map((group) => (
               <div className="adm-side-group" key={group.heading}>
                 <p className="adm-side-heading">{C.nav[group.heading]}</p>

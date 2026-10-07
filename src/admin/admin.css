@@ -69,7 +69,9 @@
   flex: 0 0 232px; width: 232px;
   align-self: stretch;
   overflow-y: auto;
-  padding: 22px 14px 40px;
+  /* tight enough that all 20 entries fit a 1080-high screen without scrolling (UI sweep
+     07.10.2026) — the items keep their 44px; only the air around the groups gave way */
+  padding: 14px 14px 14px;
   box-sizing: border-box;
   /* solid panel with a clean 1px separator — NOT a translucent tint that reads as a
      draggable handle (the sidebar is fixed-width, not resizable) */
@@ -77,14 +79,14 @@
   background: var(--surface);
   cursor: default;
 }
-.adm-side-group { margin-bottom: 18px; }
+.adm-side-group { margin-bottom: 10px; }
 .adm-side-group:last-child { margin-bottom: 0; }
 .adm-side-heading {
-  margin: 0 0 6px; padding: 0 10px;
+  margin: 0 0 2px; padding: 0 10px;
   font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   color: var(--ink-faint);
 }
-.adm-side-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.adm-side-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
 .adm-side-item {
   display: flex; align-items: center; gap: 11px; width: 100%;
   min-height: var(--tap); padding: 8px 11px;
@@ -106,6 +108,9 @@
 .adm-side-item.on .adm-side-ic { color: var(--blue); }
 .adm-side-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .adm-side-scrim { display: none; }
+/* the header links' phone home (see the 720px block) — hidden while the header has room */
+.adm-side-out { display: none; }
+a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 
 /* ── content column: own scroll, wider so tables/forms use the horizontal space ── */
 /* ⚠️ NO padding-top on the scroller — the breathing space above the page head lives on
@@ -113,13 +118,16 @@
    box, but its overflow is clipped at the PADDING box: a `padding-top: 28px` here therefore
    pinned the settings table's column header 28px down while rows kept scrolling visibly
    through the band above it — a whole setting riding over the header that was meant to hide
-   it (admin.css · .adm-set-h). With the padding on the inner column the two edges coincide
+   it (admin.css · the settings sheet's former sticky column header). With the padding on the inner column the two edges coincide
    and `top: 0` means what it says.
    ⚠️ `scrollbar-gutter: stable` — the content column is the one box on /admin whose height
    changes under the reader (a page swap, a table that loads, a card that unfolds), and without
    the reserved lane every one of those slid the whole column sideways by the width of the bar. */
 .adm-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 0 28px 64px; }
-.adm-col { max-width: 1180px; margin: 0 auto; padding-top: 28px; }
+/* Left-aligned against the nav, not centred (UI sweep 07.10.2026): on a 1920 screen a centred
+   1180px column left a ~250px empty band between the sidebar and the page, so the content read as
+   floating free of the nav that chose it. The spare width goes to the right edge instead. */
+.adm-col { max-width: 1180px; margin: 0; padding-top: 28px; }
 
 /* page heading + autosave status share a row */
 .adm-pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -171,13 +179,11 @@
 .adm-autosave:has(.adm-autosave-hint) { border-radius: var(--r-ctl); align-items: flex-start; }
 
 /* ── responsive: sidebar collapses to a slide-in drawer ───────────────────── */
-@media (max-width: 720px) {
+/* Up to 1024px, not 720 (UI sweep 07.10.2026, E3): a portrait iPad (820) kept the 232px rail
+   and gave the content ~520px — setup rows wrapped to six lines and every table clipped. The
+   drawer is one tap away; the width is what the page needs. */
+@media (max-width: 1024px) {
   .adm-navtoggle { display: grid; }
-  /* the header's nowrap cluster (name + link + logout) overflows a phone —
-     drop the decorative pieces; the logout keeps its label, the link stays */
-  .adm-header { padding: 10px 12px; gap: 10px; }
-  .adm-verwaltung { display: none; }
-  .adm-logout { min-width: 0; }
   /* sidebar leaves the flow and slides in as a drawer; main fills the width + scrolls */
   .adm-side {
     position: fixed; top: 0; left: 0; bottom: 0;
@@ -192,6 +198,25 @@
     display: block; position: fixed; inset: 0; z-index: var(--z-side-scrim);
     border: none; background: color-mix(in srgb, var(--ink) 28%, transparent);
   }
+  .adm-header-left { align-items: center; }
+}
+@media (max-width: 720px) {
+  /* the header's nowrap cluster (name + link + logout) overflows a phone —
+     drop the decorative pieces; the logout keeps its label */
+  .adm-header { padding: 10px 12px; gap: 10px; }
+  .adm-verwaltung { display: none; }
+  .adm-logout { min-width: 0; }
+  /* Anleitung + Zur Karte move into the drawer (.adm-side-out): with them in the bar the
+     station name was crushed to «F…». The bar keeps the toggle, the name and Abmelden. */
+  .adm-header-out { display: none; }
+  /* …and the name gets the room back: a touch smaller and less tracked, so «Feuerwehr
+     Musterdorf» fits whole beside Abmelden at 390px */
+  .adm-station { font-size: 13px; letter-spacing: .04em; }
+  .adm-side-out {
+    display: block;
+    padding-bottom: 14px; border-bottom: 1px solid var(--border-soft);
+  }
+  .adm-side { padding-top: 66px; }
   /* …still no padding-top on the scroller, for the same reason as above */
   .adm-main { padding: 0 16px 56px; }
   .adm-col { padding-top: 22px; }
@@ -225,6 +250,8 @@
    every one of the three head shapes. */
 .adm-card-act { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-left: auto; }
 .adm-card-title { font-size: 15px; font-weight: 700; letter-spacing: .01em; margin: 0; }
+/* the ⓘ after a card title: the «ⓘ» character brought its own side bearing, the #info icon does not */
+.adm-card-title > .adm-tip { margin-left: 6px; }
 .adm-card-cap { font-size: 12px; color: var(--ink-faint); margin: 5px 0 0; line-height: 1.45; }
 /* A card whose whole content is its header controls (the Arbeitsmappe's two actions, with the
    body reserved for what the file turns out to say) must not print 38px of empty padding under
@@ -252,7 +279,10 @@
 .adm-input:focus { border-color: var(--blue); background: var(--surface); }
 .adm-input::placeholder { color: var(--ink-faint); font-weight: 500; }
 .adm-input-mono { font-family: var(--mono); font-weight: 500; }
-.adm-textarea { min-height: 0; resize: vertical; line-height: 1.5; padding-top: 10px; }
+.adm-textarea { min-height: 0; resize: vertical; line-height: 1.5; padding-top: 10px;
+  /* running text is read, not scanned: 600 is the weight of a one-word value, and a
+     650px block of Textbausteine in it read as one shout */
+  font-weight: 400; }
 
 /* two-up rows on desktop, stack on narrow */
 .adm-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
@@ -301,7 +331,7 @@
    `2 / -2`, i.e. Wert AND Standard — handed its whole max-content surplus to Standard. Standard
    ballooned, the free space the `1fr` lives on went to zero, and Einstellung collapsed to 0px
    for EVERY row of that sheet, the labels spilling visibly over the value cells (Rapport's
-   chip lists, Zugangsdaten's key rows). `fit-content` caps what a span row can push into
+   chip lists, Anbindungen' key rows). `fit-content` caps what a span row can push into
    Standard — 180px is well past the widest «#e8392b · geändert» — and the `160px` floor means
    the label column keeps its width even if something one day exceeds that cap. */
 .adm-settings {
@@ -309,26 +339,15 @@
   grid-template-columns: minmax(160px, 1fr) minmax(200px, min(400px, 42%)) fit-content(180px) 34px;
   align-items: stretch;
 }
-
-/* column header — sticky against the scrolling content column, so the four columns keep their
-   names on a long page. Opaque, not tinted: it scrolls OVER rows. */
-.adm-set-head { display: contents; }
-.adm-set-h {
-  position: sticky; top: 0; z-index: 2;
-  padding: 9px 8px; background: var(--surface);
-  border-bottom: 1px solid var(--border-soft);
-  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
-  color: var(--ink-faint);
-}
-.adm-set-h:first-child { padding-left: 18px; }
-.adm-set-h-info { padding-right: 14px; text-align: right; font-size: 12px; letter-spacing: normal; }
-/* ⚠️ The head is an opaque box painted OVER the card, and the card's corner is round. A square
-   head therefore filled the corner the card had just rounded away and cut straight across its
-   own hairline — a dark step at the top-left, visible on every titleless sheet. It has to carry
-   the same radius, minus the 1px border it sits inside of. Only where the grid IS the card's
-   first child: under a card head the corner is not the head's to round. */
-.adm-settings:first-child .adm-set-h:first-child { border-top-left-radius: calc(var(--r-surface) - 1px); }
-.adm-settings:first-child .adm-set-h-info { border-top-right-radius: calc(var(--r-surface) - 1px); }
+/* ⚠️ Still FOUR tracks, though the Standard column and the column header are gone (UI sweep
+   07.10.2026, E5) and the shipped default now stands inside the value cell. The third track is
+   the room a `span` row grows into: Anbindungen's «nicht gesetzt» pill + key box + Speichern
+   need Wert plus up to 180px to sit on one line. With three tracks a span row had only the Wert
+   column and every key row stacked to twice its height. On a plain row the ⓘ cell spans the
+   third track AND its own, so the row's hairline runs unbroken (the cells carry it); a span row's
+   control takes the third track and its ⓘ only the last one. No span row on a sheet → 0px. */
+.adm-settings .adm-set-info { grid-column: -3 / -1; }
+.adm-settings .adm-set-row.span > .adm-set-info { grid-column: -2 / -1; }
 
 /* group divider (Funk · Atemschutz – Druck …). Also the head of ONE RECORD in a list editor
    («Gr. 2», «TLF 1», a Formular) — same shape, plus the row's own action on the right. */
@@ -361,9 +380,10 @@
 }
 .adm-set-name { font-size: 13px; font-weight: 600; color: var(--ink); }
 .adm-set-unit { font: 500 11.5px var(--mono); color: var(--ink-faint); }
-/* the Standard column is empty on every row that still runs on the shipped value — it speaks
+/* the Standard note is empty on every row that still runs on the shipped value — it speaks
    only for a deviation, which is the whole reason it can sit there without adding noise */
 .adm-set-std { font: 500 11.5px var(--mono); color: var(--amber-strong); white-space: nowrap; }
+.adm-set-std:empty { display: none; }
 /* ⚠️ The Wert cell WRAPS. It is a flex row (`.adm-set-row > *` above), and a non-wrapping flex
    row's max-content width is every child laid out on ONE line — which on a `span` row is exactly
    the surplus the grid then pushes into the Standard column. Wrapping (plus `min-width: 0`)
@@ -374,6 +394,9 @@
 .adm-set-ctl > .adm-color-row,
 .adm-set-ctl > .adm-combo,
 .adm-set-ctl > .adm-select { width: 100%; }
+/* a number is sized to a number: «11» in a 380px box read as a form field nobody had filled
+   in. 10 characters of the mono face covers every doctrine and Rapport value. */
+.adm-set-ctl > .adm-input.adm-input-num { width: calc(10ch + 28px); flex: none; }
 /* A control in the table is a table control: `.adm-input`'s 44px is a gloved-tap floor, and at
    44 per row the table is a stack of cards again — which is the thing this layout set out to
    stop being.
@@ -394,12 +417,9 @@
 
 /* ⚠️ A control that cannot live in the Wert column alone and must not scroll sideways to hide
    the rest of itself — the Truppfarben swatches, a chip list, a long URL, a textarea. It takes
-   the Wert AND Standard columns and WRAPS; the ⓘ stays in its own column, so the row still
-   reads as a row.
-   `2 / -2` = «everything but the ⓘ», in BOTH layouts: the narrow grid below drops the Standard
-   column, and a hard `2 / 4` there would have pushed the ⓘ into a fourth column of its own. */
+   the Wert column and WRAPS; the ⓘ stays in its own column, so the row still reads as a row.
+   `2 / -2` = «everything but the ⓘ». */
 .adm-set-row.span > .adm-set-ctl { grid-column: 2 / -2; }
-.adm-set-row.span > .adm-set-std { display: none; }
 .adm-set-row.span > .adm-set-ctl > * { min-width: 0; }
 /* ⚠️ …and a textarea row is TALL, so its label must not float in the middle of 360px of empty
    column. Everything else on the row lines up with the first line of the box instead — which is
@@ -440,20 +460,16 @@
 .adm-settings > *:last-child,
 .adm-settings > *:last-child > * { border-bottom: 0; }
 
-/* ⚠️ Narrow screens drop the Standard column rather than scrolling the page sideways: it is the
-   one column that is commentary. Below the phone breakpoint the control moves under its label,
-   so a 13-character label never squeezes the value box into two characters. */
-@media (max-width: 900px) {
-  .adm-settings { grid-template-columns: minmax(0, 1fr) minmax(170px, min(360px, 46%)) 34px; }
-  .adm-set-h-std, .adm-set-row > .adm-set-std { display: none; }
-}
+/* No narrower grid between the phone and the desktop: the column that used to be dropped here
+   (Standard) is gone, and the track that replaced it is what keeps a key row — pill, box,
+   Speichern — on one line on a portrait iPad. Below the phone breakpoint the control moves
+   under its label, so a 13-character label never squeezes the value box into two characters. */
 /* ⚠️ …and below the phone breakpoint it stops being a table at all: the row becomes a flex
    block (label + ⓘ on one line, control under them). NOT a narrower grid — `order` cannot
    reshuffle one row's cells without reshuffling every group divider with them, because a
    `display: contents` row's cells are the GRID's items, not the row's. */
 @media (max-width: 560px) {
   .adm-settings { display: block; }
-  .adm-set-h { display: none; }
   .adm-set-row {
     display: flex; flex-wrap: wrap; align-items: center;
     padding: 6px 0 8px; border-bottom: 1px solid var(--border-soft);
@@ -466,8 +482,53 @@
   .adm-set-lbl { flex: 1 1 auto; }
   .adm-set-info { flex: 0 0 auto; }
   .adm-set-ctl { order: 3; flex: 1 0 100%; }
-  .adm-set-ctl .adm-input { width: 100%; }
+  .adm-set-ctl .adm-input:not(.adm-input-num) { width: 100%; }
 }
+/* ── inline records (ui.tsx · InlineRecords / InlineRecord) ──────────────────────────────────
+   One row per record, the column names once on top (see ui.tsx). The rows are `display:
+   contents`, so every record's controls line up in the list's own columns; the bin column is
+   `auto` so an armed «Löschen?» confirm can widen it without pushing a field out. */
+.adm-irecs {
+  display: grid;
+  grid-template-columns: repeat(var(--irec-cols, 2), minmax(0, 1fr)) auto;
+  gap: 8px 10px; align-items: center;
+}
+.adm-irec-head, .adm-irec { display: contents; }
+.adm-irec-h {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.adm-irec-cell { display: block; min-width: 0; }
+.adm-irec-cell > .adm-input { width: 100%; }
+/* the caption is the column header's job in the grid — still there for a screen reader */
+.adm-irec-lbl {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.adm-irec-act { display: flex; align-items: center; justify-content: flex-end; }
+.adm-irec-act .adm-formlink-x { width: 34px; height: 34px; }
+.adm-irec-act .adm-confirm { text-transform: none; letter-spacing: normal; }
+.adm-irec-note { grid-column: 1 / -1; margin-top: -2px; font-size: 12px; line-height: 1.45; color: var(--ink-dim); }
+.adm-irec-note .adm-set-note { padding: 8px 12px; border-bottom: 0; border-radius: var(--r-sm); }
+/* a phone has no room for columns: each record stacks as a small card, captions back on */
+@media (max-width: 560px) {
+  .adm-irecs { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  /* the header stays as a legend — it is where each column's ⓘ lives */
+  .adm-irec-head { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  .adm-irec-head > .adm-irec-h:empty { display: none; }
+  .adm-irec {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; align-items: end;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  }
+  .adm-irec-cell { grid-column: 1; }
+  .adm-irec-act { grid-column: 2; grid-row: 1; align-self: start; }
+  .adm-irec-lbl {
+    position: static; width: auto; height: auto; overflow: visible; clip-path: none;
+    display: block; margin-bottom: 4px;
+    font-size: 12px; font-weight: 600; color: var(--ink-dim);
+  }
+}
+
 /* ── record cards (ui.tsx · RecordTable / RecordRows) ─────────────────────────────────────────
    «Karten für Datensätze, Zeilen für Werte» — the grammar of /admin. A list editor's records
    (Kartenebenen, Module, Alarmgruppen, Fahrzeuge) are compact cards INSIDE the page card: a head
@@ -1189,7 +1250,6 @@
    and the ⋮ row menu in Mitglieder. Only a table that declares itself wider than the content
    column needs the scroller; a new one belongs on this list beside `.adm-history-table`. */
 .adm-table-wrap { overflow: visible; }
-.adm-table-wrap:has(.adm-history-table) { overflow-x: auto; }
 .adm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .adm-table th {
   text-align: left; padding: 0 12px 9px 0;
@@ -1203,6 +1263,64 @@
 }
 .adm-table tr:last-child td { border-bottom: none; }
 .adm-table .adm-num { text-align: right; }
+
+/* ── stacked rows: a table too narrow for its columns becomes a list of row cards ──────────
+   (UI sweep 07.10.2026, E1.) On a phone and a portrait iPad every admin table clipped at the
+   card's edge — Mitglieder's ⋮ (PIN zurücksetzen, deaktivieren), Checklisten's actions and the
+   Objektpläne status were simply off-screen. A sideways scroller is not the answer here (see the
+   ⚠️ above: it clips the ⋮ menu and every ⓘ), so below 860px of TABLE width — measured on the
+   wrapper, a container query, because the sidebar makes the viewport a poor proxy — the header
+   row goes and each row is one card, the `.adm-rankmap` idea made general:
+     line 1  the row's name (first cell, or `.adm-c-main`) · its state (`.adm-c-side`) · its
+             actions (`.adm-c-act`) — so the ⋮ always sits on the line it acts on;
+     line 2+ every other cell, small, under its own column name (`data-label`, written by
+             `useCellLabels` in ui.tsx — hand-written tables must call it).
+   Nothing is hidden: a cell without a role is a secondary one, never dropped. Opt OUT with
+   `.adm-table-scroll` (a reference viewer whose rows span — those scroll sideways instead).
+   ⚠️ `!important` on width/min-width only: per-table column widths (objectPlans.css,
+   `.adm-ltable`) carry four-class selectors, and a card cell has no column to be 27% of. */
+.adm-table-wrap { container: adm-table / inline-size; }
+.adm-table-wrap:has(> .adm-table-scroll), .adm-table-wrap:has(> .adm-history-table) { overflow-x: auto; }
+@container adm-table (max-width: 860px) {
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap),
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody { display: block; }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > thead { display: none; }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr {
+    display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 16px;
+    height: auto; padding: 12px 0; border-bottom: 1px solid var(--border-soft);
+  }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr:last-child { border-bottom: none; }
+  /* the line break between the head line and the facts */
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr::after {
+    content: ''; order: 2; flex: 0 0 100%; height: 0;
+  }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td {
+    display: block; order: 3; flex: 0 1 auto;
+    width: auto !important; min-width: 0 !important;
+    padding: 0; border: none; text-align: left; white-space: normal;
+  }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr:not(:has(> .adm-c-main)) > td:first-child,
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td.adm-c-main {
+    order: 0; flex: 1 1 0; align-self: center; font-size: 13.5px;
+  }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td.adm-c-side { order: 1; flex: none; align-self: center; }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td.adm-c-act { order: 2; flex: none; align-self: center; text-align: right; }
+  .adm-history-table { min-width: 0; }
+  /* a spanning cell (inline edit form, a row's error) is a full-width line of its own */
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td[colspan] { order: 0; flex: 1 1 100%; }
+  /* a secondary fact names itself: the column header, small, above the value */
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td[data-label]:not(:first-child):not(.adm-c-main):not(.adm-c-side):not(.adm-c-act)::before {
+    content: attr(data-label); display: block; margin-bottom: 2px;
+    font: 700 10.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  /* …except where the main cell is not the first: then the first one is a fact too */
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr:has(> .adm-c-main) > td[data-label]:first-child::before {
+    content: attr(data-label); display: block; margin-bottom: 2px;
+    font: 700 10.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+}
 .adm-mono { font-family: var(--mono); font-weight: 500; }
 /* A date or a time is read as ONE token: it never breaks over two lines («11.09.2026,» over
    «14:07» is two facts to a reader scanning a column), and tabular numerals line the digits up
@@ -1294,6 +1412,8 @@
   font-size: 14px; line-height: 1; border-radius: var(--r-pill);
   transition: color .14s var(--ease), background .14s var(--ease);
 }
+/* the #info line icon fills the trigger (the page title's is 20px, see .adm-h1) */
+.adm-tip-trigger .i { width: 100%; height: 100%; }
 /* invisible hit pad: the 18px glyph alone is untappable on touch */
 .adm-tip-trigger::before { content: ''; position: absolute; inset: -10px; border-radius: 50%; }
 @media (hover: hover) {
@@ -1331,6 +1451,15 @@
   opacity: 1; visibility: visible;
   transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
   transition: opacity .12s var(--ease), transform .12s var(--ease);
+}
+/* ⚠️ A CLOSED pop is not in the layout at all. `visibility: hidden` still lays it out, centred
+   on its trigger and un-shifted (--tip-shift is only measured on open), so an ⓘ near the right
+   edge of a phone left a 248px box hanging past the content column — Personal and Objektbesuche
+   scrolled ~80px sideways for nothing. The measurement in InfoTip runs after `data-open` is set,
+   so it still sees a laid-out box; the fade-in starts from `@starting-style`. */
+.adm-tip-pop:not([data-open]) { display: none; }
+@starting-style {
+  .adm-tip-pop[data-open] { opacity: 0; }
 }
 /* little caret — compensates the shift so it stays centered on the trigger */
 .adm-tip-pop::after {
@@ -1388,6 +1517,14 @@
 .adm-int-btn:disabled,
 .adm-save-btn:disabled {
   opacity: var(--disabled); cursor: default;
+}
+/* ⚠️ …and a disabled PRIMARY is never filled (UI sweep 07.10.2026, E4). A greyed fill is still
+   the heaviest thing in its row: Anbindungen showed 25 of them down the page, one per empty
+   key, and the unlock card's «Entsperren» outweighed the field it waits for. Until it can be
+   pressed it is an outline in the faint ink; the fill arrives with the value. */
+.adm-save-btn:disabled {
+  opacity: 1;
+  color: var(--ink-faint); background: transparent; border-color: var(--border);
 }
 
 /* ── Mitglieder: row hover + clearer status/role badges ───────────────────── */

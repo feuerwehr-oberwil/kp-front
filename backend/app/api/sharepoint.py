@@ -9,7 +9,7 @@ on Verwaltung › System), a way to find that out WITHOUT waiting for the next s
 that told them it is broken (`POST /sync`).
 
 No configuration lives here. The folders are in the deployment config (`sharepoint.sources`,
-edited as config-as-code / in Verwaltung), the credentials on the Zugangsdaten page.
+edited as config-as-code / in Verwaltung), the credentials on the Anbindungen page.
 """
 
 import logging

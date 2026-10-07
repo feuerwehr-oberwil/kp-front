@@ -68,7 +68,7 @@ function acknowledgedKeys(cfg: DeploymentConfig): string[] {
  * env-only, so it was reported without a way in and kept out of the «x von n» count, because
  * a row nobody could tick would have parked the card at «6 von 7» on the admin's landing page
  * forever. That is no longer true: the ping URL is one of the sixteen credentials
- * «Zugangsdaten» sets (backend/app/credentials.py), so it is now finishable in two taps like
+ * «Anbindungen» sets (backend/app/credentials.py), so it is now finishable in two taps like
  * every other row and counts like every other row. The exception, and the `Note` type that
  * existed for it, are gone — if a future line genuinely cannot be finished from a browser, it
  * does not belong on this card at all.
@@ -145,11 +145,11 @@ export function SetupChecklist({ cfg, setup, facts, onGo }: {
     geocoder: { label: C.geocoder, go: 'identitaet', sub: (d) => (d ? C.geocoderSet : C.geocoderOpen) },
     // Credentials alone are a silent no-op (scheduler.py never has a folder to poll), and a
     // folder alone cannot exist without credentials to read it with — so the row is ONE fact.
-    // It leads to «Zugangsdaten», not the config file: that is the half of the setup this UI can
+    // It leads to «Anbindungen», not the config file: that is the half of the setup this UI can
     // actually offer a button for.
     sharepoint: { label: C.sharepoint, go: 'zugaenge', sub: (d) => (d ? C.sharepointSet : C.sharepointOpen) },
     // A station that never learns its instance is down is the failure the whole ops story is
-    // about — and «Zugangsdaten» is now a screen that fixes it, so this row leads there rather
+    // about — and «Anbindungen» is now a screen that fixes it, so this row leads there rather
     // than naming an environment variable nobody at a tablet can reach.
     monitoring: { label: C.monitoring, go: 'zugaenge', sub: (d) => (d ? C.monitoringSet : C.monitoringOpen) },
   }
