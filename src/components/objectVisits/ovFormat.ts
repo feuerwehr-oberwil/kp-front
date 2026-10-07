@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { getLocaleId } from '../../config/copy'
-import { fillTemplate, hhmm } from '../../lib/format'
+import { fillTemplate, hhmm, unitLabel } from '../../lib/format'
 import { attachmentUrl } from '../../objectVisits/api'
 import { readAttachment } from '../../objectVisits/store'
 import type { DeliveryState, SyncState } from '../../objectVisits/status'
@@ -125,7 +125,7 @@ export function answerText(item: Item | undefined, a: Answer | null | undefined)
   if (!a || a.v === '' || a.v == null) return C.notChecked
   const input = item?.input ?? 'check'
   if (input === 'choice') return item?.options?.find((o) => o.id === a.v)?.label ?? String(a.v)
-  if (input === 'number') return `${a.v}${item?.unit ? ` ${item.unit}` : ''}`
+  if (input === 'number') return `${a.v}${item?.unit ? ` ${unitLabel(item.unit)}` : ''}`
   const words = C.answer as Record<string, string>
   if (typeof a.v === 'string' && words[a.v] && input !== 'text') return words[a.v]
   return String(a.v)

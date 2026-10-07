@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref } from './format'
+import { dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -244,5 +244,16 @@ describe('fmtFileSize', () => {
     expect(fmtFileSize(undefined)).toBe('—')
     expect(fmtFileSize(NaN)).toBe('—')
     expect(fmtFileSize(-1)).toBe('—')
+  })
+})
+
+describe('unitLabel', () => {
+  it('writes the litre as «L», so «40 l» never reads as «40 1»', () => {
+    expect(unitLabel('l')).toBe('L')
+    expect(unitLabel(' l ')).toBe('L')
+    expect(unitLabel('L')).toBe('L')
+  })
+  it('leaves every other unit as the station spells it', () => {
+    for (const u of ['Stk.', 'm', 'Sack', 'kg', 'ml', 'h', '']) expect(unitLabel(u)).toBe(u)
   })
 })

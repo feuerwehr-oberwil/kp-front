@@ -17,7 +17,7 @@ import { ShareIncident } from './panels/ShareIncident'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, fmtSpanShort, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref } from '../lib/format'
+import { fillTemplate, fmtSpanShort, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref, unitLabel } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import { closeTimeOf } from '../lib/api/incidents'
@@ -2284,7 +2284,7 @@ export function ReportPreflight({
                         four items read as one wall of equally loud text. */}
                     {visibleMittel(mittel).map((l) => (
                       <span key={l.key} className="rp-person">
-                        <b>{l.menge}</b> {l.unit} {l.label}
+                        <b>{l.menge}</b> {unitLabel(l.unit)} {l.label}
                         {l.sourceLabel && <i>{` · ${l.sourceLabel}`}</i>}
                       </span>
                     ))}

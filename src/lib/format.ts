@@ -148,6 +148,18 @@ export function fillTemplate(template: string, values: Record<string, string | n
 }
 
 /**
+ * A quantity unit as it is SHOWN after a number. ⚠️ The litre is written «L», never «l»: in Sora
+ * (and in the rapport's Helvetica) a lowercase l beside a number is the digit 1, so «40 l
+ * Schaummittel» read as «40 1» on the Rapport and «40 · 1» on the Material sheet (UI sweep
+ * 07.10.2026). Display only — the stored unit stays whatever the station config spells, and
+ * lib/mittel · unitKey already folds «l» and «L» into one litre. Every place a unit trails a
+ * count goes through here: Material, Rapport, the PDF, the capture app, the Verlauf line.
+ */
+export function unitLabel(unit: string): string {
+  return unit.trim() === 'l' ? 'L' : unit
+}
+
+/**
  * Strip what the printed Einsatzrapport cannot set — emoji, pictographs, dingbats and the
  * joiners/variation selectors that glue them together.
  *

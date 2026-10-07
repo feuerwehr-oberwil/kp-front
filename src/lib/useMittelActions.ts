@@ -1,6 +1,6 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from './format'
+import { fillTemplate, unitLabel } from './format'
 import { newId } from './ids'
 import { currentLineFor, mittelKey } from './mittel'
 import type { MittelDraft } from '../components/MittelView'
@@ -108,7 +108,7 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
       const moved = from !== menge && from > 0 ? ` ${fillTemplate(M.logBefore, { n: from })}` : ''
       log('box', (menge === 0
         ? fillTemplate(M.logRemoved, { label }) + where
-        : fillTemplate(M.logSet, { label, menge, unit }) + where) + moved, 'team')
+        : fillTemplate(M.logSet, { label, menge, unit: unitLabel(unit) }) + where) + moved, 'team')
     }
     const timer = setTimeout(() => { countLogs.current.delete(key); write() }, COUNT_SETTLE_MS)
     countLogs.current.set(key, { timer, before: from, write })

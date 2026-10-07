@@ -2,7 +2,7 @@ import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, P
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
-import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts } from './format'
+import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts, unitLabel } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { fahrtenText } from './vehiclePresence'
 import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
@@ -1411,12 +1411,12 @@ export function mittelFormForPdf(
     const unit = c.unit || appConfig.mittel.defaultUnit
     const hit = byKey.get(`${c.id}|${unit.trim().toLowerCase()}`)
     if (hit) byKey.delete(hit.materialKey)
-    rows.push({ label: c.label, menge: hit && hit.total > 0 ? String(hit.total) : undefined, unit, note: noteOf(hit) })
+    rows.push({ label: c.label, menge: hit && hit.total > 0 ? String(hit.total) : undefined, unit: unitLabel(unit), note: noteOf(hit) })
   }
   for (const r of byKey.values()) {
     if (r.total <= 0) continue
     const sources = r.sources.filter((s) => s !== noSource)
-    rows.push({ label: sources.length ? `${r.label} · ${sources.join(', ')}` : r.label, menge: String(r.total), unit: r.unit, note: noteOf(r) })
+    rows.push({ label: sources.length ? `${r.label} · ${sources.join(', ')}` : r.label, menge: String(r.total), unit: unitLabel(r.unit), note: noteOf(r) })
   }
   return { mittelForm: rows }
 }
