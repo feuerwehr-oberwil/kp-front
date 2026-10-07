@@ -3471,6 +3471,8 @@ export const it: Localizable<Copy> = {
     shell: {
       verwaltung: 'Amministrazione',
       toLageMap: '← Alla mappa',
+      // …nel cassetto del telefono, dove il pittogramma della mappa sostituisce la freccia.
+      toLageMapNav: 'Alla mappa',
       docs: 'Manuale',
       logout: 'Disconnetti',
       openSections: 'Apri sezioni',

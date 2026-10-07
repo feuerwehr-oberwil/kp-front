@@ -3471,6 +3471,8 @@ export const fr: Localizable<Copy> = {
     shell: {
       verwaltung: 'Administration',
       toLageMap: '← Vers la carte',
+      // …dans le tiroir du téléphone, où le pictogramme de carte remplace la flèche.
+      toLageMapNav: 'Vers la carte',
       docs: 'Manuel',
       logout: 'Déconnexion',
       openSections: 'Ouvrir les sections',

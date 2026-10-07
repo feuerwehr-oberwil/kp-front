@@ -92,6 +92,9 @@ export function IconSprite() {
       <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5" /><circle cx="12" cy="7.7" r=".5" /></symbol>
       <symbol id="mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6.5L20.5 7" /></symbol>
       <symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M15 5H5a2 2 0 0 0-2 2v10" /></symbol>
+      {/* The drawer toggle (/admin on a phone, UI sweep 07.10.2026). It wore #layers, which is
+          «Kartenebenen» one entry down the very drawer it opens. Three bars = «sections». */}
+      <symbol id="menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></symbol>
       <symbol id="more-vert" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.7" fill="currentColor" stroke="none" /></symbol>
       {/* …lying down: the last chip of the phone card's fact strip (26.09.2026, phone card
           slim-down) — a horizontal ⋯ reads as «more of this row», the vertical one as a head's menu */}

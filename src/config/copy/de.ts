@@ -5860,6 +5860,8 @@ export const de = {
     shell: {
       verwaltung: 'Verwaltung',
       toLageMap: '← Zur Karte',
+      // …im Bereichsmenü auf dem Telefon: dort steht das Kartensymbol davor, also ohne Pfeil.
+      toLageMapNav: 'Zur Karte',
       // Das Handbuch ist für genau diese Leserin geschrieben und war aus der Verwaltung
       // heraus nirgends verlinkt.
       docs: 'Anleitung',

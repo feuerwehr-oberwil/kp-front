@@ -106,6 +106,9 @@
 .adm-side-item.on .adm-side-ic { color: var(--blue); }
 .adm-side-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .adm-side-scrim { display: none; }
+/* the header links' phone home (see the 720px block) — hidden while the header has room */
+.adm-side-out { display: none; }
+a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 
 /* ── content column: own scroll, wider so tables/forms use the horizontal space ── */
 /* ⚠️ NO padding-top on the scroller — the breathing space above the page head lives on
@@ -178,6 +181,16 @@
   .adm-header { padding: 10px 12px; gap: 10px; }
   .adm-verwaltung { display: none; }
   .adm-logout { min-width: 0; }
+  /* Anleitung + Zur Karte move into the drawer (.adm-side-out): with them in the bar the
+     station name was crushed to «F…». The bar keeps the toggle, the name and Abmelden. */
+  .adm-header-out { display: none; }
+  /* …and the name gets the room back: a touch smaller and less tracked, so «Feuerwehr
+     Musterdorf» fits whole beside Abmelden at 390px */
+  .adm-station { font-size: 13px; letter-spacing: .04em; }
+  .adm-side-out {
+    display: block;
+    padding-bottom: 14px; border-bottom: 1px solid var(--border-soft);
+  }
   /* sidebar leaves the flow and slides in as a drawer; main fills the width + scrolls */
   .adm-side {
     position: fixed; top: 0; left: 0; bottom: 0;

@@ -3671,6 +3671,8 @@ export const en: Localizable<Copy> = {
     shell: {
       verwaltung: 'Administration',
       toLageMap: '← To the map',
+      // …in the phone drawer, where the map glyph stands in for the arrow.
+      toLageMapNav: 'To the map',
       docs: 'Manual',
       logout: 'Sign out',
       openSections: 'Open sections',

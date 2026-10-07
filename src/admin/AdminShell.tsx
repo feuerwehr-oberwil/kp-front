@@ -253,7 +253,7 @@ export function AdminShell() {
               aria-expanded={navOpen}
               onClick={() => setNavOpen((o) => !o)}
             >
-              <Icon id={navOpen ? 'close' : 'layers'} />
+              <Icon id={navOpen ? 'close' : 'menu'} />
             </button>
             <span className="adm-station">{appName}</span>
             <span className="adm-verwaltung">{C.shell.verwaltung}</span>
@@ -262,10 +262,10 @@ export function AdminShell() {
             {/* docs/ is written for exactly this reader and was linked from nowhere in /admin.
                 Persistent rather than per-page: whatever the question is, the answer is in the
                 same manual. Address lives in the copy layer so a fork retargets it once. */}
-            <a className="adm-link" href={`${C.docs.repo}${C.docs.root}`} target="_blank" rel="noreferrer">
+            <a className="adm-link adm-header-out" href={`${C.docs.repo}${C.docs.root}`} target="_blank" rel="noreferrer">
               {C.shell.docs}
             </a>
-            <a className="adm-link" href="/">{C.shell.toLageMap}</a>
+            <a className="adm-link adm-header-out" href="/">{C.shell.toLageMap}</a>
             <button type="button" className="btn adm-logout" onClick={() => void fullLogout()}>
               {C.shell.logout}
             </button>
@@ -277,6 +277,26 @@ export function AdminShell() {
             className={`adm-side${navOpen ? ' open' : ''}`}
             aria-label={C.shell.navAria}
           >
+            {/* Phone only (admin.css · .adm-side-out): the header's two links move in here, so the
+                bar keeps room for the station name and Abmelden — at 390px the four of them had
+                squeezed the name down to «F…». On top of the drawer, not under its 20 entries:
+                «Zur Karte» is the way out and should not need a scroll to find. */}
+            <div className="adm-side-group adm-side-out">
+              <ul className="adm-side-list">
+                <li>
+                  <a className="adm-side-item" href="/">
+                    <Icon id="map" className="adm-side-ic" />
+                    <span className="adm-side-label">{C.shell.toLageMapNav}</span>
+                  </a>
+                </li>
+                <li>
+                  <a className="adm-side-item" href={`${C.docs.repo}${C.docs.root}`} target="_blank" rel="noreferrer">
+                    <Icon id="info" className="adm-side-ic" />
+                    <span className="adm-side-label">{C.shell.docs}</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
             {NAV.map((group) => (
               <div className="adm-side-group" key={group.heading}>
                 <p className="adm-side-heading">{C.nav[group.heading]}</p>
