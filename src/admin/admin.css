@@ -473,6 +473,51 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   .adm-set-ctl { order: 3; flex: 1 0 100%; }
   .adm-set-ctl .adm-input:not(.adm-input-num) { width: 100%; }
 }
+/* ── inline records (ui.tsx · InlineRecords / InlineRecord) ──────────────────────────────────
+   One row per record, the column names once on top (see ui.tsx). The rows are `display:
+   contents`, so every record's controls line up in the list's own columns; the bin column is
+   `auto` so an armed «Löschen?» confirm can widen it without pushing a field out. */
+.adm-irecs {
+  display: grid;
+  grid-template-columns: repeat(var(--irec-cols, 2), minmax(0, 1fr)) auto;
+  gap: 8px 10px; align-items: center;
+}
+.adm-irec-head, .adm-irec { display: contents; }
+.adm-irec-h {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.adm-irec-cell { display: block; min-width: 0; }
+.adm-irec-cell > .adm-input { width: 100%; }
+/* the caption is the column header's job in the grid — still there for a screen reader */
+.adm-irec-lbl {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.adm-irec-act { display: flex; align-items: center; justify-content: flex-end; }
+.adm-irec-act .adm-formlink-x { width: 34px; height: 34px; }
+.adm-irec-act .adm-confirm { text-transform: none; letter-spacing: normal; }
+.adm-irec-note { grid-column: 1 / -1; margin-top: -2px; font-size: 12px; line-height: 1.45; color: var(--ink-dim); }
+.adm-irec-note .adm-set-note { padding: 8px 12px; border-bottom: 0; border-radius: var(--r-sm); }
+/* a phone has no room for columns: each record stacks as a small card, captions back on */
+@media (max-width: 560px) {
+  .adm-irecs { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  /* the header stays as a legend — it is where each column's ⓘ lives */
+  .adm-irec-head { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  .adm-irec-head > .adm-irec-h:empty { display: none; }
+  .adm-irec {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; align-items: end;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  }
+  .adm-irec-cell { grid-column: 1; }
+  .adm-irec-act { grid-column: 2; grid-row: 1; align-self: start; }
+  .adm-irec-lbl {
+    position: static; width: auto; height: auto; overflow: visible; clip-path: none;
+    display: block; margin-bottom: 4px;
+    font-size: 12px; font-weight: 600; color: var(--ink-dim);
+  }
+}
+
 /* ── record cards (ui.tsx · RecordTable / RecordRows) ─────────────────────────────────────────
    «Karten für Datensätze, Zeilen für Werte» — the grammar of /admin. A list editor's records
    (Kartenebenen, Module, Alarmgruppen, Fahrzeuge) are compact cards INSIDE the page card: a head

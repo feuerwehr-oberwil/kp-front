@@ -9,7 +9,7 @@ import { useConfig, getPath } from './ConfigContext'
 // No `Field` any more: every setting on these pages is a row of the settings table now, and
 // the list editors' records are a divider plus their fields as rows of the same grid.
 import {
-  Card, ConfirmButton, NameCombo, Offer, RecordRows, RecordTable, Select, SettingRow,
+  Card, ConfirmButton, InlineRecord, InlineRecords, NameCombo, Offer, RecordRows, RecordTable, Select, SettingRow,
   SettingsGroup, SettingsNote, SettingsSheet, fmtDate, standardNote,
 } from './ui'
 import { AVAILABLE_LOCALES } from '../config/copy'
@@ -1106,44 +1106,44 @@ function FleetVehiclesEditor() {
   return (
     <>
       {rows.length === 0 && <SettingsNote>{C.vehiclesEmpty}</SettingsNote>}
-      {rows.map((row, i) => {
-        const warn = problem(row, i, rows)
-        return (
-          // index key: a vehicle has no identity beyond the `id` the operator is still typing,
-          // and every value in the row is controlled from `rows` anyway.
-          // ⚠️ The Kennung stands in the head's meta line as well as in its own row, and that is
-          // not a duplication: it is the key GPS positions and Alarmzeiten join on, i.e. what
-          // says WHICH vehicle this record is — no swatch, a vehicle has no colour here.
-          <RecordRows
-            key={i}
-            name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
-            meta={row.id?.trim() || undefined}
-            action={(
-              <ConfirmButton
-                className="adm-formlink-x" ariaLabel={C.vehicleRemove} label={<Icon id="trash" />}
-                question={C.vehicleRemoveConfirm} danger
-                onConfirm={() => write(rows.filter((_, j) => j !== i))}
-              />
-            )}
-          >
-            <SettingRow label={C.vehicleLabel} tip={C.vehicleLabelTip}>
-              <input
-                className="adm-input" type="text" value={row.label ?? ''}
-                placeholder={C.vehicleLabelPlaceholder}
-                onChange={(e) => setLabel(i, e.target.value)}
-              />
-            </SettingRow>
-            <SettingRow label={C.vehicleId} tip={C.vehicleIdTip}>
-              <input
-                className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
-                placeholder={C.vehicleIdPlaceholder}
-                onChange={(e) => patch(i, { id: e.target.value })}
-              />
-            </SettingRow>
-            {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
-          </RecordRows>
-        )
-      })}
+      {/* ONE row per vehicle (ui · InlineRecords, UI sweep 07.10.2026): a head card plus a row
+          per field repeated «Bezeichnung / Kennung» for every vehicle, and the name twice. */}
+      {rows.length > 0 && (
+        <InlineRecords
+          recordLabel={C.colVehicle}
+          columns={[{ label: C.vehicleLabel, tip: C.vehicleLabelTip }, { label: C.vehicleId, tip: C.vehicleIdTip }]}
+        >
+          {rows.map((row, i) => {
+            const warn = problem(row, i, rows)
+            return (
+              // index key: a vehicle has no identity beyond the `id` the operator is still typing,
+              // and every value in the row is controlled from `rows` anyway.
+              <InlineRecord
+                key={i}
+                action={(
+                  <ConfirmButton
+                    className="adm-formlink-x" ariaLabel={C.vehicleRemove} label={<Icon id="trash" />}
+                    question={C.vehicleRemoveConfirm} danger
+                    onConfirm={() => write(rows.filter((_, j) => j !== i))}
+                  />
+                )}
+                note={warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
+              >
+                <input
+                  className="adm-input" type="text" value={row.label ?? ''}
+                  placeholder={C.vehicleLabelPlaceholder}
+                  onChange={(e) => setLabel(i, e.target.value)}
+                />
+                <input
+                  className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
+                  placeholder={C.vehicleIdPlaceholder}
+                  onChange={(e) => patch(i, { id: e.target.value })}
+                />
+              </InlineRecord>
+            )
+          })}
+        </InlineRecords>
+      )}
       <SettingsNote>
         <button
           type="button" className="adm-formlink-add"
@@ -2008,56 +2008,59 @@ function AlarmGroupsEditor() {
   return (
     <>
       {rows.length === 0 && <SettingsNote>{C.groupsEmpty}</SettingsNote>}
-      {rows.map((row, i) => {
-        const warn = problem(row, i, rows)
-        const note = row.color?.trim()
-        return (
-          // index key: a group has no identity beyond the `id` the operator is still typing,
-          // and every value in the row is controlled from `rows` anyway.
-          // ⚠️ NO swatch, despite the field being called `color`: it holds the parenthetical the
-          // Rapport prints («Rot», «Tag. Pikett»), not a colour — see the note above. The meta
-          // line carries the Kennung instead, which is what a reported Alarmzeit joins on.
-          <RecordRows
-            key={i}
-            name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
-            meta={row.id?.trim() || undefined}
-            action={(
-              <ConfirmButton
-                className="adm-formlink-x" ariaLabel={C.groupRemove} label={<Icon id="trash" />}
-                question={C.groupRemoveConfirm} danger
-                onConfirm={() => write(rows.filter((_, j) => j !== i))}
-              />
-            )}
-          >
-            <SettingRow label={C.groupLabel} tip={C.groupLabelTip}>
-              <input
-                className="adm-input" type="text" value={row.label ?? ''}
-                placeholder={C.groupLabelPlaceholder}
-                onChange={(e) => setLabel(i, e.target.value)}
-              />
-            </SettingRow>
-            <SettingRow label={C.groupId} tip={C.groupIdTip}>
-              <input
-                className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
-                placeholder={C.groupIdPlaceholder}
-                onChange={(e) => patch(i, { id: e.target.value })}
-              />
-            </SettingRow>
-            <SettingRow label={C.groupNote} tip={C.groupNoteTip}>
-              <input
-                className="adm-input" type="text" value={row.color ?? ''}
-                placeholder={C.groupNotePlaceholder}
-                onChange={(e) => patch(i, { color: e.target.value || null })}
-              />
-            </SettingRow>
-            {warn
-              ? <SettingsNote tone="warn">{warn}</SettingsNote>
-              // «Zusatz» is the one field whose effect is not obvious from its own value, so the
-              // row says what it will print rather than describing it.
-              : note && <SettingsNote>{fillTemplate(C.groupPreview, { zeile: `${row.label?.trim()} (${note})` })}</SettingsNote>}
-          </RecordRows>
-        )
-      })}
+      {/* ONE row per group, like the Fahrzeuge (ui · InlineRecords). ⚠️ NO swatch, despite the
+          field being called `color`: it holds the parenthetical the Rapport prints («Rot»,
+          «Tag. Pikett»), not a colour — see the note above. */}
+      {rows.length > 0 && (
+        <InlineRecords
+          recordLabel={C.colGroup}
+          columns={[
+            { label: C.groupLabel, tip: C.groupLabelTip },
+            { label: C.groupId, tip: C.groupIdTip },
+            { label: C.groupNote, tip: C.groupNoteTip },
+          ]}
+        >
+          {rows.map((row, i) => {
+            const warn = problem(row, i, rows)
+            const note = row.color?.trim()
+            return (
+              // index key: a group has no identity beyond the `id` the operator is still typing,
+              // and every value in the row is controlled from `rows` anyway.
+              <InlineRecord
+                key={i}
+                action={(
+                  <ConfirmButton
+                    className="adm-formlink-x" ariaLabel={C.groupRemove} label={<Icon id="trash" />}
+                    question={C.groupRemoveConfirm} danger
+                    onConfirm={() => write(rows.filter((_, j) => j !== i))}
+                  />
+                )}
+                note={warn
+                  ? <SettingsNote tone="warn">{warn}</SettingsNote>
+                  // «Zusatz» is the one field whose effect is not obvious from its own value, so
+                  // the row says what it will print rather than describing it.
+                  : note && fillTemplate(C.groupPreview, { zeile: `${row.label?.trim()} (${note})` })}
+              >
+                <input
+                  className="adm-input" type="text" value={row.label ?? ''}
+                  placeholder={C.groupLabelPlaceholder}
+                  onChange={(e) => setLabel(i, e.target.value)}
+                />
+                <input
+                  className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
+                  placeholder={C.groupIdPlaceholder}
+                  onChange={(e) => patch(i, { id: e.target.value })}
+                />
+                <input
+                  className="adm-input" type="text" value={row.color ?? ''}
+                  placeholder={C.groupNotePlaceholder}
+                  onChange={(e) => patch(i, { color: e.target.value || null })}
+                />
+              </InlineRecord>
+            )
+          })}
+        </InlineRecords>
+      )}
       <SettingsNote>
         <button
           type="button" className="adm-formlink-add"

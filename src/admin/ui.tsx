@@ -1,5 +1,5 @@
 import { LoadingStatus, ShellLoader } from '../components/ShellLoader'
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Children, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { apiDelete, apiGet, apiPost } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { Menu } from '../lib/overlays'
@@ -373,6 +373,67 @@ export function RecordRows({ name, swatch, meta, action, children }: {
         {action && <span className="adm-rec-act">{action}</span>}
       </div>
       {children}
+    </div>
+  )
+}
+
+/* ── inline records ──────────────────────────────────────────────────────────────────────────
+   (UI sweep 07.10.2026, E6.) A record with two or three short fields — a Fahrzeug (Bezeichnung,
+   Kennung), an Alarmgruppe (+ Zusatz) — was a head card plus one full row per field, which
+   repeated «Bezeichnung / Kennung» down the page and stood the record's name twice (head and
+   first field): Fahrzeuge was ~7400px tall. Here the column names stand ONCE, over the list, with
+   their ⓘ, and each record is ONE row of its controls and its bin. Nothing is dropped: every
+   field keeps its input, every input keeps its name (the cell is a <label> whose caption is
+   visually hidden in the grid and shown again on a phone, where the row stacks).
+   Use it only where the fields are short and few; a record with a file, a colour and six fields
+   (Kartenebenen) stays a `RecordRows` card. */
+
+export interface InlineColumn { label: string; tip?: string }
+const InlineColumns = createContext<InlineColumn[]>([])
+
+/** The list: its column header once, then `InlineRecord`s. Notes of the LIST go outside it. */
+export function InlineRecords({ columns, recordLabel, children }: {
+  columns: InlineColumn[]
+  recordLabel: string
+  children: ReactNode
+}) {
+  return (
+    <InlineColumns.Provider value={columns}>
+      <div className="adm-irecs" role="group" aria-label={recordLabel}
+        style={{ '--irec-cols': columns.length } as CSSProperties}>
+        <div className="adm-irec-head">
+          {columns.map((c) => (
+            <span className="adm-irec-h" key={c.label}>
+              {c.label}
+              {c.tip && <InfoTip label={c.label} text={c.tip} />}
+            </span>
+          ))}
+          <span className="adm-irec-h" />
+        </div>
+        {children}
+      </div>
+    </InlineColumns.Provider>
+  )
+}
+
+/** One record = one row: `children` are its controls, one per column, in column order; `action`
+ *  is its bin; `note` is what the record has to say under itself (a warning, a preview). */
+export function InlineRecord({ action, note, children }: {
+  action?: ReactNode
+  note?: ReactNode
+  children: ReactNode
+}) {
+  const columns = useContext(InlineColumns)
+  return (
+    <div className="adm-irec">
+      {Children.toArray(children).map((control, i) => (
+        <label className="adm-irec-cell" key={i}>
+          <span className="adm-irec-lbl">{columns[i]?.label}</span>
+          {control}
+        </label>
+      ))}
+      <span className="adm-irec-act">{action}</span>
+      {note && <div className="adm-irec-note">{note}</div>}
     </div>
   )
 }
