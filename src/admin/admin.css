@@ -174,23 +174,11 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-autosave:has(.adm-autosave-hint) { border-radius: var(--r-ctl); align-items: flex-start; }
 
 /* ── responsive: sidebar collapses to a slide-in drawer ───────────────────── */
-@media (max-width: 720px) {
+/* Up to 1024px, not 720 (UI sweep 07.10.2026, E3): a portrait iPad (820) kept the 232px rail
+   and gave the content ~520px — setup rows wrapped to six lines and every table clipped. The
+   drawer is one tap away; the width is what the page needs. */
+@media (max-width: 1024px) {
   .adm-navtoggle { display: grid; }
-  /* the header's nowrap cluster (name + link + logout) overflows a phone —
-     drop the decorative pieces; the logout keeps its label, the link stays */
-  .adm-header { padding: 10px 12px; gap: 10px; }
-  .adm-verwaltung { display: none; }
-  .adm-logout { min-width: 0; }
-  /* Anleitung + Zur Karte move into the drawer (.adm-side-out): with them in the bar the
-     station name was crushed to «F…». The bar keeps the toggle, the name and Abmelden. */
-  .adm-header-out { display: none; }
-  /* …and the name gets the room back: a touch smaller and less tracked, so «Feuerwehr
-     Musterdorf» fits whole beside Abmelden at 390px */
-  .adm-station { font-size: 13px; letter-spacing: .04em; }
-  .adm-side-out {
-    display: block;
-    padding-bottom: 14px; border-bottom: 1px solid var(--border-soft);
-  }
   /* sidebar leaves the flow and slides in as a drawer; main fills the width + scrolls */
   .adm-side {
     position: fixed; top: 0; left: 0; bottom: 0;
@@ -205,6 +193,25 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
     display: block; position: fixed; inset: 0; z-index: var(--z-side-scrim);
     border: none; background: color-mix(in srgb, var(--ink) 28%, transparent);
   }
+  .adm-header-left { align-items: center; }
+}
+@media (max-width: 720px) {
+  /* the header's nowrap cluster (name + link + logout) overflows a phone —
+     drop the decorative pieces; the logout keeps its label */
+  .adm-header { padding: 10px 12px; gap: 10px; }
+  .adm-verwaltung { display: none; }
+  .adm-logout { min-width: 0; }
+  /* Anleitung + Zur Karte move into the drawer (.adm-side-out): with them in the bar the
+     station name was crushed to «F…». The bar keeps the toggle, the name and Abmelden. */
+  .adm-header-out { display: none; }
+  /* …and the name gets the room back: a touch smaller and less tracked, so «Feuerwehr
+     Musterdorf» fits whole beside Abmelden at 390px */
+  .adm-station { font-size: 13px; letter-spacing: .04em; }
+  .adm-side-out {
+    display: block;
+    padding-bottom: 14px; border-bottom: 1px solid var(--border-soft);
+  }
+  .adm-side { padding-top: 66px; }
   /* …still no padding-top on the scroller, for the same reason as above */
   .adm-main { padding: 0 16px 56px; }
   .adm-col { padding-top: 22px; }
