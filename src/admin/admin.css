@@ -1460,6 +1460,14 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-save-btn:disabled {
   opacity: var(--disabled); cursor: default;
 }
+/* ⚠️ …and a disabled PRIMARY is never filled (UI sweep 07.10.2026, E4). A greyed fill is still
+   the heaviest thing in its row: Anbindungen showed 25 of them down the page, one per empty
+   key, and the unlock card's «Entsperren» outweighed the field it waits for. Until it can be
+   pressed it is an outline in the faint ink; the fill arrives with the value. */
+.adm-save-btn:disabled {
+  opacity: 1;
+  color: var(--ink-faint); background: transparent; border-color: var(--border);
+}
 
 /* ── Mitglieder: row hover + clearer status/role badges ───────────────────── */
 @media (hover: hover) {
