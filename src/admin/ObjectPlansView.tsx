@@ -210,7 +210,9 @@ export function ObjectPlansView({ modules, overview }: {
         />}
       />
     </> : <>
-      <Segmented<Tab> value={shown} onChange={setTab} ariaLabel={appConfig.copy.admin.modules.objectsTitle}
+      {/* `tabs`: these are PAGES of the surface, so the chosen one is the nav's ink pill; the
+          filter under them is a choice and the quieter of the two (objectPlans.css · .aop-tools) */}
+      <Segmented<Tab> tabs value={shown} onChange={setTab} ariaLabel={appConfig.copy.admin.modules.objectsTitle}
         options={[
           { value: 'objects', label: C.objects },
           // the wall of staged ✓/✕ lives here now — the badge says how much is waiting, and a

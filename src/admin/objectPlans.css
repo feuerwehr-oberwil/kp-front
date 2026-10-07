@@ -15,6 +15,11 @@
    flex gap; in a plain Card nothing spaces it, so it carries the gap itself. */
 .aop-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
 .aop-tools .adm-input { flex: 1 1 220px; max-width: 360px; }
+/* The status filter is the QUIET control of the page (UI sweep 07.10.2026, E6): it narrows a
+   list, it does not move you anywhere. It wore the same blue fill as the page tabs above it, so
+   the two read as one rank. Chosen = a raised white chip on the track, in ink. */
+.aop-tools .useg-btn { min-height: 34px; padding: 4px 12px; font-size: 12.5px; }
+.aop-tools .useg-btn.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
 
 /* A record's head is a LINE, not a toolbar: its buttons match the 32–36px controls every other
    record head carries (admin.css · .adm-rec-act), not the 44px of a page action. Only the
