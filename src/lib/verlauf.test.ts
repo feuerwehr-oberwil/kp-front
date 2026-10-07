@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDay, isHandWritten, isNachtrag, rowText, rowTime, rowPhotos, swapUrl, repeatRuns } from './verlauf'
+import { groupByDay, isHandWritten, rowGlyph, isNachtrag, rowText, rowTime, rowPhotos, swapUrl, repeatRuns } from './verlauf'
 import type { TimelineEvent } from '../types'
 
 const row = (id: string, at?: string): TimelineEvent =>
@@ -332,5 +332,23 @@ describe('rowText — a wordless photo row falls back to «Foto»', () => {
 
   it('reads the old single-photo shape too', () => {
     expect(rowText({ id: 'e1', t: '10:00', icon: 'photo', text: '', photoUrl: '/api/media/1' } as TimelineEvent)).toBe('Foto')
+  })
+})
+
+describe('rowGlyph (a hand-written row shows its Art)', () => {
+  const row = (over: Partial<TimelineEvent>): TimelineEvent =>
+    ({ id: 'j1', at: '2026-10-07T14:30:00Z', text: 'x', kind: 'journal', icon: 'type', ...over }) as TimelineEvent
+  it('Auftrag → arrow on blue, Sofortmassnahme → warn on amber, derived from the stored Art', () => {
+    expect(rowGlyph(row({ entryType: 'auftrag' }))).toEqual({ icon: 'arrow', tone: 'auftrag' })
+    expect(rowGlyph(row({ entryType: 'sofort' }))).toEqual({ icon: 'warn', tone: 'sofort' })
+  })
+  it('Info and an untyped text row keep the «T»', () => {
+    expect(rowGlyph(row({ entryType: 'info' }))).toEqual({ icon: 'type' })
+    expect(rowGlyph(row({}))).toEqual({ icon: 'type' })
+  })
+  it('a Sprachnotiz, a Foto and every automatic row keep their own glyph', () => {
+    expect(rowGlyph(row({ kind: 'audio', icon: 'mic', entryType: 'auftrag' }))).toEqual({ icon: 'mic' })
+    expect(rowGlyph(row({ kind: 'photo', icon: 'photo', entryType: 'sofort' }))).toEqual({ icon: 'photo' })
+    expect(rowGlyph(row({ kind: 'team', icon: 'gauge' }))).toEqual({ icon: 'gauge' })
   })
 })

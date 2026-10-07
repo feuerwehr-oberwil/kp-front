@@ -524,6 +524,14 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    ⚠️ Only the row that RAISED the item and the row that CLOSED it. A Meldung and a snooze are
    log lines about the item, and they keep their own glyph. */
 .hist-ev .ic.jr-ic-ring { background: none; border-color: transparent; }
+/* ── …and a hand-written row's ART (owner pick B, UI sweep 07.10.2026) ──
+   Auftrag = the arrow on blue, Sofortmassnahme = the warning on amber; Info keeps the plain «T»
+   (lib/verlauf · rowGlyph, derived at render). The same discs in the legend and the filter menu,
+   so the three places cannot disagree. */
+:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-auftrag { background: color-mix(in srgb, var(--blue) 12%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 24%, transparent); color: var(--blue); }
+:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-sofort { background: color-mix(in srgb, var(--amber) 16%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 32%, transparent); color: var(--amber-strong); }
 .jr-ring { position: relative; width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor;
   display: grid; place-items: center; }
 /* ⚠️ The open states are a THICK BORDER over a transparent centre, not the composer's filled

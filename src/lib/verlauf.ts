@@ -1,6 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { formatTime } from './format'
-import type { TimelineEvent } from '../types'
+import type { JournalEntryType, TimelineEvent } from '../types'
 
 /**
  * Verlauf display helpers: localized row times, the Nachtrag boundary, and day grouping.
@@ -120,6 +120,30 @@ export function swapUrl(list: string[] | undefined, from: string, to: string): s
 export function isHandWritten(e: TimelineEvent): boolean {
   if (e.kind !== 'journal' && e.kind !== 'audio' && e.kind !== 'photo') return false
   return e.icon === 'type' || e.icon === 'mic' || e.icon === 'photo'
+}
+
+/** The disc of a typed hand-written row — its Art (owner pick B, UI sweep 07.10.2026). */
+export type ArtTone = 'auftrag' | 'sofort'
+export const ART_DISC: Record<Exclude<JournalEntryType, 'info'>, { icon: string; tone: ArtTone }> = {
+  auftrag: { icon: 'arrow', tone: 'auftrag' },
+  sofort: { icon: 'warn', tone: 'sofort' },
+}
+
+/**
+ * The glyph a Verlauf row's disc shows. Every row carries its own STORED icon (`e.icon`), and the
+ * composer stamps `type` on every text entry — so seven rows of Info, Auftrag and Sofortmassnahme
+ * read as seven identical «T» (UI sweep 07.10.2026, A11). A TEXT row that was given an Art now
+ * shows it: Auftrag the arrow on a blue tint, Sofortmassnahme the warning on amber; Info keeps
+ * the «T». Derived HERE, at render, from `entryType` — never written back — so every row ever
+ * recorded, and every other device's, reads the same. A Sprachnotiz or a Foto keeps its mic/photo
+ * (the medium is the more useful thing to see there), and every automatic row its own glyph.
+ */
+export function rowGlyph(e: TimelineEvent): { icon?: string; tone?: ArtTone } {
+  if (e.kind === 'journal' && e.icon === 'type' && e.entryType && e.entryType !== 'info') {
+    const art = ART_DISC[e.entryType]
+    if (art) return art
+  }
+  return { icon: e.icon }
 }
 
 /** How close two identical lines have to be for the second to read as a REPEAT rather than as
