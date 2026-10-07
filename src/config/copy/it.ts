@@ -4039,7 +4039,7 @@ export const it: Localizable<Copy> = {
     },
     backup: {
       title: 'Backup',
-      caption: 'Salva la configurazione su file o ripristina un file salvato. L’importazione la sostituisce completamente (senza le integrazioni env).',
+      caption: 'Un’importazione sostituisce completamente la configurazione (senza le integrazioni env).',
       rowLastChanged: 'Ultima modifica',
       rowConfig: 'Configurazione',
       export: 'Esporta',
@@ -4203,7 +4203,7 @@ export const it: Localizable<Copy> = {
       pinLabel: 'PIN',
       pinDigits: '{min}–{max} cifre',
       title: 'Membri',
-      caption: 'Chi può accedere e con quale ruolo. I membri vengono disattivati, mai eliminati (la cronologia resta intatta).',
+      caption: 'I membri vengono disattivati, mai eliminati – la cronologia resta intatta.',
       loading: 'Caricamento membri…',
       none: 'Nessun membro.',
       noneHint: 'I membri sono accessi, non l’effettivo: chi si registra sul tablet ha bisogno di un accesso qui. Le persone dietro presenza e rapporto stanno sotto «Personal».',
@@ -4282,7 +4282,7 @@ export const it: Localizable<Copy> = {
       syncProvider: 'Sincronizza con {provider}',
       providerNotConfigured: 'Nessuna fonte personale configurata · CSV e inserimento manuale disponibili',
       title: 'Persone registrate',
-      caption: 'Anagrafica del corpo. Le persone vengono disattivate, mai eliminate (la cronologia resta intatta).',
+      caption: 'Le persone vengono disattivate, mai eliminate – la cronologia resta intatta.',
       showInactive: 'Mostra inattivi',
       loading: 'Caricamento effettivo…',
       none: 'Nessuna persona registrata.',
@@ -4510,8 +4510,6 @@ export const it: Localizable<Copy> = {
     },
     checklists: {
       exampleMenu: 'Modello di esempio',
-      intro: 'Le checklist di questo corpo – elenchi di compiti (FU), rapporto di situazione e '
-        + 'promemoria da consultare (p. es. «Verkehrsunfall»), che si leggono invece di spuntarli.',
       upload: 'Carica modello',
       loading: 'Caricamento delle checklist…',
       loadError: 'Le checklist non sono state caricate.',

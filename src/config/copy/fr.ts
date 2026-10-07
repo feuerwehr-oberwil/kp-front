@@ -4039,7 +4039,7 @@ export const fr: Localizable<Copy> = {
     },
     backup: {
       title: 'Sauvegarde',
-      caption: 'Sauvegarder la configuration dans un fichier ou restaurer un fichier sauvegardé. L’import la remplace entièrement (sans les intégrations env).',
+      caption: 'Un import remplace entièrement la configuration (sans les intégrations env).',
       rowLastChanged: 'Dernière modification',
       rowConfig: 'Configuration',
       export: 'Exporter',
@@ -4203,7 +4203,7 @@ export const fr: Localizable<Copy> = {
       pinLabel: 'NIP',
       pinDigits: '{min}–{max} chiffres',
       title: 'Membres',
-      caption: 'Qui peut se connecter et avec quel rôle. Les membres sont désactivés, jamais supprimés (l’historique est conservé).',
+      caption: 'Les membres sont désactivés, jamais supprimés – l’historique est conservé.',
       loading: 'Chargement des membres…',
       none: 'Aucun membre.',
       noneHint: 'Les membres sont des connexions, pas l’effectif : qui se connecte sur la tablette a besoin d’un accès ici. Les personnes derrière la présence et le rapport se trouvent sous «Personal».',
@@ -4282,7 +4282,7 @@ export const fr: Localizable<Copy> = {
       syncProvider: 'Synchroniser avec {provider}',
       providerNotConfigured: 'Aucune source de personnel configurée · CSV et saisie manuelle disponibles',
       title: 'Personnes saisies',
-      caption: 'Fichier du personnel du corps. Les personnes sont désactivées, jamais supprimées (l’historique est conservé).',
+      caption: 'Les personnes sont désactivées, jamais supprimées – l’historique est conservé.',
       showInactive: 'Afficher les inactifs',
       loading: 'Chargement de l’effectif…',
       none: 'Aucune personne saisie.',
@@ -4509,8 +4509,6 @@ export const fr: Localizable<Copy> = {
     },
     checklists: {
       exampleMenu: 'Modèle d’exemple',
-      intro: 'Les checklists de ce corps – listes de tâches (FU), rapport de situation et '
-        + 'aide-mémoires à consulter (p. ex. « Verkehrsunfall »), qui se lisent au lieu de se cocher.',
       upload: 'Envoyer un modèle',
       loading: 'Chargement des checklists…',
       loadError: 'Les checklists n’ont pas pu être chargées.',

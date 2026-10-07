@@ -164,7 +164,6 @@ export function ChecklistsView() {
           </>
         )}
       >
-        <p className="adm-hint">{C.intro}</p>
         {flash && <p className="adm-save-ok">{flash}</p>}
         {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.loadError} />}

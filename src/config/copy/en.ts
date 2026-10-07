@@ -4238,7 +4238,7 @@ export const en: Localizable<Copy> = {
     },
     backup: {
       title: 'Backup',
-      caption: 'Back up the configuration to a file or restore a saved file. Import replaces it entirely (without env integrations).',
+      caption: 'An import replaces the configuration entirely (without env integrations).',
       rowLastChanged: 'Last change',
       rowConfig: 'Configuration',
       export: 'Export',
@@ -4404,7 +4404,7 @@ export const en: Localizable<Copy> = {
       pinLabel: 'PIN',
       pinDigits: '{min}–{max} digits',
       title: 'Members',
-      caption: 'Who may sign in and with which role. Members are deactivated, never deleted (the history is preserved).',
+      caption: 'Members are deactivated, never deleted – the history is preserved.',
       loading: 'Loading members…',
       none: 'No members.',
       noneHint: 'Members are logins, not the personnel roster: whoever signs in on the tablet needs an account here. The people behind attendance and the report live under «Personal».',
@@ -4480,7 +4480,7 @@ export const en: Localizable<Copy> = {
       syncProvider: 'Synchronize with {provider}',
       providerNotConfigured: 'No personnel provider configured · CSV and manual entry available',
       title: 'Recorded persons',
-      caption: 'Personnel roster of the brigade. Persons are deactivated, never deleted (the history is preserved).',
+      caption: 'Persons are deactivated, never deleted – the history is preserved.',
       showInactive: 'Show inactive',
       loading: 'Loading roster…',
       none: 'No persons recorded.',
@@ -4706,8 +4706,6 @@ export const en: Localizable<Copy> = {
     },
     checklists: {
       exampleMenu: 'Example template',
-      intro: 'This brigade’s checklists – task lists (FU), the situation report and reference '
-        + 'sheets to look things up (say «Verkehrsunfall»), which are read rather than ticked.',
       upload: 'Upload template',
       loading: 'Loading checklists…',
       loadError: 'Checklists could not be loaded.',

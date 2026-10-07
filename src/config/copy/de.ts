@@ -6607,7 +6607,7 @@ export const de = {
     },
     backup: {
       title: 'Sicherung',
-      caption: 'Konfiguration als Datei sichern oder eine gesicherte Datei einspielen. Import ersetzt sie vollständig (ohne env-Integrationen).',
+      caption: 'Ein Import ersetzt die Konfiguration vollständig (ohne env-Integrationen).',
       // Zwei Zeilen statt Fliesstext: die Zeile sagt, wovon die Rede ist, der Wert nur noch
       // von wem und wann – «Letzte Änderung | von Führungsunterstützung am 11.09.2026, 07:56».
       rowLastChanged: 'Letzte Änderung',
@@ -6793,7 +6793,7 @@ export const de = {
       pinLabel: 'PIN',
       pinDigits: '{min}–{max} Ziffern',
       title: 'Erfasste Mitglieder',
-      caption: 'Wer sich anmelden darf und mit welcher Rolle. Mitglieder werden deaktiviert, nie gelöscht (der Verlauf bleibt erhalten).',
+      caption: 'Mitglieder werden deaktiviert, nie gelöscht – der Verlauf bleibt erhalten.',
       loading: 'Mitglieder werden geladen …',
       none: 'Keine Mitglieder konfiguriert.',
       noneHint: 'Mitglieder sind Anmeldungen, nicht der Personenstamm: Wer sich am Tablet anmeldet, braucht hier einen Zugang. Die Personen für Anwesenheit und Rapport stehen unter «Personal».',
@@ -6882,7 +6882,7 @@ export const de = {
       syncProvider: 'Mit {provider} synchronisieren',
       providerNotConfigured: 'Keine Personalquelle konfiguriert · CSV und Handeingabe verfügbar',
       title: 'Erfasste Personen',
-      caption: 'Personenstamm der Wehr. Personen werden deaktiviert, nie gelöscht (der Verlauf bleibt erhalten).',
+      caption: 'Personen werden deaktiviert, nie gelöscht – der Verlauf bleibt erhalten.',
       showInactive: 'Inaktive anzeigen',
       loading: 'Personal wird geladen …',
       none: 'Noch keine Personen erfasst.',
@@ -7140,8 +7140,6 @@ export const de = {
     // bliebe sonst als Geist liegen und würde weiter an jedes Tablet ausgeliefert.
     checklists: {
       exampleMenu: 'Beispiel-Vorlage',
-      intro: 'Die Checklisten dieser Wehr – Aufgabenlisten (FU), Lagerapport und Merkblätter '
-        + 'zum Nachschlagen (z. B. «Verkehrsunfall»), die nur gelesen und nicht abgehakt werden.',
       upload: 'Vorlage hochladen',
       loading: 'Checklisten werden geladen …',
       loadError: 'Checklisten konnten nicht geladen werden.',
