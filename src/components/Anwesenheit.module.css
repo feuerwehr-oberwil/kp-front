@@ -210,7 +210,7 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 
 
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* (the full-width inset is the shared shell's — Surface.module.css) */
   /* The counts are never cut: «13 anwesend · 2 gegange…» answers nothing. They are
      `data-fit-check` (AnwesenheitView), so a cut line makes the head's ladder fold the tiles'

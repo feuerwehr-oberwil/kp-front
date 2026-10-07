@@ -529,7 +529,7 @@
 /* 600px, not 700: that is the house phone breakpoint (19 other surfaces use it). At 700 the band
    from 601 to 700 ran the PHONE grid — 132px name column, 12.5px type — underneath the surface's
    own DESKTOP header, which is one layout wearing another's head. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .zeitplan { padding: 2px 12px 12px; }
   /* The surface already insets itself for the bottom bar (.surface in Anwesenheit.module.css), so
      reserving another --rail-h here counted it twice and left a dead band the height of the nav
@@ -586,7 +586,7 @@
   background: var(--surface); color: var(--ink); border: none; border-radius: var(--r-sm); padding: 6px 11px;
   font: 700 13px var(--mono); font-variant-numeric: tabular-nums; box-shadow: var(--shadow); }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* The empty-grid help shares the clock header; it takes no row from the Mannschaft. */
   .emptyNote { position: absolute; top: 2px; right: 12px; z-index: 5; margin: 0; }
   .emptyInfoBtn { width: var(--tap); justify-content: center; background: var(--surface); border: 1px solid var(--edge); color: var(--ink-dim); }

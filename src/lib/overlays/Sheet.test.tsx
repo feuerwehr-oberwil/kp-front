@@ -122,7 +122,6 @@ describe('Sheet footer insets', () => {
     expect(rule).toContain('padding-bottom: calc(16px + env(safe-area-inset-bottom))')
     // …and it is the phone block's: the nearest @media above it is the phone gate
     const gate = css.lastIndexOf('@media', at)
-    expect(css.slice(gate, css.indexOf('{', gate))).toBe(
-      '@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) ')
+    expect(css.slice(gate, css.indexOf('{', gate))).toBe('@media (--phone) ')
   })
 })

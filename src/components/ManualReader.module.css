@@ -37,7 +37,7 @@
 .mn-body :global(figure) { margin: 4px 0 0; }
 .mn-source { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--border-soft); font-size: 12.5px; color: var(--ink-faint); }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .mn-doc { max-width: none; padding: 0; background: none; box-shadow: none; border-radius: 0; }
   /* the chooser row above names the Anleitung — only the device line stays */
   .mn-head h2 { display: none; }

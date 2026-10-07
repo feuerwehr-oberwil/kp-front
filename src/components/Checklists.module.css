@@ -366,7 +366,7 @@
   .cl-rail-entry { padding: 6px 10px; }
 }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* (the full-width inset is the shared shell's — Surface.module.css); the rail stacks above
      the pane rather than beside it */
   .cl-surface { flex-direction: column; gap: 0; }

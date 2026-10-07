@@ -454,7 +454,7 @@
    was still a 760px centred box on a 390px-tall viewport. If this gate ever changes, change
    `PHONE_QUERY` with it (and vice versa), or that band comes straight back.
 */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .modalBody { grid-template-columns: 1fr; }
 }
 
@@ -465,7 +465,7 @@
    height means exactly one thing scrolls.
    Same gate as the column collapse above (= `PHONE_QUERY`), deliberately: a 580px-wide window is
    a phone by the app's own definition, so it gets the phone's frame as well as its column count. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .modal { top: 0; left: 0; transform: none; width: 100vw;
     height: 100dvh; max-height: 100dvh; border-radius: 0; overflow: hidden; }
   .modalHead { padding-top: max(18px, env(safe-area-inset-top)); }
@@ -501,7 +501,7 @@
    form's person list has exactly one scroller, which a two-row picker has no use for.
    ⚠️ This is the COUNTER-rule to the block above and must carry the identical gate: the moment
    the sheet's gate is wider than this one, a picker between the two widths goes full-screen. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .placeModal { top: 50%; left: 50%; transform: translate(-50%, -50%);
     width: min(360px, calc(100vw - 32px)); height: auto; max-height: calc(100dvh - 32px);
     border-radius: var(--r-hero); }
@@ -922,7 +922,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    (Nothing new to declare: `.comboType` and `.comboOpt` above already draw it. This note is here
    because the rules that used to stand in this spot were the second field's.) */
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* (the full-width inset is the shared shell's — Surface.module.css) */
   /* the last card clears the Eintrag FAB — it used to sit on the «Austritt» button. The reserve
      is the shared --fab-safe now, so it is 0 for a viewer (no FAB, no dead space) and one number
@@ -949,7 +949,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    The `.formCol` / `.teamList` rules here are therefore the safety net under a width the JS and
    the CSS could momentarily disagree about, not the layout anybody sees; what the phone actually
    wears is the `.modalStack` block below. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* Stacked, the columns are rows of ONE grid whose height is the sheet's — so «fill what is
      left» has no meaning and «may shrink below my content» is actively harmful. Both take the
      height they need and the sheet scrolls them, which is what the full-height sheet is for. */
@@ -1670,7 +1670,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .miniChip:active { background-image: linear-gradient(var(--press), var(--press)); }
 .miniChipOn { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 .miniChipTaken { color: var(--ink-dim); box-shadow: none; outline: 1px dashed var(--ink-faint); outline-offset: -1px; }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .modal.miniSheet, .modal.miniSheet:global(.is-kb) {
     top: auto; bottom: 0; left: 0; transform: none; width: 100vw; height: auto;
     max-height: calc(100dvh - 24px - env(safe-area-inset-top)); border-radius: var(--r-hero) var(--r-hero) 0 0; }
@@ -1705,7 +1705,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    below instead of pushing it off the top.
    ⚠️ Same gate as the full-screen phone `.modal` above (= PHONE_QUERY), and doubled classes so it
    wins over that block and over its `:global(.is-kb)` ride-up, whichever comes later. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .modal.modalSheet, .modal.modalSheet:global(.is-kb) {
     top: max(24px, calc(env(safe-area-inset-top) + 8px)); bottom: 0; left: 0; transform: none;
     width: 100vw; height: auto; max-height: none; overflow: visible;
@@ -1784,7 +1784,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    20px or the safe area (15-mobile.css · `.ui-sheet-foot`). Measured then at 360px: the German
    set takes the 320px that leaves, on one line, 44px tall. A longer locale's label wraps inside
    its button rather than being cut. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .modalFoot { gap: 6px; }
   .modalFoot > :global(.ip-btn) { flex: 1 1 auto; min-width: 0; padding-inline: 8px; justify-content: center;
     text-align: center; line-height: 1.15; }

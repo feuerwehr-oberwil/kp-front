@@ -334,7 +334,7 @@ html.rail-dragging .layers-card { transition: none; }
    line under every plan row turns a short list into a scrolling one for a fact already told once.
    ⚠️ Twin rows only — no other `.lrow` has a sub-line today, and if one arrives it should decide
    for itself. Desktop keeps the sentence: there is room for it there. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .lrow.lrow-twin .name small { display: none; }
 }
 .lrow .lock { display: grid; place-items: center; font-size: 13px; color: var(--ink-faint); }

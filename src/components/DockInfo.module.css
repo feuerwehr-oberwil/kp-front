@@ -35,7 +35,7 @@
   box-shadow: var(--float-edge); font: 600 13px/1.35 var(--body); text-align: left; }
 /* phones: clear ALL THREE bottom bars (nav + tool bar + the horizontal tool-option dock) so the
    hint sits above the dock, not under it — rail-h*3 (was *2, which collided with the dock) */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .wb-dock-ibtn { background: var(--dock-control-bg, var(--fill-soft)); color: var(--ink-dim); }
   .wb-dock-ibtn.on { background: var(--sel-wash); color: var(--ink); }
   /* in THE message lane, at the bars' width, like every other message (15-mobile · --msg-lane-bottom) */
