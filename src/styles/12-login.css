@@ -73,7 +73,7 @@
 
 /* roster — large tappable tiles (2-up grid for many; one prominent row for a single user) */
 /* one column of full-width rows — two-column tiles broke long names (feedback 2026-07-08) */
-.roster { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow-y: auto;
+.roster { display: flex; flex-direction: column; gap: 8px; max-height: 56dvh; overflow-y: auto;
   scrollbar-width: thin; scrollbar-color: var(--glass-edge) transparent; margin: -2px; padding: 2px; }
 .roster::-webkit-scrollbar { width: 8px; }
 .roster::-webkit-scrollbar-thumb { background: rgba(30, 45, 70, .18); border-radius: var(--r-xs); border: 2px solid transparent; background-clip: content-box; }

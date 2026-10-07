@@ -836,7 +836,7 @@
      grab), pushed down by its head — the map inside keeps every drag (swipeDismiss · rule 3).
      A map has no height of its own to hug, so it stands at the sheet cap; the footer is a
      `SheetFoot` and pays the bottom inset through the one rule above. */
-  .rp-control { max-height: var(--rp-control-room, 46vh); }
+  .rp-control { max-height: var(--rp-control-room, 46dvh); }
 
   /* One bounded list above the object map, with rows retaining their own height. */
   .pp-sheet .pp-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }

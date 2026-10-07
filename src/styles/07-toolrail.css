@@ -261,7 +261,7 @@
 /* the Eintrag/Erinnerung composer is top-anchored on tablet/desktop so its mode toggle keeps
    the same vertical position when the two modes differ in height (centred, it jumped). On
    phones it stays a bottom sheet (see the ≤600px rule). */
-.sym-modal { width: min(760px, 92vw); height: min(620px, 86vh); display: flex; flex-direction: column; gap: 12px;
+.sym-modal { width: min(760px, 92vw); height: min(620px, 86dvh); display: flex; flex-direction: column; gap: 12px;
   background: var(--surface); border: 1px solid var(--glass-line);
   border-radius: var(--r-hero); padding: 16px; box-shadow: 0 30px 80px rgba(20, 28, 40, .4); animation: pop .16s var(--ease); }
 /* `scale`, NOT `transform: scale()`. Two of the three cards that use this keyframe centre

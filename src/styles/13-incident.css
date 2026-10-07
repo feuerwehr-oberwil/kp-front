@@ -1650,7 +1650,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   width: min(380px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px;
   padding: 12px 14px; border-radius: var(--r-ctl);
   background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow);
-  max-height: 46vh; overflow-y: auto; }
+  max-height: 46dvh; overflow-y: auto; }
 /* long personnel lists in the Einsatzstunden warning must wrap, not push the panel wider */
 .rp-control .form-warn { min-width: 0; overflow-wrap: anywhere; }
 /* «Noch offen» inside the Kontrolle popover (every width since 23.09.2026): a list of doors,
@@ -2002,7 +2002,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
    out of the `scrollbar-gutter: stable` set for exactly this reason). A scrolling list here
    lets its bar overlay the rows instead. */
 .ip-launch-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;
-  max-height: 46vh; overflow-y: auto; }
+  max-height: 46dvh; overflow-y: auto; }
 /* belt and braces for the bug above: an empty launcher takes no room at all, so a future path
    that renders it with nothing in it cannot reopen the hole */
 .ip-launch-list:empty { display: none; }
