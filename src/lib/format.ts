@@ -147,6 +147,13 @@ export function fillTemplate(template: string, values: Record<string, string | n
   return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''))
 }
 
+/** The street part of an address — everything before its first comma («Schlossgasse 9, 9999
+ *  Musterdorf» → «Schlossgasse 9»); '' for none. What the phone's Einsatz pill leads with
+ *  (owner, 07.10.2026: «the address is more important than the type»). */
+export function streetPart(address: string | null | undefined): string {
+  return (address ?? '').split(',')[0].trim()
+}
+
 /**
  * A quantity unit as it is SHOWN after a number. ⚠️ The litre is written «L», never «l»: in Sora
  * (and in the rapport's Helvetica) a lowercase l beside a number is the digit 1, so «40 l

@@ -119,11 +119,15 @@
   color: var(--ink-dim); background: color-mix(in srgb, var(--ink-faint) 14%, transparent); }
 .ip-card-pill > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ip-card-pill svg, .ip-card-pill .i { width: 12px; height: 12px; flex: none; }
-/* …and on a PHONE the Beginn pill is a BUTTON: the door to the Einsatzuhr's mode menu, which has
-   no control of its own in the phone bar any more (07.10.2026, UI sweep · B3 D; IncidentSwitcher).
-   Same tag, a --tap tall and at the 12.5px floor for something you press, with the menu's ▾. */
+/* …and on a PHONE the Beginn pill is a BUTTON: the fold for the Einsatzuhr's modes, which have no
+   control of their own in the phone bar any more (07.10.2026, UI sweep · B3 D; IncidentSwitcher).
+   Same tag, a --tap tall and at the 12.5px floor for something you press, with the fold's ▾. */
 .ip-card-pill-btn { border: none; cursor: pointer; min-height: var(--tap); padding: 0 10px; font-size: 12.5px; }
 .ip-card-pill-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* the modes themselves, folded out INLINE under the pills — never a popover over this menu
+   (owner, 07.10.2026). The bar menu's rows (18-audio · .tb-uhr-row), a --tap tall here. */
+.ip-uhr-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.ip-uhr-list .tb-uhr-row { height: auto; min-height: var(--tap); }
 /* (27.09.2026, slim sweep · mockup 10, decision D1) the pills say «✓ Gespeichert» — the Trupps
    head's words for the same fact, the time in the title — and «🕓 21:22 · 1 h 54», where the
    clock glyph is the label and «Einsatzbeginn» rides along as the title. */

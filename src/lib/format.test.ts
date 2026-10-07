@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel } from './format'
+import { dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -255,5 +255,18 @@ describe('unitLabel', () => {
   })
   it('leaves every other unit as the station spells it', () => {
     for (const u of ['Stk.', 'm', 'Sack', 'kg', 'ml', 'h', '']) expect(unitLabel(u)).toBe(u)
+  })
+})
+
+describe('streetPart', () => {
+  it('is everything before the first comma', () => {
+    expect(streetPart('Schlossgasse 9, 9999 Musterdorf')).toBe('Schlossgasse 9')
+    expect(streetPart('  Hauptstrasse 1 ,4104 Oberwil, CH')).toBe('Hauptstrasse 1')
+    expect(streetPart('Bahnhof Oberwil')).toBe('Bahnhof Oberwil')
+  })
+  it('is empty for no address', () => {
+    expect(streetPart(null)).toBe('')
+    expect(streetPart(undefined)).toBe('')
+    expect(streetPart(', Musterdorf')).toBe('')
   })
 })

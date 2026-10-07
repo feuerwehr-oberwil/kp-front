@@ -187,7 +187,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   // the bar's priority ladder (lib/useHeadFit): measured, one step at a time, until it fits
   const barRef = useRef<HTMLDivElement>(null)
   useHeadFit(barRef, [
-    incident.title, clockText.length, hasWind, gpsStale ? 1 : 0, archived ? 1 : 0,
+    incident.title, incident.address, clockText.length, hasWind, gpsStale ? 1 : 0, archived ? 1 : 0,
     azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
   ].join('|'))
 
