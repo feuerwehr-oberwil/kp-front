@@ -61,13 +61,6 @@ export interface Prefs {
    *  choice made last week deciding where a fresh launch lands is not, and it must not follow
    *  you into the next Einsatz. Left documented rather than silently dropped: a stale cookie
    *  from an older build may still carry the field, and it is simply ignored. */
-  /** REMOVED 07.10.2026 — the Zeitraum is now picked per Einsatz (`zeitplanZoom`) and the grid
-   *  opens fitted until then (lib/shifts · fitSpan). A stale cookie may still carry the old
-   *  device-wide value; it is ignored, or it would keep opening every Einsatz on its 12 h. */
-  zeitplanHorizonH?: number
-  /** hours of axis the Zeitplan shows at once (the Zeitraum control), picked by hand for ONE
-   *  Einsatz; absent or for another Einsatz → the fitted opening window */
-  zeitplanZoom?: { incidentId: string; h: number }
   /** UI colour scheme — see ThemeMode. Default 'auto' (daylight-driven). */
   theme?: ThemeMode
   /** LEGACY global tactical-symbol size — see SymbolSize. Kept (and never deleted) so a cookie

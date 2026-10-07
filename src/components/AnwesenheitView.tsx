@@ -19,7 +19,6 @@ import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { isOnlyPresentMatch, matchesAny, stateMatches, toggled, type StateKey } from '../lib/attendanceFilter'
 import { ortCounts, ortOf } from '../lib/attendanceOrt'
 import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
-import { loadPrefs, savePrefs } from '../lib/prefs'
 import { fitSpan, nextHorizon, timelineSpan } from '../lib/shifts'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
@@ -59,12 +58,6 @@ type AnwesenheitTab = 'list' | 'plan' | 'bands'
  *  covers switching. Anything else falls back to the crew list, which is what this surface is
  *  for and the only one of the three that is useful before anyone has planned anything. */
 const TAB_KEY = 'kp-front-anwesenheit-tab'
-
-/** The Zeitraum picked by hand for THIS Einsatz, or null (→ the fitted opening window). */
-function rememberedZoom(incidentId: string | undefined): number | null {
-  const z = loadPrefs().zeitplanZoom
-  return z && z.incidentId === (incidentId ?? '') && HORIZONS.includes(z.h) ? z.h : null
-}
 
 /** A Zeitraum length for the read-out: «12», or «2,5» for a fitted half-hour window. */
 const fmtHours = (h: number): string =>
@@ -440,21 +433,20 @@ export function AnwesenheitView({
   const [view, setView] = useState<AnwesenheitTab>(() => rememberedTab(incidentId) ?? 'list')
   const pickView = (v: AnwesenheitTab) => {
     setView(v)
+    // the Zeitplan's zoom lasts only while the Zeitplan is on screen; the next visit opens fitted
+    if (v !== 'plan') setHorizonH(null)
     try { sessionStorage.setItem(TAB_KEY, JSON.stringify({ incidentId, view: v })) } catch { /* private mode */ }
   }
   // one clock for the whole surface: it drives the «jetzt» line and the growing open bar. Only
   // ticks while the Zeitplan is on screen — the attendance list has nothing that moves.
   const [nowMs, setNowMs] = useState(() => Date.now())
-  // how many hours of axis fit on screen. null = nobody has zoomed in THIS Einsatz yet, and the
-  // grid opens fitted to the Einsatz so far + 1 h (lib/shifts · fitSpan, sweep B5 07.10.2026).
-  // A hand choice wins from then on — across a reload too — but it is stamped with the Einsatz,
-  // like the remembered tab: a 48 h picked during last month's Unwetter must not open tonight's
-  // Zimmerbrand on an empty grid again, which is exactly what the fixed 12 h used to do.
-  const [horizonH, setHorizonH] = useState<number | null>(() => rememberedZoom(incidentId))
-  const pickHorizon = (h: number) => {
-    setHorizonH(h)
-    savePrefs({ ...loadPrefs(), zeitplanZoom: { incidentId: incidentId ?? '', h } })
-  }
+  // how many hours of axis fit on screen. null = not zoomed, and the grid shows the Einsatz so
+  // far + 1 h (lib/shifts · fitSpan, sweep B5 07.10.2026). Deliberately NOT stored: every open
+  // starts fitted, and a picked Zeitraum lasts while the Zeitplan stays on screen (switching to
+  // another tab resets it, see pickView). A stored 12 h (or
+  // a 48 h from last month's Unwetter) opened tonight's Zimmerbrand on an empty grid, and
+  // leaving the view is the way back to the fit, so no extra button is needed.
+  const [horizonH, setHorizonH] = useState<number | null>(null)
   // the fitted window's length, for the read-out and as the zoom's starting stop
   const fitted = fitSpan(startedAt ?? null, nowMs)
   const fittedH = (fitted.to - fitted.from) / 3_600_000
@@ -462,7 +454,7 @@ export function AnwesenheitView({
   // finer steps than a doubling ladder: the difference between «tonight» and «the next two days»
   // is worth several stops, not two. From the fit, a step goes to the next stop past the fitted
   // length in that direction, so the first tap always visibly zooms.
-  const stepHorizon = (dir: 1 | -1) => pickHorizon(nextHorizon(HORIZONS, shownH, dir))
+  const stepHorizon = (dir: 1 | -1) => setHorizonH(nextHorizon(HORIZONS, shownH, dir))
   // person whose recorded presence blocks are open in a sheet
   const [blocksFor, setBlocksFor] = useState<string | null>(null)
   // which paper sheet was picked from the printer menu, and is now naming itself before it goes

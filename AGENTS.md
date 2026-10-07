@@ -1802,9 +1802,10 @@ to prod.
     fitSpan`; the read-out says e.g. «3.5 h»). «Jetzt» lands at ~¾ once the Einsatz has run ~3 h;
     a 10 h Einsatz opens on ~11 h. A fitted window wider than the screen opens scrolled with
     «Jetzt» at ¾ of the lanes (`fitScrollLeft`). The zoom steps from the fitted length to the next
-    ladder stop (`nextHorizon`), and a hand-picked Zeitraum wins from then on — stamped with the
-    Einsatz (`prefs · zeitplanZoom`), so it never opens the NEXT Einsatz on an empty grid; the old
-    device-wide `zeitplanHorizonH` is ignored. Hour labels are spaced on the track's MEASURED
+    ladder stop (`nextHorizon`). ⚠️ The Zeitraum is NEVER stored (not per device, not per
+    Einsatz): every open starts fitted, and a picked zoom lasts while the Zeitplan stays on screen.
+    A stored zoom reopened later Einsätze on an empty grid, and leaving the view is the way back
+    to the fit, so no button is needed for it. Hour labels are spaced on the track's MEASURED
     width, and the JETZT flag reads into the larger side of the axis.
   - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
     (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the
