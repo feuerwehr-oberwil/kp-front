@@ -16,33 +16,7 @@
 
 .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 
-/* `font:` with the token, never a bare font-size: <button>/<input> do NOT inherit the app
-   font, so a size-only rule silently drops them to the browser's default face next to Sora
-   everywhere else. */
-.primary,
-.ghost,
-.danger {
-  min-height: var(--tap); padding: 0 18px; border-radius: var(--r-ctl);
-  font: 600 15px var(--body); cursor: pointer;
-}
-
-/* The app's own primary token, NOT --accent: a station's accent is its own colour (red here),
-   so an accent-filled button turns every affirmative action into what reads as an alarm. */
-.primary { border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); }
-@media (hover: hover) { .primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); } }
-.primary:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-
-.ghost { border: 1px solid var(--glass-edge); background: transparent; color: var(--ink-dim); }
-@media (hover: hover) { .ghost:hover { color: var(--ink); } }
-.ghost:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-
-/* «Standort nicht mehr teilen». Red-tinted OUTLINE, never a solid fill — the house rule for
-   this kind of action (see .ip-btn-danger in app.css). It also must not be the loudest thing
-   on a card that is mostly a read-out: on the «kommt nicht an» state the honest advice is to
-   wait, so a full-bleed red bar was telling people to do the opposite. */
-.danger { background: var(--surface); color: var(--del-ink); border: 1px solid var(--del-edge); } /* THE delete look, 01-tokens */
-@media (hover: hover) { .danger:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); } }
-.danger:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* The buttons are <Button> (primary · secondary · danger) since 07.10.2026 — UI sweep C4. */
 
 /* --- the name picker -------------------------------------------------------------------- */
 
@@ -69,24 +43,17 @@
 
 /* Icon only, at every width. The German state names run long and an inline label in the top
    bar either truncates to something meaningless or crowds out the incident title — so the
-   tone below is what reads at a glance, and the words live in the tooltip and the sheet. */
-.pill {
-  flex: none; display: inline-grid; place-items: center;
-  width: var(--tap); height: var(--tap);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
-  background: var(--surface); cursor: pointer;
-}
-.pill:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.pill svg { width: 19px; height: 19px; }
-
+   tone below is what reads at a glance, and the words live in the tooltip and the sheet.
+   The button itself is <IconButton variant="secondary"> (07.10.2026); the tone is the state's
+   colour on it, doubled so it outranks the variant's hairline (`.icon.iconSecondary`). */
 /* Reporting. Tinted, not shouting: this is a normal running state, not an alert.
    The `-strong` tone is the one that carries text on the app background in both schemes. */
-.live { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
+.live.live { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
 .live svg { animation: sp-pulse 2.4s ease-in-out infinite; }
 /* Waiting for a fix, or paused because the phone is in a pocket — true but not current. */
-.wait { color: var(--ink-dim); }
+.wait.wait { color: var(--ink-dim); }
 /* Denied by the OS, or the name is taken: the holder has to do something. */
-.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
+.warn.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
 
 @keyframes sp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 

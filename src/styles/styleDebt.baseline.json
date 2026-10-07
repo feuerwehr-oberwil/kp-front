@@ -123,9 +123,9 @@
     "spacing": 2
   },
   "src/components/SharePosition.module.css": {
-    "fontSize": 6,
-    "weight": 2,
-    "spacing": 7
+    "fontSize": 5,
+    "weight": 1,
+    "spacing": 6
   },
   "src/components/ShellLoader.module.css": {
     "spacing": 1
@@ -194,9 +194,9 @@
     "spacing": 3
   },
   "src/styles/05-navrail.css": {
-    "fontSize": 27,
+    "fontSize": 26,
     "weight": 5,
-    "spacing": 22
+    "spacing": 21
   },
   "src/styles/06-contextpanel.css": {
     "fontSize": 40,
@@ -210,7 +210,7 @@
     "shadow": 5
   },
   "src/styles/08-toasts.css": {
-    "fontSize": 30,
+    "fontSize": 29,
     "weight": 10,
     "spacing": 53,
     "shadow": 5

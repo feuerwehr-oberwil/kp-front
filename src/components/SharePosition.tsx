@@ -4,6 +4,7 @@ import { Icon } from '../lib/icons'
 import { fillTemplate, formatTime } from '../lib/format'
 import { rankAbbr, rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
+import { Button, IconButton } from './Button'
 import { Modal } from './panels/_shared'
 import { SearchField } from './SearchField'
 import type { Person } from '../types'
@@ -93,10 +94,10 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPers
           </ul>
           <p className={s.note}>{C.askAgain}</p>
           <div className={s.actions}>
-            <button type="button" className={s.primary} onClick={() => setStep('pick')}>{C.yes}</button>
+            <Button variant="primary" onClick={() => setStep('pick')}>{C.yes}</Button>
             {/* «Nein, danke» is just closing. Nothing has to be remembered: the app never
                 proposes this, so there is no repeat prompt to suppress. */}
-            <button type="button" className={s.ghost} onClick={onClose}>{C.no}</button>
+            <Button onClick={onClose}>{C.no}</Button>
           </div>
         </div>
       </Modal>
@@ -150,17 +151,11 @@ export function SharePositionPill({ share, onChangeName }: { share: ShareApi; on
           text either truncated to «Standort kommt nic…» — which says nothing — or pushed the
           incident title off a narrow bar. The COLOUR carries the state at a glance (green
           pulsing = reporting, amber = needs you), the tooltip and the sheet carry the words. */}
-      <button
-        type="button"
-        className={`${s.pill} ${s[tone]}`}
-        onClick={() => setOpen(true)}
-        title={labelFor(state)}
-        aria-label={labelFor(state)}
-      >
+      <IconButton variant="secondary" className={s[tone]} onClick={() => setOpen(true)} label={labelFor(state)}>
         {/* same glyph as the row that switches it on (see MapViewsMenu) — the switch and its
             indicator have to be recognisably the same thing */}
         <Icon id="people" />
-      </button>
+      </IconButton>
       {open && (
         <Modal title={labelFor(state)} onClose={() => setOpen(false)} fit>
           <div className={s.ask}>
@@ -172,20 +167,12 @@ export function SharePositionPill({ share, onChangeName }: { share: ShareApi; on
               <p className={s.note}>{fillTemplate(C.lastAt, { t: formatTime(new Date(share.lastAt), true) })}</p>
             )}
             <div className={s.actions}>
-              <button
-                type="button"
-                className={s.danger}
-                onClick={() => { setOpen(false); share.stop() }}
-              >
+              <Button variant="danger" onClick={() => { setOpen(false); share.stop() }}>
                 {C.stop}
-              </button>
-              <button
-                type="button"
-                className={s.ghost}
-                onClick={() => { setOpen(false); onChangeName(() => setOpen(true)) }}
-              >
+              </Button>
+              <Button onClick={() => { setOpen(false); onChangeName(() => setOpen(true)) }}>
                 {C.change}
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>

@@ -38,12 +38,8 @@
 .dw-sec ul { margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; list-style: none; }
 .dw-sec li { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; line-height: 1.35; color: var(--ink); font-weight: 650; }
 .dw-sec li .i { width: 16px; height: 16px; flex: none; color: var(--accent); stroke-width: 2.4; }
-.dw-cta { width: 100%; min-height: 48px; border: none; border-radius: var(--r-sm);
-  background: var(--btn-primary); color: var(--on-btn-primary); font-size: 14px; font-weight: 800; cursor: pointer; }
-@media (hover: hover) {
-  .dw-cta:hover { background: var(--btn-primary-hover); }
-}
-.dw-cta:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* (the «Los» is <Button variant="primary" size="lg" block> since 07.10.2026 — UI sweep C4; `.dw-cta`
+   stays on it as the e2e's handle) */
 .dw-meta { margin: 9px 0 0; color: var(--ink-dim); font-size: 11.5px; line-height: 1.35; font-weight: 600; text-align: center; }
 /* Login credential hint on a demo instance. */
 .login-demo-note { margin: 2px 0 14px; padding: 8px 12px; border-radius: var(--r-sm);
