@@ -1789,6 +1789,15 @@ to prod.
     thing … uses up a lot of vertical space»): on a phone it stands in the clock row's empty
     corner over the names (`ZeitplanView · zoom`, the row grows to a lane's 44px and the hours sit
     at its foot); a tablet keeps it at the end of the search line. Never a row of its own.
+  - *The Zeitplan opens FITTED* (sweep B5, 07.10.2026, owner option 1): the Einsatz so far + 1 h,
+    at least 2 h, from the alarm (never before it), filling the visible width (`lib/shifts ·
+    fitSpan`; the read-out says e.g. «3.5 h»). «Jetzt» lands at ~¾ once the Einsatz has run ~3 h;
+    a 10 h Einsatz opens on ~11 h. A fitted window wider than the screen opens scrolled with
+    «Jetzt» at ¾ of the lanes (`fitScrollLeft`). The zoom steps from the fitted length to the next
+    ladder stop (`nextHorizon`), and a hand-picked Zeitraum wins from then on — stamped with the
+    Einsatz (`prefs · zeitplanZoom`), so it never opens the NEXT Einsatz on an empty grid; the old
+    device-wide `zeitplanHorizonH` is ignored. Hour labels are spaced on the track's MEASURED
+    width, and the JETZT flag reads into the larger side of the axis.
   - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
     (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the
     steps) — the same chip on a phone as on a wide screen. A fixed square was tried and cannot

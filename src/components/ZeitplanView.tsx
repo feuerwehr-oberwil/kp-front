@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from '../lib/format'
@@ -10,7 +10,7 @@ import { RankBadge } from './RankBadge'
 import { intervalsOf } from '../lib/attendanceIntervals'
 import { useLaneGesture } from '../lib/useLaneGesture'
 import {
-  SLOT_MS, barGeometry, conflictingShiftIds, coverage, intervalSpan, shiftSpan, shiftsFor, timelineSpan,
+  SLOT_MS, barGeometry, conflictingShiftIds, coverage, fitScrollLeft, intervalSpan, shiftSpan, shiftsFor, timelineSpan,
 } from '../lib/shifts'
 import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
 import type { CoverageSlot } from '../lib/shifts'
@@ -253,8 +253,10 @@ export function ZeitplanView({
   onReplace: (sh: Shift, undoName?: string) => void
   onSetTime: (id: string, patch: { from?: string; to?: string }) => void
   onRemove: (id: string, personName: string) => void
-  /** how many hours the axis shows at once (the Zeitraum control lives in the surface header) */
-  horizonH: number
+  /** how many hours the axis shows at once (the Zeitraum control lives in the surface header);
+   *  null = nobody zoomed yet, the axis is the fitted opening window (lib/shifts · fitSpan) and
+   *  fills the visible width */
+  horizonH: number | null
   /** PHONE: the Zeitraum zoom, drawn in the clock row's corner over the names — the search line
    *  above has no room for it there (AnwesenheitView · horizonCtl) */
   zoom?: ReactNode
@@ -274,6 +276,46 @@ export function ZeitplanView({
     () => timelineSpan(startedAt, shifts, attendance, nowMs, horizonH),
     [startedAt, shifts, attendance, nowMs, horizonH],
   )
+  const fitted = horizonH == null
+  /* the track's stated width. A picked Zeitraum keeps its 320px floor; the FITTED window drops it
+     — the track flexes up to the visible width anyway, and on a phone the floor alone made a
+     2 h window wider than the ~220px the lanes have, i.e. not fitted at all. */
+  const spanH = (span.to - span.from) / HOUR
+  const trackW = fitted ? spanH * PX_PER_HOUR : Math.max(320, spanH * PX_PER_HOUR)
+  /* what the track REALLY measures once it has flexed to fill the surface: the hour labels and
+     the JETZT flag's clearance are spaced on that, not on the stated floor — a fitted 2 h window
+     spread over 1400px would otherwise still label every second hour, i.e. once. */
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const headTrackRef = useRef<HTMLDivElement>(null)
+  const [measuredW, setMeasuredW] = useState(0)
+  useLayoutEffect(() => {
+    const el = headTrackRef.current
+    if (!el) return
+    const read = () => setMeasuredW(el.getBoundingClientRect().width)
+    read()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const shownTrackW = Math.max(trackW, measuredW)
+  const pxPerHour = spanH > 0 ? shownTrackW / spanH : PX_PER_HOUR
+  /* A fitted window too long for the screen (a phone, an Einsatz into its second day) opens
+     scrolled so «Jetzt» stands at ¾ of the visible lanes — what is happening now and the hour
+     ahead, with the morning behind it a swipe away. Once per mount: after that the scroll is the
+     user's. */
+  const parkedRef = useRef(false)
+  useLayoutEffect(() => {
+    const sc = scrollRef.current
+    const tr = headTrackRef.current
+    if (parkedRef.current || !fitted || !sc || !tr || measuredW <= 0) return
+    parkedRef.current = true
+    // the lanes' visible width: the scroll box's inner width right of where the track begins
+    // (the sticky name column's edge), measured before any scrolling has happened
+    const visible = sc.getBoundingClientRect().left + sc.clientLeft + sc.clientWidth - tr.getBoundingClientRect().left
+    if (visible <= 0 || measuredW <= visible) return
+    sc.scrollLeft = Math.max(0, fitScrollLeft(span, nowMs, measuredW, visible))
+  }, [fitted, measuredW, span, nowMs])
   const conflicts = useMemo(() => conflictingShiftIds(shifts), [shifts])
   const slots = useMemo(() => coverage(shifts, attendance, span, nowMs), [shifts, attendance, span, nowMs])
   const peakCover = Math.max(1, ...slots.map((c) => Math.max(c.available, c.planned, c.actual)))
@@ -297,7 +339,7 @@ export function ZeitplanView({
   // now identical at 6 h and at 96 h. Midnight is always labelled: across several days «03:00»
   // alone never said WHICH night, so it carries the date instead.
   const hours = useMemo(() => {
-    const step = Math.max(1, Math.ceil(LABEL_PX / PX_PER_HOUR))
+    const step = Math.max(1, Math.ceil(LABEL_PX / pxPerHour))
     const out: { at: number; label: string; midnight: boolean }[] = []
     // step through LOCAL hours, not by adding an hour of milliseconds: the old UTC snapping put
     // every tick on :30 in a half-hour-offset timezone, where `getHours() === 0` is then never
@@ -314,23 +356,24 @@ export function ZeitplanView({
       d.setHours(d.getHours() + 1)
     }
     return out
-  }, [span])
+  }, [span, pxPerHour])
 
   /** True where the «JETZT» flag would land on this hour label. The flag starts 3px right of the
    *  line and runs ~34px; a tick is centred on its own position and ~32px wide — so the two touch
-   *  from about 20px left of now to about 52px right of it. Midnight keeps its label (it is a date,
-   *  not an hour). */
+   *  from about 20px left of now to about 52px right of it (mirrored while the flag reads left).
+   *  Midnight keeps its label (it is a date, not an hour). */
   const hideTick = (h: { at: number; midnight: boolean }) => {
     if (!nowInside || h.midnight) return false
     const span_ = span.to - span.from
     if (span_ <= 0) return false
-    const dx = ((h.at - nowMs) / span_) * trackW
-    return dx > -20 && dx < 52
+    const dx = ((h.at - nowMs) / span_) * shownTrackW
+    return flagLeft ? dx > -52 && dx < 20 : dx > -20 && dx < 52
   }
 
   const pct = (t: number) => `${(((t - span.from) / Math.max(1, span.to - span.from)) * 100).toFixed(3)}%`
   const nowInside = nowMs >= span.from && nowMs <= span.to
-  const trackW = Math.max(320, ((span.to - span.from) / HOUR) * PX_PER_HOUR)
+  /* the «JETZT» flag runs into the larger side of the axis (see .nowFlagLeft) */
+  const flagLeft = nowMs - span.from > (span.to - span.from) / 2
   const nothingPlanned = shifts.length === 0
   // the «now» line repeats per lane rather than spanning the whole grid: with a sticky name column
   // a single full-height rule would slide out from under its own coordinates while scrolling
@@ -363,14 +406,14 @@ export function ZeitplanView({
       {/* said in words, ABOVE the grid. The red outline and the sign on the bar point at where;
           they cannot say what or what to do, and on a touch screen their `title` never appears. */}
       <ShiftConflictNotice shifts={shifts} people={people} className={s.conflictNotice} />
-      <div className={s.scroll}>
+      <div className={s.scroll} ref={scrollRef}>
         <div className={s.grid} style={{ ['--track-w' as string]: `${trackW}px` }}>
           {/* head — «Wer» over the name column, the clock over the track, exactly as on paper.
               On a phone the corner over the names holds the Zeitraum zoom (see `zoom`); the row
               grows to a lane's height and the hours sit at its foot, on the lanes they label. */}
           <div className={cx(s.row, s.headRow, zoom != null && s.headRowZoom)}>
             {zoom != null ? <div className={cx(s.who, s.whoHead)}>{zoom}</div> : <div className={cx(s.who, s.whoHead)} aria-hidden />}
-            <div className={s.track}>
+            <div className={s.track} ref={headTrackRef}>
               {hours.map((h) => (
               // The «JETZT» flag is opaque so it stays readable wherever it lands, which means an
               // hour tick it covers does not disappear — only its ends stick out, and «JETZT )» at
@@ -383,7 +426,7 @@ export function ZeitplanView({
                     h.at <= span.from && s.tickStart, h.at >= span.to - HOUR && s.tickEnd)}>{h.label}</span>
               )
             ))}
-              {nowInside && <span className={cx(s.nowLine, s.nowLineHead)} style={{ left: pct(nowMs) }}><em>{Z.now}</em></span>}
+              {nowInside && <span className={cx(s.nowLine, s.nowLineHead, flagLeft && s.nowFlagLeft)} style={{ left: pct(nowMs) }}><em>{Z.now}</em></span>}
             </div>
           </div>
 

@@ -358,6 +358,9 @@
   background: var(--surface); font: 700 9.5px var(--mono); font-style: normal;
   color: var(--red); letter-spacing: .04em; text-transform: uppercase;
 }
+/* past the middle the flag reads to the LEFT of its line: the fitted window puts «Jetzt» at ~¾,
+   and a flag running right ran into the axis end — on a phone under the corner's ⓘ («JI») */
+.nowFlagLeft em { left: auto; right: calc(100% + 1.5px); }
 
 /* coverage strip: two bars per half-hour slot — planned above, actually there below */
 /* pinned to the bottom of the scroll, as the clock is pinned to the top: with a full Mannschaft
