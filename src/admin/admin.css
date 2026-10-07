@@ -122,7 +122,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    changes under the reader (a page swap, a table that loads, a card that unfolds), and without
    the reserved lane every one of those slid the whole column sideways by the width of the bar. */
 .adm-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 0 28px 64px; }
-.adm-col { max-width: 1180px; margin: 0 auto; padding-top: 28px; }
+/* Left-aligned against the nav, not centred (UI sweep 07.10.2026): on a 1920 screen a centred
+   1180px column left a ~250px empty band between the sidebar and the page, so the content read as
+   floating free of the nav that chose it. The spare width goes to the right edge instead. */
+.adm-col { max-width: 1180px; margin: 0; padding-top: 28px; }
 
 /* page heading + autosave status share a row */
 .adm-pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
