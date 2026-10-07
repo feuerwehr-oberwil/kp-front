@@ -1209,7 +1209,6 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    and the ⋮ row menu in Mitglieder. Only a table that declares itself wider than the content
    column needs the scroller; a new one belongs on this list beside `.adm-history-table`. */
 .adm-table-wrap { overflow: visible; }
-.adm-table-wrap:has(.adm-history-table) { overflow-x: auto; }
 .adm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .adm-table th {
   text-align: left; padding: 0 12px 9px 0;
@@ -1223,6 +1222,64 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 }
 .adm-table tr:last-child td { border-bottom: none; }
 .adm-table .adm-num { text-align: right; }
+
+/* ── stacked rows: a table too narrow for its columns becomes a list of row cards ──────────
+   (UI sweep 07.10.2026, E1.) On a phone and a portrait iPad every admin table clipped at the
+   card's edge — Mitglieder's ⋮ (PIN zurücksetzen, deaktivieren), Checklisten's actions and the
+   Objektpläne status were simply off-screen. A sideways scroller is not the answer here (see the
+   ⚠️ above: it clips the ⋮ menu and every ⓘ), so below 860px of TABLE width — measured on the
+   wrapper, a container query, because the sidebar makes the viewport a poor proxy — the header
+   row goes and each row is one card, the `.adm-rankmap` idea made general:
+     line 1  the row's name (first cell, or `.adm-c-main`) · its state (`.adm-c-side`) · its
+             actions (`.adm-c-act`) — so the ⋮ always sits on the line it acts on;
+     line 2+ every other cell, small, under its own column name (`data-label`, written by
+             `useCellLabels` in ui.tsx — hand-written tables must call it).
+   Nothing is hidden: a cell without a role is a secondary one, never dropped. Opt OUT with
+   `.adm-table-scroll` (a reference viewer whose rows span — those scroll sideways instead).
+   ⚠️ `!important` on width/min-width only: per-table column widths (objectPlans.css,
+   `.adm-ltable`) carry four-class selectors, and a card cell has no column to be 27% of. */
+.adm-table-wrap { container: adm-table / inline-size; }
+.adm-table-wrap:has(> .adm-table-scroll), .adm-table-wrap:has(> .adm-history-table) { overflow-x: auto; }
+@container adm-table (max-width: 860px) {
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap),
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody { display: block; }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > thead { display: none; }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr {
+    display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 16px;
+    height: auto; padding: 12px 0; border-bottom: 1px solid var(--border-soft);
+  }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr:last-child { border-bottom: none; }
+  /* the line break between the head line and the facts */
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr::after {
+    content: ''; order: 2; flex: 0 0 100%; height: 0;
+  }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td {
+    display: block; order: 3; flex: 0 1 auto;
+    width: auto !important; min-width: 0 !important;
+    padding: 0; border: none; text-align: left; white-space: normal;
+  }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr:not(:has(> .adm-c-main)) > td:first-child,
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td.adm-c-main {
+    order: 0; flex: 1 1 0; align-self: center; font-size: 13.5px;
+  }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td.adm-c-side { order: 1; flex: none; align-self: center; }
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td.adm-c-act { order: 2; flex: none; align-self: center; text-align: right; }
+  .adm-history-table { min-width: 0; }
+  /* a spanning cell (inline edit form, a row's error) is a full-width line of its own */
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td[colspan] { order: 0; flex: 1 1 100%; }
+  /* a secondary fact names itself: the column header, small, above the value */
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td[data-label]:not(:first-child):not(.adm-c-main):not(.adm-c-side):not(.adm-c-act)::before {
+    content: attr(data-label); display: block; margin-bottom: 2px;
+    font: 700 10.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  /* …except where the main cell is not the first: then the first one is a fact too */
+  .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr:has(> .adm-c-main) > td[data-label]:first-child::before {
+    content: attr(data-label); display: block; margin-bottom: 2px;
+    font: 700 10.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+}
 .adm-mono { font-family: var(--mono); font-weight: 500; }
 /* A date or a time is read as ONE token: it never breaks over two lines («11.09.2026,» over
    «14:07» is two facts to a reader scanning a column), and tabular numerals line the digits up

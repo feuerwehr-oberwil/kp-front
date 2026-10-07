@@ -4,6 +4,7 @@ import { apiDelete, apiGet, apiPost } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { Menu } from '../lib/overlays'
 import { InfoTip } from './InfoTip'
+import { useCellLabels } from './useCellLabels'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 
@@ -539,9 +540,10 @@ export interface Column { key: string; label: string; num?: boolean }
  *  renders the `<tr><td>…` body as `children`, so heterogeneous cells stay flexible; what
  *  was duplicated (wrapper + thead markup + alignment classes) now lives here once. */
 export function Table({ columns, className, children }: { columns: Column[]; className?: string; children: ReactNode }) {
+  const ref = useCellLabels()
   return (
     <div className="adm-table-wrap">
-      <table className={`adm-table${className ? ` ${className}` : ''}`}>
+      <table ref={ref} className={`adm-table${className ? ` ${className}` : ''}`}>
         <thead>
           <tr>
             {columns.map((c) => (

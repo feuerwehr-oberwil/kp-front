@@ -8,6 +8,7 @@ import { SetupChecklist, type SetupState } from './SetupChecklist'
 import { fillTemplate, fmtFileSize } from '../lib/format'
 import { providerLabel, type DeploymentSharePointSource } from '../lib/deploymentConfig'
 import { Card, StatusBadge, Metric, UsageBar, ProgressBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime, fmtRelTime } from './ui'
+import { useCellLabels } from './useCellLabels'
 import './system.css'
 
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
@@ -246,6 +247,7 @@ function SharePointSources({ sources, intervalMinutes }: {
   sources: DeploymentSharePointSource[]
   intervalMinutes: number | null
 }) {
+  const tableRef = useCellLabels()
   const C = appConfig.copy.admin.system
   if (sources.length === 0) return null
   return (
@@ -260,7 +262,7 @@ function SharePointSources({ sources, intervalMinutes }: {
         </span>
       </div>
       <div className="adm-table-wrap">
-        <table className="adm-table">
+        <table ref={tableRef} className="adm-table">
           <thead>
             <tr>
               <th>{C.spArea}</th>
@@ -305,6 +307,7 @@ function SharePointCard({
   onReload: () => Promise<void>
   onNavigate?: (id: string) => void
 }) {
+  const tableRef = useCellLabels()
   const C = appConfig.copy.admin.system
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
@@ -446,7 +449,7 @@ function SharePointCard({
         <>
           {secretBadge}
           <div className="adm-table-wrap">
-            <table className="adm-table">
+            <table ref={tableRef} className="adm-table">
               <thead>
                 <tr>
                   <th>{C.spArea}</th>
@@ -565,6 +568,7 @@ async function readOfflineCache(): Promise<OfflineState> {
 }
 
 function OfflineCacheCard() {
+  const tableRef = useCellLabels()
   const [state, setState] = useState<OfflineState>({ kind: 'loading' })
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
@@ -628,7 +632,7 @@ function OfflineCacheCard() {
             <Metric label={C.cacheStorage} value={fillTemplate(C.cacheSummary, { caches: state.caches.length, entries: totalEntries })} />
             {state.caches.length > 0 && (
               <div className="adm-table-wrap">
-                <table className="adm-table">
+                <table ref={tableRef} className="adm-table">
                   <thead>
                     <tr>
                       <th>{C.cache}</th>
@@ -683,6 +687,7 @@ type ServerState =
  * Explanatory prose still belongs in a ⓘ, so each card carries its own on the head.
  */
 export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
+  const tableRef = useCellLabels()
   const { draft } = useConfig()
   const [state, setState] = useState<ServerState>({ kind: 'loading' })
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
@@ -810,7 +815,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
             <Card title={C.connectors} tip={C.connectorsTip}>
               {state.data.integrations || state.data.connectors?.length ? (
                 <div className="adm-table-wrap">
-                  <table className="adm-table">
+                  <table ref={tableRef} className="adm-table">
                     <thead>
                       <tr>
                         <th>{C.connection}</th>

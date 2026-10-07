@@ -194,7 +194,7 @@ export function ChecklistsView() {
                 {/* Deliberately NOT the shared `ActionMenu`: two actions do not need a menu.
                     (The stacking bug that ALSO argued against it — the popup painting behind
                     `.adm` on v0.6.0 — is fixed; see `.ui-menu-pos` in lib/overlays/Menu.) */}
-                <td className="adm-ck-actions">
+                <td className="adm-ck-actions adm-c-act">
                   {/* The flex row is this inner box, never the `<td>` itself: `display: flex`
                       on a table-cell takes it out of the table box tree and the row wraps it
                       in an anonymous cell, which drifts out of the column alignment. */}

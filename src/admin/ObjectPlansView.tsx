@@ -256,8 +256,8 @@ export function ObjectPlansView({ modules, overview }: {
                   <span className="aop-code" key={plan.id}>{plan.module
                     ? moduleShortForm(modules, plan.module) : plan.kind}</span>)}</span>
                 : <span className="adm-fleet-freeval">{D.noPlans}</span>}</td>
-              <td><StatusBadge tone={state.tone} label="" state={state.label} /></td>
-              <td className="aop-go" aria-hidden><Icon id="chevron" /></td>
+              <td className="adm-c-side"><StatusBadge tone={state.tone} label="" state={state.label} /></td>
+              <td className="aop-go adm-c-act" aria-hidden><Icon id="chevron" /></td>
             </tr>
           })}
         </Table>}
@@ -410,8 +410,8 @@ function PlanRow({ slot, facts, busy, error, onUpload, onPrepare }: {
           </span>
           // the row's press opens the picker, so the empty cell says what it would pick
           : <span className="adm-fleet-freeval">{O.choosePdf}</span>}</td>
-      <td>{state && <StatusBadge tone={state.tone} label="" state={state.label} />}</td>
-      <td className="aop-planact">
+      <td className="adm-c-side">{state && <StatusBadge tone={state.tone} label="" state={state.label} />}</td>
+      <td className="aop-planact adm-c-act">
         {actions.length > 0
           ? <ActionMenu actions={actions} ariaLabel={fillTemplate(C.moreActions, { module: slot.short })} disabled={busy} />
           : <span className="aop-act-gap" aria-hidden />}

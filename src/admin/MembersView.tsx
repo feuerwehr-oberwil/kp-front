@@ -6,6 +6,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { ActionMenu, Card, EmptyState, Field, StatusBadge, fmtDate } from './ui'
+import { useCellLabels } from './useCellLabels'
 import { RoleChoice, type MemberRole } from './RoleChoice'
 import { PinSheet } from './PinSheet'
 import { isValidPin, PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '../components/PinPad'
@@ -315,6 +316,7 @@ type Async =
  * PIN-protected from here. No flag is drawn rather than one guessed from a username.
  */
 export function MembersView() {
+  const tableRef = useCellLabels()
   const [state, setState] = useState<Async>({ kind: 'loading' })
   const [editing, setEditing] = useState<string | null>(null)
   const [rowErr, setRowErr] = useState<{ id: string; detail: string } | null>(null)
@@ -404,7 +406,7 @@ export function MembersView() {
         )}
         {state.kind === 'ok' && state.data.length > 0 && (
           <div className="adm-table-wrap">
-            <table className="adm-table adm-members-table">
+            <table ref={tableRef} className="adm-table adm-members-table">
               <thead>
                 <tr>
                   <th>{C.colName}</th>
@@ -461,12 +463,12 @@ export function MembersView() {
                           {roleLabel(u.role)}
                         </span>
                       </td>
-                      <td>
+                      <td className="adm-c-side">
                         {/* the Status column names it — the pill only has to say which one */}
                         <StatusBadge tone={u.is_active ? 'on' : 'off'} label="" state={u.is_active ? C.active : C.inactive} />
                       </td>
                       <td className="adm-mono">{fmtDate(u.last_login)}</td>
-                      <td className="adm-members-actions-col">
+                      <td className="adm-members-actions-col adm-c-act">
                         <ActionMenu
                           ariaLabel={fillTemplate(C.guardLabel, { name: u.display_name })}
                           disabled={busy}

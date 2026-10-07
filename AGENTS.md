@@ -1055,6 +1055,14 @@ to prod.
   refresh that copy when `Surface.module.css` changes. The surfaces keep the old rules until the
   composing module itself is edited. A screenshot taken after an edit there therefore needs a
   restart with `pnpm dev --force` first. `pnpm build` is not affected.
+- **Admin tables stack below 860px of table width** (UI sweep 07.10.2026). `.adm-table-wrap` is
+  a container; under 860px every `.adm-table` drops its header row and each row becomes a card:
+  line 1 = the name (first cell or `.adm-c-main`) · state (`.adm-c-side`) · actions (`.adm-c-act`),
+  every other cell under it, labelled by `data-label`. Use the shared `Table` (ui.tsx), or call
+  `useCellLabels()` on a hand-written `<table>` – a cell without its column name is a bare «v3».
+  Tag the status and ⋮ cells so the actions stay on the row's first line; never hide a cell.
+  A viewer whose rows span (`rowSpan`) opts out with `.adm-table-scroll` and scrolls instead.
+  The /admin sidebar is the drawer up to 1024px; header links move into it at ≤720px.
 - **Overlays go through `src/lib/overlays/`** (`Sheet`/`SheetClose`, `Overlay`, `ConfirmCard`,
   `Menu`, `Popover`/`PopoverClose`) – thin wrappers over **Base UI** (`@base-ui/react`, headless)
   that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,
