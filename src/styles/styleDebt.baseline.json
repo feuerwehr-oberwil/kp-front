@@ -117,7 +117,6 @@
   },
   "src/styles/08-toasts.css": {
     "fontSize": 1,
-    "weight": 1,
     "spacing": 5
   },
   "src/styles/09-whiteboard.css": {
