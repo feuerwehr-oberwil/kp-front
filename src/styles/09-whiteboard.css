@@ -226,18 +226,15 @@
 .pp-pin:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .pp-pin.on { color: var(--blue); }
 .pp-pin-inc { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--red); border: 2px solid #fff; box-shadow: var(--e1); }
-/* a fold control on a phone, so it sits on the --tap floor rather than the ~40px its padding
-   happened to produce */
-.pp-maptoggle { display: none; margin: var(--sp-2) var(--sp-5) var(--sp-4); min-height: var(--tap); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
-  background: var(--surface); cursor: pointer; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); align-items: center; justify-content: center; gap: 8px; }
-.pp-maptoggle:active { background-image: linear-gradient(var(--press), var(--press)); }
-.pp-maptoggle .i { width: 16px; height: 16px; }
+/* the phone's map fold is THE button (<Button>, 08.10.2026); this only places it. ⚠️ Two classes:
+   `.ip-btn` (13-incident) is declared after this file and would win a one-class `display`. */
+.pp-maptoggle.ip-btn { display: none; margin: var(--sp-2) var(--sp-5) var(--sp-4); }
 
 @media (--phone) {
   .pp-body { flex-direction: column; }
   .pp-map { flex: none; height: 220px; }
   .pp-nomap .pp-map { display: none; }
-  .pp-maptoggle { display: flex; }
+  .pp-maptoggle.ip-btn { display: flex; }
 }
 /* short viewports (landscape phone ~390px tall, small tablets): 88dvh can't fit a
    380px map — give the standard sheet a bit more height and shrink the map */
@@ -856,11 +853,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-orient-lbl { font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); flex: none; }
 .wb-orient-row input[type=range] { flex: 1 1 auto; min-width: 0; height: var(--tap); accent-color: var(--blue); cursor: pointer; }
 .wb-orient-val { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-bold); min-width: 42px; text-align: right; }
+/* the three presets are THE choice chip (<Chip>, 08.10.2026); this only shares the row out */
 .wb-orient-chips { display: flex; gap: 8px; }
-.wb-orient-chip { flex: 1 1 0; min-height: var(--tap); padding: 0 var(--sp-3); border: none; cursor: pointer;
-  border-radius: var(--r-sm); background: var(--surface-2); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); }
-.wb-orient-chip:active { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-orient-chip.on { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
+.wb-orient-chip { flex: 1 1 0; }
 
 /* FKS hose-line decorations — shared by the Lage map (in a Marker) and the Plan (wb-line-deco) */
 .line-fork { display: block; }
@@ -899,14 +894,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   box-shadow: var(--e4); padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
 .wb-cal-title { font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); }
 .wb-cal-body { font-size: var(--fs-1); color: var(--ink-dim); line-height: 1.35; }
-/* quick-pick reference lengths (the common scale-bar values) above the stepper */
+/* quick-pick reference lengths (the common scale-bar values) above the stepper — THE choice chip
+   (<Chip>, 08.10.2026; it was a framed 14px copy of one); this only shares the row out */
 .wb-cal-chips { display: flex; gap: 8px; }
-.wb-cal-chip { flex: 1; border: 1px solid var(--glass-edge); background: var(--surface-2, #fff); border-radius: var(--r-sm);
-  padding: var(--sp-2) 0; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); cursor: pointer; }
-@media (hover: hover) {
-  .wb-cal-chip:hover { border-color: var(--blue); }
-}
-.wb-cal-chip.on { border-color: var(--sel); background: var(--sel); color: var(--on-sel); }
+.wb-cal-chip { flex: 1; }
 
 /* clean −/+ stepper for the real-length entry */
 .wb-cal-stepper { display: flex; align-items: stretch; gap: 8px; }
@@ -924,7 +915,6 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-cal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
 /* ⚠️ one family (28.09.2026, owner pick A): framed «Abbrechen» at its word's width, the primary
    takes the rest — it was a ghost `.ip-btn` beside a 12.5px dock `.btn`, two families in one row */
-.wb-cal-actions > .ip-btn { min-height: var(--tap); justify-content: center; }
 .wb-cal-actions > .ip-btn.primary { flex: 1 1 auto; }
 
 /* Plan-Maßstab: trust chip — taps to (re)calibrate. Position comes from `.wb-botleft`, the row it
@@ -965,12 +955,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   box-shadow: var(--e4); animation: panelIn .16s var(--ease); }
 .wb-scale-persist-t { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); white-space: nowrap; margin-right: 2px; }
 .wb-scale-persist .btn { padding: var(--sp-2) var(--sp-3); font-size: var(--fs-1); white-space: nowrap; }
-.wb-scale-persist-x { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border: none;
-  background: transparent; color: var(--ink-dim); cursor: pointer; border-radius: var(--r-sm); }
-@media (hover: hover) {
-  .wb-scale-persist-x:hover { background: var(--fill-soft); color: var(--ink); }
-}
-.wb-scale-persist-x svg { width: 15px; height: 15px; }
+/* its ✕ is THE icon button (<IconButton>, 08.10.2026 — it was a 34px dim ✕ of its own) */
 @media (--phone) {
   /* clear the two bottom bars on phones, and hug the left edge (no side rail) */
   .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap));

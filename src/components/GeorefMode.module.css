@@ -271,13 +271,9 @@
 .popHint {
   padding: var(--sp-2) var(--sp-1) 2px; font: var(--fw-medium) var(--fs-micro)/1.35 var(--body); color: var(--ink-dim);
 }
-/* the do-nothing exit, full width and quiet: Esc must never be the only way out on touch */
-.popKeep {
-  width: 100%; min-height: 38px; margin-top: var(--sp-2); border: 0; border-radius: var(--r-sm);
-  background: transparent; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); cursor: pointer;
-}
-@media (hover: hover) { .popKeep:hover { background: var(--fill-soft); } }
-.popKeep:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* the do-nothing exit, full width and quiet: Esc must never be the only way out on touch. THE quiet
+   button (<Button variant="quiet" block>, 08.10.2026 — it was a 38px dim word of its own) */
+.popKeep { margin-top: var(--sp-2); }
 
 /* ── the quiet row ──────────────────────────────────────────────────────────────────────── */
 /* ⚠️ NOTHING here is the same weight as «Punkt setzen». «Zurücksetzen» used to sit a thumb's
