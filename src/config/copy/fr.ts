@@ -1916,6 +1916,8 @@ export const fr: Localizable<Copy> = {
     ergTable3: 'voir ERG tableau 3 (récipient/vent)',
     ergDayShort: 'Jour',
     ergNightShort: 'Nuit',
+    ergSunrise: 'lever du soleil {t}',
+    ergSunset: 'coucher du soleil {t}',
     dockedTo: 'Amarré à «{name}»',
     dockedRelease: 'Détacher',
     ergAdopt: 'Reprendre comme périmètre',

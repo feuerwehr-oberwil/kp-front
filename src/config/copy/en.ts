@@ -1923,6 +1923,8 @@ export const en: Localizable<Copy> = {
     ergTable3: 'see ERG table 3 (container/wind)',
     ergDayShort: 'Day',
     ergNightShort: 'Night',
+    ergSunrise: 'sunrise {t}',
+    ergSunset: 'sunset {t}',
     dockedTo: 'Docked to «{name}»',
     dockedRelease: 'Release',
     ergAdopt: 'Apply as cordon',
