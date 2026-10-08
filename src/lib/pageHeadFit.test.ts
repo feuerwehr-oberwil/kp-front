@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { fitPageHead, foldLevel, foldRanks, partRanks } from './pageHeadFit'
-import { climbLadder, fitHead, HEAD_FIT_STEPS } from './useHeadFit'
+import { climbLadder, fitHead, headCrowded, HEAD_FIT_STEPS, STREET_BEFORE_STEP } from './useHeadFit'
 
 /** A head in the shape the pages draw: titles (h2 + quiet line) and tiles carrying ranks. */
 function head(html: string): HTMLElement {
@@ -117,5 +117,38 @@ describe('the shared ladder (lib/useHeadFit · climbLadder)', () => {
   // sweep K2 (29.09.2026): the tablet's Eintrag keeps its word at 820px and gives it up LAST
   it('«Eintrag» is the last word the top bar gives up', () => {
     expect(HEAD_FIT_STEPS[HEAD_FIT_STEPS.length - 1]).toBe('eintrag-word')
+  })
+})
+
+/* 08.10.2026, coordinator's call: on the phone the pill's street comes before ↷ and the weather —
+ * they come back only with what is left once the street is whole; past the ↷ step the 112px floor
+ * rules again, so a very long street does not take ↶, the Verlauf or the alarm's name with it. */
+describe('the top bar · the phone street before ↷ (headCrowded)', () => {
+  /** a bar whose pill title is `shown` px wide out of `full` px of text; jsdom lays nothing out */
+  function bar(shown: number, full: number, phone = true) {
+    const el = document.createElement('div')
+    el.innerHTML = `<button class="ip-switch-btn${phone ? ' ip-switch-two' : ''}"><span class="ip-switch-title">x</span></button>`
+    const title = el.querySelector<HTMLElement>('.ip-switch-title')!
+    Object.defineProperties(title, {
+      offsetParent: { get: () => el }, scrollWidth: { get: () => full }, clientWidth: { get: () => shown },
+    })
+    return el
+  }
+  it('collapses the weather, the Einsatzdauer and ↷ while the street is cut at all', () => {
+    expect(HEAD_FIT_STEPS[STREET_BEFORE_STEP - 1]).toBe('redo')
+    for (let step = 0; step < STREET_BEFORE_STEP; step++) expect(headCrowded(bar(128, 146), step)).toBe(true)
+    expect(headCrowded(bar(146, 146), 0)).toBe(false) // whole: ↷ and the weather may stay
+  })
+  it('past ↷ a long street only counts below the 112px floor', () => {
+    expect(headCrowded(bar(128, 146), STREET_BEFORE_STEP)).toBe(false)
+    expect(headCrowded(bar(100, 146), STREET_BEFORE_STEP)).toBe(true)
+  })
+  it('the tablet\'s one-line title keeps the floor rule at every step', () => {
+    expect(headCrowded(bar(128, 146, false), 0)).toBe(false)
+    expect(headCrowded(bar(100, 146, false), 0)).toBe(true)
+  })
+  it('fitHead hands the step to the judge: a cut street stops the climb right after ↷', () => {
+    const el = bar(128, 146)
+    expect(fitHead(el)).toBe(STREET_BEFORE_STEP)
   })
 })
