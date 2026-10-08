@@ -851,7 +851,9 @@ export type PreparedMapOverlay =
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,
  *  so they stick to the plan across zoom/pan. */
 export type BoardTool = 'pan' | 'lasso' | 'draw' | 'line' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'scale' | 'measure'
-export type BoardKind = 'draw' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource'
+/** `plakat` (08.10.2026): the FKS «Erstes Plakat» Vorlage on the Tafel — a sheet-wide form, no
+ *  position, no map body (lib/plakat). Everything positional ignores it by having no x/y/pts. */
+export type BoardKind = 'draw' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'plakat'
 /** Plan point. The optional storey is backward compatible: legacy points inherit BoardAnno.floor. */
 export type BoardPoint = [x: number, y: number] | [x: number, y: number, floor: number]
 export interface BoardAnno extends SymbolProps {
@@ -943,6 +945,34 @@ export interface BoardAnno extends SymbolProps {
   /** Magnetic relationship intent at the first/last vertex (draw/line only). */
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment
+  /** kind 'plakat' only: the poster's fields (lib/plakat). The whole form is ONE object, so an
+   *  edit is one undo step and rides the board's own sync like any other anno. */
+  plakat?: PlakatData
+}
+
+/** «Erstes Plakat (FKS)» on the Tafel (08.10.2026) — the A3 «Erste Führung» poster as real fields.
+ *  Trend: ➚ wird schlimmer · = gleich · ➘ entspannt sich; absent = not judged yet. */
+export type PlakatTrend = 'up' | 'same' | 'down'
+export interface PlakatProblem { id: string; text: string; note?: string; trend?: PlakatTrend }
+export interface PlakatMassnahme { id: string; was: string; wer: string; wann: string; done?: boolean }
+export interface PlakatMittel { id: string; formation: string; pers: string; wo: string }
+export interface PlakatVerbindung { id: string; funktion: string; kanal: string; ruf: string }
+export interface PlakatPunkt { id: string; text: string; done?: boolean }
+export interface PlakatData {
+  v: 1
+  /** the header line, pre-filled once from the Einsatz and editable from then on */
+  title: string
+  address: string
+  alarm: string
+  el: string
+  front: PlakatProblem[]
+  ordnung: PlakatProblem[]
+  sanitaet: PlakatProblem[]
+  spezial: PlakatProblem[]
+  massnahmen: PlakatMassnahme[]
+  mittel: PlakatMittel[]
+  verbindungen: PlakatVerbindung[]
+  absprachen: PlakatPunkt[]
 }
 /** One past position of a team on a plan, in normalized 0..1 plan space. */
 /** a recorded breadcrumb. `floor` = the storey the team was on at time `t` (floor-stack

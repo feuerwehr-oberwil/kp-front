@@ -10,6 +10,7 @@ import { loadLayerPrefs } from './layerPrefs'
 import { isSafeColor } from './shapes'
 import { sanitizeSvgResult } from './sanitizeSvg'
 import { minPoints } from './vertexOps'
+import { isPlakatData } from './plakat'
 import type { ChecklistState } from './checklists'
 import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
 import { bearing360 } from './planProjection'
@@ -302,7 +303,7 @@ type Complete<T extends string, U extends readonly string[]> = Exclude<T, U[numb
 const kindSet = <T extends string>() => <const U extends readonly T[]>(u: U & Complete<T, U>): ReadonlySet<string> => new Set<string>(u)
 const ENTITY_KINDS = kindSet<EntityKind>()(['symbol', 'vehicle', 'note', 'photo', 'shape', 'team', 'person'])
 const DRAW_KINDS = kindSet<DrawKind>()(['line', 'area', 'circle'])
-const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource'])
+const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource', 'plakat'])
 /** the pre-'resource' board kind, still accepted at the gate because normalizeBoard migrates it */
 const LEGACY_BOARD_KINDS: ReadonlySet<string> = new Set([...BOARD_KINDS, 'trupp'])
 /** fewest vertices a drawing of each kind can render with (a circle is its centre) */
@@ -338,9 +339,12 @@ export const isDrawing = (v: unknown): v is Drawing =>
 /** A plan annotation the Whiteboard can draw: ink needs enough finite vertices, everything else an anchor. */
 export const isBoardAnno = (v: unknown): v is BoardAnno =>
   hasId(v) && typeof v.kind === 'string' && LEGACY_BOARD_KINDS.has(v.kind)
-  && (v.kind === 'draw' || v.kind === 'area'
-    ? Array.isArray(v.pts) && v.pts.length >= minPoints(v.kind) && v.pts.every(boardPt)
-    : num(v.x) && num(v.y))
+  // the «Erstes Plakat» is sheet-wide (no anchor) and renders its lists straight away — a
+  // malformed one is dropped here, not thrown there
+  && (v.kind === 'plakat' ? isPlakatData(v.plakat)
+    : v.kind === 'draw' || v.kind === 'area'
+      ? Array.isArray(v.pts) && v.pts.length >= minPoints(v.kind) && v.pts.every(boardPt)
+      : num(v.x) && num(v.y))
 /** A Gebäude doc the floor-stack can open: at least one finite storey and a footprint of some shape. */
 export const isBuilding = (v: unknown): v is BuildingDoc =>
   isObj(v) && Array.isArray(v.floors) && v.floors.length > 0 && v.floors.every(num)

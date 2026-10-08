@@ -38,6 +38,8 @@ import { ensureUnHazard } from './unHazard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
+import { findPlakat, plakatForPdf } from './plakat'
+import { TAFEL_ID } from './tafelStart'
 import type { JournalLink } from './journalLinks'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
@@ -395,6 +397,14 @@ export function einsatzleiterForPdf(
   }).join(', ')
 }
 
+/** The Tafel's poster for the Rapport — the trends as WORDS, since the PDF font has no ➚ ➘. */
+export function plakatPayload(board: BoardDoc | null | undefined): Record<string, unknown> | undefined {
+  const pk = findPlakat(board?.[TAFEL_ID] ?? [])
+  if (!pk) return undefined
+  const P = appConfig.copy.tafel.plakat
+  return plakatForPdf(pk.plakat, { up: P.trendUp, same: P.trendSame, down: P.trendDown })
+}
+
 /** The ONE payload builder behind the Rapport-PDF download. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
   const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
@@ -648,6 +658,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
           return auswertungForPdf(a, { contactIntervalMin: interval, contactGraceSec: grace }, meta.lehren)
         })()
       : undefined,
+    // the Tafel's «Erstes Plakat (FKS)» (08.10.2026) — its own section after the Aufträge,
+    // only when the Tafel carries one (backend · report_pdf · PlakatIn)
+    plakat: plakatPayload(board),
   }
   return forPaper(payload) as Record<string, unknown>
 }
