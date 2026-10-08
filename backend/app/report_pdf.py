@@ -31,7 +31,7 @@ from html.parser import HTMLParser
 
 from PIL import Image as PILImage
 from PIL import ImageOps
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 from reportlab import rl_config
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -729,8 +729,8 @@ class AuswertungLegendIn(BaseModel):
     travel: str = "Anfahrt"
     scene: str = "vor Ort"
     #: the same ink as `travel` on paper, so the two share one legend entry
-    return_: str = Field("Rückfahrt", alias="return")
-    as_: str = Field("unter Atemschutz", alias="as")
+    back: str = "Rückfahrt"
+    pa: str = "unter Atemschutz"
     work: str = "im Einsatz ohne Atemschutz"
     standby: str = "bereit"
     contact: str = "Funkkontakt"
@@ -738,8 +738,6 @@ class AuswertungLegendIn(BaseModel):
     ueberfaellig: str = "überfällig"
     milestone: str = "Meilenstein"
     phase: str = "Phase: erster bis letzter Haken"
-
-    model_config = ConfigDict(populate_by_name=True)
 
 
 class AuswertungIn(BaseModel):
@@ -3213,7 +3211,7 @@ class _Swimlanes(Flowable):
                 c.setLineWidth(0.5)
                 c.line(x0, y + 0.6, x0 + pw, y + 0.6)
                 continue
-            lane: AuswertungLaneIn = item  # type: ignore[assignment]
+            lane = item
             mid = y + h / 2
             by = mid - _AW_BAR_H / 2
             c.setFillColor(_INK)
@@ -3345,14 +3343,14 @@ def _aw_legend_items(aw: AuswertungIn) -> list[tuple[str, str]]:
                 contacts = contacts or bool(lane.contacts)
     items: list[tuple[str, str]] = []
     if kinds & {"travel", "return"}:
-        words = [w for k, w in (("travel", lg.travel), ("return", lg.return_)) if k in kinds]
+        words = [w for k, w in (("travel", lg.travel), ("return", lg.back)) if k in kinds]
         items.append(("travel", " / ".join(words)))
     for kind, text in (
         ("scene", lg.scene),
         ("phase", lg.phase),
         ("standby", lg.standby),
         ("work", lg.work),
-        ("as", lg.as_),
+        ("as", lg.pa),
     ):
         if kind in kinds:
             items.append((kind, text))

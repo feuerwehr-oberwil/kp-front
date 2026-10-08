@@ -446,8 +446,8 @@ export function auswertungForPdf(a: Auswertung, input: Pick<AuswertungInput, 'co
       : null,
     noTimeline: hasTimeline ? undefined : C.noTimeline,
     legend: {
-      travel: C.legendTravel, scene: C.legendScene, return: C.legendReturn,
-      as: C.legendAs, work: C.legendWork, standby: C.legendStandby,
+      travel: C.legendTravel, scene: C.legendScene, back: C.legendReturn,
+      pa: C.legendAs, work: C.legendWork, standby: C.legendStandby,
       contact: C.legendContact, faellig: C.legendFaellig, ueberfaellig: C.legendUeberfaellig,
       milestone: C.legendMilestone, phase: C.legendPhase,
     },
