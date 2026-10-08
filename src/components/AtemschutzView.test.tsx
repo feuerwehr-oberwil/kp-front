@@ -520,8 +520,10 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
       fireEvent.click(screen.getByText(name).closest(`.${s.trow}`)!)
       const card = document.querySelector('[data-az-open]') as HTMLElement
       expect(within(card).getByRole('button', { name: az.actContact }).className).toContain(tier)
-      // …and the tier said in WORDS once, at the head of the Kennzeile (never by colour alone)
-      expect(within(card).getByText(tier === s.kontaktWarn ? az.clockWarn : az.clockOverdue)).toBeTruthy()
+      // …and the tier said in WORDS (never by colour alone): seen once, as the glyph + word under
+      // the head's clock (B5, 08.10.2026), and heard once, as the card's status line
+      expect(card.querySelector(`.${s.trowHead} .${s.trowTier}`)!.textContent).toBe(tier === s.kontaktWarn ? az.rowDue : az.clockOverdue)
+      expect(within(card).getByRole('status').textContent).toBe(tier === s.kontaktWarn ? az.clockWarn : az.clockOverdue)
       fireEvent.click(within(card).getByRole('button', { name: new RegExp(az.collapse) }))
     }
   })
@@ -540,6 +542,46 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
     // …and the pair works the same from here
     fireEvent.click(within(card).getByRole('button', { name: az.actContact }))
     expect(props.recordContact).toHaveBeenCalledWith('tr1')
+  })
+})
+
+/* B5, 08.10.2026: the phone row carried fällig / überfällig by colour alone — no answer in direct
+ * sun or to a colour-blind reader. A glyph and one word now stand under the clock, inside the clock
+ * cell (no new row), with a different glyph per tier, and the Alarmdruck never reads «Überfällig». */
+describe('the phone row says its tier with a glyph and a word, not colour alone', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const tierOf = (name: string) => screen.getByText(name).closest(`.${s.trow}`)!.querySelector(`.${s.trowClock} .${s.trowTier}`)
+
+  it('marks «Fällig» with the clock, «Überfällig» with the triangle, and a calm Trupp with nothing', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const low = (dz.alarmBar ?? 50) - 10
+    mount({ trupps: [
+      { ...aktivTrupp(), id: 'k', name: 'Calm Karl' },
+      { ...aktivTrupp(), id: 'd', name: 'Due Dora', lastContactTime: iso(5.4 * 60_000) },
+      { ...aktivTrupp(), id: 'o', name: 'Over Otto', lastContactTime: iso(8 * 60_000) },
+      { ...aktivTrupp(), id: 'p', name: 'Low Paula', lastPressureBar: low, lowestBar: low,
+        readings: [{ t: iso(10 * 60_000), bar: 300, kind: 'entry' }, { t: iso(60_000), bar: low, kind: 'pressure' }] },
+    ] })
+    expect(tierOf('Calm Karl')).toBeNull()
+    const due = tierOf('Due Dora')!, over = tierOf('Over Otto')!, press = tierOf('Low Paula')!
+    expect(due.textContent).toBe(az.rowDue)
+    expect(due.querySelector('use')!.getAttribute('href')).toBe('#clock')
+    expect(due.className).not.toContain(s.trowTierCrit)
+    expect(over.textContent).toBe(az.clockOverdue)
+    expect(over.querySelector('use')!.getAttribute('href')).toBe('#warn')
+    expect(over.className).toContain(s.trowTierCrit)
+    // a pressure alarm is a different event: it says so, and never «Überfällig»
+    expect(press.textContent).toBe(az.clockAlarmPressure)
+    // …and the row's spoken name carries the word too (the mark itself is aria-hidden)
+    expect(screen.getByText('Due Dora').closest(`.${s.trow}`)!.getAttribute('aria-label')).toContain(az.rowDue)
+    expect(screen.getByText('Low Paula').closest(`.${s.trow}`)!.getAttribute('aria-label')).toContain(az.clockAlarmPressure)
+  })
+
+  it('keeps the row on its two lines — the mark lives in the clock cell', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), lastContactTime: iso(8 * 60_000) }] })
+    const row = document.querySelector(`.${s.trow}`)!
+    expect([...row.children].map((c) => c.className.split(' ')[0])).toEqual([s.trowId, s.trowClock, s.trowAct, s.trowChevron])
   })
 })
 

@@ -294,6 +294,10 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
+  the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
+  reader. Under the clock it now says «Fällig» with a clock glyph, «Überfällig» or «Alarmdruck»
+  with the warning triangle, in the space the row already had. The opened card keeps the same line.
 - **The picked checklist survives a tab change.** The Checkliste surface fell back to the first
   list (on a phone, to the chooser) every time another tab was shown. The pick is now kept per
   Einsatz for the browser session, and survives a reload too.

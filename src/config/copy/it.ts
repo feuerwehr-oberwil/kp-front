@@ -1262,6 +1262,7 @@ export const it: Localizable<Copy> = {
     clockFrozen: 'Stato alla chiusura',
     clockWarn: 'Contatto in scadenza',
     clockOverdue: 'In ritardo',
+    rowDue: 'In scadenza',
     clockAlarmPressure: 'Pressione d’allarme',
     clockAlarmLimit: 'Limite {bar} bar',
     overdueBadge: (n: number) => `${n} in allarme`,
