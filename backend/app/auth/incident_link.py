@@ -335,6 +335,10 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/incidents/{incident_id}/state"),
         ("GET", "/api/incidents/{incident_id}/verify"),
         ("GET", "/api/incidents/{incident_id}/objects"),
+        # the Gebäude card: register hints + the Objekt's Sofortmassnahmen (never its visits —
+        # api/building leaves those out for a link). Not on the view link: an outbound call, and
+        # nothing a finished Rapport carries.
+        ("GET", "/api/incidents/{incident_id}/building"),
         # The one write — see "THE ONE WRITE" above. The caller's own live position, in and
         # out. The GET on the same path is NOT here and must not be added.
         ("POST", "/api/incidents/{incident_id}/positions"),

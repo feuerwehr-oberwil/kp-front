@@ -167,6 +167,8 @@ import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } 
 import { PlanPicker } from './components/PlanPicker'
 import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet, ShareIncidentSheet } from './components/panels'
 import { fetchShareLink } from './lib/viewLink'
+import { useBuildingInfo } from './lib/useBuildingInfo'
+import { BuildingCard } from './components/BuildingCard'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
 import { useBootCover } from './lib/bootCover'
@@ -1289,6 +1291,11 @@ export function IncidentWorkspace({
     legacyPlanIds,
     preserveLegacy,
   })
+
+  // The Gebäude card in the incident menu (KP Front F5): fetched with the Einsatz so it is cached
+  // for offline before anybody opens the menu. Only the operator's MANUAL pick is passed — without
+  // one the server ranks the objects exactly as the plan rail does. A Rapport view link may not ask.
+  const buildingInfo = useBuildingInfo(incidentMeta.id, manualObject?.id ?? null, user?.link_kind !== 'view')
 
   // PWA: pre-download the current map area + plans/symbols/geodata so the base map and
   // reference data render offline at the scene (delivers the `offline`/`cachedTiles` promise).
@@ -5261,6 +5268,7 @@ export function IncidentWorkspace({
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
             onObjectVisits={linkScoped || !onOpenObjectVisits ? undefined : () => onOpenObjectVisits(activeObjectId ?? null)}
+            buildingSlot={<BuildingCard info={buildingInfo} />}
             onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
             onDatenquellen={onOpenDatenquellen}

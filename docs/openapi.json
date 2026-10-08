@@ -8662,6 +8662,92 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/building": {
+      "get": {
+        "tags": [
+          "objects"
+        ],
+        "summary": "Incident Building",
+        "operationId": "incident_building_api_incidents__incident_id__building_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "object",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Object"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "de",
+              "title": "Lang"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildingOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/events": {
       "get": {
         "tags": [
@@ -14547,6 +14633,393 @@
         ],
         "title": "Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post"
       },
+      "BuildingGwrOut": {
+        "properties": {
+          "stand": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stand"
+          },
+          "floors": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floors"
+          },
+          "flats": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flats"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "heating": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Heating"
+          },
+          "heating_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heating Date"
+          },
+          "hot_water": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hot Water"
+          },
+          "shelter": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shelter"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "title": "BuildingGwrOut",
+        "description": "GWR facts about the building — keys and numbers; the words are the app's copy."
+      },
+      "BuildingObjectOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address_match": {
+            "type": "boolean",
+            "title": "Address Match",
+            "default": false
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "BuildingObjectOut",
+        "description": "The Einsatzobjekt the card speaks for — the plan rail's object (api/objects ·\nranked_objects_near), or the one the operator picked."
+      },
+      "BuildingOut": {
+        "properties": {
+          "registers": {
+            "type": "string",
+            "enum": [
+              "on",
+              "off",
+              "outside_ch",
+              "no_location"
+            ],
+            "title": "Registers"
+          },
+          "egid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Egid"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "gwr": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildingGwrOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gwr_status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "none",
+              "error",
+              "skipped"
+            ],
+            "title": "Gwr Status",
+            "default": "skipped"
+          },
+          "plants": {
+            "items": {
+              "$ref": "#/components/schemas/BuildingPlantOut"
+            },
+            "type": "array",
+            "title": "Plants"
+          },
+          "pv_status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error",
+              "skipped"
+            ],
+            "title": "Pv Status",
+            "default": "skipped"
+          },
+          "registers_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registers Fetched At"
+          },
+          "object": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildingObjectOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildingVisitOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "registers"
+        ],
+        "title": "BuildingOut",
+        "description": "``GET /api/incidents/{id}/building`` — the Gebäude card (app/building_facts).\n\nEvery half is optional and fails on its own: ``gwr_status``/``pv_status`` say whether the\nregister could be ASKED (``error``) as opposed to having nothing to say (``none``/``ok`` with\nan empty list). ``registers`` says why they were not asked at all."
+      },
+      "BuildingPlantOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pv",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "power_kw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Kw"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "BuildingPlantOut",
+        "description": "One registered electricity production plant on the building (BFE)."
+      },
+      "BuildingVisitOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "visited_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visited At"
+          },
+          "findings": {
+            "type": "integer",
+            "title": "Findings",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "BuildingVisitOut",
+        "description": "The object's last completed Objektbesuch."
+      },
       "BuildingsRequest": {
         "properties": {
           "south": {
@@ -17495,6 +17968,17 @@
             },
             "type": "array",
             "title": "Externallinks"
+          },
+          "buildingRegister": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buildingregister"
           }
         },
         "type": "object",
@@ -18207,6 +18691,39 @@
             ],
             "title": "Source Key"
           },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
+          },
           "updated_at": {
             "type": "string",
             "format": "date-time",
@@ -18343,6 +18860,42 @@
               }
             ],
             "title": "Refs"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
           }
         },
         "type": "object",
@@ -18566,6 +19119,39 @@
               }
             ],
             "title": "Source Key"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
           },
           "updated_at": {
             "type": "string",

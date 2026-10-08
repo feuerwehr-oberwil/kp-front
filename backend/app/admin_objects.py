@@ -72,6 +72,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import storage
 from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
+from .building_facts import clean_measures
 from .database import async_session_maker, execute_dml
 from .geocode import geocode
 from .models import (
@@ -261,6 +262,15 @@ class ObjectEntry(BaseModel):
     #: Outside systems' ids for this object (``[{"source": "fwo-schlue", "id": "…"}]``), so an
     #: organizer can address it by its own id (docs/object-visits.md). Optional; added, never removed.
     refs: list[ManifestRef] = []
+    #: The object's Sofortmassnahmen, one measure per line («Gashaupthahn im Keller schliessen\n
+    #: …»). Optional and MANUAL — typically read off the Modul-1 sheet by the station's own
+    #: tooling. Shown on the Einsatz's Gebäude card. Written only when present: a manifest
+    #: without the key leaves what Verwaltung typed; ``""`` clears it.
+    measures: str | None = Field(default=None, max_length=4000)
+    #: The sheet's «Bemerkungen» box, same shape and rules as ``measures``.
+    remarks: str | None = Field(default=None, max_length=4000)
+    #: Where ``measures``/``remarks`` came from («Modul 1, Stand 03.2024») — printed beside them on the card.
+    measuresSource: str | None = Field(default=None, max_length=300)
     plans: list[PlanEntry] = []
 
     @property
@@ -317,6 +327,9 @@ EXAMPLE_MANIFEST: dict[str, Any] = {
             "lat": 47.52382,
             "lng": 7.57037,
             "sourceNote": "Einsatzplan-Bibliothek: Schulhaus Dorfmatt",
+            # optional: shown on the Einsatz's Gebäude card, one measure per line
+            "measures": "Gashaupthahn im Heizraum UG schliessen\nSchulhausabwart alarmieren",
+            "measuresSource": "Modul 1",
             "plans": [
                 {"module": "modul1", "file": "plans/dorfmatt/modul1.pdf", "title": "Schulhaus Dorfmatt – Übersicht"},
                 {"module": "modul2", "file": "plans/dorfmatt/modul2-3.pdf", "title": "Schulhaus Dorfmatt – Umgebung"},
@@ -473,6 +486,12 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> WriteResult:
             existing.source_note = o.sourceNote
             if o.folder is not None:
                 existing.filing_folder = o.folder.strip() or None
+            if o.measures is not None:
+                existing.measures = clean_measures(o.measures)
+            if o.remarks is not None:
+                existing.remarks = clean_measures(o.remarks)
+            if o.measuresSource is not None:
+                existing.measures_source = o.measuresSource.strip() or None
             if o.refs:
                 await db.flush()
                 await attach_refs(db, oid, [(r.source, r.id) for r in o.refs])
@@ -546,6 +565,9 @@ def _push(manifest_path: Path, objects: list[ObjectEntry], base: str, admin_secr
                     # manifest without them must not clear what the server already knows.
                     **({"filing_folder": o.folder} if o.folder is not None else {}),
                     **({"refs": [r.model_dump() for r in o.refs]} if o.refs else {}),
+                    **({"measures": o.measures} if o.measures is not None else {}),
+                    **({"remarks": o.remarks} if o.remarks is not None else {}),
+                    **({"measures_source": o.measuresSource} if o.measuresSource is not None else {}),
                 },
             )
             if ro.status_code != 200:

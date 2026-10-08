@@ -830,6 +830,18 @@
           },
           "title": "Externallinks",
           "type": "array"
+        },
+        "buildingRegister": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Buildingregister"
         }
       },
       "title": "MapConfig",
