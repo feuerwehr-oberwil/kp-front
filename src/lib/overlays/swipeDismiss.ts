@@ -67,6 +67,12 @@ const NO_DRAG_SEL = [
   'canvas', '.maplibregl-map', '.maplibregl-canvas-container', '[data-swipe-ignore]',
 ].join(', ')
 
+/** Was this pull a «let go»? Far enough, or a flick after a shorter pull. Shared with the picture
+ *  viewer's swipe-down (lib/ui · PhotoZoom), so both answer the same push the same way. */
+export function isDismissPull(dy: number, ms: number): boolean {
+  return dy > DISMISS_PX || (dy > FLICK_PX && dy / Math.max(1, ms) > FLICK_VPX)
+}
+
 /** Is this popup laid out as a bottom sheet right now? See rule 1. */
 function isBottomSheet(el: HTMLElement) {
   const r = el.getBoundingClientRect()
@@ -107,8 +113,7 @@ export function useSwipeDismiss({ onClose, enabled = true }: SwipeDismissOptions
     if (!d || d.id !== e.pointerId) return
     drag.current = null
     if (!d.engaged) return
-    const v = d.dy / Math.max(1, e.timeStamp - d.t0)
-    if (d.dy > DISMISS_PX || (d.dy > FLICK_PX && v > FLICK_VPX)) {
+    if (isDismissPull(d.dy, e.timeStamp - d.t0)) {
       // let the popup's own exit transition take it from where the finger left it
       settle(d.el, false)
       onClose()

@@ -5,6 +5,8 @@ import { appConfig } from '../config/appConfig'
 import { ConfirmCard, type ConfirmSpec } from './overlays/ConfirmCard'
 import { Overlay } from './overlays'
 import { safeHref } from './mediaUrl'
+import { isDismissPull } from './overlays/swipeDismiss'
+import { ZOOM_FIT, clampZoom, containSize, onPicture, pinchTo, toggleZoomAt, zoomAbout, type Pt, type Size, type Zoom } from './photoZoom'
 import { watchRecords, type RecordKey } from './undoKeys'
 import { useToastLane } from './toastLane'
 
@@ -492,7 +494,7 @@ export function Overlays() {
               <Icon id="close" />
             </button>
           </div>
-          <PhotoZoom url={photo.url} alt={photo.caption ?? ''} key={photo.url} />
+          <PhotoZoom url={photo.url} alt={photo.caption ?? ''} onClose={closePhoto} key={photo.url} />
         </Overlay>
       )}
     </>
@@ -502,98 +504,172 @@ export function Overlays() {
 /**
  * Pinch/wheel zoom on the full-size picture. A document photo is often read for a detail —
  * a Kennzeichen, a Gefahrgutnummer, the small print on a Gasflasche — and «so gross wie der
- * Bildschirm» is not always big enough. Wheel or pinch scales around the pointer, dragging
- * pans while zoomed, double-tap toggles back to fit.
+ * Bildschirm» is not always big enough. The maths is lib/photoZoom; this is the wiring:
+ *
+ * - two fingers pinch AND pan (the spot under the fingers stays under them); the wheel zooms
+ *   about the cursor;
+ * - one finger (or the mouse) pans while zoomed in;
+ * - touch: a DOUBLE tap zooms in about the spot / back to the fit (iOS Photos). A single tap on
+ *   the dark letterbox around the picture closes, as does a push DOWN at the fit (the same
+ *   «let go» rule as the bottom sheets, overlays/swipeDismiss) — on a full-screen phone viewer
+ *   there is no backdrop left to tap;
+ * - mouse: a SINGLE click zooms in/out. The surface shows a zoom cursor, so a click is what anyone
+ *   tries first; it sat behind a double-click before and did nothing.
+ *
+ * ⚠️ Gestures live HERE, on the frame (`touch-action: none`): the app blocks page zoom
+ * (`maximum-scale=1`, `touch-action: pan-x pan-y` on body), so a pinch the browser handled would
+ * do nothing at all. ⚠️ Wheel is a native non-passive listener: React's onWheel is passive, its
+ * preventDefault is ignored.
  */
-function PhotoZoom({ url, alt }: { url: string; alt: string }) {
-  const [z, setZ] = useState({ k: 1, x: 0, y: 0 })
+function PhotoZoom({ url, alt, onClose }: { url: string; alt: string; onClose: () => void }) {
+  const [z, setZ] = useState<Zoom>(ZOOM_FIT)
+  /** the live zoom for handlers that outlive a render (the native wheel listener, a gesture) */
+  const zRef = useRef<Zoom>(ZOOM_FIT)
+  /** swipe-down travel at the fit; the picture follows the finger and fades */
+  const [pull, setPull] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
+  const natural = useRef<Size | null>(null)
   // live pointers: two down = pinch. Keyed by pointerId so a lifted finger can't strand the gesture.
-  const pts = useRef(new Map<number, { x: number; y: number }>())
-  const pinch = useRef<{ dist: number; k: number } | null>(null)
-  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
-  /** did this gesture travel? a pan's release must not read as a click and undo the zoom */
+  const pts = useRef(new Map<number, Pt>())
+  const pinch = useRef<{ z: Zoom; mid: Pt; dist: number } | null>(null)
+  const drag = useRef<{ x0: number; y0: number; t0: number; z: Zoom; mode: 'pan' | 'pull' | 'none' | null } | null>(null)
+  /** did this gesture travel? a pan's release must not read as a tap/click */
   const moved = useRef(false)
+  const lastTap = useRef<{ t: number; x: number; y: number } | null>(null)
+  const lastPointer = useRef('mouse')
 
-  const clamp = (n: { k: number; x: number; y: number }) => {
-    const k = Math.min(8, Math.max(1, n.k))
+  const geom = () => {
     const el = boxRef.current
-    if (!el || k === 1) return { k, x: 0, y: 0 }
-    // keep the picture over its own frame — panning it off-screen loses it with no way back
-    const mx = (el.clientWidth * (k - 1)) / 2
-    const my = (el.clientHeight * (k - 1)) / 2
-    return { k, x: Math.min(mx, Math.max(-mx, n.x)), y: Math.min(my, Math.max(-my, n.y)) }
-  }
-  /** scale about a viewport point, so the detail under the finger stays under the finger */
-  const zoomAt = (nk: number, cx: number, cy: number) => setZ((p) => {
-    const el = boxRef.current
-    if (!el) return p
+    if (!el) return null
     const r = el.getBoundingClientRect()
-    const px = cx - (r.left + r.width / 2)
-    const py = cy - (r.top + r.height / 2)
-    const k = Math.min(8, Math.max(1, nk))
-    return clamp({ k, x: px - ((px - p.x) * k) / p.k, y: py - ((py - p.y) * k) / p.k })
-  })
-
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
-    zoomAt(z.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY)
+    const frame = { w: r.width, h: r.height }
+    return { r, frame, pic: containSize(frame, natural.current) }
   }
+  /** a viewport point → px from the frame's centre (photoZoom's coordinates) */
+  const local = (cx: number, cy: number): Pt => {
+    const g = geom()
+    return g ? { x: cx - (g.r.left + g.r.width / 2), y: cy - (g.r.top + g.r.height / 2) } : { x: 0, y: 0 }
+  }
+  const apply = (next: Zoom) => {
+    const g = geom()
+    const c = g ? clampZoom(next, g.frame, g.pic) : next
+    zRef.current = c
+    setZ(c)
+  }
+
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const p = zRef.current
+      apply(zoomAbout(p, p.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15), local(e.clientX, e.clientY)))
+    }
+    // a turned phone re-fits the frame: keep the picture over it
+    const onResize = () => apply(zRef.current)
+    el.addEventListener('wheel', onWheel, { passive: false })
+    window.addEventListener('resize', onResize)
+    return () => { el.removeEventListener('wheel', onWheel); window.removeEventListener('resize', onResize) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reads refs only
+  }, [])
+
+  const mid = (a: Pt, b: Pt) => local((a.x + b.x) / 2, (a.y + b.y) / 2)
   const onDown = (e: React.PointerEvent) => {
-    moved.current = false
+    lastPointer.current = e.pointerType
     pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
     if (pts.current.size === 2) {
       const [a, b] = [...pts.current.values()]
-      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), k: z.k }
+      pinch.current = { z: zRef.current, mid: mid(a, b), dist: Math.hypot(a.x - b.x, a.y - b.y) }
       drag.current = null
-    } else if (z.k > 1) {
-      drag.current = { x: e.clientX, y: e.clientY, ox: z.x, oy: z.y }
+      moved.current = true
+      setPull(0)
+    } else if (pts.current.size === 1) {
+      moved.current = false
+      drag.current = { x0: e.clientX, y0: e.clientY, t0: e.timeStamp, z: zRef.current, mode: null }
     }
   }
   const onMove = (e: React.PointerEvent) => {
     if (!pts.current.has(e.pointerId)) return
     pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-    if (pinch.current && pts.current.size >= 2) {
+    const pi = pinch.current
+    if (pi && pts.current.size >= 2) {
       const [a, b] = [...pts.current.values()]
-      const d = Math.hypot(a.x - b.x, a.y - b.y)
-      zoomAt((pinch.current.k * d) / pinch.current.dist, (a.x + b.x) / 2, (a.y + b.y) / 2)
+      apply(pinchTo(pi.z, pi.mid, pi.dist, mid(a, b), Math.hypot(a.x - b.x, a.y - b.y)))
       return
     }
     const d = drag.current
-    if (d) {
-      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) moved.current = true
-      setZ((p) => clamp({ k: p.k, x: d.ox + (e.clientX - d.x), y: d.oy + (e.clientY - d.y) }))
+    if (!d) return
+    const dx = e.clientX - d.x0
+    const dy = e.clientY - d.y0
+    if (!moved.current && Math.hypot(dx, dy) > 6) moved.current = true
+    if (!moved.current) return
+    if (d.mode === null) {
+      d.mode = d.z.k > 1 ? 'pan' : e.pointerType !== 'mouse' && dy > 0 && dy > Math.abs(dx) ? 'pull' : 'none'
     }
+    if (d.mode === 'pan') apply({ k: d.z.k, x: d.z.x + dx, y: d.z.y + dy })
+    else if (d.mode === 'pull') setPull(Math.max(0, dy))
+  }
+  const onTap = (e: React.PointerEvent) => {
+    const at = local(e.clientX, e.clientY)
+    const lt = lastTap.current
+    if (lt && e.timeStamp - lt.t < 320 && Math.hypot(at.x - lt.x, at.y - lt.y) < 30) {
+      lastTap.current = null
+      apply(toggleZoomAt(zRef.current, at))
+      return
+    }
+    lastTap.current = { t: e.timeStamp, x: at.x, y: at.y }
+    const g = geom()
+    if (g && zRef.current.k === 1 && !onPicture(zRef.current, g.pic, at)) onClose()
   }
   const onUp = (e: React.PointerEvent) => {
+    if (!pts.current.delete(e.pointerId)) return
+    if (pts.current.size < 2 && pinch.current) {
+      pinch.current = null
+      // the finger still down carries on as a pan from where the pinch left the picture
+      const [rest] = [...pts.current.values()]
+      drag.current = rest ? { x0: rest.x, y0: rest.y, t0: e.timeStamp, z: zRef.current, mode: 'pan' } : null
+      return
+    }
+    if (pts.current.size > 0) return
+    const d = drag.current
+    drag.current = null
+    if (d?.mode === 'pull') {
+      if (isDismissPull(e.clientY - d.y0, e.timeStamp - d.t0)) onClose()
+      else setPull(0)
+      return
+    }
+    if (!moved.current && e.pointerType !== 'mouse') onTap(e)
+  }
+  const onCancel = (e: React.PointerEvent) => {
     pts.current.delete(e.pointerId)
     if (pts.current.size < 2) pinch.current = null
-    if (pts.current.size === 0) drag.current = null
+    if (pts.current.size === 0) { drag.current = null; setPull(0) }
   }
-  /**
-   * A SINGLE click zooms. The surface already shows a zoom cursor, so a click is what anyone
-   * tries first — and it did nothing: the zoom sat behind a double-click, the wheel and a pinch,
-   * none of which the picture advertises. Click in, click out; the other gestures still work.
-   *
-   * Guarded on movement, or the release that ends a PAN would zoom out from under the hand.
-   */
-  const clickZoom = (e: React.MouseEvent) => {
-    if (moved.current) return
-    if (z.k > 1) setZ({ k: 1, x: 0, y: 0 })
-    else zoomAt(3, e.clientX, e.clientY)
+  const onClick = (e: React.MouseEvent) => {
+    // touch taps are answered in onUp (double tap); the click that follows them is not a zoom
+    if (lastPointer.current !== 'mouse' || moved.current) return
+    apply(toggleZoomAt(zRef.current, local(e.clientX, e.clientY)))
   }
 
   return (
     <div
-      ref={boxRef} className="photo-view-zoom" onWheel={onWheel}
-      onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-      onClick={clickZoom}
+      ref={boxRef} className="photo-view-zoom" data-swipe-ignore
+      onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel}
+      onClick={onClick}
       data-zoomed={z.k > 1 || undefined}
     >
       <img
         className="photo-view-img" src={url} alt={alt} draggable={false}
-        style={{ transform: `translate(${z.x}px, ${z.y}px) scale(${z.k})` }}
+        onLoad={(e) => {
+          const im = e.currentTarget
+          natural.current = { w: im.naturalWidth, h: im.naturalHeight }
+          apply(zRef.current)
+        }}
+        style={{
+          transform: `translate(${z.x}px, ${z.y + pull}px) scale(${z.k})`,
+          opacity: pull ? Math.max(0.4, 1 - pull / 320) : undefined,
+        }}
       />
     </div>
   )

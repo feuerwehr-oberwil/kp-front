@@ -211,7 +211,7 @@
   "src/styles/08-toasts.css": {
     "fontSize": 20,
     "weight": 10,
-    "spacing": 53,
+    "spacing": 52,
     "shadow": 5
   },
   "src/styles/09-whiteboard.css": {

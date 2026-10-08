@@ -49,6 +49,14 @@ describe('openSheetTop', () => {
     Object.defineProperty(navigator, 'virtualKeyboard', { configurable: true, value: Object.assign(new EventTarget(), { overlaysContent: true, boundingRect: { height: 300 } }) })
     expect(openSheetTop()).toBe(300)
   })
+  it('a full-screen picture sends the lane to the foot: its ✕ is where the top lane would stand', () => {
+    window.innerHeight = 800
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: new FakeViewport(800) })
+    sheetAt(300, 800)
+    expect(openSheetTop()).toBe(300)
+    sheetAt(0, 800).classList.add('photo-view')
+    expect(openSheetTop()).toBeNull()
+  })
 })
 
 describe('useToastLane', () => {
