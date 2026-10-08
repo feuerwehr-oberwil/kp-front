@@ -192,7 +192,9 @@
   .ml { top: calc(72px + env(safe-area-inset-top));
     left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
     max-height: calc(100dvh - var(--rail-h) - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
-  .ml-row { flex-wrap: wrap; padding-bottom: 8px; }
+  /* the ✕ keeps its 44px slot beside the title, so the title's room is what the gaps leave: 8 and a
+     12px inset (not 12 and 16) keep «TLF fährt weg · 340 m vom Einsatzort» on one 14px line at 390 */
+  .ml-row { flex-wrap: wrap; column-gap: var(--sp-2); padding-bottom: 8px; padding-left: var(--sp-3); }
   /* three lines here: at 360px that holds the names of a whole board */
   .ml-title { -webkit-line-clamp: 3; line-clamp: 3; }
   /* …and a pair too long for one line (the GPS row's «Zurück auf Stand am Einsatzort» ·
