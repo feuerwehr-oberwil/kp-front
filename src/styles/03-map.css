@@ -313,6 +313,6 @@
 /* a Verlauf photo's view cone (lib/photoGeo): under the thumbnail, its tip ON the spot the photo
    was taken from, turned to the lens's bearing in MapMarkers */
 .ts.photo img { position: relative; }
-.ts.photo .photo-cone { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; pointer-events: none;
+.ts.photo .photo-cone { position: absolute; left: 50%; top: 50%; width: 176px; height: 176px; pointer-events: none;
   transform-origin: 50% 50%; overflow: visible; }
 .ts.photo .photo-cone path { fill: var(--blue-22); stroke: var(--blue-62); stroke-width: 1.5; stroke-linejoin: round; }
