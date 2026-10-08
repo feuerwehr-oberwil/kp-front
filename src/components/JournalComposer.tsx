@@ -29,14 +29,18 @@ import { acceptJournalSuggestion, journalSuggestions, type JournalSuggestion, ty
 import { suggestPendenzen, type OpenReminder } from '../lib/reminders'
 import { startChips } from '../lib/startChips'
 import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep'
-import { useHoldRepeat } from '../lib/useHoldRepeat'
-import { useTapToType } from '../lib/useTapToType'
+import { TimeField } from './TimeField'
+import { WheelPopover, type WheelValue } from './WheelPicker'
+import { dayRange } from '../lib/zeitplanFormat'
 import { keyboardMargin, useKeyboardInset } from '../lib/useKeyboardInset'
 import { nextCompact } from '../lib/composerFit'
 
 // `C` (appConfig.copy.journal) is read at the top of each component below rather than captured
 // here at module-load, so the locale resolved at boot (config/copy) applies.
-const MIN_STEP = 1 // exact-time minute granularity (hold the ± to repeat-fast)
+/** How many days the «Uhrzeit …» day wheel offers, today included. A Wiedervorlage lands today or
+ *  tomorrow in nearly every case; a week covers the «nach dem Wochenende» one without turning the
+ *  column into a calendar. Never earlier than today — a past day can only hold a past instant. */
+const REMIND_DAYS = 7
 /** ⚠️ U+2192 / U+2190, never «->» and «<-». The same character has to survive into the Verlauf,
  *  the Rapport and the PDF, and an ASCII pair renders as two characters that a search will never
  *  find as one. Both directions, because a Funkprotokoll has both: «EL → Sanität» is an order
@@ -105,15 +109,23 @@ function resolveDueAt(sel: DueSel): string | null {
   return new Date(y, mo - 1, da, h, m, 0, 0).toISOString()
 }
 
-// default exact due when «Uhrzeit …» is first chosen: ~5 min out, snapped to the grid — which
-// rolls the DAY too, so the dialog opens on tomorrow when it is a few minutes before midnight.
+// default exact due when «Uhrzeit …» is first chosen: ~5 min out — which rolls the DAY too, so
+// the picker opens on tomorrow when it is a few minutes before midnight.
 function defaultExact(): { day: string; hhmm: string } {
   const d = new Date(Date.now() + 5 * 60_000)
-  d.setMinutes(Math.ceil(d.getMinutes() / MIN_STEP) * MIN_STEP, 0, 0)
   return { day: dayKey(d), hhmm: hhmm(d) }
 }
 
-/** «Heute · Di 18.08.» — the day the dialog is set to, named the way a person would say it. */
+/** the days the «Uhrzeit …» wheel offers: today and the REMIND_DAYS − 1 after it, plus the day
+ *  already chosen (a kept draft can hold one outside that span — the wheel must open on it rather
+ *  than show one day while OK commits another). WheelPopover de-duplicates and sorts. */
+function remindDays(chosen: string): Date[] {
+  const now = new Date()
+  const [y, m, d] = chosen.split('-').map(Number)
+  return [...dayRange(now, new Date(now.getFullYear(), now.getMonth(), now.getDate() + REMIND_DAYS - 1)), new Date(y, m - 1, d)]
+}
+
+/** «Heute · Di 18.08.» — the day the picker is set to, named the way a person would say it. */
 function dayLabel(day: string): string {
   const [y, m, d] = day.split('-').map(Number)
   const date = new Date(y, m - 1, d)
@@ -123,50 +135,6 @@ function dayLabel(day: string): string {
   const rel = diff === 0 ? C.dayToday : diff === 1 ? C.dayTomorrow : null
   const stamp = date.toLocaleDateString(appConfig.locale, { weekday: 'short', day: '2-digit', month: '2-digit' })
   return rel ? `${rel} · ${stamp}` : stamp
-}
-
-/** step the day by ±1, never before today: a Wiedervorlage in the past fires the moment it is
- *  saved, which is a banner nobody asked for rather than a reminder. */
-function stepDay(day: string, by: 1 | -1): string {
-  const [y, m, d] = day.split('-').map(Number)
-  const next = new Date(y, m - 1, d + by)
-  const now = new Date()
-  const floor = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  return dayKey(next < floor ? floor : next)
-}
-
-// Custom HH:MM stepper — replaces the native <input type="time"> (whose OS spinner clashed with
-// the dark UI). ± hours/minutes via the shared hold-repeat steppers; both columns wrap.
-function TimeStepper({ hhmm, onChange }: { hhmm: string; onChange: (v: string) => void }) {
-  const C = appConfig.copy.journal // read per-render so the resolved locale applies
-  const [h, m] = hhmm.split(':').map(Number)
-  const set = (nh: number, nm: number) => onChange(`${pad2((nh + 24) % 24)}:${pad2((nm + 60) % 60)}`)
-  const hDec = useHoldRepeat(() => set(h - 1, m))
-  const hInc = useHoldRepeat(() => set(h + 1, m))
-  const mDec = useHoldRepeat(() => set(h, m - MIN_STEP))
-  const mInc = useHoldRepeat(() => set(h, m + MIN_STEP))
-  // tap either column's value to type it (commit wraps modulo, like the ± buttons)
-  const hEdit = useTapToType({ min: 0, max: 23, onCommit: (v) => set(v, m) })
-  const mEdit = useTapToType({ min: 0, max: 59, onCommit: (v) => set(h, v) })
-  return (
-    <div className="jc-time">
-      <div className="jc-time-col">
-        <button type="button" className="jc-time-btn" aria-label={C.hourUp} {...hInc}><Icon id="chevron-up" /></button>
-        {hEdit.editing
-          ? <input className="jc-time-input" aria-label={C.hourUp} {...hEdit.inputProps} />
-          : <button type="button" className="jc-time-val" onClick={() => hEdit.start(h)} title={appConfig.copy.stepper.typeToEnter}>{pad2(h)}</button>}
-        <button type="button" className="jc-time-btn" aria-label={C.hourDown} {...hDec}><Icon id="chevron-down" /></button>
-      </div>
-      <span className="jc-time-sep">:</span>
-      <div className="jc-time-col">
-        <button type="button" className="jc-time-btn" aria-label={C.minUp} {...mInc}><Icon id="chevron-up" /></button>
-        {mEdit.editing
-          ? <input className="jc-time-input" aria-label={C.minUp} {...mEdit.inputProps} />
-          : <button type="button" className="jc-time-val" onClick={() => mEdit.start(m)} title={appConfig.copy.stepper.typeToEnter}>{pad2(m)}</button>}
-        <button type="button" className="jc-time-btn" aria-label={C.minDown} {...mDec}><Icon id="chevron-down" /></button>
-      </div>
-    </div>
-  )
 }
 
 // Quick-add for the unified journal: a free-text note and/or a voice memo. Reachable from both
@@ -282,11 +250,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // it is saved, and the sheet can stand open for a while (unchanged behaviour).
   const [dueSel, setDueSel] = useState<DueSel>(rest0.dueSel)
   const dueAt = resolveDueAt(dueSel) ?? undefined
-  // the exact due dialog (day + time), opened from the clock menu's «Uhrzeit …» row
-  const [exact, setExact] = useState<{ day: string; hhmm: string } | null>(null)
-  // …and whether what it currently says has already gone by (see the dialog)
-  const exactAt = exact ? resolveDueAt({ kind: 'at', ...exact }) : null
-  const pastDue = !!exactAt && Date.parse(exactAt) <= Date.now()
+  // the exact due picker (day + time), opened from the clock menu's «Uhrzeit …» row — what it
+  // opens on; null = closed. Anchored to the clock button, which `dueWrapRef` holds.
+  const [exact, setExact] = useState<{ day: string; hhmm: string; anchor: DOMRect } | null>(null)
+  const dueWrapRef = useRef<HTMLSpanElement>(null)
   // ── the ○ switch: aus → offen → dringend → aus ────────────────────────────────────────────
   // ⚠️ THREE states on ONE control, not a second chip appearing beside it. A chip that shows up
   // on tap pushes the row onto a second line — the sheet grows under the thumb on the one surface
@@ -699,6 +666,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   }
 
   const kbInset = useKeyboardInset()
+  // the «Uhrzeit …» picker hangs off the clock button, and on a phone opening it drops the
+  // keyboard (see the menu row) — which moves the sheet, and the button with it. Re-anchor once
+  // the sheet has settled, or the wheels float where the button USED to be.
+  const pickerOpen = exact != null
+  useEffect(() => {
+    if (!pickerOpen) return
+    const r = dueWrapRef.current?.getBoundingClientRect()
+    if (r) setExact((e) => (e ? { ...e, anchor: r } : e))
+  }, [kbInset, pickerOpen])
   // …and which rung of the degradation ladder the sheet stands on (see lib/composerFit): with
   // the keyboard up this card is regularly taller than what is left of the screen, and it used to
   // answer that by scrolling — which, with the field focused, scrolled the CARET into view and
@@ -981,7 +957,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   one-of-N. The preset minutes and «Uhrzeit …» live in that one popup.
                   ⚠️ The two controls are not independent (see setDue/setOpen): a Fälligkeit implies
                   an open item, because a banner nobody can tick off has no answer. */}
-              <span className="jc-openwrap">
+              <span className="jc-openwrap" ref={dueWrapRef}>
               <Menu
                 keepFocusRef={phone ? textRef : undefined}
                 modal={!phone}
@@ -996,7 +972,12 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 items={[
                   { kind: 'head' as const, label: C.dueHead },
                   { label: dueRow(<Icon id="clock" />, C.reminderExact, dueSel?.kind === 'at'),
-                    onClick: () => setExact(dueSel?.kind === 'at' ? { day: dueSel.day, hhmm: dueSel.hhmm } : defaultExact()) },
+                    onClick: () => {
+                      const anchor = dueWrapRef.current?.getBoundingClientRect()
+                      if (anchor) setExact({ ...(dueSel?.kind === 'at' ? { day: dueSel.day, hhmm: dueSel.hhmm } : defaultExact()), anchor })
+                      // the wheels need no keyboard, and on a phone it would cover them
+                      if (phone) textRef.current?.blur()
+                    } },
                   ...C.reminderChips.map((n) => ({
                     label: dueRow(null, C.reminderChipLabel.replace('{n}', String(n)), dueSel?.kind === 'in' && dueSel.mins === n),
                     onClick: () => setDue({ kind: 'in', mins: n }),
@@ -1169,7 +1150,11 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             </div>
             <div className="jc-import-start">
               <span className="jc-due-label">{C.audioStartLabel}</span>
-              <TimeStepper hhmm={startHHMM} onChange={(v) => { setStartHHMM(v); setStartConfirmed(true) }} />
+              {/* THE time field (TimeField · WheelPopover), not a stepper of its own: the same wheels
+                  and typed field as every other clock in the app. Committing it counts as the
+                  confirmation the gate waits for, as moving the ± did. */}
+              <TimeField required value={startHHMM} ariaLabel={C.audioStartLabel}
+                onCommit={(v) => { if (v) { setStartHHMM(v); setStartConfirmed(true) } }} />
               <Chip selected={startConfirmed} icon={<Icon id="check" />} onClick={() => setStartConfirmed(true)}>
                 {C.audioStartConfirm}
               </Chip>
@@ -1216,51 +1201,45 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             {uploading ? C.audioUploading : C.send}
           </Button>
         </div>
-      {/* «Uhrzeit …» — the one answer that is not a row in a menu. A dialog rather than a strip
-          unfolding inside the sheet: the composer is already fighting the keyboard for its rows,
-          and this is the rare path. It carries the SAME ± stepper the imported memo uses. */}
-      {/* ⚠️ `ui-dialog` is not decoration: it is what POSITIONS and stacks a dialog at all (see
-          08-toasts.css · «der Stift öffnet nichts»). Without it this card mounted into the DOM
-          unstyled at the top of <body> and under the sheet — «Uhrzeit tut nichts», with a DOM that
-          looked perfectly correct. Its z-index (96) is also what puts it over the composer (81).
-          There is deliberately no second backdrop: Base UI renders none for a NESTED dialog, so
-          the sheet stays visible behind — right for a popup that answers one question about it. */}
+      {/* «Uhrzeit …» — the one answer that is not a row in a menu. It opens THE time picker
+          (WheelPopover: wheels for a finger, a typed field for a keyboard, a day column) straight
+          from the clock button. It was a dialog with a ± stepper of its own (owner, 08.10.2026:
+          «use our normal picker, to avoid having another one») — one picker, no dialog-in-dialog.
+          The popover joins the dismissal guard, so its Esc / outside tap closes only it, never
+          the composer underneath. */}
       {exact != null && (
-        <Overlay open onClose={() => setExact(null)} className="confirm-card ui-dialog jc-exact" backdropClassName="modal-backdrop"
-          ariaLabel={C.reminderExact}>
-          <h3 className="jc-exact-title">{C.dueExactTitle}</h3>
-          {/* ⚠️ THE DAY, always — not «and if that time is already past, then tomorrow». An Einsatz
-              runs over midnight often enough that the rule was silently right most of the time and
-              silently wrong the rest, on a surface where nobody re-reads what they set. It steps
-              rather than opens a calendar: a Wiedervorlage lands today or tomorrow in nearly every
-              case, and ± is one tap with a glove on. */}
-          <div className="jc-exact-day">
-            <button type="button" className="jc-time-btn" aria-label={C.dayBack}
-              onClick={() => setExact((e) => (e ? { ...e, day: stepDay(e.day, -1) } : e))}
-              disabled={exact.day === dayKey(new Date())}
-            ><Icon id="chevron" className="jc-exact-prev" /></button>
-            <b>{dayLabel(exact.day)}</b>
-            <button type="button" className="jc-time-btn" aria-label={C.dayForward}
-              onClick={() => setExact((e) => (e ? { ...e, day: stepDay(e.day, 1) } : e))}
-            ><Icon id="chevron" /></button>
-          </div>
-          <TimeStepper hhmm={exact.hhmm} onChange={(hhmm) => setExact((e) => (e ? { ...e, hhmm } : e))} />
-          {/* what the two together mean, resolved exactly as `resolveDueAt` will resolve them —
-              including the case the day picker now makes possible: a time that has already gone by */}
-          <p className={`jc-exact-preview${pastDue ? ' is-past' : ''}`}>
-            {pastDue ? C.duePast : `${dayLabel(exact.day)} · ${exact.hhmm}`}
-          </p>
-          <div className="jc-exact-actions">
-            <Button onClick={() => setExact(null)}>{appConfig.copy.cancel}</Button>
-            {/* ⚠️ Disabled on a past instant rather than quietly rolling it forward: a reminder that
-                fires the second it is saved is not what «22:57» meant, and the fix is one tap on
-                the day. */}
-            <Button variant="primary" disabled={pastDue} icon={<Icon id="check" />}
-              onClick={() => { setDue({ kind: 'at', day: exact.day, hhmm: exact.hhmm }); setExact(null) }}>
-              {C.dueExactConfirm}
-            </Button>
-          </div>
-        </Overlay>
+        <WheelPopover
+          anchor={exact.anchor}
+          initial={(() => {
+            const [y, m, d] = exact.day.split('-').map(Number)
+            const [h, mi] = exact.hhmm.split(':').map(Number)
+            return new Date(y, m - 1, d, h, mi, 0, 0)
+          })()}
+          // ⚠️ THE DAY, always — not «and if that time is already past, then tomorrow». An Einsatz
+          // runs over midnight often enough that the rule was silently right most of the time and
+          // silently wrong the rest, on a surface where nobody re-reads what they set. A bounded
+          // column (today + the next days, see REMIND_DAYS), not a calendar.
+          days={remindDays(exact.day)}
+          title={C.dueExactTitle}
+          // «Jetzt» is never a Wiedervorlage: it fires the moment it is saved
+          noNow
+          // what the two together mean, resolved exactly as `resolveDueAt` will resolve them —
+          // including the one the wheels make possible: a time that has already gone by.
+          // ⚠️ That one BLOCKS «OK» rather than quietly rolling forward: a reminder that fires the
+          // second it is saved is not what «22:57» meant, and the fix is one flick of the day.
+          note={(v: WheelValue) => {
+            const sel = { day: `${v.y}-${pad2(v.mo)}-${pad2(v.d)}`, hhmm: `${pad2(v.h)}:${pad2(v.mi)}` }
+            const at = resolveDueAt({ kind: 'at', ...sel })
+            return at && Date.parse(at) <= Date.now()
+              ? { text: C.duePast, blocks: true }
+              : { text: `${dayLabel(sel.day)} · ${sel.hhmm}` }
+          }}
+          onClose={() => setExact(null)}
+          onCommit={(v: WheelValue) => {
+            setExact(null)
+            setDue({ kind: 'at', day: `${v.y}-${pad2(v.mo)}-${pad2(v.d)}`, hhmm: `${pad2(v.h)}:${pad2(v.mi)}` })
+          }}
+        />
       )}
     </Overlay>
   )

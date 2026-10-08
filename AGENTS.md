@@ -106,6 +106,11 @@ to prod.
   typed times stay open with an error; optional values expose «Leeren» left of «Jetzt» and «OK»
   in the action row. Named state choices such as «noch da» stay above the wheels. Hold-repeat
   buttons support click-only assistive activation without doubling pointer taps.
+- ONE time picker: every clock entry is `TimeField`/`WheelPopover` – no per-surface ± time
+  stepper. The Verlauf composer's «Uhrzeit …» (Wiedervorlage) opens `WheelPopover` straight off
+  the clock button (`title`, a day column of today + 6 days, `noNow`, and a `note` that shows the
+  resolved «Morgen · Fr 09.10. · 07:30» and BLOCKS «OK» on a past instant – never rolled to
+  tomorrow). The imported memo's «Aufnahme begann» is a `required` `TimeField`.
 - ONE date+time control: `DateTimeField` (`components/TimeField`, ISO in/out). The date is a
   bounded day column («Mo 05.10.», `lib/zeitplanFormat · fmtWheelDay`) from `days` – the incident's (`incidentDays`)
   or by default the last 60 days – never day/month/year wheels and never a native
