@@ -65,16 +65,22 @@ export function buildingChips(b: BuildingInfo | null): BuildingChip[] {
     }
   }
   if (b.pv_status === 'ok') {
+    // ONE PV tag per building, however many registrations its roof has (an extension is a second
+    // plant in the register): the crew needs «PV, this much», not the paperwork
+    const pv = b.plants.filter((p) => p.kind === 'pv')
+    if (pv.length) {
+      const total = pv.every((p) => p.power_kw != null) ? pv.reduce((sum, p) => sum + (p.power_kw ?? 0), 0) : null
+      const first = pv.map((p) => p.since).filter((d): d is string => !!d).sort()[0]
+      hazards.push({
+        key: 'pv',
+        text: total != null ? fillTemplate(C.pv, { kw: fmtKw(total) }) : C.pvBare,
+        hazard: true,
+        title: fillTemplate(C.pvTitle, { since: first ? fillTemplate(C.pvSince, { d: fmtDay(first) }) : '' }),
+      })
+    }
     for (const [i, p] of b.plants.entries()) {
-      if (p.kind === 'pv') {
-        const since = p.since ? fillTemplate(C.pvSince, { d: fmtDay(p.since) }) : ''
-        hazards.push({
-          key: `pv-${i}`,
-          text: p.power_kw != null ? fillTemplate(C.pv, { kw: fmtKw(p.power_kw) }) : C.pvBare,
-          hazard: true,
-          title: fillTemplate(C.pvTitle, { since }),
-        })
-      } else if (p.label) {
+      if (p.kind === 'pv') continue
+      if (p.label) {
         facts.push({ key: `plant-${i}`, text: p.power_kw != null ? `${p.label} ${fmtKw(p.power_kw)}` : p.label, hazard: false })
       }
     }

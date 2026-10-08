@@ -56,6 +56,16 @@ describe('buildingChips', () => {
     expect(buildingChips(null)).toEqual([])
   })
 
+  it('one PV tag per roof: two registrations add up, the earliest start is the «seit»', () => {
+    const chips = buildingChips(info({ plants: [
+      { kind: 'pv', label: 'Photovoltaik', power_kw: 331.87, since: '2024-06-21' },
+      { kind: 'pv', label: 'Photovoltaik', power_kw: 256.8, since: '2014-06-10' },
+    ] }))
+    const pv = chips.filter((c) => c.key === 'pv')
+    expect(pv.map((c) => c.text)).toEqual(['PV 589 kW'])
+    expect(pv[0].title).toContain('seit 10.06.2014')
+  })
+
   it('PV without a power reading still says PV; other plants by their register label', () => {
     const chips = buildingChips(info({ gwr: null, gwr_status: 'none', plants: [
       { kind: 'pv', label: null, power_kw: null, since: null },
