@@ -34,8 +34,8 @@ describe('GpsFollowMeldung', () => {
     expect(m.title()).toBe('TLF fährt weg · 340 m vom Einsatzort')
     expect(m.sub()).toBe('Leitung 1 endet noch am Einsatzort.')
     expect(m.buttons().map((b) => b.textContent)).toEqual(['Am Einsatzort lassen', 'Weiter folgen'])
-    expect(m.buttons()[0].className).toBe('ml-btn prim go')
-    expect(m.buttons()[1].className).toBe('ml-btn')
+    expect(m.buttons()[0].className).toBe('ip-btn go ml-btn')
+    expect(m.buttons()[1].className).toBe('ip-btn ml-btn')
     expect(m.x()).toBeNull() // not something to wave away
     fireEvent.click(m.buttons()[0]); fireEvent.click(m.buttons()[1])
     expect(m.onKeep).toHaveBeenCalledOnce()
@@ -73,7 +73,7 @@ describe('GpsFollowMeldung', () => {
   it('stopped with NOTHING kept (an older build\'s trace): «Hier lösen», never «Einsatzort», and not green', () => {
     const m = show(notice({ key: 'gps-3:stopped', kind: 'stopped', distanceM: 1149, canRevert: false }))
     expect(m.buttons().map((b) => b.textContent)).toEqual(['Hier lösen (Spur behalten)', 'Weiter folgen'])
-    expect(m.buttons()[0].className).toBe('ml-btn prim')
+    expect(m.buttons()[0].className).toBe('ip-btn primary ml-btn')
     fireEvent.click(m.buttons()[0])
     expect(m.onKeep).toHaveBeenCalledOnce()
   })
@@ -82,7 +82,7 @@ describe('GpsFollowMeldung', () => {
     const m = show(notice({ key: 'gps-3:back', kind: 'back', distanceM: 60, before, canRevert: true, ends: [{ drawing, endpoint: 'end', before }] }))
     expect(m.title()).toBe('TLF wieder am Einsatzort')
     expect(m.sub()).toBe(`Leitung 1 zeigt die Fahrt seit ${formatTime(new Date(AT))}.`)
-    expect(m.buttons()[0].className).toBe('ml-btn prim go')
+    expect(m.buttons()[0].className).toBe('ip-btn go ml-btn')
     fireEvent.click(m.buttons()[1])
     expect(m.onFollow).toHaveBeenCalledOnce()
   })
