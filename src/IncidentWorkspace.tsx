@@ -203,6 +203,7 @@ import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
+import { photoMarker, photoPlacement, rememberPhotoGeo, rowGeoFor, rowPhotoGeo, withResolvedPhotos, type PhotoPlacement } from './lib/photoGeo'
 import { whenIdle } from './lib/idle'
 
 const prefs = loadPrefs()
@@ -2650,6 +2651,7 @@ export function IncidentWorkspace({
     // by scrubbing the whole picture to the moment. Rows written BEFORE this still carry their
     // coord and stay clickable; nothing reads `pinned` to decide anything else.
     const photoUrls = d.photoUrls ?? []
+    const photoGeo = rowGeoFor(photoUrls)
     const icon = d.audioUrl ? 'mic' : photoUrls.length ? 'photo' : 'type'
     const kind = d.audioUrl ? 'audio' : photoUrls.length ? 'photo' : 'journal'
     const imported = d.audioMeta?.source === 'imported'
@@ -2700,6 +2702,8 @@ export function IncidentWorkspace({
       // structured fields travel along for filtering, not for display.
       icon, text: composeJournalText(body, d), kind, entryType: d.entryType, reminder,
       audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,
+      // where each picture was taken (EXIF, read at the pick — lib/photoGeo); absent when none knows
+      photoGeo: photoGeo,
       // …already SERVER urls (a generic Beilage is uploaded during save, never queued), so
       // nothing here has to be swapped later the way a photo's blob: URL is
       files: d.files,
@@ -2843,7 +2847,10 @@ export function IncidentWorkspace({
     // (lib/mediaUrl · thumbUrl), and a chip pointed at the camera file is the decode that killed
     // the tab. The row is stamped at the gesture (composerOpenedAt), so the moment it appears
     // does not move its time.
-    void Promise.all(files.map((f, i) => mintLocalThumb(urls[i], f))).then(() => addJournal({ text: '', photoUrls: urls }))
+    // …and where each was taken, off the ORIGINAL file before the upload re-encodes it
+    // (lib/photoGeo) — the row is written with it, so it waits for both.
+    void Promise.all(files.flatMap((f, i) => [mintLocalThumb(urls[i], f), rememberPhotoGeo(urls[i], f)]))
+      .then(() => addJournal({ text: '', photoUrls: urls }))
   }
 
   // Every path through here ends the "I am reading this object" state — reaching for a tool means

@@ -11,6 +11,7 @@ import { fillTemplate, formatTime, hhmm, pad2, stripUnprintable } from '../lib/f
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import { forgetLocalThumb, mintLocalThumb, thumbUrl } from '../lib/mediaUrl'
+import { forgetPhotoGeo, rememberPhotoGeo } from '../lib/photoGeo'
 import {
   MAX_AUDIO_UPLOAD_MB,
   MAX_FILE_UPLOAD_MB,
@@ -329,6 +330,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     const urls = picked.map((f) => URL.createObjectURL(f))
     setPhotos((ps) => [...ps, ...urls])
     picked.forEach((f, i) => void mintLocalThumb(urls[i], f).then(() => { if (alive.current) setThumbNonce((n) => n + 1) }))
+    // where each was taken, read off the ORIGINAL file now — the upload re-encodes it through a
+    // canvas, which keeps no metadata (lib/photoGeo). The row picks it up when it is saved.
+    picked.forEach((f, i) => void rememberPhotoGeo(urls[i], f))
   }
   // …and one write per change. Cheap enough (draftKeep), and it is the only thing that has to
   // stay in step with the five states above.
@@ -617,6 +621,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   }
   const discardPhoto = (url: string) => {
     forgetLocalThumb(url)
+    forgetPhotoGeo(url)
     URL.revokeObjectURL(url)
     setPhotos((ps) => ps.filter((p) => p !== url))
   }
