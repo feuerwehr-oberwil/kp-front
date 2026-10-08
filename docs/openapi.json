@@ -20958,10 +20958,60 @@
               }
             ],
             "title": "Station"
+          },
+          "wind_forecast": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/WindForecast"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Forecast"
           }
         },
         "type": "object",
         "title": "WeatherData"
+      },
+      "WindForecast": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "dir_deg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dir Deg"
+          },
+          "speed_kmh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speed Kmh"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at"
+        ],
+        "title": "WindForecast",
+        "description": "One hour of the Open-Meteo point forecast — model wind, not a measurement."
       },
       "WorkbookImportResult": {
         "properties": {
