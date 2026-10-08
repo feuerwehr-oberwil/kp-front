@@ -1,7 +1,7 @@
 import { ShellLoader } from '../ShellLoader'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../lib/icons'
-import { initials, roleLabel, fillTemplate, fmtSpanShort, streetPart } from '../../lib/format'
+import { initials, roleLabel, fillTemplate, fmtSpanShort, streetPart, formatTime } from '../../lib/format'
 import { buildLabel } from '../../lib/buildInfo'
 import { applyUpdateNow, onUpdateAvailable } from '../../lib/swUpdate'
 import { canApplyInPlace } from '../../lib/updatePolicy'
@@ -20,7 +20,7 @@ import { EinsatzuhrChoices } from '../Einsatzuhr'
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
 function fmtClock(ms: number): string {
   try {
-    return new Date(ms).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+    return formatTime(new Date(ms))
   } catch {
     return ''
   }

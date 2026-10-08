@@ -10,6 +10,7 @@ import { Modal } from './_shared'
 import { OnOff, Segmented } from '../Segmented'
 import { Stepper } from '../Stepper'
 import { Button } from '../Button'
+import { compareText } from '../../lib/format'
 
 /** Percent for a symbol multiplier — «110 %» is a size anyone reads at a glance, «1.1» is not.
  *  No-break space before the sign, so the number and its unit never split across a line. */
@@ -120,7 +121,7 @@ export function SettingsSheet({
       names = (await loadRoster())
         .filter((p) => p.active)
         .map((p) => p.displayName)
-        .sort((a, b) => a.localeCompare(b, 'de-CH'))
+        .sort(compareText)
     } catch { /* roster unavailable → the blank guest lines still make a usable sheet */ }
     try {
       const { downloadSheetPdf } = await import('../../admin/capturePdf')

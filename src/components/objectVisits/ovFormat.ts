@@ -3,8 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
-import { getLocaleId } from '../../config/copy'
-import { fillTemplate, hhmm, unitLabel } from '../../lib/format'
+import { fillTemplate, hhmm, unitLabel, formatLocale } from '../../lib/format'
 import { attachmentUrl } from '../../objectVisits/api'
 import { readAttachment } from '../../objectVisits/store'
 import type { DeliveryState, SyncState } from '../../objectVisits/status'
@@ -18,7 +17,7 @@ export function fmtDate(iso: string | null | undefined): string {
   const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso)
   if (Number.isNaN(d.getTime())) return ''
   try {
-    return d.toLocaleDateString(getLocaleId(), { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString(formatLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
   } catch {
     return d.toLocaleDateString()
   }

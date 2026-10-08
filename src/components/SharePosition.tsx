@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
-import { fillTemplate, formatTime } from '../lib/format'
+import { fillTemplate, formatTime, compareText } from '../lib/format'
 import { rankAbbr, rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { Button, IconButton } from './Button'
@@ -79,7 +79,7 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPers
       .sort((a, b) =>
         Number(b.id === lastPersonId) - Number(a.id === lastPersonId)
         || rankOrder(a.rank) - rankOrder(b.rank)
-        || a.displayName.localeCompare(b.displayName, 'de-CH'))
+        || compareText(a.displayName, b.displayName))
   }, [roster, q, lastPersonId])
 
   if (step === 'ask') {
