@@ -31,6 +31,15 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **«Anrückend» – who answered the Divera alarm, in the Anwesenheit.** An Einsatz opened from
+  Divera starts its crew list with one line of counts («9 kommen · 2 kommen nicht · 3 da»), the
+  people coming with their answer time and an estimated arrival («ca. 19:48»), and «kommt nicht»
+  in a muted group of its own, ✕ and the word on every row. One tap on «da» checks somebody in;
+  an answer alone never does. The answers ride in the existing `/alarms` poll (stored on the new
+  column `divera_emergencies.responses_json`), which keeps its 30 s cadence for the first 10 min
+  after an alarm; the status names come from the Mannschaft sync's `/pull/all`. What a status
+  means is read off its name, and `roster.diveraResponses` overrides it per status
+  (docs/divera-connector.md › Rückmeldungen). *Migration runs on boot; nothing to set up.*
 - **Anleitungen – a second kind of checklist, read-only and offline.** A template with
   `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
   «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on

@@ -4950,6 +4950,10 @@ export function IncidentWorkspace({
         // Live crew positions, read next to the name — this is where somebody looks when
         // they want to know where a person is, and where they would pick up the phone.
         incidentId={incidentMeta.id}
+        // «Anrückend»: who answered the Divera alarm. Only while the Einsatz runs, from Divera,
+        // online, and never for a link session or a replay (the read is a logged-in one).
+        diveraResponsesFor={incidentMeta.divera_id != null && running && !replayActive && !linkScoped && online
+          ? incidentMeta.id : undefined}
         livePositions={livePeople.byPerson}
         incidentCenter={incidentView.center}
         onShowOnMap={(personId) => { setMode('map'); setPanel(null); focusEntity(`pos-${personId}`) }}

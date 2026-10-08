@@ -304,6 +304,11 @@ class DiveraEmergency(Base):
         ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
     )
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    # The alarm's Rückmeldungen as the poll last saw them (app/divera_responses · with_catalogue):
+    # who answered which status, who was addressed, how many read it. Personal data, so it lives
+    # here behind a logged-in read and never in the workspace blob, the export or a link.
+    responses_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    responses_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Personnel(Base):

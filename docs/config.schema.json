@@ -1765,6 +1765,18 @@
           ],
           "title": "Autosync",
           "type": "string"
+        },
+        "diveraResponses": {
+          "additionalProperties": {
+            "enum": [
+              "coming",
+              "not_coming",
+              "other"
+            ],
+            "type": "string"
+          },
+          "title": "Diveraresponses",
+          "type": "object"
         }
       },
       "title": "RosterConfig",

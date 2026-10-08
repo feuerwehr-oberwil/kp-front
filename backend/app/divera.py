@@ -36,6 +36,7 @@ from .alarm_keywords import SHIPPED, InvalidVocabularyError, Vocabulary, parse
 from .config import settings
 from .credentials import get as credential
 from .database import dialect_insert
+from .divera_responses import cached_catalogue, ensure_catalogue, parse_responses_by_alarm, same_answers, with_catalogue
 from .models import DiveraEmergency, Incident
 from .push import notify_new_alarm
 from .schemas import DiveraWebhookPayload
@@ -356,6 +357,23 @@ async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | N
     return await open_emergency(db, em)
 
 
+#: How long after a Divera alarm the poll keeps its fast (idle) cadence although an Einsatz now
+#: runs: the crew answers «komme» / «komme nicht» in the first minutes, and at the running
+#: cadence (120 s) the Anwesenheit's «Anrückend» would trail them by up to two minutes. Ten
+#: minutes at 30 s instead of 120 s is ≤ 15 extra calls per alarm, from the server alone — the
+#: devices still only read. After it, the running cadence applies as before.
+RESPONSE_WINDOW_SECONDS = 10 * 60
+
+
+async def response_window_open(db: AsyncSession, now: datetime) -> bool:
+    """A Divera alarm went out within :data:`RESPONSE_WINDOW_SECONDS` — answers are arriving."""
+    cutoff = int(now.timestamp()) - RESPONSE_WINDOW_SECONDS
+    n = (
+        await db.execute(select(func.count()).select_from(DiveraEmergency).where(DiveraEmergency.ts_create >= cutoff))
+    ).scalar_one()
+    return bool(n)
+
+
 class DiveraApiError(Exception):
     """A Divera call failed, described WITHOUT the request URL.
 
@@ -409,6 +427,11 @@ async def fetch_and_upsert(db: AsyncSession) -> int:
         r = await client.get(url, params={"accesskey": credential("divera_access_key")})
         check_response(r)
         data = r.json()
+    # The Rückmeldungen ride in this same response. Their status NAMES come from /pull/all, and
+    # that fetch (≤ once per 6 h) happens HERE — before the upserts take their per-alarm locks,
+    # never while holding them.
+    responses = parse_responses_by_alarm(data)
+    catalogue = await ensure_catalogue() if any(p["answered"] for p in responses.values()) else cached_catalogue()
     new = 0
     for alarm in parse_alarms_response(data)[: settings.divera_poll_max_alarms]:
         em = await upsert_emergency(db, alarm)
@@ -422,4 +445,35 @@ async def fetch_and_upsert(db: AsyncSession) -> int:
                 address=alarm.address,
                 target=None if inc else "divera",
             )
+    await store_responses(db, responses, catalogue)
     return new
+
+
+async def store_responses(db: AsyncSession, responses: dict[int, dict], catalogue: dict | None) -> int:
+    """Record each known alarm's Rückmeldungen (app/divera_responses). Returns rows changed.
+
+    Only alarms already in the pool are touched — an answer to an alarm this station never took
+    in has nowhere to be shown. A poll that saw nothing new writes nothing. Never raises: the
+    answers are a convenience on top of the alarm intake, and must not be able to fail it.
+    """
+    if not responses:
+        return 0
+    try:
+        rows = (
+            (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id.in_(list(responses)))))
+            .scalars()
+            .all()
+        )
+        now = datetime.now(UTC)
+        changed = 0
+        for em in rows:
+            blob = with_catalogue(responses[em.divera_id], catalogue, now)
+            if same_answers(em.responses_json, blob):
+                continue
+            em.responses_json = blob
+            em.responses_at = now
+            changed += 1
+        return changed
+    except Exception:  # noqa: BLE001 — see the docstring
+        logger.warning("Storing Divera Rückmeldungen failed", exc_info=True)
+        return 0

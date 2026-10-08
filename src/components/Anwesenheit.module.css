@@ -277,3 +277,60 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 @media (hover: hover) { .zoomBtn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); } }
 .zoomBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .zoomBtn:disabled { opacity: var(--disabled); cursor: default; }
+
+/* ── «Anrückend» — the Divera Rückmeldungen above the crew list (AnrueckendBlock, X1 08.10.2026) ──
+   The FIRST cell of the crew grid, across every column: it scrolls with the list instead of
+   standing over it, so on a phone the names are one swipe away however many answered. Local to
+   this block; tokens only. */
+.anr {
+  grid-column: 1 / -1; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  background: var(--surface);
+  /* ⚠️ no overflow:hidden — a grid item that clips gets a zero automatic minimum height, and in
+     the height-bounded crew grid that cut the block off mid-group */
+}
+.anrHead {
+  width: 100%; display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 2px;
+  min-height: var(--tap); padding: 6px 12px; border: none; background: none; cursor: pointer;
+  text-align: left; font: inherit; color: var(--ink); border-radius: var(--r-ctl);
+}
+.anrHead:active { background-image: linear-gradient(var(--press), var(--press)); }
+.anrHead > svg { width: 15px; height: 15px; flex: none; margin-left: auto; color: var(--ink-dim); }
+.anrTitle { display: inline-flex; align-items: center; gap: 6px; font: var(--fw-heavy) var(--fs-2) var(--body); }
+.anrCount {
+  font: var(--fw-heavy) var(--fs-micro) var(--body); padding: 1px 7px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--ink) 10%, var(--surface));
+}
+.anrSummary { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); }
+.anrPart { white-space: nowrap; }
+.anrSource { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-faint); }
+.anrBody { border-top: 1px solid var(--glass-edge); padding: 8px 12px 10px; display: grid; gap: 6px; }
+.anrList {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+}
+/* «expected, not here yet»: the row's outline is DASHED — a present row below is solid and tinted,
+   so the two never read as the same state, and neither leans on colour */
+.anrRow {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "who da" "meta da";
+  align-items: center; column-gap: 8px; min-height: 46px; padding: 4px 4px 4px 10px;
+  border: 1px dashed var(--ink-faint); border-radius: var(--r-ctl);
+  font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink);
+}
+.anrWho { grid-area: who; display: flex; align-items: center; gap: 7px; min-width: 0; }
+.anrWho > svg { width: 14px; height: 14px; flex: none; }
+.anrMeta {
+  grid-area: meta; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim);
+}
+.anrEta { flex: none; font: var(--fw-heavy) var(--fs-1) var(--body); color: var(--ink); }
+.anrDa { grid-area: da; min-height: var(--tap); }
+/* «kommt nicht»: muted, but every row still SAYS it — ✕ + the word — and keeps its «da» (a
+   misclick in Divera happens). Not the done-dim of a gone row: that one means «was here». */
+.anrNo { border-style: solid; border-color: var(--glass-edge); background: none; color: var(--ink-dim); }
+.anrNo .name { color: var(--ink-dim); }
+.anrGroup {
+  display: flex; align-items: center; gap: 6px; margin: 6px 0 0;
+  font: var(--fw-heavy) var(--fs-micro) var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim);
+}
+.anrGroup > svg { width: 13px; height: 13px; }
+.anrFoot { margin: 2px 0 0; font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-faint); }

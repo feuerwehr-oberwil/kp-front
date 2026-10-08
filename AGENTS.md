@@ -446,7 +446,8 @@ to prod.
     `deviceTime`, capped at now) inside the 30 s
     sweep (`app/vehicle_presence`), a `weather.observe` per reading and the wind-shift row
     every 10 min (`app/observations`), the Divera poll (30 s idle / 120 s while an Einsatz
-    runs, back-off on 429). Why: a device writes what it noticed WHEN it noticed — five
+    runs, but 30 s for the first 10 min after an alarm while the crew answers; back-off on
+    429). Why: a device writes what it noticed WHEN it noticed — five
     vehicles «vor Ort» at 19:43 because a tablet woke up (GPS said 19:23–19:28), one weather
     reading ×5, 469 Divera polls — and writes nothing while every screen sleeps. Devices only
     READ (the pool, the Verlauf, the `reportMeta.fahrzeuge[].gps` block behind the Rapport's
@@ -495,6 +496,14 @@ to prod.
     that unit, so the row names only it and settling either side keeps the other edits. A shift
     whose merged from/to would not be a block keeps mine's pair. Reproduced end-to-end with two
     engines on the 409 path (`workspaceSync.sameSecond.test.ts`).
+- ⚠️ **A Divera answer is never presence** (X1, 08.10.2026). The Anwesenheit's «Anrückend»
+  block (`AnrueckendBlock`, `lib/diveraResponses`) lists who answered «komme» / «komme nicht»; a
+  person is anwesend only after the explicit «da» tap, the ordinary check-in. The answers ride in
+  the existing `/alarms` poll (`app/divera_responses`, stored on `divera_emergencies.responses_json`),
+  map onto the roster through the `divera` external identity, and are a logged-in read
+  (`GET /api/divera/responses/{id}`) that never enters the workspace, an export or a link.
+  «kommt nicht» is its own muted group with ✕ + the word — never colour alone. What a status
+  means is `roster.diveraResponses` over a name-based default (docs/divera-connector.md).
 - **A Trupp is `Trupp N` on paper and its Gruppenführer in person** (12.09.,
   [`docs/trupp-naming.md`](docs/trupp-naming.md)). The number comes from ONE counter per Einsatz
   that unlinked «Trupp N» chips draw from too, is never reused, and is a badge beside the leader's

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import audit, connector_state
 from .. import divera as divera_svc
 from ..alarms import is_demo_deployment
-from ..auth.dependencies import CurrentEditor, EditorOrAdmin
+from ..auth.dependencies import CurrentEditor, CurrentUser, EditorOrAdmin
 from ..auth.secret_token import SecretGate
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
@@ -75,6 +75,42 @@ async def webhook(
             target=None if inc else "divera",
         )
     return {"ok": True, "new": em is not None, "incident_id": str(inc.id) if inc else None}
+
+
+@router.get("/responses/{incident_id}")
+async def responses(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict:
+    """The Divera Rückmeldungen for one Einsatz — who answered «komme» / «komme nicht».
+
+    Read-only and stored: the server's own poll keeps them (divera · store_responses); this read
+    never calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is
+    one more), the latest answer per person winning. Answers name UCR ids only — the device maps
+    them onto its roster through the `divera` external identity, the way the Mannschaft sync
+    stored it. ``available: false`` = nothing to show (no Divera alarm, nobody addressed), and the
+    Anwesenheit then shows nothing at all.
+
+    Personal data, so it is a logged-in read: an Einsatz-Link session is refused by the link
+    allowlist (auth/incident_link), and the answers never enter the workspace, an export or a
+    Rapport. A Divera answer is not presence — see app/divera_responses.
+    """
+    from ..divera_responses import summarise
+    from ..personnel import load_divera_response_kinds
+
+    await get_incident_or_404(db, incident_id)
+    blobs = (
+        (
+            await db.execute(
+                select(DiveraEmergency.responses_json).where(
+                    DiveraEmergency.taken_incident_id == incident_id,
+                    DiveraEmergency.responses_json.is_not(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not blobs:
+        return {"available": False}
+    return summarise(list(blobs), await load_divera_response_kinds(db))
 
 
 @router.get("/pool", response_model=list[DiveraEmergencyOut])

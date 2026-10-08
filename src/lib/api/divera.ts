@@ -28,3 +28,29 @@ export const takeDiveraAlarm = (diveraId: number) =>
  *  follow to this incident; the incident's own title/location stay untouched. */
 export const attachDiveraAlarm = (diveraId: number, incidentId: string) =>
   apiPost<{ ok: boolean; incident_id: string }>(`/api/divera/pool/${diveraId}/attach/${incidentId}`, {})
+
+/** What a Divera Rückmelde-Status means for the Anwesenheit (backend · divera_responses.classify;
+ *  the station can override it per status in `roster.diveraResponses`). */
+export type DiveraResponseKind = 'coming' | 'not_coming' | 'other'
+export interface DiveraAnswer {
+  /** Divera's user id — the `divera` external identity the Mannschaft sync stored */
+  ucr_id: number
+  status_id: number
+  kind: DiveraResponseKind
+  answered_at: string | null
+  /** answer + the status's promised minutes — an ESTIMATE, null when the status promises none */
+  eta: string | null
+  note: string
+}
+export interface DiveraResponses {
+  /** false = nothing to show (no Divera alarm on this Einsatz, nobody addressed) */
+  available: boolean
+  updated_at?: string | null
+  counts?: Record<DiveraResponseKind | 'answered' | 'addressed' | 'unanswered' | 'read', number>
+  statuses?: { id: number; name: string; kind: DiveraResponseKind; minutes: number; count: number }[]
+  answers?: DiveraAnswer[]
+}
+/** The stored Divera Rückmeldungen of one Einsatz. READ-ONLY: the server's own poll keeps them;
+ *  this never makes the server call Divera. */
+export const getDiveraResponses = (incidentId: string) =>
+  apiGet<DiveraResponses>(`/api/divera/responses/${encodeURIComponent(incidentId)}`)
