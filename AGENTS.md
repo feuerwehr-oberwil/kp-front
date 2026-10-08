@@ -383,6 +383,12 @@ to prod.
   - *The north dial is the ONE door to «Gebäude drehen»* (29.09.2026), on every device
     (`PlanCompass`); it also shows the angle. The rail carries no compass tile (it opened the same
     popover a second way and brought a second foot hairline).
+  - *The picker offers the building at the Einsatzort* (08.10.2026, `lib/footprintPick`). With
+    no Gebäude yet and an Einsatz coordinate, the outline that contains the pin starts selected,
+    with a note. If no outline contains it, the nearest one within 12 m is selected, but only when
+    the runner-up is at least twice as far (no neighbour guessed). The pick is never committed
+    without «Übernehmen» and never re-offered once the operator has changed the selection. There
+    is no offer over a legacy (un-georeferenced) building.
   **Ink is cut to its storey's visible SECTION** (24.09.2026, `lib/storeyClip`): the tile's
   drawings, laid as `FloorPage` lays them and cut to the footprint box, or the whole tile where
   there is no Geschossplan. Linien, Flächen, Absperrkreise and trails are clipped to it (SVG
