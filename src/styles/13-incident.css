@@ -42,8 +42,8 @@
    tint + ink, never an outline besides */
 .ip-offline-chip .ip-status-dot { width: 7px; height: 7px; }
 /* sync-error variant of the chip — red-on-tint with the warn glyph, same slot/behaviour */
-.ip-error-chip { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent);
-  border-color: color-mix(in srgb, var(--red) 38%, transparent); }
+.ip-error-chip { color: var(--red); background: var(--red-16);
+}
 .ip-switch-btn .ip-error-chip svg { width: 12px; height: 12px; opacity: 1; }
 /* ── Atemschutz board: its own sync/clock line (AtemschutzView header, under the subtitle) ──
    The safety review (01.09.) asked that the ONE surface a life depends on says ITSELF whether
@@ -133,10 +133,10 @@
    clock glyph is the label and «Einsatzbeginn» rides along as the title. */
 /* the sync pill wears its state — same colours as the mark in the top bar (.ip-status-*),
    spelled out here because the pill's own rule would otherwise win on order */
-.ip-card-pill.ip-status-synced { color: var(--green-strong); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.ip-card-pill.ip-status-synced { color: var(--green-strong); background: var(--green-16); }
 .ip-card-pill.ip-status-pending { color: var(--amber-strong); background: var(--amber-16); }
 .ip-card-pill.ip-status-error, .ip-card-pill.ip-status-storage {
-  color: var(--red-strong); background: color-mix(in srgb, var(--red) 14%, transparent); }
+  color: var(--red-strong); background: var(--red-16); }
 /* The Einsatz's own actions, INSIDE its card — Bearbeiten · Abschliessen · Teilen (Sync lives
    up in the title row).
    ⚠️ ONE LINE, never wrapped (decision 01.09., when Teilen made it three). Three verbs that
@@ -357,7 +357,7 @@
 .or-load:disabled { opacity: var(--disabled); cursor: default; }
 /* determinate download progress (replaces the button while warming the caches) */
 .or-prog { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; }
-.or-prog-track { height: 10px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.or-prog-track { height: 10px; border-radius: var(--r-pill); background: var(--ink-12); overflow: hidden; }
 .or-prog-fill { height: 100%; border-radius: var(--r-pill); background: var(--blue);
   transition: width .25s var(--ease); min-width: 10px; }
 .or-prog-meta { display: flex; align-items: center; justify-content: space-between; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
@@ -396,7 +396,7 @@
 .ip-menu-username { font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ip-menu-userrole { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .ip-menu-logout { display: flex; align-items: center; gap: 8px; flex: none; padding: 8px 12px; border: none;
-  border-radius: var(--r-sm); background: rgba(30, 45, 70, .05); color: var(--ink-dim); cursor: pointer;
+  border-radius: var(--r-sm); background: var(--ink-5); color: var(--ink-dim); cursor: pointer;
   font: var(--fw-bold) var(--fs-1) var(--body); transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
   .ip-menu-logout:hover { background: var(--red-12); color: var(--red); }
@@ -512,7 +512,7 @@
    below the glyph) and the ✕ itself rode a couple of pixels high of centre — which is what made
    it look both smaller and off next to a title or a search pill. The 30px size stays as decided
    (see .rp-head .ip-x for the one surface that raises it); only the centring changes. */
-.ip-x { border: none; background: color-mix(in srgb, var(--ink) 7%, transparent); cursor: pointer;
+.ip-x { border: none; background: var(--ink-8); cursor: pointer;
   color: var(--ink-dim); padding: 0; border-radius: var(--r-sm);
   display: grid; place-items: center; }
 @media (hover: hover) {
@@ -618,7 +618,7 @@
    pad), and OPEN = the blue wash with a `--blue-strong` glyph. The dark docks keep DockInfo. */
 .ui-info { position: relative; flex: none; display: grid; place-items: center; width: 36px; height: 36px;
   padding: 0; border: none; border-radius: var(--r-sm); cursor: pointer;
-  background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim);
+  background: var(--ink-8); color: var(--ink-dim);
   -webkit-tap-highlight-color: transparent; }
 .ui-info::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
   transform: translate(-50%, -50%); }
@@ -830,7 +830,7 @@
    from every list: a running Einsatz is the normal case, and a tag on the normal case is noise. */
 .ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
 /* a good-news tag («empfohlen») — the green of «done», never a fill */
-.ip-badge-ok { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green-strong); }
+.ip-badge-ok { background: var(--green-16); color: var(--green-strong); }
 /* Übung — amber so a training is never mistaken for a real Einsatz (top bar switcher, lists,
    and the poster: one look for one word, 28.09.2026) */
 .ip-badge-exercise, .cv-badge-exercise { background: var(--amber-16); color: var(--amber-strong); }
@@ -946,7 +946,7 @@
   min-height: var(--float-h); padding: 0 calc(var(--float-pad-x) + 4px) 0 var(--float-pad-x);
   border: none; border-radius: var(--r-sm); color: var(--on-btn-primary);
   background: var(--btn-primary);
-  box-shadow: 0 8px 22px var(--ink-28);
+  box-shadow: var(--e4);
   font: var(--fw-bold) var(--fs-2) var(--body); cursor: pointer; white-space: nowrap; }
 .rp-return:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rp-return svg { width: 18px; height: 18px; color: currentColor; flex: none; }
@@ -1073,7 +1073,7 @@
 .cv-missing { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0 0;
   padding: 12px; border-radius: var(--r-sm);
   background: var(--amber-12);
-  border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+  border: 1px solid var(--amber-28);
   font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink); }
 .cv-missing svg { width: 16px; height: 16px; flex: none; color: var(--amber-strong); }
 .cv-missing-k { color: var(--ink-dim); }
@@ -1081,7 +1081,7 @@
   border-radius: var(--r-pill); cursor: pointer;
   color: var(--amber-strong); background: var(--amber-22); }
 @media (hover: hover) {
-  .cv-missing-go:hover { background: color-mix(in srgb, var(--amber) 34%, transparent); }
+  .cv-missing-go:hover { background: var(--amber-28); }
 }
 /* the reassurance, on its own line: nothing here blocks the print */
 .cv-missing-note { flex: 1 0 100%; font-weight: var(--fw-medium); color: var(--ink-dim); }
@@ -1149,7 +1149,7 @@
   cursor: pointer; border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink-dim);
   border-radius: var(--r-sm); font: var(--fw-bold) var(--fs-2) var(--body); white-space: nowrap; }
 .cv-filter svg { width: 15px; height: 15px; }
-.cv-filter.on { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 50%, transparent);
+.cv-filter.on { color: var(--green-strong); border-color: var(--green-45);
   background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
 /* «Nichts verwendet» — the one tick that makes the Material Mindestangabe answerable from here
    (see lib/abschluss · stepDone). Pressed = the answer is on the record. */
@@ -1157,8 +1157,8 @@
   border: 1px dashed var(--glass-edge); border-radius: var(--r-sm);
   background: none; color: var(--ink); font: var(--fw-bold) var(--fs-2) var(--body); }
 .cv-none.on { border-style: solid; color: var(--green-strong);
-  border-color: color-mix(in srgb, var(--green) 50%, transparent);
-  background: color-mix(in srgb, var(--green) 14%, transparent); }
+  border-color: var(--green-45);
+  background: var(--green-16); }
 .cv-none:disabled { opacity: var(--disabled); cursor: default; }
 /* Partnerorganisationen on the poster: organisation + one free line, same two fields the
    tablet asks for. Stacks on a phone, which is what the poster is scanned with. */
@@ -1238,7 +1238,7 @@
 .cv-person.station { border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-line));
   background: color-mix(in srgb, var(--blue) 12%, var(--surface)); }
 .cv-person.station .cv-person-state { color: var(--blue-strong);
-  background: color-mix(in srgb, var(--blue) 18%, transparent); }
+  background: var(--blue-16); }
 /* gegangen = GONE: the ONE done dim (01-tokens · --done-opacity, 28.09.2026 — it was .65) */
 .cv-person.left { opacity: var(--done-opacity); }
 /* «Gast» — a row that no Mannschaftsliste is behind. Neutral, quiet, and BEFORE the state chip:
@@ -1249,9 +1249,9 @@
    (gegangen, muted) — shape + tint together, never colour alone; word = aria-label */
 .cv-person-state { display: grid; place-items: center; width: 26px; height: 26px; flex: none;
   border-radius: var(--r-pill); color: var(--green);
-  background: color-mix(in srgb, var(--green) 18%, transparent); }
+  background: var(--green-16); }
 .cv-person.left .cv-person-state { color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 18%, transparent); }
+  background: var(--amber-16); }
 .cv-person-state svg { width: 15px; height: 15px; }
 .cv-mittel { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .cv-mittel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px;
@@ -1333,7 +1333,7 @@
 /* the wheel popover: snap-scrolling columns under a fixed center band */
 .wheelpop { z-index: var(--z-picker); padding: 12px; border-radius: var(--r-ctl);
   background: var(--surface); border: 1px solid var(--glass-line);
-  box-shadow: 0 12px 34px var(--ink-22); }
+  box-shadow: var(--e4); }
 .wheelpop-cols { position: relative; display: flex; gap: 4px; }
 /* 5 rows of 44px (ITEM_H in WheelPicker.tsx — pads/band derive from it: pad = (height−44)/2) */
 .wheel { height: 220px; flex: 1; overflow-y: auto; scroll-snap-type: y mandatory;
@@ -1356,16 +1356,16 @@
    it marks what is chosen, and brand red does not mean «chosen» anywhere else in the app */
 .wheelpop-band { position: absolute; left: 0; right: 0; top: 88px; height: 44px;
   pointer-events: none; border-radius: var(--r-xs);
-  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  background: var(--blue-12);
   /* all four sides: with top/bottom only, the rounded ends showed two lines fading into
      nothing at the left and right — «the border on the side isn't showing» (owner, 05.10.2026) */
-  border: 1px solid color-mix(in srgb, var(--blue) 40%, transparent); }
+  border: 1px solid var(--blue-45); }
 .wheelpop-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .wheelpop-actions .wheelpop-btn.clear { margin-right: auto; }
 .wheelpop-btn { min-height: 44px; padding: 8px 12px; border-radius: var(--r-sm);
   border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink);
   font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; white-space: nowrap; }
-.wheelpop-btn.clear { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.wheelpop-btn.clear { color: var(--red); border-color: var(--del-edge); }
 .wheelpop-btn.clear svg { width: 14px; height: 14px; display: block; }
 .wheelpop-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
 
@@ -1635,9 +1635,9 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* the one destructive row a menu may carry (Trupp · Entfernen). Behind a separator and red, so it
    is never mistaken for the neutral rows above it. */
 .ui-menu-danger { color: var(--red); }
-.ui-menu-danger[data-highlighted] { background: color-mix(in srgb, var(--red) 10%, transparent); }
+.ui-menu-danger[data-highlighted] { background: var(--red-12); }
 @media (hover: hover) {
-  .ui-menu-danger:hover:not([data-disabled]) { background: color-mix(in srgb, var(--red) 10%, transparent); }
+  .ui-menu-danger:hover:not([data-disabled]) { background: var(--red-12); }
 }
 .rp-print-menu-item[data-disabled] { opacity: var(--disabled); cursor: default; }
 .rp-print-menu-item svg { width: 16px; height: 16px; flex: none; opacity: .65; }
@@ -2058,7 +2058,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-launch.alarm { border-color: color-mix(in srgb, var(--red) 35%, var(--glass-edge)); }
 .ip-launch-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red); }
 .ip-launch-pulse { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
-  background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+  background: var(--red-16); color: var(--red); }
 .ip-launch-pulse svg { width: 16px; height: 16px; }
 .ip-launch-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red); padding-left: 8px; }
 /* the alarm card splits into take-button + pool-archive × (the intake sheet is gone),
@@ -2088,7 +2088,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
   background: none; cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-faint);
   transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
-  .ip-foot-logout:hover { background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--red); }
+  .ip-foot-logout:hover { background: var(--red-12); color: var(--red); }
 }
 .ip-foot-logout .i { width: 15px; height: 15px; }
 .ip-emptyapp-utils { display: flex; flex-wrap: wrap; gap: 2px; margin-left: -8px; }
@@ -2145,7 +2145,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .esh-url.copied .esh-copy { color: var(--green); }
 .esh-send { flex: none; }
 /* Red never FILLS an action — it means danger, and revoking is the danger here. */
-.esh-revoke { flex: none; color: var(--red); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 40%, transparent); }
+.esh-revoke { flex: none; color: var(--red); box-shadow: inset 0 0 0 1px var(--del-edge); }
 /* Under the address, not behind a tooltip: it is the one thing somebody has to have read
    BEFORE sending the link on. The ONE warning look (AGENTS · «Fields, titles, eyebrows, warnings»,
    29.09.2026 — it was dim 12.5 text in a 13% tint): ink 13/700, the glyph in the tone

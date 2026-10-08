@@ -44,8 +44,8 @@
 .iconBtnOn { border-color: var(--sel); background: var(--sel); color: var(--on-sel); }
 @media (hover: hover) {
   .iconBtnOn:hover {
-    border-color: color-mix(in srgb, var(--blue) 70%, transparent);
-    background: color-mix(in srgb, var(--blue) 20%, transparent);
+    border-color: var(--blue-62);
+    background: var(--blue-22);
   }
 }
 /* ONE channel for «filter is on» (29.09.2026, owner pick A): the choice fill above. A blue dot
