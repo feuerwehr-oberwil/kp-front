@@ -25,11 +25,14 @@ type ButtonProps = Omit<ComponentPropsWithRef<'button'>, 'children'> & {
   children: ReactNode
 }
 
+// ⚠️ Its LOOK is the global `.ip-btn` family (13-incident.css · «THE button»), not a module class:
+// ONE definition for <Button> and for the ~150 `.ip-btn` the TSX still writes by hand (some on a
+// <label> or an <a>), so the two cannot drift apart (08.10.2026, design-system stage 2).
 export function Button({ variant = 'secondary', size = 'md', block, icon, className, type = 'button', children, ...rest }: ButtonProps) {
   return (
     <button
       type={type}
-      className={cx(s.btn, variant !== 'secondary' && s[variant], size === 'lg' && s.lg, block && s.block, className)}
+      className={cx('ip-btn', variant !== 'secondary' && variant, size === 'lg' && 'lg', block && 'block', className)}
       {...rest}
     >
       {icon}

@@ -7,7 +7,7 @@
   .ip-ac-row { min-height: var(--tap); }
   .ip-objrow { min-height: var(--tap); }
   .ip-loc-clear { width: var(--tap); height: var(--tap); display: grid; place-items: center; }
-  .ip-ix-methods .ip-btn { min-height: var(--tap); }
+  /* (`.ip-ix-methods .ip-btn` — every .ip-btn is --tap tall on every pointer since 08.10.2026) */
   /* the «Übung» row is an `OnOff` pair (28.09.2026) — `.useg` is tap-tall unconditionally,
      so it needs no floor here (it was a native checkbox with a ~16px hit box once). */
 }
@@ -61,8 +61,9 @@
      raised to 44. The bar is already 62px tall around that button, so none of these move it. */
   .ip-switch-btn, .tb-einsatzuhr, .tb-weather { min-height: var(--tap); }
   /* the Einsatz card's row of actions (40) and the menu's «Abmelden» (30) — its sync mark is a --tap
-     square at every width since 29.09.2026 (13-incident · .ip-card-sync) */
-  .ip-card-act, .ip-menu-logout, .ip-btn { min-height: var(--tap); }
+     square at every width since 29.09.2026 (13-incident · .ip-card-sync). (`.ip-btn` stood here
+     too; THE button is --tap tall on every pointer since 08.10.2026, 13-incident · «THE button».) */
+  .ip-card-act, .ip-menu-logout { min-height: var(--tap); }
   /* (the plan's trust chips along its foot — Einsatzobjekt · Massstab · Karte verknüpfen — were 29px
      and stood --tap here; since 26.09.2026 they are --float-h at every width, 09-whiteboard) */
   /* the Rapport's pencil on the Einsatzdaten card (26). (The ± stepper's reset is --tap at every

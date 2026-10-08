@@ -27,7 +27,9 @@ describe('Button', () => {
     const onClick = vi.fn()
     render(<Button variant="primary" size="lg" block className="here" onClick={onClick} data-x="1">Los</Button>)
     const b = screen.getByRole('button', { name: 'Los' })
-    for (const k of [s.btn, s.primary, s.lg, s.block, 'here']) expect(b.classList.contains(k)).toBe(true)
+    // the look is the global `.ip-btn` family (13-incident · «THE button») — one definition for
+    // <Button> and every hand-written .ip-btn
+    for (const k of ['ip-btn', 'primary', 'lg', 'block', 'here']) expect(b.classList.contains(k)).toBe(true)
     expect(b.dataset.x).toBe('1')
     fireEvent.click(b)
     expect(onClick).toHaveBeenCalledTimes(1)
@@ -35,7 +37,7 @@ describe('Button', () => {
 
   it('secondary is the base look — no variant class', () => {
     render(<Button>Ändern</Button>)
-    expect(screen.getByRole('button').className).toBe(s.btn)
+    expect(screen.getByRole('button').className).toBe('ip-btn')
   })
 
   it('a disabled button does not fire', () => {
@@ -78,11 +80,11 @@ describe('Chip', () => {
 // The floor is the point of the components: 44px for every one, 52 for the big action — read
 // from the stylesheets, since jsdom lays nothing out.
 describe('the touch floor', () => {
-  const css = (f: string) => readFileSync(`${process.cwd()}/src/components/${f}`, 'utf8')
+  const css = (f: string) => readFileSync(`${process.cwd()}/src/${f}`, 'utf8')
   it('every button and chip stands on --tap', () => {
-    expect(css('Button.module.css')).toMatch(/\.btn \{[^}]*min-height: var\(--tap\)/)
-    expect(css('Button.module.css')).toMatch(/\.lg \{[^}]*min-height: var\(--tap-lg\)/)
-    expect(css('Button.module.css')).toMatch(/\.icon \{[^}]*width: var\(--tap\); height: var\(--tap\)/)
-    expect(css('Chip.module.css')).toMatch(/\.chip \{[^}]*min-height: var\(--tap\)/)
+    expect(css('styles/13-incident.css')).toMatch(/\n\.ip-btn \{[^}]*min-height: var\(--tap\)/)
+    expect(css('styles/13-incident.css')).toMatch(/\.ip-btn\.lg \{[^}]*min-height: var\(--tap-lg\)/)
+    expect(css('components/Button.module.css')).toMatch(/\.icon \{[^}]*width: var\(--tap\); height: var\(--tap\)/)
+    expect(css('components/Chip.module.css')).toMatch(/\.chip \{[^}]*min-height: var\(--tap\)/)
   })
 })

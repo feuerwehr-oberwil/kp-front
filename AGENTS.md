@@ -1082,8 +1082,12 @@ to prod.
   `block`, `icon`; `IconButton` requires `label` (aria-label + title, which the hold-tooltip
   reads), variant `quiet | secondary`; `Chip` is a choice (`selected` → `--sel` + aria-pressed).
   All default to `type="button"`. A surface's `className` on them is for placement only; a new
-  look is a new variant there, not a local override. Do not write a new `.foo-btn` rule. The
-  secondary look is `.ip-btn`'s, so moving an `.ip-btn` changes only its floor.
+  look is a new variant there, not a local override. Do not write a new `.foo-btn` rule.
+  `<Button>` and `.ip-btn` are ONE definition (08.10.2026): the component renders the global
+  `.ip-btn` family (`primary` · `danger` · `quiet` (old name `ghost`) · `lg` · `block`; 13-incident ·
+  «THE button»), 44px on every pointer and 52 for `lg`, so a hand-written `.ip-btn` and a
+  `<Button>` cannot drift apart and 20-touch-floors needs no entry for either. The sheet ✕ stays
+  `.ip-x` (36px, grey, 44 pad; owner spec below), not an `IconButton`.
 - **Breakpoints have one source** (07.10.2026): `src/lib/breakpoints.ts`. Stylesheets write
   `@media (--phone)` (also `--phone-landscape`, `--not-phone`, `--tablet`), and
   `vite.config · customMedia` writes the query in; `useIsPhone` re-exports the same

@@ -133,8 +133,9 @@
   /* ONE page-title size on a phone, set where the title's font is defined — as the token, not
      per surface. Anwesenheit, Material and Trupps each dropped their <h2> to 17px in their own
      stylesheet and the Rapport never did, so «Einsatzrapport» stood 19px beside «Anwesenheit» at
-     17 on two pages that are one tap apart (field report 19.09.2026). */
-  :root { --head-title: 800 17px/1.3 var(--body); }
+     17 on two pages that are one tap apart (field report 19.09.2026). 16 (`--fs-3`) since
+     08.10.2026: the scale has no 17, and a sheet's title is 16 too. */
+  :root { --head-title: var(--fw-heavy) var(--fs-3)/1.3 var(--body); }
   /* …and the phone's page head: 8px above and below the 44px tiles (a 60px head), 14px from the
      card's edge, the one 8px gap between the titles and the tiles (tokens · --head-*, Surface.module.css) */
   :root { --head-pad-y: 8px; --head-pad-x: 14px; --head-gap: 8px; }

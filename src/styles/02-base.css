@@ -67,9 +67,9 @@ button, input, select, textarea { font-family: inherit; }
 
 /* the Trupp's number beside its leader's name, wherever a Trupp is shown (components/TruppNo).
    A quiet tag with no colour of its own: colour on a Trupp means identity (lib/teamColors). */
-.trupp-no { display: inline-block; flex: none; min-width: 18px; padding: 0 5px; border-radius: 6px;
+.trupp-no { display: inline-block; flex: none; min-width: 18px; padding: 0 4px; border-radius: 6px;
   font-size: var(--fs-micro); font-weight: var(--fw-heavy); line-height: 18px; text-align: center; font-variant-numeric: tabular-nums;
-  color: var(--ink-dim); background: color-mix(in srgb, var(--ink) 9%, transparent); vertical-align: middle; }
+  color: var(--ink-dim); background: var(--ink-8); vertical-align: middle; }
 
 /* shared interaction feel for all floating glass controls */
 .rbtn, .vrail-tool, .ctx-x, .sym-close, .chip, .btn {
@@ -163,10 +163,10 @@ button, input, select, textarea { font-family: inherit; }
 :where(*) { scrollbar-width: thin; scrollbar-color: var(--ink-28) transparent; }
 :where(*)::-webkit-scrollbar { width: 9px; height: 9px; background: transparent; }
 :where(*)::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--ink) 26%, transparent);
+  background: var(--ink-28);
   border-radius: var(--r-pill); border: 2px solid transparent; background-clip: content-box;
 }
-:where(*)::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--ink) 40%, transparent); background-clip: content-box; }
+:where(*)::-webkit-scrollbar-thumb:hover { background: var(--ink-45); background-clip: content-box; }
 /* in-flow panes reserve the scrollbar lane up front so content doesn't shift the moment
    a list grows past the fold (module-CSS lists set this in their own files). NOT the
    narrow icon docks (.wb-dock) — a permanently reserved lane reads as lopsided padding

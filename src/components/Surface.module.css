@@ -63,9 +63,9 @@
 /* the tile cluster at the right end — levelled to --tap by 20-touch-floors; one 8px gap between
    neighbours, the app's one gap (AGENTS.md · the top bar) */
 :where(.headActions) { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-left: auto; }
-/* the step before last: the tiles close up (6px apart; a worded tile 8px inside — the module's
+/* the step before last: the tiles close up (4px apart, on the grid since 08.10.2026 — it was 6; a worded tile 8px inside — the module's
    tile rule, Atemschutz.module.css / 13-incident.css). The top bar's «gaps» rung. */
-:where(.head[data-fit-tight]) :where(.headActions) { gap: 6px; }
+:where(.head[data-fit-tight]) :where(.headActions) { gap: 4px; }
 /* the LAST step of the ladder: the titles take the first row whole, the tiles the second, still
    at the right end where the thumb already knows them */
 :where(.head[data-fit-wrap]) { flex-wrap: wrap; }
