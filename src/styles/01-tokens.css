@@ -234,9 +234,11 @@
   /* THE title of a SHEET or dialog (28.09.2026) — one step under the page's --head-title, so a
      sheet never out-shouts the surface it opens over. It was 19 on .ip-head and the confirm, 17 on
      the Trupp sheets, 16 in the Suche, 15 on the Uhrzeit dialog, 18 on the Hilfe. Field labels
-     inside it: --field-label in --ink-dim, sentence case (uppercase is the eyebrow's, below). */
-  --sheet-title: 800 17px var(--body);
-  --field-label: 700 12px var(--body);
+     inside it: --field-label in --ink-dim, sentence case (uppercase is the eyebrow's, below).
+     On the scale since 08.10.2026 (owner decision 07.10.): the title 17 → 16 (`--fs-3`), the field
+     label 12 → 12.5 (`--fs-1`, the floor). */
+  --sheet-title: var(--fw-heavy) var(--fs-3) var(--body);
+  --field-label: var(--fw-bold) var(--fs-1) var(--body);
   /* THE dimming for a disabled control. It was six different numbers (.34–.6) across ~40 rules:
      at .35 a label is unreadable in daylight on a tablet, so you cannot see which action is
      coming back; at .55 it still looks tappable and you press it. .45 is the one that reads as

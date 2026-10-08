@@ -139,8 +139,6 @@
     "spacing": 1
   },
   "src/components/SurfaceControls.module.css": {
-    "fontSize": 2,
-    "weight": 1,
     "spacing": 6
   },
   "src/components/TimeBlockSheet.module.css": {
@@ -238,9 +236,8 @@
     "shadow": 3
   },
   "src/styles/13-incident.css": {
-    "fontSize": 87,
-    "weight": 53,
-    "spacing": 235,
+    "fontSize": 1,
+    "spacing": 232,
     "shadow": 1
   },
   "src/styles/14-intake.css": {

@@ -9,6 +9,7 @@ import { loadRoster } from '../../lib/usePersonnel'
 import { Modal } from './_shared'
 import { OnOff, Segmented } from '../Segmented'
 import { Stepper } from '../Stepper'
+import { Button } from '../Button'
 
 /** Percent for a symbol multiplier — «110 %» is a size anyone reads at a glance, «1.1» is not.
  *  No-break space before the sign, so the number and its unit never split across a line. */
@@ -204,10 +205,10 @@ export function SettingsSheet({
             {onSharePosition && shareAs && onChangeShareName && (
               <div className="set-row">
                 <span className="set-row-l">{sp.settingsName}<small>{sp.settingsNameSub}</small></span>
-                <button type="button" className="set-dl set-name" onClick={onChangeShareName}
+                <Button className="set-name" icon={<Icon id="pen" />} onClick={onChangeShareName}
                   aria-label={`${sp.settingsName}: ${shareAs} – ${sp.change}`}>
-                  <Icon id="pen" /> <span className="set-name-v">{shareAs}</span>
-                </button>
+                  <span className="set-name-v">{shareAs}</span>
+                </Button>
               </div>
             )}
           </div>
@@ -224,16 +225,16 @@ export function SettingsSheet({
           <div className="set-card">
             <div className="set-row">
               <span className="set-row-l">{cp.blankSheet}<small>{cp.blankSheetSub}</small></span>
-              <button type="button" className="set-dl" disabled={sheetBusy} onClick={() => void downloadBlankSheet()}>
-                <Icon id="doc" /> {cp.blankSheetDownload}
-              </button>
+              <Button icon={<Icon id="doc" />} disabled={sheetBusy} onClick={() => void downloadBlankSheet()}>
+                {cp.blankSheetDownload}
+              </Button>
             </div>
             {onFeedback && (
               <div className="set-row">
                 <span className="set-row-l">{cp.feedbackRow}<small>{cp.feedbackRowSub}</small></span>
-                <button type="button" className="set-dl" onClick={onFeedback}>
-                  <Icon id="mail" /> {cp.feedbackOpen}
-                </button>
+                <Button icon={<Icon id="mail" />} onClick={onFeedback}>
+                  {cp.feedbackOpen}
+                </Button>
               </div>
             )}
           </div>
