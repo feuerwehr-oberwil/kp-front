@@ -261,7 +261,7 @@
 .cl-ref-figbtn { display: block; position: relative; width: 100%; max-width: 560px; padding: 0;
   border: 0; background: none; cursor: zoom-in; border-radius: var(--r-ctl); }
 .cl-ref-fig img { width: 100%; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
-  box-shadow: var(--shadow-sm); display: block; background: var(--surface); }
+  box-shadow: var(--e3); display: block; background: var(--surface); }
 .cl-ref-zoomhint { position: absolute; right: 8px; bottom: 8px; width: 30px; height: 30px;
   display: grid; place-items: center; border-radius: 50%; background: var(--glass);
   border: 1px solid var(--glass-edge); backdrop-filter: blur(8px); color: var(--ink-dim); }

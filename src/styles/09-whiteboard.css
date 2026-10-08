@@ -253,7 +253,7 @@
 /* floating zoom — top-right of the canvas, matching the map's MapUtility cluster */
 .wb-zoom { display: flex; align-items: center; gap: 2px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; flex: none; }
 .wb-zoom-float { position: absolute; right: 16px; top: calc(16px + env(safe-area-inset-top)); z-index: var(--z-map-util); background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--shadow); border-radius: var(--r-cluster); padding: var(--bar-pad); }
+  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); border-radius: var(--r-cluster); padding: var(--bar-pad); }
 /* Below 860px the top bar runs the full width, so the cluster drops under it — what the Karte's
    own cluster does at the same width (MapUtility · .toputil). At 820 its «–» sat under the bar
    and a tap on it hit the bar (3am test r4, 26.09.2026). */
@@ -398,7 +398,7 @@
      (it was the last --r-pill add), ink, 12.5/700 compact; it keeps the glass because it floats
      over the plan. */
   display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 5px 14px 5px 11px; border-radius: var(--r-sm);
-  border: 1px solid var(--glass-line); background: var(--glass); box-shadow: var(--shadow-sm);
+  border: 1px solid var(--glass-line); background: var(--glass); box-shadow: var(--e3);
   color: var(--ink); font: var(--fw-bold) var(--fs-1) var(--body); line-height: 1; cursor: pointer;
   user-select: none; -webkit-user-select: none; }
 @media (hover: hover) {
@@ -548,7 +548,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    material — «this marker is in hand» — which the light floating family (Ebenen, Ansichten, the
    Suche card) must never be mistaken for. Its inks are the on-ink tokens, never frozen white. */
 .wb-pill-acts { position: absolute; top: calc(100% + 9px); left: 50%; transform: translateX(-50%); z-index: 6;
-  display: flex; gap: 6px; background: var(--ink-fill); border-radius: calc(var(--r-sm) + var(--bar-pad)); padding: var(--bar-pad); box-shadow: var(--shadow); }
+  display: flex; gap: 6px; background: var(--ink-fill); border-radius: calc(var(--r-sm) + var(--bar-pad)); padding: var(--bar-pad); box-shadow: var(--e4); }
 /* …flipped ABOVE the marker when it would otherwise land under the phone's fixed bottom lanes or
    past the canvas edge. The decision is measured in components/TwinTeamPill (`data-flip`), which
    also writes the horizontal nudge as an inline transform — here we only restate the anchor. */
@@ -591,7 +591,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-dialog); }
 /* "Welcher Trupp?" quick picker shown when placing a team chip on the plan */
 .wb-trupp-pick { width: min(300px, calc(100vw - 32px)); max-height: 70dvh; overflow-y: auto; background: var(--surface);
-  border-radius: var(--r-surface); box-shadow: var(--shadow); padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  border-radius: var(--r-surface); box-shadow: var(--e4); padding: 10px; display: flex; flex-direction: column; gap: 6px; }
 .wb-trupp-pick-head { font-size: 12px; font-weight: var(--fw-bold); color: var(--ink-dim); padding: 4px 6px 6px; }
 .wb-trupp-opt { display: flex; align-items: center; gap: 9px; border: 1px solid var(--glass-edge); background: var(--surface-2, #fff);
   border-radius: var(--r-ctl); cursor: pointer; padding: 12px 12px; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); min-height: 48px; text-align: left; }
@@ -705,7 +705,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
      the sidebar ugly. Colour swatches stay compact via the 2-wide .wb-sw-grid. */
   flex-wrap: nowrap; max-height: calc(100dvh - 168px); overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .3) transparent;
-  background: var(--ink-fill); border-radius: var(--r-surface); padding: 10px; box-shadow: var(--shadow); }
+  background: var(--ink-fill); border-radius: var(--r-surface); padding: 10px; box-shadow: var(--e4); }
 .wb-dock::-webkit-scrollbar { width: 6px; }
 .wb-dock::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .3); border-radius: 3px; }
 /* short viewports: tighten the dock so it fits without scrolling wherever it can */
@@ -850,7 +850,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 
 /* Gebäude rotation popover (30.08.) — the one visible control both compass doors open */
 .wb-orient-popup { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); }
+  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); }
 .wb-orient-pop { display: flex; flex-direction: column; gap: 10px; padding: 13px 15px; min-width: 250px; }
 .wb-orient-row { display: flex; align-items: center; gap: 10px; }
 .wb-orient-lbl { font-size: 12px; font-weight: var(--fw-bold); color: var(--ink-dim); flex: none; }
@@ -896,7 +896,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* Plan-Maßstab: metre-entry dialog (an <Overlay> — centred by the `.ui-dialog` rule up with the
    Trupp picker, which it shares the modal recipe with) */
 .wb-cal-pop { width: min(320px, calc(100vw - 32px)); background: var(--surface); border-radius: var(--r-surface);
-  box-shadow: var(--shadow); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  box-shadow: var(--e4); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .wb-cal-title { font: var(--fw-bold) 15px var(--body); color: var(--ink); }
 .wb-cal-body { font-size: 12px; color: var(--ink-dim); line-height: 1.35; }
 /* quick-pick reference lengths (the common scale-bar values) above the stepper */
@@ -962,7 +962,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-persist { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--float-h) + var(--float-gap)); z-index: 9;
   display: inline-flex; align-items: center; gap: 8px; max-width: min(94%, 520px); padding: 7px 8px 7px 12px;
   border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
-  box-shadow: var(--shadow); animation: panelIn .16s var(--ease); }
+  box-shadow: var(--e4); animation: panelIn .16s var(--ease); }
 .wb-scale-persist-t { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); white-space: nowrap; margin-right: 2px; }
 .wb-scale-persist .btn { padding: 7px 11px; font-size: var(--fs-1); white-space: nowrap; }
 .wb-scale-persist-x { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border: none;
@@ -989,7 +989,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    symbol is a tap on that symbol — not a press that the overlay swallows to close itself. */
 .wb-georef-dock { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--float-h) + var(--float-gap)); z-index: 9;
   border-radius: var(--r-surface); border: 1px solid var(--glass-line); background: var(--surface);
-  box-shadow: var(--shadow); }
+  box-shadow: var(--e4); }
 @media (--phone) {
   /* ⚠️ Its height is NOT fixed — `.qActions` is a 2-column grid of 2 or 3 rows (Neu ausrichten /
      Zurücksetzen / Übertragen), each button a full --tap — so no bottom offset in the toast lane
@@ -1031,7 +1031,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    «+» it is supposed to outrank. The insert and Verlängern grips keep their sizes; they were
    already pixel-matched. */
 .wb-vertex { position: absolute; z-index: 7; width: 24px; height: 24px; border-radius: 50%; padding: 0;
-  background: var(--on-accent-ink); border: 3px solid var(--blue); cursor: grab; touch-action: none; box-shadow: var(--shadow-sm); }
+  background: var(--on-accent-ink); border: 3px solid var(--blue); cursor: grab; touch-action: none; box-shadow: var(--e3); }
 .wb-vertex::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-vertex:active { cursor: grabbing; }
 /* The end node of an arrowed Linie is hollow, so the spitze reads through it — the Karte's

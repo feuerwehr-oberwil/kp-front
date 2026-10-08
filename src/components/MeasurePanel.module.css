@@ -2,7 +2,7 @@
 .measure-panel { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome); width: 320px;
   display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: var(--glass);
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-surface);
-  box-shadow: var(--shadow); }
+  box-shadow: var(--e4); }
 /* No entry animation — same story as .pop in MapViewsMenu.module.css: the `animation: panelIn`
    here never fired, and the panel is the answer to a question the operator just asked. */
 .mp-hint { text-align: center; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); padding: 4px 0; }

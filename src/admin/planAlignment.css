@@ -161,7 +161,7 @@
 .adm-floors-hint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1;
   display: inline-flex; align-items: center; gap: 9px; max-width: min(88%, 74ch); padding: 9px 16px;
   border-radius: var(--r-pill); background: var(--ink-fill); color: var(--on-accent-ink);
-  font: 600 var(--fs-1)/1.4 var(--body); text-align: center; box-shadow: var(--shadow-sm); }
+  font: 600 var(--fs-1)/1.4 var(--body); text-align: center; box-shadow: var(--e3); }
 .adm-floors-hint.quiet { background: var(--surface); color: var(--ink-dim); border: 1px solid var(--border); font-weight: var(--fw-medium); }
 
 /* a floor's rectangle on the sheet, its index chip, and the join marks between two drawings */
@@ -179,7 +179,7 @@
 .adm-floors-joins circle.held { fill: var(--blue); stroke-width: 3px; }
 /* the loupe rides the pointer so the same staircase can be hit on two drawings */
 .adm-floors-loupe { position: fixed; z-index: 80; width: 160px; height: 160px; border: 2px solid var(--blue); border-radius: 50%;
-  background-color: var(--board-bg); background-repeat: no-repeat; box-shadow: var(--shadow-sm); pointer-events: none; }
+  background-color: var(--board-bg); background-repeat: no-repeat; box-shadow: var(--e3); pointer-events: none; }
 .adm-floors-loupe span { position: absolute; width: 12px; height: 12px; border: 2px solid var(--blue); border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .adm-floors-loupe::before, .adm-floors-loupe::after { content: ''; position: absolute; background: var(--blue); left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .adm-floors-loupe::before { width: 28px; height: 1px; }
@@ -293,7 +293,7 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
    40px tap size it carries in the floors LIST, where it is a button. */
 .adm-floor-tile-cap { position: absolute; left: 8px; top: 8px; display: flex; align-items: center; gap: 7px;
   max-width: calc(100% - 16px); padding: 5px 12px 5px 6px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: var(--shadow-sm); }
+  background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: var(--e3); }
 .adm-floor-tile-cap .adm-floor-index { min-width: 28px; min-height: 24px; padding: 0 7px; font-size: var(--fs-1); border-radius: var(--r-xs); }
 .adm-floor-tile-cap b { min-width: 0; font: 600 var(--fs-1) var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* a storey drawn in several pieces names them after its own name – «Westflügel · Ostflügel» */

@@ -5,7 +5,7 @@
    the base rules do not have to be rediscovered if any platform ever does report one. */
 .topbar { position: absolute; top: calc(16px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); display: flex; align-items: center;
   gap: 8px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-bar); padding: var(--bar-pad); z-index: var(--z-topbar); box-shadow: var(--shadow); max-width: calc(100vw - 32px); }
+  border-radius: var(--r-bar); padding: var(--bar-pad); z-index: var(--z-topbar); box-shadow: var(--e4); max-width: calc(100vw - 32px); }
 /* ⚠️ ONE gap all round (25.09.2026) — the pill at the left end used to stand 19px in from the
    side and 9px from the top, and no corner can run parallel to two different gaps. --r-bar is the
    buttons' corner plus exactly this gap (01-tokens · «ONE corner»). */
@@ -36,6 +36,6 @@
 .cv-btn .print-send-off { padding-left: 0; }
 
 .rbtn { width: 54px; height: 54px; border-radius: var(--r-sm); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); box-shadow: var(--shadow); display: grid; place-items: center; font-size: 21px;
+  border: 1px solid var(--glass-line); box-shadow: var(--e4); display: grid; place-items: center; font-size: 21px;
   color: var(--ink); cursor: pointer; padding: 0; }
 .rbtn.active { background: var(--ink-fill); color: var(--on-accent-ink); }

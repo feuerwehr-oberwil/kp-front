@@ -19,7 +19,7 @@
    list, it does not move you anywhere. It wore the same blue fill as the page tabs above it, so
    the two read as one rank. Chosen = a raised white chip on the track, in ink. */
 .aop-tools .useg-btn { min-height: 34px; padding: 4px 12px; font-size: var(--fs-1); }
-.aop-tools .useg-btn.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+.aop-tools .useg-btn.on { background: var(--surface); color: var(--ink); box-shadow: var(--e3); }
 
 /* A record's head is a LINE, not a toolbar: its buttons match the 32–36px controls every other
    record head carries (admin.css · .adm-rec-act), not the 44px of a page action. Only the

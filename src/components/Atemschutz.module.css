@@ -366,7 +366,7 @@
      scale with it — the Mannschaftsliste and the Auftrag tiles. Still inside an iPad's
      1024px landscape with air around it. */
   width: min(820px, calc(100vw - 32px)); height: min(760px, calc(100dvh - 32px)); overflow: hidden;
-  background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
+  background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--e4);
   display: flex; flex-direction: column; }
 /* Keyboard up (Overlay · useKeyboardInset) — same signal, same shape of fix `.ip-sheet` already
    uses (13-incident.css `.is-kb`): ride up to a fixed top instead of a vertical centre (whose
@@ -715,7 +715,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .comboMenu {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; margin: 0; padding: 4px; list-style: none;
   max-height: 252px; overflow-y: auto; background: var(--surface); border: 1px solid var(--glass-edge);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow);
+  border-radius: var(--r-ctl); box-shadow: var(--e4);
 }
 /* portalled to <body> (mirrors the global Combo): the scrolling modal/sheet the field sits in
    would otherwise clip the menu at its overflow boundary. Keep it above modal sheets (@80/81)
@@ -1079,7 +1079,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   grid-template-columns: minmax(140px, 1fr) 104px 132px 84px 148px var(--tap);
   background: var(--surface); border: none; border-left: 5px solid var(--ink-faint);
   border-radius: var(--r-ctl); padding: 11px 13px; cursor: pointer; font-family: var(--body);
-  box-shadow: 0 0 0 1px var(--border-soft), var(--shadow-sm); }
+  box-shadow: 0 0 0 1px var(--border-soft), var(--e3); }
 .trowWarn { border-left-color: var(--amber); background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }
 .trowCrit { border-left-color: var(--red); background: color-mix(in srgb, var(--red) 6%, var(--surface)); }
 /* registered, still to come — blue, like the card's own .st-angemeldet */
@@ -1712,7 +1712,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
     background: none; backdrop-filter: none; box-shadow: none; border-radius: 0;
     display: flex; flex-direction: column; }
   .sheetFrame { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
-    background: var(--glass); backdrop-filter: blur(16px); box-shadow: var(--shadow);
+    background: var(--glass); backdrop-filter: blur(16px); box-shadow: var(--e4);
     border-radius: var(--r-hero) var(--r-hero) 0 0; }
   /* the grab bar is the sheet's top gutter now — the head needs none of its own (15-mobile.css
      · `.ui-sheet-grab`), and a head under a bar is the handle, as on every other bottom sheet */
@@ -1730,7 +1730,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    declared earlier in this file), and a shorthand here would paint over it. */
 .pinRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px;
   padding: 6px 6px 6px 12px; border-left-width: 5px; border-left-style: solid; border-radius: var(--r-ctl);
-  box-shadow: 0 0 0 1px var(--border-soft), var(--shadow); font-family: var(--body); }
+  box-shadow: 0 0 0 1px var(--border-soft), var(--e4); font-family: var(--body); }
 /* the NAME gets the elastic column and may take two lines — a long surname lost the first name at
    360px; the state word rides under the clock instead, where it is about the clock */
 .pinName { min-width: 0; display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: var(--fw-heavy); color: var(--ink); }

@@ -26,7 +26,7 @@
    in 15-mobile.css replaces the max-height wholesale and must keep winning. */
 .ctx { position: absolute; right: calc(var(--vrail-w, 60px) + 26px); top: 88px; width: 360px; background: var(--glass);
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-hero); z-index: var(--z-chrome);
-  box-shadow: var(--shadow); max-height: calc(100dvh - 104px - env(safe-area-inset-bottom) - var(--kb-inset, 0px));
+  box-shadow: var(--e4); max-height: calc(100dvh - 104px - env(safe-area-inset-bottom) - var(--kb-inset, 0px));
   display: flex; flex-direction: column; overflow: hidden; }
 /* A Plan's Ebenen list describes the projections in the selected object's detail panel, so both
    stay visible on tablet/desktop. Put Ebenen in the lane immediately left of `.ctx`; the map keeps
@@ -251,7 +251,7 @@
 .combo-input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* a menu hugs its rows: even --bar-pad, and the corner is the rows' plus that gap (01-tokens · «ONE corner») */
 .combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: var(--bar-pad); list-style: none;
-  max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-bar); box-shadow: var(--shadow); }
+  max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-bar); box-shadow: var(--e4); }
 /* portalled to <body> so a scrollable/overflow-hidden panel can't clip or cut off the menu */
 /* z above the phone bottom sheet (.ctx @62), journal drawer (@61) AND the modal sheets
    (.ip-ovl @80 — the Einsatz wizard's Kategorie combo rendered BEHIND the modal at 70:

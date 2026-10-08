@@ -7,7 +7,7 @@
 .help-scrim { position: fixed; inset: 0; z-index: var(--z-help-scrim); background: rgba(16, 24, 38, .34); backdrop-filter: blur(2px); }
 .help-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-help);
   width: min(1040px, calc(100vw - 48px)); height: min(88dvh, 920px); display: flex; flex-direction: column;
-  background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--shadow); overflow: hidden;
+  background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--e4); overflow: hidden;
   animation: pop .16s var(--ease); }
 .help-head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 16px; border-bottom: 1px solid var(--border); }
 .help-head-ic { width: 38px; height: 38px; flex: none; border-radius: var(--r-ctl); display: grid; place-items: center;

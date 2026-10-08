@@ -20,7 +20,7 @@
 .dw-card { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-tool-card);
   width: min(424px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-hero);
-  box-shadow: var(--shadow); padding: 20px 20px 16px; animation: panelIn .16s var(--ease); }
+  box-shadow: var(--e4); padding: 20px 20px 16px; animation: panelIn .16s var(--ease); }
 /* the ✕ IS the global `.ip-x` (28.09.2026 — it was a 44px copy with a 16px glyph); this only
    pins it to the card's corner */
 .dw-x { position: absolute; top: 12px; right: 12px; }
@@ -80,7 +80,7 @@
   max-height: calc(100dvh - 116px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overscroll-behavior: contain; scrollbar-gutter: stable;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-sm);
-  box-shadow: var(--shadow); animation: ml-in .16s var(--ease); }
+  box-shadow: var(--e4); animation: ml-in .16s var(--ease); }
 @keyframes ml-in { from { opacity: 0; transform: translateY(-8px); } }
 /* NO tone edge on any row (29.09.2026, follow-ups; the alarm lost its red bar in sweep 3 T13):
    a row's tone is its leading glyph's colour and nothing else (AGENTS · «ONE message surface» —
@@ -406,7 +406,7 @@
   max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
   background: var(--glass); backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-hero); padding: 22px 22px 16px; box-shadow: var(--shadow);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-hero); padding: 22px 22px 16px; box-shadow: var(--e4);
   animation: pop .16s var(--ease); }
 .confirm-title { margin: 0 0 8px; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 19) */
 .confirm-msg { margin: 0 0 10px; font: var(--fw-medium) 13px/1.45 var(--body); color: var(--ink-dim); }
@@ -460,7 +460,7 @@
    with it, because at that point it is addressing the operator rather than filling a hole. */
 .loading.stuck { z-index: var(--z-popover); background: color-mix(in srgb, var(--map-bg) 82%, transparent); }
 .loading.stuck .loading-card { padding: 26px 30px; border-radius: var(--r-surface);
-  background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); }
+  background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--e4); }
 .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: fade .3s var(--ease); }
 .workspace-loading { display: flex; align-items: center; justify-content: center;
   height: 100%; min-height: 180px; padding: 24px; color: var(--ink-dim); pointer-events: none; }
@@ -584,7 +584,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .photo-view.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-photo); }
 .photo-view { display: flex; flex-direction: column; gap: 10px; max-width: min(96vw, 1200px);
   max-height: 92dvh; padding: 12px; background: var(--glass); backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); }
+  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--e4); }
 .photo-view-head { display: flex; align-items: center; gap: 10px; }
 .photo-view-cap { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: var(--fw-bold) 13px var(--body); color: var(--ink); }

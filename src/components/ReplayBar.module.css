@@ -9,7 +9,7 @@
   width: min(760px, calc(100vw - 32px)); z-index: var(--z-replay);
   display: flex; flex-direction: column; gap: 0;
   background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  border-radius: var(--r-surface); box-shadow: var(--shadow); overflow: hidden;
+  border-radius: var(--r-surface); box-shadow: var(--e4); overflow: hidden;
 }
 .replay-banner {
   display: flex; align-items: center; gap: 9px; padding: 9px 14px;
@@ -86,7 +86,7 @@
 .replay-handle {
   position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%;
   background: var(--surface); border: 3px solid var(--blue); transform: translate(-50%, -50%);
-  box-shadow: var(--shadow-sm); pointer-events: none; z-index: 2; }
+  box-shadow: var(--e3); pointer-events: none; z-index: 2; }
 /* ── Verlaufsspur: the Verlauf's own row under the rail ──
    Its own lane, not more dots on the track. Journal rows are the densest thing on this axis —
    a busy Einsatz writes far more lines than it places symbols. The rail itself carries no dots

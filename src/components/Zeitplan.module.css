@@ -584,7 +584,7 @@
    Written imperatively by ZeitplanView (textContent + hidden) — no per-frame React state. */
 .dragReadout { position: absolute; top: 6px; right: 16px; z-index: 5; pointer-events: none;
   background: var(--surface); color: var(--ink); border: none; border-radius: var(--r-sm); padding: 6px 11px;
-  font: var(--fw-bold) 13px var(--mono); font-variant-numeric: tabular-nums; box-shadow: var(--shadow); }
+  font: var(--fw-bold) 13px var(--mono); font-variant-numeric: tabular-nums; box-shadow: var(--e4); }
 
 @media (--phone) {
   /* The empty-grid help shares the clock header; it takes no row from the Mannschaft. */
@@ -593,5 +593,5 @@
   .emptyInfoBtn span, .emptyInfoBtn svg:first-child { display: none; }
   .zeitplan:has(.emptyNote) .headRow .track { clip-path: inset(0 var(--tap) 0 0); }
   .emptyNote .legendHint { position: absolute; top: 100%; right: 0; width: min(320px, calc(100vw - 40px));
-    padding: 12px; background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); color: var(--ink); }
+    padding: 12px; background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); color: var(--ink); }
 }

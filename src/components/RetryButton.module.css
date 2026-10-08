@@ -14,7 +14,7 @@
   color: var(--ink);
   font: var(--fw-bold) var(--fs-1) var(--body);
   cursor: pointer;
-  box-shadow: var(--shadow);
+  box-shadow: var(--e4);
   backdrop-filter: blur(16px);
   transition: filter .14s var(--ease);
 }

@@ -268,7 +268,7 @@
    shrink one that is wider than the screen. A long Trupp label is what would grow this past a
    phone's width — same guard the print menu and the context menu already carry. */
 .de-menu-pop { min-width: 200px; max-width: min(320px, 92vw); padding: var(--bar-pad); border-radius: var(--r-bar); background: var(--surface);
-  box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
+  box-shadow: var(--e4); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — radius + hover/press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .de-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
   padding: 0 11px; cursor: pointer; font: 600 13.5px var(--body); color: var(--ink); outline: none; }
@@ -298,7 +298,7 @@
 .sel-bar { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
   display: flex; align-items: center; gap: 8px; padding: var(--bar-pad);
   border-radius: var(--r-cluster); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); box-shadow: var(--shadow); animation: pop .16s var(--ease); }
+  border: 1px solid var(--glass-line); box-shadow: var(--e4); animation: pop .16s var(--ease); }
 /* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action) —
    solid blue, the app's one colour for an action grip that transforms the whole object.
    Square and icon-only: nothing appears or disappears inside them (the turn's degrees are read on
@@ -380,14 +380,14 @@ body.sel-transforming .wb-grow { display: none; }
 .sel-turn-deg { position: absolute; transform: translate(-50%, calc(-100% - 14px));
   padding: 3px 8px; border-radius: var(--r-sm); background: var(--blue); color: var(--on-fill);
   font-family: var(--mono); font-size: var(--fs-1); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums;
-  white-space: nowrap; box-shadow: var(--shadow); }
+  white-space: nowrap; box-shadow: var(--e4); }
 /* WebGL context lost: centred over the (now blank) canvas, above the map chrome but below
    sheets/toasts. Persistent by design — it stays until the operator rebuilds the map. */
 .map-gl-lost { position: absolute; z-index: var(--z-blocking-scrim); left: 50%; top: 50%; transform: translate(-50%, -50%);
   display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
   width: min(30ch, calc(100% - 32px)); padding: 18px 20px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-surface);
-  box-shadow: var(--shadow); animation: pop .3s var(--ease); }
+  box-shadow: var(--e4); animation: pop .3s var(--ease); }
 .map-gl-lost-title { font-size: var(--fs-2); font-weight: 650; color: var(--ink); }
 .map-gl-lost-hint { margin: 0; font-size: var(--fs-1); line-height: 1.45; color: var(--ink-dim); }
 
@@ -414,7 +414,7 @@ body.sel-transforming .wb-grow { display: none; }
    closed here rather than by splitting the number from its unit. */
 .measure-readout { position: absolute; top: calc(14px + env(safe-area-inset-top)); left: 50%; translate: -50% 0;
   z-index: var(--z-map-util); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--shadow);
+  border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--e4);
   padding: 10px 15px; font: var(--fw-bold) 15px/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
   word-spacing: -.3ch; pointer-events: none; white-space: nowrap; }
 /* below 860px the TopBar spans the full width (see MapUtility · .toputil) — drop under it.

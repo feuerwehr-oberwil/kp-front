@@ -959,7 +959,7 @@
     /* the bar's own glass, so the pair reads as one piece of chrome rather than as a panel
        floating over one (04b-rail.css · .rail) */
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-    border: 1px solid var(--glass-line); box-shadow: var(--shadow);
+    border: 1px solid var(--glass-line); box-shadow: var(--e4);
     border-radius: var(--r-bar); padding: var(--bar-pad); box-sizing: border-box;
   }
 
@@ -1157,7 +1157,7 @@
   .phone-wx { position: absolute; top: calc(76px + env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); z-index: var(--z-map-util);
     display: flex; align-items: center;
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-    border-radius: var(--r-cluster); padding: var(--bar-pad); box-shadow: var(--shadow); }
+    border-radius: var(--r-cluster); padding: var(--bar-pad); box-shadow: var(--e4); }
   /* the bar's own weather readout is phone-hidden — it lives in this cluster instead */
   .topbar .tb-weather-wrap { display: none; }
   /* …and the GPS caveat leaves the bar for the same reason the weather did: there is no room
@@ -1182,7 +1182,7 @@
     left: calc(max(10px, env(safe-area-inset-left)) + 52px); max-width: calc(100vw - 142px); margin-right: 0;
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
     border: 1px solid color-mix(in srgb, var(--amber, #b45309) 30%, transparent);
-    box-shadow: var(--shadow); }
+    box-shadow: var(--e4); }
   .phone-wx .tb-weather { min-height: 40px; }
 
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than

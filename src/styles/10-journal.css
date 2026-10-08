@@ -197,7 +197,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
      different colors (at least in dark mode)». It was `--surface`, the raised BUTTON fill, a
      visibly lighter slate than the bar at night, with a heavier shadow of its own. */
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow);
+  border-radius: var(--r-ctl); box-shadow: var(--e4);
   padding: 16px; animation: popIn .15s var(--ease); font-variant-numeric: tabular-nums; }
 /* centred header: condition glyph, label, big temperature */
 .wx-pop-head { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-bottom: 14px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
@@ -312,7 +312,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .hold-target { pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 8px;
   padding: 7px 12px; min-height: 42px;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-sm);
-  box-shadow: var(--shadow-sm); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim);
+  box-shadow: var(--e3); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim);
   transition: background .12s var(--ease), color .12s var(--ease), transform .12s var(--ease); }
 .hold-target .i { width: 15px; height: 15px; }
 /* the one the finger is over — this is the whole feedback of the gesture, so it is not subtle.
@@ -348,7 +348,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    61 puts the drawer on top, so nothing is lost behind it). */
 .journal-drawer { position: fixed; top: 88px; right: 84px; bottom: 12px; width: 620px; max-width: calc(100vw - 96px); z-index: var(--z-drawer);
   display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--shadow); padding: 10px;
+  border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--e4); padding: 10px;
   animation: drawerIn .18s var(--ease); }
 @keyframes drawerIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 /* keyboard up (the Verlauf search) on a tablet: the Overlay stands the foot on the keys
@@ -461,7 +461,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jr-filter-menu { min-width: 250px; max-width: min(340px, 92vw);
   max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
   padding: var(--bar-pad); border-radius: var(--r-bar);   /* hugs its rows — 01-tokens · «ONE corner» */
-  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); }
+  background: var(--surface); box-shadow: var(--e4); border: 1px solid var(--glass-edge); }
 /* skin only — radius, hover and press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .jr-filter-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--tap);
   padding: 0 11px; cursor: pointer; outline: none; font: 600 13.5px var(--body); color: var(--ink); }
@@ -670,7 +670,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
      nothing — it only made the compositor re-blur the map behind the card on every frame of the
      open animation, which is the other half of the desktop jank. Same for .sym-modal/.confirm-card. */
   background: var(--surface);
-  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 16px;
+  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--e4); padding: 16px;
   /* ⚠️ ONE gap on this whole sheet, sideways and downwards alike: 8px. It was 12 between the
      banks and 8 inside them, which is why «Anheften» sat closer to the media row than that row
      sat to ART. One number means there is no second one to get wrong, and the tighter of the

@@ -102,7 +102,7 @@
 .adm-side-item.on {
   background: color-mix(in srgb, var(--blue) 12%, var(--surface));
   border-color: color-mix(in srgb, var(--blue) 28%, var(--border-soft));
-  color: var(--ink); box-shadow: var(--shadow-sm);
+  color: var(--ink); box-shadow: var(--e3);
 }
 .adm-side-ic { flex: 0 0 auto; width: 18px; height: 18px; color: var(--ink-faint); }
 .adm-side-item.on .adm-side-ic { color: var(--blue); }
@@ -191,7 +191,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
     padding-top: 70px;
     transform: translateX(-100%);
     transition: transform .2s var(--ease);
-    box-shadow: var(--shadow);
+    box-shadow: var(--e4);
   }
   .adm-side.open { transform: translateX(0); }
   .adm-side-scrim {
@@ -228,7 +228,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--e3);
   padding: 20px 22px 22px;
 }
 .adm-card + .adm-card { margin-top: 20px; }
@@ -939,7 +939,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   position: absolute; z-index: var(--z-dock); top: calc(100% + 4px); left: 0; right: 0;
   margin: 0; padding: 5px; list-style: none; max-height: 264px; overflow-y: auto;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow);
+  border-radius: var(--r-ctl); box-shadow: var(--e4);
 }
 .adm-select-opt {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -1004,7 +1004,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-denied-card {
   width: min(440px, 100%);
   background: var(--glass); border: 1px solid var(--glass-line);
-  border-radius: var(--r-surface); box-shadow: var(--shadow);
+  border-radius: var(--r-surface); box-shadow: var(--e4);
   backdrop-filter: blur(14px) saturate(1.4);
   padding: 30px 28px 26px; text-align: center;
 }
@@ -1183,7 +1183,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   background: var(--surface); color: var(--ink);
   font-size: 11.5px; font-weight: var(--fw-bold); line-height: 1.2; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
-  box-shadow: var(--shadow-sm); pointer-events: none;
+  box-shadow: var(--e3); pointer-events: none;
   animation: adm-obj-label-in .14s var(--ease) both;
 }
 @keyframes adm-obj-label-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
@@ -1193,7 +1193,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
   border: 2px solid var(--surface); border-radius: 50%;
   background: var(--blue); color: var(--on-fill); cursor: pointer;
-  box-shadow: var(--shadow-sm); transition: transform .12s var(--ease), background .12s var(--ease);
+  box-shadow: var(--e3); transition: transform .12s var(--ease), background .12s var(--ease);
 }
 /* invisible hit pad — a 28px map pin is too fiddly for touch */
 .adm-obj-pin::before { content: ''; position: absolute; inset: -8px; border-radius: 50%; }
@@ -1225,7 +1225,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   min-height: 40px;
   padding: 7px 12px; border-radius: var(--r-sm);
   border: 1px solid var(--border); background: var(--surface); color: var(--ink);
-  font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-sm);
+  font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: var(--e3);
   transition: background .12s var(--ease);
 }
 @media (hover: hover) {
@@ -1440,7 +1440,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   background: var(--surface); color: var(--ink);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  box-shadow: var(--shadow);
+  box-shadow: var(--e4);
   font: var(--fw-medium) 12px/1.45 var(--body);
   text-transform: none; letter-spacing: normal;
   white-space: normal; text-align: left;
@@ -1840,7 +1840,7 @@ p.adm-sys-path { margin: 3px 0 0; }
      shrink one that is wider than the screen to begin with. */
   margin: 0; padding: 5px; list-style: none; min-width: 208px; max-width: min(320px, 92vw);
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow);
+  border-radius: var(--r-ctl); box-shadow: var(--e4);
 }
 /* portalled to <body> (fixed coords from the trigger) so a long menu never forces the
    table's scroll container to scroll.
@@ -2021,7 +2021,7 @@ p.adm-sys-path { margin: 3px 0 0; }
 .adm-pick-opt:disabled { opacity: var(--disabled); cursor: default; }
 /* an option CARD with its radio mark: the row wash (01-tokens · --sel-wash), not the chip fill */
 .adm-pick-opt.on { background: color-mix(in srgb, var(--blue) 14%, var(--surface));
-  border-color: var(--sel); box-shadow: var(--shadow-sm); }
+  border-color: var(--sel); box-shadow: var(--e3); }
 .adm-pick-head { display: flex; align-items: center; gap: 8px; font: var(--fw-bold) var(--fs-2) var(--body); }
 .adm-pick-mark { width: 18px; height: 18px; flex: none; border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 60%, transparent);

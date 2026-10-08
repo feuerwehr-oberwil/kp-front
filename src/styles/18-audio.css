@@ -570,7 +570,7 @@
 /* Einsatzuhr mode dropdown: labelled, selectable rows (Dauer / Uhrzeit / Beginn) so the reading
    is never ambiguous — recognition over the old blind tap-to-cycle. */
 .tb-uhr-menu { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-bar); box-shadow: var(--shadow); padding: var(--bar-pad); min-width: 236px; }
+  border-radius: var(--r-bar); box-shadow: var(--e4); padding: var(--bar-pad); min-width: 236px; }
 /* a menu row, so it wears the app's one option-row treatment: --r-ctl, 8 % of --blue on hover,
    and the --press wash it had no answer of at all (13-incident.css · «ONE menu row»). */
 .tb-uhr-row { display: flex; align-items: center; gap: 11px; width: 100%; height: 42px; padding: 0 10px; border: 0;

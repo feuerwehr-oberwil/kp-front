@@ -10,7 +10,7 @@
   width: min(520px, calc(100vw - 32px)); max-height: min(70vh, 640px);
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--glass); backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-hero); box-shadow: var(--shadow);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-hero); box-shadow: var(--e4);
 }
 
 /* the row keeps its height — the ✕ grew to 44, so its own box now supplies the padding the
@@ -31,7 +31,7 @@
 .row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* ONE highlight, driven by the keyboard cursor — and the pointer moves that same cursor
    (onMouseEnter) instead of painting a second, competing hover state. */
-.rowOn { background: var(--surface); box-shadow: var(--shadow-sm); }
+.rowOn { background: var(--surface); box-shadow: var(--e3); }
 .rowRaus .name, .rowRaus .where { color: var(--ink-faint); }
 .cap { flex: none; width: 6px; align-self: stretch; border-radius: 3px; }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
