@@ -1,8 +1,8 @@
 {
   "$comment": "Written by `node scripts/perf-report.mjs --update` from a CI run (`just perf-accept <run-id>`). Hand-edit only `tolerance`. docs/testing/perf-journeys.md",
-  "recorded": "2026-10-05",
-  "source": "CI run 37340054315",
-  "calibration": 38.4,
+  "recorded": "2026-10-08",
+  "source": "CI run 37834565268",
+  "calibration": 42.3,
   "tolerance": {},
   "metrics": {
     "cold-start.api_kb": {
@@ -10,15 +10,15 @@
       "unit": "kb"
     },
     "cold-start.api_requests": {
-      "value": 24,
+      "value": 25,
       "unit": "count"
     },
     "cold-start.blocking_ms": {
-      "value": 942,
+      "value": 1351,
       "unit": "ms"
     },
     "cold-start.css_kb": {
-      "value": 97.7,
+      "value": 97.6,
       "unit": "kb"
     },
     "cold-start.data_kb": {
@@ -26,7 +26,7 @@
       "unit": "kb"
     },
     "cold-start.dom_nodes": {
-      "value": 1070,
+      "value": 1074,
       "unit": "count"
     },
     "cold-start.external_hosts": {
@@ -38,43 +38,43 @@
       "unit": "kb"
     },
     "cold-start.heap_mb": {
-      "value": 15.1,
+      "value": 15.2,
       "unit": "mb"
     },
     "cold-start.js_kb": {
-      "value": 823,
+      "value": 837.6,
       "unit": "kb"
     },
     "cold-start.listeners": {
-      "value": 6316,
+      "value": 6493,
       "unit": "count"
     },
     "cold-start.login_screen_ms": {
-      "value": 1303.5,
+      "value": 1181.7,
       "unit": "ms"
     },
     "cold-start.long_tasks": {
-      "value": 30,
+      "value": 29,
       "unit": "count"
     },
     "cold-start.pin_to_ready_ms": {
-      "value": 3926,
+      "value": 4405.1,
       "unit": "ms"
     },
     "cold-start.pin_to_workspace_ms": {
-      "value": 846.2,
+      "value": 871,
       "unit": "ms"
     },
     "cold-start.precache_kb": {
-      "value": 2360.3,
+      "value": 2400.7,
       "unit": "kb"
     },
     "cold-start.static_requests": {
-      "value": 35,
+      "value": 37,
       "unit": "count"
     },
     "cold-start.total_ms": {
-      "value": 5314,
+      "value": 5831.6,
       "unit": "ms"
     },
     "cold-start.writes": {
@@ -82,7 +82,7 @@
       "unit": "count"
     },
     "edit.api_kb": {
-      "value": 294.7,
+      "value": 295.5,
       "unit": "kb"
     },
     "edit.api_requests": {
@@ -110,11 +110,11 @@
       "unit": "kb"
     },
     "edit.karte_long_tasks": {
-      "value": 299,
+      "value": 272,
       "unit": "count"
     },
     "edit.karte_script_ms": {
-      "value": 1143.4,
+      "value": 1202.5,
       "unit": "ms"
     },
     "edit.kb_per_save": {
@@ -134,11 +134,11 @@
       "unit": "ms"
     },
     "edit.tafel_interaction_max_ms": {
-      "value": 104,
+      "value": 64,
       "unit": "ms"
     },
     "edit.tafel_tap_ms": {
-      "value": 84.6,
+      "value": 66.5,
       "unit": "ms"
     },
     "idle.api_requests_per_min": {
@@ -154,7 +154,7 @@
       "unit": "mb"
     },
     "idle.layouts_per_min": {
-      "value": 5,
+      "value": 1,
       "unit": "count"
     },
     "idle.long_tasks": {
@@ -166,19 +166,19 @@
       "unit": "count"
     },
     "idle.script_ms_per_min": {
-      "value": 92.4,
+      "value": 102.9,
       "unit": "ms"
     },
     "idle.style_recalcs_per_min": {
-      "value": 4,
+      "value": 0,
       "unit": "count"
     },
     "idle.task_ms_per_min": {
-      "value": 165.2,
+      "value": 168.1,
       "unit": "ms"
     },
     "surface-tour.blocking_ms": {
-      "value": 98,
+      "value": 66,
       "unit": "ms"
     },
     "surface-tour.dom_node_growth": {
@@ -190,7 +190,7 @@
       "unit": "mb"
     },
     "surface-tour.interaction_max_ms": {
-      "value": 80,
+      "value": 72,
       "unit": "ms"
     },
     "surface-tour.listener_growth": {
@@ -198,39 +198,39 @@
       "unit": "count"
     },
     "surface-tour.switch_anwesenheit_ms": {
-      "value": 42.1,
+      "value": 41.9,
       "unit": "ms"
     },
     "surface-tour.switch_checkliste_ms": {
-      "value": 55.2,
+      "value": 52,
       "unit": "ms"
     },
     "surface-tour.switch_gebaeude_ms": {
-      "value": 70.1,
+      "value": 67.2,
       "unit": "ms"
     },
     "surface-tour.switch_karte_ms": {
-      "value": 55.7,
+      "value": 51.6,
       "unit": "ms"
     },
     "surface-tour.switch_material_ms": {
-      "value": 39.4,
+      "value": 50.3,
       "unit": "ms"
     },
     "surface-tour.switch_p50_ms": {
-      "value": 55.2,
+      "value": 52.2,
       "unit": "ms"
     },
     "surface-tour.switch_rapport_ms": {
-      "value": 161.3,
+      "value": 151.1,
       "unit": "ms"
     },
     "surface-tour.switch_tafel_ms": {
-      "value": 35.7,
+      "value": 49.6,
       "unit": "ms"
     },
     "surface-tour.switch_trupps_ms": {
-      "value": 63.7,
+      "value": 62.3,
       "unit": "ms"
     },
     "trupps.api_kb": {
@@ -246,7 +246,7 @@
       "unit": "ms"
     },
     "trupps.contact_ms": {
-      "value": 81.6,
+      "value": 54.4,
       "unit": "ms"
     },
     "trupps.css_kb": {
@@ -266,7 +266,7 @@
       "unit": "kb"
     },
     "trupps.interaction_max_ms": {
-      "value": 48,
+      "value": 40,
       "unit": "ms"
     },
     "trupps.js_kb": {
@@ -282,15 +282,15 @@
       "unit": "count"
     },
     "verlauf.api_kb": {
-      "value": 6.6,
+      "value": 6.9,
       "unit": "kb"
     },
     "verlauf.api_requests": {
-      "value": 26,
+      "value": 32,
       "unit": "count"
     },
     "verlauf.compose_interaction_max_ms": {
-      "value": 128,
+      "value": 152,
       "unit": "ms"
     },
     "verlauf.css_kb": {
@@ -318,15 +318,15 @@
       "unit": "kb"
     },
     "verlauf.open_verlauf_blocking_ms": {
-      "value": 28,
+      "value": 42,
       "unit": "ms"
     },
     "verlauf.open_verlauf_ms": {
-      "value": 190.3,
+      "value": 144.8,
       "unit": "ms"
     },
     "verlauf.remote_entry_visible_ms": {
-      "value": 413.5,
+      "value": 125.8,
       "unit": "ms"
     },
     "verlauf.static_requests": {
@@ -334,7 +334,7 @@
       "unit": "count"
     },
     "verlauf.submit_ms": {
-      "value": 106.3,
+      "value": 108.6,
       "unit": "ms"
     },
     "warm-reload.api_kb": {
@@ -342,11 +342,11 @@
       "unit": "kb"
     },
     "warm-reload.api_requests": {
-      "value": 17,
+      "value": 18,
       "unit": "count"
     },
     "warm-reload.blocking_ms": {
-      "value": 826,
+      "value": 585,
       "unit": "ms"
     },
     "warm-reload.css_kb": {
@@ -370,11 +370,11 @@
       "unit": "kb"
     },
     "warm-reload.reload_to_ready_ms": {
-      "value": 4192.1,
+      "value": 3096.9,
       "unit": "ms"
     },
     "warm-reload.reload_to_workspace_ms": {
-      "value": 1565.3,
+      "value": 1531,
       "unit": "ms"
     },
     "warm-reload.static_requests": {
@@ -395,7 +395,7 @@
         "GET /api/incidents/:id/objects": 1,
         "GET /api/incidents/:id/positions": 1,
         "GET /api/incidents/:id/workspace": 1,
-        "GET /api/personnel": 1,
+        "GET /api/personnel": 2,
         "GET /api/plan-scales": 1,
         "GET /api/print/status": 1,
         "GET /api/reference": 1,
@@ -441,7 +441,8 @@
     },
     "verlauf": {
       "routes": {
-        "GET /api/incidents/:id/journal": 15,
+        "GET /api/incidents/:id/journal": 21,
+        "GET /api/incidents/:id/positions": 1,
         "POST /api/incidents/:id/events": 1,
         "POST /api/incidents/:id/journal": 10
       }
@@ -457,7 +458,7 @@
         "GET /api/incidents/:id/objects": 1,
         "GET /api/incidents/:id/positions": 1,
         "GET /api/incidents/:id/workspace": 1,
-        "GET /api/personnel": 1,
+        "GET /api/personnel": 2,
         "GET /api/plan-scales": 1,
         "GET /api/print/status": 1,
         "GET /api/reference": 1,
