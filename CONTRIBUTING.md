@@ -65,6 +65,13 @@ pnpm lint    # eslint
 See [`backend/README.md`](backend/README.md) for setup, migrations, and the admin CLIs, and
 [`docs/API.md`](docs/API.md) for the HTTP API.
 
+**Many branches at once.** Work in a worktree per branch, always started from `origin/main`
+(`git fetch && git worktree add ../kp-front-wt/<name> -b <branch> origin/main`). `just doctor`
+warns when the checkout you are in is far behind origin/main; `just wt-prune` lists the worktrees
+and local branches whose work is merged, with age and dirty state, and `just wt-prune --apply`
+removes the clean ones (never one with uncommitted or local-only files). Scratch scripts are
+named `.x-*` and git ignores them anywhere — keep them out of `site/`, which is published.
+
 For self-hosting (Postgres + the backend serving the SPA same-origin), use the bundled
 docker-compose stack – see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 

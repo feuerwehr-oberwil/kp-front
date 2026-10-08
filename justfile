@@ -56,6 +56,7 @@ init-env:
 # Check a deployment and say what is wrong with it, in plain language.
 [group('Operations')]
 doctor *args:
+    @bash scripts/dev-behind.sh
     bash scripts/doctor.sh {{args}}
 
 # (⚠️ DESTRUCTIVE — it drops the schema and refills the asset volume. Confirmation is the typed
@@ -269,6 +270,17 @@ perf-accept run-id:
 check:
     pnpm exec tsc --noEmit
     pnpm exec tsc -p tsconfig.e2e.json
+
+# (Read-only unless `--apply`. «Finished» = merged into origin/main, or its PR merged; a PR
+# closed unmerged only with `--closed`. `--apply` removes only what is clean (no change, no
+# untracked file, no ignored file outside the caches like node_modules), pushed, idle for 24 h,
+# and not a running process's cwd. `--keep 'p8-*'` protects a name; `--all` also lists what is
+# still in progress. Works on any repo — run it from a kp-rueck checkout too:
+# `python3 ../kp-front/scripts/wt_prune.py`.)
+# List finished worktrees and local branches — `--apply` removes the clean ones.
+[group('Development')]
+wt-prune *args:
+    python3 scripts/wt_prune.py {{args}}
 
 # --- Build & release  (tag a green main commit — see CHANGELOG.md) ------------
 
