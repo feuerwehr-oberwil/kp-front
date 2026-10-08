@@ -33,6 +33,11 @@ __pycache__/
 
 # Local scratch (working pdfs, throwaway files) — never published
 /tmp/
+# Scratch scripts (screenshot drivers, probes) are named `.x-*` wherever they sit — 81 of them
+# sat untracked in site/, which GitHub Pages publishes, one `git add -A` away from it. A local
+# vite config for serving the dev server over the tailnet likewise.
+.x-*
+/.vite.*.config.ts
 
 # UI prototypes & screenshot harnesses (Base UI spike, rail mockups). Throwaway by design:
 # they are how a look is tried out, not how it ships — the real app is the record.

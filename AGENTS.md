@@ -110,6 +110,9 @@ pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when
   plus a GitHub Release whose body is the committed CHANGELOG section. `docker-compose.yml`
   **pulls** that image by default (`KP_FRONT_TAG`); building from source is the commented path.
 - Replace files in place – no `_v2` / `-new` / `-fixed` variants.
+- Scratch scripts are named `.x-*` (git ignores them anywhere; never leave one in `site/`, which
+  is published). New work starts in a worktree off `origin/main`; `just doctor` warns when a
+  checkout is far behind it, `just wt-prune [--apply]` clears finished worktrees (CONTRIBUTING.md).
 - Match the surrounding code's style, naming, and comment density.
 - When writing docs, convert relative dates to absolute.
 - **A new rule goes where the next editor meets it**: a comment at the top of the module (or
