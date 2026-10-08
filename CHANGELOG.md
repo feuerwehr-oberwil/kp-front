@@ -294,6 +294,12 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **Dates and times follow the station's language.** About 30 places spelled a fixed «de-CH»
+  (the weather's «Stand», the Atemschutz-Link, the Erfassung, the Verwaltung, the Verlauf's day
+  heads, the Rapport), so a French or Italian station read German weekdays and dates. They all go
+  through one helper now, which reads the deployment's language as its Swiss form (24-hour clock
+  for «en» too). A German station sees exactly what it saw. The admin tip for Textbausteine no
+  longer promises French, Italian or English standard phrases: the shipped ones stay German.
 - **The picked checklist survives a tab change.** The Checkliste surface fell back to the first
   list (on a phone, to the chooser) every time another tab was shown. The pick is now kept per
   Einsatz for the browser session, and survives a reload too.

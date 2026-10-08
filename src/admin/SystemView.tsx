@@ -5,7 +5,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useConfig } from './ConfigContext'
 import { SetupChecklist, type SetupState } from './SetupChecklist'
-import { fillTemplate, fmtFileSize } from '../lib/format'
+import { fillTemplate, fmtFileSize, formatTime } from '../lib/format'
 import { providerLabel, type DeploymentSharePointSource } from '../lib/deploymentConfig'
 import { Card, StatusBadge, Metric, UsageBar, ProgressBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime, fmtRelTime } from './ui'
 import { useCellLabels } from './useCellLabels'
@@ -94,11 +94,11 @@ function fmtCount(n: number | null | undefined): string {
 }
 
 /** Wall clock to the second — «Stand 17:49:20», the last heartbeat of the print agent.
- *  ⚠️ de-CH, like every other time in the Verwaltung (ui · fmtDate / fmtDateTime / fmtRelTime).
- *  With the browser's own locale this printed «05:49:20 PM» into a German page on any device
- *  set to en-US, which is most tablets out of the box. */
+ *  ⚠️ The DEPLOYMENT's locale (lib/format · formatTime), like every other time in the Verwaltung
+ *  (ui · fmtDate / fmtDateTime / fmtRelTime), never the browser's: that printed «05:49:20 PM»
+ *  into a German page on any device set to en-US, which is most tablets out of the box. */
 function fmtClock(d: Date): string {
-  return d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return formatTime(d, true)
 }
 
 // ─── connector health ─────────────────────────────────────────────────────────

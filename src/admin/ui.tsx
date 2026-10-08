@@ -6,20 +6,21 @@ import { Menu } from '../lib/overlays'
 import { InfoTip } from './InfoTip'
 import { useCellLabels } from './useCellLabels'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, localeDate, localeDateTime } from '../lib/format'
 
 // Shared admin presentational primitives. One source of truth for the card, field,
 // status-badge, metric and usage-bar shapes that every admin surface reuses — they
 // were previously copy-pasted into ConfigEditor / DataView / SystemView and could
 // drift. All styles live on the global tokens in app.css via admin.css class names.
 
-/** Short de-CH date for admin tables; null/invalid → "—". (Admin tooling is German-only,
- *  so the locale is fixed rather than following appConfig.locale.) */
+/** Short date for admin tables; null/invalid → "—". In the DEPLOYMENT's locale (lib/format ·
+ *  formatLocale), like the Verwaltung's copy — never the browser's. (It was a fixed 'de-CH' while
+ *  the Verwaltung was German-only; it is translated in all four locales now.) */
 export function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('de-CH')
+  return localeDate(d)
 }
 
 /** Date AND time, for lists where several entries share a day.
@@ -29,14 +30,14 @@ export function fmtDateTime(iso: string | null | undefined): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString('de-CH', {
+  return localeDateTime(d, {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
 
 /**
  * How long ago, in one short phrase («gerade eben», «vor 3 min», «vor 5 h»), falling back to the
- * de-CH date+time once it is older than a day; null/invalid → "—".
+ * date+time once it is older than a day; null/invalid → "—".
  *
  * ⚠️ Relative is the right unit for a HEALTH fact and the wrong one for a record: «vor 3 min»
  * answers «läuft das noch» without any arithmetic at 3am, which is what «Daten» reports for a
@@ -50,11 +51,11 @@ export function fmtRelTime(iso: string | null | undefined): string {
   const C = appConfig.copy.admin.common
   const diffSec = Math.round((Date.now() - d.getTime()) / 1000)
   // A future timestamp is a clock skew, not an age — print it rather than «in -2 min».
-  if (diffSec < 0) return d.toLocaleString('de-CH')
+  if (diffSec < 0) return localeDateTime(d)
   if (diffSec < 60) return C.justNow
   if (diffSec < 3600) return fillTemplate(C.relMin, { n: Math.floor(diffSec / 60) })
   if (diffSec < 86400) return fillTemplate(C.relHour, { n: Math.floor(diffSec / 3600) })
-  return d.toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  return localeDateTime(d, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
 /** Section card — the single container used by every admin view. `title` is optional:
