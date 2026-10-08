@@ -8,6 +8,7 @@ import { getDiveraResponses, type DiveraResponses } from '../lib/api/divera'
 import { useResumingPoll } from '../lib/useResumingPoll'
 import type { AttendanceState, Person } from '../types'
 import { RankBadge } from './RankBadge'
+import { Button } from './Button'
 import s from './Anwesenheit.module.css'
 
 /** How often the open block re-reads what the SERVER already has. It never makes the server call
@@ -102,15 +103,15 @@ export function AnrueckendBlock({ incidentId, people, attendance, canEdit, onMar
         </div>
         {meta && <div className={s.anrMeta}>{meta}</div>}
         {canEdit && (
-          <button
-            type="button"
-            className={cx('ip-btn', s.anrDa)}
+          <Button
+            className={s.anrDa}
+            icon={<Icon id="check" />}
             onClick={() => onMarkPresent(r.person)}
             aria-label={fillTemplate(R.checkInLabel, { name: r.person.displayName })}
             title={fillTemplate(R.checkInLabel, { name: r.person.displayName })}
           >
-            <Icon id="check" /> {R.checkIn}
-          </button>
+            {R.checkIn}
+          </Button>
         )}
       </li>
     )
