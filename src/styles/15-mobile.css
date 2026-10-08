@@ -26,7 +26,7 @@
   display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
   border: none; border-radius: var(--r-pill); color: var(--ink);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
-  font: 700 15px var(--body); cursor: pointer; touch-action: none; user-select: none;
+  font: var(--fw-bold) 15px var(--body); cursor: pointer; touch-action: none; user-select: none;
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
 /* ⚠️ The FAB follows the THEME, not --btn-primary (20.09.2026, field report «flipped»). That token
    inverts at night on purpose – a form's one action needs an edge against the sheet it sits on
@@ -293,7 +293,7 @@
   .phone-tools .wb-dock:has(.wb-dock-hint) { flex-wrap: wrap; height: auto; max-height: none; row-gap: 2px;
     padding-bottom: 8px; overflow: hidden; }
   .phone-tools .wb-dock .wb-dock-hint { display: block; flex: 1 0 100%; order: 99; max-width: calc(100vw - 40px);
-    font: 600 12.5px var(--body); color: var(--ink-dim); opacity: .85; text-align: center;
+    font: 600 var(--fs-1) var(--body); color: var(--ink-dim); opacity: .85; text-align: center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* (…and the Gebäude's chip row steps up by that row: `--msg-dock-hint` is part of
      --float-base, see «THE floating row» below) */
@@ -469,7 +469,7 @@
      (18-audio.css) resets the button chrome but also overrides the 12px `.stat` carries, so the
      clock rendered at the inherited 16px — the largest text in the bar by a third, and ~10px of
      width the phone bar does not have. */
-  .topbar .tb-einsatzuhr { font-size: 12.5px; padding: 6px 2px; }
+  .topbar .tb-einsatzuhr { font-size: var(--fs-1); padding: 6px 2px; }
   /* the identity pill at phone spacing — the same 4px the action cluster already gives up.
      ⚠️ 7px sides and a 4px gap, not 10/6 (3am test r2, 25.09.2026): with ↶ ↷ Verlauf and the
      Atemschutz chip up, a 360px bar left the ÜBUNG marker 49px of the 56 it needs and it read
@@ -488,9 +488,9 @@
   /* ⚠️ also past the bar's ladder: its title step (fit-9) is the TABLET's last resort and hides
      `.ip-switch-title`; here the title is half of what the pill says and never goes */
   .ip-switch-two .ip-switch-title, .topbar.fit-9 .ip-switch-two .ip-switch-title {
-    display: block; max-width: 100%; font-size: 13.5px; font-weight: 700; }
+    display: block; max-width: 100%; font-size: 13.5px; font-weight: var(--fw-bold); }
   .ip-switch-clock { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;
-    font: 700 12.5px/1.1 var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+    font: var(--fw-bold) var(--fs-1)/1.1 var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
   .ip-switch-btn .ip-switch-clock svg { width: 12px; height: 12px; opacity: .8; }
   .topbar .ip-switch-two .ip-status { display: inline-flex; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
@@ -649,7 +649,7 @@
   .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-item { flex: 1 1 0; min-width: 44px; padding: 0; }
   .navrail.labelled:not(.expanded):not(.dragging) .nav-glyph { height: 22px; }
   /* …and the same two corrections the desktop rule makes, one size smaller (see 05-navrail.css) */
-  .navrail.labelled:not(.expanded):not(.dragging) .nav-mono-chip { min-width: 22px; min-height: 22px; font-size: 11px; }
+  .navrail.labelled:not(.expanded):not(.dragging) .nav-mono-chip { min-width: 22px; min-height: 22px; font-size: var(--fs-micro); }
   .navrail.labelled:not(.expanded):not(.dragging) .nav-live { top: -2px; right: -4px; }
   /* ⚠️ 9.5px — a point below the desktop's 10.5 and well below the 12.5px interactive floor. Same
      reason as there (it is a legend under the glyph, and the 46px button is the target), plus the
@@ -899,7 +899,7 @@
      the symbol by (symbolWrap), so it is the last part that goes behind the «…». */
   .sym-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 4px; }
   .sym-cell { padding: 10px 1px 8px; }
-  .sym-cell small { font-size: 11px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  .sym-cell small { font-size: var(--fs-micro); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
     line-clamp: 2; overflow: hidden;
     /* ⚠️ 1.25, not the 1.1 the tablet label keeps: the clamp's `overflow: hidden` cuts whatever
        stands above the first line box, and at 1.1 that was the dieresis — «Überschwemmung»
@@ -959,7 +959,7 @@
     /* the bar's own glass, so the pair reads as one piece of chrome rather than as a panel
        floating over one (04b-rail.css · .rail) */
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-    border: 1px solid var(--glass-line); box-shadow: var(--shadow);
+    border: 1px solid var(--glass-line); box-shadow: var(--e4);
     border-radius: var(--r-bar); padding: var(--bar-pad); box-sizing: border-box;
   }
 
@@ -1157,7 +1157,7 @@
   .phone-wx { position: absolute; top: calc(76px + env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); z-index: var(--z-map-util);
     display: flex; align-items: center;
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-    border-radius: var(--r-cluster); padding: var(--bar-pad); box-shadow: var(--shadow); }
+    border-radius: var(--r-cluster); padding: var(--bar-pad); box-shadow: var(--e4); }
   /* the bar's own weather readout is phone-hidden — it lives in this cluster instead */
   .topbar .tb-weather-wrap { display: none; }
   /* …and the GPS caveat leaves the bar for the same reason the weather did: there is no room
@@ -1182,7 +1182,7 @@
     left: calc(max(10px, env(safe-area-inset-left)) + 52px); max-width: calc(100vw - 142px); margin-right: 0;
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
     border: 1px solid color-mix(in srgb, var(--amber, #b45309) 30%, transparent);
-    box-shadow: var(--shadow); }
+    box-shadow: var(--e4); }
   .phone-wx .tb-weather { min-height: 40px; }
 
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than

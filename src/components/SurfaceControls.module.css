@@ -74,7 +74,7 @@
    an active filter is shown, for the reason above.
    ⚠️ AFTER .addBtn: same specificity, and .addBtn's fixed --tap width would otherwise win. */
 .wordBtn { width: auto; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px;
-  font: 700 13px var(--body); white-space: nowrap; }
+  font: var(--fw-bold) 13px var(--body); white-space: nowrap; }
 
 /* the dropdown each filter button opens */
 .menuPop {
@@ -87,7 +87,7 @@
   min-width: 190px; max-width: min(320px, 92vw);
   max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
   padding: var(--bar-pad); border-radius: var(--r-bar);   /* hugs its rows — 01-tokens · «ONE corner» */
-  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge);
+  background: var(--surface); box-shadow: var(--e4); border: 1px solid var(--glass-edge);
   z-index: var(--z-popover);
 }
 /* skin only — the radius and the hover/press wash ride on the `ui-menu-item` class every row of

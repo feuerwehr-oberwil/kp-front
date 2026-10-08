@@ -12,7 +12,7 @@
 .fb-prompt-head { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); }
 .fb-prompt-head svg { width: 15px; height: 15px; flex: none; }
 .fb-prompt-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.fb-prompt-what { font: 600 11px var(--body); color: var(--ink-faint); margin-left: auto;
+.fb-prompt-what { font: 600 var(--fs-micro) var(--body); color: var(--ink-faint); margin-left: auto;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* `p.fb-prompt-q`, not `.fb-prompt-q`: this card mounts inside `.ip-emptyapp-card`, whose
    `.ip-emptyapp-card p` rule (13-incident.css) puts an 18px bottom margin under every <p> —
@@ -20,27 +20,27 @@
    it was winning over this `margin: 0` regardless of source order and stacking with `.fb-prompt`'s
    own 8px gap into an oversized gap before the button row. Matching its specificity here, in a
    sheet that loads after 13-incident.css, lets this rule win instead. */
-p.fb-prompt-q { margin: 0; font: 600 14px var(--body); color: var(--ink); }
+p.fb-prompt-q { margin: 0; font: 600 var(--fs-2) var(--body); color: var(--ink); }
 .fb-prompt-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
 .fb-sheet { display: flex; flex-direction: column; gap: 12px; }
-.fb-q { margin: 0; font: 700 15px var(--body); color: var(--ink); }
-.fb-intro { margin: 0; font: 400 13px var(--body); color: var(--ink-dim); }
+.fb-q { margin: 0; font: var(--fw-bold) 15px var(--body); color: var(--ink); }
+.fb-intro { margin: 0; font: var(--fw-regular) 13px var(--body); color: var(--ink-dim); }
 .fb-input { width: 100%; min-height: 110px; padding: 10px 12px; resize: vertical;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
-  color: var(--ink); font: 400 14px var(--body); }
+  color: var(--ink); font: var(--fw-regular) var(--fs-2) var(--body); }
 /* --blue, not --accent: focus is a system signal, not brand. A station whose accent is its own
    red would otherwise ring this one field in the danger colour. Since 28.09.2026 it is the app's
    one field focus (--focus-*) instead of a 2px outline of its own. */
 .fb-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* Character count, shown only in the last tenth before the server's cap. Tabular so it doesn't
    jitter while typing. */
-.fb-count { margin: -6px 0 0; text-align: right; font: 400 12px var(--body);
+.fb-count { margin: -6px 0 0; text-align: right; font: var(--fw-regular) 12px var(--body);
   color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 /* «Das wird mitgeschickt» is COLLAPSED since the sheet stopped transmitting: the operator is
    about to read the whole report in their own mail client or in a GitHub form, so the block is
    a detail on request rather than the last thing standing between them and a send. */
-.fb-tech > summary { cursor: pointer; font: 600 12.5px var(--body); color: var(--ink-dim);
+.fb-tech > summary { cursor: pointer; font: 600 var(--fs-1) var(--body); color: var(--ink-dim);
   min-height: 44px; display: flex; align-items: center; gap: 8px; list-style: none; }
 /* `display: flex` drops the UA marker in Chromium, so the fold had no affordance at all; it wears
    the one fold grammar now, the global `.chev` (29.09.2026) */
@@ -48,8 +48,8 @@ p.fb-prompt-q { margin: 0; font: 600 14px var(--body); color: var(--ink); }
 .fb-tech > summary > .chev { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
 .fb-tech-block { margin: 4px 0 0; padding: 10px 12px; overflow-x: auto;
   border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim);
-  font: 400 12px/1.6 var(--mono, ui-monospace, monospace); white-space: pre; }
-.fb-tech-note { margin: 6px 0 0; font: 400 12px var(--body); color: var(--ink-faint); }
+  font: var(--fw-regular) 12px/1.6 var(--mono, ui-monospace, monospace); white-space: pre; }
+.fb-tech-note { margin: 6px 0 0; font: var(--fw-regular) 12px var(--body); color: var(--ink-faint); }
 /* The two routes. Full-width cells rather than a button row: each one carries a sentence about
    what it costs (a GitHub account) and what it buys (a status you can follow), and that is the
    whole decision — a pair of bare labels would make the operator guess it. */
@@ -72,14 +72,14 @@ p.fb-prompt-q { margin: 0; font: 600 14px var(--body); color: var(--ink); }
 .fb-route-ico svg { width: 15px; height: 15px; }
 .fb-route-body { display: flex; flex-direction: column; gap: 3px; }
 .fb-route-t { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  font: 700 13.5px var(--body); color: var(--ink); }
-.fb-route-s { font: 400 12px/1.5 var(--body); color: var(--ink-dim); }
+  font: var(--fw-bold) 13.5px var(--body); color: var(--ink); }
+.fb-route-s { font: var(--fw-regular) 12px/1.5 var(--body); color: var(--ink-dim); }
 /* (the route's tag is THE tag recipe, `.ip-badge` + tone, 29.09.2026 — it was a green-filled pill) */
 /* What the file is and why it matters, directly under the routes it applies to both of. */
 .fb-diag-note { margin: -2px 0 0; padding-left: 10px; border-left: 2px solid var(--glass-edge);
-  font: 400 12px/1.5 var(--body); color: var(--ink-faint); }
+  font: var(--fw-regular) 12px/1.5 var(--body); color: var(--ink-faint); }
 .fb-privacy { display: flex; align-items: center; gap: 6px; margin: 0;
-  font: 400 12.5px var(--body); color: var(--ink-faint); }
+  font: var(--fw-regular) var(--fs-1) var(--body); color: var(--ink-faint); }
 .fb-privacy svg { width: 14px; height: 14px; flex: none; }
 .fb-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
@@ -91,8 +91,8 @@ p.fb-prompt-q { margin: 0; font: 600 14px var(--body); color: var(--ink); }
 /* search hits inside the help text. Deliberately a tint + weight rather than the browser's
    default yellow block: the help renders in day and night, and a fixed yellow is unreadable
    in one of them. Inline-block would break the line rhythm, so it only paints. */
-.help-hit { background: color-mix(in srgb, var(--blue) 22%, transparent); color: inherit;
-  border-radius: 3px; padding: 0 1px; font-weight: 700; }
+.help-hit { background: var(--blue-22); color: inherit;
+  border-radius: 3px; padding: 0 1px; font-weight: var(--fw-bold); }
 
 /* Verlauf activity strip — WHEN the Einsatz has substance, as one line above the list. A long
    Verlauf is a wall of rows in which «was war um halb zehn» means scrolling and reading; the
@@ -132,5 +132,5 @@ p.fb-prompt-q { margin: 0; font: 600 14px var(--body); color: var(--ink); }
    fault rather than as a point. */
 .hist-ev.jr-flash { animation: ui-flash-ring-inset 1.9s ease-out 1; border-radius: var(--r-ctl); }
 @media (prefers-reduced-motion: reduce) {
-  .hist-ev.jr-flash { animation: none; box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  .hist-ev.jr-flash { animation: none; box-shadow: inset 0 0 0 4px var(--ink-62); }
 }

@@ -17,7 +17,7 @@
   justify-content: center;
   gap: 12px;
   color: var(--ink-faint); /* --muted was never declared */
-  font-size: 14px;
+  font-size: var(--fs-2);
   pointer-events: none;
 }
 /* (the «Erneut laden» button is the shared <RetryButton> — RetryButton.module.css) */
@@ -32,7 +32,7 @@
 .wb-pdf-code {
   pointer-events: auto;
   user-select: text;
-  font: 400 11px var(--mono);
+  font: var(--fw-regular) var(--fs-micro) var(--mono);
   letter-spacing: .02em;
   opacity: .7;
 }

@@ -7,7 +7,7 @@
 .help-scrim { position: fixed; inset: 0; z-index: var(--z-help-scrim); background: rgba(16, 24, 38, .34); backdrop-filter: blur(2px); }
 .help-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-help);
   width: min(1040px, calc(100vw - 48px)); height: min(88dvh, 920px); display: flex; flex-direction: column;
-  background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--shadow); overflow: hidden;
+  background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--e4); overflow: hidden;
   animation: pop .16s var(--ease); }
 .help-head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 16px; border-bottom: 1px solid var(--border); }
 .help-head-ic { width: 38px; height: 38px; flex: none; border-radius: var(--r-ctl); display: grid; place-items: center;
@@ -15,7 +15,7 @@
 .help-head-ic .i { width: 21px; height: 21px; }
 .help-head-tt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .help-head-tt h2 { margin: 0; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 18) */
-.help-head-tt p { margin: 0; font-size: 12.5px; color: var(--ink-dim); line-height: 1.45; }
+.help-head-tt p { margin: 0; font-size: var(--fs-1); color: var(--ink-dim); line-height: 1.45; }
 /* the ✕ IS the global `.ip-x` (28.09.2026 — it was a 34px copy with a 16px glyph); the head only
    pushes it to the end */
 .help-head .ip-x { margin-left: auto; flex: none; }
@@ -27,7 +27,7 @@
 /* «no hits» is the shared `.no-hits` line; the way out sits under it, as quiet */
 .help-empty { padding: 26px 0 0; }
 .help-empty .no-hits { padding-bottom: 4px; }
-.help-empty-hint { margin: 0; text-align: center; font: 500 13px/1.45 var(--body); color: var(--ink-faint); }
+.help-empty-hint { margin: 0; text-align: center; font: var(--fw-medium) 13px/1.45 var(--body); color: var(--ink-faint); }
 
 .help-body { flex: 1 1 auto; min-height: 0; display: flex; }
 
@@ -47,17 +47,17 @@
 /* reduced motion: jump instead of glide (the smooth scroll is the only motion this pane owns) */
 @media (prefers-reduced-motion: reduce) { .help-content { scroll-behavior: auto; } }
 .help-sec { padding-top: 26px; scroll-margin-top: 12px; }
-.help-sec > h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 16px; font-weight: 800; color: var(--ink); }
+.help-sec > h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: var(--fs-3); font-weight: var(--fw-heavy); color: var(--ink); }
 .help-sec > h3 .i { width: 19px; height: 19px; color: var(--blue); }
 .help-lead { margin: 0 0 12px; font-size: 13.5px; line-height: 1.55; color: var(--ink-dim); }
-.help-sub { margin: 18px 0 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
+.help-sub { margin: 18px 0 6px; font-size: 13px; font-weight: var(--fw-bold); color: var(--ink); }
 .help-list { margin: 4px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
 .help-list li { position: relative; padding-left: 18px; font-size: 13px; line-height: 1.5; color: var(--ink); }
 .help-list li::before { content: ""; position: absolute; left: 3px; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
-.help-list b { font-weight: 700; }
+.help-list b { font-weight: var(--fw-bold); }
 .help-kbd { font-family: var(--mono); font-size: 11.5px; background: var(--fill-soft); border: 1px solid var(--border); border-radius: var(--r-xs); padding: 1px 6px; color: var(--ink); white-space: nowrap; }
 .help-note { display: flex; gap: 10px; margin: 12px 0 2px; padding: 11px 13px; border-radius: var(--r-ctl); background: var(--fill-soft);
-  border: 1px solid var(--border); font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); }
+  border: 1px solid var(--border); font-size: var(--fs-1); line-height: 1.5; color: var(--ink-dim); }
 .help-note .i { width: 16px; height: 16px; flex: none; color: var(--blue); margin-top: 1px; }
 
 @media (max-width: 720px) {

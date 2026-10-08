@@ -93,7 +93,7 @@
 .vrail.labelled:not(.expanded):not(.dragging) .vrail-glyph { width: auto; min-width: 0; height: 26px; }
 .vrail.labelled:not(.expanded):not(.dragging) .vrail-label {
   display: block; padding: 0 2px; text-align: center; max-width: 100%;
-  font-size: 10.5px; font-weight: 700; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; }
+  font-size: 10.5px; font-weight: var(--fw-bold); line-height: 1.1; overflow: hidden; text-overflow: ellipsis; }
 /* expanded: the glyph no longer carries the icon's horizontal inset (it would sit flush against
    the pill edge) — shrink it to the icon and let symmetric tool padding give label + icon equal
    breathing room. Collapsed/dragging keep the 46px glyph for perfect icon-only centering. */
@@ -138,12 +138,12 @@
 .coord-read { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px;
   padding: 8px 8px 8px 14px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); pointer-events: none; }
+  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); pointer-events: none; }
 .coord-read.aiming { border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
 .cr-rows { display: grid; gap: 2px; }
 .cr-row { display: flex; align-items: baseline; gap: 9px; }
-.cr-tag { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; color: var(--ink-faint); width: 42px; }
-.cr-val { font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cr-tag { font-size: 9.5px; font-weight: var(--fw-bold); letter-spacing: .08em; color: var(--ink-faint); width: 42px; }
+.cr-val { font-family: var(--mono); font-size: var(--fs-1); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cr-hint { grid-column: 1 / -1; margin-top: 3px; font-size: 10.5px; font-weight: 600; color: var(--ink-faint); text-align: center; }
 .coord-read.aiming .cr-hint { color: var(--blue); }
 /* the one exit that is ON the readout — both states, same place. 36px inside a glass strip that
@@ -199,12 +199,12 @@
    shifts under the finger between taps and never sits where clear will appear. */
 .step { display: inline-flex; align-items: center; gap: 6px; }
 .step-btn { width: 44px; height: 44px; flex: none; border-radius: var(--r-sm); border: 1px solid var(--border);
-  background: var(--surface-2); color: var(--ink); font-size: 19px; font-weight: 700; line-height: 1; cursor: pointer;
+  background: var(--surface-2); color: var(--ink); font-size: var(--fs-4); font-weight: var(--fw-bold); line-height: 1; cursor: pointer;
   display: grid; place-items: center; padding: 0; }
 @media (hover: hover) {
   .step-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); }
 }
-.step-btn:active:not(:disabled) { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: var(--blue); }
+.step-btn:active:not(:disabled) { background: var(--blue-12); border-color: var(--blue); }
 .step-btn:disabled { opacity: var(--disabled); cursor: default; }
 .step-val { font-family: var(--mono); font-weight: 600; min-width: 30px; text-align: center; color: var(--ink);
   /* digits must not change width as they change value, or the ± buttons twitch under the finger */
@@ -229,7 +229,7 @@
 .step-clear { width: var(--tap); height: var(--tap); flex: none; margin-left: 4px; border-radius: var(--r-sm); border: none; padding: 0;
   background: transparent; color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
 @media (hover: hover) {
-  .step-clear:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+  .step-clear:hover:not(:disabled) { background: var(--red-12); color: var(--red); }
 }
 .step-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .step-clear:disabled { opacity: var(--disabled); cursor: default; }
@@ -250,7 +250,7 @@
 .uslider-thumb { position: absolute; top: 50%; width: 18px; height: 18px; margin-top: -9px; margin-left: -9px;
   border-radius: 50%; background: var(--blue); box-shadow: 0 1px 3px rgba(10, 20, 40, .45); }
 .uslider:focus-visible { outline: none; }
-.uslider:focus-visible .uslider-thumb { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 45%, transparent); }
+.uslider:focus-visible .uslider-thumb { box-shadow: 0 0 0 3px var(--blue-45); }
 /* the house press wash, on the thumb — nothing moves, per the touch vocabulary */
 .uslider:active .uslider-thumb { background-image: linear-gradient(var(--press), var(--press)); }
 
@@ -314,5 +314,5 @@
 .sym-cell small { font-size: 12px; font-weight: 600; color: var(--ink-dim); text-align: center; line-height: 1.1;
   hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word; word-break: normal; }
 /* terse empty/transient line — search no-match, loading, load error (shared with .pp-empty) */
-.sym-empty, .pp-empty { text-align: center; color: var(--ink-faint); font: 500 13px var(--body); padding: 28px 0; }
+.sym-empty, .pp-empty { text-align: center; color: var(--ink-faint); font: var(--fw-medium) 13px var(--body); padding: 28px 0; }
 .sym-empty { grid-column: 1/-1; }

@@ -29,11 +29,11 @@
 }
 .adm-header-left { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 .adm-station {
-  font-size: 14px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  font-size: var(--fs-2); font-weight: var(--fw-bold); letter-spacing: .08em; text-transform: uppercase;
   color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .adm-verwaltung {
-  font-family: var(--mono); font-size: 11px; letter-spacing: .02em;
+  font-family: var(--mono); font-size: var(--fs-micro); letter-spacing: .02em;
   color: var(--ink-faint); white-space: nowrap;
 }
 .adm-header-right { display: flex; align-items: center; gap: 14px; }
@@ -83,7 +83,7 @@
 .adm-side-group:last-child { margin-bottom: 0; }
 .adm-side-heading {
   margin: 0 0 2px; padding: 0 10px;
-  font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  font-size: 10.5px; font-weight: var(--fw-bold); letter-spacing: .08em; text-transform: uppercase;
   color: var(--ink-faint);
 }
 .adm-side-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
@@ -102,7 +102,7 @@
 .adm-side-item.on {
   background: color-mix(in srgb, var(--blue) 12%, var(--surface));
   border-color: color-mix(in srgb, var(--blue) 28%, var(--border-soft));
-  color: var(--ink); box-shadow: var(--shadow-sm);
+  color: var(--ink); box-shadow: var(--e3);
 }
 .adm-side-ic { flex: 0 0 auto; width: 18px; height: 18px; color: var(--ink-faint); }
 .adm-side-item.on .adm-side-ic { color: var(--blue); }
@@ -132,7 +132,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 /* page heading + autosave status share a row */
 .adm-pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .adm-pagehead > div:first-child { min-width: 0; }
-.adm-h1 { font-size: 22px; font-weight: 700; letter-spacing: -.01em; margin: 4px 0 4px; }
+.adm-h1 { font-size: 22px; font-weight: var(--fw-bold); letter-spacing: -.01em; margin: 4px 0 4px; }
 .adm-h1 .adm-tip { margin-left: 7px; }
 .adm-h1 .adm-tip-trigger { width: 20px; height: 20px; font-size: 15px; }
 /* the sentence under the page title. Held to a readable measure: across the full 1180px
@@ -170,12 +170,12 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-autosave.warn .adm-autosave-dot { background: var(--amber); }
 .adm-autosave-retry {
   margin-left: 2px; padding: 0; border: none; background: transparent;
-  color: var(--blue); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer;
+  color: var(--blue); font: inherit; font-weight: var(--fw-bold); text-decoration: underline; cursor: pointer;
 }
 /* message over instruction. The chip is a pill on one line until there IS a hint — a save error
    is the one place here that has to be readable rather than compact. */
 .adm-autosave-msg { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.adm-autosave-hint { font-style: normal; font-weight: 500; opacity: .85; }
+.adm-autosave-hint { font-style: normal; font-weight: var(--fw-medium); opacity: .85; }
 .adm-autosave:has(.adm-autosave-hint) { border-radius: var(--r-ctl); align-items: flex-start; }
 
 /* ── responsive: sidebar collapses to a slide-in drawer ───────────────────── */
@@ -191,12 +191,12 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
     padding-top: 70px;
     transform: translateX(-100%);
     transition: transform .2s var(--ease);
-    box-shadow: var(--shadow);
+    box-shadow: var(--e4);
   }
   .adm-side.open { transform: translateX(0); }
   .adm-side-scrim {
     display: block; position: fixed; inset: 0; z-index: var(--z-side-scrim);
-    border: none; background: color-mix(in srgb, var(--ink) 28%, transparent);
+    border: none; background: var(--ink-28);
   }
   .adm-header-left { align-items: center; }
 }
@@ -228,7 +228,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--e3);
   padding: 20px 22px 22px;
 }
 .adm-card + .adm-card { margin-top: 20px; }
@@ -249,7 +249,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    and space-between would park it on the left. The rule is «the control is right-aligned», in
    every one of the three head shapes. */
 .adm-card-act { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-left: auto; }
-.adm-card-title { font-size: 15px; font-weight: 700; letter-spacing: .01em; margin: 0; }
+.adm-card-title { font-size: 15px; font-weight: var(--fw-bold); letter-spacing: .01em; margin: 0; }
 /* the ⓘ after a card title: the «ⓘ» character brought its own side bearing, the #info icon does not */
 .adm-card-title > .adm-tip { margin-left: 6px; }
 .adm-card-cap { font-size: 12px; color: var(--ink-faint); margin: 5px 0 0; line-height: 1.45; }
@@ -264,9 +264,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .adm-field-label {
   display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-  font-size: 12.5px; font-weight: 600; color: var(--ink-dim);
+  font-size: var(--fs-1); font-weight: 600; color: var(--ink-dim);
 }
-.adm-field-hint { font-size: 11px; font-weight: 500; color: var(--ink-faint); }
+.adm-field-hint { font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-faint); }
 
 .adm-input {
   width: 100%; box-sizing: border-box; min-height: var(--tap);
@@ -277,12 +277,12 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   transition: border-color .14s var(--ease), background .14s var(--ease);
 }
 .adm-input:focus { border-color: var(--blue); background: var(--surface); }
-.adm-input::placeholder { color: var(--ink-faint); font-weight: 500; }
-.adm-input-mono { font-family: var(--mono); font-weight: 500; }
+.adm-input::placeholder { color: var(--ink-faint); font-weight: var(--fw-medium); }
+.adm-input-mono { font-family: var(--mono); font-weight: var(--fw-medium); }
 .adm-textarea { min-height: 0; resize: vertical; line-height: 1.5; padding-top: 10px;
   /* running text is read, not scanned: 600 is the weight of a one-word value, and a
      650px block of Textbausteine in it read as one shout */
-  font-weight: 400; }
+  font-weight: var(--fw-regular); }
 
 /* two-up rows on desktop, stack on narrow */
 .adm-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
@@ -298,7 +298,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    Sits tight to the row it introduces; extra air above separates it from the group before. */
 .adm-fieldgroup {
   margin: 10px 0 -4px;
-  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .05em; text-transform: uppercase;
   color: var(--ink-faint);
 }
 .adm-fieldgroup:first-child { margin-top: 0; }
@@ -355,7 +355,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   grid-column: 1 / -1;
   display: flex; align-items: center; gap: 7px;
   margin: 0; padding: 14px 18px 6px;
-  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  font-size: 10.5px; font-weight: var(--fw-bold); letter-spacing: .07em; text-transform: uppercase;
   color: var(--blue);
 }
 .adm-set-grp-act { margin-left: auto; display: flex; align-items: center; gap: 6px; }
@@ -379,10 +379,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   .adm-set-row:hover > * { background: color-mix(in srgb, var(--ink) 3.5%, transparent); }
 }
 .adm-set-name { font-size: 13px; font-weight: 600; color: var(--ink); }
-.adm-set-unit { font: 500 11.5px var(--mono); color: var(--ink-faint); }
+.adm-set-unit { font: var(--fw-medium) 11.5px var(--mono); color: var(--ink-faint); }
 /* the Standard note is empty on every row that still runs on the shipped value — it speaks
    only for a deviation, which is the whole reason it can sit there without adding noise */
-.adm-set-std { font: 500 11.5px var(--mono); color: var(--amber-strong); white-space: nowrap; }
+.adm-set-std { font: var(--fw-medium) 11.5px var(--mono); color: var(--amber-strong); white-space: nowrap; }
 .adm-set-std:empty { display: none; }
 /* ⚠️ The Wert cell WRAPS. It is a flex row (`.adm-set-row > *` above), and a non-wrapping flex
    row's max-content width is every child laid out on ONE line — which on a `span` row is exactly
@@ -496,7 +496,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-irec-head, .adm-irec { display: contents; }
 .adm-irec-h {
   display: flex; align-items: center; gap: 6px;
-  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  font-size: 10.5px; font-weight: var(--fw-bold); letter-spacing: .07em; text-transform: uppercase;
   color: var(--ink-faint);
 }
 .adm-irec-cell { display: block; min-width: 0; }
@@ -579,7 +579,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 }
 .adm-rec-swatch { flex: none; width: 13px; height: 13px; border-radius: 4px;
   border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }
-.adm-rec-meta { font: 500 11.5px/1.35 var(--mono); color: var(--ink-faint); overflow-wrap: anywhere; }
+.adm-rec-meta { font: var(--fw-medium) 11.5px/1.35 var(--mono); color: var(--ink-faint); overflow-wrap: anywhere; }
 /* the record's own control sits at the RIGHT edge of the head line, whatever the name's length */
 .adm-rec-act { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .adm-rec-act .adm-formlink-x { width: 32px; height: 32px; }
@@ -641,7 +641,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-colorrow .dh-color { width: 24px; height: 24px; }
 .adm-colorrow .dh-color.on { box-shadow: 0 0 0 2.5px var(--blue); }
 .adm-swatch-auto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--border-soft); border-radius: var(--r-pill);
-  padding: 5px 10px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer;
+  padding: 5px 10px; background: var(--surface); color: var(--ink); font: var(--fw-bold) 12px/1 var(--body); cursor: pointer;
   box-shadow: 6px 0 6px -4px var(--surface); }
 .adm-swatch-auto.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
 
@@ -666,7 +666,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   padding: 0; cursor: pointer; border: none; border-radius: var(--r-ctl);
   background: transparent; color: var(--ink-faint); }
 @media (hover: hover) {
-  .adm-formlink-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+  .adm-formlink-x:hover { background: var(--red-12); color: var(--red); }
 }
 .adm-formlink-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-formlink-x .i { width: 17px; height: 17px; }
@@ -687,7 +687,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    (the resolved entry.* values) clipped past the card edge. `pre-wrap` rather than `normal`
    because this is a URL: the spaces in it are part of what is being previewed. */
 .adm-formlink-preview { margin: 0; min-width: 0; width: 100%; padding: 10px 12px; border-radius: var(--r-ctl);
-  background: var(--surface); color: var(--ink-dim); font: 500 12px/1.7 var(--mono);
+  background: var(--surface); color: var(--ink-dim); font: var(--fw-medium) 12px/1.7 var(--mono);
   white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
 .adm-formlink-warn { color: var(--amber-strong); }
 /* ── «hier kommt der nächste dazu» (ui.tsx · AddRow, and every bare .adm-formlink-add) ────────
@@ -703,7 +703,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-formlink-add { display: flex; width: 100%; align-items: center; gap: 8px;
   min-height: var(--tap); margin-top: 12px; padding: 13px 14px; cursor: pointer;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
-  background: var(--surface); color: var(--ink); font: 700 14px var(--body); text-align: left; }
+  background: var(--surface); color: var(--ink); font: var(--fw-bold) var(--fs-2) var(--body); text-align: left; }
 @media (hover: hover) {
   .adm-formlink-add:hover { border-color: var(--ink-faint); }
 }
@@ -714,7 +714,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-addrow { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%;
   margin-top: 12px; padding: 13px 14px;
   border: 1px dashed var(--border); border-radius: var(--r-sm);
-  color: var(--ink-dim); font-size: 12.5px; line-height: 1.45; }
+  color: var(--ink-dim); font-size: var(--fs-1); line-height: 1.45; }
 .adm-addrow-label { min-width: 0; overflow-wrap: anywhere; }
 .adm-addrow-act { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 /* the button in an AddRow is a button again */
@@ -751,20 +751,20 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   margin: 0; padding: 9px 12px; border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--blue) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--blue) 22%, var(--border-soft));
-  font-size: 12.5px; font-weight: 600; color: var(--ink-dim);
+  font-size: var(--fs-1); font-weight: 600; color: var(--ink-dim);
 }
 .adm-fleet-guide { border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); }
 /* the whole summary row folds the guide, so it is a full 44px target and answers a press */
 .adm-fleet-guide > summary { display: flex; align-items: center; min-height: var(--tap); padding: 11px 13px;
-  font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--ink-dim); border-radius: var(--r-ctl); }
+  font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; color: var(--ink-dim); border-radius: var(--r-ctl); }
 .adm-fleet-guide > summary:active { background-image: linear-gradient(var(--press), var(--press)); }
-@media (hover: hover) { .adm-fleet-guide > summary:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
+@media (hover: hover) { .adm-fleet-guide > summary:hover { background: var(--blue-8); } }
 .adm-fleet-guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; padding: 2px 14px 14px; }
 .adm-fleet-glossary { min-width: 0; }
-.adm-fleet-glossary > strong { display: block; margin-bottom: 9px; font-size: 12.5px; }
+.adm-fleet-glossary > strong { display: block; margin-bottom: 9px; font-size: var(--fs-1); }
 .adm-fleet-glossary dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 18px; margin: 0; }
 .adm-fleet-glossary dl > div { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 7px; min-width: 0; }
-.adm-fleet-glossary dt { font: 700 11.5px var(--mono); color: var(--ink); }
+.adm-fleet-glossary dt { font: var(--fw-bold) 11.5px var(--mono); color: var(--ink); }
 .adm-fleet-glossary dd { margin: 0; font-size: 11.5px; line-height: 1.4; color: var(--ink-dim); }
 .adm-fleet-guide-wide { grid-column: 1 / -1; }
 @media (max-width: 850px) { .adm-fleet-guide-grid { grid-template-columns: 1fr; } }
@@ -772,7 +772,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 /* per-group heading above each table (symbol category / layer group) */
 .adm-view-cat { display: flex; flex-direction: column; gap: 8px; }
 .adm-view-catname {
-  margin: 6px 0 0; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  margin: 6px 0 0; font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .04em;
   text-transform: uppercase; color: var(--ink-faint);
 }
 
@@ -820,19 +820,19 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-view-id { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .adm-view-name {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 13.5px; font-weight: 700;
+  font-size: 13.5px; font-weight: var(--fw-bold);
 }
 .adm-view-key {
   font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.adm-view-code { font-size: 11px; font-weight: 700; color: var(--ink-faint); margin-right: 5px; }
+.adm-view-code { font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink-faint); margin-right: 5px; }
 
 /* source cell: mono url over its faint attribution */
 .adm-vsource { max-width: min(320px, 100%); }
 /* full source URL wraps in place — hover-only title= is unreachable on touch */
 .adm-vsource .adm-view-mono { display: block; overflow-wrap: anywhere; }
-.adm-view-attr { display: block; margin-top: 3px; font-size: 11px; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-view-attr { display: block; margin-top: 3px; font-size: var(--fs-micro); color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* read-only option chips */
 .adm-view-chips { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -847,11 +847,11 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 /* status / type badge base + tone modifiers */
 .adm-fleet-badge,
 .adm-view-badge {
-  font-size: 9.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  font-size: 9.5px; font-weight: var(--fw-bold); letter-spacing: .02em; text-transform: uppercase;
   padding: 1px 6px; border-radius: var(--r-pill); white-space: nowrap; border: 1px solid transparent;
 }
 .adm-view-badge-ok { color: var(--green); background: color-mix(in srgb, var(--green) 10%, transparent); border-color: color-mix(in srgb, var(--green) 35%, var(--border)); }
-.adm-view-badge-warn { color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); border-color: color-mix(in srgb, var(--amber) 38%, var(--border)); }
+.adm-view-badge-warn { color: var(--amber); background: var(--amber-12); border-color: color-mix(in srgb, var(--amber) 38%, var(--border)); }
 .adm-view-badge-muted { color: var(--ink-faint); background: var(--fill-soft); border-color: var(--border-soft); }
 
 /* read-only doctrine chips: the symbol's on-canvas behaviours (Drehbar / Stockwerk / …) */
@@ -868,7 +868,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 }
 .adm-fleet-badge-cfg {
   color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 8%, transparent);
+  background: var(--blue-8);
   border-color: color-mix(in srgb, var(--blue) 35%, var(--border));
 }
 /* roster field — read-only "filled from Mannschaft" pill */
@@ -886,7 +886,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   display: inline-flex; align-items: center; gap: 9px;
   padding: 9px 14px; border-radius: var(--r-ctl);
   border: 1px solid var(--border); background: var(--fill-soft);
-  font-size: 12.5px; font-weight: 600;
+  font-size: var(--fs-1); font-weight: 600;
 }
 .adm-badge-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .adm-badge-label { color: var(--ink); }
@@ -894,7 +894,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    so by passing `label=""` (ui · StatusBadge). The span is still in the DOM, so without this it
    keeps eating one 9px flex gap and the pill reads with a hole in it. */
 .adm-badge-label:empty { display: none; }
-.adm-badge-state { font-family: var(--mono); font-size: 11px; font-weight: 500; }
+.adm-badge-state { font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-medium); }
 .adm-badge.on .adm-badge-dot { background: var(--green); }
 .adm-badge.on .adm-badge-state { color: var(--green-strong); }
 .adm-badge.off .adm-badge-dot { background: var(--ink-faint); }
@@ -907,13 +907,13 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-badge.err .adm-badge-state { color: var(--red); }
 
 /* inline save feedback used by branding upload + config backup */
-.adm-save-ok { color: var(--green-strong); font-size: 12.5px; font-weight: 600; }
-.adm-save-err { color: var(--red); font-size: 12.5px; font-weight: 600; }
+.adm-save-ok { color: var(--green-strong); font-size: var(--fs-1); font-weight: 600; }
+.adm-save-err { color: var(--red); font-size: var(--fs-1); font-weight: 600; }
 
 /* What the server refused, field by field — a config import 422 (ConfigBackup), and the same
    list re-used to say which sections a replace would empty. Regular weight inside a bold
    heading line: the heading is the verdict, these are the individual edits to make. */
-.adm-import-errs { margin: 6px 0 0; padding-left: 18px; font-weight: 500; line-height: 1.55; }
+.adm-import-errs { margin: 6px 0 0; padding-left: 18px; font-weight: var(--fw-medium); line-height: 1.55; }
 .adm-import-errs li { margin: 2px 0; }
 
 /* ── custom dropdown (Select) — themed listbox replacing native <select> ───── */
@@ -931,7 +931,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 }
 .adm-select-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-select.open .adm-select-btn { border-color: var(--blue); background: var(--surface); }
-.adm-select-btn.mono .adm-select-val { font-family: var(--mono); font-weight: 500; }
+.adm-select-btn.mono .adm-select-val { font-family: var(--mono); font-weight: var(--fw-medium); }
 .adm-select-val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .adm-select-chev { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
 /* the ▾ flip is the app-wide `.chev` (02-base.css), driven by this button's aria-expanded */
@@ -939,7 +939,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   position: absolute; z-index: var(--z-dock); top: calc(100% + 4px); left: 0; right: 0;
   margin: 0; padding: 5px; list-style: none; max-height: 264px; overflow-y: auto;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow);
+  border-radius: var(--r-ctl); box-shadow: var(--e4);
 }
 .adm-select-opt {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -948,7 +948,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 }
 /* the keyboard/active-descendant cursor — the same 8 % of --blue every menu row is highlighted
    with (13-incident.css · «ONE menu row»); the press is the house --press wash. */
-.adm-select-opt.active { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--ink); }
+.adm-select-opt.active { background: var(--blue-8); color: var(--ink); }
 .adm-select-opt:active { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-select-opt.sel { color: var(--ink); }
 .adm-select-opt-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -985,7 +985,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-empty.err .adm-empty-msg { color: var(--red); }
 .adm-empty-hint {
   margin: 0; max-width: 64ch; line-height: 1.5;
-  font-size: 12.5px; color: var(--ink-faint);
+  font-size: var(--fs-1); color: var(--ink-faint);
 }
 /* inline code (CLI command / env var names) inside a hint */
 .adm-empty-hint code {
@@ -1004,11 +1004,11 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-denied-card {
   width: min(440px, 100%);
   background: var(--glass); border: 1px solid var(--glass-line);
-  border-radius: var(--r-surface); box-shadow: var(--shadow);
+  border-radius: var(--r-surface); box-shadow: var(--e4);
   backdrop-filter: blur(14px) saturate(1.4);
   padding: 30px 28px 26px; text-align: center;
 }
-.adm-denied-title { font-size: 18px; font-weight: 700; margin: 0 0 10px; }
+.adm-denied-title { font-size: 18px; font-weight: var(--fw-bold); margin: 0 0 10px; }
 .adm-denied-tx { font-size: 13.5px; line-height: 1.55; color: var(--ink-dim); margin: 0 0 22px; }
 .adm-denied-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .adm-denied-actions .btn { flex: 0 0 auto; min-width: 132px; text-decoration: none; padding: 11px 16px; }
@@ -1028,14 +1028,14 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-int-badge { flex: 0 0 auto; }
 .adm-int-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .adm-int-stat { font-size: 13px; font-weight: 600; color: var(--ink); }
-.adm-int-muted { color: var(--ink-faint); font-weight: 500; }
+.adm-int-muted { color: var(--ink-faint); font-weight: var(--fw-medium); }
 /* The two admin button variants. BOTH restate `flex: 0 0 auto` because the shared `.btn`
    base is `flex: 1` (built for the field-app toolbar, where buttons fill the bar) — without
    this reset a bare `.btn` stretches to span its whole flex row. In the back-office they are
    ordinary inline buttons: `.adm-int-btn` = neutral secondary, `.adm-save-btn` = the one
    accent-filled primary action per form. */
 .adm-int-btn {
-  flex: 0 0 auto; min-height: var(--tap); padding: 8px 14px; font-size: 12.5px;
+  flex: 0 0 auto; min-height: var(--tap); padding: 8px 14px; font-size: var(--fs-1);
   /* the shared .btn transition omits border-color, so the hover border would snap while the
      background fades — restate it here so the whole hover animates as one clean motion */
   transition: background .16s var(--ease), border-color .16s var(--ease), transform .12s var(--ease);
@@ -1043,7 +1043,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-int-btn:disabled { opacity: var(--disabled); cursor: default; }
 
 .adm-save-btn {
-  flex: 0 0 auto; min-height: var(--tap); padding: 9px 18px; font-size: 12.5px;
+  flex: 0 0 auto; min-height: var(--tap); padding: 9px 18px; font-size: var(--fs-1);
   /* THE primary fill (28.09.2026) — blue now means «chosen» (01-tokens · --sel) */
   color: var(--on-btn-primary); background: var(--btn-primary); border: 1px solid var(--btn-primary);
   transition: background .16s var(--ease), border-color .16s var(--ease), transform .12s var(--ease);
@@ -1055,7 +1055,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 
 /* destructive secondary (Deaktivieren): red-tinted, never the visual primary */
 .adm-danger-btn {
-  flex: 0 0 auto; min-height: var(--tap); padding: 8px 14px; font-size: 12.5px;
+  flex: 0 0 auto; min-height: var(--tap); padding: 8px 14px; font-size: var(--fs-1);
   /* THE delete look (01-tokens · --del-*, 28.09.2026): outline on the surface */
   color: var(--del-ink); border: 1px solid var(--del-edge); background: var(--surface);
   transition: background .16s var(--ease), border-color .16s var(--ease), transform .12s var(--ease);
@@ -1086,9 +1086,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-file-hidden, .adm-brand-file { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .adm-confirm { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 6px 10px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--amber) 12%, transparent);
+  background: var(--amber-12);
   border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); }
-.adm-confirm-q { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.adm-confirm-q { font-size: var(--fs-1); font-weight: 600; color: var(--ink); }
 
 /* key/value context facts under an integration status row */
 .adm-int-facts {
@@ -1117,7 +1117,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 /* "Standard" tag shown beside the preview when the slot falls back to the bundled default asset */
 .adm-brand-default {
   flex: 0 0 auto; padding: 2px 8px; border-radius: var(--r-pill);
-  font-size: 10.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  font-size: 10.5px; font-weight: var(--fw-bold); letter-spacing: .02em; text-transform: uppercase;
   color: var(--ink-faint); background: var(--fill-soft); border: 1px solid var(--border-soft);
 }
 /* (the file input itself is visually hidden – `.adm-file-hidden, .adm-brand-file` above; the
@@ -1145,10 +1145,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-obj { padding: 0 0 14px; border-bottom: 1px solid var(--border-soft); }
 .adm-obj:last-child { padding-bottom: 0; border-bottom: none; }
 .adm-obj-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 9px; }
-.adm-obj-name { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.adm-obj-name { font-size: 13.5px; font-weight: var(--fw-bold); color: var(--ink); }
 .adm-obj-addr { font-size: 12px; color: var(--ink-faint); }
 .adm-obj-noplans { font-size: 12px; font-style: italic; color: var(--ink-faint); }
-.adm-obj-noloc { font-size: 11px; font-style: italic; color: var(--ink-faint); }
+.adm-obj-noloc { font-size: var(--fs-micro); font-style: italic; color: var(--ink-faint); }
 
 /* inside the split, rows become selectable cards tied to the map markers */
 .adm-obj-split .adm-obj-list { gap: 3px; }
@@ -1162,9 +1162,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-obj.clickable:focus-visible {
   outline: 2px solid var(--blue); outline-offset: -2px; border-radius: var(--r-xs);
 }
-.adm-obj.hot { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+.adm-obj.hot { background: var(--blue-5); }
 @media (hover: hover) {
-  .adm-obj.clickable:hover { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+  .adm-obj.clickable:hover { background: var(--blue-5); }
 }
 .adm-obj.clickable:active { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-obj.sel {
@@ -1181,9 +1181,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   max-width: 180px; padding: 3px 9px;
   border-radius: var(--r-sm); border: 1px solid var(--border);
   background: var(--surface); color: var(--ink);
-  font-size: 11.5px; font-weight: 700; line-height: 1.2; white-space: nowrap;
+  font-size: 11.5px; font-weight: var(--fw-bold); line-height: 1.2; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
-  box-shadow: var(--shadow-sm); pointer-events: none;
+  box-shadow: var(--e3); pointer-events: none;
   animation: adm-obj-label-in .14s var(--ease) both;
 }
 @keyframes adm-obj-label-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
@@ -1193,7 +1193,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
   border: 2px solid var(--surface); border-radius: 50%;
   background: var(--blue); color: var(--on-fill); cursor: pointer;
-  box-shadow: var(--shadow-sm); transition: transform .12s var(--ease), background .12s var(--ease);
+  box-shadow: var(--e3); transition: transform .12s var(--ease), background .12s var(--ease);
 }
 /* invisible hit pad — a 28px map pin is too fiddly for touch */
 .adm-obj-pin::before { content: ''; position: absolute; inset: -8px; border-radius: 50%; }
@@ -1225,7 +1225,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   min-height: 40px;
   padding: 7px 12px; border-radius: var(--r-sm);
   border: 1px solid var(--border); background: var(--surface); color: var(--ink);
-  font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-sm);
+  font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: var(--e3);
   transition: background .12s var(--ease);
 }
 @media (hover: hover) {
@@ -1240,8 +1240,8 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   background: var(--surface-2); border: 1px solid var(--border-soft);
   border-radius: var(--r-sm);
 }
-.adm-plan-mod { font-size: 12px; font-weight: 700; color: var(--ink); }
-.adm-plan-ver { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--blue); }
+.adm-plan-mod { font-size: 12px; font-weight: var(--fw-bold); color: var(--ink); }
+.adm-plan-ver { font-family: var(--mono); font-size: var(--fs-micro); font-weight: 600; color: var(--blue); }
 .adm-plan-date { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
 
 /* ── reference table ──────────────────────────────────────────────────────── */
@@ -1250,10 +1250,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    and the ⋮ row menu in Mitglieder. Only a table that declares itself wider than the content
    column needs the scroller; a new one belongs on this list beside `.adm-history-table`. */
 .adm-table-wrap { overflow: visible; }
-.adm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.adm-table { width: 100%; border-collapse: collapse; font-size: var(--fs-1); }
 .adm-table th {
   text-align: left; padding: 0 12px 9px 0;
-  font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .03em; text-transform: uppercase;
   color: var(--ink-faint); border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -1311,31 +1311,31 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   /* a secondary fact names itself: the column header, small, above the value */
   .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td[data-label]:not(:first-child):not(.adm-c-main):not(.adm-c-side):not(.adm-c-act)::before {
     content: attr(data-label); display: block; margin-bottom: 2px;
-    font: 700 10.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
+    font: var(--fw-bold) 10.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
     color: var(--ink-faint);
   }
   /* …except where the main cell is not the first: then the first one is a fact too */
   .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr:has(> .adm-c-main) > td[data-label]:first-child::before {
     content: attr(data-label); display: block; margin-bottom: 2px;
-    font: 700 10.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
+    font: var(--fw-bold) 10.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
     color: var(--ink-faint);
   }
 }
-.adm-mono { font-family: var(--mono); font-weight: 500; }
+.adm-mono { font-family: var(--mono); font-weight: var(--fw-medium); }
 /* A date or a time is read as ONE token: it never breaks over two lines («11.09.2026,» over
    «14:07» is two facts to a reader scanning a column), and tabular numerals line the digits up
    down the column without the code face a hash or a path needs. */
 .adm-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-.adm-ref-title { display: block; font-weight: 700; color: var(--ink); }
+.adm-ref-title { display: block; font-weight: var(--fw-bold); color: var(--ink); }
 .adm-ref-id { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 2px; }
 .adm-ref-kind {
   display: inline-block; padding: 2px 8px; border-radius: var(--r-xs);
   background: var(--surface-2); border: 1px solid var(--border-soft);
-  font-size: 11px; font-weight: 600; color: var(--ink-dim);
+  font-size: var(--fs-micro); font-weight: 600; color: var(--ink-dim);
 }
 .adm-ref-src { display: block; font-weight: 600; color: var(--ink-dim); }
-.adm-ref-note { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+.adm-ref-note { display: block; font-size: var(--fs-micro); color: var(--ink-faint); margin-top: 2px; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    Mitglieder & Zugriff (MembersView)
@@ -1348,8 +1348,8 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    descendant, and opacity creates a stacking context that would fade the whole dropdown. */
 .adm-members-inactive td:not(.adm-members-actions-col) { opacity: .55; }
 
-.adm-members-name { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--ink); }
-.adm-members-rank { font-weight: 700; color: var(--ink-dim); }
+.adm-members-name { display: inline-flex; align-items: center; gap: 8px; font-weight: var(--fw-bold); color: var(--ink); }
+.adm-members-rank { font-weight: var(--fw-bold); color: var(--ink-dim); }
 .adm-members-swatch {
   flex: 0 0 auto; width: 11px; height: 11px; border-radius: 50%;
   border: 1px solid var(--border);
@@ -1409,7 +1409,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   width: 18px; height: 18px; padding: 0;
   border: none; background: transparent;
   color: var(--ink-faint); cursor: help;
-  font-size: 14px; line-height: 1; border-radius: var(--r-pill);
+  font-size: var(--fs-2); line-height: 1; border-radius: var(--r-pill);
   transition: color .14s var(--ease), background .14s var(--ease);
 }
 /* the #info line icon fills the trigger (the page title's is 20px, see .adm-h1) */
@@ -1440,8 +1440,8 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   background: var(--surface); color: var(--ink);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  box-shadow: var(--shadow);
-  font: 500 12px/1.45 var(--body);
+  box-shadow: var(--e4);
+  font: var(--fw-medium) 12px/1.45 var(--body);
   text-transform: none; letter-spacing: normal;
   white-space: normal; text-align: left;
   opacity: 0; visibility: hidden; pointer-events: none;
@@ -1553,11 +1553,11 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-test-chip {
   display: inline-flex; align-items: center;
   padding: 4px 10px; border-radius: var(--r-pill);
-  font-size: 12px; font-weight: 700;
+  font-size: 12px; font-weight: var(--fw-bold);
 }
 .adm-test-chip.ok {
   color: var(--green-strong);
-  background: color-mix(in srgb, var(--green) 12%, transparent);
+  background: var(--green-12);
   border: 1px solid color-mix(in srgb, var(--green) 35%, var(--border-soft));
 }
 .adm-test-chip.err {
@@ -1602,18 +1602,18 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-offer-ic { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--amber-strong); }
 .adm-offer.blue .adm-offer-ic { color: var(--blue); }
 .adm-offer-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.adm-offer-t { font: 700 13px var(--body); color: var(--ink); }
-.adm-offer-b { font: 500 12.5px/1.5 var(--body); color: var(--ink-dim); }
+.adm-offer-t { font: var(--fw-bold) 13px var(--body); color: var(--ink); }
+.adm-offer-b { font: var(--fw-medium) var(--fs-1)/1.5 var(--body); color: var(--ink-dim); }
 /* the value that WOULD be written, before it is — an offer nobody can read is a dice roll */
 .adm-offer-preview { margin: 8px 0 0; padding: 9px 12px; border-radius: var(--r-sm);
   background: var(--surface); border: 1px solid var(--border-soft);
-  font: 500 12.5px var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+  font: var(--fw-medium) var(--fs-1) var(--mono); color: var(--ink); overflow-wrap: anywhere; }
 .adm-offer-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
 
 /* ─── Traccar device detail table — slight inset below the Traccar row ────────── */
 .adm-traccar-devices { margin: -2px 0 14px; }
 .adm-traccar-devices .adm-table th,
-.adm-traccar-devices .adm-table td { font-size: 12.5px; }
+.adm-traccar-devices .adm-table td { font-size: var(--fs-1); }
 
 
 /* ⚠️ No `margin-top`: the toggle rides in `.adm-card-act` beside «Person hinzufügen», and the
@@ -1621,12 +1621,12 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    button next to it. */
 .adm-roster-inactive-toggle {
   display: inline-flex; align-items: center; gap: 7px;
-  font-size: 12.5px; color: var(--ink-soft); cursor: pointer;
+  font-size: var(--fs-1); color: var(--ink-soft); cursor: pointer;
 }
 /* generic labelled checkbox row in a form card (e.g. members «Startet in EL-Ansicht») */
 .adm-check {
   flex-direction: row; align-items: center; gap: 8px;
-  font-size: 12.5px; color: var(--ink-soft); cursor: pointer;
+  font-size: var(--fs-1); color: var(--ink-soft); cursor: pointer;
 }
 .adm-roster-import { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .adm-roster-result {
@@ -1663,8 +1663,8 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 }
 .adm-rankmap-note > .i { flex: none; width: 20px; height: 20px; color: var(--blue); margin-top: 1px; }
 .adm-rankmap-note-txt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.adm-rankmap-note-t { font-size: 13px; font-weight: 700; color: var(--ink); }
-.adm-rankmap-note-b { font-size: 12.5px; line-height: 1.5; color: var(--ink-faint); }
+.adm-rankmap-note-t { font-size: 13px; font-weight: var(--fw-bold); color: var(--ink); }
+.adm-rankmap-note-b { font-size: var(--fs-1); line-height: 1.5; color: var(--ink-faint); }
 .adm-rankmap-note-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 /* On a phone the three columns become one block per value. ⚠️ NOT a horizontal scroll: the
    picker is the widest cell, so scrolling to reach it pushes the raw value — the thing being
@@ -1688,10 +1688,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 }
 .adm-sys-metric-label {
   display: flex; align-items: baseline; gap: 6px;
-  font-size: 12.5px; font-weight: 600; color: var(--ink-dim); min-width: 0;
+  font-size: var(--fs-1); font-weight: 600; color: var(--ink-dim); min-width: 0;
 }
 .adm-sys-metric-value {
-  font-size: 12.5px; color: var(--ink); text-align: right;
+  font-size: var(--fs-1); color: var(--ink); text-align: right;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%;
 }
 .adm-sys-bar {
@@ -1714,7 +1714,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-progress { width: 100%; margin-top: 2px; }
 .adm-progress-label {
   display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-  margin: 0 0 4px; font-size: 12.5px; color: var(--ink-dim);
+  margin: 0 0 4px; font-size: var(--fs-1); color: var(--ink-dim);
 }
 .adm-progress-label b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .adm-progress-wait { display: flex; align-items: center; color: var(--ink-dim); }
@@ -1724,7 +1724,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 /* «N Abgänge warten» — the one connector fact somebody has to GO somewhere to finish, so it sits
    in its own cell as a button rather than as another caption line. Compact: it lives inside a
    dense table cell, and the row is the target, not the page's main action. */
-.adm-sys-nudge { margin-top: 6px; font-size: 12.5px; min-height: 32px; }
+.adm-sys-nudge { margin-top: 6px; font-size: var(--fs-1); min-height: 32px; }
 /* The read-only folder list under the SharePoint card – the hairline above says it is a separate
    statement from the run above it.
    ⚠️ NO margin of its own. It is a direct child of `.adm-card-body`, which is a flex column with
@@ -1737,19 +1737,19 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    right edge over a table reads as a measurement the table is about to explain. */
 .adm-sys-subhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 9px; }
 .adm-sys-subtitle {
-  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .05em; text-transform: uppercase;
   color: var(--ink-faint);
 }
 .adm-sys-subnote { font-size: 11.5px; font-weight: 600; color: var(--ink-dim); }
 /* A path, a URL or a drive id – mono, because it is compared character by character, and a notch
    under the row's own text, because it is what the row POINTS AT, not what the row says. */
-.adm-sys-path { font: 500 11.5px/1.5 var(--mono); color: var(--ink-dim); overflow-wrap: anywhere; }
+.adm-sys-path { font: var(--fw-medium) 11.5px/1.5 var(--mono); color: var(--ink-dim); overflow-wrap: anywhere; }
 p.adm-sys-path { margin: 3px 0 0; }
 /* A qualifier under a cell's value in this page's tables – the library a URL belongs to, the
    folders a sync skips, the sentence the server itself returned. Tighter than the card caption
    it shares a class with: in a 12.5px row the caption's 12px made a footnote read as a second
    value. */
-.adm-sys-grid .adm-table .adm-card-cap { margin: 3px 0 0; font-size: 11px; }
+.adm-sys-grid .adm-table .adm-card-cap { margin: 3px 0 0; font-size: var(--fs-micro); }
 .adm-sys-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .adm-sys-toolbar .btn { display: inline-flex; align-items: center; gap: 7px; }
 .adm-sys-toolbar .i { width: 16px; height: 16px; }
@@ -1776,7 +1776,7 @@ p.adm-sys-path { margin: 3px 0 0; }
    and a branch name are strings to compare character by character, and ellipsised because a
    long branch name must shorten itself rather than push its label out of the cell. */
 .adm-sys-summary-value {
-  font: 500 11.5px var(--mono); color: var(--ink); min-width: 0; text-align: right;
+  font: var(--fw-medium) 11.5px var(--mono); color: var(--ink); min-width: 0; text-align: right;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* ⚠️ A real grid, NOT `columns: 2 360px`. A CSS multi-column box is a fragmentation context:
@@ -1840,7 +1840,7 @@ p.adm-sys-path { margin: 3px 0 0; }
      shrink one that is wider than the screen to begin with. */
   margin: 0; padding: 5px; list-style: none; min-width: 208px; max-width: min(320px, 92vw);
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow);
+  border-radius: var(--r-ctl); box-shadow: var(--e4);
 }
 /* portalled to <body> (fixed coords from the trigger) so a long menu never forces the
    table's scroll container to scroll.
@@ -1862,9 +1862,9 @@ p.adm-sys-path { margin: 3px 0 0; }
 .adm-menu-item-label { font: 600 13px var(--body); }
 /* Base UI Menu.Item is a div with data-disabled / data-highlighted (keyboard nav) attributes,
    not a <button> with :disabled — so hover AND keyboard highlight both light the row. */
-.adm-menu-item[data-highlighted]:not([data-disabled]) { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--ink); }
+.adm-menu-item[data-highlighted]:not([data-disabled]) { background: var(--blue-8); color: var(--ink); }
 @media (hover: hover) {
-  .adm-menu-item:hover:not([data-disabled]) { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--ink); }
+  .adm-menu-item:hover:not([data-disabled]) { background: var(--blue-8); color: var(--ink); }
 }
 .adm-menu-item:active:not([data-disabled]) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-menu-item.danger { color: var(--red); }
@@ -1874,7 +1874,7 @@ p.adm-sys-path { margin: 3px 0 0; }
 }
 .adm-menu-item[data-disabled] { cursor: default; color: var(--ink-faint); }
 .adm-menu-item:focus-visible { outline: 2px solid var(--blue); outline-offset: -1px; }
-.adm-menu-reason { font-size: 10.5px; font-weight: 500; color: var(--ink-faint); }
+.adm-menu-reason { font-size: 10.5px; font-weight: var(--fw-medium); color: var(--ink-faint); }
 
 /* right-aligned menu trigger inside a table's Aktionen column */
 .adm-members-actions-col .adm-menu { display: flex; justify-content: flex-end; width: 100%; }
@@ -1915,20 +1915,20 @@ p.adm-sys-path { margin: 3px 0 0; }
 .adm-hist-row:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* the live document, marked as such: the newest KEPT entry is the state BEFORE the most recent
    write, and confusing the two is the one mistake somebody restoring under pressure must not make */
-.adm-hist-now { background: color-mix(in srgb, var(--blue) 8%, transparent); }
-.adm-hist-badge { flex: none; font: 700 10.5px var(--body); letter-spacing: .06em;
+.adm-hist-now { background: var(--blue-8); }
+.adm-hist-badge { flex: none; font: var(--fw-bold) 10.5px var(--body); letter-spacing: .06em;
   text-transform: uppercase; color: var(--blue); }
 .adm-hist-when { flex: none; width: 152px; font: 600 12px var(--mono); color: var(--ink); }
 .adm-hist-what { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .adm-hist-src { font: 600 13px var(--body); color: var(--ink); }
-.adm-hist-sub { font: 500 11.5px var(--body); color: var(--ink-faint);
+.adm-hist-sub { font: var(--fw-medium) 11.5px var(--body); color: var(--ink-faint);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* amber, not red: a write that emptied something is «schau hier hin», not an error the app is
    refusing over — it may well have been intended (a station dropping its Partnerliste) */
 .adm-hist-warn { font: 600 11.5px/1.45 var(--body); color: var(--amber-strong); }
 /* a collapsed burst: the summary row plus, once opened, its individual writes indented under it */
 .adm-hist-burst { display: flex; flex-direction: column; gap: 2px; }
-.adm-hist-when-to { display: block; font: 500 11px var(--mono); color: var(--ink-faint); }
+.adm-hist-when-to { display: block; font: var(--fw-medium) var(--fs-micro) var(--mono); color: var(--ink-faint); }
 .adm-hist-count { margin-left: 8px; font: 600 11.5px var(--body); color: var(--ink-faint); }
 /* it folds a burst open, so it is a real target and not an 11.5px word: --tap tall, with the
    padding negated on the left so the label still starts on the column above it */
@@ -1964,14 +1964,14 @@ p.adm-sys-path { margin: 3px 0 0; }
 .adm-setup-row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-setup-dot { flex: none; display: grid; place-items: center; width: 24px; height: 24px;
   border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
-  color: var(--ink-faint); font-size: 13px; font-weight: 700; }
+  color: var(--ink-faint); font-size: 13px; font-weight: var(--fw-bold); }
 .adm-setup-dot.done { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
 .adm-setup-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .adm-setup-lbl { font: 600 13.5px var(--body); }
 /* the CONSEQUENCE of leaving it undone, not an instruction — this card nudges, it does not nag */
-.adm-setup-sub { font: 500 11.5px/1.4 var(--body); color: var(--ink-faint); }
+.adm-setup-sub { font: var(--fw-medium) 11.5px/1.4 var(--body); color: var(--ink-faint); }
 .adm-setup-row .adm-setup-dot.done ~ .adm-setup-txt .adm-setup-lbl { color: var(--ink-dim); }
-.adm-setup-go { flex: none; color: var(--ink-faint); font-size: 16px; }
+.adm-setup-go { flex: none; color: var(--ink-faint); font-size: var(--fs-3); }
 
 /* A list of words, as chips (Partnerorganisationen, Mittel-Einheiten, Attribut-Optionen — all
    `list[str]` in the config). Chips rather than rows because the entries are short and the
@@ -1995,7 +1995,7 @@ p.adm-sys-path { margin: 3px 0 0; }
    Einstellung column. A basis is the same 200px when there is room and yields when there isn't. */
 .adm-slist-add { min-height: 40px; flex: 0 1 200px; min-width: 0; padding: 0 13px;
   border: 1px dashed var(--border); border-radius: var(--r-pill); background: transparent;
-  color: var(--ink); font: 500 13.5px var(--body); outline: none; }
+  color: var(--ink); font: var(--fw-medium) 13.5px var(--body); outline: none; }
 .adm-slist-add:focus { border-style: solid; border-color: var(--blue); background: var(--surface); }
 .adm-slist-add::placeholder { color: var(--ink-faint); }
 
@@ -2021,14 +2021,14 @@ p.adm-sys-path { margin: 3px 0 0; }
 .adm-pick-opt:disabled { opacity: var(--disabled); cursor: default; }
 /* an option CARD with its radio mark: the row wash (01-tokens · --sel-wash), not the chip fill */
 .adm-pick-opt.on { background: color-mix(in srgb, var(--blue) 14%, var(--surface));
-  border-color: var(--sel); box-shadow: var(--shadow-sm); }
-.adm-pick-head { display: flex; align-items: center; gap: 8px; font: 700 14px var(--body); }
+  border-color: var(--sel); box-shadow: var(--e3); }
+.adm-pick-head { display: flex; align-items: center; gap: 8px; font: var(--fw-bold) var(--fs-2) var(--body); }
 .adm-pick-mark { width: 18px; height: 18px; flex: none; border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 60%, transparent);
   display: grid; place-items: center; }
 .adm-pick-opt.on .adm-pick-mark { border-color: var(--blue); background: var(--blue); color: var(--on-fill); }
 .adm-pick-opt.on .adm-pick-mark .i { width: 11px; height: 11px; stroke-width: 3; }
-.adm-pick-sub { font: 500 12px/1.45 var(--body); color: var(--ink-dim); padding-left: 26px; }
+.adm-pick-sub { font: var(--fw-medium) 12px/1.45 var(--body); color: var(--ink-dim); padding-left: 26px; }
 /* the «why is Anlegen off» line, left of the buttons */
 .adm-pick-why { display: inline-flex; align-items: center; gap: 7px;
   font: 600 12px var(--body); color: var(--ink-faint); }
@@ -2053,7 +2053,7 @@ body:has(.adm) .ui-menu-pos { z-index: var(--z-admin-overlay-menu); }
 
 /* PIN sheet — narrower than the standard 720px frame, because it holds one pinpad */
 .adm-pin-sheet.ip-sheet { width: min(440px, 94vw); }
-.adm-pin-sub { margin: 0 0 2px; font: 500 12.5px var(--body); color: var(--ink-faint); }
+.adm-pin-sub { margin: 0 0 2px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 /* the member being changed: the login screen's identity row, minus the "go back" affordance */
 .adm-pin-who { cursor: default; }
 @media (hover: hover) {

@@ -4,7 +4,7 @@
 .wb-dock-tog:disabled { opacity: var(--disabled); cursor: default; }
 
 /* cumulative distance / area labels pinned to the live measure path */
-.measure-label { padding: 2px 7px; border-radius: var(--r-xs); font-size: 11px; font-weight: 700;
+.measure-label { padding: 2px 7px; border-radius: var(--r-xs); font-size: var(--fs-micro); font-weight: var(--fw-bold);
   font-family: var(--mono); white-space: nowrap; background: var(--label-bg); color: var(--ink);
   box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 6px rgba(30, 45, 70, .22); pointer-events: none; }
 .measure-label.strong { background: var(--blue); color: var(--on-fill); }
@@ -18,7 +18,7 @@
 .line-end-tag-wrap.sel .line-end-tag { box-shadow: 0 0 0 2.5px var(--blue); }
 /* inline letter marker on an annotated line (e.g. R on a Rettungsachse) — replaces the
    removed MapLibre text-field symbol layer (which needed a glyphs font source) */
-.draw-marker { font: 800 13px/1 var(--mono); letter-spacing: .02em; pointer-events: none;
+.draw-marker { font: var(--fw-heavy) 13px/1 var(--mono); letter-spacing: .02em; pointer-events: none;
   text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff, 0 0 3px #fff; }
 /* lock chip on a locked drawing — the only tap target on a click-through locked shape */
 .draw-lock-chip { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
@@ -159,7 +159,7 @@
 .draw-editor .de-measure-v {
   flex: none; padding: 4px 10px; border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--ink) 7%, transparent);
-  font: 700 13.5px var(--mono); color: var(--ink); letter-spacing: -.2px;
+  font: var(--fw-bold) 13.5px var(--mono); color: var(--ink); letter-spacing: -.2px;
 }
 /* the Höhenprofil discloser keeps the rows' rhythm — same label colour and left edge — and gains
    a real hover/expanded state so it reads as something you can open */
@@ -170,9 +170,9 @@
 .draw-editor .de-prof-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%;
   min-height: 48px; padding: 2px 0; border: 0; border-radius: var(--r-sm);
   background: transparent; color: var(--ink-dim); cursor: pointer;
-  font-size: 12.5px; font-weight: 700; -webkit-tap-highlight-color: transparent; }
+  font-size: var(--fs-1); font-weight: var(--fw-bold); -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) {
-  .draw-editor .de-prof-toggle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .draw-editor .de-prof-toggle:hover { color: var(--ink); background: var(--ink-5); }
 }
 .draw-editor .de-prof-toggle.on { color: var(--ink); }
 /* the Messung group's own header (15.09.): the collapsed group IS one row, its title in the
@@ -193,20 +193,20 @@
 .draw-editor .de-conn-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the ONE disabled (28.09.2026): the dim, not a colour swap */
 .draw-editor .de-conn-name:disabled { opacity: var(--disabled); cursor: default; }
-.draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
+.draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: var(--fs-3); line-height: 1; }
 .draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 6px; font-size: 12px; color: var(--ink-dim); }
 .draw-editor .de-conn-note.warn { color: var(--red); font-weight: 600; }
 /* ⚠️ a framed compact button at the note's end (28.09.2026, owner pick A) — it was an underlined
    blue word, 12px, a hyperlink in a command app */
 .draw-editor .de-conn-reveal { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
-  font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
 .draw-editor .de-conn-reveal:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (pointer: coarse) { .draw-editor .de-conn-reveal { min-height: var(--tap); } }
 /* also a row: the 28px height and the 2px/4px margins made the last line of the panel sit tighter
    than everything above it, and its text started 4px in from the left edge the labels hold. */
 .draw-editor .de-conn-detach { display: inline-flex; align-items: center; margin: 0; min-height: 48px; padding: 2px 0;
-  border: 0; background: transparent; color: var(--red); font-size: 12.5px; font-weight: 600; }
+  border: 0; background: transparent; color: var(--red); font-size: var(--fs-1); font-weight: 600; }
 @media (hover: hover) {
   .draw-editor .de-conn-detach:hover { text-decoration: underline; }
 }
@@ -217,16 +217,16 @@
 .draw-editor .de-gps { padding: 6px 0 8px; }
 .draw-editor .de-gps-head { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 4px 0; }
 .draw-editor .de-gps-head .i { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--amber-strong); }
-.draw-editor .de-gps-head b { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.3; }
-.draw-editor .de-gps-head span { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 500; color: var(--ink-dim); }
+.draw-editor .de-gps-head b { display: block; font-size: 13.5px; font-weight: var(--fw-bold); color: var(--ink); line-height: 1.3; }
+.draw-editor .de-gps-head span { display: block; margin-top: 2px; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .draw-editor .de-gps-back { display: flex; width: 100%; align-items: center; justify-content: center; min-height: 48px;
   margin-top: 6px; padding: 0 12px; border: 1px solid var(--green); border-radius: var(--r-sm);
-  background: var(--green); color: var(--on-fill); font-size: 14px; font-weight: 700; cursor: pointer; }
+  background: var(--green); color: var(--on-fill); font-size: var(--fs-2); font-weight: var(--fw-bold); cursor: pointer; }
 .draw-editor .de-gps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 /* three moves (stop/continue · on site · here): the odd one out takes the whole second line */
 .draw-editor .de-gps-row > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 .draw-editor .de-gps-btn { min-height: 44px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--fill-soft); color: var(--ink); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  background: var(--fill-soft); color: var(--ink); font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
 .draw-editor .de-gps-back:active:not(:disabled),
 .draw-editor .de-gps-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
@@ -237,14 +237,14 @@
    not floating cards; the row label uses the friendly line name, not the raw id. */
 .ctx-connections button { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 8px 0; border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink);
-  font-size: 12.5px; font-weight: 700; text-align: left; }
+  font-size: var(--fs-1); font-weight: var(--fw-bold); text-align: left; }
 .ctx-connections button:first-of-type { border-top: 0; }
 .ctx-connections button > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ctx-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
+.ctx-conn-go { flex: none; color: var(--ink-faint); font-size: var(--fs-3); line-height: 1; }
 /* …and the same slot carrying a WORD rather than a chevron: the «Lösen» on an angedockter Trupp
    (15.09.). A row that separates something says so — an ✕ beside a row that also carries a trash
    can elsewhere in the panel is a second destructive guess (same rule as .wb-pa-text). */
-.ctx-conn-release { flex: none; color: var(--red); font-size: 12.5px; font-weight: 700; line-height: 1; }
+.ctx-conn-release { flex: none; color: var(--red); font-size: var(--fs-1); font-weight: var(--fw-bold); line-height: 1; }
 /* Trupp picker + the jump to it, as ONE control group: the chevron sits against the picker the
    way a "go there" affordance does everywhere else in the panel, instead of repeating the name
    in a row of its own. */
@@ -253,7 +253,7 @@
    (a native <select> dropped macOS chrome into the middle of the panel) */
 .draw-editor .de-menu-trigger { display: inline-flex; align-items: center; gap: 6px; min-width: 0; min-height: 38px;
   padding: 8px 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
-  color: var(--ink); font: 700 13px/1.2 var(--body); cursor: pointer; }
+  color: var(--ink); font: var(--fw-bold) 13px/1.2 var(--body); cursor: pointer; }
 .draw-editor .de-menu-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .draw-editor .de-menu-trigger svg { width: 14px; height: 14px; flex: none; opacity: .65; }
 /* the Trupp that laid this Leitung and is already out — same dim + strike as its map marker
@@ -268,7 +268,7 @@
    shrink one that is wider than the screen. A long Trupp label is what would grow this past a
    phone's width — same guard the print menu and the context menu already carry. */
 .de-menu-pop { min-width: 200px; max-width: min(320px, 92vw); padding: var(--bar-pad); border-radius: var(--r-bar); background: var(--surface);
-  box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
+  box-shadow: var(--e4); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — radius + hover/press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .de-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
   padding: 0 11px; cursor: pointer; font: 600 13.5px var(--body); color: var(--ink); outline: none; }
@@ -298,7 +298,7 @@
 .sel-bar { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
   display: flex; align-items: center; gap: 8px; padding: var(--bar-pad);
   border-radius: var(--r-cluster); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); box-shadow: var(--shadow); animation: pop .16s var(--ease); }
+  border: 1px solid var(--glass-line); box-shadow: var(--e4); animation: pop .16s var(--ease); }
 /* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action) —
    solid blue, the app's one colour for an action grip that transforms the whole object.
    Square and icon-only: nothing appears or disappears inside them (the turn's degrees are read on
@@ -379,17 +379,17 @@ body.sel-transforming .wb-grow { display: none; }
    its vertex — never centred under the finger that is changing it */
 .sel-turn-deg { position: absolute; transform: translate(-50%, calc(-100% - 14px));
   padding: 3px 8px; border-radius: var(--r-sm); background: var(--blue); color: var(--on-fill);
-  font-family: var(--mono); font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
-  white-space: nowrap; box-shadow: var(--shadow); }
+  font-family: var(--mono); font-size: var(--fs-1); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums;
+  white-space: nowrap; box-shadow: var(--e4); }
 /* WebGL context lost: centred over the (now blank) canvas, above the map chrome but below
    sheets/toasts. Persistent by design — it stays until the operator rebuilds the map. */
 .map-gl-lost { position: absolute; z-index: var(--z-blocking-scrim); left: 50%; top: 50%; transform: translate(-50%, -50%);
   display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
   width: min(30ch, calc(100% - 32px)); padding: 18px 20px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-surface);
-  box-shadow: var(--shadow); animation: pop .3s var(--ease); }
-.map-gl-lost-title { font-size: 14px; font-weight: 650; color: var(--ink); }
-.map-gl-lost-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+  box-shadow: var(--e4); animation: pop .3s var(--ease); }
+.map-gl-lost-title { font-size: var(--fs-2); font-weight: 650; color: var(--ink); }
+.map-gl-lost-hint { margin: 0; font-size: var(--fs-1); line-height: 1.45; color: var(--ink-dim); }
 
 /* marquee selection rectangle (Select tool drag) */
 .marquee-box { z-index: 6; pointer-events: none; border: 1.5px solid var(--blue);
@@ -414,8 +414,8 @@ body.sel-transforming .wb-grow { display: none; }
    closed here rather than by splitting the number from its unit. */
 .measure-readout { position: absolute; top: calc(14px + env(safe-area-inset-top)); left: 50%; translate: -50% 0;
   z-index: var(--z-map-util); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--shadow);
-  padding: 10px 15px; font: 700 15px/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
+  border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--e4);
+  padding: 10px 15px; font: var(--fw-bold) 15px/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
   word-spacing: -.3ch; pointer-events: none; white-space: nowrap; }
 /* below 860px the TopBar spans the full width (see MapUtility · .toputil) — drop under it.
    ⚠️ 76px, not the 66px it sat at until 05.09.: the bar is ~58px under a 10px offset, so 66

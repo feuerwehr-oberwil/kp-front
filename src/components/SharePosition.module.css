@@ -5,13 +5,13 @@
 
 .ask { display: flex; flex-direction: column; gap: 14px; padding: 4px 2px 2px; }
 
-.lead { margin: 0; font: 500 15px/1.45 var(--body); color: var(--ink); }
-.note { margin: 0; font: 500 13px/1.4 var(--body); color: var(--ink-dim); }
+.lead { margin: 0; font: var(--fw-medium) 15px/1.45 var(--body); color: var(--ink); }
+.note { margin: 0; font: var(--fw-medium) 13px/1.4 var(--body); color: var(--ink-dim); }
 
 /* The three facts somebody needs BEFORE tapping Ja: who sees it, how long, and what a locked
    phone does. Listed, not prose — this is read once, under stress, on a small screen. */
 .facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.facts li { display: flex; gap: 10px; align-items: flex-start; font: 500 13.5px/1.4 var(--body); color: var(--ink-dim); }
+.facts li { display: flex; gap: 10px; align-items: flex-start; font: var(--fw-medium) 13.5px/1.4 var(--body); color: var(--ink-dim); }
 .facts svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--ink-faint); }
 
 .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
@@ -33,7 +33,7 @@
 @media (hover: hover) { .person:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge)); } }
 .person:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
-.rank { flex: none; font: 800 11px var(--body); letter-spacing: .02em; color: var(--ink-faint); min-width: 34px; }
+.rank { flex: none; font: var(--fw-heavy) var(--fs-micro) var(--body); letter-spacing: .02em; color: var(--ink-faint); min-width: 34px; }
 .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* «zuletzt» — the name this device reported as last. Quiet on purpose: a hint at the likely row,

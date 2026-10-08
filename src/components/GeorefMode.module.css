@@ -59,7 +59,7 @@
   position: absolute;
   left: 17px;
   top: -8px;
-  font: 700 10px/1.4 var(--body);
+  font: var(--fw-bold) 10px/1.4 var(--body);
   color: var(--on-fill);
   background: var(--blue);
   border-radius: var(--r-pill);
@@ -99,7 +99,7 @@
   border-radius: var(--r-ctl);
   background: var(--surface);
   border: 1px solid color-mix(in srgb, var(--blue) 52%, transparent);
-  box-shadow: var(--shadow);
+  box-shadow: var(--e4);
   animation: georefIn .16s var(--ease);
 }
 /* ⚠️ The FULL width of the bottom, not a chip-sized pill in the corner. A mode that has taken
@@ -130,7 +130,7 @@
 .checkBlend {
   min-width: 176px; display: grid; grid-template-columns: auto minmax(80px, 1fr) auto;
   align-items: center; gap: 7px; padding: 0 4px; color: var(--ink-dim);
-  font: 700 10.5px var(--body);
+  font: var(--fw-bold) 10.5px var(--body);
 }
 .checkBlend input { width: 100%; min-width: 0; height: 28px; margin: 0; accent-color: var(--blue); cursor: pointer; }
 .dot {
@@ -141,14 +141,14 @@
   flex: none;
   animation: georefPulse 1.3s var(--ease) infinite;
 }
-.promptText { display: block; font: 700 13px var(--body); color: var(--ink); }
+.promptText { display: block; font: var(--fw-bold) 13px var(--body); color: var(--ink); }
 /* ⚠️ It WRAPS, on every width. This is the mode's only teaching, and «Hausecke, Hydrant,
    Wegkreu…» teaches nothing. The ellipsis used to be undone for phones alone — but during the
    split the bar's text column is HALF a screen while the window is still a tablet's, so every
    width from ~600 to ~900px cut the sentence mid-word: the same «the window is not the pane»
    trap as lib/whiteboard · sideInsets. Two lines of 11.5px cost less than an unreadable line. */
 .promptHint {
-  display: block; font: 500 11.5px var(--body); color: var(--ink-dim); margin-top: 2px;
+  display: block; font: var(--fw-medium) 11.5px var(--body); color: var(--ink-dim); margin-top: 2px;
 }
 /* The Ampel as a LINE, for the bar that has no room for a band. Same reading as the phone card's
    status row, same source (georefMode · georefLamp) — only the shape differs, because the
@@ -157,15 +157,15 @@
    dark one at night, which is exactly the pair those tokens exist for (01-tokens.css). Bare
    --red on white is 4.0:1 at 11.5px — not enough for the one line carrying the warning. */
 .lampLine { display: block; font: 600 11.5px/1.35 var(--body); margin-top: 3px; }
-.lampLine b { font-weight: 700; }
+.lampLine b { font-weight: var(--fw-bold); }
 /* not italic: `i` is this card's shape for «the quieter half of a two-part line», nothing more */
-.lampLine i { font-style: normal; font-weight: 500; opacity: .9; }
+.lampLine i { font-style: normal; font-weight: var(--fw-medium); opacity: .9; }
 .lampLine_red { color: var(--red-strong); }
 .lampLine_amber { color: var(--amber-strong); }
 .lampLine_green { color: var(--green-strong); }
 /* ⚠️ `:global`. `.btn` is the app's shared button class (06-contextpanel.css); inside a CSS
    module a bare `.btn` would be hashed into a class nothing on the page carries. */
-.pill :global(.btn), .bar :global(.btn) { flex: none; padding: 7px 11px; font-size: 12.5px; white-space: nowrap; }
+.pill :global(.btn), .bar :global(.btn) { flex: none; padding: 7px 11px; font-size: var(--fs-1); white-space: nowrap; }
 .finishAction, .resetAction, .checkAction { min-width: 0; }
 .pill :global(.btn.link.on), .bar :global(.btn.link.on) {
   background: var(--sel); border-color: var(--sel); color: var(--on-sel);
@@ -191,9 +191,9 @@
 .sdot_amber { background: var(--amber); }
 .sdot_green { background: var(--green); }
 .stext { min-width: 0; flex: 1 1 auto; }
-.stext b { display: block; font: 700 13px var(--body); color: var(--ink); }
+.stext b { display: block; font: var(--fw-bold) 13px var(--body); color: var(--ink); }
 .stext i {
-  display: block; font-style: normal; font: 500 11.5px/1.35 var(--body);
+  display: block; font-style: normal; font: var(--fw-medium) 11.5px/1.35 var(--body);
   color: var(--ink-dim); margin-top: 1px;
 }
 /* the (i) is THE InfoToggle (29.09.2026 — it was a bare 44px glyph that filled the choice blue
@@ -204,20 +204,20 @@
 /* the folded-out quality detail: pair count, claimable ⌀, one sentence of what to DO next */
 .qfold {
   border-radius: var(--r-sm); background: var(--fill-soft); padding: 9px 10px;
-  font: 500 11.5px/1.45 var(--body); color: var(--ink-dim);
+  font: var(--fw-medium) 11.5px/1.45 var(--body); color: var(--ink-dim);
 }
 .qrow {
   display: flex; justify-content: space-between; gap: 12px;
   font: 600 12px var(--body); color: var(--ink); margin-bottom: 5px;
 }
-.qrow strong { font: 700 12px var(--mono); }
+.qrow strong { font: var(--fw-bold) 12px var(--mono); }
 /* the second sentence in the fold: what makes a good point. It moved in here on 15.09., when the
    bar's instruction shrank to «Dieselbe Stelle auf Modul und Karte antippen» — a tip you read
    once and never again does not belong on the line you read while tapping. */
 .qtip { margin-top: 5px; }
 /* the one line of guidance under «Punkt setzen» — where the button acts, nothing more */
 .subline {
-  font: 500 11.5px/1.4 var(--body); color: var(--ink-dim); text-align: center; margin-top: -3px;
+  font: var(--fw-medium) 11.5px/1.4 var(--body); color: var(--ink-dim); text-align: center; margin-top: -3px;
 }
 
 /* ── the marker popover ─────────────────────────────────────────────────────────────────── */
@@ -236,7 +236,7 @@
   background: var(--surface);
   border: 1px solid var(--glass-edge);
   border-radius: var(--r-ctl);
-  box-shadow: var(--shadow);
+  box-shadow: var(--e4);
   padding: 8px;
   min-width: 200px;
   /* wide enough for the two German action labels side by side, on one line each — see
@@ -246,9 +246,9 @@
 }
 .popHead {
   display: flex; gap: 6px; align-items: baseline;
-  padding: 2px 6px 7px; font: 700 12px var(--body); color: var(--ink); white-space: nowrap;
+  padding: 2px 6px 7px; font: var(--fw-bold) 12px var(--body); color: var(--ink); white-space: nowrap;
 }
-.popHead i { font: 500 11px var(--body); font-style: normal; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
+.popHead i { font: var(--fw-medium) var(--fs-micro) var(--body); font-style: normal; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
 /* ⚠️ Columns sized by the WORDS, not by half the card. `1fr 1fr` gave «Punkt löschen» exactly
    half of a 260px card, and on a phone the label broke over two lines — a two-line destructive
    button beside a one-line harmless one, i.e. the wrong one made to look like the bigger target.
@@ -258,7 +258,7 @@
 .popActs button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-height: var(--tap); padding: 0 8px; border-radius: var(--r-sm); border: 1px solid var(--border);
-  background: var(--surface); font: 700 12.5px var(--body); color: var(--ink); cursor: pointer;
+  background: var(--surface); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); cursor: pointer;
   white-space: nowrap;
 }
 @media (hover: hover) { .popActs button:hover { background: var(--fill-soft); } }
@@ -269,12 +269,12 @@
 .popActs button.popWarn { color: var(--red-strong); }
 /* how an OPEN half becomes a pair by hand — one quiet line, only where it applies */
 .popHint {
-  padding: 7px 6px 2px; font: 500 11px/1.35 var(--body); color: var(--ink-dim);
+  padding: 7px 6px 2px; font: var(--fw-medium) var(--fs-micro)/1.35 var(--body); color: var(--ink-dim);
 }
 /* the do-nothing exit, full width and quiet: Esc must never be the only way out on touch */
 .popKeep {
   width: 100%; min-height: 38px; margin-top: 6px; border: 0; border-radius: var(--r-sm);
-  background: transparent; font: 600 12.5px var(--body); color: var(--ink-dim); cursor: pointer;
+  background: transparent; font: 600 var(--fs-1) var(--body); color: var(--ink-dim); cursor: pointer;
 }
 @media (hover: hover) { .popKeep:hover { background: var(--fill-soft); } }
 .popKeep:active { background-image: linear-gradient(var(--press), var(--press)); }
@@ -293,7 +293,7 @@
 .quiet { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; row-gap: 2px; }
 .quietGap { flex: 1 1 0; min-width: 0; }
 .quietWarn { color: var(--red-strong); }
-.quietDone { font-weight: 800; }
+.quietDone { font-weight: var(--fw-heavy); }
 
 /* The PHONE's single indicator: it takes the tool bar's lane, so it is never in doubt that a
    mode is running and never in competition with a second read-out. Positioned in the phone
@@ -338,7 +338,7 @@
   pointer-events: none;
   background: var(--canvas-bg);
   border: 3px solid var(--surface);
-  box-shadow: 0 0 0 1px rgb(0 0 0 / .5), var(--shadow);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / .5), var(--e4);
 }
 /* ⚠️ On a phone the magnifier moves into the CORNER instead of hovering over the aim. The
    centred one was dropped when the fixed-target workflow arrived, for a good reason — a circle
@@ -431,10 +431,10 @@
    dock that is 338px wide on a 360px phone, and it left the panel through its right edge. Both
    columns may now shrink and the value may drop onto its own line. */
 .qSummary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
-  gap: 2px 16px; padding: 2px 2px 4px; color: var(--ink-dim); font: 600 12.5px/1.4 var(--body); }
+  gap: 2px 16px; padding: 2px 2px 4px; color: var(--ink-dim); font: 600 var(--fs-1)/1.4 var(--body); }
 .qSummary span, .qSummary strong { min-width: 0; overflow-wrap: anywhere; }
-.qSummary span b { color: var(--ink); font: 700 15px var(--mono); }
-.qSummary strong { color: var(--ink); font: 700 15px/1.35 var(--body); text-align: right; }
+.qSummary span b { color: var(--ink); font: var(--fw-bold) 15px var(--mono); }
+.qSummary strong { color: var(--ink); font: var(--fw-bold) 15px/1.35 var(--body); text-align: right; }
 /* the calm twin of .qWarn: an approved fit states who vouches for it, and states it in the
    panel's own voice — an amber box would call a published reference a defect */
 .qNote { padding: 0 2px; color: var(--ink-dim); font: 600 12px/1.45 var(--body); }
@@ -454,7 +454,7 @@
 .qActions svg { width: 15px; height: 15px; flex: none; }
 
 /* ── Passung auf Geschwistermodule übertragen ───────────────────────────────────────────── */
-.transferBody { margin: 0; color: var(--ink-dim); font: 500 13px/1.5 var(--body); }
+.transferBody { margin: 0; color: var(--ink-dim); font: var(--fw-medium) 13px/1.5 var(--body); }
 .transferList { display: flex; flex-direction: column; gap: 8px; }
 /* This is an option row, not ordinary action chrome: `--r-ctl` is the app-wide distinction
    between a selectable cell and a button. The whole 56px row is the touch target. */
@@ -473,9 +473,9 @@
   border-radius: var(--r-sm); color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
 .transferIcon svg, .transferRow > svg { width: 17px; height: 17px; }
 .transferName { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.transferName b { font: 700 13px var(--body); }
-.transferName small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font: 500 11.5px var(--body); }
-.transferLinked { flex: none; color: var(--amber-strong); font: 700 10.5px var(--body); }
+.transferName b { font: var(--fw-bold) 13px var(--body); }
+.transferName small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font: var(--fw-medium) 11.5px var(--body); }
+.transferLinked { flex: none; color: var(--amber-strong); font: var(--fw-bold) 10.5px var(--body); }
 
 @keyframes georefIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes georefPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: .5; } }
@@ -555,13 +555,13 @@
   .surfaceSwitch button {
     min-width: 0; min-height: var(--tap); display: inline-flex; align-items: center;
     justify-content: center; gap: 6px; padding: 0 8px; border: 0; border-radius: var(--r-sm);
-    background: transparent; color: var(--ink-dim); font: 700 12.5px var(--body); cursor: pointer;
+    background: transparent; color: var(--ink-dim); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer;
   }
   .surfaceSwitch button svg { width: 16px; height: 16px; }
   .surfaceSwitch button span {
     min-width: 20px; padding: 1px 6px; border-radius: var(--r-pill);
     background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink-dim);
-    font: 700 10.5px/1.4 var(--body);
+    font: var(--fw-bold) 10.5px/1.4 var(--body);
   }
     /* the chosen half is THE choice fill, as every Segmented (01-tokens · --sel) — it was a white
      iOS-style pill, a look of its own */
@@ -600,7 +600,7 @@
 /* the chooser's content; the Whiteboard's .wb-georef-dock supplies the panel chrome */
 .chooser { display: grid; gap: 8px; width: 320px; max-width: calc(100vw - 24px); padding: 12px 12px 12px 16px; }
 .chooserHeadRow { display: flex; align-items: center; gap: 8px; }
-.chooserHead { flex: 1; min-width: 0; font-size: 14px; }
+.chooserHead { flex: 1; min-width: 0; font-size: var(--fs-2); }
 /* the ✕ IS the global `.ip-x` (28.09.2026 — a 44px tile with a 15px glyph, beside a title and no
    search field); this only keeps it out of the row's flex */
 .chooserX { flex: none; margin-right: -2px; }
@@ -613,19 +613,19 @@
 }
 .chooserOpt svg { width: 19px; height: 19px; flex: none; color: var(--ink-dim); }
 .chooserOpt > span { min-width: 0; }
-.chooserOpt b { display: block; font: 700 13px/1.3 var(--body); }
-.chooserOpt i { display: block; font: 500 11.5px/1.35 var(--body); font-style: normal; color: var(--ink-dim); margin-top: 2px; }
+.chooserOpt b { display: block; font: var(--fw-bold) 13px/1.3 var(--body); }
+.chooserOpt i { display: block; font: var(--fw-medium) 11.5px/1.35 var(--body); font-style: normal; color: var(--ink-dim); margin-top: 2px; }
 /* the leading option wears the link tone — the same blue every georef instrument speaks */
-.chooserOptAuto { border-color: color-mix(in srgb, var(--blue) 45%, transparent);
+.chooserOptAuto { border-color: var(--blue-45);
   background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
 .chooserOptAuto svg, .chooserOptAuto b { color: var(--blue-strong); }
 .chooserOpt:active { background-image: linear-gradient(var(--press), var(--press)); }
 .chooserBusy { display: grid; gap: 7px; padding: 2px 4px 2px 0; }
 /* the matcher's REAL phases, checked off as the endpoint reports them */
 .stepRow { display: flex; align-items: center; gap: 9px; min-height: 22px;
-  font: 600 12.5px var(--body); color: var(--ink-faint); }
+  font: 600 var(--fs-1) var(--body); color: var(--ink-faint); }
 .stepRow svg { width: 15px; height: 15px; flex: none; color: var(--green-strong); }
-.stepNow { color: var(--ink); font-weight: 700; }
+.stepNow { color: var(--ink); font-weight: var(--fw-bold); }
 .stepNow svg { color: var(--ink); }
 .stepDone { color: var(--ink-dim); }
 .stepDot { flex: none; width: 7px; height: 7px; margin: 0 4px;
@@ -676,13 +676,13 @@
   /* below the floating TopBar (04-topbar), which hovers over the map's own top edge */
   position: absolute; top: 92px; left: 50%; transform: translateX(-50%); z-index: 7;
   background: var(--label-bg); color: var(--ink); padding: 8px 14px; border-radius: var(--r-sm);
-  font: 650 12.5px var(--body); white-space: nowrap; box-shadow: var(--shadow-sm); pointer-events: none;
+  font: 650 var(--fs-1) var(--body); white-space: nowrap; box-shadow: var(--e3); pointer-events: none;
 }
 /* the turn's degrees, beside the pivot on the surface — never off a button at the bar */
 .pivotBadge {
   display: inline-block; background: var(--label-bg); color: var(--blue-strong);
-  padding: 3px 8px; border-radius: var(--r-xs); font: 700 13px var(--body);
-  font-variant-numeric: tabular-nums; box-shadow: var(--shadow-sm); pointer-events: none;
+  padding: 3px 8px; border-radius: var(--r-xs); font: var(--fw-bold) 13px var(--body);
+  font-variant-numeric: tabular-nums; box-shadow: var(--e3); pointer-events: none;
 }
 
 /* the review-carefully proposal head — the amber the Ampel line already speaks */

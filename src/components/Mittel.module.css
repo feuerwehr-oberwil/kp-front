@@ -87,7 +87,7 @@
   display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
   grid-column: 1 / -1; margin-top: 14px; min-height: var(--tap); padding: 8px 12px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
-  color: var(--ink); font: 700 13.5px var(--body); text-align: left; cursor: pointer;
+  color: var(--ink); font: var(--fw-bold) 13.5px var(--body); text-align: left; cursor: pointer;
 }
 @media (hover: hover) { .createRow:hover { border-color: var(--ink-faint); } }
 .createRow:active { background-image: linear-gradient(var(--press), var(--press)); }
@@ -102,11 +102,11 @@
   border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
   margin-bottom: 6px;
 }
-.rowLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 14.5px var(--body); color: var(--ink); }
+.rowLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fw-bold) 14.5px var(--body); color: var(--ink); }
 /* unit trails the quantity (qty and unit read as one value: «3 / 4 Stk»); the min-width keeps
    the short unit strings (Stk/l/m) in a column so quantities align down a group */
-.rowUnit { flex: none; min-width: 28px; font: 600 12.5px var(--body); color: var(--ink-faint); }
-.rowQty { flex: none; font: 800 15px var(--body); color: var(--ink); min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+.rowUnit { flex: none; min-width: 28px; font: 600 var(--fs-1) var(--body); color: var(--ink-faint); }
+.rowQty { flex: none; font: var(--fw-heavy) 15px var(--body); color: var(--ink); min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* the ±stepper and its unit — one block, so both views end on the same right edge */
 .rowEdit { flex: none; display: flex; align-items: center; gap: 8px; }
@@ -145,7 +145,7 @@
 .dots i.dotOn, .dots .dotOn { border-color: var(--green); background: var(--green); }
 .dots.low .dotOn { border-color: var(--amber-strong); background: var(--amber-strong); }
 .dots.over i { border-color: var(--red); }
-.noch { flex: none; font: 700 12px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.noch { flex: none; font: var(--fw-bold) 12px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .noch.low { color: var(--amber-strong); }
 .noch.over { color: var(--red-strong); }
 
@@ -227,7 +227,7 @@
 .hasNote { color: var(--blue); }
 .hasNote::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px;
   border-radius: 50%; background: var(--blue); }
-.rowNoteRo { margin-top: 3px; font: 500 12.5px var(--body); color: var(--ink-dim); }
+.rowNoteRo { margin-top: 3px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 
 /* «Gesetzt, aber nicht erfasst» — the symbol→Mittel reconciliation strip between the search row
    and the list (MittelView · mittelRecommendations). Blue = information with an action, never
@@ -240,7 +240,7 @@
 .recText { flex: 1 1 240px; min-width: 0; font: 600 13px var(--body); color: var(--ink-dim); }
 /* ⚠️ the strip's one action is THE primary (28.09.2026) — blue now means «chosen» (--sel) */
 .recTake { flex: none; border: none; border-radius: var(--r-sm); padding: 8px 14px; cursor: pointer;
-  font: 700 12.5px var(--body); background: var(--btn-primary); color: var(--on-btn-primary); }
+  font: var(--fw-bold) var(--fs-1) var(--body); background: var(--btn-primary); color: var(--on-btn-primary); }
 .recTake:active { background-image: linear-gradient(var(--press), var(--press)); }
 .recHide { flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin: -2px -4px -2px -6px;
   border: none; border-radius: var(--r-sm); background: none; color: var(--ink-faint); cursor: pointer; }
@@ -253,14 +253,14 @@
 /* The «Erfassen …» picker sheet (MittelView · MittelPickSheet): one group per open symbol,
    ≥52px radio rows (Typ + Quelle + Restbestand), the unambiguous rest ticked below. Rows are
    rows, not buttons → --r-ctl; radio/tick stay round like all on-surface furniture. */
-.pickSub { margin: -2px 0 12px; font: 500 12.5px var(--body); color: var(--ink-dim); line-height: 1.4; }
+.pickSub { margin: -2px 0 12px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); line-height: 1.4; }
 .pickGroup { margin-bottom: 14px; }
 .pickGroup:last-child { margin-bottom: 0; }
 .pickGroupHead {
   display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; padding: 0 1px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
-.pickGroupHead small { font: 500 11px var(--body); text-transform: none; letter-spacing: 0; color: var(--ink-faint); }
+.pickGroupHead small { font: var(--fw-medium) var(--fs-micro) var(--body); text-transform: none; letter-spacing: 0; color: var(--ink-faint); }
 .pickOpt {
   display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 8px 12px;
   margin-top: 6px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
@@ -268,7 +268,7 @@
 }
 /* hover was missing entirely — every other option cell in the app answers a pointer
    (13-incident.css · «ONE menu row»), and mouse-only, so a tap leaves nothing lit. */
-@media (hover: hover) { .pickOpt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
+@media (hover: hover) { .pickOpt:hover { background: var(--blue-8); } }
 .pickOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* a picked ROW wears the one row wash (01-tokens · --sel-wash); its radio dot says the rest */
 .pickOptOn { border-color: var(--sel); background: var(--sel-wash); }
@@ -278,9 +278,9 @@
   background: radial-gradient(circle, var(--blue) 0 5px, transparent 6px);
 }
 .pickTxt { flex: 1 1 auto; min-width: 0; }
-.pickTxt b { display: block; font: 700 13.5px var(--body); color: var(--ink); overflow-wrap: anywhere; }
-.pickTxt small { font: 500 11.5px var(--body); color: var(--ink-faint); }
-.pickStk { flex: none; font: 700 12px var(--mono); color: var(--ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pickTxt b { display: block; font: var(--fw-bold) 13.5px var(--body); color: var(--ink); overflow-wrap: anywhere; }
+.pickTxt small { font: var(--fw-medium) 11.5px var(--body); color: var(--ink-faint); }
+.pickStk { flex: none; font: var(--fw-bold) 12px var(--mono); color: var(--ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* the pre-ticked unambiguous rows: quieter fill, no border emphasis — a glance, not a control */
 .pickFixed { min-height: 44px; cursor: default; border-color: transparent; background: var(--fill-soft); }
 .pickTick { flex: none; width: 20px; display: grid; place-items: center; color: var(--green); }

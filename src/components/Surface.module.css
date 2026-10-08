@@ -32,7 +32,7 @@
 :where(.shell) {
   position: absolute; inset: calc(88px + var(--ml-push, 0px)) 16px calc(16px + var(--vv-foot, 0px)) calc(var(--rail-w) + 28px); z-index: var(--z-surface);
   display: flex;
-  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
+  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--e4);
 }
 
 /* THE surface header (tokens · --head-*) — ONE ROW at every width (28.09.2026, owner: «fix the

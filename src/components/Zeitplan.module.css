@@ -32,7 +32,7 @@
                    Not --blue either any more — shape already carries the state (dashed band vs
                    solid inset bar), so plain ink loses no information and stays calmer.)
        anwesend  — green: it actually happened, and it comes from the attendance record */
-  --st-available: color-mix(in srgb, var(--ink) 45%, transparent);
+  --st-available: var(--ink-45);
   --st-planned: var(--ink);
   --st-actual: var(--green);
   /* one hairline for the whole grid — row edge, clock rule and Deckung rule were three different
@@ -66,9 +66,9 @@
 .scroll::-webkit-scrollbar-track { background: transparent; }
 .scroll::-webkit-scrollbar-thumb {
   border-radius: 5px; border: 2px solid transparent; background-clip: content-box;
-  background-color: color-mix(in srgb, var(--ink) 28%, transparent);
+  background-color: var(--ink-28);
 }
-.scroll::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--ink) 45%, transparent); }
+.scroll::-webkit-scrollbar-thumb:hover { background-color: var(--ink-45); }
 /* The width is stated, not derived. `max-content` on the grid silently broke the sticky name
    column (it scrolled away with the track — the one thing a «Wer» column must never do), and
    `max-content` on the row didn't pick up the track's flex-basis, so rows ended mid-axis with a
@@ -97,7 +97,7 @@
   width: var(--name-w); display: flex; align-items: center; gap: 6px; padding: 3px 6px 3px 13px;
   min-height: var(--tap); text-align: left; cursor: pointer;
   border: none; background: var(--board);
-  font: 700 13.5px var(--body); color: var(--ink);
+  font: var(--fw-bold) 13.5px var(--body); color: var(--ink);
   -webkit-tap-highlight-color: transparent;
 }
 .who::before {
@@ -129,7 +129,7 @@
 .whoHead, .whoFoot {
   min-height: 0; background: var(--surface);
   align-items: center; padding-bottom: 4px;
-  font: 700 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase;
+  font: var(--fw-bold) 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase;
 }
 .whoHead::before, .whoFoot::before { border: none; border-radius: 0; background: var(--surface); }
 
@@ -147,7 +147,7 @@
 .headRow {
   position: sticky; top: 0; z-index: 4; background: var(--surface);
   border-bottom: 1px solid var(--edge);
-  box-shadow: 0 6px 10px -8px color-mix(in srgb, var(--ink) 45%, transparent);
+  box-shadow: 0 6px 10px -8px var(--ink-45);
 }
 .headRow .who { z-index: 5; }
 /* the track carries the fill itself as well as the row, so the mask never depends on the row box
@@ -174,7 +174,7 @@
 .tickEnd { transform: translateX(-100%); }
 /* midnight carries the DATE, not «00:00» — over several days the hour alone never said which
    night — so it is set apart from the plain hour ticks */
-.tickDay { color: var(--ink-dim); font-weight: 700; }
+.tickDay { color: var(--ink-dim); font-weight: var(--fw-bold); }
 
 .lane {
   display: flex; align-items: center; min-height: var(--tap);
@@ -260,7 +260,7 @@
    was never the thing being aimed at anyway. It fades in on hover, where it can still teach. */
 .handle::after {
   content: ''; width: 2px; height: 16px; border-radius: 1px;
-  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  background: var(--ink-45);
   opacity: 0; transition: opacity .12s var(--ease);
 }
 @media (hover: hover) {
@@ -355,7 +355,7 @@
    carries the surface colour behind it rather than blending into the number underneath */
 .nowLineHead em {
   position: absolute; top: 0; left: 3px; padding: 1px 3px; border-radius: 2px;
-  background: var(--surface); font: 700 9.5px var(--mono); font-style: normal;
+  background: var(--surface); font: var(--fw-bold) 9.5px var(--mono); font-style: normal;
   color: var(--red); letter-spacing: .04em; text-transform: uppercase;
 }
 /* past the middle the flag reads to the LEFT of its line: the fitted window puts «Jetzt» at ~¾,
@@ -369,7 +369,7 @@
 .coverageRow {
   position: sticky; bottom: 0; z-index: 4; margin-top: 4px;
   background: var(--surface); border-top: 1px solid var(--edge);
-  box-shadow: 0 -6px 10px -8px color-mix(in srgb, var(--ink) 45%, transparent);
+  box-shadow: 0 -6px 10px -8px var(--ink-45);
 }
 .coverageRow .who { z-index: 5; }
 /* min-height, not height: the row grows when the numbers are folded out, and it stays pinned to
@@ -408,7 +408,7 @@
 }
 .covHead {
   display: flex; align-items: center; gap: 6px; flex: none; min-height: 17px;
-  font-size: 12.5px; color: var(--ink-faint);
+  font-size: var(--fs-1); color: var(--ink-faint);
 }
 .covHead svg { width: 14px; height: 14px; margin-left: auto; flex: none; }
 @media (hover: hover) { .whoFoot:hover .covHead { color: var(--ink); } }
@@ -444,7 +444,7 @@
    floor that applies to anything you press. */
 .covKey {
   display: inline-flex; align-items: center; gap: 3px;
-  font: 600 11px var(--body); color: var(--ink-dim); white-space: nowrap;
+  font: 600 var(--fs-micro) var(--body); color: var(--ink-dim); white-space: nowrap;
 }
 .covDot { width: 8px; height: 3px; border-radius: 2px; flex: none; }
 .dotAvailable { background: var(--st-available); }
@@ -453,12 +453,12 @@
 /* the count at «jetzt» rides in the key itself, in ink rather than in its state colour: it is the
    number you read first at 3am, and the swatch two characters to its left already says which
    state it belongs to */
-.covNow { font: 800 12px var(--mono); color: var(--ink); }
+.covNow { font: var(--fw-heavy) 12px var(--mono); color: var(--ink); }
 /* one row of numbers per state, in the state's own colour and in the key's order */
 .covRow { position: relative; flex: none; height: 16px; min-height: 0; }
 /* a number only where the count CHANGES: it is a step function, the value holds until the next
    one, and 192 identical digits in a row is not a read-out — it is noise */
-.covNum { position: absolute; top: 0; padding-left: 3px; font: 700 11px var(--mono); line-height: 16px; }
+.covNum { position: absolute; top: 0; padding-left: 3px; font: var(--fw-bold) var(--fs-micro) var(--mono); line-height: 16px; }
 /* the numbers take the state colours too, except «verfügbar»: 45%-ink over the surface lands at
    about 3:1 against it, which is not a digit you read at 3am. --ink-dim is the neutral text tone
    the grey line already stands for, so the mapping still holds. */
@@ -480,7 +480,7 @@
 .emptyInfoBtn {
   display: flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 2px;
   border: none; border-radius: var(--r-sm); background: none; cursor: pointer;
-  font: 500 12.5px var(--body); color: var(--ink-faint); text-align: left;
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); text-align: left;
   -webkit-tap-highlight-color: transparent;
 }
 .emptyInfoBtn svg { width: 14px; height: 14px; flex: none; }
@@ -494,7 +494,7 @@
    three lines it names (see .covKeys). What is left is the gesture explainer, folded behind the
    (i) above: once there are bars the whole row disappears and the grid takes the height back,
    which on a phone is one more person on screen. */
-.legendHint { display: block; margin: 2px 0 0; padding-left: 2px; font: 500 12.5px var(--body); color: var(--ink-faint); }
+.legendHint { display: block; margin: 2px 0 0; padding-left: 2px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
 /* ---- the per-person sheet ------------------------------------------------------------ */
 
@@ -550,7 +550,7 @@
      in here the way it is on a desktop. The lane loses ~36px of a track that scrolls anyway. */
   .zeitplan { --name-w: 168px; }
   .who { padding: 2px 2px 2px 8px; gap: 4px; }
-  .name { font-size: 12.5px; }
+  .name { font-size: var(--fs-1); }
   .editBtn { display: none; }
   /* NO lane override here any more. These were written for the old stacked phone layout, where
      the lane sat BELOW its name and therefore closed off at the bottom. Now the lane sits to the
@@ -584,7 +584,7 @@
    Written imperatively by ZeitplanView (textContent + hidden) — no per-frame React state. */
 .dragReadout { position: absolute; top: 6px; right: 16px; z-index: 5; pointer-events: none;
   background: var(--surface); color: var(--ink); border: none; border-radius: var(--r-sm); padding: 6px 11px;
-  font: 700 13px var(--mono); font-variant-numeric: tabular-nums; box-shadow: var(--shadow); }
+  font: var(--fw-bold) 13px var(--mono); font-variant-numeric: tabular-nums; box-shadow: var(--e4); }
 
 @media (--phone) {
   /* The empty-grid help shares the clock header; it takes no row from the Mannschaft. */
@@ -593,5 +593,5 @@
   .emptyInfoBtn span, .emptyInfoBtn svg:first-child { display: none; }
   .zeitplan:has(.emptyNote) .headRow .track { clip-path: inset(0 var(--tap) 0 0); }
   .emptyNote .legendHint { position: absolute; top: 100%; right: 0; width: min(320px, calc(100vw - 40px));
-    padding: 12px; background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); color: var(--ink); }
+    padding: 12px; background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); color: var(--ink); }
 }

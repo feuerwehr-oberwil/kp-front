@@ -12,9 +12,9 @@
   border-radius: var(--r-pill);
   background: var(--glass);
   color: var(--ink);
-  font: 700 12.5px var(--body);
+  font: var(--fw-bold) var(--fs-1) var(--body);
   cursor: pointer;
-  box-shadow: var(--shadow);
+  box-shadow: var(--e4);
   backdrop-filter: blur(16px);
   transition: filter .14s var(--ease);
 }

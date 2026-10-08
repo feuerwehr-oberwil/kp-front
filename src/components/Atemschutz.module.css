@@ -25,7 +25,7 @@
 .headTile { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   height: 44px; min-width: 44px; padding: 0 12px; border: none; cursor: pointer; border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink-dim); box-shadow: inset 0 0 0 1px var(--glass-edge);
-  font: 800 14px var(--body); white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+  font: var(--fw-heavy) var(--fs-2) var(--body); white-space: nowrap; -webkit-tap-highlight-color: transparent; }
 /* glyphs: one size, centred by the flex box — never a baseline-sensitive inline SVG */
 .headTile :global(.i) { flex: none; width: 17px; height: 17px; }
 .headTile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -39,7 +39,7 @@
 .muteOn { color: var(--amber-strong); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 42%, transparent); }
 /* the browser has not released audio: the bell is on, and it cannot make a sound. Red, because
    this is the one bell state that needs a tap — see AtemschutzView · bellLabel. */
-.muteBlocked { color: var(--red); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 45%, transparent);
+.muteBlocked { color: var(--red); box-shadow: inset 0 0 0 1px var(--red-45);
   background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 /* the board's arrangement, behind its own icon; the archive menu, the QR and the lite ↶ ↷ wear it too */
 .orderBtn { composes: headTile; }
@@ -58,7 +58,7 @@
    and the pulse is the tile's own, shallower than the card band's (a tinted tile at .3 vanishes). */
 .overdueBadge { composes: headTile; color: var(--red);
   background: color-mix(in srgb, var(--red) 11%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 45%, transparent);
+  box-shadow: inset 0 0 0 1px var(--red-45);
   font-variant-numeric: tabular-nums; animation: az-pulse-tile 1.2s infinite; }
 @media (hover: hover) { .overdueBadge:hover:not(:disabled) { color: var(--red); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 60%, transparent); } }
 /* muted: the same tile in plain grey — the count still stands, the tone does not */
@@ -70,7 +70,7 @@
 .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
   height: 100%; color: var(--ink-faint); text-align: center; }
 .empty :global(.i) { width: 30px; height: 30px; opacity: .5; }
-.empty p { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink-dim); }
+.empty p { margin: 0; font-size: 15px; font-weight: var(--fw-bold); color: var(--ink-dim); }
 .empty span { font-size: 13px; }
 
 /* ⚠️ `start`, not `stretch` — decided 29.08. (Höhen-Mockups): every card takes its natural
@@ -108,7 +108,7 @@
    plain count is INK. It was a faint 999px pill — the only round count in the app. */
 .sectCount { display: inline-block; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
-  font: 800 11px/16px var(--body); text-align: center; font-variant-numeric: tabular-nums; }
+  font: var(--fw-heavy) var(--fs-micro)/16px var(--body); text-align: center; font-variant-numeric: tabular-nums; }
 /* (the hairline rule that ran from the count to the edge — «DRIN 4 ────» — went on 29.09.2026,
    T6: it was the divider between Atemschutz and ohne Atemschutz, then every section wore one,
    between cards that already have their own frames and left edges, and in the SICHERUNGSTRUPP
@@ -139,7 +139,7 @@
 /* the big primary action — reset the contact clock on Funkkontakt. Filled + ringed so it reads
    as THE button before hover; takes on the warn/crit colour so the fix-it action self-announces */
 .kontaktBtn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: none; cursor: pointer;
-  background: color-mix(in srgb, var(--green) 7%, var(--surface)); font-family: var(--body); font-size: 14px; font-weight: 800;
+  background: color-mix(in srgb, var(--green) 7%, var(--surface)); font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-heavy);
   color: var(--green-strong); padding: 14px 10px; min-height: 50px;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 26%, transparent); }
 .kontaktBtn :global(.i) { width: 19px; height: 19px; }
@@ -185,7 +185,7 @@
 .metaLine > span + span::before { content: '·'; position: absolute; right: 100%; width: 15px; text-align: center;
   color: var(--ink-faint); opacity: .7; }
 .metaLine i { font-style: normal; }
-.metaLine b { font: 700 12.5px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.metaLine b { font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 /* (`.metaEst`, the Schätzung's dimmed + lighter value, went on 29.09.2026, T2: the owner wants the
    Schätzung CLEARLY visible, so it keeps full ink and its WORD — «Schätzung ≈ 0 bar» — and the word
    is what keeps it from being read as a logged Druck. TruppCard · sockelLine `labelled`.) */
@@ -204,7 +204,7 @@
    estimate. Still a filled row with its glyph, so it stays clearly visible (owner). */
 .airNote { display: flex; align-items: center; gap: 8px; padding: 10px 12px;
   border-radius: var(--r-sm); background: color-mix(in srgb, var(--red) 10%, transparent);
-  font: 700 13px/1.35 var(--body); color: var(--ink); }
+  font: var(--fw-bold) 13px/1.35 var(--body); color: var(--ink); }
 .airNote :global(.i) { width: 16px; height: 16px; flex: none; color: var(--red-strong); }
 
 /* ══ The card, zone by zone ═══════════════════════════════════════════════════════════════════
@@ -247,13 +247,13 @@
 .zonePanel { background: var(--surface); padding: 9px 14px 10px; display: flex; flex-direction: column; gap: 4px; }
 .zonePanelRow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
   font-size: 12px; color: var(--ink-dim); }
-.zonePanelRow b { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink); }
+.zonePanelRow b { font-family: var(--mono); font-size: 12px; font-weight: var(--fw-bold); color: var(--ink); }
 /* A row whose VALUE is a sentence rather than a number — «Schätzung | aus 2 Druckwerten · Stand
    16:48». It used to be a `<p>` slung under the row, which is where the browser's own 1em
    paragraph margins opened the dead band before ABLESUNGEN (field review 09.09.). Kept out of
    the mono voice on purpose: this is the provenance OF a number, never a number itself. */
 .zoneNote { flex: 0 1 auto; min-width: 0; text-align: right; font-style: normal;
-  font-size: 11px; line-height: 1.35; color: var(--ink-faint); }
+  font-size: var(--fs-micro); line-height: 1.35; color: var(--ink-faint); }
 /* the VERLAUF footer — the card's bottom row: latest event as preview, tap expands the log */
 .vfoot { border-top: 1px solid var(--glass-edge); background: var(--fill-soft, rgba(0, 0, 0, .045)); }
 /* a Trupp created without Atemschutz starts with NO readings and has no contact times either
@@ -262,7 +262,7 @@
 .vfoot:empty { border-top: 0; background: transparent; }
 .vrow { display: flex; align-items: center; gap: 8px; width: 100%; border: none; cursor: pointer;
   background: transparent; text-align: left; padding: 0 14px; min-height: var(--tap);
-  font: 700 12.5px var(--body); color: var(--ink-dim); -webkit-tap-highlight-color: transparent; }
+  font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); -webkit-tap-highlight-color: transparent; }
 .vrow:active { background-image: linear-gradient(var(--press), var(--press)); }
 .vrow :global(.i) { width: 14px; height: 14px; flex: none; }
 .logChev { color: var(--ink-faint); }
@@ -302,8 +302,8 @@
    INSIDE .logRow until 29.08. — as descendant selectors they matched nothing.) */
 .logRowPast { opacity: .55; }
 .logRowRunStart { border-top: 1px solid var(--border); padding-top: 5px; margin-top: 3px; }
-.logTime { font-family: var(--mono); font-weight: 700; color: var(--ink-dim); }
-.logBar { font-family: var(--mono); font-weight: 700; color: var(--ink); }
+.logTime { font-family: var(--mono); font-weight: var(--fw-bold); color: var(--ink-dim); }
+.logBar { font-family: var(--mono); font-weight: var(--fw-bold); color: var(--ink); }
 .logKind { color: var(--ink-dim); font-weight: 600; }
 
 /* ── The lifecycle tiles (26.09.2026 evening on the phone, EVERY board since 29.09.2026) ─────────
@@ -321,7 +321,7 @@
 .actBtn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
   min-height: 48px; min-width: 0; padding: 0 12px; border-radius: var(--r-sm);
   background: var(--surface); box-shadow: inset 0 0 0 1px var(--glass-edge);
-  font: 800 14px var(--body); color: var(--ink-dim); }
+  font: var(--fw-heavy) var(--fs-2) var(--body); color: var(--ink-dim); }
 .actBtn :global(.i) { width: 16px; height: 16px; }
 /* press wash for the whole lifecycle row — every variant below rides on .actBtn */
 .actBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -366,7 +366,7 @@
      scale with it — the Mannschaftsliste and the Auftrag tiles. Still inside an iPad's
      1024px landscape with air around it. */
   width: min(820px, calc(100vw - 32px)); height: min(760px, calc(100dvh - 32px)); overflow: hidden;
-  background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
+  background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--e4);
   display: flex; flex-direction: column; }
 /* Keyboard up (Overlay · useKeyboardInset) — same signal, same shape of fix `.ip-sheet` already
    uses (13-incident.css `.is-kb`): ride up to a fixed top instead of a vertical centre (whose
@@ -509,7 +509,7 @@
 .placeOpts { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
   min-height: 0; overflow-y: auto; }
 .placeOpt { display: flex; align-items: center; gap: 12px; border: 2px solid var(--glass-edge); background: var(--surface);
-  border-radius: var(--r-ctl); cursor: pointer; padding: 14px 16px; font: 700 15px var(--body); color: var(--ink); min-height: 56px; }
+  border-radius: var(--r-ctl); cursor: pointer; padding: 14px 16px; font: var(--fw-bold) 15px var(--body); color: var(--ink); min-height: 56px; }
 @media (hover: hover) { .placeOpt:hover { border-color: var(--blue); color: var(--blue); } }
 .placeOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .placeOpt :global(.i) { width: 20px; height: 20px; color: var(--ink-faint); flex: none; }
@@ -518,11 +518,11 @@
    A rule with a word on it, because the two halves answer the same question in different ways:
    above, a surface to put a new symbol on; below, a symbol that is already standing there. */
 .placeSep { display: flex; align-items: center; gap: 10px; margin: 2px 0;
-  font: 700 12px var(--body); color: var(--ink-dim); }
+  font: var(--fw-bold) 12px var(--body); color: var(--ink-dim); }
 .placeSep::before, .placeSep::after { content: ''; flex: 1; height: 1px; background: var(--glass-edge); }
 /* the marker rows carry a second line (where it stands / whose it is), so they stack */
 .placeOptMarker { flex-direction: column; align-items: stretch; gap: 3px; text-align: left; }
-.placeOptWhere { font: 600 12.5px var(--body); color: var(--ink-dim); }
+.placeOptWhere { font: 600 var(--fs-1) var(--body); color: var(--ink-dim); }
 @media (hover: hover) { .placeOpt:hover .placeOptWhere { color: inherit; } }
 .placeOptCap { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px;
   vertical-align: baseline; }
@@ -553,7 +553,7 @@
 /* flash-ring: the module-local copy of ui-flash-ring — see the .cardFlash comment below */
 .formFlash { border-radius: var(--r-ctl); animation: flash-ring 1.9s ease-out 1; }
 @media (prefers-reduced-motion: reduce) {
-  .formFlash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  .formFlash { animation: none; box-shadow: 0 0 0 4px var(--ink-62); }
 }
 /* a labelled field that CONTAINS the flexing Trupp block passes the room through */
 .formCol > .field:has(> .team) { flex: 1 1 0; min-height: 0; }
@@ -569,7 +569,7 @@
    flash ring points at. The value carries the weight, in the mono of every number on the board. */
 .pickRow { border-radius: var(--r-ctl); }
 .pickRow > :global(.row-go) { background: var(--fill-soft); }
-.pickRowValue { flex: none; font: 800 15px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.pickRowValue { flex: none; font: var(--fw-heavy) 15px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 /* the number sheets' host inside the form (TruppForm · pickers): a React-tree stop for the pointer, no box */
 .pickHost { display: contents; }
 
@@ -600,7 +600,7 @@
 /* 44px touch pad behind the 26px visible target — gloved-finger sized without bloating the row */
 .slotRemove::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .slotRemove :global(.i) { width: 14px; height: 14px; }
-@media (hover: hover) { .slotRemove:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); } }
+@media (hover: hover) { .slotRemove:hover { background: var(--red-12); color: var(--red); } }
 .slotRemove:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .field input { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 11px 12px;
   background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink); outline: none; }
@@ -615,7 +615,7 @@
    own chips once a few hoses exist. Three-up is two rows, and «Absuchen» — the longest word in
    the set — still has room at this column width. Height and radius come from the one segmented
    spec; only how many fit on a row is this form's business. */
-.field :global(.useg-btn) { flex: 1 0 26%; font-weight: 700; }
+.field :global(.useg-btn) { flex: 1 0 26%; font-weight: var(--fw-bold); }
 
 /* (`.linkBtn` is gone with the «Name eingeben (Gast / Nachbarwehr)» row it drew, 04.09. — the
    search field IS the guest entry now, and its door is the last row of the list. See TruppTeam.) */
@@ -644,12 +644,12 @@
    name that exists nowhere — the ring silently never fired (found in the field, 30.08.).
    Keep the geometry in sync with 02-base.css by hand. */
 @keyframes flash-ring {
-  0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px var(--ink-62); }
   11%, 36%, 62%, 100% { box-shadow: 0 0 0 4px transparent; }
 }
 .cardFlash { animation: flash-ring 1.9s ease-out 1; }
 @media (prefers-reduced-motion: reduce) {
-  .cardFlash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  .cardFlash { animation: none; box-shadow: 0 0 0 4px var(--ink-62); }
 }
 
 
@@ -667,11 +667,11 @@
 button.stepVal { width: 100%; font: inherit; color: inherit; cursor: pointer; padding: 0; }
 @media (hover: hover) { button.stepVal:hover { border-color: var(--blue); } }
 button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.stepVal b { font: 800 28px/1 var(--mono); color: var(--ink); }
-.stepVal span { font-size: 11px; font-weight: 700; color: var(--ink-faint); margin-top: 3px; }
+.stepVal b { font: var(--fw-heavy) 28px/1 var(--mono); color: var(--ink); }
+.stepVal span { font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink-faint); margin-top: 3px; }
 /* inline numeric input shown when typing an exact value (matches the .stepVal b look) */
 .stepInput { width: 90%; box-sizing: border-box; text-align: center; border: none; background: transparent;
-  outline: none; font: 800 28px/1 var(--mono); color: var(--blue); padding: 0; }
+  outline: none; font: var(--fw-heavy) 28px/1 var(--mono); color: var(--blue); padding: 0; }
 /* ⚠️ In the create form only. Druck and Kanal are set once, with a bare hand, before anybody is
    under PA — two 64px blocks each cost the form ~50px it does not have on a tablet. The gloved
    size stays where it is earned: «Druck aktualisieren», tapped at the door mid-Einsatz. Still
@@ -709,13 +709,13 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    is a SIBLING of the button that carries it, so the state is handed down from the wrapper here.
    The rotation + transition stay the shared ones — this rule only says when. */
 .combo:has([aria-expanded='true']) :global(.chev) { transform: rotate(180deg); }
-.comboType { color: var(--blue-strong); font-weight: 700; border-top: 1px solid var(--glass-edge); margin-top: 2px; }
+.comboType { color: var(--blue-strong); font-weight: var(--fw-bold); border-top: 1px solid var(--glass-edge); margin-top: 2px; }
 .comboType :global(.i) { width: 15px; height: 15px; }
-.comboEmpty { padding: 8px 12px; font-size: 12.5px; color: var(--ink-faint); }
+.comboEmpty { padding: 8px 12px; font-size: var(--fs-1); color: var(--ink-faint); }
 .comboMenu {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; margin: 0; padding: 4px; list-style: none;
   max-height: 252px; overflow-y: auto; background: var(--surface); border: 1px solid var(--glass-edge);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow);
+  border-radius: var(--r-ctl); box-shadow: var(--e4);
 }
 /* portalled to <body> (mirrors the global Combo): the scrolling modal/sheet the field sits in
    would otherwise clip the menu at its overflow boundary. Keep it above modal sheets (@80/81)
@@ -726,9 +726,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .comboOpt {
   width: 100%; display: flex; align-items: center; gap: 9px; cursor: pointer; text-align: left;
   border: none; background: none; border-radius: var(--r-ctl); padding: 9px 10px; min-height: var(--tap);
-  font: 600 14px var(--body); color: var(--ink);
+  font: 600 var(--fs-2) var(--body); color: var(--ink);
 }
-@media (hover: hover) { .comboOpt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
+@media (hover: hover) { .comboOpt:hover { background: var(--blue-8); } }
 .comboOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .comboDot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .comboDotPresent { background: var(--green); }
@@ -737,16 +737,16 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    Mannschaftsliste (lib/guests). ⚠️ The SAME blue mark the Anwesenheit screen gives them
    (.guestBadge in Anwesenheit.module.css): one thing, one look for it, on every screen. It
    states a fact, it does not disable anything — a Nachbarwehr's AdF is pickable like anyone. */
-.comboGuest { flex: none; font: 800 10px var(--body); letter-spacing: .02em; color: var(--blue);
+.comboGuest { flex: none; font: var(--fw-heavy) 10px var(--body); letter-spacing: .02em; color: var(--blue);
   background: color-mix(in srgb, var(--blue) 14%, var(--surface)); border-radius: 5px; padding: 2px 5px; }
-.comboHint { flex: none; font-size: 11px; color: var(--ink-faint); }
+.comboHint { flex: none; font-size: var(--fs-micro); color: var(--ink-faint); }
 /* The Dienstgrad chip, the option's name cell and the sticky search row are the SKINLESS parts
    of this control — identical here and in the global `.combo-*` copy, so ComboMenu draws them
    from ComboMenu.module.css and neither stylesheet names them any more. */
 
 /* "nur Offiziere" toggle pinned above the roster list */
 .comboToggle {
-  color: var(--ink-dim); font-weight: 700; border-bottom: 1px solid var(--glass-edge);
+  color: var(--ink-dim); font-weight: var(--fw-bold); border-bottom: 1px solid var(--glass-edge);
   margin-bottom: 2px; min-height: 40px;
 }
 .comboToggle :global(.i) { width: 15px; height: 15px; color: var(--accent); }
@@ -797,10 +797,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    be learnt, on a row whose whole job is to say who leads. */
 /* the Gruppenführer's row carries the emphasis, not just a badge — the card, the Rapport and the
    map tag all print this person first, so the form should look the way the paper reads */
-.teamRowLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+.teamRowLead { border-color: var(--amber-45);
   background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
 .teamName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font: 700 14px var(--body); color: var(--ink); }
+  font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 
 /* ── The PHONE skin of the same Trupp: a wrapping row of chips (05.09.) ───────────────────────
    Same control, same labels, same `value[0]` record — see TruppTeam · `skin`. What changes is
@@ -847,7 +847,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* the role as a pill rather than the row's 30px column: on a chip there is no column to line up
    with, and «GF» has to read as a mark ON this person */
 .chipName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font: 700 13.5px var(--body); color: var(--ink); }
+  font: var(--fw-bold) 13.5px var(--body); color: var(--ink); }
 /* the Gruppenführer is the FIRST chip and the only coloured one — the same amber rule
    `.teamRowLead` carries on the tablet, because the card, the Rapport and the map tag all print
    this person first.
@@ -855,7 +855,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    anything this state adds to the chip's BOX — a badge, a thicker border, more padding — is a
    size change under a finger and re-wraps the row around it. A marker that needs weight uses an
    inset `box-shadow` or a fill, never geometry. */
-.chipLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+.chipLead { border-color: var(--amber-45);
   background: color-mix(in srgb, var(--amber) 12%, var(--surface)); }
 /* ⚠️ The house target, 44px wide against the chip's full height (staging walk-through
    25.09.2026: it was 34px, with a pad for coarse pointers only). A mis-grip must never take
@@ -869,7 +869,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .chipX::before { content: ''; position: absolute; inset: 3px 1px; z-index: -1; border-radius: var(--r-nested); }
 @media (hover: hover) {
   .chipX:hover { color: var(--red); }
-  .chipX:hover::before { background: color-mix(in srgb, var(--red) 12%, transparent); }
+  .chipX:hover::before { background: var(--red-12); }
 }
 .chipX:active::before { background-image: linear-gradient(var(--press), var(--press)); }
 
@@ -909,7 +909,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* «Magazin» is the one hint on this list that is operational rather than advisory: somebody
    standing at the Magazin usually cannot go under PA at all. It gets the ink of the Ort chip in
    Anwesenheit, so the two surfaces say the same thing the same way. */
-.teamAtStation { color: var(--blue-strong); font-weight: 700; }
+.teamAtStation { color: var(--blue-strong); font-weight: var(--fw-bold); }
 @media (hover: hover) { .teamOptTaken:hover { background: none; } }
 
 /* ⚠️ THE GAST DOOR — the last row of the list, and only while something is typed (04.09.). It
@@ -1079,7 +1079,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   grid-template-columns: minmax(140px, 1fr) 104px 132px 84px 148px var(--tap);
   background: var(--surface); border: none; border-left: 5px solid var(--ink-faint);
   border-radius: var(--r-ctl); padding: 11px 13px; cursor: pointer; font-family: var(--body);
-  box-shadow: 0 0 0 1px var(--border-soft), var(--shadow-sm); }
+  box-shadow: 0 0 0 1px var(--border-soft), var(--e3); }
 .trowWarn { border-left-color: var(--amber); background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }
 .trowCrit { border-left-color: var(--red); background: color-mix(in srgb, var(--red) 6%, var(--surface)); }
 /* registered, still to come — blue, like the card's own .st-angemeldet */
@@ -1102,7 +1102,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    row that is out has no contact clock, so the cell holds «–:––» — 25px of mono nothing, in the
    size the board reserves for the crews it is watching. Grey alone did not take it out of the
    scan; the size does. */
-.trowOut .trowClockVal { font-size: 17px; font-weight: 700; color: var(--ink-dim); }
+.trowOut .trowClockVal { font-size: 17px; font-weight: var(--fw-bold); color: var(--ink-dim); }
 
 /* identity — the only elastic track, so it takes whatever the fixed ones leave */
 .trowId { min-width: 0; }
@@ -1110,41 +1110,41 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    what the radio calls, so it is the largest word on the line after the clock. The AIR gave way
    the same evening — 8px to the dot and to the clock (the head's column gap), not 10/12: the name
    takes the free width first and folds to a second line only when it truly cannot fit. */
-.trowName { display: flex; align-items: center; gap: 8px; font-size: 17.5px; font-weight: 800; color: var(--ink); }
+.trowName { display: flex; align-items: center; gap: 8px; font-size: 17.5px; font-weight: var(--fw-heavy); color: var(--ink); }
 .trowDot { width: 11px; height: 11px; border-radius: var(--r-pill); flex: none; }
 /* the ellipsis has to live on a child: `text-overflow` needs a block with inline content, and
    .trowName is a flex container — on it, a long name was chopped mid-letter with no «…» */
 .trowNameTxt { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.trowTeam { font-size: 12.5px; color: var(--ink-faint); white-space: nowrap; overflow: hidden;
+.trowTeam { font-size: var(--fs-1); color: var(--ink-faint); white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; margin-top: 1px; }
 
 /* the Planungshilfe under the name. Hidden by default — on a wide row the pressure has its own
    column; this is the phone's substitute for it, in space that is already there. */
 /* indented past the colour dot (11px + 7px gap) so it hangs under the NAME rather than under the
    dot — the two lines then read as one block instead of two things that happen to be stacked */
-.trowEst { display: none; font-family: var(--mono); font-size: 12.5px; font-weight: 700;
+.trowEst { display: none; font-family: var(--mono); font-size: var(--fs-1); font-weight: var(--fw-bold);
   color: var(--ink-dim); font-variant-numeric: tabular-nums; margin-top: 2px; padding-left: 18px; }
 .trowEstLow { color: var(--red); }
 
-.trowState { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+.trowState { font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: .05em; text-transform: uppercase;
   color: var(--ink-faint); }
 .trowWarn .trowState { color: var(--amber-strong); }
 .trowCrit .trowState { color: var(--red); }
 
 /* the number the whole surface exists for — mono and tabular so the digits line up down the column */
 .trowClock { text-align: right; }
-.trowClockVal { display: block; font-family: var(--mono); font-size: 28px; font-weight: 800;
+.trowClockVal { display: block; font-family: var(--mono); font-size: 28px; font-weight: var(--fw-heavy);
   line-height: 1; color: var(--green); font-variant-numeric: tabular-nums; }
 .trowWarn .trowClockVal { color: var(--amber); }
 .trowCrit .trowClockVal { color: var(--red); }
 /* «3d 9h» (AtemschutzView · ClockVal, 30.09.2026): the unit is a small body-face letter against its
    number, so a day-long clock stops out-measuring the name beside it */
-.clockUnit { font-family: var(--body); font-size: .75em; font-weight: 700; margin-left: 1px; }
+.clockUnit { font-family: var(--body); font-size: .75em; font-weight: var(--fw-bold); margin-left: 1px; }
 .clockGroup { margin-left: .15em; }
 .trowSub { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: .05em;
   text-transform: uppercase; color: var(--ink-faint); margin-top: 5px; white-space: nowrap; }
 
-.trowPress { text-align: right; font-family: var(--mono); font-size: 16px; font-weight: 700;
+.trowPress { text-align: right; font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold);
   color: var(--ink); font-variant-numeric: tabular-nums; }
 .trowPressUnit { font-family: var(--body); font-size: 12px; font-weight: 600; color: var(--ink-faint); }
 
@@ -1245,7 +1245,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    TWO lines since 28.09.2026 (the page head is one row): the kicker with the sync state beside it,
    then the Einsatz. It stood three, the sync line on a row of its own under the name. */
 .surfaceLite .headTitles h2 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.surfaceLite .headTitles p { font-size: 17px; font-weight: 800; line-height: 1.3; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.surfaceLite .headTitles p { font-size: 17px; font-weight: var(--fw-heavy); line-height: 1.3; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .liteKicker { display: flex; align-items: center; gap: 10px; min-width: 0; line-height: 16px; }
 .liteKicker > h2 { flex: none; white-space: nowrap; }
 .liteKicker > :global(.az-syncline) { margin-top: 0; min-width: 0; }
@@ -1263,7 +1263,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    from it regardless of which rule is declared last, which is exactly how the kicker's small
    caps ended up on the full-size Einsatz title the first time. */
 .headTitlesCompact .headRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.headTitlesCompact .headRow h2 { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 700; color: var(--ink);
+.headTitlesCompact .headRow h2 { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: var(--fw-bold); color: var(--ink);
   text-transform: none; letter-spacing: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── ONE ROW (09.09., mock 01 · maintainer pick) ───────────────────────────────────────────────
@@ -1363,13 +1363,13 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tab { min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   padding: 5px 6px; border-radius: var(--r-sm); border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
 .tab:active { background-image: linear-gradient(var(--press), var(--press)); }
-.tabName { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.tabName { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: var(--fw-heavy); white-space: nowrap; }
 .tabName :global(.i) { width: 14px; height: 14px; }
 /* The Trupp name may wrap onto a second line rather than clip — «Binggeli Michael» read as
    «Binggeli Michae» against this chip's min-width before this (round 2 review). `.tab`'s
    min-height is a minimum, not a cap, so the chip grows with it. */
 .tabNameWrap { display: block; width: 100%; white-space: normal; overflow-wrap: break-word; text-align: center; }
-.tabClock { font-family: var(--mono); font-size: 14px; font-weight: 800; color: var(--green); }
+.tabClock { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-heavy); color: var(--green); }
 /* ⚠️ ONE quiet format for every clock that is NOT running (05.09.): a Trupp that is angemeldet,
    one that is back out, and a work squad with no contact clock at all are all «nothing is
    ticking here», and the placeholder was carrying the same 800-weight mono presence as a live
@@ -1425,7 +1425,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .kindHeadSeg { flex: none; display: flex; gap: 8px; }
 .kindHeadOpt { min-height: 44px; padding: 0 14px; border: none;
   background: var(--surface); border-radius: var(--r-ctl); cursor: pointer; box-shadow: inset 0 0 0 1px var(--glass-edge);
-  font: 700 12.5px var(--body); color: var(--ink); }
+  font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); }
 @media (hover: hover) { .kindHeadOpt:hover:not(.on) { box-shadow: inset 0 0 0 1px var(--ink-faint); } }
 .kindHeadOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the chosen Art wears THE choice «selected» (01-tokens · --sel, 28.09.2026) — it was an ink
@@ -1484,7 +1484,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .trow.trowTwo .trowNameTxt, .trow.trowOne .trowNameTxt { white-space: normal; overflow-wrap: break-word;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; line-height: 1.2; }
 /* a Trupp not yet in has no contact clock: its «–:––» is quiet, like an out crew's (.trowOut) */
-.trowIdle .trowClockVal { font-size: 17px; font-weight: 700; color: var(--ink-dim); }
+.trowIdle .trowClockVal { font-size: 17px; font-weight: var(--fw-bold); color: var(--ink-dim); }
 /* ── ONE tile family on the phone (26.09.2026 evening, phone card slim-down) ───────────────────
    The pressure tile, «Kontakt», «Rückzug» and «Raus» are one shape — 48px, the one corner, ONE
    1px inset edge, 800/14 — laid as a 2×2 grid on the opened card (the pair, then `.actions`
@@ -1492,7 +1492,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    state and nothing else: the Kontakt tile wears the tier (`.kontaktWarn` / `.kontaktCrit` over
    its calm green), «Rückzug» is amber only while the Trupp is at or under its Alarmdruck
    (`.actAlarm`), the bar is red at or under the line (`.pairBarLow`); everything else is plain. */
-.trowPressBtn { min-height: 48px; padding: 0 12px; border-radius: var(--r-sm); font-size: 14px;
+.trowPressBtn { min-height: 48px; padding: 0 12px; border-radius: var(--r-sm); font-size: var(--fs-2);
   background: var(--surface); color: var(--ink); gap: 7px;
   box-shadow: inset 0 0 0 1px var(--glass-edge); }
 .trowPressBtn :global(.i) { width: 17px; height: 17px; }
@@ -1500,13 +1500,13 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* the last reported bar on the pressure tile (TruppPair, 26.09.2026) — the band's pressure readout
    moved here, so the row and the opened card show it in one place. Mono like every bar on this
    board; red at or under this Trupp's line, the colour the band's «Alarmdruck» wore. */
-.pairBar { font: 800 14px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pairBar { font: var(--fw-heavy) var(--fs-2) var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pairBarLow { color: var(--red); }
 /* (…the second row of the grid, the lifecycle tiles, is `.actions` / `.actBtn` above — the base
    rules since 29.09.2026, when the tablet card took the phone's tiles.) */
 /* the tier as WORDS, one line under the tiles (TruppCard · stateLine); amber for «fällig», red for
    overdue / Alarmdruck (`.kennCrit`), grey for a stopped clock or a work squad (`.kennQuiet`) */
-.stateLine { margin-top: 8px; font: 800 12.5px/1.35 var(--body); color: var(--amber-strong); }
+.stateLine { margin-top: 8px; font: var(--fw-heavy) var(--fs-1)/1.35 var(--body); color: var(--amber-strong); }
 /* the card's foot as ONE terse line: values with units (the Schätzung and «Draussen seit» with
    their word), the Verlauf's chevron at the end, and the whole line is the tap (TruppCard · footZone) */
 .vrowTerse { padding: 0 11px; gap: 8px; }
@@ -1553,7 +1553,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .facts { display: flex; flex-wrap: wrap; gap: 8px 6px; margin-top: 10px; }
 .fact { position: relative; display: inline-flex; align-items: center; gap: 5px; min-height: 36px; max-width: 100%;
   min-width: 0; padding: 0 11px; border: none; border-radius: var(--r-sm); background: transparent;
-  box-shadow: inset 0 0 0 1px var(--glass-edge); font: 700 12.5px var(--body); color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--glass-edge); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink);
   white-space: nowrap; text-align: left; }
 button.fact { cursor: pointer; }
 button.fact:active { background-image: linear-gradient(var(--press), var(--press)); }
@@ -1591,7 +1591,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    tile (`.actEnter`), never a green band. It was a green «Einsetzen» on the phone only. The row's
    green edge and tint stay: they say WHICH Trupp this is, not what the button does. */
 .safetyDeploy { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
-  border-radius: var(--r-ctl); background: var(--ink); color: var(--surface); font: 800 14px var(--body); }
+  border-radius: var(--r-ctl); background: var(--ink); color: var(--surface); font: var(--fw-heavy) var(--fs-2) var(--body); }
 .safetyDeploy:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* The SICHERUNGSTRUPP head (26.09.2026, phone card slim-down): a section head like DRIN / DRAUSSEN,
    and «Bestimmen» at the row's right — a 36px pill of the count badge's family, so the
@@ -1602,7 +1602,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 /* 4 + the zone's 8px row gap = the 12px every other head keeps above its first card (30.09.2026) */
 .sectSafety { margin-bottom: 4px; }
 .sectAct { margin-left: auto; flex: none; min-height: 36px; padding: 0 14px; border: none; cursor: pointer; border-radius: var(--r-sm);
-  background: var(--surface); color: var(--ink); font: 800 13px var(--body); box-shadow: inset 0 0 0 1px var(--glass-edge); }
+  background: var(--surface); color: var(--ink); font: var(--fw-heavy) 13px var(--body); box-shadow: inset 0 0 0 1px var(--glass-edge); }
 .sectAct:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .sectDue .sectTitle { color: var(--amber-strong); }
 
@@ -1616,7 +1616,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .pressureCol { display: flex; flex-direction: column; gap: 7px; padding: 6px; border-radius: calc(var(--r-sm) + 6px);
   background: var(--fill-soft, rgba(0, 0, 0, .045)); }
 .pressureCell { min-height: 54px; border: none; cursor: pointer; border-radius: var(--r-sm); background: var(--surface);
-  font: 800 21px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
+  font: var(--fw-heavy) 21px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
   box-shadow: 0 0 0 1px var(--border-soft); }
 .pressureCell:active { background-image: linear-gradient(var(--press), var(--press)); }
 .pressureCellLow { color: var(--red); }
@@ -1629,7 +1629,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .pressureCellOn, .pressureCellOn.pressureCellLow { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 /* «Ohne Druck raus» — the sheet's foot, in the body's gutter */
 .pressureSheetFooter { flex: none; margin: 0 20px 16px; min-height: 50px; border: none; cursor: pointer; border-radius: var(--r-ctl);
-  background: var(--fill-soft, rgba(0, 0, 0, .045)); font: 700 14px var(--body); color: var(--ink); }
+  background: var(--fill-soft, rgba(0, 0, 0, .045)); font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 .pressureSheetFooter:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ── The mini sheets: Druck · Kanal · Auftrag · Mannschaft (26.09.2026, phone card slim-down;
@@ -1646,7 +1646,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .miniSheet h3 { line-height: 1.2; }
 /* the Trupp sheet carries the crew picker: wider on a tablet, the same bottom sheet on a phone */
 .miniSheetTall { width: min(520px, calc(100vw - 24px)); }
-.miniSub { display: block; font: 600 12.5px var(--body); color: var(--ink-dim); margin-top: 2px; }
+.miniSub { display: block; font: 600 var(--fs-1) var(--body); color: var(--ink-dim); margin-top: 2px; }
 .miniBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 20px 16px;
   display: flex; flex-direction: column; gap: 12px; }
 .miniHint { margin: 0; font-size: 11.5px; line-height: 1.4; color: var(--ink-faint); }
@@ -1655,7 +1655,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
 .padKey { min-height: 46px; padding: 0 6px; border: none; cursor: pointer; border-radius: var(--r-sm);
   background: var(--surface); box-shadow: inset 0 0 0 1px var(--glass-edge);
-  font: 800 15px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+  font: var(--fw-heavy) 15px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 .padKey:active { background-image: linear-gradient(var(--press), var(--press)); }
 .padKey :global(.i) { width: 16px; height: 16px; }
 .padKeyOn { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
@@ -1666,7 +1666,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .miniChips { display: flex; flex-wrap: wrap; gap: 6px; }
 .miniChip { min-height: var(--tap); padding: 0 12px; border: none; cursor: pointer; border-radius: var(--r-sm);
   background: var(--surface); box-shadow: inset 0 0 0 1px var(--glass-edge);
-  font: 700 12.5px var(--body); color: var(--ink); white-space: nowrap; }
+  font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); white-space: nowrap; }
 .miniChip:active { background-image: linear-gradient(var(--press), var(--press)); }
 .miniChipOn { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 .miniChipTaken { color: var(--ink-dim); box-shadow: none; outline: 1px dashed var(--ink-faint); outline-offset: -1px; }
@@ -1686,9 +1686,9 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .bottleAsk p { margin: 0 0 8px; font-size: 13.5px; font-weight: 600; color: var(--ink); }
 .bottleBtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .bottleBtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; border: none; cursor: pointer;
-  border-radius: var(--r-ctl); background: var(--surface); font: 700 14px var(--body); color: var(--ink);
+  border-radius: var(--r-ctl); background: var(--surface); font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink);
   box-shadow: inset 0 0 0 1.5px var(--glass-edge); }
-.bottleBtn b { font: 800 15px var(--mono); }
+.bottleBtn b { font: var(--fw-heavy) 15px var(--mono); }
 .bottleBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* picked = THE choice «selected» (01-tokens · --sel). It was `--ink-fill` + `--on-fill` once,
    which at night is #0d1118 on #2b3545 — the answer the operator had just given was the one
@@ -1712,7 +1712,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
     background: none; backdrop-filter: none; box-shadow: none; border-radius: 0;
     display: flex; flex-direction: column; }
   .sheetFrame { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
-    background: var(--glass); backdrop-filter: blur(16px); box-shadow: var(--shadow);
+    background: var(--glass); backdrop-filter: blur(16px); box-shadow: var(--e4);
     border-radius: var(--r-hero) var(--r-hero) 0 0; }
   /* the grab bar is the sheet's top gutter now — the head needs none of its own (15-mobile.css
      · `.ui-sheet-grab`), and a head under a bar is the handle, as on every other bottom sheet */
@@ -1730,20 +1730,20 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    declared earlier in this file), and a shorthand here would paint over it. */
 .pinRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px;
   padding: 6px 6px 6px 12px; border-left-width: 5px; border-left-style: solid; border-radius: var(--r-ctl);
-  box-shadow: 0 0 0 1px var(--border-soft), var(--shadow); font-family: var(--body); }
+  box-shadow: 0 0 0 1px var(--border-soft), var(--e4); font-family: var(--body); }
 /* the NAME gets the elastic column and may take two lines — a long surname lost the first name at
    360px; the state word rides under the clock instead, where it is about the clock */
-.pinName { min-width: 0; display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 800; color: var(--ink); }
+.pinName { min-width: 0; display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: var(--fw-heavy); color: var(--ink); }
 .pinNameTxt { min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical;
   -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 1.2; }
 .pinTime { display: flex; flex-direction: column; align-items: flex-end; }
-.pinState { font-size: 12.5px; font-weight: 700; color: var(--ink-dim); margin-top: 3px; white-space: nowrap; }
+.pinState { font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); margin-top: 3px; white-space: nowrap; }
 .trowWarn .pinState { color: var(--amber-strong); }
 .trowCrit .pinState { color: var(--red); }
-.pinClock { font: 800 24px var(--mono); line-height: 1; font-variant-numeric: tabular-nums; color: var(--green); }
+.pinClock { font: var(--fw-heavy) var(--fs-5) var(--mono); line-height: 1; font-variant-numeric: tabular-nums; color: var(--green); }
 .trowWarn .pinClock { color: var(--amber); }
 .trowCrit .pinClock { color: var(--red); }
-.pinKontakt { min-height: 48px; padding: 0 14px; border-radius: var(--r-ctl); font-size: 14px; }
+.pinKontakt { min-height: 48px; padding: 0 14px; border-radius: var(--r-ctl); font-size: var(--fs-2); }
 .pinKontakt :global(.i) { width: 16px; height: 16px; }
 /* confirmed during the hold: the calm tone of a fresh clock (PinnedRow · done) */
 .pinRowDone { border-left-color: var(--green); background: var(--surface); }
@@ -1761,7 +1761,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    in one quiet line where the stepper stood — a readout, visibly not a control. */
 .pressureLocked { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; min-height: var(--tap);
   padding: 8px 14px; border-radius: var(--r-ctl); background: var(--fill-soft, rgba(0, 0, 0, .045)); }
-.pressureLocked b { font: 800 19px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.pressureLocked b { font: var(--fw-heavy) var(--fs-4) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 /* «300 bar 🔒» — the lock right after the number, one hint line below it (owner review 26.09.2026) */
 .pressureLockedIcon { width: 17px; height: 17px; color: var(--ink-dim); }
 
@@ -1771,7 +1771,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .standDownRow { display: flex; justify-content: flex-end; margin-top: 6px; }
 .standDownBtn { display: inline-flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 12px;
   border: none; background: none; border-radius: var(--r-ctl); cursor: pointer;
-  font: 700 13.5px var(--body); color: var(--ink-dim); }
+  font: var(--fw-bold) 13.5px var(--body); color: var(--ink-dim); }
 .standDownBtn :global(.i) { width: 16px; height: 16px; }
 .standDownBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { .standDownBtn:hover { background: var(--hover-strong); color: var(--ink); } }
@@ -1798,7 +1798,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .emptyAct { margin-top: 14px; min-height: 48px; justify-content: center; }
 /* its «+» is a button glyph, not the empty state's big grey warning mark above it */
 .empty .emptyAct :global(.i) { width: 16px; height: 16px; margin: 0; color: currentColor; opacity: 1; }
-.empty .emptyAct span { font-size: 14px; }
+.empty .emptyAct span { font-size: var(--fs-2); }
 /* (the head's «+ Trupp» keeps its word on every width — the ladder only ever SHORTENS it to
    «+ Trupp», lib/pageHeadFit; it is the head's one filled tile, `.headTile` at the top of the file) */
 

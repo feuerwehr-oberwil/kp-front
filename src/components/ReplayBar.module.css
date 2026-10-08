@@ -9,7 +9,7 @@
   width: min(760px, calc(100vw - 32px)); z-index: var(--z-replay);
   display: flex; flex-direction: column; gap: 0;
   background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  border-radius: var(--r-surface); box-shadow: var(--shadow); overflow: hidden;
+  border-radius: var(--r-surface); box-shadow: var(--e4); overflow: hidden;
 }
 .replay-banner {
   display: flex; align-items: center; gap: 9px; padding: 9px 14px;
@@ -17,7 +17,7 @@
      the same colour as an Atemschutz-Warnung and competed with it for the same glance. */
   background: var(--ink-fill); color: var(--on-accent-ink); font-size: 12px;
 }
-.replay-banner b { font-weight: 800; letter-spacing: .04em; }
+.replay-banner b { font-weight: var(--fw-heavy); letter-spacing: .04em; }
 .replay-sub { font-weight: 600; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* A still dot, deliberately. It carried `animation: recPulse` for months without ever pulsing —
    a module localizes the name, so the global keyframes were never reached — and nobody missed it:
@@ -28,11 +28,11 @@
 .replay-exit {
   margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 5px;
   border: none; background: rgba(255, 255, 255, .22); color: var(--on-accent-ink); cursor: pointer;
-  font-family: var(--body); font-weight: 700; font-size: 12.5px; padding: 6px 11px; border-radius: var(--r-sm);
+  font-family: var(--body); font-weight: var(--fw-bold); font-size: var(--fs-1); padding: 6px 11px; border-radius: var(--r-sm);
 }
 @media (hover: hover) { .replay-exit:hover { background: rgba(255, 255, 255, .34); } }
 .replay-exit:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.replay-empty { padding: 12px 14px; font-size: 12.5px; color: var(--ink-dim); font-weight: 600; }
+.replay-empty { padding: 12px 14px; font-size: var(--fs-1); color: var(--ink-dim); font-weight: 600; }
 .replay-controls { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
 .replay-transport { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .replay-play {
@@ -45,7 +45,7 @@
 .replay-skip {
   flex: none; display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 8px;
   border: 1px solid var(--glass-edge); background: var(--surface-veil); cursor: pointer;
-  border-radius: var(--r-sm); color: var(--ink-dim); font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
+  border-radius: var(--r-sm); color: var(--ink-dim); font-family: var(--mono); font-size: var(--fs-1); font-weight: var(--fw-bold); }
 @media (hover: hover) { .replay-skip:hover { background: var(--hover-strong); color: var(--ink); } }
 .replay-skip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .replay-skip .i { width: 14px; height: 14px; }
@@ -54,7 +54,7 @@
 .replay-scrub { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-top: 20px; position: relative; }
 /* current time rides above the handle as a bubble — never crowds the track or labels */
 .replay-time { position: absolute; top: 0; transform: translateX(-50%); font-family: var(--mono);
-  font-size: 12px; font-weight: 700; color: var(--on-accent-ink); background: var(--ink-fill); padding: 1px 7px; border-radius: var(--r-xs);
+  font-size: 12px; font-weight: var(--fw-bold); color: var(--on-accent-ink); background: var(--ink-fill); padding: 1px 7px; border-radius: var(--r-xs);
   white-space: nowrap; pointer-events: none; }
 .replay-time::after { content: ''; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%);
   border: 4px solid transparent; border-top-color: var(--ink-fill); border-bottom: none; }
@@ -86,7 +86,7 @@
 .replay-handle {
   position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%;
   background: var(--surface); border: 3px solid var(--blue); transform: translate(-50%, -50%);
-  box-shadow: var(--shadow-sm); pointer-events: none; z-index: 2; }
+  box-shadow: var(--e3); pointer-events: none; z-index: 2; }
 /* ── Verlaufsspur: the Verlauf's own row under the rail ──
    Its own lane, not more dots on the track. Journal rows are the densest thing on this axis —
    a busy Einsatz writes far more lines than it places symbols. The rail itself carries no dots
@@ -115,17 +115,17 @@
 .replay-range span:last-child { text-align: right; }
 /* Einsatzuhr, centred between the two absolute times. Brighter than its neighbours because it
    is the figure that gets read out in a debrief, not reference furniture. */
-.replay-elapsed { flex: 1; text-align: center; color: var(--ink); font-weight: 700; }
+.replay-elapsed { flex: 1; text-align: center; color: var(--ink); font-weight: var(--fw-bold); }
 /* «übersprungen 2 h 14» — takes the Einsatzuhr's centre slot while a jump is announced, so it
    has a fixed position and a fixed width budget instead of riding the handle off the edge. */
-.replay-skipnote { flex: 1; text-align: center; color: var(--blue); font-weight: 700;
+.replay-skipnote { flex: 1; text-align: center; color: var(--blue); font-weight: var(--fw-bold);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Break durations live off the rail, in their own row, centred under the break they describe —
    so a long label can never squeeze the thing it is describing. */
 .replay-breaks { position: relative; height: 11px; }
 .replay-breaklabel {
   position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
-  font-family: var(--mono); font-size: 9px; font-weight: 700; color: var(--ink-faint); }
+  font-family: var(--mono); font-size: 9px; font-weight: var(--fw-bold); color: var(--ink-faint); }
 
 @media (--phone) {
   /* replay scrubber → full-width, lifted above the NavRail bottom bar (still lets you
@@ -154,8 +154,8 @@
      whole scrubber twitching as the playhead crosses an entry. */
   height: 50px; box-sizing: border-box;
   border-top: 1px solid var(--glass-edge); background: color-mix(in srgb, var(--blue) 7%, transparent);
-  font-size: 12.5px; }
-.replay-caption-t { flex: none; font-family: var(--mono); font-size: 11px; font-weight: 700;
+  font-size: var(--fs-1); }
+.replay-caption-t { flex: none; font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold);
   color: var(--blue-strong); font-variant-numeric: tabular-nums; }
 .replay-caption-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; color: var(--ink); font-weight: 600; }
@@ -165,7 +165,7 @@
    either side, is 50px exactly. */
 .replay-caption-go { flex: none; border: 1px solid var(--border); background: var(--surface);
   color: var(--ink-dim); border-radius: var(--r-xs); padding: 5px 10px; min-height: 32px;
-  font: 700 12.5px var(--body); cursor: pointer; }
+  font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
 @media (hover: hover) { .replay-caption-go:hover { color: var(--ink); background: var(--hover-strong); } }
 .replay-caption-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* …and the same on a touch screen, where the button grows to the gloved floor and takes the

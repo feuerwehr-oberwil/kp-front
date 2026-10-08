@@ -42,7 +42,7 @@
   .adm-slot:hover { background: color-mix(in srgb, var(--blue) 4%, transparent); }
 }
 .adm-slot-id { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
-.adm-slot-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.adm-slot-title { font-size: 13px; font-weight: var(--fw-bold); color: var(--ink); }
 .adm-slot-state { min-width: 0; font-size: 12px; }
 .adm-slot-act { justify-self: end; }
 /* the row's own failure, spanning all three columns so it reads as one sentence */
@@ -57,7 +57,7 @@
 
 /* what the picked file IS, before anything is written */
 .adm-ck-facts { list-style: none; margin: 12px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.adm-ck-facts li { display: flex; align-items: baseline; gap: 10px; font-size: 12.5px; }
+.adm-ck-facts li { display: flex; align-items: baseline; gap: 10px; font-size: var(--fs-1); }
 .adm-ck-facts li > span:first-child { flex: 0 0 130px; color: var(--ink-faint); }
 .adm-ck-facts code {
   font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim);
