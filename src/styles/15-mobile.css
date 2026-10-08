@@ -23,10 +23,10 @@
 :root { --fab-safe: 0px; }
 :root:has(.fab-entry) { --fab-safe: calc(var(--float-h) + var(--float-gap)); }
 .fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: var(--z-fab);
-  display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
+  display: inline-flex; align-items: center; gap: 8px; padding: var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-4);
   border: none; border-radius: var(--r-pill); color: var(--ink);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
-  font: var(--fw-bold) 15px var(--body); cursor: pointer; touch-action: none; user-select: none;
+  font: var(--fw-bold) var(--fs-3) var(--body); cursor: pointer; touch-action: none; user-select: none;
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
 /* ⚠️ The FAB follows the THEME, not --btn-primary (20.09.2026, field report «flipped»). That token
    inverts at night on purpose – a form's one action needs an edge against the sheet it sits on
@@ -101,13 +101,13 @@
      ≤600px. So every width between 601 and 860 offered the smallest buttons in the app on the
      row that logs a Verlauf entry. Icon-only and full size go together at every width. */
   .tb-actions .tb-act { padding: 8px; min-width: var(--tap); min-height: var(--tap); justify-content: center; }
-  .tb-actions .tb-act-add { min-width: var(--tap); padding-inline: 11px 12px; }
+  .tb-actions .tb-act-add { min-width: var(--tap); padding-inline: var(--sp-3); }
   /* The weather goes to a SHORTER form here, not only on a phone: the condition glyph is the
      one part that is pure context, so it goes first. The TEMPERATURE stays — an iPad in
      portrait is 820px wide, and hiding it here is why «the temperature indicator is missing on
      prod» got reported from exactly that device. Wind arrow + speed stay always: which way the
      smoke goes, how fast. */
-  .tb-weather { gap: 4px; padding: 6px 6px; }
+  .tb-weather { gap: 4px; padding: var(--sp-1); }
   .tb-weather-cond { display: none; }
 }
 /* …and the reservation is only owed while that cluster EXISTS. It floats top-right solely as the
@@ -469,7 +469,7 @@
      (18-audio.css) resets the button chrome but also overrides the 12px `.stat` carries, so the
      clock rendered at the inherited 16px — the largest text in the bar by a third, and ~10px of
      width the phone bar does not have. */
-  .topbar .tb-einsatzuhr { font-size: var(--fs-1); padding: 6px 2px; }
+  .topbar .tb-einsatzuhr { font-size: var(--fs-1); padding: var(--sp-2) 2px; }
   /* the identity pill at phone spacing — the same 4px the action cluster already gives up.
      ⚠️ 7px sides and a 4px gap, not 10/6 (3am test r2, 25.09.2026): with ↶ ↷ Verlauf and the
      Atemschutz chip up, a 360px bar left the ÜBUNG marker 49px of the 56 it needs and it read
@@ -517,7 +517,7 @@
   .topbar { gap: 4px; }
   /* weather trims to the bare downwind arrow + speed on phones (condition/temp are
      "read, not felt" detail that doesn't fit the narrow bar) */
-  .tb-weather { gap: 4px; padding: 6px 6px; min-height: 40px; }
+  .tb-weather { gap: 4px; padding: var(--sp-1); min-height: 40px; }
   .tb-weather-cond, .tb-weather-temp { display: none; }
   /* the weather pop anchors near the top bar; reserve the two bottom bars so a tall readout
      scrolls internally instead of spilling over them (matches the compass/views menu) */
@@ -541,7 +541,7 @@
      the one readout on this bar that nobody acts on in the next minute, it is a tap away in the
      bar's own menu the moment the alarm ends, and the chip beside it is itself a ticking clock. */
   .tb-az-name { display: none; }
-  .tb-az { gap: 5px; padding: 6px 9px; }
+  .tb-az { gap: var(--sp-1); padding: var(--sp-1) var(--sp-2); }
   /* (the Einsatzuhr yields by MEASURE now, not by rule — lib/useHeadFit, step 3: on a 390 px
      phone it left the bar the moment a chip came up although there was room) */
 
@@ -734,9 +734,9 @@
      scroller, so every row was cut off at the band's top edge, the last one included. Paid by the
      scroller's last row instead (AGENTS · «the bottom inset paid by its last row»), rows scroll
      on down to the sheet's edge and the last one still comes to rest above the home indicator. */
-  .journal-drawer > .history-list { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .journal-drawer > .history-list { padding-bottom: calc(var(--sp-3) + env(safe-area-inset-bottom)); }
   /* (the keyboard covers the home indicator, so its inset is not paid twice) */
-  .journal-drawer.is-kb > .history-list { padding-bottom: 10px; }
+  .journal-drawer.is-kb > .history-list { padding-bottom: var(--sp-3); }
   /* ⚠️ The Pendenzen box needs a cap this side of a PERCENTAGE. Its `max-height: 45%` resolves
      against `.journal-drawer`, and on a phone this drawer is `height: auto` (bottom-anchored,
      capped by max-height) — an indefinite height, against which a percentage max-height computes
