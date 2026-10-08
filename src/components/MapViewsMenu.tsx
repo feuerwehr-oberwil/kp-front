@@ -266,6 +266,9 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
         aria-pressed={open}
         aria-expanded={open}
         aria-haspopup="dialog"
+        // `data-holdaction` (from the hold's props): the HUD compass is icon-only, so the
+        // hold-tooltip would pop «Ansichten» at 350 ms and the fit would follow at 500
+        {...holdProps}
         onPointerDown={(e) => { fired.current = false; holdProps.onPointerDown(e) }}
         onClick={() => {
           if (fired.current) { fired.current = false; return }

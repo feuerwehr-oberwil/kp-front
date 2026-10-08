@@ -31,6 +31,9 @@ export function LockChip({ onUnlock }: { onUnlock: () => void }) {
     <button
       className={`draw-lock-chip${hold.armed ? ' holding' : ''}`}
       title={label} aria-label={label}
+      // `data-holdaction` rides in on the hold's props: holding IS this chip's gesture, so the
+      // hold-tooltip must not pop its label at 350 ms and swallow the release
+      {...press}
       // ⚠️ The stop has to WRAP the hold's own handler, not sit in a capture-phase one beside
       // it: `stopPropagation()` during React's capture phase also cancels the bubble-phase
       // handler on this very element, so a separate `onPointerDownCapture` silently ate every

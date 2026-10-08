@@ -526,7 +526,7 @@ export const en: Localizable<Copy> = {
     shape: 'Tap the map to place the shape. Enable the lock to place several in a row.',
     rotationStart: 'Tap the first point — where the water is drawn from. Hold on a symbol until the ring closes to put the point exactly on it.',
     rotationEnd: 'Tap the second point — the fire. Tapping the same point again lays down a Rotation at its default length.',
-    measure: 'Tap points on the map. Distance shows length and elevation profile, area shows surface and perimeter. Drag points to move, the + in the middle of a segment inserts an intermediate point, right-click a point to remove it.',
+    measure: 'Tap points on the map. Distance shows length and elevation profile, area shows surface and perimeter. Drag points to move, the + in the middle of a segment inserts an intermediate point, press and hold a point (right-click on a computer) to remove it.',
   },
   map: {
     incidentHere: 'Incident',
@@ -1547,7 +1547,7 @@ export const en: Localizable<Copy> = {
       text: 'Tap the plan to drop a note.',
       resource: 'Tap the plan to place a team. Drag to move it.',
       scale: 'Tap the two endpoints of the printed scale bar, then enter the real length. Lines with "Length" then show real metres.',
-      measure: 'Tap points on the plan. "Distance" shows the length, "Area" the surface + perimeter – in real metres once the scale is calibrated. Drag points to move, double-tap to remove one.',
+      measure: 'Tap points on the plan. "Distance" shows the length, "Area" the surface + perimeter – in real metres once the scale is calibrated. Drag points to move, press and hold one to remove it.',
     },
     scale: {
       tool: 'Scale',
