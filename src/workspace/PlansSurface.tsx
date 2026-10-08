@@ -8,6 +8,7 @@ import type { JSX } from 'react/jsx-runtime'
 import { LoadingStatus } from '../components/ShellLoader'
 import type { BoardHistory } from '../components/useBoardDoc'
 import type { BoardViews } from '../components/useBoardView'
+import type { TafelStartInfo } from '../components/TafelStart'
 import { appConfig } from '../config/appConfig'
 import { gebaeudeDoc } from '../data/demoIncident'
 import type { AtemschutzAlarmState } from '../lib/atemschutz'
@@ -127,6 +128,7 @@ export interface PlansSurfaceProps {
   setTruppFocus: Dispatch<SetStateAction<{ id: string; nonce: number } | null>>
   planScale: PlanScales
   setPlanScale: Dispatch<SetStateAction<PlanScales>>
+  tafelStart: TafelStartInfo | undefined
 }
 
 export function PlansSurface({
@@ -142,7 +144,7 @@ export function PlansSurface({
   planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
   askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
   linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-  setTruppFocus, planScale, setPlanScale,
+  setTruppFocus, planScale, setPlanScale, tafelStart,
 }: PlansSurfaceProps) {
   return (
     <>
@@ -415,6 +417,7 @@ export function PlansSurface({
           onLineRenumber={syncLineNoToTrupp}
           // the plan chip's twin of the map marker's jump — it points at the card too
           onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
+          tafelStart={tafelStart}
           planScale={planScale}
           onCalibrate={(planId, sc) => { if (tacticalLocked) return; setPlanScale((m) => { if (!sc) { const { [planId]: _drop, ...rest } = m; return rest } return { ...m, [planId]: sc } }) }}
         /></Suspense>
