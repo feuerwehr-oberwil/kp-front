@@ -12,7 +12,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "lint": "eslint . --max-warnings=411",
+    "lint": "node scripts/lint-ratchet.mjs",
+    "lint:update": "node scripts/lint-ratchet.mjs --update",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "bench": "vitest bench --run",

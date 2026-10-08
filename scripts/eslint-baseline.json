@@ -1,0 +1,13 @@
+{
+  "_comment": "Warnings per eslint rule; `pnpm lint` (scripts/lint-ratchet.mjs) fails when a count goes up OR down. Lower with `pnpm lint:update`; never raise one to pass.",
+  "rules": {
+    "@typescript-eslint/no-explicit-any": 6,
+    "react-hooks/exhaustive-deps": 20,
+    "react-hooks/immutability": 25,
+    "react-hooks/preserve-manual-memoization": 8,
+    "react-hooks/purity": 27,
+    "react-hooks/refs": 122,
+    "react-hooks/set-state-in-effect": 78,
+    "react-refresh/only-export-components": 117
+  }
+}
