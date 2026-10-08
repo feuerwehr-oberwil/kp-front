@@ -1,4 +1,6 @@
 import { ShellLoader } from './ShellLoader'
+import { Button } from './Button'
+import { Chip } from './Chip'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useIsPhone } from '../lib/useIsPhone'
 import { Icon } from '../lib/icons'
@@ -1168,9 +1170,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             <div className="jc-import-start">
               <span className="jc-due-label">{C.audioStartLabel}</span>
               <TimeStepper hhmm={startHHMM} onChange={(v) => { setStartHHMM(v); setStartConfirmed(true) }} />
-              <button className={`jc-due-chip ${startConfirmed ? 'on' : ''}`} aria-pressed={startConfirmed} onClick={() => setStartConfirmed(true)}>
-                <Icon id="check" />{C.audioStartConfirm}
-              </button>
+              <Chip selected={startConfirmed} icon={<Icon id="check" />} onClick={() => setStartConfirmed(true)}>
+                {C.audioStartConfirm}
+              </Chip>
             </div>
             <p className="jc-import-hint">{C.audioStartHint}</p>
           </div>
@@ -1209,9 +1211,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             the entry, not the act of saving it, and «Erfassen» is the one thing on this sheet
             that must never share a row with anything else. */}
         <div className="jc-foot">
-          <button className="jc-send" disabled={!canSend || uploading} onClick={submit}>
-            {uploading ? <ShellLoader /> : <Icon id="check" />}{uploading ? C.audioUploading : C.send}
-          </button>
+          <Button variant="primary" block disabled={!canSend || uploading} onClick={submit}
+            icon={uploading ? <ShellLoader /> : <Icon id="check" />}>
+            {uploading ? C.audioUploading : C.send}
+          </Button>
         </div>
       {/* «Uhrzeit …» — the one answer that is not a row in a menu. A dialog rather than a strip
           unfolding inside the sheet: the composer is already fighting the keyboard for its rows,
@@ -1248,14 +1251,14 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             {pastDue ? C.duePast : `${dayLabel(exact.day)} · ${exact.hhmm}`}
           </p>
           <div className="jc-exact-actions">
-            <button className="jc-exact-cancel" onClick={() => setExact(null)}>{appConfig.copy.cancel}</button>
+            <Button onClick={() => setExact(null)}>{appConfig.copy.cancel}</Button>
             {/* ⚠️ Disabled on a past instant rather than quietly rolling it forward: a reminder that
                 fires the second it is saved is not what «22:57» meant, and the fix is one tap on
                 the day. */}
-            <button className="jc-exact-ok" disabled={pastDue}
+            <Button variant="primary" disabled={pastDue} icon={<Icon id="check" />}
               onClick={() => { setDue({ kind: 'at', day: exact.day, hhmm: exact.hhmm }); setExact(null) }}>
-              <Icon id="check" />{C.dueExactConfirm}
-            </button>
+              {C.dueExactConfirm}
+            </Button>
           </div>
         </Overlay>
       )}

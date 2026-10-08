@@ -5,6 +5,7 @@ import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import { InfoToggle } from './InfoToggle'
 import { EmptyState } from './EmptyState'
+import { Button } from './Button'
 import { Menu, Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
@@ -1151,8 +1152,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                           appended, never overwritten — and says so; a first transcript has no
                           original wording to reassure about */}
                       {e.transcript && <span className="jr-korr-hint">{C.correctHint}</span>}
-                      <button onClick={() => setEditTx(null)}>{appConfig.copy.cancel}</button>
-                      <button onClick={saveTranscript}><Icon id="check" />{C.transcriptSave}</button>
+                      <Button onClick={() => setEditTx(null)}>{appConfig.copy.cancel}</Button>
+                      <Button variant="primary" icon={<Icon id="check" />} onClick={saveTranscript}>{C.transcriptSave}</Button>
                     </div>
                   </div>
                 )}
@@ -1168,8 +1169,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                     />
                     <div className="jr-transcript-actions">
                       <span className="jr-korr-hint">{C.correctHint}</span>
-                      <button onClick={() => setEditRow(null)}>{appConfig.copy.cancel}</button>
-                      <button onClick={saveRowText}><Icon id="check" />{C.transcriptSave}</button>
+                      <Button onClick={() => setEditRow(null)}>{appConfig.copy.cancel}</Button>
+                      <Button variant="primary" icon={<Icon id="check" />} onClick={saveRowText}>{C.transcriptSave}</Button>
                     </div>
                   </div>
                 )}
@@ -1273,29 +1274,28 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               </dl>
               <div className="jr-detail-acts">
                 {e.audioUrl && e.audioMeta && onOpenPlayer && (
-                  <button type="button" className="btn"
+                  <Button block icon={<Icon id="wave" />}
                     onClick={() => { setDetailId(null); onOpenPlayer(e) }}>
-                    <Icon id="wave" />{C.playerOpen}
-                  </button>
+                    {C.playerOpen}
+                  </Button>
                 )}
                 {e.audioUrl && onTranscript && (
-                  <button type="button" className={`btn${hasTx ? '' : ' jr-da-miss'}`}
+                  <Button block className={hasTx ? undefined : 'jr-da-miss'} icon={<Icon id={hasTx ? 'type' : 'warn'} />}
                     onClick={() => { setDetailId(null); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}>
-                    <Icon id={hasTx ? 'type' : 'warn'} />{hasTx ? C.transcriptEdit : C.transcriptAdd}
-                  </button>
+                    {hasTx ? C.transcriptEdit : C.transcriptAdd}
+                  </Button>
                 )}
                 {onEditText && isHandWritten(e) && !e.audioUrl && (
-                  <button type="button" className="btn"
+                  <Button block icon={<Icon id="pen" />}
                     onClick={() => { setDetailId(null); setEditRow({ id: e.id, value: e.text }) }}>
-                    <Icon id="pen" />{C.editEntry}
-                  </button>
+                    {C.editEntry}
+                  </Button>
                 )}
                 {target != null && (
-                  <button type="button" className="btn"
+                  <Button block icon={<Icon id={target === 'plan' ? 'flag' : 'pin'} />}
                     onClick={() => { setDetailId(null); onSelect(e) }}>
-                    <Icon id={target === 'plan' ? 'flag' : 'pin'} />
                     {target === 'plan' ? appConfig.copy.atemschutz.showOnPlan : appConfig.copy.atemschutz.showOnMap}
-                  </button>
+                  </Button>
                 )}
               </div>
             </Sheet>
