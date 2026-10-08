@@ -1,11 +1,27 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { StrictMode } from 'react'
-import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { JournalComposer, type JournalDraft } from './JournalComposer'
 import { clearAllDrafts } from '../lib/draftKeep'
 
-afterEach(() => { cleanup(); clearAllDrafts() })
+afterEach(() => { cleanup(); clearAllDrafts(); vi.unstubAllGlobals() })
+
+vi.mock('../lib/audioImport', async (orig) => ({
+  ...(await orig<typeof import('../lib/audioImport')>()),
+  // jsdom cannot decode audio — the probe would never settle
+  probeAudioDuration: async () => 12,
+}))
+
+/** the time picker draws wheels on a coarse pointer (a phone) and a typed field on a fine one */
+function pointer(kind: 'coarse' | 'fine') {
+  Element.prototype.scrollTo = Element.prototype.scrollTo ?? (() => {})
+  vi.stubGlobal('matchMedia', (q: string) => ({
+    matches: q.includes(kind), media: q, onchange: null,
+    addListener: () => {}, removeListener: () => {},
+    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+  }))
+}
 
 const OPEN = [
   { id: 'p1', text: 'Absperrmaterial Kreuzung, Werkhof Oberwil', urgent: true, createdAt: '2026-06-24T03:00:00.000Z' },
@@ -273,55 +289,110 @@ describe('JournalComposer · the clock', () => {
     expect(onSubmit.mock.calls[0][0].dueAt).toBeUndefined()
   })
 
-  // ⚠️ It mounted and was invisible once: a dialog without `ui-dialog` is positioned by nothing
-  // and stacks below the sheet that opened it (see 08-toasts.css). «Uhrzeit» then did nothing at
-  // all, and the DOM said everything was fine — so the class contract is what gets asserted.
-  it('«Uhrzeit …» opens a dialog that is actually positioned and above the sheet', async () => {
+  // «Uhrzeit …» opens THE time picker, the one every other clock in the app uses — not a dialog
+  // with a ± stepper of its own (owner, 08.10.2026: «to avoid having another one»).
+  it('«Uhrzeit …» opens the shared time picker, titled, with a day and without «Jetzt»', async () => {
+    pointer('fine')
     setup()
     type('Lüfter prüfen')
     fireEvent.click(await dueRow(/Uhrzeit/))
-    const card = await screen.findByRole('dialog', { name: /Uhrzeit/ })
-    // ⚠️ the positioning class is the whole point of the assertion — the card was in the DOM
-    // before this fix too, sitting unstyled at the top of <body> under the sheet
-    expect(card.className).toContain('ui-dialog')
-    expect(card.querySelector('.jc-time')).toBeTruthy() // …and it carries the ± stepper
+    const pop = await screen.findByRole('dialog', { name: 'Erinnern um' })
+    expect(pop.className).toContain('wheelpop')
+    expect(pop.querySelector('.jc-time')).toBeNull() // the stepper is gone
+    // today and the six days after it — never a day that already ended
+    const days = within(pop).getByRole('combobox', { name: 'Tag' }) as HTMLSelectElement
+    expect(days.options.length).toBe(7)
+    // «Jetzt» is never a Wiedervorlage: it would fire the moment it is saved
+    expect(within(pop).queryByRole('button', { name: 'Jetzt' })).toBeNull()
   })
 
   // ⚠️ The day is picked, not inferred. «HH:MM, and if that is already past, tomorrow» was right
   // most of the time and silent the rest — on the one surface where a Wiedervorlage set for the
   // wrong day is a check nobody makes.
   it('carries a day, refuses a moment that has passed, and saves the one that was picked', async () => {
-    // ⚠️ The clock is PINNED. The dialog opens at now+5 min, so a run at 23:58 opens it on
-    // tomorrow and «eine Stunde zurück» lands in the future — the test would pass all day and
-    // fail on the night shift, which is when this app is used.
+    // ⚠️ The clock is PINNED. The picker opens at now+5 min, so a run at 23:58 opens it on
+    // tomorrow and «13:00» lands in the future — the test would pass all day and fail on the
+    // night shift, which is when this app is used.
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date(2026, 7, 17, 14, 0, 0))
+    pointer('fine')
     const { onSubmit } = setup()
     type('Lüfter prüfen')
     fireEvent.click(await dueRow(/Uhrzeit/))
-    const card = await screen.findByRole('dialog', { name: /Uhrzeit/ })
-    const ok = () => screen.getByRole('button', { name: /Übernehmen/ }) as HTMLButtonElement
-
-    // ⚠️ NOT «Heute»: the default is now+5 min, so a test running at 23:58 opens the dialog on
-    // tomorrow — the assertion has to be about the day row existing, not about which day it is.
-    expect(card.querySelector('.jc-exact-day')).toBeTruthy()
+    const pop = await screen.findByRole('dialog', { name: 'Erinnern um' })
+    const ok = () => within(pop).getByRole('button', { name: 'OK' }) as HTMLButtonElement
+    const field = within(pop).getByRole('textbox') as HTMLInputElement
+    expect(field.value).toBe('14:05')
+    expect(pop.textContent).toContain('Heute')
     expect(ok().disabled).toBe(false)
 
-    // an hour back is today, an hour ago — the dialog says so and refuses to save it.
-    // (the ± steppers are hold-to-repeat, so they act on pointerdown, not on click)
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Stunde −' }), { pointerId: 1, button: 0 })
-    expect(card.querySelector('.jc-exact-preview.is-past')).toBeTruthy()
+    // an hour back is today, an hour ago — the picker says so and refuses to save it…
+    fireEvent.change(field, { target: { value: '13:00' } })
+    expect(pop.textContent).toContain('Zeitpunkt liegt in der Vergangenheit')
     expect(ok().disabled).toBe(true)
+    // …Enter included, which reaches the commit without the button
+    fireEvent.keyDown(field, { key: 'Enter' })
+    expect(screen.queryByRole('dialog', { name: 'Erinnern um' })).toBeTruthy()
 
-    // …and a day forward makes the same clock time a real Wiedervorlage again
-    fireEvent.click(screen.getByRole('button', { name: 'Einen Tag vor' }))
+    // …and the next day makes the same clock time a real Wiedervorlage again
+    fireEvent.change(within(pop).getByRole('combobox', { name: 'Tag' }), { target: { value: '1' } })
+    expect(pop.textContent).toContain('Morgen')
     expect(ok().disabled).toBe(false)
     fireEvent.click(ok())
     send()
-    const due = Date.parse(onSubmit.mock.calls[0][0].dueAt!)
-    expect(due).toBeGreaterThan(Date.now())
-    expect(due).toBeLessThan(Date.now() + 48 * 3600_000)
+    expect(onSubmit.mock.calls[0][0].dueAt).toBe(new Date(2026, 7, 18, 13, 0).toISOString())
     vi.useRealTimers()
+  })
+
+  // the phone: wheels, and the day is a wheel too
+  it('takes the day off the day wheel on a phone', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 7, 17, 14, 0, 0))
+    pointer('coarse')
+    const { onSubmit } = setup()
+    type('Lüfter prüfen')
+    fireEvent.click(await dueRow(/Uhrzeit/))
+    const pop = await screen.findByRole('dialog', { name: 'Erinnern um' })
+    const dayWheel = within(pop).getByRole('listbox', { name: 'Tag' })
+    fireEvent.click(within(dayWheel).getAllByRole('option')[1]) // tomorrow
+    fireEvent.click(within(pop).getByRole('button', { name: 'OK' }))
+    send()
+    expect(onSubmit.mock.calls[0][0].dueAt).toBe(new Date(2026, 7, 18, 14, 5).toISOString())
+    vi.useRealTimers()
+  })
+})
+
+// An imported memo's «Aufnahme begann» is the same field as every other clock (TimeField) — and
+// committing it is the confirmation the hard start gate waits for.
+describe('JournalComposer · an imported memo\'s start time', () => {
+  it('is set with the shared time field and unlocks «Erfassen»', async () => {
+    pointer('fine')
+    URL.createObjectURL = URL.createObjectURL ?? (() => 'blob:memo')
+    URL.revokeObjectURL = URL.revokeObjectURL ?? (() => {})
+    const { onSubmit } = setup({ incidentStartAt: new Date(Date.now() - 3600_000).toISOString(), uploadAudio: vi.fn(async () => ({ url: '/media/memo.m4a' })) })
+    const input = document.querySelectorAll('input[type=file]')[1] as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['x'], 'Memo.m4a', { type: 'audio/mp4' })] } })
+    const start = await screen.findByRole('button', { name: 'Aufnahme begann' })
+    expect(document.querySelector('.jc-time')).toBeNull()
+    const save = () => screen.getByRole('button', { name: /Erfassen|Eintragen/ }) as HTMLButtonElement
+    expect(save().disabled).toBe(true) // the gate: not until the start is confirmed
+
+    fireEvent.click(start)
+    // the popover (the composer itself is a dialog too, so it is found by its frame)
+    const pop = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>('.wheelpop')
+      if (!el) throw new Error('no time picker')
+      return el
+    })
+    // a recording always started SOME time — no «Leeren»
+    expect(within(pop).queryByRole('button', { name: 'Leeren' })).toBeNull()
+    const t = new Date(Date.now() - 10 * 60_000)
+    const hhmm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`
+    fireEvent.change(within(pop).getByRole('textbox'), { target: { value: hhmm } })
+    fireEvent.click(within(pop).getByRole('button', { name: 'OK' }))
+    expect(start.textContent).toBe(hhmm)
+    await waitFor(() => expect(save().disabled).toBe(false))
+    expect(onSubmit).not.toHaveBeenCalled()
   })
 })
 

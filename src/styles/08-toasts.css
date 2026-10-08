@@ -188,10 +188,15 @@
 @media (--phone) {
   /* the rails are gone from the sides here (the nav rail is the bottom bar), so the strip takes
      the full width — and the actions drop onto a second line per row, where they may shrink
-     below the 116px that straightens the edge on a wide screen. */
+     below the 116px that straightens the edge on a wide screen.
+     ⚠️ The strip ENDS where THE message lane starts (15-mobile · --msg-lane-bottom, 08.10.2026,
+     owner: the Eintrag FAB sat on «Jetzt aktualisieren» of a fourth row): one --float-gap above
+     the floating row while a piece stands in it (FAB, plan chips, «Zurück zum Rapport»), else
+     above the highest bar. Its cap was «one nav bar + a guess», which ran under the FAB on every
+     surface and under the tool bar on the Karte. Past that it scrolls, as on every other width. */
   .ml { top: calc(72px + env(safe-area-inset-top));
     left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
-    max-height: calc(100dvh - var(--rail-h) - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+    max-height: calc(100dvh - 72px - env(safe-area-inset-top) - var(--msg-lane-bottom)); }
   /* the ✕ keeps its 44px slot beside the title, so the title's room is what the gaps leave: 8 and a
      12px inset (not 12 and 16) keep «TLF fährt weg · 340 m vom Einsatzort» on one 14px line at 390 */
   .ml-row { flex-wrap: wrap; column-gap: var(--sp-2); padding-bottom: 8px; padding-left: var(--sp-3); }

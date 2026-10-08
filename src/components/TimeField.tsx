@@ -22,7 +22,7 @@ export function parseHHMM(raw: string): string | null {
   return `${pad2(h)}:${pad2(min)}`
 }
 
-export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, clearActive, days, placeholder, token }: {
+export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, clearActive, days, placeholder, token, required }: {
   /** current value as 'HH:MM' ('' = unset) */
   value: string
   /**
@@ -63,6 +63,8 @@ export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowL
    *  beginning tied to the alarm, «noch da» for an end that has not happened. The instant behind
    *  it is still stored in full (date included) — this is how it reads, not what it is. */
   token?: { label: string; tone: 'start' | 'open' }
+  /** a value that is always there (an imported memo's recording start): no «Leeren» */
+  required?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -112,7 +114,7 @@ export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowL
           days={days}
           // a named clear is offered even on an empty field: «noch da» is a state to SET, not a
           // value to erase, so it must not vanish once the field is already empty
-          onClear={value || clearLabel ? () => { setOpen(false); onCommit(null) } : undefined}
+          onClear={!required && (value || clearLabel) ? () => { setOpen(false); onCommit(null) } : undefined}
           clearLabel={clearLabel}
           clearActive={clearActive}
           shortcut={shortcut && { ...shortcut, onPick: () => { setOpen(false); shortcut.onPick() } }}

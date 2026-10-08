@@ -93,3 +93,13 @@
    person is still here — and a bin said the opposite of what it did. */
 
 .error { margin: 8px 0; color: var(--red-strong); font-size: var(--fs-2); line-height: 1.4; }
+
+/* A heading, for a popover opened from a menu row («Erinnern um») — the row that opened it is
+   gone by the time the wheels show, so the popover has to say what it is asking. */
+.title { margin: 0 0 8px; text-align: center; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
+
+/* What the selection MEANS, under the wheels — «Morgen · Fr 09.10. · 07:30». A blocking note is
+   red and «OK» is disabled until the wheels move (see WheelPopover · note). */
+.note { margin: 8px 0 0; min-height: 22px; text-align: center; color: var(--blue-strong);
+  font: var(--fw-bold) var(--fs-2) var(--mono); font-variant-numeric: tabular-nums; }
+.noteBad { color: var(--red); font-family: var(--body); }

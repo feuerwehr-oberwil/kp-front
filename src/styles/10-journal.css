@@ -906,66 +906,12 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 /* ⚠️ «Aufnahme begann» — VISIBLE. It was `display: none`, left behind when the Erinnerung's chip
    row was deleted, which turned the one field the hard start-confirm gate forces the operator to
    confirm into an unlabelled stepper (23.08.). Its own line in the .jc-import-start row, so the
-   words sit above the ± rather than fighting the confirm chip for the width. */
+   words sit above the time field rather than fighting the confirm chip for the width. */
 .jc-due-label {
   flex-basis: 100%;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
 /* the «Aufnahme begann» confirm is THE choice chip (<Chip selected>, 08.10.2026; it was `.jc-due-chip`) */
-/* custom HH:MM stepper (replaces the native time spinner) */
-.jc-time { display: inline-flex; align-items: center; gap: 12px; align-self: flex-start; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-ctl);
-  background: var(--surface-2); border: 1px solid var(--glass-edge); }
-.jc-time-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.jc-time-col b { font: var(--fw-heavy) var(--fs-5)/1 var(--mono); color: var(--ink); min-width: 38px; text-align: center; }
-/* tap-to-type: the value as a button + the inline numeric input (both match .jc-time-col b) */
-.jc-time-val { font: var(--fw-heavy) var(--fs-5)/1 var(--mono); color: var(--ink); min-width: 38px; text-align: center;
-  border: none; background: transparent; cursor: pointer; padding: 2px 0; border-radius: var(--r-sm); }
-@media (hover: hover) {
-  .jc-time-val:hover { background: var(--fill-soft); }
-}
-.jc-time-input { width: 44px; box-sizing: border-box; font: var(--fw-heavy) var(--fs-5)/1 var(--mono); color: var(--blue); text-align: center;
-  border: none; background: transparent; outline: none; padding: 2px 0; }
-.jc-time-btn { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--glass-edge); background: var(--surface);
-  color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; touch-action: none; user-select: none; }
-@media (hover: hover) {
-  .jc-time-btn:hover { border-color: var(--blue); color: var(--blue); }
-}
-.jc-time-btn:active { background: var(--fill-soft); }
-.jc-time-btn .i { width: 18px; height: 18px; }
-.jc-time-sep { font: var(--fw-heavy) var(--fs-5)/1 var(--mono); color: var(--ink-faint); margin-top: -2px; }
-
-/* «Uhrzeit …» — the one due answer that is not a row in the menu: a day, a time, and what the
-   two mean together. A small dialog over the composer rather than a strip inside it (this is the
-   rare path, and the sheet is already fighting the keyboard for its rows).
-   ⚠️ Every block in here is FULL WIDTH and centred inside itself. The first version let the time
-   stepper keep its own `align-self: flex-start` and its inline-flex width, so the card held a
-   left-hugging box with a hand's width of empty space beside it — a shape that reads as broken
-   before you can say what is wrong with it. */
-.jc-exact { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: var(--sp-4);
-  width: min(320px, 92vw); }
-.jc-exact-title { margin: 0; text-align: center; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 15) */
-/* the day, stepped: ‹ Heute · Di 18.08. › — its buttons are the same 44px squares the time
-   stepper uses, so the dialog has ONE control idiom rather than two */
-.jc-exact-day { display: flex; align-items: center; gap: 8px; padding: var(--sp-1);
-  border-radius: var(--r-ctl); background: var(--surface-2); border: 1px solid var(--glass-edge); }
-.jc-exact-day b { flex: 1; text-align: center; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink);
-  font-variant-numeric: tabular-nums; }
-.jc-exact-day .jc-time-btn:disabled { opacity: var(--disabled); cursor: default; }
-.jc-exact-prev { transform: rotate(180deg); }
-/* …and the stepper fills the card, centred, instead of sitting in a left-hugging box of its own */
-.jc-exact .jc-time { align-self: stretch; justify-content: center; padding: var(--sp-3); }
-.jc-exact-preview { margin: 0; text-align: center; font: var(--fw-bold) var(--fs-2) var(--mono); color: var(--blue-strong);
-  min-height: 20px; font-variant-numeric: tabular-nums; }
-/* a due time that has already gone by would fire the moment it is saved — said in words, in red,
-   and «Übernehmen» is disabled until the day or the time moves */
-.jc-exact-preview.is-past { color: var(--red); font-family: var(--body); font-size: var(--fs-2); }
-/* ⚠️ owner pick A (28.09.2026): the framed «Abbrechen» at its word's width, «Übernehmen» takes
-   the rest (they were two equal halves, the cancel a dim word on the glass) */
-.jc-exact-actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
-/* …the two are THE button: «Abbrechen» the secondary, «Übernehmen» the primary (<Button>, 08.10.2026 —
-   they were `.jc-exact-cancel` / `.jc-exact-ok`, the confirm at 14/800). Never --blue: blue is a
-   CHOSEN answer (01-tokens · --sel). */
-
 /* ── the Verlauf button while something is open ──
    The tint is the signal; the badge is the detail. ⚠️ The badge used to be the whole of it, and on
    a phone it lost: 17px hanging off the button's corner, drawn BEFORE the Atemschutz chip that
