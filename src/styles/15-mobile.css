@@ -648,11 +648,11 @@
      surface respects, on the bar that is pressed most. */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-item {
     width: auto; min-width: 50px; padding: 0 8px; height: auto; min-height: 46px; }
-  /* …and the folded bar shares its width in this mode too. Measured at 390px (08.10.2026): «Checkliste»,
-     the longest of the five words, is 66px of Sora at 11px with its 2px of air a side and each tile's
-     equal share is ~70px, so nothing truncates and the scroll the rule above kept for this variant
-     finds nothing to do. Narrower phones close up the words instead (the max-width: 389px block at
-     the end of this file). */
+  /* …and the folded bar shares its width in this mode too, so the scroll the rule above kept for
+     this variant finds nothing to do. Measured at 390px (08.10.2026): «Checkliste», the longest of
+     the five words here, is 66px of Sora at 11px with its 2px of air a side in a ~70px share; the
+     tool bar's «Hinzufügen» is not, so under 414px both bars close their words up (the
+     max-width: 413px block at the end of this file). */
   .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-item { flex: 1 1 0; min-width: 44px; padding: 0; }
   .navrail.labelled:not(.expanded):not(.dragging) .nav-glyph { height: 22px; }
   /* …and the same two corrections the desktop rule makes, one size smaller (see 05-navrail.css) */
@@ -661,7 +661,7 @@
   /* ⚠️ --fs-micro (11px, 9.5 until 08.10.2026) — below the 12.5px interactive floor, the same as the
      desktop's and for the same reason: it is a legend under the glyph, and the 46px button is the
      target. 11 is the scale's step for words that are read; the narrow phones make room for it by
-     closing up the words (the max-width: 389px block at the end of this file), not by a smaller size. */
+     closing up the words (the max-width: 413px block at the end of this file), not by a smaller size. */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-label {
     font-size: var(--fs-micro); overflow: visible; text-overflow: clip; }
   /* ⚠️ …but on the FOLDED bars a word never spills past its own tile (03.10.2026): every tile is
@@ -1253,14 +1253,15 @@
 }
 
 /* The narrower phones' bar words (29.09.2026; on the type scale since 08.10.2026). The words are on
-   by default on a phone (lib/prefs · railLabelsFor), at --fs-micro, and below 390px the five equal
-   tiles leave a word 64px: «Hinzufügen» (70) and «Checkliste» (66) ended in «…». They do not get a
-   size under the scale's floor (they were 9 and 9.5px here); they give up their 2px of air and close
-   up a little instead — measured at 360 and 375px: «Hinzufügen» 63px, «Checkliste» 59, whole, and
-   clear of both neighbours' words. (At 320px those two still ellipsise, inside their own tile.)
+   by default on a phone (lib/prefs · railLabelsFor), at --fs-micro, and under 414px the five equal
+   tiles leave «Hinzufügen» (66px of text + 2px of air a side) too little: at 390 it is 0.4px over
+   its 65.6 and ended in «…». They do not get a size under the scale's floor (they were 9 and 9.5px
+   here); they give up their 2px of air and close up a little instead — measured at 360, 375 and
+   390px: «Hinzufügen» 63px, «Checkliste» 59, whole, and clear of both neighbours' words; from 414px
+   up both fit as they are. (At 320px those two still ellipsise, inside their own tile.)
    Its own block at the end, not nested in the phone gate: Sheet.test pins that gate as the nearest
    @media above the sheet foot's rule. */
-@media (max-width: 389px) {
+@media (max-width: 413px) {
   :is(.tool-rail, .wb-tools).folded.labelled:not(.expanded):not(.dragging) .vrail-label,
   .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-label { padding: 0; letter-spacing: -.03em; }
 }
