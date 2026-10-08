@@ -372,7 +372,7 @@
    28.09.2026 (owner pick A: a cancel is a framed `.ip-btn`, never a bare word), so it no longer
    pulls itself in: its edge IS the bar's edge now. */
 .or-prog-end { display: flex; align-items: center; gap: 10px; }
-.or-prog-cancel { min-height: var(--tap); padding: 0 12px; font-size: var(--fs-1); }
+.or-prog-cancel { padding: 0 12px; font-size: var(--fs-1); }
 /* a finished load: the bar's place closes into the sync vocabulary — ring + tick + «bereit» —
    for a moment before the button returns (component · justLoaded). Same 44px slot as the button
    and roughly the bar block's height, so nothing under it jumps. */
@@ -684,31 +684,59 @@
   border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); font: 600 var(--fs-1) var(--body); }
 .ip-demo-block svg { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
 .ip-row-actions { justify-content: flex-start; }
+/* ═══ THE button (08.10.2026, design-system stage 2) ═══════════════════════════════════════════
+   ONE definition for the `.ip-btn` family AND <Button> (components/Button.tsx): the component
+   renders exactly these classes (`ip-btn` + `primary` | `danger` | `quiet`, + `lg`, + `block`), so
+   a button written by hand in the TSX and one written as <Button> cannot drift apart. It lives
+   HERE, in the global sheet, because ~150 call sites (some of them a <label> or an <a>) and the
+   rules that place them (`.confirm-actions .ip-btn`, `.rz-none > .ip-btn`, `.head-tile` declared
+   after it) depend on this class and this position in the cascade; a module copy would have been a
+   second definition with a load order nobody controls.
+   Height is the FLOOR, not padding: 44px (`--tap`) on every pointer, 52 for `.lg`, the label
+   centred; a label that wraps grows the button instead of being clipped by it. (It was padding-
+   sized — 10px + its label, ~38px with a mouse — and 20-touch-floors lifted it on touch only.) */
 .ip-btn {
-  display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid var(--glass-edge);
-  border-radius: var(--r-sm); background: var(--surface); cursor: pointer; font: var(--fw-bold) var(--fs-2) var(--body);
-  color: var(--ink); text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  box-sizing: border-box; min-height: var(--tap); padding: 0 var(--sp-4);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
+  /* the shorthand, never a bare size: <button> does not inherit the app font */
+  font: var(--fw-bold) var(--fs-2)/var(--lh-2) var(--body);
+  text-align: center; text-decoration: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 @media (hover: hover) {
   .ip-btn:hover { background: var(--hover-strong); }
 }
 .ip-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.ip-btn svg { width: 16px; height: 16px; }
+.ip-btn:disabled { opacity: var(--disabled); cursor: default; }
+.ip-btn svg { width: 16px; height: 16px; flex: none; }
+/* lg: the one big action of a screen */
+.ip-btn.lg { min-height: var(--tap-lg); padding: 0 var(--sp-5); font-size: var(--fs-3); line-height: var(--lh-3); }
+.ip-btn.lg svg { width: 20px; height: 20px; }
+/* block: the full width of its container */
+.ip-btn.block { display: flex; width: 100%; }
+/* primary: THE primary fill (--btn-primary: ink by day, light grey by night) — never --accent,
+   which is the station's red and would make every «OK» read as an alarm */
 .ip-btn.primary { background: var(--btn-primary); color: var(--on-btn-primary); border-color: var(--btn-primary); }
 @media (hover: hover) {
   .ip-btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 }
-.ip-btn.primary:disabled { opacity: var(--disabled); cursor: default; }
 /* delete (Übungen in «Alle Einsätze», a confirm's destructive answer) — THE delete look
    (01-tokens · --del-*, 28.09.2026): red outline on the surface, never a solid destructive button.
    ⚠️ `.ip-btn danger` was written at a call site that predates the rename (BandGrid's
    «Schicht entfernen»); an alias costs nothing and stops the destructive button rendering
-   identical to «Abbrechen» the next time somebody reaches for the obvious name. */
+   identical to «Abbrechen» the next time somebody reaches for the obvious name. <Button
+   variant="danger"> renders `danger`. */
 .ip-btn-danger, .ip-btn.danger { color: var(--del-ink); border-color: var(--del-edge); background: var(--surface); }
 @media (hover: hover) {
   .ip-btn-danger:hover, .ip-btn.danger:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 }
-.ip-btn.ghost { background: none; border-color: transparent; }
+/* quiet: a word on the surface — «Später», «Abbrechen» beside a primary. `.ghost` is its old name,
+   kept because the TSX still writes it (Datenquellen, MeasurePanel, TimeBlockSheet). */
+.ip-btn.quiet, .ip-btn.ghost { background: none; border-color: transparent; }
+@media (hover: hover) {
+  .ip-btn.quiet:hover, .ip-btn.ghost:hover { background: var(--ink-8); }
+}
 /* ── THE ROW IS THE BUTTON (28.09.2026, owner pick A) ──
    No bare blue word as an action. Where a text action ends a row («Standard: 300 bar · Kanal 11 —
    Ändern») the WHOLE row is one <button>: its text in ink, the verb in --ink-dim 12.5/700 with a
@@ -782,7 +810,7 @@
 .empty-state-title { font: var(--fw-bold) 15.5px var(--body); color: var(--ink); }
 .empty-state-sub { font: var(--fw-medium) 13px var(--body); color: var(--ink-faint); max-width: 36ch; line-height: 1.45; }
 .empty-state-act { margin-top: 12px; display: flex; gap: 8px; align-self: stretch; }
-.empty-state-act .ip-btn { flex: 1; justify-content: center; }
+.empty-state-act .ip-btn { flex: 1; }
 /* …but NOT on a full-surface empty state. `stretch` is right inside a card, where the CTA is as
    wide as the text above it; on Mittel/Anwesenheit/Checklists the container is the whole screen,
    so «+ Mittel» came out as a metre-wide bar under one short line. Content width there, centred
@@ -821,7 +849,7 @@
 .ip-menu-row .ip-badge { flex: none; }
 /* the per-row «Abschliessen» is COMPACT (29.09.2026): 12.5/700 at its word's width, still --tap
    tall — five 14px buttons down the list out-shouted the row's real action, opening it */
-.ip-hist-close { font-size: var(--fs-1); padding: 0 12px; min-height: var(--tap); flex: none; }
+.ip-hist-close { font-size: var(--fs-1); padding: 0 12px; flex: none; }
 .ip-hist-sub, .ip-ds-sub { font: var(--fw-medium) 12px var(--body); color: var(--ink-faint); margin-top: 2px; }
 /* when it ran (05.10.2026): day · start–end · duration, a step stronger than the address under it —
    it is what tells two «Brand» rows apart at 3am. Tabular figures so the spans line up. */
@@ -1456,13 +1484,9 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 
 /* the Rapport surface's action row wraps instead of overflowing on phones */
 .report-preflight .ip-actions { flex-wrap: wrap; }
-/* ONE height and ONE corner for the whole row, the rule `.headActions` follows on Anwesenheit and
-   Mittel. `.ip-btn` derives its height from padding and lands around 37px — under the 44px floor a
-   gloved finger needs, on the row that makes paper. Levelled UP with min-height, never down:
-   «Ausdrucken» grows a second line when the relay is offline and must be allowed to be taller
-   than its neighbours rather than swallowing the reason it is taller. */
-.report-preflight .ip-actions .ip-btn { flex: 1 1 auto; justify-content: center;
-  min-height: var(--tap); border-radius: var(--r-sm); }
+/* the buttons share the row; their height and corner are THE button's own (`.ip-btn`, 44px since
+   08.10.2026 — it was padding-sized, ~37px, and levelled up here) */
+.report-preflight .ip-actions .ip-btn { flex: 1 1 auto; }
 /* the Rapport sheet is tall: pin the header so the title + ✕ stay reachable and scroll only
    the body — flex pinning like .ctx, not position:sticky (sticky inside the blurred sheet
    drifts on iOS) */
@@ -1695,9 +1719,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    rather than squeezing it to two words per line */
 .rp-band-txt { flex: 1 1 260px; min-width: 0; font-size: 13px; color: var(--ink); }
 .rp-band-txt b { font-weight: var(--fw-heavy); }
-/* shorter than the head's --tap controls: this is a suggestion sitting under the row that holds
-   the real actions, and matching their height would make it read as a third pair of buttons */
-.rp-band .ip-btn { min-height: 38px; }
+/* (its buttons were held at 38px, «shorter than the head's controls, a suggestion»; since 08.10.2026
+   they keep THE button's 44px floor like every other — the band's tint already says «suggestion») */
 /* the canEdit gate around the amber band's Prüfen/Abbrechen: the shared .report-fieldset is a
    column (it wraps form sections) — inside the band it holds two buttons on the band's own row */
 .rp-band .report-fieldset { flex-direction: row; align-items: center; gap: 12px; }
@@ -1906,7 +1929,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
    (copy · intake.objectButton/mapPickButton); nowrap keeps a longer locale from wrapping again,
    and 12px of padding gives «Dai piani» its icon at 360px. */
 .ip-ix-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.ip-ix-methods .ip-btn { justify-content: center; min-width: 0; min-height: var(--tap); padding: 0 12px; white-space: nowrap; }
+.ip-ix-methods .ip-btn { min-width: 0; padding: 0 12px; white-space: nowrap; }
 .ip-btn.on { background: var(--sel); color: var(--on-sel); border-color: var(--sel); }
 
 /* address autocomplete */
@@ -2058,8 +2081,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-launch-x svg { width: 16px; height: 16px; }
 .ip-emptyapp-actions { display: flex; flex-direction: column; gap: 10px; }
 .ip-emptyapp-secondary { display: flex; gap: 10px; }
-.ip-emptyapp-secondary .ip-btn { flex: 1; justify-content: center; }
-.ip-btn.block { justify-content: center; padding: 13px 16px; }
+.ip-emptyapp-secondary .ip-btn { flex: 1; }
 /* keep the empty-state CTAs flush-left with the headline rather than centered (full-width, left label) */
 .ip-emptyapp-actions .ip-btn { justify-content: flex-start; }
 .ip-emptyapp-foot { margin-top: 30px;   /* spacing, not a rule — see .ip-menu-user (22.09.2026) */
