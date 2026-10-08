@@ -4,7 +4,8 @@
    --------------------------------------------------------------------------- */
 /* identity yields first: the switcher shrinks (title ellipsises) so the clock,
    journal actions and the Lage/Plan switch can never be pushed off the bar */
-.ip-switch { position: relative; display: flex; align-items: center; min-width: 0; flex: 0 1 auto; }
+/* no `position` here on purpose: the dropdown (.ip-menu) hangs off the whole .topbar, not the pill */
+.ip-switch { display: flex; align-items: center; min-width: 0; flex: 0 1 auto; }
 /* phone-only incident glyph in the switcher pill (title hidden ≤600px) */
 .ip-switch-glyph { display: none; place-items: center; color: var(--ink-dim); }
 .ip-switch-glyph .i { width: 17px; height: 17px; }
@@ -150,9 +151,10 @@
    24, less this row's own −12 bleed). With glyphs that is 3×38 + 2×3 + 196.0 + 30.9 = 346.9px
    against the 396px a 430px menu gives — which is why .ip-menu's max-width is 430 and not the
    380 it was before Teilen existed. Below 480px the glyphs go and the label drops to 12px:
-   267.1px, against 297px on a 360px phone and 325px on a 390px one. Only a 320px viewport
-   (260px of row) falls 7px short, and there the label ellipsises rather than wrapping — which
-   is the whole reason it is its own <span>. */
+   267.1px, against 310px on a 360px phone and 340px on a 390px one (the phone menu spans the
+   top bar, viewport − 16px, since 08.10.2026). A 320px viewport leaves 270px; should a locale
+   ever outgrow that, the label ellipsises rather than wrapping — which is the whole reason it is
+   its own <span>. */
 /* ⚠️ THREE TILES, not three bare words (27.09.2026, slim sweep · mockup 10): this was the only
    place in the app with naked text buttons side by side. Each is a `.head-tile.sm` (the family
    above — 36px inside a card, the one corner, the 1px edge). «Abschliessen» is the amber one — it
@@ -218,9 +220,14 @@
 /* small-caps section label inside the dropdown (e.g. "Dieser Einsatz") — same idiom as .set-group-t */
 .ip-menu-label { margin-top: 8px; padding: 4px 12px 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 
+/* ⚠️ Anchored to the .topbar (08.10.2026, owner: «can be aligned to the left of the header»), not
+   to the pill: under the pill it sat --bar-pad + 1px inside the bar's left edge and 8px below a
+   pill that is shorter than the bar, so on a tablet its top ran 6px up INTO the bar. Now its left
+   edge is the bar's outer edge (−1px: offsets start inside the bar's border), its top is 8px below
+   the bar's bottom, and it wears the bar's corner, so the two read as one stack. */
 .ip-menu {
-  position: absolute; top: calc(100% + 8px); left: 0; min-width: min(300px, 88vw); max-width: min(430px, 92vw);
-  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
+  position: absolute; top: calc(100% + 1px + 8px); left: -1px; min-width: min(300px, 88vw); max-width: min(430px, 92vw);
+  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-bar);
   box-shadow: var(--e4); padding: 8px; z-index: var(--z-drawer-menu); max-height: calc(100dvh - 104px); overflow: auto;
 }
 .ip-menu-empty { padding: 12px; color: var(--ink-faint); font: var(--fw-medium) var(--fs-2) var(--body); }

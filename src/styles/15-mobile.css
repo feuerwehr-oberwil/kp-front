@@ -912,8 +912,10 @@
        read «Uber-». */
     line-height: 1.25; }
 
-  /* incident switcher dropdown caps to the viewport so it can't run off the bottom */
-  .ip-menu { max-height: calc(100dvh - 80px - env(safe-area-inset-top)); }
+  /* incident switcher dropdown caps to the viewport so it can't run off the bottom, and spans the
+     bar exactly — both edges under the bar's, never past its right one (13-incident · .ip-menu) */
+  .ip-menu { max-height: calc(100dvh - 87px - env(safe-area-inset-top));
+    width: calc(100% + 2px); min-width: 0; max-width: none; }
 
   /* the plan's floating zoom (−/%/+/fit) is dropped on a phone — pinch handles zoom, and Fit is
      the bottom bar's «Einpassen» tile; a sheet with no bar keeps it in the top bar (TopBar mapNav) */
