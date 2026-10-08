@@ -2553,3 +2553,134 @@ describe('useTruppActions — an edit row names the whole crew (staging r2, N27)
     expect(lines[0]).toMatch(/^Trupp 4 \(Keller Anna \/ Graf Eva\): /)
   })
 })
+
+describe('useTruppActions — the Atemschutznotfall (F1, 08.10.2026)', () => {
+  beforeEach(() => { ui.toasts.length = 0 })
+  /** A board whose actions are rebuilt on the CURRENT trupps for every step — the way every render
+   *  of IncidentWorkspace rebuilds them — with one shared timeline, rows and audit events. */
+  const board = (trupps: Trupp[], placeOf?: (t: Trupp) => string | undefined) => {
+    const timeline = createUndoTimeline()
+    const rows: { icon: string; text: string; subjectId?: string }[] = []
+    const events: { op: string; payload?: Record<string, unknown> }[] = []
+    const [first, ...rest] = trupps
+    const h = harness(first, { trupps: rest })
+    const act = () => {
+      // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
+      return useTruppActions({
+        ...h.deps, trupps: h.state.trupps, undoTimeline: timeline, liveTrupps: () => h.state.trupps, placeOf,
+        log: (icon, text, _k, _a, _e, opts) => { rows.push({ icon, text, subjectId: opts?.subjectId }) },
+        emit: (op, payload) => { events.push({ op, payload }) },
+      })
+    }
+    return { act, state: h.state, timeline, rows, events }
+  }
+  const inside = (over: Partial<Trupp> = {}): Trupp => baseTrupp({
+    no: 2, name: 'Keller Anna', members: ['Frei Nina'], auftrag: 'loeschen', ziel: '2. OG links', funkkanal: 11,
+    lastPressureBar: 180, lastPressureTime: '2026-07-06T10:12:00Z', lastContactTime: '2026-07-06T10:14:00Z', readings: [], ...over,
+  })
+  const sitr = (over: Partial<Trupp> = {}): Trupp => baseTrupp({
+    id: 'S1', no: 4, name: 'Meier Beat', status: 'angemeldet', entryTime: '', lastContactTime: '', auftrag: 'sichern', readings: [], ...over,
+  })
+
+  it('raises the Notfall on a crew inside: the clock, its own log row, ONE Verlauf row with the facts, an audit event', () => {
+    const b = board([inside()], () => 'Gebäude · 2. OG')
+    b.act().triggerNotfall('T1')
+    const t = b.state.trupps[0]
+    expect(t.notfallAt).toBeTruthy()
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'notfall', bar: 180, t: t.notfallAt })
+    expect(b.rows).toHaveLength(1)
+    const time = (iso: string) => new Date(iso).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+    expect(b.rows[0]).toMatchObject({ icon: 'warn', subjectId: 'T1' })
+    expect(b.rows[0].text).toBe(`Trupp 2 (Keller Anna / Frei Nina): Notfall ausgelöst – Ort Löschen – 2. OG links · Gebäude · 2. OG, `
+      + `letzter Kontakt ${time('2026-07-06T10:14:00Z')}, 180 bar (${time('2026-07-06T10:12:00Z')}), Kanal 11`)
+    expect(b.events).toEqual([{ op: 'atemschutz.notfall', payload: { id: 'T1' } }])
+    // the confirm-with-undo toast is the fast door for the mistake noticed at once
+    expect(ui.toasts.map((x) => x.text)).toEqual(['Notfall Trupp 2 ausgelöst'])
+  })
+
+  it('names the Eingangsdruck when no Druck was ever reported, and leaves out what is not known', () => {
+    const b = board([inside({ lastPressureBar: undefined, lastPressureTime: undefined, funkkanal: undefined, auftrag: undefined, ziel: undefined })])
+    b.act().triggerNotfall('T1')
+    expect(b.rows[0].text).toMatch(/: Notfall ausgelöst – letzter Kontakt \d\d:\d\d, Eingangsdruck 300 bar$/)
+  })
+
+  it('is offered only on an Atemschutz-Trupp that is inside, and never twice', () => {
+    for (const t of [inside({ status: 'angemeldet', entryTime: '' }), inside({ status: 'raus', exitTime: '2026-07-06T10:20:00Z' }), inside({ kind: 'einfach' })]) {
+      const b = board([t])
+      b.act().triggerNotfall('T1')
+      expect(b.state.trupps[0].notfallAt).toBeUndefined()
+      expect(b.rows).toEqual([])
+    }
+    const b = board([inside()])
+    b.act().triggerNotfall('T1')
+    const at = b.state.trupps[0].notfallAt
+    b.act().triggerNotfall('T1')
+    expect(b.state.trupps[0].notfallAt).toBe(at)
+    expect(b.rows).toHaveLength(1)
+  })
+
+  it('a mistaken trigger is cheap to undo and still recorded — the ↶ and the toast write the same counter-row', () => {
+    for (const door of ['timeline', 'toast'] as const) {
+      ui.toasts.length = 0
+      const b = board([inside()])
+      b.act().triggerNotfall('T1')
+      if (door === 'timeline') {
+        expect(b.timeline.peekUndo()?.label).toMatch(/^Trupp 2 \(Keller Anna \/ Frei Nina\): Notfall ausgelöst/)
+        b.timeline.undo()
+      } else {
+        ui.toasts[0].undo!()
+        // the toast took its timeline entry with it: the act is never undoable twice
+        expect(b.timeline.peekUndo()).toBeNull()
+      }
+      const t = b.state.trupps[0]
+      expect(t.notfallAt).toBeUndefined()
+      expect(t.readings ?? []).toEqual([])
+      expect(b.rows.map((r) => r.text)).toEqual([
+        expect.stringMatching(/Notfall ausgelöst/),
+        expect.stringMatching(/^Trupp 2 .*Notfall ausgelöst.* rückgängig gemacht$/),
+      ])
+    }
+  })
+
+  it('ends it with its own row and reading; the crew stays where it is, and ↶ brings the ORIGINAL clock back', () => {
+    const b = board([inside()])
+    b.act().triggerNotfall('T1')
+    const at = b.state.trupps[0].notfallAt
+    b.act().endNotfall('T1')
+    const t = b.state.trupps[0]
+    expect(t.notfallAt).toBeUndefined()
+    expect(t.status).toBe('aktiv')
+    expect(t.readings?.map((r) => r.kind)).toEqual(['notfall', 'notfallEnde'])
+    expect(b.rows[b.rows.length - 1]?.text).toMatch(/^Trupp 2 \(Keller Anna \/ Frei Nina\): Notfall beendet – Dauer \d+:\d\d min$/)
+    expect(b.events.map((e) => e.op)).toEqual(['atemschutz.notfall', 'atemschutz.notfallEnde'])
+    b.timeline.undo()
+    expect(b.state.trupps[0].notfallAt).toBe(at)
+    expect(b.state.trupps[0].readings?.map((r) => r.kind)).toEqual(['notfall'])
+  })
+
+  it('a Sicherungstrupp sent in during a Notfall says whom it went in for, and how long after', () => {
+    const b = board([inside({ notfallAt: new Date(Date.now() - 90_000).toISOString() }), sitr()])
+    b.act().setTruppStatus('S1', 'aktiv')
+    expect(b.rows.map((r) => r.text)).toEqual([
+      expect.stringMatching(/^Trupp 4 \(Meier Beat\): Sicherungstrupp eingesetzt – Notfall Trupp 2 \(Keller Anna \/ Frei Nina\), 1:3\d min nach Auslösung$/),
+    ])
+    // an ordinary Eintritt underneath: the clock starts, ↶ puts the crew back at the Tafel
+    expect(b.state.trupps[1].status).toBe('aktiv')
+    b.timeline.undo()
+    expect(b.state.trupps[1]).toMatchObject({ status: 'angemeldet', entryTime: '' })
+  })
+
+  it('says calmly when an Atemschutz-Trupp goes in with no Sicherungstrupp ready — and only then', () => {
+    const waiting = (over: Partial<Trupp> = {}) => inside({ status: 'angemeldet', entryTime: '', lastContactTime: '', ...over })
+    board([waiting()]).act().setTruppStatus('T1', 'aktiv')
+    expect(ui.toasts.map((x) => x.text)).toEqual(['Kein Sicherungstrupp bereit'])
+    ui.toasts.length = 0
+    // a Sicherungstrupp stands ready: nothing to say
+    board([waiting(), sitr()]).act().setTruppStatus('T1', 'aktiv')
+    // …the Sicherungstrupp itself going in, a work squad, and a Rückzug called off say nothing either
+    board([sitr()]).act().setTruppStatus('S1', 'aktiv')
+    board([waiting({ kind: 'einfach' })]).act().setTruppStatus('T1', 'aktiv')
+    board([inside({ status: 'rueckzug' })]).act().setTruppStatus('T1', 'aktiv')
+    expect(ui.toasts).toEqual([])
+  })
+})

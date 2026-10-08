@@ -363,7 +363,11 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
     if (eq(m[k], a[k])) { out[k] = t[k]; continue } // only theirs changed it
     if (eq(t[k], a[k])) { out[k] = m[k]; continue } // only I changed it
     // both changed it, to different values:
-    if (TRUPP_TIME_FIELDS.has(k)) out[k] = laterIso(m[k], t[k]) ?? m[k]
+    // ⚠️ …except the Notfall's trigger (F1, 08.10.2026): two devices that held «Notfall» on the
+    // same crew within the same seconds raised ONE emergency, and it began at the EARLIER hold —
+    // the Notfall clock must never jump forward and lose the seconds the crew has been waiting
+    if (k === 'notfallAt') out[k] = laterIso(m[k], t[k]) === m[k] ? t[k] : m[k]
+    else if (TRUPP_TIME_FIELDS.has(k)) out[k] = laterIso(m[k], t[k]) ?? m[k]
     else if (k === 'lowestBar' && typeof m[k] === 'number' && typeof t[k] === 'number') {
       out[k] = Math.min(m[k] as number, t[k] as number)
     } else out[k] = m[k] // scalar divergence stays LWW-mine (conservative)

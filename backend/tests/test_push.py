@@ -72,6 +72,29 @@ class TestDueTrupps:
         ws["settings"] = {"contactIntervalMin": 5, "contactGraceSec": 60}
         assert [t["id"] for t in due_trupps(ws, {"contactIntervalMin": 10}, NOW)] == ["a"]
 
+    def test_a_notfall_outranks_every_clock_and_is_keyed_on_its_trigger(self):
+        """The Atemschutznotfall (F1, 08.10.2026): ``notfallAt`` set ⇒ due with reason
+        ``notfall``, whatever the contact clock and the gauge say — and even for a crew already
+        reported out (it ends only by «Notfall beendet», src/types.ts · Trupp.notfallAt). The
+        crossing is the trigger, so a renotify round never treats it as a new Notfall."""
+        fresh = trupp("a", "2026-07-02T14:09:50Z", entryPressureBar=300, lastPressureBar=90,
+                      notfallAt="2026-07-02T14:08:00Z")
+        out = trupp("b", "2026-07-02T13:00:00Z", status="raus", notfallAt="2026-07-02T14:05:00Z")
+        alerts = due_trupps({"trupps": [fresh, out]}, {}, NOW)
+        assert alerts == [
+            {"id": "a", "name": "Trupp a", "since": ms("2026-07-02T14:08:00Z"), "reason": "notfall"},
+            {"id": "b", "name": "Trupp b", "since": ms("2026-07-02T14:05:00Z"), "reason": "notfall"},
+        ]
+        assert _atemschutz_message(alerts[0]) == (
+            "Atemschutz-Notfall – Trupp a",
+            "Notfall ausgelöst – Sicherungstrupp einsetzen.",
+        )
+
+    def test_a_removed_card_or_a_work_squad_raises_no_notfall(self):
+        removed = trupp("r", "2026-07-02T14:09:50Z", notfallAt="2026-07-02T14:08:00Z", removedAt="2026-07-02T14:09:00Z")
+        plain = trupp("p", "2026-07-02T14:09:50Z", kind="einfach", notfallAt="2026-07-02T14:08:00Z")
+        assert due_trupps({"trupps": [removed, plain]}, {}, NOW) == []
+
     def test_contact_falls_back_to_entry(self):
         ws = {"trupps": [trupp("a", None)]}  # entered 14:00, never a contact → due at 14:06
         assert [t["id"] for t in due_trupps(ws, {}, NOW)] == ["a"]

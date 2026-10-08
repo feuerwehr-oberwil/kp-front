@@ -308,7 +308,11 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           const u = azAlarm.urgent
           const crit = azAlarm.peak >= 2
           const lowPressure = u.reason === 'pressure'
-          const what = lowPressure
+          // …and the Atemschutznotfall (F1, 08.10.2026): the chip says «Notfall» and ticks the
+          // Notfall clock — `contactAt` is the trigger's moment for this reason (peakAtemschutzAlarm)
+          const notfall = u.reason === 'notfall'
+          const what = notfall ? appConfig.copy.atemschutz.notfall.title
+            : lowPressure
             ? fillTemplate(appConfig.copy.atemschutz.alarmNote, { bar: String(u.bar ?? '') })
             : crit ? appConfig.copy.atemschutz.clockOverdue : appConfig.copy.atemschutz.clockWarn
           return (
@@ -320,8 +324,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
               aria-label={`${appConfig.copy.modes.atemschutz}: ${what} — ${u.name}`}
             >
               {/* the Manometer for the Alarmdruck (26.09.2026): the droplet it wore said water */}
-              <Icon id={lowPressure ? 'manometer' : 'gauge'} />
-              <span className="tb-az-name">{u.name}</span>
+              <Icon id={notfall ? 'warn' : lowPressure ? 'manometer' : 'gauge'} />
+              <span className="tb-az-name">{notfall ? `${appConfig.copy.atemschutz.notfall.title} · ${u.name}` : u.name}</span>
               {/* the clock ticks off the bar's own 1 Hz tick — the alarm state object stays
                   reference-stable between tier/Trupp transitions (App must not re-render per
                   second). A pressure alarm has no clock to tick: it shows the number. */}

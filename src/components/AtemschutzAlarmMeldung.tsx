@@ -109,6 +109,9 @@ export function atemschutzAlarmRows(
     if (severities[t.id] !== 2) continue
     const live = deriveTruppLive(t, now, intervalMin, graceSec)
     const { reason, line } = truppAlarm(t, live, intervalMin, graceSec, doctrine)
+    // a Trupp in a NOTFALL has its own row, above this one (AtemschutzNotfall · F1) — the same
+    // emergency must not stand twice on the strip under two different words
+    if (reason === 'notfall') continue
     if (reason === 'pressure') rows.push({ id: t.id, name: t.name, members: t.members, reason, bar: live.currentBar, line: line ?? undefined })
     // …anything else that is loud enough to sound is the contact clock: `truppAlarm` only ever
     // answers `pressure`, `contact` or null, and null cannot happen for a Trupp the fold rated 2.

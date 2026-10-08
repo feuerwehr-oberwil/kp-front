@@ -79,11 +79,13 @@ def _ms(iso: str | None) -> float | None:
 
 
 def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str, Any]]:
-    """Trupps at frontend tier 2: overdue contact or measured Alarmdruck.
+    """Trupps at frontend tier 2: an Atemschutznotfall, overdue contact or measured Alarmdruck.
 
-    Pressure wins when both reasons apply, matching ``truppAlarm``: a radio check cannot
-    resolve a crew at its Alarmdruck. The expected-pressure estimate is deliberately absent;
-    it remains a Planungshilfe and never raises an alarm.
+    A Notfall (``notfallAt`` set — F1, 08.10.2026) wins over both, in the field or not, matching
+    ``truppAlarm``: somebody HELD «Notfall» on that crew, and it ends only by «Notfall beendet».
+    Pressure wins over contact when both apply: a radio check cannot resolve a crew at its
+    Alarmdruck. The expected-pressure estimate is deliberately absent; it remains a
+    Planungshilfe and never raises an alarm.
 
     Only Trupps under Atemschutz are considered — see the ``kind`` gate in the loop.
     """
@@ -121,6 +123,11 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
         # field at all, and this mirrors ``isAtemschutzTrupp`` in lib/atemschutz.ts.
         if (t.get("kind") or "atemschutz") != "atemschutz":
             continue
+        # the Notfall FIRST (src/lib/atemschutz · truppInNotfall): set, and the card not removed
+        notfall_at = _ms(t.get("notfallAt"))
+        if notfall_at and not t.get("removedAt"):
+            out.append({"id": t.get("id"), "name": t.get("name") or "Trupp", "since": notfall_at, "reason": "notfall"})
+            continue
         entry = _ms(t.get("entryTime"))
         if not entry or t.get("status") in ("angemeldet", "raus") or t.get("exitTime"):
             continue
@@ -155,6 +162,10 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
 
 def _atemschutz_message(alert: dict[str, Any]) -> tuple[str, str]:
     """German OS-notification copy matching the frontend tier-2 notification."""
+    if alert["reason"] == "notfall":
+        # copy · atemschutz.notfall.notifyTitle — the body carries no clock time: the server does
+        # not know the station's time zone, and «seit» is on the card the tap opens
+        return f"Atemschutz-Notfall – {alert['name']}", "Notfall ausgelöst – Sicherungstrupp einsetzen."
     if alert["reason"] == "pressure":
         bar = f"{alert['bar']:g}"
         line = f"{alert['line']:g}"

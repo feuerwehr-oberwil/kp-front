@@ -12,7 +12,7 @@ import { newId } from './ids'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { truppEquipmentLabels } from './report'
 import { lineTakesTrupp, resolveLinkNumber, truppForLine, truppIdForAttachment, type LinkableLine, type TruppMarker } from './truppLines'
-import { alarmBarFor, currentRunStart, earlyEntryCorrection, isAtemschutzTrupp, truppAwaitsEntry, truppCrewWithout, truppLogName, truppTransferState } from './atemschutz'
+import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtemschutzTrupp, notfallFacts, notfallOffered, safetyReady, truppAwaitsEntry, truppCrewWithout, truppInNotfall, truppLogName, truppTransferState } from './atemschutz'
 // ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
 // (lib/serverClock). These are the safety clocks and the legal record: written device-local, a
 // tablet six seconds ahead put contact times into the Rapport that no other device agreed with,
@@ -286,6 +286,9 @@ interface Deps {
    *  every chip once, and every ghost trail — a deleted chip that left a Spur used its number).
    *  Absent: the chips of `entities` and `board` alone, as before. */
   counterNames?: () => (string | undefined)[]
+  /** WHERE a placed Trupp stands, in words — «M6 · 2. OG», «Karte · bei Hydrant» (IncidentWorkspace
+   *  knows the plans and the map). The Notfall's «letzter Ort» (F1). Absent: the Auftrag/Ziel only. */
+  placeOf?: (t: Trupp) => string | undefined
 }
 
 /**
@@ -296,7 +299,7 @@ interface Deps {
  * persistence blob + hydrate + multiple components) and are passed in.
  */
 export function useTruppActions(deps: Deps) {
-  const { trupps, drawings, entities, objects, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing, undoTimeline, liveTrupps, counterNames } = deps
+  const { trupps, drawings, entities, objects, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing, undoTimeline, liveTrupps, counterNames, placeOf } = deps
 
   /** The Verlauf row + audit event a step owes the record — append-only, so a correction is a NEW
    *  row and never a rewritten one. Icon 'undo' with kind 'team' lands the row under «Atemschutz»
@@ -1040,12 +1043,21 @@ export function useTruppActions(deps: Deps) {
      * FIRST Eintritt of this run — not from which button was pressed: the phone's «Einsetzen»
      * and the card's «Im Einsatz» put the same crew into the same building. */
     const safetyEntry = !!tr && status === 'aktiv' && !tr.entryTime && tr.auftrag === 'sichern' && isAtemschutzTrupp(tr)
-    const entryTpl = tr && !isAtemschutzTrupp(tr) ? az.logEntryNoAs : safetyEntry ? az.logSafetyEntry : az.logEntry
+    /* ⚠️ …and while a crew is in a NOTFALL, the row names WHOM it went in for and how long after
+     * the Notfall was raised (F1, 08.10.2026) — the one interval a reconstruction measures first.
+     * The longest-running Notfall when there are several (the one the alarm chip names too). */
+    const notfallFor = safetyEntry
+      ? trupps.filter((x) => x.id !== id && truppInNotfall(x)).sort((a, b) => Date.parse(a.notfallAt!) - Date.parse(b.notfallAt!))[0]
+      : undefined
+    const entryTpl = tr && !isAtemschutzTrupp(tr) ? az.logEntryNoAs : safetyEntry ? (notfallFor ? az.notfall.logSafetyEntry : az.logSafetyEntry) : az.logEntry
     const tpl = status === 'aktiv' ? (isResume ? az.logContinue : entryTpl)
       : status === 'rueckzug' ? az.logRueckzug
       : status === 'raus' ? (neverDeployed ? az.logNotDeployed : measuredExit ? az.logExitBar : az.logExit) : null
     const icon = status === 'raus' ? 'logout' : status === 'rueckzug' ? 'undo' : 'flag'
-    const line = tpl ? fillTemplate(tpl, { name: tr ? truppLogName(tr) : '', bar: exitBar ?? '' }) : null
+    const line = tpl ? fillTemplate(tpl, {
+      name: tr ? truppLogName(tr) : '', bar: exitBar ?? '',
+      ...(notfallFor ? { target: truppLogName(notfallFor), dur: fmtDuration(notfallFacts(notfallFor, Date.parse(now)).sinceSec) } : {}),
+    }) : null
     // ⚠️ `subjectId`: the row NAMES this Trupp without becoming a jump target — which is what lets
     // the Verlauf tell a repeated line from a second, real cycle (lib/verlauf · repeatRuns).
     if (line) log(icon, line, 'team', undefined, undefined, { subjectId: id })
@@ -1064,6 +1076,15 @@ export function useTruppActions(deps: Deps) {
      * Tafel too) — the confirm toast that used to double it went 09.09. with all the board's
      * popping confirmations. */
     const drop = remember(id, line ?? (tr ? truppLogName(tr) : ''), tr, apply)
+    /* A calm word when an Atemschutz-Trupp goes in and nobody stands ready to go in after it (F1,
+     * 08.10.2026). A toast, never a question: the Eintritt is already written, and a crew is not
+     * held at the door by an app. «Ready» is what the board models (lib/atemschutz · safetyReady):
+     * Auftrag «Sichern», under PA, angemeldet. Not for a Sicherungstrupp going in itself, nor on a
+     * re-entry after a Rückzug (that crew was inside all along). */
+    if (status === 'aktiv' && tr && !tr.entryTime && isAtemschutzTrupp(tr) && !safetyEntry
+      && safetyReady(trupps.filter((x) => x.id !== id)).length === 0) {
+      toast(az.notfall.noSafetyHint, { icon: 'info' })
+    }
     /* …with ONE exception, the card's own «Nicht eingesetzt» (owner review 26.09.2026): it is a
      * visible button again, and a one-shot that closes a Trupp gets the confirm-with-undo toast
      * (AGENTS.md). Its «Rückgängig» takes the step off the timeline and puts the Trupp back as it
@@ -1079,6 +1100,90 @@ export function useTruppActions(deps: Deps) {
       })
     }
   }
+  /**
+   * WHERE the record last saw this Trupp, in words — its Auftrag and Ziel, and the placed symbol's
+   * plan + storey or the Karte (`placeOf`). The Notfall's «letzter Ort» (F1): the banner, the
+   * Meldeleiste row and the Verlauf row all read it here, so they never name two places.
+   */
+  const truppPlace = (t: Trupp): string => [auftragText(t.auftrag, t.ziel), placeOf?.(t)].filter(Boolean).join(' · ')
+
+  /**
+   * «Notfall» — HELD on a Trupp that is inside (F1, 08.10.2026; AtemschutzView · NotfallHold).
+   *
+   * An Atemschutznotfall is said by a person — the crew calls it, the Überwacher hears it, a
+   * missing answer makes somebody decide — so it is a deliberate act, never a derived state: the
+   * hold (lib/nodeHold, the app's one deliberate hold) is the confirmation, and nothing else asks.
+   * What it writes, as ONE unit:
+   *   · `notfallAt` on the Trupp (the Notfall clock, on every device through the trupps slice),
+   *   · a `notfall` row in the Trupp's own log (the Atemschutz page of the Rapport),
+   *   · ONE Verlauf row with the facts as they stood at that second — last place, last Kontakt,
+   *     last reported Druck with its time, Funkkanal — so the record holds what the EL knew when
+   *     the Sicherungstrupp was sent, not what the card says later,
+   *   · an `atemschutz.notfall` audit event (the one prefix a Link-Tafel may send).
+   * ⚠️ Undoable like every Tafel act (↶, and the confirm-with-undo toast for the fast mistake):
+   * the Trupp goes back as it stood, the Verlauf keeps its row AND gets the counter-row — a
+   * mistaken trigger is cheap to take back and still on paper (AGENTS.md · undo).
+   */
+  const triggerNotfall = (id: string) => {
+    const tr = trupps.find((t) => t.id === id)
+    if (!tr || !notfallOffered(tr)) return
+    if (recorded.get(id) === 'notfall') return // the same hold twice inside one frame (see `recorded`)
+    recorded.set(id, 'notfall')
+    const now = serverNowIso()
+    const apply = (t: Trupp): Trupp => ({
+      ...t, notfallAt: now,
+      readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'notfall' }],
+    })
+    setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    const nf = appConfig.copy.atemschutz.notfall
+    const f = notfallFacts(tr, Date.parse(now))
+    const place = truppPlace(tr)
+    const facts = [
+      place && fillTemplate(nf.factPlace, { place }),
+      f.contactAt && fillTemplate(nf.factContact, { time: formatTime(new Date(f.contactAt)) }),
+      f.barAt ? fillTemplate(nf.factBar, { bar: f.bar, time: formatTime(new Date(f.barAt)) })
+        : f.bar > 0 ? fillTemplate(nf.factBarEntry, { bar: f.bar }) : '',
+      f.funkkanal != null && fillTemplate(nf.factKanal, { n: f.funkkanal }),
+    ].filter(Boolean)
+    const line = withDetails(fillTemplate(nf.logTrigger, { name: truppLogName(tr) }), facts.join(', '))
+    log('warn', line, 'team', undefined, undefined, { subjectId: id })
+    emit('atemschutz.notfall', { id })
+    const drop = remember(id, line, tr, apply)
+    const who = typeof tr.no === 'number' ? String(tr.no) : tr.name
+    undoToast(fillTemplate(nf.toast, { name: who }), () => {
+      drop()
+      if (!(liveTrupps?.() ?? trupps).some((x) => x.id === id)) return
+      recorded.delete(id)
+      setTrupps((ts) => ts.map((x) => (x.id === id ? keepCrewFiled(tr, x) : x)))
+      logStep('undo', line, id)
+    }, [recordKey('trupps', id)])
+  }
+
+  /**
+   * «Notfall beendet» — HELD too (F1): ending an emergency must cost the same deliberate act as
+   * raising one, and a brushed button that silences the loudest alarm in the app is the failure
+   * the hold exists to prevent. Writes the `notfallEnde` reading and ONE Verlauf row with the
+   * duration; the Trupp's status is untouched — whether the crew is out is its own report («Raus»).
+   * Undoable on the ↶ timeline: the Notfall comes back with its ORIGINAL clock.
+   */
+  const endNotfall = (id: string) => {
+    const tr = trupps.find((t) => t.id === id)
+    if (!tr || !truppInNotfall(tr)) return
+    if (recorded.get(id) === 'notfallEnde') return
+    recorded.set(id, 'notfallEnde')
+    const now = serverNowIso()
+    const apply = (t: Trupp): Trupp => {
+      const { notfallAt: _end, ...rest } = t
+      return { ...rest, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'notfallEnde' }] }
+    }
+    setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    const nf = appConfig.copy.atemschutz.notfall
+    const line = fillTemplate(nf.logEnd, { name: truppLogName(tr), dur: fmtDuration(notfallFacts(tr, Date.parse(now)).sinceSec) })
+    log('flag', line, 'team', undefined, undefined, { subjectId: id })
+    emit('atemschutz.notfallEnde', { id })
+    remember(id, line, tr, apply)
+  }
+
   // edit a Trupp's Auftrag / team mid-incident (job changed, moved floor, crew swapped). Never
   // touches the live CLOCK. Keeps the plan chip label in sync.
   //
@@ -1797,5 +1902,5 @@ export function useTruppActions(deps: Deps) {
     return out
   }
 
-  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, setTruppEquipment, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors }
+  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, setTruppEquipment, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors }
 }
