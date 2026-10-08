@@ -21,21 +21,21 @@
   .ap-btn-main:hover { background: var(--btn-primary-hover); }
 }
 .ap-skip { display: grid; place-items: center; line-height: 1; }
-.ap-skip small { font-size: 9px; font-weight: 800; margin-top: 1px; }
+.ap-skip small { font-size: 9px; font-weight: var(--fw-heavy); margin-top: 1px; }
 /* --r-sm like every other button (.ip-btn), NOT a 999px pill: «1×» and «Transkribieren» sit
    right beside square-cornered controls, and pills among rounded rectangles read as a
    different kind of control altogether. */
 .ap-speed { border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); padding: 10px 15px;
-  font: 800 13px var(--mono); color: var(--ink); cursor: pointer; min-height: var(--tap); }
+  font: var(--fw-heavy) 13px var(--mono); color: var(--ink); cursor: pointer; min-height: var(--tap); }
 .ap-time { margin-left: auto; text-align: right; }
-.ap-time strong { display: block; font-family: var(--mono); font-size: 21px; font-weight: 700; letter-spacing: -.01em;
+.ap-time strong { display: block; font-family: var(--mono); font-size: 21px; font-weight: var(--fw-bold); letter-spacing: -.01em;
   font-variant-numeric: tabular-nums; color: var(--ink); }
 .ap-time span { font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .ap-offline { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-dim); font-size: 13px; font-weight: 600; }
 .ap-offline .i { color: var(--amber); }
 .ap-add { flex: none; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2);
   padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-.ap-add-label { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; color: var(--ink); }
+.ap-add-label { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: var(--fw-heavy); color: var(--ink); }
 .ap-add-label .i { width: 13px; height: 13px; }
 .ap-add-label em { font-style: normal; font-family: var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; }
 .ap-add-row { display: flex; gap: 8px; }
@@ -54,7 +54,7 @@
 .ap-add-row input::placeholder { color: var(--ink-faint); }
 .ap-add-row input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 .ap-send { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-sm); background: var(--btn-primary);
-  color: var(--on-btn-primary); padding: 0 16px; font: inherit; font-size: var(--fs-1); font-weight: 800; cursor: pointer; }
+  color: var(--on-btn-primary); padding: 0 16px; font: inherit; font-size: var(--fs-1); font-weight: var(--fw-heavy); cursor: pointer; }
 .ap-send:disabled { opacity: var(--disabled); cursor: default; }
 .ap-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
   border-top: 1px solid var(--border-soft); padding-top: 10px; }
@@ -66,7 +66,7 @@
   .ap-row:hover { background: var(--fill-soft); }
 }
 .ap-row.current { background: color-mix(in srgb, var(--accent) 7%, transparent); }
-.ap-row.current .ap-row-t { color: var(--accent); font-weight: 700; }
+.ap-row.current .ap-row-t { color: var(--accent); font-weight: var(--fw-bold); }
 .ap-row-t { font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-faint); width: 38px; flex: none; font-variant-numeric: tabular-nums; }
 .ap-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .ap-dot-entry { background: var(--blue); }
@@ -76,14 +76,14 @@
 .ap-row-go { color: var(--ink-faint); width: 13px; height: 13px; flex: none; }
 /* STT: Transkribieren trigger + draft review (ghost entries the operator confirms) */
 .ap-stt-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--surface); color: var(--ink); padding: 8px 13px; font: inherit; font-size: var(--fs-1); font-weight: 700; cursor: pointer; flex: none; }
+  background: var(--surface); color: var(--ink); padding: 8px 13px; font: inherit; font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; flex: none; }
 .ap-stt-btn .i { width: 13px; height: 13px; }
 .ap-stt-note { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-dim); font-size: 13px; font-weight: 600; flex-wrap: wrap; }
 .ap-stt-note .i { width: 14px; height: 14px; flex: none; }
 /* a transcript that FAILED is broken, not a warning — red, per the colour rule */
 .ap-stt-failed .i { color: var(--red); }
 .ap-stt-retry { border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
-  padding: 5px 11px; font: inherit; font-size: var(--fs-1); font-weight: 700; cursor: pointer; }
+  padding: 5px 11px; font: inherit; font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
 .ap-stt { flex: none; display: flex; flex-direction: column; gap: 2px; }
 .ap-stt-bar { display: flex; align-items: center; gap: 10px; border-radius: var(--r-ctl); padding: 10px 12px;
   background: color-mix(in srgb, var(--amber) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
@@ -91,11 +91,11 @@
 .ap-stt-bar > .i { width: 14px; height: 14px; color: var(--amber); flex: none; }
 .ap-stt-bar span { flex: 1; min-width: 0; }
 .ap-stt-all { border: none; border-radius: var(--r-sm); background: var(--btn-primary); color: var(--on-btn-primary);
-  padding: 7px 13px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; flex: none; }
+  padding: 7px 13px; font: inherit; font-size: 12px; font-weight: var(--fw-bold); cursor: pointer; flex: none; }
 .ap-draft { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--r-sm); }
 /* in-progress = blue, the same answer the Zeitplan already gives for a running state.
    It is not a warning: nothing is wrong while a transcript is still being written. */
-.ap-draft-t { font-family: var(--mono); font-size: var(--fs-micro); color: var(--blue); width: 38px; flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ap-draft-t { font-family: var(--mono); font-size: var(--fs-micro); color: var(--blue); width: 38px; flex: none; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
 .ap-draft-play { width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px dashed color-mix(in srgb, var(--blue) 55%, transparent);
   background: none; color: var(--amber); display: grid; place-items: center; cursor: pointer; flex: none; }
 .ap-draft-play .i { width: 11px; height: 11px; }
@@ -140,7 +140,7 @@
 .ap-row-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* Abbrechen · Speichern under the transcript field. The two ways INTO the field are icon
    buttons up in the row itself (.jr-jump / .jr-jump-miss in 17-rapport.css). */
-.jr-transcript button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 6px 8px; font: inherit; font-size: var(--fs-1); font-weight: 700; cursor: pointer; }
+.jr-transcript button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 6px 8px; font: inherit; font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
 .jr-transcript button .i { width: 14px; height: 14px; }
 .jr-transcript textarea { width: min(420px, 100%); resize: vertical; border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); color: var(--ink); padding: 8px; font: inherit; font-size: 12px; }
 .jr-transcript textarea:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
@@ -152,7 +152,7 @@
 /* Mannschaft sync dialog */
 .psync-counts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .psync-counts li { display: flex; align-items: baseline; gap: 8px; border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 10px 12px; background: var(--surface-2); }
-.psync-counts b { font: 800 20px var(--mono); color: var(--ink); }
+.psync-counts b { font: var(--fw-heavy) 20px var(--mono); color: var(--ink); }
 .psync-counts span { font-size: 12px; color: var(--ink-dim); }
 /* the sentence left, the `OnOff` pair right (28.09.2026; it was a native checkbox) */
 .psync-stale { display: flex; gap: 14px; align-items: center; font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
@@ -304,7 +304,7 @@
   .jc-chip:hover { color: var(--ink); border-color: var(--ink-faint); }
 }
 /* THE choice fill (01-tokens · --sel), never --accent: --accent is the deployment's brand red */
-.jc-chip.on { color: var(--on-sel); font-weight: 700; background: var(--sel); border-color: var(--sel); }
+.jc-chip.on { color: var(--on-sel); font-weight: var(--fw-bold); background: var(--sel); border-color: var(--sel); }
 /* the three Arten carry their own colour ONCE CHOSEN — the same fill, in their tone (as the
    Suche's toned chips); an unchosen row stays uniform, so nothing on it competes with the text
    field above it */
@@ -344,12 +344,12 @@
 /* ⚠️ No `border-color` here: `.jc-phrase` sets `border: none` on purpose, so it would style
    nothing. The fill and the ink carry it. */
 .jc-phrase-starter { color: var(--blue-strong);
-  background: color-mix(in srgb, var(--blue) 10%, transparent); font-weight: 700; }
+  background: color-mix(in srgb, var(--blue) 10%, transparent); font-weight: var(--fw-bold); }
 
 /* the arrow chip — a suggestion like any other, but one character wide, so it needs its own
    minimum width or it reads as a stray mark rather than as a chip to tap. Ink of the text it
    writes (not amber, not blue): it inserts a word, it does not change what the entry is. */
-.jc-phrase-arrow { min-width: var(--tap); justify-content: center; font-size: 17px; font-weight: 700;
+.jc-phrase-arrow { min-width: var(--tap); justify-content: center; font-size: 17px; font-weight: var(--fw-bold);
   color: var(--ink); }
 .jc-phrase-pendenz { display: inline-flex; align-items: center;
   gap: 7px; padding: 6px 12px 6px 8px; color: var(--amber-strong);
@@ -526,7 +526,7 @@
    badge melted into it. The --surface ring stays to lift it off that fill. */
 .jc-due-badge { position: absolute; top: -7px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
-  font: 800 var(--fs-micro)/16px var(--body); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: center;
+  font: var(--fw-heavy) var(--fs-micro)/16px var(--body); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: center;
   box-shadow: 0 0 0 2px var(--surface); }
 /* the plain minute rows have no glyph, but they keep the ring's WIDTH — a menu whose labels start
    on two different axes reads as two lists (see .jc-menu-ring, the same slot) */
@@ -550,8 +550,8 @@
   padding: 0 8px 0 0; color: var(--ink); }
 .jc-mode-note .jc-ring { width: 17px; height: 17px; flex: none; border: 2px solid var(--amber-strong);
   border-radius: 50%; background: var(--amber-strong); box-shadow: inset 0 0 0 3px var(--surface); }
-.jc-mode-note b { flex: none; font-weight: 800; }
-.jc-mode-note em { flex: none; font-style: normal; font-weight: 700; color: var(--amber-strong); }
+.jc-mode-note b { flex: none; font-weight: var(--fw-heavy); }
+.jc-mode-note em { flex: none; font-style: normal; font-weight: var(--fw-bold); color: var(--amber-strong); }
 .jc-mode-note-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-weight: 600; color: var(--ink-dim); }
 /* …the title is «Meldung»; what it is about stays read-out size under the 17px title type */
@@ -583,7 +583,7 @@
 .tb-uhr-row .i { width: 18px; height: 18px; color: var(--ink-dim); flex: none; }
 .tb-uhr-lbl { font-size: 13px; font-weight: 600; flex: 1; }
 /* a reason under a row's word («Braucht Verbindung zum Server») — the row grows to hold it */
-.tb-uhr-note { display: block; font-size: 12px; font-weight: 500; color: var(--ink-faint); }
+.tb-uhr-note { display: block; font-size: 12px; font-weight: var(--fw-medium); color: var(--ink-faint); }
 .tb-uhr-row:has(.tb-uhr-note) { height: auto; min-height: 42px; padding-block: 6px; }
 .tb-uhr-val { font-family: var(--mono); font-size: var(--fs-1); color: var(--ink-dim); }
 .tb-uhr-row .tb-uhr-chk { width: 16px; height: 16px; color: var(--green); flex: none; visibility: hidden; }
@@ -591,7 +591,7 @@
 /* ERG response block inside the UN-hazard readout */
 .un-erg { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--glass-edge); }
 .un-erg-tih { margin-top: 4px; }
-.un-erg-n { display: block; font-size: var(--fs-micro); font-weight: 700; color: var(--ink-dim); margin-bottom: 2px; }
+.un-erg-n { display: block; font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink-dim); margin-bottom: 2px; }
 /* the Schutzabstand ring control (Aus/Klein/Gross) — label + segmented on one row. The
    13px matches the .un-haz-row keys above it; without it the label inherits the panel's
    base size and dwarfs the rest of the block (Feldtest Manuel, 08.09.). */

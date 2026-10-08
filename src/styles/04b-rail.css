@@ -57,7 +57,7 @@
    up with the glyphs below it; transparent, with an item-style hover. 46px row + 13.5px label,
    so «Einklappen» reads the same on both sidebars. */
 .rail-exp { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent;
-  border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700;
+  border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: var(--fw-bold);
   padding: 0; width: 100%; margin-bottom: 2px; transition: background .14s var(--ease), color .14s var(--ease); }
 .rail:not(.expanded) .rail-exp, .rail.dragging .rail-exp { justify-content: center; }
 @media (hover: hover) {

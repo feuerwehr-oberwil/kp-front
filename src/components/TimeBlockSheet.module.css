@@ -50,7 +50,7 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
    ever spoke to a pointer; an iPad never saw it. */
 .flip { margin-left: auto; flex: none; width: 14px; height: 14px; color: var(--ink-faint); }
 /* the number the operator used to work out in their head before sending somebody home */
-.duration { flex: none; font: 700 var(--fs-1) var(--mono); color: var(--ink-dim); }
+.duration { flex: none; font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink-dim); }
 
 /* the body: the two times as one pair, nothing else */
 .times { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px; padding: 11px 12px; }
@@ -66,7 +66,7 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 .open {
   display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 10px;
   border-radius: var(--r-ctl); background: color-mix(in srgb, var(--green) 16%, transparent);
-  font: 700 12px var(--body); font-style: normal; color: var(--green);
+  font: var(--fw-bold) 12px var(--body); font-style: normal; color: var(--green);
 }
 /* an editable end that has not happened yet: same green as an open stretch on the grid, but it is
    a field and behaves like one */
@@ -75,17 +75,17 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 .time :global(.timefield-trigger.tok-start) {
   background: color-mix(in srgb, var(--blue) 14%, transparent);
   border-color: color-mix(in srgb, var(--blue) 42%, transparent);
-  color: var(--blue-strong); font: 700 13px var(--body);
+  color: var(--blue-strong); font: var(--fw-bold) 13px var(--body);
 }
 .time :global(.timefield-trigger.tok-open) {
   background: color-mix(in srgb, var(--green) 16%, transparent);
   border-color: color-mix(in srgb, var(--green) 45%, transparent);
-  color: var(--green-strong); font: 700 13px var(--body);
+  color: var(--green-strong); font: var(--fw-bold) 13px var(--body);
 }
 .timeOpen :global(.timefield-trigger) {
   background: color-mix(in srgb, var(--green) 16%, transparent);
   border-color: color-mix(in srgb, var(--green) 45%, transparent);
-  color: var(--green-strong); font: 700 13px var(--body);
+  color: var(--green-strong); font: var(--fw-bold) 13px var(--body);
 }
 
 .del {
@@ -106,7 +106,7 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 
 .add { margin-top: 8px; gap: 6px; }
 
-.note { margin: 10px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
+.note { margin: 10px 0 0; font: var(--fw-medium) 12px var(--body); color: var(--ink-faint); }
 /* «Alles wird laufend gespeichert.» — where the footer's «Fertig» stood (29.09.2026) */
 .saved { display: flex; align-items: center; gap: 6px; margin: 14px 0 0; font: 600 12px var(--body); color: var(--ink-faint); }
 .saved :global(.i) { width: 14px; height: 14px; flex: none; color: var(--green-strong); }
@@ -125,5 +125,5 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 /* the read-only half: the record, shown but not editable here */
 .readOnly { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
 .readOnly li { display: flex; align-items: center; gap: 8px; }
-.readOnly b { font: 700 13px var(--mono); color: var(--ink); }
+.readOnly b { font: var(--fw-bold) 13px var(--mono); color: var(--ink); }
 .readOnly .open { min-height: 24px; padding: 0 8px; font-size: 10.5px; }

@@ -71,7 +71,7 @@
   position: sticky; left: 0; z-index: 3; flex: none;
   width: var(--name-w); display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 13px;
   min-height: var(--tap); text-align: left;
-  background: var(--board); font: 700 13.5px var(--body); color: var(--ink);
+  background: var(--board); font: var(--fw-bold) 13.5px var(--body); color: var(--ink);
   /* the whole name cell opens that person's own times, exactly as on the Zeitplan */
   border: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
@@ -141,11 +141,11 @@
 .band:disabled { cursor: default; }
 @media (hover: hover) { .band:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); } }
 .band:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.band b { font: 800 12px var(--body); color: var(--ink); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band b { font: var(--fw-heavy) 12px var(--body); color: var(--ink); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .band i { font: 600 10px var(--mono); font-style: normal; color: var(--ink-faint); }
 /* verfügbar / eingeteilt — the two numbers the Deckung curve exists for once time is continuous.
    They are the only figures on this grid, so they carry the state colours the cells below use. */
-.counts { display: inline-flex; gap: 6px; margin-top: 2px; font: 700 var(--fs-micro) var(--mono); }
+.counts { display: inline-flex; gap: 6px; margin-top: 2px; font: var(--fw-bold) var(--fs-micro) var(--mono); }
 /* --ink-dim, not --st-available: 45%-ink over the surface lands at about 3:1, which is not a digit
    read at 3am. The same call the Zeitplan's Deckung numbers made. */
 .cntAvailable { color: var(--ink-dim); }
@@ -183,7 +183,7 @@
   /* the BODY face, not the mono one: «verfügbar» is nine characters, and in mono at 10.5px that is
      57px inside a 65px cell — it fits the way a word fits a doorway. The proportional face brings
      it to ~48px and reads better besides. */
-  font: 700 10.5px var(--body); color: var(--ink-faint);
+  font: var(--fw-bold) 10.5px var(--body); color: var(--ink-faint);
 }
 .cell:disabled { cursor: default; }
 /* Hover DARKENS whatever the cell already is; it never repaints it. A single flat hover colour sat
@@ -219,7 +219,7 @@
   background-image: repeating-linear-gradient(45deg,
     color-mix(in srgb, currentColor 30%, transparent) 0 5px, transparent 5px 10px);
   /* a clock reading, so it keeps the mono face the rest of the surface uses for times */
-  font: 700 10px var(--mono);
+  font: var(--fw-bold) 10px var(--mono);
 }
 .cellAvailable.cellDeviating { border-style: dashed; }
 /* pressed: the wash stacks OVER the hatch instead of replacing it (.cell:active above would) */
@@ -238,12 +238,12 @@
 /* only from the fourth column, where the grid genuinely runs off the edge */
 /* the conflict notice already sits inside this surface's own padding */
 .conflictNotice { margin: 4px 0 6px; }
-.scrollHint { margin: 0; font: 500 12px var(--body); color: var(--ink-faint); }
+.scrollHint { margin: 0; font: var(--fw-medium) 12px var(--body); color: var(--ink-faint); }
 /* the empty state's own column. `.empty-state-act` is a row, which put the hint beside the button
    and folded «Erste Schicht definieren» onto three lines. */
 .emptyAct { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .emptyAct .ip-btn, .emptyAct :global(.ip-btn) { flex: none; }
-.emptyAxis { margin: 0; font: 500 12px var(--body); color: var(--ink-faint); text-align: center; }
+.emptyAxis { margin: 0; font: var(--fw-medium) 12px var(--body); color: var(--ink-faint); text-align: center; }
 
 /* ---- the band sheet ---------------------------------------------------------------- */
 
@@ -262,7 +262,7 @@
 .times { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px; margin-top: 16px; }
 .sep { align-self: center; padding-top: 14px; color: var(--ink-faint); font: 600 var(--fs-2) var(--mono); }
 .day { font: 600 10.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }
-.note { margin: 14px 0 0; font: 500 var(--fs-1) var(--body); color: var(--ink-faint); }
+.note { margin: 14px 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
 /* The desk end of the same trade the phone block below makes, and the same two steps the Zeitplan
    takes — the two readings of one Mannschaft must not disagree about how much of a name they show.
@@ -334,13 +334,13 @@
    stretch of clock, so the clock leads the line */
 .resolveList { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .resolveList li { display: flex; align-items: baseline; gap: 10px; }
-.resolveList b { min-width: 92px; font: 700 13.5px var(--mono); color: var(--ink); }
+.resolveList b { min-width: 92px; font: var(--fw-bold) 13.5px var(--mono); color: var(--ink); }
 .segWordAvailable { font: 600 13px var(--body); color: var(--ink-dim); }
 /* ⚠ the sheet is PORTALLED out of .bandgrid (Base UI Dialog.Portal), so the grid's own
    --st-planned never reaches it — «geplant» came out in plain ink and the bar's middle piece was
    invisible. Everything below this line names the global token as a fallback. */
-.segWordConfirmed { font: 700 13px var(--body); color: var(--st-planned, var(--ink)); }
-.resolveGap { font: 500 var(--fs-1) var(--body); color: var(--ink-faint); }
+.segWordConfirmed { font: var(--fw-bold) 13px var(--body); color: var(--st-planned, var(--ink)); }
+.resolveGap { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
 /* a range that differs at BOTH ends takes two lines rather than running out of a 56px cell */
 .cellLines { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
@@ -349,7 +349,7 @@
 .splitBox { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--r-ctl); background: var(--fill-soft); }
 .splitBox h4 { margin: 0 0 6px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .splitItem + .splitItem { margin-top: 8px; }
-.splitItem > b { font: 700 13px var(--mono); color: var(--ink); }
+.splitItem > b { font: var(--fw-bold) 13px var(--mono); color: var(--ink); }
 /* the bar. Each piece keeps enough width for the clock reading that hangs under its left edge;
    past that the BOX scrolls instead of the times being squeezed into something unreadable. */
 .splitBarBox { margin: 6px 0 0; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 16px; }
@@ -366,6 +366,6 @@
 /* the far end carries only its label; it is a tick, not a piece */
 .pieceEnd { flex: none; min-width: 0 !important; width: 0; }
 .pieceEnd em { left: auto; right: 0; }
-.splitLegend { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
+.splitLegend { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font: var(--fw-medium) 12px var(--body); color: var(--ink-faint); }
 .splitLegend i { width: 12px; height: 8px; border-radius: 2px; flex: none; }
 .splitLegend i + * { margin-right: 6px; }

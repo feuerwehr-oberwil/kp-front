@@ -27,7 +27,7 @@
 /* «no hits» is the shared `.no-hits` line; the way out sits under it, as quiet */
 .help-empty { padding: 26px 0 0; }
 .help-empty .no-hits { padding-bottom: 4px; }
-.help-empty-hint { margin: 0; text-align: center; font: 500 13px/1.45 var(--body); color: var(--ink-faint); }
+.help-empty-hint { margin: 0; text-align: center; font: var(--fw-medium) 13px/1.45 var(--body); color: var(--ink-faint); }
 
 .help-body { flex: 1 1 auto; min-height: 0; display: flex; }
 
@@ -47,14 +47,14 @@
 /* reduced motion: jump instead of glide (the smooth scroll is the only motion this pane owns) */
 @media (prefers-reduced-motion: reduce) { .help-content { scroll-behavior: auto; } }
 .help-sec { padding-top: 26px; scroll-margin-top: 12px; }
-.help-sec > h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: var(--fs-3); font-weight: 800; color: var(--ink); }
+.help-sec > h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: var(--fs-3); font-weight: var(--fw-heavy); color: var(--ink); }
 .help-sec > h3 .i { width: 19px; height: 19px; color: var(--blue); }
 .help-lead { margin: 0 0 12px; font-size: 13.5px; line-height: 1.55; color: var(--ink-dim); }
-.help-sub { margin: 18px 0 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
+.help-sub { margin: 18px 0 6px; font-size: 13px; font-weight: var(--fw-bold); color: var(--ink); }
 .help-list { margin: 4px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
 .help-list li { position: relative; padding-left: 18px; font-size: 13px; line-height: 1.5; color: var(--ink); }
 .help-list li::before { content: ""; position: absolute; left: 3px; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
-.help-list b { font-weight: 700; }
+.help-list b { font-weight: var(--fw-bold); }
 .help-kbd { font-family: var(--mono); font-size: 11.5px; background: var(--fill-soft); border: 1px solid var(--border); border-radius: var(--r-xs); padding: 1px 6px; color: var(--ink); white-space: nowrap; }
 .help-note { display: flex; gap: 10px; margin: 12px 0 2px; padding: 11px 13px; border-radius: var(--r-ctl); background: var(--fill-soft);
   border: 1px solid var(--border); font-size: var(--fs-1); line-height: 1.5; color: var(--ink-dim); }

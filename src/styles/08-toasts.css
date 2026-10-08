@@ -12,7 +12,7 @@
    (taps pass through), so it never blocks a control; amber to read as "not a real incident". */
 .demo-ribbon { position: fixed; top: calc(15px + env(safe-area-inset-top)); left: -36px; width: 132px; z-index: var(--z-ribbon); pointer-events: none;
   transform: rotate(-45deg); background: var(--amber); color: var(--on-fill);
-  text-align: center; padding: 3px 0; font-size: var(--fs-micro); font-weight: 800; letter-spacing: 2px;
+  text-align: center; padding: 3px 0; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: 2px;
   box-shadow: 0 1px 5px rgba(20, 28, 40, .35); }
 /* First-visit demo welcome modal (own scrim above the DEMO ribbon so it owns the screen). */
 .dw-scrim { z-index: var(--z-tool-card-scrim); padding: 12px; }
@@ -28,7 +28,7 @@
 /* (the DEMO tag is THE tag recipe, `.ip-badge .ip-badge-exercise`, 29.09.2026 — it was an
    amber-filled round pill in 800) */
 .dw-title { margin: 0; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 19) */
-.dw-intro { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--ink-dim); font-weight: 500; }
+.dw-intro { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* large reload caveat — the one thing a visitor must know (edits vanish on reload) */
 /* THE form warning, amber (`.form-warn`, 13-incident · 29.09.2026 — it wore a 45% amber border
    and a 22px glyph of its own); this only places it */
@@ -98,12 +98,12 @@
    glyph and the space beside them do nothing, and that narrowness is the point. */
 .ml-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px;
   align-self: center; text-align: left; }
-.ml-title { font: 700 13.5px var(--body); color: var(--ink); overflow: hidden;
+.ml-title { font: var(--fw-bold) 13.5px var(--body); color: var(--ink); overflow: hidden;
   /* ⚠️ WRAPS, up to two lines (three on a phone, below) — 3am test r2, 25.09.2026: one ellipsised
      line read «Atemschutz überfällig – 3 Trupps: Tst Chri», cutting exactly the names the row is
      about (and «Tst Domini…» on the 820px tablet). Past the clamp the ellipsis again. */
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
-.ml-sub { font: 500 var(--fs-1) var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ml-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* a row whose sentence IS the message (Meldung.wrap) — «Einsatz wurde auf einem anderen Gerät
    abgeschlossen (14:45)» must not lose its end to the ellipsis on a phone */
 .ml-row.wrap .ml-title, .ml-row.wrap .ml-sub { white-space: normal; overflow-wrap: anywhere; }
@@ -149,13 +149,13 @@
    .rb-btn sat at 42px — the due Wiedervorlage's own Erledigt / +10 min — and .dv-banner-x at 30. */
 .ml-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px;
   padding: 0 13px; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); font: 700 var(--fs-1) var(--body); white-space: nowrap; cursor: pointer; }
+  color: var(--ink-dim); font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap; cursor: pointer; }
 @media (hover: hover) {
   .ml-btn:hover { color: var(--ink); background: var(--surface); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); }
 }
 .ml-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ml-btn:disabled { opacity: var(--disabled); cursor: default; }
-.ml-btn.prim { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); font-weight: 800; }
+.ml-btn.prim { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); font-weight: var(--fw-heavy); }
 @media (hover: hover) {
   .ml-btn.prim:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); color: var(--on-btn-primary); }
 }
@@ -363,7 +363,7 @@
    button re-enables hits. The house quiet button on the pill's surface. It carries `.btn` too,
    whose hover paints --surface, so the pill-scoped rules below keep the fill. */
 .toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: 4px; padding: 6px 14px; min-height: var(--tap);
-  font: 700 var(--fs-1)/1.2 var(--body); color: var(--ink); border: none; border-radius: var(--r-msg-in);
+  font: var(--fw-bold) var(--fs-1)/1.2 var(--body); color: var(--ink); border: none; border-radius: var(--r-msg-in);
   background: var(--fill-soft); cursor: pointer;
   max-width: min(240px, 60vw); white-space: normal; overflow-wrap: break-word; }
 @media (hover: hover) {
@@ -409,12 +409,12 @@
   border: 1px solid var(--glass-edge); border-radius: var(--r-hero); padding: 22px 22px 16px; box-shadow: var(--shadow);
   animation: pop .16s var(--ease); }
 .confirm-title { margin: 0 0 8px; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 19) */
-.confirm-msg { margin: 0 0 10px; font: 500 13px/1.45 var(--body); color: var(--ink-dim); }
+.confirm-msg { margin: 0 0 10px; font: var(--fw-medium) 13px/1.45 var(--body); color: var(--ink-dim); }
 /* The open points, as a list. «Noch offen: Zeiten, Mittel, Einsatzleiter, Kurzbericht,
    Rückmeldung ELZ. Trotzdem abschliessen? …» was one paragraph — and the half of it somebody
    has to ACT on, item by item, sat in the middle of a sentence nobody reads to the end. */
 .confirm-list { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
-.confirm-list li { position: relative; padding-left: 15px; font: 700 13px/1.45 var(--body); color: var(--ink); }
+.confirm-list li { position: relative; padding-left: 15px; font: var(--fw-bold) 13px/1.45 var(--body); color: var(--ink); }
 .confirm-list li::before { content: ''; position: absolute; left: 3px; top: .62em; width: 4px; height: 4px;
   border-radius: 50%; background: var(--ink-faint); }
 /* a tappable open point (ConfirmItem): the row is the target — ≥44px, edge to edge — and the
@@ -424,12 +424,12 @@
 .confirm-list-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   width: 100%; min-height: 44px; padding: 0 10px 0 12px; border: 1px solid var(--border);
   border-radius: var(--r-sm); background: color-mix(in srgb, var(--ink) 4%, transparent);
-  font: 700 13px/1.3 var(--body); color: var(--ink); text-align: left; cursor: pointer; }
+  font: var(--fw-bold) 13px/1.3 var(--body); color: var(--ink); text-align: left; cursor: pointer; }
 .confirm-list-btn:active { background: color-mix(in srgb, var(--ink) 9%, transparent); }
 .confirm-list-chev { font-size: 18px; line-height: 1; color: var(--ink-faint); }
 /* …and the consequence AFTER them, where it reads as the answer to the list rather than as
    more of the same sentence */
-.confirm-note { margin: 0 0 18px; font: 500 var(--fs-1)/1.45 var(--body); color: var(--ink-faint); }
+.confirm-note { margin: 0 0 18px; font: var(--fw-medium) var(--fs-1)/1.45 var(--body); color: var(--ink-faint); }
 .confirm-msg:last-of-type:not(:only-of-type) { margin-bottom: 18px; }
 /* ⚠️ …and it WRAPS on a wide screen too (staging walk-through 25.09.2026, N22): three long
    answers («Trotzdem abschliessen · Zur Tafel · Abbrechen») pushed «Abbrechen» out past the
@@ -485,7 +485,7 @@
 .boot-splash { animation: none; overflow: hidden; }
 /* The firefighter snail's sizing and animation live in its SVG. Vite inlines the same source
    in the boot splash; components/SnailLoader uses it once React has mounted. */
-.loading-name { font-size: var(--fs-3); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+.loading-name { font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
 .loading-sub { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
 /* stalled-launch block: appears only after Splash's STUCK_MS, so it must fade in rather than
    pop, and it must never widen the centred card on a phone. */
@@ -587,7 +587,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); }
 .photo-view-head { display: flex; align-items: center; gap: 10px; }
 .photo-view-cap { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font: 700 13px var(--body); color: var(--ink); }
+  font: var(--fw-bold) 13px var(--body); color: var(--ink); }
 /* the download link is a BUTTON here — the global anchor underline made it read as body text */
 .photo-view-head .btn { flex: none; text-decoration: none; }
 /* the zoom frame clips; the image inside it is what moves (see lib/ui · PhotoZoom) */
@@ -646,7 +646,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    than half the panel drops under its own label) grow past it — min-height, not height. */
 .draw-editor { --de-h: 34px; } /* ONE control height for the whole panel — see below */
 .draw-editor .de-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-  gap: 4px 10px; min-height: 48px; padding: 2px 0; font-size: 13px; color: var(--ink-dim); font-weight: 500; }
+  gap: 4px 10px; min-height: 48px; padding: 2px 0; font-size: 13px; color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* ── ONE control height (01.09.) ─────────────────────────────────────────────────────────────
    The ROWS were already on a 48px rhythm; what was not on any rhythm were the controls inside
    them. A colour swatch was 30, a width/style button 38×34, a preset chip ~26, the Abschluss
@@ -682,7 +682,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .dh-color { border-color: var(--border); }
 .draw-editor .dh-color.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-tint-strong); }
 /* fill-transparency swatches (circle/area): the 0% option shows a ∅ on an empty chip */
-.de-fill { display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--ink-faint); line-height: 1; }
+.de-fill { display: grid; place-items: center; font-size: 13px; font-weight: var(--fw-bold); color: var(--ink-faint); line-height: 1; }
 .draw-editor .dh-width { background: var(--fill-soft); }
 .draw-editor .dh-width.on { background: var(--ink-tint); }
 .draw-editor .dh-width span { background: var(--ink); }
@@ -707,7 +707,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .de-action { display: flex; width: 100%; justify-content: flex-end; align-items: center;
   gap: 7px; min-height: 48px; padding: 2px 0;
   border: 0; background: transparent; color: var(--ink); font-size: var(--fs-1);
-  font-weight: 700; cursor: pointer; }
+  font-weight: var(--fw-bold); cursor: pointer; }
 .de-action .i { width: 16px; height: 16px; color: var(--ink-dim); }
 @media (hover: hover) {
   .de-action:hover { color: var(--blue); }

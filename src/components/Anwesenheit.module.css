@@ -41,7 +41,7 @@
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   cursor: pointer; min-height: var(--tap); min-width: var(--tap);
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
-  border-radius: var(--r-sm); padding: 0 13px; font: 700 var(--fs-1) var(--body);
+  border-radius: var(--r-sm); padding: 0 13px; font: var(--fw-bold) var(--fs-1) var(--body);
 }
 @media (hover: hover) { .reload:hover { color: var(--ink); border-color: var(--ink-faint); } }
 .reload:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -56,7 +56,7 @@
 /* the «Gast» badge's shape: it stands where a Dienstgrad would, so it wears RankBadge's chip
    (RankBadge.module.css · the Dienstgrad chip itself is that component, on every surface) */
 .rank {
-  flex: none; font: 800 10.5px var(--body); letter-spacing: .02em; color: var(--ink-dim);
+  flex: none; font: var(--fw-heavy) 10.5px var(--body); letter-spacing: .02em; color: var(--ink-dim);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   border-radius: 5px; padding: 2px 5px;
 }
@@ -114,7 +114,7 @@
   --row-act: 46px;
   display: flex; align-items: stretch; min-height: 46px;
   border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
-  overflow: hidden; font: 700 var(--fs-2) var(--body); color: var(--ink);
+  overflow: hidden; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink);
   transition: background .1s var(--ease), border-color .1s var(--ease);
 }
 @media (hover: hover) { .person:hover:has(.personMain:not(:disabled)) { border-color: var(--ink-faint); } }
@@ -194,7 +194,7 @@
   flex: none; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
   width: var(--row-act); padding: 0;
   border: none; border-left: 1px solid var(--glass-edge); background: none;
-  cursor: pointer; font: 700 11.5px var(--body); white-space: nowrap;
+  cursor: pointer; font: var(--fw-bold) 11.5px var(--body); white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
 .ort svg { width: 16px; height: 16px; flex: none; }
@@ -258,13 +258,13 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
    bearing one — it is both the confirmation (paper does not undo) and the check on whether the
    search + rank filter above are set the way you meant — so it is the size of a value, not of a
    caption. */
-.paperContent { margin: 0; font: 700 15px var(--body); color: var(--ink); }
-.paperHint { margin: 8px 0 0; font: 500 var(--fs-1) var(--body); color: var(--ink-faint); }
+.paperContent { margin: 0; font: var(--fw-bold) 15px var(--body); color: var(--ink); }
+.paperHint { margin: 8px 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
 /* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
 .horizon { flex: none; display: flex; align-items: center; gap: 6px; }
 .horizonLabel { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.horizonValue { min-width: 3.4rem; text-align: center; font: 700 var(--fs-1) var(--mono); color: var(--ink); }
+.horizonValue { min-width: 3.4rem; text-align: center; font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink); }
 /* «bis 18:01» — at a constant px-per-hour a wider window is pixel-identical, so this is the only
    visible answer to what widening it bought you */
 .horizonEnd { font: 600 11.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }

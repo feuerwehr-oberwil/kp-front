@@ -88,7 +88,7 @@
 .code {
   pointer-events: auto;
   user-select: text;
-  font: 400 var(--fs-micro) var(--mono);
+  font: var(--fw-regular) var(--fs-micro) var(--mono);
   letter-spacing: .02em;
   opacity: .7;
 }

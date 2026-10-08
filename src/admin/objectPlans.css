@@ -62,7 +62,7 @@
   font: inherit; color: inherit;
 }
 .aop-open:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.aop-name { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.aop-name { display: block; font-size: 13.5px; font-weight: var(--fw-bold); color: var(--ink); }
 .aop-addr { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ink-faint); }
 /* the only affordance the row still carries — it points where the press goes, it is not a
    second button; the whole row already is one */
@@ -77,7 +77,7 @@
 .aop-plans { min-width: 0; }
 .aop-codes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .aop-code {
-  white-space: nowrap; font-size: var(--fs-micro); font-weight: 700; color: var(--ink-dim);
+  white-space: nowrap; font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink-dim);
   padding: 2px 7px; border-radius: var(--r-xs);
   background: var(--surface-2); border: 1px solid var(--border-soft);
 }
@@ -90,7 +90,7 @@
    above it. The «Aktionen» column with its primary button per row is gone: three labels of three
    widths started at three different places down one column. What is left is affordance only. */
 .aop-plantable tr { height: 44px; }
-.aop-plan-name { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.aop-plan-name { font-size: 13.5px; font-weight: var(--fw-bold); color: var(--ink); }
 /* Modul and Plan share the slack; Status hugs its content. The last column is FIXED: the kebab's
    34px slot – held open even where there is no kebab – plus the chevron, so nothing shifts
    between rows and the affordance sits at the same right edge as the object list's. */

@@ -10,10 +10,10 @@
    side and 9px from the top, and no corner can run parallel to two different gaps. --r-bar is the
    buttons' corner plus exactly this gap (01-tokens · «ONE corner»). */
 
-.ename { font-weight: 700; font-size: 14.5px; white-space: nowrap; flex: none; }
+.ename { font-weight: var(--fw-bold); font-size: 14.5px; white-space: nowrap; flex: none; }
 /* address yields first: it ellipsises so a long title/address can never push the
    Lage/Plan toggle off-screen or overflow the bar */
-.eaddr { color: var(--ink-dim); font-size: var(--fs-1); font-weight: 500; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
+.eaddr { color: var(--ink-dim); font-size: var(--fs-1); font-weight: var(--fw-medium); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
 /* ⚠️ ONE gap in this bar, and no groups (22.09.2026): the hairlines went, then a wider «group
    gap» between pill · clock · actions · weather was tried in their place and read as holes. The
    bar's 8px is the same between every neighbour, and `.tb-actions` (10-journal.css) uses the

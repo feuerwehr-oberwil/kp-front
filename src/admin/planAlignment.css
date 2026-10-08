@@ -23,7 +23,7 @@
 /* page actions, so they wear the page's tap size – the shared `.btn` is padded for a field
    toolbar, where the bar itself gives the button its width */
 .adm-align-actions .btn { min-height: var(--tap); padding: 10px 16px; }
-.adm-align-actions .primary { font-size: var(--fs-2); font-weight: 800; }
+.adm-align-actions .primary { font-size: var(--fs-2); font-weight: var(--fw-heavy); }
 
 .adm-align-notice { padding: 12px 16px; font-size: var(--fs-1); color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
 /* The §-marker diagnosis in that same band: one line per fault, then the one sentence saying
@@ -162,7 +162,7 @@
   display: inline-flex; align-items: center; gap: 9px; max-width: min(88%, 74ch); padding: 9px 16px;
   border-radius: var(--r-pill); background: var(--ink-fill); color: var(--on-accent-ink);
   font: 600 var(--fs-1)/1.4 var(--body); text-align: center; box-shadow: var(--shadow-sm); }
-.adm-floors-hint.quiet { background: var(--surface); color: var(--ink-dim); border: 1px solid var(--border); font-weight: 500; }
+.adm-floors-hint.quiet { background: var(--surface); color: var(--ink-dim); border: 1px solid var(--border); font-weight: var(--fw-medium); }
 
 /* a floor's rectangle on the sheet, its index chip, and the join marks between two drawings */
 .adm-floors-box { position: absolute; border: 2px solid var(--blue-strong); background: color-mix(in srgb, var(--blue) 7%, transparent); border-radius: 3px; pointer-events: none; }
@@ -220,7 +220,7 @@
 /* the index chip: the one thing that says WHICH storey – and, on the open row, the one tap that
    says «this one is level 0» */
 .adm-floor-index { display: inline-flex; align-items: center; justify-content: center; flex: none; line-height: 1;
-  font: 700 var(--fs-2) var(--body); font-variant-numeric: tabular-nums; min-width: 40px; min-height: 40px; padding: 0 8px;
+  font: var(--fw-bold) var(--fs-2) var(--body); font-variant-numeric: tabular-nums; min-width: 40px; min-height: 40px; padding: 0 8px;
   border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); color: var(--ink); }
 button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: pointer; }
 .adm-floor-index.zero { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
@@ -239,7 +239,7 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
   border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--fill-soft); }
 .adm-floor-fit.on { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); background: color-mix(in srgb, var(--blue) 7%, var(--surface)); cursor: default; }
 .adm-floor-fit input { margin-top: 2px; }
-.adm-floor-fit b { display: block; font: 700 var(--fs-1) var(--body); }
+.adm-floor-fit b { display: block; font: var(--fw-bold) var(--fs-1) var(--body); }
 .adm-floor-fit small { display: block; margin-top: 3px; font-size: 11.5px; line-height: 1.4; color: var(--ink-dim); }
 .adm-floors .adm-floor-fit-note { margin: 0; padding: 10px 13px; border: 1px dashed var(--border); border-radius: var(--r-ctl); }
 /* one Geschoss out of several drawings (16.09.2026): the pieces are SMALL rows under the storey
@@ -247,7 +247,7 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 .adm-floor-parts { display: flex; flex-direction: column; gap: 4px; }
 .adm-floor-part { display: flex; align-items: stretch; gap: 4px; }
 .adm-floor-part-pick { flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  min-height: 34px; padding: 5px 10px; text-align: left; font: 500 12px var(--body); color: var(--ink);
+  min-height: 34px; padding: 5px 10px; text-align: left; font: var(--fw-medium) 12px var(--body); color: var(--ink);
   border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); cursor: pointer; }
 .adm-floor-part.on .adm-floor-part-pick { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); background: color-mix(in srgb, var(--blue) 7%, var(--surface)); }
 .adm-floors .adm-floor-part-x { flex: 0 0 auto; min-height: 34px; padding-inline: 8px; }
@@ -314,17 +314,17 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
   padding: 11px 22px; border-bottom: 1px solid var(--border); }
 .adm-editor-back { flex: 0 0 auto; }
 .adm-editor-titles { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.adm-editor-titles h3 { margin: 0; font: 700 var(--fs-3)/1.25 var(--body); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.adm-editor-meta { display: flex; gap: 6px; margin: 0; font: 500 11.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }
+.adm-editor-titles h3 { margin: 0; font: var(--fw-bold) var(--fs-3)/1.25 var(--body); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-editor-meta { display: flex; gap: 6px; margin: 0; font: var(--fw-medium) 11.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }
 .adm-editor-meta span + span::before { content: '· '; }
 .adm-editor-header-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; }
 .adm-editor-header-actions .adm-hint { margin: 0; }
 /* what this sheet IS: the badge, the fit's provenance in one word, and the ⓘ that holds the
    plan revision, the reference and what a Freigabe is worth */
 .adm-editor-state { display: flex; align-items: center; gap: 8px; flex: none; }
-.adm-editor-origin { font: 700 var(--fs-1) var(--body); color: var(--ink); white-space: nowrap; }
+.adm-editor-origin { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); white-space: nowrap; }
 /* «Freigabe zurücknehmen» – it belongs to the badge, not to what is being built, so it is quiet */
-.adm-plan-editor .adm-editor-quiet { border-color: transparent; background: transparent; color: var(--ink-dim); font-weight: 500; }
+.adm-plan-editor .adm-editor-quiet { border-color: transparent; background: transparent; color: var(--ink-dim); font-weight: var(--fw-medium); }
 .adm-plan-editor .adm-editor-quiet:hover:not(:disabled) { border-color: var(--border); color: var(--ink); }
 .adm-editor-header-actions .btn { flex: 0 0 auto; min-height: var(--tap); padding: 8px 16px; }
 /* the hairline that separates what this sheet IS from what may be done to it */

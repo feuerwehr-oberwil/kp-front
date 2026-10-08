@@ -42,19 +42,19 @@
    that is a loss, so it leads with the warn glyph in the warn colour, as a toast does */
 .wb-osm-warn :global(.i) { flex: none; width: 16px; height: 16px; color: var(--amber-strong); }
 .wb-osm-barhint { flex: 1 1 auto; min-width: 0; padding: 0 8px; }
-.wb-osm-clear, .wb-osm-take { border: none; cursor: pointer; font: 700 var(--fs-1) var(--body); border-radius: var(--r-msg-in);
+.wb-osm-clear, .wb-osm-take { border: none; cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); border-radius: var(--r-msg-in);
   min-height: var(--tap); padding: 0 14px; white-space: nowrap; transition: filter .14s var(--ease), background .14s var(--ease); }
 .wb-osm-clear { background: var(--fill-soft); color: var(--ink-dim); }
 @media (hover: hover) { .wb-osm-clear:hover { background: var(--border); color: var(--ink); } }
 .wb-osm-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the one action of the bar → the primary fill. It was red, and red never fills an action
    (AGENTS.md · buttons): «Übernehmen» destroys nothing. */
-.wb-osm-take { background: var(--btn-primary); color: var(--on-btn-primary); font-weight: 800; }
+.wb-osm-take { background: var(--btn-primary); color: var(--on-btn-primary); font-weight: var(--fw-heavy); }
 @media (hover: hover) { .wb-osm-take:hover { filter: brightness(1.06); } }
 .wb-osm-take:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-osm-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
   display: flex; flex-direction: column; align-items: center; gap: 12px;
-  font-family: var(--body); font-size: var(--fs-2); font-weight: 500; color: var(--ink-faint); pointer-events: none; }
+  font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-faint); pointer-events: none; }
 /* (the «Erneut laden» button is the shared <RetryButton> — RetryButton.module.css) */
 
 /* phones: lift the transfer bar above the stacked bottom bars — at bottom:26px it sat ON

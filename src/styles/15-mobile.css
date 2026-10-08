@@ -26,7 +26,7 @@
   display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
   border: none; border-radius: var(--r-pill); color: var(--ink);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
-  font: 700 15px var(--body); cursor: pointer; touch-action: none; user-select: none;
+  font: var(--fw-bold) 15px var(--body); cursor: pointer; touch-action: none; user-select: none;
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
 /* ⚠️ The FAB follows the THEME, not --btn-primary (20.09.2026, field report «flipped»). That token
    inverts at night on purpose – a form's one action needs an edge against the sheet it sits on
@@ -488,9 +488,9 @@
   /* ⚠️ also past the bar's ladder: its title step (fit-9) is the TABLET's last resort and hides
      `.ip-switch-title`; here the title is half of what the pill says and never goes */
   .ip-switch-two .ip-switch-title, .topbar.fit-9 .ip-switch-two .ip-switch-title {
-    display: block; max-width: 100%; font-size: 13.5px; font-weight: 700; }
+    display: block; max-width: 100%; font-size: 13.5px; font-weight: var(--fw-bold); }
   .ip-switch-clock { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;
-    font: 700 var(--fs-1)/1.1 var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+    font: var(--fw-bold) var(--fs-1)/1.1 var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
   .ip-switch-btn .ip-switch-clock svg { width: 12px; height: 12px; opacity: .8; }
   .topbar .ip-switch-two .ip-status { display: inline-flex; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */

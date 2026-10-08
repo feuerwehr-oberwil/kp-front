@@ -74,7 +74,7 @@
    an active filter is shown, for the reason above.
    ⚠️ AFTER .addBtn: same specificity, and .addBtn's fixed --tap width would otherwise win. */
 .wordBtn { width: auto; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px;
-  font: 700 13px var(--body); white-space: nowrap; }
+  font: var(--fw-bold) 13px var(--body); white-space: nowrap; }
 
 /* the dropdown each filter button opens */
 .menuPop {

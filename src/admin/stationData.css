@@ -42,7 +42,7 @@
   .adm-slot:hover { background: color-mix(in srgb, var(--blue) 4%, transparent); }
 }
 .adm-slot-id { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
-.adm-slot-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.adm-slot-title { font-size: 13px; font-weight: var(--fw-bold); color: var(--ink); }
 .adm-slot-state { min-width: 0; font-size: 12px; }
 .adm-slot-act { justify-self: end; }
 /* the row's own failure, spanning all three columns so it reads as one sentence */

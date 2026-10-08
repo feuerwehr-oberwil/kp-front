@@ -13,9 +13,9 @@
 .adm-ov-filing-row .adm-copychip { max-width: 360px; text-align: left; }
 /* the whole folder readable, wrapped — a cut-off path cannot be found in SharePoint */
 .adm-ov-filing-row .adm-copychip code { white-space: normal; overflow-wrap: anywhere; }
-.adm-ov-err { font: 500 var(--fs-1) var(--body); color: var(--red); }
+.adm-ov-err { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--red); }
 .adm-ov-none { color: var(--ink-faint); }
 
 /* «Benachrichtigung»: how many of an account's browsers can receive the push */
-.adm-ov-devices { font: 500 13px var(--body); color: var(--ink-dim); }
+.adm-ov-devices { font: var(--fw-medium) 13px var(--body); color: var(--ink-dim); }
 .adm-ov-devices.none { color: var(--ink-faint); }

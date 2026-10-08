@@ -5,7 +5,7 @@
   box-shadow: var(--shadow); }
 /* No entry animation — same story as .pop in MapViewsMenu.module.css: the `animation: panelIn`
    here never fired, and the panel is the answer to a question the operator just asked. */
-.mp-hint { text-align: center; font-size: var(--fs-1); font-weight: 500; color: var(--ink-dim); padding: 4px 0; }
+.mp-hint { text-align: center; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); padding: 4px 0; }
 .mp-stat-row { display: flex; gap: 18px; align-items: center; }
 /* …and when the row folds the Höhenprofil, the row IS the button: full width, the --tap floor,
    left-aligned like the readout it still is, and the app's own press wash. */
@@ -22,7 +22,7 @@
 .mp-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mp-k { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-micro); font-weight: 600; color: var(--ink-dim); }
 .mp-k :global(.i) { width: 12px; height: 12px; }
-.mp-v { font-family: var(--mono); font-size: 17px; font-weight: 700; color: var(--ink); letter-spacing: -.3px; }
+.mp-v { font-family: var(--mono); font-size: 17px; font-weight: var(--fw-bold); color: var(--ink); letter-spacing: -.3px; }
 .mp-v.up { color: var(--green); }
 .mp-v.down { color: var(--red); }
 .mp-prof-title { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
@@ -39,7 +39,7 @@
 .mp-chart-node.end { background: var(--blue); }
 .mp-chart-axis { position: relative; height: 16px; margin-top: 2px; }
 .mp-chart-tick { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
-  font: 700 10.5px var(--mono); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  font: var(--fw-bold) 10.5px var(--mono); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .mp-chart-tick.first { transform: none; left: 0 !important; }
 .mp-chart-tick.last { transform: none; left: auto !important; right: 0; }
 .mp-chart-fill { fill: color-mix(in srgb, var(--blue) 14%, transparent); stroke: none; }
