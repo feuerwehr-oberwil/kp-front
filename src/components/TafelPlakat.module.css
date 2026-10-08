@@ -1,0 +1,127 @@
+/* «Erstes Plakat (FKS)» — components/TafelPlakat.tsx (08.10.2026). The FKS «Erste Führung» A3
+   poster: header line, Problemerfassung (Front / Ordnung / Sanität / Spezialprobleme with a trend
+   each), Massnahmen, Mittel, Verbindungen, Absprachepunkte. Tokens only, so night follows. */
+
+.plakat { color: var(--ink); font-size: var(--fs-2); line-height: var(--lh-2); }
+
+/* ── on the Tafel: laid out at the design width, scaled with the paper, under the ink ── */
+.sheet {
+  position: absolute; left: 0; top: 0; transform-origin: 0 0;
+  box-sizing: border-box; padding: var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-2);
+}
+/* a drawing tool is armed: the pen writes over the poster, nothing on it takes the press */
+.passive, .passive * { pointer-events: none !important; }
+
+/* two lines: «Erste Führung» + title (+ bin), then the facts — the address gets room, not cut */
+.head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-2);
+  padding-bottom: var(--sp-2); border-bottom: 2px solid var(--ink);
+}
+.flag { width: 20px; height: 20px; flex: none; }
+.heading { font-size: var(--fs-4); line-height: var(--lh-4); font-weight: var(--fw-heavy); white-space: nowrap; }
+.head .headTitle { flex: 1 1 140px; font-weight: var(--fw-heavy); font-size: var(--fs-3); }
+.headBreak { flex: 0 0 100%; height: 0; }
+.head .headAddr { flex: 2 1 240px; font-weight: var(--fw-bold); }
+.head .headTime { flex: 0 0 56px; font-variant-numeric: tabular-nums; }
+.head .headEl { flex: 1 1 160px; }
+.headLabel { color: var(--ink-faint); font-size: var(--fs-1); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .04em; }
+.remove { margin-left: auto; color: var(--ink-dim); }
+/* on the sheet the bin keeps its 44 target but does not make the title line taller than its 32 */
+.sheet .remove { margin-block: calc((32px - var(--tap)) / 2); }
+
+.grid {
+  display: grid; gap: var(--sp-2);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas:
+    "front ordnung sanitaet"
+    "spezial mass mass"
+    "mittel verb abspr";
+  align-items: start;
+}
+.area_front { grid-area: front; }
+.area_ordnung { grid-area: ordnung; }
+.area_sanitaet { grid-area: sanitaet; }
+.area_spezial { grid-area: spezial; }
+.area_massnahmen { grid-area: mass; }
+.area_mittel { grid-area: mittel; }
+.area_verbindungen { grid-area: verb; }
+.area_absprachen { grid-area: abspr; }
+
+.box {
+  display: flex; flex-direction: column; gap: 0; min-width: 0;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-surface);
+}
+.h {
+  display: flex; align-items: baseline; gap: var(--sp-2); margin: 0 0 var(--sp-1);
+  font-size: var(--fs-1); line-height: var(--lh-1); font-weight: var(--fw-heavy);
+  text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim);
+}
+.count { margin-left: auto; color: var(--ink-faint); }
+
+.row { display: grid; align-items: center; gap: var(--sp-2); min-height: 32px; border-bottom: 1px solid var(--border-soft); }
+.rowProb { grid-template-columns: 32px minmax(0, 1fr) minmax(0, 72px); align-items: start; }
+.rowMass { grid-template-columns: minmax(0, 1fr) minmax(0, 150px) 64px 32px; }
+.rowTbl { grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr); }
+.rowAbs { grid-template-columns: 32px minmax(0, 1fr); }
+.thead { min-height: 24px; font-size: var(--fs-micro); line-height: var(--lh-micro); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-faint); }
+.rowNew .field::placeholder { color: var(--ink-28); }
+
+.field {
+  width: 100%; min-width: 0; box-sizing: border-box; height: 32px; padding: 0 var(--sp-1);
+  border: 0; border-radius: var(--r-xs); background: transparent; color: var(--ink);
+  font: inherit; font-weight: var(--fw-medium); text-overflow: ellipsis;
+}
+/* a problem's text wraps onto more lines (the textarea grows, Field) — the tag stays at the right
+   and the trend on the first line: 24 line + 2 × 4 = the 32 row */
+.field.multi {
+  display: block; height: auto; min-height: 32px; padding: var(--sp-1); line-height: 24px;
+  resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.field::placeholder { color: var(--ink-45); font-weight: var(--fw-regular); }
+.field:focus { outline: none; background: var(--fill-soft); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
+.field[readonly]:focus { background: transparent; box-shadow: none; }
+.row .grow { font-weight: var(--fw-bold); }
+.row .note { color: var(--ink-dim); font-size: var(--fs-1); text-align: right; }
+.row .doneText { color: var(--green-strong); }
+
+/* the small controls on a row: 32px on the scaled sheet (it zooms like paper), 44 in the list */
+.trend, .check { width: 32px; height: 32px; }
+.trend { font-size: var(--fs-3); font-weight: var(--fw-heavy); color: var(--ink-faint); }
+.trend[data-trend='up'] { color: var(--red); }
+.trend[data-trend='same'] { color: var(--ink-dim); }
+.trend[data-trend='down'] { color: var(--green); }
+.trendGap, .checkGap { width: 32px; }
+.tick { width: 14px; height: 14px; border: 1.5px solid var(--ink-45); border-radius: 50%; box-sizing: border-box; }
+.checked { color: var(--green-strong); }
+.check svg { width: 18px; height: 18px; }
+
+/* ── phone: the same fields in one column ─────────────────────────────────────────── */
+.list {
+  position: absolute; inset: 0; overflow-y: auto; z-index: 3;
+  box-sizing: border-box; padding: var(--sp-3) var(--sp-3) var(--sp-8);
+  background: var(--board-bg); display: flex; flex-direction: column; gap: var(--sp-3);
+  font-size: var(--fs-3); line-height: var(--lh-3);
+}
+.list .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: none; }
+.list .grid > * { grid-area: auto; }
+.list .field { height: var(--tap); }
+.list .trend, .list .check { width: var(--tap); height: var(--tap); }
+.list .trendGap, .list .checkGap { width: var(--tap); }
+.list .rowProb { grid-template-columns: var(--tap) minmax(0, 1fr) minmax(0, 88px); }
+.list .rowAbs { grid-template-columns: var(--tap) minmax(0, 1fr); }
+.list .rowMass { grid-template-columns: minmax(0, 1fr) minmax(0, 88px) 56px var(--tap); }
+.list .rowTbl { grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr); }
+.list .field.multi { height: auto; min-height: var(--tap); padding: var(--sp-2) var(--sp-1); line-height: 28px; }
+.list .head { padding-bottom: var(--sp-1); }
+.list .headBreak { display: none; }
+.list .head .headTitle, .list .head .headAddr { flex-basis: 100%; }
+/* the head on a phone: «Erste Führung» and the bin on one line, the facts under it */
+.list .flag { order: -3; }
+.list .heading { order: -2; }
+.list .remove { order: -1; }
+.list .head .headTitle { order: 0; }
+.list .headLabel { flex: 0 0 auto; }
+.list .head .headTime { flex: 0 0 56px; }
+.list .head .headEl { flex: 1 1 96px; }

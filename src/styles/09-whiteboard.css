@@ -410,6 +410,12 @@
    corner now — PlanCompass.module.css.) */
 /* blank writable sheet */
 .wb-board-blank { box-shadow: var(--e3), inset 0 0 0 1px var(--border-soft); }
+/* the empty Tafel's faint squared paper (08.10.2026): under the «Womit beginnen?» cards and the
+   «Erstes Plakat» — a grid that zooms with the sheet, in ink at 5 % so night follows */
+.wb-board-grid {
+  background-image: linear-gradient(var(--ink-5) 1px, transparent 1px), linear-gradient(90deg, var(--ink-5) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
   font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-faint); pointer-events: none; max-width: 70%; line-height: 1.4; }
 

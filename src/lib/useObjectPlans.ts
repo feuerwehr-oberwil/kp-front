@@ -230,6 +230,9 @@ export function useObjectPlans(
   bindingOpts?: PlanBindingOptions,
 ) {
   const [autoInfo, setAutoInfo] = useState<{ id?: string; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef>; name?: string; address?: string | null; pos?: LngLat | null; nearby?: { distanceM: number } | null }>({ plans: {}, titles: {}, datasets: {} })
+  // the few nearest objects themselves, for the empty Tafel's «Objekt wählen» card (08.10.2026) —
+  // the SAME answer the auto-surfacing reads, so the card costs no request of its own
+  const [nearObjects, setNearObjects] = useState<ObjectWithPlans[]>([])
   const [manualObject, setManualObject] = useState<{ id: string; name: string; address?: string | null; pos?: LngLat | null; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef> } | null>(null)
   const backendPlans = manualObject?.plans ?? autoInfo.plans
   const backendTitles = manualObject?.titles ?? autoInfo.titles
@@ -318,6 +321,7 @@ export function useObjectPlans(
       .then((objs) => {
         if (!alive) return
         const nearest = objs[0]
+        setNearObjects(objs.slice(0, 3))
         setAutoInfo(nearest
           ? {
             id: nearest.id,
@@ -465,5 +469,5 @@ export function useObjectPlans(
   // …with the object's id, so the plan surface can remember its banner per Einsatz and object
   const activeObjectNearby = manualObject || !autoInfo.nearby ? null : { ...autoInfo.nearby, objectId: autoInfo.id ?? '' }
   const plansSettled = autoSettled && (!pickedObjectId || manualObject?.id === pickedObjectId || manualSettledFor === pickedObjectId)
-  return { plansSettled, backendPlans, resolvedPlanDocs, effectiveBindings, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject }
+  return { nearObjects, plansSettled, backendPlans, resolvedPlanDocs, effectiveBindings, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject }
 }
