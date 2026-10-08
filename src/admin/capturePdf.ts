@@ -6,7 +6,7 @@
 import { jsPDF } from 'jspdf'
 import { toDataURL } from 'qrcode'
 import { appConfig } from '../config/appConfig'
-import { unitLabel } from '../lib/format'
+import { unitLabel, compareText } from '../lib/format'
 
 const A4 = { w: 210, h: 297 }
 const M = 14 // page margin (mm)
@@ -244,7 +244,7 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   // --- Material: two columns, label + amount stub, alphabetical (2026-07-18) -------------
   ensure(14)
   heading(C.sheetMaterial)
-  const mats = [...catalogue].sort((a, b) => a.label.localeCompare(b.label, 'de-CH'))
+  const mats = [...catalogue].sort((a, b) => compareText(a.label, b.label))
   // ⚠️ Amount and unit are two COLUMNS, as on the rapport (report_pdf · _mittel_table): as one
   // `______ Stk` string it was the unit that landed on the shared right edge, so every rule
   // began where its unit happened to start — «Stk» at one x, «Sack» at another, and a lone «l»

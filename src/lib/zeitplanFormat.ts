@@ -1,11 +1,10 @@
-import { appConfig } from '../config/appConfig'
-import { hhmm } from './format'
+import { hhmm, formatLocale } from './format'
 
 /** «Mo 27.07.» — the midnight tick on a multi-day Zeitplan axis. Over several days a bare
  *  «00:00» says nothing about WHICH night, and «Tag 2, 03:00» is a different decision from
  *  «heute, 03:00». */
 export function fmtDayShort(d: Date): string {
-  return d.toLocaleDateString(appConfig.locale, { weekday: 'short', day: '2-digit', month: '2-digit' })
+  return d.toLocaleDateString(formatLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' })
 }
 
 /** True when two instants fall on different calendar days (local time). */
@@ -57,8 +56,8 @@ export function fmtStartValue(startedAt: string, days: Date[]): string {
  * then the locale's own day.month.
  */
 export function fmtWheelDay(d: Date): string {
-  const wd = d.toLocaleDateString(appConfig.locale, { weekday: 'short' }).replace(/[.,]+$/, '')
-  return `${wd} ${d.toLocaleDateString(appConfig.locale, { day: '2-digit', month: '2-digit' })}`
+  const wd = d.toLocaleDateString(formatLocale(), { weekday: 'short' }).replace(/[.,]+$/, '')
+  return `${wd} ${d.toLocaleDateString(formatLocale(), { day: '2-digit', month: '2-digit' })}`
 }
 
 /** How far back the day column reaches when the caller names no days — an analog Einsatz entered

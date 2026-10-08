@@ -1915,6 +1915,8 @@ export const it: Localizable<Copy> = {
     ergTable3: 'vedi ERG tabella 3 (contenitore/vento)',
     ergDayShort: 'Giorno',
     ergNightShort: 'Notte',
+    ergSunrise: 'alba {t}',
+    ergSunset: 'tramonto {t}',
     dockedTo: 'Agganciato a «{name}»',
     dockedRelease: 'Sgancia',
     ergAdopt: 'Applica come perimetro',
@@ -4979,7 +4981,7 @@ export const it: Localizable<Copy> = {
     },
     journal: {
       quickPhrases: 'Frasi tipo',
-      quickPhrasesTip: 'Una riga per frase. Durante la scrittura nell\'editor della voce, le frasi corrispondenti appaiono come completamenti (ricerca fuzzy). Vuoto = le frasi standard fornite.',
+      quickPhrasesTip: 'Una riga per frase. Durante la scrittura nell\'editor della voce, le frasi corrispondenti appaiono come completamenti (ricerca fuzzy). Vuoto = le frasi standard fornite, che restano in tedesco; per frasi in italiano, inseriscile qui.',
     },
     report: {
       groupRounding: 'Ore d\'intervento – arrotondamento',

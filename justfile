@@ -56,6 +56,7 @@ init-env:
 # Check a deployment and say what is wrong with it, in plain language.
 [group('Operations')]
 doctor *args:
+    @bash scripts/dev-behind.sh
     bash scripts/doctor.sh {{args}}
 
 # (⚠️ DESTRUCTIVE — it drops the schema and refills the asset volume. Confirmation is the typed
@@ -212,15 +213,16 @@ ci: test-backend
 
 # (Uses its OWN database on the dev Postgres — the suite creates and drops the schema, so
 # pointing it at `kpfront` would take your dev data with it. `|| true` on the create: the
-# second run is a duplicate-database error and that is the normal case.)
+# second run is a duplicate-database error and that is the normal case. Four workers like CI,
+# each in its own kpfront_test_gwN; extra args go to pytest: `just test-backend -n 0 -x tests/test_x.py`.)
 # Backend tests on Postgres, the way CI runs them (not the SQLite fallback).
 [group('Quality')]
-test-backend:
+test-backend *args:
     docker compose -f docker-compose.dev.yml up -d --wait
     -docker compose -f docker-compose.dev.yml exec -T db psql -qU kpfront -d postgres \
       -c 'create database kpfront_test' 2>/dev/null
     cd backend && DATABASE_URL=postgresql+asyncpg://kpfront:kpfront@localhost:5434/kpfront_test \
-      uv run pytest -q
+      uv run pytest -q -n 4 {{args}}
 
 # (Scope is CI's: `.`, not `app tests` — alembic/ is lint-clean too, and code CI checks but you
 # don't is code that breaks on push rather than on save. Includes the format check.)
@@ -235,7 +237,17 @@ lint:
 [group('Quality')]
 test:
     pnpm test
-    cd backend && uv run pytest -q
+    cd backend && uv run pytest -q -n 4
+
+# (Vitest's own dependency graph: a test runs when it imports — directly or not — a file that
+# differs from origin/main, committed or not. The backend has no such graph; `--lf` reruns what
+# failed last, `-n 4` runs the whole suite in a few minutes. A first look, not a gate: `just ci`
+# before you push.)
+# Only the frontend tests your branch can have affected, then the backend tests that failed last.
+[group('Quality')]
+test-changed:
+    pnpm exec vitest run --changed origin/main
+    cd backend && uv run pytest -q --lf --lfnf=none || test $? -eq 5
 
 # (A measurement, not a gate — prints a report. Presets live in src/lib/fatIncident.ts; see
 # docs/testing/fat-incident.md for what the numbers mean and the last recorded run.)
@@ -269,6 +281,17 @@ perf-accept run-id:
 check:
     pnpm exec tsc --noEmit
     pnpm exec tsc -p tsconfig.e2e.json
+
+# (Read-only unless `--apply`. «Finished» = merged into origin/main, or its PR merged; a PR
+# closed unmerged only with `--closed`. `--apply` removes only what is clean (no change, no
+# untracked file, no ignored file outside the caches like node_modules), pushed, idle for 24 h,
+# and not a running process's cwd. `--keep 'p8-*'` protects a name; `--all` also lists what is
+# still in progress. Works on any repo — run it from a kp-rueck checkout too:
+# `python3 ../kp-front/scripts/wt_prune.py`.)
+# List finished worktrees and local branches — `--apply` removes the clean ones.
+[group('Development')]
+wt-prune *args:
+    python3 scripts/wt_prune.py {{args}}
 
 # --- Build & release  (tag a green main commit — see CHANGELOG.md) ------------
 
