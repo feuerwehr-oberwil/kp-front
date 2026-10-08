@@ -75,6 +75,12 @@
   .wb-osm-barwrap {
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); transform: none;
     bottom: var(--msg-lane-bottom); align-items: stretch; }
+  /* ⚠️ …and its two buttons fill that width (08.10.2026): they sat left-aligned at their words'
+     widths, an empty strip to their right. Owner pick A, as every phone sheet footer
+     (15-mobile · `.ui-sheet-foot`): the primary «Übernehmen» takes the rest of the row, «Auswahl
+     leeren» stays at its word's width — one row, one height. */
+  .wb-osm-take { flex: 1 1 auto; min-width: 0; }
+  .wb-osm-clear { flex: 0 0 auto; }
 }
 
 /* the Einsatzort on the picker — the Karte's target ring (07-toolrail · .map-incident), centred on

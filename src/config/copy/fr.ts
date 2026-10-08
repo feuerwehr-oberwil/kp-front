@@ -1732,6 +1732,7 @@ export const fr: Localizable<Copy> = {
     osmPickHint: 'Touchez un bâtiment, puis appliquez',
     osmPickHintReplace: 'Touchez un bâtiment, puis appliquez – cela remplace le bâtiment existant',
     osmPickHintAmend: 'Le bâtiment existant est en surbrillance – touchez-en d’autres pour les ajouter, puis appliquez',
+    osmPickHintHere: 'Le bâtiment du lieu d’intervention est marqué – vérifiez, puis appliquez.',
     osmPickMissing: 'Des contours du bâtiment existant manquent ici ({n}) – ils seront perdus à l’application.',
     osmTransfer: 'Appliquer ({n})',
     osmClear: 'Effacer la sélection',
