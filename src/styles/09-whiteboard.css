@@ -111,7 +111,7 @@
   background: var(--surface); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); cursor: pointer; white-space: nowrap; }
 .wb-nearby-switch:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-msg-in); cursor: pointer;
-  background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); display: grid; place-items: center; }
+  background: var(--ink-8); color: var(--ink-dim); display: grid; place-items: center; }
 .wb-nearby-x .i { width: 16px; height: 16px; }
 @media (max-width: 600px) {
   /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions */
@@ -193,9 +193,9 @@
 .pp-list { flex: 1 1 60%; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .pp-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid transparent;
   border-radius: var(--r-ctl); background: var(--surface-2); cursor: pointer; font-family: var(--body); text-align: left; color: var(--ink); }
-.pp-row.hover { background: var(--blue-8); border-color: color-mix(in srgb, var(--blue) 18%, transparent); }
+.pp-row.hover { background: var(--blue-8); border-color: var(--blue-16); }
 @media (hover: hover) {
-  .pp-row:hover { background: var(--blue-8); border-color: color-mix(in srgb, var(--blue) 18%, transparent); }
+  .pp-row:hover { background: var(--blue-8); border-color: var(--blue-16); }
 }
 .pp-row:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* a picked row is --sel-wash and nothing else (29.09.2026) — the blue ring on top was a second
@@ -225,7 +225,7 @@
 }
 .pp-pin:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .pp-pin.on { color: var(--blue); }
-.pp-pin-inc { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--red); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .4); }
+.pp-pin-inc { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--red); border: 2px solid #fff; box-shadow: var(--e1); }
 /* a fold control on a phone, so it sits on the --tap floor rather than the ~40px its padding
    happened to produce */
 .pp-maptoggle { display: none; margin: var(--sp-2) var(--sp-5) var(--sp-4); min-height: var(--tap); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
@@ -294,7 +294,7 @@
    via the canvas grid: now that the board's box grows past the viewport when
    zoomed, grid `place-items: center` mis-centers the oversized item, which broke
    zoom-to-cursor. The pan offset rides on top of the centering translate. */
-.wb-board { position: absolute; left: 50%; top: 50%; transform-origin: center center; will-change: transform; box-shadow: 0 6px 24px rgba(30, 45, 70, .18); background: var(--board-bg); }
+.wb-board { position: absolute; left: 50%; top: 50%; transform-origin: center center; will-change: transform; box-shadow: var(--e3); background: var(--board-bg); }
 /* (.wb-pdf-base / .wb-pdf-refine migrated → PdfViewport.module.css) */
 
 /* floor-stack ("Gebäude" doc) — a vertical stack of footprint sheets. Each tile
@@ -332,7 +332,7 @@
 .wb-floor-page { opacity: 1; }
 .wb-floor-noplan { font: var(--fw-medium) var(--fs-2) var(--body); fill: var(--ink-faint); }
 /* Preserve the drawing's footprint while Shell trail reports the pending raster. */
-.wb-floor-page-wait { fill: color-mix(in srgb, var(--ink) 4%, transparent); }
+.wb-floor-page-wait { fill: var(--ink-5); }
 .wb-floor-label { position: absolute; top: 8px; left: calc(var(--wb-floor-inset) - var(--wb-floor-plate-pad)); display: flex; align-items: center; gap: var(--sp-2); z-index: 1;
   flex-wrap: nowrap; white-space: nowrap;
   font-family: var(--body); font-weight: var(--fw-bold); font-size: var(--fs-2); line-height: 1; color: var(--ink-dim);
@@ -412,7 +412,7 @@
    topmost storey tile, so it panned and zoomed with the paper. It is a fixed chip in the viewport's
    corner now — PlanCompass.module.css.) */
 /* blank writable sheet */
-.wb-board-blank { box-shadow: 0 6px 24px rgba(30, 45, 70, .18), inset 0 0 0 1px var(--border-soft); }
+.wb-board-blank { box-shadow: var(--e3), inset 0 0 0 1px var(--border-soft); }
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
   font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-faint); pointer-events: none; max-width: 70%; line-height: 1.4; }
 
@@ -448,7 +448,7 @@
    its own paper the way the map's 180px-capped pill could — it just gets wide, which is what
    «Einzeilig» means. `break-word` still guards the box variant below. */
 .wb-text-label, .wb-text-input { font-family: var(--body); font-weight: var(--fw-medium); color: var(--note-ink);
-  background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 0.6em; padding: 0.38em 0.7em; box-shadow: 0 4px 10px rgba(30, 45, 70, .2); white-space: nowrap; overflow-wrap: break-word; }
+  background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 0.6em; padding: 0.38em 0.7em; box-shadow: var(--e2); white-space: nowrap; overflow-wrap: break-word; }
 .wb-text-input { outline: none; min-width: 7em; }
 /* text BOX (a note with a width): wraps and grows downwards. The width is set inline in px
    (wN × plan width), so it scales with the plan exactly like the font-size does. `pre-wrap`
@@ -467,7 +467,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    accent cap, time badge and selection ring all read from one source */
 .wb-resource-pill { --team: var(--blue); display: inline-flex; align-items: center; gap: 8px; background: var(--surface);
   border: 1px solid var(--border); border-radius: var(--r-ctl); padding: var(--sp-1) var(--sp-2);
-  box-shadow: 0 4px 12px rgba(30, 45, 70, .22); white-space: nowrap; }
+  box-shadow: var(--e2); white-space: nowrap; }
 /* name on top, the team timer stacked BELOW it (was inline) */
 .wb-resource-body { display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); min-width: 0; }
 .wb-resource-name { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
@@ -479,7 +479,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-resource-time { font-family: var(--mono); font-style: normal; font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--on-accent-ink);
   background: var(--team); border-radius: var(--r-xs); padding: 2px var(--sp-2); }
 /* selection now reads as a coloured ring (in the team's own colour) + lift */
-.wb-anno.sel .wb-resource-pill { box-shadow: 0 0 0 2px var(--team), 0 6px 16px rgba(30, 45, 70, .28); }
+.wb-anno.sel .wb-resource-pill { box-shadow: 0 0 0 2px var(--team), var(--e2); }
 /* a Trupp marked «raus» (Atemschutz board): dim the chip + strike the name, and show a
    small grey raus tag so the plan reflects that the team is out. «raus» is GONE, not disabled:
    the ONE done dim (01-tokens · --done-opacity, 28.09.2026 — it was .5 plus a greyed name) */
@@ -607,7 +607,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    wears the quiet status tone; amber and red belong to a clock running out and must never turn
    up on a picker. Same mark, same tone, as the Trupp-Suche's row (TruppFinder.module.css). */
 .wb-trupp-as { flex: none; font: var(--fw-heavy) var(--fs-micro) var(--body); padding: 2px var(--sp-2); border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--blue) 13%, transparent); color: var(--blue); }
+  background: var(--blue-12); color: var(--blue); }
 /* already placed on this surface: visible (so you can see WHY it is not offered) but inert —
    picking it would move the existing marker, not add a second one */
 .wb-trupp-opt.placed { opacity: var(--disabled); cursor: default; }
@@ -621,24 +621,24 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* team trail breadcrumbs — counter-scaled dot centred on the point, with the
    timestamp floated beside it (absolute, so it doesn't shift the dot off-point) */
 .wb-trail-dot { position: absolute; left: 0; top: 0; transform-origin: 0 0; z-index: 2; pointer-events: none; }
-.wb-trail-mark { display: block; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(15, 22, 34, .4); }
+.wb-trail-mark { display: block; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #fff; box-shadow: var(--e1); }
 .wb-trail-dot i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-style: normal;
   font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink); background: var(--label-bg); border-radius: var(--r-xs); padding: 1px var(--sp-1);
-  white-space: nowrap; box-shadow: 0 1px 3px rgba(15, 22, 34, .25); }
+  white-space: nowrap; box-shadow: var(--e1); }
 /* the same breadcrumbs on the Lage map — the MapLibre Marker centres the dot on the coord,
    so only the floating timestamp needs positioning (shares .wb-trail-mark for the dot) */
 .map-trail-dot { position: relative; pointer-events: none; }
 .map-trail-dot i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-style: normal;
   font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink); background: var(--label-bg); border-radius: var(--r-xs); padding: 1px var(--sp-1);
-  white-space: nowrap; box-shadow: 0 1px 3px rgba(15, 22, 34, .25); }
+  white-space: nowrap; box-shadow: var(--e1); }
 /* a selected team marker on the map rings its pill like the plan board's selection */
-.marker.sel .wb-resource-pill { box-shadow: 0 0 0 2px var(--team), 0 6px 16px rgba(30, 45, 70, .28); }
+.marker.sel .wb-resource-pill { box-shadow: 0 0 0 2px var(--team), var(--e2); }
 /* resting team marker — compact team-coloured dot + name; the full pill only on selection */
 .team-dot { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .team-dot i { width: 13px; height: 13px; border-radius: 50%; background: var(--team);
-  border: 2px solid #fff; box-shadow: 0 1px 3px rgba(15, 22, 34, .4); flex: none; }
+  border: 2px solid #fff; box-shadow: var(--e1); flex: none; }
 .team-dot b { font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink); background: var(--label-bg);
-  border-radius: var(--r-xs); padding: 1px var(--sp-1); white-space: nowrap; box-shadow: 0 1px 3px rgba(15, 22, 34, .25); }
+  border-radius: var(--r-xs); padding: 1px var(--sp-1); white-space: nowrap; box-shadow: var(--e1); }
 .team-dot.raus { opacity: var(--done-opacity); }
 .team-dot.raus b { text-decoration: line-through; }
 .wb-resource-input { border: none; outline: none; background: var(--blue-8); border-radius: var(--r-xs); font-family: var(--body);
@@ -668,7 +668,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* draw style picker (floats over canvas bottom) */
 .wb-style-sep { width: 1px; height: 22px; background: rgba(255, 255, 255, .2); }
 .wb-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); cursor: pointer; padding: 0; }
-.wb-sw.on { border-color: var(--on-accent-ink); box-shadow: 0 0 0 2px rgba(255, 255, 255, .6); }
+.wb-sw.on { border-color: var(--on-accent-ink); box-shadow: 0 0 0 2px color-mix(in srgb, var(--on-accent-ink) 60%, transparent); }
 .wb-sw:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-ww { width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); border: none; border-radius: var(--r-sm); cursor: pointer; }
 .wb-ww.on { background: rgba(255, 255, 255, .3); }
@@ -835,7 +835,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    draggable (labelDx/labelDy) to nudge it off the ink */
 .wb-line-label { position: absolute; padding: 2px var(--sp-2); border-radius: var(--r-xs); font-size: var(--fs-micro); font-weight: var(--fw-bold);
   text-align: center; line-height: 1.25; white-space: nowrap; background: var(--surface); color: var(--ink);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .25); touch-action: none; }
+  box-shadow: var(--e1); touch-action: none; }
 /* area (Sektor/Abschnitt) label — sits at the polygon centroid; may wrap, unlike a line label */
 .wb-area-label { white-space: normal; max-width: 42%; }
 /* plan-side wrapper for FKS line decorations (fork / content chip / number badge) in board px */
@@ -1048,7 +1048,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    Dashed + hollow like the map's .measure-insert: one look for «here could be a node». */
 .wb-vins { position: absolute; z-index: 6; width: 20px; height: 20px; border-radius: 50%; padding: 0; display: grid; place-items: center;
   background: var(--surface); border: 2px dashed var(--blue); color: var(--blue); cursor: pointer; touch-action: none; opacity: .72;
-  box-shadow: 0 1px 3px rgba(30, 45, 70, .18); }
+  box-shadow: var(--e1); }
 .wb-vins::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) {
   .wb-vins:hover { opacity: 1; }

@@ -52,7 +52,7 @@
   position: absolute;
   inset: -9px;
   border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--ink) 35%, transparent);
+  border: 2px solid var(--ink-28);
   background: color-mix(in srgb, var(--surface) 35%, transparent);
 }
 .badge {
@@ -98,7 +98,7 @@
   padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
   border-radius: var(--r-ctl);
   background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--blue) 52%, transparent);
+  border: 1px solid var(--blue-45);
   box-shadow: var(--e4);
   animation: georefIn .16s var(--ease);
 }
@@ -265,7 +265,7 @@
 .popActs button:active { background-image: linear-gradient(var(--press), var(--press)); }
 .popActs svg { width: 15px; height: 15px; flex: none; }
 /* red never fills — it marks the destructive choice apart from the harmless one beside it */
-.popWarn { color: var(--red-strong); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.popWarn { color: var(--red-strong); border-color: var(--del-edge); }
 .popActs button.popWarn { color: var(--red-strong); }
 /* how an OPEN half becomes a pair by hand — one quiet line, only where it applies */
 .popHint {
@@ -470,7 +470,7 @@
 .transferRow:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .transferRow:disabled { opacity: var(--disabled); cursor: default; }
 .transferIcon { width: 34px; height: 34px; flex: none; display: grid; place-items: center;
-  border-radius: var(--r-sm); color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
+  border-radius: var(--r-sm); color: var(--blue); background: var(--blue-12); }
 .transferIcon svg, .transferRow > svg { width: 17px; height: 17px; }
 .transferName { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .transferName b { font: var(--fw-bold) var(--fs-2) var(--body); }
@@ -560,7 +560,7 @@
   .surfaceSwitch button svg { width: 16px; height: 16px; }
   .surfaceSwitch button span {
     min-width: 20px; padding: 1px var(--sp-1); border-radius: var(--r-pill);
-    background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink-dim);
+    background: var(--ink-8); color: var(--ink-dim);
     font: var(--fw-bold) var(--fs-micro)/1.4 var(--body);
   }
     /* the chosen half is THE choice fill, as every Segmented (01-tokens · --sel) — it was a white
@@ -629,9 +629,9 @@
 .stepNow svg { color: var(--ink); }
 .stepDone { color: var(--ink-dim); }
 .stepDot { flex: none; width: 7px; height: 7px; margin: 0 4px;
-  border-radius: 50%; background: color-mix(in srgb, var(--ink) 18%, transparent); }
+  border-radius: 50%; background: var(--ink-16); }
 .stepBar { display: block; height: 4px; margin: var(--sp-2) var(--sp-1) 2px 0; border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--blue) 14%, transparent); overflow: hidden; }
+  background: var(--blue-16); overflow: hidden; }
 .stepBar > span { display: block; height: 100%; border-radius: var(--r-pill);
   background: var(--blue); transition: width .35s var(--ease); }
 

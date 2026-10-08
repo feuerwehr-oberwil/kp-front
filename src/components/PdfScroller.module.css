@@ -61,7 +61,7 @@
 .zoomed { width: max-content; min-width: 100%; }
 .page {
   display: block;
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--e3);
   border-radius: 2px;
   /* no max-width: a zoomed page is WIDER than the column on purpose and scrolls sideways */
 }
