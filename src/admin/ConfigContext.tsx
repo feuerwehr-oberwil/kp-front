@@ -27,26 +27,27 @@ import {
 // `{"0": 8.1148}`, where the API requires a list (schemas.py · MapDefaultView), and because the
 // PUT replaces the WHOLE document that one 422 also refused every other section's edits.
 function setPath(obj: DeploymentConfig, path: (string | number)[], val: unknown): DeploymentConfig {
-  const next: any = Array.isArray(obj) ? [...obj] : { ...obj }
+  type Node = Record<string | number, unknown>
+  const next = (Array.isArray(obj) ? [...obj] : { ...obj }) as Node
   let cur = next
   for (let i = 0; i < path.length - 1; i++) {
     const k = path[i]
     const child = cur[k]
     cur[k] = child == null
       ? (typeof path[i + 1] === 'number' ? [] : {})
-      : Array.isArray(child) ? [...child] : { ...child }
-    cur = cur[k]
+      : Array.isArray(child) ? [...child] : { ...(child as Node) }
+    cur = cur[k] as Node
   }
   cur[path[path.length - 1]] = val
-  return next
+  return next as DeploymentConfig
 }
 
 /** Read a nested path (undefined-safe). */
 export function getPath<T = unknown>(obj: unknown, path: (string | number)[]): T | undefined {
-  let cur: any = obj
+  let cur: unknown = obj
   for (const k of path) {
     if (cur == null) return undefined
-    cur = cur[k]
+    cur = (cur as Record<string | number, unknown>)[k]
   }
   return cur as T | undefined
 }
