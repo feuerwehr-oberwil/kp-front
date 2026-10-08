@@ -59,3 +59,37 @@ export function solarElevationDeg([lng, lat]: Coord, date: Date): number {
 export function isDaytime(coord: Coord | null | undefined, date: Date): boolean {
   return solarElevationDeg(coord ?? FALLBACK_COORD, date) > HORIZON_DEG
 }
+
+export interface SunEdge {
+  kind: 'sunrise' | 'sunset'
+  at: Date
+}
+
+const MIN_MS = 60_000
+const STEP_MS = 10 * MIN_MS
+
+/** The most recent sunrise or sunset at `coord` before `date`: whichever horizon crossing put
+ *  the sky in its current state. Null when the sun has not crossed the horizon within the last
+ *  24 h (polar day or night). Steps back in 10-min strides, then bisects to the minute, so it
+ *  costs ~150 elevation evaluations. Call it for a label, not per map feature. */
+export function lastSunEdge(coord: Coord | null | undefined, date: Date): SunEdge | null {
+  const c = coord ?? FALLBACK_COORD
+  const up = (t: number) => solarElevationDeg(c, new Date(t)) > HORIZON_DEG
+  const now = date.getTime()
+  const day = up(now)
+  let later = now
+  for (let earlier = now - STEP_MS; earlier >= now - 86_400_000; earlier -= STEP_MS) {
+    if (up(earlier) !== day) {
+      // the crossing lies in (earlier, later]: bisect to the minute
+      let lo = earlier, hi = later
+      while (hi - lo > MIN_MS) {
+        const mid = lo + (hi - lo) / 2
+        if (up(mid) === day) hi = mid
+        else lo = mid
+      }
+      return { kind: day ? 'sunrise' : 'sunset', at: new Date(Math.round(hi / MIN_MS) * MIN_MS) }
+    }
+    later = earlier
+  }
+  return null
+}

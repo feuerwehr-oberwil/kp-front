@@ -1923,6 +1923,8 @@ export const en: Localizable<Copy> = {
     ergTable3: 'see ERG table 3 (container/wind)',
     ergDayShort: 'Day',
     ergNightShort: 'Night',
+    ergSunrise: 'sunrise {t}',
+    ergSunset: 'sunset {t}',
     dockedTo: 'Docked to «{name}»',
     dockedRelease: 'Release',
     ergAdopt: 'Apply as cordon',
@@ -5229,7 +5231,7 @@ export const en: Localizable<Copy> = {
     },
     journal: {
       quickPhrases: 'Phrase snippets',
-      quickPhrasesTip: 'One line per snippet. While typing in the entry editor, matching snippets appear as completions (fuzzy search). Empty = the shipped default snippets.',
+      quickPhrasesTip: 'One line per snippet. While typing in the entry editor, matching snippets appear as completions (fuzzy search). Empty = the shipped default snippets, which stay in German; for English ones, enter them here.',
     },
     report: {
       groupRounding: 'Deployment hours — rounding',

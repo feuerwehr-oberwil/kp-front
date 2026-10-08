@@ -5,14 +5,17 @@
 // render, so they follow the marker, vanish with it, and can never drift out of sync the way a
 // hand-drawn Absperrkreis does. They ride the placard's own layer, so hiding «taktisch» hides
 // them too. ⚠️ Like the panel's ERG block they are a Planungshilfe (AGENTS.md 3am rule): the
-// assumptions — first TIH row, day window, circles where the ERG means downwind corridors —
-// are named here and surfaced next to the control in the ContextPanel, not hidden.
+// assumptions — first TIH row, day or night by the sun at the placard, circles where the ERG
+// means downwind corridors — are named here and surfaced next to the control in the
+// ContextPanel, not hidden.
 
 import type { Entity, PreparedMapOverlay } from '../types'
 import { appConfig } from '../config/appConfig'
 import { lookupErg, type ErgTihRow } from './erg'
 import { UN_CAPABLE } from './symbols'
 import { doneOf } from './objectDone'
+import { isDaytime, lastSunEdge, type Coord } from './daylight'
+import { fillTemplate, formatTime } from './format'
 
 /** The per-placard mode (SymbolProps.ergRings). Absent = 'small': the whole point is that the
  *  rings appear WITHOUT anybody drawing them, and the small-spill pair is the conservative
@@ -32,12 +35,25 @@ export function parseErgDistance(value: string | undefined): number | null {
   return m[2] === 'km' ? Math.round(n * 1000) : Math.round(n)
 }
 
-/** ERG protective distances split at sunrise/sunset; without an ephemeris the day window is the
- *  07–19 h approximation. The panel shows both values regardless, so the assumption costs a
- *  reader nothing but a glance. */
-export function isErgDay(now: Date): boolean {
-  const h = now.getHours()
-  return h >= 7 && h < 19
+/** ERG protective distances split at sunrise/sunset, so the day/night pick asks the sun at the
+ *  placard (lib/daylight, NOAA model; no coordinate → the national fallback). A clock window
+ *  (07–19 h until 08.10.2026) drew the day ring on a December evening at 17:30 and the night
+ *  ring on a June evening at 20:30. The panel shows both values regardless. */
+export function isErgDay(now: Date, coord?: Coord | null): boolean {
+  return isDaytime(coord, now)
+}
+
+/** The panel's reason for the pick: «Nacht · Sonnenuntergang 16:42» — the horizon crossing that
+ *  made it day or night, in the deployment's time format. Just «Tag»/«Nacht» when the sun has
+ *  not crossed within 24 h. Reads the copy inside the call (AGENTS.md · i18n). */
+export function ergDayNote(now: Date, coord?: Coord | null): string {
+  const C = appConfig.copy.contextPanel
+  const day = isErgDay(now, coord)
+  const edge = lastSunEdge(coord, now)
+  const head = day ? C.ergDayShort : C.ergNightShort
+  if (!edge) return head
+  const t = formatTime(edge.at)
+  return `${head} · ${fillTemplate(edge.kind === 'sunrise' ? C.ergSunrise : C.ergSunset, { t })}`
 }
 
 export interface ErgRing {
@@ -50,9 +66,9 @@ export interface ErgRing {
  *  «when spilled in water» split keeps its first answer, the panel lists every row). 'large'
  *  reads the large-spill column and yields nothing on the 'T3' sentinel (see ERG Table 3 —
  *  container and wind decide, which no circle can claim to know). */
-export function ergRingsFor(row: ErgTihRow | undefined, mode: ErgRingMode, now: Date): ErgRing[] {
+export function ergRingsFor(row: ErgTihRow | undefined, mode: ErgRingMode, now: Date, coord?: Coord | null): ErgRing[] {
   if (!row || mode === 'off') return []
-  const day = isErgDay(now)
+  const day = isErgDay(now, coord)
   let isolation: number | null
   let protect: number | null
   if (mode === 'large') {
@@ -84,7 +100,7 @@ export function ergRingOverlays(entities: readonly Entity[], now: Date): Prepare
     if (!un?.trim()) continue
     const row = lookupErg(un)?.tih?.[0]
     const done = !!doneOf(e)
-    for (const ring of ergRingsFor(row, e.ergRings ?? DEFAULT_ERG_RING_MODE, now)) {
+    for (const ring of ergRingsFor(row, e.ergRings ?? DEFAULT_ERG_RING_MODE, now, e.coord)) {
       const isolation = ring.kind === 'isolation'
       overlays.push({
         id: `erg-${e.id}-${ring.kind}`,

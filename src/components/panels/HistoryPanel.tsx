@@ -4,12 +4,11 @@ import { toast, confirmDialog } from '../../lib/ui'
 import { ApiError, isUnverifiable } from '../../lib/api'
 import { useOnline } from '../../lib/useOnline'
 import { filterIncidents, historyGroupKey, historyWhen, monthLabel } from '../../lib/historyGroups'
-import { getLocaleId } from '../../config/copy'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { EmptyState } from '../EmptyState'
 import { SearchField } from '../SearchField'
-import { fillTemplate, fmtSpanShort } from '../../lib/format'
+import { fillTemplate, fmtSpanShort, formatLocale } from '../../lib/format'
 import {
   deleteIncident,
   listIncidents,
@@ -93,11 +92,11 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
   const shown = filterIncidents(sorted, query)
   const now = new Date()
   const groupTitle = (key: string) =>
-    key === 'open' ? h.groupOpen : key === 'today' ? h.groupToday : key === 'week' ? h.groupWeek : monthLabel(key, getLocaleId())
+    key === 'open' ? h.groupOpen : key === 'today' ? h.groupToday : key === 'week' ? h.groupWeek : monthLabel(key, formatLocale())
   // «Mo., 05.10. · 12:24–13:47 · 1 h 23», a running one «Mo., 05.10. · seit 14:00 · 32 min» —
   // the day and the span lead the row's second line, the address follows on its own
   const whenOf = (i: IncidentMeta): string | null => {
-    const w = historyWhen(i, now, getLocaleId())
+    const w = historyWhen(i, now, formatLocale())
     if (!w) return null
     const span = i.is_archived
       ? (w.end ? `${w.start}–${w.endDay ? `${w.endDay} ` : ''}${w.end}` : w.start)

@@ -1,6 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
 import type { BoardAnno, BoardDoc, BoardPoint, BuildingDoc, Drawing, Entity, GeoTrailPoint, LineAttachment, LngLat, TimelineEvent, TrailPoint, Trupp, TruppFields, TruppReading } from '../types'
-import type { Doc } from './workspace'
 import type { TacticalObject } from './tacticalObjects'
 import type { ObjectStore, SetBoard } from './useObjectStore'
 import { appConfig } from '../config/appConfig'
