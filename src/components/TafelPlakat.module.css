@@ -13,16 +13,18 @@
 /* a drawing tool is armed: the pen writes over the poster, nothing on it takes the press */
 .passive, .passive * { pointer-events: none !important; }
 
+/* two lines: «Erste Führung» + title (+ bin), then the facts — the address gets room, not cut */
 .head {
-  display: flex; align-items: center; gap: var(--sp-2);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-2);
   padding-bottom: var(--sp-2); border-bottom: 2px solid var(--ink);
 }
 .flag { width: 20px; height: 20px; flex: none; }
 .heading { font-size: var(--fs-4); line-height: var(--lh-4); font-weight: var(--fw-heavy); white-space: nowrap; }
 .head .headTitle { flex: 1 1 140px; font-weight: var(--fw-heavy); font-size: var(--fs-3); }
-.head .headAddr { flex: 1.4 1 180px; font-weight: var(--fw-bold); }
+.headBreak { flex: 0 0 100%; height: 0; }
+.head .headAddr { flex: 2 1 240px; font-weight: var(--fw-bold); }
 .head .headTime { flex: 0 0 56px; font-variant-numeric: tabular-nums; }
-.head .headEl { flex: 1 1 120px; }
+.head .headEl { flex: 1 1 160px; }
 .headLabel { color: var(--ink-faint); font-size: var(--fs-1); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .04em; }
 .remove { margin-left: auto; color: var(--ink-dim); }
 
@@ -57,7 +59,7 @@
 .count { margin-left: auto; color: var(--ink-faint); }
 
 .row { display: grid; align-items: center; gap: var(--sp-2); min-height: 32px; border-bottom: 1px solid var(--border-soft); }
-.rowProb { grid-template-columns: 32px minmax(0, 1fr) minmax(0, 72px); }
+.rowProb { grid-template-columns: 32px minmax(0, 1fr) minmax(0, 72px); align-items: start; }
 .rowMass { grid-template-columns: minmax(0, 1fr) minmax(0, 150px) 64px 32px; }
 .rowTbl { grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr); }
 .rowAbs { grid-template-columns: 32px minmax(0, 1fr); }
@@ -67,7 +69,13 @@
 .field {
   width: 100%; min-width: 0; box-sizing: border-box; height: 32px; padding: 0 var(--sp-1);
   border: 0; border-radius: var(--r-xs); background: transparent; color: var(--ink);
-  font: inherit; font-weight: var(--fw-medium);
+  font: inherit; font-weight: var(--fw-medium); text-overflow: ellipsis;
+}
+/* a problem's text wraps onto more lines (the textarea grows, Field) — the tag stays at the right
+   and the trend on the first line: 24 line + 2 × 4 = the 32 row */
+.field.multi {
+  display: block; height: auto; min-height: 32px; padding: var(--sp-1); line-height: 24px;
+  resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .field::placeholder { color: var(--ink-45); font-weight: var(--fw-regular); }
 .field:focus { outline: none; background: var(--fill-soft); box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
@@ -103,7 +111,9 @@
 .list .rowAbs { grid-template-columns: var(--tap) minmax(0, 1fr); }
 .list .rowMass { grid-template-columns: minmax(0, 1fr) minmax(0, 88px) 56px var(--tap); }
 .list .rowTbl { grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr); }
-.list .head { flex-wrap: wrap; }
+.list .field.multi { height: auto; min-height: var(--tap); padding: var(--sp-2) var(--sp-1); line-height: 28px; }
+.list .head { padding-bottom: var(--sp-1); }
+.list .headBreak { display: none; }
 .list .head .headTitle, .list .head .headAddr { flex-basis: 100%; }
 /* the head on a phone: «Erste Führung» and the bin on one line, the facts under it */
 .list .flag { order: -3; }

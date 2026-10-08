@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
@@ -26,27 +26,42 @@ const keep = (e: { stopPropagation: () => void }) => e.stopPropagation()
 /**
  * One text field that commits ONCE, on blur or Enter — one undo step per edit, never one per
  * keystroke (the note's rule). Escape puts the stored value back. A remote change shows up as
- * long as the field is not being typed in.
+ * long as the field is not being typed in. `multiline` is a textarea that grows a line instead
+ * of clipping a long problem under its tag (still one line of DATA: Enter commits, a pasted
+ * line break becomes a space). A one-line field that is too narrow ellipsizes; `title` holds all.
  */
-function Field({ value, onCommit, label, placeholder, readOnly, className }: {
-  value: string; onCommit: (v: string) => void; label: string; placeholder?: string; readOnly: boolean; className?: string
+function Field({ value, onCommit, label, placeholder, readOnly, className, multiline = false }: {
+  value: string; onCommit: (v: string) => void; label: string; placeholder?: string; readOnly: boolean; className?: string; multiline?: boolean
 }) {
   const [v, setV] = useState(value)
   const typing = useRef(false)
+  const area = useRef<HTMLTextAreaElement>(null)
   useEffect(() => { if (!typing.current) setV(value) }, [value])
-  return (
-    <input
-      className={cx(s.field, className)} value={v} readOnly={readOnly} aria-label={label} placeholder={readOnly ? undefined : placeholder}
-      onFocus={() => { typing.current = true }}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => { typing.current = false; if (v.trim() !== value.trim()) onCommit(v.trim()); else if (v !== value) setV(value) }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur()
-        else if (e.key === 'Escape') { setV(value); typing.current = false; requestAnimationFrame(() => e.currentTarget?.blur()) }
-      }}
-      onPointerDown={keep}
-    />
-  )
+  // the textarea is as tall as its wrapped text — re-measured when the text or its width changes
+  useLayoutEffect(() => {
+    const el = area.current
+    if (!el) return
+    const fit = () => { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px` }
+    fit()
+    if (typeof ResizeObserver === 'undefined') return
+    let w = el.clientWidth
+    const ro = new ResizeObserver(() => { if (el.clientWidth !== w) { w = el.clientWidth; fit() } })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [v])
+  const props = {
+    className: cx(s.field, multiline && s.multi, className), value: v, readOnly, title: v || undefined, 'aria-label': label,
+    placeholder: readOnly ? undefined : placeholder,
+    onFocus: () => { typing.current = true },
+    onChange: (e: { target: { value: string } }) => setV(multiline ? e.target.value.replace(/\s*\n\s*/g, ' ') : e.target.value),
+    onBlur: () => { typing.current = false; if (v.trim() !== value.trim()) onCommit(v.trim()); else if (v !== value) setV(value) },
+    onKeyDown: (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+      else if (e.key === 'Escape') { setV(value); typing.current = false; const t = e.currentTarget; requestAnimationFrame(() => t?.blur()) }
+    },
+    onPointerDown: keep,
+  }
+  return multiline ? <textarea ref={area} rows={1} {...props} /> : <input {...props} />
 }
 
 function Check({ on, label, readOnly, onToggle }: { on: boolean; label: string; readOnly: boolean; onToggle: () => void }) {
@@ -121,7 +136,7 @@ export function TafelPlakat({ data, readOnly, variant, scale = 1, passive = fals
         const row = r as PlakatProblem
         return <>
           {isNew ? <span className={s.trendGap} aria-hidden="true" /> : <Trend trend={row.trend} readOnly={readOnly} onNext={() => put(k, row.id, { trend: nextTrend(row.trend) })} />}
-          <Field value={row.text} label={title} placeholder={p.newProblem} readOnly={readOnly} className={s.grow} onCommit={(text) => put(k, row.id, { text })} />
+          <Field value={row.text} label={title} placeholder={p.newProblem} readOnly={readOnly} className={s.grow} multiline onCommit={(text) => put(k, row.id, { text })} />
           <Field value={row.note ?? ''} label={`${title} · ${p.note}`} placeholder={isNew ? '' : p.note} readOnly={readOnly} className={s.note} onCommit={(note) => put(k, row.id, { note })} />
         </>
       }} />
@@ -150,14 +165,16 @@ export function TafelPlakat({ data, readOnly, variant, scale = 1, passive = fals
         <Icon id="flag" className={s.flag} />
         <span className={s.heading}>{p.heading}</span>
         <Field value={data.title} label={p.title} placeholder={p.title} readOnly={readOnly} className={s.headTitle} onCommit={(v) => head('title', v)} />
+        {!readOnly && (
+          <IconButton label={p.remove} className={s.remove} onPointerDown={keep} onClick={onRemove}><Icon id="trash" /></IconButton>
+        )}
+        {/* the facts take their own line: the address gets the room instead of being cut */}
+        <span className={s.headBreak} aria-hidden="true" />
         <Field value={data.address} label={p.address} placeholder={p.address} readOnly={readOnly} className={s.headAddr} onCommit={(v) => head('address', v)} />
         <span className={s.headLabel}>{p.alarm}</span>
         <Field value={data.alarm} label={p.alarm} placeholder="--:--" readOnly={readOnly} className={s.headTime} onCommit={(v) => head('alarm', v)} />
         <span className={s.headLabel}>{p.el}</span>
         <Field value={data.el} label={p.el} placeholder={p.el} readOnly={readOnly} className={s.headEl} onCommit={(v) => head('el', v)} />
-        {!readOnly && (
-          <IconButton label={p.remove} className={s.remove} onPointerDown={keep} onClick={onRemove}><Icon id="trash" /></IconButton>
-        )}
       </header>
       <div className={s.grid}>
         {problems('front', p.front, p.problems)}
