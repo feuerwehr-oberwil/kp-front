@@ -77,8 +77,9 @@ class TestDueTrupps:
         ``notfall``, whatever the contact clock and the gauge say — and even for a crew already
         reported out (it ends only by «Notfall beendet», src/types.ts · Trupp.notfallAt). The
         crossing is the trigger, so a renotify round never treats it as a new Notfall."""
-        fresh = trupp("a", "2026-07-02T14:09:50Z", entryPressureBar=300, lastPressureBar=90,
-                      notfallAt="2026-07-02T14:08:00Z")
+        fresh = trupp(
+            "a", "2026-07-02T14:09:50Z", entryPressureBar=300, lastPressureBar=90, notfallAt="2026-07-02T14:08:00Z"
+        )
         out = trupp("b", "2026-07-02T13:00:00Z", status="raus", notfallAt="2026-07-02T14:05:00Z")
         alerts = due_trupps({"trupps": [fresh, out]}, {}, NOW)
         assert alerts == [
