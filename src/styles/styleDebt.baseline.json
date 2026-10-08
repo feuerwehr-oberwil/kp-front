@@ -36,11 +36,6 @@
     "weight": 1,
     "spacing": 9
   },
-  "src/components/Anwesenheit.module.css": {
-    "fontSize": 5,
-    "weight": 1,
-    "spacing": 11
-  },
   "src/components/Atemschutz.module.css": {
     "fontSize": 6
   },
@@ -58,10 +53,6 @@
   },
   "src/components/PdfScroller.module.css": {
     "spacing": 6
-  },
-  "src/components/RankBadge.module.css": {
-    "fontSize": 1,
-    "spacing": 1
   },
   "src/components/RetryButton.module.css": {
     "spacing": 2
