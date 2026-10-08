@@ -183,14 +183,14 @@ class Incident(Base):
     # Stored in the clear rather than hashed, and that is a requirement, not laziness: the
     # Rapport has to be able to SHOW the link again — anything else means «lost it, mint a new
     # one, tell everybody», which is how a station ends up with five live links per Einsatz.
-    view_link_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    view_link_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # The Atemschutz link (2026-09-01) — the THIRD kind. Same shape as `view_link_key` (a random
     # secret that IS the link, URL `/l/a<this>`, cleared to revoke), opposite lifetime: it is
     # minted from a RUNNING Einsatz for somebody who is not on the FU, and it dies when the
     # Einsatz closes. What it opens is not the read-only viewer but the Atemschutzüberwachung of
     # this one Einsatz — a narrow write slice, enforced in auth/incident_link.
-    atemschutz_link_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    atemschutz_link_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     details_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     map_workspace_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
@@ -202,7 +202,14 @@ class Incident(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    __table_args__ = (Index("ix_incidents_archived_started", "is_archived", "started_at"),)
+    __table_args__ = (
+        Index("ix_incidents_archived_started", "is_archived", "started_at"),
+        # Both link keys are unique — the secret IS the credential. As unique INDEXES, the way
+        # their migrations (68cbf635f90e, 40a7d00c2b37) built them; `unique=True` on the column
+        # declared a unique CONSTRAINT instead, which only the tests' create_all ever had.
+        Index("ix_incidents_view_link_key", "view_link_key", unique=True),
+        Index("ix_incidents_atemschutz_link_key", "atemschutz_link_key", unique=True),
+    )
 
     @property
     def is_open(self) -> bool:
