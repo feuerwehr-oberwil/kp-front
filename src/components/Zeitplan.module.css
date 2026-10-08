@@ -32,7 +32,7 @@
                    Not --blue either any more — shape already carries the state (dashed band vs
                    solid inset bar), so plain ink loses no information and stays calmer.)
        anwesend  — green: it actually happened, and it comes from the attendance record */
-  --st-available: color-mix(in srgb, var(--ink) 45%, transparent);
+  --st-available: var(--ink-45);
   --st-planned: var(--ink);
   --st-actual: var(--green);
   /* one hairline for the whole grid — row edge, clock rule and Deckung rule were three different
@@ -66,9 +66,9 @@
 .scroll::-webkit-scrollbar-track { background: transparent; }
 .scroll::-webkit-scrollbar-thumb {
   border-radius: 5px; border: 2px solid transparent; background-clip: content-box;
-  background-color: color-mix(in srgb, var(--ink) 28%, transparent);
+  background-color: var(--ink-28);
 }
-.scroll::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--ink) 45%, transparent); }
+.scroll::-webkit-scrollbar-thumb:hover { background-color: var(--ink-45); }
 /* The width is stated, not derived. `max-content` on the grid silently broke the sticky name
    column (it scrolled away with the track — the one thing a «Wer» column must never do), and
    `max-content` on the row didn't pick up the track's flex-basis, so rows ended mid-axis with a
@@ -147,7 +147,7 @@
 .headRow {
   position: sticky; top: 0; z-index: 4; background: var(--surface);
   border-bottom: 1px solid var(--edge);
-  box-shadow: 0 6px 10px -8px color-mix(in srgb, var(--ink) 45%, transparent);
+  box-shadow: 0 6px 10px -8px var(--ink-45);
 }
 .headRow .who { z-index: 5; }
 /* the track carries the fill itself as well as the row, so the mask never depends on the row box
@@ -260,7 +260,7 @@
    was never the thing being aimed at anyway. It fades in on hover, where it can still teach. */
 .handle::after {
   content: ''; width: 2px; height: 16px; border-radius: 1px;
-  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  background: var(--ink-45);
   opacity: 0; transition: opacity .12s var(--ease);
 }
 @media (hover: hover) {
@@ -369,7 +369,7 @@
 .coverageRow {
   position: sticky; bottom: 0; z-index: 4; margin-top: 4px;
   background: var(--surface); border-top: 1px solid var(--edge);
-  box-shadow: 0 -6px 10px -8px color-mix(in srgb, var(--ink) 45%, transparent);
+  box-shadow: 0 -6px 10px -8px var(--ink-45);
 }
 .coverageRow .who { z-index: 5; }
 /* min-height, not height: the row grows when the numbers are folded out, and it stays pinned to

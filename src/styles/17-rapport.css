@@ -34,7 +34,7 @@
   display: grid; place-items: center; }
 .report-meta-dispatch-hint .i { width: 15px; height: 15px; }
 @media (hover: hover) {
-  .report-meta-dispatch-hint:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
+  .report-meta-dispatch-hint:hover { background: var(--blue-12); color: var(--blue); }
 }
 .report-meta-dispatch-hint:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* the whole dispatch card opens the Einsatzdaten (mirrors an Anwesenheit person row) — the
@@ -501,7 +501,7 @@
 .report-att-x { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; cursor: pointer;
   border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); }
 @media (hover: hover) {
-  .report-att-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+  .report-att-x:hover { background: var(--red-12); color: var(--red); }
 }
 .report-att-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .report-att-x .i { width: 16px; height: 16px; }
@@ -555,7 +555,7 @@
 .jr-jump:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* no transcript yet: amber on the FRAME, not a filled amber block. It is a gap in the record
    worth noticing, not a warning that should outshout the entry it hangs off. */
-.jr-jump.jr-jump-miss { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 12%, transparent);
+.jr-jump.jr-jump-miss { color: var(--amber-strong); background: var(--amber-12);
   border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
 @media (hover: hover) {
   .jr-jump.jr-jump-miss:hover { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber-strong); }
@@ -568,7 +568,7 @@
    ring used to square off around a row whose own corners are rounded. */
 .rp-flash { animation: ui-flash-ring 1.9s ease-out 1; border-radius: var(--r-sm); }
 @media (prefers-reduced-motion: reduce) {
-  .rp-flash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  .rp-flash { animation: none; box-shadow: 0 0 0 4px var(--ink-62); }
 }
 
 /* ── Anwesenheits-Abweichungen: the card that SETTLES one (04.09., Rapport-Review) ────────────
@@ -578,8 +578,8 @@
    so each item claims its own width. */
 .rp-conf { align-self: stretch; gap: 10px; }
 .rp-conf-item { align-self: stretch; padding: 11px 12px; border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--amber) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 22%, transparent); }
+  background: var(--amber-8);
+  border: 1px solid var(--amber-22); }
 .rp-conf-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
 .rp-conf-head b { font-size: 13.5px; }
 .rp-conf-head span { font-size: var(--fs-1); color: var(--ink-dim); }

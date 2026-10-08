@@ -37,7 +37,7 @@
    constant saving↔saved layout flip; amber-on-tint so it reads at a glance at 3am */
 .ip-offline-chip { display: inline-flex; align-items: center; gap: 5px; flex: none;
   padding: 2px 8px; border-radius: var(--r-xs); font-size: var(--fs-1); font-weight: 600; line-height: 1;
-  color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 16%, transparent); }
+  color: var(--amber-strong); background: var(--amber-16); }
 /* ↑ the tag's corner and no edge (29.09.2026): roundness is map furniture's, and the tone is the
    tint + ink, never an outline besides */
 .ip-offline-chip .ip-status-dot { width: 7px; height: 7px; }
@@ -134,7 +134,7 @@
 /* the sync pill wears its state — same colours as the mark in the top bar (.ip-status-*),
    spelled out here because the pill's own rule would otherwise win on order */
 .ip-card-pill.ip-status-synced { color: var(--green-strong); background: color-mix(in srgb, var(--green) 14%, transparent); }
-.ip-card-pill.ip-status-pending { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 16%, transparent); }
+.ip-card-pill.ip-status-pending { color: var(--amber-strong); background: var(--amber-16); }
 .ip-card-pill.ip-status-error, .ip-card-pill.ip-status-storage {
   color: var(--red-strong); background: color-mix(in srgb, var(--red) 14%, transparent); }
 /* The Einsatz's own actions, INSIDE its card — Bearbeiten · Abschliessen · Teilen (Sync lives
@@ -196,7 +196,7 @@
   margin: -9px -10px -9px 0; padding: 0; border: none; border-radius: var(--r-sm);
   background: none; color: var(--blue-strong); cursor: pointer; }
 @media (hover: hover) {
-  .ip-card-sync:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); }
+  .ip-card-sync:hover { background: var(--blue-12); }
 }
 .ip-card-sync:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-card-sync svg { width: 16px; height: 16px; opacity: 1; }
@@ -243,7 +243,7 @@
 .ip-menu-when { flex: none; width: 62px; padding-top: 1px; font: 600 11.5px var(--body);
   font-variant-numeric: tabular-nums; color: var(--ink-dim); }
 @media (hover: hover) {
-  .ip-menu-row:hover, .ip-menu-act:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+  .ip-menu-row:hover, .ip-menu-act:hover { background: var(--blue-8); }
 }
 .ip-menu-row:active:not(:disabled), .ip-menu-act:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* Two lines at most: WHAT it is, and WHERE — «Ölspur» tells two Einsätze apart from each other
@@ -405,7 +405,7 @@
   border-radius: var(--r-sm); background: rgba(30, 45, 70, .05); color: var(--ink-dim); cursor: pointer;
   font: 600 var(--fs-1) var(--body); transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
-  .ip-menu-logout:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+  .ip-menu-logout:hover { background: var(--red-12); color: var(--red); }
 }
 .ip-menu-logout:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-menu-logout svg { width: 15px; height: 15px; }
@@ -522,7 +522,7 @@
   color: var(--ink-dim); padding: 6px; border-radius: var(--r-sm);
   display: grid; place-items: center; }
 @media (hover: hover) {
-  .ip-x:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+  .ip-x:hover { background: var(--ink-12); color: var(--ink); }
 }
 .ip-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-x svg { width: 18px; height: 18px; }
@@ -628,7 +628,7 @@
   -webkit-tap-highlight-color: transparent; }
 .ui-info::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
   transform: translate(-50%, -50%); }
-@media (hover: hover) { .ui-info:not(.on):hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); } }
+@media (hover: hover) { .ui-info:not(.on):hover { background: var(--ink-12); color: var(--ink); } }
 .ui-info:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ui-info.on { background: var(--sel-wash); color: var(--blue-strong); }
 .ui-info .i { width: 18px; height: 18px; }
@@ -743,7 +743,7 @@
 .head-tile.sm { min-height: 36px; padding: 0 8px; font-size: var(--fs-1); }
 /* one glyph size, centred by the flex line — no baseline offsets to fix per glyph */
 .head-tile svg, .head-tile .i { width: 16px; height: 16px; flex: none; }
-.head-tile.amber { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+.head-tile.amber { color: var(--amber-strong); border-color: var(--amber-45);
   background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
 @media (hover: hover) {
   .head-tile:hover:not(:disabled) { background: var(--hover-strong); }
@@ -811,10 +811,10 @@
 .ip-badge-ok { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green-strong); }
 /* Übung — amber so a training is never mistaken for a real Einsatz (top bar switcher, lists,
    and the poster: one look for one word, 28.09.2026) */
-.ip-badge-exercise, .cv-badge-exercise { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+.ip-badge-exercise, .cv-badge-exercise { background: var(--amber-16); color: var(--amber-strong); }
 /* «2 offen» — the same amber, named after what it means rather than after the Übung it borrows
    from: something is outstanding and the operator is about to act as if it were not. */
-.ip-badge-todo { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); text-transform: none; }
+.ip-badge-todo { background: var(--amber-16); color: var(--amber-strong); text-transform: none; }
 /* the ÜBUNG marker rides BESIDE the row title, never inside it — the title is the part that
    ellipsises, and a drill must never lose the word that says so (the card's title line spaces
    its own badge via flex gap) */
@@ -924,7 +924,7 @@
   min-height: var(--float-h); padding: 0 calc(var(--float-pad-x) + 4px) 0 var(--float-pad-x);
   border: none; border-radius: var(--r-sm); color: var(--on-btn-primary);
   background: var(--btn-primary);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--ink) 28%, transparent);
+  box-shadow: 0 8px 22px var(--ink-28);
   font: var(--fw-bold) var(--fs-2) var(--body); cursor: pointer; white-space: nowrap; }
 .rp-return:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rp-return svg { width: 18px; height: 18px; color: currentColor; flex: none; }
@@ -1050,14 +1050,14 @@
    yourself down a six-section page, after the paper was already on its way. */
 .cv-missing { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin: 10px 0 0;
   padding: 10px 12px; border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--amber) 12%, transparent);
+  background: var(--amber-12);
   border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
   font: 600 13px/1.4 var(--body); color: var(--ink); }
 .cv-missing svg { width: 16px; height: 16px; flex: none; color: var(--amber-strong); }
 .cv-missing-k { color: var(--ink-dim); }
 .cv-missing-go { font: inherit; font-weight: var(--fw-bold); min-height: 32px; padding: 4px 11px; border: none;
   border-radius: var(--r-pill); cursor: pointer;
-  color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 22%, transparent); }
+  color: var(--amber-strong); background: var(--amber-22); }
 @media (hover: hover) {
   .cv-missing-go:hover { background: color-mix(in srgb, var(--amber) 34%, transparent); }
 }
@@ -1067,7 +1067,7 @@
    (02-base.css · ui-flash-ring) */
 .cv-flash { animation: ui-flash-ring 1.9s ease-out 1; border-radius: var(--r-sm); }
 @media (prefers-reduced-motion: reduce) {
-  .cv-flash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  .cv-flash { animation: none; box-shadow: 0 0 0 4px var(--ink-62); }
 }
 /* clock-skew warning — non-blocking, but a drifted device clock corrupts every erfasste Zeit */
 .cv-skew { display: flex; align-items: center; gap: 6px; margin: 0;
@@ -1200,7 +1200,7 @@
 }
 .cv-btn-ghost { min-height: 40px; padding: 0 10px; background: none; border-color: transparent; color: var(--ink-faint); }
 @media (hover: hover) {
-  .cv-btn-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+  .cv-btn-ghost:hover:not(:disabled) { background: var(--red-12); color: var(--red); }
 }
 .cv-btn svg { width: 15px; height: 15px; }
 /* flows in the page scroll — the nested 46dvh list scroll confused touch (two surfaces) */
@@ -1311,7 +1311,7 @@
 /* the wheel popover: snap-scrolling columns under a fixed center band */
 .wheelpop { z-index: var(--z-picker); padding: 10px; border-radius: var(--r-ctl);
   background: var(--surface); border: 1px solid var(--glass-line);
-  box-shadow: 0 12px 34px color-mix(in srgb, var(--ink) 22%, transparent); }
+  box-shadow: 0 12px 34px var(--ink-22); }
 .wheelpop-cols { position: relative; display: flex; gap: 4px; }
 /* 5 rows of 44px (ITEM_H in WheelPicker.tsx — pads/band derive from it: pad = (height−44)/2) */
 .wheel { height: 220px; flex: 1; overflow-y: auto; scroll-snap-type: y mandatory;
@@ -1379,7 +1379,7 @@
 /* KP-aktiv notice at the print/PDF decision: green live-tint box, clearer than a faint hint */
 .cv-modal-kp { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px;
   border-radius: var(--r-ctl); font: 600 13.5px var(--body); color: var(--ink);
-  background: color-mix(in srgb, var(--green) 12%, transparent);
+  background: var(--green-12);
   border: 1px solid color-mix(in srgb, var(--green) 35%, transparent); }
 /* tablet-side mirror: QR-usage chip on the QR-writable surfaces (Anwesenheit / Mittel /
    Einsatzrapport headers) — informational only, neutral tone (not a warning) */
@@ -1609,9 +1609,9 @@ select.cv-input { appearance: none; -webkit-appearance: none;
      row already carries, and nothing moves.
    · radius — `--r-ctl`. Rows, list items and option cells are not buttons (AGENTS.md · Buttons). */
 .ui-menu-item { border-radius: var(--r-ctl); }
-.ui-menu-item[data-highlighted] { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+.ui-menu-item[data-highlighted] { background: var(--blue-8); }
 @media (hover: hover) {
-  .ui-menu-item:hover:not([data-disabled]) { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+  .ui-menu-item:hover:not([data-disabled]) { background: var(--blue-8); }
 }
 .ui-menu-item:active:not([data-disabled]) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the one destructive row a menu may carry (Trupp · Entfernen). Behind a separator and red, so it
@@ -1670,7 +1670,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   padding: 0 10px; border: none; background: none; border-radius: var(--r-ctl); cursor: pointer; text-align: left;
   font: 600 13.5px var(--body); color: var(--ink); }
 .rp-control-step .i { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
-@media (hover: hover) { .rp-control-step:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
+@media (hover: hover) { .rp-control-step:hover { background: var(--blue-8); } }
 .rp-control-step:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the head must not clip a popover anchored inside it */
 .rp-head { position: relative; overflow: visible; }
@@ -1872,7 +1872,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    `.ip-objects-head` below is not one and keeps its text height. */
 summary.ip-group-head { min-height: var(--tap); border-radius: var(--r-ctl); margin: 0 -6px; padding-left: 8px; padding-right: 8px; }
 summary.ip-group-head:active { background-image: linear-gradient(var(--press), var(--press)); }
-@media (hover: hover) { summary.ip-group-head:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
+@media (hover: hover) { summary.ip-group-head:hover { background: var(--blue-8); } }
 summary.ip-group-head::-webkit-details-marker { display: none; }
 /* the one fold grammar (29.09.2026): the global `.chev` at the row's end, turned by `details[open]`
    (02-base) — it was a text «▸» turning sideways at the start */
@@ -1918,7 +1918,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
   background: none; cursor: pointer; text-align: left; border-radius: var(--r-ctl);
   font: var(--fw-medium) 13.5px var(--body); color: var(--ink); }
 @media (hover: hover) {
-  .ip-ac-row:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+  .ip-ac-row:hover { background: var(--blue-8); }
 }
 .ip-ac-row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-ac-row:disabled { opacity: var(--disabled); cursor: default; }

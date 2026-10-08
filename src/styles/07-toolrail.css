@@ -204,7 +204,7 @@
 @media (hover: hover) {
   .step-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); }
 }
-.step-btn:active:not(:disabled) { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: var(--blue); }
+.step-btn:active:not(:disabled) { background: var(--blue-12); border-color: var(--blue); }
 .step-btn:disabled { opacity: var(--disabled); cursor: default; }
 .step-val { font-family: var(--mono); font-weight: 600; min-width: 30px; text-align: center; color: var(--ink);
   /* digits must not change width as they change value, or the ± buttons twitch under the finger */
@@ -229,7 +229,7 @@
 .step-clear { width: var(--tap); height: var(--tap); flex: none; margin-left: 4px; border-radius: var(--r-sm); border: none; padding: 0;
   background: transparent; color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
 @media (hover: hover) {
-  .step-clear:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+  .step-clear:hover:not(:disabled) { background: var(--red-12); color: var(--red); }
 }
 .step-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .step-clear:disabled { opacity: var(--disabled); cursor: default; }
@@ -250,7 +250,7 @@
 .uslider-thumb { position: absolute; top: 50%; width: 18px; height: 18px; margin-top: -9px; margin-left: -9px;
   border-radius: 50%; background: var(--blue); box-shadow: 0 1px 3px rgba(10, 20, 40, .45); }
 .uslider:focus-visible { outline: none; }
-.uslider:focus-visible .uslider-thumb { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 45%, transparent); }
+.uslider:focus-visible .uslider-thumb { box-shadow: 0 0 0 3px var(--blue-45); }
 /* the house press wash, on the thumb — nothing moves, per the touch vocabulary */
 .uslider:active .uslider-thumb { background-image: linear-gradient(var(--press), var(--press)); }
 

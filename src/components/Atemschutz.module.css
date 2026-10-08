@@ -39,7 +39,7 @@
 .muteOn { color: var(--amber-strong); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 42%, transparent); }
 /* the browser has not released audio: the bell is on, and it cannot make a sound. Red, because
    this is the one bell state that needs a tap — see AtemschutzView · bellLabel. */
-.muteBlocked { color: var(--red); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 45%, transparent);
+.muteBlocked { color: var(--red); box-shadow: inset 0 0 0 1px var(--red-45);
   background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 /* the board's arrangement, behind its own icon; the archive menu, the QR and the lite ↶ ↷ wear it too */
 .orderBtn { composes: headTile; }
@@ -58,7 +58,7 @@
    and the pulse is the tile's own, shallower than the card band's (a tinted tile at .3 vanishes). */
 .overdueBadge { composes: headTile; color: var(--red);
   background: color-mix(in srgb, var(--red) 11%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 45%, transparent);
+  box-shadow: inset 0 0 0 1px var(--red-45);
   font-variant-numeric: tabular-nums; animation: az-pulse-tile 1.2s infinite; }
 @media (hover: hover) { .overdueBadge:hover:not(:disabled) { color: var(--red); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 60%, transparent); } }
 /* muted: the same tile in plain grey — the count still stands, the tone does not */
@@ -553,7 +553,7 @@
 /* flash-ring: the module-local copy of ui-flash-ring — see the .cardFlash comment below */
 .formFlash { border-radius: var(--r-ctl); animation: flash-ring 1.9s ease-out 1; }
 @media (prefers-reduced-motion: reduce) {
-  .formFlash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  .formFlash { animation: none; box-shadow: 0 0 0 4px var(--ink-62); }
 }
 /* a labelled field that CONTAINS the flexing Trupp block passes the room through */
 .formCol > .field:has(> .team) { flex: 1 1 0; min-height: 0; }
@@ -600,7 +600,7 @@
 /* 44px touch pad behind the 26px visible target — gloved-finger sized without bloating the row */
 .slotRemove::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .slotRemove :global(.i) { width: 14px; height: 14px; }
-@media (hover: hover) { .slotRemove:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); } }
+@media (hover: hover) { .slotRemove:hover { background: var(--red-12); color: var(--red); } }
 .slotRemove:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .field input { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 11px 12px;
   background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink); outline: none; }
@@ -644,12 +644,12 @@
    name that exists nowhere — the ring silently never fired (found in the field, 30.08.).
    Keep the geometry in sync with 02-base.css by hand. */
 @keyframes flash-ring {
-  0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px var(--ink-62); }
   11%, 36%, 62%, 100% { box-shadow: 0 0 0 4px transparent; }
 }
 .cardFlash { animation: flash-ring 1.9s ease-out 1; }
 @media (prefers-reduced-motion: reduce) {
-  .cardFlash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  .cardFlash { animation: none; box-shadow: 0 0 0 4px var(--ink-62); }
 }
 
 
@@ -728,7 +728,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   border: none; background: none; border-radius: var(--r-ctl); padding: 9px 10px; min-height: var(--tap);
   font: 600 var(--fs-2) var(--body); color: var(--ink);
 }
-@media (hover: hover) { .comboOpt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
+@media (hover: hover) { .comboOpt:hover { background: var(--blue-8); } }
 .comboOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .comboDot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .comboDotPresent { background: var(--green); }
@@ -797,7 +797,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    be learnt, on a row whose whole job is to say who leads. */
 /* the Gruppenführer's row carries the emphasis, not just a badge — the card, the Rapport and the
    map tag all print this person first, so the form should look the way the paper reads */
-.teamRowLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+.teamRowLead { border-color: var(--amber-45);
   background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
 .teamName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
@@ -855,7 +855,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    anything this state adds to the chip's BOX — a badge, a thicker border, more padding — is a
    size change under a finger and re-wraps the row around it. A marker that needs weight uses an
    inset `box-shadow` or a fill, never geometry. */
-.chipLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+.chipLead { border-color: var(--amber-45);
   background: color-mix(in srgb, var(--amber) 12%, var(--surface)); }
 /* ⚠️ The house target, 44px wide against the chip's full height (staging walk-through
    25.09.2026: it was 34px, with a pad for coarse pointers only). A mis-grip must never take
@@ -869,7 +869,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .chipX::before { content: ''; position: absolute; inset: 3px 1px; z-index: -1; border-radius: var(--r-nested); }
 @media (hover: hover) {
   .chipX:hover { color: var(--red); }
-  .chipX:hover::before { background: color-mix(in srgb, var(--red) 12%, transparent); }
+  .chipX:hover::before { background: var(--red-12); }
 }
 .chipX:active::before { background-image: linear-gradient(var(--press), var(--press)); }
 

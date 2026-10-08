@@ -172,7 +172,7 @@
   background: transparent; color: var(--ink-dim); cursor: pointer;
   font-size: var(--fs-1); font-weight: var(--fw-bold); -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) {
-  .draw-editor .de-prof-toggle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .draw-editor .de-prof-toggle:hover { color: var(--ink); background: var(--ink-5); }
 }
 .draw-editor .de-prof-toggle.on { color: var(--ink); }
 /* the Messung group's own header (15.09.): the collapsed group IS one row, its title in the

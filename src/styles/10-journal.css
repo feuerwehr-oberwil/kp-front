@@ -104,12 +104,12 @@
 /* every chip in the bar is at least a tap wide, its glyph and its number together */
 .topbar :is(.tb-az, .tb-suche) { min-width: var(--tap); justify-content: center; }
 .topbar :is(.tb-az, .tb-suche) > .i { flex: none; }
-.tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+.tb-az.warn { background: var(--amber-16); color: var(--amber-strong); }
 @media (hover: hover) {
   .tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
 }
 /* the quiet lead: «Kontakt fällig» in amber, no pulse — the pulse is the alarm's voice */
-.tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+.tb-az.warn { background: var(--amber-16); color: var(--amber-strong); }
 .tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
 /* ⚠️ The pulse animates the BACKGROUND, not `opacity` (15.09.2026). An opacity animation put the
    chip on its own compositor layer over the bar's backdrop-filter, and WebKit then left the
@@ -143,7 +143,7 @@
 .tb-mode .i { width: 14px; height: 14px; flex: none; }
 button.tb-mode { cursor: pointer; }
 @media (hover: hover) {
-  button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transparent); }
+  button.tb-mode:hover { background: var(--amber-28); }
 }
 button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (--phone) {
@@ -386,7 +386,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   /* the shared close-pill fill (see .ctx-x) — --surface-2 is white-based and vanished on the card */
   background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); display: grid; place-items: center; }
 @media (hover: hover) {
-  .journal-x:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+  .journal-x:hover { background: var(--ink-12); color: var(--ink); }
 }
 .journal-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-x .i { width: 14px; height: 14px; }
@@ -406,7 +406,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* finger-sized target under a 36px chip, the same trick .journal-replay uses */
 .journal-legend-btn::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) {
-  .journal-legend-btn:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+  .journal-legend-btn:hover { background: var(--ink-12); color: var(--ink); }
 }
 .journal-legend-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* OPEN (the lens's search) is the one «open» look, the InfoToggle's blue wash (29.09.2026 — it
@@ -483,7 +483,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* finger-sized target under the compact chip, the same pad the head's chips use */
 .jr-filter-all::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 @media (hover: hover) {
-  .jr-filter-all:hover { background: color-mix(in srgb, var(--blue) 16%, transparent); }
+  .jr-filter-all:hover { background: var(--blue-16); }
 }
 .jr-filter-all:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
@@ -530,9 +530,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    Auftrag = the arrow on blue, Sofortmassnahme = the warning on amber; Info keeps the plain «T»
    (lib/verlauf · rowGlyph, derived at render). The same discs in the legend and the filter menu,
    so the three places cannot disagree. */
-:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-auftrag { background: color-mix(in srgb, var(--blue) 12%, transparent);
+:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-auftrag { background: var(--blue-12);
   border-color: color-mix(in srgb, var(--blue) 24%, transparent); color: var(--blue); }
-:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-sofort { background: color-mix(in srgb, var(--amber) 16%, transparent);
+:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-sofort { background: var(--amber-16);
   border-color: color-mix(in srgb, var(--amber) 32%, transparent); color: var(--amber-strong); }
 .jr-ring { position: relative; width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor;
   display: grid; place-items: center; }
@@ -630,7 +630,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    what kind of action it is. */
 .jr-again { display: inline-flex; gap: 5px; flex: none; }
 .jr-again-btn { border: 1px solid color-mix(in srgb, var(--amber-strong) 45%, transparent);
-  background: color-mix(in srgb, var(--amber) 8%, transparent); border-radius: var(--r-pill, 999px); padding: 3px 9px; cursor: pointer;
+  background: var(--amber-8); border-radius: var(--r-pill, 999px); padding: 3px 9px; cursor: pointer;
   font: 600 var(--fs-1) var(--body); color: var(--amber-strong); white-space: nowrap; }   /* 12.5px: the interactive-text floor (was 11.5, UI sweep 07.10.2026); --tap under a finger: 20-touch-floors */
 @media (hover: hover) {
   .jr-again-btn:hover { background: color-mix(in srgb, var(--amber-strong) 10%, transparent); }
@@ -805,7 +805,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    for both backdrops (18-audio.css paints the Wiedergabe's washes), because it is one rule. */
 .jc-text-marks mark.jc-mark-url,
 .ap-add-marks mark.jc-mark-url {
-  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  background: var(--blue-12);
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--blue) 70%, transparent);
   text-underline-offset: 2px;
@@ -987,7 +987,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    sits next to it in the bar, and therefore underneath it. `z-index` fixes the covering; the fill
    is what makes «da ist etwas offen» readable without looking for a small number. */
 .tb-act.has-rem { color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 16%, transparent); }
+  background: var(--amber-16); }
 @media (hover: hover) {
   .tb-act.has-rem:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
 }
@@ -1041,7 +1041,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .ig-step-text .i { width: 16px; height: 16px; vertical-align: -3px; margin: 0 2px; color: var(--accent); }
 .ig-note { margin: 14px 0 0; font-size: var(--fs-1); color: var(--ink-dim); }
 .ig-done { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--ink); font-size: var(--fs-2); font-weight: 650; }
+  background: var(--green-12); color: var(--ink); font-size: var(--fs-2); font-weight: 650; }
 .ig-done .i { width: 18px; height: 18px; flex: none; color: var(--green); }
 
 /* composer photo preview + Verlauf row thumbnail */

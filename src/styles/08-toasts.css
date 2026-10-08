@@ -43,7 +43,7 @@
 .dw-meta { margin: 9px 0 0; color: var(--ink-dim); font-size: 11.5px; line-height: 1.35; font-weight: 600; text-align: center; }
 /* Login credential hint on a demo instance. */
 .login-demo-note { margin: 2px 0 14px; padding: 8px 12px; border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--ink-dim);
+  background: var(--amber-16); color: var(--ink-dim);
   font-size: var(--fs-1); font-weight: 600; line-height: 1.45; text-align: center;
   border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); }
 
@@ -314,7 +314,7 @@
    Inset by the corner on both sides, so it stays a straight line and never bends round the corner
    into something that reads as a border. */
 .toast-life { position: absolute; left: var(--r-sm); right: var(--r-sm); bottom: 0; height: 2px; pointer-events: none;
-  border-radius: 1px; background: color-mix(in srgb, var(--ink) 22%, transparent); transform-origin: left center;
+  border-radius: 1px; background: var(--ink-22); transform-origin: left center;
   animation: toastLife linear forwards; }
 @keyframes toastLife { to { transform: scaleX(0); } }
 /* reduced motion: the global rule would end the run at once and the line would vanish — it stands
@@ -745,7 +745,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .tl-play:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* while a voice memo is sounding, the button turns blue and pulses so it's obvious */
 .tl-play.playing { background: var(--blue); animation: playPulse 1.3s ease-in-out infinite; }
-@keyframes playPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--blue) 45%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--blue) 0%, transparent); } }
+@keyframes playPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--blue-45); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--blue) 0%, transparent); } }
 .tl-play .i { width: 11px; height: 11px; margin-left: 1px; }
 .tl-play.playing .i { margin-left: 0; }
 

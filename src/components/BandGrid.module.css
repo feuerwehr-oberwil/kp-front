@@ -24,7 +24,7 @@
      not introduce a fourth meaning. Deliberately not --accent either: a station's accent is its
      brand colour (in Oberwil alarm red) and a plan must not read as an alarm — shape already
      carries every state (dashed vs solid, hollow vs filled), so plain ink loses no information. */
-  --st-available: color-mix(in srgb, var(--ink) 45%, transparent);
+  --st-available: var(--ink-45);
   --st-planned: var(--ink);
   --edge: var(--glass-edge);
   flex: 1 1 auto; min-height: 0; min-width: 0; max-width: 100%;
@@ -39,9 +39,9 @@
 .scroll::-webkit-scrollbar-track { background: transparent; }
 .scroll::-webkit-scrollbar-thumb {
   border-radius: 5px; border: 2px solid transparent; background-clip: content-box;
-  background-color: color-mix(in srgb, var(--ink) 28%, transparent);
+  background-color: var(--ink-28);
 }
-.scroll::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--ink) 45%, transparent); }
+.scroll::-webkit-scrollbar-thumb:hover { background-color: var(--ink-45); }
 
 /* The width is the whole layout decision, in one line — the columns' own floor, the port, and
    the columns' own ceiling, in that order.
@@ -362,7 +362,7 @@
 }
 /* the stretch that changes, and the stretches that do not — the same two weights the cells use */
 .pieceInside { background: var(--st-planned, var(--ink)); }
-.pieceKeeps { background: color-mix(in srgb, var(--ink) 22%, transparent); }
+.pieceKeeps { background: var(--ink-22); }
 /* the far end carries only its label; it is a tick, not a piece */
 .pieceEnd { flex: none; min-width: 0 !important; width: 0; }
 .pieceEnd em { left: auto; right: 0; }

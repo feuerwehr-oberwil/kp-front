@@ -166,7 +166,7 @@
 
 /* a floor's rectangle on the sheet, its index chip, and the join marks between two drawings */
 .adm-floors-box { position: absolute; border: 2px solid var(--blue-strong); background: color-mix(in srgb, var(--blue) 7%, transparent); border-radius: 3px; pointer-events: none; }
-.adm-floors-box.active { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent); }
+.adm-floors-box.active { box-shadow: 0 0 0 3px var(--blue-22); }
 .adm-floors-box.draft { border-style: dashed; background: transparent; }
 .adm-floors-box.moving { opacity: .8; }
 .adm-floors-sheet:not(.drawing) .adm-floors-box.active { cursor: move; }

@@ -7,10 +7,10 @@
 /* hover preview ONLY on real hover devices — iOS keeps :hover latched on the last-tapped
    element, so a just-DESELECTED footprint stayed red ("always one building too much") */
 @media (hover: hover) {
-  .wb-osm-svg.pick polygon:hover { fill: color-mix(in srgb, var(--red) 16%, transparent); stroke: var(--red); stroke-width: 2; }
+  .wb-osm-svg.pick polygon:hover { fill: var(--red-16); stroke: var(--red); stroke-width: 2; }
   .wb-osm-svg.pick polygon.sel:hover { fill: color-mix(in srgb, var(--red) 30%, transparent); }
 }
-.wb-osm-svg.pick polygon.sel { fill: color-mix(in srgb, var(--red) 22%, transparent); stroke: var(--red); stroke-width: 2.25; }
+.wb-osm-svg.pick polygon.sel { fill: var(--red-22); stroke: var(--red); stroke-width: 2.25; }
 
 /* floating transfer bar for multi-building select — bottom-centre of the plan
    viewport (portaled to <body>, so the panned/zoomed board never drags it) */

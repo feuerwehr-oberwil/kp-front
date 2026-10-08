@@ -53,7 +53,7 @@
    get the one button spanning the name cell, which is the same destination — so hover AND the
    button's own focus light the same row, and there is no second «Öffnen» target beside it. */
 @media (hover: hover) {
-  .aop-row:hover { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+  .aop-row:hover { background: var(--blue-5); }
 }
 .aop-row:has(.aop-open:focus-visible) { background: color-mix(in srgb, var(--blue) 7%, transparent); }
 .aop-open {
@@ -110,7 +110,7 @@
 .aop-planrow { cursor: pointer; }
 .aop-planrow[aria-busy='true'] { cursor: default; }
 @media (hover: hover) {
-  .aop-planrow:hover { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+  .aop-planrow:hover { background: var(--blue-5); }
   .aop-planrow[aria-busy='true']:hover { background: none; }
 }
 .aop-planrow:has(.aop-open:focus-visible) { background: color-mix(in srgb, var(--blue) 7%, transparent); }

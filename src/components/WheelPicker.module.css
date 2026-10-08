@@ -84,7 +84,7 @@
    green the grid draws an open stretch in. */
 .green {
   border-color: color-mix(in srgb, var(--green) 42%, transparent);
-  background: color-mix(in srgb, var(--green) 12%, transparent);
+  background: var(--green-12);
   color: var(--green-strong);
 }
 @media (hover: hover) { .green:hover { background: color-mix(in srgb, var(--green) 20%, transparent); } }

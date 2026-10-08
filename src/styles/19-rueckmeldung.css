@@ -91,7 +91,7 @@ p.fb-prompt-q { margin: 0; font: 600 var(--fs-2) var(--body); color: var(--ink);
 /* search hits inside the help text. Deliberately a tint + weight rather than the browser's
    default yellow block: the help renders in day and night, and a fixed yellow is unreadable
    in one of them. Inline-block would break the line rhythm, so it only paints. */
-.help-hit { background: color-mix(in srgb, var(--blue) 22%, transparent); color: inherit;
+.help-hit { background: var(--blue-22); color: inherit;
   border-radius: 3px; padding: 0 1px; font-weight: var(--fw-bold); }
 
 /* Verlauf activity strip — WHEN the Einsatz has substance, as one line above the list. A long
@@ -132,5 +132,5 @@ p.fb-prompt-q { margin: 0; font: 600 var(--fs-2) var(--body); color: var(--ink);
    fault rather than as a point. */
 .hist-ev.jr-flash { animation: ui-flash-ring-inset 1.9s ease-out 1; border-radius: var(--r-ctl); }
 @media (prefers-reduced-motion: reduce) {
-  .hist-ev.jr-flash { animation: none; box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  .hist-ev.jr-flash { animation: none; box-shadow: inset 0 0 0 4px var(--ink-62); }
 }

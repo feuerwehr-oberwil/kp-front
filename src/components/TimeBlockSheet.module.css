@@ -40,9 +40,9 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 .swatch { width: 4px; height: 18px; border-radius: 2px; flex: none; background: currentColor; }
 /* THE THREE STATES, in the grid's own colours — the sheet and the lane teach one vocabulary
    instead of two. Set on the head so the swatch inherits it via currentColor. */
-.toneAvailable { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink-dim); }
+.toneAvailable { background: var(--ink-8); color: var(--ink-dim); }
 .tonePlanned { background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--blue-strong); }
-.toneOpen { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green-strong); }
+.toneOpen { background: var(--green-16); color: var(--green-strong); }
 .toneDone { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink-dim); }
 .cardWarn .head { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
 /* the head is also a switch, and the sign for that is always on screen: a ⇄ at the head's right
@@ -65,7 +65,7 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 /* the read-only twin still uses this for «noch da» */
 .open {
   display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 10px;
-  border-radius: var(--r-ctl); background: color-mix(in srgb, var(--green) 16%, transparent);
+  border-radius: var(--r-ctl); background: var(--green-16);
   font: var(--fw-bold) 12px var(--body); font-style: normal; color: var(--green);
 }
 /* an editable end that has not happened yet: same green as an open stretch on the grid, but it is
@@ -78,13 +78,13 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
   color: var(--blue-strong); font: var(--fw-bold) 13px var(--body);
 }
 .time :global(.timefield-trigger.tok-open) {
-  background: color-mix(in srgb, var(--green) 16%, transparent);
-  border-color: color-mix(in srgb, var(--green) 45%, transparent);
+  background: var(--green-16);
+  border-color: var(--green-45);
   color: var(--green-strong); font: var(--fw-bold) 13px var(--body);
 }
 .timeOpen :global(.timefield-trigger) {
-  background: color-mix(in srgb, var(--green) 16%, transparent);
-  border-color: color-mix(in srgb, var(--green) 45%, transparent);
+  background: var(--green-16);
+  border-color: var(--green-45);
   color: var(--green-strong); font: var(--fw-bold) 13px var(--body);
 }
 
@@ -96,11 +96,11 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 .del svg { width: 15px; height: 15px; }
 /* the destructive red must not be hover-only – touch sees it on the press, before committing */
 @media (hover: hover) {
-  .del:hover { opacity: 1; color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
+  .del:hover { opacity: 1; color: var(--red); background: var(--red-12); }
 }
 .del:active {
   opacity: 1; color: var(--red);
-  background-color: color-mix(in srgb, var(--red) 12%, transparent);
+  background-color: var(--red-12);
   background-image: linear-gradient(var(--press), var(--press));
 }
 

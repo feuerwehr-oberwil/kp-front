@@ -268,7 +268,7 @@
 }
 /* hover was missing entirely — every other option cell in the app answers a pointer
    (13-incident.css · «ONE menu row»), and mouse-only, so a tap leaves nothing lit. */
-@media (hover: hover) { .pickOpt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
+@media (hover: hover) { .pickOpt:hover { background: var(--blue-8); } }
 .pickOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* a picked ROW wears the one row wash (01-tokens · --sel-wash); its radio dot says the rest */
 .pickOptOn { border-color: var(--sel); background: var(--sel-wash); }

@@ -208,7 +208,7 @@
   /* like every other control on this sheet: the press is said by :active below, not by the
      platform's grey wash (which lingers on the chip a beat after the finger is gone) */
   -webkit-tap-highlight-color: transparent;
-  background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  background: var(--ink-8); }
 /* a NAME suggestion is a different offer from a Textbaustein — it completes the WORD under the
    cursor rather than the sentence, and what it carries is the spelling the rest of the app uses.
    The tints carry a touch more colour than they did as outlined chips: the border used to do
@@ -463,13 +463,13 @@
    feeds are visibly the same thing */
 .jc-open[data-state="1"] { color: var(--amber-strong);
   background: color-mix(in srgb, var(--amber) 15%, transparent);
-  border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+  border-color: var(--amber-45); }
 .jc-open[data-state="1"] .jc-ring { background: currentColor; box-shadow: inset 0 0 0 3px var(--surface); }
 /* dringend — red, and the only state that carries a glyph. Not pulsing: a priority is not an
    alarm, and the pulsing red in this app belongs to the überfällige Trupp. */
 .jc-open[data-state="2"] { color: var(--red);
-  background: color-mix(in srgb, var(--red) 12%, transparent);
-  border-color: color-mix(in srgb, var(--red) 45%, transparent); }
+  background: var(--red-12);
+  border-color: var(--red-45); }
 .jc-open[data-state="2"] .jc-ring { background: currentColor; border-color: currentColor; }
 
 /* ── the clock beside the ring: when this entry has to come back ──
@@ -576,7 +576,7 @@
 .tb-uhr-row { display: flex; align-items: center; gap: 11px; width: 100%; height: 42px; padding: 0 10px; border: 0;
   background: transparent; border-radius: var(--r-ctl); cursor: pointer; color: var(--ink); font: inherit; text-align: left; }
 @media (hover: hover) {
-  .tb-uhr-row:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+  .tb-uhr-row:hover { background: var(--blue-8); }
 }
 .tb-uhr-row:active { background-image: linear-gradient(var(--press), var(--press)); }
 .tb-uhr-row.on { background: var(--fill-soft); }

@@ -205,7 +205,7 @@ button.ortScene:active:not(:disabled) { background-image: linear-gradient(var(--
 /* …the Magazin is the one worth SEEING, because it is the answer to the question. It keeps its
    tint when the word is gone — icon-only is exactly when the colour has to carry it. */
 .ortStation { color: var(--ink); background: color-mix(in srgb, var(--ink) 13%, transparent); }
-@media (hover: hover) { button.ortStation:hover { background: color-mix(in srgb, var(--ink) 22%, transparent); } }
+@media (hover: hover) { button.ortStation:hover { background: var(--ink-22); } }
 button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 

@@ -65,7 +65,7 @@
   border: none; border-radius: var(--r-sm);
   width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; color: var(--ink-dim); }
 @media (hover: hover) {
-  .ctx-x:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+  .ctx-x:hover { background: var(--ink-12); color: var(--ink); }
 }
 .ctx-body { padding: 0 18px 8px; }
 /* ⚠️ `flex-wrap: wrap` + a shrinkable label. A field row is «Beschriftung + Bedienelement» and
@@ -263,7 +263,7 @@
 .combo-opt { width: 100%; display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; border: none;
   background: none; border-radius: var(--r-ctl); padding: 8px 9px; min-height: var(--tap); font: 600 13px var(--body); color: var(--ink); }
 @media (hover: hover) {
-  .combo-opt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+  .combo-opt:hover { background: var(--blue-8); }
 }
 .combo-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-opt.on { background: var(--sel-wash); color: var(--blue-strong); }
@@ -324,7 +324,7 @@
 .kv-x { flex: none; width: 32px; height: 32px; border-radius: var(--r-sm); border: none; cursor: pointer; display: grid; place-items: center;
   background: var(--fill-soft); color: var(--ink-faint); }
 @media (hover: hover) {
-  .kv-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+  .kv-x:hover { background: var(--red-12); color: var(--red); }
 }
 .kv-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-x .i { width: 13px; height: 13px; }
@@ -336,7 +336,7 @@
   border: 0; border-radius: var(--r-sm); background: var(--fill-soft); box-shadow: inset 0 0 0 1px var(--glass-edge);
   color: var(--ink); cursor: pointer; }
 @media (hover: hover) {
-  .kv-swap:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--blue); }
+  .kv-swap:hover { background: var(--blue-8); color: var(--blue); }
 }
 .kv-swap:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-swap .i { width: 18px; height: 18px; }
@@ -460,7 +460,7 @@
    of «Karte verknüpfen», and never --accent: the station's alarm red is not a hyperlink. */
 .btn.link { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 34%, transparent); }
 @media (hover: hover) {
-  .btn.link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 52%, transparent); }
+  .btn.link:hover { background: var(--blue-8); border-color: color-mix(in srgb, var(--blue) 52%, transparent); }
 }
 
 /* overflow-x hidden: with overflow-y:auto the x-axis otherwise computes to `auto` and the
@@ -722,7 +722,7 @@
    list belonging to the line above rather than as more rows in the block. */
 .jr-pinned-note { overflow-wrap: break-word;
   font: var(--fw-regular) 12px/1.35 var(--body); color: var(--ink-dim);
-  padding-left: 8px; border-left: 1.5px solid color-mix(in srgb, var(--amber) 45%, transparent); }
+  padding-left: 8px; border-left: 1.5px solid var(--amber-45); }
 .jr-pinned-note b { font: var(--fw-regular) var(--fs-micro) var(--mono); color: var(--ink-faint); margin-right: 6px; }
 /* ⚠️ WHEN IT WAS RAISED, for every row. The column used to print the Fälligkeit, which only a
    timed Erinnerung has; an Auftrag has none, because nobody checks in on a Schadenplatz. Tapping
