@@ -66,11 +66,6 @@
   "src/components/Zeitplan.module.css": {
     "spacing": 1
   },
-  "src/components/objectVisits/ObjectVisits.module.css": {
-    "fontSize": 15,
-    "weight": 12,
-    "spacing": 33
-  },
   "src/fonts.css": {
     "weight": 4
   },

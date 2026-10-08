@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { Icon } from '../../lib/icons'
+import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
 import { Sheet } from '../../lib/overlays'
 import { LoadingStatus } from '../ShellLoader'
@@ -40,8 +41,8 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
       title={C.photoTitle}
       footer={readOnly ? undefined : (
         <>
-          <button type="button" className="ip-btn" onClick={onAnother} disabled={preparing}><Icon id="cam" />{C.photoAnother}</button>
-          <button type="button" className="ip-btn primary" onClick={onClose}>{C.photoDone}</button>
+          <Button icon={<Icon id="cam" />} onClick={onAnother} disabled={preparing}>{C.photoAnother}</Button>
+          <Button variant="primary" onClick={onClose}>{C.photoDone}</Button>
         </>
       )}
     >
@@ -73,7 +74,7 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
             {stored === false && (
               <p className="form-warn form-warn-compact"><Icon id="warn" /><span className="form-warn-text">{C.photoNotStored}</span></p>
             )}
-            <button type="button" className="ip-btn ip-btn-danger" onClick={onRemove}><Icon id="trash" />{C.photoRemove}</button>
+            <Button variant="danger" icon={<Icon id="trash" />} onClick={onRemove}>{C.photoRemove}</Button>
           </>
         ))}
     </Sheet>
@@ -132,9 +133,9 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
       footer={(
         <>
           {proposal && onRemove && (
-            <button type="button" className="ip-btn ip-btn-danger" onClick={() => onRemove(proposal)} aria-label={C.proposalRemove}><Icon id="trash" /></button>
+            <Button variant="danger" onClick={() => onRemove(proposal)} aria-label={C.proposalRemove}><Icon id="trash" /></Button>
           )}
-          <button type="button" className="ip-btn primary" disabled={!valid} onClick={save}>{C.proposalSave}</button>
+          <Button variant="primary" disabled={!valid} onClick={save}>{C.proposalSave}</Button>
         </>
       )}
     >
