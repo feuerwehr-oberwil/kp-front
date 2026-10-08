@@ -590,6 +590,10 @@
 .un-erg-rings .un-haz-k { flex: 1 1 auto; }
 /* the day/night reason under the ring label («Nacht · Sonnenuntergang 16:42») */
 .un-erg-day { display: block; font-size: var(--fs-micro); color: var(--ink-dim); }
+/* the protective ring's shape under the row (F4, 09.10.2026): oval + the wind that aimed it +
+   its assumption, or circle + why — a full-width line of its own, wrapped below label and control */
+.un-erg-rings:has(.un-erg-wind) { flex-wrap: wrap; }
+.un-erg-wind { flex: 1 0 100%; margin: 0; padding: 0; list-style: none; font-size: var(--fs-micro); color: var(--ink-dim); }
 /* «Absperrkreis übernehmen» beside a distance value (23.09.2026): its own 44px square with the
    Absperrkreis tool's ⊙, the house button (outline, `--r-sm`, never filled) — the value stays
    the loudest thing in the row. It was a 12px underlined «Übernehmen» the row squeezed around.

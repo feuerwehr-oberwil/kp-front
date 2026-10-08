@@ -3197,6 +3197,16 @@ export const de = {
     // the sun at the placard, «Nacht · Sonnenuntergang 16:42»
     ergSunrise: 'Sonnenaufgang {t}',
     ergSunset: 'Sonnenuntergang {t}',
+    // The protective distance's SHAPE (lib/ergRings · ergWindNotes, F4 09.10.2026): a downwind oval
+    // when the live wind can aim it, else the full circle and why. {src} = source, station, time.
+    ergWindOval: 'Schutzabstand als Oval nach {to} – Wind aus {from} ({deg}°), {kmh} km/h · {src}',
+    ergWindAssume: 'Annahme: Länge = Schutzabstand, Breite {pct} % davon (ERG: Quadrat in Windrichtung) – Planungshilfe / Schätzung',
+    ergWindShift: 'Prognose: Wind dreht auf {from} ({deg}°) in ~{min}′',
+    ergWindCalm: 'Schutzabstand als Kreis – Wind schwach ({kmh} km/h), Richtung unsicher · {src}',
+    ergWindStale: 'Schutzabstand als Kreis – Windmessung veraltet · {src}',
+    ergWindUntimed: 'Schutzabstand als Kreis – Windmessung ohne Zeitangabe',
+    ergWindNone: 'Schutzabstand als Kreis – kein Wind gemeldet',
+    ergWindSources: { meteoswiss: 'MeteoSchweiz', 'open-meteo': 'Open-Meteo' } as Record<string, string>,
     // The Schutzabstand rings on the Karte (lib/ergRings, Feldtest Manuel 07.09.): the
     // control sits under the distances it draws, and the ergSource caveat covers both.
     // Andocken (lib/docking): the panel row that makes the invisible bond visible

@@ -219,7 +219,9 @@ async def observe_weather(db: AsyncSession, now: datetime) -> int:
             incident_id=inc.id,
             op_type=OP_TYPE,
             source=EVENT_SOURCE,
-            payload={"weather": data.model_dump()},
+            # the forecast is not an observation (and would make one reading's payload differ
+            # between ticks) — the record keeps what was measured
+            payload={"weather": data.model_dump(exclude={"wind_forecast"})},
             # the moment it was observed BY US, like the client's emit — the replay folds events
             # in seq order and breaks at the first one past its cursor, so an occurred_at older
             # than its neighbours would hide it

@@ -36,6 +36,11 @@ OPEN_METEO_JSON = {
         "precipitation": 0.0,
         "weather_code": 3,
     },
+    "hourly": {
+        "time": ["2026-06-20T22:00", "2026-06-20T23:00", "2026-06-21T00:00"],
+        "wind_speed_10m": [8.0, 12.5, None],
+        "wind_direction_10m": [207, 300, 310],
+    },
 }
 
 
@@ -186,6 +191,42 @@ async def test_meteoswiss_enriched_with_weather_code(patch_httpx):
     assert data is not None
     assert data.source == "meteoswiss"  # wind/temp still from the station
     assert data.weather_code == 3  # condition backfilled from Open-Meteo
+    # …and the next hours' wind from the same request (the ERG corridor's forecast note)
+    assert data.wind_dir_deg == 225.0  # the reading itself stays the station's
+    assert data.wind_forecast is not None
+    assert [(f.at, f.dir_deg, f.speed_kmh) for f in data.wind_forecast] == [
+        ("2026-06-20T22:00", 207.0, 8.0),
+        ("2026-06-20T23:00", 300.0, 12.5),
+        ("2026-06-21T00:00", 310.0, None),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_open_meteo_asks_for_the_next_hours_wind(patch_httpx):
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.url.params))
+        return httpx.Response(200, json=OPEN_METEO_JSON)
+
+    patch_httpx(handler)
+    wc = WeatherClient()
+    wc.provider = "open-meteo"
+    data = await wc.get_weather(47.50, 7.59)
+    assert seen["hourly"] == "wind_speed_10m,wind_direction_10m"
+    assert seen["forecast_hours"] == "3"
+    assert data is not None and data.wind_forecast is not None and len(data.wind_forecast) == 3
+
+
+@pytest.mark.asyncio
+async def test_no_hourly_block_is_no_forecast(patch_httpx):
+    payload = {k: v for k, v in OPEN_METEO_JSON.items() if k != "hourly"}
+    patch_httpx(lambda request: httpx.Response(200, json=payload))
+    wc = WeatherClient()
+    wc.provider = "open-meteo"
+    data = await wc.get_weather(47.50, 7.59)
+    assert data is not None
+    assert data.wind_forecast is None
 
 
 # --- is_configured SSRF guard ------------------------------------------------------

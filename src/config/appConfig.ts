@@ -600,6 +600,20 @@ const base = {
     /** a placard marked «Gelöscht / erledigt» (lib/objectDone) keeps its rings, GREY and unfilled —
      *  the same «over, but it happened» the glyph says; a red wash would still order an evacuation */
     doneColor: '#8a929e',
+    /** The protective distance as a downwind OVAL (lib/ergRings · ergCorridorRing, F4 09.10.2026):
+     *  its length is the ERG distance, its width this fraction of it. ⚠️ An assumption, named in
+     *  the panel: the ERG's own protective action zone is a SQUARE of that side, downwind of the
+     *  spill (the spill at the middle of its upwind edge) — the oval is its core, not its corners. */
+    corridorWidthRatio: 0.5,
+    /** under this speed the wind's direction is noise (a 10-min mean of a breeze) → full circle */
+    windCalmBelowKmh: 5,
+    /** a reading older than this no longer aims anything → full circle, and the panel says so.
+     *  MeteoSwiss publishes every 10 min with ~10–20 min lag; the badge polls every 10 min. */
+    windStaleMin: 45,
+    /** «Wind dreht auf 300° in ~40′»: a forecast turn at least this large… */
+    forecastShiftDeg: 45,
+    /** …due within this many minutes */
+    forecastWithinMin: 120,
   },
   drawing: {
     colors: ['#1f6feb', '#e8392b', '#1f9d57', '#e2920a', '#1b2330', '#ffffff'],

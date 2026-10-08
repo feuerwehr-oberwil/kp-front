@@ -126,10 +126,14 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
           data={
             overlay.kind === 'circle'
               ? { type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: circlePolygon(overlay.center, overlay.radiusM) }, properties: {} }
-              : lineFeat(overlay.coords)
+              : overlay.kind === 'polygon'
+                ? { type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: [overlay.coords] }, properties: {} }
+                : lineFeat(overlay.coords)
           }
         >
-          {overlay.kind === 'circle' ? (
+          {/* circle and polygon share their two layers (and their ids): the ERG protective
+              ring turning into the downwind oval and back is a data change, not a remount */}
+          {overlay.kind === 'circle' || overlay.kind === 'polygon' ? (
             <>
               <Layer
                 id={`l-${overlay.id}-fill`}

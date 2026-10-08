@@ -21,7 +21,7 @@ import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { routeHotkey } from './lib/hotkeyRoute'
 import { moduleNumbers, navStops } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
-import { ergRingOverlays } from './lib/ergRings'
+import { ergRingOverlays, parseWeatherTime } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
 import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from './lib/docking'
 import type { AttendanceState, BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
@@ -874,17 +874,6 @@ export function IncidentWorkspace({
   // re-render when the fetched ADR/ERG datasets land (lib/useHazardData) — the rings and
   // baked placards below read them synchronously.
   const hazVersion = useHazardData()
-  // ERG Schutzabstand rings, derived per render from the placards on the board (lib/ergRings,
-  // Feldtest Manuel 07.09.). Joined with the prepared overlays so MapLayers needs no new prop.
-  // The day/night split is the sun at each placard (lib/daylight), read at compute time; a board
-  // left open across sunrise/sunset picks the flip up with the next re-render, which any
-  // interaction provides — a Planungshilfe does not warrant its own clock.
-  const mapOverlays = useMemo(
-    () => [...preparedOverlays, ...ergRingOverlays(entities, new Date())],
-    // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
-    // rings drawn from an already-typed UN appear with it.
-    [entities, hazVersion],
-  )
   const resolvedMapDrawings = useMemo(() => resolveMapDrawings(drawings, entities), [drawings, entities])
   /**
    * The ONE thing the header pair does: step the global timeline, then SAY what it stepped.
@@ -2608,6 +2597,38 @@ export function IncidentWorkspace({
   const [journalLandOn, setJournalLandOn] = useState<{ id: string; nonce: number } | null>(null)
   const [replayAtMs, setReplayAtMs] = useState<number | null>(null)
   const onReplayPlayhead = useCallback((ms: number) => setReplayAtMs(ms), [])
+
+  // ERG Schutzabstand rings, derived per render from the placards on the board (lib/ergRings,
+  // Feldtest Manuel 07.09.). Joined with the prepared overlays so MapLayers needs no new prop.
+  // The day/night split is the sun at each placard (lib/daylight), read at compute time; a board
+  // left open across sunrise/sunset picks the flip up with the next re-render, which any
+  // interaction provides — a Planungshilfe does not warrant its own clock.
+  // The protective ring runs downwind as an oval while the wind reading is usable (F4,
+  // 09.10.2026 — lib/ergRings · ergWind). A stale wind DOES get its own beat: an oval must not
+  // outlive the reading that aimed it, so the memo re-derives once when the reading crosses
+  // windStaleMin (the badge's poll keeps the last reading when the backend stops answering).
+  // In replay the reading is the folded one, judged at the playhead.
+  const [windExpired, setWindExpired] = useState(0)
+  const windAt = displayWeather?.observed_at
+  useEffect(() => {
+    const at = parseWeatherTime(windAt)
+    if (!at || replayActive) return
+    const ms = at.getTime() + appConfig.ergRings.windStaleMin * 60_000 - Date.now()
+    if (ms <= 0) return
+    const id = window.setTimeout(() => setWindExpired((n) => n + 1), ms + 1000)
+    return () => window.clearTimeout(id)
+  }, [windAt, replayActive])
+  const mapOverlays = useMemo(
+    () => {
+      const now = replayActive
+        ? new Date(replayAtMs ?? parseWeatherTime(displayWeather?.observed_at)?.getTime() ?? Date.now())
+        : new Date()
+      return [...preparedOverlays, ...ergRingOverlays(entities, now, displayWeather)]
+    },
+    // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
+    // rings drawn from an already-typed UN appear with it. windExpired: see above.
+    [entities, hazVersion, displayWeather, replayActive, replayAtMs, windExpired],
+  )
   const seekToEvent = (e: TimelineEvent) => {
     const t = e.at ? Date.parse(e.at) : NaN
     if (Number.isFinite(t)) replaySeek.current?.(t)
@@ -5640,6 +5661,7 @@ export function IncidentWorkspace({
           // syncs the same in both directions.
           onErgRings={selected.kind === 'symbol' && !selected.live ? (mode) => patchEntity(selected.id, { ergRings: mode === 'small' ? undefined : mode }) : undefined}
           ergCoord={selected.coord}
+          ergWeather={displayWeather}
           // «Übernehmen» (Feldtest 07.09.): the ERG distance becomes a REAL Absperrkreis around
           // the symbol — createCircle selects it, so the operator lands on the editable cordon.
           // The derived preview rings go quiet for this placard: the real circle replaces them,

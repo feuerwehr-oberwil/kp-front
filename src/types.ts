@@ -290,6 +290,18 @@ export interface WeatherData {
   observed_at: string | null
   source: string
   station: string | null
+  /** The next hours' wind from the Open-Meteo point forecast, current hour first (backend
+   *  weather · WindForecast). Absent from an older backend and from every RECORDED reading —
+   *  a forecast is not an observation. Read by lib/ergRings · ergWindShiftAhead. */
+  wind_forecast?: WindForecast[] | null
+}
+
+/** One forecast hour: `at` is ISO-8601 UTC (Open-Meteo sends it without a zone suffix),
+ *  `dir_deg` the FROM bearing like WeatherData.wind_dir_deg. */
+export interface WindForecast {
+  at: string
+  dir_deg: number | null
+  speed_kmh: number | null
 }
 
 export type DrawKind = 'line' | 'area' | 'circle'
@@ -778,6 +790,19 @@ export type PreparedMapOverlay =
       color: string
       width?: number
       dasharray?: number[]
+    }
+  /** a closed ring painted like a circle (fill + outline) — the ERG downwind oval
+   *  (lib/ergRings · ergCorridorRing). `coords` is the ring, first point repeated last. */
+  | {
+      id: string
+      kind: 'polygon'
+      layer: LayerId
+      coords: LngLat[]
+      color: string
+      fillOpacity?: number
+      lineOpacity?: number
+      lineWidth?: number
+      lineDasharray?: number[]
     }
 
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,
