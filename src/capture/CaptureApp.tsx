@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { scrollBehavior } from '../lib/reducedMotion'
-import { fillTemplate, hhmm, stripUnprintable, telHref, unitLabel } from '../lib/format'
+import { fillTemplate, hhmm, stripUnprintable, telHref, unitLabel, compareText, formatTime, localeDate } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { ShellLoader } from '../components/ShellLoader'
@@ -59,10 +59,10 @@ const tokenFromPath = (): string | null => {
 const fmtWhen = (iso: string): string => {
   const d = new Date(iso)
   if (!Number.isFinite(d.getTime())) return ''
-  const clock = d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+  const clock = formatTime(d)
   return d.toDateString() === new Date().toDateString()
     ? clock
-    : `${d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })} ${clock}`
+    : `${localeDate(d, { day: '2-digit', month: '2-digit' })} ${clock}`
 }
 
 const toTime = (iso?: string): string => {
@@ -136,7 +136,7 @@ const dayTag = (iso: string | undefined, baseIso: string): string | null => {
   const base = new Date(baseIso)
   if (!Number.isFinite(d.getTime()) || !Number.isFinite(base.getTime())) return null
   if (d.toDateString() === base.toDateString()) return null
-  return d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })
+  return localeDate(d, { day: '2-digit', month: '2-digit' })
 }
 
 // «Übung» reaches the poster exactly like a real Einsatz — the badge is what keeps a drill
@@ -599,7 +599,7 @@ export default function CaptureApp() {
   // catalogue for the picker: grouped by category, alphabetical inside — config order is
   // load-out order, which reads as random in a dropdown
   const catalogueGroups = useMemo(() => {
-    const sorted = [...catalogue].sort((a, b) => a.label.localeCompare(b.label, 'de-CH'))
+    const sorted = [...catalogue].sort((a, b) => compareText(a.label, b.label))
     const by = new Map<string, typeof sorted>()
     for (const c of sorted) {
       const k = c.category ?? ''
@@ -607,7 +607,7 @@ export default function CaptureApp() {
       arr.push(c)
       by.set(k, arr)
     }
-    return [...by.entries()].sort(([a], [b]) => a.localeCompare(b, 'de-CH'))
+    return [...by.entries()].sort(([a], [b]) => compareText(a, b))
   }, [catalogue])
   // catalogue search mirrors the Personen filter — filters across groups by label
   const shownGroups = useMemo(() => {

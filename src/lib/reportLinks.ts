@@ -1,4 +1,4 @@
-import { appConfig } from '../config/appConfig'
+import { formatLocale } from './format'
 
 /**
  * «Formulare & Links» — the station's own paperwork, on the Rapport.
@@ -53,14 +53,14 @@ function dateOnly(iso: string | null | undefined): string {
   if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString(appConfig.locale, { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return d.toLocaleDateString(formatLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function dateTime(iso: string | null | undefined): string {
   if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleString(appConfig.locale, {
+  return d.toLocaleString(formatLocale(), {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
