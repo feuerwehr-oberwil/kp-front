@@ -2935,6 +2935,10 @@ export const de = {
     // Steht über der Leiste, sobald das bestehende Gebäude wiedergefunden und vorgewählt ist:
     // «Anderes Gebäude wählen» heisst fast immer ergänzen, nicht von vorn anfangen.
     osmPickHintAmend: 'Das bestehende Gebäude ist markiert – weitere antippen zum Ergänzen, dann übernehmen',
+    // Steht über der Leiste, wenn noch kein Gebäude gewählt ist und die App den Umriss am
+    // Einsatzort vorgewählt hat (lib/footprintPick): ein Vorschlag, den man prüft – nie übernommen,
+    // bevor jemand «Übernehmen» tippt.
+    osmPickHintHere: 'Gebäude am Einsatzort ist markiert – prüfen, dann übernehmen.',
     // ⚠️ Zahl in Klammern, damit ein Umriss wie mehrere passt. Das ist ein Verlust, kein Hinweis:
     // was hier fehlt (offline, Kartenausschnitt verschoben, in OSM geändert), fällt beim
     // Übernehmen weg – lieber laut gesagt als stillschweigend aus der Auswahl genommen.

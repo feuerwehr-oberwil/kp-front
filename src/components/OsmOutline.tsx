@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -7,6 +7,7 @@ import { principalAngleDeg } from '../lib/footprint'
 import { idbGet, idbSet } from '../lib/idb'
 import { apiPost } from '../lib/api'
 import { georefFromPick, M_PER_LAT, matchStoredRings, mPerLon } from '../lib/buildingTransfer'
+import { pickAtPin } from '../lib/footprintPick'
 import type { LngLat, SrcGeoref } from '../types'
 import { Icon } from '../lib/icons'
 import { RetryButton } from './RetryButton'
@@ -17,6 +18,10 @@ import s from './OsmOutline.module.css'
 type Ring = [number, number][]
 
 const cache = new Map<string, Promise<Ring[]>>()
+
+// same outlines, point for point — a refetch of the same box is not a new answer
+const sameRings = (a: Ring[], b: Ring[]) => a === b || (a.length === b.length && a.every((r, i) =>
+  r.length === b[i].length && r.every(([x, y], k) => x === b[i][k][0] && y === b[i][k][1])))
 // Resolved outlines by key — lets the component seed its state SYNCHRONOUSLY. The `cache` Map
 // only holds the Promise, so even a warm reload flashed "…werden geladen" for one async tick
 // while the IDB read settled; seeding from this map skips that flash entirely.
@@ -30,6 +35,12 @@ function bboxKey(center: LngLat, radiusM: number) {
   const south = center[1] - dLat, north = center[1] + dLat
   const west = center[0] - dLon, east = center[0] + dLon
   return { key: `${south.toFixed(6)},${west.toFixed(6)},${north.toFixed(6)},${east.toFixed(6)}`, south, west, north, east }
+}
+
+// a ground point in the picker's 0..1 board space — the projection `loadBuildings` gives the rings
+function pickerPoint(center: LngLat, radiusM: number, [lon, lat]: LngLat): [number, number] {
+  const { south, west, north, east } = bboxKey(center, radiusM)
+  return [(lon - west) / (east - west), (north - lat) / (north - south)]
 }
 
 const CACHE_PREFIX = 'kp.osm.bld.' // persistent (IndexedDB) outline cache, keyed by bbox
@@ -161,6 +172,11 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
   // has the operator changed the pre-selection since it was laid down? Only until then does the
   // note about it tell the truth.
   const [touched, setTouched] = useState(false)
+  // the outline at the Einsatzort was pre-selected by the app (no building yet) — says so once
+  const [autoPicked, setAutoPicked] = useState(false)
+  // where and on which outlines that offer was last made: it is made ONCE per place and data, so a
+  // re-render or a refetch of the same box never re-selects what the operator just deselected
+  const offeredFor = useRef<{ at: string; rings: Ring[] } | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [slow, setSlow] = useState(false)
 
@@ -225,12 +241,33 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
   // footprints by WORLD POSITION (lib/buildingTransfer · matchStoredRings) — shape alone is
   // scale-ambiguous, and no OSM ids are kept anywhere. Re-runs on every fetch, so a fresh load
   // also clears whatever the previous bbox had selected.
+  //
+  // With NO building yet, the outline at the Einsatzort starts selected instead (08.10.2026,
+  // lib/footprintPick · pickAtPin): the operator confirms rather than hunts. Never committed — the
+  // «Übernehmen» tap stays theirs. A legacy building (`replacing`, no georeference) gets no offer:
+  // the bar says the pick replaces it, and a ready-made selection would make that too easy.
+  const pinLng = pin?.[0], pinLat = pin?.[1]
   useEffect(() => {
+    if (!rings) return // nothing drawn, nothing to select — the answer decides when it arrives
+    if (preselectSrc?.length && preselectGeo) {
+      offeredFor.current = null
+      setTouched(false); setAutoPicked(false)
+      const m = matchStoredRings(preselectSrc, preselectGeo, center, radiusM, rings)
+      setSelected(new Set(m.indices)); setMissing(m.missing)
+      return
+    }
+    setMissing(0)
+    const at = interactive && !replacing && pinLng != null && pinLat != null
+      ? { key: `${bboxKey(center, radiusM).key}|${pinLng},${pinLat}`, pt: pickerPoint(center, radiusM, [pinLng, pinLat]) }
+      : null
+    const last = offeredFor.current
+    // already offered here, on these outlines — whatever the operator made of it stands
+    if (at && last && last.at === at.key && sameRings(last.rings, rings)) return
+    offeredFor.current = at && { at: at.key, rings }
     setTouched(false)
-    if (!rings || !preselectSrc?.length || !preselectGeo) { setSelected(new Set()); setMissing(0); return }
-    const m = matchStoredRings(preselectSrc, preselectGeo, center, radiusM, rings)
-    setSelected(new Set(m.indices)); setMissing(m.missing)
-  }, [rings, preselectSrc, preselectGeo, center, radiusM])
+    const i = at ? pickAtPin(rings, at.pt, 2 * radiusM) : null
+    setSelected(new Set(i == null ? [] : [i])); setAutoPicked(i != null)
+  }, [rings, preselectSrc, preselectGeo, center, radiusM, interactive, replacing, pinLng, pinLat])
 
   // drop selections if interactivity is lost
   useEffect(() => { if (!interactive) setSelected(new Set()) }, [interactive])
@@ -255,12 +292,13 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
   // the Einsatzort in the same 0..1 board space the rings are projected into (loadBuildings)
   const pinAt = (() => {
     if (!pin) return null
-    const { south, west, north, east } = bboxKey(center, radiusM)
-    const x = (pin[0] - west) / (east - west), y = (north - pin[1]) / (north - south)
+    const [x, y] = pickerPoint(center, radiusM, pin)
     return x >= 0 && x <= 1 && y >= 0 && y <= 1 ? { x, y } : null
   })()
   // the existing building was found and is highlighted — say once that tapping ADDS to it
   const preselected = !touched && !!preselectGeo && !!preselectSrc?.length && n > 0
+  // …or the app marked the outline at the Einsatzort — say it is a suggestion to check
+  const offered = !touched && autoPicked && !preselected && n > 0
 
   return (
     <>
@@ -287,7 +325,7 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
               that is not in this fetch would otherwise vanish from the selection unannounced. */}
           {missing > 0
             ? <div className={s['wb-osm-warn']}><Icon id="warn" /><span>{fillTemplate(copy.osmPickMissing, { n: missing })}</span></div>
-            : preselected && <div className={s['wb-osm-note']}>{copy.osmPickHintAmend}</div>}
+            : (preselected || offered) && <div className={s['wb-osm-note']}>{preselected ? copy.osmPickHintAmend : copy.osmPickHintHere}</div>}
           <div className={s['wb-osm-bar']}>
             {n === 0 ? (
               <span className={s['wb-osm-barhint']}>{replacing ? copy.osmPickHintReplace : copy.osmPickHint}</span>
