@@ -445,7 +445,7 @@ function WeatherDetails({ weather, cond, onOpenMeteo }: {
   onOpenMeteo?: () => void
 }) {
   const dir = weather.wind_dir_deg
-  const observed = weather.observed_at ? new Date(weather.observed_at).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : null
+  const observed = weather.observed_at ? formatTime(new Date(weather.observed_at)) : null
   const w = appConfig.copy.weather
   return (
     <>

@@ -19,7 +19,7 @@ import { ObjectPlansView } from './ObjectPlansView'
 import { GeodataView } from './DataView'
 import { BrandingFields } from './BrandingFields'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, compareText } from '../lib/format'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, roundedMinutes } from '../lib/attendanceHours'
 import { DEFAULT_ATTENDANCE_MERGE_GAP_MIN } from '../lib/attendanceIntervals'
 import {
@@ -283,7 +283,7 @@ function useRosterNames(): string[] {
         setNames(people
           .filter((p) => p.is_active ?? p.active ?? true)
           .map((p) => p.display_name)
-          .sort((a, b) => a.localeCompare(b, 'de-CH')))
+          .sort(compareText))
       } catch { /* no roster (yet) → free text, see above */ }
     })()
     return () => { alive = false }

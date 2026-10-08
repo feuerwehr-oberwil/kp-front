@@ -33,6 +33,7 @@
 import { apiGet } from './api'
 import { readThrough } from './idb'
 import genericAction from '../data/checklists/generic-action.json'
+import { compareText } from './format'
 
 // --- template schema (matches the bundled JSON) ----------------------------------
 
@@ -402,6 +403,6 @@ export function manualGroups(templates: ChecklistTemplate[], query: string): Dev
     groups.set(device, [...(groups.get(device) ?? []), t])
   }
   return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b, 'de-CH'))
+    .sort(([a], [b]) => compareText(a, b))
     .map(([device, manuals]) => ({ device, manuals }))
 }

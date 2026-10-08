@@ -124,9 +124,12 @@ class PinLimiter:
         if len(self._state) <= MAX_BUCKETS:
             return
         # Still over the ceiling: evict by (cooldown already expired, longest unseen) so a
-        # flood of invented keys sheds itself before a live cooldown does.
+        # flood of invented keys sheds itself before a live cooldown does. Shed to a margin
+        # below the ceiling, like the aggregate below: shedding to the ceiling itself meant a
+        # flood paid one sort of 10,000 buckets per INSERT (the bounded-map test alone took 44 s).
+        target = MAX_BUCKETS * 9 // 10
         ordered = sorted(self._state.items(), key=lambda item: (item[1][1], item[1][2]))
-        for key, _bucket in ordered[: len(self._state) - MAX_BUCKETS]:
+        for key, _bucket in ordered[: len(self._state) - target]:
             del self._state[key]
 
 

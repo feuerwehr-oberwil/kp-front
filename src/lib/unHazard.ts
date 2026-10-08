@@ -21,6 +21,7 @@
 
 import { appConfig } from '../config/appConfig'
 import { createStaticDataset } from './staticData'
+import { compareText } from './format'
 
 export interface UnHazardEntry {
   /** 4-digit UN number as a string, e.g. "1203" (leading zeros preserved). */
@@ -138,7 +139,7 @@ export function allStoffNames(): readonly string[] {
       seen.add(k)
       names.push(n)
     }
-    stoffNames = names.sort((a, b) => a.localeCompare(b, 'de-CH'))
+    stoffNames = names.sort(compareText)
   }
   return stoffNames
 }
