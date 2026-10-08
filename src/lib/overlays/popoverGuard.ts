@@ -1,3 +1,14 @@
+/*
+ * **One gesture closes one thing.** A dropdown open INSIDE a dialog closes first and alone — the
+ * first Esc / the first outside tap is the menu's, the second is the sheet's. Every transient
+ * surface registers while it is open (`overlays/popoverGuard` · `usePopoverGuard`; `Menu`,
+ * `Popover` and `ComboMenu` already do), and `Sheet`/`Overlay` veto an `outside-press`/
+ * `escape-key` dismissal while the register is warm. Add a hand-rolled popover ⇒ register it.
+ * A surface with its own INNER layers (a search, an inline editor) answers Esc through
+ * `Overlay · onEscape` — true = «I closed my layer» — never through `dismissEscape={false}`,
+ * which only vetoes and left the Verlauf drawer deaf to Esc on the tablet (26.09.2026).
+ */
+
 import { useEffect } from 'react'
 
 /**

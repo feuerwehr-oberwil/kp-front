@@ -35,6 +35,25 @@ requirement) now live in the [root README](../README.md).
 | [`SOURCEMAPS.md`](SOURCEMAPS.md) | 🟢 | Turning a minified field stack from the `kpfront.clienterror` log line into source positions: the hidden sourcemaps every build writes, taking them from the server or from a rebuild of the reporting build (`scripts/symbolicate.mjs`), and what makes a rebuild line up. |
 | [`glossary.md`](glossary.md) | 🟢 | German domain-term glossary (Lage, Verlauf, Atemschutz, …) for non-German contributors. |
 
+## Conventions by topic
+
+The rules that span modules, moved out of [`AGENTS.md`](../AGENTS.md) on 2026-10-08 (wording
+unchanged). `AGENTS.md` keeps the conventions every change has to know; a rule about one module
+lives in a comment at the top of that module.
+
+| Doc | Status | What it is |
+| --- | --- | --- |
+| [`sync-and-offline.md`](sync-and-offline.md) | 🟢 | The review regression contracts of 2026-10-02, the closed Einsatz (what still writes, what is refused and parked, every device hearing the close, why there is no offline reopen) and derived ids for what every device observes. |
+| [`undo.md`](undo.md) | 🟢 | How an act joins the one undo timeline (delegating, closure, confirm-with-undo toast), the counter-rows the Rapport prints, and what a remote merge invalidates. |
+| [`tactical-objects.md`](tactical-objects.md) | 🟢 | One object, two surfaces: the sheet body as anchor, the last hand-placement owning the truth, machine writes that never flip an anchor, presentation, the measured aspect, the accepted limitation, attachments across documents, the word «twin». |
+| [`plans-and-buildings.md`](plans-and-buildings.md) | 🟢 | Prepared Gebäude floors and their frozen binding, «Automatisch ausrichten» as a proposal, approved alignments and what a running Einsatz freezes, the tile pyramid and its pdf.js fallback. |
+| [`ui-conventions.md`](ui-conventions.md) | 🟢 | Editor sheets (one control per kind of question), the button components, overlays and the three phone shapes, the button spec (corner, messages, the floating family, materials, selected, primary, delete, close, fields, small roles) and the touch vocabulary. |
+| [`phone-layout.md`](phone-layout.md) | 🟢 | The phone's two bottom bars, the page heads and what a page looks like on a phone. |
+| [`atemschutz-board.md`](atemschutz-board.md) | 🟢 | The Trupps board: the one card every board wears, section heads, the Trupp form and its questions, the Sicherungstrupp, the Abschluss and what the record keeps. |
+| [`copy-and-wording.md`](copy-and-wording.md) | 🟢 | Which word a screen uses: Karte/Kroki, Geschoss/Arbeitsfläche, Verlauf/Eintrag, Entfernen vs gelöscht, the two failure shapes, «leeren», search placeholders. |
+| [`rapport.md`](rapport.md) | 🟢 | What the Rapport's figure pages carry: the Kroki as the picture, opt-in Objektpläne, the Gebäude section, legend lines, one figure-page template, server-coupled Leitung ends. |
+| [`roles-and-access.md`](roles-and-access.md) | 🟢 | The incident roles (`editor`, `el`, `viewer`), what the `el` may write, the separate deployment admin behind `ADMIN_SECRET`, the Atemschutz-Link allowlist and the link-session rules. |
+
 ## Testing ([`testing/`](testing/))
 
 Printable/manual verification material for internal release checks and training-table validation.

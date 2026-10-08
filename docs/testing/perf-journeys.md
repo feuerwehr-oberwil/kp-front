@@ -68,6 +68,27 @@ journey called. When a request count moves, the report shows which routes change
   A number between 40 % and 100 % of its tolerance passes with ⚠️. A single metric can be given
   its own tolerance in the baseline's `tolerance` block (hand-edited, with a reason in the commit).
 
+## The gate is part of «done»
+
+**Performance is gated** (05.10.2026): CI's «Performance» job walks real user journeys on the busiest
+Einsatz on record (`e2e/journeys.journey.ts`) on every PR and every push to main, and fails when
+requests, bytes, writes, memory left behind or interaction times regress against
+`e2e/perf/baseline.json` (`scripts/perf-report.mjs`). For an agent this is part of «done»:
+- **Read the «Performance journeys» comment on your PR** (or the job summary), not only the colour. A ⚠️ (drifting) or 🟢 (better) line
+  is worth a sentence in the PR description. You caused it, so you know why.
+- **A red Performance check blocks the merge** like a failing test. Fix the cause first: a new poll,
+  a save on open, a chunk pulled into the entry bundle, a listener a surface never removes. The
+  summary names the routes that changed.
+- **Never accept a baseline to turn a check green.** `just perf-accept <run-id>` is for a cost the
+  change deliberately buys (a request a feature needs). Take it from a CI run (never a local one),
+  in its own commit, with the reason in the message, and say so in the PR. Accepting a 🟢 gain is
+  always welcome.
+- **Never loosen a tolerance or skip a journey to pass.** Gate on a count or a size where the
+  regression shows in one. Times are scaled by the runner's calibration and confirmed by a second
+  run.
+- **Touch the save path, polling, the Karte, a surface's mount, or the bundle?** Run `just perf` locally
+  first (a look, not a verdict).
+
 ## When the check is red
 
 The PR has the table as a comment (one per PR, edited on every push, posted by

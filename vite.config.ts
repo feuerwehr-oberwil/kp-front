@@ -1,4 +1,14 @@
 /// <reference types="vitest/config" />
+
+/*
+ * **The precache is the field app; `/admin` is online-only** (2026-09-23). Every device used to
+ * install the AdminApp chunk (~250 KB JS + ~90 KB CSS) and its lazy map/alignment chunks with
+ * every deploy. `vite.config · adminOutsidePrecache` takes out what is reachable from
+ * `src/admin/AdminApp.tsx` but not from the field entry (computed from the chunk graph, so a
+ * chunk both import stays), and `navigateFallbackDenylist` sends an `/admin` navigation to the
+ * network – a precached old shell would import an AdminApp hash the server no longer has.
+ * Offline, `/admin` does not open. Both fail the build loudly if the shape they rely on changes.
+ */
 import { execSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'

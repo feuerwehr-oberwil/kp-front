@@ -1,3 +1,10 @@
+/*
+ * *Nav bar:* «Pläne» and «Einsatz» each stand for a group: a tap goes to the last-used member,
+ * a second tap or a hold opens the ONE list (`components/GroupChooser`), and «Plan wählen» opens
+ * unasked the first time the tile is used in an Einsatz, once per device (`lib/chooserOffer`).
+ * Both wear the corner mark (`.nav-grp`; `.vrail-grp` on the two-state Auswahl).
+ */
+
 import type { ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Sheet } from '../lib/overlays'

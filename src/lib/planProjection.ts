@@ -1,3 +1,5 @@
+// Rules for this area that span modules: docs/tactical-objects.md.
+
 import type { BoardAnno, BoardPoint, Entity, LngLat } from '../types'
 import type { GeorefFit, PlanPt } from './georef'
 import { ROTATABLE } from './symbols'

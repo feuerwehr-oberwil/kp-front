@@ -1,3 +1,15 @@
+/*
+ * ⚠️ **An audit event the ROLE can never write is not owed** (24.09.2026, `lib/eventScope`,
+ * `auditEventStore · refused`). The client mirrors the server's append allowlist
+ * (`EL_EVENT_PREFIXES`, `atemschutz.*` for an Atemschutz-Link, nothing for a viewer — a test
+ * pins the prefix list to `api/events.py`) and never queues an op outside it; a 403 for such an
+ * op is PARKED as `refused` — persisted, exported with «Einträge sichern», never re-sent by
+ * «Erneut versuchen», and NOT part of the shared sync status (a calm note in the Verlauf, not a
+ * red lamp). A 403 for an op the role SHOULD be able to write stays `rejected` and red: that
+ * is a real mismatch. Never drop either kind. (The `el` phone sat red for three hours on
+ * 23.09.2026 over five `atemschutz.alarm` events it could never deliver.)
+ */
+
 import { isAtemschutzLinkKind, type AuthUser } from './auth'
 
 /**

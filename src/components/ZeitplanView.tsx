@@ -1,3 +1,10 @@
+/*
+ * *The Zeitplan's zoom lives in the grid's corner on a phone* (30.09.2026, owner: «the +/- 12h
+ * thing … uses up a lot of vertical space»): on a phone it stands in the clock row's empty
+ * corner over the names (`ZeitplanView · zoom`, the row grows to a lane's 44px and the hours sit
+ * at its foot); a tablet keeps it at the end of the search line. Never a row of its own.
+ */
+
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'

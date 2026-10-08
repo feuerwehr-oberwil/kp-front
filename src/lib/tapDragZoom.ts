@@ -1,3 +1,15 @@
+/*
+ * *One finger zooms the Plan like the Karte* (08.10.2026, `lib/tapDragZoom`): a **double tap**
+ * zooms ×2 and **tap, then press-and-drag** zooms continuously (down = in, up = out, ×2 per
+ * 128 px) — MapLibre's own gestures and numbers (500 ms / 30 px), except that the drag zooms
+ * about the FIRST tap instead of the screen centre. One pure state machine serves the boards
+ * (`useBoardGestures`: selection tool only, presses on empty board only — objects swallow their
+ * own; the second press never pans or deselects) and the PDF reader (`PdfScroller`: its double
+ * tap still toggles fit ↔ 2×). Touch and pen only: a mouse has the wheel, and a double CLICK on
+ * the board opens editors. The draw tools keep pinch only — on `.wb-ink` a double tap FINISHES
+ * a Linie / Fläche. A second finger cancels the gesture and the pinch takes over.
+ */
+
 import { DRAG_DEADZONE_PX } from './useHoldToDrag'
 
 /**

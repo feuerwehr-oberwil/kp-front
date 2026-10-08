@@ -1,3 +1,23 @@
+/*
+ * **The keyboard, on iOS (30.09.2026, owner: «this strange» / «check this strange gap»).** iOS
+ * pans the visual viewport by `offsetTop` to reveal a caret; everything `position: fixed` is laid
+ * out in the LAYOUT viewport. So ONE hook publishes the visible band (`lib/useViewportPan`):
+ * `--vv-pan` (its top) and `--vv-foot` (the layout viewport's hidden foot = the keyboard LESS the
+ * pan, `keyboardFootNow`), plus `html[data-kb]` while a keyboard is up — per frame, never a
+ * render. A bottom sheet's LIFT is `--vv-foot` (`keyboardLift` / `keyboardMargin`), its height
+ * CAP the whole keyboard (`--kb-inset`, `--jc-kb`): lifting by the keyboard stood the sheet the
+ * pan above the keys, capping by the foot hides the caret (the pan/re-aim loop) — never mix the
+ * two numbers up. A frame anchored at the TOP while the keyboard is up (`.is-kb` rides, the phone
+ * Trupp sheet, the tablet composer and Verlauf) adds `--vv-pan` to its `top`. A page
+ * (`Surface.module.css · .shell`) ends one `--float-gap` above the higher of the bars (their
+ * reserve less the pan — they ride down behind the keys) and the keyboard (`--vv-foot`); its TOP
+ * stays put and slides under the pinned top bar, whose `::before` covers the strip above it as
+ * tall as the pan. Never translate the box that holds the caret. The Eintrag FAB is hidden while
+ * `data-kb` (a running recording excepted). On the phone Verlauf the home-indicator inset + 10px
+ * is `.history-list`'s padding, not the drawer's, so rows scroll to the sheet's edge («there is
+ * a gap at the bottom where things don't scroll down below»).
+ */
+
 import { useEffect } from 'react'
 import { keyboardFootNow, keyboardInsetNow } from './useKeyboardInset'
 
