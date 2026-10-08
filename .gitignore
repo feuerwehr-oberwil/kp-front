@@ -10,6 +10,9 @@ __pycache__/
 .mypy_cache/
 *.tsbuildinfo
 
+# vitest coverage output (`pnpm test:coverage`)
+/coverage/
+
 # Playwright e2e smoke artifacts (see e2e/, playwright.config.ts)
 /test-results/
 /playwright-report/
