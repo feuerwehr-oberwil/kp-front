@@ -279,6 +279,10 @@ test('verlauf: ten Meldungen, the full Verlauf, another device\'s entry', async 
   await page.goto('/')
   await waitForWorkspace(page)
   await page.waitForTimeout(1_500)
+  // ⚠️ The live positions poll ticks every 15 s (usePersonPositions · pollMs). Start right after a
+  // tick, so the walk (~10 s) holds none of them, rather than one or none by where in the cycle
+  // it happened to start. Waited for, not required: no tick in 20 s is no tick to count.
+  await page.waitForEvent('requestfinished', { predicate: (r) => /\/positions$/.test(new URL(r.url()).pathname), timeout: 20_000 }).catch(() => null)
   await drain(page)
   const from = Date.now()
   const field = page.getByPlaceholder('Was ist passiert? Meldung, Beobachtung, Entscheid …')
@@ -287,8 +291,17 @@ test('verlauf: ten Meldungen, the full Verlauf, another device\'s entry', async 
     await page.getByRole('button', { name: 'Eintrag', exact: true }).click()
     await field.fill(`Perf Meldung ${i + 1}: Lage unverändert, Angriff läuft`)
     const at = await centre(page, page.getByRole('button', { name: 'Erfassen', exact: true }))
+    // the long poll this Meldung wakes, asked again — the first held request issued after the tap
+    const rearmed = page.waitForRequest((r) => /\/journal\?.*\bwait=1\b/.test(r.url()), { timeout: 15_000 })
     submits.push(await timeTo(page, () => page.mouse.click(at.x, at.y), () => field.waitFor({ state: 'hidden' })))
+    // ⚠️ Untimed: let the Meldung land before the next one — its POST, the pull after it, and the
+    // long poll it woke, asked again. Typed back to back, a POST fell into the long poll's 250 ms
+    // re-arm gap (pollBackoff · LONG_POLL_SPACING_MS) on some runs and woke nothing, or two
+    // Meldungen shared a POST: what ten of them cost then followed the runner's speed — 26–30 for
+    // the same build in CI, 16–19 GETs (08.10.2026). Now each costs a POST, a pull and a wake.
+    await rearmed
   }
+  const auditFlushed = page.waitForEvent('requestfinished', { predicate: (r) => r.method() === 'POST' && /\/events$/.test(new URL(r.url()).pathname), timeout: 10_000 }).catch(() => null)
   const compose = await drain(page)
   j.r.set('submit_ms', median(submits), 'ms')
   j.r.set('compose_interaction_max_ms', Math.max(0, ...compose.interactions), 'ms')
@@ -324,7 +337,11 @@ test('verlauf: ten Meldungen, the full Verlauf, another device\'s entry', async 
   await page.getByText(remote).first().waitFor({ state: 'visible', timeout: 30_000 })
   j.r.set('remote_entry_visible_ms', performance.now() - t0, 'ms')
 
-  await page.waitForTimeout(2_000)
+  // ⚠️ Settle for 2 s AND until the audit outbox has gone out: it flushes 4 s after the last act
+  // (auditEventStore · append), which the fixed 2 s alone caught on some runs and not on others
+  // (the same build, 08.10.2026). Waited for, not required: a build that writes no audit event
+  // for a Meldung is not a failure of this walk.
+  await Promise.all([page.waitForTimeout(2_000), auditFlushed])
   const reqs = j.net.since(from)
   j.r.set('journal_posts', reqs.filter((x) => x.method === 'POST' && /\/journal$/.test(x.path)).length, 'count')
   recordNetwork(j.r, '', reqs)
