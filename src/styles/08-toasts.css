@@ -507,7 +507,7 @@
    (a hydrant code, a chemical name, a pasted id) ran straight out of the paper and sat on the
    map as bare letters. White-space stays `normal` — «Einzeilig» is ONE line that simply runs
    out of room at 180px, not a place to compose paragraphs; that is what «Textfeld» is for. */
-.note-pill { background: var(--note-bg); border: 1px solid var(--note-border); color: var(--note-ink); font-size: var(--fs-1); font-weight: 600;
+.note-pill { background: var(--note-bg); border: 1px solid var(--note-border); color: var(--note-ink); font-size: var(--fs-1); font-weight: var(--fw-medium);
   padding: 0.38em 0.7em; border-radius: 0.6em; box-shadow: var(--e2); max-width: 180px;
   overflow-wrap: break-word; }
 /* A coloured note in the PILL look tints its paper, not its ink: the picked colour has to be
