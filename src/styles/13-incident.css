@@ -722,6 +722,13 @@
 @media (hover: hover) {
   .ip-btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 }
+/* go: a primary whose move KEEPS things safely as they are (MeldungAction · go — «Am Einsatzort
+   lassen», D3-a), filled green like the Atemschutz «Eintritt». `--on-fill`, because the night green
+   is bright (01-tokens). Green is never «delete» and never a warning, so it cannot be misread. */
+.ip-btn.go { background: var(--green); color: var(--on-fill); border-color: var(--green); }
+@media (hover: hover) {
+  .ip-btn.go:hover { background: var(--green-solid-hover); border-color: var(--green-solid-hover); }
+}
 /* delete (Übungen in «Alle Einsätze», a confirm's destructive answer) — THE delete look
    (01-tokens · --del-*, 28.09.2026): red outline on the surface, never a solid destructive button.
    ⚠️ `.ip-btn danger` was written at a call site that predates the rename (BandGrid's
