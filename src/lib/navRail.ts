@@ -13,11 +13,13 @@ import type { PlanDocument } from '../types'
  *
  *  RAIL_COMPACT — the icon-only width.
  *  RAIL_LABELLED — ⚠️ the compact width with room for a word UNDER the glyph («Wort unter dem
- *    Zeichen», lib/prefs · railLabels): «Anwesenheit» measures 76px in the app's own Sora at
- *    10.5px, so 88 is what fits with the rail's padding.
+ *    Zeichen», lib/prefs · railLabels): «Absperrkreis» measures 81px and «Anwesenheit» 80 in the
+ *    app's own Sora at 11/700 with their 2px of air a side (08.10.2026, the labels on the type
+ *    scale), so 92 is what fits with the rail's border and 4px padding. It was 88, which already
+ *    cut «Anwesenheit» at 10.5px.
  *  RAIL_WIDE — the committed expanded width. */
 export const RAIL_COMPACT = 60
-export const RAIL_LABELLED = 88
+export const RAIL_LABELLED = 92
 export const RAIL_WIDE = 216
 
 /** clamp a live drag width into the rail's [min,max] travel */

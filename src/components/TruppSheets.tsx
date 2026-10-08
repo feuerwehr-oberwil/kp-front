@@ -12,6 +12,8 @@ import { auftragSheetFields, fileGuestSlots, kanalPad, kanalSheetFields, leitung
 import type { LeitungOption } from '../lib/truppLines'
 import type { Person, Trupp, TruppAuftrag, TruppFields } from '../types'
 import { Segmented } from './Segmented'
+import { Button } from './Button'
+import { Chip } from './Chip'
 import { ClearableInput } from './ClearableInput'
 import { Stepper } from './Stepper'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
@@ -95,7 +97,7 @@ export function PressureSheet({ t, sub, title, hint, last, alarmBar, chosen = fa
   const who = t ? truppSheetSub(t) : sub
   return (
     <MiniSheet title={title} sub={who} ariaLabel={t ? `${title} · ${t.name}` : title} onClose={onClose}
-      footer={footer && <button type="button" className={s.pressureSheetFooter} onClick={footer.onClick}>{footer.label}</button>}>
+      footer={footer && <Button className={s.pressureSheetFooter} onClick={footer.onClick}>{footer.label}</Button>}>
       <PressureGrid value={last} alarmBar={alarmBar} onPick={onPick} chosen={chosen} ariaLabel={title} />
       {/* under the grid, like the Kanal pad's hint: what a tap does */}
       {hint && <p className={s.miniHint}>{hint}</p>}
@@ -312,15 +314,14 @@ export function LeitungChips({ value, options, onChange, ariaLabel, children }: 
   const az = appConfig.copy.atemschutz
   return (
     <div className={s.miniChips} role="group" aria-label={ariaLabel ?? az.editFieldLabels.lineNo}>
-      <button type="button" aria-pressed={value == null} className={cx(s.miniChip, value == null && s.miniChipOn)}
-        onClick={() => onChange(null)}>{az.lineNone}</button>
+      <Chip selected={value == null} onClick={() => onChange(null)}>{az.lineNone}</Chip>
       {options.map((o) => (
-        <button key={o.no} type="button" aria-pressed={value === o.no}
-          className={cx(s.miniChip, value === o.no && s.miniChipOn, !!o.takenBy && value !== o.no && s.miniChipTaken)}
+        <Chip key={o.no} selected={value === o.no}
+          className={cx(!!o.takenBy && value !== o.no && s.miniChipTaken)}
           title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
           onClick={() => onChange(o.no)}>
           {fillTemplate(az.lineChip, { n: o.no })}{o.onPlan ? ' · P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
-        </button>
+        </Chip>
       ))}
       {children}
     </div>
@@ -352,7 +353,7 @@ export function LeitungField({ label, value, options, onChange, children }: {
       <span>{label}</span>
       <LeitungChips value={value} options={choices} onChange={onChange} ariaLabel={label}>
         {!typing && (
-          <button type="button" className={s.miniChip} onClick={() => setTyping(true)}>{az.lineTyped}</button>
+          <Chip onClick={() => setTyping(true)}>{az.lineTyped}</Chip>
         )}
       </LeitungChips>
       {typing && (
@@ -464,10 +465,10 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
             {atemschutzEquipment().map((e) => {
               const on = equipment.includes(e.id)
               return (
-                <button key={e.id} type="button" role="checkbox" aria-checked={on}
-                  className={cx(s.miniChip, on && s.miniChipOn)} onClick={() => toggle(e.id)}>
+                <Chip key={e.id} role="checkbox" selected={on} aria-pressed={undefined} aria-checked={on}
+                  onClick={() => toggle(e.id)}>
                   {az.equipmentLabels[e.id] ?? e.label}
-                </button>
+                </Chip>
               )
             })}
           </div>

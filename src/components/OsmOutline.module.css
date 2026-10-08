@@ -1,14 +1,14 @@
 /* live OSM building-outline backdrop — a traceable base; non-interactive so the
    draw/team tools act on top. Light fill + crisp hairline outline. */
 .wb-osm-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.wb-osm-svg polygon { fill: color-mix(in srgb, var(--blue) 6%, transparent); stroke: var(--ink-faint); stroke-width: 1.25; stroke-linejoin: round; }
+.wb-osm-svg polygon { fill: var(--blue-5); stroke: var(--ink-faint); stroke-width: 1.25; stroke-linejoin: round; }
 /* selection surface: footprints become tappable to pick the affected building(s) */
 .wb-osm-svg.pick polygon { pointer-events: auto; cursor: pointer; }
 /* hover preview ONLY on real hover devices — iOS keeps :hover latched on the last-tapped
    element, so a just-DESELECTED footprint stayed red ("always one building too much") */
 @media (hover: hover) {
   .wb-osm-svg.pick polygon:hover { fill: var(--red-16); stroke: var(--red); stroke-width: 2; }
-  .wb-osm-svg.pick polygon.sel:hover { fill: color-mix(in srgb, var(--red) 30%, transparent); }
+  .wb-osm-svg.pick polygon.sel:hover { fill: var(--red-28); }
 }
 .wb-osm-svg.pick polygon.sel { fill: var(--red-22); stroke: var(--red); stroke-width: 2.25; }
 
@@ -22,28 +22,28 @@
 /* The wrapper owns the placement so ONE line of context (the existing building is highlighted /
    part of it is missing here) can sit directly above the buttons it qualifies. */
 .wb-osm-barwrap { position: fixed; left: 50%; bottom: calc(16px + var(--float-h) + var(--float-gap)); transform: translateX(-50%); z-index: var(--z-help-scrim);
-  display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  display: flex; flex-direction: column; align-items: center; gap: 8px; }
 /* ⚠️ The house shapes, not pills (20.09.2026): this bar was the one place in the app with
    fully round buttons in a fully round tray, at 13px/600 – and on a phone both labels wrapped
    onto two lines, so it stood twice as tall as any other bar. Buttons are --r-sm at the compact
    12.5px/700 on the --tap floor like every button (AGENTS.md · buttons), the tray is the glass
    cluster the map's other floating controls sit in, and a label never wraps. */
 /* The instruction bar and its context line are MESSAGES, so they wear the one message surface
-   (08-toasts.css · «ONE message surface», 25.09.2026): the app's surface, ink 13/600, the one
+   (08-toasts.css · «ONE message surface», 25.09.2026): the app's surface, ink 14/500, the one
    corner, the two buttons --msg-pad inside it. They used to be a grey-on-glass bar in a look of
    their own, next to a dark toast saying the same kind of thing. An instruction stays while the
    pick is on, so it carries no ✕ and no running line. */
-.wb-osm-bar, .wb-osm-note, .wb-osm-warn { box-sizing: border-box; display: flex; align-items: center; gap: 6px;
+.wb-osm-bar, .wb-osm-note, .wb-osm-warn { box-sizing: border-box; display: flex; align-items: center; gap: 4px;
   min-height: var(--float-h); padding: var(--msg-pad);
   background: var(--float-bg); backdrop-filter: var(--float-blur); border: none; border-radius: var(--r-sm); box-shadow: var(--float-edge);
-  font: 600 13px/1.35 var(--body); color: var(--ink); }
-.wb-osm-note, .wb-osm-warn { gap: 9px; padding: var(--msg-pad) var(--float-pad-x); }
+  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
+.wb-osm-note, .wb-osm-warn { gap: 8px; padding: var(--msg-pad) var(--float-pad-x); }
 /* a saved outline that is not in this fetch WILL be lost on «Übernehmen» — the one thing here
    that is a loss, so it leads with the warn glyph in the warn colour, as a toast does */
 .wb-osm-warn :global(.i) { flex: none; width: 16px; height: 16px; color: var(--amber-strong); }
 .wb-osm-barhint { flex: 1 1 auto; min-width: 0; padding: 0 8px; }
 .wb-osm-clear, .wb-osm-take { border: none; cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); border-radius: var(--r-msg-in);
-  min-height: var(--tap); padding: 0 14px; white-space: nowrap; transition: filter .14s var(--ease), background .14s var(--ease); }
+  min-height: var(--tap); padding: 0 16px; white-space: nowrap; transition: filter .14s var(--ease), background .14s var(--ease); }
 .wb-osm-clear { background: var(--fill-soft); color: var(--ink-dim); }
 @media (hover: hover) { .wb-osm-clear:hover { background: var(--border); color: var(--ink); } }
 .wb-osm-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }

@@ -54,10 +54,10 @@
 @keyframes navMoreUp { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-2px); } }
 
 /* the expand toggle mirrors an item's layout (46px glyph column + label) so the chevron lines
-   up with the glyphs below it; transparent, with an item-style hover. 46px row + 13.5px label,
+   up with the glyphs below it; transparent, with an item-style hover. 46px row + 14px label,
    so «Einklappen» reads the same on both sidebars. */
-.rail-exp { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent;
-  border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: var(--fw-bold);
+.rail-exp { display: flex; align-items: center; gap: 8px; height: 46px; flex: none; border: 0; background: transparent;
+  border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: var(--fs-2); font-weight: var(--fw-bold);
   padding: 0; width: 100%; margin-bottom: 2px; transition: background .14s var(--ease), color .14s var(--ease); }
 .rail:not(.expanded) .rail-exp, .rail.dragging .rail-exp { justify-content: center; }
 @media (hover: hover) {
@@ -73,7 +73,7 @@
 /* «Wort unter dem Zeichen» (device pref · railLabels) — the rail tightens its own padding,
    because every pixel it keeps is one the word does not get. The labelled WIDTH is per-rail
    (each reads its own variable); see the notes in 05-navrail.css. */
-.rail.labelled:not(.expanded):not(.dragging) { padding: 7px 5px; }
+.rail.labelled:not(.expanded):not(.dragging) { padding: 8px 4px; }
 
 /* drag grip — pull it to resize the rail. Which EDGE it hangs off is per-rail. */
 .rail-grip { position: absolute; top: 0; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;

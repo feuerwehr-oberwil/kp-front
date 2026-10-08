@@ -15,6 +15,7 @@ import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
+import { Button, IconButton } from './Button'
 import { compositeSpec } from '../lib/symbolRender'
 import { UN_CAPABLE } from '../lib/symbols'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
@@ -734,9 +735,9 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
     <div className="ctx-done-row">
       <span className="ctx-done-state"><Icon id="check" />{doneState}</span>
       {onDone && !readOnly && (
-        <button type="button" className="ctx-done-reopen" onClick={() => onDone(false)}>
-          <Icon id="undo" />{O.reopen}
-        </button>
+        <Button variant="quiet" className="ctx-done-reopen" icon={<Icon id="undo" />} onClick={() => onDone(false)}>
+          {O.reopen}
+        </Button>
       )}
     </div>
   ) : null
@@ -1048,9 +1049,9 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                       <span className="kv-key-ro">{rowLabel(r.k)}</span>
                       {readOnly ? <b className="kv-val-ro">{r.v || '–'}</b> : field}
                       {swap && (
-                        <button type="button" className="kv-swap" onClick={swapEl} title={C.swapEl} aria-label={C.swapEl}>
+                        <IconButton variant="secondary" onClick={swapEl} label={C.swapEl}>
                           <Icon id="swap" />
-                        </button>
+                        </IconButton>
                       )}
                       {swapGap && <span className="kv-swap-gap" aria-hidden />}
                     </div>
@@ -1063,7 +1064,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                         onChange={(e) => setRow(i, { k: e.target.value })} onBlur={() => commitRows(rows)}
                         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
                       {field}
-                      <button className="kv-x" title={C.removeField} aria-label={C.removeField} onClick={() => removeRow(i)}><Icon id="close" /></button>
+                      <IconButton label={C.removeField} onClick={() => removeRow(i)}><Icon id="close" /></IconButton>
                     </div>
                     {dupRow[i] && (
                       <p className="kv-dup-hint" role="alert">

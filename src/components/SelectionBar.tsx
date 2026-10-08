@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { Button } from './Button'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginTransformChrome, endTransformChrome } from '../lib/transformChrome'
 
@@ -147,9 +148,9 @@ export function SelectionBar({ onMove, onRotate, onDone, onGrab, armed = null, o
           object belongs in that object's own editor sheet (and on the Delete key), next to
           everything else that changes it — a destructive button on a chrome bar two taps from
           every grip is the near-miss the map's old hub ✕ was removed for. */}
-      <button className="sel-bar-done" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDone() }}>
+      <Button className="sel-bar-done" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDone() }}>
         {appConfig.copy.done}
-      </button>
+      </Button>
     </div>
   )
 }
