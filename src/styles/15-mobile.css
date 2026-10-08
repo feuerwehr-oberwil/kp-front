@@ -78,7 +78,6 @@
      tracks --vrail-w there is nothing left to override. */
   .app.mode-plans { --plan-ctx-w: clamp(300px, calc(100vw - 420px), 360px); }
   .ctx { width: clamp(300px, calc(100vw - 420px), 360px); }
-  .topbar { gap: 10px; }
   .eaddr { max-width: 26vw; }
 }
 
@@ -191,9 +190,9 @@
      hidden for BOTH bars up at line 116; the preference has to un-hide it here rather than rely on
      specificity from another file, which is how the desktop rule leaked onto the phone. */
   .vrail.labelled:not(.expanded):not(.dragging) {
-    width: auto; padding: 5px 8px; }
+    width: auto; padding: 4px 8px; }
   :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) :is(.vrail-tool, .vrail-layers, .vrail-views, .vrail-fit) {
-    width: auto; min-width: 50px; padding: 0 7px; height: auto; min-height: 46px; }
+    width: auto; min-width: 50px; padding: 0 8px; height: auto; min-height: 46px; }
   :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-glyph { height: 22px; }
   :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-label {
     display: block; font-size: var(--fs-micro); overflow: visible; text-overflow: clip; }
@@ -394,7 +393,7 @@
   /* no safe-area inset here — `.ctx` itself already carries `padding-bottom:
      env(safe-area-inset-bottom)` (see the sheet rule above), so adding it again would
      double-count the home indicator and float the row off the edge. */
-  .ctx > .ctx-actions { border-top: 1px solid var(--border-soft); padding: 10px 14px; }
+  .ctx > .ctx-actions { border-top: 1px solid var(--border-soft); padding: 8px 12px; }
   .ctx > .ctx-actions > .btn { flex: 1 1 auto; }
   .ctx > .ctx-actions > .btn.btn-sq { flex: 0 0 var(--tap); }
   /* compact sheet header: ONE handle, then the title row.
@@ -406,14 +405,14 @@
      border, then a gap, then the handle, and the head's rule sits far enough below to separate
      rather than to double up. The pill shape (--r-pill) is what makes it a grip and not a rule. */
   .sheet-grip { display: flex; align-items: flex-end; justify-content: center; flex: none;
-    height: 24px; padding: 0 0 5px; border: none; cursor: grab; touch-action: none;
+    height: 24px; padding: 0 0 4px; border: none; cursor: grab; touch-action: none;
     background: transparent;
     border-radius: var(--r-hero) var(--r-hero) 0 0; }
   .sheet-grip span { width: 40px; height: 5px; border-radius: var(--r-pill); background: var(--border); }
   /* the whole header is a drag target for the sheet (components/SheetGrip · useSheetDrag), so it
      needs the same touch-action as the grip — otherwise the browser claims the vertical gesture
      for scrolling and the sheet never moves. `cursor: grab` says so on a pointer device. */
-  .ctx-head { padding: 2px 16px 10px; gap: 10px; touch-action: none; cursor: grab; }
+  .ctx-head { padding: 2px 16px 12px; gap: 12px; touch-action: none; cursor: grab; }
   .ctx-head:active { cursor: grabbing; }
   /* …but the controls inside it are still controls */
   .ctx-head button, .ctx-head input { cursor: pointer; touch-action: auto; }
@@ -515,7 +514,7 @@
      the vertical separators are dropped entirely: on a bar this narrow they read as
      clutter, and the grouping is clear from the icons alone */
   .tb-actions { gap: 1px; }
-  .topbar { gap: 6px; }
+  .topbar { gap: 4px; }
   /* weather trims to the bare downwind arrow + speed on phones (condition/temp are
      "read, not felt" detail that doesn't fit the narrow bar) */
   .tb-weather { gap: 4px; padding: 6px 6px; min-height: 40px; }
@@ -643,12 +642,12 @@
      still says «Mehrf…». They are sized to their own words, which is what the horizontal scroll is
      there to absorb. */
   .navrail.labelled:not(.expanded):not(.dragging) {
-    width: auto; height: var(--rail-h-labelled, 60px); padding: 5px 8px; }
+    width: auto; height: var(--rail-h-labelled, 60px); padding: 4px 8px; }
   /* ⚠️ `min-height`, not `height: 100%`. The scroller is auto-height, so «100%» resolved against
      content and the items came out 32px tall — under the gloved floor everything else on this
      surface respects, on the bar that is pressed most. */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-item {
-    width: auto; min-width: 50px; padding: 0 7px; height: auto; min-height: 46px; }
+    width: auto; min-width: 50px; padding: 0 8px; height: auto; min-height: 46px; }
   /* …and the folded bar shares its width in this mode too. Measured at 390px (08.10.2026): «Checkliste»,
      the longest of the five words, is 66px of Sora at 11px with its 2px of air a side and each tile's
      equal share is ~70px, so nothing truncates and the scroll the rule above kept for this variant
@@ -702,10 +701,10 @@
      tablet card under it, and at (0,2,0) it would hang this sheet from the top) */
   .map-util .layers-card { top: auto; bottom: 0;
     max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - 84px - env(safe-area-inset-top))); }
-  .layers-card .lc-title { padding: 4px 12px 6px 20px; touch-action: none; }
+  .layers-card .lc-title { padding: 4px 12px 8px 24px; touch-action: none; }
   .layers-card .lc-title button { touch-action: auto; }
   .layers-card > .ui-sheet-grab { margin-bottom: -4px; }
-  .layers-card .lc-body { padding: 0 max(12px, env(safe-area-inset-right)) 12px max(12px, env(safe-area-inset-left)); }
+  .layers-card .lc-body { padding: 0 max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); }
 
   /* coordinate readout + selection bar sit above the bottom bar + home indicator */
   :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
@@ -905,8 +904,8 @@
      stelle») needs three lines at this width, and a cell that grows past its row put its
      neighbours' glyphs on different heights; the first component is the one the eye recognises
      the symbol by (symbolWrap), so it is the last part that goes behind the «…». */
-  .sym-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 4px; }
-  .sym-cell { padding: 10px 1px 8px; }
+  .sym-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 4px; }
+  .sym-cell { padding: 8px 1px; }
   .sym-cell small { font-size: var(--fs-micro); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
     line-clamp: 2; overflow: hidden;
     /* ⚠️ 1.25, not the 1.1 the tablet label keeps: the clamp's `overflow: hidden` cuts whatever
@@ -996,7 +995,7 @@
      (13-incident · .rp-return). */
   .rp-return { bottom: var(--float-bottom); left: max(8px, env(safe-area-inset-left)); transform: none;
     max-width: calc(100vw - 16px - var(--fab-safe)); }
-  .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) + 86px + env(safe-area-inset-bottom)); }
+  .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) + 88px + env(safe-area-inset-bottom)); }
   /* ⚠️ …but not on the Karte (owner, 24.09.2026). There the ⓘ stood beside the FAB – with the
      tool bar up it sat BEHIND it, a white half-moon peeking out at its right edge – and on a
      phone it is furniture nobody taps mid-Einsatz. The credits are not dropped: the tile

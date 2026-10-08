@@ -41,7 +41,7 @@
    not, and beside the chips' own borders they read as a table. The element stays (it is where a
    group starts, and the folded bar's test counts it); only its paint went. */
 .nav-sep { height: 6px; flex: none; }
-.nav-item { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-sm);
+.nav-item { display: flex; align-items: center; gap: 8px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-sm);
   cursor: pointer; color: var(--ink); font: inherit; padding: 0; width: 100%; position: relative; transition: background .14s var(--ease); }
 .navrail:not(.expanded) .nav-item, .navrail.dragging .nav-item { justify-content: center; }
 @media (hover: hover) {
@@ -62,7 +62,7 @@
 /* module/floor monograms sit in a bordered chip so they read as document tabs rather than bare
    tool glyphs; the chip hugs its content (1 / 2 / 6 / RWA / ⅔) and inverts on the active pill */
 .nav-mono-chip { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
-  min-width: 30px; min-height: 30px; max-width: 100%; padding: 1px 6px; border: 1.5px solid var(--border); border-radius: var(--r-xs); line-height: 1; }
+  min-width: 30px; min-height: 30px; max-width: 100%; padding: 1px 4px; border: 1.5px solid var(--border); border-radius: var(--r-xs); line-height: 1; }
 /* The chip has to fit inside the 46px glyph column WITH its border — a clipped border reads as a
    rendering fault, not as a tight fit. A single digit sits at the inherited 16px; a two- or
    three-letter sub-slot acronym ("PV", "RWA") gets the room it needs by shrinking the text
@@ -247,7 +247,7 @@ html.rail-dragging .layers-card { transition: none; }
    painted in the card's colour; on the see-through glass (29.09.2026) the rows showed through it,
    so the card is a column now — head, then the one scroller `.lc-body` — and nothing passes under
    the head at all. On a phone the head is the sheet's handle (15-mobile · swipeDismiss). */
-.lc-title { flex: none; padding: 10px 10px 6px 18px;
+.lc-title { flex: none; padding: 8px 8px 8px 16px;
   display: flex; align-items: center; gap: 8px;
   /* a card head is a SHEET TITLE (29.09.2026, K9): it wore the eyebrow while its section heads
      below wore title case, which put the hierarchy upside down. No leading glyph either — it only
@@ -257,7 +257,7 @@ html.rail-dragging .layers-card { transition: none; }
 /* the ✕ at the title's right end IS the global `.ip-x` (13-incident) since the card went light
    (29.09.2026); `.lc-x` only places it. The dark card's on-ink ✕ is gone with the dark card. */
 .lc-x { flex: none; margin-left: auto; }
-.lc-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 10px 10px; }
+.lc-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 8px 8px; }
 /* Ebenen quick-taps under the title — all on / all off / Standard. They are <Chip>s (07.10.2026,
    UI sweep C4 — this rule WAS the chip's look, now it lives in Chip.module.css); the preset the
    layers on screen match is drawn CHOSEN, none of the three for a hand-switched set (LayerPanel ·
@@ -265,16 +265,16 @@ html.rail-dragging .layers-card { transition: none; }
    LayerPanel.tsx), and a word may take two lines inside the 44px: «Tout afficher» / «Nascondi
    tutti» are ~85px at 12.5/700 and a third of the 264px dock is 67 — nowrap ran them past the
    button's edge. */
-.lc-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px 4px 2px; }
+.lc-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px 4px 2px; }
 .lc-quick > button { min-width: 0; padding: 0 var(--sp-1); white-space: normal; line-height: 1.1; }
 /* a section head is an EYEBROW (29.09.2026, K9 — AGENTS.md · Fields, titles, eyebrows) */
 .lgroup { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
-  padding: 14px 8px 6px; }
+  padding: 16px 8px 8px; }
 /* the map's credits at the panel's foot – a footnote, not a control: the quietest text in the dock */
-.lc-credits { margin: 0; padding: 14px 8px 4px; font-size: var(--fs-micro); line-height: 1.4; color: var(--ink-faint); }
+.lc-credits { margin: 0; padding: 16px 8px 4px; font-size: var(--fs-micro); line-height: 1.4; color: var(--ink-faint); }
 /* Basiskarte tiles — one row for a one-of-three choice. auto-fit so a deployment with a
    different number of bases still lays out; 70px is the floor a glyph + short name needs. */
-.lbases { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 6px; padding: 0 4px 2px; }
+.lbases { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; padding: 0 4px 2px; }
 /* The shipped three-map set is one choice row even in the intermediate tablet dock. `auto-fit`
    fell to two columns once the 601–1024px rule narrowed the card, making Satellit look like a
    different group and needlessly adding a row to an already scrollable panel. */
@@ -282,7 +282,7 @@ html.rail-dragging .layers-card { transition: none; }
 /* Left-aligned like every row beneath them. These tiles used to centre their icon and label
    while the whole rest of the panel (Taktische Zeichen, Fahrzeuge, Hydranten …) ran flush
    left, so the one section at the TOP was the one that did not line up with anything. */
-.lbase { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px;
+.lbase { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 8px;
   min-height: 62px; padding: 8px 8px; cursor: pointer; font: inherit; color: var(--ink);
   background: var(--fill-soft); border: none; border-radius: var(--r-ctl);
   transition: background .14s var(--ease); }
@@ -302,7 +302,7 @@ html.rail-dragging .layers-card { transition: none; }
 /* clean list rows — transparent, no per-row box; visible vs hidden shown by the blue eye +
    opacity, with the dock's white hover highlight */
 /* a row, so `--r-ctl` (AGENTS.md · Buttons: rows and option cells are not buttons) */
-.lrow { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; border: none; background: transparent;
+.lrow { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 8px; border: none; background: transparent;
   border-radius: var(--r-ctl); font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink); cursor: pointer;
   transition: opacity .14s, background .14s; }
 /* ⚠️ Gated on `(hover: hover)` — and since 28.08. that gate is APP-WIDE (every :hover in these
@@ -343,7 +343,7 @@ html.rail-dragging .layers-card { transition: none; }
    It costs height — a `--tap` band where a 4px rail stood — and that is the trade: the row only
    appears under a layer that is actually SHOWN and carries a transparency, so it is at most a
    handful of them in a list that already scrolls. */
-.opacity { display: flex; gap: 9px; align-items: center; padding: 0 8px 4px 34px; }
+.opacity { display: flex; gap: 8px; align-items: center; padding: 0 8px 4px 32px; }
 /* ⚠️ The read-out carries its OWN class, and it is not decoration. `.opacity span` also matches
    every span inside the slider — the band, the track, the fill and the THUMB — and at (0,1,1) it
    outranks `.uslider-thumb` (0,1,0): the 34px landed on an 18px round thumb and painted it as a
@@ -361,7 +361,7 @@ html.rail-dragging .layers-card { transition: none; }
 /* …and the name takes the slack, so the row's read-out sits at the far end rather than trailing
    the word it belongs to */
 .group-choose-list .pp-row-main { flex: 1 1 auto; }
-.group-choose-list .pp-row-meta { flex-direction: row; align-items: center; gap: 7px; }
+.group-choose-list .pp-row-meta { flex-direction: row; align-items: center; gap: 8px; }
 /* ⚠️ 48px, not the 34px a digit needs: the column is as wide as the WIDEST chip it can hold, so
    every row's name starts on one line whether its chip is «1» or «WAS2» (45px at 11px, 08.10.2026).
    ⚠️ …and as TALL as the chip, whatever the row carries (24.09.2026): the 30px monogram chip set
@@ -376,7 +376,7 @@ html.rail-dragging .layers-card { transition: none; }
    not do it (19.09.2026, measured off Sora 800's own advances): «RWA» is 25.5px at 10px in a
    27px inner box, and the size that would fit – 8px – is no longer read. Since 08.10.2026 three and
    four letters stand at --fs-micro. Widths: «PV» 30 · «RWA» 40 · «WAS2» 45. */
-.group-choose-glyph .nav-mono-chip { min-width: 30px; height: 30px; min-height: 30px; padding: 0 5px; white-space: nowrap; }
+.group-choose-glyph .nav-mono-chip { min-width: 30px; height: 30px; min-height: 30px; padding: 0 4px; white-space: nowrap; }
 .group-choose-glyph .nav-mono-chip[data-mono-len="2"] { font-size: var(--fs-1); }
 .group-choose-glyph .nav-mono-chip[data-mono-len="3"] { font-size: var(--fs-micro); letter-spacing: -.01em; }
 .group-choose-glyph .nav-mono-chip[data-mono-len="4"] { font-size: var(--fs-micro); letter-spacing: -.02em; }

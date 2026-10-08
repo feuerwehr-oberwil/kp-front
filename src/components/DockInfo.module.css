@@ -3,7 +3,7 @@
 /* inline variant: help expands within its own container (a menu with room) — no floating tip.
    The ℹ button stays bottom-right; the text sits above it, full-width, muted like the menu's
    other help copy. Used by the compass/views popover, which a floating tip would collide with. */
-.wb-dock-info-inline { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; width: 100%; }
+.wb-dock-info-inline { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; width: 100%; }
 /* the 8px inset is the host menu's text gutter (MapViewsMenu · .empty and the row labels) —
    this paragraph sits directly under one of them and has to start on the same x */
 .wb-dock-tip-inline { margin: 0; width: 100%; padding: 0 8px; text-align: left; font-size: var(--fs-1); line-height: 1.4; color: var(--ink-dim); }

@@ -53,7 +53,7 @@
    on phones only the grip + header stay pinned and everything else scrolls (the pinned
    desktop copy is hidden there, and vice versa). Rendered by all .ctx editors. */
 .ctx-footer-inline { display: none; }
-.ctx-head { padding: 16px 18px 14px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid var(--border-soft); }
+.ctx-head { padding: 16px 16px 12px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border-soft); }
 .ph { width: 46px; height: 46px; border-radius: var(--r-ctl); border: 2px solid var(--blue); color: var(--blue);
   display: grid; place-items: center; font-family: var(--mono); font-size: var(--fs-1); background: var(--surface-2); flex: none; }
 .ph svg { width: 30px; height: 30px; }
@@ -67,7 +67,7 @@
 @media (hover: hover) {
   .ctx-x:hover { background: var(--ink-12); color: var(--ink); }
 }
-.ctx-body { padding: 0 18px 8px; }
+.ctx-body { padding: 0 16px 8px; }
 /* ⚠️ `flex-wrap: wrap` + a shrinkable label. A field row is «Beschriftung + Bedienelement» and
    both halves were unshrinkable: the label because text does not shrink on its own, the control
    because of its own min-width floor. A station names its symbol fields freely («Luftrichtung»,
@@ -81,7 +81,7 @@
    label at narrow widths): without something, «Luftrichtung» over a dropdown reads as two
    entries. `row-gap: 2px` against `padding: 8px 0` answers it by proximity instead — 2px inside
    a row, 16px between two — which holds at every width without a line. */
-.field { display: flex; align-items: center; justify-content: space-between; gap: 10px 10px; row-gap: 2px; flex-wrap: wrap; padding: 8px 0; font-size: var(--fs-2); }
+.field { display: flex; align-items: center; justify-content: space-between; gap: 8px; row-gap: 2px; flex-wrap: wrap; padding: 8px 0; font-size: var(--fs-2); }
 .field span { color: var(--ink-dim); font-weight: var(--fw-medium); min-width: 0; }
 .field b { font-family: var(--mono); font-weight: var(--fw-medium); text-align: right; }
 /* THE segmented option-picker for the whole details modal — a soft track with a blue-filled active
@@ -98,7 +98,9 @@
    promotes it to the rule, which is where it belonged. Every caller that WANTS the control to
    stretch overrides it more specifically (.jc-mode, Mittel, Atemschutz, Anwesenheit). */
 /* the TRACK is the control, so it wears the one corner; the options are parts of it, 3px inside,
-   and their corner is the track's less that gap (01-tokens · «ONE corner») */
+   and their corner is the track's less that gap (01-tokens · «ONE corner»). ⚠️ 3px stays off the
+   grid (08.10.2026): the option is `--tap - 2 × 3px`, and the phone's docked strip reserves its
+   height as the same sum (15-mobile · --rp-tabs-safe) — the three move together or not at all. */
 .useg { display: inline-flex; flex: none; flex-wrap: wrap; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; max-width: 100%;
   --useg-in: calc(var(--r-ctl) - 3px); }
 .field .useg, .ctx-caprow .useg, .kv-row .useg { margin-left: auto; }
@@ -108,9 +110,9 @@
    side, so the CONTROL measures a full 44px (the thing a thumb aims at) while the well still shows
    around the active pill — the affordance that says "these are options in a group". That geometry
    is Anwesenheit's, worked out for its header row; this promotes it to the rule. */
-.useg-btn { appearance: none; border: 0; background: transparent; border-radius: var(--useg-in, var(--r-sm)); padding: 6px 12px;
+.useg-btn { appearance: none; border: 0; background: transparent; border-radius: var(--useg-in, var(--r-sm)); padding: 8px 12px;
   min-height: calc(var(--tap) - 6px);
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
 .useg-btn .i { width: 15px; height: 15px; }
 @media (hover: hover) {
@@ -129,7 +131,7 @@
    So past four they become what they actually are: a row of chips. Same tap targets, same
    one-tap access (the reason the threshold is generous in the first place — a doctrine list must
    not hide behind a dropdown), no well pretending to be a track. */
-.useg:has(> :nth-child(5)) { background: none; padding: 0; gap: 6px; }
+.useg:has(> :nth-child(5)) { background: none; padding: 0; gap: 8px; }
 /* ⚠️ min-height back up to the FULL --tap. In track mode the control measures 44px as 3px of
    padding around a 38px option; dropping the padding for chips left the chips themselves at
    38px, so the same control was 6px shorter as chips than as a track — which is why the rank
@@ -161,15 +163,15 @@
    the last row carries no hairline (nothing follows it) */
 /* the note's content field — full width, its own label above (not a right-aligned .field row):
    a sentence needs the whole panel, not the value column */
-.ctx-note-text { padding: 12px 0 10px; border-bottom: 1px solid var(--border-soft); }
+.ctx-note-text { padding: 12px 0; border-bottom: 1px solid var(--border-soft); }
 .ctx-note-input { display: block; width: 100%; resize: vertical; min-height: 76px;
   font: var(--fw-medium) var(--fs-2)/1.45 var(--body); color: var(--ink); background: var(--fill-soft);
-  border: 1px solid var(--border-soft); border-radius: var(--r-ctl); padding: 10px 12px; }
+  border: 1px solid var(--border-soft); border-radius: var(--r-ctl); padding: 8px 12px; }
 /* focus: the one field focus (--focus-*, 28.09.2026), not a solid blue edge of its own */
 .ctx-note-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); background: var(--surface); }
 /* seven swatches (default note ink + the six drawing colours) have to sit on ONE line next to
    their label — at the full 30px they wrapped a single lonely circle onto a second row */
-.ctx-note-colors { display: flex; align-items: center; gap: 7px; margin-left: auto; justify-content: flex-end; }
+.ctx-note-colors { display: flex; align-items: center; gap: 8px; margin-left: auto; justify-content: flex-end; }
 .ctx-note-colors .dh-color { width: 26px; height: 26px; }
 /* ⚠️ The Truppfarbe row WRAPS (11.08.). It used to be one horizontally scrolling row, on the
    reasoning that eleven wrapped swatches read as a dump rather than as a choice. In the hand it
@@ -188,7 +190,7 @@
    continues the rows above it rather than starting something, so it opens no gap of its own */
 .ctx-rows { display: block; }
 .ctx-section-label {
-  display: block; margin-bottom: 6px;
+  display: block; margin-bottom: 8px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
 
@@ -204,7 +206,7 @@
 /* a user-added field: same run as .field above, so the same treatment — no rule */
 .kv-row { display: flex; align-items: center; gap: 8px; row-gap: 2px; flex-wrap: wrap; padding: 8px 0; }
 .kv-key, .kv-val { font-size: var(--fs-2); color: var(--ink); border: none; background: var(--fill-soft); border-radius: var(--r-sm);
-  padding: 8px 10px; min-width: 0; font-family: var(--body); }
+  padding: 8px 12px; min-width: 0; font-family: var(--body); }
 .kv-key { flex: 0 0 38%; font-weight: var(--fw-medium); color: var(--ink-dim); }
 .kv-val { flex: 1; font-family: var(--mono); }
 /* borderless boxes, so the one field focus (--focus-*, 28.09.2026) draws its edge as an inset
@@ -216,13 +218,13 @@
 .kv-row.dup { padding-bottom: 2px; }
 .kv-row.dup .kv-key { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 40%, transparent); }
-.kv-dup-hint { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 0 0 8px;
+.kv-dup-hint { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 0 0 8px;
   border-bottom: 1px solid var(--border-soft); font-size: var(--fs-1); line-height: 1.35; color: var(--red); }
 .kv-dup-hint .i { width: 13px; height: 13px; flex: none; margin-top: 1px; }
 /* shared custom dropdown (Combo) — styled like the Atemschutz Trupp picker, no native chrome */
 .combo { position: relative; flex: 1; min-width: 0; }
-.combo-pick { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 6px; text-align: left;
-  border: 1px solid var(--border); border-radius: var(--r-sm); padding: 7px 30px 7px 10px; background: var(--fill-soft);
+.combo-pick { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 8px; text-align: left;
+  border: 1px solid var(--border); border-radius: var(--r-sm); padding: 8px 32px 8px 12px; background: var(--fill-soft);
   font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); cursor: pointer; min-height: var(--tap); }
 @media (hover: hover) {
   .combo-pick:hover { border-color: var(--ink-faint); }
@@ -231,8 +233,8 @@
 .combo-pick.empty .combo-pick-name { color: var(--ink-faint); }
 /* ⚠️ With a ✕ standing next to the chevron, 30px of right padding runs the value straight
    under the clear icon («SCHWARZPULVER, gekörnt ode✕…», Feldtest 08.09.) — the name must
-   stop where the two controls begin. */
-.combo:has(.combo-clear) .combo-pick { padding-right: 56px; }
+   stop where the two controls begin: the clear's 44px target stands 20px in, so 64. */
+.combo:has(.combo-clear) .combo-pick { padding-right: 64px; }
 .combo-pick-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combo-chev { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; color: var(--ink-faint); pointer-events: none; }
 .combo-chev .i { width: 15px; height: 15px; }
@@ -244,7 +246,7 @@
 }
 .combo-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-clear .i { width: 13px; height: 13px; }
-.combo-input { width: 100%; box-sizing: border-box; border: 1px solid var(--glass-edge); border-radius: var(--r-sm); padding: 7px 10px;
+.combo-input { width: 100%; box-sizing: border-box; border: 1px solid var(--glass-edge); border-radius: var(--r-sm); padding: 8px 12px;
   font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); background: var(--surface); outline: none; }
 /* it only exists while typing, and wears the one field focus (--focus-*, 28.09.2026) — it had a
    solid blue edge of its own */
@@ -261,7 +263,7 @@
 /* the app's one option-row treatment — hover 8 % of --blue, the --press wash, --r-ctl
    (13-incident.css · «ONE menu row»). */
 .combo-opt { width: 100%; display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; border: none;
-  background: none; border-radius: var(--r-ctl); padding: 8px 9px; min-height: var(--tap); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
+  background: none; border-radius: var(--r-ctl); padding: 8px; min-height: var(--tap); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
 @media (hover: hover) {
   .combo-opt:hover { background: var(--blue-8); }
 }
@@ -282,7 +284,7 @@
    ⚠️ .field / .kv-row are single-line flex rows, so as a plain sibling the hint landed BESIDE
    the control and wrapped into a four-word-tall red column. It takes a row of its own. */
 .field:has(> .kv-hint), .kv-row:has(> .kv-hint) { flex-wrap: wrap; }
-.kv-hint { flex: 0 0 100%; display: flex; align-items: center; gap: 6px; margin: 4px 0 0;
+.kv-hint { flex: 0 0 100%; display: flex; align-items: center; gap: 8px; margin: 4px 0 0;
   font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--accent); }
 .kv-hint .i { width: 14px; height: 14px; flex: none; }
 .combo-type { color: var(--blue-strong); font-weight: var(--fw-bold); border-top: 1px solid var(--border-soft); margin-top: 2px; }
@@ -294,28 +296,28 @@
    sits in a roster where red already means something. */
 .combo-toggle.on { color: var(--ink); background: var(--sel-wash); }
 .combo-toggle .i { width: 14px; height: 14px; color: var(--blue); }
-.combo-empty { padding: 8px 10px; font-size: var(--fs-1); color: var(--ink-faint); }
+.combo-empty { padding: 8px 12px; font-size: var(--fs-1); color: var(--ink-faint); }
 .combo-group { list-style: none; }
 .combo-group > ul { list-style: none; margin: 0; padding: 0; }
 .combo-group-head {
-  padding: 7px 10px 3px;
+  padding: 8px 8px 4px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
 .combo-group + .combo-group .combo-group-head { border-top: 1px solid var(--border-soft); margin-top: 2px; }
 
 /* read-only ADR hazard readout (UN-Nr → substance/hazard data on the Gefahrentafel) */
-.un-haz { background: var(--fill-soft); border-radius: var(--r-sm); padding: 12px 12px 10px; }
+.un-haz { background: var(--fill-soft); border-radius: var(--r-sm); padding: 12px; }
 .un-haz-row { display: flex; gap: 8px; padding: 4px 0; font-size: var(--fs-2); }
 .un-haz-k { flex: 0 0 44%; color: var(--ink-dim); font-weight: var(--fw-medium); }
 .un-haz-v { flex: 1; color: var(--ink); font-family: var(--mono); }
-.un-haz-water { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 7px 9px; border-radius: var(--r-xs);
+.un-haz-water { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 8px; border-radius: var(--r-xs);
   background: var(--red); color: var(--on-fill); font-size: var(--fs-1); font-weight: var(--fw-bold); }
 .un-haz-water svg { width: 15px; height: 15px; flex: none; }
-.un-haz-list { margin: 0 0 8px; padding-left: 18px; }
+.un-haz-list { margin: 0 0 8px; padding-left: 16px; }
 .un-haz-list li { font-size: var(--fs-1); color: var(--ink); padding: 2px 0; }
 .un-haz-none { margin: 2px 0 2px; font-size: var(--fs-1); color: var(--ink-faint); }
 /* 12.5px, the floor for interactive text (was 12, 23.09.2026) */
-.un-haz-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: var(--fs-1);
+.un-haz-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: var(--fs-1);
   font-weight: var(--fw-bold); color: var(--blue, #1f6feb); text-decoration: none; }
 @media (hover: hover) {
   .un-haz-link:hover { text-decoration: underline; }
@@ -344,7 +346,7 @@
 /* «+ Feld» (27.09.2026; 28.09.2026 on the ONE «add» look, 13-incident `.cv-btn-add`): framed,
    --tap tall, the one corner, 14/700 ink on the surface. It was a 36px grey tile — a second add
    shape, and under the glove floor. */
-.kv-add { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; min-height: var(--tap); padding: 0 14px 0 12px;
+.kv-add { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; min-height: var(--tap); padding: 0 16px 0 12px;
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink);
   border-radius: var(--r-sm); font: var(--fw-bold) var(--fs-2) var(--body); cursor: pointer; }
 @media (hover: hover) {
@@ -353,7 +355,7 @@
 .kv-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-add .i { width: 16px; height: 16px; }
 /* FKS Entwicklung (spread) controls — a label + a row of small toggle buttons */
-.spread-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 7px 0; }
+.spread-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 8px 0; }
 .spread-row + .spread-row { border-top: 1px solid var(--border-soft); }
 .spread-lbl { font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .spread-btns { display: inline-flex; gap: 8px; flex-wrap: wrap; }
@@ -380,7 +382,7 @@
 /* general free-text notes */
 .ctx-notes { display: flex; flex-direction: column; }
 .ctx-notes-input { width: 100%; box-sizing: border-box; min-height: 64px; resize: vertical; border: 1px solid var(--border);
-  border-radius: var(--r-ctl); padding: 9px 11px; font-family: var(--body); font-size: var(--fs-2); color: var(--ink);
+  border-radius: var(--r-ctl); padding: 8px 12px; font-family: var(--body); font-size: var(--fs-2); color: var(--ink);
   background: var(--fill-soft); }
 .ctx-notes-input::placeholder { color: var(--ink-faint); }
 .ctx-notes-input:focus { outline: none; background: var(--surface); border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
@@ -391,27 +393,27 @@
    «was ist das und was tut es»; this answers «wie laut soll es auf der Karte sein», which is the
    least of it. Same row shape as the run above so it is not a third kind of control — only
    quieter, and it wraps by proximity like the rest. */
-.ctx-caprow { display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  row-gap: 2px; flex-wrap: wrap; padding: 6px 14px 0; }
+.ctx-caprow { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  row-gap: 2px; flex-wrap: wrap; padding: 8px 12px 0; }
 .ctx-caprow-lbl { font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-faint); }
 /* the caption picker uses the shared .useg segmented control (see components/Segmented); the row
    just pins it to the right. A touch smaller here since it sits by the footer actions. */
 /* the caption row keeps only its tighter LABEL — height/radius come from the one segmented spec */
-.ctx-caprow .useg-btn { padding: 4px 10px; }
+.ctx-caprow .useg-btn { padding: 4px 12px; }
 
 /* «Erledigt» (lib/objectDone, 24.09.2026): SET, the row STATES the answer («Erledigt 20:40», the
    grey the glyph now wears) — first in a damage symbol's body, last elsewhere — and holds its one
    way back at the controls' edge. No hairline under it (the sheets draw one only above a NAMED
    section, AGENTS · editor-sheet grammar). The press that sets it is the foot's middle tile
    (`.ctx-done`, 27.09.2026 — it was a full-width row with a hint beside it). */
-.ctx-done-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 4px 0;
+.ctx-done-row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 4px 0;
   margin: 2px 0 4px; }
 .ctx-done-row { justify-content: space-between; flex-wrap: wrap; row-gap: 2px; }
-.ctx-done-state { display: inline-flex; align-items: center; gap: 10px; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink-dim);
+.ctx-done-state { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink-dim);
   font-variant-numeric: tabular-nums; }
-.ctx-done-state > .i { flex: none; width: 26px; height: 26px; padding: 5px; box-sizing: border-box; border-radius: 50%;
+.ctx-done-state > .i { flex: none; width: 26px; height: 26px; padding: 4px; box-sizing: border-box; border-radius: 50%;
   background: var(--ink-faint); color: var(--surface); stroke-width: 2.6; }
-.ctx-done-reopen { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; margin-left: auto; padding: 0 2px;
+.ctx-done-reopen { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-left: auto; padding: 0 2px;
   border: 0; background: transparent; color: var(--ink); font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
 .ctx-done-reopen .i { width: 16px; height: 16px; color: var(--ink-dim); }
 @media (hover: hover) {
@@ -419,7 +421,7 @@
 }
 .ctx-done-reopen:active { background-image: linear-gradient(var(--press), var(--press)); }
 
-.ctx-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px 16px; }
+.ctx-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 12px 16px; }
 .ctx-actions > .btn { flex: 1 1 140px; }
 /* the foot's glyphs are one size (16px, the family's) — the bin's 18 in its square */
 .ctx-actions > .btn .i { width: 16px; height: 16px; }
@@ -441,8 +443,8 @@
 .btn-t { display: flex; min-width: 0; white-space: pre; }
 .btn-t > * { flex: none; }
 .btn-t > .btn-t-cut { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: var(--fs-1); font-weight: var(--fw-bold);
-  padding: 11px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);
+.btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap); font-size: var(--fs-1); font-weight: var(--fw-bold);
+  padding: 12px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);
   cursor: pointer; color: var(--ink); white-space: nowrap; }
 @media (hover: hover) {
   .btn:hover { background: var(--surface); border-color: var(--border); }
@@ -492,7 +494,10 @@
    to content when the trail is short, but never claims more than half the row — the other half
    always stays the sentence's. `.jr-trail`/`.jr-foot` wrap onto a second line inside that half
    rather than overflow it.
-   overflow: hidden — the connector halves below are drawn 100vh long and clipped to the row. */
+   overflow: hidden — the connector halves below are drawn 100vh long and clipped to the row.
+   ⚠️ The 10px here and the 9px + 1px border of the Pendenzen rows below stay off the 4px grid
+   (08.10.2026, Karte chrome on the scales): they ARE that one text axis, which 10-journal and
+   18-audio line up with, so the axis moves with the Verlauf's own stylesheets, not from here. */
 .hist-ev { display: grid; grid-template-columns: 38px 26px minmax(0, 1fr) fit-content(50%);
   column-gap: 10px; row-gap: 2px; align-items: center;
   padding: 8px 10px; border-radius: var(--r-ctl); font-size: var(--fs-2); font-weight: var(--fw-medium); overflow: hidden; }
@@ -517,7 +522,7 @@
    at `fit-content(50%)` above, so it can never push the sentence below its own half of the row —
    `flex-wrap` is what it spends the rest of a crowded row on instead of stealing the sentence's. */
 .jr-trail { grid-column: 4; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;
-  gap: 4px 9px; justify-self: end; min-width: 0; }
+  gap: 4px 8px; justify-self: end; min-width: 0; }
 /* persistent affordance so touch users can tell a row navigates without hovering */
 .hist-go { color: var(--ink-faint); display: grid; place-items: center; flex: none; opacity: .55; transition: transform .14s var(--ease), opacity .14s var(--ease); }
 .hist-go .i { width: 15px; height: 15px; }
@@ -547,8 +552,8 @@
 
 /* reminder (Erinnerung) row: due label + checklist-style done toggle */
 .jr-text.jr-rem-struck { text-decoration: line-through; color: var(--ink-faint); }
-.jr-rem { display: inline-flex; align-items: center; gap: 7px; flex: none; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 5px 11px 5px 8px; font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer;
+.jr-rem { display: inline-flex; align-items: center; gap: 8px; flex: none; border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 4px 12px 4px 8px; font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer;
   min-height: var(--tap); }   /* a button: one corner, --tap (29.09.2026; was a 34px pill) */
 /* In the pinned block the ring stands alone in the Verlauf's ICON SLOT — 26px wide, the width of
    `.hist-ev .ic`, so the text beside it lands on the log's own axis. No pill, no word: the block's
@@ -623,7 +628,7 @@
   /* the 2px matches `.history-list`'s own side padding, so the box's border and the log's rows
      stand on one edge — and the 9px on a row plus this 1px border makes the 10px `.hist-ev` uses,
      which is what keeps the item text on the same x as every line in the log. */
-  margin: 0 2px 10px; padding: 8px 0; border-radius: var(--r-ctl);
+  margin: 0 2px 8px; padding: 8px 0; border-radius: var(--r-ctl);
   border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--glass-edge));
   --jr-pinned-bg: color-mix(in srgb, var(--amber) 7%, var(--surface));
   background: var(--jr-pinned-bg);
@@ -651,7 +656,7 @@
    heading sits flush while scrolled and keeps its air when it is not. */
 .jr-pinned-head { flex: none; position: sticky; top: -8px; z-index: 3; margin-top: -8px;
   padding: 8px 9px 6px; background: var(--jr-pinned-bg);
-  display: flex; align-items: center; gap: 7px; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); }
+  display: flex; align-items: center; gap: 8px; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); }
 .jr-pinned-head .i { width: 14px; height: 14px; flex: none; }
 /* the mirror of the footer's fade: a row scrolling up under the heading dissolves into it rather
    than being sliced through its letters */
@@ -723,7 +728,7 @@
 .jr-pinned-note { overflow-wrap: break-word;
   font: var(--fw-regular) var(--fs-1)/1.35 var(--body); color: var(--ink-dim);
   padding-left: 8px; border-left: 1.5px solid var(--amber-45); }
-.jr-pinned-note b { font: var(--fw-regular) var(--fs-micro) var(--mono); color: var(--ink-faint); margin-right: 6px; }
+.jr-pinned-note b { font: var(--fw-regular) var(--fs-micro) var(--mono); color: var(--ink-faint); margin-right: 8px; }
 /* ⚠️ WHEN IT WAS RAISED, for every row. The column used to print the Fälligkeit, which only a
    timed Erinnerung has; an Auftrag has none, because nobody checks in on a Schadenplatz. Tapping
    swaps the whole column to the age — never one row at a time, a half-clock/half-age column is

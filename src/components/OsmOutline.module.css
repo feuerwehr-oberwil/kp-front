@@ -22,7 +22,7 @@
 /* The wrapper owns the placement so ONE line of context (the existing building is highlighted /
    part of it is missing here) can sit directly above the buttons it qualifies. */
 .wb-osm-barwrap { position: fixed; left: 50%; bottom: calc(16px + var(--float-h) + var(--float-gap)); transform: translateX(-50%); z-index: var(--z-help-scrim);
-  display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  display: flex; flex-direction: column; align-items: center; gap: 8px; }
 /* ⚠️ The house shapes, not pills (20.09.2026): this bar was the one place in the app with
    fully round buttons in a fully round tray, at 13px/600 – and on a phone both labels wrapped
    onto two lines, so it stood twice as tall as any other bar. Buttons are --r-sm at the compact
@@ -33,17 +33,17 @@
    corner, the two buttons --msg-pad inside it. They used to be a grey-on-glass bar in a look of
    their own, next to a dark toast saying the same kind of thing. An instruction stays while the
    pick is on, so it carries no ✕ and no running line. */
-.wb-osm-bar, .wb-osm-note, .wb-osm-warn { box-sizing: border-box; display: flex; align-items: center; gap: 6px;
+.wb-osm-bar, .wb-osm-note, .wb-osm-warn { box-sizing: border-box; display: flex; align-items: center; gap: 4px;
   min-height: var(--float-h); padding: var(--msg-pad);
   background: var(--float-bg); backdrop-filter: var(--float-blur); border: none; border-radius: var(--r-sm); box-shadow: var(--float-edge);
   font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
-.wb-osm-note, .wb-osm-warn { gap: 9px; padding: var(--msg-pad) var(--float-pad-x); }
+.wb-osm-note, .wb-osm-warn { gap: 8px; padding: var(--msg-pad) var(--float-pad-x); }
 /* a saved outline that is not in this fetch WILL be lost on «Übernehmen» — the one thing here
    that is a loss, so it leads with the warn glyph in the warn colour, as a toast does */
 .wb-osm-warn :global(.i) { flex: none; width: 16px; height: 16px; color: var(--amber-strong); }
 .wb-osm-barhint { flex: 1 1 auto; min-width: 0; padding: 0 8px; }
 .wb-osm-clear, .wb-osm-take { border: none; cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); border-radius: var(--r-msg-in);
-  min-height: var(--tap); padding: 0 14px; white-space: nowrap; transition: filter .14s var(--ease), background .14s var(--ease); }
+  min-height: var(--tap); padding: 0 16px; white-space: nowrap; transition: filter .14s var(--ease), background .14s var(--ease); }
 .wb-osm-clear { background: var(--fill-soft); color: var(--ink-dim); }
 @media (hover: hover) { .wb-osm-clear:hover { background: var(--border); color: var(--ink); } }
 .wb-osm-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }

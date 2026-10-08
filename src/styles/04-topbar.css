@@ -18,7 +18,7 @@
    gap» between pill · clock · actions · weather was tried in their place and read as holes. The
    bar's 8px is the same between every neighbour, and `.tb-actions` (10-journal.css) uses the
    same figure — a part of the bar is never spaced differently from the rest. */
-.stat { display: flex; align-items: center; gap: 6px; font-size: var(--fs-1); color: var(--ink-dim); font-weight: var(--fw-medium); white-space: nowrap; flex: none; }
+.stat { display: flex; align-items: center; gap: 8px; font-size: var(--fs-1); color: var(--ink-dim); font-weight: var(--fw-medium); white-space: nowrap; flex: none; }
 .stat b { font-family: var(--mono); color: var(--ink); }
 .dot { width: 8px; height: 8px; border-radius: 50%; }
 .dot.r { background: var(--red); animation: p 1.4s infinite; }
@@ -28,9 +28,9 @@
    to rely on does not exist on a tablet. */
 .print-relay-dot { flex: none; background: var(--amber); }
 .print-relay-dot.online { background: var(--green); }
-.print-send.offline { flex-direction: column; align-items: flex-start; gap: 1px; padding-top: 6px; padding-bottom: 6px; }
+.print-send.offline { flex-direction: column; align-items: flex-start; gap: 1px; padding-top: 4px; padding-bottom: 4px; }
 .print-send-main { display: inline-flex; align-items: center; gap: 8px; }
-.print-send-off { font: var(--fw-bold) var(--fs-micro) var(--body); color: var(--amber-strong); padding-left: 23px; }
+.print-send-off { font: var(--fw-bold) var(--fs-micro) var(--body); color: var(--amber-strong); padding-left: 24px; }   /* under the label: THE button's 16px glyph + its 8px gap */
 /* the capture poster's buttons are centred, so the second line centres with them */
 .cv-btn.print-send.offline { align-items: center; }
 .cv-btn .print-send-off { padding-left: 0; }

@@ -12,7 +12,7 @@
   border-radius: var(--r-surface); box-shadow: var(--e4); overflow: hidden;
 }
 .replay-banner {
-  display: flex; align-items: center; gap: 9px; padding: 9px 14px;
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px;
   /* neutral, not amber: «du schaust in die Vergangenheit» is a mode, not a warning. It sat in
      the same colour as an Atemschutz-Warnung and competed with it for the same glance. */
   background: var(--ink-fill); color: var(--on-accent-ink); font-size: var(--fs-1);
@@ -26,15 +26,15 @@
 .replay-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--on-accent-ink); flex: none;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, .35); }
 .replay-exit {
-  margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 5px;
+  margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px;
   border: none; background: rgba(255, 255, 255, .22); color: var(--on-accent-ink); cursor: pointer;
-  font-family: var(--body); font-weight: var(--fw-bold); font-size: var(--fs-1); padding: 6px 11px; border-radius: var(--r-sm);
+  font-family: var(--body); font-weight: var(--fw-bold); font-size: var(--fs-1); padding: 8px 12px; border-radius: var(--r-sm);
 }
 @media (hover: hover) { .replay-exit:hover { background: rgba(255, 255, 255, .34); } }
 .replay-exit:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.replay-empty { padding: 12px 14px; font-size: var(--fs-1); color: var(--ink-dim); font-weight: var(--fw-medium); }
-.replay-controls { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
-.replay-transport { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.replay-empty { padding: 12px 16px; font-size: var(--fs-1); color: var(--ink-dim); font-weight: var(--fw-medium); }
+.replay-controls { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.replay-transport { display: inline-flex; align-items: center; gap: 8px; flex: none; }
 .replay-play {
   flex: none; width: 38px; height: 38px; border-radius: var(--r-sm); border: none; cursor: pointer;
   /* THE primary of the bar (28.09.2026) — --ink-fill directly had no edge on the night sheet */
@@ -51,10 +51,10 @@
 .replay-skip .i { width: 14px; height: 14px; }
 /* the playback-speed picker now uses the shared <Segmented> (.useg) — its old .replay-speeds
    chrome was removed; the inline-flex track keeps its natural width in the transport row. */
-.replay-scrub { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-top: 20px; position: relative; }
+.replay-scrub { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-top: 24px; position: relative; }
 /* current time rides above the handle as a bubble — never crowds the track or labels */
 .replay-time { position: absolute; top: 0; transform: translateX(-50%); font-family: var(--mono);
-  font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--on-accent-ink); background: var(--ink-fill); padding: 1px 7px; border-radius: var(--r-xs);
+  font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--on-accent-ink); background: var(--ink-fill); padding: 1px 8px; border-radius: var(--r-xs);
   white-space: nowrap; pointer-events: none; }
 .replay-time::after { content: ''; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%);
   border: 4px solid transparent; border-top-color: var(--ink-fill); border-bottom: none; }
@@ -134,7 +134,7 @@
   .replay-sub { display: none; }
   /* transport + speed stay on the top row; the scrub track drops to its own full-width row
      below so it isn't squeezed to a sliver (and the time bubble no longer runs off the edge) */
-  .replay-controls { gap: 9px; padding: 10px; flex-wrap: wrap; row-gap: 4px; }
+  .replay-controls { gap: 8px; padding: 8px; flex-wrap: wrap; row-gap: 4px; }
   .replay-scrub { flex-basis: 100%; order: 3; }
 }
 
@@ -147,12 +147,12 @@
    left to its content the row was ~14px shorter than the filled one — and this bar is anchored
    to the BOTTOM, so the difference shoved the whole scrubber up and down as the playhead crossed
    the first entry. The floor is the tall state's: text plus the button plus the padding. */
-.replay-caption { display: flex; align-items: center; gap: 9px; padding: 9px 14px;
+.replay-caption { display: flex; align-items: center; gap: 8px; padding: 8px 16px;
   /* a fixed height, not a floor: the line never wraps (one line, ellipsised), and «min» left the
      filled row 1px taller than the empty one — the mono time chip's line box is a hair taller
      than the button it sits beside. On a bar anchored to the BOTTOM even 1px shows up as the
      whole scrubber twitching as the playhead crosses an entry. */
-  height: 50px; box-sizing: border-box;
+  height: 48px; box-sizing: border-box;
   border-top: 1px solid var(--glass-edge); background: color-mix(in srgb, var(--blue) 7%, transparent);
   font-size: var(--fs-1); }
 .replay-caption-t { flex: none; font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold);
@@ -161,10 +161,10 @@
   white-space: nowrap; color: var(--ink); font-weight: var(--fw-medium); }
 .replay-caption-none { color: var(--ink-faint); font-weight: var(--fw-medium); }
 /* ⚠️ 12.5px, the interactive floor (AGENTS · the 3am tenet) — it was 11.5px until 23.08. The
-   caption's fixed 50px still holds it: 12.5px of text inside a 32px floor, with 9px of padding
-   either side, is 50px exactly. */
+   caption's fixed 48px still holds it: 12.5px of text inside a 32px floor, with 8px of padding
+   either side, is 48px exactly. */
 .replay-caption-go { flex: none; border: 1px solid var(--border); background: var(--surface);
-  color: var(--ink-dim); border-radius: var(--r-xs); padding: 5px 10px; min-height: 32px;
+  color: var(--ink-dim); border-radius: var(--r-xs); padding: 4px 12px; min-height: 32px;
   font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
 @media (hover: hover) { .replay-caption-go:hover { color: var(--ink); background: var(--hover-strong); } }
 .replay-caption-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -172,5 +172,5 @@
    row with it */
 @media (pointer: coarse) {
   .replay-caption-go { min-height: var(--tap); }
-  .replay-caption { height: calc(var(--tap) + 18px); }
+  .replay-caption { height: calc(var(--tap) + 16px); }
 }
