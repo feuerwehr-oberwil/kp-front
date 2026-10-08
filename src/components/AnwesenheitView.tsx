@@ -28,6 +28,7 @@ import { TimeBlockSheet } from './TimeBlockSheet'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
 import { SyncGlyph } from './SyncGlyph'
+import { Button, IconButton } from './Button'
 import { ZeitplanView } from './ZeitplanView'
 import { BandGrid } from './BandGrid'
 import { AnrueckendBlock } from './AnrueckendBlock'
@@ -173,9 +174,9 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
               mistake, and then there has to be a way off the sheet. It lives HERE rather than on
               the row, because the row's tap is the one gesture that must never delete anybody. */}
           {canEdit && person.guest && onRemoveGuest && (
-            <button type="button" className="ip-btn ip-btn-danger" onClick={() => onRemoveGuest(person)}>
-              <Icon id="trash" /> {A.removeGuest}
-            </button>
+            <Button variant="danger" icon={<Icon id="trash" />} onClick={() => onRemoveGuest(person)}>
+              {A.removeGuest}
+            </Button>
           )}
         </>
       )}
@@ -257,13 +258,13 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
       footer={
         <>
           {onDownload && (
-            <button type="button" className="ip-btn" onClick={() => { onDownload(); onClose() }}>{Z.pdf}</button>
+            <Button onClick={() => { onDownload(); onClose() }}>{Z.pdf}</Button>
           )}
           {onPrint && (
-            <button type="button" className="ip-btn primary" onClick={() => { onPrint(); onClose() }}>
-              <Icon id="printer" />{appConfig.copy.printRelay.send}
+            <Button variant="primary" icon={<Icon id="printer" />} onClick={() => { onPrint(); onClose() }}>
+              {appConfig.copy.printRelay.send}
               <span className={`dot print-relay-dot${printOnline ? ' online' : ''}`} aria-hidden />
-            </button>
+            </Button>
           )}
         </>
       }
@@ -651,15 +652,15 @@ export function AnwesenheitView({
       {/* A ZOOM, not a stepper. «−» shows MORE time (the axis zooms out), which is why
           the number beside it grows — magnifier glyphs rather than −/+ so nobody reads
           it as «make this number smaller». */}
-      <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(1)}
-        disabled={shownH >= HORIZONS[HORIZONS.length - 1]} aria-label={appConfig.copy.zeitplan.zoomOut}><Icon id="zoom-out" /></button>
+      <IconButton variant="secondary" onClick={() => stepHorizon(1)}
+        disabled={shownH >= HORIZONS[HORIZONS.length - 1]} label={appConfig.copy.zeitplan.zoomOut}><Icon id="zoom-out" /></IconButton>
       <b className={s.horizonValue}>{fmtHours(shownH)} h</b>
       {/* At a constant px-per-hour the view is pixel-identical when you widen the window —
           only this number moved, and the scrollbar that would have hinted at more axis is
           ignored by iPadOS. Naming the end makes the control answer its own question. */}
       <span className={s.horizonEnd}>{fillTemplate(appConfig.copy.zeitplan.horizonUntil, { t: horizonEndLabel })}</span>
-      <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(-1)}
-        disabled={shownH <= HORIZONS[0]} aria-label={appConfig.copy.zeitplan.zoomIn}><Icon id="zoom-in" /></button>
+      <IconButton variant="secondary" onClick={() => stepHorizon(-1)}
+        disabled={shownH <= HORIZONS[0]} label={appConfig.copy.zeitplan.zoomIn}><Icon id="zoom-in" /></IconButton>
     </div>
   ) : null
 
@@ -803,7 +804,7 @@ export function AnwesenheitView({
               that up in the background. What is left means what it says: that did not load, try
               again. */}
           {(error || reloadPhase === 'done') && (
-            <button className={cx(s.reload, error && s.reloadFailed)} onClick={runReload} data-fold={HEAD_FOLD.reload}
+            <Button className={cx('head-tile', error && 'amber')} onClick={runReload} data-fold={HEAD_FOLD.reload}
               disabled={loading || reloadPhase !== 'idle'}
               aria-label={A.reload} title={error ? A.loadFailedHint : undefined}>
               {loading || reloadPhase !== 'idle'
@@ -813,7 +814,7 @@ export function AnwesenheitView({
               {reloadPhase !== 'done' && (
                 <span className="fold-long">{loading || reloadPhase === 'busy' ? A.loading : A.retry}</span>
               )}
-            </button>
+            </Button>
           )}
         </div>
         {/* The three readings of this Mannschaft, in a slot of their OWN rather than inside the
@@ -979,7 +980,7 @@ export function AnwesenheitView({
           title={error ? A.loadFailedTitle : A.emptyTitle}
           sub={error ? A.loadFailedHint
             : rosterProvider ? fillTemplate(A.emptyHintSync, { provider: rosterProvider }) : A.emptyHint}
-          action={<button type="button" className="ip-btn" onClick={onReload} disabled={loading}><Icon id="rotate" /> {A.retry}</button>} />
+          action={<Button icon={<Icon id="rotate" />} onClick={onReload} disabled={loading}>{A.retry}</Button>} />
       ) : !rows.length && !guestOffer ? (
         <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
       ) : showBands ? (

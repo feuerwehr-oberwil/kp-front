@@ -19,7 +19,7 @@ import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LTG_PX, TEAM_LABEL_STYLE } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LTG_PX, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
 import { dockSlots, dockRadiusFor, nearestDockHost } from '../lib/docking'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -87,22 +87,22 @@ const TAG_TAP_TOL_PX = 16
  *  synthesizes its mouse trail right after touchend, so the trailing click arrives a few ms AFTER
  *  MapLibre's dragend — but well inside this window, which no second deliberate tap fits in. */
 const PAN_CLICK_TAIL_MS = 350
-/** `.sym-caption { margin-top }` (03-map.css) */
-const CAPTION_GAP = 3
+/** `.sym-caption { margin-top }` (03-map.css), held to the CSS in lib/mapView */
+const CAPTION_GAP = SYM_CAPTION_GAP
 /** the end tag's Marker `offset={[0, -14]}` (below) */
 const END_TAG_LIFT = 14
 /** the line-readout / radius Markers' `anchor="bottom"` offsets (below) */
 const READOUT_LIFT = 10
 const RADIUS_LIFT = 4
 const LABEL_STYLE = {
-  /** `.sym-caption` — wraps at compound seams inside 120px; 1px/6px padding, line-height 1.25 */
-  caption: { font: '700 11.5px Sora, system-ui, sans-serif', maxTextW: 120, chromeW: 12, chromeH: 2, lineH: 14.4 },
+  /** `.sym-caption` (lib/mapView · SYM_CAPTION_STYLE) */
+  caption: SYM_CAPTION_STYLE,
   /** `.team-dot b` — never wraps */
   team: TEAM_LABEL_STYLE,
-  /** `.measure-label.draw-label` — mono, never wraps, 2px/7px padding */
-  readout: { font: '700 11px "Spline Sans Mono", ui-monospace, monospace', maxTextW: Infinity, chromeW: 14, chromeH: 4, lineH: 13.8 },
-  /** `.line-end-tag` — 2px/6px padding plus a 1.5px border; `inline-grid` stacks the Trupp row */
-  endTag: { font: '800 11.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 15, chromeH: 7, lineH: 11.5 },
+  /** `.measure-label.draw-label` (lib/mapView · READOUT_LABEL_STYLE) */
+  readout: READOUT_LABEL_STYLE,
+  /** `.line-end-tag` (lib/mapView · END_TAG_LABEL_STYLE) */
+  endTag: END_TAG_LABEL_STYLE,
 } satisfies Record<string, LabelStyle>
 
 /** The end tag's text laid out the way `EndTag` lays it out: the Leitung's own facts on one

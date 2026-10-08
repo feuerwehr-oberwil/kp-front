@@ -342,7 +342,8 @@
 .or-note.or-online { color: var(--amber-strong); }
 .or-note.or-missing { color: var(--ink-dim); }
 /* browser-tab state: the readiness list is replaced by why it isn't one (see the component) */
-.or-browser { display: flex; gap: 12px; padding: 12px 16px; border-radius: var(--r-ctl);
+/* 12 round and an 8 gap: the 14px title «Offline zuverlässig als installierte App» stays one line at 375 */
+.or-browser { display: flex; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-ctl);
   background: var(--fill-soft); border: 1px solid var(--border); }
 .or-browser > .i { width: 17px; height: 17px; flex: none; color: var(--blue); margin-top: 2px; }
 .or-browser-t { margin: 0 0 4px; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
@@ -722,6 +723,13 @@
 @media (hover: hover) {
   .ip-btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 }
+/* go: a primary whose move KEEPS things safely as they are (MeldungAction · go — «Am Einsatzort
+   lassen», D3-a), filled green like the Atemschutz «Eintritt». `--on-fill`, because the night green
+   is bright (01-tokens). Green is never «delete» and never a warning, so it cannot be misread. */
+.ip-btn.go { background: var(--green); color: var(--on-fill); border-color: var(--green); }
+@media (hover: hover) {
+  .ip-btn.go:hover { background: var(--green-solid-hover); border-color: var(--green-solid-hover); }
+}
 /* delete (Übungen in «Alle Einsätze», a confirm's destructive answer) — THE delete look
    (01-tokens · --del-*, 28.09.2026): red outline on the surface, never a solid destructive button.
    ⚠️ `.ip-btn danger` was written at a call site that predates the rename (BandGrid's
@@ -921,7 +929,8 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .rp-check-go { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
 /* the body starts under the LABEL, not under the dot: 16 (card pad) + 24 (dot) + 8 (gap) */
-.rp-check-extra { padding: 0 16px 16px 48px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+/* right inset 8, the chips' gap 8: two 14px columns hold «Widmer Céline · Einsatzleiter» whole at 1180 */
+.rp-check-extra { padding: 0 var(--sp-2) 16px 48px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 /* quick double-check lists (Anwesenheit names + Mittel lines): read-only chips, early
    leavers / amounts inline — corrections go through the row's Go arrow */
 /* No inner scroller. A 34vh cap put a second scroll region inside a surface that already scrolls
@@ -929,7 +938,7 @@
    `overscroll-behavior: contain`) — and it also swallowed the card's own tap area. The card grows
    and the page scrolls, which is the one behaviour there is nothing to learn about. */
 .rp-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 4px 16px; width: 100%; }
+  gap: var(--sp-1) var(--sp-2); width: 100%; }
 .rp-person { font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-person em { font-style: normal; color: var(--amber); font-weight: var(--fw-bold); }

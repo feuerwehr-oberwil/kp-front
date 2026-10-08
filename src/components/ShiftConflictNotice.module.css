@@ -2,8 +2,9 @@
    exactly one thing — a genuine double booking — and it is now spent on saying so rather than on
    a 12px sign inside a filled bar, where it had the least contrast of anywhere on the screen. */
 .notice {
-  flex: none; display: flex; align-items: flex-start; gap: 9px;
-  margin: 0 22px; padding: 9px 12px; border-radius: var(--r-ctl);
+  flex: none; display: flex; align-items: flex-start; gap: var(--sp-2);
+  /* on the page head's own inset, so its edge lines up with the title above it */
+  margin: 0 var(--head-pad-x); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--red) 10%, transparent);
 }
 /* THE form warning's look (13-incident · `.form-warn`, 29.09.2026): the tint and a --red-strong
@@ -11,13 +12,13 @@
    layout stays its own: the notice folds on a phone, which the plain recipe does not. */
 .notice > svg { width: 16px; height: 16px; flex: none; color: var(--red-strong); margin-top: 1px; }
 .body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.body b { font: var(--fw-bold) 13px var(--body); color: var(--ink); }
+.body b { font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 /* the names and their stretches, one per line — «Meier ist doppelt eingeteilt» alone still leaves
    you hunting for where on a 96h axis */
-.who { margin: 0; display: flex; flex-direction: column; font: 600 var(--fs-1) var(--body); color: var(--ink-dim); }
+.who { margin: 0; display: flex; flex-direction: column; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 /* the resolving gesture. A notice that only names a fault makes the reader guess what to do with
    it — and this one has a one-tap answer, so it says it. */
-.fix { margin: 2px 0 0; font: var(--fw-medium) 12px var(--body); color: var(--ink-faint); }
+.fix { margin: 2px 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
 @media (--phone) {
   .notice { margin: 0 12px; }
@@ -25,10 +26,10 @@
 
 /* Collapsed on a phone: one line, the whole box tappable, opening to the full text. The icon and
    the wording stay — what folds away is the detail, not the alarm. */
-.collapsed { padding: 7px 10px; }
+.collapsed { padding: var(--sp-2); }
 .collapsed .fix { margin-top: 1px; }
 .summary {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px;
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--sp-2);
   border: none; background: none; padding: 0; cursor: pointer; text-align: left; color: inherit;
   /* a fold header is a target: the --tap floor, not the 13px line its text happened to be */
   min-height: var(--tap); border-radius: var(--r-ctl);
@@ -36,6 +37,6 @@
 }
 .summary:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .summary b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font: var(--fw-bold) 13px var(--body); color: var(--ink); }
-.short { flex: none; font: 600 var(--fs-1) var(--body); color: var(--ink-dim); white-space: nowrap; }
+  font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
+.short { flex: none; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); white-space: nowrap; }
 .summary > svg { width: 15px; height: 15px; flex: none; margin-left: auto; color: var(--ink-faint); }

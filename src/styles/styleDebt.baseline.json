@@ -36,43 +36,21 @@
     "weight": 1,
     "spacing": 9
   },
-  "src/components/Anwesenheit.module.css": {
-    "fontSize": 5,
-    "weight": 1,
-    "spacing": 11
-  },
   "src/components/Atemschutz.module.css": {
     "fontSize": 6
   },
   "src/components/BandGrid.module.css": {
-    "fontSize": 18,
-    "weight": 9,
-    "spacing": 34
+    "fontSize": 2
   },
   "src/components/Checklists.module.css": {
     "shadow": 2
   },
   "src/components/GeorefMode.module.css": {
-    "fontSize": 27,
-    "weight": 9,
-    "spacing": 49,
+    "spacing": 8,
     "shadow": 1
-  },
-  "src/components/ManualReader.module.css": {
-    "fontSize": 3,
-    "weight": 2,
-    "spacing": 12
   },
   "src/components/PdfScroller.module.css": {
-    "spacing": 11,
-    "shadow": 1
-  },
-  "src/components/PdfViewport.module.css": {
-    "spacing": 1
-  },
-  "src/components/RankBadge.module.css": {
-    "fontSize": 1,
-    "spacing": 1
+    "spacing": 6
   },
   "src/components/RetryButton.module.css": {
     "spacing": 2
@@ -85,34 +63,8 @@
   "src/components/ShellLoader.module.css": {
     "spacing": 1
   },
-  "src/components/ShiftConflictNotice.module.css": {
-    "fontSize": 3,
-    "weight": 2,
-    "spacing": 6
-  },
-  "src/components/TimeBlockSheet.module.css": {
-    "fontSize": 9,
-    "weight": 3,
-    "spacing": 15
-  },
-  "src/components/VehicleGpsTable.module.css": {
-    "fontSize": 2,
-    "spacing": 3
-  },
-  "src/components/WheelPicker.module.css": {
-    "fontSize": 2,
-    "weight": 1,
-    "spacing": 6
-  },
   "src/components/Zeitplan.module.css": {
-    "fontSize": 6,
-    "weight": 2,
-    "spacing": 21
-  },
-  "src/components/objectVisits/ObjectVisits.module.css": {
-    "fontSize": 15,
-    "weight": 12,
-    "spacing": 33
+    "spacing": 1
   },
   "src/fonts.css": {
     "weight": 4
@@ -121,55 +73,28 @@
     "spacing": 12
   },
   "src/styles/08-toasts.css": {
-    "fontSize": 20,
-    "weight": 10,
-    "spacing": 52,
-    "shadow": 5
-  },
-  "src/styles/09-whiteboard.css": {
-    "fontSize": 22,
-    "weight": 11,
-    "spacing": 66,
-    "shadow": 15
+    "fontSize": 1,
+    "spacing": 5
   },
   "src/styles/12-login.css": {
-    "fontSize": 8,
-    "weight": 5,
-    "spacing": 22,
-    "shadow": 3
+    "spacing": 4
   },
   "src/styles/13-incident.css": {
     "fontSize": 1,
     "shadow": 1
   },
-  "src/styles/14-intake.css": {
-    "fontSize": 5,
-    "weight": 1,
-    "spacing": 15,
-    "shadow": 2
-  },
   "src/styles/15-mobile.css": {
     "fontSize": 1,
-    "weight": 1,
-    "spacing": 11
-  },
-  "src/styles/16-help.css": {
-    "fontSize": 6,
-    "weight": 1,
-    "spacing": 26
+    "spacing": 8
   },
   "src/styles/17-rapport.css": {
-    "fontSize": 25,
-    "weight": 12,
-    "spacing": 44,
+    "spacing": 1,
     "shadow": 2
   },
   "src/styles/18-audio.css": {
     "shadow": 1
   },
   "src/styles/19-rueckmeldung.css": {
-    "fontSize": 8,
-    "weight": 3,
-    "spacing": 15
+    "spacing": 1
   }
 }

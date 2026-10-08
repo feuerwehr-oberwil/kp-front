@@ -9,7 +9,7 @@
   width: min(1040px, calc(100vw - 48px)); height: min(88dvh, 920px); display: flex; flex-direction: column;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--e4); overflow: hidden;
   animation: pop .16s var(--ease); }
-.help-head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 16px; border-bottom: 1px solid var(--border); }
+.help-head { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border); }
 .help-head-ic { width: 38px; height: 38px; flex: none; border-radius: var(--r-ctl); display: grid; place-items: center;
   background: var(--ink-fill); color: var(--on-accent-ink); }
 .help-head-ic .i { width: 21px; height: 21px; }
@@ -22,19 +22,19 @@
 /* one search row spanning the full width under the header — it filters BOTH columns, so it
    belongs to neither of them (and the TOC it would otherwise sit in is gone on a phone) */
 /* the band keeps its rule; the field in it is THE search (components/SearchField, 29.09.2026) */
-.help-search { flex: none; padding: 10px 20px; border-bottom: 1px solid var(--border); }
+.help-search { flex: none; padding: var(--sp-2) var(--sp-5); border-bottom: 1px solid var(--border); }
 .help-search > .ui-search { width: 100%; }
 /* «no hits» is the shared `.no-hits` line; the way out sits under it, as quiet */
-.help-empty { padding: 26px 0 0; }
+.help-empty { padding: var(--sp-5) 0 0; }
 .help-empty .no-hits { padding-bottom: 4px; }
-.help-empty-hint { margin: 0; text-align: center; font: var(--fw-medium) 13px/1.45 var(--body); color: var(--ink-faint); }
+.help-empty-hint { margin: 0; text-align: center; font: var(--fw-medium) var(--fs-2)/1.45 var(--body); color: var(--ink-faint); }
 
 .help-body { flex: 1 1 auto; min-height: 0; display: flex; }
 
-.help-toc { flex: none; width: 232px; border-right: 1px solid var(--border); overflow-y: auto; padding: 14px 10px; scrollbar-width: thin; }
-.help-toc-h { padding: 0 10px 8px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.help-toc-i { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; border: 0; background: transparent; cursor: pointer;
-  padding: 8px 10px; border-radius: var(--r-ctl); font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-dim); transition: background .14s var(--ease), color .14s var(--ease); }
+.help-toc { flex: none; width: 232px; border-right: 1px solid var(--border); overflow-y: auto; padding: var(--sp-4) var(--sp-2); scrollbar-width: thin; }
+.help-toc-h { padding: 0 var(--sp-3) var(--sp-2); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+.help-toc-i { display: flex; align-items: center; gap: var(--sp-2); width: 100%; text-align: left; border: 0; background: transparent; cursor: pointer;
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-ctl); font: inherit; font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); transition: background .14s var(--ease), color .14s var(--ease); }
 .help-toc-i .i { width: 16px; height: 16px; flex: none; opacity: .85; }
 @media (hover: hover) {
   .help-toc-i:hover { background: var(--hover); color: var(--ink); }
@@ -43,20 +43,20 @@
 .help-toc-i.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .help-toc-i.on .i { opacity: 1; }
 
-.help-content { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 8px 30px 40px; scroll-behavior: smooth; }
+.help-content { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: var(--sp-2) var(--sp-6) var(--sp-7); scroll-behavior: smooth; }
 /* reduced motion: jump instead of glide (the smooth scroll is the only motion this pane owns) */
 @media (prefers-reduced-motion: reduce) { .help-content { scroll-behavior: auto; } }
-.help-sec { padding-top: 26px; scroll-margin-top: 12px; }
-.help-sec > h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: var(--fs-3); font-weight: var(--fw-heavy); color: var(--ink); }
+.help-sec { padding-top: var(--sp-5); scroll-margin-top: 12px; }
+.help-sec > h3 { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); font-size: var(--fs-3); font-weight: var(--fw-heavy); color: var(--ink); }
 .help-sec > h3 .i { width: 19px; height: 19px; color: var(--blue); }
-.help-lead { margin: 0 0 12px; font-size: 13.5px; line-height: 1.55; color: var(--ink-dim); }
-.help-sub { margin: 18px 0 6px; font-size: 13px; font-weight: var(--fw-bold); color: var(--ink); }
-.help-list { margin: 4px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
-.help-list li { position: relative; padding-left: 18px; font-size: 13px; line-height: 1.5; color: var(--ink); }
+.help-lead { margin: 0 0 var(--sp-3); font-size: var(--fs-2); line-height: 1.55; color: var(--ink-dim); }
+.help-sub { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
+.help-list { margin: var(--sp-1) 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
+.help-list li { position: relative; padding-left: var(--sp-4); font-size: var(--fs-2); line-height: 1.5; color: var(--ink); }
 .help-list li::before { content: ""; position: absolute; left: 3px; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
 .help-list b { font-weight: var(--fw-bold); }
-.help-kbd { font-family: var(--mono); font-size: 11.5px; background: var(--fill-soft); border: 1px solid var(--border); border-radius: var(--r-xs); padding: 1px 6px; color: var(--ink); white-space: nowrap; }
-.help-note { display: flex; gap: 10px; margin: 12px 0 2px; padding: 11px 13px; border-radius: var(--r-ctl); background: var(--fill-soft);
+.help-kbd { font-family: var(--mono); font-size: var(--fs-micro); background: var(--fill-soft); border: 1px solid var(--border); border-radius: var(--r-xs); padding: 1px var(--sp-1); color: var(--ink); white-space: nowrap; }
+.help-note { display: flex; gap: var(--sp-2); margin: var(--sp-3) 0 2px; padding: var(--sp-3); border-radius: var(--r-ctl); background: var(--fill-soft);
   border: 1px solid var(--border); font-size: var(--fs-1); line-height: 1.5; color: var(--ink-dim); }
 .help-note .i { width: 16px; height: 16px; flex: none; color: var(--blue); margin-top: 1px; }
 
@@ -65,7 +65,9 @@
   .help-modal { width: 100%; height: 100dvh; border-radius: 0; border: 0; }
   /* full-screen now — keep the header/close out of the notch and the content clear
      of the home indicator */
-  .help-head { padding-top: calc(18px + env(safe-area-inset-top)); }
+  .help-head { padding: calc(var(--sp-4) + env(safe-area-inset-top)) var(--sp-4) var(--sp-4); }
+  .help-search { padding-inline: var(--sp-4); }
   .help-toc { display: none; }
-  .help-content { padding: 8px 18px calc(40px + env(safe-area-inset-bottom)); }
+  /* one 16px inset down the whole screen: the help is read here, and every px of column counts */
+  .help-content { padding: var(--sp-2) var(--sp-4) calc(var(--sp-7) + env(safe-area-inset-bottom)); }
 }

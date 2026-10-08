@@ -95,16 +95,16 @@
          the arrival finishes; React then continues its clock (same rule in 08-toasts.css). */
       .boot-splash { animation: none; overflow: hidden; }
       /* Pre-app cards have no fade: it would hide the entrance or blink during handover. */
-      .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+      .loading-card { display: flex; flex-direction: column; align-items: center; gap: 16px; }
       /* the reserved (empty) text lines below the snail — same METRICS as 08-toasts.css, so
          the line boxes are the right height before the real stylesheet arrives and nothing
          moves when it does (the fonts differ, the geometry must not) */
       .loading-name { font-size: 16px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
-      .loading-sub { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-dim); }
+      .loading-sub { font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--ink-dim); }
       /* the snail loader needs no rules here: its animation rides in the SVG's own style block */
-      .loading-stuck { display: flex; flex-direction: column; align-items: center; gap: 10px;
-        max-width: 30ch; text-align: center; padding-top: 14px; border-top: 1px solid var(--border-soft); }
-      .loading-stuck-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+      .loading-stuck { display: flex; flex-direction: column; align-items: center; gap: 8px;
+        max-width: 30ch; text-align: center; padding-top: 16px; border-top: 1px solid var(--border-soft); }
+      .loading-stuck-title { font-size: 14px; font-weight: 700; color: var(--ink); }
       .loading-stuck-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
       /* Out of flow, like 08-toasts.css's .login .loading-stuck (keep in sync): during its
          12 s opacity delay this block is still IN LAYOUT, and inside the centred card it

@@ -20,6 +20,7 @@ import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
 import type { GeorefPair, PlanPt } from '../lib/georef'
 import { InfoToggle } from './InfoToggle'
+import { Button } from './Button'
 import s from './GeorefMode.module.css'
 
 /** The loupe's magnification over the plan as it is currently displayed. */
@@ -403,7 +404,7 @@ export function GeorefPopoverCard({ mode, idx, side }: { mode: GeorefModeState; 
       </div>
       {/* an open half can be paired BY HAND: this popover plus a tap on its counterpart */}
       {open && <div className={s.popHint}>{C.popPairHint}</div>}
-      <button type="button" className={s.popKeep} onClick={() => georefDispatch({ type: 'unpick' })}>{C.popKeep}</button>
+      <Button variant="quiet" block className={s.popKeep} onClick={() => georefDispatch({ type: 'unpick' })}>{C.popKeep}</Button>
     </div>
   )
 }
