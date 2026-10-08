@@ -38,10 +38,10 @@ describe('undoKeys — records, as the merge counts them', () => {
   })
 
   it('diffs a record by key and leaves ignored keys alone', () => {
-    const shape = recordByKey<unknown>('reportMeta', ['printJob'])
-    const d = recordDiff({ a: 1, printJob: 1 }, { a: 2, printJob: 2 }, shape)
+    const shape = recordByKey<unknown>('reportMeta', ['reportMadeAt'])
+    const d = recordDiff({ a: 1, reportMadeAt: 1 }, { a: 2, reportMadeAt: 2 }, shape)
     expect([...d.keys()]).toEqual(['reportMeta:a'])
-    expect(shape.patch({ a: 2, printJob: 9 }, new Map([['reportMeta:a', 1], ['reportMeta:printJob', 1]]), {})).toEqual({ a: 1, printJob: 9 })
+    expect(shape.patch({ a: 2, reportMadeAt: 9 }, new Map([['reportMeta:a', 1], ['reportMeta:reportMadeAt', 1]]), {})).toEqual({ a: 1, reportMadeAt: 9 })
   })
 
   it('composes fields for the Zeitplan', () => {

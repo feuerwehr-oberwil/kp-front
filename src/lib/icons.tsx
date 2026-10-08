@@ -51,10 +51,7 @@ export function IconSprite() {
           already carries, so on the Karte the glyph alone says «dieser Trupp hängt an etwas». */}
       <symbol id="unlink" viewBox="0 0 24 24"><path d="M10.3 13.7a4.2 4.2 0 0 0 6 0l2.8-2.8a4.2 4.2 0 0 0-6-6l-1.6 1.6" /><path d="M13.7 10.3a4.2 4.2 0 0 0-6 0l-2.8 2.8a4.2 4.2 0 0 0 6 6l1.6-1.6" /><path d="M4 4l16 16" /></symbol>
       <symbol id="link" viewBox="0 0 24 24"><path d="M10.3 13.7a4.2 4.2 0 0 0 6 0l2.8-2.8a4.2 4.2 0 0 0-6-6l-1.6 1.6" /><path d="M13.7 10.3a4.2 4.2 0 0 0-6 0l-2.8 2.8a4.2 4.2 0 0 0 6 6l1.6-1.6" /></symbol>
-      {/* «An Stationsdrucker»: paper going in at the top, paper coming out at the bottom. The
-          relay buttons carried a bare status dot and no glyph at all, so they read as a stray
-          label beside every sibling action that HAS one. The dot stays — it says whether the
-          agent in the Magazin is reachable, which the printer itself cannot say. */}
+      {/* paper going in at the top, paper coming out at the bottom */}
       <symbol id="printer" viewBox="0 0 24 24"><path d="M7 9V3.5h10V9" /><path d="M7 17.5H5a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4.5a2 2 0 0 1-2 2h-2" /><path d="M7 14.5h10v6H7z" /></symbol>
       <symbol id="truck" viewBox="0 0 24 24"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7z" /><circle cx="7" cy="18" r="1.7" /><circle cx="17" cy="18" r="1.7" /></symbol>
       <symbol id="box" viewBox="0 0 24 24"><path d="M12 3 4 7v10l8 4 8-4V7z" /><path d="M4 7l8 4 8-4M12 11v10" /></symbol>

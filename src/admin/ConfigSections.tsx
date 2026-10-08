@@ -1871,25 +1871,6 @@ export function ReportSection() {
       <SettingsGroup title={C.groupLinks} tip={C.linksTip} />
       <ReportLinksEditor />
 
-      {/* The one switch that only a station with a print relay ever meets — and the one it meets
-          every single time, because a face-up printer delivers the Rapport back-to-front and
-          somebody re-sorts the stack by hand. Default ON (schemas.py · ReportConfig), so the
-          checkbox starts ticked on a station that has never touched it. */}
-      <SettingsGroup title={C.groupPrint} tip={C.printTip} />
-      {/* Default ON (schemas.py · ReportConfig), so the Standard column speaks only for the
-          station that turned it off. */}
-      <SettingRow
-        label={C.reverseOrder} tip={C.reverseOrderHint}
-        standard={standardNote(getPath<boolean>(draft, ['report', 'reversePrintOrder']), true)}
-      >
-        <input
-          className="adm-set-check"
-          type="checkbox"
-          checked={getPath<boolean>(draft, ['report', 'reversePrintOrder']) ?? true}
-          onChange={(e) => set(['report', 'reversePrintOrder'], e.target.checked)}
-        />
-      </SettingRow>
-
       {/* …and the Verlauf's own wording, which used to be a whole page for one textarea. */}
       <JournalGroup />
     </SettingsSheet>
