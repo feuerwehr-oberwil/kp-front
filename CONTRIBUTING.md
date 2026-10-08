@@ -58,7 +58,7 @@ pnpm dev     # Vite dev server on http://localhost:5188 (use an http:// origin, 
              # local backend (what `just dev` sets for you).
 pnpm build   # tsc --noEmit + vite build
 pnpm test    # vitest
-pnpm lint    # eslint
+pnpm lint    # eslint, warnings held per rule to scripts/eslint-baseline.json
 ```
 
 **Backend** (FastAPI + PostgreSQL, Alembic) – Python managed with [uv](https://docs.astral.sh/uv/).

@@ -46,7 +46,7 @@ pnpm install
 pnpm dev     # Vite dev server on http://localhost:5188 (http origin required, not file://)
 pnpm build   # tsc --noEmit + vite build
 pnpm test    # vitest
-pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when you fix some, never raise it
+pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json); `pnpm lint:update` lowers it
 ```
 
 `just` (no argument) lists the recipes: `just dev` for the full local stack, `just bench` /
@@ -123,9 +123,13 @@ pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when
 frontend has none – so run `pnpm lint && pnpm test` before pushing, since changes go straight
 to prod.
 
-- **Ratchets only go down.** The eslint warning ceiling (`--max-warnings` in `package.json`) and
-  the style-debt baseline (`src/styles/styleDebt.baseline.json`, below) are lowered when you fix
-  something and never raised to pass.
+- **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
+  lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
+  baseline (`src/styles/styleDebt.baseline.json`, below) and the vitest coverage floor are lowered
+  (the floor raised) when you fix something and never moved the other way to pass. The gzipped
+  entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget against
+  `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate growth is an
+  `--update` in its own commit, with the reason.
 - **e2e** runs on the production image in CI (`e2e/README.md`); every spec takes `test` from
   `e2e/helpers`, which fails on a client error or a render storm.
 - **Large / long incidents and performance** are measured, not guessed:
