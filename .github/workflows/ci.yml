@@ -182,8 +182,28 @@ jobs:
       - name: Alembic upgrade head
         run: uv run alembic upgrade head
 
+      # A throwaway database for a test run: nothing in it has to survive a crash, so it need not
+      # wait for the disk. All three settings take effect on a reload (no restart; a service
+      # container cannot be given server flags). Building the schema went from ~1.7 s to ~0.25 s
+      # per round on a local Postgres 16 — the suite does that once per worker now, but every
+      # test still commits, and every commit waited for an fsync.
+      - name: Postgres without fsync (test database only)
+        env:
+          PGPASSWORD: kpfront
+        run: |
+          psql -h localhost -U kpfront -d kpfront -v ON_ERROR_STOP=1 \
+            -c "ALTER SYSTEM SET fsync = off" \
+            -c "ALTER SYSTEM SET synchronous_commit = off" \
+            -c "ALTER SYSTEM SET full_page_writes = off" \
+            -c "SELECT pg_reload_conf()"
+
+      # `-n 4` (pytest-xdist): this step was 14.6 of the job's 15.6 minutes, serially, on a
+      # 4-vCPU runner. Each worker gets its own database (kpfront_gw0 …, tests/conftest.py) and
+      # builds the schema once instead of per test. `-n` is not in addopts on purpose: a plain
+      # `uv run pytest` stays serial. `--durations` keeps the slowest tests in sight — one slow
+      # test now holds up a whole worker.
       - name: Pytest
-        run: uv run pytest -q
+        run: uv run pytest -q -n 4 --durations=15
 
   # --- Image: lint + build + boot + smoke the actual production container ------------
   # CI builds the real Dockerfile/compose stack that Railway and self-hosters run, so a
