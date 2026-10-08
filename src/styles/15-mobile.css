@@ -811,15 +811,16 @@
   /* ⚠️ …and it is ONE rule for every sheet's footer (`SheetFoot` → `.ui-sheet-foot`, 26.09.2026):
      the Trupp form's own footer class lost its insets to a later rule of the same weight, and on
      the owner's iPhone «Abbrechen» and «Im Einsatz» sat 12px off the glass and 10px above the
-     edge, where the display's corner curve eats them. Three sides: the sheet's own 20px content
-     gutter or the landscape notch, whichever is wider, and the bottom inset ON TOP of the 16px —
+     edge, where the display's corner curve eats them. Three sides: the sheet's own 24px content
+     gutter (--sp-5, the head's and body's since 08.10.2026) or the landscape notch, whichever is
+     wider, and the bottom inset ON TOP of the 16px —
      the gap a field tester needed between his thumb and the home indicator (see the Tafel's
      `.bottomRail`). `[role='dialog']` is the weight, so a surface's own footer class (one class,
      a CSS module loaded after this file) can style the row but never move it; the keyboard-up
      footer (`.modalStack.is-kb .modalFoot`, three classes) still outweighs it on purpose — the
      keyboard covers the home indicator, so the reserve is dead space there. */
   [role='dialog'] .ui-sheet-foot {
-    padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right));
+    padding-left: max(var(--sp-5), env(safe-area-inset-left)); padding-right: max(var(--sp-5), env(safe-area-inset-right));
     padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   /* ⚠️ owner pick A (28.09.2026): on a phone the footer's primary takes the rest of the row and
      the framed «Abbrechen» beside it stays at its word's width — one row, one height */

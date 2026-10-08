@@ -117,8 +117,8 @@ describe('Sheet footer insets', () => {
     const at = css.indexOf("[role='dialog'] .ui-sheet-foot {")
     expect(at).toBeGreaterThan(-1)
     const rule = css.slice(at, css.indexOf('}', at))
-    expect(rule).toContain('padding-left: max(20px, env(safe-area-inset-left))')
-    expect(rule).toContain('padding-right: max(20px, env(safe-area-inset-right))')
+    expect(rule).toContain('padding-left: max(var(--sp-5), env(safe-area-inset-left))')
+    expect(rule).toContain('padding-right: max(var(--sp-5), env(safe-area-inset-right))')
     expect(rule).toContain('padding-bottom: calc(16px + env(safe-area-inset-bottom))')
     // …and it is the phone block's: the nearest @media above it is the phone gate
     const gate = css.lastIndexOf('@media', at)
