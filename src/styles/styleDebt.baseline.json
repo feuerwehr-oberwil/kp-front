@@ -147,11 +147,6 @@
     "spacing": 66,
     "shadow": 15
   },
-  "src/styles/10-journal.css": {
-    "fontSize": 21,
-    "weight": 14,
-    "spacing": 101
-  },
   "src/styles/12-login.css": {
     "fontSize": 8,
     "weight": 5,
@@ -169,9 +164,9 @@
     "shadow": 2
   },
   "src/styles/15-mobile.css": {
-    "fontSize": 2,
+    "fontSize": 1,
     "weight": 1,
-    "spacing": 27
+    "spacing": 13
   },
   "src/styles/16-help.css": {
     "fontSize": 6,
@@ -185,9 +180,6 @@
     "shadow": 2
   },
   "src/styles/18-audio.css": {
-    "fontSize": 28,
-    "weight": 8,
-    "spacing": 53,
     "shadow": 1
   },
   "src/styles/19-rueckmeldung.css": {
