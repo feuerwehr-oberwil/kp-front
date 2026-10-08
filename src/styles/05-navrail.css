@@ -286,7 +286,7 @@ html.rail-dragging .layers-card { transition: none; }
   min-height: 62px; padding: 8px 8px; cursor: pointer; font: inherit; color: var(--ink);
   background: var(--fill-soft); border: none; border-radius: var(--r-ctl);
   transition: background .14s var(--ease); }
-@media (hover: hover) { .lbase:not(.on):hover { background: color-mix(in srgb, var(--ink) 9%, transparent); } }
+@media (hover: hover) { .lbase:not(.on):hover { background: var(--ink-8); } }
 .lbase:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the picked map is a CHOICE — THE choice fill (01-tokens · --sel, 29.09.2026, K9). It was a blue
    wash + a blue ring, the one option tile in the app that was not. */
@@ -312,7 +312,7 @@ html.rail-dragging .layers-card { transition: none; }
    read as «diese Ebene ist ausgewählt», which is not a state this list has. Nothing is lost on
    touch: the tap acts at once, and the eye + the opacity row say what is on. */
 @media (hover: hover) {
-  .lrow:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+  .lrow:hover { background: var(--ink-8); }
 }
 /* …and the same --press wash every other list row in the app answers a finger with. */
 .lrow:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }

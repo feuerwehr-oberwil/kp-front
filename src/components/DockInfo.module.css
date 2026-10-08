@@ -15,7 +15,7 @@
 /* …and the inline variant lives in a LIGHT-by-day menu (the Ansichten popover, 29.09.2026 — the
    floating family's glass): the grey wash of the house ✕ (.ip-x) instead of the dock's on-ink one,
    «open» the row's --sel-wash. The ToolDock's ⓘ above stays on its dark dock. */
-.wb-dock-info-inline .wb-dock-ibtn { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); }
+.wb-dock-info-inline .wb-dock-ibtn { background: var(--ink-8); color: var(--ink-dim); }
 @media (hover: hover) { .wb-dock-info-inline .wb-dock-ibtn:hover { background: var(--ink-12); color: var(--ink); } }
 .wb-dock-info-inline .wb-dock-ibtn.on { background: var(--sel-wash); color: var(--ink); }
 @media (pointer: coarse) { .wb-dock-ibtn { width: var(--tap); height: var(--tap); } }

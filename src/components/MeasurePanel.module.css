@@ -42,7 +42,7 @@
   font: var(--fw-bold) var(--fs-micro) var(--mono); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .mp-chart-tick.first { transform: none; left: 0 !important; }
 .mp-chart-tick.last { transform: none; left: auto !important; right: 0; }
-.mp-chart-fill { fill: color-mix(in srgb, var(--blue) 14%, transparent); stroke: none; }
+.mp-chart-fill { fill: var(--blue-16); stroke: none; }
 .mp-chart-line { fill: none; stroke: var(--blue); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .mp-prof-stats .mp-v { font-size: var(--fs-2); }
 /* the descent arrow points down, the ascent arrow up (the base glyph points right) */

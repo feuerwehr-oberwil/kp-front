@@ -67,15 +67,15 @@
    only thing they can see. Min ~104px diameter, a bold accent ring + soft glow. */
 .sel-halo { position: absolute; left: 50%; top: 50%; z-index: 0;
   width: max(calc(var(--hbox) + 40px), 104px); height: max(calc(var(--hbox) + 40px), 104px); transform: translate(-50%, -50%);
-  border-radius: 50%; background: color-mix(in srgb, var(--blue) 15%, transparent); border: 3px solid color-mix(in srgb, var(--blue) 85%, transparent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 30%, transparent), 0 2px 12px rgba(30, 45, 70, .28); animation: haloIn .18s var(--ease); }
+  border-radius: 50%; background: var(--blue-16); border: 3px solid color-mix(in srgb, var(--blue) 85%, transparent);
+  box-shadow: 0 0 0 2px var(--blue-28), var(--e2); animation: haloIn .18s var(--ease); }
 @keyframes haloIn { from { opacity: 0; transform: translate(-50%, -50%) scale(.8); } }
 .marker.sel .ts, .marker.sel .shape-glyph, .marker.sel .note-pill { position: relative; z-index: 1; }
 /* ⚠️ The separating ring is `--surface`, not a frozen #fff: in day it is the white rim that lifts
    a handle off bright imagery, at night it is the dark rim that does the same over a dark basemap
    — a frozen white there smears into a glow (the same reasoning as --note-halo). */
 .handle { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--surface);
-  color: var(--on-fill); display: grid; place-items: center; box-shadow: 0 2px 7px rgba(30, 45, 70, .32); padding: 0; z-index: 8; }
+  color: var(--on-fill); display: grid; place-items: center; box-shadow: var(--e1); padding: 0; z-index: 8; }
 .handle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .handle .i { width: 16px; height: 16px; stroke-width: 2.3; }
 /* inline delete + live-vehicle rotate share the top-LEFT corner of the ring (they are
@@ -91,13 +91,13 @@
    (the white chip was meant to carry that) made a yellow symbol's storey yellow on white. */
 .sym-floor { position: absolute; top: calc(var(--badge-out, 7px) * -1); right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--surface); color: var(--ink); line-height: 16px; text-align: center; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: -.2px;
-  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+  box-shadow: var(--e1); pointer-events: none; }
 /* quantity badge — bottom-right counterpart to the floor badge; an ink chip so it
    reads as a count distinct from the (white, symbol-coloured) floor badge. The ONE count badge
    (05-navrail · .nav-count, 28.09.2026): --r-xs at 16px, like every other chip that size. */
 .sym-count { position: absolute; bottom: calc(var(--badge-out, 7px) * -1); right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink); line-height: 16px; text-align: center; font-size: var(--fs-micro); font-weight: var(--fw-heavy);
-  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+  box-shadow: var(--e1); pointer-events: none; }
 /* «angedockt», von der Seite des HOSTS aus (lib/docking, 15.09.2026): the same `link` glyph the
    Trupp marker wears, so the bond reads from either end. Top-LEFT — the only corner left: the
    storey badge owns top-right, the count bottom-right, and the docked Trupp markers themselves
@@ -108,7 +108,7 @@
 .sym-dock { position: absolute; bottom: calc(var(--badge-out, 7px) * -1); left: -9px; z-index: 6;
   display: grid; place-items: center; width: 16px; height: 16px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--surface); color: var(--ink-dim);
-  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+  box-shadow: var(--e1); pointer-events: none; }
 .sym-dock .i { width: 12px; height: 12px; }
 /* «Gelöscht / erledigt» (lib/objectDone, 24.09.2026): the glyph, its composite part and its FKS
    arrows go grey — the chip behind an outline glyph with them, so the whole mark recedes — while
@@ -124,7 +124,7 @@
 .sym-done { position: absolute; top: calc(var(--badge-out, 7px) * -1); right: calc(100% - 7px); z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-sm); background: var(--surface); color: var(--ink-dim); line-height: 16px; text-align: center; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: -.2px;
   font-variant-numeric: tabular-nums; white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+  box-shadow: var(--e1); pointer-events: none; }
 /* metadata caption — a symbol's discriminating value(s) printed just under its glyph (e.g.
    "CO₂" under a Kleinlöscher), so an operator reads it without opening the dashboard. Same
    chrome as the line label (.measure-label.draw-label / .wb-line-label) for Lage↔Plan parity;
@@ -145,7 +145,7 @@
   padding: 1px 4px; border-radius: var(--r-xs); background: var(--surface); color: var(--ink);
   font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.25; text-align: center;
   hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .25); pointer-events: none; }
+  box-shadow: var(--e1); pointer-events: none; }
 .sym-caption > span { max-width: 120px; }
 /* inner wrapper carries the symbol's own rotation (chip + glyph rotate together),
    so selection scale / hover stay on the outer .ts and don't fight the rotation */
@@ -156,7 +156,7 @@
 /* layered shadow: a tight dark contact edge + a soft ground shadow so symbols read on any base map */
 .ts svg { width: 100%; height: 100%; display: block;
   filter: drop-shadow(0 1px 1px rgba(15, 22, 34, .42)) drop-shadow(0 3px 6px rgba(30, 45, 70, .26)); }
-.ts-rot.white { background: var(--on-accent-ink); border-radius: 4px; box-shadow: 0 1px 1px rgba(15, 22, 34, .3), 0 3px 7px rgba(30, 45, 70, .22); }
+.ts-rot.white { background: var(--on-accent-ink); border-radius: 4px; box-shadow: var(--e1); }
 /* FKS Entwicklung overlay — a 2× box centred on the glyph; arrows drawn outside it.
    Higher specificity than '.ts svg' so it keeps its own size, and a soft white halo
    keeps coloured arrows legible over any base map. */
@@ -263,7 +263,7 @@
 /* the first of a Rotation's two points, while the second is still being looked for: a plain ink
    dot in the shape's own blue, big enough to find again after panning across the map */
 .place-anchor { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--blue);
-  border: 2.5px solid var(--surface); box-shadow: 0 1px 3px rgba(15, 22, 34, .4), 0 3px 8px rgba(30, 45, 70, .25); }
+  border: 2.5px solid var(--surface); box-shadow: var(--e1); }
 
 /* ── Rotation: die zwei Enden ────────────────────────────────────────────────────────────────
    A Rotation carries no rotate knob and no size grip — it IS its two ends, and each of them sets

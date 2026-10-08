@@ -24,7 +24,7 @@
    the banner already says in words that this is the past. A pulse belongs on the composer's REC
    dot, where something really is running. */
 .replay-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--on-accent-ink); flex: none;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, .35); }
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--on-accent-ink) 35%, transparent); }
 .replay-exit {
   margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px;
   border: none; background: rgba(255, 255, 255, .22); color: var(--on-accent-ink); cursor: pointer;
@@ -153,7 +153,7 @@
      than the button it sits beside. On a bar anchored to the BOTTOM even 1px shows up as the
      whole scrubber twitching as the playhead crosses an entry. */
   height: 48px; box-sizing: border-box;
-  border-top: 1px solid var(--glass-edge); background: color-mix(in srgb, var(--blue) 7%, transparent);
+  border-top: 1px solid var(--glass-edge); background: var(--blue-8);
   font-size: var(--fs-1); }
 .replay-caption-t { flex: none; font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold);
   color: var(--blue-strong); font-variant-numeric: tabular-nums; }

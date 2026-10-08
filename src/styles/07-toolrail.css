@@ -157,7 +157,7 @@
 
 /* locked coordinate reticle on the map */
 .pick-reticle { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--blue);
-  background: color-mix(in srgb, var(--blue) 18%, transparent); box-shadow: 0 0 0 2px rgba(255, 255, 255, .85); pointer-events: none; }
+  background: var(--blue-16); box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface) 85%, transparent); pointer-events: none; }
 .pick-reticle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px;
   border-radius: 50%; background: var(--blue); transform: translate(-50%, -50%); }
 
@@ -165,13 +165,13 @@
 .map-here { pointer-events: none; }
 /* Einsatzort: a thin target ring at the incident/object location */
 .map-incident { width: 26px; height: 26px; border-radius: 50%;
-  border: 2px solid var(--red, #e23); box-shadow: 0 0 0 2px rgba(255, 255, 255, .85);
+  border: 2px solid var(--red, #e23); box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface) 85%, transparent);
   position: relative; }
 .map-incident::after { content: ''; position: absolute; inset: 0; margin: auto;
   width: 5px; height: 5px; border-radius: 50%; background: var(--red, #e23); }
 /* own GPS position: the familiar blue dot with a soft accuracy halo */
 .map-me { width: 14px; height: 14px; border-radius: 50%; background: var(--blue);
-  border: 2.5px solid #fff; box-shadow: 0 0 0 6px color-mix(in srgb, var(--blue) 18%, transparent), 0 1px 3px rgba(0, 0, 0, .4); }
+  border: 2.5px solid #fff; box-shadow: 0 0 0 6px var(--blue-16), var(--e1); }
 
 /* (the base-map switcher popover is gone — Basiskarte selection is the first group of
    the Ebenen panel, LayerPanel.tsx) */
@@ -182,10 +182,10 @@
    users can see they're editable without a hover to reveal it */
 .ctx-title-input { width: 100%; border: none; background: transparent; font: var(--sheet-title);
   color: var(--ink); padding: 2px 4px; margin: -2px -4px; border-radius: var(--r-xs) var(--r-xs) 0 0; outline: none;
-  border-bottom: 1.5px solid rgba(30, 45, 70, .16); }
+  border-bottom: 1.5px solid var(--ink-16); }
 .ctx-title-input::placeholder { color: var(--ink-faint); font-weight: var(--fw-medium); }
 @media (hover: hover) {
-  .ctx-title-input:not(.ctx-title-ro):hover { background: var(--fill-soft); border-bottom-color: rgba(30, 45, 70, .3); }
+  .ctx-title-input:not(.ctx-title-ro):hover { background: var(--fill-soft); border-bottom-color: var(--ink-28); }
 }
 /* focused it becomes a FIELD, in the one field focus (--focus-*, 28.09.2026): the underline was a
    blue line on a blue wash, a look no other field in the app had */
@@ -245,7 +245,7 @@
   border-radius: 2px; background: color-mix(in srgb, currentColor 24%, transparent); }
 .uslider-fill { position: absolute; inset-block: 0; left: 0; border-radius: 2px; background: var(--blue); }
 .uslider-thumb { position: absolute; top: 50%; width: 18px; height: 18px; translate: -50% -50%;
-  border-radius: 50%; background: var(--blue); box-shadow: 0 1px 3px rgba(10, 20, 40, .45); }
+  border-radius: 50%; background: var(--blue); box-shadow: var(--e1); }
 .uslider:focus-visible { outline: none; }
 .uslider:focus-visible .uslider-thumb { box-shadow: 0 0 0 3px var(--blue-45); }
 /* the house press wash, on the thumb — nothing moves, per the touch vocabulary */
@@ -260,7 +260,7 @@
    phones it stays a bottom sheet (see the ≤600px rule). */
 .sym-modal { width: min(760px, 92vw); height: min(620px, 86dvh); display: flex; flex-direction: column; gap: 12px;
   background: var(--surface); border: 1px solid var(--glass-line);
-  border-radius: var(--r-hero); padding: 16px; box-shadow: 0 30px 80px rgba(20, 28, 40, .4); animation: pop .16s var(--ease); }
+  border-radius: var(--r-hero); padding: 16px; box-shadow: var(--e5); animation: pop .16s var(--ease); }
 /* `scale`, NOT `transform: scale()`. Two of the three cards that use this keyframe centre
    themselves with a transform (.journal-composer translateX(-50%), .confirm-card
    translate(-50%,-50%)); a `transform` keyframe REPLACES that translate for the length of the

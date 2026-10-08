@@ -61,7 +61,7 @@
 .ctx-head p { margin: 2px 0 0; font-size: var(--fs-1); color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* ⚠️ ink-mix, not --surface-2: the glass tokens are white-based and vanish on this white card —
    the ✕ family (ip-x / ctx-x / journal-x) shares this quiet ink pill so every close reads alike */
-.ctx-x { margin-left: auto; align-self: flex-start; background: color-mix(in srgb, var(--ink) 7%, transparent);
+.ctx-x { margin-left: auto; align-self: flex-start; background: var(--ink-8);
   border: none; border-radius: var(--r-sm);
   width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; color: var(--ink-dim); }
 @media (hover: hover) {
@@ -216,7 +216,7 @@
    would silently swallow the earlier one. The row keeps its red key box (it stays red while
    focused, hence the higher specificity than :focus) and hands its border to the hint below. */
 .kv-row.dup { padding-bottom: 2px; }
-.kv-row.dup .kv-key { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent);
+.kv-row.dup .kv-key { color: var(--red); background: var(--red-12);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 40%, transparent); }
 .kv-dup-hint { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 0 0 8px;
   border-bottom: 1px solid var(--border-soft); font-size: var(--fs-1); line-height: 1.35; color: var(--red); }
@@ -686,14 +686,14 @@
 /* a hairline between items — with several Meldungen hanging under one of them, «where does this
    item end» stopped being obvious from spacing alone. Not after the last one, and not on a row
    whose own tint already separates it. */
-.jr-pinned-row + .jr-pinned-row { box-shadow: 0 -1px 0 color-mix(in srgb, var(--amber) 20%, transparent); }
+.jr-pinned-row + .jr-pinned-row { box-shadow: 0 -1px 0 var(--amber-22); }
 /* dringend is RED, not a red hairline. A 3px edge on an amber block is a detail you find after
    you have already read the row — the point of the flag is that you read this row FIRST. So the
    whole row carries the tint and the time turns red with it. */
 /* dringend colours the ITEM: its ring, its time and a quiet wash behind the row. The wash alone
    was a salmon slab that shouted louder than the words on it — what has to read as urgent is the
    thing to do, not the rectangle around it. */
-.jr-pinned-row.urgent { background: color-mix(in srgb, var(--red) 6%, transparent); }
+.jr-pinned-row.urgent { background: var(--red-5); }
 .jr-pinned-row.urgent .jr-when { color: var(--red); }
 .jr-pinned-row.urgent .jr-rem { color: var(--red); }
 .jr-pinned-row.urgent .jr-pinned-text { color: var(--red-strong); font-weight: var(--fw-bold); }

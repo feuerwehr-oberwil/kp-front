@@ -45,7 +45,7 @@
   min-height: 44px; padding: 0 8px; border: none; background: transparent; border-radius: var(--r-ctl);
   color: var(--ink); cursor: pointer; text-align: left; font: inherit; transition: background .12s var(--ease); }
 /* the same mix the Ebenen rows use on the same glass — .lrow:hover in 05-navrail.css */
-@media (hover: hover) { .go:hover, .north:hover, .save:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); } }
+@media (hover: hover) { .go:hover, .north:hover, .save:hover { background: var(--ink-8); } }
 .go:active:not(:disabled), .north:active:not(:disabled), .save:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .row.on .go { font-weight: var(--fw-bold); }
 
@@ -74,7 +74,7 @@
 .mini { flex: none; width: 40px; height: 44px; display: grid; place-items: center; border: none;
   background: transparent; border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer;
   transition: background .12s var(--ease), color .12s var(--ease); }
-@media (hover: hover) { .mini:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); } }
+@media (hover: hover) { .mini:hover { background: var(--ink-8); color: var(--ink); } }
 .mini:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .mini :global(.i) { width: 16px; height: 16px; }
 /* the ⓘ at the last row's end, while its sentence is open */
