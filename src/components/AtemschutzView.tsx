@@ -6,6 +6,8 @@ import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { newId } from '../lib/ids'
 import { Segmented } from './Segmented'
+import { Button } from './Button'
+import { Chip } from './Chip'
 import { Menu, Overlay, Popover, SheetFoot, SheetGrab } from '../lib/overlays'
 import { alarmBarFor, currentRunStart, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
@@ -1479,10 +1481,10 @@ export function AtemschutzView({
                 is the one a first-timer taps. On the handed-over phone board «+ Trupp» is the
                 bottom rail's own cell, so it is not repeated here. */}
             {canEdit && !focusMode && (
-              <button type="button" className={cx('ip-btn primary', s.emptyAct)} onClick={() => openForm('create')}>
+              <Button variant="primary" size="lg" className={s.emptyAct} icon={<Icon id="plus-bold" />} onClick={() => openForm('create')}>
                 {/* the whole «Trupp anmelden» (newTrupp): `start` is the form's one-verb footer since 27.09.2026 */}
-                <Icon id="plus-bold" /><span>{az.newTrupp}</span>
-              </button>
+                {az.newTrupp}
+              </Button>
             )}
           </div>
         ) : focusMode ? (
@@ -2610,9 +2612,9 @@ function TruppCard({
             Rückgängig»). The row it writes still says «nicht eingesetzt», never «Austritt». */}
         {canEdit && preEntry && monitored && (
           <div className={s.standDownRow}>
-            <button type="button" className={s.standDownBtn} onClick={() => onStandDown(t.id)}>
-              <Icon id="logout" /><span>{az.actNotDeployed}</span>
-            </button>
+            <Button variant="quiet" icon={<Icon id="logout" />} onClick={() => onStandDown(t.id)}>
+              {az.actNotDeployed}
+            </Button>
           </div>
         )}
         {canEdit && inField && (
@@ -3420,10 +3422,11 @@ function TruppForm({
      `pickKind` still re-seeds the Funkkanal while it is the untouched default. */
   const kindChooser = !lite ? (
     <div className={s.kindHeadSeg} role="radiogroup" aria-label={az.kindLabel}>
-      <button type="button" role="radio" aria-checked={isPa}
-        className={cx(s.kindHeadOpt, isPa && s.on)} onClick={() => pickKind('atemschutz')}>{az.kindAtemschutz}</button>
-      <button type="button" role="radio" aria-checked={!isPa}
-        className={cx(s.kindHeadOpt, !isPa && s.on)} onClick={() => pickKind('einfach')}>{az.kindPlain}</button>
+      {/* THE choice chip (a radio here, so `aria-checked` speaks and `aria-pressed` stays off) */}
+      <Chip role="radio" selected={isPa} aria-pressed={undefined} aria-checked={isPa}
+        className={s.kindHeadOpt} onClick={() => pickKind('atemschutz')}>{az.kindAtemschutz}</Chip>
+      <Chip role="radio" selected={!isPa} aria-pressed={undefined} aria-checked={!isPa}
+        className={s.kindHeadOpt} onClick={() => pickKind('einfach')}>{az.kindPlain}</Chip>
     </div>
   ) : null
 
@@ -3570,7 +3573,7 @@ function TruppForm({
         />
       </label>
       {/* Ausrüstung — multi-select chips: selected = filled, unselected = framed, the SAME chip the
-          Trupp sheet draws (TruppSheets · TruppSheet, `.miniChip`). The tick box they wore until
+          Trupp sheet draws (TruppSheets · TruppSheet, `<Chip>`). The tick box they wore until
           27.09.2026 (mock 14.09.) was a second state mark inside a chip that already has one; the
           checkbox ROLE stays, because «several go» is what a screen reader has to hear. Only under
           Atemschutz: a work squad takes no Retthaube in. The list comes from the station
@@ -3582,10 +3585,10 @@ function TruppForm({
             {atemschutzEquipment().map((e) => {
               const on = equipment.includes(e.id)
               return (
-                <button key={e.id} type="button" role="checkbox" aria-checked={on}
-                  className={cx(s.miniChip, on && s.miniChipOn)} onClick={() => toggleEquipment(e.id)}>
+                <Chip key={e.id} role="checkbox" selected={on} aria-pressed={undefined} aria-checked={on}
+                  onClick={() => toggleEquipment(e.id)}>
                   {az.equipmentLabels[e.id] ?? e.label}
-                </button>
+                </Chip>
               )
             })}
           </div>
