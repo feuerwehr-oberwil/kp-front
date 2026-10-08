@@ -151,6 +151,30 @@ observed_by_server`, `api/events · SERVER_OBSERVED_OPS`). Rows it wrote BEFORE 
 swallow the server's; an incident running across the deploy may show both. The fake fleet (`TRACCAR_FAKE`) feeds the same sweep, so
 all of it runs on dev and demo data.
 
+#### Rules an observer keeps
+
+- ⚠️ **The server observes; devices never write observations** (24.09.2026, design D2 after
+  the Feueralarm-Übung of 23.09.2026). A fact about the OUTSIDE world — a vehicle arrived or
+  left, the weather, a new Divera alarm — is recorded by the scheduler, once, stamped with
+  the time the fact is about: «vor Ort» / «verlassen» on the tracker's report time (Traccar
+  `deviceTime`, capped at now) inside the 30 s
+  sweep (`app/vehicle_presence`), a `weather.observe` per reading and the wind-shift row
+  every 10 min (`app/observations`), the Divera poll (30 s idle / 120 s while an Einsatz
+  runs, but 30 s for the first 10 min after an alarm while the crew answers; back-off on
+  429). Why: a device writes what it noticed WHEN it noticed — five
+  vehicles «vor Ort» at 19:43 because a tablet woke up (GPS said 19:23–19:28), one weather
+  reading ×5, 469 Divera polls — and writes nothing while every screen sleeps. Devices only
+  READ (the pool, the Verlauf, the `reportMeta.fahrzeuge[].gps` block behind the Rapport's
+  «Fahrzeuge GPS · live» table); an older build's own copies are acknowledged and dropped at
+  the endpoints (`api/journal · observed_by_server`, `api/events · SERVER_OBSERVED_OPS`). A
+  new observation ⇒ a scheduler job registered unconditionally (no-op when unconfigured) with
+  a derived id, never a device-side effect. Three rules an observer keeps (review 25.09.2026):
+  its memory changes only AFTER the commit (`vehicle_presence · Tick.commit` — a failed tick
+  must not lose a transition); it walks incidents in id order (row locks, deadlock); and what
+  it writes is SERVER-OWNED — `reportMeta.fahrzeuge[].gps` is put back on every client save
+  (`keep_server_gps`). `zurueck` is «back at the depot» and stays the geofence's. «Active» =
+  a human write within 24 h, never the observers' own. Full table: `docs/ARCHITECTURE.md`.
+
 ## Configuration: four layers
 
 ```mermaid

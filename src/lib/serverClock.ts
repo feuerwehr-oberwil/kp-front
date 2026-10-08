@@ -28,6 +28,22 @@
 //      (`isFreshSampleSource`: no service-worker-cached prefix, no HTTP-cache read);
 //   2. this estimator never moves the clock BACKWARD on one sample's word — see `noteServerTime`.
 
+/*
+ * **The shared clock (`lib/serverClock`) learns only from answers that cannot have come out of a
+ * cache** (24.09.2026, Feueralarm root cause B). Every Verlauf `at`, every Atemschutz stamp and
+ * every contact clock counts in `serverNow()`, which is taught by `X-Server-Time` — and a
+ * service-worker-cached response carries the header of the day it was stored: a three-day-old
+ * alignments answer stamped «Atemschutz-Alarm beendet» on 20.09. for an act on 23.09. So:
+ * `api · rawFetch` samples only `isFreshSampleSource` paths (never `/api/reference/…` or
+ * `/api/media/…`, never a fetch allowed to read the HTTP cache), and the estimator moves the
+ * clock FORWARD on one answer but BACKWARD only when two answers ≥ 2 s apart agree (a correction
+ * ≤ 2 s pauses the clock instead of stepping it back; a device clock set back is followed via the
+ * monotonic clock, so `serverNow()` stays put). A new caching Workbox route under `/api/` ⇒ extend
+ * `SW_CACHED_API_PREFIXES` (the `serverClock.test` tripwire reads `vite.config.ts`). Live state
+ * under `/api/reference/` (the plan alignments) is `NetworkOnly` in the SW; its offline copy is
+ * IndexedDB.
+ */
+
 /** How far a sample's EARLIEST possible offset may sit above the standing estimate before the
  *  sample counts as contradicting it. Covers a request whose send time was not recorded (its
  *  whole latency then lands in the bound) and scheduler slop between `fetch()` and the socket. */

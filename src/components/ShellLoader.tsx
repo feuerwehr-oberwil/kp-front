@@ -1,3 +1,11 @@
+/*
+ * In-workspace activity uses `ShellLoader` / `LoadingStatus` (01.10.2026): the compact
+ * Shell trail draws the SVG's `fs-shell-trail` spiral in inherited ink, with a 2.4 s loop
+ * and a static reduced-motion state. Keep the path in the mascot SVG, never copy its geometry.
+ * Use the decorative loader inside busy actions, or `LoadingStatus` beside existing loading
+ * copy. Do not add artificial minimum waits for in-app activity.
+ */
+
 import type { ReactNode } from 'react'
 import snailSvg from '../../public/firefighter-snail-loader.svg?raw'
 import s from './ShellLoader.module.css'

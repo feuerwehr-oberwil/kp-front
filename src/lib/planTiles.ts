@@ -14,6 +14,13 @@
  * reader document) answers `null` from `tileSource` / a 404 from the manifest, and every caller
  * keeps the pdf.js path it had.
  */
+
+/*
+ * ⚠️ **The zoom ceiling of a tiled sheet follows the PAPER** (`planTiles · paperMaxScale`, 28 CSS
+ * px per paper mm ≈ 5× life size; `MAX_SCALE` / `MAX_SCALE_STACK` are its floor): a multiple of
+ * «eingepasst» gave an A1 a sixth of the magnification it gave an A4. It ARRIVES after mount, so
+ * `useBoardView` clamps through a ref — its wheel listener is bound once.
+ */
 import { pdfBytesKey, pinnedPdfVersion } from './pdfBytes'
 import { pdfPageOf } from './whiteboard'
 

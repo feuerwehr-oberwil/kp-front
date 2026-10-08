@@ -26,6 +26,8 @@ Frame conventions, kept from the prototype so its evaluation stays valid:
   geometrically convenient fit that contradicts the printed scale is not a plausible one.
 """
 
+# Rules for this area that span modules: docs/plans-and-buildings.md · ««Automatisch ausrichten» and approved alignments».
+
 from __future__ import annotations
 
 import math

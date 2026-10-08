@@ -1,3 +1,8 @@
+/*
+ * Cancelled map requests (`AbortError`) are filtered only at `lib/mapError`, not globally.
+ * Timeouts, actual map failures and aborts outside the map still enter crash telemetry.
+ */
+
 import { reportClientError } from './reportError'
 
 /** Map requests are cancelled during reloads, source changes and navigation. MapLibre can

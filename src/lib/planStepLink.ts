@@ -1,5 +1,5 @@
 /**
- * ONE gesture on a plan is ONE undo step, whichever stack ends up owning it (AGENTS · «Ownership
+ * ONE gesture on a plan is ONE undo step, whichever stack ends up owning it (lib/useObjectStore · «Ownership
  * decides the undo stack»; review of PR #226, 25.09.2026).
  *
  * A plan step lays its own checkpoint the moment it begins (useBoardDoc · pushPast →

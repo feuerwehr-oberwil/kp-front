@@ -1,3 +1,19 @@
+/*
+ * ⚠️ **A machine writer is idempotent — writing an unchanged value is a render loop**
+ * (24.09.2026, post-mortem of the Übung on 23.09.2026). A pass that runs on a feed or an effect
+ * returns the document it was given (`cur` itself) when nothing changed BY VALUE; a copy with an
+ * equal-but-new field is a store write, i.e. a render, i.e. another run. The live-GPS pass
+ * (`lib/useGpsFollow`) rebuilt every guarded/continuous coupling on every run and put every
+ * device with the vehicle feed into React #185, which then tore the Karte down under a tapped
+ * Trupp. Two rules keep it closed: `useObjectStore`'s writers keep ONE identity for the life of
+ * the store (they forward to the latest render through a ref), so they may sit in effect deps;
+ * and a machine writer runs only where the device may write the tactical document
+ * (`canEditIncident` — never a viewer, the `el` role, a link or a replay). A layout effect that
+ * measures after every render sets state only when the measurement changed, compared against a
+ * ref (`TwinTeamPill · useBarPlacement`) — even a no-op updater is an update React must render.
+ * `useGpsFollow.load.test.tsx` pins the budget: one write per poll that changed something.
+ */
+
 import { useEffect } from 'react'
 import { applyRouting, GPS_GUARD_METRES } from './lineAttachments'
 import { haversineM } from './geo'

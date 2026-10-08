@@ -83,8 +83,8 @@ that can't be undone.** Concretely:
 - For any generated calculation, show source, timestamp, and editable assumptions, and label
   estimates as *Planungshilfe / Schätzung*.
 
-See [`AGENTS.md`](AGENTS.md) for the full conventions; it is the source of truth and should be
-kept current when a convention changes.
+See [`AGENTS.md`](AGENTS.md) for the full conventions (and the `docs/` topic pages it points
+to); it is the source of truth and should be kept current when a convention changes.
 
 ## Conventions
 

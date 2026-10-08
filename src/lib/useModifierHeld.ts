@@ -1,3 +1,10 @@
+/*
+ * *The rail's key badges (K · C · A …) show only while ⌘ / Ctrl / Alt is held* (22.09.2026,
+ * `lib/useModifierHeld` → `data-keys` on the rail): standing on every icon they read as status
+ * marks in the corner the alarm dot uses, and they are wanted at exactly the moment the
+ * modifier marks.
+ */
+
 import { useEffect, useState } from 'react'
 
 /**

@@ -1,3 +1,5 @@
+// Rules for this area that span modules: docs/plans-and-buildings.md · ««Automatisch ausrichten» and approved alignments».
+
 import type { PlanFloor } from './api/reference'
 import type { Georef, GeorefPair } from './georef'
 import type { Saved } from './workspace'

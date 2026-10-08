@@ -1,3 +1,17 @@
+/*
+ * *The Verlauf's head stays while searching* (22.09.2026): the field sits UNDER title · ⓘ ·
+ * lens · Replay · ✕, in the row the timeline strip vacates, with its own ✕; the lens is lit and
+ * closes it. The field used to REPLACE the head, and the drawer then no longer said what it was.
+ * The funnel beside the lens (23.09.2026, `lib/journalFilter`) filters by the row's ONE Bereich —
+ * `journalArea`/`journalDisc`'s own words, no taxonomy of its own — as a checkbox `Menu`
+ * («Art des Eintrags» · «Bereich», with counts); ticks OR, and AND with the search. Lit (the
+ * choice fill, no dot — «Filter on», docs/ui-conventions.md) while on, one «Gefiltert: … · Alle zeigen» line under the head, the timeline strip hidden as
+ * during a search. Per-opening like the search, never stored; it narrows the list only — the
+ * Wiedergabe always plays the whole picture. The pinned Pendenzen block is part of the list it
+ * narrows (24.09.2026, `journalFilter · showsPinnedPendenzen`): hidden while a filter is on
+ * that leaves «Pendenz» unticked, back once «Pendenz» is ticked or the filter is cleared.
+ */
+
 import type { PlanDocument, TimelineEvent } from '../types'
 import { appConfig } from '../config/appConfig'
 import { journalDisc } from './report'

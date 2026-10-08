@@ -1,3 +1,14 @@
+/*
+ * *A NEW Trupp is led by its most senior member until somebody is crowned by hand* (30.09.2026,
+ * `lib/truppLeader`): while «Trupp anmelden» is open and no name was tapped/held, every add or
+ * removal puts the highest Dienstgrad (`lib/rank · rankOrder`) in front; ties and rankless crews
+ * (Gäste) keep the order they were picked in. A tap on a name ends it for that form (kept with
+ * the draft). An edit, a re-entry and the Mannschaft sheet never move the leader — a crew
+ * somebody joins later keeps the one the radio knows. `TruppTeam · onChange` says which move it
+ * made (`'add' | 'remove' | 'lead'`). The keyboard-up Trupp form buys back VERTICAL air only:
+ * body, footer and blocked line keep the sheet's 20px side gutter.
+ */
+
 import type { CrewSlot } from './truppQuickEdit'
 
 /**

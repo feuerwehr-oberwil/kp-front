@@ -4,6 +4,17 @@
 // navigates without one. Offline, the service worker answers every one of these with the
 // precached shell (vite.config · navigateFallback), so a deep link opens in a cellar too.
 
+/*
+ * **No history entry behind the operational screens** (05.10.2026, owner: iOS edge swipes «don't
+ * always work as intended for modals»). iOS offers its standalone-app back swipe exactly when
+ * there is an entry to go back to, and no CSS or event handler can switch it off — so the Karte,
+ * the Plans and the launcher never have one. Sheets and modals do NOT push entries. The only
+ * pushes are the Objektbesuche routes and the plan reader there, all through
+ * `objectVisits/route` (`navigateTo` / `pushAppEntry`, counted in `history.state`), and the way
+ * out is `leaveAppEntries`, which walks back over them rather than replacing the top entry
+ * (which left one stale «/» behind the Karte per visit). Never call `history.pushState` directly.
+ */
+
 import { useSyncExternalStore } from 'react'
 
 export type OvRoute =

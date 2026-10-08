@@ -9,7 +9,7 @@ Nothing here knows about HTTP beyond :class:`ObjectVisitError`, which carries th
 ``opId`` with the stored first answer, checks the base revision and the document, writes an
 immutable revision row, computes readiness against the stored photos, enqueues delivery when a
 revision is ready, and bumps the change-feed counter LAST. ``store_attachment`` does the same for
-a photo: it writes the bytes under a fresh key first (backup originals are immutable, AGENTS.md),
+a photo: it writes the bytes under a fresh key first (backup originals are immutable, app/storage.py),
 then locks the visit, records the row, flips every waiting revision that is now complete and
 enqueues delivery — all before the commit.
 

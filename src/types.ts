@@ -1058,7 +1058,7 @@ export interface Trupp {
    *
    * ⚠️ Without it the filing was a reconciliation that wrote a deliberate deletion straight back:
    * somebody takes a crew member off the Anwesenheit, and the next device that observes the Trupp
-   * files them again (the ghost-trail trap, AGENTS.md). A key here means «filed once, or already
+   * files them again (the ghost-trail trap, docs/atemschutz-board.md · «The record is kept whole»). A key here means «filed once, or already
    * there when the Trupp was seen» — whatever happens to that entry afterwards is a person's
    * decision, and no device undoes it. A machine field: undo restores keep it (useTruppActions ·
    * remember / restoreTrupp), and a merge that differs only here is not a Trupp conflict.

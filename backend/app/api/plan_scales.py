@@ -20,6 +20,13 @@ Both answers carry a ``version`` — an opaque token of the STORED document, whi
 sends back as ``If-Match`` on its next PUT (see ``put_plan_scales``).
 """
 
+# **The station document is version-guarded.** `PUT /api/plan-scales` is a whole-document
+# replace and now carries `If-Match` — the same content-hash token and 409 as `PUT /api/config`
+# — because a lost update no longer costs a re-measurable calibration but MOVES objects. The
+# client recovers by re-reading and re-applying its per-plan change on top, once. A PUT without
+# the header is still accepted for one release (there is no CLI writer here, and an old build
+# must not lose the ability to save a Georeferenz in the field).
+
 import hashlib
 import json
 import logging
