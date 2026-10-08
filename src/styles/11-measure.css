@@ -208,7 +208,7 @@
 /* The GPS block at the head of the line editor while an end follows a vehicle (DrawEditor, D3):
    what it follows and how far off it is, the way back as the ONE filled button (green: it puts
    the line back where it was safe — the Meldung's «Am Einsatzort lassen» wears the same fill,
-   08-toasts · .ml-btn.prim.go), and the two other moves side by side under it (THE button,
+   Meldeleiste · <Button variant="go">), and the two other moves side by side under it (THE button,
    <Button>, since 08.10.2026). */
 .draw-editor .de-gps { padding: 8px 0; }
 .draw-editor .de-gps-head { display: flex; align-items: flex-start; gap: 8px; min-height: 44px; padding: 4px 0; }
