@@ -129,6 +129,11 @@ to prod.
   asset. Keep both stages at the same size; never replace the boot markup with an external image.
   The boot cover paints immediately and stays through the SVG's 630 ms skid arrival, even on
   a cached launch (`lib/snailLaunch`). React launch loading stages continue that animation clock.
+  That clock is `performance.now() - animation.startTime`, never `now - currentTime`:
+  `currentTime` stands still until the next frame, and on a loaded device that made React rewind
+  the entrance by up to 20 ms (08.10.2026). The e2e reads it the same way at the moment React
+  empties `#root`, not from `animationend` (dispatched only with a frame, so a starved runner never
+  sent it for the removed cover).
   Do not replay the arrival at each loading stage or add a fade that hides it.
   Reduced motion skips both motion and the minimum hold.
   In-workspace activity uses `ShellLoader` / `LoadingStatus` (01.10.2026): the compact
