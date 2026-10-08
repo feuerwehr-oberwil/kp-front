@@ -7,7 +7,7 @@ import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { fillTemplate, formatTime, hhmm, pad2, stripUnprintable } from '../lib/format'
+import { fillTemplate, formatTime, hhmm, pad2, stripUnprintable, formatLocale } from '../lib/format'
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import { forgetLocalThumb, mintLocalThumb, thumbUrl } from '../lib/mediaUrl'
@@ -134,7 +134,7 @@ function dayLabel(day: string): string {
   const C = appConfig.copy.journal
   const diff = Math.round((date.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000)
   const rel = diff === 0 ? C.dayToday : diff === 1 ? C.dayTomorrow : null
-  const stamp = date.toLocaleDateString(appConfig.locale, { weekday: 'short', day: '2-digit', month: '2-digit' })
+  const stamp = date.toLocaleDateString(formatLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' })
   return rel ? `${rel} · ${stamp}` : stamp
 }
 

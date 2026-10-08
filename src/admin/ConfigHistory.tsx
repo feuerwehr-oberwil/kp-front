@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { apiGet, apiPost } from '../lib/api'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, formatTime } from '../lib/format'
 import { EmptyState, fmtDateTime } from './ui'
 import { Sheet } from '../lib/overlays'
 
@@ -62,7 +62,7 @@ const unionChanged = (group: readonly HistoryEntry[]) => [...new Set(group.flatM
 
 const fmtTime = (iso: string) => {
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+  return Number.isNaN(d.getTime()) ? '—' : formatTime(d)
 }
 
 /** «Verwaltung», «Kommandozeile» … — the path, in words, plus who was behind it.

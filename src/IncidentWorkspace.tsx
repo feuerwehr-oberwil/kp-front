@@ -878,9 +878,9 @@ export function IncidentWorkspace({
   const hazVersion = useHazardData()
   // ERG Schutzabstand rings, derived per render from the placards on the board (lib/ergRings,
   // Feldtest Manuel 07.09.). Joined with the prepared overlays so MapLayers needs no new prop.
-  // The day/night split is read at compute time; a board left open across 07/19 h picks the
-  // flip up with the next re-render, which any interaction provides — a Planungshilfe does not
-  // warrant its own clock.
+  // The day/night split is the sun at each placard (lib/daylight), read at compute time; a board
+  // left open across sunrise/sunset picks the flip up with the next re-render, which any
+  // interaction provides — a Planungshilfe does not warrant its own clock.
   const mapOverlays = useMemo(
     () => [...preparedOverlays, ...ergRingOverlays(entities, new Date())],
     // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
@@ -5707,6 +5707,7 @@ export function IncidentWorkspace({
           // (lib/ergRings). 'small' is the default and is stored as absent, so a fresh placard
           // syncs the same in both directions.
           onErgRings={selected.kind === 'symbol' && !selected.live ? (mode) => patchEntity(selected.id, { ergRings: mode === 'small' ? undefined : mode }) : undefined}
+          ergCoord={selected.coord}
           // «Übernehmen» (Feldtest 07.09.): the ERG distance becomes a REAL Absperrkreis around
           // the symbol — createCircle selects it, so the operator lands on the editable cordon.
           // The derived preview rings go quiet for this placard: the real circle replaces them,
