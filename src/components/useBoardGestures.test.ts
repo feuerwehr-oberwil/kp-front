@@ -81,3 +81,109 @@ describe('the marquee’s single-object fallback', () => {
     expect(setTool).toHaveBeenCalledWith('pan')
   })
 })
+
+// ── One-finger zoom on the board (08.10.2026) — the Karte's double tap and tap-and-drag ──────
+// The grammar itself is lib/tapDragZoom's (tested there); this pins the WIRING: which tool, what
+// it may not do (pan, deselect), how the pinch takes over, and that a plain drag still pans.
+describe('the board’s one-finger zoom', () => {
+  type Ev = { id?: number; t: number; type?: string; pointerType?: string }
+  const ev = (x: number, y: number, { id = 1, t, type = 'pointerdown', pointerType = 'touch' }: Ev): ReactPointerEvent => ({
+    clientX: x, clientY: y, pointerId: id, timeStamp: t, type, pointerType,
+    currentTarget: { setPointerCapture: () => {} },
+  } as unknown as ReactPointerEvent)
+
+  const mount = (tool: BoardTool = 'pan') => {
+    const scaleRef: MutableRefObject<number> = { current: 1 }
+    const posRef: MutableRefObject<{ x: number; y: number }> = { current: { x: 0, y: 0 } }
+    const applyView = vi.fn((s: number, p: { x: number; y: number }) => { scaleRef.current = s; posRef.current = p })
+    // the view hook's own clamp is not under test here — apply the factor as given
+    const zoomTo = vi.fn((f: number, _mx?: number, _my?: number) => { scaleRef.current *= f })
+    const setSelId = vi.fn()
+    const canvasRef = { current: { getBoundingClientRect: () => ({ left: 10, top: 20, width: 400, height: 600 }) } } as unknown as RefObject<HTMLDivElement | null>
+    const h = renderHook(() => useBoardGestures({
+      tool, annos: [], setSelId, setSelIds: vi.fn(), setTool: vi.fn(),
+      applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef,
+      mapY: (_f, y) => y, manipMove: () => {}, manipUp: () => {},
+    }))
+    const g = () => h.result.current
+    const down = (x: number, y: number, o: Ev) => act(() => { g().trackDown(ev(x, y, o)); g().stageDown(ev(x, y, o)) })
+    const move = (x: number, y: number, o: Ev) => act(() => g().stageMove(ev(x, y, { type: 'pointermove', ...o })))
+    const up = (x: number, y: number, o: Ev) => act(() => { g().trackUp(ev(x, y, { type: 'pointerup', ...o })); g().stageUp() })
+    const tap = (x: number, y: number, t: number, id = 1) => { down(x, y, { id, t }); up(x, y, { id, t: t + 60 }) }
+    return { down, move, up, tap, applyView, zoomTo, scaleRef, setSelId }
+  }
+
+  it('a double tap zooms ×2 about the tap, in canvas coordinates', () => {
+    const b = mount()
+    b.tap(110, 220, 0)
+    b.tap(112, 221, 200, 2)
+    expect(b.zoomTo).toHaveBeenCalledTimes(1)
+    expect(b.zoomTo).toHaveBeenCalledWith(2, 100, 200) // the FIRST tap, minus the canvas origin
+  })
+
+  it('tap, then press and drag DOWN zooms in continuously — and never pans', () => {
+    const b = mount()
+    b.tap(110, 220, 0)
+    b.down(110, 220, { id: 2, t: 200 })
+    b.applyView.mockClear()
+    b.move(110, 240, { id: 2, t: 220 })        // engages (×1)
+    b.move(110, 240 + 128, { id: 2, t: 300 })  // one doubling further down
+    expect(b.scaleRef.current).toBeCloseTo(2, 9)
+    for (const c of b.zoomTo.mock.calls) expect(c.slice(1)).toEqual([100, 200])
+    b.move(110, 240 - 128, { id: 2, t: 400 })  // …and back up past the start: out
+    expect(b.scaleRef.current).toBeCloseTo(0.5, 9)
+    const before = b.zoomTo.mock.calls.length
+    b.up(110, 112, { id: 2, t: 450 })
+    expect(b.zoomTo.mock.calls.length).toBe(before) // no ×2 step on release
+    expect(b.applyView).not.toHaveBeenCalled() // no pan
+  })
+
+  it('the second press does not deselect again — only the first tap did', () => {
+    const b = mount()
+    b.tap(110, 220, 0)
+    b.setSelId.mockClear()
+    b.down(110, 220, { id: 2, t: 200 })
+    expect(b.setSelId).not.toHaveBeenCalled()
+  })
+
+  it('a one-finger drag with no tap before it still pans', () => {
+    const b = mount()
+    b.down(100, 100, { t: 0 })
+    b.move(100, 180, { t: 50 })
+    expect(b.applyView).toHaveBeenLastCalledWith(1, { x: 0, y: 80 })
+    expect(b.zoomTo).not.toHaveBeenCalled()
+  })
+
+  it('a second finger mid-drag hands over to the pinch cleanly', () => {
+    const b = mount()
+    b.tap(110, 220, 0)
+    b.down(110, 220, { id: 2, t: 200 })
+    b.move(110, 240, { id: 2, t: 220 })
+    b.move(110, 300, { id: 2, t: 260 })
+    const calls = b.zoomTo.mock.calls.length
+    b.down(300, 300, { id: 3, t: 280 })           // pinch begins
+    b.move(110, 400, { id: 2, t: 300 })           // the old finger moves: pinch maths, not tap-zoom
+    const last = b.zoomTo.mock.calls[b.zoomTo.mock.calls.length - 1]
+    expect(b.zoomTo.mock.calls.length).toBe(calls + 1)
+    expect(last.slice(1)).not.toEqual([100, 200]) // about the fingers' midpoint, not the tap
+    b.up(110, 400, { id: 2, t: 320 }); b.up(300, 300, { id: 3, t: 330 })
+    // nothing left armed: a fresh press is a fresh pan
+    b.applyView.mockClear()
+    b.down(100, 100, { id: 4, t: 340 }); b.move(100, 150, { id: 4, t: 360 })
+    expect(b.applyView).toHaveBeenCalled()
+  })
+
+  it('belongs to the selection tool only — the lasso keeps its box', () => {
+    const b = mount('lasso')
+    b.tap(110, 220, 0)
+    b.tap(110, 220, 200, 2)
+    expect(b.zoomTo).not.toHaveBeenCalled()
+  })
+
+  it('leaves the mouse alone (a double click opens editors)', () => {
+    const b = mount()
+    b.down(110, 220, { t: 0, pointerType: 'mouse' }); b.up(110, 220, { t: 60, pointerType: 'mouse' })
+    b.down(110, 220, { t: 200, pointerType: 'mouse' }); b.up(110, 220, { t: 260, pointerType: 'mouse' })
+    expect(b.zoomTo).not.toHaveBeenCalled()
+  })
+})

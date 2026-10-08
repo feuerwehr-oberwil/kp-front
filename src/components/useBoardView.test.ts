@@ -128,3 +128,19 @@ describe('useBoardView · the zoom ceiling', () => {
     expect(h.result.current.scale).toBe(31)
   })
 })
+
+// 08.10.2026: the tap-and-drag zoom (useBoardGestures · lib/tapDragZoom) drives zoomTo with an
+// ABSOLUTE target every sample — base × factor over the current scale. Out and back to the start
+// about the same spot must land where it began, or a wobbling finger walks the plan away.
+describe('useBoardView · zoomTo about a fixed spot', () => {
+  it('composes: out and back about one focal point returns to the same view', () => {
+    const el = document.createElement('div')
+    const h = renderHook(() => useBoardView({ current: el }, null))
+    act(() => h.result.current.applyView(2, { x: -40, y: 30 }))
+    const to = (target: number) => act(() => h.result.current.zoomTo(target / h.result.current.scaleRef.current, 120, -80))
+    for (const t of [2.4, 3.7, 6, 5.1, 2.9, 2]) to(t)
+    expect(h.result.current.scale).toBeCloseTo(2, 9)
+    expect(h.result.current.pos.x).toBeCloseTo(-40, 6)
+    expect(h.result.current.pos.y).toBeCloseTo(30, 6)
+  })
+})
