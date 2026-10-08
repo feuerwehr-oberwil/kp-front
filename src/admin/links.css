@@ -53,13 +53,13 @@
   border-bottom: 1px solid var(--border);
 }
 .lnk-rec-row:last-child { border-bottom: 0; }
-.lnk-rec-lbl { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.lnk-rec-lbl { font-size: var(--fs-1); font-weight: 600; color: var(--ink); }
 .lnk-rec-val { display: flex; align-items: center; gap: 6px; min-width: 0; }
 /* `min-width: 0` all the way down is what lets the chip ellipsise inside its column instead of
    widening it (`.adm-copychip code` is `white-space: nowrap`). */
 .lnk-rec-val .adm-copychip { min-width: 0; flex: 1 1 auto; }
 
-.lnk-none { font-size: 12.5px; color: var(--ink-faint); }
+.lnk-none { font-size: var(--fs-1); color: var(--ink-faint); }
 
 /* the one sentence under an address that is deliberately incomplete: the Alarm-Eingänge, whose
    secret is write-only in the credential table and can therefore never be built into the chip.

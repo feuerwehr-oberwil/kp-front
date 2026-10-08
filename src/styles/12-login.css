@@ -25,10 +25,10 @@
    (up to three: reload / close incident / discard local copy). Buttons go full-width so the
    escape actions are unmissable and comfortably tappable in the dark. */
 .eb-card { text-align: center; gap: 16px; align-items: stretch; }
-.eb-body { margin: 0; color: var(--ink-dim); font-size: 14px; line-height: 1.45; }
+.eb-body { margin: 0; color: var(--ink-dim); font-size: var(--fs-2); line-height: 1.45; }
 .eb-actions { display: flex; flex-direction: column; gap: 8px; }
 .eb-actions .ip-btn { width: 100%; justify-content: center; }
-.eb-warn { margin: 0; color: var(--ink-faint); font-size: 12.5px; line-height: 1.4; }
+.eb-warn { margin: 0; color: var(--ink-faint); font-size: var(--fs-1); line-height: 1.4; }
 /* «Lokale Kopie verwerfen» while offline: the button disabled, and the REASON under it in the
    warning's register — amber glyph, the sentence beside it, read left to right like prose */
 /* the ONE disabled (28.09.2026): the dim alone — the extra `background: var(--surface)` repainted the fill */
@@ -52,7 +52,7 @@
 .login-brand { display: flex; align-items: center; gap: 15px; padding-bottom: 22px;
   border-bottom: 1px solid var(--glass-edge); }
 .login-logo { width: 44px; height: 44px; flex: none; border-radius: var(--r-sm); box-shadow: 0 1px 4px color-mix(in srgb, #000 22%, transparent); }
-.login-name { font-size: 16px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--ink); line-height: 1; }
+.login-name { font-size: var(--fs-3); font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--ink); line-height: 1; }
 .login-sub { font-family: var(--mono); font-size: 11.5px; letter-spacing: .01em; color: var(--ink-faint); margin-top: 5px; }
 
 .login-hint {
@@ -66,8 +66,8 @@
    to whoever runs the server — and the button on its own full-width row */
 .login-state-err { color: var(--red); flex-direction: column; align-items: stretch; gap: 0; }
 .login-err-head { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; }
-.login-err-hint { margin: 8px 0 0; font-size: 12.5px; font-weight: 500; line-height: 1.45; color: var(--ink-dim); }
-.login-err-code { margin: 6px 0 0; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.login-err-hint { margin: 8px 0 0; font-size: var(--fs-1); font-weight: 500; line-height: 1.45; color: var(--ink-dim); }
+.login-err-code { margin: 6px 0 0; font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-faint); }
 .login-state-err .ip-btn { justify-content: center; margin-top: 12px; }
 .login-state .i { width: 18px; height: 18px; flex: none; }
 
@@ -102,7 +102,7 @@
 .roster-go .i { width: 18px; height: 18px; }
 /* single-user keeps its slightly roomier row */
 .roster-solo .roster-tile { gap: 16px; padding: 16px 18px; }
-.roster-solo .roster-avatar { width: 52px; height: 52px; font-size: 19px; }
+.roster-solo .roster-avatar { width: 52px; height: 52px; font-size: var(--fs-4); }
 
 /* PIN pad */
 .pinpad { display: flex; flex-direction: column; align-items: center; gap: 16px; }
@@ -114,7 +114,7 @@
 }
 .pin-backuser .i { width: 18px; height: 18px; transform: rotate(180deg); color: var(--ink-faint); flex: none; }
 .pin-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none;
-  font-size: 14px; font-weight: 700; color: var(--on-accent-ink); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22); }
+  font-size: var(--fs-2); font-weight: 700; color: var(--on-accent-ink); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22); }
 .pin-username { font-size: 14.5px; font-weight: 600; }
 
 /* One dot per TYPED digit, no empty slots (06.09.): the pad must not say how long a PIN is.

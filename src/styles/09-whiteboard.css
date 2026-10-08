@@ -108,7 +108,7 @@
 /* ⚠️ a framed compact button, like every message's own (08-toasts · .ml-btn) — it was a bare
    blue word (28.09.2026, owner pick A: no bare blue word as an action) */
 .wb-nearby-switch { flex: none; min-height: 44px; padding: 0 13px; border: 1px solid var(--glass-edge); border-radius: var(--r-msg-in);
-  background: var(--surface); font: 700 12.5px var(--body); color: var(--ink); cursor: pointer; white-space: nowrap; }
+  background: var(--surface); font: 700 var(--fs-1) var(--body); color: var(--ink); cursor: pointer; white-space: nowrap; }
 .wb-nearby-switch:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-msg-in); cursor: pointer;
   background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); display: grid; place-items: center; }
@@ -206,16 +206,16 @@
    the right one a 3px gap, so «0 m» stood ~2px above the name's line and «4 Pläne» drifted the
    other way against the address — three values on a row and no two on a line. */
 .pp-row-main { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
-.pp-row-main b { font-size: 14px; line-height: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-row-main b { font-size: var(--fs-2); line-height: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pp-row-addr { font-size: 12px; line-height: 16px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pp-row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
 .pp-dist { font-family: var(--mono); font-size: 11.5px; line-height: 18px; color: var(--ink-dim); }
-.pp-mods { font-size: 11px; line-height: 16px; font-weight: 700; color: var(--blue); }
+.pp-mods { font-size: var(--fs-micro); line-height: 16px; font-weight: 700; color: var(--blue); }
 .pp-mods-none { color: var(--ink-faint); font-weight: 600; }
 .pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--glass-edge); }
 .pp-map .maplibregl-map { width: 100%; height: 100%; }
 .pp-map-note { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 6px 9px; border-radius: var(--r-sm);
-  background: rgba(27, 35, 48, .82); color: var(--on-accent-ink); font-size: 11px; font-weight: 600; text-align: center; pointer-events: none; }
+  background: rgba(27, 35, 48, .82); color: var(--on-accent-ink); font-size: var(--fs-micro); font-weight: 600; text-align: center; pointer-events: none; }
 .pp-pin { width: 28px; height: 34px; border: none; background: none; padding: 0; cursor: pointer; color: var(--ink-dim);
   display: grid; place-items: center; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
 .pp-pin .i { width: 22px; height: 22px; }
@@ -229,7 +229,7 @@
 /* a fold control on a phone, so it sits on the --tap floor rather than the ~40px its padding
    happened to produce */
 .pp-maptoggle { display: none; margin: 8px 20px 16px; min-height: var(--tap); padding: 11px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
-  background: var(--surface); cursor: pointer; font: 700 14px var(--body); color: var(--ink-dim); align-items: center; justify-content: center; gap: 8px; }
+  background: var(--surface); cursor: pointer; font: 700 var(--fs-2) var(--body); color: var(--ink-dim); align-items: center; justify-content: center; gap: 8px; }
 .pp-maptoggle:active { background-image: linear-gradient(var(--press), var(--press)); }
 .pp-maptoggle .i { width: 16px; height: 16px; }
 
@@ -262,13 +262,13 @@
 }
 /* the zoom buttons are PARTS of the grouped control above (3px inside it), so their corner is the group's less that gap */
 .wb-zoom button { min-width: 40px; height: 40px; padding: 0 10px; border: none; background: none; border-radius: calc(var(--r-sm) - 3px); display: grid; place-items: center;
-  color: var(--ink-dim); cursor: pointer; font-family: var(--body); font-size: 12.5px; font-weight: 700; transition: background .14s var(--ease); }
+  color: var(--ink-dim); cursor: pointer; font-family: var(--body); font-size: var(--fs-1); font-weight: 700; transition: background .14s var(--ease); }
 @media (hover: hover) {
   .wb-zoom button:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }
 }
 .wb-zoom button:disabled { opacity: var(--disabled); cursor: default; }
 .wb-zoom button .i { width: 16px; height: 16px; }
-.wb-zoom span { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); min-width: 42px; text-align: center; }
+.wb-zoom span { font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-dim); min-width: 42px; text-align: center; }
 
 .wb-canvas { flex: 1; min-height: 0; position: relative; overflow: hidden;
   background: var(--canvas-bg); display: grid; place-items: center; touch-action: none; }
@@ -399,7 +399,7 @@
      over the plan. */
   display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 5px 14px 5px 11px; border-radius: var(--r-sm);
   border: 1px solid var(--glass-line); background: var(--glass); box-shadow: var(--shadow-sm);
-  color: var(--ink); font: 700 12.5px var(--body); line-height: 1; cursor: pointer;
+  color: var(--ink); font: 700 var(--fs-1) var(--body); line-height: 1; cursor: pointer;
   user-select: none; -webkit-user-select: none; }
 @media (hover: hover) {
   .wb-floor-add:hover { background: var(--surface); color: var(--ink); }
@@ -414,7 +414,7 @@
 /* blank writable sheet */
 .wb-board-blank { box-shadow: 0 6px 24px rgba(30, 45, 70, .18), inset 0 0 0 1px var(--border-soft); }
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
-  font-family: var(--body); font-size: 14px; font-weight: 500; color: var(--ink-faint); pointer-events: none; max-width: 70%; line-height: 1.4; }
+  font-family: var(--body); font-size: var(--fs-2); font-weight: 500; color: var(--ink-faint); pointer-events: none; max-width: 70%; line-height: 1.4; }
 
 .wb-ink-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .wb-ink { position: absolute; inset: 0; z-index: 5; touch-action: none; }
@@ -471,7 +471,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* name on top, the team timer stacked BELOW it (was inline) */
 .wb-resource-body { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
 .wb-resource-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.wb-resource-pill b { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.wb-resource-pill b { font-size: var(--fs-1); font-weight: 700; color: var(--ink); }
 /* slim vertical accent bar — clearer team identity than the old dot, and it never
    collides with the name the way a leading dot + gap did */
 .wb-resource-cap { width: 4px; align-self: stretch; min-height: 15px; border-radius: 2px; background: var(--team); flex: none; }
@@ -539,7 +539,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   display: inline-flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px 7px;
   border: 1px dashed var(--ink-dim); border-radius: var(--r-ctl);
   background: var(--label-bg); color: var(--ink-dim);
-  font-family: var(--body); font-size: 11px; font-weight: 700; cursor: pointer; }
+  font-family: var(--body); font-size: var(--fs-micro); font-weight: 700; cursor: pointer; }
 .wb-ghost-label .i { width: 12px; height: 12px; }
 
 /* selected-team action bar — one compact toolbar under the pill, replacing the two
@@ -579,7 +579,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; transform: translateX(-50%); z-index: 7;
   width: min(290px, 70vw); padding: 9px; border: 1px solid var(--border); border-radius: var(--r-ctl);
   background: var(--surface); box-shadow: var(--shadow-pop); color: var(--ink); }
-.wb-resource-connections .ctx-section-label { font-size: 11px; font-weight: 800; color: var(--ink-dim); }
+.wb-resource-connections .ctx-section-label { font-size: var(--fs-micro); font-weight: 800; color: var(--ink-dim); }
 
 /* The three MODAL surfaces that wear this chrome — "Welcher Trupp?" on the Plan, its twin on the
    Lage map, and the Maßstab metre entry — go through lib/overlays now (Base UI: focus trap +
@@ -594,7 +594,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   border-radius: var(--r-surface); box-shadow: var(--shadow); padding: 10px; display: flex; flex-direction: column; gap: 6px; }
 .wb-trupp-pick-head { font-size: 12px; font-weight: 700; color: var(--ink-dim); padding: 4px 6px 6px; }
 .wb-trupp-opt { display: flex; align-items: center; gap: 9px; border: 1px solid var(--glass-edge); background: var(--surface-2, #fff);
-  border-radius: var(--r-ctl); cursor: pointer; padding: 12px 12px; font: 700 14px var(--body); color: var(--ink); min-height: 48px; text-align: left; }
+  border-radius: var(--r-ctl); cursor: pointer; padding: 12px 12px; font: 700 var(--fs-2) var(--body); color: var(--ink); min-height: 48px; text-align: left; }
 @media (hover: hover) {
   /* …and the same 8 % fill every other option row in the app lights with: the border alone was
      the one row in this family whose hover did not change its BACKGROUND. */
@@ -606,7 +606,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* «AS» — the Trupp in this row is under Atemschutz. A FACT about the crew, not an alarm, so it
    wears the quiet status tone; amber and red belong to a clock running out and must never turn
    up on a picker. Same mark, same tone, as the Trupp-Suche's row (TruppFinder.module.css). */
-.wb-trupp-as { flex: none; font: 800 11px var(--body); padding: 2px 6px; border-radius: var(--r-pill);
+.wb-trupp-as { flex: none; font: 800 var(--fs-micro) var(--body); padding: 2px 6px; border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--blue) 13%, transparent); color: var(--blue); }
 /* already placed on this surface: visible (so you can see WHY it is not offered) but inert —
    picking it would move the existing marker, not add a second one */
@@ -642,7 +642,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .team-dot.raus { opacity: var(--done-opacity); }
 .team-dot.raus b { text-decoration: line-through; }
 .wb-resource-input { border: none; outline: none; background: color-mix(in srgb, var(--blue) 8%, transparent); border-radius: var(--r-xs); font-family: var(--body);
-  font-size: 12.5px; font-weight: 700; color: var(--ink); width: 76px; padding: 2px 5px; }
+  font-size: var(--fs-1); font-weight: 700; color: var(--ink); width: 76px; padding: 2px 5px; }
 /* the ✕ that empties the name field — pill-sized (the form's 44px ClearableInput would be
    wider than the field it sits in) and inside the field's own right padding */
 .wb-resource-edit { position: relative; display: inline-flex; align-items: center; }
@@ -763,7 +763,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-dock-tog:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* word/letter toggles (note size steps, Zettel↔Klartext) — the dock is narrow, so the label
    shrinks to fit rather than widening the whole column */
-.wb-dock-txt { font: 700 11px var(--body); letter-spacing: .01em; padding: 0 5px; white-space: nowrap; }
+.wb-dock-txt { font: 700 var(--fs-micro) var(--body); letter-spacing: .01em; padding: 0 5px; white-space: nowrap; }
 /* shape-placement glyph preview in the dock */
 .wb-dock-shape { width: 26px; height: 26px; }
 .wb-dock-shape svg { width: 100%; height: 100%; display: block; }
@@ -827,13 +827,13 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    colour, at the vertex where the line leaves/enters the tile; tapping it jumps to the other end */
 .wb-line-stair { position: absolute; left: 0; top: 0; width: 26px; height: 26px; padding: 0; border-radius: 50%;
   border: 2px solid currentColor; background: var(--on-accent-ink); color: currentColor;
-  font: 800 11px var(--mono); font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer; touch-action: manipulation; }
+  font: 800 var(--fs-micro) var(--mono); font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer; touch-action: manipulation; }
 /* the shared <LineMarker> span inside either wrapper — the wrapper owns the placement */
 .wb-line-mk { display: block; }
 
 /* free-text label pinned to a Linie's midpoint — same chrome as the Lage map's .draw-label, and
    draggable (labelDx/labelDy) to nudge it off the ink */
-.wb-line-label { position: absolute; padding: 2px 7px; border-radius: var(--r-xs); font-size: 11px; font-weight: 700;
+.wb-line-label { position: absolute; padding: 2px 7px; border-radius: var(--r-xs); font-size: var(--fs-micro); font-weight: 700;
   text-align: center; line-height: 1.25; white-space: nowrap; background: var(--surface); color: var(--ink);
   box-shadow: 0 1px 4px rgba(0, 0, 0, .25); touch-action: none; }
 /* area (Sektor/Abschnitt) label — sits at the polygon centroid; may wrap, unlike a line label */
@@ -858,7 +858,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-orient-val { font-family: var(--mono); font-size: 13px; font-weight: 700; min-width: 42px; text-align: right; }
 .wb-orient-chips { display: flex; gap: 8px; }
 .wb-orient-chip { flex: 1 1 0; min-height: var(--tap); padding: 0 10px; border: none; cursor: pointer;
-  border-radius: var(--r-sm); background: var(--surface-2); font: 700 12.5px var(--body); color: var(--ink); }
+  border-radius: var(--r-sm); background: var(--surface-2); font: 700 var(--fs-1) var(--body); color: var(--ink); }
 .wb-orient-chip:active { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-orient-chip.on { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 
@@ -902,7 +902,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* quick-pick reference lengths (the common scale-bar values) above the stepper */
 .wb-cal-chips { display: flex; gap: 8px; }
 .wb-cal-chip { flex: 1; border: 1px solid var(--glass-edge); background: var(--surface-2, #fff); border-radius: var(--r-sm);
-  padding: 9px 0; font: 700 14px var(--body); color: var(--ink); cursor: pointer; }
+  padding: 9px 0; font: 700 var(--fs-2) var(--body); color: var(--ink); cursor: pointer; }
 @media (hover: hover) {
   .wb-cal-chip:hover { border-color: var(--blue); }
 }
@@ -910,7 +910,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 
 /* clean −/+ stepper for the real-length entry */
 .wb-cal-stepper { display: flex; align-items: stretch; gap: 8px; }
-.wb-cal-step { width: 46px; flex: none; display: grid; place-items: center; font: 700 24px/1 var(--body);
+.wb-cal-step { width: 46px; flex: none; display: grid; place-items: center; font: 700 var(--fs-5)/1 var(--body);
   border: 1px solid var(--glass-edge); background: var(--surface-2, #fff); border-radius: var(--r-sm); color: var(--ink); cursor: pointer; }
 @media (hover: hover) {
   .wb-cal-step:hover:not(:disabled) { border-color: var(--blue); }
@@ -919,8 +919,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-cal-num { flex: 1; display: flex; align-items: baseline; justify-content: center; gap: 6px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2, #fff); padding: 8px 12px; }
 .wb-cal-input { width: 100%; min-width: 0; border: none; background: none; outline: none; text-align: center;
-  font: 700 24px var(--mono); color: var(--ink); letter-spacing: -.5px; }
-.wb-cal-unit { flex: none; font: 700 14px var(--body); color: var(--ink-dim); }
+  font: 700 var(--fs-5) var(--mono); color: var(--ink); letter-spacing: -.5px; }
+.wb-cal-unit { flex: none; font: 700 var(--fs-2) var(--body); color: var(--ink-dim); }
 .wb-cal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
 /* ⚠️ one family (28.09.2026, owner pick A): framed «Abbrechen» at its word's width, the primary
    takes the rest — it was a ghost `.ip-btn` beside a 12.5px dock `.btn`, two families in one row */
@@ -938,7 +938,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-chip { display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box;
   max-width: 100%; min-height: var(--float-h); padding: 0 var(--float-pad-x); border-radius: var(--r-sm); border: none;
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
-  color: var(--ink); font: 700 12.5px var(--body); cursor: pointer; }
+  color: var(--ink); font: 700 var(--fs-1) var(--body); cursor: pointer; }
 .wb-scale-chip svg { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
 .wb-scale-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wb-scale-chip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -963,8 +963,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   display: inline-flex; align-items: center; gap: 8px; max-width: min(94%, 520px); padding: 7px 8px 7px 12px;
   border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
   box-shadow: var(--shadow); animation: panelIn .16s var(--ease); }
-.wb-scale-persist-t { font: 700 12.5px var(--body); color: var(--ink); white-space: nowrap; margin-right: 2px; }
-.wb-scale-persist .btn { padding: 7px 11px; font-size: 12.5px; white-space: nowrap; }
+.wb-scale-persist-t { font: 700 var(--fs-1) var(--body); color: var(--ink); white-space: nowrap; margin-right: 2px; }
+.wb-scale-persist .btn { padding: 7px 11px; font-size: var(--fs-1); white-space: nowrap; }
 .wb-scale-persist-x { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border: none;
   background: transparent; color: var(--ink-dim); cursor: pointer; border-radius: var(--r-sm); }
 @media (hover: hover) {

@@ -28,11 +28,11 @@
 .replay-exit {
   margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 5px;
   border: none; background: rgba(255, 255, 255, .22); color: var(--on-accent-ink); cursor: pointer;
-  font-family: var(--body); font-weight: 700; font-size: 12.5px; padding: 6px 11px; border-radius: var(--r-sm);
+  font-family: var(--body); font-weight: 700; font-size: var(--fs-1); padding: 6px 11px; border-radius: var(--r-sm);
 }
 @media (hover: hover) { .replay-exit:hover { background: rgba(255, 255, 255, .34); } }
 .replay-exit:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.replay-empty { padding: 12px 14px; font-size: 12.5px; color: var(--ink-dim); font-weight: 600; }
+.replay-empty { padding: 12px 14px; font-size: var(--fs-1); color: var(--ink-dim); font-weight: 600; }
 .replay-controls { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
 .replay-transport { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .replay-play {
@@ -45,7 +45,7 @@
 .replay-skip {
   flex: none; display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 8px;
   border: 1px solid var(--glass-edge); background: var(--surface-veil); cursor: pointer;
-  border-radius: var(--r-sm); color: var(--ink-dim); font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
+  border-radius: var(--r-sm); color: var(--ink-dim); font-family: var(--mono); font-size: var(--fs-1); font-weight: 700; }
 @media (hover: hover) { .replay-skip:hover { background: var(--hover-strong); color: var(--ink); } }
 .replay-skip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .replay-skip .i { width: 14px; height: 14px; }
@@ -154,8 +154,8 @@
      whole scrubber twitching as the playhead crosses an entry. */
   height: 50px; box-sizing: border-box;
   border-top: 1px solid var(--glass-edge); background: color-mix(in srgb, var(--blue) 7%, transparent);
-  font-size: 12.5px; }
-.replay-caption-t { flex: none; font-family: var(--mono); font-size: 11px; font-weight: 700;
+  font-size: var(--fs-1); }
+.replay-caption-t { flex: none; font-family: var(--mono); font-size: var(--fs-micro); font-weight: 700;
   color: var(--blue-strong); font-variant-numeric: tabular-nums; }
 .replay-caption-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; color: var(--ink); font-weight: 600; }
@@ -165,7 +165,7 @@
    either side, is 50px exactly. */
 .replay-caption-go { flex: none; border: 1px solid var(--border); background: var(--surface);
   color: var(--ink-dim); border-radius: var(--r-xs); padding: 5px 10px; min-height: 32px;
-  font: 700 12.5px var(--body); cursor: pointer; }
+  font: 700 var(--fs-1) var(--body); cursor: pointer; }
 @media (hover: hover) { .replay-caption-go:hover { color: var(--ink); background: var(--hover-strong); } }
 .replay-caption-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* …and the same on a touch screen, where the button grows to the gloved floor and takes the

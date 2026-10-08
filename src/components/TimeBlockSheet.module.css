@@ -50,11 +50,11 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
    ever spoke to a pointer; an iPad never saw it. */
 .flip { margin-left: auto; flex: none; width: 14px; height: 14px; color: var(--ink-faint); }
 /* the number the operator used to work out in their head before sending somebody home */
-.duration { flex: none; font: 700 12.5px var(--mono); color: var(--ink-dim); }
+.duration { flex: none; font: 700 var(--fs-1) var(--mono); color: var(--ink-dim); }
 
 /* the body: the two times as one pair, nothing else */
 .times { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px; padding: 11px 12px; }
-.sep { align-self: center; padding-top: 14px; color: var(--ink-faint); font: 600 14px var(--mono); }
+.sep { align-self: center; padding-top: 14px; color: var(--ink-faint); font: 600 var(--fs-2) var(--mono); }
 /* the day this end falls on. A CAPTION under its own field, not a chip beside the row: as a
    sibling of the fields it wrapped to its own line and orphaned, and it no longer said which end
    it dated. Over midnight both sides carry one. */

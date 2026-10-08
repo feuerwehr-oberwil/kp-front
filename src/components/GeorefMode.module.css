@@ -165,7 +165,7 @@
 .lampLine_green { color: var(--green-strong); }
 /* ⚠️ `:global`. `.btn` is the app's shared button class (06-contextpanel.css); inside a CSS
    module a bare `.btn` would be hashed into a class nothing on the page carries. */
-.pill :global(.btn), .bar :global(.btn) { flex: none; padding: 7px 11px; font-size: 12.5px; white-space: nowrap; }
+.pill :global(.btn), .bar :global(.btn) { flex: none; padding: 7px 11px; font-size: var(--fs-1); white-space: nowrap; }
 .finishAction, .resetAction, .checkAction { min-width: 0; }
 .pill :global(.btn.link.on), .bar :global(.btn.link.on) {
   background: var(--sel); border-color: var(--sel); color: var(--on-sel);
@@ -248,7 +248,7 @@
   display: flex; gap: 6px; align-items: baseline;
   padding: 2px 6px 7px; font: 700 12px var(--body); color: var(--ink); white-space: nowrap;
 }
-.popHead i { font: 500 11px var(--body); font-style: normal; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
+.popHead i { font: 500 var(--fs-micro) var(--body); font-style: normal; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
 /* ⚠️ Columns sized by the WORDS, not by half the card. `1fr 1fr` gave «Punkt löschen» exactly
    half of a 260px card, and on a phone the label broke over two lines — a two-line destructive
    button beside a one-line harmless one, i.e. the wrong one made to look like the bigger target.
@@ -258,7 +258,7 @@
 .popActs button {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-height: var(--tap); padding: 0 8px; border-radius: var(--r-sm); border: 1px solid var(--border);
-  background: var(--surface); font: 700 12.5px var(--body); color: var(--ink); cursor: pointer;
+  background: var(--surface); font: 700 var(--fs-1) var(--body); color: var(--ink); cursor: pointer;
   white-space: nowrap;
 }
 @media (hover: hover) { .popActs button:hover { background: var(--fill-soft); } }
@@ -269,12 +269,12 @@
 .popActs button.popWarn { color: var(--red-strong); }
 /* how an OPEN half becomes a pair by hand — one quiet line, only where it applies */
 .popHint {
-  padding: 7px 6px 2px; font: 500 11px/1.35 var(--body); color: var(--ink-dim);
+  padding: 7px 6px 2px; font: 500 var(--fs-micro)/1.35 var(--body); color: var(--ink-dim);
 }
 /* the do-nothing exit, full width and quiet: Esc must never be the only way out on touch */
 .popKeep {
   width: 100%; min-height: 38px; margin-top: 6px; border: 0; border-radius: var(--r-sm);
-  background: transparent; font: 600 12.5px var(--body); color: var(--ink-dim); cursor: pointer;
+  background: transparent; font: 600 var(--fs-1) var(--body); color: var(--ink-dim); cursor: pointer;
 }
 @media (hover: hover) { .popKeep:hover { background: var(--fill-soft); } }
 .popKeep:active { background-image: linear-gradient(var(--press), var(--press)); }
@@ -431,7 +431,7 @@
    dock that is 338px wide on a 360px phone, and it left the panel through its right edge. Both
    columns may now shrink and the value may drop onto its own line. */
 .qSummary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
-  gap: 2px 16px; padding: 2px 2px 4px; color: var(--ink-dim); font: 600 12.5px/1.4 var(--body); }
+  gap: 2px 16px; padding: 2px 2px 4px; color: var(--ink-dim); font: 600 var(--fs-1)/1.4 var(--body); }
 .qSummary span, .qSummary strong { min-width: 0; overflow-wrap: anywhere; }
 .qSummary span b { color: var(--ink); font: 700 15px var(--mono); }
 .qSummary strong { color: var(--ink); font: 700 15px/1.35 var(--body); text-align: right; }
@@ -555,7 +555,7 @@
   .surfaceSwitch button {
     min-width: 0; min-height: var(--tap); display: inline-flex; align-items: center;
     justify-content: center; gap: 6px; padding: 0 8px; border: 0; border-radius: var(--r-sm);
-    background: transparent; color: var(--ink-dim); font: 700 12.5px var(--body); cursor: pointer;
+    background: transparent; color: var(--ink-dim); font: 700 var(--fs-1) var(--body); cursor: pointer;
   }
   .surfaceSwitch button svg { width: 16px; height: 16px; }
   .surfaceSwitch button span {
@@ -600,7 +600,7 @@
 /* the chooser's content; the Whiteboard's .wb-georef-dock supplies the panel chrome */
 .chooser { display: grid; gap: 8px; width: 320px; max-width: calc(100vw - 24px); padding: 12px 12px 12px 16px; }
 .chooserHeadRow { display: flex; align-items: center; gap: 8px; }
-.chooserHead { flex: 1; min-width: 0; font-size: 14px; }
+.chooserHead { flex: 1; min-width: 0; font-size: var(--fs-2); }
 /* the ✕ IS the global `.ip-x` (28.09.2026 — a 44px tile with a 15px glyph, beside a title and no
    search field); this only keeps it out of the row's flex */
 .chooserX { flex: none; margin-right: -2px; }
@@ -623,7 +623,7 @@
 .chooserBusy { display: grid; gap: 7px; padding: 2px 4px 2px 0; }
 /* the matcher's REAL phases, checked off as the endpoint reports them */
 .stepRow { display: flex; align-items: center; gap: 9px; min-height: 22px;
-  font: 600 12.5px var(--body); color: var(--ink-faint); }
+  font: 600 var(--fs-1) var(--body); color: var(--ink-faint); }
 .stepRow svg { width: 15px; height: 15px; flex: none; color: var(--green-strong); }
 .stepNow { color: var(--ink); font-weight: 700; }
 .stepNow svg { color: var(--ink); }
@@ -676,7 +676,7 @@
   /* below the floating TopBar (04-topbar), which hovers over the map's own top edge */
   position: absolute; top: 92px; left: 50%; transform: translateX(-50%); z-index: 7;
   background: var(--label-bg); color: var(--ink); padding: 8px 14px; border-radius: var(--r-sm);
-  font: 650 12.5px var(--body); white-space: nowrap; box-shadow: var(--shadow-sm); pointer-events: none;
+  font: 650 var(--fs-1) var(--body); white-space: nowrap; box-shadow: var(--shadow-sm); pointer-events: none;
 }
 /* the turn's degrees, beside the pivot on the surface — never off a button at the bar */
 .pivotBadge {

@@ -33,7 +33,7 @@
 @media (hover: hover) { .person:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge)); } }
 .person:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
-.rank { flex: none; font: 800 11px var(--body); letter-spacing: .02em; color: var(--ink-faint); min-width: 34px; }
+.rank { flex: none; font: 800 var(--fs-micro) var(--body); letter-spacing: .02em; color: var(--ink-faint); min-width: 34px; }
 .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* «zuletzt» — the name this device reported as last. Quiet on purpose: a hint at the likely row,

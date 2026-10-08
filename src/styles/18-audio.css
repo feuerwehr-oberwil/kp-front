@@ -30,7 +30,7 @@
 .ap-time { margin-left: auto; text-align: right; }
 .ap-time strong { display: block; font-family: var(--mono); font-size: 21px; font-weight: 700; letter-spacing: -.01em;
   font-variant-numeric: tabular-nums; color: var(--ink); }
-.ap-time span { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.ap-time span { font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .ap-offline { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-dim); font-size: 13px; font-weight: 600; }
 .ap-offline .i { color: var(--amber); }
 .ap-add { flex: none; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2);
@@ -54,7 +54,7 @@
 .ap-add-row input::placeholder { color: var(--ink-faint); }
 .ap-add-row input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 .ap-send { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-sm); background: var(--btn-primary);
-  color: var(--on-btn-primary); padding: 0 16px; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+  color: var(--on-btn-primary); padding: 0 16px; font: inherit; font-size: var(--fs-1); font-weight: 800; cursor: pointer; }
 .ap-send:disabled { opacity: var(--disabled); cursor: default; }
 .ap-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
   border-top: 1px solid var(--border-soft); padding-top: 10px; }
@@ -67,7 +67,7 @@
 }
 .ap-row.current { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .ap-row.current .ap-row-t { color: var(--accent); font-weight: 700; }
-.ap-row-t { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); width: 38px; flex: none; font-variant-numeric: tabular-nums; }
+.ap-row-t { font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-faint); width: 38px; flex: none; font-variant-numeric: tabular-nums; }
 .ap-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .ap-dot-entry { background: var(--blue); }
 .ap-dot-reminder { background: var(--amber); }
@@ -76,18 +76,18 @@
 .ap-row-go { color: var(--ink-faint); width: 13px; height: 13px; flex: none; }
 /* STT: Transkribieren trigger + draft review (ghost entries the operator confirms) */
 .ap-stt-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--surface); color: var(--ink); padding: 8px 13px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none; }
+  background: var(--surface); color: var(--ink); padding: 8px 13px; font: inherit; font-size: var(--fs-1); font-weight: 700; cursor: pointer; flex: none; }
 .ap-stt-btn .i { width: 13px; height: 13px; }
 .ap-stt-note { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-dim); font-size: 13px; font-weight: 600; flex-wrap: wrap; }
 .ap-stt-note .i { width: 14px; height: 14px; flex: none; }
 /* a transcript that FAILED is broken, not a warning — red, per the colour rule */
 .ap-stt-failed .i { color: var(--red); }
 .ap-stt-retry { border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
-  padding: 5px 11px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  padding: 5px 11px; font: inherit; font-size: var(--fs-1); font-weight: 700; cursor: pointer; }
 .ap-stt { flex: none; display: flex; flex-direction: column; gap: 2px; }
 .ap-stt-bar { display: flex; align-items: center; gap: 10px; border-radius: var(--r-ctl); padding: 10px 12px;
   background: color-mix(in srgb, var(--amber) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
-  font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+  font-size: var(--fs-1); font-weight: 600; color: var(--ink); margin-bottom: 6px; }
 .ap-stt-bar > .i { width: 14px; height: 14px; color: var(--amber); flex: none; }
 .ap-stt-bar span { flex: 1; min-width: 0; }
 .ap-stt-all { border: none; border-radius: var(--r-sm); background: var(--btn-primary); color: var(--on-btn-primary);
@@ -95,7 +95,7 @@
 .ap-draft { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--r-sm); }
 /* in-progress = blue, the same answer the Zeitplan already gives for a running state.
    It is not a warning: nothing is wrong while a transcript is still being written. */
-.ap-draft-t { font-family: var(--mono); font-size: 11px; color: var(--blue); width: 38px; flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ap-draft-t { font-family: var(--mono); font-size: var(--fs-micro); color: var(--blue); width: 38px; flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ap-draft-play { width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px dashed color-mix(in srgb, var(--blue) 55%, transparent);
   background: none; color: var(--amber); display: grid; place-items: center; cursor: pointer; flex: none; }
 .ap-draft-play .i { width: 11px; height: 11px; }
@@ -140,7 +140,7 @@
 .ap-row-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* Abbrechen · Speichern under the transcript field. The two ways INTO the field are icon
    buttons up in the row itself (.jr-jump / .jr-jump-miss in 17-rapport.css). */
-.jr-transcript button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 6px 8px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.jr-transcript button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 6px 8px; font: inherit; font-size: var(--fs-1); font-weight: 700; cursor: pointer; }
 .jr-transcript button .i { width: 14px; height: 14px; }
 .jr-transcript textarea { width: min(420px, 100%); resize: vertical; border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); color: var(--ink); padding: 8px; font: inherit; font-size: 12px; }
 .jr-transcript textarea:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
@@ -203,7 +203,7 @@
    think to tap. A mix off --ink carries the same weight in both themes. */
 /* …and the ONE corner (29.09.2026): the chips were full-radius pills a row above the one-corner
    Art tiles — two shapes for two neighbouring rows of the same sheet. */
-.jc-phrase { min-height: 44px; padding: 8px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+.jc-phrase { min-height: 44px; padding: 8px 14px; font-size: var(--fs-1); font-weight: 600; cursor: pointer;
   border: none; border-radius: var(--r-sm); color: var(--ink);
   /* like every other control on this sheet: the press is said by :active below, not by the
      platform's grey wash (which lingers on the chip a beat after the finger is gone) */
@@ -526,7 +526,7 @@
    badge melted into it. The --surface ring stays to lift it off that fill. */
 .jc-due-badge { position: absolute; top: -7px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
-  font: 800 11px/16px var(--body); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: center;
+  font: 800 var(--fs-micro)/16px var(--body); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: center;
   box-shadow: 0 0 0 2px var(--surface); }
 /* the plain minute rows have no glyph, but they keep the ring's WIDTH — a menu whose labels start
    on two different axes reads as two lists (see .jc-menu-ring, the same slot) */
@@ -555,7 +555,7 @@
 .jc-mode-note-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-weight: 600; color: var(--ink-dim); }
 /* …the title is «Meldung»; what it is about stays read-out size under the 17px title type */
-.jc-mode-note em, .jc-mode-note-name { font-size: 14px; }
+.jc-mode-note em, .jc-mode-note-name { font-size: var(--fs-2); }
 
 /* Einsatzuhr: tap-to-cycle clock (duration / wall time / start) beside the wall clock. It's a
    <button> now — strip the native chrome and give it a comfortable tap area. */
@@ -585,13 +585,13 @@
 /* a reason under a row's word («Braucht Verbindung zum Server») — the row grows to hold it */
 .tb-uhr-note { display: block; font-size: 12px; font-weight: 500; color: var(--ink-faint); }
 .tb-uhr-row:has(.tb-uhr-note) { height: auto; min-height: 42px; padding-block: 6px; }
-.tb-uhr-val { font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); }
+.tb-uhr-val { font-family: var(--mono); font-size: var(--fs-1); color: var(--ink-dim); }
 .tb-uhr-row .tb-uhr-chk { width: 16px; height: 16px; color: var(--green); flex: none; visibility: hidden; }
 .tb-uhr-row.on .tb-uhr-chk { visibility: visible; }
 /* ERG response block inside the UN-hazard readout */
 .un-erg { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--glass-edge); }
 .un-erg-tih { margin-top: 4px; }
-.un-erg-n { display: block; font-size: 11px; font-weight: 700; color: var(--ink-dim); margin-bottom: 2px; }
+.un-erg-n { display: block; font-size: var(--fs-micro); font-weight: 700; color: var(--ink-dim); margin-bottom: 2px; }
 /* the Schutzabstand ring control (Aus/Klein/Gross) — label + segmented on one row. The
    13px matches the .un-haz-row keys above it; without it the label inherits the panel's
    base size and dwarfs the rest of the block (Feldtest Manuel, 08.09.). */
@@ -609,7 +609,7 @@
 .un-erg-adopt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* a row carrying the button centres its key and value on it instead of hanging them off the top */
 .un-haz-row:has(> .un-erg-adopt) { align-items: center; padding: 2px 0; }
-.un-erg-src { margin: 6px 0 0; font-size: 11px; color: var(--ink-dim); }
+.un-erg-src { margin: 6px 0 0; font-size: var(--fs-micro); color: var(--ink-dim); }
 
 /* ⚠️ TOMBSTONE, 23.08. — `.gps-follow-prompts` / `.gps-follow-prompt` are gone. The guarded
    live-GPS attachment («Fahrzeug bewegt sich weg») was a fourth fixed card at z-46 on the same

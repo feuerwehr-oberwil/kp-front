@@ -17,7 +17,7 @@
    (16px where every other neighbour has 8) — a slot with nothing in it takes no room */
 .tb-share:empty { display: none; }
 .tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer;
-  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
+  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: var(--fs-1);
   font-weight: 700; transition: background .14s var(--ease), color .14s var(--ease); }
 .tb-act .i { width: 15px; height: 15px; }
 /* ⚠️ The undo/redo glyphs (lib/icons · #undo/#redo) are NOT centred in their own 24×24 viewBox
@@ -43,7 +43,7 @@
    44px capsule next to the square-cornered Verlauf button read as a foreign object. The same
    goes for .tb-gps and .tb-mode below – the three status chips of the bar share one shape. */
 .tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-sm);
-  font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
+  font-family: var(--body); font-size: var(--fs-1); font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
   flex: 0 1 auto; min-width: 0; transition: background .14s var(--ease); }
 .tb-az .i { width: 15px; height: 15px; flex: none; }
 /* the name yields before the clock does — «wie lange schon» is the number you act on — but it
@@ -125,7 +125,7 @@
    has to become visible here. Amber, not red: a frozen position is a caveat, not an alarm —
    and red belongs to the überfälliger Trupp. */
 .tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-sm);
-  font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
+  font-family: var(--body); font-size: var(--fs-1); font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
   flex: none; cursor: default;
   background: color-mix(in srgb, var(--amber, #b45309) 16%, transparent); color: var(--amber-strong, #b45309); }
 .tb-gps .i { width: 15px; height: 15px; flex: none; }
@@ -138,7 +138,7 @@
    it offers the two exits the banner used to carry (Zurück / Wieder öffnen), so nothing was lost
    with the banner; on a link session there are no exits and it is a plain, inert chip. */
 .tb-mode { display: inline-flex; align-items: center; gap: 6px; flex: none; border: none; border-radius: var(--r-sm);
-  font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; white-space: nowrap;
+  font-family: var(--body); font-size: var(--fs-1); font-weight: 700; padding: 5px 11px 5px 9px; white-space: nowrap;
   background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber-strong); }
 .tb-mode .i { width: 14px; height: 14px; flex: none; }
 button.tb-mode { cursor: pointer; }
@@ -204,15 +204,15 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .wx-pop-cond { display: grid; place-items: center; color: var(--ink); }
 .wx-pop-cond svg { width: 34px; height: 34px; display: block; }
 .wx-pop-head-t { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.wx-pop-head-t b { font: 700 14px var(--body); color: var(--ink); }
+.wx-pop-head-t b { font: 700 var(--fs-2) var(--body); color: var(--ink); }
 .wx-pop-head-t span { font: 800 22px var(--body); color: var(--ink); letter-spacing: -.01em; }
 .wx-pop-rows { display: flex; flex-direction: column; gap: 9px; margin: 0; }
 .wx-pop-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
-.wx-pop-row dt { font: 600 12.5px var(--body); color: var(--ink-faint); flex: none; }
-.wx-pop-row dd { margin: 0; font: 700 12.5px var(--body); color: var(--ink); text-align: right; }
+.wx-pop-row dt { font: 600 var(--fs-1) var(--body); color: var(--ink-faint); flex: none; }
+.wx-pop-row dd { margin: 0; font: 700 var(--fs-1) var(--body); color: var(--ink); text-align: right; }
 .wx-pop-link { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; margin-top: 14px;
   padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--fill-soft);
-  color: var(--ink); font: 700 12.5px var(--body); cursor: pointer; } /* ink, not blue: 28.09.2026 — blue means «chosen» */
+  color: var(--ink); font: 700 var(--fs-1) var(--body); cursor: pointer; } /* ink, not blue: 28.09.2026 — blue means «chosen» */
 @media (hover: hover) {
   .wx-pop-link:hover { background: var(--hover-strong); }
 }
@@ -312,7 +312,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .hold-target { pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 8px;
   padding: 7px 12px; min-height: 42px;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-sm);
-  box-shadow: var(--shadow-sm); font: 700 12.5px var(--body); color: var(--ink-dim);
+  box-shadow: var(--shadow-sm); font: 700 var(--fs-1) var(--body); color: var(--ink-dim);
   transition: background .12s var(--ease), color .12s var(--ease), transform .12s var(--ease); }
 .hold-target .i { width: 15px; height: 15px; }
 /* the one the finger is over — this is the whole feedback of the gesture, so it is not subtle.
@@ -359,11 +359,11 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   .journal-drawer.is-kb { top: calc(88px + var(--vv-pan, 0px)); }
 }
 .journal-head { display: flex; align-items: center; gap: 8px; padding: 4px 4px 10px; }
-.journal-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.journal-title { display: flex; align-items: center; gap: 8px; font-size: var(--fs-2); font-weight: 700; color: var(--ink); }
 .journal-title .i { width: 17px; height: 17px; }
 .jr-delivery { padding: 14px; margin-block: 4px 12px; border-radius: var(--r-ctl); background: color-mix(in srgb, var(--amber) 16%, var(--glass)); color: var(--ink); }
 .jr-delivery-danger { background: color-mix(in srgb, var(--red) 14%, var(--glass)); }
-.jr-delivery strong { font-size: 14px; }
+.jr-delivery strong { font-size: var(--fs-2); }
 .jr-delivery p { margin-block: 8px 12px; font-size: 13px; line-height: 1.5; }
 .jr-delivery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* ⚠️ 36px like every other button of this head (20.09.2026): the ✕ went to the house 36 (13-incident.css ·
@@ -436,7 +436,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jr-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px;
   margin: 0 2px 8px; padding: 10px; border-radius: var(--r-ctl); background: var(--fill-soft); }
 .jr-legend-item { display: flex; align-items: center; gap: 8px; min-width: 0;
-  font: 600 12.5px var(--body); color: var(--ink-dim); }
+  font: 600 var(--fs-1) var(--body); color: var(--ink-dim); }
 /* the discs here are the row's discs, at the row's size — a legend drawn smaller than the thing
    it explains is a second shape to recognise */
 :is(.jr-legend, .jr-filter-menu) .ic { width: 26px; height: 26px; border-radius: 50%; flex: none;
@@ -468,18 +468,18 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jr-filter-item[data-disabled] { opacity: var(--disabled); cursor: default; }
 .jr-filter-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
 .jr-filter-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jr-filter-count { flex: none; font: 700 12.5px var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.jr-filter-count { flex: none; font: 700 var(--fs-1) var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 /* «Alle zeigen» is the way OUT, not one more category — the word in the action blue */
 .jr-filter-reset .jr-filter-label { color: var(--blue-strong); font-weight: 700; }
 /* the one-line «Gefiltert: … · Alle zeigen» under the head, where the timeline strip stands
    otherwise (it is hidden while a filter is on, as during a search) */
 .jr-filter-strip { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0 4px 8px;
-  font: 600 12.5px var(--body); color: var(--ink-dim); }
+  font: 600 var(--fs-1) var(--body); color: var(--ink-dim); }
 .jr-filter-strip-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jr-filter-strip-text b { color: var(--ink); font-weight: 700; }
 .jr-filter-all { flex: none; position: relative; height: 32px; padding: 0 10px; border: none; border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue-strong);
-  font: 700 12.5px var(--body); cursor: pointer; }
+  font: 700 var(--fs-1) var(--body); cursor: pointer; }
 /* finger-sized target under the compact chip, the same pad the head's chips use */
 .jr-filter-all::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 @media (hover: hover) {
@@ -612,7 +612,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    box whose width the anchor itself is deciding, which sizes to whatever the item was called. */
 .jr-note-on { flex: 0 1 auto; max-width: 150px; min-width: 0; display: inline-flex; align-items: baseline; gap: 5px;
   border: 0; background: none; padding: 0; cursor: pointer; text-align: left;
-  font: 600 12.5px var(--body); color: var(--amber-strong); }
+  font: 600 var(--fs-1) var(--body); color: var(--amber-strong); }
 @media (hover: hover) {
   .jr-note-on:hover:not(:disabled) i { text-decoration: underline; }
 }
@@ -631,7 +631,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jr-again { display: inline-flex; gap: 5px; flex: none; }
 .jr-again-btn { border: 1px solid color-mix(in srgb, var(--amber-strong) 45%, transparent);
   background: color-mix(in srgb, var(--amber) 8%, transparent); border-radius: var(--r-pill, 999px); padding: 3px 9px; cursor: pointer;
-  font: 600 12.5px var(--body); color: var(--amber-strong); white-space: nowrap; }   /* 12.5px: the interactive-text floor (was 11.5, UI sweep 07.10.2026); --tap under a finger: 20-touch-floors */
+  font: 600 var(--fs-1) var(--body); color: var(--amber-strong); white-space: nowrap; }   /* 12.5px: the interactive-text floor (was 11.5, UI sweep 07.10.2026); --tap under a finger: 20-touch-floors */
 @media (hover: hover) {
   .jr-again-btn:hover { background: color-mix(in srgb, var(--amber-strong) 10%, transparent); }
 }
@@ -789,7 +789,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jc-text-marks {
   position: absolute; inset: 0; overflow: hidden; pointer-events: none;
   border: 1px solid transparent; border-radius: var(--r-ctl); padding: 10px 12px;
-  font-family: inherit; font-size: 14px; line-height: normal; color: transparent;
+  font-family: inherit; font-size: var(--fs-2); line-height: normal; color: transparent;
   white-space: pre-wrap; overflow-wrap: break-word;
 }
 /* ONE wash for every recognised word, in the composer and in the Verlauf alike (29.09.2026, owner
@@ -823,7 +823,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 }
 .jc-text { position: relative; display: block;
   width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
-  padding: 10px 12px; font-family: inherit; font-size: 14px; line-height: normal; color: var(--ink);
+  padding: 10px 12px; font-family: inherit; font-size: var(--fs-2); line-height: normal; color: var(--ink);
   background: transparent; }
 /* the field's own fill lives on the wrapper, so the marks sit between it and the text */
 .jc-text-wrap { background: var(--surface-2); border-radius: var(--r-ctl); }
@@ -840,7 +840,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 /* the recorded-clip readout is a full-width row under the three buttons, not a fourth column */
 .jc-audio .jc-clip { grid-column: 1 / -1; }
 .jc-rec { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 10px; height: var(--tap); min-width: 0; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 10px; height: var(--tap); min-width: 0; font-size: var(--fs-1); font-weight: 700; cursor: pointer;
   white-space: nowrap; }
 .jc-rec .i { flex: none; }
 .jc-rec-time { font-family: var(--mono); }
@@ -867,7 +867,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
   border-radius: var(--r-ctl); background: var(--surface-2); padding: 10px 12px; }
 .jc-import-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .jc-import-name, .jc-clip-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.jc-import-name strong, .jc-clip-name strong { font-size: 12.5px; color: var(--ink); }
+.jc-import-name strong, .jc-clip-name strong { font-size: var(--fs-1); color: var(--ink); }
 .jc-import-name em, .jc-clip-name em { font-style: normal; font-size: 12px; color: var(--ink-dim); font-family: var(--mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* staged Beilagen (PDF & Co.): the same framed row as the clip and the imported memo — a
@@ -879,17 +879,17 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
   padding: 10px 12px; font-weight: 600; }
 .jc-file > .i { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
 .jc-file-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.jc-file-name strong { font-size: 12.5px; color: var(--ink); }
+.jc-file-name strong { font-size: var(--fs-1); color: var(--ink); }
 .jc-file-name em { font-style: normal; font-size: 12px; color: var(--ink-dim); font-family: var(--mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jc-import-start { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.jc-import-hint { margin: 0; font-size: 12.5px; color: var(--ink-dim); }
+.jc-import-hint { margin: 0; font-size: var(--fs-1); color: var(--ink-dim); }
 /* the send, on a row of its own. Not a flex row with it pushed right – at 44px that wastes the
    row it sits in. (The pin used to be the row above it and now sits in .jc-audio, where the
    other three «what does this entry carry» buttons are.) */
 .jc-foot { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .jc-send { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
-  background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm); padding: 9px 16px; height: var(--tap); font-size: 14px; font-weight: 800;
+  background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm); padding: 9px 16px; height: var(--tap); font-size: var(--fs-2); font-weight: 800;
   white-space: nowrap; }
 .jc-send .i { width: 15px; height: 15px; }
 @media (hover: hover) {
@@ -942,7 +942,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 }
 .jc-time-btn:active { background: var(--fill-soft); }
 .jc-time-btn .i { width: 18px; height: 18px; }
-.jc-time-sep { font: 800 24px/1 var(--mono); color: var(--ink-faint); margin-top: -2px; }
+.jc-time-sep { font: 800 var(--fs-5)/1 var(--mono); color: var(--ink-faint); margin-top: -2px; }
 
 /* «Uhrzeit …» — the one due answer that is not a row in the menu: a day, a time, and what the
    two mean together. A small dialog over the composer rather than a strip inside it (this is the
@@ -958,13 +958,13 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    stepper uses, so the dialog has ONE control idiom rather than two */
 .jc-exact-day { display: flex; align-items: center; gap: 8px; padding: 4px 6px;
   border-radius: var(--r-ctl); background: var(--surface-2); border: 1px solid var(--glass-edge); }
-.jc-exact-day b { flex: 1; text-align: center; font: 700 14px var(--body); color: var(--ink);
+.jc-exact-day b { flex: 1; text-align: center; font: 700 var(--fs-2) var(--body); color: var(--ink);
   font-variant-numeric: tabular-nums; }
 .jc-exact-day .jc-time-btn:disabled { opacity: var(--disabled); cursor: default; }
 .jc-exact-prev { transform: rotate(180deg); }
 /* …and the stepper fills the card, centred, instead of sitting in a left-hugging box of its own */
 .jc-exact .jc-time { align-self: stretch; justify-content: center; padding: 10px 14px; }
-.jc-exact-preview { margin: 0; text-align: center; font: 700 14px var(--mono); color: var(--blue-strong);
+.jc-exact-preview { margin: 0; text-align: center; font: 700 var(--fs-2) var(--mono); color: var(--blue-strong);
   min-height: 20px; font-variant-numeric: tabular-nums; }
 /* a due time that has already gone by would fire the moment it is saved — said in words, in red,
    and «Übernehmen» is disabled until the day or the time moves */
@@ -973,7 +973,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    the rest (they were two equal halves, the cancel a dim word on the glass) */
 .jc-exact-actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
 .jc-exact-cancel, .jc-exact-ok { display: flex; align-items: center; justify-content: center; gap: 7px;
-  height: var(--tap); border-radius: var(--r-sm); font: 700 14px var(--body); cursor: pointer; }
+  height: var(--tap); border-radius: var(--r-sm); font: 700 var(--fs-2) var(--body); cursor: pointer; }
 .jc-exact-cancel { padding: 0 16px; border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink); }
 .jc-exact-ok { font-weight: 800; }
 /* the primary fill, never --blue: blue is a CHOSEN answer (01-tokens · --sel) since 28.09.2026 */
@@ -1004,7 +1004,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 /* the ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px, 11/800, --r-xs; amber = open */
 .tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--amber); color: var(--on-fill); line-height: 16px; text-align: center;
-  font: 800 11px var(--body); }
+  font: 800 var(--fs-micro) var(--body); }
 
 /* ⚠️ TOMBSTONE, 23.08. — the whole banner layer that stood here is gone.
    Removed: `.reminder-banner` + 9 `rb-*` rules (the due Wiedervorlage, a 440px card at z-45 that
@@ -1019,17 +1019,17 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 
 
 /* install guide (InstallGuide) — platform-detected steps in the standard ip-sheet */
-.ig-why { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }
+.ig-why { margin: 0 0 16px; font-size: var(--fs-2); line-height: 1.45; color: var(--ink-dim); }
 .ig-install { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px;
   border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm);
-  font: 800 14px var(--body); cursor: pointer; } /* 28.09.2026: 650/15 was a 13th combo — the single action is 14/800, the
+  font: 800 var(--fs-2) var(--body); cursor: pointer; } /* 28.09.2026: 650/15 was a 13th combo — the single action is 14/800, the
   50px height is what makes it the card's main one */
 @media (hover: hover) {
   .ig-install:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 }
 .ig-install:disabled { opacity: var(--disabled); cursor: default; }
 .ig-install .i { width: 17px; height: 17px; }
-.ig-native-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-dim); text-align: center; }
+.ig-native-hint { margin: 8px 0 0; font-size: var(--fs-1); color: var(--ink-dim); text-align: center; }
 .ig-or { margin: 18px 0 10px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .ig-intro { margin: 0 0 10px; font-size: 13.5px; font-weight: 650; color: var(--ink); }
 .ig-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; counter-reset: ig; }
@@ -1037,11 +1037,11 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .ig-steps li::before { content: counter(ig); flex: none; width: 26px; height: 26px; display: grid; place-items: center;
   border-radius: 50%; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent);
   font: 750 13px var(--mono); }
-.ig-step-text { font-size: 14px; line-height: 1.4; color: var(--ink); }
+.ig-step-text { font-size: var(--fs-2); line-height: 1.4; color: var(--ink); }
 .ig-step-text .i { width: 16px; height: 16px; vertical-align: -3px; margin: 0 2px; color: var(--accent); }
-.ig-note { margin: 14px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+.ig-note { margin: 14px 0 0; font-size: var(--fs-1); color: var(--ink-dim); }
 .ig-done { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--ink); font-size: 14px; font-weight: 650; }
+  background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--ink); font-size: var(--fs-2); font-weight: 650; }
 .ig-done .i { width: 18px; height: 18px; flex: none; color: var(--green); }
 
 /* composer photo preview + Verlauf row thumbnail */
@@ -1070,7 +1070,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 }
 .jr-file:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* offline media-queue chip on a Verlauf row (photo/audio not yet on the server) */
-.jr-media-state { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600;
+.jr-media-state { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-micro); font-weight: 600;
   padding: 1px 6px; border-radius: var(--r-pill); white-space: nowrap;
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber-strong) 14%, transparent); }
 .jr-media-state .i { width: 12px; height: 12px; }
@@ -1113,11 +1113,11 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 }
 .jr-detail-facts > div + div { border-top: 1px solid var(--border-soft); }
 .jr-detail-facts dt { font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
-.jr-detail-facts dd { margin: 0; font-size: 12.5px; font-weight: 500; color: var(--ink); }
+.jr-detail-facts dd { margin: 0; font-size: var(--fs-1); font-weight: 500; color: var(--ink); }
 /* the second line of a fact — the first wording of a corrected row, the «nicht bearbeitbar»
    note. Quieter than the value it hangs under, and never bold: it is context, not the answer. */
 .jr-detail-facts dd small {
-  display: block; margin-top: 2px; font-size: 11px; font-weight: 400;
+  display: block; margin-top: 2px; font-size: var(--fs-micro); font-weight: 400;
   color: var(--ink-faint); line-height: 1.4;
 }
 .jr-detail-acts { display: grid; gap: 8px; margin-top: 12px; }

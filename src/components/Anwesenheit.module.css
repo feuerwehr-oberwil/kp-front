@@ -41,7 +41,7 @@
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   cursor: pointer; min-height: var(--tap); min-width: var(--tap);
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
-  border-radius: var(--r-sm); padding: 0 13px; font: 700 12.5px var(--body);
+  border-radius: var(--r-sm); padding: 0 13px; font: 700 var(--fs-1) var(--body);
 }
 @media (hover: hover) { .reload:hover { color: var(--ink); border-color: var(--ink-faint); } }
 .reload:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -114,7 +114,7 @@
   --row-act: 46px;
   display: flex; align-items: stretch; min-height: 46px;
   border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
-  overflow: hidden; font: 700 14px var(--body); color: var(--ink);
+  overflow: hidden; font: 700 var(--fs-2) var(--body); color: var(--ink);
   transition: background .1s var(--ease), border-color .1s var(--ease);
 }
 @media (hover: hover) { .person:hover:has(.personMain:not(:disabled)) { border-color: var(--ink-faint); } }
@@ -234,7 +234,7 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
   /* the last person row clears the Eintrag FAB — the circle sat on a row's presence toggle and on
      its time chip, i.e. on the two controls this list exists for. --fab-safe is 0 without a FAB. */
   .grid { padding: 2px 14px calc(16px + var(--fab-safe, 0px)); grid-template-columns: 1fr; gap: 6px; }
-  .person { min-height: 44px; font-size: 14px; }
+  .person { min-height: 44px; font-size: var(--fs-2); }
   .personMain { padding: 7px 12px; gap: 8px; }
 }
 
@@ -259,12 +259,12 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
    search + rank filter above are set the way you meant — so it is the size of a value, not of a
    caption. */
 .paperContent { margin: 0; font: 700 15px var(--body); color: var(--ink); }
-.paperHint { margin: 8px 0 0; font: 500 12.5px var(--body); color: var(--ink-faint); }
+.paperHint { margin: 8px 0 0; font: 500 var(--fs-1) var(--body); color: var(--ink-faint); }
 
 /* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
 .horizon { flex: none; display: flex; align-items: center; gap: 6px; }
 .horizonLabel { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.horizonValue { min-width: 3.4rem; text-align: center; font: 700 12.5px var(--mono); color: var(--ink); }
+.horizonValue { min-width: 3.4rem; text-align: center; font: 700 var(--fs-1) var(--mono); color: var(--ink); }
 /* «bis 18:01» — at a constant px-per-hour a wider window is pixel-identical, so this is the only
    visible answer to what widening it bought you */
 .horizonEnd { font: 600 11.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }

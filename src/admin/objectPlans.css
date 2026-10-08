@@ -18,7 +18,7 @@
 /* The status filter is the QUIET control of the page (UI sweep 07.10.2026, E6): it narrows a
    list, it does not move you anywhere. It wore the same blue fill as the page tabs above it, so
    the two read as one rank. Chosen = a raised white chip on the track, in ink. */
-.aop-tools .useg-btn { min-height: 34px; padding: 4px 12px; font-size: 12.5px; }
+.aop-tools .useg-btn { min-height: 34px; padding: 4px 12px; font-size: var(--fs-1); }
 .aop-tools .useg-btn.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
 
 /* A record's head is a LINE, not a toolbar: its buttons match the 32–36px controls every other
@@ -77,7 +77,7 @@
 .aop-plans { min-width: 0; }
 .aop-codes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .aop-code {
-  white-space: nowrap; font-size: 11px; font-weight: 700; color: var(--ink-dim);
+  white-space: nowrap; font-size: var(--fs-micro); font-weight: 700; color: var(--ink-dim);
   padding: 2px 7px; border-radius: var(--r-xs);
   background: var(--surface-2); border: 1px solid var(--border-soft);
 }

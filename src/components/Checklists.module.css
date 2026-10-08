@@ -22,7 +22,7 @@
 .cl-rail-item.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .cl-rail-item.on :global(.i) { color: var(--on-accent-ink); }
 .cl-rail-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cl-rail-prog { flex: none; font-family: var(--mono); font-size: 11px; font-weight: 700; opacity: .8; }
+.cl-rail-prog { flex: none; font-family: var(--mono); font-size: var(--fs-micro); font-weight: 700; opacity: .8; }
 .cl-rail-hint { display: flex; align-items: center; gap: 7px; border: none; cursor: pointer; text-align: left;
   background: color-mix(in srgb, var(--red) 8%, transparent); color: var(--red-strong); font-family: var(--body); font-size: 12px; font-weight: 600;
   padding: 8px 10px; border-radius: var(--r-ctl); margin-top: 2px; }
@@ -59,17 +59,17 @@
 .cl-runner-head[data-fit-wrap] > .cl-runner-titles { flex-basis: 100%; }
 .cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .cl-runner-head[data-fit-tight] .cl-overall { gap: 6px; }
-.cl-overall-sub { font-size: 12.5px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cl-overall-sub { font-size: var(--fs-1); color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 
 .cl-phase { margin-bottom: 22px; }
 .cl-phase-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
 .cl-phase-titles { display: flex; align-items: baseline; gap: 9px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
 .cl-phase-titles h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
-.cl-role { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+.cl-role { font-size: var(--fs-micro); font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
   color: var(--ink-faint); background: var(--fill-soft); padding: 2px 7px; border-radius: var(--r-xs); }
 .cl-phase-count { flex: none; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-dim); }
-.cl-note { margin: 7px 0; font-size: 12.5px; color: var(--ink-dim); font-style: italic; }
+.cl-note { margin: 7px 0; font-size: var(--fs-1); color: var(--ink-dim); font-style: italic; }
 
 /* branch/variant picker is the shared <Segmented>; keep its wizard spacing */
 .cl-phase > :global(.useg) { margin: 10px 0 4px; }
@@ -99,9 +99,9 @@
 .cl-item-text { font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.35; }
 .cl-item.done .cl-item-text { color: var(--ink-dim); }
 .cl-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-.cl-when { font-size: 11px; font-weight: 600; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent);
+.cl-when { font-size: var(--fs-micro); font-weight: 600; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent);
   padding: 1px 7px; border-radius: var(--r-xs); }
-.cl-milestone { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-faint); }
+.cl-milestone { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-micro); font-weight: 600; color: var(--ink-faint); }
 .cl-milestone :global(.i) { width: 12px; height: 12px; }
 /* completion metadata is secondary — small & muted, not a bright green banner (feedback: too prominent) */
 .cl-tickinfo { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); font-weight: 500; }
@@ -114,7 +114,7 @@
 .cl-deeplink :global(.i):last-child { width: 11px; height: 11px; opacity: .6; }
 
 .cl-runner-foot { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--glass-edge);
-  font-size: 11px; color: var(--ink-faint); }
+  font-size: var(--fs-micro); color: var(--ink-faint); }
 .cl-empty-hint { font-size: 13px; color: var(--ink-faint); padding: 4px 2px; }   /* no italics (29.09.2026 · C8) */
 
 /* --- reference playbook --- */
@@ -141,17 +141,17 @@
 .cl-runner-titles p[data-folded] { display: none; }
 .cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .cl-runner-head[data-fit-tight] .cl-overall { gap: 6px; }
-.cl-overall-sub { font-size: 12.5px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cl-overall-sub { font-size: var(--fs-1); color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 
 .cl-phase { margin-bottom: 22px; }
 .cl-phase-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
 .cl-phase-titles { display: flex; align-items: baseline; gap: 9px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
 .cl-phase-titles h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
-.cl-role { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+.cl-role { font-size: var(--fs-micro); font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
   color: var(--ink-faint); background: var(--fill-soft); padding: 2px 7px; border-radius: var(--r-xs); }
 .cl-phase-count { flex: none; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-dim); }
-.cl-note { margin: 7px 0; font-size: 12.5px; color: var(--ink-dim); font-style: italic; }
+.cl-note { margin: 7px 0; font-size: var(--fs-1); color: var(--ink-dim); font-style: italic; }
 
 /* branch/variant picker is the shared <Segmented>; keep its wizard spacing */
 .cl-phase > :global(.useg) { margin: 10px 0 4px; }
@@ -181,9 +181,9 @@
 .cl-item-text { font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.35; }
 .cl-item.done .cl-item-text { color: var(--ink-dim); }
 .cl-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-.cl-when { font-size: 11px; font-weight: 600; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent);
+.cl-when { font-size: var(--fs-micro); font-weight: 600; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent);
   padding: 1px 7px; border-radius: var(--r-xs); }
-.cl-milestone { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-faint); }
+.cl-milestone { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-micro); font-weight: 600; color: var(--ink-faint); }
 .cl-milestone :global(.i) { width: 12px; height: 12px; }
 /* completion metadata is secondary — small & muted, not a bright green banner (feedback: too prominent) */
 .cl-tickinfo { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); font-weight: 500; }
@@ -196,7 +196,7 @@
 .cl-deeplink :global(.i):last-child { width: 11px; height: 11px; opacity: .6; }
 
 .cl-runner-foot { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--glass-edge);
-  font-size: 11px; color: var(--ink-faint); }
+  font-size: var(--fs-micro); color: var(--ink-faint); }
 .cl-empty-hint { font-size: 13px; color: var(--ink-faint); padding: 4px 2px; }   /* no italics (29.09.2026 · C8) */
 
 /* --- reference playbook --- */
@@ -223,7 +223,7 @@
 .cl-ref-doc.hz-blue { border-top-color: var(--blue); }
 .cl-ref-doc-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .cl-ref-doc-head h2 { margin: 0; font-size: 20px; font-weight: 800; color: var(--ink); }
-.cl-ref-badge { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+.cl-ref-badge { font-size: var(--fs-micro); font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
   color: var(--on-accent-ink); padding: 3px 9px; border-radius: var(--r-xs); background: var(--ink-faint); }
 .cl-ref-badge.hz-red { background: var(--red); }
 .cl-ref-badge.hz-orange { background: var(--amber); }
@@ -231,12 +231,12 @@
 .cl-ref-badge.hz-yellow { background: var(--hazard-yellow); }
 .cl-ref-badge.hz-blue { background: var(--blue); }
 .cl-ref-blocks { display: flex; flex-direction: column; gap: 7px; }
-.cl-ref-h { margin: 12px 0 2px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.cl-ref-h { margin: 12px 0 2px; font-size: var(--fs-2); font-weight: 700; color: var(--ink); }
 /* Depth has to be readable, not just measurable. A level-0 line is a STEP the EL works through;
    a level-1 line is a detail OF that step. Before this they differed by 16px of indent and
    nothing else, so a screenful of them read as one flat wall and the eye could not find the
    steps. Now the step keeps full ink and a solid dot, the detail is dimmer with a hollow one. */
-.cl-ref-bullet { display: flex; gap: 9px; font-size: 14px; color: var(--ink); line-height: 1.4; }
+.cl-ref-bullet { display: flex; gap: 9px; font-size: var(--fs-2); color: var(--ink); line-height: 1.4; }
 .cl-ref-bullet .cl-ref-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint);
   margin-top: 8px; }
 .cl-ref-bullet[data-level='0'] { margin-top: 3px; }
@@ -281,7 +281,7 @@
    scrolling. Fixed layout + one pinned value column puts every number on the same line down
    the whole page. Unspecified columns share the rest equally, which is also right for the one
    3-column table (Stichwort | Mittel | Personal). */
-.cl-ref-table { border-collapse: collapse; width: 100%; font-size: 12.5px; table-layout: fixed; }
+.cl-ref-table { border-collapse: collapse; width: 100%; font-size: var(--fs-1); table-layout: fixed; }
 .cl-ref-table th:last-child, .cl-ref-table td:last-child { width: 34%; }
 .cl-ref-table th, .cl-ref-table td { text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--border-soft);
   vertical-align: top; }
@@ -347,19 +347,19 @@
   .cl-rail-toggle { display: flex; align-items: center; gap: 9px; flex: none; width: 100%;
     min-height: 48px; padding: 10px 14px; border: none; cursor: pointer; text-align: left;
     background: var(--surface); border-bottom: 1px solid var(--glass-edge);
-    font: 700 14px var(--body); color: var(--ink); }
+    font: 700 var(--fs-2) var(--body); color: var(--ink); }
   .cl-rail-toggle :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
   .cl-rail-toggle-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* the open list's «n/m» rides in this row (ChecklistsView); the runner head's own «n/m
      erledigt» steps aside so it is said once (05.10.2026, owner: no progress row) */
-  .cl-rail-toggle-prog { flex: none; font: 600 12.5px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .cl-rail-toggle-prog { flex: none; font: 600 var(--fs-1) var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
   .cl-overall { display: none; }
   /* the open Stichwort's category, as a quiet word beside its title (ChecklistsView): the dot the
      rail's rows carry, then the word — ink-dim on the soft fill, the small shape's corner. The
      colour stays in the dot, as everywhere (a tone is a glyph's colour, never a fill). */
   .cl-head-hz { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px;
     border-radius: var(--r-xs); background: var(--fill-soft);
-    font: 700 11px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
+    font: 700 var(--fs-micro) var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
   .cl-rail-group { gap: 2px; }
   .cl-rail-label { padding: 2px 6px 2px; }
   .cl-rail-item { padding: 8px 10px; }

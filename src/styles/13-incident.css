@@ -12,7 +12,7 @@
   display: inline-flex; align-items: center; gap: 8px; max-width: 46vw; min-width: 0;
   padding: 6px 12px; border: none; border-radius: var(--r-sm);   /* the bar around it is --r-bar — 01-tokens · «ONE corner» */
   background: var(--glass); box-shadow: var(--shadow-sm); color: var(--ink);
-  font: 700 14px/1.1 var(--body); cursor: pointer;
+  font: 700 var(--fs-2)/1.1 var(--body); cursor: pointer;
 }
 @media (hover: hover) {
   .ip-switch-btn:hover { background: var(--surface); }
@@ -36,7 +36,7 @@
 /* loud offline pill in the switcher header — only shows while offline, so it never causes the
    constant saving↔saved layout flip; amber-on-tint so it reads at a glance at 3am */
 .ip-offline-chip { display: inline-flex; align-items: center; gap: 5px; flex: none;
-  padding: 2px 8px; border-radius: var(--r-xs); font-size: 12.5px; font-weight: 600; line-height: 1;
+  padding: 2px 8px; border-radius: var(--r-xs); font-size: var(--fs-1); font-weight: 600; line-height: 1;
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 16%, transparent); }
 /* ↑ the tag's corner and no edge (29.09.2026): roundness is map furniture's, and the tone is the
    tint + ink, never an outline besides */
@@ -55,7 +55,7 @@
 .az-syncline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
   margin-top: var(--head-sub-gap); }
 .az-sync-quiet { display: inline-flex; align-items: center; gap: 5px; min-width: 0;
-  font: 500 12.5px var(--body); color: var(--ink-dim); }
+  font: 500 var(--fs-1) var(--body); color: var(--ink-dim); }
 .az-sync-quiet .i { width: 13px; height: 13px; flex: none; opacity: 1; color: var(--green); }
 /* pending wears the switcher's amber dot (the dot's currentColor would be the muted text) */
 .az-sync-quiet .ip-status-dot { width: 8px; height: 8px; background: var(--amber); }
@@ -77,7 +77,7 @@
      enter/exit hook, not the surface */
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); }
-.az-head-detail .az-hd-title { margin: 0; font: 800 16px/1.35 var(--body); color: var(--ink);
+.az-head-detail .az-hd-title { margin: 0; font: 800 var(--fs-3)/1.35 var(--body); color: var(--ink);
   overflow-wrap: anywhere; }
 .az-head-detail .az-hd-addr { margin: 0; font: 600 13.5px/1.4 var(--body); color: var(--ink-dim);
   overflow-wrap: anywhere; }
@@ -110,7 +110,7 @@
   overflow-wrap: anywhere; overflow: hidden; text-overflow: ellipsis;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .ip-card-title > .ip-badge { flex: none; margin-top: 2px; }
-.ip-card-sub { font: 500 12.5px var(--body); color: var(--ink-dim); overflow-wrap: anywhere; }
+.ip-card-sub { font: 500 var(--fs-1) var(--body); color: var(--ink-dim); overflow-wrap: anywhere; }
 /* the pills WRAP instead of clipping: on a 360px phone «Gespeichert um 20:14» and
    «Einsatzbeginn 20:14 · 1 h 32» never fit on one line, and both are read, not glanced at */
 .ip-card-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
@@ -122,7 +122,7 @@
 /* …and on a PHONE the Beginn pill is a BUTTON: the fold for the Einsatzuhr's modes, which have no
    control of their own in the phone bar any more (07.10.2026, UI sweep · B3 D; IncidentSwitcher).
    Same tag, a --tap tall and at the 12.5px floor for something you press, with the fold's ▾. */
-.ip-card-pill-btn { border: none; cursor: pointer; min-height: var(--tap); padding: 0 10px; font-size: 12.5px; }
+.ip-card-pill-btn { border: none; cursor: pointer; min-height: var(--tap); padding: 0 10px; font-size: var(--fs-1); }
 .ip-card-pill-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the modes themselves, folded out INLINE under the pills — never a popover over this menu
    (owner, 07.10.2026). The bar menu's rows (18-audio · .tb-uhr-row), a --tap tall here. */
@@ -186,7 +186,7 @@
    word's width inside it */
 .ip-card-act > .ip-badge-todo { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;
   box-sizing: border-box; padding: 0 4px; border-radius: var(--r-xs); background: var(--amber); color: var(--on-fill);
-  font: 800 11px/16px var(--body); letter-spacing: 0; text-align: center; }
+  font: 800 var(--fs-micro)/16px var(--body); letter-spacing: 0; text-align: center; }
 /* «Jetzt synchronisieren» at the title row's right edge — pinned there at every width, so the
    Einsatz's connection state and the button that refreshes it sit on the same line. Pulled
    slightly out of the card's padding so the ICON, not the button's box, lines up with the
@@ -334,9 +334,9 @@
 @media (prefers-reduced-motion: reduce) {
   .or-dot { transition: none; }
 }
-.or-label { flex: 1 1 auto; min-width: 0; font: 600 14px var(--body); color: var(--ink);
+.or-label { flex: 1 1 auto; min-width: 0; font: 600 var(--fs-2) var(--body); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.or-note { flex: none; font: 600 12.5px var(--body); color: var(--ink-faint); }
+.or-note { flex: none; font: 600 var(--fs-1) var(--body); color: var(--ink-faint); }
 .or-note.or-ready { color: var(--green-strong); }
 .or-note.or-online { color: var(--amber-strong); }
 .or-note.or-missing { color: var(--ink-dim); }
@@ -345,7 +345,7 @@
   background: var(--fill-soft); border: 1px solid var(--border); }
 .or-browser > .i { width: 17px; height: 17px; flex: none; color: var(--blue); margin-top: 2px; }
 .or-browser-t { margin: 0 0 5px; font: 700 13.5px var(--body); color: var(--ink); }
-.or-browser-b { margin: 0; font: 500 12.5px var(--body); line-height: 1.5; color: var(--ink-dim); }
+.or-browser-b { margin: 0; font: 500 var(--fs-1) var(--body); line-height: 1.5; color: var(--ink-dim); }
 .or-browser-b + .or-browser-b { margin-top: 7px; }
 /* the download sits UNDER the install button in a browser tab — still offered, not the headline.
    Doubled selector: .or-load is declared further down, so equal specificity would let it win. */
@@ -354,7 +354,7 @@
    #232c3a sheet (1.14:1) — the one action of the sheet had no edge. 800: it is the single action. */
 .or-load { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap);
   border: none; border-radius: var(--r-sm); background: var(--btn-primary); color: var(--on-btn-primary);
-  font: 800 14px var(--body); cursor: pointer; }
+  font: 800 var(--fs-2) var(--body); cursor: pointer; }
 .or-load svg { width: 17px; height: 17px; }
 @media (hover: hover) {
   .or-load:hover:not(:disabled) { background: var(--btn-primary-hover); }
@@ -366,13 +366,13 @@
 .or-prog-track { height: 10px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
 .or-prog-fill { height: 100%; border-radius: var(--r-pill); background: var(--blue);
   transition: width .25s var(--ease); min-width: 10px; }
-.or-prog-meta { display: flex; align-items: center; justify-content: space-between; font: 600 12.5px var(--body); color: var(--ink-dim); }
+.or-prog-meta { display: flex; align-items: center; justify-content: space-between; font: 600 var(--fs-1) var(--body); color: var(--ink-dim); }
 .or-prog-pct { font-family: var(--mono); font-weight: 700; color: var(--blue-strong); font-variant-numeric: tabular-nums; }
 /* percentage + «Abbrechen» beside it — 44px tall so the glove finds it. ⚠️ Framed since
    28.09.2026 (owner pick A: a cancel is a framed `.ip-btn`, never a bare word), so it no longer
    pulls itself in: its edge IS the bar's edge now. */
 .or-prog-end { display: flex; align-items: center; gap: 10px; }
-.or-prog-cancel { min-height: var(--tap); padding: 0 12px; font-size: 12.5px; }
+.or-prog-cancel { min-height: var(--tap); padding: 0 12px; font-size: var(--fs-1); }
 /* a finished load: the bar's place closes into the sync vocabulary — ring + tick + «bereit» —
    for a moment before the button returns (component · justLoaded). Same 44px slot as the button
    and roughly the bar block's height, so nothing under it jumps. */
@@ -397,13 +397,13 @@
 .ip-menu-sep { height: 1px; background: var(--glass-edge); margin: 6px 4px 4px; }
 .ip-menu-user { display: flex; align-items: center; gap: 9px; padding: 6px 6px 4px; }
 .ip-menu-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none;
-  font: 700 12.5px var(--body); color: var(--on-accent-ink); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22); }
+  font: 700 var(--fs-1) var(--body); color: var(--on-accent-ink); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22); }
 .ip-menu-userinfo { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .ip-menu-username { font: 600 13px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ip-menu-userrole { font: 600 10px var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
 .ip-menu-logout { display: flex; align-items: center; gap: 6px; flex: none; padding: 7px 10px; border: none;
   border-radius: var(--r-sm); background: rgba(30, 45, 70, .05); color: var(--ink-dim); cursor: pointer;
-  font: 600 12.5px var(--body); transition: background .14s var(--ease), color .14s var(--ease); }
+  font: 600 var(--fs-1) var(--body); transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
   .ip-menu-logout:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 }
@@ -594,7 +594,7 @@
    draw a second box inside the pill — the Trupp form did */
 .ui-search .ui-search-input { flex: 1 1 auto; min-width: 0; align-self: stretch; margin: 0; padding: 0 12px 0 0;
   border: none; border-radius: 0; background: transparent; outline: none; box-shadow: none;
-  font: 500 16px var(--body); color: var(--ink); }
+  font: 500 var(--fs-3) var(--body); color: var(--ink); }
 .ui-search .ui-search-input:focus, .ui-search .ui-search-input:focus-visible { border: none; outline: none; box-shadow: none; }
 .ui-search .ui-search-input::placeholder { color: var(--ink-faint); }
 .ui-search .ui-search-input::-webkit-search-cancel-button { display: none; }
@@ -649,10 +649,10 @@
 .form-warn-amber { --warn-tone: var(--amber); --warn-glyph: var(--amber-strong); }
 .form-warn > .i, .form-warn > svg { width: 16px; height: 16px; flex: none; color: var(--warn-glyph); }
 .form-warn-text { flex: 1 1 0; min-width: 12em; }
-.form-warn-compact { min-height: 0; padding: 7px 10px; font-size: 12.5px; }
+.form-warn-compact { min-height: 0; padding: 7px 10px; font-size: var(--fs-1); }
 .form-warn-act { position: relative; flex: none; min-height: 36px; padding: 0 12px; border-radius: var(--r-sm);
   border: 1px solid color-mix(in srgb, var(--warn-tone) 40%, transparent); background: var(--surface);
-  font: 700 12.5px var(--body); color: var(--warn-glyph); cursor: pointer; }
+  font: 700 var(--fs-1) var(--body); color: var(--warn-glyph); cursor: pointer; }
 .form-warn-act::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 .form-warn-act:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .form-warn-act:disabled { opacity: var(--disabled); cursor: default; }
@@ -681,12 +681,12 @@
 .ip-sheet > .ip-actions { padding: 8px 20px 16px; }
 /* demo: "opening is disabled" note above the wizard's action row */
 .ip-demo-block { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; padding: 9px 12px;
-  border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); font: 600 12.5px var(--body); }
+  border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); font: 600 var(--fs-1) var(--body); }
 .ip-demo-block svg { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
 .ip-row-actions { justify-content: flex-start; }
 .ip-btn {
   display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid var(--glass-edge);
-  border-radius: var(--r-sm); background: var(--surface); cursor: pointer; font: 700 14px var(--body);
+  border-radius: var(--r-sm); background: var(--surface); cursor: pointer; font: 700 var(--fs-2) var(--body);
   color: var(--ink); text-decoration: none;
 }
 @media (hover: hover) {
@@ -721,7 +721,7 @@
 .row-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .row-go:disabled { opacity: var(--disabled); cursor: default; }
 .row-go-text { flex: 1 1 auto; min-width: 0; }
-.row-go-word { flex: none; display: inline-flex; align-items: center; gap: 2px; font: 700 12.5px var(--body); color: var(--ink-dim); }
+.row-go-word { flex: none; display: inline-flex; align-items: center; gap: 2px; font: 700 var(--fs-1) var(--body); color: var(--ink-dim); }
 .row-go-word .i { width: 16px; height: 16px; }
 
 /* ═══ ONE TILE FAMILY for the controls of a page head (27.09.2026, slim sweep · mockups 2 + 10) ═══
@@ -740,7 +740,7 @@
   background: var(--surface); color: var(--ink); font: 700 13.5px var(--body); white-space: nowrap;
   cursor: pointer; }
 .head-tile.sq { width: var(--tap); min-width: var(--tap); padding: 0; flex: none; }
-.head-tile.sm { min-height: 36px; padding: 0 8px; font-size: 12.5px; }
+.head-tile.sm { min-height: 36px; padding: 0 8px; font-size: var(--fs-1); }
 /* one glyph size, centred by the flex line — no baseline offsets to fix per glyph */
 .head-tile svg, .head-tile .i { width: 16px; height: 16px; flex: none; }
 .head-tile.amber { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
@@ -821,14 +821,14 @@
 .ip-menu-row .ip-badge { flex: none; }
 /* the per-row «Abschliessen» is COMPACT (29.09.2026): 12.5/700 at its word's width, still --tap
    tall — five 14px buttons down the list out-shouted the row's real action, opening it */
-.ip-hist-close { font-size: 12.5px; padding: 0 12px; min-height: var(--tap); flex: none; }
+.ip-hist-close { font-size: var(--fs-1); padding: 0 12px; min-height: var(--tap); flex: none; }
 .ip-hist-sub, .ip-ds-sub { font: 500 12px var(--body); color: var(--ink-faint); margin-top: 2px; }
 /* when it ran (05.10.2026): day · start–end · duration, a step stronger than the address under it —
    it is what tells two «Brand» rows apart at 3am. Tabular figures so the spans line up. */
 /* offline line over the list: viewing works, the lifecycle buttons need the server */
-.ip-hist-offline { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; font: 500 12.5px var(--body); color: var(--amber-strong); }
+.ip-hist-offline { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; font: 500 var(--fs-1) var(--body); color: var(--amber-strong); }
 .ip-hist-offline svg { width: 15px; height: 15px; flex: none; }
-.ip-hist-when { font: 600 12.5px var(--body); color: var(--ink-dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.ip-hist-when { font: 600 var(--fs-1) var(--body); color: var(--ink-dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
 /* rapport lifecycle badges (derived, lib/rapportStatus) */
 /* Alle Einsätze: search + time-group headers — the list grows by one row per Einsatz
    forever, so an old incident must stay findable without endless scrolling */
@@ -887,8 +887,8 @@
    note on .report-partner.on. Ink, not hue. */
 .rp-check-dot.done { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
 .rp-check-dot svg { width: 14px; height: 14px; }
-.rp-check-label { font: 700 14px var(--body); flex: none; }
-.rp-check-sub { font: 500 12.5px var(--body); color: var(--ink-faint); flex: 1; min-width: 0;
+.rp-check-label { font: 700 var(--fs-2) var(--body); flex: none; }
+.rp-check-sub { font: 500 var(--fs-1) var(--body); color: var(--ink-faint); flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .rp-check-go { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
 /* the body starts under the LABEL, not under the dot: 16 (card pad) + 26 (dot) + 10 (gap) */
@@ -925,7 +925,7 @@
   border: none; border-radius: var(--r-sm); color: var(--on-btn-primary);
   background: var(--btn-primary);
   box-shadow: 0 8px 22px color-mix(in srgb, var(--ink) 28%, transparent);
-  font: 700 14px var(--body); cursor: pointer; white-space: nowrap; }
+  font: 700 var(--fs-2) var(--body); cursor: pointer; white-space: nowrap; }
 .rp-return:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rp-return svg { width: 18px; height: 18px; color: currentColor; flex: none; }
 
@@ -977,7 +977,7 @@
 
 .sl-state { margin: 22px 0 0; font: 700 26px var(--body); color: var(--ink); letter-spacing: -.01em; }
 .sl-state small { display: block; margin-top: 10px; max-width: 32ch;
-  font: 500 14px/1.55 var(--body); color: var(--ink-dim); }
+  font: 500 var(--fs-2)/1.55 var(--body); color: var(--ink-dim); }
 @media (max-width: 600px) { .sl-state { margin-top: 18px; font-size: 23px; } }
 
 /* «Zuletzt geprüft 03:14:22» — the proof that a calm screen is not a dead one (the last
@@ -1023,7 +1023,7 @@
   .cv-acc-head { padding: 12px 18px; }
 }
 .cv-head h1 { font: 800 20px var(--body); color: var(--ink); margin: 0; }
-.cv-head p { font: 500 12.5px var(--body); color: var(--ink-faint); margin: 2px 0 0; }
+.cv-head p { font: 500 var(--fs-1) var(--body); color: var(--ink-faint); margin: 2px 0 0; }
 .cv-head-main { flex: 1; min-width: 0; }
 .cv-back { display: grid; place-items: center; width: 44px; height: 44px; border: none; background: var(--surface-veil);
   border-radius: var(--r-sm); color: var(--ink); cursor: pointer; }
@@ -1078,7 +1078,7 @@
   background: var(--surface-veil); border-radius: var(--r-ctl); color: var(--ink); cursor: pointer; box-shadow: var(--shadow-sm); }
 .cv-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .cv-item-title { font: 700 15px var(--body); }
-.cv-item-sub { font: 500 12.5px var(--body); color: var(--ink-faint); }
+.cv-item-sub { font: 500 var(--fs-1) var(--body); color: var(--ink-faint); }
 /* group divider — only rendered when the list actually mixes tonight's Einsatz with the
    unreported backlog, so the common single-row list stays header-free */
 .cv-list-head {
@@ -1187,7 +1187,7 @@
    both output buttons, so the carve-out for one action tinted four. */
 .cv-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 8px 14px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
-  color: var(--ink); font: 700 14px var(--body); cursor: pointer; white-space: nowrap; }
+  color: var(--ink); font: 700 var(--fs-2) var(--body); cursor: pointer; white-space: nowrap; }
 .cv-btn:disabled { opacity: var(--disabled); cursor: default; }
 /* «hinzufügen» rows (the Gast door): framed like every other .cv-btn (27.09.2026, slim sweep ·
    mockup 5). They wore a dashed outline «that reads as there is room for one more» — but dashed
@@ -1222,7 +1222,7 @@
 /* «Gast» — a row that no Mannschaftsliste is behind. Neutral, quiet, and BEFORE the state chip:
    it says where the name came from, not how the person is doing. */
 .cv-person-guest { flex: none; margin-left: auto; padding: 2px 7px; border-radius: var(--r-pill);
-  background: var(--fill-soft); color: var(--ink-faint); font: 700 11px var(--body); }
+  background: var(--fill-soft); color: var(--ink-faint); font: 700 var(--fs-micro) var(--body); }
 /* state chip: ✓ (anwesend, GREEN like the main app's Anwesenheit grid) / exit-arrow
    (gegangen, muted) — shape + tint together, never colour alone; word = aria-label */
 .cv-person-state { display: grid; place-items: center; width: 26px; height: 26px; flex: none;
@@ -1233,7 +1233,7 @@
 .cv-person-state svg { width: 15px; height: 15px; }
 .cv-mittel { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .cv-mittel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px;
-  font: 500 14px var(--body); color: var(--ink); }
+  font: 500 var(--fs-2) var(--body); color: var(--ink); }
 .cv-mittel-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 /* same reason as .set-row .step-val: a column of steppers whose values carry different units
    («3 Sack», «40 l», «6 Stk») put the ± buttons at a different x on every line */
@@ -1241,7 +1241,7 @@
 /* Mittel lines + Gerettete counts use the shared <Stepper> (.step chrome); a wrong amount is
    fixable in place (0 removes, with undo) */
 .cv-count-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.cv-count-row > span { font: 600 12.5px var(--body); color: var(--ink-dim); }
+.cv-count-row > span { font: 600 var(--fs-1) var(--body); color: var(--ink-dim); }
 /* «Personen» and «Tiere» ask the same question twice, so the two steppers must sit on the same
    x. As separate flex rows each was only as wide as its own label and they staggered. ONE grid
    over both rows (the labels `display: contents` into it) gives the labels a shared column that
@@ -1274,8 +1274,8 @@
    stops iOS' focus auto-zoom. (Feedback 2026-07-18) */
 @media (max-width: 560px) {
   .cv-row { grid-template-columns: 1fr; gap: 4px; }
-  .cv-row > span:first-child { font-size: 12.5px; color: var(--ink-dim); }
-  .cv-row .cv-input, .cv-acc .cv-input { min-height: 48px; font-size: 16px; }
+  .cv-row > span:first-child { font-size: var(--fs-1); color: var(--ink-dim); }
+  .cv-row .cv-input, .cv-acc .cv-input { min-height: 48px; font-size: var(--fs-3); }
 }
 /* the von/bis word before a person's time — the field's meaning flips with the status,
    so SAY it instead of implying it (Feedback 2026-07-18) */
@@ -1328,7 +1328,7 @@
    flex:1 with hour and minute, and «Mo. 05.10.» wrapped into two lines that clipped under the
    band on a phone (owner, 05.10.2026). Hour/minute rows stay full-width 44px targets. */
 .wheel.wheel-day { flex: 1.6 1 0; min-width: 0; }
-.wheel-day .wheel-item { white-space: nowrap; font-size: 14px; }
+.wheel-day .wheel-item { white-space: nowrap; font-size: var(--fs-2); }
 .wheelpop-sep { width: 1px; background: var(--glass-line); margin: 28px 2px; }
 /* the SELECTION band of the time wheel — --blue for the same reason as .combo-toggle.on above:
    it marks what is chosen, and brand red does not mean «chosen» anywhere else in the app */
@@ -1342,7 +1342,7 @@
 .wheelpop-actions .wheelpop-btn.clear { margin-right: auto; }
 .wheelpop-btn { min-height: 44px; padding: 6px 12px; border-radius: var(--r-sm);
   border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink);
-  font: 700 12.5px var(--body); cursor: pointer; white-space: nowrap; }
+  font: 700 var(--fs-1) var(--body); cursor: pointer; white-space: nowrap; }
 .wheelpop-btn.clear { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
 .wheelpop-btn.clear svg { width: 14px; height: 14px; display: block; }
 .wheelpop-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
@@ -1360,7 +1360,7 @@
 .cv-subhead { font: 650 12px var(--body); color: var(--ink-dim); margin-top: 2px; }
 .cv-zgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; width: 100%; min-width: 0; }
 .cv-zrow { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
-.cv-zname { font: 600 12.5px var(--body); color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-zname { font: 600 var(--fs-1) var(--body); color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* THE one action this page is about — so it carries the app's primary fill, never the brand red
    (AGENTS.md · Buttons). `.cv-quiet` still outranks it while the KP tablet is on the incident. */
 .cv-pdf { align-self: flex-start; margin-top: 4px; background: var(--btn-primary);
@@ -1368,7 +1368,7 @@
 /* cross-visibility QR ↔ KP: subtle live-dot line in the header (reassurance, not an alarm),
    and the quiet secondary styling the output buttons take while the KP tablet is active */
 .cv-kp-live { display: flex; align-items: center; gap: 6px; margin: 3px 0 0;
-  font: 600 12.5px var(--body); color: var(--green-strong); }
+  font: 600 var(--fs-1) var(--body); color: var(--green-strong); }
 .cv-kp-dot { width: 8px; height: 8px; border-radius: 50%; flex: none;
   background: var(--green); animation: p 2.4s infinite; }
 .cv-btn.cv-quiet { background: var(--surface-veil); border-color: var(--glass-edge); color: var(--ink-dim); font-weight: 600; }
@@ -1392,7 +1392,7 @@
    trailing a title, and a chip is the right shape for that */
 .rp-checks .capture-usage-chip { align-self: flex-start; padding: 3px 10px;
   border-radius: var(--r-pill); border: 1px solid var(--glass-line); background: var(--surface-veil);
-  font-size: 12.5px; color: var(--ink-dim); }
+  font-size: var(--fs-1); color: var(--ink-dim); }
 /* output bar: plain flow at the page end — sticky ate too much of a small phone screen */
 .cv-pdfbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding-bottom: env(safe-area-inset-bottom); }
@@ -1860,7 +1860,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 }
 .report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 
-.ip-ds-note { font: 500 11px var(--mono); color: var(--ink-faint); margin-top: 3px; }
+.ip-ds-note { font: 500 var(--fs-micro) var(--mono); color: var(--ink-faint); margin-top: 3px; }
 /* Datenquellen: collapsible groups + search so the 150+ object list stays manageable */
 .ip-group { margin: 8px 0 2px; }
 .ip-group > :not(summary) { margin-top: 6px; }
@@ -1936,7 +1936,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 }
 .ip-ac-locate:disabled { opacity: var(--disabled); cursor: default; }
 .ip-ac-locate svg { width: 17px; height: 17px; }
-.ip-ac-note { padding: 9px 10px; font: 500 12.5px var(--body); color: var(--ink-faint); }
+.ip-ac-note { padding: 9px 10px; font: 500 var(--fs-1) var(--body); color: var(--ink-faint); }
 
 /* object library picker */
 .ip-objpick { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 6px 8px; background: var(--surface-2); }
@@ -1975,7 +1975,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 /* resolved-location line — a QUIET one-line hint, not a boxed warning (the dashed
    mono-font box read louder than the actual inputs; cleanup 2026-07-15) */
 .ip-loc { display: flex; align-items: center; gap: 7px; padding: 2px 2px;
-  color: var(--ink-faint); font: 500 12.5px var(--body); }
+  color: var(--ink-faint); font: 500 var(--fs-1) var(--body); }
 .ip-loc.set { color: var(--ink-dim); }
 .ip-loc svg { width: 15px; height: 15px; flex: none; }
 .ip-loc.set svg { color: var(--blue); }
@@ -2008,7 +2008,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
    as a hole rather than as a short card. 18px separates blocks, 10px separates rows inside one. */
 .ip-emptyapp-brand { gap: 15px; padding-bottom: 18px; margin-bottom: 18px;
   border-bottom: 1px solid var(--glass-edge); }
-.ip-emptyapp-brand .login-sub { font-family: var(--body); font-size: 12.5px; font-weight: 600; color: var(--ink-dim); letter-spacing: 0; }
+.ip-emptyapp-brand .login-sub { font-family: var(--body); font-size: var(--fs-1); font-weight: 600; color: var(--ink-dim); letter-spacing: 0; }
 /* the card carries no <h1> since the «Kein offener Einsatz» dead-end was replaced by the
    launcher — the brand block IS the heading. The paragraph rule stays for FeedbackPrompt's copy. */
 .ip-emptyapp-card p { margin: 0 0 18px; max-width: 34ch; color: var(--ink-dim); font: 500 14.5px var(--body); line-height: 1.45; }
@@ -2035,14 +2035,14 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-launch > svg { width: 17px; height: 17px; flex: none; color: var(--ink-faint); }
 .ip-launch-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ip-launch-title { font: 600 15px var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ip-launch-sub { font: 500 12.5px var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ip-launch-sub { font: 500 var(--fs-1) var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Divera-alarm row: red kicker + pulse to read as the loud, fresh thing */
 .ip-launch.alarm { border-color: color-mix(in srgb, var(--red) 35%, var(--glass-edge)); }
 .ip-launch-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red); }
 .ip-launch-pulse { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
   background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
 .ip-launch-pulse svg { width: 16px; height: 16px; }
-.ip-launch-go { flex: none; font: 700 12.5px var(--body); color: var(--red); padding-left: 6px; }
+.ip-launch-go { flex: none; font: 700 var(--fs-1) var(--body); color: var(--red); padding-left: 6px; }
 /* the alarm card splits into take-button + pool-archive × (the intake sheet is gone),
    so the row drops its own padding/cursor onto the inner hit areas */
 .ip-launch.alarm { padding: 0; cursor: default; display: flex; align-items: stretch; gap: 0; }
@@ -2099,7 +2099,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .esh-kind { width: 100%; }
 .esh-kind .useg { display: flex; width: 100%; }
 .esh-kind .useg-btn { flex: 1 1 0; min-width: 0; min-height: var(--tap); padding: 6px 10px; }
-.esh-lede { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); }
+.esh-lede { margin: 0; font-size: var(--fs-1); line-height: 1.5; color: var(--ink-dim); }
 /* The window before the link's state is known. Deliberately the quietest thing this sheet can
    draw — the alternative was the whole «Link erstellen» block for a link that may already exist
    (see ShareIncident · pending), and a mis-tap there mints a second address. */
@@ -2120,7 +2120,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
   min-height: var(--tap); padding: 0 12px; border: none; cursor: pointer; text-align: left;
   border-radius: var(--r-ctl); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
 .esh-url code { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; font: 600 12.5px var(--mono); color: var(--ink); }
+  white-space: nowrap; font: 600 var(--fs-1) var(--mono); color: var(--ink); }
 .esh-url:active { background-image: linear-gradient(var(--press), var(--press)); }
 .esh-copy { flex: none; display: grid; place-items: center; color: var(--ink-faint); }
 .esh-copy .i { width: 16px; height: 16px; }

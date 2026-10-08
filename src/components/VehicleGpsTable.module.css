@@ -3,7 +3,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font: 500 12.5px var(--body);
+  font: 500 var(--fs-1) var(--body);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }

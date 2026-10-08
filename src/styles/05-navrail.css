@@ -53,7 +53,7 @@
 .nav-glyph .i { width: 22px; height: 22px; }
 .nav-glyph.mono { letter-spacing: -.02em; }
 /* combined-module fraction ("⅔"): a precomposed glyph sized to match a monogram's height */
-.nav-glyph.nav-frac { font-size: 24px; font-weight: 700; line-height: 1; }
+.nav-glyph.nav-frac { font-size: var(--fs-5); font-weight: 700; line-height: 1; }
 /* diagonal fallback (no precomposed glyph): compact, single-glyph footprint */
 .nav-glyph.nav-frac-diag { display: inline-flex; align-items: center; font-size: 15px; }
 .nav-frac-diag .nav-frac-n { font-size: .56em; align-self: flex-start; }
@@ -67,7 +67,7 @@
    rendering fault, not as a tight fit. A single digit sits at the inherited 15px; a two- or
    three-letter sub-slot acronym ("PV", "RWA") gets the room it needs by shrinking the text
    instead of the box, so every chip keeps the same footprint down the rail. */
-.nav-glyph.mono[data-mono-len="2"] .nav-mono-chip { font-size: 12.5px; }
+.nav-glyph.mono[data-mono-len="2"] .nav-mono-chip { font-size: var(--fs-1); }
 .nav-glyph.mono[data-mono-len="3"] .nav-mono-chip { font-size: 10.5px; padding: 1px 4px; letter-spacing: -.01em; }
 .nav-glyph.mono[data-mono-len="4"] .nav-mono-chip { font-size: 9px; padding: 1px 3px; letter-spacing: -.02em; }
 .nav-item.on .nav-mono-chip { border-color: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); }
@@ -154,7 +154,7 @@
    eats 4px of the 16, hence line-height 12px. */
 .nav-live.nav-count { top: 2px; right: 2px; width: auto; min-width: 16px; height: 16px; padding: 0 4px;
   box-sizing: border-box; border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
-  font: 800 11px var(--body); line-height: 12px; text-align: center; }
+  font: 800 var(--fs-micro) var(--body); line-height: 12px; text-align: center; }
 /* the Rapport's «noch offen» is the chip's AMBER (13-incident · .rp-state.warn): a warning,
    not an alarm (AGENTS.md · colour) */
 .nav-live.nav-count.nav-open { background: var(--amber); color: var(--on-fill); }
@@ -264,7 +264,7 @@ html.rail-dragging .layers-card { transition: none; }
 .lgroup { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
   padding: 14px 8px 6px; }
 /* the map's credits at the panel's foot – a footnote, not a control: the quietest text in the dock */
-.lc-credits { margin: 0; padding: 14px 8px 4px; font-size: 11px; line-height: 1.4; color: var(--ink-faint); }
+.lc-credits { margin: 0; padding: 14px 8px 4px; font-size: var(--fs-micro); line-height: 1.4; color: var(--ink-faint); }
 /* Basiskarte tiles — one row for a one-of-three choice. auto-fit so a deployment with a
    different number of bases still lays out; 70px is the floor a glyph + short name needs. */
 .lbases { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 6px; padding: 0 4px 2px; }
@@ -290,7 +290,7 @@ html.rail-dragging .layers-card { transition: none; }
 /* 12.5px — the tile is interactive, so its word sits on the interactive floor (AGENTS.md · 3am),
    not on the 11px the group heads use; it was 11 (22.09.2026). A long full name still ellipsises
    (the `title` keeps it), the short names the deployment ships fit whole. */
-.lbase-t { font-size: 12.5px; font-weight: 700; line-height: 1.15; text-align: left;
+.lbase-t { font-size: var(--fs-1); font-weight: 700; line-height: 1.15; text-align: left;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 /* clean list rows — transparent, no per-row box; visible vs hidden shown by the blue eye +
    opacity, with the dock's white hover highlight */
@@ -361,7 +361,7 @@ html.rail-dragging .layers-card { transition: none; }
    the height of a Modul row, the 20px icon of «Gebäude» / «Tafel» did not, so those two rows stood
    ~11px shorter in the same list. */
 .group-choose-glyph { width: 44px; min-width: 44px; height: 30px; display: grid; place-items: center;
-  font-size: 14px; font-weight: 800; color: var(--ink-dim); }
+  font-size: var(--fs-2); font-weight: 800; color: var(--ink-dim); }
 .group-choose-glyph .i { width: 20px; height: 20px; }
 /* The chip is what the rail tile wears on a wide screen (.nav-glyph.mono[data-mono-len], above),
    restated because this chip has no .nav-glyph around it: a fixed 30px HEIGHT, a 30px minimum
@@ -370,7 +370,7 @@ html.rail-dragging .layers-card { transition: none; }
    27px inner box, and the size that would fit – 8px – is no longer read. Widths: «PV» 30 ·
    «RWA» 40 · «WAS2» 41. */
 .group-choose-glyph .nav-mono-chip { min-width: 30px; height: 30px; min-height: 30px; padding: 0 5px; white-space: nowrap; }
-.group-choose-glyph .nav-mono-chip[data-mono-len="2"] { font-size: 12.5px; }
+.group-choose-glyph .nav-mono-chip[data-mono-len="2"] { font-size: var(--fs-1); }
 .group-choose-glyph .nav-mono-chip[data-mono-len="3"] { font-size: 10.5px; letter-spacing: -.01em; }
 .group-choose-glyph .nav-mono-chip[data-mono-len="4"] { font-size: 9px; letter-spacing: -.02em; }
 /* the live count a row carries — «12 anwesend», «3 offen», «5 Positionen». A read-out, so it is

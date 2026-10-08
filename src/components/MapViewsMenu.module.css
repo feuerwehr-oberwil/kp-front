@@ -51,7 +51,7 @@
 
 .ico { flex: none; display: grid; place-items: center; width: 22px; height: 22px; color: var(--ink-dim); transition: transform .15s ease; }
 .ico :global(.i) { width: 18px; height: 18px; }
-.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 14px; }
+.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: var(--fs-2); }
 
 /* A row that cannot be used right now stays visible and says why, instead of disappearing.
    Dimmed and inert, but readable — the whole point is that it can still be READ. */
@@ -80,7 +80,7 @@
 /* the ⓘ at the last row's end, while its sentence is open */
 .miniOn { color: var(--blue-strong); background: var(--sel-wash); }
 /* its sentence, under the row — the 8px inset the row labels carry (see .sep's note below) */
-.help { margin: 0 8px 6px; font-size: 12.5px; line-height: 1.4; opacity: .85; }
+.help { margin: 0 8px 6px; font-size: var(--fs-1); line-height: 1.4; opacity: .85; }
 
 .sep { height: 1px; background: var(--border-soft); margin: 5px 4px; }
 /* ⚠️ 8px, the same inset the row labels carry (.go/.north/.save) — and the same the inline
@@ -88,7 +88,7 @@
    popover sat at 10px and 2px, so one paragraph started six pixels right of the other. */
 
 .editing { padding: 0 8px; gap: 10px; }
-.input { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 8px; font: inherit; font-size: 14px;
+.input { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 8px; font: inherit; font-size: var(--fs-2);
   color: var(--ink); background: var(--surface);
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); outline: none; }
 .input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
