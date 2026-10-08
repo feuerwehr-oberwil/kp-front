@@ -173,6 +173,107 @@ def _atemschutz_message(alert: dict[str, Any]) -> tuple[str, str]:
     return "Atemschutz überfällig", f"Trupp {alert['name']} überfällig – Kontakt herstellen."
 
 
+def notfall_changes(previous: object, current: object) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The Atemschutznotfälle a save RAISED and ENDED — ``previous``/``current`` are the stored and
+    the saved ``trupps`` lists (F1, 08.10.2026).
+
+    Raised = a Trupp under Atemschutz on the board whose ``notfallAt`` is set now and was not set
+    to that same moment before (a re-save of a running Notfall raises nothing). Ended = one whose
+    ``notfallAt`` was set and is gone, the card still on the board. Each carries the alert shape
+    ``due_trupps`` produces, so both paths key their crossing identically (``_notfall_key``).
+    """
+
+    def by_id(rows: object) -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for t in rows if isinstance(rows, list) else []:
+            if isinstance(t, dict) and isinstance(t.get("id"), str):
+                out[t["id"]] = t
+        return out
+
+    before, after = by_id(previous), by_id(current)
+    raised: list[dict[str, Any]] = []
+    ended: list[dict[str, Any]] = []
+    for tid, t in after.items():
+        if (t.get("kind") or "atemschutz") != "atemschutz" or t.get("removedAt"):
+            continue
+        at = _ms(t.get("notfallAt"))
+        was = before.get(tid, {}).get("notfallAt")
+        if at and t.get("notfallAt") != was:
+            raised.append({"id": tid, "name": t.get("name") or "Trupp", "since": at, "reason": "notfall"})
+        elif not at and _ms(was):
+            ended.append({"id": tid, "name": t.get("name") or "Trupp", "since": _ms(was), "reason": "notfall"})
+    return raised, ended
+
+
+def _notfall_key(incident_id: object, alert: dict[str, Any]) -> str:
+    """The sweep's crossing key for a Notfall (``check_and_push``) — shared, so the immediate push
+    on the save and the 30 s sweep after it never both announce the same Notfall."""
+    return f"az:{incident_id}:{alert['id']}:{alert['since']}:{alert['reason']}"
+
+
+async def notify_notfall_changes(db: AsyncSession, inc: Incident, previous: object, current: object) -> int:
+    """Push a raised (and an ended) Atemschutznotfall the moment its save commits (F1).
+
+    The sweep (``check_and_push``) re-derives every Notfall from the stored blob within 30 s —
+    that stays the fallback (a failed send, a restart, a device that subscribed late). This is the
+    fast path: a Notfall is the one alarm where 30 s matter. ⚠️ Deduplicated with the sweep by the
+    SAME crossing key, claimed here before the send (``_should_send``): the sweep then finds it
+    notified and only renotifies on its usual cadence. In-memory like the sweep's ledger, so a
+    second replica could announce it once more — the safe direction. Not for an Übung or the demo
+    (the sweep skips both too). Returns the pushes queued.
+    """
+    raised, ended = notfall_changes(previous, current)
+    if not (raised or ended) or not push_enabled() or inc.is_exercise:
+        return 0
+    from .alarms import is_demo_deployment
+
+    if await is_demo_deployment(db):
+        return 0
+    factory = async_sessionmaker(db.bind, class_=AsyncSession, expire_on_commit=False, autoflush=False)
+    # title, body, Trupp id, the crossing key it claims, and whether that key is the sweep's
+    sends: list[tuple[str, str, str, str, bool]] = []
+    for alert in raised:
+        title, body = _atemschutz_message(alert)
+        sends.append((title, body, alert["id"], _notfall_key(inc.id, alert), True))
+    for alert in ended:
+        # once per Notfall: the end of THIS trigger, never again for a re-save
+        sends.append(
+            (
+                f"Notfall beendet – {alert['name']}",
+                "Atemschutz-Notfall beendet.",
+                alert["id"],
+                f"az-end:{inc.id}:{alert['id']}:{alert['since']}",
+                False,
+            )
+        )
+
+    def schedule() -> None:
+        # claimed AFTER the commit: a save that rolled back raised nothing, and must not leave a
+        # claimed key behind that would keep the sweep quiet about a later, real one
+        now_ms = datetime.now(UTC).timestamp() * 1000
+        for title, body, trupp_id, key, swept in sends:
+            if not _should_send(key, now_ms):
+                continue
+            task = asyncio.create_task(
+                _broadcast_committed(
+                    factory,
+                    title=title,
+                    body=body,
+                    # the same tray entry as the alarm, so «beendet» replaces «Notfall»
+                    tag=f"atemschutz-{trupp_id}",
+                    target=f"atemschutz:{trupp_id}",
+                    # the sweep's ledger only for the sweep's key: an undelivered «Notfall» is
+                    # retried by the next sweep, an «beendet» has no sweep behind it
+                    dedup_key=key if swept else None,
+                )
+            )
+            _inflight.add(task)
+            task.add_done_callback(_inflight.discard)
+
+    after_commit(db, schedule)
+    return len(sends)
+
+
 def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> list[dict[str, Any]]:
     """Open, due Wiedervorlagen folded from journal rows (created/snoozed/done lifecycle);
     reminders due before the Einsatzende are expired by closure (mirrors deriveReminders)."""
@@ -542,6 +643,7 @@ async def _broadcast_committed(
     tag: str,
     target: str | None,
     audience: Callable[[AsyncSession], Awaitable[Collection[uuid.UUID]]] | None = None,
+    dedup_key: str | None = None,
 ) -> None:
     """Best-effort post-commit delivery with independent dead-endpoint pruning.
 
@@ -557,6 +659,9 @@ async def _broadcast_committed(
                 await broadcast(
                     send_db, title=title, body=body, tag=tag, target=target, user_ids=await audience(send_db)
                 )
+            elif dedup_key is not None:
+                # the sweep's crossing key, where the caller has one (an Atemschutznotfall)
+                await broadcast(send_db, title=title, body=body, tag=tag, target=target, dedup_key=dedup_key)
             else:
                 await broadcast(send_db, title=title, body=body, tag=tag, target=target)
             await send_db.commit()
@@ -671,6 +776,7 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
         ws = inc.map_workspace_json
         ws = ws if isinstance(ws, dict) else {}
         for t in due_trupps(ws, doctrine, now_ms):
+            # a Notfall's key is shared with the immediate push on its save (notify_notfall_changes)
             crossing = t.get("pressureAt") if t["reason"] == "pressure" else t["since"]
             key = f"az:{inc.id}:{t['id']}:{crossing}:{t['reason']}"
             if _should_send(key, now_ms):

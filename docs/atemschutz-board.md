@@ -173,7 +173,11 @@ reworded.
   in the field or not (a crew reported out on an older build keeps it until «beendet»). The tone,
   the OS notification, the TopBar chip («Notfall · name» and the Notfall clock), the hose tone,
   `MELDUNG_RANK.notfall = 0` (above the überfällig row and a dispatch) and the server push sweep
-  (`push.py · due_trupps`, keyed on the trigger, ≤ 30 s) all read it. The überfällig/Alarmdruck
+  (`push.py · due_trupps`, keyed on the trigger) all read it. The Web Push leaves the moment the
+  save commits (`push.py · notify_notfall_changes`, from `apply_workspace_put` — every save path),
+  claiming the SAME crossing key the 30 s sweep uses, so the sweep is the fallback and never a
+  second push; «Notfall beendet» is pushed once into the same tray entry. Not for an Übung or the
+  demo. The überfällig/Alarmdruck
   row never names a Trupp in a Notfall (one emergency, one row). A NEW Notfall re-arms a bell
   muted earlier in the Einsatz (`useAtemschutzMute · arm`).
 - *On the Tafel* the strip's row steps aside for a sticky banner at the top of every board:

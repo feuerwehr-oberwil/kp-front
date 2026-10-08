@@ -789,3 +789,110 @@ def test_gen_vapid_emits_a_matching_urlsafe_pair():
     key = ec.derive_private_key(int.from_bytes(raw_priv, "big"), ec.SECP256R1())
     derived = key.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
     assert derived == raw_pub
+
+
+class TestNotfallOnSave:
+    """The Atemschutznotfall is pushed the moment its save commits (F1, 08.10.2026) — the 30 s
+    sweep stays the fallback and shares its crossing key, so a device never gets it twice."""
+
+    def test_changes_name_what_a_save_raised_and_ended(self):
+        from app.push import notfall_changes
+
+        n = "2026-07-02T14:08:00Z"
+        before = [trupp("a", None), trupp("b", None, notfallAt=n), trupp("c", None, notfallAt=n)]
+        after = [
+            trupp("a", None, notfallAt=n),  # raised
+            trupp("b", None),  # ended
+            trupp("c", None, notfallAt=n),  # running — a re-save raises nothing
+            trupp("d", None, notfallAt=n, kind="einfach"),  # never for a work squad
+            trupp("e", None, notfallAt=n, removedAt=n),  # nor for a card off the board
+        ]
+        raised, ended = notfall_changes(before, after)
+        assert [a["id"] for a in raised] == ["a"]
+        assert raised[0] == {
+            "id": "a",
+            "name": "Trupp a",
+            "since": ms("2026-07-02T14:08:00+00:00"),
+            "reason": "notfall",
+        }
+        assert [a["id"] for a in ended] == ["b"]
+        assert notfall_changes(None, "garbage") == ([], [])
+
+    async def test_a_saved_notfall_is_pushed_at_once_and_the_sweep_does_not_repeat_it(
+        self, client, editor, db_session, monkeypatch
+    ):
+        import asyncio
+
+        import app.push as push_mod
+
+        push_mod._notified.clear()
+        monkeypatch.setattr(push_mod, "push_enabled", lambda: True)
+        sent: list[dict] = []
+
+        async def fake_committed(_factory, **kw):
+            sent.append(kw)
+
+        monkeypatch.setattr(push_mod, "_broadcast_committed", fake_committed)
+
+        async def settle():
+            await asyncio.gather(*list(push_mod._inflight))
+
+        r = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+        assert r.status_code == 200
+        inc = (await client.post("/api/incidents", json={"title": "Notfall"})).json()["id"]
+        base = {"id": "tr1", "name": "Keller Anna", "status": "aktiv", "entryTime": "2026-07-02T14:00:00Z"}
+
+        async def save(t: dict) -> None:
+            rev = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace_rev"]
+            r = await client.put(f"/api/incidents/{inc}/workspace/trupps", json={"trupps": [t], "base_rev": rev})
+            assert r.status_code == 200, r.text
+            await settle()
+
+        await save(base)
+        assert sent == []  # no Notfall, no push
+        await save({**base, "notfallAt": "2026-07-02T14:08:00Z"})
+        assert len(sent) == 1
+        assert sent[0]["title"] == "Atemschutz-Notfall – Keller Anna"
+        assert sent[0]["target"] == "atemschutz:tr1"
+        assert sent[0]["dedup_key"] == f"az:{inc}:tr1:{ms('2026-07-02T14:08:00+00:00')}:notfall"
+        # a re-save of the running Notfall (a Kontakt) pushes nothing more…
+        await save({**base, "notfallAt": "2026-07-02T14:08:00Z", "lastContactTime": "2026-07-02T14:09:00Z"})
+        assert len(sent) == 1
+
+        # …and the sweep finds it already announced
+        swept: list[dict] = []
+
+        async def fake_broadcast(_db, **kw):
+            swept.append(kw)
+            return 1
+
+        monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+        await push_mod.check_and_push(db_session)
+        assert swept == []
+
+        # «Notfall beendet» once, replacing the tray entry, with no sweep ledger behind it
+        await save(base)
+        assert len(sent) == 2
+        assert sent[1]["title"] == "Notfall beendet – Keller Anna"
+        assert sent[1]["tag"] == "atemschutz-tr1"
+        assert sent[1]["dedup_key"] is None
+        await save(base)
+        assert len(sent) == 2
+
+    async def test_an_uebung_is_not_pushed_on_save_either(self, client, editor, monkeypatch):
+        import app.push as push_mod
+
+        push_mod._notified.clear()
+        monkeypatch.setattr(push_mod, "push_enabled", lambda: True)
+        sent: list[dict] = []
+
+        async def fake_committed(_factory, **kw):
+            sent.append(kw)
+
+        monkeypatch.setattr(push_mod, "_broadcast_committed", fake_committed)
+        await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+        inc = (await client.post("/api/incidents", json={"title": "Übung", "is_exercise": True})).json()["id"]
+        t = {"id": "tr1", "name": "Keller Anna", "status": "aktiv", "notfallAt": "2026-07-02T14:08:00Z"}
+        r = await client.put(f"/api/incidents/{inc}/workspace/trupps", json={"trupps": [t], "base_rev": 0})
+        assert r.status_code == 200, r.text
+        assert sent == []
