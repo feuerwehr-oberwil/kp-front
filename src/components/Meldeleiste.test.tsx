@@ -186,6 +186,19 @@ describe('the pages stand below the strip', () => {
   })
 })
 
+/* p8 (08.10.2026): on a phone, four rows ran the strip under the Eintrag FAB and «Jetzt
+ * aktualisieren» lay half under the circle. The strip's foot is THE message lane's baseline
+ * (15-mobile · --msg-lane-bottom = the floating row + its gap above the highest bar), never a guess. */
+describe('the phone strip ends above the floating row', () => {
+  const css = readFileSync(`${process.cwd()}/src/styles/08-toasts.css`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  it('caps its height at the message lane, so it never reaches the FAB or a bar', () => {
+    const phone = css.slice(css.indexOf('@media (--phone)', css.indexOf(':root:has(.as-link-shell) .ml')))
+    const rule = /(?:^|[\s}])\.ml\s*\{([^}]*)\}/.exec(phone)?.[1] ?? ''
+    expect(rule).toMatch(/top:\s*calc\(72px \+ env\(safe-area-inset-top\)\)/)
+    expect(rule).toMatch(/max-height:\s*calc\(100dvh - 72px - env\(safe-area-inset-top\) - var\(--msg-lane-bottom\)\)/)
+  })
+})
+
 /* staging r5 N3: at 820 the alarm row lay over the open Einsatz menu's card — a tap on the card
  * landed on «Zum Trupp». `.app` is position:fixed, so it is its own stacking context, and a strip
  * beside it at App root outranked everything in it, the top bar's menus included. The strip paints
