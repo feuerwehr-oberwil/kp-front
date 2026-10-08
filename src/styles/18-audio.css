@@ -588,6 +588,8 @@
    base size and dwarfs the rest of the block (Feldtest Manuel, 08.09.). */
 .un-erg-rings { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: var(--sp-2); font-size: var(--fs-2); }
 .un-erg-rings .un-haz-k { flex: 1 1 auto; }
+/* the day/night reason under the ring label («Nacht · Sonnenuntergang 16:42») */
+.un-erg-day { display: block; font-size: var(--fs-micro); color: var(--ink-dim); }
 /* «Absperrkreis übernehmen» beside a distance value (23.09.2026): its own 44px square with the
    Absperrkreis tool's ⊙, the house button (outline, `--r-sm`, never filled) — the value stays
    the loudest thing in the row. It was a 12px underlined «Übernehmen» the row squeezed around.

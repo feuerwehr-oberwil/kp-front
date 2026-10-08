@@ -10,7 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { allStoffNames, decodeKemler, lookupUN, lookupUNByName, type UnHazardEntry } from '../lib/unHazard'
 import { ergVersionLabel, lookupErg, type ErgEntry } from '../lib/erg'
 import { useHazardData } from '../lib/useHazardData'
-import { DEFAULT_ERG_RING_MODE, parseErgDistance } from '../lib/ergRings'
+import { DEFAULT_ERG_RING_MODE, ergDayNote, parseErgDistance } from '../lib/ergRings'
 import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
@@ -155,6 +155,10 @@ export interface ContextPanelProps {
    *  Aus / Klein / Gross. Wired only on the Karte (the Plan has no metric scale), and the
    *  control only renders where the UN number actually resolves to TIH distances. */
   onErgRings?: (mode: 'off' | 'small' | 'large') => void
+  /** where the rings stand ([lng, lat], the placard's coord): the sun there decides whether the
+   *  ring uses the day or the night distance, and the control names the reason
+   *  (lib/ergRings · ergDayNote). Absent → the national fallback coordinate. */
+  ergCoord?: [number, number]
   /** «Übernehmen» on an ERG distance row (Feldtest 07.09.): turn that distance into a REAL
    *  Absperrkreis drawing around this symbol — editable, printable, synced — instead of the
    *  derived preview ring. Karte-only, like the rings. */
@@ -297,7 +301,7 @@ function LinkBtn({ onClick, text, name }: { onClick: () => void; text: string; n
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, projectionPlan, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, projectionPlan, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, ergCoord, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -1167,7 +1171,12 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                       wind decide. The ergSource caveat above is the ring's caveat too. */}
                   {onErgRings && !!erg.tih?.length && (
                     <div className="un-erg-rings">
-                      <span className="un-haz-k">{C.ergRingsLabel}</span>
+                      {/* …and which distance the ring draws, with the sun's reason: «Nacht ·
+                          Sonnenuntergang 16:42» (B1, 08.10.2026 — it was a silent 07–19 h clock) */}
+                      <span className="un-haz-k">
+                        {C.ergRingsLabel}
+                        <span className="un-erg-day">{ergDayNote(new Date(), ergCoord)}</span>
+                      </span>
                       <Segmented
                         ariaLabel={C.ergRingsLabel}
                         value={entity.ergRings ?? DEFAULT_ERG_RING_MODE}

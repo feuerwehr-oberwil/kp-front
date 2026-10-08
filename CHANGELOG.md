@@ -294,6 +294,11 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **The ERG Schutzabstand ring follows the sun, not a 07–19 h clock.** The protective ring
+  around a Gefahrentafel picked the day or night distance by the hour, so a December evening at
+  17:30 drew the day ring and a June evening at 20:30 the night ring. It now asks the sun at the
+  placard (the same model as the automatic night theme), and the ring control says why:
+  «Nacht · Sonnenuntergang 16:42».
 - **The picked checklist survives a tab change.** The Checkliste surface fell back to the first
   list (on a phone, to the chooser) every time another tab was shown. The pick is now kept per
   Einsatz for the browser session, and survives a reload too.
