@@ -196,7 +196,7 @@
     width: auto; min-width: 50px; padding: 0 7px; height: auto; min-height: 46px; }
   :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-glyph { height: 22px; }
   :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-label {
-    display: block; font-size: 9.5px; overflow: visible; text-overflow: clip; }
+    display: block; font-size: var(--fs-micro); overflow: visible; text-overflow: clip; }
   :is(.tool-rail, .wb-tools) .vrail-sep { width: 1px; height: 26px; margin: 0 4px; flex: none; }
 
   /* ── The phone bar holds FIVE tiles, not ten (18.09.2026, lib/toolFold) ── Auswahl · «+
@@ -649,20 +649,22 @@
      surface respects, on the bar that is pressed most. */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-item {
     width: auto; min-width: 50px; padding: 0 7px; height: auto; min-height: 46px; }
-  /* …and the folded bar shares its width in this mode too. Measured at 360px: «Checkliste», the
-     longest of the five words, is ~55px of Sora at 9.5px and each tile's equal share is ~65px, so
-     nothing truncates and the scroll the rule above kept for this variant finds nothing to do. */
+  /* …and the folded bar shares its width in this mode too. Measured at 390px (08.10.2026): «Checkliste»,
+     the longest of the five words, is 66px of Sora at 11px with its 2px of air a side and each tile's
+     equal share is ~70px, so nothing truncates and the scroll the rule above kept for this variant
+     finds nothing to do. Narrower phones close up the words instead (the max-width: 389px block at
+     the end of this file). */
   .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-item { flex: 1 1 0; min-width: 44px; padding: 0; }
   .navrail.labelled:not(.expanded):not(.dragging) .nav-glyph { height: 22px; }
   /* …and the same two corrections the desktop rule makes, one size smaller (see 05-navrail.css) */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-mono-chip { min-width: 22px; min-height: 22px; font-size: var(--fs-micro); }
   .navrail.labelled:not(.expanded):not(.dragging) .nav-live { top: -2px; right: -4px; }
-  /* ⚠️ 9.5px — a point below the desktop's 10.5 and well below the 12.5px interactive floor. Same
-     reason as there (it is a legend under the glyph, and the 46px button is the target), plus the
-     phone's own: these bars scroll sideways, and every pixel a word does not need is one more item
-     visible without scrolling. */
+  /* ⚠️ --fs-micro (11px, 9.5 until 08.10.2026) — below the 12.5px interactive floor, the same as the
+     desktop's and for the same reason: it is a legend under the glyph, and the 46px button is the
+     target. 11 is the scale's step for words that are read; the narrow phones make room for it by
+     closing up the words (the max-width: 389px block at the end of this file), not by a smaller size. */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-label {
-    font-size: 9.5px; overflow: visible; text-overflow: clip; }
+    font-size: var(--fs-micro); overflow: visible; text-overflow: clip; }
   /* ⚠️ …but on the FOLDED bars a word never spills past its own tile (03.10.2026): every tile is
      one equal share, so a word longer than its share (a translation, an armed tool's name on the
      «+» tile, the narrowest phone) ends in «…» inside it, the same way on every tile — never
@@ -1251,12 +1253,15 @@
   .topbar .tb-act-history { display: none; }
 }
 
-/* The narrowest phones' tool bar words (29.09.2026). At 360px the Karte's bar is SIX tiles of 52px
-   (Suche joined it 26.09.), where «Hinzufügen» at 9.5px is 59px and ran into «Auswahl» and
-   «Messen». Since the words are on by default on a phone (lib/prefs · railLabelsFor), these set
-   them a half-point tighter — measured: 54px, a hair over the tile, clear of both neighbours'
-   words. Its own block at the end, not nested in the phone gate: Sheet.test pins that gate as the
-   nearest @media above the sheet foot's rule. */
-@media (max-width: 374px) {
-  :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-label { font-size: 9px; letter-spacing: -.02em; }
+/* The narrower phones' bar words (29.09.2026; on the type scale since 08.10.2026). The words are on
+   by default on a phone (lib/prefs · railLabelsFor), at --fs-micro, and below 390px the five equal
+   tiles leave a word 64px: «Hinzufügen» (70) and «Checkliste» (66) ended in «…». They do not get a
+   size under the scale's floor (they were 9 and 9.5px here); they give up their 2px of air and close
+   up a little instead — measured at 360 and 375px: «Hinzufügen» 63px, «Checkliste» 59, whole, and
+   clear of both neighbours' words. (At 320px those two still ellipsise, inside their own tile.)
+   Its own block at the end, not nested in the phone gate: Sheet.test pins that gate as the nearest
+   @media above the sheet foot's rule. */
+@media (max-width: 389px) {
+  :is(.tool-rail, .wb-tools).folded.labelled:not(.expanded):not(.dragging) .vrail-label,
+  .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-label { padding: 0; letter-spacing: -.03em; }
 }

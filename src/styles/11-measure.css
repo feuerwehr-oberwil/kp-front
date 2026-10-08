@@ -18,7 +18,7 @@
 .line-end-tag-wrap.sel .line-end-tag { box-shadow: 0 0 0 2.5px var(--blue); }
 /* inline letter marker on an annotated line (e.g. R on a Rettungsachse) — replaces the
    removed MapLibre text-field symbol layer (which needed a glyphs font source) */
-.draw-marker { font: var(--fw-heavy) 13px/1 var(--mono); letter-spacing: .02em; pointer-events: none;
+.draw-marker { font: var(--fw-heavy) var(--fs-2)/1 var(--mono); letter-spacing: .02em; pointer-events: none;
   text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff, 0 0 3px #fff; }
 /* lock chip on a locked drawing — the only tap target on a click-through locked shape */
 .draw-lock-chip { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
@@ -159,7 +159,7 @@
 .draw-editor .de-measure-v {
   flex: none; padding: 4px 10px; border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--ink) 7%, transparent);
-  font: var(--fw-bold) 13.5px var(--mono); color: var(--ink); letter-spacing: -.2px;
+  font: var(--fw-bold) var(--fs-2) var(--mono); color: var(--ink); letter-spacing: -.2px;
 }
 /* the Höhenprofil discloser keeps the rows' rhythm — same label colour and left edge — and gains
    a real hover/expanded state so it reads as something you can open */
@@ -180,7 +180,7 @@
 .draw-editor .de-group-toggle .de-conn-title { padding: 0; color: inherit; }
 /* …and the ▾ flip is the app-wide `.chev` (02-base.css), off this button's aria-expanded */
 .draw-editor .de-prof-toggle .i { width: 16px; height: 16px; }
-.draw-editor .de-prof-msg { padding: 10px 0; font-size: 12px; color: var(--ink-faint); text-align: center; }
+.draw-editor .de-prof-msg { padding: 10px 0; font-size: var(--fs-1); color: var(--ink-faint); text-align: center; }
 
 /* Verbindungen — reuses the editor's own .de-row / .de-preset rows verbatim so it reads as one more
    FKS group, not a separate widget. Only the target value, the note line and the detach get styling. */
@@ -189,13 +189,13 @@
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
 .draw-editor .de-conn-name { display: inline-flex; align-items: center; gap: 3px; max-width: 60%; padding: 0; border: 0;
-  background: none; color: var(--ink); font-size: 13px; font-weight: 600; }
+  background: none; color: var(--ink); font-size: var(--fs-2); font-weight: var(--fw-medium); }
 .draw-editor .de-conn-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the ONE disabled (28.09.2026): the dim, not a colour swap */
 .draw-editor .de-conn-name:disabled { opacity: var(--disabled); cursor: default; }
 .draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: var(--fs-3); line-height: 1; }
-.draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 6px; font-size: 12px; color: var(--ink-dim); }
-.draw-editor .de-conn-note.warn { color: var(--red); font-weight: 600; }
+.draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 6px; font-size: var(--fs-1); color: var(--ink-dim); }
+.draw-editor .de-conn-note.warn { color: var(--red); font-weight: var(--fw-bold); }
 /* ⚠️ a framed compact button at the note's end (28.09.2026, owner pick A) — it was an underlined
    blue word, 12px, a hyperlink in a command app */
 .draw-editor .de-conn-reveal { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px;
@@ -206,7 +206,7 @@
 /* also a row: the 28px height and the 2px/4px margins made the last line of the panel sit tighter
    than everything above it, and its text started 4px in from the left edge the labels hold. */
 .draw-editor .de-conn-detach { display: inline-flex; align-items: center; margin: 0; min-height: 48px; padding: 2px 0;
-  border: 0; background: transparent; color: var(--red); font-size: var(--fs-1); font-weight: 600; }
+  border: 0; background: transparent; color: var(--red); font-size: var(--fs-1); font-weight: var(--fw-bold); }
 @media (hover: hover) {
   .draw-editor .de-conn-detach:hover { text-decoration: underline; }
 }
@@ -217,7 +217,7 @@
 .draw-editor .de-gps { padding: 6px 0 8px; }
 .draw-editor .de-gps-head { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 4px 0; }
 .draw-editor .de-gps-head .i { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--amber-strong); }
-.draw-editor .de-gps-head b { display: block; font-size: 13.5px; font-weight: var(--fw-bold); color: var(--ink); line-height: 1.3; }
+.draw-editor .de-gps-head b { display: block; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); line-height: 1.3; }
 .draw-editor .de-gps-head span { display: block; margin-top: 2px; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .draw-editor .de-gps-back { display: flex; width: 100%; align-items: center; justify-content: center; min-height: 48px;
   margin-top: 6px; padding: 0 12px; border: 1px solid var(--green); border-radius: var(--r-sm);
@@ -253,13 +253,13 @@
    (a native <select> dropped macOS chrome into the middle of the panel) */
 .draw-editor .de-menu-trigger { display: inline-flex; align-items: center; gap: 6px; min-width: 0; min-height: 38px;
   padding: 8px 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
-  color: var(--ink); font: var(--fw-bold) 13px/1.2 var(--body); cursor: pointer; }
+  color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body); cursor: pointer; }
 .draw-editor .de-menu-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .draw-editor .de-menu-trigger svg { width: 14px; height: 14px; flex: none; opacity: .65; }
 /* the Trupp that laid this Leitung and is already out — same dim + strike as its map marker
    (.team-dot.raus), so «wer war hier» stays readable without reading as «wer ist hier» */
 .draw-editor .de-menu-trigger .de-trupp-out { color: var(--ink-dim); text-decoration: line-through; }
-.draw-editor .de-menu-trigger .de-trupp-outnote { flex: none; color: var(--ink-dim); font: 600 11.5px/1 var(--body); font-style: normal; }
+.draw-editor .de-menu-trigger .de-trupp-outnote { flex: none; color: var(--ink-dim); font: var(--fw-medium) var(--fs-micro)/1 var(--body); font-style: normal; }
 .draw-editor .de-menu-trigger[data-popup-open] { border-color: var(--ink-dim); }
 @media (hover: hover) {
   .draw-editor .de-menu-trigger:hover { border-color: var(--ink-dim); }
@@ -271,7 +271,7 @@
   box-shadow: var(--e4); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — radius + hover/press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .de-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
-  padding: 0 11px; cursor: pointer; font: 600 13.5px var(--body); color: var(--ink); outline: none; }
+  padding: 0 11px; cursor: pointer; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); outline: none; }
 /* the tick marks the current pick; the empty slot keeps every label on the same left edge */
 .de-menu-tick { flex: none; width: 15px; height: 15px; visibility: hidden; color: var(--blue); }
 .de-menu-tick.on { visibility: visible; }
@@ -341,7 +341,7 @@ body[data-sel-arm="rotate"] .wb-canvas {
    ⚠️ NOT «Löschen» (02.09.) — deleting belongs in the object's own editor sheet and on the Delete
    key, not on chrome sitting two taps from every grip. */
 .sel-bar-done { height: 44px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+  background: var(--surface); color: var(--ink); font-size: var(--fs-2); font-weight: var(--fw-bold); cursor: pointer; white-space: nowrap; }
 @media (hover: hover) {
   .sel-bar-done:hover { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); }
 }
@@ -388,7 +388,7 @@ body.sel-transforming .wb-grow { display: none; }
   width: min(30ch, calc(100% - 32px)); padding: 18px 20px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-surface);
   box-shadow: var(--e4); animation: pop .3s var(--ease); }
-.map-gl-lost-title { font-size: var(--fs-2); font-weight: 650; color: var(--ink); }
+.map-gl-lost-title { font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
 .map-gl-lost-hint { margin: 0; font-size: var(--fs-1); line-height: 1.45; color: var(--ink-dim); }
 
 /* marquee selection rectangle (Select tool drag) */
@@ -406,7 +406,7 @@ body.sel-transforming .wb-grow { display: none; }
    stands HERE instead: fixed top-centre, where nothing moves while it changes. Same reasoning
    as the offset .node-del chip above and the georef corner loupe. Display-only. */
 /* ⚠️ Two spacing details, both from the mono face and both worth a line each:
-   `15px/1` — the shorthand without a line-height takes the FACE's `normal` leading, which on a
+   `16px/1` (--fs-3, 15px until 08.10.2026) — the shorthand without a line-height takes the FACE's `normal` leading, which on a
    monospace is generous enough that the pill grew ~6px taller than its own text and the number
    sat visibly high in it. And `word-spacing` — a mono space is a full character wide, so
    «282 m» carried a gap as wide as the «2» beside it and read as two separate readings. The
@@ -415,7 +415,7 @@ body.sel-transforming .wb-grow { display: none; }
 .measure-readout { position: absolute; top: calc(14px + env(safe-area-inset-top)); left: 50%; translate: -50% 0;
   z-index: var(--z-map-util); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--e4);
-  padding: 10px 15px; font: var(--fw-bold) 15px/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
+  padding: 10px 15px; font: var(--fw-bold) var(--fs-3)/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
   word-spacing: -.3ch; pointer-events: none; white-space: nowrap; }
 /* below 860px the TopBar spans the full width (see MapUtility · .toputil) — drop under it.
    ⚠️ 76px, not the 66px it sat at until 05.09.: the bar is ~58px under a 10px offset, so 66

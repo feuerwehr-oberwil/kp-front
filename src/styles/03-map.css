@@ -1,6 +1,6 @@
 /* map */
 #map { position: absolute; inset: 0; background: var(--map-bg); }
-.maplibregl-ctrl-attrib { font-size: 9px !important; }
+.maplibregl-ctrl-attrib { font-size: var(--fs-micro) !important; }
 /* The Lage map's twin of the plan canvas's tool cursors (.wb-canvas.tool-* below). `.placing`
    alone only covered a symbol/shape already picked from the palette — arming Linie, Fläche,
    Messen, Notiz or Trupp left the plain grab hand, so an armed tool was indistinguishable from
@@ -143,7 +143,7 @@
 .sym-caption { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 3px; z-index: 6;
   display: flex; flex-direction: column; align-items: center; gap: 1px; max-width: 132px;
   padding: 1px 6px; border-radius: var(--r-xs); background: var(--surface); color: var(--ink);
-  font-size: 11.5px; font-weight: var(--fw-bold); line-height: 1.25; text-align: center;
+  font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.25; text-align: center;
   hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word;
   box-shadow: 0 1px 4px rgba(0, 0, 0, .25); pointer-events: none; }
 .sym-caption > span { max-width: 120px; }

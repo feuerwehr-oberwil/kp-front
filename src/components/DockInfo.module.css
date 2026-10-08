@@ -32,7 +32,7 @@
      with its own corner and its own type */
   display: flex; align-items: center; min-height: var(--float-h); padding: var(--msg-pad) var(--float-pad-x);
   background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none; border-radius: var(--r-sm);
-  box-shadow: var(--float-edge); font: 600 13px/1.35 var(--body); text-align: left; }
+  box-shadow: var(--float-edge); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); text-align: left; }
 /* phones: clear ALL THREE bottom bars (nav + tool bar + the horizontal tool-option dock) so the
    hint sits above the dock, not under it — rail-h*3 (was *2, which collided with the dock) */
 @media (--phone) {

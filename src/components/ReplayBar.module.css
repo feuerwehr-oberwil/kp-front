@@ -15,10 +15,10 @@
   display: flex; align-items: center; gap: 9px; padding: 9px 14px;
   /* neutral, not amber: «du schaust in die Vergangenheit» is a mode, not a warning. It sat in
      the same colour as an Atemschutz-Warnung and competed with it for the same glance. */
-  background: var(--ink-fill); color: var(--on-accent-ink); font-size: 12px;
+  background: var(--ink-fill); color: var(--on-accent-ink); font-size: var(--fs-1);
 }
 .replay-banner b { font-weight: var(--fw-heavy); letter-spacing: .04em; }
-.replay-sub { font-weight: 600; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.replay-sub { font-weight: var(--fw-medium); opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* A still dot, deliberately. It carried `animation: recPulse` for months without ever pulsing —
    a module localizes the name, so the global keyframes were never reached — and nobody missed it:
    the banner already says in words that this is the past. A pulse belongs on the composer's REC
@@ -32,13 +32,13 @@
 }
 @media (hover: hover) { .replay-exit:hover { background: rgba(255, 255, 255, .34); } }
 .replay-exit:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.replay-empty { padding: 12px 14px; font-size: var(--fs-1); color: var(--ink-dim); font-weight: 600; }
+.replay-empty { padding: 12px 14px; font-size: var(--fs-1); color: var(--ink-dim); font-weight: var(--fw-medium); }
 .replay-controls { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
 .replay-transport { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .replay-play {
   flex: none; width: 38px; height: 38px; border-radius: var(--r-sm); border: none; cursor: pointer;
   /* THE primary of the bar (28.09.2026) — --ink-fill directly had no edge on the night sheet */
-  background: var(--btn-primary); color: var(--on-btn-primary); display: grid; place-items: center; font-size: 15px;
+  background: var(--btn-primary); color: var(--on-btn-primary); display: grid; place-items: center; font-size: var(--fs-3);
 }
 @media (hover: hover) { .replay-play:hover { background: var(--btn-primary-hover); } }
 .replay-play:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -54,7 +54,7 @@
 .replay-scrub { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-top: 20px; position: relative; }
 /* current time rides above the handle as a bubble — never crowds the track or labels */
 .replay-time { position: absolute; top: 0; transform: translateX(-50%); font-family: var(--mono);
-  font-size: 12px; font-weight: var(--fw-bold); color: var(--on-accent-ink); background: var(--ink-fill); padding: 1px 7px; border-radius: var(--r-xs);
+  font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--on-accent-ink); background: var(--ink-fill); padding: 1px 7px; border-radius: var(--r-xs);
   white-space: nowrap; pointer-events: none; }
 .replay-time::after { content: ''; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%);
   border: 4px solid transparent; border-top-color: var(--ink-fill); border-bottom: none; }
@@ -111,7 +111,7 @@
 .replay-jr-on { opacity: 1; width: 4px; background: var(--blue); }
 
 .replay-range { display: flex; justify-content: space-between; gap: 8px;
-  font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); line-height: 1.2; padding: 0 1px; }
+  font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-faint); line-height: 1.2; padding: 0 1px; }
 .replay-range span:last-child { text-align: right; }
 /* Einsatzuhr, centred between the two absolute times. Brighter than its neighbours because it
    is the figure that gets read out in a debrief, not reference furniture. */
@@ -122,10 +122,10 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Break durations live off the rail, in their own row, centred under the break they describe —
    so a long label can never squeeze the thing it is describing. */
-.replay-breaks { position: relative; height: 11px; }
+.replay-breaks { position: relative; height: 14px; }
 .replay-breaklabel {
   position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
-  font-family: var(--mono); font-size: 9px; font-weight: var(--fw-bold); color: var(--ink-faint); }
+  font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink-faint); }
 
 @media (--phone) {
   /* replay scrubber → full-width, lifted above the NavRail bottom bar (still lets you
@@ -158,8 +158,8 @@
 .replay-caption-t { flex: none; font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold);
   color: var(--blue-strong); font-variant-numeric: tabular-nums; }
 .replay-caption-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; color: var(--ink); font-weight: 600; }
-.replay-caption-none { color: var(--ink-faint); font-weight: 600; }
+  white-space: nowrap; color: var(--ink); font-weight: var(--fw-medium); }
+.replay-caption-none { color: var(--ink-faint); font-weight: var(--fw-medium); }
 /* ⚠️ 12.5px, the interactive floor (AGENTS · the 3am tenet) — it was 11.5px until 23.08. The
    caption's fixed 50px still holds it: 12.5px of text inside a 32px floor, with 9px of padding
    either side, is 50px exactly. */
