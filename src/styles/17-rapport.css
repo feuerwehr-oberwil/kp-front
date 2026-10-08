@@ -12,7 +12,7 @@
    flex column so its items (heading · dispatch block · fields) get even spacing — without this
    the labels/grid (all margin:0) would touch. The dispatch block above shows the read-only
    facts (Alarmmeldung/Alarmierung) with a link into Einsatzdaten where they're edited. */
-.report-pre-meta { display: flex; flex-direction: column; gap: 14px; }
+.report-pre-meta { display: flex; flex-direction: column; gap: var(--sp-3); }
 .report-pre-section.report-pre-meta h3 { margin: 0; } /* gap owns the spacing — no double margin */
 .report-meta-dispatch { display: flex; flex-direction: column; gap: 8px; }
 /* No rule under it any more: it used to be the top of ONE long «Rapportangaben» block and the
@@ -34,7 +34,7 @@
   display: grid; place-items: center; }
 .report-meta-dispatch-hint .i { width: 15px; height: 15px; }
 @media (hover: hover) {
-  .report-meta-dispatch-hint:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
+  .report-meta-dispatch-hint:hover { background: var(--blue-12); color: var(--blue); }
 }
 .report-meta-dispatch-hint:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* the whole dispatch card opens the Einsatzdaten (mirrors an Anwesenheit person row) — the
@@ -48,10 +48,10 @@
   .report-meta-dispatch-click:hover .report-meta-dispatch-hint { color: var(--blue); }
 }
 .report-meta-dispatch-click:active { background-image: linear-gradient(var(--press), var(--press)); }
-.report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .report-meta-readout > div { display: grid; grid-template-columns: 116px 1fr; gap: 12px; align-items: baseline; }
-.report-meta-readout dt { margin: 0; font: 600 12px var(--body); color: var(--ink-dim); }
-.report-meta-readout dd { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.report-meta-readout dt { margin: 0; font: var(--field-label); color: var(--ink-dim); }
+.report-meta-readout dd { margin: 0; font-size: var(--fs-2); line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .report-meta-empty { color: var(--ink-faint); }
 
 /* Right-click menu on the planning surfaces (lib/overlays/ContextMenu). Base UI's positioner
@@ -60,28 +60,28 @@
 .ui-ctxmenu-pos { z-index: var(--z-menu); }
 .ui-ctxmenu { min-width: 208px; max-width: min(320px, 92vw); padding: var(--bar-pad);
   background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-bar);
-  box-shadow: var(--shadow); outline: none; }
+  box-shadow: var(--e4); outline: none; }
 /* skin only — the row radius, the hover/keyboard wash, the press wash and the red row are the
    shared `.ui-menu-item` / `.ui-menu-danger` this menu's rows also wear (13-incident.css). */
 .ui-ctxmenu-item { display: flex; align-items: center; gap: 8px; width: 100%;
-  min-height: 36px; padding: 0 10px; border: 0; background: none;
-  font: 600 13.5px var(--body); color: var(--ink); text-align: left; cursor: pointer; user-select: none; }
+  min-height: 36px; padding: 0 var(--sp-3); border: 0; background: none;
+  font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); text-align: left; cursor: pointer; user-select: none; }
 .ui-ctxmenu-item[data-disabled] { opacity: var(--disabled); cursor: default; }
 /* a rule above, separating «which state is it» from «what can I do to it» */
-.ui-ctxmenu-item[data-sep] { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--glass-edge);
+.ui-ctxmenu-item[data-sep] { margin-top: var(--sp-1); padding-top: var(--sp-1); border-top: 1px solid var(--glass-edge);
   border-top-left-radius: 0; border-top-right-radius: 0; }
 /* fixed tick slot so the labels do not shift sideways as the state changes */
-.ui-ctxmenu-tick { flex: none; width: 12px; color: var(--blue); font-weight: 800; }
+.ui-ctxmenu-tick { flex: none; width: 12px; color: var(--blue); font-weight: var(--fw-heavy); }
 
 /* the body of the «Alles bereit» note (the `<details class="report-fold">` it once sat in is
    gone; its rules went with it, 29.09.2026) */
-.report-fold-body { padding: 2px 10px 10px; }
-.report-fold-body p { margin: 0 0 6px; display: flex; align-items: flex-start; gap: 8px;
-  font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+.report-fold-body { padding: 2px var(--sp-3) var(--sp-3); }
+.report-fold-body p { margin: 0 0 var(--sp-2); display: flex; align-items: flex-start; gap: 8px;
+  font-size: var(--fs-1); line-height: 1.45; color: var(--ink-dim); }
 .report-fold-body p .i { flex: none; width: 15px; height: 15px; margin-top: 1px; }
 /* Sofortmassnahmen under the Einsatzplan row — a real list, since that is what they are, and
    they were arriving as pre-wrapped text with the generator's two-space indent baked in. */
-.report-meta-list { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+.report-meta-list { margin: 4px 0 0; padding-left: var(--sp-4); display: flex; flex-direction: column; gap: 2px; }
 .report-meta-list li { white-space: normal; }
 .report-preflight-body { display: flex; flex-direction: column; gap: 12px; }
 /* ALWAYS one column: the dialog is only ~600px wide, and two native datetime controls side by
@@ -136,17 +136,20 @@
    full strength would read as two separate answers. */
 .rz-dim > span { opacity: .55; }
 /* the dash IS the value — same weight as a name would have, so the row does not read as empty */
-.rz-none-dash { justify-content: flex-start; font: 600 17px var(--mono); color: var(--ink-faint); }
+.rz-none-dash { justify-content: flex-start; font: var(--fw-medium) var(--fs-3) var(--mono); color: var(--ink-faint); }
 /* The ANSWERED state: a filled line, but dashed — «gibt es nicht» read at a glance and never
    mistaken for a field somebody forgot. A tick would say «ausgefüllt», which it is not. */
 .rz-none-val { flex: 1 1 auto; min-width: 0; display: flex; align-items: center;
   min-height: var(--tap); padding: 8px 12px; border: 1px dashed var(--ink-faint);
-  border-radius: var(--r-ctl); color: var(--ink-dim); font: 600 13.5px var(--body); }
+  border-radius: var(--r-ctl); color: var(--ink-dim); font: var(--fw-medium) var(--fs-2) var(--body); }
 /* «Keine» under the Gerettet steppers (04.09.): the same answer, but BELOW its fields rather
    than at the end of their line — the control above is a pair of steppers in a two-column grid,
    and a third item on that row would have had to be a third column. The gap is the form's own
    row gap, so it reads as the next line of the same field, not as a control of its own. */
-.rz-none-trail { margin-top: 8px; }
+/* …and at the RIGHT edge, under the steppers it answers for — the column every value of this
+   form ends in, like «Entfällt» at the end of its line (owner, 05.10.2026: it sat alone at the
+   left, under the labels). The answered state's dashed value still fills the row. */
+.rz-none-trail { margin-top: 8px; justify-content: flex-end; }
 /* Ende input takes the full row so it matches the Beginn field's width; "Jetzt" wraps below */
 /* min-width:0 on the flex CONTAINER too (not just the input) so it can shrink below the native
    datetime control's intrinsic width inside the grid column; input keeps flex-basis:100% so it
@@ -158,47 +161,50 @@
 .report-meta-end.dtrow { flex-wrap: nowrap; }
 .report-meta-end.dtrow .timefield { flex: none; }
 /* Alarmierungs-/Ausrückzeiten grid (config-driven rows: Gruppen + Fahrzeuge) */
-.rz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 12px; }
+.rz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-2) var(--sp-3); }
 .rz-row { display: flex; align-items: center; gap: 8px; min-height: 44px; }
-.rz-name { flex: 1; min-width: 0; font: 600 13px var(--body); color: var(--ink); }
+.rz-name { flex: 1; min-width: 0; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
 .rz-row input[type="time"] { flex: none; width: 112px; font-variant-numeric: tabular-nums; }
-.rz-sub { font: 500 11.5px var(--body); color: var(--ink-faint); }
-.rz-derived { align-items: baseline; gap: 10px; }
-.rz-derived b { font: 700 15px var(--body); color: var(--ink); }
+.rz-sub { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-faint); }
+.rz-derived { align-items: baseline; gap: var(--sp-2); }
+.rz-derived b { font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); }
 /* an impossible clock is SAID, not enforced — the field keeps the value, the print keeps going.
    THE form warning, amber and compact (`.form-warn`, 13-incident · 29.09.2026 — it was amber
    body text with no box); this only places it under the time field. */
-.rz-warn { margin-top: 5px; }
+.rz-warn { margin-top: var(--sp-1); }
 /* Gerettete: two labelled ±steppers (Personen / Tiere), each a label-left / stepper-right row like
    the details-modal count control */
-.rz-counts { display: flex; flex-direction: column; gap: 6px; }
-.rz-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--tap); }
-.rz-count > span { font: 600 13px var(--body); color: var(--ink-dim); }
+.rz-counts { display: flex; flex-direction: column; gap: var(--sp-2); }
+.rz-count { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--tap); }
+.rz-count > span { font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
+/* …and on a wide screen the pair stays a PAIR (B1, 07.10.2026): the stepper sits at the right end
+   of a 320px row, not of the column — at 1920 it stood 650px from «Personen». «Keine» keeps its
+   place at the end of the line (05.10.2026), which is now the end of the same 320px. */
+@media (min-width: 1181px) {
+  .rz-counts, .rz-none-trail { max-width: 320px; }
+}
 /* «Auf der Lage: 2 Personen · 1 Tier — Übernehmen». Same recipe as the Material surface's
    reconciliation strip (Mittel.module.css · .recStrip), because it is the same promise: the app
    says what it read and where, and the number only reaches the Rapport on a tap. */
-.rz-lage-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px;
-  padding: 9px 12px; background: color-mix(in srgb, var(--blue) 9%, var(--surface));
+.rz-lage-strip { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-top: 8px;
+  padding: var(--sp-2) var(--sp-3); background: color-mix(in srgb, var(--blue) 9%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--blue) 32%, transparent); border-radius: var(--r-ctl); }
-.rz-lage-text { flex: 1 1 180px; min-width: 0; font: 600 13px var(--body); color: var(--ink-dim); }
-.rz-lage-take { flex: none; border: none; border-radius: var(--r-sm); padding: 8px 14px; cursor: pointer;
-  min-height: var(--tap); font: 700 12.5px var(--body); background: var(--btn-primary); color: var(--on-btn-primary); }
-.rz-lage-take:active { background-image: linear-gradient(var(--press), var(--press)); }
-@media (hover: hover) { .rz-lage-take:hover { background: var(--btn-primary-hover); } }
+.rz-lage-text { flex: 1 1 180px; min-width: 0; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
+/* «Übernehmen» is <Button variant="primary">; this only keeps it on its line (08.10.2026, stage 2) */
+.rz-lage-take { flex: none; }
 
 /* ── Weitergeben: the Rapport's view-only Einsatz-Link ──────────────────────────────────
    Its own section under the checklist column (decision 01.09.), never on paper. */
-.rp-share { display: flex; flex-direction: column; gap: 11px; align-items: flex-start; }
+.rp-share { display: flex; flex-direction: column; gap: var(--sp-3); align-items: flex-start; }
 .rp-share h3 { margin: 0; }
 /* The surface inside it is shared with the Einsatz-Dropdown's «Teilen» sheet and brings its
    own styles — see .esh-* in 13-incident.css. */
-@media (hover: hover) { .rz-lage-take:hover { background: var(--btn-primary-hover); } }
 
 /* padding > the gap between the items inside it. At 10px/12px around a 14px stack, the fields
    were further from each other than from the card wall — the classic «content bursting out of
    the box». `--glass-edge` rather than `--border` is the hairline every other surface uses;
    the rapport was the only place on `--border`. */
-.report-pre-section { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 14px 16px; background: var(--surface-2); }
+.report-pre-section { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: var(--sp-4); background: var(--surface-2); }
 /* section header = the SAME uppercase eyebrow as the details modal (.ctx-section-label) so every
    header across the app reads identically (was a one-off 14px sentence-case here) */
 .report-pre-section h3 {
@@ -207,8 +213,8 @@
 }
 /* «Stand» on the crop map: Jetzt / a time + the reconstruction hint. Top-left, opposite the
    ± buttons, so neither sits where the framing itself needs to be read. */
-.kf-at { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; }
-.kf-at-label { font: 700 12px var(--body); color: var(--ink-dim); }
+.kf-at { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--sp-2); }
+.kf-at-label { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); }
 /* the slider IS the control: wide enough to aim with a gloved thumb, and the reading sits
    beside it so the value is never hidden under the finger */
 .kf-at-track { position: relative; flex: 1 1 220px; min-width: 160px; max-width: 340px; display: flex; }
@@ -229,10 +235,10 @@
 .kf-at-marks { position: absolute; inset: 50% 9px auto 9px; height: 0; pointer-events: none; z-index: 2; }
 /* top 8px = fully BELOW the ~16px thumb (its lower edge ends 8px past the centre): the marks
    paint above the input, so a tick starting any higher would draw ON the handle */
-.kf-at-marks i { position: absolute; top: 8px; width: 1.5px; height: 12px; margin-left: -0.75px;
+.kf-at-marks i { position: absolute; top: 8px; width: 1.5px; height: 12px; translate: -50% 0;
   border-radius: 1px; background: var(--ink-faint); opacity: .7; }
 .kf-at-wait { display: grid; place-items: center; width: 20px; height: 20px; flex: none; color: var(--ink-dim); }
-.kf-at-val { flex: none; min-width: 8.5em; font: 800 13px var(--mono); color: var(--ink); }
+.kf-at-val { flex: none; min-width: 8.5em; font: var(--fw-heavy) var(--fs-2) var(--mono); color: var(--ink); }
 
 /* ============================================================
    Kroki-Ausschnitt — THE PAPER. The crop, the legend under it and the three plates the server
@@ -258,13 +264,23 @@
   --note-bg: #fff8d6; --note-border: #e8d68a; --note-ink: #5a4b12;
   --ink-fill: #1b2330; --ink-fill-hover: #0f1722; --on-accent-ink: #fff; --on-fill: #fff;
   --btn-primary: var(--ink-fill); --btn-primary-hover: var(--ink-fill-hover); --on-btn-primary: var(--on-accent-ink);
+  /* …and every other token the night theme re-declares that a marker, a note or a tag on the crop
+     can reach (08.10.2026, stage 2): the note's ring and halo, the «erledigt» dim, the hover
+     washes and the two marker elevations. NOT --e3, which is the plate's own shadow on the night
+     surface. The tokens DERIVED from a hue (--press, --sel*, --del-*, --focus-*, the tints)
+     re-resolve here by themselves: 01-tokens declares them on `:root, .kf-paper`. */
+  --note-border-sel: #caa83a; --note-ring: rgba(184, 150, 40, .6); --note-halo: #fff;
+  --done-filter: grayscale(1); --done-opacity: .5;
+  --hover: rgba(255, 255, 255, .55); --hover-strong: rgba(255, 255, 255, .85); --surface-veil: rgba(255, 255, 255, .55);
+  --ink-tint: rgba(27, 35, 48, .15); --ink-tint-strong: rgba(27, 35, 48, .25); --map-bg: #e9eef0;
+  --e1: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); --e2: 0 4px 10px rgba(30, 45, 70, .2);
   color: var(--ink);
   /* one plate around the picture AND the legend: that is where the paper really ends, because
      the legend carries the words the picture stopped carrying. Sized off the crop, so the
      legend column is exactly as wide as the sheet it belongs to. */
-  position: relative; width: 100%; margin-inline: auto; padding: 8px 8px 6px;
+  position: relative; width: 100%; margin-inline: auto; padding: var(--sp-2);
   max-width: calc(var(--kf-map-h) * 1600 / 940 + 16px);
-  border-radius: var(--r-ctl); background: var(--surface); box-shadow: var(--shadow-sm);
+  border-radius: var(--r-ctl); background: var(--surface); box-shadow: var(--e3);
 }
 .kf-paper.portrait { max-width: calc(var(--kf-map-h) * 1000 / 1400 + 16px); }
 /* The plate carries the centring and the width cap the crop used to carry alone.
@@ -290,7 +306,7 @@
    Quer, 2.3px in Hoch) and DRAWN at a 15px floor, or no digit would be visible at preview
    size. Testing at the drawn radius would make the preview drop things the sheet prints. */
 .kf-disc { display: grid; place-items: center; border-radius: 50%; background: #12161c; color: #fff;
-  font-family: var(--mono); font-weight: 800; line-height: 1; box-shadow: 0 0 0 1.5px #fff; }
+  font-family: var(--mono); font-weight: var(--fw-heavy); line-height: 1; box-shadow: 0 0 0 1.5px #fff; }
 /* …and the one that will NOT be on the sheet: its disc does not fit wholly inside the frame, so
    the server clips it and its words never reach the legend. Hollow, and the same amber the
    «{n} ohne Nummer» line below carries — one colour for one statement. It sits at its real
@@ -300,20 +316,20 @@
 
 /* «Legende» — two columns filled down the first and then the second, the order report_pdf.py
    lays them out in (:1642). One column below the two-column breakpoint. */
-.kf-legend { padding: 7px 2px 0; }
-.kf-legend-head { display: block; font: 800 10px var(--body); letter-spacing: .06em;
-  text-transform: uppercase; color: var(--ink-faint); padding-bottom: 3px; }
-.kf-legend-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 14px;
-  font: 500 12px/1.4 var(--body); color: var(--ink); }
-.kf-legend-list li { display: flex; gap: 7px; break-inside: avoid; }
-.kf-legend-list b { flex: none; min-width: 1.3em; text-align: right; font: 800 12px var(--mono); }
+.kf-legend { padding: var(--sp-2) 2px 0; }
+.kf-legend-head { display: block; font: var(--fw-heavy) var(--fs-micro) var(--body); letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-faint); padding-bottom: var(--sp-1); }
+.kf-legend-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: var(--sp-4);
+  font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--ink); }
+.kf-legend-list li { display: flex; gap: var(--sp-2); break-inside: avoid; }
+.kf-legend-list b { flex: none; min-width: 1.3em; text-align: right; font: var(--fw-heavy) var(--fs-1) var(--mono); }
 .kf-legend-list span { min-width: 0; overflow-wrap: anywhere; }
 /* while the hand is still moving the figures are a moment behind — the membership beside them
    is not, which is the half worth watching (see KrokiFramingPanel · the live fit test) */
 .kf-legend.pending .kf-legend-list { opacity: .5; }
-.kf-legend-miss { margin: 4px 0 0; font: 600 11.5px/1.4 var(--body); color: var(--amber-strong); }
-.kf-legend-wait { margin: 3px 0 0; font: 600 11.5px/1.4 var(--body); color: var(--ink-faint); }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) { .kf-legend-list { columns: 1; } }
+.kf-legend-miss { margin: 4px 0 0; font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--amber-strong); }
+.kf-legend-wait { margin: var(--sp-1) 0 0; font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-faint); }
+@media (--phone) { .kf-legend-list { columns: 1; } }
 
 /* The three plates, in the server's own fractions of the render width (u = Breite/1050). Tiny
    here — the Massstab label is ~5px — and that is the honest size: they are OPAQUE, and what
@@ -339,7 +355,7 @@
    column 12px, so the two halves of one page kept a different rhythm. */
 .report-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 /* the same read-only gate inside a checklist row, where the indent comes from .rp-check-extra */
-.rp-check-gate { align-self: stretch; gap: 6px; }
+.rp-check-gate { align-self: stretch; gap: var(--sp-2); }
 .report-fieldset:disabled .report-att-x, .report-fieldset:disabled .report-row-add,
 .report-fieldset:disabled .report-partner-add { display: none; }
 
@@ -350,29 +366,19 @@
 /* on a phone the cap cost the placeholder its last letters («Organisation hinzufüge») */
 @media (max-width: 600px) { .report-partner-add { max-width: none; } }
 .report-partner-add .ci { flex: 1 1 auto; min-width: 0; }
-.report-partner-go { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
-  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
-  cursor: pointer; }
-.report-partner-go:disabled { opacity: var(--disabled); cursor: default; }
-.report-partner-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.report-partner-go .i { width: 18px; height: 18px; }
+/* (its «+» is <IconButton variant="secondary">, 08.10.2026) */
 
 /* «+ Zeile» under a repeating block (Beilage). The ONE «add» look (28.09.2026 · 13-incident
    `.cv-btn-add`): framed, --tap tall, the one corner, 14/700 ink. It was dashed and 40px — but
-   dashed means «missing» (27.09. sweep), and an add is an action, not a gap. */
-.report-row-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 14px; cursor: pointer;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
-  font: 700 14px var(--body); }
-@media (hover: hover) {
-  .report-row-add:hover { border-color: var(--ink-faint); }
-}
-.report-row-add:active { background-image: linear-gradient(var(--press), var(--press)); }
-.report-row-add .i { width: 16px; height: 16px; }
+   dashed means «missing» (27.09. sweep), and an add is an action, not a gap. Since 08.10.2026 it
+   wears THE button (`.ip-btn` on the <label>, 13-incident); this class keeps its place and the
+   read-only hide above. */
+.report-row-add { align-self: flex-start; }
 
 /* Partnerorganisationen, in the Anwesenheit/Mittel block: one row = the organisation (the
    station's own list, free text allowed) + one free line for whatever is worth saying. Two
    fields, because that is all this question has ever needed. */
-.report-partners { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; width: 100%; }
+.report-partners { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: 8px; width: 100%; }
 /* organisation · remark · remove, on ONE baseline. The two controls come from different
    components (Combo vs input), so their heights are pinned here — otherwise the row reads as
    two fields that missed each other. */
@@ -380,7 +386,7 @@
    waiting to happen on a tablet), and the free line only appears once the row is ticked —
    an empty field beside an unticked organisation reads as something still to fill in. */
 .report-partner { display: flex; align-items: center; gap: 8px; min-height: 40px; }
-.report-partner-tick { flex: none; display: flex; align-items: center; gap: 9px; min-width: 170px;
+.report-partner-tick { flex: none; display: flex; align-items: center; gap: var(--sp-2); min-width: 170px;
   min-height: 38px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
   background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
 @media (hover: hover) {
@@ -405,7 +411,7 @@
    «attention»: an amber warning, and the accent that is never used for state at all. */
 .report-partner.on .report-partner-tick { color: var(--ink); }
 .report-partner.on .report-partner-box { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
-.report-partner-org { font: 600 13.5px var(--body); }
+.report-partner-org { font: var(--fw-medium) var(--fs-2) var(--body); }
 /* the shared .ip-input, at its shared size. Shrunk to 38px/13.5px here it was a different control
    from the identical input one card below it in the same column (the Beilagen caption).
    ⚠️ The flex item is the CLEARABLE wrapper (.ci), not the <input> inside it — sizing the inner
@@ -427,9 +433,9 @@
    the way out of the app on the right, which is a plain secondary button and not an <a>: the
    URL is composed from the Einsatz at the moment of the press (lib/reportLinks · resolveLinkUrl),
    so there is no href to put in the markup ahead of time. */
-.rp-links { align-self: stretch; width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.rp-links { align-self: stretch; width: 100%; display: flex; flex-direction: column; gap: var(--sp-2); }
 .rp-link { display: flex; align-items: center; gap: 8px; min-height: var(--tap); }
-.rp-link-tick { flex: 1 1 auto; display: flex; align-items: center; gap: 9px; min-width: 0;
+.rp-link-tick { flex: 1 1 auto; display: flex; align-items: center; gap: var(--sp-2); min-width: 0;
   min-height: 38px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
   background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
 @media (hover: hover) {
@@ -449,22 +455,16 @@
 /* title over its note — the note is a second question («wann?»), so it may not compete with
    the title for the first glance */
 .rp-link-txt { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.rp-link-title { font: 600 13.5px var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rp-link-note { font: 500 11.5px var(--body); color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rp-link-open { flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
-  padding: 0 13px; cursor: pointer; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
-  background: var(--surface); color: var(--ink); font: 700 12.5px var(--body); }
-@media (hover: hover) {
-  .rp-link-open:hover { background: var(--hover-strong); }
-}
-.rp-link-open:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.rp-link-open .i { width: 15px; height: 15px; }
+.rp-link-title { font: var(--fw-medium) var(--fs-2) var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-link-note { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* «Öffnen» is a <Button> (08.10.2026, stage 2); the class only places it */
+.rp-link-open { flex: none; }
 @media (max-width: 640px) {
   /* «Öffnen» drops UNDER its own title rather than squeezing it to two words. Indented to the
-     title (4px pad + 22px box + 9px gap) so it stays visibly part of that row and not the next. */
+     title (4px pad + 22px box + 8px gap) so it stays visibly part of that row and not the next. */
   .rp-link { flex-wrap: wrap; }
   .rp-link-tick { flex: 1 1 100%; }
-  .rp-link-open { margin-left: 35px; }
+  .rp-link-open { margin-left: calc(var(--sp-1) + 22px + var(--sp-2)); }
 }
 
 /* Beilagen: photos that belong to the RAPPORT (Ausweis, Schaden) rather than to the Verlauf.
@@ -476,7 +476,7 @@
    own gap sets the rhythm, and ad-hoc ones on top of it made the block look randomly spaced. */
 .report-att-list, .report-att { align-self: stretch; width: 100%; }
 .report-att-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.report-att { display: flex; align-items: center; gap: 10px; }
+.report-att { display: flex; align-items: center; gap: var(--sp-3); }
 /* The thumb is a BUTTON now (it opens the picture full-size), so the image inside needs its own
    size — `object-fit` on the button does nothing, and an unconstrained <img> rendered at its
    natural resolution straight over the rest of the section. */
@@ -488,11 +488,11 @@
 }
 .report-att-thumb:active { background-image: linear-gradient(var(--press), var(--press)); }
 .report-att-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.report-att-pending { font: 600 11.5px var(--body); color: var(--amber-strong); }
+.report-att-pending { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--amber-strong); }
 .report-att-x { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; cursor: pointer;
   border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); }
 @media (hover: hover) {
-  .report-att-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+  .report-att-x:hover { background: var(--red-12); color: var(--red); }
 }
 .report-att-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .report-att-x .i { width: 16px; height: 16px; }
@@ -525,13 +525,13 @@
    classification column landed, and these sit on the sentence track by `grid-column` (see
    06-contextpanel.css). A flex basis here fought the grid; the 74px margin was simply the
    wrong axis — the sentence starts at 94px. */
-.jr-transcript { min-width: 0; margin: 2px 0; display: flex; flex-direction: column; gap: 6px; }
-.jr-transcript p { margin: 0; color: var(--ink-dim); font-size: 12px; line-height: 1.45; white-space: pre-wrap; }
+.jr-transcript { min-width: 0; margin: 2px 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.jr-transcript p { margin: 0; color: var(--ink-dim); font-size: var(--fs-1); line-height: 1.45; white-space: pre-wrap; }
 /* the words as SUBTITLE lines under an audio row — the korrektur sub-line's quiet register:
    muted, small, indented to the text column. A timed section leads with its offset into the
    recording; the plain transcript (one text, no offset) prints without one. */
 .jr-subs { min-width: 0; margin: 0 0 2px; display: flex; flex-direction: column; gap: 2px; }
-.jr-subs p { margin: 0; display: flex; gap: 8px; color: var(--ink-dim); font-size: 12px; line-height: 1.45; }
+.jr-subs p { margin: 0; display: flex; gap: 8px; color: var(--ink-dim); font-size: var(--fs-1); line-height: 1.45; }
 .jr-subs p > i { flex: none; font-style: normal; font-variant-numeric: tabular-nums; color: var(--ink-faint); }
 .jr-subs p > span { min-width: 0; white-space: pre-wrap; }
 /* jump chip on rows that annotate a recording — opens the player at that moment. The same
@@ -546,10 +546,10 @@
 .jr-jump:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* no transcript yet: amber on the FRAME, not a filled amber block. It is a gap in the record
    worth noticing, not a warning that should outshout the entry it hangs off. */
-.jr-jump.jr-jump-miss { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 12%, transparent);
+.jr-jump.jr-jump-miss { color: var(--amber-strong); background: var(--amber-12);
   border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
 @media (hover: hover) {
-  .jr-jump.jr-jump-miss:hover { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber-strong); }
+  .jr-jump.jr-jump-miss:hover { background: var(--amber-22); color: var(--amber-strong); }
 }
 
 /* The target of a jump from the Kontrolle chip's «Noch offen» rows (ReportPreflight · jumpToStep)
@@ -559,7 +559,7 @@
    ring used to square off around a row whose own corners are rounded. */
 .rp-flash { animation: ui-flash-ring 1.9s ease-out 1; border-radius: var(--r-sm); }
 @media (prefers-reduced-motion: reduce) {
-  .rp-flash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  .rp-flash { animation: none; box-shadow: 0 0 0 4px var(--ink-62); }
 }
 
 /* ── Anwesenheits-Abweichungen: the card that SETTLES one (04.09., Rapport-Review) ────────────
@@ -567,25 +567,25 @@
    one holds — so it needs a shape the other CheckRows do not have: two side-by-side panels and a
    row of answers under them. `.rp-check-extra` is a flex column with `align-items: flex-start`,
    so each item claims its own width. */
-.rp-conf { align-self: stretch; gap: 10px; }
-.rp-conf-item { align-self: stretch; padding: 11px 12px; border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--amber) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 22%, transparent); }
-.rp-conf-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
-.rp-conf-head b { font-size: 13.5px; }
-.rp-conf-head span { font-size: 12.5px; color: var(--ink-dim); }
+.rp-conf { align-self: stretch; gap: var(--sp-3); }
+.rp-conf-item { align-self: stretch; padding: var(--sp-3); border-radius: var(--r-sm);
+  background: var(--amber-8);
+  border: 1px solid var(--amber-22); }
+.rp-conf-head { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.rp-conf-head b { font-size: var(--fs-2); }
+.rp-conf-head span { font-size: var(--fs-1); color: var(--ink-dim); }
 /* the two sides. One column on a phone: side by side they would be two ~40px shreds, and which
    value is which is the one thing this card exists to make readable. */
-.rp-conf-sides { display: grid; gap: 8px; margin-top: 9px; }
+.rp-conf-sides { display: grid; gap: 8px; margin-top: var(--sp-2); }
 @media (min-width: 560px) { .rp-conf-sides { grid-template-columns: 1fr 1fr; } }
 .rp-conf-side { border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
-  background: var(--surface); padding: 8px 11px; min-width: 0; }
+  background: var(--surface); padding: var(--sp-2) var(--sp-3); min-width: 0; }
 .rp-conf-side h6 {
   margin: 0 0 2px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
-.rp-conf-val { font: 700 13px var(--mono); overflow-wrap: anywhere; }
+.rp-conf-val { font: var(--fw-bold) var(--fs-2) var(--mono); overflow-wrap: anywhere; }
 /* the answers wrap rather than shrink — a button whose label is «Angabe vom Erfassungsbogen
    übernehmen» must not ellipsize into a different sentence */
-.rp-conf-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.rp-conf-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: var(--sp-3); }
 .rp-conf-acts > .ip-btn { min-height: var(--tap); border-radius: var(--r-ctl); }

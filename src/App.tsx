@@ -6,7 +6,7 @@ import { IconSprite, Icon } from './lib/icons'
 import { demoSeedRebase, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig } from './lib/deploymentConfig'
-import { isOvPath, navigateTo, OV_BASE, showsObjectVisits, useOvRoute } from './objectVisits/route'
+import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
 import { startOutboxRunner } from './objectVisits/outbox'
 import { fillTemplate, initials, roleLabel } from './lib/format'
 import { Overlays, toast, confirmDialog } from './lib/ui'
@@ -40,7 +40,7 @@ import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, re
 import { serverNow } from './lib/serverClock'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
-import { ApiError } from './lib/api'
+import { ApiError, isUnverifiable } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
@@ -50,6 +50,7 @@ import { Meldeleiste } from './components/Meldeleiste'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
+import { loadRoster } from './lib/usePersonnel'
 import { HelpOverlay } from './components/HelpOverlay'
 import { installHoldTooltip } from './lib/holdTooltip'
 
@@ -88,7 +89,6 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
       keepScreenOn={keepScreenOn}
       onKeepScreenOn={setKeepScreenOn}
       themeCoord={null}
-      elView={false}
       onFeedback={onFeedback}
     />
   )
@@ -122,6 +122,11 @@ export default function App() {
   // permission is already granted AND the deployment has VAPID keys) — killed-app alarms.
   // Never on a link session: /api/push/subscriptions writes rows tied to a user and 403s.
   useEffect(() => { if (!linkScoped) void ensurePushSubscription() }, [linkScoped])
+  // Keep the last-known Mannschaft on the device from the LAUNCHER on, not only once an Einsatz
+  // has been opened online: an Einsatz first opened offline, and the Leeres Erfassungsblatt, read
+  // that cache (usePersonnel · loadRoster). A link session may not list the roster (403).
+  const rosterUserId = user && !linkScoped ? user.id : null
+  useEffect(() => { if (rosterUserId) void loadRoster().catch(() => {}) }, [rosterUserId])
 
   // Objektbesuche: what a save point could not send (offline, a lapsed session) goes up on its
   // own — at every start and every reconnect, whether or not anybody opens that visit again.
@@ -167,9 +172,15 @@ export default function App() {
   // …ENTERED on purpose (the launcher's button, a deep link at start): only then may it cover an
   // open Einsatz — a back gesture onto an old /besuche entry must not (objectVisits/route)
   const [ovEntered, setOvEntered] = useState(() => isOvPath(window.location.pathname))
-  const enterObjectVisits = useCallback(() => { setOvEntered(true); navigateTo(OV_BASE) }, [])
-  // leaving REPLACES the entry: a later back gesture does not walk into the surface again
-  const leaveObjectVisits = useCallback(() => { setOvEntered(false); navigateTo('/', { replace: true }) }, [])
+  // …from inside an Einsatz with the object whose plans are on the board: the Übersicht offers it
+  // first (owner, 05.10.2026). From the launcher there is none.
+  const [ovSuggest, setOvSuggest] = useState<string | null>(null)
+  const enterObjectVisits = useCallback((objectId: string | null = null) => {
+    setOvSuggest(objectId); setOvEntered(true); navigateTo(OV_BASE)
+  }, [])
+  // leaving walks BACK over the surface's own entries (route · leaveAppEntries): nothing stays
+  // behind the Karte / the launcher for an iOS edge swipe to find (05.10.2026)
+  const leaveObjectVisits = useCallback(() => { setOvEntered(false); leaveAppEntries('/') }, [])
   // left by the browser's own back: the entry is spent (React's «adjust state while rendering»)
   if (!ovRoute && ovEntered) setOvEntered(false)
   // a back gesture onto /besuche over a running Einsatz: the Einsatz stays, and so does its address
@@ -226,6 +237,20 @@ export default function App() {
     sw.addEventListener('message', onMsg)
     return () => sw.removeEventListener('message', onMsg)
   }, [isEditor, refreshPool])
+  // A tapped «Neuer Objektbesuch» push (target 'besuch:<id>') while the app runs: open that visit.
+  // A killed app is opened by the service worker straight onto /besuche/<id> (sw-notify.js).
+  useEffect(() => {
+    const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined
+    if (!sw || linkScoped) return
+    const onMsg = (e: MessageEvent) => {
+      const target = e.data?.type === 'kp-notification-click' ? e.data.target : null
+      if (typeof target !== 'string' || !target.startsWith('besuch:')) return
+      setOvEntered(true)
+      navigateTo(ovHref({ kind: 'visit', id: target.slice('besuch:'.length) }))
+    }
+    sw.addEventListener('message', onMsg)
+    return () => sw.removeEventListener('message', onMsg)
+  }, [linkScoped])
   const [taking, setTaking] = useState<number | null>(null) // divera_id mid-take
   // incident just opened one-tap → show the correct-in-place review banner until confirmed
   const [reviewPendingId, setReviewPendingId] = useState<string | null>(null)
@@ -342,7 +367,10 @@ export default function App() {
     // auto-open, which would otherwise record the app's own choice as the operator's and let a
     // stale alarm keep re-confirming itself on every reload (lib/incidentAlerts · pickBootIncident).
     const prev = loadPrefs()
-    savePrefs({ ...prev, incidentId: id, incidentChosenAt: opts.boot ? prev.incidentChosenAt : Date.now() })
+    // …and a hand-opened Einsatz ends the «landed after an Abschluss» state (completeRapport)
+    savePrefs(opts.boot
+      ? { ...prev, incidentId: id }
+      : { ...prev, incidentId: id, incidentChosenAt: Date.now(), landedAt: undefined })
   }, [])
 
   // `selectIncident` for a HUMAN tap: the same open, but a failure is SAID. Every interactive
@@ -411,7 +439,7 @@ export default function App() {
       // Remembered incident normally wins, but a NEWER alarm-created incident takes
       // precedence: a killed app reopens onto the live alarm, not yesterday's Einsatz.
       const bootPrefs = loadPrefs()
-      const pick = pickBootIncident(list, bootPrefs.incidentId, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })
+      const pick = pickBootIncident(list, bootPrefs.incidentId, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt, landedAt: bootPrefs.landedAt })
       if (pick) { await bootOpen(pick); return }
       // ⚠️ Nothing picked does NOT mean «nothing to go back to». The list boot works from holds
       // only the OPEN Einsätze, so an abgeschlossener one — viewed read-only out of «Alle
@@ -636,13 +664,18 @@ export default function App() {
       if (id === activeId) {
         if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
         await refreshList()
-        /* ⚠️ STAY on the Einsatz just closed, read-only (staging walk-through 25.09.2026). This
-           used to open the first OTHER open Einsatz in the list — silently, so the phone that had
-           just closed an Übung stood inside somebody else's live Einsatz with its GPS banner, and
-           the next tap drew in it. The closed one shows what was closed (its ArchivedBanner
-           carries «Wieder öffnen»); «Zurück» goes to the list, never into another Einsatz. */
-        await selectIncident(id, { readOnly: true }).catch(() => { setActiveId(null); setActiveMeta(null) })
+        /* ⚠️ Land on the LAUNCHER, never inside another Einsatz. Until 25.09.2026 this opened the
+           first OTHER open Einsatz in the list — silently, so the phone that had just closed an
+           Übung stood inside somebody else's live Einsatz with its GPS banner, and the next tap
+           drew in it. The walk-through's fix stayed on the closed one read-only instead, and
+           remembered it, so the next launch fell through to the first open Einsatz anyway
+           (05.10.2026: «I'm now always in open emergencies»). Now the closed Einsatz is
+           forgotten on this device and `landedAt` keeps a cold start on the launcher too (lib/
+           incidentAlerts · pickBootIncident). It stays one tap away: «Alle Einsätze», where
+           «Wieder öffnen» lives. */
+        savePrefs({ ...loadPrefs(), incidentId: undefined, landedAt: Date.now() })
         archiveReturnRef.current = null
+        setActiveId(null); setActiveMeta(null); setWorkspace(null); setForceReadOnly(false)
       } else {
         await refreshList()
       }
@@ -653,7 +686,7 @@ export default function App() {
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [activeId, refreshList, selectIncident])
+  }, [activeId, refreshList])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
@@ -721,7 +754,12 @@ export default function App() {
       try {
         await reactivateIncident(id)
       } catch (e) {
-        toast(e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+        // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
+        // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
+        // from, and until it arrives the alarm holds (lib/reopenClocks · reopenPending), so an
+        // Einsatz reopened offline would run its Tafel without an Überfällig alarm.
+        toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
+          : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
         return 'failed'
       }
       await refreshList()
@@ -769,7 +807,7 @@ export default function App() {
             onDismiss={dismissFreshIncident}
           />
         )}
-        <Suspense fallback={<Splash />}><ObjectVisitsApp onExit={leaveObjectVisits} /></Suspense>
+        <Suspense fallback={<Splash />}><ObjectVisitsApp onExit={leaveObjectVisits} suggestedObjectId={activeId ? ovSuggest : null} /></Suspense>
         <Overlays />
       </>
     )
@@ -992,7 +1030,7 @@ export default function App() {
                   {/* Objektbesuche: only where the station switched the module on; every account
                       may read, the surface hides what a role may not capture */}
                   {objectVisitsConfig().enabled && (
-                    <button className="ip-btn" onClick={enterObjectVisits}>
+                    <button className="ip-btn" onClick={() => enterObjectVisits()}>
                       <Icon id="clipboard" />{appConfig.copy.objectVisits.launcher}
                     </button>
                   )}

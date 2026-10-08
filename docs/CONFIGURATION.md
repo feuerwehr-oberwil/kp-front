@@ -24,8 +24,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [1b. `report.hoursRounding` – Einsatzstunden on the printed rapport](#1b-reporthoursrounding--einsatzstunden-on-the-printed-rapport)
   - [1c. `report.attendanceMergeGapMin` – two ticks that are one arrival](#1c-reportattendancemergegapmin--two-ticks-that-are-one-arrival)
   - [1d. `report.links` – the station's own forms, on the Rapport](#1d-reportlinks--the-stations-own-forms-on-the-rapport)
-  - [1e. `lageGrundgeruest` – what every Lage needs in its first minutes](#1e-lagegrundgeruest--what-every-lage-needs-in-its-first-minutes)
-  - [1f. `objectVisits` – the optional Objektbesuche module](#1f-objectvisits--the-optional-objektbesuche-module)
+  - [1e. `objectVisits` – the optional Objektbesuche module](#1e-objectvisits--the-optional-objektbesuche-module)
   - [`doctrine.alarmBarRueckzug` – the quieter line on Rückzug](#doctrinealarmbarrueckzug--the-quieter-line-for-a-trupp-on-rückzug)
   - [`doctrine.entryPressureMin` – the one question about a low Eingangsdruck](#doctrineentrypressuremin--the-one-question-about-a-low-eingangsdruck)
 - [2. Reference / Werkleitungs layers – station-supplied](#2-reference--werkleitungs-layers--station-supplied-nothing-bundled)
@@ -39,7 +38,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
     [4c. `"snapshot"` – the roster-snapshot contract](#4c-snapshot--a-roster-file-somebody-else-publishes)
 - [5. User accounts, roles, and deployment administration](#5-user-accounts-roles-and-deployment-administration)
 - [6. Environment variables (secrets / infra)](#6-environment-variables-secrets--infra--operator-not-admin)
-  - [The twenty-five integration credentials – env **or** `/admin`](#the-twenty-five-integration-credentials--env-or-admin--zugangsdaten)
+  - [The twenty-five integration credentials – env **or** `/admin`](#the-twenty-five-integration-credentials--env-or-admin--anbindungen)
   - [6a. Objektplan-Pull](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in)
   - [6b. Three things that look like env vars and are not](#6b-three-things-that-look-like-env-vars-and-are-not)
   - [6c. SharePoint-Pull – the station's own folders](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)
@@ -69,7 +68,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 |-------|------|-------|-------------|
 | **Defaults** | National/safe fallbacks (FKS doctrine, symbol presets) | `src/config/appConfig.ts` | developers |
 | **Deployment config** ← *this doc* | Per-station settings + uploaded assets | DB `deployment_config` row + asset storage | technical deployment owner – forms at `/admin`, or the same rows as a config file via CLI |
-| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-five integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Zugangsdaten for those twenty-five. **Env wins and locks the field** (§6) |
+| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-five integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Anbindungen for those twenty-five. **Env wins and locks the field** (§6) |
 | **Per-incident settings** | Live operational knobs (synced) | workspace blob (`IncidentSettings`) | any **user**, in-incident |
 
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
@@ -101,7 +100,6 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `modules` (the Objektplan-Modul catalogue) | ❌ | **file only** – the Objektpläne page lists the catalogue read-only; the objects and their PDFs are what you edit there ([`objektplaene-architecture.md`](objektplaene-architecture.md)) |
 | `doctrine.*` | ✅ | Station › **Doktrin** |
 | `journal.*` | ✅ | Station › **Journal** |
-| `suche.uebergabe` (the Suche's «weiter an» list) | ❌ | file only – empty = the national default «Rettungsdienst · Sammelplatz · Angehörige»; the operator can always type another |
 | `report.hoursRounding`, `.attendanceMergeGapMin`, `.reversePrintOrder`, `.links` | ✅ | Station › **Rapport** (§1b–§1d) |
 | `report.partnerOrgs` | ✅ | Station › **Rapport** – **and** the Arbeitsmappe (§9h) |
 | `alarms.autoArchiveDays`, `.staleIncidentDays`, `.captureWindowHours`, `.webhooks`, `.groups` | ✅ | Station › **Alarme & Einsätze** |
@@ -117,11 +115,10 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `roster.ranks` | ✅ | the CSV import's «Grade zuordnen» → `adopt` (§4b) – **and** the Arbeitsmappe (§9h). There is no rank *form* |
 | `mittel.units` | ❌ | **file only** – the Arbeitsmappe does not carry it |
 | `alarmKeywords` | ❌ | **file only** – it is a paste-a-document, not a fill-a-form (§1a) |
-| `lageGrundgeruest.preset`, `.kategorien` | ✅ | Station › **Lage-Grundgerüst** (§1e) – and the file, which `admin_config example --section lageGrundgeruest` starts |
-| `sharepoint.intervalMinutes`, `.sources` | ❌ | **file only** – which folders the station pulls from is set up once and then wants to be reviewable and reproducible (§6c). The four Azure **credentials** are in the browser, at `/admin` → Zugangsdaten › SharePoint; System › SharePoint-Anbindung is the read-out |
+| `sharepoint.intervalMinutes`, `.sources` | ❌ | **file only** – which folders the station pulls from is set up once and then wants to be reviewable and reproducible (§6c). The four Azure **credentials** are in the browser, at `/admin` → Anbindungen › SharePoint; System › SharePoint-Anbindung is the read-out |
 
 Two things that are **not** part of this document and are managed on their own pages: the
-integration credentials (`/admin` → **Zugangsdaten**, §6) and the three database-stored tokens
+integration credentials (`/admin` → **Anbindungen**, §6) and the three database-stored tokens
 in §6b. Einsatzobjekte + Modul-PDFs and checklist templates are not config paths either, and
 both now have browser pages – §9e and §9f.
 
@@ -717,105 +714,7 @@ open to whoever has the address.
   it would expire on a tab that had just lost focus. The tick is per-incident, lives in the
   workspace blob, and merges per link id, so two devices ticking two different forms keep both.
 
----
-
-## 1e. `lageGrundgeruest` – what every Lage needs in its first minutes
-
-In the Einsatz, a small card on the Karte lists the handful of things every Lage needs for the
-incident's Einsatzart – «Lage-Grundgerüst 2 / 6» – and each row places one of them. A row ticks
-itself as soon as its symbol (or line) exists **on the Karte or on any plan**; an open row arms
-the ordinary place tool, and where data the app already has gives an answer it suggests a spot:
-the nearest hydrant of the station's hydrant layer, or a point upwind of the Einsatzort from the
-incident's weather. Taking the suggestion is an ordinary placement (one undo step, the usual
-Verlauf row); it is only ever a starting point to drag. Nothing is written until somebody places
-something, the card can be hidden, and it disappears once complete (the Karte's tool rail brings
-it back). Post-mortem 23.09.2026: after 65 minutes that Karte had no Zufahrt, Absperrung,
-Wasserbezug or Bereitstellungsraum.
-
-**Like the alarm vocabulary, a shipped default applies until the station says otherwise.** The
-defaults are presets – files in
-[`backend/app/data/lage_grundgeruest/`](../backend/app/data/lage_grundgeruest/):
-
-| Preset | What it carries |
-|--------|-----------------|
-| `fks-standard` (default) | Brand: KP · Zufahrt · Wasserbezug · Sammelplatz · Absperrung · Bereitstellungsraum. BMA: KP · Schlüsseldepot · Brandmeldezentrale/Tableau · Zufahrt. Strassenrettung: KP · Absperrung beidseitig · Patientensammelstelle · Bereitstellungsraum · Helilandeplatz (optional). Chemie- and Ölwehr: KP upwind · Absperrkreis (the Gefahrentafel, whose UN-Nr. draws the ERG rings) · Dekon · Bereitstellungsraum upwind · Wasserbezug. Elementar: KP · Materialdepot · Absperrung · Bereitstellungsraum |
-| `minimal` | KP · Zufahrt · Sammelplatz for every Einsatzart |
-
-`"preset": "fks-standard"` alone is a whole, valid block. `kategorien` **replaces single
-Einsatzarten** of the preset – per Einsatzart, never per row, so «what does our BMA list say» has
-one answer. An empty list there means «no Grundgerüst for this Einsatzart». An empty
-`kategorien` object means «every Einsatzart follows the preset» – a value, so the refuse-to-empty
-guard (§1, point 3) does not count it as emptied when the last adapted Einsatzart is reset.
-
-```jsonc
-"lageGrundgeruest": {
-  "preset": "fks-standard",
-  "kategorien": {                                 // keys: the alarm keyword categories (§1a)
-    "brandbekaempfung": [
-      { "id": "kp",    "label": "KP · Einsatzleitung",
-        "symbol": "VKF KP Front",       "vorschlag": { "wind": "auf", "m": 40 } },
-      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
-      { "id": "wasser", "label": "Wasserbezug",
-        "symbol": "SI Wasserbezugsort", "vorschlag": { "naechster": "hydrant" } },
-      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" },
-      { "id": "absperr", "label": "Absperrung", "symbol": "FW Absperrung" },
-      { "id": "bereit", "label": "Bereitstellungsraum",
-        "symbol": "FW Warteraum",       "vorschlag": { "wind": "auf", "m": 80 } }
-    ],
-    "strassenrettung": [
-      { "id": "heli", "label": "Helilandeplatz", "symbol": "VKF Helilandeplatz", "optional": true }
-    ]
-  }
-}
-```
-
-One row (a «slot»):
-
-- `id` – lower-case, unique in its list (`^[a-z0-9][a-z0-9_-]*$`); `label` – what the row says.
-- **Exactly one of** `symbol` – a name from the symbol pack (`public/tactical-symbols.json`,
-  e.g. `GB Schluesseldepot` – the names spell «ue» for «ü») – or `linie` – a line preset by its
-  label: `Zufahrt`, `Rettungsachse`, `Pfeil`.
-- `vorschlag` (optional, symbols only): `{ "naechster": "hydrant" }` – the nearest point of the
-  station's hydrant layer (§2b; straight line, at most 300 m – further out the row says «Kein
-  Hydrant im Umkreis von 300 m»; the placed symbol is labelled with the hydrant's
-  number when the layer carries one), or `{ "wind": "auf", "m": N }` – N metres (5–2000) upwind
-  of the Einsatzort. No weather reading, a calm, or no hydrant layer ⇒ no suggestion; the row
-  still arms the tool.
-- `optional: true` – shown, never counted: the list is complete without it.
-
-**Which list an Einsatz gets.** The incident's Einsatzart (its stored category) picks the list,
-and a corrected Einsatzart in the Einsatzdaten re-picks it. An Einsatz with **no** known
-Einsatzart – or «Diverse Einsätze», the server's word for «no keyword matched» – gets the Brand
-list and says so on the card, unless the station gave «Diverse Einsätze» a list of its own. A
-known Einsatzart without a list (a Tierrettung under `fks-standard`) shows no card.
-
-**Refused at the door, with what was meant.** `admin_config validate|load|push` and
-`PUT /api/config` refuse an unknown symbol, line preset, Einsatzart or preset, each with a
-did-you-mean («symbol 'GB Schlüsseldepot' is not in the symbol pack — did you mean
-'GB Schluesseldepot'?»); a misspelled row key comes back as an «ignored» warning. A **stored**
-document a newer rule refuses (a symbol renamed in a later pack) drops that one row and logs it,
-rather than taking the station's whole config down.
-
-```bash
-uv run python -m app.admin_config presets lageGrundgeruest      # the shipped presets, per Einsatzart
-uv run python -m app.admin_config example --section lageGrundgeruest --preset fks-standard > gg.json
-# edit gg.json, paste the block into the station's config file, then the usual loop:
-uv run python -m app.admin_config validate <station>.config.json
-uv run python -m app.admin_config diff <station>.config.json
-uv run python -m app.admin_config push <station>.config.json
-```
-
-⚠️ `example --section` prints ONE block: a file holding only it would empty every other section
-(`push` and `load` refuse that – §9b). `validate`, `diff`, `load` and `push` print which preset
-runs and which Einsatzarten the file replaces. `GET /api/config` serves the shipped presets beside
-the document (`lageGrundgeruestPresets`, response-only), which is what the field app resolves an
-Einsatzart against and what «Auf Preset zurücksetzen» goes back to.
-
-In the browser: `/admin › Lage-Grundgerüst` – one tab per Einsatzart, «Preset: fks-standard ·
-1 Einsatzart angepasst», rows to edit, reorder and remove, «+ Element», and «Auf Preset
-zurücksetzen» per Einsatzart.
-
-## 1f. `objectVisits` – the optional Objektbesuche module
+### 1e. `objectVisits` – the optional Objektbesuche module
 
 Off unless `objectVisits.enabled` is `true`. `captureRoles` (default `["editor","el"]`) says who may
 record a visit, `proposalFields` is the station's field list for Korrekturvorschläge, and
@@ -1199,12 +1098,12 @@ The product role model is deliberately small:
 Set at deploy time, never in the repo. **Seventeen of them are also settable from the browser** –
 see the rule immediately below; everything else in the table really is deploy-time only.
 
-### The twenty-five integration credentials – env **or** `/admin` → Zugangsdaten
+### The twenty-five integration credentials – env **or** `/admin` → Anbindungen
 
 The station's integration settings – the three Divera keys, the Traccar trio, the VAPID trio, the
 four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET`,
 `HEALTHCHECK_PING_URL` and the four SharePoint fields (§6c) – no
-longer have to come from `.env`. An admin can set and rotate them at `/admin` → **Zugangsdaten**,
+longer have to come from `.env`. An admin can set and rotate them at `/admin` → **Anbindungen**,
 where they are stored **encrypted** in the `integration_credentials` table (AES-256-GCM, key
 derived from `SECRET_KEY` via HKDF-SHA256, the credential's own name as AAD) and take effect
 **without a restart** – the resolver re-reads the stored half every 30 s and immediately on a
@@ -1256,7 +1155,7 @@ Four rules, and none of them is optional reading:
 The `PLANS_S3_*` pair is the one genuinely secret-shaped thing that is **not** in the store: the
 plan pull is scheduled at boot from the environment (§6a), not per tick.
 
-🔐 = also settable at `/admin` → **Zugangsdaten** (encrypted in the database; a value here wins
+🔐 = also settable at `/admin` → **Anbindungen** (encrypted in the database; a value here wins
 and locks the field – see the rule above).
 
 | Env var | Purpose |
@@ -1272,9 +1171,9 @@ and locks the field – see the rule above).
 | `APP_BIND` | *(read by `docker-compose.yml`, not by the app)* which host address the app's port is published on: `0.0.0.0` (default) for a trusted LAN, `127.0.0.1` as soon as anything terminates TLS in front. ⚠️ A published port is open whatever `ufw` says. The four shapes and why: [`DEPLOYMENT.md` §3](DEPLOYMENT.md#app_port-and-app_bind) |
 | 🔐 `DIVERA_ACCESS_KEY`, `DIVERA_WEBHOOK_SECRET` | if `diveraEnabled` |
 | 🔐 `DIVERA_PERSONNEL_ACCESS_KEY` | optional second Divera key used **only** for the «Personal» pull. It must belong to a user whose read scope includes members' Qualifikationen – the alarm key above usually does not – and it is what makes the roster sync derive a Dienstgrad. Empty = falls back to `DIVERA_ACCESS_KEY` (names only, no rank) |
-| 🔐 `ALARM_WEBHOOK_SECRET` | generic alarm intake `POST /api/alarms` for non-Divera alerting systems – auto-opens an incident per alarm, idempotent on `source`+`source_id` (nothing set anywhere = endpoint disabled, fail-closed). Create it during the integration handoff and paste the same value into `/admin` → Zugangsdaten and the sender; it is write-only and deliberately not pre-generated at install – [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §1 |
-| 🔐 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push. Generate the pair once – on a Docker-only host `docker compose exec app uv run python -m app.gen_vapid`, or `cd backend && uv run python -m app.gen_vapid` where the toolchain is installed – then paste both halves into `/admin` → Zugangsdaten, which takes effect without a restart. `./scripts/setup.sh` does exactly that on a fresh install, into the credential store rather than into `.env`. Nothing set anywhere = push disabled, fail-closed. ⚠️ Generate **once** and keep the pair stable: rotating it invalidates every stored subscription |
-| 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. It is deliberately not minted by the installer: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Zugangsdaten |
+| 🔐 `ALARM_WEBHOOK_SECRET` | generic alarm intake `POST /api/alarms` for non-Divera alerting systems – auto-opens an incident per alarm, idempotent on `source`+`source_id` (nothing set anywhere = endpoint disabled, fail-closed). Create it during the integration handoff and paste the same value into `/admin` → Anbindungen and the sender; it is write-only and deliberately not pre-generated at install – [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §1 |
+| 🔐 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push. Generate the pair once – on a Docker-only host `docker compose exec app uv run python -m app.gen_vapid`, or `cd backend && uv run python -m app.gen_vapid` where the toolchain is installed – then paste both halves into `/admin` → Anbindungen, which takes effect without a restart. `./scripts/setup.sh` does exactly that on a fresh install, into the credential store rather than into `.env`. Nothing set anywhere = push disabled, fail-closed. ⚠️ Generate **once** and keep the pair stable: rotating it invalidates every stored subscription |
+| 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. It is deliberately not minted by the installer: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Anbindungen |
 | 🔐 `HEALTHCHECK_PING_URL` | dead-man's switch: **the job GETs this URL every 60 s** (healthchecks.io or any cron monitor), so the monitor alerts when the pings *stop*. Catches the class an HTTP probe of `/ready` cannot: a container stopped with nothing replacing it, or a wedged event loop. Point it at a check with a **1 min period and ~3 min grace** – matching the 60 s cadence, so two missed pings raise it. Nothing set anywhere = the heartbeat job still runs but returns on its first line, so nothing is pinged; a failed ping is logged and swallowed, so a monitoring outage never disturbs the deployment. The «Einrichtung» card on the admin landing page links straight to this field |
 | 🔐 `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_CLIENT_SECRET`, `SHAREPOINT_SECRET_EXPIRES` | the Azure app registration behind the SharePoint pull ([§6c](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)), read-only, client-credentials flow. ⚠️ These four are the credentials that have **no `Settings` field**: they were introduced after the credential table existed, so the environment half is read straight off the process environment and the normal path is the browser. The two ids are readable (an operator compares them against the Azure portal); the secret is write-only. `SHAREPOINT_SECRET_EXPIRES` is not a credential but the ISO date (`JJJJ-MM-TT`) the secret lapses on – Azure caps it at 24 months and says nothing when it does, so this is what the System card counts down. Nothing set = no pull, fail-closed |
 | 🔐 `OBJECT_VISITS_INTEGRATION_KEY` | the Objektbesuche organizer's bearer key for `/api/integrations` ([`object-visits.md`](object-visits.md)); ≥ 24 characters, write-only, no `Settings` field (read off the environment, normally set in the browser). Unset = the organizer API answers 403 |
@@ -1354,7 +1253,7 @@ nothing to put in `.env` and nothing that could outrank the stored value.)
 |---------|---------------------|--------------|
 | **Erfassungs-Poster** (station capture) | `/admin` → System › Links & Zugänge: activate / rotate / disable, print the A4 poster | Scanning it opens `/e/<token>`, where attendance, Material and notes for incidents of the last `alarms.captureWindowHours` are recorded **without a login**. Fail-closed: no token → the whole `/api/capture/*` surface answers 403. Rotation invalidates every printed poster at once. |
 | **Statistik-Export** | `/admin` → System › Links & Zugänge | `GET /api/stats/incidents?year=` returns one flat read-only JSON record per incident (metadata, Zeiten, Anwesenheit von–bis, Mittel totals, Rapport status) for external analytics – auth via the `X-Stats-Token` header or `?t=`. Fail-closed: no token → 403. Full field reference: [`STATS-EXPORT.md`](STATS-EXPORT.md). |
-| **Einsatz-Link** (read-only link into one incident) | `/admin` → System › Zugangsdaten: show, rotate or delete the station's `incident_link_key` | Copy the key into the alerting system, which signs a token with it and puts `/l/<token>` into the alert it sends out. A responder taps that on a personal phone and sees **one** incident the way a `viewer` does – no login, nothing that writes, prints or costs money – for as long as the Einsatz runs: closing or archiving it revokes every open link at once (12 h is the backstop for the one nobody closes). Fail-closed: no key → the link surface answers 403 and nothing exists, which is also what an existing deployment gets from the migration. Rotation or deletion invalidates every link already sent out and requires reconfiguring the alerting system. Trust model and reachable surface: [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §4. |
+| **Einsatz-Link** (read-only link into one incident) | `/admin` → System › Anbindungen: show, rotate or delete the station's `incident_link_key` | Copy the key into the alerting system, which signs a token with it and puts `/l/<token>` into the alert it sends out. A responder taps that on a personal phone and sees **one** incident the way a `viewer` does – no login, nothing that writes, prints or costs money – for as long as the Einsatz runs: closing or archiving it revokes every open link at once (12 h is the backstop for the one nobody closes). Fail-closed: no key → the link surface answers 403 and nothing exists, which is also what an existing deployment gets from the migration. Rotation or deletion invalidates every link already sent out and requires reconfiguring the alerting system. Trust model and reachable surface: [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §4. |
 
 ### 6c. SharePoint-Pull (the station's own folders, imported on a schedule)
 
@@ -1365,7 +1264,7 @@ pull-only** – nothing is ever written back to SharePoint.
 
 It is split the way everything else in this doc is. The **credentials** (Azure tenant id, client
 id, client secret, plus the date the secret expires) are four of the 🔐 integration credentials
-above, set at `/admin` → Zugangsdaten › SharePoint. The **folders** are config-as-code, in the
+above, set at `/admin` → Anbindungen › SharePoint. The **folders** are config-as-code, in the
 document's `sharepoint` section:
 
 ```jsonc
@@ -1738,9 +1637,9 @@ and `file` (relative to the manifest), and may carry `title`, `sourceNote` and `
 
 ### 9f. `admin_checklists` – checklist templates
 
-Checklist templates (the FU action list, the Lagerapport agenda, the EL tactical playbook) are
-station data too: one `ChecklistTemplate` JSON per list – plus playbook diagram images for
-`reference` templates – and a `checklists.manifest.json`, kept in the private data repo and
+Checklist templates (the FU action list, the Lagerapport agenda, the EL tactical playbook, the
+device Anleitungen) are station data too: one `ChecklistTemplate` JSON per list – plus images for
+`reference` and `manual` templates – and a `checklists.manifest.json`, kept in the private data repo and
 loaded with `backend/app/admin_checklists.py`. Each template becomes a `checklists:<id>`
 reference dataset (diagram pages as `checklists:<id>:p<N>`), served at
 `/api/reference/checklists:<id>` and fetched + offline-cached by the Checkliste surface
@@ -1761,6 +1660,78 @@ uv run python -m app.admin_checklists show               # list stored templates
 The manifest is the single place a station controls checklist rail ordering (`order`), and
 `load`/`push` **prune** stale `checklists:*` datasets not in the manifest, so renamed or removed
 lists don't linger.
+
+#### Template kinds
+
+| `kind` | What it is | Body | Ticked? | Images |
+| --- | --- | --- | --- | --- |
+| `action` | a task list (FU phases) | `phases[].items[]` (+ `branches`) | yes, per Einsatz | – |
+| `rapport` | the Lagerapport agenda | `phases[].items[]` | yes, per Einsatz | – |
+| `reference` | Merkblätter / tactical playbook (Stichworte) | `entries[].content[]` | no | `{"type": "image", "page": N}` blocks |
+| `manual` | an **Anleitung** for one device (05.10.2026) | `device` + `steps[]` | no | `steps[].images[].page` |
+| `visit` | an Objektbesuch checklist – [`object-visits.md`](object-visits.md) | `phases[].items[]` | answered on the visit | – |
+
+Images are manifest `assets` (`{"page": N, "file": "…jpg|png|webp|svg"}`), stored as
+`checklists:<id>:p<N>`; only `reference` and `manual` entries may carry them. Each kind's
+shape is checked by `app/checklist_templates.py · template_problem` on every door (CLI,
+`/admin › Checklisten`, the SharePoint pull).
+
+#### Anleitungen (`kind: "manual"`)
+
+A device's instructions – «Stromerzeuger starten», «Hebekissen einsetzen» – as big numbered
+steps on the Checkliste tab, in their own **Anleitungen** group below the checklists, one
+sub-head per device. They are **read, never ticked**: no state, no progress, nothing in the
+Verlauf or the Rapport. The picker search matches the title, the `device` and the `keywords`.
+Pictures are prefetched into the service worker's `checklist-assets` cache as soon as the
+templates load (`warmManualImages` in `src/lib/checklists.ts`), so an Anleitung opened for the
+first time without network still shows them.
+
+```json
+{
+  "id": "stromerzeuger",
+  "kind": "manual",
+  "title": "Stromerzeuger starten",
+  "device": "Stromerzeuger 8 kVA",
+  "subtitle": "optional one-line intro under the title",
+  "version": 3,
+  "updated": "2026-09-14",
+  "source": "Bedienungsanleitung Hersteller, Kap. 4",
+  "keywords": ["generator", "notstrom"],
+  "steps": [
+    { "text": "Standort im Freien wählen.",
+      "warning": "Nie in geschlossenen Räumen betreiben – Kohlenmonoxid." },
+    { "text": "Treibstoffhahn öffnen, bei kaltem Motor Choke schliessen.",
+      "hint": "Ölstand nur bei waagrechtem Gerät ablesen.",
+      "images": [{ "page": 1, "caption": "Bedienfeld" }] }
+  ]
+}
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `device` | ✅ | the Gerät; the picker groups by it (same string = same group) |
+| `steps[].text` | ✅ | the step, shown big and numbered; phone numbers become tappable |
+| `steps[].details` | – | sub-points of the step (a list of strings), shown as a bullet list under it |
+| `steps[].warning` | – | a red «Achtung:» line – what hurts people or the device |
+| `steps[].hint` | – | a quiet tip line |
+| `steps[].images[]` | – | `{ "page": N, "caption"? }` – an asset page of this entry: a photo, or a page of the device's PDF manual exported as an image (one image per PDF page) |
+| `updated` | – | «Stand», `YYYY-MM-DD` |
+| `keywords` | – | extra search words (model names, «Generator») |
+| `subtitle`, `version`, `source` | – | intro line, your own version counter, «Quelle:» footer |
+
+`admin_checklists validate` refuses an Anleitung whose steps show a `page` the manifest entry
+has no asset for – a blank box where the picture should be is exactly what must not happen at
+3am. A manifest entry:
+
+```json
+{ "id": "stromerzeuger", "kind": "manual", "title": "Stromerzeuger starten",
+  "file": "checklists/stromerzeuger.json", "order": 10,
+  "assets": [{ "page": 1, "file": "checklists/assets/stromerzeuger-p1.jpg" }] }
+```
+
+`examples/demo-data/` carries two worked examples (`musterdorf-stromerzeuger`,
+`musterdorf-hebekissen`) with SVG pictures; `/admin › Checklisten` offers a neutral one as
+«Beispiel-Vorlage: Anleitung».
 
 ### 9g. Maintenance tools (`reset_roster`, `demo_export`, `admin_visits`)
 

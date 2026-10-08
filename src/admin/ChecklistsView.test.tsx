@@ -24,7 +24,6 @@ vi.mock('../lib/download', () => ({ downloadBlob: (b: Blob, n: string) => downlo
 import { ChecklistsView } from './ChecklistsView'
 import { parseChecklistTemplate } from './stationDataApi'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
 
 const C = appConfig.copy.admin.checklists
 
@@ -110,7 +109,9 @@ describe('Checklisten — deleting, because uploading alone leaves ghosts', () =
     render(<ChecklistsView />)
     await screen.findByText('EL-Checklisten')
 
-    fireEvent.click(screen.getByRole('button', { name: 'EL-Checklisten löschen' }))
+    // Löschen lives in the row's ⋮ now — and still opens the same confirm
+    fireEvent.click(await screen.findByRole('button', { name: `EL-Checklisten – ${C.colActions}`, expanded: false }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: C.delete }))
 
     // the confirm names every dataset that goes — the template AND its diagrams
     await screen.findByText('checklists:el-playbook')
@@ -145,9 +146,9 @@ describe('Checklisten — the examples to start from', () => {
       render(<ChecklistsView />)
       await screen.findByText('Aufgaben FU')
 
-      fireEvent.click(screen.getByRole('button', {
-        name: fillTemplate(C.exampleDownloadKind, { kind: ex.label }),
-      }))
+      // one «Beispiel-Vorlage ▾» menu; the shapes are its items
+      fireEvent.click(await screen.findByRole('button', { name: C.exampleMenu, expanded: false }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: ex.label }))
 
       expect(downloadBlob).toHaveBeenCalledTimes(1)
       const [blob, name] = downloadBlob.mock.calls[0] as [Blob, string]
@@ -163,19 +164,18 @@ describe('Checklisten — the card head is the house style', () => {
   // One card, one head, and the order the job is done in: what you START FROM first, what you
   // SEND BACK last. The page used to be two cards, and the upload sat beside the example in the
   // body of the first one.
-  it('puts both examples before the upload, and makes only the upload primary', async () => {
+  it('puts the examples (one menu, one item per shape) before the upload, and makes only the upload primary', async () => {
     render(<ChecklistsView />)
     await screen.findByText('Aufgaben FU')
 
     expect(document.querySelectorAll('.adm-card')).toHaveLength(1)
     const acts = [...document.querySelectorAll<HTMLButtonElement>('.adm-card-act button')]
-    expect(acts.map((b) => b.textContent)).toEqual([
-      fillTemplate(C.exampleDownloadKind, { kind: C.kindAction }),
-      fillTemplate(C.exampleDownloadKind, { kind: C.kindReference }),
-      C.upload,
-    ])
+    expect(acts.map((b) => b.textContent)).toEqual([C.exampleMenu, C.upload])
     expect(acts.filter((b) => b.className.includes('adm-save-btn'))).toHaveLength(1)
-    expect(acts[2].className).toContain('adm-save-btn')
+    expect(acts[1].className).toContain('adm-save-btn')
+    fireEvent.click(await screen.findByRole('button', { name: C.exampleMenu, expanded: false }))
+    expect((await screen.findAllByRole('menuitem')).map((m) => m.textContent))
+      .toEqual([C.kindAction, C.kindReference, C.kindManual])
   })
 })
 

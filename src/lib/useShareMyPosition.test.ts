@@ -249,6 +249,44 @@ describe('useShareMyPosition', () => {
     unmount()
   })
 
+  // 05.10.2026: the name is changed from the Einstellungen in one tap — and that tap only names
+  it('a rename from the Einstellungen changes the name and switches NOTHING on', async () => {
+    const geo = stubGeo()
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    savePrefs({ ...loadPrefs(), sharePosition: { allowed: true, personId: P1, displayName: 'Meier Hans', deviceId: 'dev-12345678' } })
+    const { result, unmount } = renderHook(() => useShareMyPosition(INC, true))
+
+    act(() => { result.current.rename({ id: 'person-2', displayName: 'Muster Felix' }) })
+    expect(result.current.pref?.displayName).toBe('Muster Felix')
+    expect(result.current.pref?.deviceId).toBe('dev-12345678')
+    expect(result.current.confirmed).toBe(true) // picking the name is the confirmation
+    expect(result.current.state).toBe('off')
+    expect(geo.watching).toBe(false)
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(fetchMock).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('a rename WHILE sharing takes the old name off the map and carries on under the new one', async () => {
+    const geo = stubGeo()
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result, unmount } = renderHook(() => useShareMyPosition(INC, true))
+    act(() => { result.current.start({ id: P1, displayName: 'Meier Hans' }) })
+    await act(async () => { geo.push(fix(7.5, 47.5)) })
+    fetchMock.mockClear()
+
+    await act(async () => { result.current.rename({ id: 'person-2', displayName: 'Muster Felix' }) })
+    const [delUrl, delInit] = fetchMock.mock.calls[0]
+    expect(delInit.method).toBe('DELETE')
+    expect(delUrl).toContain(`/positions/${P1}`)
+    await act(async () => { geo.push(fix(7.5, 47.5)) })
+    const post = fetchMock.mock.calls.find(([, init]) => init.method === 'POST')
+    expect(JSON.parse(post![1].body).person_id).toBe('person-2')
+    unmount()
+  })
+
   it('says which session it is asking with, on the report AND on the delete', async () => {
     // Both go out as bare `fetch`es (a 409 is an answer here, and the delete is fire-and-forget),
     // so they miss everything the api client adds — including the header that decides which

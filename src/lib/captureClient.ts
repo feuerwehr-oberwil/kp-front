@@ -11,7 +11,7 @@ import { closePresence, currentIntervalIndex, isPresent, openPresence, setInterv
 import { ortOf } from './attendanceOrt'
 import { currentLineFor } from './mittel'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, hhmm } from './format'
+import { fillTemplate, hhmm, unitLabel } from './format'
 import { newId } from './ids'
 import { linkSessionHeaders } from './linkMode'
 
@@ -130,7 +130,7 @@ export function captureJournalRow(
       }))
     case 'setMittel':
       return row('box', fillTemplate(C.logMittel, {
-        label: action.label, menge: String(action.menge), unit: action.unit,
+        label: action.label, menge: String(action.menge), unit: unitLabel(action.unit),
       }))
     // ⚠️ 'attach', not 'photo' (23.08.): a Beilage is a Rapport row, while #photo is also what a
     // composer photo entry wears, and that one is «Manuell». One glyph, two Bereiche — invisible

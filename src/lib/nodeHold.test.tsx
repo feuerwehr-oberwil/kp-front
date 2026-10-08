@@ -2,6 +2,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
 import { useNodeHold, NODE_HOLD_ARM_MS, NODE_HOLD_FIRE_MS, NODE_HOLD_MOVE_PX } from './nodeHold'
+import { installHoldTooltip } from './holdTooltip'
 
 // The hold is the ONE gesture that removes geometry, so its three promises are worth pinning:
 // nothing shows before it arms, a drag never arms it, and letting go early does nothing.
@@ -80,5 +81,29 @@ describe('useNodeHold', () => {
     act(() => { vi.advanceTimersByTime(NODE_HOLD_FIRE_MS + 500) })
     expect(getByTestId('node').dataset.armed).toBe('none')
     expect(fire).not.toHaveBeenCalled()
+  })
+
+  // The Plan's Messen node was a <button> labelled «Gedrückt halten zum Löschen» without
+  // `data-holdaction`, so on touch the app-wide hold-tooltip popped that label at 350 ms —
+  // INSIDE the 825 ms ring — with a buzz, and swallowed the release (08.10.). The hook's props
+  // now carry the opt-out, so a handle that spreads them cannot forget it.
+  it('its props opt the handle out of the hold-tooltip — no label bubble mid-delete', () => {
+    const uninstall = installHoldTooltip()
+    try {
+      const fire = vi.fn()
+      function Handle() {
+        const hold = useNodeHold()
+        return <button data-testid="handle" aria-label="Gedrückt halten zum Löschen" {...hold.press('m0', fire)}><svg /></button>
+      }
+      const { getByTestId } = render(<Handle />)
+      const handle = getByTestId('handle')
+      expect(handle.hasAttribute('data-holdaction')).toBe(true)
+      act(() => { handle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 100, pointerType: 'touch' })) })
+      act(() => { vi.advanceTimersByTime(NODE_HOLD_ARM_MS + 200) }) // past the tooltip's 350 ms beat
+      expect(document.querySelector('.hold-tip')).toBeNull()
+      act(() => { vi.advanceTimersByTime(NODE_HOLD_FIRE_MS) })
+      expect(fire).toHaveBeenCalledTimes(1)
+      expect(document.querySelector('.hold-tip')).toBeNull()
+    } finally { uninstall() }
   })
 })

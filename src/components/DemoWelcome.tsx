@@ -1,6 +1,7 @@
 import { Icon } from '../lib/icons'
 import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
+import { Button } from './Button'
 
 // First-visit welcome for demo instances: a light, one-screen intro of what this is and what a
 // visitor can / can't do (the shared-demo contract). Shown once per device (see demoWelcome.ts)
@@ -20,7 +21,8 @@ export function DemoWelcome({ onClose }: { onClose: () => void }) {
           <h3>{C.canTitle}</h3>
           <ul>{C.can.map((t) => <li key={t}><Icon id="check" /><span>{t}</span></li>)}</ul>
         </div>
-        <button className="dw-cta" onClick={onClose}>{C.cta}</button>
+        {/* `dw-cta` has no rule any more: it is the e2e's handle (e2e/helpers · demo.spec) */}
+        <Button variant="primary" size="lg" block className="dw-cta" onClick={onClose}>{C.cta}</Button>
         <p className="dw-meta">{C.meta}</p>
     </Overlay>
   )

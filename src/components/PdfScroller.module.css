@@ -36,11 +36,15 @@
 }
 /* phone: the rails are bottom BARS, so the lanes to keep clear are the top bar and the two
    stacked bars at the foot */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .pages {
-    padding: calc(76px + env(safe-area-inset-top)) 10px
-      calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)) 10px;
+    padding: calc(76px + env(safe-area-inset-top)) var(--sp-2)
+      calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)) var(--sp-2);
   }
+}
+/* a surface without rails (an object visit's plan reader): a plain margin, the safe areas kept */
+.pages.bare {
+  padding: 12px max(var(--sp-2), env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(var(--sp-2), env(safe-area-inset-left));
 }
 /* ⚠️ No `background` here, and deliberately not a themed one either. This element IS the sheet
    of paper: pdf.js fills the whole canvas #ffffff before it draws a single glyph
@@ -57,7 +61,7 @@
 .zoomed { width: max-content; min-width: 100%; }
 .page {
   display: block;
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--e3);
   border-radius: 2px;
   /* no max-width: a zoomed page is WIDER than the column on purpose and scrolls sideways */
 }
@@ -70,21 +74,21 @@
   justify-content: center;
   gap: 12px;
   color: var(--ink-faint); /* --muted was never declared */
-  font-size: 14px;
+  font-size: var(--fs-2);
   pointer-events: none;
 }
 /* (the «Erneut laden» button is the shared <RetryButton> — RetryButton.module.css) */
 /* failure detail — see PdfViewport.module.css for the same two lines on the board */
 .reason {
   max-width: 30ch;
-  margin-top: -6px;
+  margin-top: -4px;
   text-align: center;
   line-height: 1.35;
 }
 .code {
   pointer-events: auto;
   user-select: text;
-  font: 400 11px var(--mono);
+  font: var(--fw-regular) var(--fs-micro) var(--mono);
   letter-spacing: .02em;
   opacity: .7;
 }

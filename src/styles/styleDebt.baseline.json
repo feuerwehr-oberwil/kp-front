@@ -1,0 +1,100 @@
+{
+  "src/admin/admin.css": {
+    "fontSize": 92,
+    "weight": 42,
+    "spacing": 235
+  },
+  "src/admin/credentials.css": {
+    "fontSize": 4,
+    "spacing": 4
+  },
+  "src/admin/links.css": {
+    "fontSize": 4,
+    "weight": 2,
+    "spacing": 7
+  },
+  "src/admin/objectPlans.css": {
+    "fontSize": 3,
+    "spacing": 6
+  },
+  "src/admin/objectVisits.css": {
+    "fontSize": 1,
+    "weight": 1,
+    "spacing": 3
+  },
+  "src/admin/planAlignment.css": {
+    "fontSize": 13,
+    "weight": 6,
+    "spacing": 86
+  },
+  "src/admin/stationData.css": {
+    "fontSize": 5,
+    "spacing": 13
+  },
+  "src/admin/system.css": {
+    "fontSize": 2,
+    "weight": 1,
+    "spacing": 9
+  },
+  "src/components/Atemschutz.module.css": {
+    "fontSize": 6
+  },
+  "src/components/BandGrid.module.css": {
+    "fontSize": 2
+  },
+  "src/components/Checklists.module.css": {
+    "shadow": 2
+  },
+  "src/components/GeorefMode.module.css": {
+    "spacing": 8,
+    "shadow": 1
+  },
+  "src/components/PdfScroller.module.css": {
+    "spacing": 6
+  },
+  "src/components/RetryButton.module.css": {
+    "spacing": 2
+  },
+  "src/components/SharePosition.module.css": {
+    "fontSize": 4,
+    "weight": 1,
+    "spacing": 6
+  },
+  "src/components/ShellLoader.module.css": {
+    "spacing": 1
+  },
+  "src/components/Zeitplan.module.css": {
+    "spacing": 1
+  },
+  "src/fonts.css": {
+    "weight": 4
+  },
+  "src/styles/06-contextpanel.css": {
+    "spacing": 12
+  },
+  "src/styles/08-toasts.css": {
+    "fontSize": 1,
+    "spacing": 5
+  },
+  "src/styles/12-login.css": {
+    "spacing": 4
+  },
+  "src/styles/13-incident.css": {
+    "fontSize": 1,
+    "shadow": 1
+  },
+  "src/styles/15-mobile.css": {
+    "fontSize": 1,
+    "spacing": 8
+  },
+  "src/styles/17-rapport.css": {
+    "spacing": 1,
+    "shadow": 2
+  },
+  "src/styles/18-audio.css": {
+    "shadow": 1
+  },
+  "src/styles/19-rueckmeldung.css": {
+    "spacing": 1
+  }
+}

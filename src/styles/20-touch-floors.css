@@ -7,7 +7,7 @@
   .ip-ac-row { min-height: var(--tap); }
   .ip-objrow { min-height: var(--tap); }
   .ip-loc-clear { width: var(--tap); height: var(--tap); display: grid; place-items: center; }
-  .ip-ix-methods .ip-btn { min-height: var(--tap); }
+  /* (`.ip-ix-methods .ip-btn` — every .ip-btn is --tap tall on every pointer since 08.10.2026) */
   /* the «Übung» row is an `OnOff` pair (28.09.2026) — `.useg` is tap-tall unconditionally,
      so it needs no floor here (it was a native checkbox with a ~16px hit box once). */
 }
@@ -22,7 +22,7 @@
   .report-att-x { width: var(--tap); height: var(--tap); }
   .report-partner { min-height: var(--tap); }
   .report-partner-tick { min-height: var(--tap); }
-  .report-row-add { min-height: var(--tap); }
+  /* (`.report-row-add` wears THE button since 08.10.2026 — --tap tall on every pointer) */
   /* The Rapport head's «noch offen» chips (55×18px, 5–7px apart — the smallest targets in the
      product) are GONE (23.09.2026). Raising them to var(--tap) had been tried and reverted: four
      44px pills wrap onto two rows, and once the strip wraps the ::after pads of two rows overlap.
@@ -61,12 +61,26 @@
      raised to 44. The bar is already 62px tall around that button, so none of these move it. */
   .ip-switch-btn, .tb-einsatzuhr, .tb-weather { min-height: var(--tap); }
   /* the Einsatz card's row of actions (40) and the menu's «Abmelden» (30) — its sync mark is a --tap
-     square at every width since 29.09.2026 (13-incident · .ip-card-sync) */
-  .ip-card-act, .ip-menu-logout, .ip-btn { min-height: var(--tap); }
+     square at every width since 29.09.2026 (13-incident · .ip-card-sync). (`.ip-btn` stood here
+     too; THE button is --tap tall on every pointer since 08.10.2026, 13-incident · «THE button».) */
+  .ip-card-act, .ip-menu-logout { min-height: var(--tap); }
   /* (the plan's trust chips along its foot — Einsatzobjekt · Massstab · Karte verknüpfen — were 29px
      and stood --tap here; since 26.09.2026 they are --float-h at every width, 09-whiteboard) */
-  /* the Rapport's pencil on the Einsatzdaten card (26) and the ± stepper's reset (32) */
-  .report-meta-dispatch-hint, .step-clear { width: var(--tap); height: var(--tap); }
+  /* the Rapport's pencil on the Einsatzdaten card (26). (The ± stepper's reset is --tap at every
+     pointer since 07.10.2026, 07-toolrail.) */
+  .report-meta-dispatch-hint { width: var(--tap); height: var(--tap); }
+}
+
+/* ---- Small controls with a close neighbour (UI sweep 07.10.2026) ----------------------------
+   Under the floor and with something within a pad's reach, so they GROW under a finger instead
+   of getting an ::after pad (02-base): a pad would make the neighbour's edge answer for them. */
+@media (pointer: coarse) {
+  /* (a Detail field's remove ✕ and the drawing editor's «›» to the coupled Trupp stood here at 32px;
+     both are <IconButton> since 08.10.2026, a --tap square at every pointer) */
+  /* the capture app's «fehlt noch» chips (32px), wrapping in a 6px-gap row */
+  .cv-missing-go { min-height: var(--tap); }
+  /* the Verlauf's «wieder in …» offers on a closed Pendenz (≈24px), side by side 5px apart */
+  .jr-again-btn { min-height: var(--tap); }
 }
 
 /* ---- The drawing controls stay as they are — decided, not overlooked ------------------------

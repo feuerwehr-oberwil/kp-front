@@ -1,7 +1,7 @@
 import { nextTruppNo } from './placedTrupps'
 import { ghostCounterNames } from './truppTrails'
 import type { TruppTrail } from './truppTrails'
-import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, BuildingDoc, CameraView, DrawKind, Drawing, Entity, EntityKind, GeoTrailPoint, LayerDef, LayerId, LngLat, MittelEntry, ReportAttachment, Shift, ShiftBand, SucheDoc, TimelineEvent, TrailPoint, Trupp, TruppReading, WeatherData } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, BuildingDoc, CameraView, DrawKind, Drawing, Entity, EntityKind, GeoTrailPoint, LayerDef, LayerId, LngLat, MittelEntry, ReportAttachment, Shift, ShiftBand, TimelineEvent, TrailPoint, Trupp, TruppReading, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
@@ -10,6 +10,7 @@ import { loadLayerPrefs } from './layerPrefs'
 import { isSafeColor } from './shapes'
 import { sanitizeSvgResult } from './sanitizeSvg'
 import { minPoints } from './vertexOps'
+import { isPlakatData } from './plakat'
 import type { ChecklistState } from './checklists'
 import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
 import { bearing360 } from './planProjection'
@@ -17,8 +18,6 @@ import { isIncidentPlanBinding, type IncidentPlanBinding } from './incidentPlanB
 import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
 import type { VehicleOverrides } from './useVehicleLayer'
-import { sanitizeSuche } from './suche'
-import { unknownWorkspaceKeys } from './mergeWorkspace'
 
 /** Per-plan distance calibration, keyed by PlanDocument id (see lib/planScale). */
 export type PlanScales = Record<string, PlanScale>
@@ -227,9 +226,6 @@ export interface Saved {
   reportMeta?: ReportMeta
   /** Beilagen: photos that belong to the Rapport (documents, damage) rather than to the Verlauf */
   attachments?: ReportAttachment[]
-  /** the Suche (24.09.2026, lib/suche): missing/found Personen and the search Bereiche, each
-   *  record with its own append-only log. Absent until somebody opens the Suche. */
-  suche?: SucheDoc
   /** the exact plan sheets this incident opened — dataset revision + approved fit, frozen at
    *  first open so a later station replacement/approval never moves an operational backdrop
    *  (lib/incidentPlanBindings). First binding per sheet wins; corrections ride `override`. */
@@ -318,7 +314,7 @@ type Complete<T extends string, U extends readonly string[]> = Exclude<T, U[numb
 const kindSet = <T extends string>() => <const U extends readonly T[]>(u: U & Complete<T, U>): ReadonlySet<string> => new Set<string>(u)
 const ENTITY_KINDS = kindSet<EntityKind>()(['symbol', 'vehicle', 'note', 'photo', 'shape', 'team', 'person'])
 const DRAW_KINDS = kindSet<DrawKind>()(['line', 'area', 'circle'])
-const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource'])
+const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource', 'plakat'])
 /** the pre-'resource' board kind, still accepted at the gate because normalizeBoard migrates it */
 const LEGACY_BOARD_KINDS: ReadonlySet<string> = new Set([...BOARD_KINDS, 'trupp'])
 /** fewest vertices a drawing of each kind can render with (a circle is its centre) */
@@ -354,9 +350,12 @@ export const isDrawing = (v: unknown): v is Drawing =>
 /** A plan annotation the Whiteboard can draw: ink needs enough finite vertices, everything else an anchor. */
 export const isBoardAnno = (v: unknown): v is BoardAnno =>
   hasId(v) && typeof v.kind === 'string' && LEGACY_BOARD_KINDS.has(v.kind)
-  && (v.kind === 'draw' || v.kind === 'area'
-    ? Array.isArray(v.pts) && v.pts.length >= minPoints(v.kind) && v.pts.every(boardPt)
-    : num(v.x) && num(v.y))
+  // the «Erstes Plakat» is sheet-wide (no anchor) and renders its lists straight away — a
+  // malformed one is dropped here, not thrown there
+  && (v.kind === 'plakat' ? isPlakatData(v.plakat)
+    : v.kind === 'draw' || v.kind === 'area'
+      ? Array.isArray(v.pts) && v.pts.length >= minPoints(v.kind) && v.pts.every(boardPt)
+      : num(v.x) && num(v.y))
 /** A Gebäude doc the floor-stack can open: at least one finite storey and a footprint of some shape. */
 export const isBuilding = (v: unknown): v is BuildingDoc =>
   isObj(v) && Array.isArray(v.floors) && v.floors.length > 0 && v.floors.every(num)
@@ -549,27 +548,12 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     trails: arr<TruppTrail>(raw.trails, isTruppTrail),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
     attachments: arr<ReportAttachment>(raw.attachments, hasId),
-    suche: sanitizeSuche(raw.suche),
     planBindings: arr<IncidentPlanBinding>(raw.planBindings, isIncidentPlanBinding),
     settings,
     intakeReviewedAt: str(raw.intakeReviewedAt),
     schemaVersion: sv,
   }
-  // ⚠️ …and every top-level key this build does not know rides along UNTOUCHED — a slice a newer
-  // build added. Dropped here, it was missing from this device's next save, and the save replaced
-  // the server's blob: one older tablet erased the whole slice for everybody (the Suche's rollout,
-  // 24.09.2026). Kept, it goes back out as it came in (IncidentWorkspace · buildPayload, and the
-  // merge · unknownWorkspaceKeys).
-  for (const k of unknownWorkspaceKeys(raw)) (ws as unknown as Record<string, unknown>)[k] = raw[k]
   return { ws, dropped, newerSchema: sv != null && sv > WORKSPACE_SCHEMA_VERSION }
-}
-
-/** The keys of a sanitized blob this build does not know, with their values — what a save has
- *  to hand back unchanged (see the carry above). */
-export function carriedWorkspaceKeys(ws: Saved | null | undefined): Record<string, unknown> {
-  if (!ws) return {}
-  const raw = ws as unknown as Record<string, unknown>
-  return Object.fromEntries(unknownWorkspaceKeys(raw).map((k) => [k, raw[k]]))
 }
 
 export interface InitialState {
@@ -586,7 +570,6 @@ export interface InitialState {
   cameraViews: CameraView[]
   trails: TruppTrail[]
   attachments: ReportAttachment[]
-  suche: SucheDoc
   planScale: PlanScales
   reportMeta: ReportMeta
   settings: IncidentSettings
@@ -740,9 +723,6 @@ function builtinAndConfigLayers(): LayerDef[] {
   const seen = new Set(initialLayers.map((l) => l.id))
   return [...initialLayers, ...referenceLayersFromConfig().filter((l) => !seen.has(l.id))]
     .map(keyCartoTileTemplates)
-    // the Suche's row says its word in the deployment's language (read here, after the locale is
-    // applied — the data module is evaluated before it)
-    .map((l) => (l.id === appConfig.defaults.sucheLayerId ? { ...l, label: appConfig.copy.suche.layerLabel } : l))
 }
 
 /** The layer list an Einsatz of this category opens with when no device/blob state exists —
@@ -833,7 +813,6 @@ export function deriveInitial(
     cameraViews: ws?.cameraViews ?? [],
     trails: ws?.trails ?? [],
     attachments: ws?.attachments ?? [],
-    suche: ws?.suche ?? { personen: [], bereiche: [] },
     planScale: ws?.planScale ?? {},
     reportMeta: ws?.reportMeta ?? {},
     settings: ws?.settings ?? {},

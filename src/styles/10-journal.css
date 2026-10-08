@@ -16,9 +16,9 @@
 /* ⚠️ an EMPTY share slot still counted as a flex child and doubled the gap before the weather
    (16px where every other neighbour has 8) — a slot with nothing in it takes no room */
 .tb-share:empty { display: none; }
-.tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer;
-  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
-  font-weight: 700; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
+.tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: var(--sp-2); border: none; cursor: pointer;
+  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3); min-height: 42px; font-size: var(--fs-1);
+  font-weight: var(--fw-bold); transition: background .14s var(--ease), color .14s var(--ease); }
 .tb-act .i { width: 15px; height: 15px; }
 /* ⚠️ The undo/redo glyphs (lib/icons · #undo/#redo) are NOT centred in their own 24×24 viewBox
    the way the sprite's other icons are (their curve reaches y 22, the arrowhead only y 7 — true
@@ -26,7 +26,7 @@
    rest of `.tb-actions` lines up on. Nudged back onto that line here rather than in the shared
    symbol, which other callers (the undo toast, the Rückgängig-Uhr) draw against their own box. */
 .tb-act-history .i { transform: translateY(-1.5px); }
-.tb-act.icon { padding: 7px 9px; min-width: 42px; background: transparent; }
+.tb-act.icon { padding: var(--sp-2); min-width: 42px; background: transparent; }
 @media (hover: hover) {
   .tb-act:hover { color: var(--ink); background: var(--fill-soft); }
 }
@@ -42,8 +42,8 @@
    the bar's nested corner (AGENTS.md · buttons · radius). On a phone it is --tap tall, and a
    44px capsule next to the square-cornered Verlauf button read as a foreign object. The same
    goes for .tb-gps and .tb-mode below – the three status chips of the bar share one shape. */
-.tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-sm);
-  font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
+.tb-az { display: inline-flex; align-items: center; gap: var(--sp-2); border: none; cursor: pointer; border-radius: var(--r-sm);
+  font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); margin-right: 2px;
   flex: 0 1 auto; min-width: 0; transition: background .14s var(--ease); }
 .tb-az .i { width: 15px; height: 15px; flex: none; }
 /* the name yields before the clock does — «wie lange schon» is the number you act on — but it
@@ -75,14 +75,17 @@
    itself never gives: squeezed below a readable width counts as «does not fit». «Eintrag» keeps
    its word the longest — writing the entry is what an officer does WHILE the alarm runs. :not(.tb-rem-count) keeps the reminder count, a
    number the bar exists to show.
-   ⚠️ No step takes a chip's ICON (final walk-through, R1): a bare red «5» said nothing. */
+   ⚠️ No step takes a chip's ICON (final walk-through, R1): a bare red «5» said nothing.
+   PHONE (08.10.2026): the pill's street counts as «does not fit» whenever it ellipsises, up to and
+   including the ↷ step — the weather and ↷ only come back with the room left once it is whole
+   (useHeadFit · STREET_BEFORE_STEP); past that step the 112px floor rules again. */
 .topbar.fit-1 :is(.tb-weather-cond, .tb-weather-temp) { display: none; }
 .topbar.fit-2 .tb-weather-wrap { display: none; }
 .topbar.fit-3 .tb-einsatzuhr { display: none; }
 .topbar.fit-4 .tb-act-redo { display: none; }
-.topbar.fit-5 { gap: 3px; padding-inline: 6px; }
+.topbar.fit-5 { gap: var(--sp-1); padding-inline: var(--bar-pad); }
 .topbar.fit-5 .tb-actions { gap: 0; }
-.topbar.fit-5 :is(.tb-az, .ip-switch-btn) { padding-inline: 7px; }
+.topbar.fit-5 :is(.tb-az, .ip-switch-btn) { padding-inline: var(--sp-2); }
 .topbar.fit-6 .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
 .topbar.fit-6 .tb-act:not(.tb-act-add) { padding: 8px; }
 .topbar.fit-7 .tb-suche .tb-suche-full { display: none; }
@@ -94,7 +97,7 @@
 /* …and the «Einsatz abgeschlossen» chip (#235: it now appears LIVE, when another device closes
    the Einsatz) gives its words at the same step as the title — the lock stays, the sentence is
    one tap away in its menu, exactly as on the phone bar */
-.topbar.fit-9 .tb-mode { padding: 5px 8px; font-size: 0; gap: 0; }
+.topbar.fit-9 .tb-mode { padding: var(--sp-1) var(--sp-2); font-size: 0; gap: 0; }
 .topbar.fit-9 .tb-mode .i { width: 16px; height: 16px; }
 .topbar.fit-10 .tb-suche-ask-n { display: none; }
 /* «Eintrag» gives its word LAST (29.09.2026, sweep K2): its glyph is the journal pen now, not a
@@ -104,25 +107,19 @@
 /* every chip in the bar is at least a tap wide, its glyph and its number together */
 .topbar :is(.tb-az, .tb-suche) { min-width: var(--tap); justify-content: center; }
 .topbar :is(.tb-az, .tb-suche) > .i { flex: none; }
-.tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+.tb-az.warn { background: var(--amber-16); color: var(--amber-strong); }
 @media (hover: hover) {
-  .tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+  .tb-az.warn:hover { background: var(--amber-28); }
 }
 /* the quiet lead: «Kontakt fällig» in amber, no pulse — the pulse is the alarm's voice */
-.tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
-.tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
-/* the Suche's «2 vermisst» wears the red of a missing person but not the pulse: it stands for as
-   long as the search does, and a chip that blinks for an hour is one nobody sees any more */
-.tb-az.crit.tb-suche { animation: none; }
-.tb-suche-short { display: none; font-variant-numeric: tabular-nums; }
-/* the open «abgesucht?» questions beside the count on a narrow bar (N13) */
-.tb-suche-ask { margin-left: 5px; padding: 1px 6px; border-radius: var(--r-pill); background: var(--amber); color: var(--on-fill); font-weight: 800; }
+.tb-az.warn { background: var(--amber-16); color: var(--amber-strong); }
+.tb-az.crit { background: var(--red-16); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
 /* ⚠️ The pulse animates the BACKGROUND, not `opacity` (15.09.2026). An opacity animation put the
    chip on its own compositor layer over the bar's backdrop-filter, and WebKit then left the
    previous second's digits ghosting under the new ones («6:18» over «6:08») – a background
    keyframe repaints the whole chip every frame and the clock stays one clock. */
 @media (hover: hover) {
-  .tb-az.crit:hover { background: color-mix(in srgb, var(--red) 26%, transparent); }
+  .tb-az.crit:hover { background: var(--red-28); }
 }
 .tb-az:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
@@ -130,32 +127,32 @@
    map (disappearing reads as «it has driven off», not as «the feed is gone»), so the freeze
    has to become visible here. Amber, not red: a frozen position is a caveat, not an alarm —
    and red belongs to the überfälliger Trupp. */
-.tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-sm);
-  font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
+.tb-gps { display: inline-flex; align-items: center; gap: var(--sp-2); border: none; border-radius: var(--r-sm);
+  font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); margin-right: 2px;
   flex: none; cursor: default;
-  background: color-mix(in srgb, var(--amber, #b45309) 16%, transparent); color: var(--amber-strong, #b45309); }
+  background: var(--amber-16); color: var(--amber-strong, #b45309); }
 .tb-gps .i { width: 15px; height: 15px; flex: none; }
 .tb-gps-age { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-@keyframes tb-az-pulse { 0%, 100% { background-color: color-mix(in srgb, var(--red) 15%, transparent); } 50% { background-color: color-mix(in srgb, var(--red) 34%, transparent); } }
+@keyframes tb-az-pulse { 0%, 100% { background-color: var(--red-16); } 50% { background-color: color-mix(in srgb, var(--red) 34%, transparent); } }
 
 /* Modus-Chip beside the Einsatzname: «Einsatz abgeschlossen». It moved here out of the bottom
    banner layer (23.08.) — read-only is a property of the INCIDENT, and the incident is named in
    the head. Amber for the same reason .tb-gps is: a state to be aware of, not an alarm. Tapping
    it offers the two exits the banner used to carry (Zurück / Wieder öffnen), so nothing was lost
    with the banner; on a link session there are no exits and it is a plain, inert chip. */
-.tb-mode { display: inline-flex; align-items: center; gap: 6px; flex: none; border: none; border-radius: var(--r-sm);
-  font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; white-space: nowrap;
-  background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber-strong); }
+.tb-mode { display: inline-flex; align-items: center; gap: var(--sp-2); flex: none; border: none; border-radius: var(--r-sm);
+  font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); white-space: nowrap;
+  background: var(--amber-16); color: var(--amber-strong); }
 .tb-mode .i { width: 14px; height: 14px; flex: none; }
 button.tb-mode { cursor: pointer; }
 @media (hover: hover) {
-  button.tb-mode:hover { background: color-mix(in srgb, var(--amber) 28%, transparent); }
+  button.tb-mode:hover { background: var(--amber-28); }
 }
 button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* the phone bar has room for the glyph, not the word — the state stays visible, the sentence
      is one tap away in the chip's own menu */
-  .tb-mode { padding: 5px 8px; font-size: 0; gap: 0; }
+  .tb-mode { padding: var(--sp-1) var(--sp-2); font-size: 0; gap: 0; }
   .tb-mode .i { width: 16px; height: 16px; }
   /* …and it is the phone's only door to «Wieder öffnen» (staging r4): the glyph stays 32×26 in
      the bar, the TAP area is the house 44 px — grown invisibly around it, never pushing the bar */
@@ -165,26 +162,26 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 }
 /* compact wind readout folded into the bar on a phone — downwind arrow + speed, no temp */
 .tb-wind { display: inline-flex; align-items: center; gap: 4px; border: none; cursor: pointer; background: transparent;
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 6px; min-height: 42px; font-family: inherit;
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: var(--sp-1); min-height: 42px;
   font-variant-numeric: tabular-nums; transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
   .tb-wind:hover:not(:disabled) { color: var(--ink); background: var(--fill-soft); }
 }
 .tb-wind:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .tb-wind:disabled { cursor: default; }
-.tb-wind b { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.tb-wind b { font-size: var(--fs-1); font-weight: var(--fw-bold); white-space: nowrap; }
 .tb-wind-arr { width: 16px; height: 16px; display: grid; place-items: center; flex: none; }
 .tb-wind-arr svg { width: 16px; height: 16px; display: block; }
 /* weather readout in the bar (condition · temp · downwind arrow · speed), sat next to Eintrag */
-.tb-weather { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; background: transparent;
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 9px; min-height: 42px; font-family: inherit;
+.tb-weather { display: inline-flex; align-items: center; gap: var(--sp-1); border: none; cursor: pointer; background: transparent;
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: var(--sp-1) var(--sp-2); min-height: 42px;
   font-variant-numeric: tabular-nums; white-space: nowrap; transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
   .tb-weather:hover:not(:disabled) { color: var(--ink); background: var(--fill-soft); }
 }
 .tb-weather:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .tb-weather:disabled { cursor: default; }
-.tb-weather b { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.tb-weather b { font-size: var(--fs-1); font-weight: var(--fw-bold); white-space: nowrap; }
 .tb-weather-cond { display: grid; place-items: center; flex: none; color: var(--ink); }
 .tb-weather-cond svg { width: 18px; height: 18px; display: block; }
 .tb-weather-temp { padding-right: 8px; }   /* the wind wears its own arrow; no rule between the two readings (22.09.2026) */
@@ -203,22 +200,22 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
      different colors (at least in dark mode)». It was `--surface`, the raised BUTTON fill, a
      visibly lighter slate than the bar at night, with a heavier shadow of its own. */
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-ctl); box-shadow: var(--shadow);
+  border-radius: var(--r-ctl); box-shadow: var(--e4);
   padding: 16px; animation: popIn .15s var(--ease); font-variant-numeric: tabular-nums; }
 /* centred header: condition glyph, label, big temperature */
-.wx-pop-head { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-bottom: 14px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.wx-pop-head { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-bottom: var(--sp-3); margin-bottom: 12px; border-bottom: 1px solid var(--border); }
 .wx-pop-cond { display: grid; place-items: center; color: var(--ink); }
 .wx-pop-cond svg { width: 34px; height: 34px; display: block; }
 .wx-pop-head-t { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.wx-pop-head-t b { font: 700 14px var(--body); color: var(--ink); }
-.wx-pop-head-t span { font: 800 22px var(--body); color: var(--ink); letter-spacing: -.01em; }
-.wx-pop-rows { display: flex; flex-direction: column; gap: 9px; margin: 0; }
-.wx-pop-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
-.wx-pop-row dt { font: 600 12.5px var(--body); color: var(--ink-faint); flex: none; }
-.wx-pop-row dd { margin: 0; font: 700 12.5px var(--body); color: var(--ink); text-align: right; }
-.wx-pop-link { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; margin-top: 14px;
-  padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--fill-soft);
-  color: var(--ink); font: 700 12.5px var(--body); cursor: pointer; } /* ink, not blue: 28.09.2026 — blue means «chosen» */
+.wx-pop-head-t b { font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
+.wx-pop-head-t span { font: var(--fw-heavy) var(--fs-5) var(--body); color: var(--ink); letter-spacing: -.01em; }
+.wx-pop-rows { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; }
+.wx-pop-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.wx-pop-row dt { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); flex: none; }
+.wx-pop-row dd { margin: 0; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); text-align: right; }
+.wx-pop-link { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); width: 100%; margin-top: var(--sp-3);
+  min-height: var(--tap); padding: 0 var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--fill-soft);
+  color: var(--ink); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; } /* ink, not blue: 28.09.2026 — blue means «chosen» */
 @media (hover: hover) {
   .wx-pop-link:hover { background: var(--hover-strong); }
 }
@@ -295,7 +292,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    did nothing (see lib/useHoldEntry · onPointerMove). Nothing here is ever clicked — the button
    holds the capture — they only have to be FINDABLE by geometry. */
 .hold-targets { z-index: var(--z-menu);
-  display: flex; flex-direction: column; gap: 6px; pointer-events: none; white-space: nowrap; }
+  display: flex; flex-direction: column; gap: var(--sp-2); pointer-events: none; white-space: nowrap; }
 /* ⚠️ column-REVERSE when the chooser opens upward, so DOM order can stay «nearest the button
    first» in both directions. The finger leaves the button in ONE direction and meets Sprachnotiz
    first, Foto beyond it — distance picks the option, and nothing asks a gloved thumb at the
@@ -316,9 +313,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    takes the button's width as a floor, so the three read as one column rather than as two
    oversized cards that happen to be nearby. */
 .hold-target { pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 8px;
-  padding: 7px 12px; min-height: 42px;
+  padding: var(--sp-2) var(--sp-3); min-height: 42px;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-sm);
-  box-shadow: var(--shadow-sm); font: 700 12.5px var(--body); color: var(--ink-dim);
+  box-shadow: var(--e3); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim);
   transition: background .12s var(--ease), color .12s var(--ease), transform .12s var(--ease); }
 .hold-target .i { width: 15px; height: 15px; }
 /* the one the finger is over — this is the whole feedback of the gesture, so it is not subtle.
@@ -354,33 +351,35 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    61 puts the drawer on top, so nothing is lost behind it). */
 .journal-drawer { position: fixed; top: 88px; right: 84px; bottom: 12px; width: 620px; max-width: calc(100vw - 96px); z-index: var(--z-drawer);
   display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--shadow); padding: 10px;
+  border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--e4); padding: var(--sp-3);
   animation: drawerIn .18s var(--ease); }
 @keyframes drawerIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 /* keyboard up (the Verlauf search) on a tablet: the Overlay stands the foot on the keys
    (keyboardLift · --vv-foot) and the top follows iOS's pan, so the drawer is the visible band less
    its insets (13-incident.css · `.is-kb`, 30.09.2026). The phone's drawer is a bottom sheet
    (15-mobile), hence the tablet-only gate — the complement of its query. */
-@media (min-width: 601px) and (min-height: 521px), (min-width: 1001px) {
+@media (--not-phone) {
   .journal-drawer.is-kb { top: calc(88px + var(--vv-pan, 0px)); }
 }
-.journal-head { display: flex; align-items: center; gap: 8px; padding: 4px 4px 10px; }
-.journal-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.journal-head { display: flex; align-items: center; gap: 8px; padding: 4px 4px var(--sp-2); }
+.journal-title { display: flex; align-items: center; gap: 8px; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
 .journal-title .i { width: 17px; height: 17px; }
-.jr-delivery { padding: 14px; margin-block: 4px 12px; border-radius: var(--r-ctl); background: color-mix(in srgb, var(--amber) 16%, var(--glass)); color: var(--ink); }
+.jr-delivery { padding: var(--sp-3); margin-block: 4px 12px; border-radius: var(--r-ctl); background: color-mix(in srgb, var(--amber) 16%, var(--glass)); color: var(--ink); }
 .jr-delivery-danger { background: color-mix(in srgb, var(--red) 14%, var(--glass)); }
-.jr-delivery strong { font-size: 14px; }
-.jr-delivery p { margin-block: 8px 12px; font-size: 13px; line-height: 1.5; }
+.jr-delivery strong { font-size: var(--fs-2); }
+.jr-delivery p { margin-block: 8px 12px; font-size: var(--fs-2); line-height: 1.5; }
 .jr-delivery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* ⚠️ 36px like every other button of this head (20.09.2026): the ✕ went to the house 36 (13-incident.css ·
    «ONE size for the ✕») and left ⓘ, the lens and ▶ standing at 28 beside it – one row, two sizes. */
-.journal-replay { position: relative; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
-  height: 36px; min-width: 36px; justify-content: center; padding: 0 10px; border: none; border-radius: var(--r-sm); cursor: pointer;
-  background: var(--amber); color: var(--on-fill); font-family: var(--body); font-weight: 700; font-size: 12px; }
+.journal-replay { position: relative; margin-left: auto; display: inline-flex; align-items: center; gap: var(--sp-2);
+  height: 36px; min-width: 36px; justify-content: center; padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm); cursor: pointer;
+  background: var(--btn-primary); color: var(--on-btn-primary); font-family: var(--body); font-weight: var(--fw-bold); font-size: var(--fs-1); }
+/* the normal primary, not amber (sweep B7, 07.10.2026): amber means «needs attention» everywhere
+   else («4 offen», Kontakt fällig), and a play button is not asking for any */
 /* full-height transparent pad — visually compact chip, finger-sized target */
 .journal-replay::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 @media (hover: hover) {
-  .journal-replay:hover { filter: brightness(.96); }
+  .journal-replay:hover { background: var(--btn-primary-hover); }
 }
 .journal-replay:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-replay .i { width: 15px; height: 15px; }
@@ -388,9 +387,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .journal-replay + .journal-x { margin-left: 0; }
 .journal-x { margin-left: auto; width: 28px; height: 28px; border-radius: var(--r-sm); border: none; cursor: pointer;
   /* the shared close-pill fill (see .ctx-x) — --surface-2 is white-based and vanished on the card */
-  background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); display: grid; place-items: center; }
+  background: var(--ink-8); color: var(--ink-dim); display: grid; place-items: center; }
 @media (hover: hover) {
-  .journal-x:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+  .journal-x:hover { background: var(--ink-12); color: var(--ink); }
 }
 .journal-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-x .i { width: 14px; height: 14px; }
@@ -406,11 +405,11 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   /* the ✕'s own fill and ink (see .journal-x): on `--surface-2` — white at .6 over a white glass
      drawer — the chip vanished and only its 18px glyph stayed, so ⓘ and the lens read smaller
      than the ✕ they are the size of (22.09.2026) */
-  background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); }
+  background: var(--ink-8); color: var(--ink-dim); }
 /* finger-sized target under a 36px chip, the same trick .journal-replay uses */
 .journal-legend-btn::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) {
-  .journal-legend-btn:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+  .journal-legend-btn:hover { background: var(--ink-12); color: var(--ink); }
 }
 .journal-legend-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* OPEN (the lens's search) is the one «open» look, the InfoToggle's blue wash (29.09.2026 — it
@@ -424,12 +423,12 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    takes their width, and the ✕ that closes the search stands where the drawer's ✕ stood — one
    place for «back out of this», whichever «this» is. No space is lost while nothing is searched. */
 /* the search row sits UNDER the constant head, where the timeline strip stands otherwise (22.09.2026) */
-.journal-search-row { display: flex; align-items: center; gap: 8px; padding: 0 4px 10px; }
+.journal-search-row { display: flex; align-items: center; gap: 8px; padding: 0 4px var(--sp-2); }
 /* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026) — placement only;
    the live count rides in its count slot */
 .journal-search { flex: 1; }
 /* the live «2 von 42» — read at a glance, never wrapped */
-.journal-search-count { flex: none; font: 700 12px var(--body); color: var(--ink-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.journal-search-count { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* ⚠️ …and beside the 44px field it is 44px too (20.09.2026): at its 28px it hung beside the pill
    like a stray badge. Same fix, same reason as the Palette's search row (07-toolrail.css). */
 .journal-search + .journal-x { width: var(--tap); height: var(--tap); margin-left: 0; }
@@ -437,20 +436,20 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* (the search's ✕ used to be «on» – a dark filled square, the way the open legend button is on.
    Beside a grey field it read as the one black thing on the sheet; it is the ordinary grey close
    button now, and the field it closes is what says a mode is active. 20.09.2026) */
-.jr-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px;
-  margin: 0 2px 8px; padding: 10px; border-radius: var(--r-ctl); background: var(--fill-soft); }
+.jr-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-2) var(--sp-3);
+  margin: 0 2px 8px; padding: var(--sp-3); border-radius: var(--r-ctl); background: var(--fill-soft); }
 .jr-legend-item { display: flex; align-items: center; gap: 8px; min-width: 0;
-  font: 600 12.5px var(--body); color: var(--ink-dim); }
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 /* the discs here are the row's discs, at the row's size — a legend drawn smaller than the thing
    it explains is a second shape to recognise */
 :is(.jr-legend, .jr-filter-menu) .ic { width: 26px; height: 26px; border-radius: 50%; flex: none;
   display: grid; place-items: center; background: var(--surface-2);
   border: 1px solid var(--border-soft); color: var(--ink-dim); }
 :is(.jr-legend, .jr-filter-menu) .ic .i { width: 14px; height: 14px; }
-:is(.jr-legend, .jr-filter-menu) .ic.jr-ic-map { background: color-mix(in srgb, var(--blue) 13%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 24%, transparent); color: var(--blue-strong); }
-:is(.jr-legend, .jr-filter-menu) .ic.jr-ic-plan { background: color-mix(in srgb, var(--green) 14%, transparent);
-  border-color: color-mix(in srgb, var(--green) 26%, transparent); color: var(--green-strong); }
+:is(.jr-legend, .jr-filter-menu) .ic.jr-ic-map { background: var(--blue-12);
+  border-color: var(--blue-22); color: var(--blue-strong); }
+:is(.jr-legend, .jr-filter-menu) .ic.jr-ic-plan { background: var(--green-16);
+  border-color: var(--green-28); color: var(--green-strong); }
 :is(.jr-legend, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
 
 /* ── the filter (feat 37 · option B, 23.09.2026) ──
@@ -465,47 +464,47 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jr-filter-menu { min-width: 250px; max-width: min(340px, 92vw);
   max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
   padding: var(--bar-pad); border-radius: var(--r-bar);   /* hugs its rows — 01-tokens · «ONE corner» */
-  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); }
+  background: var(--surface); box-shadow: var(--e4); border: 1px solid var(--glass-edge); }
 /* skin only — radius, hover and press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
-.jr-filter-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--tap);
-  padding: 0 11px; cursor: pointer; outline: none; font: 600 13.5px var(--body); color: var(--ink); }
+.jr-filter-item { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: var(--tap);
+  padding: 0 var(--sp-3); cursor: pointer; outline: none; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
 .jr-filter-item[data-disabled] { opacity: var(--disabled); cursor: default; }
-.jr-filter-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.jr-filter-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); }
 .jr-filter-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jr-filter-count { flex: none; font: 700 12.5px var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.jr-filter-count { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 /* «Alle zeigen» is the way OUT, not one more category — the word in the action blue */
-.jr-filter-reset .jr-filter-label { color: var(--blue-strong); font-weight: 700; }
+.jr-filter-reset .jr-filter-label { color: var(--blue-strong); font-weight: var(--fw-bold); }
 /* the one-line «Gefiltert: … · Alle zeigen» under the head, where the timeline strip stands
    otherwise (it is hidden while a filter is on, as during a search) */
-.jr-filter-strip { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0 4px 8px;
-  font: 600 12.5px var(--body); color: var(--ink-dim); }
+.jr-filter-strip { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; padding: 0 4px 8px;
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 .jr-filter-strip-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jr-filter-strip-text b { color: var(--ink); font-weight: 700; }
-.jr-filter-all { flex: none; position: relative; height: 32px; padding: 0 10px; border: none; border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue-strong);
-  font: 700 12.5px var(--body); cursor: pointer; }
+.jr-filter-strip-text b { color: var(--ink); font-weight: var(--fw-bold); }
+.jr-filter-all { flex: none; position: relative; height: 32px; padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm);
+  background: var(--blue-8); color: var(--blue-strong);
+  font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
 /* finger-sized target under the compact chip, the same pad the head's chips use */
 .jr-filter-all::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 @media (hover: hover) {
-  .jr-filter-all:hover { background: color-mix(in srgb, var(--blue) 16%, transparent); }
+  .jr-filter-all:hover { background: var(--blue-16); }
 }
 .jr-filter-all:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
    that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
    above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .journal-replay span { display: none; }
   .journal-replay { padding: 0 8px; }
   /* …and since the funnel joined it the head is SIX items: at 360px a real Einsatz's
      «Verlauf · 312» ran 1px past the edge and the ✕ was squeezed to 34px (measured 24.09.2026).
      The gaps close up to 6px — the room a four-digit count needs — and no chip may shrink: the
      ✕ is the house 36px everywhere, and a squeezed target is the one thing a head cannot lose. */
-  .journal-head { gap: 6px; }
+  .journal-head { gap: var(--sp-1); }
   .journal-replay, .journal-x { flex: none; }
   /* …and the trailing group closes up, so the sentence keeps its share on the one row that can
      still crowd it: an audio row whose clip has not uploaded yet carries four controls and a
      «Wird geladen» chip. */
-  .jr-trail { gap: 7px; }
+  .jr-trail { gap: var(--sp-2); }
 }
 
 /* ── Verlauf row: the classification column ────────────────────────────────────────────────
@@ -519,10 +518,10 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    a Plan row. ⚠️ Derived from the resolved Bereich, NEVER from `e.surface` (lib/report ·
    journalDisc): the old chip took the tint from the surface and the word from `journalArea`, so
    an Atemschutz row drawn on the map came out Lage-blue with «ATEMSCHUTZ» written on it. */
-.hist-ev .ic.jr-ic-map { background: color-mix(in srgb, var(--blue) 13%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 24%, transparent); color: var(--blue-strong); }
-.hist-ev .ic.jr-ic-plan { background: color-mix(in srgb, var(--green) 14%, transparent);
-  border-color: color-mix(in srgb, var(--green) 26%, transparent); color: var(--green-strong); }
+.hist-ev .ic.jr-ic-map { background: var(--blue-12);
+  border-color: var(--blue-22); color: var(--blue-strong); }
+.hist-ev .ic.jr-ic-plan { background: var(--green-16);
+  border-color: var(--green-28); color: var(--green-strong); }
 /* ── …and on a Pendenz the disc becomes the ring ──
    The same ring the composer's «bleibt offen» switch sets and the Pendenzen block ticks off
    (18-audio · .jc-ring, 06-contextpanel · .jr-rem-box) — which is what JournalComposer's own
@@ -530,6 +529,14 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    ⚠️ Only the row that RAISED the item and the row that CLOSED it. A Meldung and a snooze are
    log lines about the item, and they keep their own glyph. */
 .hist-ev .ic.jr-ic-ring { background: none; border-color: transparent; }
+/* ── …and a hand-written row's ART (owner pick B, UI sweep 07.10.2026) ──
+   Auftrag = the arrow on blue, Sofortmassnahme = the warning on amber; Info keeps the plain «T»
+   (lib/verlauf · rowGlyph, derived at render). The same discs in the legend and the filter menu,
+   so the three places cannot disagree. */
+:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-auftrag { background: var(--blue-12);
+  border-color: var(--blue-22); color: var(--blue); }
+:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-sofort { background: var(--amber-16);
+  border-color: var(--amber-28); color: var(--amber-strong); }
 .jr-ring { position: relative; width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor;
   display: grid; place-items: center; }
 /* ⚠️ The open states are a THICK BORDER over a transparent centre, not the composer's filled
@@ -593,11 +600,11 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    into the sentence column. Individual badges stay `white-space: nowrap` (a footnote word never
    splits mid-token); it is the GROUP that now stacks them instead. */
 .jr-foot { flex: none; display: inline-flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end;
-  gap: 3px 9px;
-  font: 700 10px/1.3 var(--body); letter-spacing: .04em; text-transform: uppercase;
+  gap: var(--sp-1) var(--sp-2);
+  font: var(--fw-bold) var(--fs-micro)/1.3 var(--body); letter-spacing: .04em; text-transform: uppercase;
   color: var(--ink-faint); }
 .jr-foot > * { white-space: nowrap; }
-.jr-foot-nachtrag { color: var(--red); font-weight: 700; }
+.jr-foot-nachtrag { color: var(--red); font-weight: var(--fw-bold); }
 .jr-foot-rep { font-variant-numeric: tabular-nums; }
 /* ⚠️ WHICH item a Meldung answers. Without it three «PENDENZ» rows in a row are three unrelated
    sentences: the Verlauf is chronological, so each link has to carry its own anchor. Quiet and
@@ -606,9 +613,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    caption. It sat at 11.5px until 23.08. */
 /* ⚠️ The cap is in px, not the 40% it was: in the trailing group a percentage resolves against a
    box whose width the anchor itself is deciding, which sizes to whatever the item was called. */
-.jr-note-on { flex: 0 1 auto; max-width: 150px; min-width: 0; display: inline-flex; align-items: baseline; gap: 5px;
+.jr-note-on { flex: 0 1 auto; max-width: 150px; min-width: 0; display: inline-flex; align-items: baseline; gap: var(--sp-1);
   border: 0; background: none; padding: 0; cursor: pointer; text-align: left;
-  font: 600 12.5px var(--body); color: var(--amber-strong); }
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--amber-strong); }
 @media (hover: hover) {
   .jr-note-on:hover:not(:disabled) i { text-decoration: underline; }
 }
@@ -617,17 +624,17 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    ellipsis ate the separator too, so a long item name ran straight into the Meldung's own text
    with nothing between them. */
 .jr-note-on i { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; }
-.jr-note-on::after { content: "›"; flex: none; color: var(--ink-faint); font-weight: 400; }
+.jr-note-on::after { content: "›"; flex: none; color: var(--ink-faint); font-weight: var(--fw-regular); }
 /* «wieder in …» on a done row — small amber pills that CREATE a follow-up. Quiet on purpose: a
    closed Pendenz is a fact first, an offer second. ≥28px tap height inside a text row via padding
    (the row itself adds the rest). Framed, not dashed (27.09.2026, slim sweep · mockup 5): the dash
    said «this creates something», but a dashed edge in this app means «missing / hidden /
    placeholder», and an offer is an ordinary action — the amber text and a faint amber tint carry
    what kind of action it is. */
-.jr-again { display: inline-flex; gap: 5px; flex: none; }
+.jr-again { display: inline-flex; gap: var(--sp-1); flex: none; }
 .jr-again-btn { border: 1px solid color-mix(in srgb, var(--amber-strong) 45%, transparent);
-  background: color-mix(in srgb, var(--amber) 8%, transparent); border-radius: var(--r-pill, 999px); padding: 3px 9px; cursor: pointer;
-  font: 600 11.5px var(--body); color: var(--amber-strong); white-space: nowrap; }
+  background: var(--amber-8); border-radius: var(--r-pill, 999px); padding: var(--sp-1) var(--sp-2); cursor: pointer;
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--amber-strong); white-space: nowrap; }   /* 12.5px: the interactive-text floor (was 11.5, UI sweep 07.10.2026); --tap under a finger: 20-touch-floors */
 @media (hover: hover) {
   .jr-again-btn:hover { background: color-mix(in srgb, var(--amber-strong) 10%, transparent); }
 }
@@ -638,7 +645,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jr-text { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
 /* calendar-day separator: the Verlauf can span days (Hochwasser) or weeks (Nachträge) */
 .jr-day-sep {
-  display: flex; align-items: center; gap: 10px; margin: 10px 2px 4px;
+  display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-3) 2px 4px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
 .jr-day-sep::before, .jr-day-sep::after { content: ''; flex: 1; height: 1px; background: var(--glass-edge); }
@@ -666,7 +673,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
      nothing — it only made the compositor re-blur the map behind the card on every frame of the
      open animation, which is the other half of the desktop jank. Same for .sym-modal/.confirm-card. */
   background: var(--surface);
-  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 16px;
+  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--e4); padding: 16px;
   /* ⚠️ ONE gap on this whole sheet, sideways and downwards alike: 8px. It was 12 between the
      banks and 8 inside them, which is why «Anheften» sat closer to the media row than that row
      sat to ART. One number means there is no second one to get wrong, and the tighter of the
@@ -728,7 +735,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    320px card at any size a glove can hit, and a row that overflows sideways is a worse answer
    than one that scrolls. */
 @media (min-width: 360px) {
-  .journal-composer.is-compact .jc-controls { flex-direction: row; align-items: center; gap: 6px; }
+  .journal-composer.is-compact .jc-controls { flex-direction: row; align-items: center; gap: var(--sp-1); }
   /* ⚠️ The Art strip is the one that GIVES: its three letters shrink 44 → 32 (the track minmax
      below) while the media buttons keep a floor of their own (.jc-rec min-width). The other way
      round — `flex: 1 1 0` on the media strip — it took only what was left over, which on a 375px
@@ -748,7 +755,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   /* the letter is the whole chip: no side padding to squeeze, and big enough to read at arm's
      length with a glove on. The SELECTED treatment is untouched — same fill, same border, same
      ink as the full chip (see .jc-chip.on in 18-audio.css), just narrower. */
-  .journal-composer.is-compact .jc-meta-row .jc-chip { padding: 5px 2px; font-size: 15px; }
+  .journal-composer.is-compact .jc-meta-row .jc-chip { padding: var(--sp-1) 2px; font-size: var(--fs-3); }
   .journal-composer.is-compact .jc-meta-row .jc-chip-word { display: none; }
   .journal-composer.is-compact .jc-meta-row .jc-chip-letter { display: block; }
   /* …and the media buttons drop their labels, exactly as the phone already does with the keyboard
@@ -759,7 +766,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 }
 /* the two halves of the Art chip: the word by default, the letter only in the compact row */
 .jc-chip-word { min-width: 0; }
-.jc-chip-letter { display: none; font-weight: 700; }
+.jc-chip-letter { display: none; font-weight: var(--fw-bold); }
 /* Touch, tablet and up: the composer opens with the text field already focused, so the OS
    keyboard is up before the card has finished animating in — and an iPad keyboard is close to
    half the screen. Anchored at 11vh the media row and «Speichern» sat behind it. Ride up to the
@@ -784,8 +791,8 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jc-text-wrap { position: relative; }
 .jc-text-marks {
   position: absolute; inset: 0; overflow: hidden; pointer-events: none;
-  border: 1px solid transparent; border-radius: var(--r-ctl); padding: 10px 12px;
-  font-family: inherit; font-size: 14px; line-height: normal; color: transparent;
+  border: 1px solid transparent; border-radius: var(--r-ctl); padding: var(--sp-2) var(--sp-3);
+  font-family: inherit; font-size: var(--fs-2); line-height: normal; color: transparent;
   white-space: pre-wrap; overflow-wrap: break-word;
 }
 /* ONE wash for every recognised word, in the composer and in the Verlauf alike (29.09.2026, owner
@@ -794,22 +801,22 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    Atemschutz alarms. Red and amber mean alarm and warning, nothing else; the KIND of a word is
    not a state. */
 .jc-text-marks mark { color: transparent; border-radius: 3px;
-  background: color-mix(in srgb, var(--blue) 20%, transparent); }
+  background: var(--blue-22); }
 /* An address is not one of the Einsatz's own words, so it gets the underline on top of a lighter
    wash. The backdrop's text is transparent, so the underline has
    to be coloured on its own; it lands under the real characters in the field above. Written here
    for both backdrops (18-audio.css paints the Wiedergabe's washes), because it is one rule. */
 .jc-text-marks mark.jc-mark-url,
 .ap-add-marks mark.jc-mark-url {
-  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  background: var(--blue-12);
   text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--blue) 70%, transparent);
+  text-decoration-color: var(--blue-62);
   text-underline-offset: 2px;
 }
 
 /* …and in the Verlauf, where there is real text: every mention — vehicle, partner, Trupp, person,
    material, group — is bold INK, one look for «one of the Einsatz's own words» (29.09.2026) */
-.jr-link { font-weight: 700; color: var(--ink); }
+.jr-link { font-weight: var(--fw-bold); color: var(--ink); }
 /* the address in the Verlauf: a real <a>, so it carries the underline that says «this opens»
    rather than a colour that only says «this is a thing» */
 a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-offset: 2px;
@@ -819,7 +826,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 }
 .jc-text { position: relative; display: block;
   width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
-  padding: 10px 12px; font-family: inherit; font-size: 14px; line-height: normal; color: var(--ink);
+  padding: var(--sp-2) var(--sp-3); font-family: inherit; font-size: var(--fs-2); line-height: normal; color: var(--ink);
   background: transparent; }
 /* the field's own fill lives on the wrapper, so the marks sit between it and the text */
 .jc-text-wrap { background: var(--surface-2); border-radius: var(--r-ctl); }
@@ -835,9 +842,9 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .jc-audio { display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; gap: 8px; }
 /* the recorded-clip readout is a full-width row under the three buttons, not a fourth column */
 .jc-audio .jc-clip { grid-column: 1 / -1; }
-.jc-rec { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 10px; height: var(--tap); min-width: 0; font-size: 12.5px; font-weight: 700; cursor: pointer;
-  font-family: inherit; white-space: nowrap; }
+.jc-rec { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: var(--sp-2); height: var(--tap); min-width: 0; font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer;
+  white-space: nowrap; }
 .jc-rec .i { flex: none; }
 .jc-rec-time { font-family: var(--mono); }
 .jc-rec .i { width: 15px; height: 15px; }
@@ -849,9 +856,9 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 @keyframes recPulse { 50% { opacity: .72; } }
 /* framed exactly like the imported-memo row below it — the two say the same thing about the same
    kind of thing, and a bare play/length/✕ floating on an empty row read as unfinished next to it */
-.jc-clip { display: flex; align-items: center; gap: 10px; min-width: 0;
+.jc-clip { display: flex; align-items: center; gap: var(--sp-3); min-width: 0;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2);
-  padding: 10px 12px; font-weight: 600; }
+  padding: var(--sp-2) var(--sp-3); font-weight: var(--fw-medium); }
 .jc-clip-x { width: 32px; height: 32px; border-radius: var(--r-sm); border: none; cursor: pointer; display: grid; place-items: center;
   background: var(--fill-soft); color: var(--ink-dim); }
 @media (hover: hover) {
@@ -859,39 +866,33 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 }
 .jc-clip-x .i { width: 12px; height: 12px; }
 /* imported external voice memo: preview row + required «Aufnahme begann» confirmation */
-.jc-import { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--glass-edge);
-  border-radius: var(--r-ctl); background: var(--surface-2); padding: 10px 12px; }
-.jc-import-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.jc-import { display: flex; flex-direction: column; gap: var(--sp-2); border: 1px solid var(--glass-edge);
+  border-radius: var(--r-ctl); background: var(--surface-2); padding: var(--sp-2) var(--sp-3); }
+.jc-import-row { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .jc-import-name, .jc-clip-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.jc-import-name strong, .jc-clip-name strong { font-size: 12.5px; color: var(--ink); }
-.jc-import-name em, .jc-clip-name em { font-style: normal; font-size: 12px; color: var(--ink-dim); font-family: var(--mono);
+.jc-import-name strong, .jc-clip-name strong { font-size: var(--fs-1); color: var(--ink); }
+.jc-import-name em, .jc-clip-name em { font-style: normal; font-size: var(--fs-1); color: var(--ink-dim); font-family: var(--mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* staged Beilagen (PDF & Co.): the same framed row as the clip and the imported memo — a
    document has no preview, so name + size ARE the chip. One per line, because a filename is
    long and a truncated one is not a filename. */
 .jc-files { display: flex; flex-direction: column; gap: 8px; }
-.jc-file { display: flex; align-items: center; gap: 10px; min-width: 0;
+.jc-file { display: flex; align-items: center; gap: var(--sp-3); min-width: 0;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2);
-  padding: 10px 12px; font-weight: 600; }
+  padding: var(--sp-2) var(--sp-3); font-weight: var(--fw-medium); }
 .jc-file > .i { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
 .jc-file-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.jc-file-name strong { font-size: 12.5px; color: var(--ink); }
-.jc-file-name em { font-style: normal; font-size: 12px; color: var(--ink-dim); font-family: var(--mono);
+.jc-file-name strong { font-size: var(--fs-1); color: var(--ink); }
+.jc-file-name em { font-style: normal; font-size: var(--fs-1); color: var(--ink-dim); font-family: var(--mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jc-import-start { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.jc-import-hint { margin: 0; font-size: 12.5px; color: var(--ink-dim); }
+.jc-import-start { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.jc-import-hint { margin: 0; font-size: var(--fs-1); color: var(--ink-dim); }
 /* the send, on a row of its own. Not a flex row with it pushed right – at 44px that wastes the
    row it sits in. (The pin used to be the row above it and now sits in .jc-audio, where the
    other three «what does this entry carry» buttons are.) */
 .jc-foot { display: grid; grid-template-columns: 1fr; gap: 8px; }
-.jc-send { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
-  background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm); padding: 9px 16px; height: var(--tap); font-size: 14px; font-weight: 800;
-  font-family: inherit; white-space: nowrap; }
-.jc-send .i { width: 15px; height: 15px; }
-@media (hover: hover) {
-  .jc-send:hover { background: var(--btn-primary-hover); }
-}
-.jc-send:disabled { opacity: var(--disabled); cursor: default; }
+/* «Erfassen» is THE button, primary + block (<Button>, design-system stage 2, 08.10.2026): it was
+   `.jc-send`, a 14/800 copy of the primary at its own padding. */
 
 /* ⚠️ The «Eintrag · Erinnerung» track these rules styled is GONE (17.08.) — the head holds the
    title and the ✕, and a due time is a property of any entry now. Left as a tombstone rather than
@@ -905,87 +906,21 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 /* ⚠️ «Aufnahme begann» — VISIBLE. It was `display: none`, left behind when the Erinnerung's chip
    row was deleted, which turned the one field the hard start-confirm gate forces the operator to
    confirm into an unlabelled stepper (23.08.). Its own line in the .jc-import-start row, so the
-   words sit above the ± rather than fighting the confirm chip for the width. */
+   words sit above the time field rather than fighting the confirm chip for the width. */
 .jc-due-label {
   flex-basis: 100%;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
-.jc-due-chip { display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink); border-radius: var(--r-sm); padding: 9px 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
-  height: var(--tap); min-width: 0; white-space: nowrap; }
-.jc-due-chip .i { width: 14px; height: 14px; flex: none; }
-@media (hover: hover) {
-  .jc-due-chip:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--glass-edge)); }
-}
-.jc-due-chip.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
-/* custom HH:MM stepper (replaces the native time spinner) */
-.jc-time { display: inline-flex; align-items: center; gap: 12px; align-self: flex-start; padding: 8px 14px; border-radius: var(--r-ctl);
-  background: var(--surface-2); border: 1px solid var(--glass-edge); }
-.jc-time-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.jc-time-col b { font: 800 26px/1 var(--mono); color: var(--ink); min-width: 38px; text-align: center; }
-/* tap-to-type: the value as a button + the inline numeric input (both match .jc-time-col b) */
-.jc-time-val { font: 800 26px/1 var(--mono); color: var(--ink); min-width: 38px; text-align: center;
-  border: none; background: transparent; cursor: pointer; padding: 2px 0; border-radius: var(--r-sm); }
-@media (hover: hover) {
-  .jc-time-val:hover { background: var(--fill-soft); }
-}
-.jc-time-input { width: 44px; box-sizing: border-box; font: 800 26px/1 var(--mono); color: var(--blue); text-align: center;
-  border: none; background: transparent; outline: none; padding: 2px 0; }
-.jc-time-btn { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--glass-edge); background: var(--surface);
-  color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; touch-action: none; user-select: none; }
-@media (hover: hover) {
-  .jc-time-btn:hover { border-color: var(--blue); color: var(--blue); }
-}
-.jc-time-btn:active { background: var(--fill-soft); }
-.jc-time-btn .i { width: 18px; height: 18px; }
-.jc-time-sep { font: 800 24px/1 var(--mono); color: var(--ink-faint); margin-top: -2px; }
-
-/* «Uhrzeit …» — the one due answer that is not a row in the menu: a day, a time, and what the
-   two mean together. A small dialog over the composer rather than a strip inside it (this is the
-   rare path, and the sheet is already fighting the keyboard for its rows).
-   ⚠️ Every block in here is FULL WIDTH and centred inside itself. The first version let the time
-   stepper keep its own `align-self: flex-start` and its inline-flex width, so the card held a
-   left-hugging box with a hand's width of empty space beside it — a shape that reads as broken
-   before you can say what is wrong with it. */
-.jc-exact { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 18px;
-  width: min(320px, 92vw); }
-.jc-exact-title { margin: 0; text-align: center; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 15) */
-/* the day, stepped: ‹ Heute · Di 18.08. › — its buttons are the same 44px squares the time
-   stepper uses, so the dialog has ONE control idiom rather than two */
-.jc-exact-day { display: flex; align-items: center; gap: 8px; padding: 4px 6px;
-  border-radius: var(--r-ctl); background: var(--surface-2); border: 1px solid var(--glass-edge); }
-.jc-exact-day b { flex: 1; text-align: center; font: 700 14px var(--body); color: var(--ink);
-  font-variant-numeric: tabular-nums; }
-.jc-exact-day .jc-time-btn:disabled { opacity: var(--disabled); cursor: default; }
-.jc-exact-prev { transform: rotate(180deg); }
-/* …and the stepper fills the card, centred, instead of sitting in a left-hugging box of its own */
-.jc-exact .jc-time { align-self: stretch; justify-content: center; padding: 10px 14px; }
-.jc-exact-preview { margin: 0; text-align: center; font: 700 14px var(--mono); color: var(--blue-strong);
-  min-height: 20px; font-variant-numeric: tabular-nums; }
-/* a due time that has already gone by would fire the moment it is saved — said in words, in red,
-   and «Übernehmen» is disabled until the day or the time moves */
-.jc-exact-preview.is-past { color: var(--red); font-family: var(--body); font-size: 13px; }
-/* ⚠️ owner pick A (28.09.2026): the framed «Abbrechen» at its word's width, «Übernehmen» takes
-   the rest (they were two equal halves, the cancel a dim word on the glass) */
-.jc-exact-actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
-.jc-exact-cancel, .jc-exact-ok { display: flex; align-items: center; justify-content: center; gap: 7px;
-  height: var(--tap); border-radius: var(--r-sm); font: 700 14px var(--body); cursor: pointer; font-family: inherit; }
-.jc-exact-cancel { padding: 0 16px; border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink); }
-.jc-exact-ok { font-weight: 800; }
-/* the primary fill, never --blue: blue is a CHOSEN answer (01-tokens · --sel) since 28.09.2026 */
-.jc-exact-ok { border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); }
-.jc-exact-ok:disabled { opacity: var(--disabled); cursor: default; }
-.jc-exact-ok .i { width: 16px; height: 16px; }
-
+/* the «Aufnahme begann» confirm is THE choice chip (<Chip selected>, 08.10.2026; it was `.jc-due-chip`) */
 /* ── the Verlauf button while something is open ──
    The tint is the signal; the badge is the detail. ⚠️ The badge used to be the whole of it, and on
    a phone it lost: 17px hanging off the button's corner, drawn BEFORE the Atemschutz chip that
    sits next to it in the bar, and therefore underneath it. `z-index` fixes the covering; the fill
    is what makes «da ist etwas offen» readable without looking for a small number. */
 .tb-act.has-rem { color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 16%, transparent); }
+  background: var(--amber-16); }
 @media (hover: hover) {
-  .tb-act.has-rem:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+  .tb-act.has-rem:hover { background: var(--amber-28); }
 }
 /* …except while the drawer it opens is on screen — then the button's own «on» state is the truth,
    and two fills fighting on one control is how a state stops meaning anything. */
@@ -1000,7 +935,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 /* the ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px, 11/800, --r-xs; amber = open */
 .tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--amber); color: var(--on-fill); line-height: 16px; text-align: center;
-  font: 800 11px var(--body); }
+  font: var(--fw-heavy) var(--fs-micro) var(--body); }
 
 /* ⚠️ TOMBSTONE, 23.08. — the whole banner layer that stood here is gone.
    Removed: `.reminder-banner` + 9 `rb-*` rules (the due Wiedervorlage, a 440px card at z-45 that
@@ -1015,29 +950,22 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 
 
 /* install guide (InstallGuide) — platform-detected steps in the standard ip-sheet */
-.ig-why { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }
-.ig-install { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px;
-  border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm);
-  font: 800 14px var(--body); cursor: pointer; } /* 28.09.2026: 650/15 was a 13th combo — the single action is 14/800, the
-  50px height is what makes it the card's main one */
-@media (hover: hover) {
-  .ig-install:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
-}
-.ig-install:disabled { opacity: var(--disabled); cursor: default; }
-.ig-install .i { width: 17px; height: 17px; }
-.ig-native-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-dim); text-align: center; }
-.ig-or { margin: 18px 0 10px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.ig-intro { margin: 0 0 10px; font-size: 13.5px; font-weight: 650; color: var(--ink); }
-.ig-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; counter-reset: ig; }
-.ig-steps li { display: flex; align-items: center; gap: 11px; counter-increment: ig; }
+.ig-why { margin: 0 0 16px; font-size: var(--fs-2); line-height: 1.45; color: var(--ink-dim); }
+/* the one action is THE button, primary · lg · block (<Button>, 08.10.2026 — it was `.ig-install`, a 50px
+   14/800 copy of the primary) */
+.ig-native-hint { margin: 8px 0 0; font-size: var(--fs-1); color: var(--ink-dim); text-align: center; }
+.ig-or { margin: var(--sp-4) 0 var(--sp-2); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+.ig-intro { margin: 0 0 var(--sp-2); font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
+.ig-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); counter-reset: ig; }
+.ig-steps li { display: flex; align-items: center; gap: var(--sp-3); counter-increment: ig; }
 .ig-steps li::before { content: counter(ig); flex: none; width: 26px; height: 26px; display: grid; place-items: center;
   border-radius: 50%; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent);
-  font: 750 13px var(--mono); }
-.ig-step-text { font-size: 14px; line-height: 1.4; color: var(--ink); }
+  font: var(--fw-bold) var(--fs-2) var(--mono); }
+.ig-step-text { font-size: var(--fs-2); line-height: 1.4; color: var(--ink); }
 .ig-step-text .i { width: 16px; height: 16px; vertical-align: -3px; margin: 0 2px; color: var(--accent); }
-.ig-note { margin: 14px 0 0; font-size: 12.5px; color: var(--ink-dim); }
-.ig-done { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--ink); font-size: 14px; font-weight: 650; }
+.ig-note { margin: var(--sp-3) 0 0; font-size: var(--fs-1); color: var(--ink-dim); }
+.ig-done { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-ctl);
+  background: var(--green-12); color: var(--ink); font-size: var(--fs-2); font-weight: var(--fw-bold); }
 .ig-done .i { width: 18px; height: 18px; flex: none; color: var(--green); }
 
 /* composer photo preview + Verlauf row thumbnail */
@@ -1055,9 +983,9 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 /* a non-picture Beilage on a Verlauf row — a named chip that downloads on tap. It stands where
    the thumbnails stand, at the tap floor, and truncates rather than pushing the row's own words
    off the line: the filename is a label here, not the record. */
-.jr-file { flex: none; max-width: 46%; display: inline-flex; align-items: center; gap: 6px;
-  min-height: var(--tap); padding: 0 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
-  background: var(--surface-2); color: var(--ink-dim); font-size: 12px; font-weight: 700;
+.jr-file { flex: none; max-width: 46%; display: inline-flex; align-items: center; gap: var(--sp-2);
+  min-height: var(--tap); padding: 0 var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  background: var(--surface-2); color: var(--ink-dim); font-size: var(--fs-1); font-weight: var(--fw-bold);
   text-decoration: none; }
 .jr-file .i { flex: none; width: 14px; height: 14px; }
 .jr-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1066,8 +994,8 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 }
 .jr-file:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* offline media-queue chip on a Verlauf row (photo/audio not yet on the server) */
-.jr-media-state { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600;
-  padding: 1px 6px; border-radius: var(--r-pill); white-space: nowrap;
+.jr-media-state { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-micro); font-weight: var(--fw-bold);
+  padding: 1px var(--sp-2); border-radius: var(--r-pill); white-space: nowrap;
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber-strong) 14%, transparent); }
 .jr-media-state .i { width: 12px; height: 12px; }
 .jr-media-state.failed { color: var(--red-strong, #d33); background: color-mix(in srgb, var(--red-strong, #d33) 14%, transparent); }
@@ -1078,7 +1006,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    shares the trail with equal-weight neighbours and can afford the tap floor: 40px visible
    (base .tl-play is 26px, 08-toasts.css) with the shared ::after pad widened to 48px
    effective (02-base.css gives it 44px). The negative margin keeps the row's rhythm. */
-.hist-ev .tl-play { width: 40px; height: 40px; margin: -5px 0; }
+.hist-ev .tl-play { width: 40px; height: 40px; margin: -4px 0; }
 .hist-ev .tl-play .i { width: 15px; height: 15px; }
 .hist-ev .tl-play::after { width: 48px; height: 48px; }
 
@@ -1095,7 +1023,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 }
 .jr-detail-shots button:active { background-image: linear-gradient(var(--press), var(--press)); }
 .jr-detail-shots img { width: 104px; height: 76px; object-fit: cover; display: block; }
-.jr-detail .jr-detail-text { margin: 0 0 6px; font-size: 13.5px; line-height: 1.45; }
+.jr-detail .jr-detail-text { margin: 0 0 var(--sp-2); font-size: var(--fs-2); line-height: 1.45; }
 /* The fact table — one row per thing the record holds, hairline-separated like the Rapport's own
    rows. A two-track grid so every value starts on one x however long its label is; `--r-ctl` is
    not used because this is a list of facts, not a control. */
@@ -1105,20 +1033,22 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 }
 .jr-detail-facts > div {
   display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 12px;
-  padding: 7px 2px; align-items: baseline;
+  padding: var(--sp-2) 2px; align-items: baseline;
 }
 .jr-detail-facts > div + div { border-top: 1px solid var(--border-soft); }
-.jr-detail-facts dt { font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
-.jr-detail-facts dd { margin: 0; font-size: 12.5px; font-weight: 500; color: var(--ink); }
+.jr-detail-facts dt { font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink-faint); }
+.jr-detail-facts dd { margin: 0; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink); }
 /* the second line of a fact — the first wording of a corrected row, the «nicht bearbeitbar»
    note. Quieter than the value it hangs under, and never bold: it is context, not the answer. */
 .jr-detail-facts dd small {
-  display: block; margin-top: 2px; font-size: 11px; font-weight: 400;
+  display: block; margin-top: 2px; font-size: var(--fs-micro); font-weight: var(--fw-regular);
   color: var(--ink-faint); line-height: 1.4;
 }
 .jr-detail-acts { display: grid; gap: 8px; margin-top: 12px; }
-.jr-detail-acts .btn { justify-content: flex-start; padding-inline: 12px; }
+/* the sheet's actions are THE button, full width (<Button block>, 08.10.2026 — they were the
+   ctx panel's `.btn`); a list of actions reads from the left, glyph first */
+.jr-detail-acts .ip-btn { justify-content: flex-start; padding-inline: var(--sp-3); }
 /* the amber the inline Transkript button used to carry — same tone, now on the sheet action */
-.jr-detail-acts .btn.jr-da-miss { color: var(--amber-strong);
+.jr-detail-acts .ip-btn.jr-da-miss { color: var(--amber-strong);
   border-color: color-mix(in srgb, var(--amber-strong) 45%, transparent);
   background: color-mix(in srgb, var(--amber-strong) 10%, transparent); }

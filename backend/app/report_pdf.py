@@ -232,22 +232,55 @@ class PendenzRowIn(BaseModel):
     notes: list[PendenzNoteIn] = []
 
 
-class PersonRowIn(BaseModel):
-    """One person of the Suche (24.09.2026, lib/suche · personPrintRows), derived by the client
-    from the person's append-only log. Every cell arrives formatted: the times follow the sheet's
-    one midnight rule, and a group carries its count in ``name`` («Klasse 3c (22 Pers.)»)."""
+class PlakatProblemIn(BaseModel):
+    """One Problem on the «Erstes Plakat» (08.10.2026): the text, its Stichwort, and the trend
+    as a WORD («wird schlimmer») — Helvetica has no ➚ ➘, so the client sends the words."""
 
-    name: str
-    #: «zuletzt 1. OG Technikraum · Quelle Schulleitung» — a sub-line under the name
-    detail: str | None = None
-    #: HH:MM reported missing
-    vermisst: str
-    #: «20:16 · Trupp 3 · 1. OG Z101» (a group: «20 / 22 gefunden · …»)
-    gefunden: str | None = None
-    #: «20:21 an Rettungsdienst» · «entwarnt 20:05» · «vermisst» · «2 vermisst»
-    status: str
-    #: still missing when the Rapport was written — the status cell prints bold
-    open: bool = False
+    text: str = ""
+    note: str = ""
+    trend: str = ""
+
+
+class PlakatMassnahmeIn(BaseModel):
+    was: str = ""
+    wer: str = ""
+    wann: str = ""
+    done: bool = False
+
+
+class PlakatMittelIn(BaseModel):
+    formation: str = ""
+    pers: str = ""
+    wo: str = ""
+
+
+class PlakatVerbindungIn(BaseModel):
+    funktion: str = ""
+    kanal: str = ""
+    ruf: str = ""
+
+
+class PlakatPunktIn(BaseModel):
+    text: str = ""
+    done: bool = False
+
+
+class PlakatIn(BaseModel):
+    """The FKS «Erste Führung / Erstes Plakat» from the Tafel (08.10.2026, client lib/plakat) —
+    printed as its own section after the Aufträge, only when the Tafel carries one."""
+
+    title: str = ""
+    address: str = ""
+    alarm: str = ""
+    einsatzleiter: str = ""
+    front: list[PlakatProblemIn] = []
+    ordnung: list[PlakatProblemIn] = []
+    sanitaet: list[PlakatProblemIn] = []
+    spezial: list[PlakatProblemIn] = []
+    massnahmen: list[PlakatMassnahmeIn] = []
+    mittel: list[PlakatMittelIn] = []
+    verbindungen: list[PlakatVerbindungIn] = []
+    absprachen: list[PlakatPunktIn] = []
 
 
 class KrokiEntityIn(BaseModel):
@@ -639,9 +672,6 @@ class ReportOptionsIn(BaseModel):
     #: Einsatzjournal is a normal choice, and the outstanding items are the last thing that should
     #: disappear with it. Defaults True so an older client that sends no option still prints them.
     pendenzen: bool = True
-    #: the Suche's «Personen» (24.09.2026) — its own switch like the Pendenzen; True by default so
-    #: an older client that sends no option still prints what it sends
-    personen: bool = True
 
 
 class PersonalSummaryIn(BaseModel):
@@ -706,10 +736,8 @@ class ReportPayload(BaseModel):
     #: Aufträge / Pendenzen — printed right after the Verlauf they are derived from, so a reader
     #: checking one line only turns back a page.
     pendenzen: list[PendenzRowIn] = []
-    #: the Suche's Personen — printed right after the Pendenzen, one line per person with times
-    personen: list[PersonRowIn] = []
-    #: «Suche: 8 Bereiche, alle abgesucht 20:39» — the one line about the Bereiche
-    sucheLine: str | None = None
+    #: «Erstes Plakat (FKS)» from the Tafel — absent when the Tafel carries none
+    plakat: PlakatIn | None = None
     attachments: list[AttachmentIn] = []
 
 
@@ -790,12 +818,27 @@ L = {
     "colErteilt": "Erteilt",
     "colErledigt": "Erledigt",
     "pendenzOpen": "offen",
+    # «Erstes Plakat (FKS)» — the poster's own words (08.10.2026)
+    "plakat": "Erste Führung (Plakat)",
+    "plakatProblems": "Problemerfassung",
+    "plakatProblem": "Problem",
+    "plakatNote": "Stichwort",
+    "plakatTrend": "Trend",
+    "plakatMassnahmen": "Massnahmen",
+    "plakatWasWo": "Was / Wo",
+    "plakatWann": "Wann",
+    "plakatMittel": "Mittel",
+    "plakatFormation": "Formation",
+    "plakatPers": "Pers.",
+    "plakatWo": "Wo",
+    "plakatVerbindungen": "Verbindungen",
+    "plakatFunktion": "Funktion / Standort",
+    "plakatKanal": "Kanal",
+    "plakatRuf": "Rufname / Tel.",
+    "plakatAbsprachen": "Absprachepunkte",
+    "plakatAlarm": "Alarm {t}",
+    "plakatEl": "EL {n}",
     "pendenzUrgent": "dringend",
-    # the Suche's Personen (24.09.2026) — after the Pendenzen, on the same sheet
-    "personen": "Personen",
-    "colVermisst": "Vermisst",
-    "colGefunden": "Gefunden",
-    "colStatus": "Status",
     "colArea": "Bereich",
     "colEntry": "Eintrag",
     "transcript": "Transkript",
@@ -2160,40 +2203,11 @@ def compose_report_pdf(
         # reads as belonging to it, «offen» is the word in the column — and a caption that repeats
         # its own table teaches the reader to skip captions.
 
-    # --- Personen (the Suche, 24.09.2026) — right after the Pendenzen, the same kind of section:
-    # derived by the client from append-only rows, one line per person with its times, and the one
-    # «Suche: …» line about the Bereiche under it. The main page keeps only the «Gerettet» cell.
-    if opt.personen and (payload.personen or payload.sucheLine):
-        story.append(Spacer(1, 7 * mm))
-        story.extend(head(L["personen"]))
-        if payload.personen:
-            s_head = [
-                Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colWer", "colVermisst", "colGefunden", "colStatus")
-            ]
-            s_body: list[list] = []
-            for per in payload.personen:
-                who: list = [Paragraph(_esc(per.name), st["cell"])]
-                if per.detail:
-                    who.append(Paragraph(_esc(per.detail), st["subline"]))
-                status = f"<b>{_esc(per.status)}</b>" if per.open else _esc(per.status)
-                s_body.append(
-                    [
-                        who,
-                        Paragraph(_esc(per.vermisst), st["cell"]),
-                        Paragraph(_esc(per.gefunden or ""), st["cell"]),
-                        Paragraph(status, st["cell"]),
-                    ]
-                )
-            s_tbl = Table(
-                [s_head, *s_body],
-                colWidths=[inner_w - 116 * mm, 20 * mm, 56 * mm, 40 * mm],
-                repeatRows=1,
-            )
-            s_tbl.setStyle(_table_style())
-            story.append(s_tbl)
-        if payload.sucheLine:
-            story.append(Spacer(1, 3 * mm))
-            story.append(Paragraph(_esc(payload.sucheLine), st["cell"]))
+    # --- Erstes Plakat (FKS) — the Tafel's «Erste Führung», as the tables it is made of ------
+    # (08.10.2026). A section, not a picture of the poster: the record is what was written on
+    # it, and a table prints legibly at A4 where a shrunk A3 layout would not.
+    if payload.plakat is not None:
+        story.extend(_plakat_section(payload.plakat, head, inner_w, st))
 
     # --- Anhang: Kroki + annotated plans ALWAYS at the end (decided 2026-07-14) — the data
     # sections above are the identical main section; visual material is appended, never
@@ -2538,6 +2552,86 @@ _SPLIT_GUTTER = 3 * mm
 #: The tick-off square, drawn at a FIXED size so every checkbox in a column matches whatever
 #: the row around it does — see _personal_table.
 _CHECK_W = 4 * mm
+
+
+#: the four Problemerfassung areas of the «Erstes Plakat», in the poster's order
+_PLAKAT_AREAS = {"front": "Front", "ordnung": "Ordnung", "sanitaet": "Sanität", "spezial": "Spezialprobleme"}
+
+
+def _plakat_section(pk: PlakatIn, head, inner_w: float, st: dict[str, ParagraphStyle]) -> list:
+    """The «Erstes Plakat» as tables: header line, Problemerfassung, Massnahmen, Mittel,
+    Verbindungen, Absprachepunkte. A sub-table only when it has a row."""
+    out: list = [Spacer(1, 7 * mm), *head(L["plakat"])]
+    facts = [
+        pk.title,
+        pk.address,
+        L["plakatAlarm"].format(t=pk.alarm) if pk.alarm else "",
+        L["plakatEl"].format(n=pk.einsatzleiter) if pk.einsatzleiter else "",
+    ]
+    line = " · ".join(_esc(f) for f in facts if f.strip())
+    if line:
+        out.append(Paragraph(line, st["cell"]))
+        out.append(Spacer(1, 2 * mm))
+
+    def table(title: str, cols: list[str], rows: list[list], widths: list[float]) -> None:
+        if not rows:
+            return
+        out.append(Paragraph(f"<b>{_esc(title)}</b>", st["cell"]))
+        thead = [Paragraph(_esc(c), st["cellhead"]) for c in cols]
+        tbl = Table([thead, *rows], colWidths=widths, repeatRows=1)
+        tbl.setStyle(_table_style())
+        out.append(tbl)
+        out.append(Spacer(1, 3 * mm))
+
+    cell = lambda v: Paragraph(_esc(v or ""), st["cell"])  # noqa: E731
+    probs = [
+        [cell(_PLAKAT_AREAS[k]), cell(r.trend), cell(r.text), cell(r.note)]
+        for k in _PLAKAT_AREAS
+        for r in getattr(pk, k)
+        if r.text.strip() or r.note.strip()
+    ]
+    table(
+        L["plakatProblems"],
+        [L["colArea"], L["plakatTrend"], L["plakatProblem"], L["plakatNote"]],
+        probs,
+        [30 * mm, 28 * mm, inner_w - 88 * mm, 30 * mm],
+    )
+    mass = [
+        [cell(r.was), cell(r.wer), cell(r.wann), _check_box(r.done)]
+        for r in pk.massnahmen
+        if r.was.strip() or r.wer.strip() or r.wann.strip()
+    ]
+    table(
+        L["plakatMassnahmen"],
+        [L["plakatWasWo"], L["colWer"], L["plakatWann"], L["colErledigt"]],
+        mass,
+        [inner_w - 96 * mm, 46 * mm, 26 * mm, 24 * mm],
+    )
+    mittel = [
+        [cell(r.formation), cell(r.pers), cell(r.wo)]
+        for r in pk.mittel
+        if r.formation.strip() or r.pers.strip() or r.wo.strip()
+    ]
+    table(
+        L["plakatMittel"],
+        [L["plakatFormation"], L["plakatPers"], L["plakatWo"]],
+        mittel,
+        [50 * mm, 26 * mm, inner_w - 76 * mm],
+    )
+    verb = [
+        [cell(r.funktion), cell(r.kanal), cell(r.ruf)]
+        for r in pk.verbindungen
+        if r.funktion.strip() or r.kanal.strip() or r.ruf.strip()
+    ]
+    table(
+        L["plakatVerbindungen"],
+        [L["plakatFunktion"], L["plakatKanal"], L["plakatRuf"]],
+        verb,
+        [inner_w - 86 * mm, 26 * mm, 60 * mm],
+    )
+    punkte = [[_check_box(r.done), cell(r.text)] for r in pk.absprachen if r.text.strip()]
+    table(L["plakatAbsprachen"], ["", L["plakatAbsprachen"]], punkte, [12 * mm, inner_w - 12 * mm])
+    return out
 
 
 def _check_box(ticked: bool) -> Table:

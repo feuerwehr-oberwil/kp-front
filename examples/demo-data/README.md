@@ -11,7 +11,7 @@ follows the real streets. Safe to commit and to load into a throwaway deployment
 | `config.json` | deployment config: app name, map center (Musterdorf), demo flag, doctrine, and a dummy **Material** catalogue (config keys `mittel.*`) | `admin_config` |
 | `geodata.manifest.json` + `wasserleitung.geojson` + `hydrant.geojson` | water mains (LineStrings following the streets) + hydrants sampled along them | `admin_geodata` |
 | `objects.manifest.json` + `plans/` | Schloss Musterdorf at the prepared alarm address, with a hand-drawn Modul 1 (Übersicht) and combined Modul 2/3 (Zugang & Objekt) | `admin_objects` |
-| `checklists.manifest.json` + `checklists/` | a demo action list (Aufgaben FU) + tactical Stichworte (no diagram images) | `admin_checklists` |
+| `checklists.manifest.json` + `checklists/` | a demo action list (Aufgaben FU) + tactical Stichworte (no diagram images) + two Anleitungen (Stromerzeuger, Hebekissen) with synthetic SVG step pictures in `checklists/assets/` | `admin_checklists` |
 | `report-logo.png` | the Musterdorf brandmark – login screen (`logo`) and the printed rapport's letterhead (`reportLogo`) | `admin_branding load` (local) · `push` (demo reset) |
 | `gen_water.py` | regenerate the water GeoJSON from the Overpass street network | (run manually) |
 | `load.sh` | loads config + brandmark + geodata + objects + checklists in order | `just demo-load` |

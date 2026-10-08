@@ -11,11 +11,6 @@
 /* right-edge safe area — see the note on .navrail's `left` (05-navrail.css) */
 .tool-rail { position: absolute; right: max(16px, env(safe-area-inset-right)); top: 88px; bottom: 16px; height: max-content; margin-block: auto;
   z-index: var(--z-dock); max-height: calc(100dvh - 104px); }
-/* The Karte's ninth entry («Grundgerüst», 24.09.2026) left the list 13px short of fitting on a
-   1180×820 landscape tablet — the one screen the app is built for — and the «more» chevron then
-   sat on the last tile. Two pixels less between the tiles buys 16px back where the height is
-   short; the phone's folded bar (a row, not a column) keeps its own spacing. */
-@media (max-height: 860px) { .tool-rail:not(.folded) .rail-scroll { gap: 2px; } }
 /* The shell, the scroller, its "scroll for more" chevrons, the expand toggle and the drag grip
    are the SHARED rail base (.rail-* · 04b-rail.css), which the left NavRail wears too. What is
    left here is this rail's own half: it is anchored to the RIGHT edge, so it opens leftward, its
@@ -41,7 +36,7 @@
    clipped footer labels. `.vrail-tool` zeroes it; this never did, so a footer button handed its
    label 64px where a tool handed 76 — «Vergrössern» clipped while the longer «Absperrkreis» in
    the list above it did not. Twelve pixels of browser default, invisible in the stylesheet. */
-.vrail-nbtn { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none; border: none; background: transparent; padding: 0;
+.vrail-nbtn { display: flex; flex-direction: row-reverse; align-items: center; gap: 8px; height: 46px; flex: none; border: none; background: transparent; padding: 0;
   border-radius: var(--r-sm); color: var(--ink); cursor: pointer; font: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
 .vrail:not(.expanded) .vrail-nbtn, .vrail.dragging .vrail-nbtn { justify-content: center; }
 @media (hover: hover) {
@@ -58,7 +53,7 @@
    they were removed for. The two conditions together mean: gone on anything you touch, kept on
    a mouse, whatever the window measures. */
 @media (max-width: 1023px), (pointer: coarse) { .vrail-zoom { display: none; } }
-.vrail-sep-foot { flex: none; margin: 2px 10px; }
+.vrail-sep-foot { flex: none; margin: 2px 8px; }
 /* no transition: the needle is set on every rotate frame (MapViewsMenu · CompassGlyph) */
 .vrail-compass { display: grid; place-items: center; }
 /* expand toggle — the shared .rail-exp chrome, but row-reversed so the chevron sits in the
@@ -75,19 +70,19 @@
 @media (prefers-reduced-motion: reduce) { .vrail-exp .i { transition: none; } }
 /* tool buttons mirror the left rail's nav-item: a fixed right-edge glyph column + a
    label that shows only in the committed expanded state (never mid-drag, so it can't clip) */
-.vrail-tool { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none;
+.vrail-tool { display: flex; flex-direction: row-reverse; align-items: center; gap: 8px; height: 46px; flex: none;
   border: none; background: transparent; border-radius: var(--r-sm); color: var(--ink); cursor: pointer; font: inherit; padding: 0; width: 100%;
   transition: background .14s var(--ease), color .14s var(--ease); }
 .vrail:not(.expanded) .vrail-tool, .vrail.dragging .vrail-tool { justify-content: center; }
 .vrail-glyph { width: 46px; min-width: 46px; height: 46px; display: grid; place-items: center; }
 .vrail-glyph .i { width: 22px; height: 22px; }
-.vrail-label { display: none; white-space: nowrap; font-size: 13.5px; font-weight: 600; }
+.vrail-label { display: none; white-space: nowrap; font-size: var(--fs-2); font-weight: var(--fw-bold); }
 .vrail.expanded:not(.dragging) .vrail-label { display: block; }
 
 /* ── «Wort unter dem Zeichen» (device pref · railLabels) — see the twin block in 05-navrail.css.
    Nine tools with no text is the densest thing on this screen for anybody who does not already
    know them, and «Auswahl · Linie · Fläche · Messen» are short enough to sit under the glyph. */
-.vrail.labelled:not(.expanded):not(.dragging) { width: var(--vrail-w-labelled, 88px); }
+.vrail.labelled:not(.expanded):not(.dragging) { width: var(--vrail-w-labelled, 92px); }
 /* ⚠️ `width: 100%` on BOTH. `.vrail-tool` carries it in its base rule and `.vrail-nbtn` never
    did, so a footer button was sized by its content: its label got 64px where a tool's got 75.
    «Vergrössern» (66.5px in Sora) therefore clipped in the footer while a longer word like
@@ -98,7 +93,7 @@
 .vrail.labelled:not(.expanded):not(.dragging) .vrail-glyph { width: auto; min-width: 0; height: 26px; }
 .vrail.labelled:not(.expanded):not(.dragging) .vrail-label {
   display: block; padding: 0 2px; text-align: center; max-width: 100%;
-  font-size: 10.5px; font-weight: 700; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; }
+  font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; overflow: hidden; text-overflow: ellipsis; }
 /* expanded: the glyph no longer carries the icon's horizontal inset (it would sit flush against
    the pill edge) — shrink it to the icon and let symmetric tool padding give label + icon equal
    breathing room. Collapsed/dragging keep the 46px glyph for perfect icon-only centering. */
@@ -124,7 +119,7 @@
    `sep` entries any more). The one hairline this rail draws is the FOOT's: it sets the generic
    controls (Ebenen · compass · zoom) apart from the tools that act on the surface, which is a
    real seam, where «select vs. create» was noise. */
-.vrail-sep { height: 1px; flex: none; background: var(--border); margin: 5px 9px; }
+.vrail-sep { height: 1px; flex: none; background: var(--border); margin: 4px 8px; }
 /* one-shot actions + the display-mode switch read as discrete push-buttons
    (faint resting fill + hairline), visually distinct from the flat, sticky modal
    tools above — so "press to do X" is never confused with "select a mode" */
@@ -132,24 +127,21 @@
    the nav-grip). The rest of it is the shared base. */
 .vrail-grip { left: -7px; }
 
-/* rail extras */
-.rbtn:disabled { opacity: var(--disabled); cursor: default; }
-
 /* (.toputil / .tu-btn / .tu-divider / .compass migrated → MapUtility.module.css) */
 
 /* coordinate readout — subtle, bottom-centre, shown only while picking/locked. Two columns: the
    value rows on the left, the ✕ on the right, the hint spanning under both. The glass itself
    lets pointer events through (the map under it stays pannable); only the ✕ catches them. */
 .coord-read { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
-  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px;
-  padding: 8px 8px 8px 14px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); pointer-events: none; }
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px;
+  padding: 8px 8px 8px 12px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); pointer-events: none; }
 .coord-read.aiming { border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
 .cr-rows { display: grid; gap: 2px; }
-.cr-row { display: flex; align-items: baseline; gap: 9px; }
-.cr-tag { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; color: var(--ink-faint); width: 42px; }
-.cr-val { font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cr-hint { grid-column: 1 / -1; margin-top: 3px; font-size: 10.5px; font-weight: 600; color: var(--ink-faint); text-align: center; }
+.cr-row { display: flex; align-items: baseline; gap: 8px; }
+.cr-tag { font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .08em; color: var(--ink-faint); width: 42px; }
+.cr-val { font-family: var(--mono); font-size: var(--fs-1); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cr-hint { grid-column: 1 / -1; margin-top: 4px; font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-faint); text-align: center; }
 .coord-read.aiming .cr-hint { color: var(--blue); }
 /* the one exit that is ON the readout — both states, same place. 36px inside a glass strip that
    is itself only ~60px tall; the rail button and Esc are the 44px exits. */
@@ -165,7 +157,7 @@
 
 /* locked coordinate reticle on the map */
 .pick-reticle { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--blue);
-  background: color-mix(in srgb, var(--blue) 18%, transparent); box-shadow: 0 0 0 2px rgba(255, 255, 255, .85); pointer-events: none; }
+  background: var(--blue-16); box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface) 85%, transparent); pointer-events: none; }
 .pick-reticle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px;
   border-radius: 50%; background: var(--blue); transform: translate(-50%, -50%); }
 
@@ -173,13 +165,13 @@
 .map-here { pointer-events: none; }
 /* Einsatzort: a thin target ring at the incident/object location */
 .map-incident { width: 26px; height: 26px; border-radius: 50%;
-  border: 2px solid var(--red, #e23); box-shadow: 0 0 0 2px rgba(255, 255, 255, .85);
+  border: 2px solid var(--red, #e23); box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface) 85%, transparent);
   position: relative; }
 .map-incident::after { content: ''; position: absolute; inset: 0; margin: auto;
   width: 5px; height: 5px; border-radius: 50%; background: var(--red, #e23); }
 /* own GPS position: the familiar blue dot with a soft accuracy halo */
 .map-me { width: 14px; height: 14px; border-radius: 50%; background: var(--blue);
-  border: 2.5px solid #fff; box-shadow: 0 0 0 6px color-mix(in srgb, var(--blue) 18%, transparent), 0 1px 3px rgba(0, 0, 0, .4); }
+  border: 2.5px solid #fff; box-shadow: 0 0 0 6px var(--blue-16), var(--e1); }
 
 /* (the base-map switcher popover is gone — Basiskarte selection is the first group of
    the Ebenen panel, LayerPanel.tsx) */
@@ -189,11 +181,11 @@
 /* inline editables carry a faint resting affordance (a soft underline) so touch
    users can see they're editable without a hover to reveal it */
 .ctx-title-input { width: 100%; border: none; background: transparent; font: var(--sheet-title);
-  color: var(--ink); padding: 2px 5px; margin: -2px -5px; border-radius: var(--r-xs) var(--r-xs) 0 0; outline: none;
-  border-bottom: 1.5px solid rgba(30, 45, 70, .16); }
-.ctx-title-input::placeholder { color: var(--ink-faint); font-weight: 600; }
+  color: var(--ink); padding: 2px 4px; margin: -2px -4px; border-radius: var(--r-xs) var(--r-xs) 0 0; outline: none;
+  border-bottom: 1.5px solid var(--ink-16); }
+.ctx-title-input::placeholder { color: var(--ink-faint); font-weight: var(--fw-medium); }
 @media (hover: hover) {
-  .ctx-title-input:not(.ctx-title-ro):hover { background: var(--fill-soft); border-bottom-color: rgba(30, 45, 70, .3); }
+  .ctx-title-input:not(.ctx-title-ro):hover { background: var(--fill-soft); border-bottom-color: var(--ink-28); }
 }
 /* focused it becomes a FIELD, in the one field focus (--focus-*, 28.09.2026): the underline was a
    blue line on a blue wash, a look no other field in the app had */
@@ -202,24 +194,20 @@
 /* keyboard-free stepper (− value +), used for Geschoss + Anzahl. The clear ✕ keeps
    a FIXED slot (visibility toggles, with a gap before it) so the + button never
    shifts under the finger between taps and never sits where clear will appear. */
-.step { display: inline-flex; align-items: center; gap: 6px; }
-/* font-family: inherit — the same <button> default that put «Höhenprofil» in the browser's face.
-   Invisible in practice, because the glyphs are only «−» and «+», but four of these steppers sit
-   inside the drawing detail column, and a panel that is font-consistent everywhere except its two
-   steppers is a trap for the next person who measures it. */
+.step { display: inline-flex; align-items: center; gap: 8px; }
 .step-btn { width: 44px; height: 44px; flex: none; border-radius: var(--r-sm); border: 1px solid var(--border);
-  background: var(--surface-2); color: var(--ink); font-family: inherit; font-size: 19px; font-weight: 700; line-height: 1; cursor: pointer;
+  background: var(--surface-2); color: var(--ink); font-size: var(--fs-4); font-weight: var(--fw-bold); line-height: 1; cursor: pointer;
   display: grid; place-items: center; padding: 0; }
 @media (hover: hover) {
   .step-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); }
 }
-.step-btn:active:not(:disabled) { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: var(--blue); }
+.step-btn:active:not(:disabled) { background: var(--blue-12); border-color: var(--blue); }
 .step-btn:disabled { opacity: var(--disabled); cursor: default; }
-.step-val { font-family: var(--mono); font-weight: 600; min-width: 30px; text-align: center; color: var(--ink);
+.step-val { font-family: var(--mono); font-weight: var(--fw-medium); min-width: 30px; text-align: center; color: var(--ink);
   /* digits must not change width as they change value, or the ± buttons twitch under the finger */
   font-variant-numeric: tabular-nums; }
 /* tap the value to type a number directly */
-.step-val-btn { display: inline-grid; place-items: center; min-height: 44px; border: none; background: transparent; cursor: pointer; padding: 3px 5px; border-radius: var(--r-sm); }
+.step-val-btn { display: inline-grid; place-items: center; min-height: 44px; border: none; background: transparent; cursor: pointer; padding: 4px; border-radius: var(--r-sm); }
 @media (hover: hover) {
   .step-val-btn:hover:not(:disabled) { background: var(--hover); }
 }
@@ -228,17 +216,21 @@
 /* over-stock flag: the value reads red (e.g. Mittel used past the available amount) */
 .step-val.step-over { color: var(--red); }
 .step-input { width: 52px; box-sizing: border-box; border: 1px solid var(--glass-edge); border-radius: var(--r-xs);
-  background: var(--surface); padding: 3px 4px; outline: none; }
+  background: var(--surface); padding: 4px; outline: none; }
 /* typed-value mode: the one field focus (--focus-*, 28.09.2026), not a solid blue edge */
 .step-input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
-.step-clear { width: 32px; height: 32px; flex: none; margin-left: 8px; border-radius: var(--r-sm); border: none; padding: 0;
-  background: var(--fill-soft); color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
+/* the reset ✕: a full --tap square at every pointer, QUIET — no fill of its own, the glyph in
+   --ink-dim, like a sheet's ✕. It was a pale 32px tile (44 only under a coarse pointer), which
+   read as a disabled fourth button beside − value + (UI sweep 07.10.2026). Disabled while the
+   value is empty, so entering or clearing a count never moves the buttons. */
+.step-clear { width: var(--tap); height: var(--tap); flex: none; margin-left: 4px; border-radius: var(--r-sm); border: none; padding: 0;
+  background: transparent; color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
 @media (hover: hover) {
-  .step-clear:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+  .step-clear:hover:not(:disabled) { background: var(--red-12); color: var(--red); }
 }
 .step-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .step-clear:disabled { opacity: var(--disabled); cursor: default; }
-.step-clear .i { width: 14px; height: 14px; }
+.step-clear .i { width: 16px; height: 16px; }
 
 /* ── The app's own slider (components/Slider) ────────────────────────────────────────────────
    Shared chrome, like `.step` above it: a 44px hit band with a thin painted track inside, so a
@@ -252,10 +244,10 @@
 .uslider-track { position: absolute; inset-inline: 9px; top: 50%; height: 4px; margin-top: -2px;
   border-radius: 2px; background: color-mix(in srgb, currentColor 24%, transparent); }
 .uslider-fill { position: absolute; inset-block: 0; left: 0; border-radius: 2px; background: var(--blue); }
-.uslider-thumb { position: absolute; top: 50%; width: 18px; height: 18px; margin-top: -9px; margin-left: -9px;
-  border-radius: 50%; background: var(--blue); box-shadow: 0 1px 3px rgba(10, 20, 40, .45); }
+.uslider-thumb { position: absolute; top: 50%; width: 18px; height: 18px; translate: -50% -50%;
+  border-radius: 50%; background: var(--blue); box-shadow: var(--e1); }
 .uslider:focus-visible { outline: none; }
-.uslider:focus-visible .uslider-thumb { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 45%, transparent); }
+.uslider:focus-visible .uslider-thumb { box-shadow: 0 0 0 3px var(--blue-45); }
 /* the house press wash, on the thumb — nothing moves, per the touch vocabulary */
 .uslider:active .uslider-thumb { background-image: linear-gradient(var(--press), var(--press)); }
 
@@ -266,9 +258,9 @@
 /* the Eintrag/Erinnerung composer is top-anchored on tablet/desktop so its mode toggle keeps
    the same vertical position when the two modes differ in height (centred, it jumped). On
    phones it stays a bottom sheet (see the ≤600px rule). */
-.sym-modal { width: min(760px, 92vw); height: min(620px, 86vh); display: flex; flex-direction: column; gap: 12px;
+.sym-modal { width: min(760px, 92vw); height: min(620px, 86dvh); display: flex; flex-direction: column; gap: 12px;
   background: var(--surface); border: 1px solid var(--glass-line);
-  border-radius: var(--r-hero); padding: 16px; box-shadow: 0 30px 80px rgba(20, 28, 40, .4); animation: pop .16s var(--ease); }
+  border-radius: var(--r-hero); padding: 16px; box-shadow: var(--e5); animation: pop .16s var(--ease); }
 /* `scale`, NOT `transform: scale()`. Two of the three cards that use this keyframe centre
    themselves with a transform (.journal-composer translateX(-50%), .confirm-card
    translate(-50%,-50%)); a `transform` keyframe REPLACES that translate for the length of the
@@ -282,7 +274,7 @@
    Both are var(--tap) tall now, which is also the touch floor, so neither needs a pad to reach it.
    The radii stay APART on purpose: the pill is a control (--r-ctl), the ✕ is a button (--r-sm) —
    the house nesting, see the radius scale in 01-tokens.css. */
-.sym-top { display: flex; align-items: center; gap: 10px; }
+.sym-top { display: flex; align-items: center; gap: 8px; }
 /* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026) — the palette's
    pill was its model; here it only takes the row's slack */
 .sym-search { flex: 1; }
@@ -292,14 +284,15 @@
 .sym-ghead { position: sticky; top: 0; background: var(--surface); backdrop-filter: blur(4px); z-index: 1;
   /* a section head is an EYEBROW (29.09.2026, K9 — AGENTS.md · Fields, titles, eyebrows) */
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
-  padding: 10px 4px 6px; }
-.sym-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 6px; align-content: start; margin-bottom: 6px; }
+  padding: 12px 4px 8px; }
+.sym-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 8px; align-content: start; margin-bottom: 8px; }
 /* ⚠️ The flex column lives on an INNER span (.sym-cell-in), never on the <button> itself:
    Safari lays a flex <button> out with the button's own intrinsic height and CLIPS what wraps
    beyond it — «Dekontaminations-stelle»'s second line was cut mid-letter (02.09.). A plain
    block button grows with its one child; the child does the flexing in every engine. */
-.sym-cell { display: block; padding: 12px 6px 9px; border-radius: var(--r-ctl); background: none; border: 1px solid transparent; cursor: pointer; }
-.sym-cell-in { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+/* no side padding: the 12.5px names need the whole cell («Patienten­sammel­stelle» in two lines, not three) */
+.sym-cell { display: block; padding: var(--sp-3) 0 var(--sp-2); border-radius: var(--r-ctl); background: none; border: 1px solid transparent; cursor: pointer; }
+.sym-cell-in { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 @media (hover: hover) {
   .sym-cell:hover { background: var(--fill-soft); border-color: var(--border-soft); }
 }
@@ -316,8 +309,8 @@
    inside the very component the eye recognises it by. The legal breaks are named at the
    compound seams instead (lib/symbolWrap · soft hyphens, inserted at render). `overflow-wrap`
    stays as the last resort for a word with no seam that still cannot fit. */
-.sym-cell small { font-size: 12px; font-weight: 600; color: var(--ink-dim); text-align: center; line-height: 1.1;
+.sym-cell small { font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); text-align: center; line-height: 1.1;
   hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word; word-break: normal; }
 /* terse empty/transient line — search no-match, loading, load error (shared with .pp-empty) */
-.sym-empty, .pp-empty { text-align: center; color: var(--ink-faint); font: 500 13px var(--body); padding: 28px 0; }
+.sym-empty, .pp-empty { text-align: center; color: var(--ink-faint); font: var(--fw-medium) var(--fs-2) var(--body); padding: 24px 0; }
 .sym-empty { grid-column: 1/-1; }

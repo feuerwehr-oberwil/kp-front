@@ -1,0 +1,25 @@
+/* THE button and THE icon button (07.10.2026, UI sweep C4). The app's primary action was defined
+   in 24 rules across 13 files, at heights from 32 to 54px and labels from 12 to 15px, and every new
+   surface wrote a 25th; 20-touch-floors.css exists to patch the ones that came out too small.
+   These two components are where a button's look lives now — new buttons use them, old ones move
+   onto them surface by surface. Built only from tokens (01-tokens · «THE SCALES»).
+   ⚠️ <Button>'s look is NOT here (08.10.2026, design-system stage 2): it is the global `.ip-btn`
+   family (13-incident.css · «THE button»), which <Button> renders, so the component and the ~150
+   hand-written `.ip-btn` are ONE definition — 44px always, 52 for the one big action of a screen.
+   This module keeps the icon button, which has no global twin. */
+
+/* ── IconButton: a glyph, a word for the ear and the hold-tooltip (lib/holdTooltip), the 44px floor ── */
+.icon {
+  display: inline-grid; place-items: center; flex: none; box-sizing: border-box;
+  width: var(--tap); height: var(--tap); padding: 0;
+  border: 1px solid transparent; border-radius: var(--r-ctl);
+  background: none; color: var(--ink); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.icon svg { width: 20px; height: 20px; }
+@media (hover: hover) { .icon:hover { background: var(--ink-8); } }
+.icon:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.icon:disabled { opacity: var(--disabled); cursor: default; }
+/* secondary: a free-standing control on a bar or the map — the surface and its hairline */
+.icon.iconSecondary { background: var(--surface); border-color: var(--glass-edge); }
+@media (hover: hover) { .icon.iconSecondary:hover { background: var(--hover-strong); } }

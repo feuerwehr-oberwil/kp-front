@@ -98,7 +98,7 @@ describe('the card renders the server\'s answer, not one of its own', () => {
 })
 
 describe('every row leads somewhere that can finish it', () => {
-  it('sends Überwachung to «Zugangsdaten», where the ping URL is set', () => {
+  it('sends Überwachung to «Anbindungen», where the ping URL is set', () => {
     const onGo = vi.fn()
     show(setupWith(['monitoring']), CFG, onGo)
     fireEvent.click(openBtn(C.monitoring))
@@ -117,9 +117,9 @@ describe('every row leads somewhere that can finish it', () => {
     })
   })
 
-  // The SharePoint row leads to «Zugangsdaten», not to the config file: that is the half of the
+  // The SharePoint row leads to «Anbindungen», not to the config file: that is the half of the
   // setup a browser can actually finish.
-  it('sends SharePoint to «Zugangsdaten» and the Wehr\'s name to «Station & Karte»', () => {
+  it('sends SharePoint to «Anbindungen» and the Wehr\'s name to «Station & Karte»', () => {
     const onGo = vi.fn()
     show(setupWith(['sharepoint', 'name']), CFG, onGo)
     expect(screen.getByText(C.sharepointOpen)).toBeTruthy()

@@ -815,22 +815,21 @@ describe('the mini sheets', () => {
       name: 'Steiner', members: ['Huber', 'Neu Nora'], leaderPersonId: 'g:Steiner', memberPersonIds: ['g:Huber', 'g:Neu Nora'] }))
   })
 
-  /* ⑤ — the ⋯ on the phone: the jumps, the Suche's rows, then «Bearbeiten» as the last resort
+  /* ⑤ — the ⋯ on the phone: the jumps, then «Bearbeiten» as the last resort
    * above the rule; «Entfernen» stays last and red. The tablet keeps «Bearbeiten» first. */
   // …and on the tablet too since 29.09.2026: it wears the same chips, so it has the same doors
   it('puts «Bearbeiten» last before the rule — on the phone and on the tablet', async () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
-    const sucheItems = () => [{ label: 'Fund melden', onClick: noop }]
-    mount({ trupps: [{ ...withFacts(), entityId: 'e1' }], truppsWithLine: new Set(['tr1']), sucheItems })
+    mount({ trupps: [{ ...withFacts(), entityId: 'e1' }], truppsWithLine: new Set(['tr1']) })
     fireEvent.click(document.querySelector(`.${s.trow}`)!)
     fireEvent.click(within(document.querySelector('[data-az-open]') as HTMLElement).getByRole('button', { name: az.cardMenu }))
     const items = (await screen.findAllByRole('menuitem')).map((m) => m.textContent)
-    expect(items).toEqual([az.showOnMap, az.lineShow, 'Fund melden', az.edit, az.remove])
+    expect(items).toEqual([az.showOnMap, az.lineShow, az.edit, az.remove])
     cleanup()
     vi.mocked(useIsPhone).mockReturnValue(false)
-    mount({ trupps: [{ ...withFacts(), entityId: 'e1' }], truppsWithLine: new Set(['tr1']), sucheItems })
+    mount({ trupps: [{ ...withFacts(), entityId: 'e1' }], truppsWithLine: new Set(['tr1']) })
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
-    expect((await screen.findAllByRole('menuitem')).map((m) => m.textContent)).toEqual([az.showOnMap, az.lineShow, 'Fund melden', az.edit, az.remove])
+    expect((await screen.findAllByRole('menuitem')).map((m) => m.textContent)).toEqual([az.showOnMap, az.lineShow, az.edit, az.remove])
   })
 
   it('a viewer has no doors: the facts are plain text', () => {
@@ -2124,7 +2123,7 @@ describe('the phone board (full app)', () => {
     // the head stays, its door goes: a Trupp stands under it
     expect(screen.getByText(az.safetyTitle)).toBeTruthy()
     expect(screen.queryByRole('button', { name: az.safetyPick })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: az.safetyDeploy }))
+    fireEvent.click(screen.getByRole('button', { name: az.actEnter }))
     expect(setTruppStatus).toHaveBeenCalledWith('sich', 'aktiv')
   })
 })

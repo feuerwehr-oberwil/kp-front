@@ -5,12 +5,13 @@ import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import { InfoToggle } from './InfoToggle'
 import { EmptyState } from './EmptyState'
+import { Button } from './Button'
 import { Menu, Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, fmtDuration, formatTime } from '../lib/format'
 import { safeHref, thumbUrl } from '../lib/mediaUrl'
-import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowText, rowTime } from '../lib/verlauf'
+import { ART_DISC, groupByDay, isHandWritten, isNachtrag, repeatRuns, rowGlyph, rowPhotos, rowText, rowTime, type ArtTone } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
 import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
 import { journalCategories, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
@@ -71,9 +72,7 @@ const PAGE_ROWS = 150
 // document alone and lands on it — which is all any plan row ever did. The record is append-only,
 // so those rows are never going to grow coordinates; landing them on the right plan with nothing
 // selected is the graceful floor, not a bug to guard against.
-const targetOf = (e: TimelineEvent): 'map-entity' | 'map-pin' | 'plan' | 'suche' | null => {
-  // a row about a Person / Bereich of the Suche opens the Suche on it (lib/suche)
-  if (e.suche) return 'suche'
+const targetOf = (e: TimelineEvent): 'map-entity' | 'map-pin' | 'plan' | null => {
   if (e.entityId) return 'map-entity'
   if (e.coord) return 'map-pin'
   const placedOnPlan = e.annoId != null || e.px != null || e.kind === 'symbol' || e.kind === 'team'
@@ -94,9 +93,11 @@ type RingState = 'open' | 'urgent' | 'overdue' | 'done'
  *  ⚠️ With `onTick` the ring becomes the TICK-OFF control, identical to the one in the pinned
  *  Pendenzen block (.jr-pinned-row .jr-rem) — same ring, same call, same appended `done` row.
  *  It is offered on exactly the rows that are still open; a closed one is a fact, not a switch. */
-function Disc({ icon, surface, ring, title, onTick, tickTitle }: {
+function Disc({ icon, surface, tone, ring, title, onTick, tickTitle }: {
   icon?: string
   surface?: 'map' | 'plan' | null
+  /** a hand-written row's Art (lib/verlauf · rowGlyph): the Auftrag's blue, the Sofortmassnahme's amber */
+  tone?: ArtTone
   ring?: RingState | null
   title?: string
   /** tick this row's Pendenz off in place — appends, never mutates (see onReminderDone) */
@@ -125,7 +126,7 @@ function Disc({ icon, surface, ring, title, onTick, tickTitle }: {
     return <span className="ic jr-ic-ring" title={title}>{inner}</span>
   }
   return (
-    <span className={`ic${surface ? ` jr-ic-${surface}` : ''}`} title={title}>
+    <span className={`ic${surface ? ` jr-ic-${surface}` : ''}${tone ? ` jr-ic-${tone}` : ''}`} title={title}>
       <Icon id={icon || 'doc'} />
     </span>
   )
@@ -135,7 +136,7 @@ function Disc({ icon, surface, ring, title, onTick, tickTitle }: {
  *  locale applies. Deliberately NOT exhaustive: it names the Bereiche a reader meets, not every
  *  glyph the app can stamp on a row — a complete table would be a page, and the question it
  *  answers is «what is that circle beside the sentence». */
-function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'plan'; ring?: RingState }[] {
+function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'plan'; tone?: ArtTone; ring?: RingState }[] {
   const C = appConfig.copy.journal
   const R = appConfig.copy.report
   return [
@@ -146,8 +147,9 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
     { icon: 'box', label: R.areaMittel },
     { icon: 'clipboard', label: R.areaRapport },
     { icon: 'check', label: R.areaChecklist },
-    { icon: 'search', label: R.areaSuche },
     { icon: 'type', label: R.areaManual },
+    { ...ART_DISC.auftrag, label: C.entryTypes.auftrag },
+    { ...ART_DISC.sofort, label: C.entryTypes.sofort },
     { ring: 'open', label: C.legendPendenzOpen },
     { ring: 'urgent', label: C.legendPendenzUrgent },
     { ring: 'done', label: C.legendPendenzDone },
@@ -155,12 +157,13 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
 }
 
 /** The disc a filter row wears — the legend's disc for the same Bereich, so the menu reads as the
- *  legend with ticks. The three «Art» words share the composer's glyph, as their rows do. */
-const FILTER_DISC: Record<JournalCategoryKind, { icon?: string; surface?: 'map' | 'plan'; ring?: RingState }> = {
-  manual: { icon: 'type' }, auftrag: { icon: 'type' }, sofort: { icon: 'type' }, pendenz: { ring: 'open' },
+ *  legend with ticks. Auftrag and Sofortmassnahme wear their Art's disc, as their rows do
+ *  (lib/verlauf · ART_DISC); «Manuell» keeps the composer's «T». */
+const FILTER_DISC: Record<JournalCategoryKind, { icon?: string; surface?: 'map' | 'plan'; tone?: ArtTone; ring?: RingState }> = {
+  manual: { icon: 'type' }, auftrag: ART_DISC.auftrag, sofort: ART_DISC.sofort, pendenz: { ring: 'open' },
   map: { icon: 'circle', surface: 'map' }, plan: { icon: 'flag', surface: 'plan' },
   anwesenheit: { icon: 'people' }, atemschutz: { icon: 'gauge' }, mittel: { icon: 'box' },
-  rapport: { icon: 'clipboard' }, checklist: { icon: 'check' }, system: { icon: 'doc' }, suche: { icon: 'search' },
+  rapport: { icon: 'clipboard' }, checklist: { icon: 'check' }, system: { icon: 'doc' },
 }
 
 // The unified Verlauf — the single, append-only stream of everything that
@@ -721,7 +724,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           <div className="jr-legend">
             {legendEntries().map((l) => (
               <span className="jr-legend-item" key={l.label}>
-                <Disc icon={l.icon} surface={l.surface} ring={l.ring} />{l.label}
+                <Disc icon={l.icon} surface={l.surface} tone={l.tone} ring={l.ring} />{l.label}
               </span>
             ))}
           </div>
@@ -913,6 +916,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               // not: they are log lines about the item, not the item.
               : closedRow ? 'done' : null
             const disc = journalDisc(e, plans)
+            const glyph = rowGlyph(e)
             // the footnotes on the row — appended facts about it, so they read AFTER the sentence
             const repeated = repeats.counts.get(e.id) ?? 1
             const nachtrag = isNachtrag(e, closedAt)
@@ -937,7 +941,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                     appends a `done` row (onReminderDone → useReminders · markDone). It is not a
                     second path to the state — it is the same call. */}
                 <Disc
-                  icon={e.icon} surface={disc.surface} ring={ring} title={disc.label}
+                  icon={glyph.icon} surface={disc.surface} tone={glyph.tone} ring={ring} title={disc.label}
                   onTick={openRem && onReminderDone ? () => onReminderDone(openRem) : undefined}
                   tickTitle={C.markDoneTitle}
                 />
@@ -1148,8 +1152,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                           appended, never overwritten — and says so; a first transcript has no
                           original wording to reassure about */}
                       {e.transcript && <span className="jr-korr-hint">{C.correctHint}</span>}
-                      <button onClick={() => setEditTx(null)}>{appConfig.copy.cancel}</button>
-                      <button onClick={saveTranscript}><Icon id="check" />{C.transcriptSave}</button>
+                      <Button onClick={() => setEditTx(null)}>{appConfig.copy.cancel}</Button>
+                      <Button variant="primary" icon={<Icon id="check" />} onClick={saveTranscript}>{C.transcriptSave}</Button>
                     </div>
                   </div>
                 )}
@@ -1165,8 +1169,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                     />
                     <div className="jr-transcript-actions">
                       <span className="jr-korr-hint">{C.correctHint}</span>
-                      <button onClick={() => setEditRow(null)}>{appConfig.copy.cancel}</button>
-                      <button onClick={saveRowText}><Icon id="check" />{C.transcriptSave}</button>
+                      <Button onClick={() => setEditRow(null)}>{appConfig.copy.cancel}</Button>
+                      <Button variant="primary" icon={<Icon id="check" />} onClick={saveRowText}>{C.transcriptSave}</Button>
                     </div>
                   </div>
                 )}
@@ -1270,29 +1274,28 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               </dl>
               <div className="jr-detail-acts">
                 {e.audioUrl && e.audioMeta && onOpenPlayer && (
-                  <button type="button" className="btn"
+                  <Button block icon={<Icon id="wave" />}
                     onClick={() => { setDetailId(null); onOpenPlayer(e) }}>
-                    <Icon id="wave" />{C.playerOpen}
-                  </button>
+                    {C.playerOpen}
+                  </Button>
                 )}
                 {e.audioUrl && onTranscript && (
-                  <button type="button" className={`btn${hasTx ? '' : ' jr-da-miss'}`}
+                  <Button block className={hasTx ? undefined : 'jr-da-miss'} icon={<Icon id={hasTx ? 'type' : 'warn'} />}
                     onClick={() => { setDetailId(null); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}>
-                    <Icon id={hasTx ? 'type' : 'warn'} />{hasTx ? C.transcriptEdit : C.transcriptAdd}
-                  </button>
+                    {hasTx ? C.transcriptEdit : C.transcriptAdd}
+                  </Button>
                 )}
                 {onEditText && isHandWritten(e) && !e.audioUrl && (
-                  <button type="button" className="btn"
+                  <Button block icon={<Icon id="pen" />}
                     onClick={() => { setDetailId(null); setEditRow({ id: e.id, value: e.text }) }}>
-                    <Icon id="pen" />{C.editEntry}
-                  </button>
+                    {C.editEntry}
+                  </Button>
                 )}
                 {target != null && (
-                  <button type="button" className="btn"
+                  <Button block icon={<Icon id={target === 'plan' ? 'flag' : 'pin'} />}
                     onClick={() => { setDetailId(null); onSelect(e) }}>
-                    <Icon id={target === 'plan' ? 'flag' : target === 'suche' ? 'search' : 'pin'} />
-                    {target === 'plan' ? appConfig.copy.atemschutz.showOnPlan : target === 'suche' ? appConfig.copy.suche.showInSuche : appConfig.copy.atemschutz.showOnMap}
-                  </button>
+                    {target === 'plan' ? appConfig.copy.atemschutz.showOnPlan : appConfig.copy.atemschutz.showOnMap}
+                  </Button>
                 )}
               </div>
             </Sheet>

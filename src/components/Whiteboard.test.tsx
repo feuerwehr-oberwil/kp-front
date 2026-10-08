@@ -466,6 +466,17 @@ describe('Plan round 3 (29.08.)', () => {
     expect(screen.getByRole('button', { name: 'Messen' })).toBeTruthy()
   })
 
+  // 08.10.: the Messen nodes are <button>s labelled «Gedrückt halten zum Löschen», and without
+  // `data-holdaction` the app-wide hold-tooltip popped that label mid-ring and ate the release
+  it('keeps the hold-tooltip off the Messen nodes — holding one IS the delete', () => {
+    const { container } = renderPlan([], { planScale: { tafel: { mPerU: 100, refM: 10, ar: 1.414 } } })
+    fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
+    tapAt(ink(container), 100, 100); tapAt(ink(container), 300, 100)
+    const nodes = container.querySelectorAll('.measure-handle')
+    expect(nodes).toHaveLength(2)
+    for (const n of nodes) expect(n.hasAttribute('data-holdaction')).toBe(true)
+  })
+
   it('keeps the slim read-only rail: Auswahl + Messen', () => {
     renderPlan([], { readOnly: true, slimTools: true })
     expect(screen.getByRole('button', { name: 'Auswahl' })).toBeTruthy()

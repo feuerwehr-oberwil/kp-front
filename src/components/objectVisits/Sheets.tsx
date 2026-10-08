@@ -3,13 +3,14 @@
 
 import { useState } from 'react'
 import { Icon } from '../../lib/icons'
+import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
 import { Sheet } from '../../lib/overlays'
 import { LoadingStatus } from '../ShellLoader'
 import { Segmented } from '../Segmented'
 import type { Item } from '../../lib/checklists'
 import { newId } from '../../lib/ids'
-import type { ProposalField, VisitPhoto, VisitProposal } from '../../objectVisits/types'
+import type { ProposalField, VisitPhoto, VisitProposal, VisitTemplate } from '../../objectVisits/types'
 import { usePhotoUrl } from './ovFormat'
 import s from './ObjectVisits.module.css'
 
@@ -40,8 +41,8 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
       title={C.photoTitle}
       footer={readOnly ? undefined : (
         <>
-          <button type="button" className="ip-btn" onClick={onAnother} disabled={preparing}><Icon id="cam" />{C.photoAnother}</button>
-          <button type="button" className="ip-btn primary" onClick={onClose}>{C.photoDone}</button>
+          <Button icon={<Icon id="cam" />} onClick={onAnother} disabled={preparing}>{C.photoAnother}</Button>
+          <Button variant="primary" onClick={onClose}>{C.photoDone}</Button>
         </>
       )}
     >
@@ -73,7 +74,7 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
             {stored === false && (
               <p className="form-warn form-warn-compact"><Icon id="warn" /><span className="form-warn-text">{C.photoNotStored}</span></p>
             )}
-            <button type="button" className="ip-btn ip-btn-danger" onClick={onRemove}><Icon id="trash" />{C.photoRemove}</button>
+            <Button variant="danger" icon={<Icon id="trash" />} onClick={onRemove}>{C.photoRemove}</Button>
           </>
         ))}
     </Sheet>
@@ -132,9 +133,9 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
       footer={(
         <>
           {proposal && onRemove && (
-            <button type="button" className="ip-btn ip-btn-danger" onClick={() => onRemove(proposal)} aria-label={C.proposalRemove}><Icon id="trash" /></button>
+            <Button variant="danger" onClick={() => onRemove(proposal)} aria-label={C.proposalRemove}><Icon id="trash" /></Button>
           )}
-          <button type="button" className="ip-btn primary" disabled={!valid} onClick={save}>{C.proposalSave}</button>
+          <Button variant="primary" disabled={!valid} onClick={save}>{C.proposalSave}</Button>
         </>
       )}
     >
@@ -160,6 +161,38 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
         <span>{C.proposalReason}</span>
         <input className={s.input} value={reason} placeholder={C.proposalReasonPlaceholder} onChange={(e) => setReason(e.target.value)} />
       </label>
+    </Sheet>
+  )
+}
+
+/** «Checkliste wechseln» on a draft: the station's visit checklists and «Ohne Checkliste», the
+ *  current one marked. Choosing hands the template (or null) up; the page asks before it drops answers. */
+export function ChecklistSheet({ templates, current, onPick, onClose }: {
+  templates: VisitTemplate[]
+  current: VisitTemplate | null
+  onPick: (t: VisitTemplate | null) => void
+  onClose: () => void
+}) {
+  const C = appConfig.copy.objectVisits
+  const isCurrent = (t: VisitTemplate | null) =>
+    (t?.id ?? null) === (current?.id ?? null) && (t == null || (t.version ?? 0) === (current?.version ?? 0))
+  const row = (t: VisitTemplate | null) => (
+    <button key={t?.id ?? '__none__'} type="button" className={s.row} onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined}>
+      {t && <Icon id="checklist" className={s.rowGlyph} />}
+      <span className={s.rowMain}>
+        <span className={s.rowTitle}>{t ? t.title : C.noChecklist}</span>
+        {t?.subtitle && <span className={s.rowSub}>{t.subtitle}</span>}
+      </span>
+      {isCurrent(t) ? <span className="ip-badge ip-badge-ok">{C.checklistCurrent}</span> : <Icon id="chevron" className={s.chev} />}
+    </button>
+  )
+  return (
+    <Sheet open onClose={onClose} title={C.changeChecklist}>
+      <p className={s.secNote}>{C.changeChecklistLead}</p>
+      <div className={s.card}>
+        {templates.map(row)}
+        {row(null)}
+      </div>
     </Sheet>
   )
 }

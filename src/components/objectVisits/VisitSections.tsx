@@ -4,10 +4,12 @@
 
 import { useState } from 'react'
 import { Icon } from '../../lib/icons'
+import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
-import { dtLocalToIso, dtLocalValue, fillTemplate } from '../../lib/format'
+import { fillTemplate, unitLabel } from '../../lib/format'
 import type { Item } from '../../lib/checklists'
 import { Segmented } from '../Segmented'
+import { DateTimeField } from '../TimeField'
 import { answerStats, inputOf, isAnswered, localIso } from '../../objectVisits/doc'
 import { rememberWith, splitPeople } from '../../objectVisits/devicePrefs'
 import type { Answer, VisitDoc, VisitPhoto, VisitProposal } from '../../objectVisits/types'
@@ -37,12 +39,13 @@ export function DetailsCard({ doc, readOnly, onEdit }: { doc: VisitDoc; readOnly
             return next
           })
         }} />
+      {/* the app's own wheel picker with «Jetzt», 24h on every device (owner, 05.10.2026) — the
+          native datetime-local showed «10/05/2026, 02:17 PM» on an English iPhone */}
       <label className={s.field}>
         <span>{C.visitedAt}</span>
-        <input
-          className={`ip-input ${s.input} ${s.dateInput}`} type="datetime-local" value={dtLocalValue(doc.visitedAt)}
-          onChange={(e) => {
-            const iso = dtLocalToIso(e.target.value)
+        <DateTimeField
+          className={s.dateField} ariaLabel={C.visitedAt} value={doc.visitedAt} required
+          onCommit={(iso) => {
             if (iso) onEdit((d) => ({ ...d, visitedAt: localIso(new Date(iso)) }))
           }}
         />
@@ -200,7 +203,7 @@ function ItemRow({ item, doc, readOnly, pending, onEdit, onTakePhoto, onOpenPhot
       {input === 'photo' && (
         <>
           {thumbs}
-          <button type="button" className="ip-btn" onClick={() => onTakePhoto(item.id)}><Icon id="cam" />{C.takePhoto}</button>
+          <Button icon={<Icon id="cam" />} onClick={() => onTakePhoto(item.id)}>{C.takePhoto}</Button>
         </>
       )}
       {input !== 'photo' && !(input === 'check' && a?.v === 'defect') && thumbs}
@@ -225,7 +228,7 @@ function NumberField({ value, unit, label, onChange }: { value: number | null; u
           if (Number.isFinite(n)) onChange(n)
         }}
       />
-      {unit && <span className={s.unit}>{unit}</span>}
+      {unit && <span className={s.unit}>{unitLabel(unit)}</span>}
     </div>
   )
 }

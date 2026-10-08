@@ -27,23 +27,23 @@
    split (wheels on touch, a bare text box at the desk) is why three rounds of features existed on
    only half the devices. */
 .typed {
-  flex: 1 1 auto; min-width: 0; min-height: 44px; margin: 0; padding: 0 10px; text-align: center;
+  flex: 1 1 auto; min-width: 0; min-height: 44px; margin: 0; padding: 0 var(--sp-3); text-align: center;
   border: 1px solid var(--glass-edge); border-radius: var(--r-xs); background: var(--fill-soft);
-  color: var(--ink); font: 700 16px var(--mono); font-variant-numeric: tabular-nums;
+  color: var(--ink); font: var(--fw-bold) var(--fs-3) var(--mono); font-variant-numeric: tabular-nums;
 }
 .typed:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); } /* the one field focus, 28.09.2026 */
 
 /* The tabs: answers that are not a clock reading at all. Side by side, equal weight, above the
    wheels they replace. */
-.tabs { display: flex; gap: 6px; margin: 0 0 8px; }
+.tabs { display: flex; gap: var(--sp-2); margin: 0 0 8px; }
 .tab {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px;
-  padding: 0 10px; border-radius: var(--r-sm); cursor: pointer;
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--sp-2); min-height: 44px;
+  padding: 0 var(--sp-3); border-radius: var(--r-sm); cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--blue) 38%, transparent);
-  background: color-mix(in srgb, var(--blue) 10%, transparent);
-  color: var(--blue-strong); font: 700 12.5px var(--body); white-space: nowrap;
+  background: var(--blue-12);
+  color: var(--blue-strong); font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap;
 }
-@media (hover: hover) { .tab:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); } }
+@media (hover: hover) { .tab:hover { background: var(--blue-16); } }
 .tab:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the tab whose state the value currently IS: pressed, not hidden. It used to disappear once it
    applied, which removed the only way back to it after scrolling the wheels. */
@@ -51,16 +51,12 @@
 .tabOn { background: var(--sel); border-color: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
 .green.tabOn { background: var(--green); border-color: var(--green); color: var(--on-fill); }
 
-/* desktop: the typed field and the day, side by side — one control per value.
-   With a full date it wraps: Tag · Monat · Jahr on their own line under the clock, so three
-   selects and a time field don't squeeze each other into unreadable slivers. */
-.typedRow { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
-.dateRow { display: flex; gap: 6px; width: 100%; }
-.dateRow .daySel { flex: 1 1 0; min-width: 0; }
+/* desktop: the typed field and the day, side by side — one control per value. */
+.typedRow { display: flex; flex-wrap: wrap; gap: var(--sp-2); width: 100%; }
 .daySel {
   flex: none; min-height: 44px; padding: 0 8px; border-radius: var(--r-sm);
   border: 1px solid var(--glass-edge); background: var(--fill-soft); color: var(--ink);
-  font: 600 13px var(--body); cursor: pointer;
+  font: var(--fw-medium) var(--fs-2) var(--body); cursor: pointer;
 }
 .daySel:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
@@ -71,29 +67,39 @@
    one, instead of every row in the sheet being a different width. */
 .shortcut {
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
-  margin: 0 0 8px; padding: 0 10px;
+  margin: 0 0 8px; padding: 0 var(--sp-3);
   border: 1px solid color-mix(in srgb, var(--blue) 38%, transparent);
   border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--blue) 10%, transparent);
-  color: var(--blue-strong); font: 700 12.5px var(--body); cursor: pointer;
+  background: var(--blue-12);
+  color: var(--blue-strong); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-@media (hover: hover) { .shortcut:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); } }
+@media (hover: hover) { .shortcut:hover { background: var(--blue-16); } }
 .shortcut:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the time the shortcut would set. «ab Beginn» without a number is a promise you cannot check
    before you tap it. */
-.value { margin-left: auto; font: 700 12.5px var(--mono); opacity: .85; }
+.value { margin-left: auto; font: var(--fw-bold) var(--fs-1) var(--mono); opacity: .85; }
 
 /* «noch da» is green because it produces presence, not because it clears a field — it is the same
    green the grid draws an open stretch in. */
 .green {
-  border-color: color-mix(in srgb, var(--green) 42%, transparent);
-  background: color-mix(in srgb, var(--green) 12%, transparent);
+  border-color: var(--green-45);
+  background: var(--green-12);
   color: var(--green-strong);
 }
-@media (hover: hover) { .green:hover { background: color-mix(in srgb, var(--green) 20%, transparent); } }
+@media (hover: hover) { .green:hover { background: var(--green-22); } }
 
 /* A NAMED clear, replacing the bin glyph. Emptying a «bis» does not delete anything — it says the
    person is still here — and a bin said the opposite of what it did. */
 
-.error { margin: 8px 0; color: var(--red-strong); font-size: 13px; line-height: 1.4; }
+.error { margin: 8px 0; color: var(--red-strong); font-size: var(--fs-2); line-height: 1.4; }
+
+/* A heading, for a popover opened from a menu row («Erinnern um») — the row that opened it is
+   gone by the time the wheels show, so the popover has to say what it is asking. */
+.title { margin: 0 0 8px; text-align: center; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
+
+/* What the selection MEANS, under the wheels — «Morgen · Fr 09.10. · 07:30». A blocking note is
+   red and «OK» is disabled until the wheels move (see WheelPopover · note). */
+.note { margin: 8px 0 0; min-height: 22px; text-align: center; color: var(--blue-strong);
+  font: var(--fw-bold) var(--fs-2) var(--mono); font-variant-numeric: tabular-nums; }
+.noteBad { color: var(--red); font-family: var(--body); }

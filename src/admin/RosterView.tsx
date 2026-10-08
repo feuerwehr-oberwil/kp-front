@@ -25,6 +25,7 @@ import {
   ActionMenu, Card, EmptyState, Field, Select, SettingRow, SettingsSheet, standardNote, StatusBadge,
   type SelectOption,
 } from './ui'
+import { useCellLabels } from './useCellLabels'
 import { useConfig, getPath } from './ConfigContext'
 
 // ─── helpers ───────────────────────────────────────────────────────────────────
@@ -639,6 +640,7 @@ function AutoSyncCard({ provider }: { provider: string | null | undefined }) {
 }
 
 export function RosterView() {
+  const tableRef = useCellLabels()
   const [state, setState] = useState<Async>({ kind: 'loading' })
   const [showInactive, setShowInactive] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
@@ -760,7 +762,7 @@ export function RosterView() {
           )}
           {state.kind === 'ok' && state.data.length > 0 && (
             <div className="adm-table-wrap">
-              <table className="adm-table adm-members-table">
+              <table ref={tableRef} className="adm-table adm-members-table">
                 <thead>
                   <tr>
                     <th>{C.colName}</th>
@@ -797,11 +799,11 @@ export function RosterView() {
                         <td>
                           <span className="adm-ref-kind">{p.external_identities?.[0] ? providerLabel(p.external_identities[0].provider) : C.sourceManual}</span>
                         </td>
-                        <td>
+                        <td className="adm-c-side">
                           {/* the Status column names it — the pill only has to say which one */}
                           <StatusBadge tone={p.is_active ? 'on' : 'off'} label="" state={p.is_active ? C.active : C.inactive} />
                         </td>
-                        <td className="adm-members-actions-col">
+                        <td className="adm-members-actions-col adm-c-act">
                           <ActionMenu
                             ariaLabel={`${C.colActions} — ${p.display_name}`}
                             disabled={busy}

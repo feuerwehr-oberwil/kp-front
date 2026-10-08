@@ -92,6 +92,9 @@ export function IconSprite() {
       <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5" /><circle cx="12" cy="7.7" r=".5" /></symbol>
       <symbol id="mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6.5L20.5 7" /></symbol>
       <symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M15 5H5a2 2 0 0 0-2 2v10" /></symbol>
+      {/* The drawer toggle (/admin on a phone, UI sweep 07.10.2026). It wore #layers, which is
+          «Kartenebenen» one entry down the very drawer it opens. Three bars = «sections». */}
+      <symbol id="menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></symbol>
       <symbol id="more-vert" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.7" fill="currentColor" stroke="none" /></symbol>
       {/* …lying down: the last chip of the phone card's fact strip (26.09.2026, phone card
           slim-down) — a horizontal ⋯ reads as «more of this row», the vertical one as a head's menu */}
@@ -120,9 +123,6 @@ export function IconSprite() {
       {/* who LEADS — the Gruppenführer crown in the Trupp picker. Outline while it is an offer,
           filled by the caller (.teamCrownOn) once it is the state, so the leader reads as a
           fact rather than as one more button that could still be pressed. */}
-      {/* the Lage-Grundgerüst — a list whose done rows are ticked and whose open rows are a «+»,
-          which is exactly what the card on the Karte is (and why it is not Checklisten's glyph) */}
-      <symbol id="grundgeruest" viewBox="0 0 24 24"><path d="M3.8 7.2l2 2 3.4-3.7" /><path d="M12.5 7.5h8" /><path d="M6 13v5M3.5 15.5h5" /><path d="M12.5 15.5h8" /></symbol>
       <symbol id="star" viewBox="0 0 24 24"><path d="m12 3.8 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" stroke-linejoin="round" /></symbol>
       <symbol id="checklist" viewBox="0 0 24 24"><rect x="3.5" y="6.5" width="14" height="14" rx="2" /><path d="M8 3.5h10.5a2 2 0 0 1 2 2V16" /><path d="M6.8 12.4l1.5 1.5 2.7-3M13.2 13h2" /><path d="M6.8 17.2l1.5 1.5 2.7-3M13.2 17.8h2" /></symbol>
       <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></symbol>

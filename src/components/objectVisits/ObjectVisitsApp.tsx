@@ -21,7 +21,7 @@ import { VisitPage } from './VisitPage'
 import { NewVisit } from './NewVisit'
 import s from './ObjectVisits.module.css'
 
-export default function ObjectVisitsApp({ onExit }: { onExit: () => void }) {
+export default function ObjectVisitsApp({ onExit, suggestedObjectId = null }: { onExit: () => void; suggestedObjectId?: string | null }) {
   const { user, sessionExpired, logout } = useAuth()
   const route = useOvRoute() ?? { kind: 'overview' as const }
   const [cat, setCat] = useState<CatalogueState | null>(null)
@@ -96,7 +96,8 @@ export default function ObjectVisitsApp({ onExit }: { onExit: () => void }) {
     relogin: () => { void logout() },
     go: (r, opts) => navigateTo(ovHref(r), opts),
     exit: onExit,
-  }), [cat, reloadCatalogue, locals, localsLoaded, localsOk, summaries, user?.id, canCapture, sessionExpired, logout, onExit])
+    suggestedObjectId,
+  }), [cat, reloadCatalogue, locals, localsLoaded, localsOk, summaries, user?.id, canCapture, sessionExpired, logout, onExit, suggestedObjectId])
 
   return (
     <OvContext.Provider value={value}>

@@ -55,13 +55,10 @@ export interface UndoableDoc<D> {
  * record that the Karte moved, in the same chronology as everything else; the document's own stack
  * keeps working exactly as before and stays the thing that answers `undo()`.
  *
- * It is also handed the document AS IT WAS before the step (the value ↶ goes back to), so a caller
- * can name the step by what changed once the writer is done.
- *
  * `shape` says how the document is made of records (lib/undoKeys). With it, a remote merge keeps
  * the steps it did not invalidate (`rebase`); without it, a merge drops the history.
  */
-export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (step: string, before: D) => void, shape?: RecordShape<D>): UndoableDoc<D> {
+export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (step: string) => void, shape?: RecordShape<D>): UndoableDoc<D> {
   const [doc, setDoc] = useState<D>(init)
   // ⚠️ The live value, advanced synchronously by every write below — `doc` (state) is a
   // per-render snapshot and only feeds renders. Reading the snapshot in commit() meant two
@@ -101,7 +98,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
     const snap = docRef.current
     const id = lay(snap)
     setDocRaw(updater(snap))
-    onCheckpoint?.(id, snap)
+    onCheckpoint?.(id)
   }
   const beginDrag = () => { dragSnap.current = docRef.current }
   const endDrag = () => {
@@ -109,7 +106,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
     const snap = dragSnap.current
     dragSnap.current = null
     const id = lay(snap) // ⚠️ not inside `onCheckpoint?.(…)`: an absent callback skips its arguments
-    onCheckpoint?.(id, snap)
+    onCheckpoint?.(id)
   }
   const undo = (expect?: string): boolean => {
     const top = past.current[past.current.length - 1]
@@ -153,7 +150,7 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
   const checkpoint = (snapshot: D): string | null => {
     if (readOnly) return null
     const id = lay(snapshot)
-    onCheckpoint?.(id, snapshot)
+    onCheckpoint?.(id)
     return id
   }
 

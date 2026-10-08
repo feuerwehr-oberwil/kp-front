@@ -60,7 +60,7 @@ test('server: build the incident up, save by save', async ({ page }) => {
   const api = page.request
   const created = await (await ok(await api.post('/api/incidents', {
     data: { title: `Fat incident · ${PRESET}`, type: 'Brand', lat: fat.options.center[1], lng: fat.options.center[0], started_at: fat.startedAt },
-  }), 'create')).json()
+  }), 'create')).json() as { id: string }
   incidentId = created.id
   const base = `/api/incidents/${incidentId}`
 
@@ -126,7 +126,7 @@ test('server: build the incident up, save by save', async ({ page }) => {
       const woke = wakes.length
       const [res, t] = await timed(async () => ok(await api.put(`${base}/workspace?slim=1`, { data: body, headers: { 'content-type': 'application/json' } }), 'save'))
       putMs.push(t)
-      rev = (await res.json()).workspace_rev
+      rev = ((await res.json()) as { workspace_rev: number }).workspace_rev
       const sent = performance.now()
       while (wakes.length === woke && performance.now() - sent < 5_000) await new Promise((r) => setTimeout(r, 5))
       if (wakes.length > woke) wakeLag.push(wakes[wakes.length - 1] - sent)

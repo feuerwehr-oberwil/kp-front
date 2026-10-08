@@ -264,23 +264,6 @@ const truppRecords: Pick<RecordShape<unknown>, 'records'> = {
   },
 }
 
-/** One record of the Suche (lib/suche): a person or a Bereich, by id — `mergeSuche`'s unit (a
- *  record both devices changed merges field-wise with its log unioned, so the record is the unit
- *  here, never a single row: coarser than the merge is safe). `suche:<kind>/<id>`. */
-export const sucheRecordKey = (kind: 'personen' | 'bereiche', id: string): RecordKey => recordKey('suche', `${kind}/${id}`)
-
-const sucheRecords: Pick<RecordShape<unknown>, 'records'> = {
-  records: (v) => {
-    const out = new Map<RecordKey, unknown>()
-    if (!isPlain(v)) return out
-    for (const kind of ['personen', 'bereiche'] as const) {
-      const list = v[kind]
-      if (Array.isArray(list)) for (const r of list) if (hasId(r)) out.set(sucheRecordKey(kind, r.id), r)
-    }
-    return out
-  },
-}
-
 // ── the synced workspace, record by record ──────────────────────────────────────────────────────
 
 /** How each field of the blob is made of records — `null` for what no undo step can write and no
@@ -300,7 +283,6 @@ export const WORKSPACE_RECORDS = {
   cameraViews: listById('cameraViews'),
   trails: listById('trails'),
   attachments: listById('attachments'),
-  suche: sucheRecords,
   vehicleOverrides: recordByKey('vehicleOverrides'),
   checklists: recordByKey('checklists'),
   attendance: recordByKey('attendance'),

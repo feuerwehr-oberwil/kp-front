@@ -425,9 +425,6 @@ export interface DeploymentConfig {
   mittel?: DeploymentMittel
   /** journal composer: station Textbausteine (quick phrases); empty → app defaults */
   journal?: { quickPhrases?: string[] | null }
-  /** the Suche: «weiter an» — the station's short list of where found people are handed over
-   *  (Rettungsdienst · Sammelplatz · …); empty → the national default (copy · suche.uebergabeZiele) */
-  suche?: { uebergabe?: string[] | null }
   /** station alarm groups for the Alarmierungs-/Ausrückzeiten grid — empty hides it */
   alarms?: { groups?: AlarmGroup[] | null }
   /** Einsatzrapport form presets (Partnerorganisationen checkbox row) */
@@ -456,12 +453,6 @@ export interface DeploymentConfig {
   /** Objektbesuche (docs/object-visits.md · «Deployment config»). Off unless `enabled`. */
   objectVisits?: DeploymentObjectVisits | null
   integrations?: DeploymentIntegrations
-  /** The Lage-Grundgerüst card on the Karte: which shipped preset runs, and the Einsatzarten
-   *  the station replaced (lib/lageGrundgeruest). Read through `lageGrundgeruestConfig()`. */
-  lageGrundgeruest?: LageGrundgeruestConfig | null
-  /** The presets the SERVER ships (backend app/data/lage_grundgeruest/*.json), served beside the
-   *  document. Response-only: the backend ignores it on the way in, /admin strips it. */
-  lageGrundgeruestPresets?: LageGrundgeruestPresets | null
   /** Opaque version token of the document the SERVER holds, off GET/PUT. Sent back as
    *  `If-Match` on the next save, so a tab holding an hour-old draft is refused instead of
    *  silently reverting whatever anybody changed since (backend · api/config · put_config).
@@ -503,7 +494,6 @@ export interface AlarmGroup {
 }
 
 import { apiGet } from './api'
-import type { LageGrundgeruestConfig, LageGrundgeruestPresets } from './lageGrundgeruest'
 import { idbGet, idbSet } from './idb'
 import { wgs84ToLV95, lv95ToWgs84 } from './geo'
 import { appConfig } from '../config/appConfig'
@@ -612,13 +602,6 @@ export async function loadDeploymentConfigBounded(budgetMs: number): Promise<Dep
     return cached
   }
   return resolved
-}
-
-/** The station's Lage-Grundgerüst block and the presets it resolves against — the ONE read path
- *  for the card (lib/lageGrundgeruest · slotsFor). An older server serves neither: the presets
- *  are then empty and the card has nothing to show, which is the honest answer. */
-export function lageGrundgeruestConfig(): { config: LageGrundgeruestConfig | null; presets: LageGrundgeruestPresets } {
-  return { config: resolved.lageGrundgeruest ?? null, presets: resolved.lageGrundgeruestPresets ?? {} }
 }
 
 /** Synchronous accessor returning the resolved singleton ({} until loadDeploymentConfig
@@ -778,8 +761,12 @@ export function isDemoMode(): boolean {
   return resolved.identity?.demoMode === true
 }
 
-/** Optional demo note (e.g. login credentials / reset cadence), shown on the login screen. */
+/** Optional demo note (e.g. login credentials / reset cadence), shown on the login screen.
+ *  Only while demoMode is ON: the note is independent config, so a station that started from
+ *  the demo dataset and switched demo mode off kept announcing «PIN 000000 für alle» on its
+ *  real login screen. The field stays (it comes back with demoMode); it is just not shown. */
 export function demoNote(): string | null {
+  if (!isDemoMode()) return null
   const n = resolved.identity?.demoNote
   return n && n.trim() ? n : null
 }
@@ -964,12 +951,4 @@ export function externalMapLinks(lng: number, lat: number): { label: string; hre
   return links
     .filter((l): l is { label: string; urlTemplate: string } => !!l?.label && !!l?.urlTemplate)
     .map((l) => ({ label: l.label, href: fill(l.urlTemplate) }))
-}
-
-/** «weiter an» in the Suche (lib/suche · Gefunden / Übergeben): the station's list when it set
- *  one (`suche.uebergabe`), else the national default. Read per call, so a config that arrives
- *  after boot applies at the next form. */
-export function sucheUebergabe(): string[] {
-  const list = (getDeploymentConfig().suche?.uebergabe ?? []).map((s) => s.trim()).filter(Boolean)
-  return list.length ? list : [...appConfig.copy.suche.uebergabeZiele]
 }

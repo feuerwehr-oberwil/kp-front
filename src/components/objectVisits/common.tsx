@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { Icon } from '../../lib/icons'
+import { IconButton } from '../Button'
 import { appConfig } from '../../config/appConfig'
 import { usePhotoUrl } from './ovFormat'
 import s from './ObjectVisits.module.css'
@@ -19,9 +20,9 @@ export function Head({ title, sub, subNode, onBack, actions }: {
     <div className={s.headBar}>
       <header className={s.head}>
         {onBack && (
-          <button type="button" className={s.iconBtn} aria-label={C.back} title={C.back} onClick={onBack}>
+          <IconButton label={C.back} onClick={onBack}>
             <Icon id="chevron-left" />
-          </button>
+          </IconButton>
         )}
         <div className={s.headTitles}>
           <h1>{title}</h1>

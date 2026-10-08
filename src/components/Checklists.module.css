@@ -9,129 +9,48 @@
 .cl-surface { composes: shell from './Surface.module.css'; gap: 12px; }
 
 /* left rail */
-.cl-rail { flex: 0 0 248px; overflow-y: auto; scrollbar-gutter: stable; padding: 12px; background: var(--surface);
+.cl-rail { flex: 0 0 248px; overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-3) var(--sp-2); background: var(--surface);
   border-right: 1px solid var(--glass-edge); display: flex; flex-direction: column; gap: 16px; }
 .cl-rail-group { display: flex; flex-direction: column; gap: 4px; }
-.cl-rail-label { padding: 2px 6px 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.cl-rail-item { display: flex; align-items: center; gap: 9px; border: none; background: transparent; cursor: pointer;
-  font-family: var(--body); font-size: 13.5px; font-weight: 600; color: var(--ink-dim); text-align: left;
-  padding: 10px 11px; border-radius: var(--r-ctl); transition: background .14s var(--ease), color .14s var(--ease); }
+.cl-rail-label { padding: 2px var(--sp-2) var(--sp-1); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+.cl-rail-item { display: flex; align-items: center; gap: var(--sp-2); border: none; background: transparent; cursor: pointer;
+  font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink-dim); text-align: left;
+  padding: var(--sp-3) var(--sp-2); border-radius: var(--r-ctl); transition: background .14s var(--ease), color .14s var(--ease); }
 .cl-rail-item :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
 @media (hover: hover) { .cl-rail-item:hover { background: var(--fill-soft); color: var(--ink); } }
 .cl-rail-item:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .cl-rail-item.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .cl-rail-item.on :global(.i) { color: var(--on-accent-ink); }
 .cl-rail-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cl-rail-prog { flex: none; font-family: var(--mono); font-size: 11px; font-weight: 700; opacity: .8; }
-.cl-rail-hint { display: flex; align-items: center; gap: 7px; border: none; cursor: pointer; text-align: left;
-  background: color-mix(in srgb, var(--red) 8%, transparent); color: var(--red-strong); font-family: var(--body); font-size: 12px; font-weight: 600;
-  padding: 8px 10px; border-radius: var(--r-ctl); margin-top: 2px; }
+.cl-rail-prog { flex: none; font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold); opacity: .8; }
+.cl-rail-hint { display: flex; align-items: center; gap: var(--sp-2); border: none; cursor: pointer; text-align: left;
+  background: var(--red-8); color: var(--red-strong); font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold);
+  padding: var(--sp-2); border-radius: var(--r-ctl); margin-top: 2px; }
 .cl-rail-hint :global(.i) { width: 14px; height: 14px; flex: none; }
 /* one Stichwort can have several answers — they stack as peers, none of them ranked visually
    above the others beyond their order (lib/checklists · matchDiveraEntries) */
-.cl-rail-hints { display: flex; flex-direction: column; gap: 3px; }
+.cl-rail-hints { display: flex; flex-direction: column; gap: var(--sp-1); }
 .cl-rail-hints .cl-rail-hint { margin-top: 0; }
 .cl-rail-search { margin: 2px 0 4px; }   /* THE search (components/SearchField, 29.09.2026) — placement only */
 /* all groups (Aufgaben + each reference template) are peers under the search bar */
-.cl-rail-groups { display: flex; flex-direction: column; gap: 14px; }
-.cl-rail-entry { display: flex; align-items: center; gap: 9px; border: none; background: transparent; cursor: pointer;
-  width: 100%; text-align: left; padding: 7px 10px; border-radius: var(--r-ctl); font: 500 13px var(--body); color: var(--ink-dim); }
+.cl-rail-groups { display: flex; flex-direction: column; gap: var(--sp-4); }
+.cl-rail-entry { display: flex; align-items: center; gap: var(--sp-2); border: none; background: transparent; cursor: pointer;
+  width: 100%; text-align: left; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-ctl); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
 @media (hover: hover) { .cl-rail-entry:hover { background: var(--fill-soft); color: var(--ink); } }
 .cl-rail-entry.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .cl-rail-entry.on .cl-ref-chip { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
 .cl-rail-entry-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* main pane */
-.cl-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 22px 26px; }
-
-/* --- action / rapport runner --- */
-.cl-runner { max-width: 720px; margin: 0 auto; }
-.cl-runner-head { display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap; min-height: var(--tap);
-  padding-bottom: var(--head-pad-y); margin-bottom: 18px; border-bottom: 1px solid var(--glass-edge); }
-/* ONE ROW, the page head's shape (tokens · --head-*, lib/pageHeadFit — ChecklistRunner): the title
-   (the page title's font, it was 21px) and the subtitle as its one quiet line, the progress on the
-   right on one line. The last resort gives the titles a row of their own. */
-.cl-runner-titles { flex: 1 1 auto; min-width: 0; }
-.cl-runner-titles h2 { margin: 0; font: var(--head-title); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cl-runner-titles p { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); line-height: 16px; color: var(--ink-dim);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cl-runner-head[data-fit-wrap] { flex-wrap: wrap; }
-.cl-runner-head[data-fit-wrap] > .cl-runner-titles { flex-basis: 100%; }
-.cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
-.cl-overall .cl-bar { width: 96px; flex: none; }
-.cl-runner-head[data-fit-tight] .cl-overall { gap: 6px; }
-.cl-overall-sub { font-size: 12.5px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
-
-.cl-bar { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
-.cl-bar-fill { display: block; height: 100%; background: var(--green); border-radius: 4px;
-  transition: width .25s var(--ease); }
-
-.cl-phase { margin-bottom: 22px; }
-.cl-phase-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
-.cl-phase-titles { display: flex; align-items: baseline; gap: 9px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
-.cl-phase-titles h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
-.cl-role { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
-  color: var(--ink-faint); background: var(--fill-soft); padding: 2px 7px; border-radius: var(--r-xs); }
-.cl-phase-count { flex: none; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-dim); }
-.cl-note { margin: 7px 0; font-size: 12.5px; color: var(--ink-dim); font-style: italic; }
-
-/* branch/variant picker is the shared <Segmented>; keep its wizard spacing */
-.cl-phase > :global(.useg) { margin: 10px 0 4px; }
-
-.cl-items { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-.cl-item { display: flex; align-items: flex-start; gap: 12px; background: var(--surface); border-radius: var(--r-ctl);
-  padding: 12px 14px; box-shadow: 0 0 0 1px var(--border-soft); }
-.cl-item.done { background: color-mix(in srgb, var(--green) 5%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 18%, transparent); }
-.cl-check { flex: none; width: 38px; height: 38px; border-radius: var(--r-sm); border: 2px solid var(--border);
-  background: var(--surface); cursor: pointer; display: grid; place-items: center; color: var(--on-accent-ink); padding: 0;
-  transition: background .12s var(--ease), border-color .12s var(--ease); }
-.cl-check :global(.i) { width: 18px; height: 18px; }
-@media (hover: hover) { .cl-check:hover:not(:disabled) { border-color: var(--green); } }
-.cl-check:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.cl-item.done .cl-check { background: var(--green); border-color: var(--green); }
-.cl-check:disabled { opacity: var(--disabled); cursor: default; }
-/* gloved field use: ticking is THE action on this surface — full 44px checkbox on touch */
-@media (pointer: coarse) {
-  .cl-check { width: 44px; height: 44px; }
-  /* …and the rest of the surface's targets (22.09.2026): the rail's rows (31–37px), the
-     Stichwort hint and the deep-link chips (26px) */
-  .cl-rail-item, .cl-rail-entry, .cl-rail-hint, .cl-deeplink { min-height: var(--tap); }
-}
-.cl-item-body { flex: 1 1 auto; min-width: 0; }
-/* whole text body is a tap target to toggle the item (the checkbox is just the visual) */
-.cl-item-tap { cursor: pointer; }
-.cl-item-text { font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.35; }
-.cl-item.done .cl-item-text { color: var(--ink-dim); }
-.cl-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-.cl-when { font-size: 11px; font-weight: 600; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent);
-  padding: 1px 7px; border-radius: var(--r-xs); }
-.cl-milestone { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-faint); }
-.cl-milestone :global(.i) { width: 12px; height: 12px; }
-/* completion metadata is secondary — small & muted, not a bright green banner (feedback: too prominent) */
-.cl-tickinfo { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); font-weight: 500; }
-.cl-deeplink { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 4px; border: none;
-  background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue-strong); cursor: pointer; font-family: var(--body); font-size: 11.5px;
-  font-weight: 700; padding: 6px 9px; border-radius: var(--r-sm); }
-@media (hover: hover) { .cl-deeplink:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); } }
-.cl-deeplink:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.cl-deeplink :global(.i) { width: 13px; height: 13px; }
-.cl-deeplink :global(.i):last-child { width: 11px; height: 11px; opacity: .6; }
-
-.cl-runner-foot { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--glass-edge);
-  font-size: 11px; color: var(--ink-faint); }
-.cl-empty-hint { font-size: 13px; color: var(--ink-faint); padding: 4px 2px; }   /* no italics (29.09.2026 · C8) */
-
 /* --- reference playbook --- */
 .cl-ref-chip { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
-.cl-rail-entry-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* main pane */
-.cl-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 22px 26px; }
+.cl-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-5); }
 
 /* --- action / rapport runner --- */
 .cl-runner { max-width: 720px; margin: 0 auto; }
 .cl-runner-head { display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap; min-height: var(--tap);
-  padding-bottom: var(--head-pad-y); margin-bottom: 18px; border-bottom: 1px solid var(--glass-edge); }
+  padding-bottom: var(--head-pad-y); margin-bottom: var(--sp-4); border-bottom: 1px solid var(--glass-edge); }
 /* ONE ROW, the page head's shape (tokens · --head-*, lib/pageHeadFit — ChecklistRunner): the title
    (the page title's font, it was 21px) and the subtitle as its one quiet line, the progress on the
    right on one line. The last resort gives the titles a row of their own. */
@@ -143,31 +62,27 @@
 .cl-runner-head[data-fit-wrap] > .cl-runner-titles { flex-basis: 100%; }
 /* the subtitle's last fold takes the whole line, not just its words (ChecklistRunner, 30.09.2026) */
 .cl-runner-titles p[data-folded] { display: none; }
-.cl-overall { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
-.cl-overall .cl-bar { width: 96px; flex: none; }
-.cl-runner-head[data-fit-tight] .cl-overall { gap: 6px; }
-.cl-overall-sub { font-size: 12.5px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cl-overall { flex: none; display: flex; align-items: center; gap: var(--sp-2); margin-left: auto; }
+.cl-runner-head[data-fit-tight] .cl-overall { gap: var(--sp-1); }
+.cl-overall-sub { font-size: var(--fs-1); color: var(--ink-dim); font-weight: var(--fw-medium); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-.cl-bar { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
-.cl-bar-fill { display: block; height: 100%; background: var(--green); border-radius: 4px;
-  transition: width .25s var(--ease); }
 
-.cl-phase { margin-bottom: 22px; }
-.cl-phase-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
-.cl-phase-titles { display: flex; align-items: baseline; gap: 9px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
-.cl-phase-titles h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
-.cl-role { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
-  color: var(--ink-faint); background: var(--fill-soft); padding: 2px 7px; border-radius: var(--r-xs); }
-.cl-phase-count { flex: none; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-dim); }
-.cl-note { margin: 7px 0; font-size: 12.5px; color: var(--ink-dim); font-style: italic; }
+.cl-phase { margin-bottom: var(--sp-5); }
+.cl-phase-head { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.cl-phase-titles { display: flex; align-items: baseline; gap: var(--sp-2); flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
+.cl-phase-titles h3 { margin: 0; font-size: var(--fs-3); font-weight: var(--fw-bold); color: var(--ink); }
+.cl-role { font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .03em; text-transform: uppercase;
+  color: var(--ink-faint); background: var(--fill-soft); padding: 2px var(--sp-2); border-radius: var(--r-xs); }
+.cl-phase-count { flex: none; font-family: var(--mono); font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); }
+.cl-note { margin: var(--sp-2) 0; font-size: var(--fs-1); color: var(--ink-dim); font-style: italic; }
 
 /* branch/variant picker is the shared <Segmented>; keep its wizard spacing */
-.cl-phase > :global(.useg) { margin: 10px 0 4px; }
+.cl-phase > :global(.useg) { margin: var(--sp-3) 0 var(--sp-1); }
 
-.cl-items { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.cl-items { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 .cl-item { display: flex; align-items: flex-start; gap: 12px; background: var(--surface); border-radius: var(--r-ctl);
-  padding: 12px 14px; box-shadow: 0 0 0 1px var(--border-soft); }
-.cl-item.done { background: color-mix(in srgb, var(--green) 5%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 18%, transparent); }
+  padding: var(--sp-3); box-shadow: 0 0 0 1px var(--border-soft); }
+.cl-item.done { background: var(--green-5); box-shadow: 0 0 0 1px var(--green-16); }
 .cl-check { flex: none; width: 38px; height: 38px; border-radius: var(--r-sm); border: 2px solid var(--border);
   background: var(--surface); cursor: pointer; display: grid; place-items: center; color: var(--on-accent-ink); padding: 0;
   transition: background .12s var(--ease), border-color .12s var(--ease); }
@@ -186,35 +101,35 @@
 .cl-item-body { flex: 1 1 auto; min-width: 0; }
 /* whole text body is a tap target to toggle the item (the checkbox is just the visual) */
 .cl-item-tap { cursor: pointer; }
-.cl-item-text { font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+.cl-item-text { font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); line-height: 1.35; }
 .cl-item.done .cl-item-text { color: var(--ink-dim); }
 .cl-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-.cl-when { font-size: 11px; font-weight: 600; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent);
-  padding: 1px 7px; border-radius: var(--r-xs); }
-.cl-milestone { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-faint); }
+.cl-when { font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--amber); background: var(--amber-12);
+  padding: 1px var(--sp-2); border-radius: var(--r-xs); }
+.cl-milestone { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-faint); }
 .cl-milestone :global(.i) { width: 12px; height: 12px; }
 /* completion metadata is secondary — small & muted, not a bright green banner (feedback: too prominent) */
-.cl-tickinfo { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); font-weight: 500; }
-.cl-deeplink { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 4px; border: none;
-  background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue-strong); cursor: pointer; font-family: var(--body); font-size: 11.5px;
-  font-weight: 700; padding: 6px 9px; border-radius: var(--r-sm); }
-@media (hover: hover) { .cl-deeplink:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); } }
+.cl-tickinfo { font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-faint); font-weight: var(--fw-medium); }
+.cl-deeplink { flex: none; align-self: center; display: inline-flex; align-items: center; gap: var(--sp-1); border: none;
+  background: var(--blue-12); color: var(--blue-strong); cursor: pointer; font-family: var(--body); font-size: var(--fs-1);
+  font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); }
+@media (hover: hover) { .cl-deeplink:hover { background: var(--blue-16); } }
 .cl-deeplink:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .cl-deeplink :global(.i) { width: 13px; height: 13px; }
 .cl-deeplink :global(.i):last-child { width: 11px; height: 11px; opacity: .6; }
 
-.cl-runner-foot { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--glass-edge);
-  font-size: 11px; color: var(--ink-faint); }
-.cl-empty-hint { font-size: 13px; color: var(--ink-faint); padding: 4px 2px; }   /* no italics (29.09.2026 · C8) */
+.cl-runner-foot { margin-top: var(--sp-5); padding-top: 12px; border-top: 1px solid var(--glass-edge);
+  font-size: var(--fs-micro); color: var(--ink-faint); }
+.cl-empty-hint { font-size: var(--fs-2); color: var(--ink-faint); padding: var(--sp-1) 2px; }   /* no italics (29.09.2026 · C8) */
 
 /* --- reference playbook --- */
 .cl-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: var(--r-ctl);
-  padding: 9px 12px; box-shadow: 0 0 0 1px var(--border-soft); }
+  padding: var(--sp-2) var(--sp-3); box-shadow: 0 0 0 1px var(--border-soft); }
 .cl-search :global(.i) { width: 15px; height: 15px; color: var(--ink-faint); flex: none; }
 /* the app's one field focus (01-tokens · --focus-*, 28.09.2026); its resting edge is a ring too */
 .cl-search:focus-within { box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo); }
 .cl-search input { border: none; outline: none; background: transparent; font-family: var(--body);
-  font-size: 13.5px; color: var(--ink); width: 100%; }
+  font-size: var(--fs-2); color: var(--ink); width: 100%; }
 .cl-ref-chip { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); }
 .hz-red .cl-ref-chip { background: var(--red); }
 .hz-orange .cl-ref-chip { background: var(--amber); }
@@ -222,45 +137,45 @@
 .hz-yellow .cl-ref-chip { background: var(--hazard-yellow); }
 .hz-blue .cl-ref-chip { background: var(--blue); }
 
-.cl-ref-doc { max-width: 640px; background: var(--surface); border-radius: var(--r-surface); padding: 24px 28px;
+.cl-ref-doc { max-width: 640px; background: var(--surface); border-radius: var(--r-surface); padding: var(--sp-5);
   box-shadow: 0 0 0 1px var(--border-soft); border-top: 4px solid var(--ink-faint); }
 .cl-ref-doc.hz-red { border-top-color: var(--red); }
 .cl-ref-doc.hz-orange { border-top-color: var(--amber); }
 .cl-ref-doc.hz-green { border-top-color: var(--green); }
 .cl-ref-doc.hz-yellow { border-top-color: var(--hazard-yellow); }
 .cl-ref-doc.hz-blue { border-top-color: var(--blue); }
-.cl-ref-doc-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-.cl-ref-doc-head h2 { margin: 0; font-size: 20px; font-weight: 800; color: var(--ink); }
-.cl-ref-badge { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
-  color: var(--on-accent-ink); padding: 3px 9px; border-radius: var(--r-xs); background: var(--ink-faint); }
+.cl-ref-doc-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+.cl-ref-doc-head h2 { margin: 0; font-size: var(--fs-4); font-weight: var(--fw-heavy); color: var(--ink); }
+.cl-ref-badge { font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .03em; text-transform: uppercase;
+  color: var(--on-accent-ink); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); background: var(--ink-faint); }
 .cl-ref-badge.hz-red { background: var(--red); }
 .cl-ref-badge.hz-orange { background: var(--amber); }
 .cl-ref-badge.hz-green { background: var(--green); }
 .cl-ref-badge.hz-yellow { background: var(--hazard-yellow); }
 .cl-ref-badge.hz-blue { background: var(--blue); }
-.cl-ref-blocks { display: flex; flex-direction: column; gap: 7px; }
-.cl-ref-h { margin: 12px 0 2px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.cl-ref-blocks { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cl-ref-h { margin: 12px 0 2px; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
 /* Depth has to be readable, not just measurable. A level-0 line is a STEP the EL works through;
    a level-1 line is a detail OF that step. Before this they differed by 16px of indent and
    nothing else, so a screenful of them read as one flat wall and the eye could not find the
    steps. Now the step keeps full ink and a solid dot, the detail is dimmer with a hollow one. */
-.cl-ref-bullet { display: flex; gap: 9px; font-size: 14px; color: var(--ink); line-height: 1.4; }
+.cl-ref-bullet { display: flex; gap: var(--sp-2); font-size: var(--fs-2); color: var(--ink); line-height: 1.4; }
 .cl-ref-bullet .cl-ref-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint);
   margin-top: 8px; }
-.cl-ref-bullet[data-level='0'] { margin-top: 3px; }
-.cl-ref-bullet[data-level='0'] .cl-ref-dot { width: 6px; height: 6px; background: var(--ink-dim); margin-top: 7px; }
-.cl-ref-bullet[data-level='1'] { padding-left: 18px; color: var(--ink-dim); }
+.cl-ref-bullet[data-level='0'] { margin-top: var(--sp-1); }
+.cl-ref-bullet[data-level='0'] .cl-ref-dot { width: 6px; height: 6px; background: var(--ink-dim); margin-top: var(--sp-2); }
+.cl-ref-bullet[data-level='1'] { padding-left: var(--sp-4); color: var(--ink-dim); }
 .cl-ref-bullet[data-level='1'] .cl-ref-dot { background: none; box-shadow: inset 0 0 0 1.5px var(--ink-faint); }
-.cl-ref-bullet[data-level='2'] { padding-left: 36px; color: var(--ink-dim); }
+.cl-ref-bullet[data-level='2'] { padding-left: var(--sp-6); color: var(--ink-dim); }
 .cl-ref-bullet[data-level='2'] .cl-ref-dot { width: 4px; height: 4px; background: none;
   box-shadow: inset 0 0 0 1.5px var(--ink-faint); margin-top: 8px; }
 /* after the depth rules on purpose: an emphasised line keeps its red at ANY level, and the
    `box-shadow: none` clears the hollow ring a nested dot would otherwise still carry */
-.cl-ref-bullet.em-red { color: var(--red); font-weight: 700; }
+.cl-ref-bullet.em-red { color: var(--red); font-weight: var(--fw-bold); }
 .cl-ref-bullet.em-red .cl-ref-dot { background: var(--red); box-shadow: none; }
-.cl-ref-bullet.em-bold { font-weight: 700; }
-.cl-ref-note { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--ink-dim);
-  background: var(--fill-soft); border-radius: var(--r-ctl); padding: 9px 12px; margin: 6px 0; line-height: 1.4; }
+.cl-ref-bullet.em-bold { font-weight: var(--fw-bold); }
+.cl-ref-note { display: flex; gap: var(--sp-2); align-items: flex-start; font-size: var(--fs-2); color: var(--ink-dim);
+  background: var(--fill-soft); border-radius: var(--r-ctl); padding: var(--sp-2) var(--sp-3); margin: var(--sp-2) 0; line-height: 1.4; }
 .cl-ref-note :global(.i) { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--ink-faint); }
 /* inline diagram from the source EL PDF page — a preview that opens full-screen (DiagramFigure).
    A Kommandoakten page shrunk into a reading column is a picture OF a diagram, not a readable
@@ -269,7 +184,7 @@
 .cl-ref-figbtn { display: block; position: relative; width: 100%; max-width: 560px; padding: 0;
   border: 0; background: none; cursor: zoom-in; border-radius: var(--r-ctl); }
 .cl-ref-fig img { width: 100%; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
-  box-shadow: var(--shadow-sm); display: block; background: var(--surface); }
+  box-shadow: var(--e3); display: block; background: var(--surface); }
 .cl-ref-zoomhint { position: absolute; right: 8px; bottom: 8px; width: 30px; height: 30px;
   display: grid; place-items: center; border-radius: 50%; background: var(--glass);
   border: 1px solid var(--glass-edge); backdrop-filter: blur(8px); color: var(--ink-dim); }
@@ -278,7 +193,7 @@
 /* the img fills the button, so the wash lands on the zoom hint too — the visible part */
 .cl-ref-figbtn:active:not(:disabled),
 .cl-ref-figbtn:active:not(:disabled) .cl-ref-zoomhint { background-image: linear-gradient(var(--press), var(--press)); }
-.cl-ref-fig figcaption { margin-top: 6px; font-size: 12px; color: var(--ink-faint); }
+.cl-ref-fig figcaption { margin-top: var(--sp-2); font-size: var(--fs-1); color: var(--ink-faint); }
 
 
 /* tabular reference data (Gewichte/Flussraten, Aufgebotskonzept) */
@@ -289,21 +204,21 @@
    scrolling. Fixed layout + one pinned value column puts every number on the same line down
    the whole page. Unspecified columns share the rest equally, which is also right for the one
    3-column table (Stichwort | Mittel | Personal). */
-.cl-ref-table { border-collapse: collapse; width: 100%; font-size: 12.5px; table-layout: fixed; }
+.cl-ref-table { border-collapse: collapse; width: 100%; font-size: var(--fs-1); table-layout: fixed; }
 .cl-ref-table th:last-child, .cl-ref-table td:last-child { width: 34%; }
-.cl-ref-table th, .cl-ref-table td { text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--border-soft);
+.cl-ref-table th, .cl-ref-table td { text-align: left; padding: var(--sp-1) var(--sp-3) var(--sp-1) 0; border-bottom: 1px solid var(--border-soft);
   vertical-align: top; }
-.cl-ref-table th { font-weight: 700; color: var(--ink); border-bottom-color: var(--line); white-space: nowrap; }
+.cl-ref-table th { font-weight: var(--fw-bold); color: var(--ink); border-bottom-color: var(--line); white-space: nowrap; }
 .cl-ref-table td { color: var(--ink-dim); }
 /* ⚠️ NOT `white-space: nowrap` any more — under `table-layout: fixed` a nowrap cell overflows
    its pinned column and gets clipped instead of scrolling, and some values are prose
    («ZSOL über ELZ Gutsmatte»). A phone number still never breaks: `.cl-tel` carries its own
    nowrap, so only the long non-phone values wrap. */
 .cl-ref-table td:not(:first-child) { font-family: var(--mono); overflow-wrap: break-word; }
-.cl-ref-tablewrap figcaption { margin-top: 6px; font-size: 12px; color: var(--ink-faint); }
+.cl-ref-tablewrap figcaption { margin-top: var(--sp-2); font-size: var(--fs-1); color: var(--ink-faint); }
 
 /* tappable phone numbers (tel:) in reference text + the Telefonliste page */
-.cl-tel { color: var(--accent-ink, var(--accent)); font-weight: 600; text-decoration: none;
+.cl-tel { color: var(--accent-ink, var(--accent)); font-weight: var(--fw-bold); text-decoration: none;
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); white-space: nowrap; }
 @media (hover: hover) { .cl-tel:hover { border-bottom-color: var(--accent); } }
 .cl-tel:active { background-image: linear-gradient(var(--press), var(--press)); }
@@ -341,10 +256,10 @@
   .cl-surface { flex-direction: column; gap: 0; }
   /* the picker rail collapses to the .cl-rail-toggle row after a pick (ChecklistsView), so
      while open it may take real height — picking is the only job of that moment */
-  .cl-rail { flex: none; max-height: 44vh; width: auto; border-right: none;
+  .cl-rail { flex: none; max-height: 44dvh; width: auto; border-right: none;
     border-bottom: 1px solid var(--glass-edge); padding: 8px; gap: 8px; }
   /* #4: list-only mode (nothing opened yet) — the list owns the whole surface instead of
-     being capped at 44vh with a preview beneath it */
+     being capped at 44dvh with a preview beneath it */
   /* while the list owns the whole surface it is the thing the FAB lands on — .cl-main got its
      clearance long ago, the rail never did, so the last checklist in the picker sat under the
      circle. Same shared reserve, 0 for a viewer. */
@@ -352,32 +267,36 @@
     padding-bottom: calc(8px + var(--fab-safe, 0px)); }
   /* collapsed state: one slim row — current selection + chevron — reopens the list; the
      checklist/playbook below gets the full remaining height (the «fullsize text» ask) */
-  .cl-rail-toggle { display: flex; align-items: center; gap: 9px; flex: none; width: 100%;
-    min-height: 48px; padding: 10px 14px; border: none; cursor: pointer; text-align: left;
+  .cl-rail-toggle { display: flex; align-items: center; gap: var(--sp-2); flex: none; width: 100%;
+    min-height: 48px; padding: var(--sp-3) var(--sp-4); border: none; cursor: pointer; text-align: left;
     background: var(--surface); border-bottom: 1px solid var(--glass-edge);
-    font: 700 14px var(--body); color: var(--ink); }
+    font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
   .cl-rail-toggle :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
   .cl-rail-toggle-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* the open list's «n/m» rides in this row (ChecklistsView); the runner head's own «n/m
+     erledigt» steps aside so it is said once (05.10.2026, owner: no progress row) */
+  .cl-rail-toggle-prog { flex: none; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .cl-overall { display: none; }
   /* the open Stichwort's category, as a quiet word beside its title (ChecklistsView): the dot the
      rail's rows carry, then the word — ink-dim on the soft fill, the small shape's corner. The
      colour stays in the dot, as everywhere (a tone is a glyph's colour, never a fill). */
-  .cl-head-hz { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px;
+  .cl-head-hz { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); height: 24px; padding: 0 var(--sp-2);
     border-radius: var(--r-xs); background: var(--fill-soft);
-    font: 700 11px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
+    font: var(--fw-bold) var(--fs-micro) var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
   .cl-rail-group { gap: 2px; }
-  .cl-rail-label { padding: 2px 6px 2px; }
-  .cl-rail-item { padding: 8px 10px; }
-  .cl-rail-entry { padding: 6px 10px; }
+  .cl-rail-label { padding: 2px var(--sp-2); }
+  .cl-rail-item { padding: var(--sp-2) var(--sp-3); }
+  .cl-rail-entry { padding: var(--sp-2) var(--sp-3); }
 }
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* (the full-width inset is the shared shell's — Surface.module.css); the rail stacks above
      the pane rather than beside it */
   .cl-surface { flex-direction: column; gap: 0; }
   /* lift the main pane clear of the Eintrag FAB (bottom-right, z55) + tighten padding */
-  .cl-main { padding: 14px 14px; padding-bottom: calc(14px + var(--fab-safe, 0px)); }
+  .cl-main { padding: var(--sp-3) var(--head-pad-x); padding-bottom: calc(var(--sp-3) + var(--fab-safe, 0px)); }
   /* (the runner head is the page head's one row — its paddings are the phone tokens) */
-  .cl-runner-head { margin-bottom: 14px; }
+  .cl-runner-head { margin-bottom: var(--sp-3); }
   /* ONE level (owner-r2-5, 27.09.2026: «drop the multiple nested cards»). The page was a card
      (the shell) holding a white chooser row, holding a white document card with a red top edge,
      a filled «BRAND» pill and the title the chooser row had just shown — three surfaces deep
@@ -392,7 +311,7 @@
   .cl-ref-doc { max-width: none; padding: 0; background: none; box-shadow: none; border-top: 0; border-radius: 0; }
   /* the title is the chooser's, the category is the chip beside it — nothing to say twice */
   .cl-ref-doc-head { display: none; }
-  .cl-ref-h { margin: 18px 0 8px; padding-top: 14px; border-top: 1px solid var(--glass-edge);
+  .cl-ref-h { margin: var(--sp-4) 0 var(--sp-2); padding-top: var(--sp-4); border-top: 1px solid var(--glass-edge);
     font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
   .cl-ref-h:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
   /* the runner the same way: its h2 repeated the chooser, so the head is ONE row — and that row
@@ -400,8 +319,9 @@
      (30.09.2026, owner on «Aktions-Checkliste Fü… 0%»: «what is this». The subtitle stood here,
      cut to a word and a half where the progress began, and read as a row with no name; the
      chooser right above already names the list.) */
-  .cl-runner-titles { display: none; }
-  .cl-overall { flex: 1 1 auto; margin-left: 0; }
-  .cl-overall .cl-bar { flex: 1 1 auto; width: auto; }
+  /* …and since 05.10.2026 not even that (owner: «the checklists don't need a progress indicator.
+     Occupies too much space»): the bar is gone and «n/m» sits in the chooser row, so the row has
+     nothing left to say and goes — the first phase starts right under the chooser. */
+  .cl-runner-head { display: none; }
   .cl-phase-titles h3 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 }

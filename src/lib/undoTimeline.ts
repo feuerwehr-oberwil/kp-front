@@ -40,7 +40,7 @@ import { keyMatcher, type RecordKey } from './undoKeys'
 
 /** The surfaces an entry can come from. `scope` narrows it further where a domain has several
  *  independent documents (a Plan id) – so replacing one plan does not invalidate the others. */
-export type UndoDomain = 'karte' | 'plan' | 'trupps' | 'anwesenheit' | 'mittel' | 'checkliste' | 'gebaeude' | 'rapport' | 'zeitplan' | 'ansicht' | 'pendenz' | 'suche'
+export type UndoDomain = 'karte' | 'plan' | 'trupps' | 'anwesenheit' | 'mittel' | 'checkliste' | 'gebaeude' | 'rapport' | 'zeitplan' | 'ansicht' | 'pendenz'
 
 /** What an entry's undo/redo reports back. `false` = the target is gone; the entry is discarded
  *  and the operator is told, rather than the app pushing stale state over a remote truth. */
@@ -84,12 +84,6 @@ interface Recorded extends UndoEntry {
   partSteps?: readonly string[]
 }
 
-/** What `push` hands back: the Dropper (call it; ask whether it is still standing) and a way to
- *  NAME the entry once the writer knows what it did — the Karte learns that only after its commit
- *  (its Verlauf row, or the objects that changed), and the ↶ must not keep saying «Änderung auf
- *  der Karte». */
-export type UndoHandle = Dropper & { rename: (label: string) => void }
-
 /** What a step did. `lost` is the soft failure: the entry could not act and has been dropped. */
 export type StepOutcome =
   | { status: 'empty' }
@@ -101,7 +95,7 @@ export interface UndoTimeline {
    *  needed where a confirm-with-undo toast still stands beside the header pair: the toast's
    *  «Rückgängig» does the inverse itself, and the entry it describes must not stay on the stack
    *  for the ↶ to do a second time. */
-  push: (entry: UndoEntry) => UndoHandle
+  push: (entry: UndoEntry) => Dropper
   undo: () => StepOutcome
   redo: () => StepOutcome
   /** the entry ↶ would take back – the label the hold-tooltip reads */
@@ -190,19 +184,10 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
     future = future.filter((e) => e.id !== id)
     if (past.length + future.length !== before) notify()
   }
-  const renameById = (id: string, label: string) => {
-    let hit = false
-    const named = (e: Recorded) => { if (e.id !== id || e.label === label) return e; hit = true; return { ...e, label } }
-    past = past.map(named)
-    future = future.map(named)
-    if (hit) notify()
-  }
 
   /** the open group: its parts, and — once it is recorded — the id each part now lives under */
   let open: { parts: Recorded[]; primary?: UndoDomain } | null = null
   const partOf = new Map<string, string>()
-  /** a recorded compound step → the part whose label it wears (UndoHandle · rename) */
-  const headOf = new Map<string, string>()
 
   const compound = (parts: Recorded[], primary?: UndoDomain): Omit<Recorded, 'id'> => {
     const head = parts.find((p) => p.domain === primary) ?? parts[0]
@@ -253,20 +238,11 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
         return Object.assign(dropPart, {
           // still in the open group, or its recorded step still on the ↶ side
           standing: () => (open === g ? g.parts.some((p) => p.id === id) : past.some((e) => e.id === (partOf.get(id) ?? id))),
-          // a part named while its group is open carries the name into the step; once the group
-          // is recorded, only the part the compound wears as its head names the step
-          rename: (label: string) => {
-            if (open === g) { g.parts = g.parts.map((p) => (p.id === id ? { ...p, label } : p)); return }
-            const host = partOf.get(id)
-            if (!host) renameById(id, label)
-            else if (headOf.get(host) === id) renameById(host, label)
-          },
         })
       }
       record(entry, id)
       return Object.assign(() => dropById(id), {
         standing: () => past.some((e) => e.id === id),
-        rename: (label: string) => renameById(id, label),
       })
     },
     group: (primary) => {
@@ -280,7 +256,6 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
         if (g.parts.length === 1) { record(g.parts[0], g.parts[0].id); return }
         const id = newId('u')
         for (const p of g.parts) partOf.set(p.id, id)
-        headOf.set(id, (g.parts.find((p) => p.domain === g.primary) ?? g.parts[0]).id)
         record(compound(g.parts, g.primary), id)
       }
     },

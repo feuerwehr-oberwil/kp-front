@@ -20,6 +20,9 @@ export interface OvShared {
   sessionExpired: boolean
   relogin: () => void
   go: (r: OvRoute, opts?: { replace?: boolean }) => void
+  /** the object of the Einsatz the surface was opened from (its plans are on the board) — offered
+   *  first on the Übersicht; null when opened from the launcher */
+  suggestedObjectId: string | null
   exit: () => void
 }
 

@@ -42,7 +42,7 @@
   .adm-slot:hover { background: color-mix(in srgb, var(--blue) 4%, transparent); }
 }
 .adm-slot-id { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
-.adm-slot-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.adm-slot-title { font-size: 13px; font-weight: var(--fw-bold); color: var(--ink); }
 .adm-slot-state { min-width: 0; font-size: 12px; }
 .adm-slot-act { justify-self: end; }
 /* the row's own failure, spanning all three columns so it reads as one sentence */
@@ -57,7 +57,7 @@
 
 /* what the picked file IS, before anything is written */
 .adm-ck-facts { list-style: none; margin: 12px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.adm-ck-facts li { display: flex; align-items: baseline; gap: 10px; font-size: 12.5px; }
+.adm-ck-facts li { display: flex; align-items: baseline; gap: 10px; font-size: var(--fs-1); }
 .adm-ck-facts li > span:first-child { flex: 0 0 130px; color: var(--ink-faint); }
 .adm-ck-facts code {
   font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim);
@@ -65,13 +65,11 @@
   background: var(--surface-2); border: 1px solid var(--border-soft);
 }
 
-/* two visible row actions instead of a ⋮ menu — see the note in ChecklistsView.
-   ⚠️ The flex ROW is the inner `.adm-ck-actbar`, never the `<td>`: `.btn` is `display: flex`, so
-   the two buttons were block-level and each took its own line (cell ~88px, clipping) — but
-   `display: flex` on the cell itself drops it out of the table box tree and it loses the column. */
-.adm-ck-actions { text-align: right; }
-.adm-ck-actbar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
-.adm-ck-del { color: var(--red); }
+/* the row's ⋮ (Diagramme · Löschen) sits at the right edge of its column, like Mitglieder's */
+.adm-ck-actions { width: 1%; text-align: right; }
+.adm-ck-actions .adm-menu { display: flex; justify-content: flex-end; }
+/* «Beispiel-Vorlage ▾» — the chevron says it opens a list */
+.adm-ck-examples .i { width: 16px; height: 16px; margin-left: 4px; }
 
 .adm-ck-assets { list-style: none; margin: 8px 0 14px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .adm-ck-assets li {

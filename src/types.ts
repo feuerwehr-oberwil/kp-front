@@ -595,9 +595,6 @@ export interface TimelineEvent {
    * something that no longer exists.
    */
   subjectId?: string
-  /** a «Suche» row (lib/suche): the Person or Bereich it is about — the Verlauf's Bereich column
-   *  reads «Suche» off it, and a tap opens the Suche on that record */
-  suche?: { personId?: string; bereichId?: string }
   // --- plan jump target ---
   planId?: string        // plan document the event belongs to
   px?: number            // plan-space x (0..1) to recenter on
@@ -786,7 +783,9 @@ export type PreparedMapOverlay =
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,
  *  so they stick to the plan across zoom/pan. */
 export type BoardTool = 'pan' | 'lasso' | 'draw' | 'line' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'scale' | 'measure'
-export type BoardKind = 'draw' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource'
+/** `plakat` (08.10.2026): the FKS «Erstes Plakat» Vorlage on the Tafel — a sheet-wide form, no
+ *  position, no map body (lib/plakat). Everything positional ignores it by having no x/y/pts. */
+export type BoardKind = 'draw' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'plakat'
 /** Plan point. The optional storey is backward compatible: legacy points inherit BoardAnno.floor. */
 export type BoardPoint = [x: number, y: number] | [x: number, y: number, floor: number]
 export interface BoardAnno extends SymbolProps {
@@ -878,6 +877,34 @@ export interface BoardAnno extends SymbolProps {
   /** Magnetic relationship intent at the first/last vertex (draw/line only). */
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment
+  /** kind 'plakat' only: the poster's fields (lib/plakat). The whole form is ONE object, so an
+   *  edit is one undo step and rides the board's own sync like any other anno. */
+  plakat?: PlakatData
+}
+
+/** «Erstes Plakat (FKS)» on the Tafel (08.10.2026) — the A3 «Erste Führung» poster as real fields.
+ *  Trend: ➚ wird schlimmer · = gleich · ➘ entspannt sich; absent = not judged yet. */
+export type PlakatTrend = 'up' | 'same' | 'down'
+export interface PlakatProblem { id: string; text: string; note?: string; trend?: PlakatTrend }
+export interface PlakatMassnahme { id: string; was: string; wer: string; wann: string; done?: boolean }
+export interface PlakatMittel { id: string; formation: string; pers: string; wo: string }
+export interface PlakatVerbindung { id: string; funktion: string; kanal: string; ruf: string }
+export interface PlakatPunkt { id: string; text: string; done?: boolean }
+export interface PlakatData {
+  v: 1
+  /** the header line, pre-filled once from the Einsatz and editable from then on */
+  title: string
+  address: string
+  alarm: string
+  el: string
+  front: PlakatProblem[]
+  ordnung: PlakatProblem[]
+  sanitaet: PlakatProblem[]
+  spezial: PlakatProblem[]
+  massnahmen: PlakatMassnahme[]
+  mittel: PlakatMittel[]
+  verbindungen: PlakatVerbindung[]
+  absprachen: PlakatPunkt[]
 }
 /** One past position of a team on a plan, in normalized 0..1 plan space. */
 /** a recorded breadcrumb. `floor` = the storey the team was on at time `t` (floor-stack
@@ -1307,130 +1334,6 @@ export interface ShiftBand {
   from: string
   /** ISO end */
   to: string
-}
-
-/* ── «Suche» — Personen + Orte (step 1 24.09.2026, reworked 26.09.2026) ─────────────────────
- *
- * Übung 23.09.2026: the missing and the found existed only in eleven free-text notes, names spelt
- * differently each time, and at 20:15 no screen could answer «wer fehlt noch, was ist abgesucht».
- * One synced slice now holds both lists (lib/suche). Records merge by id like Mittel; what HAPPENED
- * to a record is its own append-only `log`, and every state (vermisst → gefunden → übergeben, a
- * Bereich's offen / in Arbeit / abgesucht) is FOLDED from it — never a mutable status field. Each
- * row carries the sentence it wrote into the Verlauf («a row carries what was said»).
- *
- * Since 26.09.2026 (the owner's design «F») a Bereich is a PLACE somebody typed — «Keller»,
- * «Wohnung 2. OG links» — never a storey the app made up; people are listed under the place they
- * were last seen at. Step-1 records (a storey `floor`, a derived `sbg:` id) keep loading and read
- * as «1. OG» / «1. OG Trakt 3». A place may carry a `point`: a pin on the Karte or on a plan. */
-
-/** One thing that happened to a Person or a Bereich. Append-only: a correction is a ↶ of the step
- *  (the slice's own undo), never an edit of a row. */
-export interface SucheRow {
-  id: string
-  /** ISO instant (the shared clock, lib/serverClock) */
-  at: string
-  /** Person: vermisst · gefunden · uebergeben · entwarnt · korrigiert · irrtuemlich. Bereich:
-   *  angelegt · status · fund · umbenannt. Both: ort (put on / moved on / taken off the Karte or a
-   *  plan). `geteilt` is step 1's (a storey split into parts, or an area created) — still read,
-   *  never written. An op this build does not know is kept and folds to nothing. */
-  op: 'vermisst' | 'gefunden' | 'uebergeben' | 'entwarnt' | 'korrigiert' | 'irrtuemlich' | 'angelegt' | 'status' | 'fund' | 'geteilt' | 'umbenannt' | 'ort'
-  /** the Verlauf sentence this row wrote — what the ↶ names, what the Rapport can quote */
-  text: string
-  /** a group's gefunden / übergeben row: how many people this row covers (absent = 1) */
-  n?: number
-  /** the Trupp that found / searches, as the row said it («T3») — and its id when it was picked */
-  trupp?: string
-  truppId?: string
-  /** gefunden: the place in words — and, step 1 only, the storey (Gebäude stack index) */
-  floor?: number
-  wo?: string
-  /** übergeben an («Rettungsdienst», «Sammelplatz», …) — also on a `gefunden` row that handed
-   *  the person on in the same breath («weiter an»): ONE act, ONE row */
-  an?: string
-  /** `gefunden`: the area the person was found in — the area wears «Fund» because of it */
-  bereichId?: string
-  /** `korrigiert`: the values that replace the record's (null = «unbekannt»; `floor` is step 1's
-   *  and is only ever cleared now) */
-  set?: { name?: string; count?: number; floor?: number | null; wo?: string; bereichId?: string | null
-    /** where the person was FOUND (the latest find), and the area that then wears «Fund» */
-    foundFloor?: number | null; foundWo?: string; foundBereichId?: string | null }
-  /** Bereich `status` row: the new status */
-  status?: SucheBereichStatus
-  /** `entwarnt` / `irrtuemlich`: why, and who said so — both optional, both in the row's text */
-  grund?: string
-  quelle?: string
-  /** Bereich `fund` row: the Person found there, when the find was reported through the list */
-  personId?: string
-}
-
-/** `teilweise`: a Trupp came out and said «partly» (walk-through 25.09.2026) — its own state, since
- *  «offen» read the same as never searched; it counts as NOT done in every progress figure. */
-export type SucheBereichStatus = 'offen' | 'inArbeit' | 'teilweise' | 'abgesucht' | 'nichtZugaenglich'
-
-/** Where a place (or a person) stands: on the Karte (`coord`) OR on a plan sheet (`planId`, `x`/`y`
- *  as sheet fractions, and the storey `floor` on a Gebäude stack, so the pin sits on its band).
- *  One position per record — the surface it was put on. */
-export interface SuchePoint {
-  planId?: string
-  x?: number
-  y?: number
-  floor?: number
-  coord?: LngLat
-}
-
-/** A missing person — or a group of them («Klasse 3c + Lehrerin», 22). */
-export interface SuchePerson {
-  id: string
-  /** «Tim Muster» · «Klasse 3c + Lehrerin» · «Mann, ca. 40» — free text, optional */
-  name?: string
-  /** a GROUP: how many people it stands for (≥ 2). Absent = one person. */
-  count?: number
-  /** zuletzt gesehen: storey index on the Gebäude stack — step 1 only; never written now */
-  floor?: number
-  /** zuletzt gesehen, in words («Keller», «Wohnung 2. OG links») — the place's label when it was
-   *  reported; absent = unbekannt */
-  wo?: string
-  /**
-   * zuletzt gesehen, as the PLACE on the list (a SucheBereich id) — so person and place stay one
-   * thing through a rename of the place (26.09.2026). Linking decision: the id where the report
-   * named a place (the «＋ Vermisst» form always does: it picks one or creates one in the same
-   * act); a record without it (the Verlauf composer's «… vermisst», step 1) is matched by its words
-   * against the places' labels, case- and accent-blind (lib/suche · personPlace). Optional and
-   * additive: an older document loads unchanged, and an older build ignores it.
-   */
-  bereichId?: string
-  /** who reported it («Schulleitung», «Anrufer 144») */
-  quelle?: string
-  createdAt: string
-  /** a pin of its own on the Karte or a plan (a person with a position and no place) */
-  point?: SuchePoint
-  log: SucheRow[]
-}
-
-/** A place to search («Ort»): whatever somebody typed — «Keller», «Wohnung 2. OG links», «Scheune».
- *  Step 1 also wrote a whole storey (`sbg:<stack>:<index>`, no `name`) and named parts of one
- *  (`floor` + `name`); those still load and read «1. OG» / «1. OG Trakt 3». */
-export interface SucheBereich {
-  id: string
-  /** step 1 only: the storey index on the Gebäude stack. Never written now (owner, F-d) */
-  floor?: number
-  /** the typed name; ABSENT only on a step-1 storey's own row */
-  name?: string
-  createdAt: string
-  /** step 1 only (a split storey without its «übriges Geschoss») — read by nothing now */
-  ohneRest?: boolean
-  /** step 1 only: which Gebäude stack a storey row belonged to */
-  stack?: string
-  /** a pin on the Karte or a plan, where somebody put the place (lib/suche · setPlacePoint) */
-  point?: SuchePoint
-  /** a drawn box/polygon — not built; kept so a later step needs no migration */
-  shape?: { planId?: string; pts?: BoardPoint[]; ring?: LngLat[] }
-  log: SucheRow[]
-}
-
-export interface SucheDoc {
-  personen: SuchePerson[]
-  bereiche: SucheBereich[]
 }
 
 /** One append-only Mittel (material-use) event: the running TOTAL used for a material+unit, from

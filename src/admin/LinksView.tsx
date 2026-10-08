@@ -7,7 +7,7 @@
 // asked «welche Adresse hat diese Wache nach aussen gegeben?» had to visit four pages and
 // know which one to look on.
 //
-// ⚠️ …and on 2026-09-11 the Einsatz-Link minting key LEFT again, for «Zugangsdaten»
+// ⚠️ …and on 2026-09-11 the Einsatz-Link minting key LEFT again, for «Anbindungen»
 // (CredentialsView · IncidentLinkKey). It is a credential, not an address: it gets pasted into
 // the alerting system once, exactly like every other integration key. There is no station-level
 // URL for it and there never can be one — it is a SIGNING key, and the alerting system signs a
@@ -25,7 +25,7 @@
 // «Schlüssel fehlt» over two lines in a 16 %-wide cell.
 //
 // ⚠️ ONE action grammar, and it is worth keeping: everything a card offers is a secondary
-// `btn` — activate, print, «Zugangsdaten» — and the rare, destructive rest (rotieren,
+// `btn` — activate, print, «Anbindungen» — and the rare, destructive rest (rotieren,
 // deaktivieren, Doku) stays behind the ⋮ menu. No blue primary on a list: on a page of six
 // entries a filled button does not mean «do this», it means «this one is broken».
 //
@@ -353,7 +353,7 @@ export function LinksView({ onNavigate }: { onNavigate?: (id: string) => void } 
           print={{ label: E.printBtn, run: (t) => void printPoster(t) }}
         />
         {/* ⚠️ NO Einsatz-Link card. The minting key has no address and never will have one — it
-            lives on «Zugangsdaten» since 2026-09-11 (see the header note). Do not reinstate it
+            lives on «Anbindungen» since 2026-09-11 (see the header note). Do not reinstate it
             here to «complete» the list of links: the completion this page needs is that every
             chip on it opens something. */}
         <SecretCard

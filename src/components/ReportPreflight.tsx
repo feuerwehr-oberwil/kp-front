@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { Button, IconButton } from './Button'
 import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
@@ -8,7 +9,6 @@ import { buildDirectReportPayload, downloadDirectReportPdf, usedStackFloors } fr
 import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
-import { geretteteFromSuche, type SucheStack } from '../lib/suche'
 import { rowPhotos } from '../lib/verlauf'
 // the geometry every full surface stands in — the Rapport is the fifth of them
 import surface from './Surface.module.css'
@@ -18,7 +18,7 @@ import { ShareIncident } from './panels/ShareIncident'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, fmtSpanShort, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref } from '../lib/format'
+import { fillTemplate, fmtSpanShort, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref, unitLabel } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import { closeTimeOf } from '../lib/api/incidents'
@@ -42,7 +42,7 @@ import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
 import { incidentDays } from '../lib/zeitplanFormat'
-import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, SucheDoc, TimelineEvent, Trupp } from '../types'
+import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
 import { PersonField } from './PersonField'
@@ -264,7 +264,7 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, suche, sucheStack, captureUsage, canEdit = true, canShare = canEdit, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, canShare = canEdit, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -318,11 +318,6 @@ export function ReportPreflight({
   board?: BoardDoc
   /** the picked Gebäude (floor stack) — exports as blank-base plan pages when present */
   building?: BuildingDoc | null
-  /** the Suche (lib/suche): the Gerettete offer counts its Personen, and the print carries its
-   *  «Personen» section */
-  suche?: SucheDoc
-  /** how the Suche names an old record's storey — the Rapport counts the places the screen counted */
-  sucheStack?: SucheStack
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
   captureUsage?: CaptureUsage | null
   /** Beilagen: photos that belong to the REPORT (an ID document, a damage close-up), printed
@@ -592,14 +587,8 @@ export function ReportPreflight({
     [scene?.entities, board],
   )
   const geretteteLage = useMemo(() => geretteteFromLage(placedOnLage), [placedOnLage])
-  // ⚠️ Once the Suche holds anybody, the PEOPLE come from its list (24.09.2026): found + handed
-  // over, a group by its count, marked «aus Personen» — the Rettungs-Symbol's count stops being
-  // offered for them (a symbol that stood for «vermisst» was counted as a rescue). The animals
-  // still come off the Karte: the Suche does not list them. Without a Suche nothing changes.
-  const geretteteAusPersonen = suche?.personen.length ? geretteteFromSuche(suche) : null
-  const geretteteSource = geretteteAusPersonen != null ? { personen: geretteteAusPersonen, tiere: geretteteLage.tiere } : geretteteLage
   const geretteteHint = canEdit
-    ? geretteteOffer(geretteteSource, { personen: numOrU(geretteteP), tiere: numOrU(geretteteT) })
+    ? geretteteOffer(geretteteLage, { personen: numOrU(geretteteP), tiere: numOrU(geretteteT) })
     : null
   // ── «Auf der Karte» — the Partnerorganisationen the Kroki already shows ──
   // A «Bereich Polizei» standing on the map IS the answer to «war die da?», and the checklist
@@ -820,6 +809,8 @@ export function ReportPreflight({
   // This is a read during render, not a ticking clock — nothing schedules a re-render, so the
   // battery footgun the frozen `nowRef` exists for is not reintroduced. The hint is re-evaluated
   // whenever anything on the form moves, which is precisely when it can change.
+  // one render clock for the Zeiten checks and the day columns below (lib/zeitplanFormat · incidentDays)
+  const renderNow = Date.now()
   const issues = zeitIssues(
     {
       alarmiertAt: alarmiert,
@@ -827,7 +818,7 @@ export function ReportPreflight({
       endedAt: dtLocalToIso(endedAt),
       rueckmeldungAt: rueckIso,
     },
-    Date.now(),
+    renderNow,
   )
   const issueFor = (kind: ZeitKind) => {
     const i = issues.find((x) => x.kind === kind)
@@ -914,7 +905,7 @@ export function ReportPreflight({
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({
-        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, suche, sucheStack,
+        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
         // the printed journal marks the same terms the app marks (lib/journalLinks) — the Trupps
         // included, or the paper would mark every name in a row except the crew it is about
         vocab: journalVocabulary(personnel, attendance, undefined, trupps),
@@ -948,7 +939,7 @@ export function ReportPreflight({
     if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
     warmedRef.current = true
     const payload = buildDirectReportPayload({
-      incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, suche, sucheStack,
+      incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
       roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
     })
     void prewarmPrint(editorPrintTransport(), incident.id, payload)
@@ -969,7 +960,7 @@ export function ReportPreflight({
     try {
       const t = editorPrintTransport()
       const payload = buildDirectReportPayload({
-        incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, suche, sucheStack,
+        incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
@@ -1653,8 +1644,6 @@ export function ReportPreflight({
                   // on the sheet said so. The count is also the diagnostic — «(0)» means the Einsatz
                   // raised none, not that the section is broken.
                   { kind: 'check' as const, label: fillTemplate(P.togglePendenzen, { n: pendenzCount }), checked: options.pendenzen && pendenzCount > 0, disabled: pendenzCount === 0, onChange: (v: boolean) => patchOpt({ pendenzen: v }) },
-                  // the Suche's Personen — its own row like the Pendenzen, disabled while nobody was reported
-                  { kind: 'check' as const, label: fillTemplate(P.togglePersonen, { n: suche?.personen.length ?? 0 }), checked: options.personen && (suche?.personen.length ?? 0) > 0, disabled: !suche?.personen.length, onChange: (v: boolean) => patchOpt({ personen: v }) },
                   { kind: 'check' as const, label: fillTemplate(P.toggleAttachments, { n: attachments.length }), checked: options.attachments && attachments.length > 0, disabled: attachments.length === 0, onChange: (v: boolean) => patchOpt({ attachments: v }) },
                   { kind: 'sep' as const },
                   { kind: 'check' as const, label: P.toggleDetailedAudit, checked: options.detailedAudit, onChange: (v: boolean) => patchOpt({ detailedAudit: v }) },
@@ -1979,24 +1968,21 @@ export function ReportPreflight({
                 {geretteteHint && (
                   <div className="rz-lage-strip" role="status">
                     <span className="rz-lage-text">
-                      {geretteteAusPersonen != null ? [
-                        fillTemplate(appConfig.copy.suche.gerettetStrip, { n: geretteteHint.personen }),
-                        geretteteHint.tiere ? fillTemplate(P.geretteteLageStrip, { list: fillTemplate(P.geretteteLageTiere, { n: geretteteHint.tiere }) }) : '',
-                      ].filter(Boolean).join(' · ') : fillTemplate(P.geretteteLageStrip, {
+                      {fillTemplate(P.geretteteLageStrip, {
                         list: [
                           geretteteHint.personen ? fillTemplate(P.geretteteLagePersonen, { n: geretteteHint.personen }) : '',
                           geretteteHint.tiere ? fillTemplate(P.geretteteLageTiere, { n: geretteteHint.tiere }) : '',
                         ].filter(Boolean).join(' · '),
                       })}
                     </span>
-                    <button type="button" className="rz-lage-take"
+                    <Button variant="primary" className="rz-lage-take"
                       onClick={() => {
                         const p = String(geretteteHint.personen)
                         const t = String(geretteteHint.tiere)
                         setGeretteteP(p); setGeretteteT(t); persist(geretteteOver(p, t))
                       }}>
                       {P.geretteteLageTake}
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -2022,6 +2008,7 @@ export function ReportPreflight({
                 <span>{A.ausgerueckt}</span>
                 <div className="report-meta-end dtrow">
                   <DateTimeField ariaLabel={A.ausgerueckt} value={dtLocalToIso(ausgerueckt)}
+                    days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                     onCommit={(iso) => { setAusgerueckt(dtLocalValue(iso ?? undefined)); persist({ ausgeruecktAt: iso ?? undefined }) }} />
                 </div>
                 {zeitWarn('ausgerueckt')}
@@ -2042,7 +2029,7 @@ export function ReportPreflight({
               // 23:50 and is still being written at 00:30 — the ordinary night Einsatz — then
               // offered only the day before, so a clock typed after midnight could not be put on
               // the day it actually happened.
-              const zeitDays = incidentDays(meta.startedAt ?? incident.started_at, Date.now())
+              const zeitDays = incidentDays(meta.startedAt ?? incident.started_at, renderNow)
               const onGruppe = (id: string, hhmm: string, day?: Date) => {
                 const iso = zeitFromClock(incident.started_at, hhmm, day)
                 const next = setGruppeZeit(gruppen, id, iso)
@@ -2137,6 +2124,7 @@ export function ReportPreflight({
                 <span>{P.incidentEndLabel}</span>
                 <div className="report-meta-end dtrow">
                   <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
+                    days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                     onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
                   <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
                 </div>
@@ -2217,6 +2205,7 @@ export function ReportPreflight({
                         because the ordinary case is that the call has just been made. */}
                     <div className="report-meta-end dtrow">
                       <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt}
+                        days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                         onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
                       <button type="button" className="ip-btn"
                         onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
@@ -2296,7 +2285,7 @@ export function ReportPreflight({
                         four items read as one wall of equally loud text. */}
                     {visibleMittel(mittel).map((l) => (
                       <span key={l.key} className="rp-person">
-                        <b>{l.menge}</b> {l.unit} {l.label}
+                        <b>{l.menge}</b> {unitLabel(l.unit)} {l.label}
                         {l.sourceLabel && <i>{` · ${l.sourceLabel}`}</i>}
                       </span>
                     ))}
@@ -2467,12 +2456,12 @@ export function ReportPreflight({
                       <span className="rz-lage-text">
                         {fillTemplate(P.partnerLageStrip, { list: partnerHint.join(' · ') })}
                       </span>
-                      <button
-                        type="button" className="rz-lage-take"
+                      <Button
+                        variant="primary" className="rz-lage-take"
                         onClick={() => savePartners([...partners, ...partnerHint.map((org) => ({ org }))])}
                       >
                         {P.partnerLageTake}
-                      </button>
+                      </Button>
                     </div>
                   )}
                   {/* the list covers the usual partners; the one that turns up anyway still has
@@ -2487,10 +2476,10 @@ export function ReportPreflight({
                       onChange={(v) => setPartnerDraft(stripUnprintable(v))}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitPartner() } }}
                     />
-                    <button type="button" className="report-partner-go" onClick={commitPartner}
-                      disabled={!partnerDraft.trim()} title={P.partnerAdd} aria-label={P.partnerAdd}>
+                    <IconButton variant="secondary" onClick={commitPartner}
+                      disabled={!partnerDraft.trim()} label={P.partnerAdd}>
                       <Icon id="plus" />
-                    </button>
+                    </IconButton>
                   </div>
                 </fieldset>
               </div>
@@ -2544,7 +2533,7 @@ export function ReportPreflight({
                   </ul>
                 )}
                 {onAddAttachments && (
-                  <label className="report-row-add report-att-add">
+                  <label className="ip-btn report-row-add report-att-add">
                     <Icon id="photo" /><span>{P.attachmentsAdd}</span>
                     <input type="file" accept="image/*" multiple
                       onChange={(e) => {
@@ -2593,9 +2582,9 @@ export function ReportPreflight({
                                 : link.note?.trim() && <span className="rp-link-note">{link.note.trim()}</span>}
                             </span>
                           </button>
-                          <button type="button" className="rp-link-open" onClick={() => openLink(link)}>
-                            <Icon id="external" />{P.linksOpen}
-                          </button>
+                          <Button className="rp-link-open" icon={<Icon id="external" />} onClick={() => openLink(link)}>
+                            {P.linksOpen}
+                          </Button>
                         </div>
                       )
                     })}

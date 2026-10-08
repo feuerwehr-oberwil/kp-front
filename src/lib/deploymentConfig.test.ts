@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, atemschutzDoctrine, atemschutzEquipment, carrySessionOnly, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, moduleAlignment, moduleViewer, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { alarmProviderName, atemschutzDoctrine, atemschutzEquipment, carrySessionOnly, demoNote, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, moduleAlignment, moduleViewer, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
 import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -208,6 +208,29 @@ describe('naming the Alarm-/Personalquelle only where there is one', () => {
 
 /* The Ausrüstung list a Trupp picks from (types · Trupp.equipment): the station's own where it
  * has one, the shipped three otherwise — never a mix, and never nothing. */
+describe('demoNote — only on a demo deployment', () => {
+  const load = async (cfg: unknown) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(cfg), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    })))
+    await loadDeploymentConfig()
+  }
+  afterEach(() => { vi.unstubAllGlobals() })
+  const note = 'Demo-Zugang · PIN 000000 für alle'
+
+  it('shows the note while demoMode is on', async () => {
+    await load({ identity: { demoMode: true, demoNote: note } })
+    expect(demoNote()).toBe(note)
+  })
+
+  it('hides it once demoMode is off, even though the field is still set', async () => {
+    await load({ identity: { demoMode: false, demoNote: note } })
+    expect(demoNote()).toBeNull()
+    await load({ identity: { demoNote: note } })
+    expect(demoNote()).toBeNull()
+  })
+})
+
 describe('Atemschutz equipment list', () => {
   const load = async (doctrine: unknown) => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ doctrine }), {

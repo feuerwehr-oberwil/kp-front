@@ -68,6 +68,9 @@ export const de = {
     showAll: 'Alle ein',
     hideAll: 'Alle aus',
     reset: 'Standard',
+    // Ebenen-Knopf, wenn die Ebenen weder Standard noch «Alle ein/aus» sind (05.10.2026):
+    // ein Punkt am Knopf, dieses Wort im Screenreader und Tooltip
+    custom: 'Eigene Auswahl',
   },
   help: {
     menu: 'Funktionen & Hilfe',
@@ -239,8 +242,10 @@ export const de = {
             'Wo ein Objekt **steht**, entscheidet die zuletzt setzende Hand: auf ein Blatt gezogen, steht es auf dem Blatt – und wird mitverschoben, wenn die Passung korrigiert wird. Auf die Karte gezogen, steht es am Boden. Eine korrigierte Passung verortet alles, was auf dem Blatt steht, neu – eine Zeile im Verlauf, ein ↶ nimmt sie zurück. **Blattform gemessen** ist dieselbe Neuverortung ohne Handgriff: die App hat das geöffnete Blatt vermessen und die Passung in der richtigen Form neu gelöst. Beim **Zurücksetzen** der Referenz geht nichts verloren: Blatt und Karte behalten beide, was sie zeigen.',
             'In den **Ebenen** bekommt jedes verknüpfte Blatt eine eigene Zeile («Plan (Modul 2)»): das Blatt selbst als Bild unter der Karte. Die Objekte darauf brauchen keine eigene Zeile mehr – sie gehören zu der Ebene, auf der sie gesetzt wurden.',
           ] },
-          { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist (Umriss-Symbol), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Geschoss-Stapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Geschoss-Stapel des Gebäudes, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
+          { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist (Umriss-Symbol), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Geschoss-Stapel. Hat der Einsatz einen Ort, ist das Gebäude dort schon markiert – prüfen und übernehmen genügt. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Geschoss-Stapel des Gebäudes, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
           { kind: 'note', text: '**Wie herum steht das Gebäude?** Ein Tipp auf den **Nordpfeil** oben rechts auf dem Geschoss-Stapel öffnet das kleine Fenster «Gebäude drehen»: ein Regler **Drehung** mit Vorschau, dazu **Norden oben** und **Auf Längsachse drehen** als je ein Tipp. Der Umriss dreht sich mit, die Markierungen bleiben, wo sie am Gebäude liegen – und die gedruckten Geschossseiten zeigen den eingestellten Winkel.' },
+          { kind: 'note', text: '**Die leere Tafel** (08.10.2026) fragt «Womit beginnen?»: **Objekt wählen** (die nächsten Objekte mit Distanz, oder die Objektdatenbank), **Gebäude am Einsatzort** (die Umriss-Auswahl) oder die **Vorlage «Erstes Plakat (FKS)»**. «Vorschlag» steht auf dem Objekt, wenn eines im Umkreis von 100 m liegt, sonst auf dem Gebäude. Die Karten blockieren nichts – ein Werkzeug rechts wählen oder «oder einfach losskizzieren» genügt. Sie erscheinen nur auf einer Tafel, die in diesem Einsatz auf diesem Gerät noch nie etwas trug; nach «alles löschen» kommen sie nicht zurück.' },
+          { kind: 'note', text: '**Erstes Plakat (FKS)** – das A3-Plakat «Erste Führung» als echte Felder auf der Tafel: Problemerfassung (Front · Ordnung · Sanität · Spezialprobleme, je mit Trend ➚ = ➘ – antippen wechselt), Massnahmen (Was/Wo · Wer · Wann), Mittel, Verbindungen, Absprachepunkte. Kopf, Fahrzeuge und der Wind sind aus dem Einsatz vorausgefüllt, der Rest ist leer. Jede Eingabe ist ein ↶-Schritt, das Einfügen auch. Am Telefon dieselben Felder als Liste. Mit Werkzeug gewählt wird über das Plakat gezeichnet. Im Rapport steht es als eigener Abschnitt «Erste Führung (Plakat)».' },
         ],
       },
       {
@@ -353,7 +358,7 @@ export const de = {
             'Der **Ring** neben «Info · Auftrag · Sofortmassnahme» macht aus einem Eintrag eine **Pendenz**: sie bleibt offen, bis sie abgehakt ist. Ein Tipp auf den Ring öffnet die Auswahl – **Neue Pendenz**, **Dringende Pendenz**, oder eine bereits offene, an die dieser Eintrag als **Meldung** gehängt wird.',
             'Offene Pendenzen stehen **oben im Verlauf**, dringende zuoberst, danach die ältesten. Die Zeit sagt, **wann sie erteilt wurden**; ein Tipp darauf zeigt stattdessen das Alter. Der Ring links hakt sie ab.',
             'Eine Pendenz sammelt **Meldungen**: die Zeile antippen schreibt eine dazu – mit allem, was ein Eintrag kann, also auch als Sprachnotiz oder Foto. Alle Meldungen stehen unter ihrer Pendenz, und im Verlauf trägt jede den Anfang der Pendenz als Verweis; ein Tipp darauf springt zu ihr.',
-            'Eine Pendenz hat von sich aus **keine Fälligkeit** – auf dem Schadenplatz meldet sich niemand zur Uhrzeit zurück. Wer eine will, tippt die **Uhr** neben dem Ring: **in 5/10/15/30/60 Minuten** oder **Uhrzeit …** mit Tag und Zeit. Eine Erinnerung ist damit keine eigene Sorte Zeile mehr, sondern ein Eintrag, der sich zusätzlich selber meldet – mit Art, Foto und Sprachnotiz wie jeder andere. In der Liste steht die Fälligkeit als Zeit neben der Zeile.',
+            'Eine Pendenz hat von sich aus **keine Fälligkeit** – auf dem Schadenplatz meldet sich niemand zur Uhrzeit zurück. Wer eine will, tippt die **Uhr** neben dem Ring: **in 5/10/15/30/60 Minuten** oder **Uhrzeit …** mit Tag und Zeit – in derselben Zeitauswahl wie überall (Walzen, oder die Zeit eintippen), heute oder an einem der nächsten Tage; ein Zeitpunkt, der schon vorbei ist, lässt sich nicht übernehmen. Eine Erinnerung ist damit keine eigene Sorte Zeile mehr, sondern ein Eintrag, der sich zusätzlich selber meldet – mit Art, Foto und Sprachnotiz wie jeder andere. In der Liste steht die Fälligkeit als Zeit neben der Zeile.',
             'Auf dem Rapport erscheinen sie als **«Aufträge / Pendenzen»** mit Was · Wer · Erteilt · Erledigt; noch offene stehen als **offen** da. Der Abschnitt lässt sich in **«Abschnitte»** abwählen.',
           ] },
           { kind: 'note', text: '**Wer** wird nicht abgefragt: der Satz nennt ihn. «Werkhof Oberwil stellt Absperrmaterial» genügt – der markierte Name landet als Wer auf dem Rapport.' },
@@ -428,6 +433,7 @@ export const de = {
           { kind: 'sub', text: 'Tippen & Ziehen (Touch/iPad)' },
           { kind: 'list', items: [
             'Ein Finger schiebt die Karte/den Plan; zwei Finger zoomen (Pinch).',
+            'Auch mit einem Finger: **doppeltippen** zoomt hinein; **tippen, nochmals drücken und ziehen** zoomt stufenlos – nach unten hinein, nach oben hinaus. Gleich auf Karte und Plan; während ein Zeichenwerkzeug aktiv ist, zoomen auf dem Plan nur zwei Finger.',
             'Nochmals auf **Auswahl** tippen schaltet den Knopf auf **Mehrfach**: ein gezogener Rahmen wählt mehrere Objekte; ausgewählte Objekte verschiebt man durch Ziehen.',
           ] },
           { kind: 'sub', text: 'Maus', only: 'keyboard' },
@@ -699,6 +705,9 @@ export const de = {
   cancel: 'Abbrechen',
   // shared «Übung» marker — switcher, dropdown rows, Alle Einsätze (is_exercise incidents)
   exerciseBadge: 'Übung',
+  /** …its one-letter form for the phone's Einsatz pill, where the street needs the width (the
+   *  full word stays the badge's title and part of the pill's accessible name) */
+  exerciseInitial: 'Ü',
   keepPlacing: 'Mehrere platzieren',
   delete: 'Löschen',
   /** ⚠️ The ONE word for taking a tactical object (Symbol, Notiz, Form, Linie, Fläche,
@@ -725,13 +734,6 @@ export const de = {
    *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf
    *  bekommen hat); Karte und Plan führen ein Dokument, das viele kleine Schritte kennt. */
   undoDomains: {
-    /** a Karte placement names what it placed (placeSymbolAt, the Lage-Grundgerüst) */
-    symbolPlaced: '{name} gesetzt',
-    symbolToKarte: '{name} auf die Karte übernommen',
-    objectChanged: '{name} geändert',
-    objectsChanged: '{n} Objekte geändert',
-    /** taken off the picture — «entfernt»; «gelöscht» only ever means extinguished (#226) */
-    objectRemoved: '{name} entfernt',
     /** Die Passung eines Plans wurde korrigiert — ein Schritt für alle neu verorteten Objekte. */
     reference: 'Referenz angepasst',
     /** ⚠️ Dieselbe Rückverortung, aber NIEMAND hat die Referenz angefasst: die App hat das
@@ -749,8 +751,6 @@ export const de = {
     rapport: 'Rapport',
     zeitplan: 'Zeitplan',
     ansicht: 'Ansicht',
-    /** Suche: eine Person oder ein Bereich — Meldung, Fund, Status, Teilung. */
-    suche: 'Suche',
   },
   /** ⚠️ Die FLÄCHE, auf der ein Schritt passiert ist — steht vor der Aktion in «Rückgängig: …»,
    *  wo die Aktion sie nicht schon selbst nennt (lib/undoTimeline · undoCaption). Seit ein Merge
@@ -769,7 +769,6 @@ export const de = {
     zeitplan: 'Zeitplan',
     ansicht: 'Karte',
     pendenz: 'Verlauf',
-    suche: 'Suche',
   },
   /** Ein anderes Gerät hat geändert, was der OBERSTE Schritt zurückgenommen hätte: der Schritt
    *  fällt weg, und das ↶ zeigt jetzt auf etwas Älteres. Einmal sagen, statt still umzubenennen.
@@ -787,7 +786,6 @@ export const de = {
     zeitplan: 'den Zeitplan',
     ansicht: 'die Ansichten',
     pendenz: 'die Pendenz',
-    suche: 'die Suche',
   },
   play: 'Abspielen',
   // The ✕ that EMPTIES a field (29.09.2026): «leeren», never «löschen» — «löschen» is the delete
@@ -822,11 +820,6 @@ export const de = {
     { id: 'note', icon: 'type', label: 'Notiz', kind: 'tool' },
     { id: 'team', icon: 'flag', label: 'Trupp', kind: 'tool' },
     { id: 'measure', icon: 'measure', label: 'Messen', kind: 'tool' },
-    // Not a tool: it shows the Lage-Grundgerüst card again (IncidentWorkspace · pick intercepts
-    // it, the rail lights it while the card is open). On a phone it lives in the «+» sheet
-    // (lib/toolFold · ADD_TOOLS) — everything on that sheet puts something on the Karte, and so
-    // does every row of the card.
-    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Grundgerüst' },
   ],
   // Plan/whiteboard tool list — mirrors mapTools' ordering (Auswahl · Symbol · then the create
   // tools) so the two shared tool rails read the same. Symbol leads the create group as a plain
@@ -893,8 +886,7 @@ export const de = {
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
     /** …per input mode, because the two take different gestures: «Freihand» draws only with a
-     *  drag (a tap does nothing), «Punkte» only with taps and ✓. The Lage-Grundgerüst row armed
-     *  for a line says the Punkte sentence's first half word for word (lageGrundgeruest.armedLine). */
+     *  drag (a tap does nothing), «Punkte» only with taps and ✓. */
     lineFreehand: 'Auf der Karte ziehen, um eine Linie zu zeichnen. Für einzelne Punkte: «Punkte». Farbe, Breite und Stil danach im Editor.',
     lineNodes: 'Punkte auf die Karte tippen, mit ✓ abschliessen. Farbe, Breite und Stil danach im Editor.',
     // ONE line for the armed mode, on the phone dock itself (ToolDock · hint) — the text above
@@ -913,7 +905,7 @@ export const de = {
     // zu ist, setzt den Punkt genau darauf.
     rotationStart: 'Ersten Punkt tippen – dort, wo das Wasser bezogen wird. Auf einem Zeichen halten, bis der Ring voll ist, setzt den Punkt genau darauf.',
     rotationEnd: 'Zweiten Punkt tippen – die Brandstelle. Nochmals auf denselben Punkt tippen legt eine Rotation in Standardlänge hin.',
-    measure: 'Punkte auf die Karte tippen. Strecke zeigt Distanz und Höhenprofil, Fläche zeigt Flächeninhalt und Umfang. Punkte ziehen zum Verschieben, das + in der Mitte einer Strecke setzt einen Zwischenpunkt, Rechtsklick auf einen Punkt entfernt ihn.',
+    measure: 'Punkte auf die Karte tippen. Strecke zeigt Distanz und Höhenprofil, Fläche zeigt Flächeninhalt und Umfang. Punkte ziehen zum Verschieben, das + in der Mitte einer Strecke setzt einen Zwischenpunkt, einen Punkt gedrückt halten (am Computer Rechtsklick) entfernt ihn.',
   },
   map: {
     incidentHere: 'Einsatzort',
@@ -966,8 +958,6 @@ export const de = {
     titleLabel: 'Stichwort / Titel',
     titlePlaceholder: 'z. B. Gebäudebrand Schulhaus',
     categoryLabel: 'Kategorie',
-    /** a stored Kategorie outside today's list (sweep K15) */
-    categoryLegacy: '{value} (alt)',
     // Übungen stay fully operable, but do not feed the statistics and are the only ones
     // that can be deleted (Alle Einsätze)
     // an OnOff row since 28.09.2026: the name on the row, the consequence under it
@@ -1178,8 +1168,6 @@ export const de = {
   log: {
     audioNote: 'Audionotiz',
     symbolPlaced: 'Symbol «{name}» gesetzt',
-    /** «auf die Karte übernehmen» — a plan-anchored object re-anchored onto the Karte (Lage-Grundgerüst) */
-    symbolToKarte: '«{name}» vom Plan auf die Karte übernommen',
     shapePlaced: '{name} platziert',
     notePlaced: 'Notiz gesetzt',
     teamPlaced: '{name} auf der Karte gesetzt',
@@ -1579,15 +1567,11 @@ export const de = {
     dueExactTitle: 'Erinnern um',
     dayToday: 'Heute',
     dayTomorrow: 'Morgen',
-    dayBack: 'Einen Tag zurück',
-    dayForward: 'Einen Tag vor',
     duePast: 'Zeitpunkt liegt in der Vergangenheit',
-    dueExactConfirm: 'Übernehmen',
     reminderExact: 'Uhrzeit …',
     reminderChips: [5, 10, 15, 30, 60] as number[],
     reminderChipLabel: 'in {n} min',
     reminderTomorrow: ' · morgen',
-    hourUp: 'Stunde +', hourDown: 'Stunde −', minUp: 'Minute +', minDown: 'Minute −',
     reminderSaved: 'Erinnerung gesetzt',
     // ⚠️ The row a reminder writes WHEN IT IS SET. It used to carry the bare reminder text, so
     // the Verlauf held «Lüfter prüfen» among a hundred other lines and the only row that said
@@ -2462,7 +2446,6 @@ export const de = {
     phoneSectionReady: 'Bereit',
     phoneSectionOut: 'Draussen',
     safetyTitle: 'Sicherungstrupp',
-    safetyDeploy: 'Einsetzen',
     // «Bestimmen» am Abschnittskopf SICHERUNGSTRUPP (26.09.2026, phone card slim-down) – der
     // gestrichelte Kasten «Kein Sicherungstrupp · Ein Trupp ist drin» ist weg; der Kopf steht wie
     // DRIN/DRAUSSEN, und der leere Abschnitt IST die Aussage
@@ -2653,7 +2636,7 @@ export const de = {
       text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
       resource: 'Auf den Plan tippen, um einen Trupp zu setzen. Zum Verschieben ziehen.',
       scale: 'Die zwei Endpunkte des gedruckten Massstabs antippen, dann die reale Länge eingeben. Danach zeigen Linien mit «Länge» echte Meter.',
-      measure: 'Punkte auf den Plan tippen. «Strecke» zeigt die Distanz, «Fläche» den Inhalt + Umfang – in echten Metern, sobald der Massstab kalibriert ist. Punkte ziehen zum Verschieben, doppeltippen entfernt einen Punkt.',
+      measure: 'Punkte auf den Plan tippen. «Strecke» zeigt die Distanz, «Fläche» den Inhalt + Umfang – in echten Metern, sobald der Massstab kalibriert ist. Punkte ziehen zum Verschieben, einen Punkt gedrückt halten entfernt ihn.',
     },
     // Plan-Massstab (calibrate against a printed scale bar so plan lines read in metres)
     scale: {
@@ -2951,6 +2934,10 @@ export const de = {
     // Steht über der Leiste, sobald das bestehende Gebäude wiedergefunden und vorgewählt ist:
     // «Anderes Gebäude wählen» heisst fast immer ergänzen, nicht von vorn anfangen.
     osmPickHintAmend: 'Das bestehende Gebäude ist markiert – weitere antippen zum Ergänzen, dann übernehmen',
+    // Steht über der Leiste, wenn noch kein Gebäude gewählt ist und die App den Umriss am
+    // Einsatzort vorgewählt hat (lib/footprintPick): ein Vorschlag, den man prüft – nie übernommen,
+    // bevor jemand «Übernehmen» tippt.
+    osmPickHintHere: 'Gebäude am Einsatzort ist markiert – prüfen, dann übernehmen.',
     // ⚠️ Zahl in Klammern, damit ein Umriss wie mehrere passt. Das ist ein Verlust, kein Hinweis:
     // was hier fehlt (offline, Kartenausschnitt verschoben, in OSM geändert), fällt beim
     // Übernehmen weg – lieber laut gesagt als stillschweigend aus der Auswahl genommen.
@@ -3624,39 +3611,6 @@ export const de = {
     hint: 'Auf die Karte tippen, um den Standort zu setzen',
     confirm: 'Standort übernehmen',
   },
-  // The Lage-Grundgerüst card on the Karte (components/LageGrundgeruestCard, lib/lageGrundgeruest).
-  lageGrundgeruest: {
-    title: 'Lage-Grundgerüst',
-    /** the phone strip's word — the rail entry's word, so the two doors read as one thing */
-    short: 'Grundgerüst',
-    /** «2/6» — optional rows count in neither half; one number, no air (slim sweep 27.09.2026) */
-    count: '{done}/{total}',
-    expand: 'Lage-Grundgerüst aufklappen',
-    collapse: 'Lage-Grundgerüst zuklappen',
-    /** the card opened from the rail with everything in place */
-    complete: 'Alles gesetzt.',
-    /** a known Einsatzart the station gave no list */
-    empty: 'Für diese Einsatzart ist kein Grundgerüst eingerichtet.',
-    optional: 'optional',
-    /** a row whose place tool is armed: the next Karte tap places it */
-    armed: 'Auf die Karte tippen',
-    armedLine: 'Punkte auf die Karte tippen, mit ✓ abschliessen',
-    /** the suggestion row's tile — one verb; the value beside it says where */
-    placeHere: 'Setzen',
-    hydrant: 'Hydrant {nr} · {dist}',
-    hydrantNoNr: 'Nächster Hydrant · {dist}',
-    wind: 'Wind {from} · Vorschlag {dir}, {m} m',
-    /** where an upwind suggestion lies, by the same eight sectors as `weather.cardinals` */
-    directions: ['nördlich', 'nordöstlich', 'östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich'] as string[],
-    /** ticked by an object that exists only on a plan with no Karte fit — the tile beside «auf dem Plan» */
-    toKarte: 'Übernehmen',
-    /** the label a Wasserbezugsort set at a hydrant carries (the layer's own number) */
-    hydrantLabel: 'Hydrant {nr}',
-    planOnly: 'auf dem Plan',
-    noHydrant: 'Kein Hydrant im Umkreis von {m} m',
-    windAt: '{from} ({time})',
-    noLocation: 'Vorschläge folgen, sobald der Einsatzort gesetzt ist.',
-  },
   // weather badge + popover (TopBar · WeatherBadge) — condition labels, cardinals, readout rows
   weather: {
     label: 'Wetter',
@@ -3733,11 +3687,8 @@ export const de = {
     offlineAutoSub: 'Lädt Karte und Pläne kurz nach dem Öffnen des Einsatzes automatisch herunter',
     keepScreenOn: 'Bildschirm eingeschaltet lassen',
     keepScreenOnSub: 'Verhindert das Abdunkeln während des Einsatzes',
-    // Used to be called «Einsatzleiter-Ansicht»: the mode locks the tactical layer and names no
-    // role – Kdt, Fourier and whoever reads along on the beamer use it just the same. The code
-    // identifier stays `elView` so stored device settings keep working.
-    elView: 'Führungsansicht',
-    elViewSub: 'Sperrt die taktische Bearbeitung – Verlauf & Symbol-Details bleiben verfügbar',
+    // No «Führungsansicht» row any more (05.10.2026): it is the login's, set in the admin's
+    // Benutzer (admin · members · elViewDefault), not a per-device switch.
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
     incidentGroup: 'Einsatz',
     contactInterval: 'Atemschutz-Funkkontakt',
@@ -4160,6 +4111,9 @@ export const de = {
     settingsLabel: 'Standort verwenden',
     settingsHint: 'Erlaubt diesem Gerät, deinen Standort zu verwenden. Geteilt wird erst, wenn du es auf der Karte einschaltest.',
     settingsAs: 'Als {name}',
+    // Einstellungen: the name row under «Standort verwenden» — the value is the button
+    settingsName: 'Name auf der Karte',
+    settingsNameSub: 'So sieht dich der Kommandoposten – tippen zum Ändern',
   },
   // Anwesenheit list: live position next to the name. Deliberately neutral – far away is the
   // normal case (Wassertransport), not a warning.
@@ -4190,11 +4144,6 @@ export const de = {
     // one-shot warning toasts (useIncidentSync) — once per episode
     syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',
-    // …and the standing Meldung once the device STAYS offline past the longer window
-    // (components/OfflineMeldung, syncAlert · createOfflinePresence). Half-reverses the
-    // 2026-07-18 «no permanent banner» decision on field request 2026-09-07.
-    offlineMeldungTitle: 'Offline – Änderungen werden lokal gespeichert',
-    offlineMeldungSub: 'Wird synchronisiert, sobald die Verbindung zurück ist.',
     // clock skew (useIncidentSync · X-Server-Time): device-local timestamps feed the legal
     // record, so a clock minutes off is said once per episode — same wording as the capture
     // surface's skew line (capture.clockSkew)
@@ -4265,6 +4214,10 @@ export const de = {
     hintViewOnly: 'Nur ansehen.',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
+    // offline (05.10.2026): «Wieder öffnen» is the server's call (it writes the reopen boundary
+    // the Atemschutz clocks restart from), so it is said up front, not discovered by a failure
+    reactivateOffline: 'Braucht Verbindung zum Server',
+    reactivateNeedsServer: 'Wieder öffnen braucht Verbindung zum Server – der Einsatz bleibt abgeschlossen. Online nochmals versuchen.',
     // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
     // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
     closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
@@ -4298,6 +4251,9 @@ export const de = {
     groupOpen: 'Offen',
     groupToday: 'Heute',
     groupWeek: 'Letzte 7 Tage',
+    offlineNote: 'Offline: Ansehen geht, Abschliessen und Wieder öffnen brauchen Verbindung zum Server.',
+    // a running Einsatz's span in its row: «seit 14:00» (no end yet)
+    since: 'seit {t}',
     reactivate: 'Wieder öffnen',
     reactivateConfirmTitle: 'Einsatz wieder öffnen',
     reactivateConfirmMsg: 'Der Einsatz wird wieder geöffnet und ist bearbeitbar. Spätere Änderungen erscheinen im Verlauf und Rapport als Nachträge.',
@@ -4527,8 +4483,6 @@ export const de = {
     areaMittel: 'Material',
     areaChecklist: 'Checkliste',
     areaRapport: 'Rapport',
-    // Personen und Bereiche der Suche (lib/suche) — jede Statusänderung ist eine eigene Zeile
-    areaSuche: 'Suche',
     // ⚠️ Die Zeilen, die der SERVER selbst schreibt (Rapport abgeschlossen, Einsatz
     // abgeschlossen, Einsatz wiedereröffnet). Sie tragen weder `kind` noch `surface`, fielen
     // deshalb bis 04.09. ans Ende der Kette durch und standen im gedruckten Journal unter
@@ -4546,7 +4500,6 @@ export const de = {
     drawAreaLabeled: 'Abschnitt «{label}»',
     drawArea: 'Fläche',
     drawRescueAxis: 'Rettungsachse',
-    drawAccessRoute: 'Zufahrt',
     drawMeasureArrow: 'Masspfeil',
     drawLine: 'Linie',
   },
@@ -4554,8 +4507,6 @@ export const de = {
   wheel: {
     invalidTime: 'Bitte eine gültige Uhrzeit eingeben (00:00–23:59).',
     day: 'Tag',
-    month: 'Monat',
-    year: 'Jahr',
     hour: 'Stunde',
     minute: 'Minute',
     now: 'Jetzt',
@@ -4698,7 +4649,6 @@ export const de = {
     toggleMittel: 'Material ({n})',
     toggleJournal: 'Einsatzjournal',
     togglePendenzen: 'Aufträge / Pendenzen ({n})',
-    togglePersonen: 'Personen ({n})',
     toggleAttachments: 'Fotos ({n})',
     // the Beilagen in ORIGINAL quality as one ZIP + manifest — for the digital Ablage
     archiveZip: 'Beilagen herunterladen (ZIP)',
@@ -5393,217 +5343,6 @@ export const de = {
     editEntry: 'Bearbeiten …',
     scrollHint: 'Waagrecht rollen für weitere Schichten',
   },
-  // «Suche» (24.09.2026, Schritt 1): Personen (vermisst → gefunden → übergeben) und Bereiche
-  // (offen / in Arbeit / abgesucht) in EINER Liste neben dem Gebäude oder der Karte. Jede
-  // Änderung schreibt eine Verlaufszeile mit ihren eigenen Worten (lib/suche).
-  suche: {
-    title: 'Suche',
-    // Werkzeugleiste, Kopfchip
-    close: 'Suche schliessen',
-    vermisstChip: '{n} vermisst',
-    vermisstChipHint: 'Suche öffnen',
-    // Zustände
-    status: { vermisst: 'vermisst', gefunden: 'gefunden', uebergeben: 'übergeben', entwarnt: 'entwarnt', irrtuemlich: 'irrtümlich' },
-    bereichStatus: { offen: 'offen', inArbeit: 'in Arbeit', teilweise: 'teilweise abgesucht', abgesucht: 'abgesucht', nichtZugaenglich: 'nicht zugänglich' },
-    fund: 'Fund',
-    sucht: '{trupp} sucht',
-    unbekannt: 'unbekannt',
-    unnamed: 'Person ohne Namen',
-    groupUnnamed: 'Gruppe ohne Namen',
-    groupPersons: '{n} Pers.',
-    groupFound: '{found} / {count} gefunden',
-    groupMissing: '{n} vermisst',
-    // Liste
-    addVermisst: 'Vermisst',
-    addBereich: 'Bereich',
-    readOnlyNote: 'Nur ansehen – die Suche führt die Einsatzleitung am Plan.',
-    // + Vermisst
-    formVermisst: 'Vermisst melden',
-    wer: 'Wer?',
-    werPlaceholder: 'Name oder Beschreibung',
-    einePerson: 'nur eine Person',
-    anzahl: 'Anzahl',
-    woPlaceholder: 'z. B. Keller, Wohnung 3. OG …',
-    quelle: 'Quelle (optional)',
-    quellePlaceholder: 'z. B. Schulleitung',
-    cancel: 'Abbrechen',
-    submitVermisst: 'Melden',
-    // Person-Karte
-    back: 'Zurück zur Liste',
-    zuletztLine: 'zuletzt {wo}',
-    quelleLine: 'Quelle {quelle}',
-    gefundenBtn: 'Gefunden …',
-    uebergebenBtn: 'Übergeben …',
-    entwarnenBtn: 'Entwarnen',
-    // Gefunden …
-    formGefunden: '{name} gefunden',
-    von: 'Von',
-    andere: 'anderer',
-    wo: 'Wo?',
-    wieViele: 'Wie viele',
-    weiterAn: 'Weiter an (optional)',
-    bleibtVorOrt: 'bleibt vor Ort',
-    submitGefunden: 'Gefunden',
-    formUebergeben: '{name} übergeben',
-    an: 'An',
-    submitUebergeben: 'Übergeben',
-    // Bereiche
-    formBereich: 'Bereich absuchen',
-    submitBereich: 'Erfassen',
-    umbenennen: 'Umbenennen',
-    umbenennenSubmit: 'Übernehmen',
-    statusTitle: 'Status',
-    statusInArbeit: 'in Arbeit · {trupp}',
-    // wie die Suche einen Trupp nennt: in der Zeile auf Papier, und kurz auf dem Chip
-    truppLabel: 'Trupp {n}',
-    truppChip: 'T{n} {name}',
-    // «weiter an» — die kurze Liste; eine Station ersetzt sie mit `suche.uebergabe` (Stationskonfiguration)
-    uebergabeZiele: ['Rettungsdienst', 'Sammelplatz', 'Angehörige'] as string[],
-    // Verlaufszeilen — der Satz, den der Verlauf, der Rapport und die Liste lesen
-    // Trupps (Tür 3) und die Frage beim Rausgehen
-    fundMelden: 'Fund melden',
-    bereichAbgesucht: 'Bereich abgesucht',
-    fundTitle: 'Fund · {trupp}',
-    fundWer: 'Wen?',
-    fundAndere: 'andere Person',
-    zielChoices: 'Bereich wählen',
-    rausJa: 'Ja',
-    rausTeilweise: 'Teilweise',
-    rausNein: 'Nein',
-    // Warum/Wer bei «Entwarnen» und «Irrtümlich erfasst» (N7) — beides freiwillig, «Abbrechen» ist vorgewählt
-    formEntwarnen: '{name} entwarnen',
-    formIrrtuemlich: '{name} als irrtümlich erfasst streichen',
-    grund: 'Warum? (optional)',
-    grundPlaceholder: 'z. B. telefonisch zu Hause erreicht',
-    werSagt: 'Wer sagt das? (optional)',
-    werSagtPlaceholder: 'z. B. Angehörige',
-    entwarnenGruende: ['telefonisch erreicht', 'zu Hause', 'selbst gemeldet', 'am Sammelplatz'] as string[],
-    irrtuemlichGruende: ['doppelt erfasst', 'Falschmeldung', 'war nie im Gebäude'] as string[],
-    whyQuellen: ['Angehörige', 'Polizei', 'Rettungsdienst', 'Person selbst'] as string[],
-    submitEntwarnen: 'Entwarnen',
-    submitIrrtuemlich: 'Streichen',
-    rowGrund: ' · {grund}',
-    // offene Fragen «abgesucht?» — Kopfchip, Handy-Zeile, Meldeleiste (N13)
-    asksOne: '1 Frage',
-    asksMany: '{n} Fragen',
-    askMeldung: '{trupp} raus – {bereich} abgesucht?',
-    askMeldungOpen: 'In der Suche beantworten',
-    rowVermisst: 'Vermisst: {name}',
-    rowZuletzt: ' · zuletzt {wo}',
-    rowQuelle: ' · Quelle {quelle}',
-    rowGefunden: 'Gefunden: {name}',
-    rowGefundenGroup: 'Gefunden: {n} von {name}',
-    rowWo: ' · {wo}',
-    rowTrupp: ' · {trupp}',
-    rowUebergeben: 'Übergeben: {name} an {an}',
-    rowUebergebenGroup: 'Übergeben: {n} von {name} an {an}',
-    rowEntwarnt: 'Entwarnung: {name}',
-    rowBereich: '{bereich} {status}',
-    rowFund: 'Fund: {bereich}',
-    rowUmbenannt: 'Bereich umbenannt: {from} → {to}',
-    rowUndone: 'Zurückgenommen: {text}',
-    rowAn: ' · an {an}',
-    rowKorrigiert: 'Korrigiert: {from} → {to}',
-    rowIrrtuemlich: 'Irrtümlich erfasst: {name}',
-    rowAngelegt: 'Bereich angelegt: {name}',
-    composerRowSuffix: ' · Suche: {change}',
-    composerChangeGefunden: '{name} gefunden',
-    composerChangeNeu: '{name} vermisst',
-    composerKnownGroup: '{name} · {n} von {of} gefunden',
-    composerChangeGefundenGroup: '{n} von {name} gefunden',
-    // Zahlwörter 1 … 12, so wie der Abgleich sie liest (klein, ohne Umlaute: «funf», «zwolf»)
-    countWords: ['eins', 'zwei', 'drei', 'vier', 'funf', 'sechs', 'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwolf'] as string[],
-    rowGefundenOrt: ' · gefunden {wo}',
-    korrigierenGefunden: 'Gefunden (wo)',
-    korrigierenBtn: 'Korrigieren …',
-    formKorrigieren: '{name} korrigieren',
-    submitKorrigieren: 'Übernehmen',
-    irrtuemlichBtn: 'Irrtümlich erfasst',
-    askInline: '{trupp} raus – abgesucht?',
-    rowPart: '{floor} {name}',
-    // Verlauf schreiben (Tür 2)
-    composerKnown: '{name} · {from} → {to}',
-    composerNew: 'Neue Person «{name}» vermisst',
-    composerTitle: 'Status in der Suche mitändern',
-    composerKeyword: 'vermisst',
-    showInSuche: 'In der Suche zeigen',
-    // die Verlaufszeile einer Person oder eines Bereichs führt dorthin zurück
-    // Rapport
-    gerettetStrip: 'Aus Personen: {n}',
-    suchLineAll: 'Suche: {n} Bereiche, alle abgesucht {t}',
-    suchLineOpen: 'Suche: {n} Bereiche, {done} abgesucht · nicht abgesucht: {list}',
-    suchLineAllOne: 'Suche: 1 Bereich, abgesucht {t}',
-    suchLineOpenOne: 'Suche: 1 Bereich, nicht abgesucht: {list}',
-    // Abschluss
-    abschlussVermisst: '{n} Personen noch vermisst',
-    abschlussVermisstOne: '1 Person noch vermisst',
-    abschlussBereiche: 'Nicht abgesucht: {list}',
-    // die eigene Frage vor dem Abschluss (N6)
-    abschlussAskTitle: 'Personen noch vermisst',
-    abschlussAskOne: '1 Person noch vermisst: {list}.',
-    abschlussAskMany: '{n} Personen noch vermisst: {list}.',
-    abschlussAskGroup: '{name} ({n})',
-    abschlussToSuche: 'Zur Suche',
-    // die Liste nach Ort (26.09.2026, Entwurf «F»)
-    ortUnbekannt: 'Ort unbekannt',
-    headAbgesucht: '{done}/{total} abgesucht',
-    emptyTitle: 'Noch keine Suche',
-    emptySub: 'Vermisste Personen und abzusuchende Bereiche erfasst ihr hier selbst, sobald ihr sie kennt – auch eine Suche ganz ohne Vermisste, Bereich für Bereich.',
-    emptySubReadOnly: 'Sobald die Einsatzleitung Vermisste oder Bereiche erfasst, stehen sie hier.',
-    woZuletzt: 'Wo zuletzt gesehen?',
-    woZuletztHint: '(frei, leer = unbekannt)',
-    schonErfasst: 'schon erfasst:',
-    mehrere: 'mehrere?',
-    bereichWo: 'Wo?',
-    bereichWoPlaceholder: 'z. B. Dachstock, Scheune, Ufer Nord',
-    werSucht: 'Wer sucht? (optional)',
-    nochNiemand: 'noch niemand',
-    formGefundenAndere: 'Gefunden – nicht auf der Liste',
-    gefundenList: 'Gefunden',
-    plusOne: '+1',
-    plusOneLabel: '1 von {name} gefunden',
-    toastGefunden: '{name} gefunden',
-    toastGefundenGroup: '1 von {name} gefunden',
-    tickAbgesucht: '{name} als abgesucht markieren',
-    tickOffen: '{name} wieder als offen markieren',
-    vermisstSeit: 'vermisst seit {t}',
-    gefundenAt: 'gefunden {t}',
-    groupOf: '{n} von {count}',
-    groupFoundShort: '{n} gefunden',
-    erfasstAt: 'erfasst {t}',
-    onKarte: 'auf der Karte',
-    onPlan: 'auf dem Plan',
-    rowOrtGesetzt: '{name} {wo} gesetzt',
-    rowOrtVerschoben: '{name} {wo} verschoben',
-    rowOrtWeg: '{name}: Position entfernt',
-    // Pins auf Karte und Plan (26.09.2026)
-    krokiPin: 'Suche: {name} · {status}',
-    krokiHot: 'Person vermisst',
-    pickKarte: 'Auf Karte setzen',
-    pickPlan: 'Auf Plan setzen',
-    pickSet: 'Position gesetzt',
-    pickClear: 'Position wieder weg',
-    pickAlready: 'Dieser Ort hat schon eine Position',
-    pickHintKarte: 'Tippe auf die Karte, wo «{name}» ist',
-    pickHintPlan: 'Tippe auf den Plan, wo «{name}» ist',
-    pickHintKarteAny: 'Tippe auf die Karte, wo es ist',
-    pickHintPlanAny: 'Tippe auf den Plan, wo es ist',
-    pinShow: '{name} zeigen',
-    layerLabel: 'Suche',
-    layerOn: 'Ebene «Suche» wieder eingeschaltet',
-    // die Karte eines Bereichs, ruhig (26.09.2026)
-    werSuchtCard: 'Wer sucht?',
-    niemand: 'niemand',
-    keinTrupp: 'Noch kein Trupp auf der Tafel',
-    /** the segment's four words — ONE line each: «gesperrt» is the short form of «nicht zugänglich»
-     *  (owner's decision D2, 27.09.2026); the rows and the Rapport keep the full word (bereichStatus) */
-    statusSeg: { offen: 'offen', teilweise: 'teilweise', abgesucht: 'abgesucht', nichtZugaenglich: 'gesperrt' },
-    zeigen: 'Zeigen',
-    /** the card head's ⋯ — Umbenennen and the position live behind it (27.09.2026) */
-    menu: 'Weitere Aktionen',
-    pickAgain: 'Neu setzen',
-    nameTakenTitle: 'Diesen Ort gibt es schon',
-  },
   // Mittel surface (MittelView) — manual material capture for Rapport / resupply
   mittel: {
     title: 'Material',
@@ -5741,10 +5480,85 @@ export const de = {
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,
     diagramAlt: 'Diagramm Seite {page}',
     diagramOpen: 'Diagramm vergrössern',
+    // Anleitungen (kind: manual, 05.10.2026) — read-only Geräte-Anleitungen (ManualReader)
+    groupManuals: 'Anleitungen',
+    manualUpdated: 'Stand {date}',
+    manualWarning: 'Achtung:',
+    manualImageAlt: 'Bild zu Schritt {n}',
+    manualImageOpen: 'Bild vergrössern',
+    manualSource: 'Quelle: {source}',
   },
 
   // ── Admin / Verwaltung surface (the /admin back-office) ───────────────────────
   // ── Objektbesuche (docs/object-visits.md) — launcher entry, Übersicht, Liste, Besuch ──
+  // Die leere Tafel (08.10.2026): «Womit beginnen?» – Startkarten, solange das Blatt leer ist –
+  // und die Vorlage «Erstes Plakat (FKS)» (Erste Führung, A3-Plakat als echte Felder).
+  tafel: {
+    startTitle: 'Womit beginnen?',
+    startSub: '{title} · {address}',
+    suggestion: 'Vorschlag',
+    objectTitle: 'Objekt wählen',
+    objectBody: 'Objektpläne aus der Objektdatenbank.',
+    objectNone: 'In der Nähe ist kein Objekt erfasst.',
+    objectSearch: 'Objektdatenbank öffnen',
+    objectPick: '{name} übernehmen',
+    buildingTitle: 'Gebäude am Einsatzort',
+    buildingBody: 'Umriss aus der Karte – Geschosse stapeln und darauf skizzieren.',
+    buildingAction: 'Gebäude wählen',
+    templateTitle: 'Vorlage',
+    plakatName: 'Erstes Plakat (FKS)',
+    sketch: 'oder einfach losskizzieren – Werkzeuge rechts',
+    sketchPhone: 'oder einfach losskizzieren',
+    buildingRowSub: 'Umriss aus der Karte',
+    objectRowNone: 'Objektdatenbank durchsuchen',
+    plakat: {
+      heading: 'Erste Führung',
+      prefilled: 'aus dem Einsatz vorausgefüllt',
+      title: 'Einsatz',
+      address: 'Adresse',
+      alarm: 'Alarm',
+      el: 'Einsatzleiter',
+      problems: 'Problemerfassung',
+      front: 'Front',
+      ordnung: 'Ordnung',
+      sanitaet: 'Sanität',
+      spezial: 'Spezialprobleme',
+      massnahmen: 'Massnahmen',
+      mittel: 'Mittel',
+      verbindungen: 'Verbindungen',
+      absprachen: 'Absprachepunkte',
+      was: 'Was / Wo',
+      wer: 'Wer',
+      wann: 'Wann',
+      formation: 'Formation',
+      pers: 'Pers.',
+      wo: 'Wo',
+      funktion: 'Funktion / Standort',
+      kanal: 'Kanal',
+      ruf: 'Rufname / Tel.',
+      newProblem: 'Problem …',
+      newRow: 'Neue Zeile …',
+      note: 'Stichwort',
+      trendNone: 'Trend offen',
+      trendUp: 'wird schlimmer',
+      trendSame: 'gleich',
+      trendDown: 'entspannt sich',
+      trendTitle: 'Trend: {trend} – tippen zum Wechseln',
+      done: 'Erledigt',
+      weatherTag: 'Wetter',
+      wind: 'Wind {dir} {speed} km/h',
+      // die FKS-Absprachepunkte der Ersten Führung, als offene Häkchen vorgelegt
+      absprachenDefaults: ['Standort Einsatzleitung', 'Zufahrt / Rettungsachse', 'Warteraum', 'Patientensammelstelle', 'Wasserbezug', 'Absperrung'],
+      inserted: 'Erstes Plakat eingefügt',
+      edited: 'Plakat geändert',
+      remove: 'Plakat entfernen',
+      removeTitle: 'Plakat entfernen?',
+      removeMsg: 'Alles, was auf dem Plakat steht, geht mit. Rückgängig holt es zurück.',
+      removed: 'Plakat entfernt',
+      // Rapport: eigener Abschnitt, wenn auf der Tafel ein Plakat steht
+      reportTitle: 'Erste Führung (Plakat)',
+    },
+  },
   objectVisits: {
     launcher: 'Objektbesuche',
     title: 'Objektbesuche',
@@ -5762,6 +5576,9 @@ export const de = {
     lists: 'Listen',
     listObjectsOne: '1 Objekt',
     listObjectsMany: '{n} Objekte',
+    listOn: "am {date}",
+    listArchived: "Nicht mehr eingeplant",
+    schedule: {"today": "Heute", "overdue": "Noch offen", "upcoming": "Nächste Termine", "undated": "Ohne Termin", "recent": "Kürzlich erledigt"},
     listUntil: 'bis {date}',
     searchHead: 'Objekt suchen',
     searchPlaceholder: 'Objekt suchen …',
@@ -5790,6 +5607,15 @@ export const de = {
     chooseChecklist: 'Welche Checkliste?',
     chooseChecklistLead: 'Für dieses Objekt gibt es mehrere Besuchs-Checklisten.',
     noChecklist: 'Ohne Checkliste',
+    plans: 'Pläne',
+    changeChecklist: 'Checkliste wechseln',
+    changeChecklistLead: 'Antworten, die auch in der neuen Checkliste vorkommen, bleiben. Fotos bleiben immer.',
+    checklistCurrent: 'aktuell',
+    changeChecklistDropOne: '1 Antwort passt nicht zur neuen Checkliste und wird entfernt. Fotos bleiben.',
+    changeChecklistDropMany: '{n} Antworten passen nicht zur neuen Checkliste und werden entfernt. Fotos bleiben.',
+    changeChecklistConfirm: 'Wechseln',
+    planLoading: 'Plan wird geladen …',
+    suggestedHead: 'Im Einsatz',
     startFailed: 'Besuch konnte nicht angelegt werden',
     menu: 'Weitere Aktionen',
     saveFile: 'Als Datei sichern',
@@ -5988,7 +5814,7 @@ export const de = {
       previewChecklist: 'Kontrolle Schlüsselhülse',
       credentials: 'Zugangsdaten',
       credentialsBody: 'Eigene App-Registrierung mit «Sites.Selected · write» nur auf dieser Website – nicht die Lese-Anmeldung des Imports.',
-      credentialsGo: 'Zugangsdaten öffnen',
+      credentialsGo: 'Anbindungen öffnen',
       test: 'Testablage',
       testOk: 'Testdatei abgelegt',
       testFailed: 'Testablage fehlgeschlagen',
@@ -6019,6 +5845,7 @@ export const de = {
       keyFailed: 'Schlüssel konnte nicht gespeichert werden',
       visits: 'Besuche',
       visitsTip: 'Alle Besuche dieser Wehr, neueste zuerst. Der Bericht ist die aktuelle Revision.',
+      visitsCaption: 'Abgeschlossene und laufende Besuche, mit Ablageort und Bericht. Mitteilungen dazu: «Benachrichtigung» unten.',
       visitsEmpty: 'Noch keine Besuche.',
       colDate: 'Datum',
       colObject: 'Objekt',
@@ -6026,6 +5853,19 @@ export const de = {
       colLifecycle: 'Zustand',
       colFindings: 'Mängel',
       colBy: 'Von',
+      colFiled: 'Ablage',
+      filedNone: '–',
+      notify: 'Benachrichtigung · Neuer Objektbesuch',
+      notifyCaption: 'Wird ein Besuch abgeschlossen, erhalten die Geräte der angekreuzten Konten eine Push-Mitteilung. Niemand, solange hier niemand angekreuzt ist.',
+      notifyTip: 'Die Mitteilung geht an jedes Gerät, das mit dem Konto angemeldet ist und Mitteilungen erlaubt hat – bei einem geteilten Konto (z. B. «fu») also an alle seine Geräte. Wer allein benachrichtigt werden soll, braucht ein eigenes Konto (Personen › Mitglieder & Zugriff). Ein Tipp auf die Mitteilung öffnet den Besuch.',
+      notifyPushOff: 'Push ist noch nicht eingerichtet (VAPID-Schlüssel fehlen) – die Auswahl wirkt erst danach.',
+      notifyNoAccounts: 'Keine aktiven Konten.',
+      notifyDevices: '{n} Geräte empfangen Mitteilungen',
+      notifyDevicesOne: '1 Gerät empfängt Mitteilungen',
+      notifyDevicesNone: 'noch kein Gerät mit Mitteilungen',
+      notifyFor: '{name} benachrichtigen',
+      notifySaved: 'Gespeichert',
+      notifyFailed: 'Konnte nicht gespeichert werden',
       pdf: 'PDF',
       exportZip: 'Export (ZIP)',
       exportTip: 'Besuche als JSON, Fotos und Berichte – für eine Wehr ohne Ablageziel.',
@@ -6048,18 +5888,12 @@ export const de = {
       // zurück ist sonst nirgends erwähnt, und die Konfiguration speichert nach 700 ms von
       // selbst.
       deleteRecovery: 'Gelöschte Zeilen holt «Sicherung › Letzte Änderungen» zurück.',
-      // Spaltentitel der Einstellungs-Tabelle. Eine Zeile je Einstellung – die Erklärung steht
-      // im ⓘ, nicht mehr als Fliesstext unter dem Feld.
-      colSetting: 'Einstellung',
-      colValue: 'Wert',
-      colStandard: 'Standard',
-      colInfo: 'Info',
       // ⚠️ Steht NUR, wenn der Wert vom mitgelieferten Standard abweicht. Ein leeres Feld läuft
       // auf dem Standard und ist keine Abweichung – sonst stünde die Spalte auf jeder Zeile und
       // wäre wieder das, was sie ersetzen soll.
-      // ⚠️ Ohne das Wort «Standard»: die Spaltenüberschrift sagt es bereits, und in jeder Zelle
-      // noch einmal war es die Wiederholung, die diese Tabelle abschaffen sollte.
-      standardChanged: '{value} · geändert',
+      // Mit dem Wort «Standard»: seit 07.10.2026 gibt es keine Spaltenüberschrift mehr, die es
+      // sagt – die Notiz steht direkt hinter dem Feld und muss für sich allein lesbar sein.
+      standardChanged: 'Standard {value}',
       standardOn: 'Ja',
       standardOff: 'Nein',
       // Überschrift einer Listen-Zeile, solange sie noch keinen eigenen Namen trägt
@@ -6094,6 +5928,8 @@ export const de = {
     shell: {
       verwaltung: 'Verwaltung',
       toLageMap: '← Zur Karte',
+      // …im Bereichsmenü auf dem Telefon: dort steht das Kartensymbol davor, also ohne Pfeil.
+      toLageMapNav: 'Zur Karte',
       // Das Handbuch ist für genau diese Leserin geschrieben und war aus der Verwaltung
       // heraus nirgends verlinkt.
       docs: 'Anleitung',
@@ -6165,12 +6001,6 @@ export const de = {
         lede: 'Die Vorlagen hinter der Checkliste-Ansicht: Aufgabenlisten, Lagerapport und Merkblätter zum Nachschlagen – Letztere ohne Häkchen, nur zum Lesen.',
         tip: 'Eine Vorlage ist eine JSON-Datei mit einer eigenen «id» – die entscheidet, welche Vorlage ersetzt wird. Wird eine Vorlage unter neuem Namen hochgeladen, bleibt die alte bestehen und wird weiter an alle Geräte ausgeliefert, bis sie hier gelöscht wird.',
       },
-      grundgeruest: {
-        label: 'Lage-Grundgerüst',
-        title: 'Lage-Grundgerüst',
-        lede: 'Was in den ersten Minuten jedes Einsatzes auf die Karte gehört – pro Einsatzart.',
-        tip: 'Im Einsatz erscheint auf der Karte eine kleine Liste: KP, Zufahrt, Wasserbezug … Jede Zeile setzt ein Symbol oder eine Linie, wo möglich mit Vorschlag (nächster Hydrant, gegen den Wind), und hakt sich selbst ab, sobald das Symbol auf der Karte oder einem Plan steht. Nichts ist Pflicht, nichts wird ohne Tipp gesetzt.',
-      },
       mitglieder: { label: 'Mitglieder & Zugriff', title: 'Mitglieder & Zugriff', lede: 'Wer sich anmelden darf, mit welcher Rolle und welcher PIN.' },
       mannschaft: {
         label: 'Personal',
@@ -6198,7 +6028,7 @@ export const de = {
         tip: 'Jede Zeile ist ein eigener Schlüssel: Erfassungs-Poster, Stations-Terminal, fixer Atemschutz-Code und der Statistik-Export. Rotieren macht die alte Adresse sofort ungültig.',
       },
       zugaenge: {
-        label: 'Zugangsdaten',
+        label: 'Anbindungen',
         title: 'Zugangsdaten der Anbindungen',
         lede: 'Divera, Fahrzeugortung, Push-Meldungen, Spracherkennung, Webhooks und Überwachung – hier eintragen statt in .env, ohne Neustart.',
         tip: 'Eingetragene Schlüssel werden verschlüsselt gespeichert und nie wieder angezeigt – auch hier nicht. Ersetzen ist möglich, Auslesen nicht. Ausnahme ist der Einsatz-Link-Schlüssel weiter unten: den erzeugt KP Front selbst und zeigt ihn deshalb wieder an.',
@@ -6417,12 +6247,12 @@ export const de = {
       cardHead: 'Atemschutzüberwachung',
       cardHint: 'QR-Code scannen – öffnet die Überwachungstafel des laufenden Einsatzes. Keine Anmeldung nötig.',
     },
-    // Zugangsdaten — die Schlüssel der Anbindungen, aus dem Terminal in den Browser geholt.
+    // Anbindungen — die Schlüssel der Anbindungen, aus dem Terminal in den Browser geholt.
     // ⚠️ Der Text sagt an jeder Stelle dasselbe wie die API: gesetzt ja/nein, nie der Wert.
     // «Ersetzen» statt «Ändern», weil man einen Schlüssel hier nicht sieht und deshalb auch
     // nicht bearbeitet – man legt einen neuen hin.
     links: {
-      secretAppend: 'Das Secret kommt noch dazu – als ?secret=… angehängt oder als Header X-Webhook-Secret. Es wird unter Zugangsdaten gesetzt und ist nie wieder lesbar.',
+      secretAppend: 'Das Secret kommt noch dazu – als ?secret=… angehängt oder als Header X-Webhook-Secret. Es wird unter «Anbindungen» gesetzt und ist nie wieder lesbar.',
       addressLabel: 'Adresse',
       keyLabel: 'Schlüssel',
       purposeFirehub: 'FireHub (Tercero) meldet Alarme an diese Adresse',
@@ -6435,7 +6265,7 @@ export const de = {
       purposeStats: 'Lesetoken für externe Auswertungen',
       purposeAlarm: 'Die Alarmierung meldet Alarme an diese Adresse',
       keyMissing: 'Schlüssel fehlt',
-      toCredentials: 'Zugangsdaten',
+      toCredentials: 'Anbindungen',
       notConfigured: 'nicht eingerichtet',
     },
     zugaenge: {
@@ -6713,77 +6543,6 @@ export const de = {
       reverseOrder: 'Seiten in umgekehrter Reihenfolge senden',
       reverseOrderHint: 'Für Drucker, die das Blatt mit der bedruckten Seite nach oben auswerfen: der Stapel liegt sonst verkehrt herum und muss von Hand sortiert werden. Wirft dein Drucker nach unten aus, schalte es ab.',
     },
-    // /admin › Lage-Grundgerüst (admin/LageGrundgeruestSection)
-    lageGrundgeruest: {
-      presetTitle: 'Preset',
-      presetTip: 'Das mitgelieferte Grundgerüst gilt für jede Einsatzart, die hier nicht angepasst ist. «fks-standard» ist nach Einsatzart unterschieden, «minimal» setzt überall nur KP, Zufahrt und Sammelplatz.',
-      presetLabel: 'Mitgeliefertes Preset',
-      presetLabelTip: 'Eine angepasste Einsatzart ersetzt die Liste des Presets für diese eine Einsatzart; alle anderen folgen dem Preset.',
-      status: 'Preset: {preset} · {n}',
-      customizedNone: 'keine Einsatzart angepasst',
-      customizedOne: '1 Einsatzart angepasst',
-      customizedMany: '{n} Einsatzarten angepasst',
-      customizedMark: 'angepasst',
-      listTitle: 'Lage-Grundgerüst · {kategorie}',
-      listTip: 'Jede Zeile setzt im Einsatz ein Symbol oder eine Linie auf die Karte. «Vorschlag» bestimmt, wo die Karte das Symbol vorschlägt: beim nächsten Hydranten der Hydrantenebene oder so viele Meter gegen den Wind. Ein Vorschlag ist immer nur ein Startpunkt zum Verschieben.',
-      recordLabel: 'Element',
-      categoriesAria: 'Einsatzart',
-      fromPreset: 'Aus dem Preset «{preset}» – die erste Änderung übernimmt die Liste als eigene.',
-      customized: 'Angepasst – gilt für diese Einsatzart statt des Presets.',
-      reset: 'Auf Preset zurücksetzen',
-      resetConfirm: 'Die eigene Liste verwerfen und wieder dem Preset folgen?',
-      emptyList: 'Keine Elemente – im Einsatz erscheint für diese Einsatzart kein Grundgerüst.',
-      add: 'Element',
-      addCategory: 'Einsatzart hinzufügen …',
-      edit: 'Bearbeiten',
-      done: 'Fertig',
-      up: 'Nach oben',
-      down: 'Nach unten',
-      remove: 'Entfernen',
-      removeConfirm: 'Dieses Element entfernen?',
-      newLabel: 'Neues Element',
-      fieldLabel: 'Bezeichnung',
-      fieldLabelTip: 'So steht die Zeile im Einsatz auf der Karte: «+ Wasserbezug».',
-      fieldLabelPlaceholder: 'z. B. Wasserbezug',
-      fieldTarget: 'Symbol / Linie',
-      fieldTargetTip: 'Was die Zeile setzt – ein Symbol aus dem Symbolsatz oder eine Linie wie die Zufahrt. Abgehakt wird die Zeile, sobald genau dieses Symbol (oder diese Linie) auf der Karte oder einem Plan steht.',
-      targetPick: 'Symbol oder Linie wählen …',
-      targetLine: 'Linie · {linie}',
-      fieldVorschlag: 'Vorschlag',
-      fieldVorschlagTip: '«nächster Hydrant» schlägt den nächsten Punkt der Hydrantenebene vor (Luftlinie, das Symbol trägt dessen Nummer). «Wind aufwärts» schlägt einen Punkt so viele Meter gegen den aktuellen Wind vor. Ohne Wind- oder Hydrantendaten bleibt nur das Setzen von Hand.',
-      vorschlagNone: 'keiner',
-      vorschlagHydrant: 'nächster Hydrant',
-      vorschlagWind: 'Wind aufwärts',
-      fieldMetres: 'Meter gegen den Wind',
-      fieldMetresTip: 'Abstand vom Einsatzort, gegen die Windrichtung.',
-      fieldOptional: 'Optional',
-      fieldOptionalTip: 'Wird angezeigt, zählt aber nicht mit – die Liste gilt ohne sie als vollständig (z. B. Helilandeplatz).',
-      metaLine: 'Linie «{linie}»',
-      metaHydrant: 'Vorschlag: nächster Hydrant',
-      metaWind: 'Vorschlag: Wind aufwärts, {m} m',
-      metaOptional: 'optional',
-      metresInvalid: 'Meter: {min} bis {max} – noch nicht gespeichert.',
-      /** the tabs' short words, keyed by category */
-      tabShort: {
-        brandbekaempfung: 'Brand',
-        bma_unechte_alarme: 'BMA',
-        strassenrettung: 'Strassenrettung',
-        chemiewehr: 'Chemie',
-        oelwehr: 'Öl',
-        elementarereignis: 'Elementar',
-        technische_hilfeleistung: 'THL',
-        strahlenwehr: 'Strahlen',
-        einsatz_bahnanlagen: 'Bahn',
-        dienstleistungen: 'Dienstleistungen',
-        gerettete_tiere: 'Tiere',
-        diverse_einsaetze: 'Diverse',
-      } as Record<string, string>,
-      incomplete: 'Bezeichnung und Symbol/Linie fehlen – noch nicht gespeichert.',
-      incompleteLabel: 'Die Bezeichnung fehlt – noch nicht gespeichert.',
-      incompleteTarget: 'Symbol oder Linie fehlt – noch nicht gespeichert.',
-      labelTooLong: 'Bezeichnung: höchstens {max} Zeichen – noch nicht gespeichert.',
-      rejectedSlot: 'Element {n} ({kategorie})',
-    },
     // Alarme & Einsätze: die drei Uhren am Lebenslauf eines Einsatzes plus die Webhooks,
     // über die ein zweites System (z. B. der Zettel-Drucker von kp-rück) überhaupt erst
     // von einem neuen Einsatz erfährt.
@@ -6922,7 +6681,7 @@ export const de = {
     },
     backup: {
       title: 'Sicherung',
-      caption: 'Konfiguration als Datei sichern oder eine gesicherte Datei einspielen. Import ersetzt sie vollständig (ohne env-Integrationen).',
+      caption: 'Ein Import ersetzt die Konfiguration vollständig (ohne env-Integrationen).',
       // Zwei Zeilen statt Fliesstext: die Zeile sagt, wovon die Rede ist, der Wert nur noch
       // von wem und wann – «Letzte Änderung | von Führungsunterstützung am 11.09.2026, 07:56».
       rowLastChanged: 'Letzte Änderung',
@@ -7100,15 +6859,15 @@ export const de = {
       roleViewer: 'Betrachter',
       roleEditor: 'Bearbeiter',
       roleEl: 'Einsatzleiter',
-      elViewDefault: 'Startet in Führungsansicht',
-      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – am Gerät umschaltbar',
+      elViewDefault: 'Führungsansicht',
+      elViewDefaultHint: 'Taktik gesperrt, Verlauf & Details aktiv – auf jedem Gerät dieser Anmeldung',
       colorLabel: 'Farbe',
       colorOptional: 'optional',
       pickColor: 'Farbe wählen',
       pinLabel: 'PIN',
       pinDigits: '{min}–{max} Ziffern',
       title: 'Erfasste Mitglieder',
-      caption: 'Wer sich anmelden darf und mit welcher Rolle. Mitglieder werden deaktiviert, nie gelöscht (der Verlauf bleibt erhalten).',
+      caption: 'Mitglieder werden deaktiviert, nie gelöscht – der Verlauf bleibt erhalten.',
       loading: 'Mitglieder werden geladen …',
       none: 'Keine Mitglieder konfiguriert.',
       noneHint: 'Mitglieder sind Anmeldungen, nicht der Personenstamm: Wer sich am Tablet anmeldet, braucht hier einen Zugang. Die Personen für Anwesenheit und Rapport stehen unter «Personal».',
@@ -7197,7 +6956,7 @@ export const de = {
       syncProvider: 'Mit {provider} synchronisieren',
       providerNotConfigured: 'Keine Personalquelle konfiguriert · CSV und Handeingabe verfügbar',
       title: 'Erfasste Personen',
-      caption: 'Personenstamm der Wehr. Personen werden deaktiviert, nie gelöscht (der Verlauf bleibt erhalten).',
+      caption: 'Personen werden deaktiviert, nie gelöscht – der Verlauf bleibt erhalten.',
       showInactive: 'Inaktive anzeigen',
       loading: 'Personal wird geladen …',
       none: 'Noch keine Personen erfasst.',
@@ -7264,8 +7023,8 @@ export const de = {
       // «nicht konfiguriert» plus ein Verbindungstest, der zwangsläufig scheitert, war bisher
       // eine Sackgasse: Der Schlüssel wird eine Seite weiter eingetragen.
       trackingSetupTitle: 'Fahrzeugortung ist nicht eingerichtet.',
-      trackingSetupBody: 'Ohne Traccar-Adresse und Anmeldung holt diese Installation keine Positionen ab – ein Verbindungstest kann bis dahin nur scheitern. Beides wird unter Zugangsdaten eingetragen.',
-      openCredentials: 'Zugangsdaten öffnen',
+      trackingSetupBody: 'Ohne Traccar-Adresse und Anmeldung holt diese Installation keine Positionen ab – ein Verbindungstest kann bis dahin nur scheitern. Beides wird unter «Anbindungen» eingetragen.',
+      openCredentials: 'Anbindungen öffnen',
       // ─── «Anbindung einrichten» ──────────────────────────────────────────────────────
       // Die Seite, die «nicht konfiguriert» meldet, sagt jetzt auch WIE – denn genau hier
       // landet eine frische Station, und die beiden Wege liegen nebeneinander, statt dass
@@ -7278,13 +7037,13 @@ export const de = {
       pathDiveraMeans: 'KP Front holt die Alarme selbst ab. Nötig ist ein Accesskey – sonst nichts. Die Leitstelle muss nichts umstellen.',
       pathWebhook: 'Webhook-Eingang',
       pathWebhookMeans: 'Die Leitstelle schickt den Alarm an eine Adresse dieser Installation – FireHub (Tercero), Pager-Gateway oder ein eigenes Skript.',
-      diveraNote: 'Der Accesskey der Wehr wird unter Zugangsdaten eingetragen. Sobald er steht, holt diese Installation die Alarme von selbst ab – hier ist nichts weiter einzurichten.',
-      diveraGo: 'Accesskey in Zugangsdaten hinterlegen',
+      diveraNote: 'Der Accesskey der Wehr wird unter «Anbindungen» eingetragen. Sobald er steht, holt diese Installation die Alarme von selbst ab – hier ist nichts weiter einzurichten.',
+      diveraGo: 'Accesskey unter Anbindungen hinterlegen',
       genericLabel: 'Allgemeine Schnittstelle · POST',
       firehubLabel: 'FireHub (Tercero) · Webhook-Ziel',
       secretTitle: 'Ohne Alarm-Webhook-Secret bleibt dieser Eingang zu.',
-      secretBody: 'Solange es fehlt, weist der Server jeden eingehenden Alarm ab (403) – auch den der richtigen Leitstelle. Gesetzt wird es unter Zugangsdaten; hier steht es nie.',
-      secretGo: 'Secret in Zugangsdaten hinterlegen',
+      secretBody: 'Solange es fehlt, weist der Server jeden eingehenden Alarm ab (403) – auch den der richtigen Leitstelle. Gesetzt wird es unter «Anbindungen»; hier steht es nie.',
+      secretGo: 'Secret unter Anbindungen hinterlegen',
       setupDocsNote: 'Feldliste, Beispielaufruf und Wiederholverhalten:',
       setupDocs: 'Integrations-Doku',
       provider: 'Quelle',
@@ -7454,9 +7213,7 @@ export const de = {
     // kennt nur «behalte genau diese» (prune), nicht «lösche jene». Eine umbenannte Vorlage
     // bliebe sonst als Geist liegen und würde weiter an jedes Tablet ausgeliefert.
     checklists: {
-      exampleDownloadKind: 'Beispiel-Vorlage: {kind}',
-      intro: 'Die Checklisten dieser Wehr – Aufgabenlisten (FU), Lagerapport und Merkblätter '
-        + 'zum Nachschlagen (z. B. «Verkehrsunfall»), die nur gelesen und nicht abgehakt werden.',
+      exampleMenu: 'Beispiel-Vorlage',
       upload: 'Vorlage hochladen',
       loading: 'Checklisten werden geladen …',
       loadError: 'Checklisten konnten nicht geladen werden.',
@@ -7468,7 +7225,6 @@ export const de = {
       colUpdated: 'Stand',
       colAssets: 'Diagramme',
       colActions: 'Aktionen',
-      deleteAria: '{title} löschen',
       addAsset: 'Diagramme',
       delete: 'Löschen',
       deleting: 'Wird gelöscht …',
@@ -7498,11 +7254,12 @@ export const de = {
       kindRapport: 'Lagerapport',
       kindReference: 'Nachschlagen',
       kindVisit: 'Objektbesuch',
+      kindManual: 'Anleitung',
       added: '«{title}» hinzugefügt.',
       replaced: '«{title}» ersetzt.',
       assetTitle: 'Diagramme – {title}',
-      assetHint: 'Seitenbilder des Nachschlagewerks. Die Seitenzahl ist die, auf die sich die '
-        + 'Vorlage bezieht.',
+      assetHint: 'Seitenbilder des Nachschlagewerks oder Bilder einer Anleitung. Die Seitenzahl ist die, '
+        + 'auf die sich die Vorlage bezieht.',
       assetPage: 'Seite',
       assetPageHint: 'wie in der Vorlage',
       assetFile: 'Bild',
@@ -7511,9 +7268,9 @@ export const de = {
       notJson: 'Das ist keine gültige JSON-Datei.',
       notObject: 'Eine Vorlage muss ein JSON-Objekt sein.',
       fieldMissing: 'Vorlage: Feld «{field}» fehlt oder ist leer.',
-      badKind: 'Vorlage: unbekannte Art «{kind}» (erwartet: action, rapport oder reference).',
+      badKind: 'Vorlage: unbekannte Art «{kind}» (erwartet: action, rapport, reference oder manual).',
       needsPhasesOrEntries: 'Vorlage braucht genau eines von «phases» (Aufgaben/Lagerapport) oder '
-        + '«entries» (Nachschlagen).',
+        + '«entries» (Nachschlagen) – eine Anleitung (manual) hat stattdessen «steps» und «device».',
       badId: 'Die «id» der Vorlage darf keinen Doppelpunkt und keine Leerzeichen enthalten.',
     },
     modules: {
@@ -7550,11 +7307,11 @@ export const de = {
       pullAnd: '{a} und {b}',
       pullOn: 'Zeitgesteuerter Abgleich läuft.',
       pullOnTip: 'Ein Teil der Pläne kommt darüber automatisch herein. Was der letzte Lauf getan '
-        + 'hat, steht unter «System», der Zugang unter «Zugangsdaten › SharePoint» und die Ordner '
+        + 'hat, steht unter «System», der Zugang unter «Anbindungen › SharePoint» und die Ordner '
         + 'in der Konfiguration.',
-      pullOff: 'Kein zeitgesteuerter Abgleich – einrichten unter «Zugangsdaten › SharePoint».',
+      pullOff: 'Kein zeitgesteuerter Abgleich – einrichten unter «Anbindungen › SharePoint».',
       pullOffTip: 'Das ist der Normalfall, kein Fehler: Alle Pläne kommen von Hand in die Maske. '
-        + 'Zum Einrichten zuerst der Zugang unter «Zugangsdaten › SharePoint», danach die Ordner '
+        + 'Zum Einrichten zuerst der Zugang unter «Anbindungen › SharePoint», danach die Ordner '
         + 'in der Konfiguration.',
       pullSkips: '{n} von {total} Objekten haben keinen Ordner-Schlüssel – der Abgleich aus dem '
         + 'Planspeicher lässt sie aus.',
@@ -7955,12 +7712,12 @@ export const de = {
       // 401, und an der App sieht man nichts – auf den Tablets stehen einfach die Pläne von
       // vorher. «Zuletzt geprüft» wäre dann grün und gelogen.
       sharepoint: 'SharePoint-Anbindung',
-      sharepointTip: 'Holt Objektpläne, Geodaten, Checklisten und die Arbeitsmappe aus den SharePoint-Ordnern der Wehr – nur lesend, geschrieben wird dort nie. Welche Ordner: Konfiguration; Zugang: Zugangsdaten › SharePoint.',
+      sharepointTip: 'Holt Objektpläne, Geodaten, Checklisten und die Arbeitsmappe aus den SharePoint-Ordnern der Wehr – nur lesend, geschrieben wird dort nie. Welche Ordner: Konfiguration; Zugang: Anbindungen › SharePoint.',
       spNotSetUp: 'Nicht eingerichtet.',
-      spNotSetUpHint: 'Tenant-ID, Client-ID und Client-Secret unter Zugangsdaten eintragen, danach die Ordner in der Konfiguration. Die Anleitung steht in docs/sharepoint-connector.md.',
+      spNotSetUpHint: 'Tenant-ID, Client-ID und Client-Secret unter «Anbindungen» eintragen, danach die Ordner in der Konfiguration. Die Anleitung steht in docs/sharepoint-connector.md.',
       spNoSources: 'Zugang steht, es ist aber kein Ordner hinterlegt.',
       spNoSourcesHint: 'In der Konfiguration unter «sharepoint.sources» je Bereich einen Ordner angeben – nur die Bereiche, die es bei euch gibt. Die Anleitung steht in docs/sharepoint-connector.md.',
-      spOpenCredentials: 'Zugangsdaten öffnen',
+      spOpenCredentials: 'Anbindungen öffnen',
       spTestConnection: 'Verbindung testen',
       spTesting: 'Wird geprüft …',
       spTestOk: 'Verbindung erfolgreich.',

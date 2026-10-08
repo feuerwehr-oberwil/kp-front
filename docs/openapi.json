@@ -12077,6 +12077,215 @@
         }
       }
     },
+    "/api/integrations/visit-programmes/{programme_ref}": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Get Programme",
+        "operationId": "get_programme_api_integrations_visit_programmes__programme_ref__get",
+        "parameters": [
+          {
+            "name": "programme_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Programme Ref"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Programme Api Integrations Visit Programmes  Programme Ref  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/visit-programmes/{programme_ref}/routes": {
+      "put": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Put Programme Routes",
+        "operationId": "put_programme_routes_api_integrations_visit_programmes__programme_ref__routes_put",
+        "parameters": [
+          {
+            "name": "programme_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Programme Ref"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutesUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Put Programme Routes Api Integrations Visit Programmes  Programme Ref  Routes Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/visit-programmes/{programme_ref}/years/{year}": {
+      "put": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Publish Programme",
+        "operationId": "publish_programme_api_integrations_visit_programmes__programme_ref__years__year__put",
+        "parameters": [
+          {
+            "name": "programme_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Programme Ref"
+            }
+          },
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Year"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Publish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Publish Programme Api Integrations Visit Programmes  Programme Ref  Years  Year  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/integrations/object-visits/catalogue": {
       "get": {
         "tags": [
@@ -13026,6 +13235,120 @@
         }
       }
     },
+    "/api/admin/object-visits/notify": {
+      "get": {
+        "tags": [
+          "admin-object-visits"
+        ],
+        "summary": "Admin Notify",
+        "description": "Which accounts get «Neuer Objektbesuch» — every active account with its flag and how many\nof its browsers can receive a push. Nobody until an admin picks somebody.",
+        "operationId": "admin_notify_api_admin_object_visits_notify_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Notify Api Admin Object Visits Notify Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin-object-visits"
+        ],
+        "summary": "Admin Set Notify",
+        "description": "``{userIds: [uuid, …]}`` — exactly these accounts are told, everybody else is not.",
+        "operationId": "admin_set_notify_api_admin_object_visits_notify_put",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Set Notify Api Admin Object Visits Notify Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/object-visits/deliveries": {
       "get": {
         "tags": [
@@ -13879,6 +14202,27 @@
           "edit_version"
         ],
         "title": "AlignmentMutation"
+      },
+      "Assignment": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,39}$",
+            "title": "Code"
+          },
+          "scheduledOn": {
+            "type": "string",
+            "format": "date",
+            "title": "Scheduledon"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "scheduledOn"
+        ],
+        "title": "Assignment"
       },
       "Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post": {
         "properties": {
@@ -14735,17 +15079,11 @@
           "report": {
             "$ref": "#/components/schemas/ReportConfig"
           },
-          "suche": {
-            "$ref": "#/components/schemas/SucheConfig"
-          },
           "sharepoint": {
             "$ref": "#/components/schemas/SharePointConfig"
           },
           "setup": {
             "$ref": "#/components/schemas/SetupConfig"
-          },
-          "lageGrundgeruest": {
-            "$ref": "#/components/schemas/LageGrundgeruestConfig"
           },
           "objectVisits": {
             "$ref": "#/components/schemas/ObjectVisitsConfig"
@@ -14808,17 +15146,11 @@
           "report": {
             "$ref": "#/components/schemas/ReportConfig"
           },
-          "suche": {
-            "$ref": "#/components/schemas/SucheConfig"
-          },
           "sharepoint": {
             "$ref": "#/components/schemas/SharePointConfig"
           },
           "setup": {
             "$ref": "#/components/schemas/SetupConfig"
-          },
-          "lageGrundgeruest": {
-            "$ref": "#/components/schemas/LageGrundgeruestConfig"
           },
           "objectVisits": {
             "$ref": "#/components/schemas/ObjectVisitsConfig"
@@ -14828,14 +15160,6 @@
           },
           "alarmVocabulary": {
             "$ref": "#/components/schemas/AlarmVocabularyStatus"
-          },
-          "lageGrundgeruestPresets": {
-            "additionalProperties": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "object",
-            "title": "Lagegrundgeruestpresets"
           },
           "version": {
             "anyOf": [
@@ -17089,133 +17413,6 @@
         ],
         "title": "JournalPage"
       },
-      "LageGrundgeruestConfig": {
-        "properties": {
-          "preset": {
-            "type": "string",
-            "title": "Preset",
-            "default": "fks-standard"
-          },
-          "kategorien": {
-            "additionalProperties": {
-              "items": {
-                "$ref": "#/components/schemas/LageSlot"
-              },
-              "type": "array"
-            },
-            "type": "object",
-            "title": "Kategorien"
-          }
-        },
-        "type": "object",
-        "title": "LageGrundgeruestConfig",
-        "description": "`lageGrundgeruest` — which shipped preset runs, and the Einsatzarten the station replaced.\n\n``{\"preset\": \"fks-standard\"}`` alone is a whole, valid answer (and the default). A key under\n``kategorien`` (an alarm keyword category, e.g. ``brandbekaempfung``) REPLACES that one\nEinsatzart of the preset; an empty list there means «no Grundgerüst for this Einsatzart».\nPresets: app/data/lage_grundgeruest/*.json; docs/CONFIGURATION.md §1e.\n\nA STORED document is read leniently (``context={\"stored\": True}``): a slot today's rules\nrefuse — a symbol renamed in a newer pack — is dropped and logged rather than taking the whole\nstation config down, like every other rule grown since a row was written (load_stored_config)."
-      },
-      "LageSlot": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "maxLength": 40,
-            "minLength": 1,
-            "pattern": "^[a-z0-9][a-z0-9_-]*$",
-            "title": "Id"
-          },
-          "label": {
-            "type": "string",
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Label"
-          },
-          "symbol": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Symbol"
-          },
-          "linie": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Linie"
-          },
-          "vorschlag": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/LageVorschlag"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "optional": {
-            "type": "boolean",
-            "title": "Optional",
-            "default": false
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "label"
-        ],
-        "title": "LageSlot",
-        "description": "One row of a Lage-Grundgerüst: a thing the Karte should carry, and how to place it.\n\n``symbol`` (a name from public/tactical-symbols.json) XOR ``linie`` (a line preset label) —\nchecked against both vocabularies in ``lage_grundgeruest.check_slot_target``, with a\ndid-you-mean. ``optional`` rows are shown but never counted towards «fertig»."
-      },
-      "LageVorschlag": {
-        "properties": {
-          "naechster": {
-            "anyOf": [
-              {
-                "type": "string",
-                "const": "hydrant"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Naechster"
-          },
-          "wind": {
-            "anyOf": [
-              {
-                "type": "string",
-                "const": "auf"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Wind"
-          },
-          "m": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 2000.0,
-                "minimum": 5.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "M"
-          }
-        },
-        "type": "object",
-        "title": "LageVorschlag",
-        "description": "Where the Grundgerüst card suggests putting a slot's symbol — a starting point to drag.\n\nExactly one kind: ``{\"naechster\": \"hydrant\"}`` (the nearest point of the station's hydrant\nlayer, straight-line) or ``{\"wind\": \"auf\", \"m\": N}`` (N metres upwind of the Einsatzort, off\nthe incident's current weather). Absent = no suggestion; the row then only arms the tool."
-      },
       "LinkTokenIn": {
         "properties": {
           "token": {
@@ -18023,6 +18220,28 @@
           "updated_at"
         ],
         "title": "ObjectOut"
+      },
+      "ObjectRef": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+            "title": "Source"
+          },
+          "id": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "id"
+        ],
+        "title": "ObjectRef"
       },
       "ObjectRefIn": {
         "properties": {
@@ -19042,6 +19261,30 @@
         "title": "ProviderRegistration",
         "description": "One provider this build knows about, whether or not this station uses it.\n\nThe list is what makes personnel/alarms/vehicles a *choice* rather than a vendor: a\nstation reads it to see what it could point at. ``implemented`` is false for a provider\nwhose contract is published but whose ingestion is not built yet — an entry that is\ndiscoverable and honest about being inert, rather than a registry that quietly implies\neverything listed works."
       },
+      "Publish": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revision"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/Assignment"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Assignments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "assignments"
+        ],
+        "title": "Publish"
+      },
       "RankConfig": {
         "properties": {
           "key": {
@@ -19716,6 +19959,67 @@
         "title": "RosterUser",
         "description": "A login tile — never includes anything secret."
       },
+      "Route": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,39}$",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectRef"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Objects"
+          },
+          "retired": {
+            "type": "boolean",
+            "title": "Retired",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "objects"
+        ],
+        "title": "Route"
+      },
+      "RoutesUpdate": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revision"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/Route"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Routes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "routes"
+        ],
+        "title": "RoutesUpdate"
+      },
       "SegmentPatch": {
         "properties": {
           "status": {
@@ -20003,20 +20307,6 @@
           "auth"
         ],
         "title": "SubscriptionKeys"
-      },
-      "SucheConfig": {
-        "properties": {
-          "uebergabe": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Uebergabe"
-          }
-        },
-        "type": "object",
-        "title": "SucheConfig",
-        "description": "The Suche (24.09.2026): `uebergabe` is the short list «weiter an» offers when a found\nperson is handed over (Rettungsdienst · Sammelplatz · Angehörige). Empty = the app's national\ndefault; the operator can always type another."
       },
       "TerminalSessionIn": {
         "properties": {

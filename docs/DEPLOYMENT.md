@@ -288,7 +288,7 @@ Do it in this order. Steps 3 and 4 are the ones people discover afterwards.
    per-source login throttle keys every request on the proxy's address instead of the real
    client (the backend warns at startup about that shape). **Integration
    credentials do not belong here** – Divera, Traccar, Web Push, STT, CARTO, the webhook secrets
-   and the monitor ping go into `/admin` → Zugangsdaten, encrypted in the deployment's own
+   and the monitor ping go into `/admin` → Anbindungen, encrypted in the deployment's own
    database and changeable without a redeploy (§4).
 
 6. **Deploy, then verify two URLs, not one.**
@@ -324,12 +324,51 @@ Railway the database is managed, so the backup story is §6's Railway paragraph 
 `pg_dump` against `DATABASE_PUBLIC_URL` from a machine you control, plus the automatic
 pre-migration dumps on the volume.
 
+### A staging copy on Railway
+
+A place to try an idea on the station's real data without touching the station: a second
+Railway **environment** of the same project, with its own Postgres, its own volume and its own
+URL. A different origin is a different PWA, so a tablet can have both installed side by side.
+
+```bash
+railway environment new staging --duplicate production \
+  --service-config <app-service> source.branch staging \
+  --service-config <app-service> variables.HEALTHCHECK_PING_URL.value "" \
+  --service-config <app-service> variables.ADMIN_SECRET.value "$(openssl rand -hex 24)" …
+railway environment link production          # `new` re-links the checkout to the new environment
+railway variable set SEED_PIN=<digits> PUBLIC_URL=https://<app-service>-staging.up.railway.app \
+  --service <app-service> --environment staging
+railway ssh keys add                          # once, for the copy below
+./scripts/railway-staging-refresh.sh          # prod → staging: database + volume, then the cuts
+```
+
+- **Code** reaches staging through the `staging` branch: merge into it, never force-push (other work in flight lives there).
+  `main` and prod are untouched, and the CI gate does not apply. Keep the branch **up to date with
+  `main`** (`git merge origin/main`): the copy carries prod's migration state, and staging code
+  older than that does not boot on it.
+- **Keep `SECRET_KEY` identical** (the duplicate copies it). It peppers every PIN and seals the
+  stored credentials, so with a different key nobody can log in to the copy.
+- **Give staging its own** `ADMIN_SECRET`, `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`
+  (`app.gen_vapid`), `PRINT_AGENT_SECRET` and the two inbound webhook secrets. Leave
+  `HEALTHCHECK_PING_URL` **empty**, because the copy would otherwise keep prod's dead-man's switch
+  green. `SEED_PIN` only lets the empty first boot come up; after the copy the accounts exist.
+- **What the refresh cuts**, in the same transaction as the restore: prod's push subscriptions
+  (every Divera alarm staging polls would otherwise reach the crew's phones a second time),
+  `alarms.webhooks`, and the stored copies of the credentials listed above. It also renames the
+  app to «KP Staging». Read-only feeds (Divera poll, Traccar, SharePoint, STT, CARTO) keep
+  working, so staging sees the same alarms and vehicles.
+- **A refresh overwrites staging completely.** Prod is only read, via `pg_dump` and `tar -c`
+  over `railway ssh`. `--db-only` skips the volume.
+- **Not cut:** the plaintext link and poster keys on `deployment_config`. A prod QR code points
+  at prod's host, so it never reaches staging, but a prod link pasted onto the staging host opens
+  there.
+
 ## 4. Configuration split
 
 | What | Where | Who |
 |------|-------|-----|
 | Host + boot secrets | `.env` (env vars) | operator, at deploy time |
-| Integration credentials | `/admin` → Zugangsdaten, encrypted in the DB – **or** `.env`, which wins | operator or technical deployment owner, any time |
+| Integration credentials | `/admin` → Anbindungen, encrypted in the DB – **or** `.env`, which wins | operator or technical deployment owner, any time |
 | Station config + assets | forms at `/admin`, writing the DB/reference store directly; or a private config/data repo → CLI, for config as code | technical deployment owner |
 | Per-incident settings | in-app | any user, during an incident |
 
@@ -346,7 +385,7 @@ automatically. For a managed Postgres, set `DATABASE_URL` directly instead. Set 
 Seventeen of the optional variables in `.env.example` – every Divera, Traccar, Web Push,
 speech-to-text and webhook setting, plus `CARTO_API_KEY`, `PRINT_AGENT_SECRET` and
 `HEALTHCHECK_PING_URL` – can
-instead be set at `/admin` → **Zugangsdaten**, stored encrypted in this deployment's own database
+instead be set at `/admin` → **Anbindungen**, stored encrypted in this deployment's own database
 and applied **without a restart**. `SETUP.md` §5 is the operator's version, including which
 variables deliberately stay env-only and why; `API.md` has the endpoints.
 
@@ -493,7 +532,7 @@ to one that is merely broken – an app answering 503 because its disk is full s
 wrong, and the compose healthcheck has no consumer that alerts anybody.
 
 The app has a **dead-man's switch** built in and switched off. Point `HEALTHCHECK_PING_URL` at a
-ping URL (healthchecks.io is free and enough) – at `/admin` → **Zugangsdaten**, where it takes
+ping URL (healthchecks.io is free and enough) – at `/admin` → **Anbindungen**, where it takes
 effect immediately, or in `.env`, which wins and locks the field (§4) – and it pings **every 60 s**
 after its database and storage readiness checks succeed (`backend/app/scheduler.py` – the
 heartbeat job is registered with `seconds=60`). Failed or timed-out checks withhold the ping.
@@ -695,7 +734,7 @@ what makes the data usable:
   account is locked out, with no way to tell that from "wrong PIN".
 - It **derives the key every stored integration credential is encrypted under** (§4). Under a
   different `SECRET_KEY` those rows cannot be opened at all: Divera, Traccar, Web Push, STT, both
-  webhook intakes and the monitor ping report themselves in «Zugangsdaten» as
+  webhook intakes and the monitor ping report themselves in «Anbindungen» as
   «unlesbar, bitte neu setzen» and stay off until somebody types each one in again. That is
   deliberately loud rather than silent – an undecryptable value is never shown as merely
   "not configured" – but it is still every integration down at once.
@@ -766,7 +805,7 @@ producing files. It prints the command that fixes what it finds. It is the same 
   and deactivates everyone not in it, so run it with the *target* deployment's `SECRET_KEY` and
   `DATABASE_URL` (`CONFIGURATION.md` §9g has the exact invocation and the caveats). On a
   Docker-only host it needs no toolchain either:
-  `docker compose exec app uv run python -m app.reset_roster`. Check `/admin` → Zugangsdaten in
+  `docker compose exec app uv run python -m app.reset_roster`. Check `/admin` → Anbindungen in
   the same pass: the stored credentials are encrypted under a key derived from that same value,
   and they will be showing «unlesbar» (§6).
 - **`ADMIN_SECRET` is lost – nobody can open `/admin`:** this one is **not** a

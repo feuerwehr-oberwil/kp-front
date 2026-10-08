@@ -10,15 +10,29 @@ function duration(svg: Element) {
   return Number.parseFloat(getComputedStyle(svg).getPropertyValue('--snail-arrival-duration')) || 0
 }
 
-function elapsed(svg: Element) {
-  if (startedAt === undefined) {
-    // An ended one-shot's clock stops at 630 ms. The shell loop keeps the full launch
-    // time, including its initial delay, so a slow boot must take its clock from there.
-    const loop = svg.getAnimations?.({ subtree: true }).find(animation => (animation as CSSAnimation).animationName?.endsWith('-shell'))
-    const time = (loop ?? arrival(svg))?.currentTime
-    startedAt = performance.now() - (typeof time === 'number' ? time : 0)
+/** The launch clock: the shell loop keeps the full launch time, including its initial delay,
+ * while an ended one-shot's clock stops at 630 ms, so a slow boot must read the loop. */
+function launchClock(svg: Element) {
+  return svg.getAnimations?.({ subtree: true }).find(animation => (animation as CSSAnimation).animationName?.endsWith('-shell')) ?? arrival(svg)
+}
+
+/** Time since the launch clock's zero. `settle` fixes that zero for every later loader. */
+function elapsed(svg: Element, settle = true) {
+  let start = startedAt
+  if (start === undefined) {
+    const clock = launchClock(svg)
+    // ⚠️ The animation's `startTime`, not `now - currentTime`: `currentTime` is the clock of the
+    // LAST frame and stands still until the next one, so on a loaded device that placed the zero
+    // too late by however long the frame was overdue and React rewound its copy of the entrance
+    // (609 ms instead of ≥ 630 ms at the handover, 08.10.2026). `startTime` shares
+    // `performance.now()`'s origin and stays fixed once the animation runs. Only a launch without
+    // one (no animation API, or still pending before its first frame) falls back.
+    if (typeof clock?.startTime === 'number') start = clock.startTime
+    else start = performance.now() - (typeof clock?.currentTime === 'number' ? clock.currentTime : 0)
+    // A pending animation gets its start time with a coming frame: settle only when asked.
+    if (settle || typeof clock?.startTime === 'number') startedAt = start
   }
-  return Math.max(0, performance.now() - startedAt)
+  return Math.max(0, performance.now() - start)
 }
 
 /** Keep the static cover until the entrance is visible in full, even on a cached launch.
@@ -33,13 +47,15 @@ export async function waitForSnailArrival() {
     const timer = setTimeout(resolve, 50)
     requestAnimationFrame(() => { clearTimeout(timer); resolve() })
   })
-  const remaining = Math.max(0, duration(svg) - elapsed(svg))
-  if (!remaining) return
+  const remaining = Math.max(0, duration(svg) - elapsed(svg, false))
+  if (!remaining) return void elapsed(svg)
   await new Promise<void>(resolve => {
     const timer = setTimeout(resolve, remaining + 50)
     const done = () => { clearTimeout(timer); resolve() }
     arrival(svg)?.finished.then(done, done)
   })
+  // Fix the launch clock while the cover still exists: React's copy continues it.
+  elapsed(svg)
 }
 
 /** Continue before paint so a remount cannot replay the entrance or reset the idle. */

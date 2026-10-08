@@ -21,15 +21,13 @@
 /* the roster search, pinned above the list — sticky so it survives a scroll: a filter you have
    to scroll back up to reach is a filter you stop using */
 .searchRow { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center;
-  padding: 6px; margin: -4px -4px 2px; background: var(--surface);
+  padding: 4px; margin: -4px -4px 2px; background: var(--surface);
   border-bottom: 1px solid var(--glass-edge); }
 /* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026) — it was a bare
    14px input with a 28px ✕ in a ruled band; the band stays (it is what stays pinned) */
 .search { flex: 1 1 auto; }
 
-/* Dienstgrad chip on a roster row — what makes the officers-first sorting legible at a glance */
-.rank { flex: none; font: 800 10px var(--body); letter-spacing: .02em; color: var(--ink-dim);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 5px; padding: 2px 5px; }
+/* (the Dienstgrad chip on a roster row is RankBadge, RankBadge.module.css) */
 
 /* the option's name cell: it takes the slack and ellipses, so the marks around it (chip, dot,
    «Gast», the soft note) keep their room on a narrow field */

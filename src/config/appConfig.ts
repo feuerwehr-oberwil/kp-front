@@ -43,7 +43,6 @@ const base = {
   defaults: {
     operationalLayerId: 'taktisch' as LayerId,   // placed symbols
     drawingLayerId: 'markup' as LayerId,          // freehand/area drawings, notes, photos
-    sucheLayerId: 'suche' as LayerId,             // the Suche's pins, on the Karte and the plans
     snapshotFilePrefix: 'incident-map-snapshot',
     /** undo-history depth, shared by the Lage map doc and the Plan board (one cap
      *  instead of the map's old 60 vs the plan's old 80) */
@@ -646,12 +645,6 @@ const base = {
       { id: 'freihand', label: 'Freihand', defaults: { arrow: false, marker: '', showDistance: false } },
       { id: 'pfeil', label: 'Pfeil', defaults: { arrow: true, marker: '', showDistance: false, dashed: false } },
       { id: 'rettungsachse', label: 'Rettungsachse', defaults: { arrow: true, marker: 'R', showDistance: false, dashed: true } },
-      // The Lage-Grundgerüst's Zufahrt (24.09.2026): modelled on the Rettungsachse — an arrow
-      // with its own letter along it, SOLID so the two never read alike on the Kroki. Its label
-      // is a compatibility key: station config names it (`lageGrundgeruest` · `linie: "Zufahrt"`,
-      // backend lage_grundgeruest · LINE_PRESETS), and the Verlauf says «Zufahrt gezeichnet».
-      // ⚠️ After «Pfeil»: linePresetLabel keeps the LAST preset a line matches.
-      { id: 'zufahrt', label: 'Zufahrt', defaults: { arrow: true, marker: 'Z', showDistance: false, dashed: false } },
     ] as { id: string; label: string; defaults: { arrow?: boolean; marker?: string; showDistance?: boolean; dashed?: boolean; color?: string } }[],
     /** subtle ink casing under a selected drawing — markers/symbols instead pop on select */
     selectColor: '#1b2330',

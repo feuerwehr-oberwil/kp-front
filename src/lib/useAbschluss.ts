@@ -31,11 +31,6 @@ interface Args {
   /** open the Rapport ON one Mindestangabe (IncidentWorkspace · requestReportStep, a stable
    *  module-level loader of the lazy ReportPreflight chunk) */
   requestReportStep: (step: AbschlussStep) => void
-  /** the Suche's state for the confirm: people still missing and the Bereiche not abgesucht (a
-   *  hint) — and where to answer them. `ask` is the missing people's OWN question
-   *  (lib/suche · vermisstAbschlussMessage), null when nobody is missing. */
-  suche?: { vermisst: number; openBereiche: string[]; ask?: string | null }
-  openSuche?: () => void
   /** Close these Trupps as «nicht eingesetzt» — the card's own stand-down (useTruppActions ·
    *  setTruppStatus(id, 'raus') on a Trupp that never went in), one undo step each. The caller
    *  re-checks every id against the Trupps as they stand THEN (a Sicherungstrupp sent in while the
@@ -66,7 +61,7 @@ interface Args {
  */
 export function useAbschluss({
   reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
-  setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche, flushOutboxes, markClosing,
+  setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, flushOutboxes, markClosing,
 }: Args) {
   const abschlussMissing = useMemo(
     () => missingSteps(abschlussFacts(reportMeta, Object.keys(attendance).length, mittelLineCount(mittel), openConflictCount)),
@@ -129,25 +124,6 @@ export function useAbschluss({
       if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
       if (answer !== true) return false
     }
-    /* ⚠️ People still MISSING are their own question too, right after the crews (walk-through
-       25.09.2026, N6). «8 Personen noch vermisst» was the first grey row of nine under a filled,
-       focused «Trotzdem abschliessen», and an Enter closed the Einsatz over them. The sentence
-       names the count and the first names; «Zur Suche» is the filled, focused answer, closing
-       anyway the quiet one — and the paperwork list below then does not repeat it. */
-    const vermisstAsk = suche?.ask
-    if (vermisstAsk) {
-      const answer = await confirmDialog({
-        // titled like the crews' question («Trupps noch drin») — the two stand in one sequence
-        title: appConfig.copy.suche.abschlussAskTitle,
-        message: vermisstAsk,
-        confirmLabel: A.insideClose,
-        altLabel: appConfig.copy.suche.abschlussToSuche,
-        cancelLabel: appConfig.copy.cancel,
-        safeAnswer: 'alt',
-      })
-      if (answer === 'alt') { openSuche?.(); return false }
-      if (answer !== true) return false
-    }
     /* ⚠️ A Trupp still ANGEMELDET is asked about FIRST, on its own (24.09.2026, D1 ⑦). On 23.09.
        the Sicherungstrupp T6 stood «angemeldet» to the end, and the confirm below counted only
        the crews inside, so the record closed with a crew neither sent in nor stood down. Three
@@ -188,10 +164,7 @@ export function useAbschluss({
        ⚠️ Pending media belongs here too. The Abschluss closes the incident, and a Foto or a
        Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
        about to walk away, so that is part of what they are confirming. */
-    // …and the Suche (24.09.2026): «2 Personen noch vermisst» makes the button «Trotzdem
-    // abschliessen»; an area nobody searched is only named
-    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount,
-      suche && vermisstAsk ? { ...suche, vermisst: 0 } : suche)
+    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount)
     // …and it counts as an open point for the WORDING, the way a missing Angabe does: the message
     // and the button both have to say that something is being closed over.
     const anyOpen = points.some(countsAsOpen)
@@ -206,7 +179,6 @@ export function useAbschluss({
         step: (st) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
         trupps: () => { setMode('atemschutz'); setPanel(null) },
         media: () => setOfflineReadyOpen(true),
-        suche: openSuche,
       }),
       note: anyOpen ? A.confirmMsg : undefined,
       // the button names what is actually about to happen — closing an Einsatz with open points
@@ -250,7 +222,7 @@ export function useAbschluss({
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport().finally(() => markClosing?.(false))
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, suche, openSuche, flushOutboxes, markClosing])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, flushOutboxes, markClosing])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

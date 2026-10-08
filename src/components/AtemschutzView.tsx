@@ -6,6 +6,8 @@ import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { newId } from '../lib/ids'
 import { Segmented } from './Segmented'
+import { Button } from './Button'
+import { Chip } from './Chip'
 import { Menu, Overlay, Popover, SheetFoot, SheetGrab } from '../lib/overlays'
 import { alarmBarFor, currentRunStart, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
@@ -29,7 +31,6 @@ import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { keepDraft, useKeptState } from '../lib/draftKeep'
 import { truppOrderKey } from '../lib/useTruppActions'
 import s from './Atemschutz.module.css'
-import { ZielChips } from './suche/SucheTrupp'
 import { AuftragSheet, KanalPickSheet, KanalSheet, LeitungField, PressureSheet, TeamConflictRow, TruppSheet } from './TruppSheets'
 import { fileGuestSlots, teamConflict, truppSheetSub } from '../lib/truppQuickEdit'
 import { crewAfterChange, type CrewChange } from '../lib/truppLeader'
@@ -105,7 +106,7 @@ export function AtemschutzView({
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt,
   onUndo, onRedo, canUndo = false, canRedo = false, undoLabel, redoLabel,
-  syncStatus, lastSyncedAt, clockSkewMs, sucheItems, zielChoices,
+  syncStatus, lastSyncedAt, clockSkewMs,
 }: {
   trupps: Trupp[]
   /** trupp id → the colour it wears on the Lage / plan (useTruppActions · truppColors). Every
@@ -248,11 +249,6 @@ export function AtemschutzView({
    *  minutes out, whose operator will read every other timestamp in the app (Verlauf, Fotos,
    *  Anwesenheit) as if it were right. */
   clockSkewMs?: number | null
-  /** the Suche's rows on a Trupp's ⋯ menu — «Fund melden», «Bereich abgesucht» (components/suche ·
-   *  sucheTruppItems). Absent on a session that may not write the Suche. */
-  sucheItems?: (t: Trupp) => { label: string; onClick: () => void }[]
-  /** the Suche's areas, offered under the Ziel field — a pick fills the Ziel (components/suche) */
-  zielChoices?: string[]
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   /* ── «Tafel pur» sees the Atemschutz and NOTHING else (decided 03.09.) ─────────────────────
@@ -1037,7 +1033,6 @@ export function AtemschutzView({
       // «Tafel pur»: everything that points at the Karte or a drawn Leitung is unreachable from
       // this session, and a control that will fail is worse than no control (see `lite` above).
       lite={!!lite}
-      sucheItems={lite ? undefined : sucheItems}
       onCollapse={compact && !focusMode ? () => setOpenRow(null) : undefined}
     />
     )
@@ -1486,10 +1481,10 @@ export function AtemschutzView({
                 is the one a first-timer taps. On the handed-over phone board «+ Trupp» is the
                 bottom rail's own cell, so it is not repeated here. */}
             {canEdit && !focusMode && (
-              <button type="button" className={cx('ip-btn primary', s.emptyAct)} onClick={() => openForm('create')}>
+              <Button variant="primary" size="lg" className={s.emptyAct} icon={<Icon id="plus-bold" />} onClick={() => openForm('create')}>
                 {/* the whole «Trupp anmelden» (newTrupp): `start` is the form's one-verb footer since 27.09.2026 */}
-                <Icon id="plus-bold" /><span>{az.newTrupp}</span>
-              </button>
+                {az.newTrupp}
+              </Button>
             )}
           </div>
         ) : focusMode ? (
@@ -1692,7 +1687,6 @@ export function AtemschutzView({
           })}
           leitungOptions={leitungOptions(form.trupp?.id)}
           lite={!!lite}
-          zielChoices={lite ? undefined : zielChoices}
           // ⚠️ EVERY phone, not only the handed-over one (03.09.). `compact` is `useIsPhone`, so a
           // tablet — where the whole form stands in one glance — keeps the single screen; the
           // stack exists for the 375px case, where the single screen puts the fields that start
@@ -1743,7 +1737,7 @@ export function AtemschutzView({
         return quick.kind === 'kanal'
           ? <KanalSheet t={t} onSave={save} onClose={close} />
           : quick.kind === 'auftrag'
-          ? <AuftragSheet t={t} zielChoices={lite ? undefined : zielChoices} leitungOptions={leitungOptions(t.id)} lite={!!lite}
+          ? <AuftragSheet t={t} leitungOptions={leitungOptions(t.id)} lite={!!lite}
               onSave={save} onClose={close} />
           /* the crew and the Ausrüstung — the same roster, presence and «one person, one Trupp»
              answers the form gets (see TruppForm's props below); a Trupp that has come OUT binds
@@ -1830,7 +1824,7 @@ function SafetyRow({ t, canEdit, onDeploy, onOpen }: {
           <span role="button" tabIndex={0} className={s.safetyDeploy}
             onClick={(e) => { e.stopPropagation(); onDeploy(t.id) }}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onDeploy(t.id) } }}>
-            {az.safetyDeploy}
+            {az.actEnter}
           </span>
         )}
       </span>
@@ -2170,14 +2164,12 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, sucheItems,
+  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false,
 }: {
   /** the mini sheets (26.09.2026 — components/TruppSheets): a tap on the Kanal opens the Kanal
    *  sheet, a tap on the Auftrag / Ziel / a missing Auftrag the Auftrag sheet, a tap on the crew or
    *  the Ausrüstung the Trupp sheet. Absent for a viewer. */
   onQuick?: (kind: 'kanal' | 'auftrag' | 'trupp') => void
-  /** the Suche's rows at the head of the ⋯ menu (AtemschutzView · sucheItems) */
-  sucheItems?: (t: Trupp) => { label: string; onClick: () => void }[]
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
   alarm: TruppAlarm
@@ -2420,7 +2412,7 @@ function TruppCard({
    * ⚠️ On the PHONE it is the LAST resort, not the first row (26.09.2026, phone card slim-down ⑤):
    * every fact the form edits has its own chip and sheet on that card — the crew, the Auftrag,
    * the Ziel, the Leitung, the Kanal, the Ausrüstung — so the form is left for what has no sheet,
-   * the Art and the Eingangsdruck-Korrektur. It stands after the jumps and the Suche's rows,
+   * the Art and the Eingangsdruck-Korrektur. It stands after the jumps,
    * above the rule that separates the closing actions — on the tablet too since 29.09.2026, which
    * wears the same chips (it kept «Bearbeiten» first while its Kennzeile was a sentence). */
   const editItem = canEdit ? [{ label: az.edit, onClick: () => onEdit() }] : []
@@ -2432,8 +2424,6 @@ function TruppCard({
     // form's Ltg-Nr. quick-picks, from the line's own editor, or by snapping a hose end to the
     // Trupp's marker – never from an armed, invisible tap mode.
     ...(lite || !hasLine ? [] : [{ label: az.lineShow, onClick: () => onShowLine(t.id) }]),
-    // the Suche's two doors (Tür 3): the radio report reaches the ASÜ or the plan person here
-    ...(canEdit && sucheItems ? sucheItems(t) : []),
     ...editItem,
     // Only while the hand-set order is the one on screen: moving a card under any other sort
     // would rearrange something the sort is about to rearrange back.
@@ -2622,9 +2612,9 @@ function TruppCard({
             Rückgängig»). The row it writes still says «nicht eingesetzt», never «Austritt». */}
         {canEdit && preEntry && monitored && (
           <div className={s.standDownRow}>
-            <button type="button" className={s.standDownBtn} onClick={() => onStandDown(t.id)}>
-              <Icon id="logout" /><span>{az.actNotDeployed}</span>
-            </button>
+            <Button variant="quiet" icon={<Icon id="logout" />} onClick={() => onStandDown(t.id)}>
+              {az.actNotDeployed}
+            </Button>
           </div>
         )}
         {canEdit && inField && (
@@ -2927,10 +2917,8 @@ function truppDraftStamp(t: Trupp): string {
 }
 
 function TruppForm({
-  mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, sheet = false, pinned, onAddGuest, onCancel, onSubmit, zielChoices,
+  mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, sheet = false, pinned, onAddGuest, onCancel, onSubmit,
 }: {
-  /** the Suche's areas under the Ziel field (components/suche · ZielChips) */
-  zielChoices?: string[]
   mode: FormMode
   initial?: Trupp
   /** a NEW Trupp's Auftrag, chosen by the door it came through — «Sicherungstrupp bestimmen»
@@ -3434,10 +3422,11 @@ function TruppForm({
      `pickKind` still re-seeds the Funkkanal while it is the untouched default. */
   const kindChooser = !lite ? (
     <div className={s.kindHeadSeg} role="radiogroup" aria-label={az.kindLabel}>
-      <button type="button" role="radio" aria-checked={isPa}
-        className={cx(s.kindHeadOpt, isPa && s.on)} onClick={() => pickKind('atemschutz')}>{az.kindAtemschutz}</button>
-      <button type="button" role="radio" aria-checked={!isPa}
-        className={cx(s.kindHeadOpt, !isPa && s.on)} onClick={() => pickKind('einfach')}>{az.kindPlain}</button>
+      {/* THE choice chip (a radio here, so `aria-checked` speaks and `aria-pressed` stays off) */}
+      <Chip role="radio" selected={isPa} aria-pressed={undefined} aria-checked={isPa}
+        className={s.kindHeadOpt} onClick={() => pickKind('atemschutz')}>{az.kindAtemschutz}</Chip>
+      <Chip role="radio" selected={!isPa} aria-pressed={undefined} aria-checked={!isPa}
+        className={s.kindHeadOpt} onClick={() => pickKind('einfach')}>{az.kindPlain}</Chip>
     </div>
   ) : null
 
@@ -3583,14 +3572,8 @@ function TruppForm({
           onChange={(v) => setZiel(stripUnprintable(v))}
         />
       </label>
-      {/* the Suche's areas (24.09.2026): a pick fills the Ziel; a NEW name typed above creates
-          the area once the Trupp is saved (lib/useSucheTrupps) */}
-      {/* …as SHORTCUTS under every Auftrag, the same row the Auftrag sheet shows (29.09.2026, T12:
-          the form showed them under «Absuchen» only, the sheet for all — one question, two looks
-          by door). Only an «Absuchen» Ziel is read back by the Suche; for the rest it is a place. */}
-      {zielChoices && zielChoices.length > 0 && <ZielChips choices={zielChoices} onPick={setZiel} />}
       {/* Ausrüstung — multi-select chips: selected = filled, unselected = framed, the SAME chip the
-          Trupp sheet draws (TruppSheets · TruppSheet, `.miniChip`). The tick box they wore until
+          Trupp sheet draws (TruppSheets · TruppSheet, `<Chip>`). The tick box they wore until
           27.09.2026 (mock 14.09.) was a second state mark inside a chip that already has one; the
           checkbox ROLE stays, because «several go» is what a screen reader has to hear. Only under
           Atemschutz: a work squad takes no Retthaube in. The list comes from the station
@@ -3602,10 +3585,10 @@ function TruppForm({
             {atemschutzEquipment().map((e) => {
               const on = equipment.includes(e.id)
               return (
-                <button key={e.id} type="button" role="checkbox" aria-checked={on}
-                  className={cx(s.miniChip, on && s.miniChipOn)} onClick={() => toggleEquipment(e.id)}>
+                <Chip key={e.id} role="checkbox" selected={on} aria-pressed={undefined} aria-checked={on}
+                  onClick={() => toggleEquipment(e.id)}>
                   {az.equipmentLabels[e.id] ?? e.label}
-                </button>
+                </Chip>
               )
             })}
           </div>

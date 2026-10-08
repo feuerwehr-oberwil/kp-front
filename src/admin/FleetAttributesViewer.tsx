@@ -160,7 +160,7 @@ export function FleetAttributesViewer({ lists }: { lists: FleetAttributeList[] }
       {/* ONE table across every category; the category is a spanning first column (not a
           per-category section heading), so all groups share identical columns. */}
       {groups.length > 0 && (
-        <Table columns={columns} className="adm-vtable">
+        <Table columns={columns} className="adm-vtable adm-table-scroll">
           {groups.map((g, gi) => {
             const symRows = g.symbols.map((s) => ({ s, rows: rowsFor(s.name, s.cat) }))
             const catRowTotal = symRows.reduce((n, x) => n + x.rows.length, 0)

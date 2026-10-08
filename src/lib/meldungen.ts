@@ -37,30 +37,22 @@ export const MELDUNG_RANK = {
    *  and wrote the Verlauf row; this is that row, once per device (24.09.2026, D2). Above the
    *  GPS-follow row: a Lüfter blowing the wrong way is about the crew inside. */
   wind: 5,
-  /** a Trupp came out of an area it was searching and nobody has said yet whether it is
-   *  abgesucht (lib/suche · pendingAsks, walk-through 25.09.2026 N13) — one row per question,
-   *  gone when somebody answers, never waved away: the answer IS the dismissal. Below the wind:
-   *  the «abgesucht?» ask is bookkeeping that waits, a Lüfter blowing the wrong way is not. */
-  suche: 6,
   /** a vehicle a drawn Leitung is attached to has driven off; its anchor is off-screen */
-  gps: 7,
+  gps: 6,
   /** the alarm source's guesses have not been checked yet */
-  review: 8,
+  review: 7,
   /** another tab of this browser holds the edit lock */
-  tabLock: 9,
+  tabLock: 8,
   /** the tactical symbol pack failed to load — Karte and Kroki run without glyphs */
-  symbols: 10,
+  symbols: 9,
   /** offline with no cached basemap for this view — the map is a flat colour */
-  basemap: 11,
-  /** the device has been offline past the grace window — edits are piling up locally
-   *  (syncAlert · createOfflinePresence); stands until the link is back */
-  offline: 12,
+  basemap: 10,
   /** the session cookie expired — the sync is standing still until the operator signs in again */
-  session: 13,
+  session: 12,
   /** a new build is waiting for the next app start */
-  update: 14,
+  update: 13,
   /** «KP Front als App installieren» */
-  install: 15,
+  install: 14,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK

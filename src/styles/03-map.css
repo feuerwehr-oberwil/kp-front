@@ -1,6 +1,6 @@
 /* map */
 #map { position: absolute; inset: 0; background: var(--map-bg); }
-.maplibregl-ctrl-attrib { font-size: 9px !important; }
+.maplibregl-ctrl-attrib { font-size: var(--fs-micro) !important; }
 /* The Lage map's twin of the plan canvas's tool cursors (.wb-canvas.tool-* below). `.placing`
    alone only covered a symbol/shape already picked from the palette — arming Linie, Fläche,
    Messen, Notiz or Trupp left the plain grab hand, so an armed tool was indistinguishable from
@@ -67,15 +67,15 @@
    only thing they can see. Min ~104px diameter, a bold accent ring + soft glow. */
 .sel-halo { position: absolute; left: 50%; top: 50%; z-index: 0;
   width: max(calc(var(--hbox) + 40px), 104px); height: max(calc(var(--hbox) + 40px), 104px); transform: translate(-50%, -50%);
-  border-radius: 50%; background: color-mix(in srgb, var(--blue) 15%, transparent); border: 3px solid color-mix(in srgb, var(--blue) 85%, transparent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 30%, transparent), 0 2px 12px rgba(30, 45, 70, .28); animation: haloIn .18s var(--ease); }
+  border-radius: 50%; background: var(--blue-16); border: 3px solid color-mix(in srgb, var(--blue) 85%, transparent);
+  box-shadow: 0 0 0 2px var(--blue-28), var(--e2); animation: haloIn .18s var(--ease); }
 @keyframes haloIn { from { opacity: 0; transform: translate(-50%, -50%) scale(.8); } }
 .marker.sel .ts, .marker.sel .shape-glyph, .marker.sel .note-pill { position: relative; z-index: 1; }
 /* ⚠️ The separating ring is `--surface`, not a frozen #fff: in day it is the white rim that lifts
    a handle off bright imagery, at night it is the dark rim that does the same over a dark basemap
    — a frozen white there smears into a glow (the same reasoning as --note-halo). */
 .handle { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--surface);
-  color: var(--on-fill); display: grid; place-items: center; box-shadow: 0 2px 7px rgba(30, 45, 70, .32); padding: 0; z-index: 8; }
+  color: var(--on-fill); display: grid; place-items: center; box-shadow: var(--e1); padding: 0; z-index: 8; }
 .handle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .handle .i { width: 16px; height: 16px; stroke-width: 2.3; }
 /* inline delete + live-vehicle rotate share the top-LEFT corner of the ring (they are
@@ -90,14 +90,14 @@
    colour, so it reads on any glyph and in both themes: tinting it with the symbol's own colour
    (the white chip was meant to carry that) made a yellow symbol's storey yellow on white. */
 .sym-floor { position: absolute; top: calc(var(--badge-out, 7px) * -1); right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-xs); background: var(--surface); color: var(--ink); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
-  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+  border-radius: var(--r-xs); background: var(--surface); color: var(--ink); line-height: 16px; text-align: center; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: -.2px;
+  box-shadow: var(--e1); pointer-events: none; }
 /* quantity badge — bottom-right counterpart to the floor badge; an ink chip so it
    reads as a count distinct from the (white, symbol-coloured) floor badge. The ONE count badge
    (05-navrail · .nav-count, 28.09.2026): --r-xs at 16px, like every other chip that size. */
 .sym-count { position: absolute; bottom: calc(var(--badge-out, 7px) * -1); right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800;
-  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+  border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink); line-height: 16px; text-align: center; font-size: var(--fs-micro); font-weight: var(--fw-heavy);
+  box-shadow: var(--e1); pointer-events: none; }
 /* «angedockt», von der Seite des HOSTS aus (lib/docking, 15.09.2026): the same `link` glyph the
    Trupp marker wears, so the bond reads from either end. Top-LEFT — the only corner left: the
    storey badge owns top-right, the count bottom-right, and the docked Trupp markers themselves
@@ -108,7 +108,7 @@
 .sym-dock { position: absolute; bottom: calc(var(--badge-out, 7px) * -1); left: -9px; z-index: 6;
   display: grid; place-items: center; width: 16px; height: 16px; box-sizing: border-box;
   border-radius: var(--r-xs); background: var(--surface); color: var(--ink-dim);
-  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+  box-shadow: var(--e1); pointer-events: none; }
 .sym-dock .i { width: 12px; height: 12px; }
 /* «Gelöscht / erledigt» (lib/objectDone, 24.09.2026): the glyph, its composite part and its FKS
    arrows go grey — the chip behind an outline glyph with them, so the whole mark recedes — while
@@ -122,9 +122,9 @@
    the same, kroki · _symbol_badges) */
 .ts:has(> .sym-floor) > .sym-done { right: calc(100% + 3px); }
 .sym-done { position: absolute; top: calc(var(--badge-out, 7px) * -1); right: calc(100% - 7px); z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-sm); background: var(--surface); color: var(--ink-dim); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
+  border-radius: var(--r-sm); background: var(--surface); color: var(--ink-dim); line-height: 16px; text-align: center; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: -.2px;
   font-variant-numeric: tabular-nums; white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+  box-shadow: var(--e1); pointer-events: none; }
 /* metadata caption — a symbol's discriminating value(s) printed just under its glyph (e.g.
    "CO₂" under a Kleinlöscher), so an operator reads it without opening the dashboard. Same
    chrome as the line label (.measure-label.draw-label / .wb-line-label) for Lage↔Plan parity;
@@ -140,12 +140,12 @@
    hence `hyphens: manual`. NEVER `hyphens: auto`:
    the browser's German dictionary breaks by syllable («Kontrollpos-ten»). `overflow-wrap` is
    the last resort for a single word longer than the box, nothing more. */
-.sym-caption { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 3px; z-index: 6;
+.sym-caption { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; z-index: 6;
   display: flex; flex-direction: column; align-items: center; gap: 1px; max-width: 132px;
-  padding: 1px 6px; border-radius: var(--r-xs); background: var(--surface); color: var(--ink);
-  font-size: 11.5px; font-weight: 700; line-height: 1.25; text-align: center;
+  padding: 1px 4px; border-radius: var(--r-xs); background: var(--surface); color: var(--ink);
+  font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.25; text-align: center;
   hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .25); pointer-events: none; }
+  box-shadow: var(--e1); pointer-events: none; }
 .sym-caption > span { max-width: 120px; }
 /* inner wrapper carries the symbol's own rotation (chip + glyph rotate together),
    so selection scale / hover stay on the outer .ts and don't fight the rotation */
@@ -156,7 +156,7 @@
 /* layered shadow: a tight dark contact edge + a soft ground shadow so symbols read on any base map */
 .ts svg { width: 100%; height: 100%; display: block;
   filter: drop-shadow(0 1px 1px rgba(15, 22, 34, .42)) drop-shadow(0 3px 6px rgba(30, 45, 70, .26)); }
-.ts-rot.white { background: var(--on-accent-ink); border-radius: 4px; box-shadow: 0 1px 1px rgba(15, 22, 34, .3), 0 3px 7px rgba(30, 45, 70, .22); }
+.ts-rot.white { background: var(--on-accent-ink); border-radius: 4px; box-shadow: var(--e1); }
 /* FKS Entwicklung overlay — a 2× box centred on the glyph; arrows drawn outside it.
    Higher specificity than '.ts svg' so it keeps its own size, and a soft white halo
    keeps coloured arrows legible over any base map. */
@@ -263,7 +263,7 @@
 /* the first of a Rotation's two points, while the second is still being looked for: a plain ink
    dot in the shape's own blue, big enough to find again after panning across the map */
 .place-anchor { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--blue);
-  border: 2.5px solid var(--surface); box-shadow: 0 1px 3px rgba(15, 22, 34, .4), 0 3px 8px rgba(30, 45, 70, .25); }
+  border: 2.5px solid var(--surface); box-shadow: var(--e1); }
 
 /* ── Rotation: die zwei Enden ────────────────────────────────────────────────────────────────
    A Rotation carries no rotate knob and no size grip — it IS its two ends, and each of them sets
@@ -310,83 +310,3 @@
    400ms delay before snapping in — reduced motion should shorten the wait, not add one */
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; animation-delay: 0s !important; transition-duration: .001ms !important; } }
 .ts.photo img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-xs); display: block; }
-
-/* ── Lage-Grundgerüst (components/LageGrundgeruestCard) ─────────────────────────────────────
-   A small glass card, BOTTOM-LEFT of the Karte, clear of the nav rail. Not up top: the
-   Meldeleiste owns the band under the top bar between the rails (08-toasts · .ml), and an alarm
-   row must never have to fight a checklist for it. The bottom-centre lane belongs to the
-   selection bar and the coordinate readout (see the width rule below).
-   ⚠️ Z-order: map furniture UNDER every dock (--z-dock-scrim, 28 < --z-dock 30), so the tool
-   rail, the NavRail, the .ctx editors (--z-chrome), the coordinate readout and every sheet and
-   message paint over it. It sat at --z-map-util (40) until 24.09.2026 and covered the object
-   editor it had just selected a symbol for.
-   ⚠️ It never MOVES while in use (staging 3am V5, 25.09.2026): it used to lift ~96px whenever an
-   object was selected, i.e. every time an editor opened, and the list jumped under the finger.
-   Where the bottom-centre lane (selection bar, coordinate readout) could reach it — a viewport
-   under ~1100px — it stands above that lane for good. «hier setzen» pans a result out from under
-   it (lib/lageGrundgeruest · panClearOf). */
-.lgg { position: absolute; z-index: var(--z-dock-scrim);
-  left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
-  bottom: calc(28px + env(safe-area-inset-bottom));
-  width: 340px; max-height: calc(100dvh - 200px); overflow-y: auto; overscroll-behavior: contain;
-  display: flex; flex-direction: column;
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--shadow);
-  padding: var(--bar-pad); animation: pop .16s var(--ease); }
-/* the selection bar (~230px, centred) and the coordinate readout (~330px, centred, ~84px tall)
-   only meet the card on a viewport under ~1100px — there it stands above both, always */
-@media (max-width: 1100px) { .lgg:not(.lgg-phone) { bottom: calc(124px + env(safe-area-inset-bottom)); } }
-.lgg-head { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 0 0 6px; }
-.lgg-heading, .lgg-toggle { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
-.lgg-ic { width: 18px; height: 18px; flex: none; color: var(--ink-dim); }
-.lgg-title { font: 700 13.5px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* ── the head, one line (slim sweep 27.09.2026, item 3): glyph · «Grundgerüst» · the Einsatzart
-   · the count · ⌄ (phone). The Einsatzart is a plain WORD since 30.09.2026 (owner: «drop the
-   grundgerüst change in type») — it says which list this is and changes nothing, so it wears no
-   chip, no edge and no chevron: the quiet ink of a second line. It gives way first (the title
-   keeps its word), so «Strassenrettung» is cut before the count is pushed off a 360px strip. */
-.lgg-art { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font: 600 12.5px var(--body); color: var(--ink-dim); }
-/* the count is the card's one number — the tabular mono the Einsatzuhr reads in */
-.lgg-count { flex: none; font: 700 12.5px var(--mono); color: var(--ink-dim);
-  padding: 2px 7px; border-radius: var(--r-pill); background: var(--fill-soft); }
-.lgg-complete .lgg-count { color: var(--green-strong); background: color-mix(in srgb, var(--green) 14%, transparent); }
-.lgg-note { margin: 2px 8px 6px; font: 500 12.5px var(--body); color: var(--ink-dim); line-height: 1.35; }
-.lgg-done-note { color: var(--green-strong); font-weight: 600; }
-.lgg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.lgg-row { display: flex; flex-direction: column; }
-/* one row = one 44px target: tapping the words arms the place tool; the suggestion is its own
-   44px line under it, so «hier setzen» is never a small link beside a big one */
-.lgg-add, .lgg-line { min-height: var(--tap); width: 100%; display: flex; align-items: center; gap: 9px;
-  padding: 0 10px; border-radius: var(--r-ctl); font: 600 13.5px var(--body); color: var(--ink); text-align: left; }
-.lgg-add { border: none; background: transparent; cursor: pointer; }
-.lgg-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-@media (hover: hover) { .lgg-add:hover { background-color: color-mix(in srgb, var(--blue) 8%, transparent); } }
-.lgg-plus { width: 16px; height: 16px; flex: none; color: var(--blue); }
-.lgg-tick { width: 16px; height: 16px; flex: none; color: var(--green); }
-.lgg-row.done .lgg-label { color: var(--ink-dim); }
-.lgg-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lgg-opt { flex: none; font: 600 12px var(--body); color: var(--ink-faint); }
-/* armed = the tool this row armed is live: lit like an armed rail tool, and it says what the next
-   tap does, where the eye already is */
-.lgg-row.armed .lgg-add { background: var(--ink-fill); color: var(--on-accent-ink); }
-.lgg-row.armed .lgg-plus { color: inherit; }
-/* the armed hint may be a sentence («Punkte auf die Karte tippen, mit ✓ abschliessen») — it wraps
-   at the right, and the label it belongs to keeps its whole word */
-.lgg-armed { flex: 0 1 auto; min-width: 0; margin-left: auto; text-align: right; padding: 4px 0; font: 600 12px/1.25 var(--body); opacity: .85; }
-.lgg-row.armed .lgg-label { flex: 0 0 auto; }
-.lgg-sug { min-height: var(--tap); width: 100%; display: flex; align-items: center; gap: 8px;
-  padding: 0 10px 0 35px; border: none; border-radius: var(--r-ctl); background: transparent; cursor: pointer; text-align: left; }
-.lgg-sug:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-@media (hover: hover) { .lgg-sug:hover { background-color: color-mix(in srgb, var(--blue) 8%, transparent); } }
-.lgg-sug-t { flex: 1; min-width: 0; font: 500 12.5px var(--body); color: var(--ink-dim); line-height: 1.3; text-wrap: pretty; }
-/* «Setzen» — a small framed tile at the row's right (34px, the one corner, a 1px inset edge), not
-   a blue ghost link (27.09.2026). The whole row is still the button: a tap on the value places too. */
-.lgg-sug-act { flex: none; display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px;
-  border-radius: var(--r-sm); background: var(--fill-soft); box-shadow: inset 0 0 0 1px var(--glass-edge);
-  font: 700 12.5px var(--body); color: var(--ink); }
-/* armed («Auf die Karte tippen»): the slot says what the next tap does — a hint, never a tile */
-.lgg-sug-armed { flex: none; font: 600 12px var(--body); color: var(--ink-dim); }
-/* a suggestion that is only SAID («Kein Hydrant im Umkreis von 300 m») — no action beside it */
-.lgg-sug.lgg-sug-info { margin: 0; cursor: default; }
-.lgg-row.armed .lgg-sug .lgg-sug-act { color: var(--ink); }

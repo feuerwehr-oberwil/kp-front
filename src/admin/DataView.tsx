@@ -357,7 +357,7 @@ export function AlarmProviderView({ onNavigate }: { onNavigate?: (id: string) =>
             <span className="adm-int-stat">{C.webhookActive}</span>
           ) : offersProbe(setup) ? (
             // Status unreachable — the probe is the retry, and the only thing this page can still
-            // do. No «Zugangsdaten öffnen» beside it: nothing says the credentials are the problem.
+            // do. No «Anbindungen öffnen» beside it: nothing says the credentials are the problem.
             <TestButton run={() => apiPost('/api/divera/pool/refresh')} />
           ) : null}
           {/* «nicht konfiguriert»: no probe at all, rather than a greyed one. The setup card above

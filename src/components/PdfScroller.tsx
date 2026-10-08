@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { loadDocTimed, pdfWorkerUrl, PdfFailDetail, usePdfLoad } from './PdfViewport'
 import { diagnosePdfFailure } from '../lib/pdfDiagnosis'
-import { anchorScroll, canvasScale, pageAnchorAt, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_STEP, type Box, type PageAnchor } from '../lib/pdfZoom'
+import { anchorScroll, canvasScale, clampZoom, pageAnchorAt, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_STEP, type Box, type PageAnchor } from '../lib/pdfZoom'
 import { cachedPdfPage, pdfPageKey, snapshotPdfPage } from '../lib/pdfPageCache'
 import { RetryButton } from './RetryButton'
+import { createTapDragZoom, type TapSample, type TapZoomAction } from '../lib/tapDragZoom'
 import s from './PdfScroller.module.css'
 
 // A plain, scrollable multi-page PDF viewer for viewer-only plans (e.g. PV / documentation
@@ -14,9 +15,9 @@ import s from './PdfScroller.module.css'
 // column, the "normal PDF viewer" experience. Reuses PdfViewport's pdf.js loader + doc cache.
 //
 // Zoom (13.09.2026): a small drawing on a big screen, or any drawing on a phone, needs more than
-// «fit the column». ctrl/⌘+wheel, a pinch and a double tap zoom the column from 1× (fit) to 4×;
-// the pages re-render crisp at the new width (a pinch previews with a CSS transform and commits
-// on release) and the point under the fingers stays where it was.
+// «fit the column». ctrl/⌘+wheel, a pinch, a double tap and a tap-then-drag zoom the column from
+// 1× (fit) to 4×; the pages re-render crisp at the new width (a pinch previews with a CSS
+// transform and commits on release) and the point under the fingers stays where it was.
 //
 // ⚠️ NO buttons (15.09.2026, Bastian): the ± cluster and its «Einpassen» were dropped on every
 // viewport, desktop included — «people can just scroll». The gestures ARE the control here, and
@@ -34,7 +35,9 @@ const MAX_COL_W = 1100 // cap the page column so wide screens don't render huge 
 const pageBoxes = (host: HTMLElement | null): Box[] =>
   host ? Array.from(host.children).map((c) => c.getBoundingClientRect()) : []
 
-export function PdfScroller({ url }: { url: string }) {
+/** `bare`: no rail lanes to keep clear — the reader fills a surface of its own (the plans on an
+ *  object visit, components/objectVisits/PlansCard), so the pages get a plain margin. */
+export function PdfScroller({ url, bare = false }: { url: string; bare?: boolean }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const pagesRef = useRef<HTMLDivElement>(null)
   /** how the render pass in flight hands its pixels back – set by that pass, called by its
@@ -227,57 +230,92 @@ export function PdfScroller({ url }: { url: string }) {
   // registered. Pointer events have no way to keep that pan from starting; a NON-passive
   // touchmove has: preventDefault while two fingers are down and neither the pan nor Safari's
   // page zoom get the gesture, while one finger keeps scrolling natively. The preview is a
-  // transform on the page column; the release commits (re-renders crisp). A tap is counted here
-  // too – a phone does not reliably synthesise dblclick from two touches, and a tap that moved
-  // was a scroll.
+  // transform on the page column; the release commits (re-renders crisp).
+  //
+  // The one-finger gestures (08.10.2026) are lib/tapDragZoom's – the same grammar, numbers and
+  // all, as the Plan board and the Karte: a double tap toggles fit ↔ 2× as before, and a tap,
+  // then press-and-drag zooms continuously about the FIRST tap (down = in, up = out), previewed
+  // and committed like the pinch. Its second press is ours from touchstart on (preventDefault),
+  // so the native scroll never starts under it. A phone does not reliably synthesise dblclick
+  // from two touches, which is why the taps are counted here at all.
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
     type Pt = { x: number; y: number }
     const pt = (t: Touch): Pt => ({ x: t.clientX, y: t.clientY })
     const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y)
-    const mid = (a: Pt, b: Pt): Pt => {
+    const local = (c: Pt): Pt => {
       const r = el.getBoundingClientRect()
-      return { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top }
+      return { x: c.x - r.left, y: c.y - r.top }
+    }
+    const mid = (a: Pt, b: Pt): Pt => local({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+    /** a live preview of the column at `live` (rendered at `zoom`), about `focal` (scroller px) */
+    const preview = (zoom: number, live: number, focal: Pt) => {
+      const host = pagesRef.current
+      if (!host) return
+      host.style.transformOrigin = `${focal.x + el.scrollLeft}px ${focal.y + el.scrollTop}px`
+      host.style.transform = `scale(${live / zoom})`
+    }
+    /** a preview ends: commit it (re-render crisp, the focal spot kept) or, unchanged, drop it */
+    const settle = (zoom: number, live: number, focal: Pt) => {
+      if (Math.abs(live - zoom) < 0.02) { if (pagesRef.current) pagesRef.current.style.transform = '' }
+      else zoomTo(Math.round(live * 100) / 100, focal)
     }
     let pinch: { zoom: number; dist: number; mid: Pt; live: number } | null = null
-    let tap: Pt | null = null // the single touch that may still become a tap
-    let lastTap = 0
+    const taps = createTapDragZoom()
+    let drag: { zoom: number; live: number; at: Pt } | null = null // the tap-and-drag's preview
+    const sample = (t: Touch, e: TouchEvent): TapSample => ({ id: t.identifier, x: t.clientX, y: t.clientY, t: e.timeStamp, pointerType: 'touch' })
+    const onTaps = (a: TapZoomAction | null) => {
+      if (!a) return
+      if (a.kind === 'zoomStep') { touchTapAt.current = performance.now(); doubleTapAt(a.at.x, a.at.y) }
+      else if (a.kind === 'zoom') {
+        drag ??= { zoom: zoomRef.current, live: zoomRef.current, at: local(a.at) }
+        drag.live = clampZoom(drag.zoom * a.factor)
+        preview(drag.zoom, drag.live, drag.at)
+      } else if (a.kind === 'end' && drag) {
+        const d = drag
+        drag = null
+        settle(d.zoom, d.live, d.at)
+      }
+    }
     const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        // two fingers are the pinch's: a tap-drag in flight drops its preview, the pinch starts
+        // from the zoom the column is rendered at
+        taps.cancel()
+        if (drag) { drag = null; if (pagesRef.current) pagesRef.current.style.transform = '' }
+      }
       if (e.touches.length === 2) {
         e.preventDefault()
         const [a, b] = [pt(e.touches[0]), pt(e.touches[1])]
         pinch = { zoom: zoomRef.current, dist: dist(a, b), mid: mid(a, b), live: zoomRef.current }
-        tap = null
-      } else if (e.touches.length === 1) tap = pt(e.touches[0])
-      else tap = null
+      } else if (e.touches.length === 1 && e.changedTouches[0]) {
+        const a = taps.down(sample(e.changedTouches[0], e))
+        if (a) e.preventDefault() // the second press: no native scroll under the zoom
+        onTaps(a)
+      }
     }
     const onMove = (e: TouchEvent) => {
       if (pinch && e.touches.length >= 2) {
         e.preventDefault()
-        const host = pagesRef.current
         pinch.live = pinchZoom(pinch.zoom, pinch.dist, dist(pt(e.touches[0]), pt(e.touches[1])))
-        if (!host) return
-        host.style.transformOrigin = `${pinch.mid.x + el.scrollLeft}px ${pinch.mid.y + el.scrollTop}px`
-        host.style.transform = `scale(${pinch.live / pinch.zoom})`
-      } else if (tap && e.touches[0] && dist(tap, pt(e.touches[0])) > 12) tap = null
+        preview(pinch.zoom, pinch.live, pinch.mid)
+        return
+      }
+      for (const t of Array.from(e.changedTouches)) {
+        const a = taps.move(sample(t, e))
+        if (a) { e.preventDefault(); onTaps(a) }
+      }
     }
     const onEnd = (e: TouchEvent) => {
       if (pinch && e.touches.length < 2) {
         const g = pinch
         pinch = null
-        tap = null
-        lastTap = 0
-        if (Math.abs(g.live - g.zoom) < 0.02) { if (pagesRef.current) pagesRef.current.style.transform = '' }
-        else zoomTo(Math.round(g.live * 100) / 100, g.mid)
+        settle(g.zoom, g.live, g.mid)
         return
       }
-      if (e.touches.length !== 0) return // a finger is still down
-      const t = tap && e.type === 'touchend' ? e.changedTouches[0] : undefined
-      tap = null
-      if (!t) return
-      const now = performance.now()
-      if (now - lastTap < 320) { lastTap = 0; touchTapAt.current = now; doubleTapAt(t.clientX, t.clientY) } else lastTap = now
+      if (e.type === 'touchcancel') { onTaps(taps.cancel()); return }
+      for (const t of Array.from(e.changedTouches)) onTaps(taps.up(sample(t, e)))
     }
     const onGesture = (e: Event) => e.preventDefault() // Safari's own pinch/rotate of the page
     el.addEventListener('touchstart', onStart, { passive: false })
@@ -307,7 +345,7 @@ export function PdfScroller({ url }: { url: string }) {
           )}
         </div>
       )}
-      <div ref={pagesRef} className={`${s.pages}${zoom > 1 ? ` ${s.zoomed}` : ''}`} />
+      <div ref={pagesRef} className={`${s.pages}${bare ? ` ${s.bare}` : ''}${zoom > 1 ? ` ${s.zoomed}` : ''}`} />
     </div>
   )
 }

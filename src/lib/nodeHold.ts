@@ -77,8 +77,15 @@ export function useNodeHold() {
    * handles — only one hold is ever live. `enabled: false` (a line already at its minimum) keeps
    * the handle draggable and simply never arms: the shape's floor is not a thing to explain
    * mid-gesture, it is a thing not to offer.
+   *
+   * The result also carries `data-holdaction`, so SPREAD it (`{...press(…)}`, then wrap
+   * `onPointerDown` after it if the handle needs more): holding a node IS its gesture, and the
+   * app-wide hold-tooltip (lib/holdTooltip) must never pop the handle's label inside the delete
+   * ring and swallow its release. The Plan's Messen nodes forgot the attribute by hand (08.10.),
+   * so the hook brings it rather than every handle remembering it.
    */
   const press = (key: string, fn: () => void, enabled = true) => ({
+    'data-holdaction': true as const,
     onPointerDown: (e: React.PointerEvent) => {
       if (!enabled) return
       cancel()

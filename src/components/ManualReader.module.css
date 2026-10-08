@@ -1,0 +1,51 @@
+/* ===== Anleitung reader (kind: manual, ManualReader.tsx) =========================================
+   A device's instructions as BIG numbered steps — read with gloves on, at arm's length, possibly
+   in the dark. Its own module so the checklist chrome (Checklists.module.css) stays untouched;
+   the step pictures reuse the playbook's figure (.cl-ref-fig via DiagramFigure). On a tablet the
+   document is a card beside the rail, like a Stichwort; on a phone it sits flat on the page and
+   the title is the chooser's (ChecklistsView), so the head keeps only the device line. */
+.mn-doc { max-width: 720px; background: var(--surface); border-radius: var(--r-surface); padding: var(--sp-5);
+  box-shadow: 0 0 0 1px var(--border-soft); }
+.mn-head { margin-bottom: var(--sp-4); }
+.mn-head h2 { margin: 0; font-size: var(--fs-4); font-weight: var(--fw-heavy); color: var(--ink); }
+.mn-meta { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-1) 0 0; font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); }
+.mn-meta :global(.i) { width: 14px; height: 14px; flex: none; color: var(--ink-faint); }
+.mn-intro { margin: 0 0 16px; font-size: var(--fs-2); line-height: 1.45; color: var(--ink-dim); }
+
+.mn-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+/* a hairline between steps, not a card per step: one surface, read top to bottom */
+.mn-step { display: flex; gap: var(--sp-4); padding: var(--sp-4) 0; border-top: 1px solid var(--border-soft); }
+.mn-step:first-child { border-top: 0; padding-top: 4px; }
+/* the number is what the eye hunts for when it comes back from the device — big and solid */
+.mn-num { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--ink-fill); color: var(--on-accent-ink); font: var(--fw-heavy) var(--fs-3) var(--body); font-variant-numeric: tabular-nums; }
+.mn-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding-top: var(--sp-1); }
+.mn-text { margin: 0; font-size: var(--fs-3); font-weight: var(--fw-medium); line-height: 1.45; color: var(--ink); overflow-wrap: break-word; }
+/* sub-points: a quieter, smaller list under the step — still readable at arm's length */
+.mn-details { margin: 0; padding-left: var(--sp-5); display: flex; flex-direction: column; gap: 4px;
+  font-size: var(--fs-2); line-height: 1.4; color: var(--ink); }
+.mn-details li { overflow-wrap: break-word; }
+.mn-details li::marker { color: var(--ink-faint); }
+.mn-warn, .mn-hint { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: var(--sp-3);
+  border-radius: var(--r-ctl); font-size: var(--fs-2); line-height: 1.4; overflow-wrap: break-word; }
+.mn-warn :global(.i), .mn-hint :global(.i) { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+/* red is the line that hurts someone — a light wash with red ink and glyph, never a red fill */
+.mn-warn { background: var(--red-8); color: var(--ink); }
+.mn-warn :global(.i), .mn-warn strong { color: var(--red); }
+.mn-hint { background: var(--fill-soft); color: var(--ink-dim); }
+.mn-hint :global(.i) { color: var(--ink-faint); }
+.mn-body :global(figure) { margin: 4px 0 0; }
+.mn-source { margin: var(--sp-4) 0 0; padding-top: 12px; border-top: 1px solid var(--border-soft); font-size: var(--fs-1); color: var(--ink-faint); }
+
+@media (--phone) {
+  .mn-doc { max-width: none; padding: 0; background: none; box-shadow: none; border-radius: 0; }
+  /* the chooser row above names the Anleitung — only the device line stays */
+  .mn-head h2 { display: none; }
+  .mn-meta { margin-top: 0; }
+}
+
+/* the picker rail (ChecklistsView): one quiet sub-head per Gerät inside the «Anleitungen» group */
+.mn-rail-device { display: flex; flex-direction: column; gap: 2px; }
+.mn-rail-device + .mn-rail-device { margin-top: var(--sp-2); }
+.mn-rail-device-name { padding: var(--sp-1) var(--sp-3) 0; font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

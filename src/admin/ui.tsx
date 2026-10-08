@@ -1,9 +1,10 @@
 import { LoadingStatus, ShellLoader } from '../components/ShellLoader'
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Children, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { apiDelete, apiGet, apiPost } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { Menu } from '../lib/overlays'
 import { InfoTip } from './InfoTip'
+import { useCellLabels } from './useCellLabels'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 
@@ -142,7 +143,6 @@ export function SettingsSheet({ id, title, caption, tip, children }: {
   tip?: string
   children: ReactNode
 }) {
-  const C = appConfig.copy.admin.common
   return (
     <section className="adm-card adm-sheet" id={id}>
       {(title || caption) && (
@@ -156,13 +156,10 @@ export function SettingsSheet({ id, title, caption, tip, children }: {
           {caption && <p className="adm-card-cap">{caption}</p>}
         </header>
       )}
+      {/* No column header (UI sweep 07.10.2026, E5): every card repeated EINSTELLUNG / WERT /
+          STANDARD / ⓘ over rows that name themselves — label left, value right, the ⓘ at the end
+          — and the Standard column was empty on almost every row. */}
       <div className="adm-settings">
-        <div className="adm-set-head">
-          <span className="adm-set-h">{C.colSetting}</span>
-          <span className="adm-set-h">{C.colValue}</span>
-          <span className="adm-set-h adm-set-h-std">{C.colStandard}</span>
-          <span className="adm-set-h adm-set-h-info" aria-label={C.colInfo}>ⓘ</span>
-        </div>
         {children}
       </div>
     </section>
@@ -204,7 +201,7 @@ function readable(v: string | number | boolean): string {
 }
 
 /**
- * The Standard column's cell: «Standard 100 · geändert», or null when there is nothing to say.
+ * The Standard note after a control: «Standard 100», or null when there is nothing to say.
  *
  * ⚠️ The column is EMPTY on most rows on purpose. It answers one question — «is this still what
  * ships?» — so it speaks only when the answer is no. Printing «Standard 100» on every row would
@@ -226,7 +223,7 @@ export function standardNote(
 const FOCUSABLE = 'input:not([type="hidden"]), textarea, select, button, [tabindex]'
 
 /**
- * One setting: label | control | Standard | ⓘ.
+ * One setting: label | control (+ its Standard, when it deviates) | ⓘ.
  *
  * ⚠️ The rule, so that two controls that look alike are not laid out differently: EVERY setting
  * reads label-left / value-right. A control that does not fit the Wert column on its own takes
@@ -276,8 +273,12 @@ export function SettingRow({ label, hint, tip, standard, span, children }: {
         <label className="adm-set-name" ref={name}>{label}</label>
         {hint && <span className="adm-field-hint">{hint}</span>}
       </span>
-      <span className="adm-set-ctl" ref={ctl}>{children}</span>
-      <span className="adm-set-std">{standard}</span>
+      {/* the shipped default stands INSIDE the value cell, after the control, and only when the
+          value deviates from it — no column of its own that is empty on nine rows out of ten */}
+      <span className="adm-set-ctl" ref={ctl}>
+        {children}
+        <span className="adm-set-std">{standard}</span>
+      </span>
       <span className="adm-set-info">
         {tip && <InfoTip label={label} text={tip} />}
       </span>
@@ -372,6 +373,67 @@ export function RecordRows({ name, swatch, meta, action, children }: {
         {action && <span className="adm-rec-act">{action}</span>}
       </div>
       {children}
+    </div>
+  )
+}
+
+/* ── inline records ──────────────────────────────────────────────────────────────────────────
+   (UI sweep 07.10.2026, E6.) A record with two or three short fields — a Fahrzeug (Bezeichnung,
+   Kennung), an Alarmgruppe (+ Zusatz) — was a head card plus one full row per field, which
+   repeated «Bezeichnung / Kennung» down the page and stood the record's name twice (head and
+   first field): Fahrzeuge was ~7400px tall. Here the column names stand ONCE, over the list, with
+   their ⓘ, and each record is ONE row of its controls and its bin. Nothing is dropped: every
+   field keeps its input, every input keeps its name (the cell is a <label> whose caption is
+   visually hidden in the grid and shown again on a phone, where the row stacks).
+   Use it only where the fields are short and few; a record with a file, a colour and six fields
+   (Kartenebenen) stays a `RecordRows` card. */
+
+export interface InlineColumn { label: string; tip?: string }
+const InlineColumns = createContext<InlineColumn[]>([])
+
+/** The list: its column header once, then `InlineRecord`s. Notes of the LIST go outside it. */
+export function InlineRecords({ columns, recordLabel, children }: {
+  columns: InlineColumn[]
+  recordLabel: string
+  children: ReactNode
+}) {
+  return (
+    <InlineColumns.Provider value={columns}>
+      <div className="adm-irecs" role="group" aria-label={recordLabel}
+        style={{ '--irec-cols': columns.length } as CSSProperties}>
+        <div className="adm-irec-head">
+          {columns.map((c) => (
+            <span className="adm-irec-h" key={c.label}>
+              {c.label}
+              {c.tip && <InfoTip label={c.label} text={c.tip} />}
+            </span>
+          ))}
+          <span className="adm-irec-h" />
+        </div>
+        {children}
+      </div>
+    </InlineColumns.Provider>
+  )
+}
+
+/** One record = one row: `children` are its controls, one per column, in column order; `action`
+ *  is its bin; `note` is what the record has to say under itself (a warning, a preview). */
+export function InlineRecord({ action, note, children }: {
+  action?: ReactNode
+  note?: ReactNode
+  children: ReactNode
+}) {
+  const columns = useContext(InlineColumns)
+  return (
+    <div className="adm-irec">
+      {Children.toArray(children).map((control, i) => (
+        <label className="adm-irec-cell" key={i}>
+          <span className="adm-irec-lbl">{columns[i]?.label}</span>
+          {control}
+        </label>
+      ))}
+      <span className="adm-irec-act">{action}</span>
+      {note && <div className="adm-irec-note">{note}</div>}
     </div>
   )
 }
@@ -539,9 +601,10 @@ export interface Column { key: string; label: string; num?: boolean }
  *  renders the `<tr><td>…` body as `children`, so heterogeneous cells stay flexible; what
  *  was duplicated (wrapper + thead markup + alignment classes) now lives here once. */
 export function Table({ columns, className, children }: { columns: Column[]; className?: string; children: ReactNode }) {
+  const ref = useCellLabels()
   return (
     <div className="adm-table-wrap">
-      <table className={`adm-table${className ? ` ${className}` : ''}`}>
+      <table ref={ref} className={`adm-table${className ? ` ${className}` : ''}`}>
         <thead>
           <tr>
             {columns.map((c) => (

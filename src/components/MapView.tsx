@@ -19,9 +19,8 @@ import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LTG_PX, TEAM_LABEL_STYLE } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LTG_PX, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
 import { dockSlots, dockRadiusFor, nearestDockHost } from '../lib/docking'
-import { sucheDropTarget } from '../lib/suche'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
@@ -88,22 +87,22 @@ const TAG_TAP_TOL_PX = 16
  *  synthesizes its mouse trail right after touchend, so the trailing click arrives a few ms AFTER
  *  MapLibre's dragend — but well inside this window, which no second deliberate tap fits in. */
 const PAN_CLICK_TAIL_MS = 350
-/** `.sym-caption { margin-top }` (03-map.css) */
-const CAPTION_GAP = 3
+/** `.sym-caption { margin-top }` (03-map.css), held to the CSS in lib/mapView */
+const CAPTION_GAP = SYM_CAPTION_GAP
 /** the end tag's Marker `offset={[0, -14]}` (below) */
 const END_TAG_LIFT = 14
 /** the line-readout / radius Markers' `anchor="bottom"` offsets (below) */
 const READOUT_LIFT = 10
 const RADIUS_LIFT = 4
 const LABEL_STYLE = {
-  /** `.sym-caption` — wraps at compound seams inside 120px; 1px/6px padding, line-height 1.25 */
-  caption: { font: '700 11.5px Sora, system-ui, sans-serif', maxTextW: 120, chromeW: 12, chromeH: 2, lineH: 14.4 },
+  /** `.sym-caption` (lib/mapView · SYM_CAPTION_STYLE) */
+  caption: SYM_CAPTION_STYLE,
   /** `.team-dot b` — never wraps */
   team: TEAM_LABEL_STYLE,
-  /** `.measure-label.draw-label` — mono, never wraps, 2px/7px padding */
-  readout: { font: '700 11px "Spline Sans Mono", ui-monospace, monospace', maxTextW: Infinity, chromeW: 14, chromeH: 4, lineH: 13.8 },
-  /** `.line-end-tag` — 2px/6px padding plus a 1.5px border; `inline-grid` stacks the Trupp row */
-  endTag: { font: '800 11.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 15, chromeH: 7, lineH: 11.5 },
+  /** `.measure-label.draw-label` (lib/mapView · READOUT_LABEL_STYLE) */
+  readout: READOUT_LABEL_STYLE,
+  /** `.line-end-tag` (lib/mapView · END_TAG_LABEL_STYLE) */
+  endTag: END_TAG_LABEL_STYLE,
 } satisfies Record<string, LabelStyle>
 
 /** The end tag's text laid out the way `EndTag` lays it out: the Leitung's own facts on one
@@ -233,9 +232,6 @@ const featArea = (f: { geometry?: { type?: string; coordinates?: unknown } }): n
   return Math.abs(s) / 2
 }
 
-/** What a dropped Trupp marker's closed ring aimed at: a symbol to dock to, or a Suche place. */
-export type MarkerDock = { hostId: string } | { sucheId: string }
-
 interface Props {
   entities: Entity[]
   layers: LayerDef[]
@@ -321,14 +317,8 @@ interface Props {
    *  drop, so «not armed = nothing attaches» holds for this gesture too — the surface that drew
    *  the ring is the one that says whether it filled, and the writer never re-guesses. */
   /** `dock`: a Trupp marker's answer to «dock to a symbol?» – the host whose ring closed, null
-   *  when no ring closed, undefined when the surface has no opinion (a placard docks instantly).
-   *  `{ sucheId }` when the ring that closed was a Suche place's pin (`sucheTargets`). */
-  onMarkerDragEnd: (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: MarkerDock | null) => void
-  /** The Suche's places standing on the Karte, as targets a dragged Trupp marker can be LINKED
-   *  to (owner 26.09.2026, «I can't attach a Trupp to the Absuchen thing but only to the
-   *  symbols»): the same ring, the same hold as docking to a symbol. Asked per dragged marker —
-   *  empty for a marker that is no Trupp's, or whose Trupp is already out. */
-  sucheTargets?: (entityId: string) => readonly { id: string; coord: LngLat }[]
+   *  when no ring closed, undefined when the surface has no opinion (a placard docks instantly) */
+  onMarkerDragEnd: (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: { hostId: string } | null) => void
   /** rotate a (live vehicle) marker by dragging its on-icon handle */
   onRotate?: (id: string, deg: number) => void
   /** drag-to-transform a placed shape: rotate (top handle) / resize (corner handle).
@@ -343,8 +333,6 @@ interface Props {
   onSettled?: () => void
   /** coordinate picker: while aiming the map shows a crosshair, the cursor lng/lat
    *  streams to onCursor, and the next map click locks the point via onPick. */
-  /** <Marker>s the workspace draws over the tactical layer (the Suche's pins, 26.09.2026) */
-  overlay?: React.ReactNode
   picking?: boolean
   onCursor?: (c: LngLat | null) => void
   onPick?: (c: LngLat) => void
@@ -437,7 +425,7 @@ export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
-    onView, onBasemapUnavailable, onSettled, overlay, sucheTargets, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
+    onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
     onSelectionDone, georefPlanRasters = [] } = props
@@ -1018,9 +1006,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
    *  while the marker hovers inside the dock radius, and only a CLOSED ring docks on release –
    *  a marker merely carried past a symbol must not stick to it. The hose join above wins when
    *  both are in reach; the dock ring then does not show at all. */
-  // …and a Suche place's pin is a third (26.09.2026): `suche` marks the aim as a place, not an
-  // entity — the drop links the Trupp to it (IncidentWorkspace · finishEntityMove) and docks nothing
-  type DockAim = { entityId: string; hostId: string; coord: LngLat; since: number; armed: boolean; suche?: boolean }
+  type DockAim = { entityId: string; hostId: string; coord: LngLat; since: number; armed: boolean }
   const [dockAim, setDockAimState] = useState<DockAim | null>(null)
   const dockAimRef = useRef<DockAim | null>(null)
   const dockAimTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1034,23 +1020,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const map = mapInst.current
     const me = entities.find((e) => e.id === id)
     if (!map || me?.kind !== 'team' || teamJoinRef.current) { clearDockAim(); return }
-    const project = (q: LngLat) => map.project(q as [number, number])
-    const radius = dockRadiusFor(me)
-    const sym = nearestDockHost(c, entities.filter((e) => e.id !== id), project, radius)
-    // the nearer of the two wins: a symbol to dock to, or a Suche place to search
-    const at = project(c)
-    const far = (q: LngLat) => { const p = project(q); return Math.hypot(p.x - at.x, p.y - at.y) }
-    const targets = sucheTargets?.(id) ?? []
-    const hit = sucheDropTarget(targets.map((t) => ({ id: t.id, ...project(t.coord) })), at, radius)
-    const place = hit && { ...hit, coord: targets.find((t) => t.id === hit.id)!.coord }
-    const host = place && (!sym || !Array.isArray(sym.coord) || place.d < far(sym.coord as LngLat))
-      ? { id: place.id, coord: place.coord, suche: true }
-      : sym && Array.isArray(sym.coord) ? { id: sym.id, coord: sym.coord as LngLat, suche: false } : null
-    if (!host) { clearDockAim(); return }
+    const host = nearestDockHost(c, entities.filter((e) => e.id !== id), (q) => map.project(q as [number, number]), dockRadiusFor(me))
+    if (!host || !Array.isArray(host.coord)) { clearDockAim(); return }
     // still over the same host: let the ring keep filling rather than restarting it
-    if (dockAimRef.current?.entityId === id && dockAimRef.current.hostId === host.id && !!dockAimRef.current.suche === host.suche) return
+    if (dockAimRef.current?.entityId === id && dockAimRef.current.hostId === host.id) return
     clearDockAim()
-    const st: DockAim = { entityId: id, hostId: host.id, coord: host.coord, since: Date.now(), armed: false, ...(host.suche ? { suche: true } : {}) }
+    const st: DockAim = { entityId: id, hostId: host.id, coord: host.coord as LngLat, since: Date.now(), armed: false }
     setDockAim(st)
     dockAimTimer.current = setTimeout(() => {
       const now = dockAimRef.current
@@ -1397,7 +1372,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     // it always did (IncidentWorkspace · finishEntityMove).
     const da = dockAimRef.current
     const dock = entities.find((e) => e.id === id)?.kind === 'team'
-      ? (da?.armed && da.entityId === id ? (da.suche ? { sucheId: da.hostId } : { hostId: da.hostId }) : null)
+      ? (da?.armed && da.entityId === id ? { hostId: da.hostId } : null)
       : undefined
     clearTeamJoin()
     clearDockAim()
@@ -2814,9 +2789,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onToggleTrail={toggleTrail}
       />
 
-      {/* markers of the workspace's own that are no tactical object — the Suche's pins
-          (components/suche · SucheMapPins): after the symbols, so they stand on top of them */}
-      {overlay}
     </Map>
     {/* the tool's number, fixed at the top edge while a measure vertex is being dragged — the
         per-vertex label sits under the very fingertip that changes it (the .node-del chip is

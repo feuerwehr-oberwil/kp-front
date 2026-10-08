@@ -2,7 +2,7 @@ import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, P
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
-import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts } from './format'
+import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts, unitLabel } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { fahrtenText } from './vehiclePresence'
 import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
@@ -46,10 +46,6 @@ export interface ReportOptions {
    *  the long Einsatzjournal is a normal choice, and the outstanding items are the last thing
    *  that should go with it. */
   pendenzen: boolean
-  /** the Suche's «Personen» — its own section right after the Pendenzen (24.09.2026): one line
-   *  per person with its times, and the one «Suche: …» line. The payload carries nothing while
-   *  nobody was ever reported, so ON costs a Kaminbrand nothing. */
-  personen: boolean
   /** print the Rapport-Beilagen (document/damage photos) as full-width plates at the end */
   attachments: boolean
   detailedAudit: boolean
@@ -86,7 +82,6 @@ export const defaultReportOptions: ReportOptions = {
   // wrong twice over: suppressing the long Einsatzjournal is a common and reasonable choice, and
   // the one thing you would never want to drop with it is the list of what is still outstanding.
   pendenzen: true,
-  personen: true,
   attachments: true,
   detailedAudit: false,
 }
@@ -243,9 +238,6 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   // in every existing record — which an append-only journal needs, because these rows can
   // never be rewritten to carry a new field.
   if (e.id.startsWith('sys')) return r.areaSystem
-  // ── a row about a Person or Bereich of the Suche (lib/suche) — the link says so, whoever wrote
-  // it: the list's own rows, their ↶, and a composer entry that changed a status on the way ──
-  if (e.suche) return r.areaSuche
   // ── hand-written first, whatever surface it was written on ──
   // a Checklisten-Haken is a documented decision, not a free note — and it is the only other
   // thing `journal` is written for besides the composer
@@ -871,7 +863,6 @@ export function describeDrawing(d: Drawing): string {
   if (d.kind === 'area') return d.label ? fillTemplate(r.drawAreaLabeled, { label: d.label }) : r.drawArea
   if (d.label) return d.label
   if (d.marker === 'R') return r.drawRescueAxis
-  if (d.marker === 'Z' && d.arrow) return r.drawAccessRoute
   if (d.showDistance) return r.drawMeasureArrow
   return r.drawLine
 }
@@ -1420,12 +1411,12 @@ export function mittelFormForPdf(
     const unit = c.unit || appConfig.mittel.defaultUnit
     const hit = byKey.get(`${c.id}|${unit.trim().toLowerCase()}`)
     if (hit) byKey.delete(hit.materialKey)
-    rows.push({ label: c.label, menge: hit && hit.total > 0 ? String(hit.total) : undefined, unit, note: noteOf(hit) })
+    rows.push({ label: c.label, menge: hit && hit.total > 0 ? String(hit.total) : undefined, unit: unitLabel(unit), note: noteOf(hit) })
   }
   for (const r of byKey.values()) {
     if (r.total <= 0) continue
     const sources = r.sources.filter((s) => s !== noSource)
-    rows.push({ label: sources.length ? `${r.label} · ${sources.join(', ')}` : r.label, menge: String(r.total), unit: r.unit, note: noteOf(r) })
+    rows.push({ label: sources.length ? `${r.label} · ${sources.join(', ')}` : r.label, menge: String(r.total), unit: unitLabel(r.unit), note: noteOf(r) })
   }
   return { mittelForm: rows }
 }

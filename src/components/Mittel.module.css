@@ -29,13 +29,13 @@
 /* the composer's fields, now inside the shared sheet (see MittelView · MittelComposer). One
    wrapping row on a wide dialog, a stack on a phone — the sheet owns the frame and footer. */
 .composerFields { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
-.field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 200px; min-width: 0; }
+.field { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1 1 200px; min-width: 0; }
 .fieldNarrow { flex: 0 1 130px; }
 /* the one field label (01-tokens · --field-label, 28.09.2026) — it was an uppercase eyebrow */
 .field label { font: var(--field-label); color: var(--ink-dim); }
 
-/* grouped list — 6px between rows inside a group, a clear 16px break before the next group */
-.list { flex: 1 1 auto; overflow-y: auto; scrollbar-gutter: stable; padding: 8px 22px 18px; }
+/* grouped list — 8px between rows inside a group, a clear 16px break before the next group */
+.list { flex: 1 1 auto; overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-2) var(--head-pad-x) var(--sp-4); }
 .group { margin-top: 16px; }
 .group:first-child { margin-top: 4px; }
 
@@ -50,14 +50,29 @@
 @media (min-width: 1200px) {
   .list {
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 22px; align-content: start; align-items: start;
+    column-gap: var(--sp-5); align-content: start; align-items: start;
   }
   .list > .group:nth-child(-n+2) { margin-top: 4px; }
+}
+/* …and CAPPED beyond that (B1, 07.10.2026 — Surface.module.css · «cap + columns»): a column stops
+   at 640px of row, so a name and its «+» stay one glance apart; the list and the strip are centred
+   on the surface ground. The head and the search line are NOT — they stay full width, their tiles
+   and filters at the right edge. From 1600px a THIRD column: the groups are independent lists, and
+   three of ~470–560px hold more Positionen above the fold than two capped ones would. */
+@media (min-width: 1200px) {
+  .surface { --content-max: 1304px; }   /* 2 × 640 + the 24px column gap */
+  .list, .noHits { padding-inline: var(--content-pad-x); }
+  .recStrip { margin-inline: var(--content-pad-x); }
+}
+@media (min-width: 1600px) {
+  .surface { --content-max: 1968px; }   /* 3 × 640 + 2 × 24 */
+  .list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .list > .group:nth-child(-n+3) { margin-top: 4px; }
 }
 /* padding-left aligns the header label with the item labels inside the cards
    (card border 1px + row padding-left 12px) */
 .groupHead {
-  margin: 0 0 6px; padding: 0 13px;
+  margin: 0 0 var(--sp-2); padding: 0 calc(1px + var(--sp-3));
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
 .groupHead.muted { color: var(--ink-faint); }
@@ -69,29 +84,29 @@
    BOTH columns of the wide layout: it belongs to the search, not to whichever category happened to
    end above it. */
 .createRow {
-  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
-  grid-column: 1 / -1; margin-top: 14px; min-height: var(--tap); padding: 8px 12px;
+  display: flex; align-items: center; gap: var(--sp-2); width: 100%; box-sizing: border-box;
+  grid-column: 1 / -1; margin-top: var(--sp-4); min-height: var(--tap); padding: 8px 12px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
-  color: var(--ink); font: 700 13.5px var(--body); text-align: left; cursor: pointer;
+  color: var(--ink); font: var(--fw-bold) var(--fs-2) var(--body); text-align: left; cursor: pointer;
 }
 @media (hover: hover) { .createRow:hover { border-color: var(--ink-faint); } }
 .createRow:active { background-image: linear-gradient(var(--press), var(--press)); }
 .createRow :global(.i) { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
 /* …and on the «Keine Treffer» screen it is the only thing on offer, so the note and the row
    stack in the space the list would have had */
-.noHits { flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; padding: 8px 22px 18px; }
+.noHits { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-2) var(--head-pad-x) var(--sp-4); }
 .noHits > .createRow { align-self: flex-start; width: auto; margin-top: 0; }
 
 .row {
-  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 12px;
+  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: var(--sp-1) var(--sp-3);
   border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
-  margin-bottom: 6px;
+  margin-bottom: var(--sp-2);
 }
-.rowLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 14.5px var(--body); color: var(--ink); }
+.rowLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 /* unit trails the quantity (qty and unit read as one value: «3 / 4 Stk»); the min-width keeps
    the short unit strings (Stk/l/m) in a column so quantities align down a group */
-.rowUnit { flex: none; min-width: 28px; font: 600 12.5px var(--body); color: var(--ink-faint); }
-.rowQty { flex: none; font: 800 15px var(--body); color: var(--ink); min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+.rowUnit { flex: none; min-width: 28px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
+.rowQty { flex: none; font: var(--fw-heavy) var(--fs-3) var(--body); color: var(--ink); min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* the ±stepper and its unit — one block, so both views end on the same right edge */
 .rowEdit { flex: none; display: flex; align-items: center; gap: 8px; }
@@ -125,31 +140,31 @@
 
 /* remaining-stock readout on a list row: filled dot = still there, empty = used; larger
    stocks fall back to the «noch N» chip. Low → amber, nothing left / over-use → red. */
-.dots { flex: none; display: inline-flex; align-items: center; gap: 3px; min-width: 34px; justify-content: flex-end; }
+.dots { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 34px; justify-content: flex-end; }
 .dots i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--ink-faint); background: none; }
 .dots i.dotOn, .dots .dotOn { border-color: var(--green); background: var(--green); }
 .dots.low .dotOn { border-color: var(--amber-strong); background: var(--amber-strong); }
 .dots.over i { border-color: var(--red); }
-.noch { flex: none; font: 700 12px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.noch { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .noch.low { color: var(--amber-strong); }
 .noch.over { color: var(--red-strong); }
 
 /* multi-source rows: the whole header line is the expand toggle; per-source stepper
    sub-rows indent below it */
 .rowMulti { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
-.rowExpand { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 12px;
+.rowExpand { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: var(--sp-1) var(--sp-3);
   border: none; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit;
   border-radius: var(--r-sm); }
 .rowExpand:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rowExpand svg { width: 14px; height: 14px; flex: none; color: var(--ink-faint); }
-.subRow { display: flex; flex-direction: column; gap: 4px; padding: 5px 12px 5px 34px;
+.subRow { display: flex; flex-direction: column; gap: 4px; padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-6);
   border-top: 1px solid var(--glass-edge); }
 .subLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font: 650 13px var(--body); color: var(--ink-dim); }
+  font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
 
 /* pencil dialog: Einheit and Bestand share a line — both are short, and stacked they pushed
    Quelle and the Bemerkung below the fold on a phone */
-.dialogRow { display: flex; gap: 10px; align-items: flex-start; }
+.dialogRow { display: flex; gap: var(--sp-3); align-items: flex-start; }
 .dialogRow > * { flex: 1 1 0; min-width: 0; }
 
 /* (the whole search line — .controls/.search, the filter buttons, the + and the dropdown —
@@ -160,29 +175,29 @@
    selected state gets a (status-coloured) fill */
 
 
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* (the full-width inset is the shared shell's — Surface.module.css) */
   /* ONE row (every page head, 28.09.2026 — Surface.module.css): title + summary, the QR read-out
      beside them as the first thing the head's ladder takes away (MittelView). The paddings are the
      shared phone tokens (15-mobile · --head-pad-*). */
-  .headTitles p { font-size: 12px; }
-  .composerFields { gap: 10px; }
+  .headTitles p { font-size: var(--fs-1); }
+  .composerFields { gap: var(--sp-2); }
   .field { flex: 1 1 100%; }
-  .fieldNarrow { flex: 1 1 calc(50% - 5px); }
+  .fieldNarrow { flex: 1 1 calc(50% - var(--sp-1)); }
   /* actions get their own full-width row; Speichern is the big primary (3am tenet) */
   /* the last Mittel row clears the Eintrag FAB (it sat on a row's ±stepper) */
-  .list { padding: 8px 14px calc(18px + var(--fab-safe, 0px)); }
+  .list { padding: var(--sp-2) var(--head-pad-x) calc(var(--sp-4) + var(--fab-safe, 0px)); }
   /* the ±stepper leaves ~130px for the label on a phone — let the name wrap to a second
      line instead of truncating to «Ölsaug–/Wassers…» (recognition over recall).
      overflow-wrap: compound tokens like «Ölsaug-/Wassersauger» get a break instead of
      an ellipsis (plain wrapping finds no break opportunity inside them). */
   .rowLabel, .subLabel { white-space: normal; line-height: 1.25; overflow-wrap: anywhere; }
   .row, .rowMain, .rowExpand { gap: 8px; }
-  .rowEdit { gap: 6px; }
+  .rowEdit { gap: var(--sp-1); }
   /* #5: give long names room — the name takes the full width on its own line and the
      ±stepper (or read-only count) drops to a second line, right-aligned, instead of the
      name wrapping to 3 cramped lines beside the controls. */
-  .rowMain { flex-wrap: wrap; row-gap: 6px; }
+  .rowMain { flex-wrap: wrap; row-gap: var(--sp-2); }
   .rowMain > .rowLabel, .rowMain > .subLabel { flex: 1 1 100%; }
   /* ⚠️ the auto margin belongs to whatever comes FIRST after the name, not to the stepper:
      pinned to .rowEdit/.rowQty it left the stock dots stranded at the left end of the second
@@ -212,48 +227,44 @@
 .hasNote { color: var(--blue); }
 .hasNote::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px;
   border-radius: 50%; background: var(--blue); }
-.rowNoteRo { margin-top: 3px; font: 500 12.5px var(--body); color: var(--ink-dim); }
+.rowNoteRo { margin-top: var(--sp-1); font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 
 /* «Gesetzt, aber nicht erfasst» — the symbol→Mittel reconciliation strip between the search row
    and the list (MittelView · mittelRecommendations). Blue = information with an action, never
    --accent (that is alarm red by station config). One sentence + one button + ✕: the sentence
    names what stands on Lage/Plan without a line on the sheet, «Übernehmen» books all of it onto
    the Bestand's default sources, ✕ dismisses this suggestion set (a new placement resurfaces it). */
-.recStrip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 22px;
-  padding: 9px 12px; background: color-mix(in srgb, var(--blue) 9%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--blue) 32%, transparent); border-radius: var(--r-ctl); }
-.recText { flex: 1 1 240px; min-width: 0; font: 600 13px var(--body); color: var(--ink-dim); }
-/* ⚠️ the strip's one action is THE primary (28.09.2026) — blue now means «chosen» (--sel) */
-.recTake { flex: none; border: none; border-radius: var(--r-sm); padding: 8px 14px; cursor: pointer;
-  font: 700 12.5px var(--body); background: var(--btn-primary); color: var(--on-btn-primary); }
-.recTake:active { background-image: linear-gradient(var(--press), var(--press)); }
-.recHide { flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin: -2px -4px -2px -6px;
-  border: none; border-radius: var(--r-sm); background: none; color: var(--ink-faint); cursor: pointer; }
+.recStrip { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin: 0 var(--head-pad-x);
+  padding: var(--sp-2) var(--sp-3); background: color-mix(in srgb, var(--blue) 9%, var(--surface));
+  border: 1px solid var(--blue-28); border-radius: var(--r-ctl); }
+.recText { flex: 1 1 240px; min-width: 0; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
+/* ⚠️ the strip's one action is THE primary (28.09.2026) — blue now means «chosen» (--sel).
+   <Button primary> and <IconButton> since 08.10.2026 (design-system stage 2): 44px, the floor;
+   the ✕ overhangs the strip's padding so the strip does not grow by the whole difference.
+   (The phone's 14px inset is `--head-pad-x` there, so the margin above serves both.) */
+.recTake { flex: none; }
+.recHide { margin: calc(-1 * var(--sp-1)); color: var(--ink-faint); }
 @media (hover: hover) { .recHide:hover { color: var(--ink); } }
-.recHide :global(.i) { width: 15px; height: 15px; }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  .recStrip { margin: 0 14px; }
-}
 
 /* The «Erfassen …» picker sheet (MittelView · MittelPickSheet): one group per open symbol,
    ≥52px radio rows (Typ + Quelle + Restbestand), the unambiguous rest ticked below. Rows are
    rows, not buttons → --r-ctl; radio/tick stay round like all on-surface furniture. */
-.pickSub { margin: -2px 0 12px; font: 500 12.5px var(--body); color: var(--ink-dim); line-height: 1.4; }
-.pickGroup { margin-bottom: 14px; }
+.pickSub { margin: -2px 0 12px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); line-height: 1.4; }
+.pickGroup { margin-bottom: var(--sp-4); }
 .pickGroup:last-child { margin-bottom: 0; }
 .pickGroupHead {
-  display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; padding: 0 1px;
+  display: flex; align-items: baseline; gap: 8px; margin: 0 0 var(--sp-2); padding: 0 1px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
-.pickGroupHead small { font: 500 11px var(--body); text-transform: none; letter-spacing: 0; color: var(--ink-faint); }
+.pickGroupHead small { font: var(--fw-medium) var(--fs-micro) var(--body); text-transform: none; letter-spacing: 0; color: var(--ink-faint); }
 .pickOpt {
-  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 8px 12px;
-  margin-top: 6px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 52px; padding: 8px 12px;
+  margin-top: var(--sp-2); border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); cursor: pointer; text-align: left; font: inherit; color: inherit;
 }
 /* hover was missing entirely — every other option cell in the app answers a pointer
    (13-incident.css · «ONE menu row»), and mouse-only, so a tap leaves nothing lit. */
-@media (hover: hover) { .pickOpt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
+@media (hover: hover) { .pickOpt:hover { background: var(--blue-8); } }
 .pickOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* a picked ROW wears the one row wash (01-tokens · --sel-wash); its radio dot says the rest */
 .pickOptOn { border-color: var(--sel); background: var(--sel-wash); }
@@ -263,9 +274,9 @@
   background: radial-gradient(circle, var(--blue) 0 5px, transparent 6px);
 }
 .pickTxt { flex: 1 1 auto; min-width: 0; }
-.pickTxt b { display: block; font: 700 13.5px var(--body); color: var(--ink); overflow-wrap: anywhere; }
-.pickTxt small { font: 500 11.5px var(--body); color: var(--ink-faint); }
-.pickStk { flex: none; font: 700 12px var(--mono); color: var(--ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pickTxt b { display: block; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); overflow-wrap: anywhere; }
+.pickTxt small { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-faint); }
+.pickStk { flex: none; font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* the pre-ticked unambiguous rows: quieter fill, no border emphasis — a glance, not a control */
 .pickFixed { min-height: 44px; cursor: default; border-color: transparent; background: var(--fill-soft); }
 .pickTick { flex: none; width: 20px; display: grid; place-items: center; color: var(--green); }

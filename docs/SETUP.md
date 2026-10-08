@@ -90,12 +90,12 @@ Webhook secrets are deliberately **not** generated at install. They are write-on
 the app can verify them but never reveal them. Pre-generating an unseen value would make an intake
 look configured while no external alarm system could call it. When you connect Divera, FireHub or
 another alarm system, generate one long random value, paste it into both
-`/admin` → **Zugangsdaten** and the external system, and keep the handoff in that setup session.
+`/admin` → **Anbindungen** and the external system, and keep the handoff in that setup session.
 
 They go into the store rather than into `.env` for one reason: **a value in `.env` wins and locks
 its field in the browser** (§5). Minting into `.env` would hand every fresh station a page of dead
 boxes on the one screen built to keep this off SSH – keys it could never rotate at 03:00. In the
-store, the pair is rotatable at `/admin` → **Zugangsdaten**.
+store, the pair is rotatable at `/admin` → **Anbindungen**.
 
 This step never fails the install. If it cannot run – no `curl` on the host, an empty
 `ADMIN_SECRET`, an app that did not answer – it says exactly what is now missing and how to finish
@@ -280,7 +280,7 @@ yours to do. Both halves have a one-command version that works against an existi
 without touching anything else: `./scripts/setup.sh --credentials` mints the **VAPID pair** into
 the credential store (§5), and
 `./scripts/setup.sh --backup-cron` installs the **backup schedule** (§6). Or set the credentials
-by hand at `/admin` → **Zugangsdaten** – that page is the point of them.
+by hand at `/admin` → **Anbindungen** – that page is the point of them.
 
 **From source.** A station running a published release never needs this. Anyone who has been
 told "that is already fixed on main" does:
@@ -336,19 +336,19 @@ demanding you finish, and each a link straight to the page that fixes it.
 | «Personal erfassen» | Personal | Anwesenheit and Rapport stay empty lists |
 | «Fahrzeuge hinterlegen» | Fahrzeuge & Symbole | The Rapport has no grid for Ausrückzeiten |
 | «Adresssuche eingrenzen» | Station & Karte | Address suggestions are not biased to the station's own area |
-| «SharePoint-Anbindung» | Zugangsdaten | Nothing is pulled from the Wehr's own folders – object plans, geodata, checklists and the Arbeitsmappe stay whatever was last loaded by hand ([`sharepoint-connector.md`](sharepoint-connector.md)) |
-| «Überwachung» | Zugangsdaten | `HEALTHCHECK_PING_URL` is unset, so an outage is nobody's news (§5, and [`DEPLOYMENT.md` §5.5](DEPLOYMENT.md#55-knowing-when-it-is-down)) |
+| «SharePoint-Anbindung» | Anbindungen | Nothing is pulled from the Wehr's own folders – object plans, geodata, checklists and the Arbeitsmappe stay whatever was last loaded by hand ([`sharepoint-connector.md`](sharepoint-connector.md)) |
+| «Überwachung» | Anbindungen | `HEALTHCHECK_PING_URL` is unset, so an outage is nobody's news (§5, and [`DEPLOYMENT.md` §5.5](DEPLOYMENT.md#55-knowing-when-it-is-down)) |
 
 The card follows one rule, and it is worth knowing because it explains what is *not* on it: **it
 only ever lists things this UI can finish.** «Überwachung» used to be the exception – reported
 below the rows, outside the «x von n» count, because the ping URL was env-only and a row nobody
 could tick would have parked the card at «6 von 7» forever. It is now one of the seventeen
-credentials «Zugangsdaten» sets, so it is an ordinary counted row like every other
+credentials «Anbindungen» sets, so it is an ordinary counted row like every other
 ([`SetupChecklist.tsx`](../src/admin/SetupChecklist.tsx) · `SetupChecklist`).
 
 Opening incidents manually is a complete, supported setup, so «Alarmquelle» is deliberately not
 one of these rows. Divera and generic webhook intake remain optional upgrades under
-**Daten › Alarme & Einsätze** and **Zugangsdaten**.
+**Daten › Alarme & Einsätze** and **Anbindungen**.
 
 Not every row is for every station – a Wehr that keeps no files in SharePoint will never tick
 «SharePoint-Anbindung» by doing the work. Any open row therefore also carries **«Abhaken»**,
@@ -381,7 +381,7 @@ forget.
 | **Mitglieder & Zugriff** | Who may log in, with which role and which PIN; deactivate an account |
 | **Personal** | The crew – hand entry, a CSV import with a downloadable template, or the workbook below |
 | **Erfassungsblatt** | The A4 paper form for the fallback case – the capture poster itself now lives under Links & Zugänge |
-| **Zugangsdaten** | The keys of every integration – Divera, Traccar, Web Push, speech-to-text, the two webhook intakes, the print relay and the monitor ping. Stored encrypted, live without a restart (§5) |
+| **Anbindungen** | The keys of every integration – Divera, Traccar, Web Push, speech-to-text, the two webhook intakes, the print relay and the monitor ping. Stored encrypted, live without a restart (§5) |
 | **Arbeitsmappe** | The station's list-shaped data as one `.xlsx`: download, edit, upload back – see below |
 | **Alarmierung · Fahrzeugortung** | Connection status, test calls, the alarm pool and the vehicle positions |
 | **Links & Zugänge** | Every address the station hands out – capture poster, Einsatz-Link, Stations-Terminal, the fixed Atemschutz code and the Statistik-Export token: address, state, rotation and the printouts |
@@ -691,7 +691,7 @@ Every integration is fail-closed: no credential means the feature is off, not br
 **These go in the browser now.** Seventeen settings – the three Divera keys, the Traccar trio, the
 VAPID trio, the four speech-to-text settings, `CARTO_API_KEY`, `PRINT_AGENT_SECRET`,
 `ALARM_WEBHOOK_SECRET` and
-`HEALTHCHECK_PING_URL` – are set at `/admin` → **Zugangsdaten**. They are stored **encrypted** in
+`HEALTHCHECK_PING_URL` – are set at `/admin` → **Anbindungen**. They are stored **encrypted** in
 this deployment's own database (AES-256-GCM under a key derived from `SECRET_KEY`) and take effect
 **without a restart**. Three rules, once:
 
@@ -720,7 +720,7 @@ Full list and formats in [`.env.example`](../.env.example); the API is in
   account, no code. See [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md).
 - ⚠️ **Webhook secrets are created during the integration handoff, not at install.** You cannot
   read one back after saving it. Generate a long random value, paste it into
-  «Zugangsdaten» → «Webhooks» and the external alarm system in the same session. If the handoff
+  «Anbindungen» → «Webhooks» and the external alarm system in the same session. If the handoff
   value is lost, rotate it on both sides.
 - **Traccar** – live vehicle positions on the Lage map.
 - **Web Push** – **`./scripts/setup.sh` already did this one** on a fresh install (§1), and the
@@ -731,7 +731,7 @@ Full list and formats in [`.env.example`](../.env.example); the API is in
   docker compose exec app uv run python -m app.gen_vapid   # prints both lines
   ```
 
-  Paste **both** halves into `/admin` → «Zugangsdaten» → «Web Push». There is no restart: the
+  Paste **both** halves into `/admin` → «Anbindungen» → «Web Push». There is no restart: the
   value reaches its consumer on the next request. (Pasting them into `.env` instead also works,
   and is the deliberate way to lock them there – that route does need `docker compose up -d`,
   because `.env` is read once at process start.)
@@ -830,7 +830,7 @@ The rest of this section is ordered by how often it catches people.
 
 1. **`SECRET_KEY` must never change.** It signs sessions, peppers PINs, *and* is the key every
    stored integration credential is encrypted under (§5). Rotate it and you get all three at
-   once: everyone logged out, every PIN dead, and every credential in «Zugangsdaten» reporting
+   once: everyone logged out, every PIN dead, and every credential in «Anbindungen» reporting
    itself as «unlesbar, bitte neu setzen» with that integration off until somebody types it in
    again. It is labelled rather than silently missing, on purpose – but it is still an outage.
    Back it up with your secrets, not with your code.

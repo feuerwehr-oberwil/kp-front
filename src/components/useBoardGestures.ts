@@ -1,6 +1,7 @@
 import { useRef, useState, type MutableRefObject, type RefObject, type PointerEvent as ReactPointerEvent } from 'react'
 import type { BoardAnno, BoardTool } from '../types'
 import { isMarqueeTap, marqueeContains } from '../lib/marquee'
+import { createTapDragZoom, type TapSample, type TapZoomAction } from '../lib/tapDragZoom'
 
 interface BoardGesturesDeps {
   tool: BoardTool
@@ -24,12 +25,13 @@ interface BoardGesturesDeps {
 
 /**
  * The board's NAVIGATION pointer layer, lifted out of the Whiteboard god-component: one-finger
- * pan, two-finger pinch-zoom, and the Mehrfach/lasso marquee multi-select — plus the shared stage
- * dispatcher that routes raw pointer events between them. Object manipulation (chip / freehand /
+ * pan, two-finger pinch-zoom, the one-finger double-tap / tap-and-drag zoom (lib/tapDragZoom,
+ * 08.10.2026), and the Mehrfach/lasso marquee multi-select — plus the shared stage dispatcher
+ * that routes raw pointer events between them. Object manipulation (chip / freehand /
  * vertex drag) stays in Whiteboard and is reached through the manipMove/manipUp callbacks, so the
  * delicate stopPropagation/setPointerCapture grammar of those drags is untouched.
  *
- * The dispatch order is pinch > marquee > pan, then fall through to manipulation; on release
+ * The dispatch order is pinch > tap-zoom > marquee > pan, then fall through to manipulation; on release
  * every gesture's up runs (each no-ops if its ref is null). Pointer bookkeeping and the handoff
  * to the two-finger gesture happen in the CAPTURE phase (trackDown/trackUp) so they see fingers
  * that a chip's own handler swallows — see the comment there.
@@ -41,6 +43,24 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   const pinchDist = useRef<number | null>(null)
   const pinchMid = useRef<{ x: number; y: number } | null>(null)
   const marqueeRef = useRef<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  // --- one-finger zoom, the Karte's own (MapLibre's double tap + tap-and-drag) — touch and pen,
+  // selection tool only, presses on EMPTY board only (an object's own handler swallows its press
+  // before stageDown). The draw tools keep their own double tap (it finishes a Linie / Fläche on
+  // `.wb-ink`) and navigate by pinch. ---
+  const [tapZoom] = useState(createTapDragZoom)
+  /** the scale the tap-drag engaged at — its factor is relative to that, so it never drifts */
+  const tapZoomBase = useRef<number | null>(null)
+  const sample = (e: ReactPointerEvent): TapSample => ({ id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, pointerType: e.pointerType })
+  const applyTapZoom = (a: TapZoomAction | null) => {
+    if (!a || a.kind === 'hold') return
+    if (a.kind === 'arm' || a.kind === 'end') { tapZoomBase.current = null; return }
+    const r = canvasRef.current?.getBoundingClientRect()
+    const fx = a.at.x - (r?.left ?? 0), fy = a.at.y - (r?.top ?? 0)
+    if (a.kind === 'zoomStep') { zoomTo(2, fx, fy); return }
+    tapZoomBase.current ??= scaleRef.current
+    // an ABSOLUTE target (base × factor) — zoomTo clamps it and keeps the first tap's spot fixed
+    zoomTo((tapZoomBase.current * a.factor) / scaleRef.current, fx, fy)
+  }
 
   // --- panning (pan tool, on empty board) ---
   const panDown = (e: ReactPointerEvent) => {
@@ -119,6 +139,7 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   // every pointer whatever swallows it; these two only bookkeep, they never intercept.
   const trackDown = (e: ReactPointerEvent) => {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointers.current.size >= 2) applyTapZoom(tapZoom.cancel()) // two fingers are the pinch's
     if (pointers.current.size !== 2 || (tool !== 'pan' && tool !== 'lasso')) return
     pan.current = null; marqueeRef.current = null; setMarquee(null) // hand off to pinch
     manipUp() // an object drag under the first finger ends where it lies — two fingers navigate
@@ -128,6 +149,9 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   }
   const trackUp = (e: ReactPointerEvent) => {
     pointers.current.delete(e.pointerId)
+    // here, not in stageUp: capture sees every release, so a press on a chip between two taps
+    // (whose down the stage never saw) still breaks the pair
+    applyTapZoom(e.type === 'pointercancel' ? tapZoom.cancel() : tapZoom.up(sample(e)))
     if (pointers.current.size >= 2 || pinchDist.current == null) return
     pinchDist.current = null; pinchMid.current = null
     // lifting to a single finger resumes panning from where it rests
@@ -137,11 +161,26 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
 
   const stageDown = (e: ReactPointerEvent) => {
     if (pinchDist.current != null) return // the capture pass handed this gesture to the pinch
+    if (tool !== 'pan') applyTapZoom(tapZoom.cancel())
+    else {
+      const a = tapZoom.down(sample(e))
+      if (a?.kind === 'arm') {
+        // the second press of a double tap: this finger zooms — no pan, and nothing to deselect
+        // (the first tap already did)
+        ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+        applyTapZoom(a)
+        return
+      }
+    }
     if (tool === 'lasso') { marqueeDown(e); return }
     panDown(e)
   }
   const stageMove = (e: ReactPointerEvent) => {
     if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    // non-null only while the tap-zoom owns this finger; a first press that travels quietly
+    // stops being a tap here (and goes on panning below)
+    const tz = tapZoom.move(sample(e))
+    if (tz) { applyTapZoom(tz); return }
     if (pinchDist.current != null) {
       const m = pinchPts(); if (!m) return
       const el = canvasRef.current

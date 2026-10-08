@@ -1,7 +1,7 @@
 /* top-right map controls — compass | zoom | locate · coordinates */
-.toputil { position: absolute; top: 16px; right: 16px; z-index: var(--z-map-util); display: flex; align-items: center; gap: 3px;
+.toputil { position: absolute; top: 16px; right: 16px; z-index: var(--z-map-util); display: flex; align-items: center; gap: 4px;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-cluster); padding: var(--bar-pad); box-shadow: var(--shadow); white-space: nowrap; }
+  border-radius: var(--r-cluster); padding: var(--bar-pad); box-shadow: var(--e4); white-space: nowrap; }
 .tu-btn { width: 42px; height: 42px; border: none; background: transparent; border-radius: var(--r-sm); display: grid; place-items: center;
   color: var(--ink); cursor: pointer; transition: background .14s var(--ease), transform .12s var(--ease); }
 @media (hover: hover) { .tu-btn:hover { background: var(--hover-strong); } }
@@ -23,7 +23,7 @@
 @media (pointer: coarse) {
   .tu-btn { width: 44px; height: 44px; }
 }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   /* zoom controls drop below the full-width bar so they never overlap it (map only);
      track the safe area so the cluster clears the notch + rounded corner */
   .toputil { top: calc(60px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); }

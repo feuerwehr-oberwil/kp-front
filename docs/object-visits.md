@@ -63,6 +63,21 @@ links the item). A missing key = **nicht geprüft** (never «Nein»). `defect` a
 **Incident surfaces ignore `kind: "visit"`** (`loadTemplates` callers that render incident
 checklists filter it out), and visit surfaces only use `kind: "visit"`.
 
+**Plans on a visit.** The visit page lists the object's Modul-PDFs above the checklist
+(`GET /api/objects/{id}` through the offline cache, `src/objectVisits/plans.ts`); a row opens
+`/api/reference/<plan id>?v=<version>` in the in-app reader (PdfScroller, one history entry so
+the back gesture closes it). Nothing about plans is stored in the visit.
+
+**Changing the checklist.** A draft's ⋯ menu offers «Checkliste wechseln»
+(`doc.ts · switchChecklist`): the new snapshot replaces the old, answers of an item with the same
+id AND input type stay, the others are counted and confirmed before they go, photos stay (one
+linked to an item the new checklist lacks becomes general). The server already accepts a changed
+snapshot while the visit is a draft.
+
+**From an Einsatz.** Opened through the Einsatz menu, the Übersicht lists the Einsatz's active
+object (`useObjectPlans · activeObjectId`) first under «Im Einsatz»; from the launcher there is
+no such row.
+
 ## The visit document (`schema: "kp-front.object-visit/1"`)
 
 What the client PUTs as `doc` and what every reader receives (server fields added on read):
@@ -122,7 +137,7 @@ Refusals carry a `code` at the top of the body **and** a German `detail`:
 
 | Route | Answer |
 |---|---|
-| `GET /catalogue` | `{generatedAt, canCapture, objects:[{id,name,address,lat,lng,folder,refs,hasPlans,lastVisit:{id,visitedAt,lifecycle}\|null}], templates:[visit templates], lists:[{ref,title,note,closesAt,objectIds:[…],unresolved:[{source,id}],done:{"<objectId>":{at,by?,source?,note?}}}], proposalFields:[{id,label}]}` |
+| `GET /catalogue` | `{generatedAt, canCapture, objects:[{id,name,address,lat,lng,folder,refs,hasPlans,lastVisit:{id,visitedAt,lifecycle}\|null}], templates:[visit templates], lists:[{ref,title,note,closesAt,scheduledOn,archived,objectIds:[…],unresolved:[{source,id}],done:{"<objectId>":{at,by?,source?,note?}}}], proposalFields:[{id,label}]}` |
 | `GET /?object=&workRef=&mine=1&lifecycle=&limit=` | `[{id,objectId,objectName,workRef,lifecycle,revision,ready,visitedAt,updatedAt,by,with,findings}]` newest first (`with`: the document's people, `[string]`) |
 | `GET /{id}` | the visit (document + server fields) |
 | `PUT /{id}` | body `{opId, baseRevision: int\|null, doc}` → `200 {revision, ready, missing, visit}` · `409 {code:"revision_conflict", revision, visit}` · `422` · same `opId` again ⇒ the stored first answer (idempotent replay, even if newer revisions exist) |
@@ -160,7 +175,7 @@ either form arrives as the same id.
 
 | Route | Purpose |
 |---|---|
-| `GET /object-visits/catalogue` | same as the field catalogue (`canCapture` false) |
+| `GET /object-visits/catalogue` | same as the field catalogue (`canCapture` false), plus `cartoBasemapKey` (nullable public browser credential) for the organizer's map. Allow the organizer's domain at CARTO too. |
 | `PUT /objects/{source}/{externalId}` | body `{name, address?, lat?, lng?, folder?}`. Resolve: existing ref → that object; else an object whose `filing_folder` (or derived folder) equals `folder` → attach the ref; else create an `ObjectSite` (`source_note = "Integration: {source}"`, no plans). Updates `filing_folder` / lat / lng when given and the object has none (never renames a plan-carrying object; renames only a plan-less object this same `source` created). Folder comparison is Unicode-composed, case- and whitespace-insensitive. `200 {objectId, created}`. Path segments URL-encoded; `externalId` ≤ 300 chars. |
 | `DELETE /objects/{source}/{externalId}` | removes that ref; the OBJECT goes too only if this integration created it (`source_note` «Integration: …»), it has no plan, no visit (any lifecycle) and no other ref. Lists that named the ref then report it under `unresolved`. `200 {removed: "ref" \| "object" \| "none"}` — idempotent (`none` = no such ref) |
 | `GET /objects/by-ref/{source}/{externalId}` | resolve the organizer's id: `200 {objectId, name, address, lat, lng, folder, refs, hasPlans}` · `404` unknown ref. (The catalogue's `objects[].refs` resolves the same way in bulk.) |
@@ -169,6 +184,43 @@ either form arrives as the same id.
 | `PUT /visit-lists/{ref}` | body `{title, note?, closesAt?, objects:[{source, id, done?}]}` (ordered, ≤ 500). `done` = a completion the ORGANIZER already holds for that stop (e.g. last round in SchlüHü): `{at: "YYYY-MM-DD", by?: ≤120, source?: ≤60 (e.g. "SchlüHü"), note?: ≤500}`; unknown keys, a non-date `at` or NUL/surrogates ⇒ 422. Stored as sent and shown — KP Front never turns it into a visit. Unresolved refs (and their `done`) are kept and reported. `200 {ref, objectIds, unresolved, done: {"<objectId>": {…}}}` (resolved stops only; first entry wins if two refs name one object) · `DELETE /visit-lists/{ref}` → `200 {ref, deleted}` (idempotent) |
 | `GET /object-visits/changes?after=<seq>&limit=<≤500>` | `{items:[FeedItem], nextAfter}`; `FeedItem = {seq, id, objectId, objectRefs, objectName, workRef, revision, lifecycle, ready, visitedAt, updatedAt, by, with, findings, proposals:[…], deliveries:[…], url}` — one item per visit at its latest state, ordered by `seq`. `objectRefs` is read LIVE from `object_refs`, so a ref attached later (an object upsert matching by folder) appears on the next poll. `nextAfter` = the last item's `seq`, or `after` when empty |
 | `GET /object-visits/{id}` · `/report.pdf` · `/attachments/{attId}` | read-only copies for review |
+
+### Visit programmes — reusable routes and scheduled rounds
+
+Organizer-key endpoints (module must be enabled):
+
+- `GET /visit-programmes/{programme_ref}` → `{revision, routes, years}`. Unknown ref answers revision 0
+  with empty arrays; reading creates nothing. Ref is ≤100 letters/digits/`:`/`.`/`_`/`-`.
+- `PUT /visit-programmes/{programme_ref}/routes`, body `{revision, routes}`. Route =
+  `{code, title, objects:[{source,id}], retired:false}`. Codes are stable, unique (≤40
+  letters/digits/hyphens); 200 routes, 500 ordered unique stops each. Existing routes can be
+  retired/reactivated, not deleted. Templates never appear in the field catalogue.
+- `PUT /visit-programmes/{programme_ref}/years/{year}`, body
+  `{revision, assignments:[{code,scheduledOn:"YYYY-MM-DD"}]}`. Each route once, all dates in
+  the supplied year (2000–2200). Empty selection withdraws the year's rounds. All changes
+  and the revision increment commit atomically; stale revision → 409 `planning_conflict`.
+
+Publication creates work refs `{programmeRef}-{year}/{code}` (e.g.
+`fwo-admin:fu-2027/A1`). First publication snapshots ordered object refs. An existing work
+list is adopted intact, including organizer `done` entries. Republish changes dates and
+visibility only; editing a template never rewrites a published snapshot or any visit.
+Unselected lists in that exact programme/year become `archived:true`, retaining visits,
+completions and reports. Re-selecting restores the same ref/snapshot. A new year has new refs
+and no imported completion ticks. Direct legacy list PUT/DELETE against a managed year
+returns 409 `managed_list`; use the programme endpoint.
+
+Catalogue lists add `scheduledOn` (calendar date, no timezone conversion) and `archived`.
+The existing `closesAt` deadline remains separate. Field overview groups Today, Overdue,
+Upcoming and Undated, then «Kürzlich erledigt»: a complete round whose last stop was done in
+the last 7 days. Withdrawn rounds and older complete ones are not listed in the field app —
+the organizer holds that record (fwo-admin, the filed reports). An archived list (reached by
+link) opens existing visits but offers no new capture. Already captured/offline visits remain
+syncable after withdrawal. Old cached catalogues lacking these fields remain usable.
+
+Storage: `visit_programmes` plus `visit_lists.scheduled_on/archived`, Alembic
+`e2f3a4b5c6d7`. Old lists are undated/unarchived; migrations do not select or schedule them.
+The existing whole-database backup includes the programme. Deploy this API before its
+organizer UI. No new key or operational service is needed.
 
 **Progress on a list, and its precedence.** A stop is complete when a visit with the list's `ref`
 as `workRef` and lifecycle `completed` exists for its object — that real visit always wins in
@@ -197,7 +249,8 @@ clears its visits' link (the visits stay) and drops its refs.
 
 ## Admin — `/api/admin/object-visits` (admin session)
 
-`GET /` (all visits, filters as the field list) · `GET /deliveries[?state=&destination=]`
+`GET /` (all visits, filters as the field list, each with its `deliveries` — see «Received visits»
+below) · `GET /notify` · `PUT /notify` (see «Notification») · `GET /deliveries[?state=&destination=]`
 (`[{destination, visitId, objectName, wantedRevision, deliveredRevision, state, attempts,
 nextAttemptAt, lastError, updatedAt}]`) · `POST /deliveries/retry {destination, visitId?}` →
 `{retried: n}` (failed → pending, attempts reset; with `visitId` it also enqueues that visit if the
@@ -208,6 +261,35 @@ answer; works for a disabled destination too) ·
 `GET /export.zip?…` (visits as JSON + photos + reports, for a station without a destination;
 written entry by entry to a temporary file; a visit that cannot be exported gets `FEHLER.txt` in
 its folder and the export goes on).
+
+**Received visits** (owner, 05.10.2026: «where do filled out object visits show»): the admin page
+Station › Objektbesuche opens on «Besuche» — every visit newest first with date, object, «Von»,
+state, findings, **Ablage** (per destination: state, the folder path below the library from
+`remote_items._path`, copyable, and the error while it fails) and the report PDF, which is the
+visit's detail view. `GET /` therefore adds `deliveries: [{destination, state, revision, at,
+folder, error?}]` to each summary (admin list only; same «owed nothing» rule as the visit's own
+`deliveries`).
+
+### Notification — «Neuer Objektbesuch»
+
+Web Push (the app's VAPID push, `app/push.py`) to the accounts an admin picked —
+`users.notify_object_visits` (Alembic `f9b8c7d6e5a4`, default false: **nobody** until somebody is
+ticked; never every account, never every installed device).
+
+- Fires once per visit, when an accepted PUT first takes it to `completed` (a create that is already
+  completed counts). Never for a draft save point, a correction or a discard. Queued with
+  `after_commit`; the audience is read in the sending session after the commit, so it is the list
+  that holds when the push leaves. Push off (no VAPID keys) ⇒ nothing is queued.
+- Audience: the picked ACTIVE accounts' browsers only (`broadcast(user_ids=…)`) — no kiosk rows, no
+  other account, nobody for an empty list. A shared account reaches every device signed in with it.
+- Payload: title «Neuer Objektbesuch», body «<Objekt> · <Von> · <n> Mängel» (findings only when
+  there are any), tag `ov-<id>`, target `besuch:<id>`. A tap opens `/besuche/<id>` — the service
+  worker opens that address on a cold start (`public/sw-notify.js`), a running app navigates there
+  (`App.tsx`).
+- Admin: `GET /notify` → `{pushEnabled, accounts: [{id, name, username, role, notify, devices}]}`
+  (active accounts; `devices` = that account's unexpired push registrations) · `PUT /notify
+  {userIds: [uuid…]}` → the same answer; exactly these accounts are told (unknown ids are ignored,
+  a non-list or a non-uuid is 422). UI: the «Benachrichtigung» card under «Besuche».
 
 ## Deployment config — section `objectVisits`
 
@@ -313,6 +395,10 @@ entry may also carry `refs: [{source, id}]`, and `PUT /api/objects/{id}` accepts
   ready, missing}, lastError}`, `kp-front-ov-att-<attId>` `{blob, thumb, type, sha256, size}`.
   `idbSet` must return durable or the UI shows «Nicht gespeichert»; a failed read is never empty;
   blobs never go to the localStorage fallback.
+- «Von» starts with the names last typed on this device (localStorage `kp.ov.with`, editable on
+  every visit; no setting). Not the prefs cookie: Safari caps a script-written cookie at 7 days, so
+  the name was gone by the next tour (05.10.2026). «Besucht am» starts as now and is the shared
+  wheel picker (`DateTimeField`, «Jetzt», no «Leeren»).
 - Save points (a revision): leaving the visit, `visibilitychange → hidden`, «Abschliessen»,
   «Jetzt senden», and every 2 min while dirty. Photos upload as soon as the visit exists on the
   server.

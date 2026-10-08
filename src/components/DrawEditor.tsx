@@ -16,6 +16,7 @@ import { onSiteKnown } from '../lib/gpsReturn'
 import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
 import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Stepper } from './Stepper'
+import { Button, IconButton } from './Button'
 import { MenuPick } from './MenuPick'
 import { Menu } from '../lib/overlays'
 import { OnOff, Segmented } from './Segmented'
@@ -284,13 +285,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               {!readOnly && (onRouting || onDetach || onDetachHere) && (
                 <div className="de-gps-row">
                   {onRouting && (following
-                    ? <button type="button" className="de-gps-btn" onClick={() => onRouting(endpoint, 'direct')}>{C.gpsPause}</button>
-                    : <button type="button" className="de-gps-btn" onClick={() => onRouting(endpoint, 'trace')}>{C.gpsContinue}</button>)}
+                    ? <Button onClick={() => onRouting(endpoint, 'direct')}>{C.gpsPause}</Button>
+                    : <Button onClick={() => onRouting(endpoint, 'trace')}>{C.gpsContinue}</Button>)}
                   {/* «Am Einsatzort» only where that point is known — a trace without a kept
                       on-site line would let go at the vehicle, and the word would lie */}
-                  {onDetach && info.onSite && <button type="button" className="de-gps-btn" onClick={() => onDetach(endpoint)}>{C.gpsDetachOnSite}</button>}
+                  {onDetach && info.onSite && <Button onClick={() => onDetach(endpoint)}>{C.gpsDetachOnSite}</Button>}
                   {/* a traced hose may be KEPT (24.09.2026): let go where it stands, drive and all */}
-                  {(onDetachHere ?? onDetach) && <button type="button" className="de-gps-btn" onClick={() => (onDetachHere ?? onDetach)!(endpoint)}>{C.gpsDetachHere}</button>}
+                  {(onDetachHere ?? onDetach) && <Button onClick={() => (onDetachHere ?? onDetach)!(endpoint)}>{C.gpsDetachHere}</Button>}
                 </div>
               )}
             </div>
@@ -571,13 +572,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     ]}
                   />
                   {onShowTrupp && truppOnLine && (
-                    <button
-                      className="de-trupp-go" onClick={onShowTrupp}
-                      aria-label={fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}
-                      title={fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}
-                    >
+                    <IconButton onClick={onShowTrupp}
+                      label={fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}>
                       <span className="ctx-conn-go" aria-hidden>›</span>
-                    </button>
+                    </IconButton>
                   )}
                 </span>
               </div>
@@ -672,7 +670,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 </div>
                 {note && <div className={`de-conn-note${gps === 'paused' ? ' warn' : ''}`}>
                   <span>{note}</span>
-                  {hidden && onRevealAttachment && <button type="button" className="de-conn-reveal" onClick={() => onRevealAttachment(endpoint)}>{appConfig.copy.drawingEditor.revealTarget}</button>}
+                  {hidden && onRevealAttachment && <Button onClick={() => onRevealAttachment(endpoint)}>{appConfig.copy.drawingEditor.revealTarget}</Button>}
                 </div>}
                 {/* the connection READS in read-only (who the line hangs on, and «springe zu»);
                     what it may not do is re-route or cut it — so the two mutating controls are

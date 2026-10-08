@@ -8,7 +8,7 @@
 // stubs for everything not (yet) recorded digitally — printing never blocks on missing data.
 
 import { appConfig } from '../config/appConfig'
-import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, SucheDoc, TimelineEvent, Trupp } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { floorLabel, floorSections, pdfPageOf, tileAspectOf } from './whiteboard'
 import { circleRing, clipConvex, clipStroke, edgeMarkSvg, markDeg, rectPoly, thinMarks, type EdgeMark, type Pt } from './storeyClip'
 import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
@@ -33,8 +33,9 @@ import { ensureUnHazard } from './unHazard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
+import { findPlakat, plakatForPdf } from './plakat'
+import { TAFEL_ID } from './tafelStart'
 import type { JournalLink } from './journalLinks'
-import { personPrintRows, sucheKrokiNotes, sucheLine, type SucheStack } from './suche'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them).
@@ -326,11 +327,6 @@ export interface DirectReportArgs {
   board?: BoardDoc
   /** the picked Gebäude (floor stack) — exports as blank-base plan pages when present */
   building?: BuildingDoc | null
-  /** the Suche (lib/suche): one line per person with its times, and the one «Suche: …» line */
-  suche?: SucheDoc
-  /** how the app's Suche names an old record's storey (IncidentWorkspace · sucheStack) — so the
-   *  paper names and counts the places the screen does */
-  sucheStack?: SucheStack
   /** alternate endpoint/auth (capture view: poster token instead of the kiosk cookie) */
   transport?: import('./reportPdf').ReportTransport
 }
@@ -368,8 +364,16 @@ export function einsatzleiterForPdf(
 
 /** The ONE payload builder — shared by the PDF download and the station-printer enqueue
  *  (src/lib/printRelay.ts), so both always produce the identical document. */
+/** The Tafel's poster for the Rapport — the trends as WORDS, since the PDF font has no ➚ ➘. */
+export function plakatPayload(board: BoardDoc | null | undefined): Record<string, unknown> | undefined {
+  const pk = findPlakat(board?.[TAFEL_ID] ?? [])
+  if (!pk) return undefined
+  const P = appConfig.copy.tafel.plakat
+  return plakatForPdf(pk.plakat, { up: P.trendUp, same: P.trendSame, down: P.trendDown })
+}
+
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
-  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building, suche, sucheStack } = args
+  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
   const meta = draft.meta
   // the moment a CLOSED Einsatz was closed — ends the sorties nobody reported out (see trupps).
   // ⚠️ The LATEST close (closeTimeOf): after a reopen and a second close the crew was still in
@@ -401,25 +405,10 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
 
   // Aufträge / Pendenzen — derived from the same rows, printed as a section right after them
   const pendenzen = pendenzRows(events, meta.startedAt ?? incident.started_at)
-  // …and the Suche's Personen after them (24.09.2026): one line per person with its times, plus
-  // the one line about the Bereiche. Same midnight rule as every other clock on the sheet.
-  const sucheClock = spanAwareClock({ alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? closeTimeOf(incident) ?? null })
-  const clockOf = (iso: string) => sucheClock(iso) ?? ''
-  const stack: SucheStack = sucheStack ?? { floorName: (f: number) => building?.floorNames?.[String(f)] ?? floorLabel(f) }
-  const personen = personPrintRows(suche, clockOf, stack.floorName)
-  const sucheSummaryLine = sucheLine(suche, stack.floorName, clockOf)
 
-  // The Suche's pins that stand on the Karte print as notes on the Kroki (26.09.2026), on their
-  // own Ebenen row «Suche» — so they print exactly when the screen shows them. ⚠️ Not on a Kroki
-  // reconstructed for a PAST moment (`krokiAt`): the slice handed in is today's, and a pin saying
-  // «abgesucht» on a picture of 21:14 would claim a search that had not happened yet. The plan
-  // pages print the sheet's own objects only; a pin on a plan is not one of them. (Both accepted
-  // as they are by the owner, 26.09.2026.)
-  const suchePinNotes = draft.options.krokiAt ? [] : sucheKrokiNotes(suche, stack.floorName, appConfig.defaults.sucheLayerId)
   const kroki = draft.options.kroki && scene
     ? buildKrokiPayload({
-        entities: suchePinNotes.length ? [...scene.entities, ...suchePinNotes] : scene.entities,
-        drawings: scene.drawings, layers: scene.layers, byName: scene.byName,
+        entities: scene.entities, drawings: scene.drawings, layers: scene.layers, byName: scene.byName,
         center: scene.center,
         currentView: draft.options.krokiView ?? null,
         captionMode: scene.captionMode,
@@ -495,7 +484,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       endedAt: meta.endedAt ? formatDateTime(meta.endedAt) : undefined,
       partnerContacts: meta.partnerContacts,
     },
-    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, personen: draft.options.personen, krokiLandscape: draft.options.krokiLandscape },
+    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, krokiLandscape: draft.options.krokiLandscape },
     // Beilagen: only the ones actually ON the server. A blob: URL is a photo that has not
     // finished uploading, and the server cannot fetch it — printing would silently drop it, so
     // it is left out here and the preflight says so beside the row.
@@ -612,8 +601,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     })),
     journal: draft.options.journal ? journal : [],
     pendenzen: draft.options.pendenzen ? pendenzen : [],
-    personen: draft.options.personen ? personen : [],
-    ...(draft.options.personen && sucheSummaryLine ? { sucheLine: sucheSummaryLine } : {}),
+    // the Tafel's «Erstes Plakat (FKS)» (08.10.2026) — its own section after the Aufträge,
+    // only when the Tafel carries one (backend · report_pdf · PlakatIn)
+    plakat: plakatPayload(board),
   }
   return forPaper(payload) as Record<string, unknown>
 }

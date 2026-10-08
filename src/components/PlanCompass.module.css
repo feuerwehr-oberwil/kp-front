@@ -7,12 +7,12 @@
   z-index: var(--z-map-util); width: 44px; height: 44px; padding: 0;
   display: grid; place-items: center; color: var(--ink);
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: 50%; box-shadow: var(--shadow);
+  border: 1px solid var(--glass-line); border-radius: 50%; box-shadow: var(--e4);
 }
 .chip > svg { width: 38px; height: 38px; display: block; overflow: visible; }
 /* ink, not red — the same dart the printed Kroki and the Gebäude page carry */
 .needle { fill: var(--ink); }
-.n { fill: var(--ink); font: 700 13px var(--body); text-anchor: middle; }
+.n { fill: var(--ink); font: var(--fw-bold) var(--fs-1) var(--body); text-anchor: middle; }
 /* the same dial without a claim about north: a turn arrow, quieter than the needle */
 .unknown { fill: var(--ink-dim); stroke: var(--ink-dim); }
 
@@ -39,7 +39,7 @@
    buttons fill the column (09-whiteboard · .wb-tools), which on a short narrow window — a Split
    View, a small desktop window — reaches straight into the line the chip just moved to. Same
    inset the tool dock uses to sit beside it, so an expanded rail pushes the chip along. */
-@media (max-width: 860px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (max-width: 860px), (--phone-landscape) {
   .chip { top: calc(80px + env(safe-area-inset-top)); right: calc(var(--vrail-w, 60px) + 26px); }
   /* …the zoom cluster dropped to that same line (09-whiteboard), so the dial takes the next */
   :global(.wb-zoom-float) ~ .chip { top: calc(80px + 48px + 2 * var(--bar-pad) + env(safe-area-inset-top)); }
@@ -54,6 +54,6 @@
 }
 /* …and on a phone the tool rail IS the bottom bar, so the corner is free again — and the floating
    zoom cluster is not shown there at all (15-mobile), so its dodge goes back to the first line. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .chip, :global(.wb-zoom-float) ~ .chip { top: calc(80px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); }
 }

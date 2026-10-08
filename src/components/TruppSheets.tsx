@@ -12,12 +12,13 @@ import { auftragSheetFields, fileGuestSlots, kanalPad, kanalSheetFields, leitung
 import type { LeitungOption } from '../lib/truppLines'
 import type { Person, Trupp, TruppAuftrag, TruppFields } from '../types'
 import { Segmented } from './Segmented'
+import { Button } from './Button'
+import { Chip } from './Chip'
 import { ClearableInput } from './ClearableInput'
 import { Stepper } from './Stepper'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
 import { TruppTeam } from './TruppTeam'
-import { ZielChips } from './suche/SucheTrupp'
 import s from './Atemschutz.module.css'
 
 /**
@@ -96,7 +97,7 @@ export function PressureSheet({ t, sub, title, hint, last, alarmBar, chosen = fa
   const who = t ? truppSheetSub(t) : sub
   return (
     <MiniSheet title={title} sub={who} ariaLabel={t ? `${title} · ${t.name}` : title} onClose={onClose}
-      footer={footer && <button type="button" className={s.pressureSheetFooter} onClick={footer.onClick}>{footer.label}</button>}>
+      footer={footer && <Button className={s.pressureSheetFooter} onClick={footer.onClick}>{footer.label}</Button>}>
       <PressureGrid value={last} alarmBar={alarmBar} onPick={onPick} chosen={chosen} ariaLabel={title} />
       {/* under the grid, like the Kanal pad's hint: what a tap does */}
       {hint && <p className={s.miniHint}>{hint}</p>}
@@ -254,10 +255,8 @@ function FunkkanalStepper({ value, onChange }: { value: number; onChange: (v: nu
  * board's (AtemschutzView · confirmLineTake, the same helper the form's save goes through), so
  * `onSave` resolves false when the operator said no and the sheet simply stays open.
  */
-export function AuftragSheet({ t, zielChoices, leitungOptions, lite = false, onSave, onClose }: {
+export function AuftragSheet({ t, leitungOptions, lite = false, onSave, onClose }: {
   t: Trupp
-  /** the Suche's places (AtemschutzView · zielChoices) — quick-picks under the Ziel field */
-  zielChoices?: readonly string[]
   /** the Leitungen drawn on either surface (lib/truppLines · leitungOptions) */
   leitungOptions: readonly LeitungOption[]
   /** the handed-over Tafel has no picture to read a hose number off — no Leitung row (as the form) */
@@ -290,10 +289,6 @@ export function AuftragSheet({ t, zielChoices, leitungOptions, lite = false, onS
         <ClearableInput value={ziel} placeholder={az.zielPlaceholder} maxLength={60} clearLabel={az.zielClear}
           onChange={(v) => setZiel(stripUnprintable(v))} />
       </label>
-      {/* the Suche's places as SHORTCUTS for every Auftrag — the form shows the same row under the
-          same condition (29.09.2026, T12): a Löschtrupp sent to «2. OG» picks the storey the Suche
-          already named */}
-      {zielChoices && zielChoices.length > 0 && <ZielChips choices={zielChoices} onPick={setZiel} />}
       {!lite && <LeitungField label={az.editFieldLabels.lineNo} value={lineNo} options={leitungOptions} onChange={setLineNo} />}
     </MiniSheet>
   )
@@ -319,15 +314,14 @@ export function LeitungChips({ value, options, onChange, ariaLabel, children }: 
   const az = appConfig.copy.atemschutz
   return (
     <div className={s.miniChips} role="group" aria-label={ariaLabel ?? az.editFieldLabels.lineNo}>
-      <button type="button" aria-pressed={value == null} className={cx(s.miniChip, value == null && s.miniChipOn)}
-        onClick={() => onChange(null)}>{az.lineNone}</button>
+      <Chip selected={value == null} onClick={() => onChange(null)}>{az.lineNone}</Chip>
       {options.map((o) => (
-        <button key={o.no} type="button" aria-pressed={value === o.no}
-          className={cx(s.miniChip, value === o.no && s.miniChipOn, !!o.takenBy && value !== o.no && s.miniChipTaken)}
+        <Chip key={o.no} selected={value === o.no}
+          className={cx(!!o.takenBy && value !== o.no && s.miniChipTaken)}
           title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
           onClick={() => onChange(o.no)}>
           {fillTemplate(az.lineChip, { n: o.no })}{o.onPlan ? ' · P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
-        </button>
+        </Chip>
       ))}
       {children}
     </div>
@@ -359,7 +353,7 @@ export function LeitungField({ label, value, options, onChange, children }: {
       <span>{label}</span>
       <LeitungChips value={value} options={choices} onChange={onChange} ariaLabel={label}>
         {!typing && (
-          <button type="button" className={s.miniChip} onClick={() => setTyping(true)}>{az.lineTyped}</button>
+          <Chip onClick={() => setTyping(true)}>{az.lineTyped}</Chip>
         )}
       </LeitungChips>
       {typing && (
@@ -471,10 +465,10 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
             {atemschutzEquipment().map((e) => {
               const on = equipment.includes(e.id)
               return (
-                <button key={e.id} type="button" role="checkbox" aria-checked={on}
-                  className={cx(s.miniChip, on && s.miniChipOn)} onClick={() => toggle(e.id)}>
+                <Chip key={e.id} role="checkbox" selected={on} aria-pressed={undefined} aria-checked={on}
+                  onClick={() => toggle(e.id)}>
                   {az.equipmentLabels[e.id] ?? e.label}
-                </button>
+                </Chip>
               )
             })}
           </div>

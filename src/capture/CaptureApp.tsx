@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { scrollBehavior } from '../lib/reducedMotion'
-import { fillTemplate, hhmm, stripUnprintable, telHref } from '../lib/format'
+import { fillTemplate, hhmm, stripUnprintable, telHref, unitLabel } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { ShellLoader } from '../components/ShellLoader'
@@ -689,7 +689,7 @@ export default function CaptureApp() {
           action: { label: C.undo, onClick: () => { void run({ ...base, menge: prev }).then((ok) => { if (ok) savedToast() }) } },
         })
       } else if (menge !== prev) {
-        toast(fillTemplate(C.mittelSet, { label: probe.label, n: menge, unit: probe.unit }), { icon: 'check', tone: 'success', duration: 1600 })
+        toast(fillTemplate(C.mittelSet, { label: probe.label, n: menge, unit: unitLabel(probe.unit) }), { icon: 'check', tone: 'success', duration: 1600 })
       }
       return true
     } catch (e) {
@@ -1148,8 +1148,8 @@ export default function CaptureApp() {
                       return (
                         <li key={item.id} className={cur > 0 ? 'used' : ''}>
                           <span className="cv-mittel-label">{item.label}</span>
-                          <Stepper value={cur} min={0} max={9999} ariaLabel={`${item.label} ${probe.unit}`}
-                            format={(v) => `${v} ${probe.unit}`}
+                          <Stepper value={cur} min={0} max={9999} ariaLabel={`${item.label} ${unitLabel(probe.unit)}`}
+                            format={(v) => `${v} ${unitLabel(probe.unit)}`}
                             onChange={(v) => stepMittel(key, probe, cur, v - cur)} />
                         </li>
                       )
@@ -1168,7 +1168,7 @@ export default function CaptureApp() {
                         <li key={l.key} className="used">
                           <span className="cv-mittel-label">{l.label}{l.sourceLabel ? ` · ${l.sourceLabel}` : ''}</span>
                           <Stepper value={cur} min={0} max={9999} ariaLabel={`${l.label}${l.sourceLabel ? ` · ${l.sourceLabel}` : ''}`}
-                            format={(v) => `${v}${l.unit ? ` ${l.unit}` : ''}`}
+                            format={(v) => `${v}${l.unit ? ` ${unitLabel(l.unit)}` : ''}`}
                             onChange={(v) => stepMittel(l.key, probe, cur, v - cur)} />
                         </li>
                       )

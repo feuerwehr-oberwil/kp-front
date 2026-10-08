@@ -31,6 +31,35 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Anleitungen – a second kind of checklist, read-only and offline.** A template with
+  `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
+  «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on
+  the device, so a guide opens without a network. Format in docs/CONFIGURATION.md §9f; the demo
+  ships two synthetic ones. *No action needed* – a station adds its own with `admin_checklists`.
+- **«Neuer Objektbesuch» reaches only the people who should hear it.** The web push for a
+  received visit goes to the accounts an admin ticks in /admin (new column
+  `users.notify_object_visits`, nobody by default), and received visits are the first card on
+  /admin with their SharePoint filing state. Plans on a visit show their full names, «Besucht am»
+  uses the shared picker, and «Von» is remembered on the device. *Migration runs on boot; tick
+  the recipients once, otherwise nobody gets the push.*
+- **CI walks a crew's day and gates its performance.** A «Performance» job boots the production
+  container and has Chromium walk the busiest Einsatz on record: cold start through the kiosk,
+  reloads, every surface four times, Linien and Absperrkreise, Meldungen, Funkkontakte, an idle
+  minute. Requests, bytes, writes, memory left behind and interaction times are compared against
+  `e2e/perf/baseline.json`; a confirmed regression fails the PR. The table is posted on the PR as
+  one comment that every push edits in place. `just perf` runs it locally,
+  `just perf-accept <run-id>` takes a CI run as the new baseline (docs/testing/perf-journeys.md).
+
+- **Objektbesuche: change the checklist of a draft, read the plans in the app.** The visit's ⋯
+  menu gets «Checkliste wechseln»: answers that also exist in the new checklist stay, the rest
+  are named before they are dropped, photos always stay. A plan from the «Pläne» card now opens
+  in the app's own reader (tabs for the object's other sheets, «‹» or the back gesture returns to
+  the visit). Opened from inside an Einsatz, the Übersicht offers the Einsatz's object first
+  («Im Einsatz»). The «Foto hinzufügen» tile got its padding. *No action needed.*
+- **Objektbesuche: the object's plans on the visit.** A «Pläne» card above the checklist lists the
+  object's Modul-PDFs (station code and title, in module order); a tap opens the sheet. It reads
+  the object through the offline cache, so a visit opened without a signal still lists them. No
+  card for an object without plans. *No action needed.*
 - **Objektbesuche: visit an object without an Einsatz, offline** (module `objectVisits`, off by
   default). A member opens «Objektbesuche» from the launcher, picks an object from a work list,
   the search or «In der Nähe», answers a station checklist of the new kind `visit` (OK / Mangel /
@@ -51,25 +80,6 @@ so this file – not the log – is the record of what shipped up to that point.
   against the vehicles' GPS track. It reads the Railway app and HTTP logs, or a post-mortem's
   JSON dumps instead of a database, and it never writes. It exits 1 when it finds something, so
   a cron job can run it. *No action needed.*
-- **Lage-Grundgerüst: the Karte asks for the handful of things every Lage needs.** A small card
-  on the Karte («Lage-Grundgerüst 2 / 6») lists them for the incident's Einsatzart – for a Brand:
-  KP · Zufahrt · Wasserbezug · Sammelplatz · Absperrung · Bereitstellungsraum. A row ticks itself
-  when its symbol (or line) exists on the Karte or on any plan; «+ Wasserbezug» arms the ordinary
-  place tool, and where the data has an answer the row suggests one – «Hydrant Nr. 17 · 38 m ·
-  hier setzen» from the station's hydrant layer, «Wind aus W · Vorschlag westlich, 80 m» from the
-  incident's weather. Taking a suggestion is an ordinary placement (undoable, its usual Verlauf
-  row), selected and ready to drag. The card can be hidden (remembered on that device for that
-  Einsatz), disappears once complete, and comes
-  back from the tool rail («Grundgerüst»; on a phone it is a strip above the tool bar and the
-  entry sits in the «+» sheet). Post-mortem 23.09.2026: after 65 minutes that Karte had no
-  Zufahrt, Absperrung, Wasserbezug or Bereitstellungsraum. Station doctrine, not a device
-  setting: the new `lageGrundgeruest` config section names a shipped preset (`fks-standard`, the
-  default, or `minimal`) and may replace single Einsatzarten; edited in `/admin › Lage-Grundgerüst`
-  or through `admin_config` (`presets lageGrundgeruest`, `example --section lageGrundgeruest
-  --preset …`). Symbols and line presets are validated with a did-you-mean
-  (docs/CONFIGURATION.md §1e).
-- **A «Zufahrt» line preset**, modelled on the Rettungsachse (an arrow with a «Z» along it,
-  solid): the Verlauf says «Zufahrt gezeichnet» and the Rapport legend «Zufahrt».
 - **The server observes; the devices only show** (post-mortem of the Übung on 23.09.2026). «TLF
   vor Ort» and «hat den Einsatzort verlassen» are detected by the server's 30 s GPS sweep and
   stamped with the tracker's own report time – not when a tablet happened to wake up (all five vehicles read
@@ -82,38 +92,11 @@ so this file – not the log – is the record of what shipped up to that point.
   prüfen» into the Verlauf and onto the Meldeleiste. Übungen are included; an Einsatz nobody
   has written to for 24 h stops being observed, with one Verlauf row saying so. The server fills
   only the Rapport's «vor Ort»; «zurück» (back at the depot) stays the geofence's.
-- **The Suche, step 1: who is still missing, and what is abgesucht (Übung 23.09.2026).** One list
-  of Personen (vermisst → gefunden → übergeben, or entwarnt; groups with a count) and Bereiche
-  (every storey of the Gebäude by itself, split by names; offen · in Arbeit + Trupp · abgesucht ·
-  nicht zugänglich · Fund), synced across devices and written into the Verlauf change by change.
-  On a tablet it docks beside the Gebäude or the Karte and the storey labels carry the progress
-  («1. OG 2/4»); on a phone it is a peek · half · full sheet over the plan that never covers the
-  nav bar, with floor chips and a Gebäude | Karte switch. Doors: the rail entry with the red count,
-  the «2 vermisst» head chip for everyone, the Verlauf composer («Name · vermisst → gefunden»),
-  and «Fund melden» / «Bereich abgesucht» on a Trupp. A Trupp's Ziel picks an area and marks it
-  «in Arbeit» on its way in; once it is out, «Trupp N raus – abgesucht? Ja / Teilweise / Nein»
-  stands on the area's row, on the head chip («9 vermisst · 1 Frage»), in the phone's peek line
-  and as a Meldeleiste row until somebody answers; «Teilweise» is its own status («teilweise
-  abgesucht · T1 · 14:19»), never the «offen» of an area nobody touched. A person can be corrected;
-  «Entwarnen» and «Irrtümlich erfasst» ask why and who said so first, with «Abbrechen» focused. ↶
-  takes back exactly one act. «Fund melden» opens as a sheet over the board it was asked from. The
-  Rapport counts the Gerettete from the list and prints a «Personen» section with one line per
-  person and «Suche: 8 Bereiche, alle abgesucht 20:39»; the Abschluss asks about people still
-  missing as its own question, naming them, with «Zur Suche» focused. A group is never found all
-  at once by accident: the composer's chip names the count («Klasse 4b · 2 von 5 gefunden»,
-  taken from the sentence — «3 von Klasse 4b gefunden», «zwei Kinder der Klasse 4b» — the group
-  found by its name anywhere in it) and
-  «Fund melden» starts at one, on the storey the Trupp is searching. «Korrigieren …» also corrects
-  where somebody was found. The Suche opens beside the Karte or plan you are on, and the rail entry
-  always opens it. The Meldeleiste, the Lage-Grundgerüst card and strip, and the storey ✕ keep
-  clear of the dock, the peek line and the storey's progress badge.
-  Editors only; the Einsatzleiter and viewers read. Station config: `suche.uebergabe`.
 - **The top bar collapses by priority, measured.** When a bar runs out of room, it gives up the
-  weather first, then the Einsatzdauer, ↷, the spacing, the Verlauf word, the Suche's words, the
-  alarm's name and the Einsatz title — one step at a time, only as far as needed. The Einsatz
-  pill never shrinks below a readable width (it was 20 px at 360 px with all chips up), no chip
-  is ever a bare number without its icon, and the weather stays on a 1180 px bar with an alarm
-  and the Suche chip up.
+  weather first, then the Einsatzdauer, ↷, the spacing, the Verlauf word, the alarm's name and
+  the Einsatz title — one step at a time, only as far as needed. The Einsatz pill never shrinks
+  below a readable width (it was 20 px at 360 px with all chips up), no chip is ever a bare
+  number without its icon, and the weather stays on a 1180 px bar with an alarm up.
 
 - **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the
   phone no longer hides the clocks: the form is a bottom sheet, and the due and overdue Trupps
@@ -281,6 +264,22 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Changed
 
+- **App icon is the mark alone.** The folded map + pin now fills the tile; the «kp front»
+  wordmark (set in Avenir Next, which only rendered on macOS) is gone, since the OS prints the
+  name under the icon anyway. The favicon – also the default login logo – gets its own small cut
+  (no shadow or hairlines, chunkier pin) on the same top-lit tile, so app icon, favicon and login
+  show one mark. Pairs with KP Rück's new magnet-board icon.
+
+- **One date-and-time picker everywhere.** `DateTimeField` (day column, hour, minute, «Jetzt»,
+  «OK») replaces the day/month/year wheels in the Rapport and the Objektbesuche; day labels stay
+  on one line. «Zurück zum Rapport» is a filled button.
+- **The Führungsansicht follows the person, not the device.** The per-device toggle is gone; the
+  user's `el_view_default` decides on every device.
+- **An open checklist is quieter.** No progress bars – the «n/m» count sits in the head, the
+  list's own icon replaces 🔍, and the scroll position is remembered per list and for the list
+  of checklists. The Ebenen panel lights the preset the layers match (Alle ein / Alle aus /
+  Standard).
+
 - **Divera is polled by the server only**: every 30 s while no Einsatz runs, every 120 s while
   one does, backing off on HTTP 429. The devices read the pool and no longer make the server
   poll (469 Divera calls in one Übung). The webhook stays the primary intake.
@@ -295,6 +294,23 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **The picked checklist survives a tab change.** The Checkliste surface fell back to the first
+  list (on a phone, to the chooser) every time another tab was shown. The pick is now kept per
+  Einsatz for the browser session, and survives a reload too.
+- **A Meldung naming two Pendenzen equally well no longer crashes the Verlauf composer.** The
+  open Pendenzen reached the suggestion without their creation time, and the tie-break threw.
+  Found by the new performance journeys.
+- **Offline, from the airplane-mode test of 05.10.2026.** The roster is cached on the device, so
+  the blank form and the Anwesenheit offer people offline; «Jetzt synchronisieren» is no longer
+  offered while offline, and «Wieder öffnen» says it needs the server. «Alle Einsätze» shows
+  start–end and duration. Toasts no longer squeeze their text and close only on ✕; overlay menus
+  stay on the screen and scroll inside (the Rapport's PDF ▾ ran off the bottom).
+
+- **«Einsatz abschliessen» lands on the launcher.** Since 25.09. the app stayed on the closed
+  Einsatz read-only, and the next launch then opened the first other open Einsatz. Now the
+  device forgets the closed Einsatz, shows the launcher, and a cold start stays there as well.
+  Only an alarm that comes in after the close opens by itself. The closed Einsatz is still one
+  tap away under «Alle Einsätze», with «Wieder öffnen».
 - **Three devices tapping «Neuer Trupp» at once no longer make three «Trupp 1».** Each device
   drew the next number from its own view of the Einsatz, and the merge rightly kept all three
   records under one number – on the Karte, in the Verlauf and on the Rapport. The merge now
@@ -309,9 +325,6 @@ so this file – not the log – is the record of what shipped up to that point.
   marker (⌘D) takes the next number, a rename to a number somebody holds is refused, a revived
   Spur whose number was handed out since comes back as the next one, and a deleted marker's Spur
   keeps its number from being handed out again.
-- **A new synced slice survives an older device.** A build that does not know a top-level key
-  of the workspace now carries it through its load, its save and its merge, and the server keeps
-  a stored `suche` a save leaves out — one tablet that had not updated could erase the slice.
 - **Another device's Mittel entries are no longer deleted by this device's next save.** A merged
   workspace refreshed every synced list on screen except Mittel, so this device kept its stale
   list and saved it back, which the merge read as a deletion. The merge now applies every synced
@@ -388,6 +401,7 @@ so this file – not the log – is the record of what shipped up to that point.
 ### Security
 
 - **anyio 4.14.2** – three advisories published against 4.14.0.
+- **multidict 6.9.1** and **source-map-js 1.2.2** (build tooling) – advisories of 06.10.2026.
 
 ## [0.11.0] – 2026-09-13
 

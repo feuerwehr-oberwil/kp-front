@@ -14,7 +14,7 @@
    the later one wins — declared further up, the sheet's own z-index 81 put the dialog UNDER the
    120 scrim and it read as blurred and dead to the touch. */
 .mv-note-dialog.ui-dialog { z-index: var(--z-blocking); width: min(520px, 92vw); }
-.mv-note-dialog > .ip-actions { padding: 0 20px 18px; }
+.mv-note-dialog > .ip-actions { padding: 0 var(--sp-5) var(--sp-4); }
 /* «Eintrag löschen» sits at the far LEFT, with the auto margin pushing Abbrechen/Speichern
    away from it — a destructive button next to the primary one is a mis-tap waiting to happen */
 .mv-note-dialog .ip-actions > .mv-del { margin-right: auto; color: var(--red-strong); }
@@ -23,19 +23,20 @@
    the picker was taller than the screen and its «Übernehmen» sat under them. */
 .mp-sheet { display: flex; flex-direction: column; width: min(720px, 100%); height: min(560px, 90dvh);
   background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-hero); overflow: hidden;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, .4); animation: pop .16s var(--ease); }
-.mp-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px;
-  border-bottom: 1px solid var(--glass-edge); font: 700 15px var(--body); color: var(--ink); }
+  box-shadow: var(--e5); animation: pop .16s var(--ease); }
+/* the picker's title is THE sheet title (16/800, 01-tokens · --sheet-title — it was 15/700) */
+.mp-head { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--glass-edge); font: var(--sheet-title); color: var(--ink); }
 .mp-map { position: relative; flex: 1; min-height: 0; }
 .mp-map .maplibregl-map { position: absolute; inset: 0; }
 .mp-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none;
   /* the message surface (08-toasts.css · «ONE message surface»): an instruction, so no ✕ */
-  padding: 10px var(--float-pad-x); border-radius: var(--r-sm); background: var(--float-bg); backdrop-filter: var(--float-blur); border: none;
-  font: 600 13px/1.35 var(--body); color: var(--ink); box-shadow: var(--float-edge); }
+  padding: var(--sp-2) var(--float-pad-x); border-radius: var(--r-sm); background: var(--float-bg); backdrop-filter: var(--float-blur); border: none;
+  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); box-shadow: var(--float-edge); }
 .mp-pin { display: grid; place-items: center; width: 30px; height: 30px; color: var(--red);
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .4)); }
 .mp-pin svg { width: 28px; height: 28px; }
-.mp-act { display: flex; justify-content: flex-end; gap: 10px; padding: 13px 16px; border-top: 1px solid var(--glass-edge); }
+.mp-act { display: flex; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--glass-edge); }
 
 /* Kroki framing PANEL — a block on the Rapport surface (it was a modal until 2026-08-07). The
    map keeps the server's 1600×940 render aspect, so the visible crop IS the printed crop: no
@@ -48,11 +49,11 @@
    The row may wrap: the hint is a 62-character sentence and the picker ~150px, which on a phone
    is a six-line paragraph squeezed beside a control. Wrapped, each gets a line. */
 .kf-panel-head { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; min-height: var(--tap); }
-.kf-panel-hint { flex: 1 1 200px; min-width: 0; font: 500 12px var(--body); color: var(--ink-faint); }
+.kf-panel-hint { flex: 1 1 200px; min-width: 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 /* the size is this row's business; the HEIGHT is not — `.useg-btn` is already --tap minus the
    track's padding, so the control measures a full 44px. Forcing 44 on the option made this the
    only 50px segmented in the app, against the «ONE segmented spec» rule above it. */
-.kf-panel-head .useg-btn { font-size: 12px; padding-inline: 12px; }
+.kf-panel-head .useg-btn { font-size: var(--fs-1); padding-inline: var(--sp-3); }
 /* The crop is bounded by a HEIGHT, not by the viewport: in a column beside the form a portrait
    sheet's 1000/1400 would otherwise make a ~460px column 640px tall and push «Abschnitte» off
    the screen. max-width keeps the tall shape from ending up WIDER than the page it stands for,
@@ -76,13 +77,13 @@
 /* One bar under the crop for everything that ADJUSTS it. On the map these floated over the
    picture they were adjusting — the ± column landed on the slider's right end — and they had to
    be repositioned every time the frame changed shape. */
-.kf-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.kf-controls { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 /* ⚠️ Bottom padding on the scroller does NOT save this row from the FAB. The ± pair is pinned to
    the right edge by `margin-left: auto` and sits MID-scroll, so at some scroll position the «−»
    is always under the circle — a 44px target that cannot be hit. Reserving the FAB's own column
    moves the pair out from under it at every scroll position. --fab-safe is exactly the width the
    FAB claims over this surface, and 0px when there is no FAB. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) { .kf-controls { padding-right: var(--fab-safe, 0px); } }
+@media (--phone) { .kf-controls { padding-right: var(--fab-safe, 0px); } }
 /* The Stand slider keeps a line of its own. The panel is never much wider than the ~460px column
    it sits in, and a track squeezed in beside «Auf Einsatz zoomen» and the ± pair is a track that
    cannot be aimed — which is the whole point of the activity ticks under it. */
@@ -96,20 +97,20 @@
    the cluster the follow NAME is the one that gives up width — it wraps, the ± stay 44px. */
 .kf-ctl-cluster {
   flex: 1 1 auto; min-width: 0; margin-left: auto;
-  display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: nowrap;
+  display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); flex-wrap: nowrap;
 }
 /* «Folgt der Karte» — its name + the `OnOff` pair (28.09.2026; it was one button whose words
    flipped between the action and the state). The NAME is what gives up width: it may wrap to two
    lines, the pair and the ± never shrink. Compact type (12.5px/700 – a dense row). */
 .kf-ctl-follow { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
-.kf-ctl-follow-l { min-width: 0; font: 700 12.5px/1.2 var(--body); color: var(--ink-dim); text-align: right; }
+.kf-ctl-follow-l { min-width: 0; font: var(--fw-bold) var(--fs-1)/1.2 var(--body); color: var(--ink-dim); text-align: right; }
 /* ⚠️ On a phone the pair and the ± still share ONE row (20.09.2026: a line of its own read as a
    control group that had fallen apart). Beside the ± pair and the FAB's column there are ~150px
    — the pair fits, its name beside it does not (it broke into three lines of one word). So the
    name stands OVER the pair, as a field label does over its field, and the ± sit on the pair's
    baseline. */
 @media (max-width: 600px) {
-  .kf-ctl-cluster { gap: 6px; align-items: flex-end; }
+  .kf-ctl-cluster { gap: var(--sp-1); align-items: flex-end; }
   .kf-ctl-follow { flex-direction: column; align-items: flex-start; gap: 4px; }
   .kf-ctl-follow-l { font: var(--field-label); white-space: nowrap; text-align: left; }
   .kf-zoom { gap: 4px; }
@@ -124,12 +125,12 @@
    sit over, hence the z-index. */
 .kf-off {
   position: absolute; z-index: 6; transform: translate(-50%, -50%);
-  display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 10px;
+  display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 32px; padding: 0 var(--sp-3);
   border-radius: var(--r-pill); cursor: pointer; -webkit-tap-highlight-color: transparent;
   border: 1px solid transparent;
   background: var(--btn-primary); color: var(--on-btn-primary);
-  font: 800 12px var(--body);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .28);
+  font: var(--fw-bold) var(--fs-1) var(--body);
+  box-shadow: var(--e2);
 }
 @media (hover: hover) {
   .kf-off:hover { background: var(--btn-primary-hover); }
@@ -140,14 +141,9 @@
 .kf-off-arrow { display: grid; place-items: center; }
 .kf-off-arrow svg { width: 14px; height: 14px; }
 /* (the right-alignment lives on .kf-ctl-cluster now — the pair only has to hold its own line) */
-.kf-zoom { flex: none; display: flex; align-items: center; gap: 6px; }
-.kf-zoom-btn { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap); cursor: pointer;
-  border: 1px solid var(--glass-line); border-radius: var(--r-sm); background: var(--glass); color: var(--ink); }
-@media (hover: hover) {
-  .kf-zoom-btn:hover { border-color: var(--ink-faint); }
-}
-.kf-zoom-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.kf-zoom-btn .i { width: 18px; height: 18px; }
+/* the ± are THE icon button, secondary (<IconButton>, 08.10.2026 — a 44px copy of it with a glass
+   fill of its own); `.kf-zoom-btn` is only their handle */
+.kf-zoom { flex: none; display: flex; align-items: center; gap: var(--sp-2); }
 .kf-print-box { position: relative; }
 .kf-print-inner { position: absolute; top: 50%; left: 50%; transform-origin: center; }
 /* ⚠️ EVERYTHING on this preview is drawn at print scale, not just the glyphs. The end tag, the
@@ -159,13 +155,13 @@
    keeps the marker's own centring intact: the box stays put, only what is inside it shrinks. */
 .kf-print-scale { transform-origin: center; }
 .kf-glyph { line-height: 0; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .25)); }
-.kf-plain { display: block; padding: 4px 7px; border: 1px solid var(--glass-line); border-radius: var(--r-xs);
-  background: var(--glass); color: var(--ink); font: 700 11px var(--body); white-space: nowrap; }
-.kf-plain.team { padding: 3px 6px; border-radius: var(--r-pill); }
+.kf-plain { display: block; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--glass-line); border-radius: var(--r-xs);
+  background: var(--glass); color: var(--ink); font: var(--fw-bold) var(--fs-micro) var(--body); white-space: nowrap; }
+.kf-plain.team { padding: 2px var(--sp-2); border-radius: var(--r-pill); }
 /* Phone: the crop gives up height. It is opened deliberately here (the fold starts closed below
    the two-column breakpoint), and what it is opened FOR is to check the framing — a picture that
    fills the screen would leave nothing of the rapport it belongs to visible around it. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
+@media (--phone) {
   .kf-panel { --kf-map-h: min(38vh, 300px); }
 }
 

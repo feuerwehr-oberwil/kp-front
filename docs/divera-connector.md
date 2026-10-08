@@ -111,7 +111,7 @@ you reproduce a call with `curl`, treat your shell history the same way.
 
 ## Step 2 – enter them in KP Front
 
-Open `/admin` → **Zugangsdaten** → the **Divera 24/7** group. Three slots:
+Open `/admin` → **Anbindungen** → the **Divera 24/7** group. Three slots:
 
 | Field | Which Divera key | Empty means |
 |-------|------------------|-------------|

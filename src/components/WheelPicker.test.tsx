@@ -2,6 +2,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WheelPopover } from './WheelPicker'
+import { fmtWheelDay } from '../lib/zeitplanFormat'
+import { DateTimeField } from './TimeField'
 
 afterEach(cleanup)
 
@@ -60,5 +62,32 @@ describe('WheelPicker · looping clock wheels', () => {
         onCommit={vi.fn()} onClose={() => {}} />,
     )
     expect(wheel('Tag').querySelectorAll('[role="option"]')).toHaveLength(2)
+  })
+})
+
+describe('DateTimeField · one date control (05.10.2026)', () => {
+  it('labels days «Mo 05.10.» — no comma that wraps the phone column', () => {
+    expect(fmtWheelDay(new Date(2026, 9, 5))).toBe('Mo 05.10.')
+  })
+
+  it('offers a bounded day column, not day/month/year wheels, and commits the picked day', () => {
+    const onCommit = vi.fn()
+    const days = [new Date(2026, 9, 3), new Date(2026, 9, 4), new Date(2026, 9, 5)]
+    render(<DateTimeField ariaLabel="Ende" value={new Date(2026, 9, 5, 13, 6).toISOString()} days={days} onCommit={onCommit} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ende' }))
+    expect(screen.queryByRole('listbox', { name: 'Monat' })).toBeNull()
+    const day = wheel('Tag')
+    expect(day.className).toContain('wheel-day')
+    expect([...day.querySelectorAll('[role="option"]')].map((o) => o.textContent)).toEqual(['Sa 03.10.', 'So 04.10.', 'Mo 05.10.'])
+    fireEvent.click(screen.getByRole('option', { name: 'Sa 03.10.' }))
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+    expect(new Date(onCommit.mock.calls[0][0]).getTime()).toBe(new Date(2026, 9, 3, 13, 6).getTime())
+  })
+
+  it('keeps a stamp outside the offered days on its own day', () => {
+    const days = [new Date(2026, 9, 4), new Date(2026, 9, 5)]
+    render(<DateTimeField ariaLabel="Ende" value={new Date(2026, 8, 20, 8, 0).toISOString()} days={days} onCommit={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ende' }))
+    expect(wheel('Tag').querySelector('[aria-selected="true"]')?.textContent).toBe('So 20.09.')
   })
 })

@@ -3,6 +3,7 @@ import { caretToEnd } from '../lib/ui'
 import type { TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
 import { LoadingStatus, ShellLoader } from './ShellLoader'
+import { Button } from './Button'
 import { isPlayerRowId } from '../lib/ids'
 import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
@@ -420,7 +421,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
           </span>
           {sttAvailable && !errored && (stt.phase === 'idle' || (stt.phase === 'done' && openDrafts.length === 0)) && (
             // after all suggestions are handled (or none were found), a fresh run stays possible
-            <button className="ap-stt-btn" onClick={() => void startStt()}><Icon id="sparkle" />{C.sttTranscribe}</button>
+            <Button icon={<Icon id="sparkle" />} onClick={() => void startStt()}>{C.sttTranscribe}</Button>
           )}
           <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         </div>
@@ -460,9 +461,9 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
               <button className="ap-btn" onClick={() => seek(cur + SKIP_SEC)} title={C.playerSkipFwd} aria-label={C.playerSkipFwd}>
                 <span className="ap-skip"><Icon id="skip-fwd-15" /><small>{SKIP_SEC}</small></span>
               </button>
-              <button className="ap-speed" onClick={cycleSpeed} title={C.playerSpeed} aria-label={C.playerSpeed}>
+              <Button onClick={cycleSpeed} title={C.playerSpeed} aria-label={C.playerSpeed}>
                 {SPEEDS[speedIdx].toLocaleString(undefined, { minimumFractionDigits: 0 })}×
-              </button>
+              </Button>
               <div className="ap-time">
                 <strong>{wallClockAt(win, cur)}</strong>
                 <span>{fmtDuration(cur)}{durationSec > 0 ? ` / ${fmtDuration(durationSec)}` : ''}</span>
@@ -504,7 +505,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                     }}
                   />
                 </div>
-                <button className="ap-send" disabled={!text.trim()} onClick={sendEntry}><Icon id="check" />{C.send}</button>
+                <Button variant="primary" disabled={!text.trim()} icon={<Icon id="check" />} onClick={sendEntry}>{C.send}</Button>
               </div>
               {(nameHits.length > 0 || suggestions.length > 0) && (
                 <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
@@ -530,7 +531,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
           {stt.phase === 'failed' && (
             <p className="ap-stt-note ap-stt-failed">
               <Icon id="warn" />{fillTemplate(C.sttFailed, { error: stt.error || C.sttErrorGeneric })}
-              <button className="ap-stt-retry" onClick={() => void startStt()}>{C.sttRetry}</button>
+              <Button onClick={() => void startStt()}>{C.sttRetry}</Button>
             </p>
           )}
           {stt.phase === 'done' && stt.segments.length === 0 && (
@@ -541,7 +542,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
               <div className="ap-stt-bar">
                 <Icon id="sparkle" />
                 <span>{fillTemplate(C.sttBanner, { n: openDrafts.length })}</span>
-                <button className="ap-stt-all" onClick={confirmAll}>{C.sttTakeAll}</button>
+                <Button variant="primary" onClick={confirmAll}>{C.sttTakeAll}</Button>
               </div>
               {openDrafts.map((s) => (
                 <div key={s.index} className="ap-draft">

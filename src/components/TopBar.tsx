@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Popover, PopoverClose } from '../lib/overlays'
-import { fmtElapsedHM, fmtMMSS } from '../lib/format'
+import { fmtMMSS } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
 import { EntryGlyph, Icon } from '../lib/icons'
 import { fmtClock, type AtemschutzAlarmState } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import type { Incident, ReactivateResult, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
-import { loadPrefs, savePrefs } from '../lib/prefs'
+import { CLOCK_ICON, useEinsatzuhr } from '../lib/einsatzuhr'
+import { EinsatzuhrMenu } from './Einsatzuhr'
+import { useIsPhone } from '../lib/useIsPhone'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useHeadFit } from '../lib/useHeadFit'
-import { asksWords } from '../lib/suche'
+import { useOnline } from '../lib/useOnline'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
  * The wind/condition maths, kept beside its only reader. It used to live in a `WindBadge`
@@ -59,12 +61,6 @@ export function condition(code: number | null): { icon: string; label: string } 
   if (code >= 95) return { icon: 'wx-storm', label: c.thunder }
   return { icon: 'wx-cloud', label: c.cloudy }
 }
-
-type ClockMode = 'elapsed' | 'now' | 'start'
-const CLOCK_MODES: ClockMode[] = ['elapsed', 'now', 'start']
-// distinct glyph per mode so the icon itself says which time you're reading: elapsed duration
-// (hourglass), current wall time (plain clock), start of the operation (flag).
-const CLOCK_ICON: Record<ClockMode, string> = { elapsed: 'hourglass', now: 'clock', start: 'flag' }
 
 interface Props {
   incident: Incident
@@ -121,14 +117,6 @@ interface Props {
   /** the chip's alarm already has its door on screen — the Trupps board's head badge, or a
    *  Meldeleiste row naming the same Trupp (AtemschutzAlarmMeldung · azChipRedundant, T1) */
   azChipHidden?: boolean
-  /** People still missing in the Suche (lib/suche · vermisstCount). The «2 vermisst» chip stands
-   *  in every head, for everyone, from the first vermisst until the last is found — like the
-   *  Atemschutz chip, it is only there while it has something to say. */
-  sucheMissing?: number
-  /** the Suche's open «abgesucht?» questions (lib/suche · pendingAsks) — counted on the chip (N13) */
-  sucheAsks?: number
-  /** tap on that chip: the Suche, on its Personen tab */
-  onOpenSuche?: () => void
   /** Live GPS feed has gone silent — the vehicles on the map are frozen. */
   gpsStale?: boolean
   /** Age of the last successful GPS poll, for the chip's readout. */
@@ -154,7 +142,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, sucheMissing = 0, sucheAsks = 0, onOpenSuche, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -174,25 +162,15 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   const undoWord = undoLabel ? fillTemplate(appConfig.copy.undoNamed, { action: undoLabel }) : appConfig.copy.undo
   const redoWord = redoLabel ? fillTemplate(appConfig.copy.redoNamed, { action: redoLabel }) : appConfig.copy.redo
 
-  // Einsatzuhr can show the running duration, the wall clock, or the start time. It's the only
-  // clock in the bar (the OS status bar covers wall time), so all three are reachable — from a
-  // LABELLED dropdown (each mode named + its value + a check on the active one) rather than a
-  // blind tap-to-cycle, so the reading is never ambiguous at 3am. Choice persists per device.
-  const [clockMode, setClockMode] = useState<ClockMode>(() => loadPrefs().clockMode ?? 'elapsed')
+  // Einsatzuhr: the running duration, the wall clock or the start time, from a labelled menu
+  // (lib/einsatzuhr). It's the only clock in the bar (the OS status bar covers wall time).
+  // ⚠️ Not on a PHONE (07.10.2026, UI sweep · owner pick B3 D): there it is the Einsatz pill's
+  // second line, under the Stichwort, and its menu opens from the Einsatz card's Beginn pill
+  // (panels/IncidentSwitcher) — the same choice, read and written through the same hook.
+  const isPhone = useIsPhone()
   const E = appConfig.copy.einsatzuhr
-  const startMs = startedAt ? Date.parse(startedAt) : 0
-  // An Einsatz that is OVER has a duration, not a stopwatch. It used to keep counting from
-  // `now`, so an archived Einsatz opened from the Verlauf claimed «14:22» of Einsatzdauer for
-  // something that lasted 40 minutes last Tuesday — the one number on the bar, wrong by days.
-  const endMs = endedAt ? Date.parse(endedAt) : 0
-  const stoppedAt = Number.isFinite(endMs) && endMs > startMs ? endMs : 0
-  const clockValue = (m: ClockMode) =>
-    m === 'now' ? formatTime(new Date(now), true)
-      : m === 'start' ? formatTime(new Date(startMs))
-        : fmtElapsedHM((stoppedAt || now) - startMs)
-  const clockLabel: Record<ClockMode, string> = { elapsed: E.modeElapsed, now: E.modeNow, start: E.modeStart }
-  const pickClock = (m: ClockMode) => { setClockMode(m); savePrefs({ ...loadPrefs(), clockMode: m }) }
-  const clockText = Number.isFinite(startMs) && startMs > 0 ? clockValue(clockMode) : '' // an unparseable start shows nothing, not «Invalid Date»
+  const uhr = useEinsatzuhr(startedAt, endedAt, now)
+  const clockText = uhr.text
 
   // Eintrag gesture (shared with the mobile FAB so they behave identically). The hook runs
   // unconditionally — hooks can't be skipped — but with the button unrendered nothing ever
@@ -209,7 +187,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   // the bar's priority ladder (lib/useHeadFit): measured, one step at a time, until it fits
   const barRef = useRef<HTMLDivElement>(null)
   useHeadFit(barRef, [
-    incident.title, clockText.length, hasWind, sucheMissing, sucheAsks, gpsStale ? 1 : 0, archived ? 1 : 0,
+    incident.title, incident.address, clockText.length, hasWind, gpsStale ? 1 : 0, archived ? 1 : 0,
     azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
   ].join('|'))
 
@@ -225,30 +203,17 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
       {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time,
           and the Einsatzuhr below can be cycled to the wall clock when needed. */}
       {/* Einsatzuhr: the long-incident awareness anchor — tap opens a labelled mode menu */}
-      {startedAt && (
-        <Popover
-          side="bottom"
-          align="start"
-          popupClassName="tb-uhr-menu"
-          ariaLabel={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
-          trigger={
-            <button
-              type="button"
-              className="stat tb-einsatzuhr"
-              title={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
-              aria-label={`${clockLabel[clockMode]}: ${clockText}`}
-            >
-              <Icon id={CLOCK_ICON[clockMode]} /><b>{clockText}</b><Icon id="chevron-down" className="tb-uhr-chev chev" />
-            </button>
-          }
-        >
-          {CLOCK_MODES.map((m) => (
-            <PopoverClose key={m} className={`tb-uhr-row${clockMode === m ? ' on' : ''}`} onClick={() => pickClock(m)}>
-              <Icon id={CLOCK_ICON[m]} /><span className="tb-uhr-lbl">{clockLabel[m]}</span>
-              <span className="tb-uhr-val">{clockValue(m)}</span><Icon id="check" className="tb-uhr-chk" />
-            </PopoverClose>
-          ))}
-        </Popover>
+      {startedAt && !isPhone && (
+        <EinsatzuhrMenu uhr={uhr} startedAt={startedAt} trigger={
+          <button
+            type="button"
+            className="stat tb-einsatzuhr"
+            title={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
+            aria-label={`${uhr.label[uhr.mode]}: ${clockText}`}
+          >
+            <Icon id={CLOCK_ICON[uhr.mode]} /><b>{clockText}</b><Icon id="chevron-down" className="tb-uhr-chev chev" />
+          </button>
+        } />
       )}
 
       {/* Journal + undo/redo, reachable from both surfaces. Do not open this comment with the
@@ -330,23 +295,6 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             )}
           </span>
         )}
-        {/* the Suche's chip (24.09.2026): «2 vermisst», red, for everyone while anybody is — the
-            one question the Übung on 23.09. could not answer from any screen at 20:15 */}
-        {(sucheMissing > 0 || sucheAsks > 0) && (() => {
-          const S = appConfig.copy.suche
-          // …and the questions a Trupp's Raus left open («abgesucht?»), where everybody looks (N13)
-          const words = [sucheMissing > 0 ? fillTemplate(S.vermisstChip, { n: sucheMissing }) : '', sucheAsks > 0 ? asksWords(sucheAsks) : ''].filter(Boolean).join(' · ')
-          return (
-            <button className={`tb-az ${sucheMissing > 0 ? 'crit' : 'warn'} tb-suche`} onClick={onOpenSuche} title={S.vermisstChipHint}
-              aria-label={`${S.title}: ${words}`}>
-              <Icon id="people" />
-              {/* the words on a wide bar, the bare count on a phone's (15-mobile.css) — the bar there
-                  also carries the Atemschutz chip, and two worded chips pushed the title under ↶ */}
-              <span className="tb-suche-full">{words}</span>
-              <span className="tb-suche-short" aria-hidden>{sucheMissing > 0 ? sucheMissing : ''}{sucheAsks > 0 && <b className="tb-suche-ask"><span className="tb-suche-ask-n">{sucheAsks}</span>?</b>}</span>
-            </button>
-          )
-        })()}
         {/* Atemschutz chip — pinned at the far right so it never shifts the other controls.
             AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first
             the top bar said anything was the red alarm), RED once a Trupp is überfällig or at
@@ -398,6 +346,8 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
   const C = appConfig.copy.archived
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  // offline: «Wieder öffnen» stays (useOnline is a hint, never a gate) but says it needs the server
+  const online = useOnline()
   // ⚠️ A SUCCESSFUL «Wieder öffnen» unmounts this chip — the Einsatz stops being archived — and
   // the promise settles a tick later, so neither state write below may be made unconditionally.
   const alive = useRef(true)
@@ -430,7 +380,8 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
             .catch(() => {})
             .finally(() => { if (alive.current) setBusy(false) })
         }}>
-          <Icon id="pen" /><span className="tb-uhr-lbl">{C.reactivate}</span>
+          <Icon id="pen" />
+          <span className="tb-uhr-lbl">{C.reactivate}{!online && <small className="tb-uhr-note">{C.reactivateOffline}</small>}</span>
         </button>
       )}
     </Popover>
