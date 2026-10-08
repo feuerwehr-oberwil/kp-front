@@ -94,7 +94,7 @@
    card on a board needs. */
 .who {
   position: sticky; left: 0; z-index: 3; flex: none;
-  width: var(--name-w); display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-3);
+  width: var(--name-w); display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-3);
   min-height: var(--tap); text-align: left; cursor: pointer;
   border: none; background: var(--board);
   font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink);
