@@ -61,6 +61,10 @@ pnpm test    # vitest
 pnpm lint    # eslint
 ```
 
+CI runs the unit tests once, with coverage (`pnpm test:coverage`), and fails below the floor in
+`scripts/coverage-floor.json`. When your change raises coverage, `pnpm coverage:raise` lifts the
+floor (it never lowers it); commit the file.
+
 **Backend** (FastAPI + PostgreSQL, Alembic) – Python managed with [uv](https://docs.astral.sh/uv/).
 See [`backend/README.md`](backend/README.md) for setup, migrations, and the admin CLIs, and
 [`docs/API.md`](docs/API.md) for the HTTP API.

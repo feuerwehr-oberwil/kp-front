@@ -45,8 +45,21 @@ jobs:
       - name: Type-check e2e (tsc -p tsconfig.e2e.json)
         run: pnpm exec tsc -p tsconfig.e2e.json
 
-      - name: Unit tests (vitest)
-        run: pnpm test
+      # ONE run, with coverage: the floor in scripts/coverage-floor.json fails it (vite.config.ts ·
+      # test.coverage). The totals go to the job summary; `pnpm coverage:raise` lifts the floor.
+      - name: Unit tests + coverage (vitest)
+        run: pnpm test:coverage
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          [ -f coverage/coverage-summary.json ] || exit 0
+          node -e '
+            const t = require("./coverage/coverage-summary.json").total
+            const f = require("./scripts/coverage-floor.json").floor
+            const rows = ["statements", "branches", "functions", "lines"].map((m) => `| ${m} | ${t[m].pct.toFixed(2)} % | ${f[m]} % |`)
+            console.log(["### Frontend coverage (vitest)", "", "| | measured | floor |", "|---|---|---|", ...rows].join("\n"))
+          ' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build SPA
         run: pnpm build
