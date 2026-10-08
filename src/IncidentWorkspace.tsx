@@ -2620,9 +2620,8 @@ export function IncidentWorkspace({
   }, [windAt, replayActive])
   const mapOverlays = useMemo(
     () => {
-      const now = replayActive
-        ? new Date(replayAtMs ?? parseWeatherTime(displayWeather?.observed_at)?.getTime() ?? Date.now())
-        : new Date()
+      const replayAt = replayActive ? (replayAtMs ?? parseWeatherTime(displayWeather?.observed_at)?.getTime()) : undefined
+      const now = replayAt != null ? new Date(replayAt) : new Date()
       return [...preparedOverlays, ...ergRingOverlays(entities, now, displayWeather)]
     },
     // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
