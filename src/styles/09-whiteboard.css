@@ -101,7 +101,7 @@
   /* the message surface; the tone is its amber glyph (08-toasts.css · «ONE message surface», 25.09.2026) */
   display: flex; align-items: center; gap: 10px; padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm);
   background: var(--float-bg); backdrop-filter: var(--float-blur); border: none; box-shadow: var(--float-edge);
-  font: 600 13px/1.35 var(--body); color: var(--ink); }
+  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
 .wb-nearby-banner > .i { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
 .wb-nearby-text { flex: 1 1 auto; min-width: 0; }
 .wb-nearby-text b { color: var(--amber-strong); }
@@ -206,16 +206,16 @@
    the right one a 3px gap, so «0 m» stood ~2px above the name's line and «4 Pläne» drifted the
    other way against the address — three values on a row and no two on a line. */
 .pp-row-main { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
-.pp-row-main b { font-size: var(--fs-2); line-height: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pp-row-addr { font-size: 12px; line-height: 16px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-row-main b { font-size: var(--fs-2); line-height: 18px; font-weight: var(--fw-bold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-row-addr { font-size: var(--fs-1); line-height: 16px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pp-row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
-.pp-dist { font-family: var(--mono); font-size: 11.5px; line-height: 18px; color: var(--ink-dim); }
+.pp-dist { font-family: var(--mono); font-size: var(--fs-micro); line-height: 18px; color: var(--ink-dim); }
 .pp-mods { font-size: var(--fs-micro); line-height: 16px; font-weight: var(--fw-bold); color: var(--blue); }
-.pp-mods-none { color: var(--ink-faint); font-weight: 600; }
+.pp-mods-none { color: var(--ink-faint); font-weight: var(--fw-medium); }
 .pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--glass-edge); }
 .pp-map .maplibregl-map { width: 100%; height: 100%; }
 .pp-map-note { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 6px 9px; border-radius: var(--r-sm);
-  background: rgba(27, 35, 48, .82); color: var(--on-accent-ink); font-size: var(--fs-micro); font-weight: 600; text-align: center; pointer-events: none; }
+  background: rgba(27, 35, 48, .82); color: var(--on-accent-ink); font-size: var(--fs-micro); font-weight: var(--fw-medium); text-align: center; pointer-events: none; }
 .pp-pin { width: 28px; height: 34px; border: none; background: none; padding: 0; cursor: pointer; color: var(--ink-dim);
   display: grid; place-items: center; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
 .pp-pin .i { width: 22px; height: 22px; }
@@ -321,21 +321,21 @@
    unreadable at night, where --ink IS the light colour: a light-grey box with white digits on the
    dark pill. --fill-soft/--ink flip together, so the chip stays quiet ink-on-plate in both. */
 .wb-floor-idx { display: inline-block; flex: none; min-width: 22px; text-align: center; padding: 2px 5px; border-radius: 5px;
-  font: var(--fw-bold) 12px var(--mono, ui-monospace, Menlo, monospace); font-variant-numeric: tabular-nums;
+  font: var(--fw-bold) var(--fs-1) var(--mono, ui-monospace, Menlo, monospace); font-variant-numeric: tabular-nums;
   color: var(--ink); background: var(--fill-soft); }
 /* the EG is the base the whole stack hangs off, so its chip is the one that carries a fill */
 .wb-floor-idx.zero { color: var(--on-fill); background: var(--blue); }
 /* never wraps: on a zoomed-out stack the tile is ~330px or less and «1. OG» broke after «1.» */
-.wb-floor-name { font-weight: 600; flex: none; white-space: nowrap; }
+.wb-floor-name { font-weight: var(--fw-bold); flex: none; white-space: nowrap; }
 .wb-floor-svg polygon { fill: var(--blue-5); stroke: var(--ink-faint); stroke-width: 1.5; stroke-linejoin: round; }
 /* the storey's Geschossplan page under the outline – quiet, the outline stays legible over it */
 .wb-floor-page { opacity: 1; }
-.wb-floor-noplan { font: 600 13px var(--body); fill: var(--ink-faint); }
+.wb-floor-noplan { font: var(--fw-medium) var(--fs-2) var(--body); fill: var(--ink-faint); }
 /* Preserve the drawing's footprint while Shell trail reports the pending raster. */
 .wb-floor-page-wait { fill: color-mix(in srgb, var(--ink) 4%, transparent); }
 .wb-floor-label { position: absolute; top: 8px; left: calc(var(--wb-floor-inset) - var(--wb-floor-plate-pad)); display: flex; align-items: center; gap: 6px; z-index: 1;
   flex-wrap: nowrap; white-space: nowrap;
-  font-family: var(--body); font-weight: var(--fw-bold); font-size: 13px; line-height: 1; color: var(--ink-dim);
+  font-family: var(--body); font-weight: var(--fw-bold); font-size: var(--fs-2); line-height: 1; color: var(--ink-dim);
   background: var(--label-soft); border-radius: var(--r-xs); padding: var(--wb-floor-plate-pad); user-select: none; -webkit-user-select: none; }
 /* The label IS the storey's door (29.09.2026, sweep K5): a tap opens «Ausblenden · Geschoss
    entfernen» (Whiteboard · the storey Menu). The per-storey eye and the red bin in the tile's
@@ -369,7 +369,7 @@
   padding: 0 var(--wb-floor-inset); border: none; border-top: 1px dashed var(--ink-28);
   border-bottom: 1px dashed var(--ink-28);
   background: color-mix(in srgb, var(--board-bg) 82%, var(--ink) 6%);
-  font: 600 12px var(--body); color: var(--ink-dim); text-align: left; cursor: pointer;
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); text-align: left; cursor: pointer;
   white-space: nowrap; }
 .wb-floor-folded .wb-floor-idx { opacity: .55; flex: none; }
 .wb-floor-folded .wb-floor-name { flex: 0 1 auto; min-width: 4.5em; overflow: hidden; text-overflow: ellipsis; }
@@ -447,7 +447,7 @@
 /* a plan one-liner has NO width cap (it grows with the plan), so `nowrap` can't spill outside
    its own paper the way the map's 180px-capped pill could — it just gets wide, which is what
    «Einzeilig» means. `break-word` still guards the box variant below. */
-.wb-text-label, .wb-text-input { font-family: var(--body); font-weight: 600; color: var(--note-ink);
+.wb-text-label, .wb-text-input { font-family: var(--body); font-weight: var(--fw-medium); color: var(--note-ink);
   background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 0.6em; padding: 0.38em 0.7em; box-shadow: 0 4px 10px rgba(30, 45, 70, .2); white-space: nowrap; overflow-wrap: break-word; }
 .wb-text-input { outline: none; min-width: 7em; }
 /* text BOX (a note with a width): wraps and grows downwards. The width is set inline in px
@@ -476,7 +476,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    collides with the name the way a leading dot + gap did */
 .wb-resource-cap { width: 4px; align-self: stretch; min-height: 15px; border-radius: 2px; background: var(--team); flex: none; }
 /* time badge tinted to the team colour */
-.wb-resource-time { font-family: var(--mono); font-style: normal; font-size: 10px; font-weight: 600; color: var(--on-accent-ink);
+.wb-resource-time { font-family: var(--mono); font-style: normal; font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--on-accent-ink);
   background: var(--team); border-radius: var(--r-xs); padding: 3px 7px; }
 /* selection now reads as a coloured ring (in the team's own colour) + lift */
 .wb-anno.sel .wb-resource-pill { box-shadow: 0 0 0 2px var(--team), 0 6px 16px rgba(30, 45, 70, .28); }
@@ -485,7 +485,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    the ONE done dim (01-tokens · --done-opacity, 28.09.2026 — it was .5 plus a greyed name) */
 .wb-resource-pill.raus { opacity: var(--done-opacity); }
 .wb-resource-pill.raus b { text-decoration: line-through; }
-.wb-resource-raus { font-size: 9.5px; font-weight: var(--fw-bold); letter-spacing: .04em; text-transform: uppercase;
+.wb-resource-raus { font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .04em; text-transform: uppercase;
   color: var(--ink-dim); background: var(--fill-soft); border-radius: var(--r-xs); padding: 2px 6px; }
 
 /* ── «Ein Etikett»: die Leitung im Truppmarker (Karte, 15.09.2026) ───────────────────────────
@@ -502,7 +502,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
      the pass had already cleared. Two digits fit; a third simply tightens. */
   width: 19px; height: 19px; padding: 0 3px; box-sizing: border-box;
   border: 1.5px solid var(--line); border-radius: 4px; color: var(--line); background: var(--surface);
-  font-family: var(--body); font-size: 11.5px; font-weight: var(--fw-heavy); font-style: normal; line-height: 1;
+  font-family: var(--body); font-size: var(--fs-micro); font-weight: var(--fw-heavy); font-style: normal; line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 /* draussen: the entry stays — it is the record of who worked this Leitung — but dashed and grey,
@@ -522,7 +522,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   min-width: 19px; height: 19px; padding: 0 3px; box-sizing: border-box;
   border: 1.5px solid var(--team); border-radius: 4px; color: var(--team); background: var(--surface);
-  font-family: var(--body); font-size: 11.5px; font-weight: var(--fw-heavy); font-style: normal; line-height: 1;
+  font-family: var(--body); font-size: var(--fs-micro); font-weight: var(--fw-heavy); font-style: normal; line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .team-dot.raus .team-floor, .wb-resource-pill.raus .team-floor {
@@ -592,7 +592,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* "Welcher Trupp?" quick picker shown when placing a team chip on the plan */
 .wb-trupp-pick { width: min(300px, calc(100vw - 32px)); max-height: 70dvh; overflow-y: auto; background: var(--surface);
   border-radius: var(--r-surface); box-shadow: var(--e4); padding: 10px; display: flex; flex-direction: column; gap: 6px; }
-.wb-trupp-pick-head { font-size: 12px; font-weight: var(--fw-bold); color: var(--ink-dim); padding: 4px 6px 6px; }
+.wb-trupp-pick-head { font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); padding: 4px 6px 6px; }
 .wb-trupp-opt { display: flex; align-items: center; gap: 9px; border: 1px solid var(--glass-edge); background: var(--surface-2, #fff);
   border-radius: var(--r-ctl); cursor: pointer; padding: 12px 12px; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); min-height: 48px; text-align: left; }
 @media (hover: hover) {
@@ -602,7 +602,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 }
 .wb-trupp-opt:not(.placed):active { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-trupp-opt b { flex: 1; }
-.wb-trupp-opt i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-faint); }
+.wb-trupp-opt i { font-style: normal; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-faint); }
 /* «AS» — the Trupp in this row is under Atemschutz. A FACT about the crew, not an alarm, so it
    wears the quiet status tone; amber and red belong to a clock running out and must never turn
    up on a picker. Same mark, same tone, as the Trupp-Suche's row (TruppFinder.module.css). */
@@ -615,7 +615,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   .wb-trupp-opt.placed:hover { border-color: var(--glass-edge); }
 }
 .wb-trupp-cap { width: 5px; height: 22px; border-radius: 3px; background: var(--blue); }
-.wb-trupp-generic { color: var(--ink-dim); font-weight: 600; }
+.wb-trupp-generic { color: var(--ink-dim); font-weight: var(--fw-medium); }
 .wb-trupp-generic .i { width: 16px; height: 16px; }
 
 /* team trail breadcrumbs — counter-scaled dot centred on the point, with the
@@ -623,13 +623,13 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-trail-dot { position: absolute; left: 0; top: 0; transform-origin: 0 0; z-index: 2; pointer-events: none; }
 .wb-trail-mark { display: block; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(15, 22, 34, .4); }
 .wb-trail-dot i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-style: normal;
-  font-size: 9px; font-weight: var(--fw-bold); color: var(--ink); background: var(--label-bg); border-radius: var(--r-xs); padding: 1px 5px;
+  font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink); background: var(--label-bg); border-radius: var(--r-xs); padding: 1px 5px;
   white-space: nowrap; box-shadow: 0 1px 3px rgba(15, 22, 34, .25); }
 /* the same breadcrumbs on the Lage map — the MapLibre Marker centres the dot on the coord,
    so only the floating timestamp needs positioning (shares .wb-trail-mark for the dot) */
 .map-trail-dot { position: relative; pointer-events: none; }
 .map-trail-dot i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-style: normal;
-  font-size: 9px; font-weight: var(--fw-bold); color: var(--ink); background: var(--label-bg); border-radius: var(--r-xs); padding: 1px 5px;
+  font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink); background: var(--label-bg); border-radius: var(--r-xs); padding: 1px 5px;
   white-space: nowrap; box-shadow: 0 1px 3px rgba(15, 22, 34, .25); }
 /* a selected team marker on the map rings its pill like the plan board's selection */
 .marker.sel .wb-resource-pill { box-shadow: 0 0 0 2px var(--team), 0 6px 16px rgba(30, 45, 70, .28); }
@@ -637,7 +637,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .team-dot { display: inline-flex; align-items: center; gap: 6px; }
 .team-dot i { width: 13px; height: 13px; border-radius: 50%; background: var(--team);
   border: 2px solid #fff; box-shadow: 0 1px 3px rgba(15, 22, 34, .4); flex: none; }
-.team-dot b { font-size: 11.5px; font-weight: var(--fw-bold); color: var(--ink); background: var(--label-bg);
+.team-dot b { font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--ink); background: var(--label-bg);
   border-radius: var(--r-xs); padding: 1px 6px; white-space: nowrap; box-shadow: 0 1px 3px rgba(15, 22, 34, .25); }
 .team-dot.raus { opacity: var(--done-opacity); }
 .team-dot.raus b { text-decoration: line-through; }
@@ -806,7 +806,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* ⚠️ `--on-accent-ink`, not `--surface` (31.08.) — see .line-end-tag below: letter and ring are the
    LINE's colour, so the plate has to stay near-white in night mode or an «S» on a blue Leitung is
    dark-on-dark. Same plate as the tactical-symbol chip. */
-.wb-line-marker { position: absolute; pointer-events: none; font: var(--fw-heavy) 12px var(--mono); color: currentColor;
+.wb-line-marker { position: absolute; pointer-events: none; font: var(--fw-heavy) var(--fs-1) var(--mono); color: currentColor;
   background: var(--on-accent-ink); border-radius: 5px; padding: 0 4px; line-height: 1.5; box-shadow: inset 0 0 0 1.5px currentColor; }
 /* An FKS chain glyph (Haltelinie's teeth, Wasserabwurfzone's circles) is bare — the chip above
    is for a LETTER, which needs a plate to read over a printed plan; a filled triangle does not,
@@ -853,9 +853,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); }
 .wb-orient-pop { display: flex; flex-direction: column; gap: 10px; padding: 13px 15px; min-width: 250px; }
 .wb-orient-row { display: flex; align-items: center; gap: 10px; }
-.wb-orient-lbl { font-size: 12px; font-weight: var(--fw-bold); color: var(--ink-dim); flex: none; }
+.wb-orient-lbl { font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); flex: none; }
 .wb-orient-row input[type=range] { flex: 1 1 auto; min-width: 0; height: var(--tap); accent-color: var(--blue); cursor: pointer; }
-.wb-orient-val { font-family: var(--mono); font-size: 13px; font-weight: var(--fw-bold); min-width: 42px; text-align: right; }
+.wb-orient-val { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-bold); min-width: 42px; text-align: right; }
 .wb-orient-chips { display: flex; gap: 8px; }
 .wb-orient-chip { flex: 1 1 0; min-height: var(--tap); padding: 0 10px; border: none; cursor: pointer;
   border-radius: var(--r-sm); background: var(--surface-2); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); }
@@ -870,7 +870,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    near-white the tactical-symbol chip uses (.ts-rot.white), so glyph and tag read alike in both
    themes and the line keeps its identity colour instead of being flattened to `--ink`. */
 .line-end-tag { display: inline-grid; place-items: center; padding: 2px 6px; border: 1.5px solid currentColor;
-  border-radius: 4px; background: var(--on-accent-ink); font: var(--fw-heavy) 11.5px/1 var(--body); white-space: nowrap; }
+  border-radius: 4px; background: var(--on-accent-ink); font: var(--fw-heavy) var(--fs-micro)/1 var(--body); white-space: nowrap; }
 /* ⚠️ `inline-grid` gives every text run its own ROW, so «1 · +2 ·» and the Trupp name stack —
    compact over a live hose, and not what the sheet does: kroki.py joins every part with « · »
    on one line. The print crop asks for the paper's shape. */
@@ -897,8 +897,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    Trupp picker, which it shares the modal recipe with) */
 .wb-cal-pop { width: min(320px, calc(100vw - 32px)); background: var(--surface); border-radius: var(--r-surface);
   box-shadow: var(--e4); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-.wb-cal-title { font: var(--fw-bold) 15px var(--body); color: var(--ink); }
-.wb-cal-body { font-size: 12px; color: var(--ink-dim); line-height: 1.35; }
+.wb-cal-title { font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); }
+.wb-cal-body { font-size: var(--fs-1); color: var(--ink-dim); line-height: 1.35; }
 /* quick-pick reference lengths (the common scale-bar values) above the stepper */
 .wb-cal-chips { display: flex; gap: 8px; }
 .wb-cal-chip { flex: 1; border: 1px solid var(--glass-edge); background: var(--surface-2, #fff); border-radius: var(--r-sm);

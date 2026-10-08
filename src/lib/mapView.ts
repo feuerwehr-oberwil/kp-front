@@ -39,10 +39,10 @@ export const TEAM_PILL_CAP_PX = 11
  *  can book the strip it grows without measuring text it never renders. */
 export const TEAM_LTG_PX = 25
 /** `.team-link` + its gap — the «angedockt» glyph at the right end of the same strip. */
-/** the resting strip's name chip, as the label pass measures it (`.team-dot b` – 700 11.5px
+/** the resting strip's name chip, as the label pass measures it (`.team-dot b` – 700 11px
  *  Sora, 6px padding each side, 15px line). ONE definition: MapView books the box with it and
  *  MapMarkers centres a docked strip with it, so the two can never disagree. */
-export const TEAM_LABEL_STYLE = { font: '700 11.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 12, chromeH: 2, lineH: 15 }
+export const TEAM_LABEL_STYLE = { font: '700 11px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 12, chromeH: 2, lineH: 15 }
 /** the whole resting strip's width: [dot][gap][name][Ltg] */
 export const teamStripPx = (label: string, hasLtg: boolean): number =>
   TEAM_DOT_PX + TEAM_DOT_GAP + cachedLabelSize(label, TEAM_LABEL_STYLE).w + (hasLtg ? TEAM_LTG_PX : 0)

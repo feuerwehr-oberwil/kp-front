@@ -293,7 +293,7 @@
   .phone-tools .wb-dock:has(.wb-dock-hint) { flex-wrap: wrap; height: auto; max-height: none; row-gap: 2px;
     padding-bottom: 8px; overflow: hidden; }
   .phone-tools .wb-dock .wb-dock-hint { display: block; flex: 1 0 100%; order: 99; max-width: calc(100vw - 40px);
-    font: 600 var(--fs-1) var(--body); color: var(--ink-dim); opacity: .85; text-align: center;
+    font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); opacity: .85; text-align: center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* (…and the Gebäude's chip row steps up by that row: `--msg-dock-hint` is part of
      --float-base, see «THE floating row» below) */
