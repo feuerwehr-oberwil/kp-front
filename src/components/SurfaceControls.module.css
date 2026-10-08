@@ -16,7 +16,7 @@
 /* gap 8, not 16: the line used to hold one wide control per slot (search · rank track · legend
    strip), where 16 was the seam between blocks. It is --tap squares now, and 16px between
    square buttons reads as separate controls rather than one cluster. */
-.controls { display: flex; align-items: center; gap: 8px; padding: 12px 22px; flex-wrap: wrap; }
+.controls { display: flex; align-items: center; gap: 8px; padding: 12px var(--head-pad-x); flex-wrap: wrap; }
 
 /* the search takes the slack — placement only: the field itself is THE search (components/
    SearchField, `.ui-search` in 13-incident.css, 29.09.2026). It was a framed white box here with
@@ -73,7 +73,7 @@
    word is a fixed string, so the width it takes is fixed too — the filter's DOT stays the way
    an active filter is shown, for the reason above.
    ⚠️ AFTER .addBtn: same specificity, and .addBtn's fixed --tap width would otherwise win. */
-.wordBtn { width: auto; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px;
+.wordBtn { width: auto; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px;
   font: var(--fw-bold) var(--fs-2) var(--body); white-space: nowrap; }
 
 /* the dropdown each filter button opens */
@@ -93,14 +93,14 @@
 /* skin only — the radius and the hover/press wash ride on the `ui-menu-item` class every row of
    a lib/overlays Menu also wears (13-incident.css · «ONE menu row»). */
 .menuItem {
-  display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
-  padding: 0 11px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap);
+  padding: 0 12px; cursor: pointer;
   font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); outline: none;
 }
 
 /* phones: tighter gutters, and the search yields so the buttons share its line rather than
    claiming rows of their own — vertical space is what the list underneath is short of */
 @media (--phone) {
-  .controls { gap: 8px; padding: 10px 14px; }
+  .controls { gap: 8px; padding: 8px var(--head-pad-x); }
   .search { flex: 1 1 120px; }
 }
