@@ -1815,7 +1815,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    lifecycle row's 48px tile, the one corner), its ring the app's one hold ring around the glyph
    (lib/nodeHold drives the fill — never a keyframe), and the banner the red tier's edge and wash
    (`.trowCrit`) at the top of the board. Red means the alarm here and nothing else. */
-.nfRow { margin-top: 8px; }
+.nfRow { margin-top: var(--sp-2); }
 /* holding IS the gesture: no scroll, no selection, no iOS callout under the finger */
 .actNotfall, .actNotfallEnd { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 /* framed grey like Rückzug | Raus — colour is STATE (29.09.2026, T11), and nothing is wrong with a
@@ -1829,9 +1829,9 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .actHolding .holdTrack { opacity: .25; }
 .holdFill { stroke-linecap: round; }
 
-.nfBanner { display: grid; gap: 8px; margin: 0 0 12px; padding: 12px; border-radius: var(--r-sm);
+.nfBanner { display: grid; gap: var(--sp-2); margin: 0 0 var(--sp-3); padding: var(--sp-3); border-radius: var(--r-sm);
   border-left: 4px solid var(--red); background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
-.nfHead { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--red-strong); }
+.nfHead { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; color: var(--red-strong); }
 .nfHead > :global(.i) { width: 18px; height: 18px; flex: none; }
 .nfKicker { flex: none; font: var(--fw-heavy) var(--fs-1) var(--body); letter-spacing: .06em; text-transform: uppercase; }
 .nfName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -1839,8 +1839,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .nfClock { flex: none; display: grid; justify-items: end; line-height: 1.1; }
 .nfClock b { font: var(--fw-heavy) var(--fs-5) var(--mono); font-variant-numeric: tabular-nums; color: var(--red-strong); }
 .nfClock span { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
-.nfFacts { display: flex; flex-wrap: wrap; gap: 4px 14px; font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
-.nfActs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nfFacts { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
+.nfActs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .nfDeploy { flex: 1 1 220px; }
 .nfDeployTxt { display: inline-grid; justify-items: start; line-height: 1.15; text-align: left; }
 .nfDeployWho { font: var(--fw-medium) var(--fs-1) var(--body); opacity: .85; }
