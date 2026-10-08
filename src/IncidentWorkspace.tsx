@@ -203,7 +203,6 @@ import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
-import { photoOverlay } from './lib/planProjection'
 import { photoMarker, photoPlacement, rememberPhotoGeo, rowGeoFor, rowPhotoGeo, withResolvedPhotos, type PhotoPlacement } from './lib/photoGeo'
 import { whenIdle } from './lib/idle'
 
@@ -2309,20 +2308,11 @@ export function IncidentWorkspace({
   // --- Georeferenz: which plans are tied to the ground, and how — lib/useGeorefFits -------------
   // ⚠️ Called HERE, where the block stood: its effects must keep their place after the store's and
   // the hydrate's. `log` is declared below and reaches it through `histSide` (assigned under it).
-  const { linkedPlans, floorPack, georefPlanRasters, activeLinkedPlan, selectedPlanProjection, planLive } = useGeorefFits({
+  const { linkedPlans, floorPack, georefPlanRasters, activeLinkedPlan, selectedPlanProjection, planLive, planPhotos } = useGeorefFits({
     planDocs, planScale, building, setBuilding, planBindings, activeObjectId, board, objects, rebake,
     planFitsRef, fitsVersion, setFitsVersion, stepLabelRef: stepLabel, histSide, readOnly, tacticalLocked, replayActive,
-    twinLayers, twinLayerOpacity, activePlanId, selectedId, liveVehicles, livePeople, isVisible,
+    twinLayers, twinLayerOpacity, activePlanId, selectedId, liveVehicles, livePeople, isVisible, mapEntities,
   })
-
-  /** the Karte's photo markers on the active georeferenced sheet — read-only there, a tap opens
-   *  the picture (lib/planProjection · photoOverlay). Nothing on a plan without a georeference. */
-  const planPhotos = useMemo(() => {
-    if (!activeLinkedPlan) return []
-    const plan = planFitsRef.current.get(activeLinkedPlan.id)
-    return plan ? photoOverlay(mapEntities.filter((e) => e.kind === 'photo' && isVisible(e.layer)), plan) : []
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- planFitsRef is read at fitsVersion
-  }, [activeLinkedPlan, mapEntities, isVisible, fitsVersion])
 
   // The journal is append-only: every action pushes a row, and nothing ever edits
   // or removes one — undo/redo log their own lines. So the stream stays a faithful
