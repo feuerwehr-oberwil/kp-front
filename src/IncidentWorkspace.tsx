@@ -88,6 +88,7 @@ import { onReachable } from './lib/connectivity'
 import { MapView } from './components/MapView'
 import { Splash } from './components/Splash'
 import { TopBar, WeatherBadge } from './components/TopBar'
+import { plakatSeedFrom } from './lib/plakatSeed'
 import { NavRail } from './components/NavRail'
 import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
@@ -1283,7 +1284,7 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const { nearObjects, plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
@@ -6405,6 +6406,26 @@ export function IncidentWorkspace({
           onLineRenumber={syncLineNoToTrupp}
           // the plan chip's twin of the map marker's jump — it points at the card too
           onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
+          // the empty Tafel's «Womit beginnen?» (08.10.2026, components/TafelStart) — not for a
+          // link session (bound to one object) and with no object doors for el (see onObjectSwitch)
+          tafelStart={linkScoped ? undefined : {
+            title: incidentMeta.title,
+            address: incidentMeta.address,
+            near: nearObjects,
+            hasLocation: incidentMeta.lng != null && incidentMeta.lat != null && (incidentMeta.lng !== 0 || incidentMeta.lat !== 0),
+            onPickObject: isEl ? undefined : pickObject,
+            onOpenObjects: isEl ? undefined : () => setPickerOpen(true),
+            onOpenBuilding: () => setActivePlanId(BUILDING_PICK_ID),
+            plakatSeed: () => plakatSeedFrom({
+              title: incidentMeta.title, address: incidentMeta.address,
+              alarmIso: reportMeta.alarmiertAt ?? incidentMeta.started_at,
+              einsatzleiter: reportMeta.einsatzleiter,
+              weather: liveWeather.data,
+              fahrzeuge: reportMeta.fahrzeuge,
+              fleet: getDeploymentConfig().fleet?.vehicles,
+              entities: doc.entities,
+            }),
+          }}
           planScale={planScale}
           onCalibrate={(planId, sc) => { if (tacticalLocked) return; setPlanScale((m) => { if (!sc) { const { [planId]: _drop, ...rest } = m; return rest } return { ...m, [planId]: sc } }) }}
         /></Suspense>

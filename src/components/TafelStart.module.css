@@ -1,0 +1,74 @@
+/* «Womit beginnen?» on the empty Tafel (08.10.2026) — components/TafelStart.tsx.
+   A non-modal layer: the wrapper passes every pointer through to the board, only the cards
+   and the sketch link take one. Built from tokens only (01-tokens · «THE SCALES»), so night
+   follows by itself. */
+
+.layer {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--sp-4); padding: var(--sp-5);
+  pointer-events: none;
+}
+.layer > * { pointer-events: auto; }
+
+.head { text-align: center; }
+.title { margin: 0; font-size: var(--fs-4); line-height: var(--lh-4); font-weight: var(--fw-heavy); color: var(--ink); }
+.sub { margin: var(--sp-1) 0 0; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink-dim); }
+
+.cards {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 264px)); gap: var(--sp-4);
+  align-items: stretch;
+}
+.card {
+  position: relative; display: flex; flex-direction: column; gap: var(--sp-2);
+  padding: var(--sp-4); min-height: 232px; box-sizing: border-box;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-surface);
+  box-shadow: var(--e3); color: var(--ink);
+}
+.card.pick, .row.pick { border-color: transparent; box-shadow: 0 0 0 2px var(--blue), var(--e4); }
+.cardTitle { margin: 0; font-size: var(--fs-3); line-height: var(--lh-3); font-weight: var(--fw-heavy); }
+.body { margin: 0; font-size: var(--fs-1); line-height: var(--lh-1); color: var(--ink-dim); }
+.foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.badge {
+  position: absolute; top: -12px; right: var(--sp-3);
+  padding: 0 var(--sp-2); border-radius: var(--r-xs);
+  background: var(--blue); color: var(--on-fill);
+  font-size: var(--fs-1); line-height: 24px; font-weight: var(--fw-bold);
+}
+
+.glyph {
+  display: grid; place-items: center; flex: none;
+  width: 40px; height: 40px; border-radius: var(--r-ctl);
+  background: var(--fill-soft); color: var(--ink);
+}
+.glyph svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pick .glyph { background: var(--sel-wash); color: var(--blue-strong); }
+
+/* a nearby object / the one template: a full-width row inside the card */
+.card .hit, .card .tplRow { justify-content: flex-start; text-align: left; white-space: normal; }
+.card .hit { padding: 0 var(--sp-2); }
+.hitName { flex: 1; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: var(--lh-1); }
+.hitDist { flex: none; color: var(--ink-faint); font-weight: var(--fw-medium); }
+.chev { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
+
+.layer .sketch {
+  border: 1.5px dashed var(--ink-22); border-radius: var(--r-pill);
+  background: var(--board-bg); padding: 0 var(--sp-4); color: var(--ink-dim);
+}
+
+/* ── phone: the cards become stacked rows ───────────────────────────────────────────── */
+.phone { justify-content: flex-start; padding: var(--sp-4) var(--sp-3); gap: var(--sp-3); overflow-y: auto; }
+.rows { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
+.row {
+  position: relative; display: flex; align-items: center; gap: var(--sp-3);
+  min-height: 64px; padding: var(--sp-2) var(--sp-3); box-sizing: border-box; width: 100%;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-surface);
+  box-shadow: var(--e3); color: var(--ink); text-align: left; font: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.row:active { background-image: linear-gradient(var(--press), var(--press)); }
+.rowText { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.rowText b { font-size: var(--fs-3); line-height: var(--lh-3); font-weight: var(--fw-heavy); }
+.rowText small { font-size: var(--fs-1); line-height: var(--lh-1); color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .badge { top: -10px; }
