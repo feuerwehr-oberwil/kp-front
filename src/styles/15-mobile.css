@@ -242,11 +242,11 @@
   .phone-tools .wb-dock { position: fixed; left: 50%; right: auto; top: auto; transform: translateX(-50%);
     /* 6px above the tool bar — the SAME gap the tool bar has above the nav bar (both are +6 offsets) */
     bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom));
-    flex-direction: row; align-items: center; justify-content: safe center; gap: 10px;
+    flex-direction: row; align-items: center; justify-content: safe center; gap: var(--sp-2);
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
     width: max-content; max-width: calc(100vw - 16px); height: var(--rail-h); max-height: var(--rail-h);
-    padding: 6px 12px; overflow-x: auto; overflow-y: hidden;
+    padding: var(--sp-2) var(--sp-3); overflow-x: auto; overflow-y: hidden;
     /* ⚠️ No visible scrollbar. The base .wb-dock is the DESKTOP column, where a thin bar is a
        useful hint on a tall stack; inherited by this horizontal bar it drew a grey rail across
        the bottom of the tool dock — under the buttons, on a control that is dragged with a thumb
@@ -277,7 +277,7 @@
   .phone-tools .wb-dock .wb-sw-grid { display: flex; grid-template-columns: none; gap: 8px; }
   .phone-tools .wb-dock .wb-sw { width: 30px; height: 30px; }
   /* UNIFORM button + icon size across the whole bar: every control a full --tap square (the bar
-     is --rail-h 60 with 6px padding, so 44 fits without growing it — 3am test r2, 25.09.2026:
+     is --rail-h 60 with 8px padding, so 44 fits without growing it — 3am test r2, 25.09.2026:
      ✕ · Freihand · Punkte · ✓ · ⓘ measured 40px high), every icon 18px — was a jumble (34/38
      buttons, 16/17/18 icons). ℹ matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
@@ -293,7 +293,7 @@
   .phone-tools .wb-dock:has(.wb-dock-hint) { flex-wrap: wrap; height: auto; max-height: none; row-gap: 2px;
     padding-bottom: 8px; overflow: hidden; }
   .phone-tools .wb-dock .wb-dock-hint { display: block; flex: 1 0 100%; order: 99; max-width: calc(100vw - 40px);
-    font: 600 var(--fs-1) var(--body); color: var(--ink-dim); opacity: .85; text-align: center;
+    font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); opacity: .85; text-align: center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* (…and the Gebäude's chip row steps up by that row: `--msg-dock-hint` is part of
      --float-base, see «THE floating row» below) */
@@ -878,7 +878,7 @@
     /* opaque: it opens OVER another sheet (Einsatzdaten), whose words showed through the glass head */
     background: var(--surface); }
   .mp-sheet > .ui-sheet-grab { margin-bottom: -4px; }
-  .mp-sheet .mp-head { padding: 4px 20px 8px; touch-action: none; }
+  .mp-sheet .mp-head { padding: 4px var(--sp-5) 8px; touch-action: none; }
   .mp-sheet .mp-head button { touch-action: auto; }
 
   /* confirm dialog stays centred but fits the narrow screen with safe-area gutters */
@@ -1201,7 +1201,8 @@
   /* uniform phone layout: the label (+ sub) always takes the full first line, the control drops
      to its own right-aligned line below — for EVERY row (seg AND stepper), so short rows don't
      stay inline while long ones wrap and the stepper doesn't sit left while segments sit right */
-  .set-row { flex-wrap: wrap; row-gap: 12px; }
+  /* 12 aside, not 16: the 12.5px hints («Verhindert das Abdunkeln während des Einsatzes») stay one line */
+  .set-row { flex-wrap: wrap; row-gap: 12px; padding-inline: var(--sp-3); }
   .set-row-l { flex: 1 1 100%; }
   .set-row .useg, .set-row .step { margin-left: auto; }
   /* the sliders take the full wrapped row rather than a 260px slot — a thumb needs the travel */

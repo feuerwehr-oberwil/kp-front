@@ -1,4 +1,5 @@
 import { ShellLoader } from './ShellLoader'
+import { Button } from './Button'
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
@@ -134,22 +135,24 @@ function MeldungTitle({ m }: { m: Meldung }) {
   )
 }
 
-/** The message's own buttons, at most two. `min-width` on them (08-toasts) is what keeps the
- *  right edge straight now that the rows are read as a column. */
+/** The message's own buttons, at most two — THE button (`.ml-btn` is their handle and placement).
+ *  `min-width` on them (08-toasts) is what keeps the right edge straight now that the rows are
+ *  read as a column. */
 function MeldungActions({ m }: { m: Meldung }) {
   if (!m.actions?.length) return null
   return (
     <span className="ml-act">
       {m.actions.map((a) => (
-        <button
+        <Button
           key={a.label}
-          type="button"
-          className={`ml-btn${a.primary ? ' prim' : ''}${a.primary && a.go ? ' go' : ''}`}
+          variant={a.primary ? (a.go ? 'go' : 'primary') : 'secondary'}
+          className="ml-btn"
           disabled={a.disabled}
           onClick={a.onClick}
+          icon={a.busy ? <ShellLoader /> : a.icon && <Icon id={a.icon} />}
         >
-          {a.busy ? <ShellLoader /> : a.icon && <Icon id={a.icon} />}{a.label}
-        </button>
+          {a.label}
+        </Button>
       ))}
     </span>
   )

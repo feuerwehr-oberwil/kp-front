@@ -16,6 +16,7 @@ import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
 import { truppForLine, truppTagText } from '../lib/truppLines'
 import { lerpPoint } from '../lib/lineStyle'
 import { OnOff, Segmented } from './Segmented'
+import { IconButton } from './Button'
 import { krokiEntity, krokiSymbolMul } from '../lib/krokiPayload'
 import { forkBearing, pxPerM, shapePx, symPx, worldPx } from '../lib/mapView'
 import { ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
@@ -746,10 +747,10 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
               gesture the app asks for, and this is the one place where the exact framing IS
               the point. Beside the picture rather than on top of it. */}
           <div className="kf-zoom">
-            <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomIn}
-              onClick={() => mapRef.current?.getMap().zoomIn({ duration: motionDuration(180) })}><Icon id="plus" /></button>
-            <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomOut}
-              onClick={() => mapRef.current?.getMap().zoomOut({ duration: motionDuration(180) })}><Icon id="minus" /></button>
+            <IconButton variant="secondary" className="kf-zoom-btn" label={appConfig.copy.nav.zoomIn}
+              onClick={() => mapRef.current?.getMap().zoomIn({ duration: motionDuration(180) })}><Icon id="plus" /></IconButton>
+            <IconButton variant="secondary" className="kf-zoom-btn" label={appConfig.copy.nav.zoomOut}
+              onClick={() => mapRef.current?.getMap().zoomOut({ duration: motionDuration(180) })}><Icon id="minus" /></IconButton>
           </div>
         </div>
       </div>

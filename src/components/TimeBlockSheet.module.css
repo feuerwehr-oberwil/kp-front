@@ -5,7 +5,7 @@
 /* the footer row's padding is now a house rule (.ip-sheet > .ip-actions in app.css) */
 .sheet :global(.ip-body) { padding-bottom: 8px; }
 
-.group { padding: 2px 0 6px; }
+.group { padding: 2px 0 var(--sp-2); }
 .groupSecond { border-top: 1px solid var(--border-soft); margin-top: 12px; padding-top: 12px; }
 .groupTitle {
   margin: 0 0 8px;
@@ -27,7 +27,7 @@
 
 /* the head — colour, word, duration, delete. `overflow: hidden` on the card clips its tint to the
    card's own corners, so no inner radius has to be kept in sync. */
-.head { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 10px; min-height: 40px; }
+.head { display: flex; align-items: center; gap: 8px; padding: 0 var(--sp-1) 0 var(--sp-3); min-height: 40px; }
 .headMain {
   flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px;
   border: none; background: none; padding: 0; min-height: 40px; font: inherit; text-align: left;
@@ -41,10 +41,10 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 /* THE THREE STATES, in the grid's own colours — the sheet and the lane teach one vocabulary
    instead of two. Set on the head so the swatch inherits it via currentColor. */
 .toneAvailable { background: var(--ink-8); color: var(--ink-dim); }
-.tonePlanned { background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--blue-strong); }
+.tonePlanned { background: var(--blue-16); color: var(--blue-strong); }
 .toneOpen { background: var(--green-16); color: var(--green-strong); }
-.toneDone { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink-dim); }
-.cardWarn .head { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+.toneDone { background: var(--ink-5); color: var(--ink-dim); }
+.cardWarn .head { background: var(--red-16); color: var(--red); }
 /* the head is also a switch, and the sign for that is always on screen: a ⇄ at the head's right
    edge, beside the duration – the number is the thing that flips. The hover-revealed word only
    ever spoke to a pointer; an iPad never saw it. */
@@ -53,39 +53,39 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 .duration { flex: none; font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink-dim); }
 
 /* the body: the two times as one pair, nothing else */
-.times { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px; padding: 11px 12px; }
-.sep { align-self: center; padding-top: 14px; color: var(--ink-faint); font: 600 var(--fs-2) var(--mono); }
+.times { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3); }
+.sep { align-self: center; padding-top: var(--sp-4); color: var(--ink-faint); font: var(--fw-medium) var(--fs-2) var(--mono); }
 /* the day this end falls on. A CAPTION under its own field, not a chip beside the row: as a
    sibling of the fields it wrapped to its own line and orphaned, and it no longer said which end
    it dated. Over midnight both sides carry one. */
-.day { font: 600 10.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }
+.day { font: var(--fw-medium) var(--fs-micro) var(--mono); color: var(--ink-faint); white-space: nowrap; }
 .field { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .label { font: var(--field-label); color: var(--ink-dim); } /* the one field label (28.09.2026; was an uppercase eyebrow) */
 .time { flex: none; }
 /* the read-only twin still uses this for «noch da» */
 .open {
-  display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 10px;
+  display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 var(--sp-3);
   border-radius: var(--r-ctl); background: var(--green-16);
-  font: var(--fw-bold) 12px var(--body); font-style: normal; color: var(--green);
+  font: var(--fw-bold) var(--fs-1) var(--body); font-style: normal; color: var(--green);
 }
 /* an editable end that has not happened yet: same green as an open stretch on the grid, but it is
    a field and behaves like one */
 /* «ab Beginn» / «noch da» on the field itself: the value is a state, so it must not be mistaken
    for a clock reading someone typed. */
 .time :global(.timefield-trigger.tok-start) {
-  background: color-mix(in srgb, var(--blue) 14%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 42%, transparent);
-  color: var(--blue-strong); font: var(--fw-bold) 13px var(--body);
+  background: var(--blue-16);
+  border-color: var(--blue-45);
+  color: var(--blue-strong); font: var(--fw-bold) var(--fs-2) var(--body);
 }
 .time :global(.timefield-trigger.tok-open) {
   background: var(--green-16);
   border-color: var(--green-45);
-  color: var(--green-strong); font: var(--fw-bold) 13px var(--body);
+  color: var(--green-strong); font: var(--fw-bold) var(--fs-2) var(--body);
 }
 .timeOpen :global(.timefield-trigger) {
   background: var(--green-16);
   border-color: var(--green-45);
-  color: var(--green-strong); font: var(--fw-bold) 13px var(--body);
+  color: var(--green-strong); font: var(--fw-bold) var(--fs-2) var(--body);
 }
 
 .del {
@@ -104,11 +104,11 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
   background-image: linear-gradient(var(--press), var(--press));
 }
 
-.add { margin-top: 8px; gap: 6px; }
+.add { margin-top: var(--sp-2); }
 
-.note { margin: 10px 0 0; font: var(--fw-medium) 12px var(--body); color: var(--ink-faint); }
+.note { margin: var(--sp-3) 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 /* «Alles wird laufend gespeichert.» — where the footer's «Fertig» stood (29.09.2026) */
-.saved { display: flex; align-items: center; gap: 6px; margin: 14px 0 0; font: 600 12px var(--body); color: var(--ink-faint); }
+.saved { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-4) 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 .saved :global(.i) { width: 14px; height: 14px; flex: none; color: var(--green-strong); }
 
 /* ---- phone ---------------------------------------------------------------------------- */
@@ -118,12 +118,12 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
    old row produced here — times, then a state chip pushed right with the ✕ beside it, then «ab
    Beginn» alone — is gone with the row itself. */
 @media (max-width: 560px) {
-  .times { padding: 10px; gap: 6px 8px; }
-  .head { padding-left: 9px; }
+  .times { padding: var(--sp-2); gap: var(--sp-2); }
+  .head { padding-left: var(--sp-2); }
 }
 
 /* the read-only half: the record, shown but not editable here */
-.readOnly { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.readOnly { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-1); }
 .readOnly li { display: flex; align-items: center; gap: 8px; }
-.readOnly b { font: var(--fw-bold) 13px var(--mono); color: var(--ink); }
-.readOnly .open { min-height: 24px; padding: 0 8px; font-size: 10.5px; }
+.readOnly b { font: var(--fw-bold) var(--fs-2) var(--mono); color: var(--ink); }
+.readOnly .open { min-height: 24px; padding: 0 8px; font-size: var(--fs-micro); }

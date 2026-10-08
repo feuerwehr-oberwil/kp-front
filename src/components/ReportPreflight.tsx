@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { Button, IconButton } from './Button'
 import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
@@ -1974,14 +1975,14 @@ export function ReportPreflight({
                         ].filter(Boolean).join(' · '),
                       })}
                     </span>
-                    <button type="button" className="rz-lage-take"
+                    <Button variant="primary" className="rz-lage-take"
                       onClick={() => {
                         const p = String(geretteteHint.personen)
                         const t = String(geretteteHint.tiere)
                         setGeretteteP(p); setGeretteteT(t); persist(geretteteOver(p, t))
                       }}>
                       {P.geretteteLageTake}
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -2455,12 +2456,12 @@ export function ReportPreflight({
                       <span className="rz-lage-text">
                         {fillTemplate(P.partnerLageStrip, { list: partnerHint.join(' · ') })}
                       </span>
-                      <button
-                        type="button" className="rz-lage-take"
+                      <Button
+                        variant="primary" className="rz-lage-take"
                         onClick={() => savePartners([...partners, ...partnerHint.map((org) => ({ org }))])}
                       >
                         {P.partnerLageTake}
-                      </button>
+                      </Button>
                     </div>
                   )}
                   {/* the list covers the usual partners; the one that turns up anyway still has
@@ -2475,10 +2476,10 @@ export function ReportPreflight({
                       onChange={(v) => setPartnerDraft(stripUnprintable(v))}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitPartner() } }}
                     />
-                    <button type="button" className="report-partner-go" onClick={commitPartner}
-                      disabled={!partnerDraft.trim()} title={P.partnerAdd} aria-label={P.partnerAdd}>
+                    <IconButton variant="secondary" onClick={commitPartner}
+                      disabled={!partnerDraft.trim()} label={P.partnerAdd}>
                       <Icon id="plus" />
-                    </button>
+                    </IconButton>
                   </div>
                 </fieldset>
               </div>
@@ -2532,7 +2533,7 @@ export function ReportPreflight({
                   </ul>
                 )}
                 {onAddAttachments && (
-                  <label className="report-row-add report-att-add">
+                  <label className="ip-btn report-row-add report-att-add">
                     <Icon id="photo" /><span>{P.attachmentsAdd}</span>
                     <input type="file" accept="image/*" multiple
                       onChange={(e) => {
@@ -2581,9 +2582,9 @@ export function ReportPreflight({
                                 : link.note?.trim() && <span className="rp-link-note">{link.note.trim()}</span>}
                             </span>
                           </button>
-                          <button type="button" className="rp-link-open" onClick={() => openLink(link)}>
-                            <Icon id="external" />{P.linksOpen}
-                          </button>
+                          <Button className="rp-link-open" icon={<Icon id="external" />} onClick={() => openLink(link)}>
+                            {P.linksOpen}
+                          </Button>
                         </div>
                       )
                     })}
