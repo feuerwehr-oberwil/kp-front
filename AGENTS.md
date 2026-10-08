@@ -129,6 +129,11 @@ to prod.
   asset. Keep both stages at the same size; never replace the boot markup with an external image.
   The boot cover paints immediately and stays through the SVG's 630 ms skid arrival, even on
   a cached launch (`lib/snailLaunch`). React launch loading stages continue that animation clock.
+  That clock is `performance.now() - animation.startTime`, never `now - currentTime`:
+  `currentTime` stands still until the next frame, and on a loaded device that made React rewind
+  the entrance by up to 20 ms (08.10.2026). The e2e reads it the same way at the moment React
+  empties `#root`, not from `animationend` (dispatched only with a frame, so a starved runner never
+  sent it for the removed cover).
   Do not replay the arrival at each loading stage or add a fade that hides it.
   Reduced motion skips both motion and the minimum hold.
   In-workspace activity uses `ShellLoader` / `LoadingStatus` (01.10.2026): the compact
@@ -1089,7 +1094,8 @@ to prod.
   only ever lowers it). Like the lint ceiling: never raise it to pass.
 - **New buttons are `<Button>` / `<IconButton>` / `<Chip>`** (07.10.2026, UI sweep C4;
   `components/Button.tsx`, `components/Chip.tsx`). `Button` variant `primary | secondary
-  (default) | quiet | danger`, size `md` (44) `| lg` (52, the one big action of a screen),
+  (default) | quiet | danger | go` (go = the green primary whose move keeps things as they are, the
+  Meldeleiste's «Am Einsatzort lassen»), size `md` (44) `| lg` (52, the one big action of a screen),
   `block`, `icon`; `IconButton` requires `label` (aria-label + title, which the hold-tooltip
   reads), variant `quiet | secondary`; `Chip` is a choice (`selected` → `--sel` + aria-pressed).
   All default to `type="button"`. A surface's `className` on them is for placement only; a new
@@ -1481,7 +1487,7 @@ to prod.
   - *Messages – ONE surface, ONE lane (25.09.2026):* a toast, a mode's instruction (Gebäude
     wählen), a tool's tip and the hold-tip wear the same look (08-toasts.css · «ONE message
     surface»): the floating family's material (below — light by day, dark by night, never a dark
-    pill on a light UI), ink 13/600, the one corner, no outline of its own. A tone is the colour of
+    pill on a light UI), ink 14/500 (13/600 until 08.10.2026), the one corner, no outline of its own. A tone is the colour of
     the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
@@ -1579,7 +1585,7 @@ to prod.
     14px/800 — never `--blue` (blue is «chosen», `--sel`), never `--ink-fill` directly (at night it
     is a 1.14:1 patch on the sheet), never green. On the ARMED material (a tool dock, the Trupp
     marker bar — dark in both themes) the primary is the LIGHT fill: `--on-accent-ink` with
-    `--ink-fill` ink (`.wb-dock-go`). The documented green «go» (`.ml-btn.prim.go`, Atemschutz «Eintritt») is a
+    `--ink-fill` ink (`.wb-dock-go`). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
     tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
     neutral wash (29.09.2026): no green «Bei den Trupps zeigen», no blue «Position markieren». A
     door to a page wears that page's nav glyph («Bei den Trupps zeigen» = the Trupps stopwatch,

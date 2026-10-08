@@ -30,7 +30,7 @@ export const lineLabelAction = (truppId: string | undefined, tone: LineTone | un
 /** `.team-dot i` — the dot IS the position, so it is what sits on the coordinate. */
 export const TEAM_DOT_PX = 13
 /** `.team-dot` gap — the distance the name hangs off the dot. */
-export const TEAM_DOT_GAP = 6
+export const TEAM_DOT_GAP = 8
 /** The selected pill's accent cap, centre-to-left-edge: 1px border + 8px padding + half of the
  *  4px cap — so selecting a Trupp swaps the chrome without moving the point it states. */
 export const TEAM_PILL_CAP_PX = 11
@@ -39,10 +39,22 @@ export const TEAM_PILL_CAP_PX = 11
  *  can book the strip it grows without measuring text it never renders. */
 export const TEAM_LTG_PX = 25
 /** `.team-link` + its gap — the «angedockt» glyph at the right end of the same strip. */
-/** the resting strip's name chip, as the label pass measures it (`.team-dot b` – 700 11.5px
- *  Sora, 6px padding each side, 15px line). ONE definition: MapView books the box with it and
+/** the resting strip's name chip, as the label pass measures it (`.team-dot b` – 700 11px
+ *  Sora, 4px padding each side, 15px line). ONE definition: MapView books the box with it and
  *  MapMarkers centres a docked strip with it, so the two can never disagree. */
-export const TEAM_LABEL_STYLE = { font: '700 11.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 12, chromeH: 2, lineH: 15 }
+export const TEAM_LABEL_STYLE = { font: '700 11px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 8, chromeH: 2, lineH: 15 }
+/** The label-pass boxes of the other on-map labels, as their CSS draws them. ONE place, held to the
+ *  CSS by mapView.labelCss.test.ts: a type step there (stage 2 took them 11.5 → 11px, the 4px grid)
+ *  that is not copied here books boxes that are wider or taller than what is on screen.
+ *  `.sym-caption` (03-map.css) — 700 --fs-micro Sora, wraps at compound seams inside its 120px
+ *  span, 1px/4px padding, line-height 1.25, hung `margin-top` under the glyph. */
+export const SYM_CAPTION_STYLE = { font: '700 11px Sora, system-ui, sans-serif', maxTextW: 120, chromeW: 8, chromeH: 2, lineH: 13.75 }
+/** `.sym-caption { margin-top }` (03-map.css) */
+export const SYM_CAPTION_GAP = 4
+/** `.measure-label.draw-label` (11-measure.css) — 700 --fs-micro mono, never wraps, 2px/8px padding, line-height 1.25 */
+export const READOUT_LABEL_STYLE = { font: '700 11px "Spline Sans Mono", ui-monospace, monospace', maxTextW: Infinity, chromeW: 16, chromeH: 4, lineH: 13.75 }
+/** `.line-end-tag` (09-whiteboard.css) — 800 --fs-micro/1, 2px/4px padding plus a 1.5px border; `inline-grid` stacks the Trupp row */
+export const END_TAG_LABEL_STYLE = { font: '800 11px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 11, chromeH: 7, lineH: 11 }
 /** the whole resting strip's width: [dot][gap][name][Ltg] */
 export const teamStripPx = (label: string, hasLtg: boolean): number =>
   TEAM_DOT_PX + TEAM_DOT_GAP + cachedLabelSize(label, TEAM_LABEL_STYLE).w + (hasLtg ? TEAM_LTG_PX : 0)

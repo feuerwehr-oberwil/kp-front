@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { Icon } from '../../lib/icons'
+import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import { Sheet } from '../../lib/overlays'
@@ -77,9 +78,9 @@ export function StatusLine({ status, rec, canSend, onSendNow }: {
           onClose={() => setOpen(false)}
           title={C.statusTitle}
           footer={canSend && (sync.error || sync.offline) && sync.kind !== 'auth' ? (
-            <button type="button" className="ip-btn primary" onClick={() => { setOpen(false); onSendNow() }}>
-              <Icon id="rotate" />{C.retry}
-            </button>
+            <Button variant="primary" icon={<Icon id="rotate" />} onClick={() => { setOpen(false); onSendNow() }}>
+              {C.retry}
+            </Button>
           ) : undefined}
         >
           <div className={s.statusRows}>

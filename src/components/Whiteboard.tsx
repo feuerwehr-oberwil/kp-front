@@ -49,6 +49,7 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { TwinTeamPill } from './TwinTeamPill'
 import { LockChip } from './LockChip'
+import { Chip } from './Chip'
 import { ShapeGlyph, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBoundsN, rotationBox, rotationGripOffPx, rotationRun, shapeAspect } from '../lib/shapes'
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
@@ -2738,16 +2739,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         {/* «Wie gezeichnet» is the pack's own 0°: the sheet as the architect drew it, which is a
             meaningful place to come back to and is NOT north-up (that is the chip beside it) */}
         {building?.pack && (
-          <button type="button" className={`wb-orient-chip${normDeg(shownAngle) === 0 ? ' on' : ''}`}
-            onClick={() => commitOrient(0)}>{appConfig.copy.whiteboard.orientAsDrawn}</button>
+          <Chip className="wb-orient-chip" selected={normDeg(shownAngle) === 0}
+            onClick={() => commitOrient(0)}>{appConfig.copy.whiteboard.orientAsDrawn}</Chip>
         )}
         {northUpDeg != null && (
-          <button type="button" className={`wb-orient-chip${normDeg(shownAngle) === northUpDeg ? ' on' : ''}`}
-            onClick={() => commitOrient(northUpDeg)}>{appConfig.copy.whiteboard.orientNorthUp}</button>
+          <Chip className="wb-orient-chip" selected={normDeg(shownAngle) === northUpDeg}
+            onClick={() => commitOrient(northUpDeg)}>{appConfig.copy.whiteboard.orientNorthUp}</Chip>
         )}
         {Math.abs(orientDeg) > 0.001 && (
-          <button type="button" className={`wb-orient-chip${normDeg(shownAngle) === normDeg(orientDeg) ? ' on' : ''}`}
-            onClick={() => commitOrient(orientDeg)}>{appConfig.copy.whiteboard.orientLongAxis}</button>
+          <Chip className="wb-orient-chip" selected={normDeg(shownAngle) === normDeg(orientDeg)}
+            onClick={() => commitOrient(orientDeg)}>{appConfig.copy.whiteboard.orientLongAxis}</Chip>
         )}
       </div>
     </div>

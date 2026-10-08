@@ -35,6 +35,12 @@ describe('Button', () => {
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
+  it('go is its own class, the green primary', () => {
+    render(<Button variant="go">Am Einsatzort lassen</Button>)
+    expect(screen.getByRole('button').className).toBe('ip-btn go')
+    expect(readFileSync('src/styles/13-incident.css', 'utf8')).toMatch(/\.ip-btn\.go \{[^}]*var\(--green\)/)
+  })
+
   it('secondary is the base look — no variant class', () => {
     render(<Button>Ändern</Button>)
     expect(screen.getByRole('button').className).toBe('ip-btn')

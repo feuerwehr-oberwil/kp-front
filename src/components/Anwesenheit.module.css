@@ -37,28 +37,17 @@
 .headTitles h2 { margin: 0; font: var(--head-title); color: var(--ink); }
 
 
-.reload {
-  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  cursor: pointer; min-height: var(--tap); min-width: var(--tap);
-  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
-  border-radius: var(--r-sm); padding: 0 13px; font: var(--fw-bold) var(--fs-1) var(--body);
-}
-@media (hover: hover) { .reload:hover { color: var(--ink); border-color: var(--ink-faint); } }
-.reload:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.reload:disabled { opacity: var(--disabled); cursor: default; }
-/* it only appears when something failed, so it says so rather than looking like a spare control */
-.reloadFailed { border-color: color-mix(in srgb, var(--amber-strong) 45%, var(--glass-edge)); color: var(--amber-strong); }
-@media (hover: hover) { .reloadFailed:hover { color: var(--amber-strong); border-color: var(--amber-strong); } }
-.reload svg { width: 15px; height: 15px; }
+/* (the retry is a <Button> in the head's ONE tile family — 13-incident · `.head-tile`, amber when the
+   fetch failed, so it says so rather than looking like a spare control; 08.10.2026, stage 2) */
 
 /* (the search line — .controls/.search — lives in SurfaceControls.module.css; the field is SearchField) */
 
 /* the «Gast» badge's shape: it stands where a Dienstgrad would, so it wears RankBadge's chip
    (RankBadge.module.css · the Dienstgrad chip itself is that component, on every surface) */
 .rank {
-  flex: none; font: var(--fw-heavy) 10.5px var(--body); letter-spacing: .02em; color: var(--ink-dim);
+  flex: none; font: var(--fw-heavy) var(--fs-micro) var(--body); letter-spacing: .02em; color: var(--ink-dim);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  border-radius: 5px; padding: 2px 5px;
+  border-radius: 5px; padding: 2px var(--sp-1);
 }
 
 /* ── the row's marks ──
@@ -69,7 +58,7 @@
    dot — so they belong to the mark, not to whatever happens to contain it.
    Every entry both NAMES a state and filters by it (see AnwesenheitView · stateFilter), which
    is why the menu rows carry the mark itself rather than describing it. */
-.markRow { display: inline-flex; align-items: center; gap: 9px; }
+.markRow { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .markRow i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 /* the two Ort glyphs, in the colours they carry on the row — read once, then the row is enough */
 .markOrt svg { width: 14px; height: 14px; color: var(--ink-dim); }
@@ -91,14 +80,14 @@
      symmetric, but the whole grid then sat 11px inside the search bar above it. Without the
      gutter the rows are flush at 22px on both sides, and when the list IS long enough to
      scroll the space is taken by a scrollbar somebody can see. */
-  flex: 1 1 auto; overflow-y: auto; margin: 0; padding: 2px 22px 16px;
+  flex: 1 1 auto; overflow-y: auto; margin: 0; padding: 2px var(--head-pad-x) var(--sp-4);
   /* ⚠️ 228px was measured against a row that carried a name and a clock. It now also carries
      the Ort, and «Baumann Michael» went to «Baumann Mich…» — the one thing this list exists to
      show. 300px was still not enough: Ort (108) + clock (39) + the dot and the AT badge left the
      name 99px and it kept truncating. At 380px a 1440px panel packs three columns instead of
      four — but the Ort word is what made the row that hungry. With the Ort back to icon-only
      the same name fits in a 290px column, so the list packs more people on a screen again. */
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 8px; align-content: start;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: var(--sp-2); align-content: start;
 }
 
 /* Somebody recorded for THIS Einsatz only. Neutral ink rather than the rank chip's accent: it is
@@ -119,7 +108,7 @@
 }
 @media (hover: hover) { .person:hover:has(.personMain:not(:disabled)) { border-color: var(--ink-faint); } }
 .personMain {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 8px 11px;
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3);
   border: none; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit;
 }
 .personMain:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -159,7 +148,7 @@
   color: var(--green); -webkit-tap-highlight-color: transparent;
 }
 .backBtn svg { width: 16px; height: 16px; }
-@media (hover: hover) { .backBtn:hover { background: color-mix(in srgb, var(--green) 14%, transparent); } }
+@media (hover: hover) { .backBtn:hover { background: var(--green-16); } }
 .backBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* Live-Standort: a MARK beside the name, not a reading. «2.8 km · vor 3 min» behind every name
@@ -194,7 +183,7 @@
   flex: none; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
   width: var(--row-act); padding: 0;
   border: none; border-left: 1px solid var(--glass-edge); background: none;
-  cursor: pointer; font: var(--fw-bold) 11.5px var(--body); white-space: nowrap;
+  cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
 .ort svg { width: 16px; height: 16px; flex: none; }
@@ -204,7 +193,7 @@
 button.ortScene:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* …the Magazin is the one worth SEEING, because it is the answer to the question. It keeps its
    tint when the word is gone — icon-only is exactly when the colour has to carry it. */
-.ortStation { color: var(--ink); background: color-mix(in srgb, var(--ink) 13%, transparent); }
+.ortStation { color: var(--ink); background: var(--ink-12); }
 @media (hover: hover) { button.ortStation:hover { background: var(--ink-22); } }
 button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
@@ -219,8 +208,8 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
      since 28.09.2026): the tabs are the docked strip above the nav bar (PhoneTabBar), so the head
      is title + summary | printer + reload; the reload's word is the ladder's to fold, not a
      breakpoint's. */
-  .headSummary { font-size: 12px; }
-  .horizon { flex: 0 1 auto; gap: 4px; }
+  .headSummary { font-size: var(--fs-1); }
+  .horizon { flex: 0 1 auto; gap: var(--sp-1); }
   .horizonLabel { display: none; }
   .horizonValue { min-width: 2.6rem; }
   .horizonEnd { display: none; }
@@ -233,9 +222,9 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
   .person { --row-act: 38px; }
   /* the last person row clears the Eintrag FAB — the circle sat on a row's presence toggle and on
      its time chip, i.e. on the two controls this list exists for. --fab-safe is 0 without a FAB. */
-  .grid { padding: 2px 14px calc(16px + var(--fab-safe, 0px)); grid-template-columns: 1fr; gap: 6px; }
+  .grid { padding: 2px var(--head-pad-x) calc(var(--sp-4) + var(--fab-safe, 0px)); grid-template-columns: 1fr; gap: var(--sp-2); }
   .person { min-height: 44px; font-size: var(--fs-2); }
-  .personMain { padding: 7px 12px; gap: 8px; }
+  .personMain { padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
 }
 
 /* one recorded block per framed row, each field SAID (von / bis) — two bare clocks side by side
@@ -258,22 +247,14 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
    bearing one — it is both the confirmation (paper does not undo) and the check on whether the
    search + rank filter above are set the way you meant — so it is the size of a value, not of a
    caption. */
-.paperContent { margin: 0; font: var(--fw-bold) 15px var(--body); color: var(--ink); }
-.paperHint { margin: 8px 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
+.paperContent { margin: 0; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
+.paperHint { margin: var(--sp-2) 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
 /* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
-.horizon { flex: none; display: flex; align-items: center; gap: 6px; }
+.horizon { flex: none; display: flex; align-items: center; gap: var(--sp-2); }
 .horizonLabel { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .horizonValue { min-width: 3.4rem; text-align: center; font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink); }
 /* «bis 18:01» — at a constant px-per-hour a wider window is pixel-identical, so this is the only
    visible answer to what widening it bought you */
-.horizonEnd { font: 600 11.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }
-.zoomBtn {
-  display: inline-grid; place-items: center; min-width: var(--tap); min-height: var(--tap);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
-  color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.zoomBtn svg { width: 14px; height: 14px; }
-@media (hover: hover) { .zoomBtn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); } }
-.zoomBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.zoomBtn:disabled { opacity: var(--disabled); cursor: default; }
+.horizonEnd { font: var(--fw-medium) var(--fs-micro) var(--mono); color: var(--ink-faint); white-space: nowrap; }
+/* (the two zoom buttons are <IconButton variant="secondary"> — 08.10.2026, stage 2) */

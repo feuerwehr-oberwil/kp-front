@@ -1,6 +1,8 @@
 import { useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
+import { Button, IconButton } from './Button'
+import { Chip } from './Chip'
 import { Overlay } from '../lib/overlays'
 import { toast } from '../lib/ui'
 import { saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
@@ -36,7 +38,7 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
       <div className="wb-cal-body">{appConfig.copy.whiteboard.scale.promptBody}</div>
       <div className="wb-cal-chips">
         {appConfig.drawing.planScaleDefaultsM.map((m) => (
-          <button key={m} className={`wb-cal-chip ${val === m ? 'on' : ''}`} onClick={() => setRefMInput(String(m))}>{m} m</button>
+          <Chip key={m} className="wb-cal-chip" selected={val === m} onClick={() => setRefMInput(String(m))}>{m} m</Chip>
         ))}
       </div>
       <div className="wb-cal-stepper">
@@ -50,8 +52,8 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
         <button className="wb-cal-step" aria-label="+" onClick={() => bump(step)}>+</button>
       </div>
       <div className="wb-cal-actions">
-        <button className="ip-btn" onClick={onClose}>{appConfig.copy.whiteboard.scale.cancel}</button>
-        <button className="ip-btn primary" disabled={!(val > 0)} onClick={() => onCommit(val)}>{appConfig.copy.whiteboard.scale.confirm}</button>
+        <Button onClick={onClose}>{appConfig.copy.whiteboard.scale.cancel}</Button>
+        <Button variant="primary" disabled={!(val > 0)} onClick={() => onCommit(val)}>{appConfig.copy.whiteboard.scale.confirm}</Button>
       </div>
     </Overlay>
   )
@@ -88,7 +90,7 @@ export function PlanScalePersist({ scale, activeId, onDone }: {
       <button className="btn" onClick={() => persisting(saveStationPlanOverride(activeId, scale), appConfig.copy.whiteboard.scale.savedThis, onDone)}>
         {appConfig.copy.whiteboard.scale.saveThis}
       </button>
-      <button className="wb-scale-persist-x" aria-label={appConfig.copy.closeDialog} onClick={onDone}><Icon id="close" /></button>
+      <IconButton className="wb-scale-persist-x" label={appConfig.copy.closeDialog} onClick={onDone}><Icon id="close" /></IconButton>
     </div>
   )
 }

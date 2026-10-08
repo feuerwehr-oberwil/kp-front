@@ -75,8 +75,7 @@
   /* THE app-wide :active wash — layered as a background-image overlay so it composes with
      any background underneath. Built on --ink, which flips for the night theme, so the wash
      flips with it: darkens by day, lightens by night. No night override needed — var(--ink)
-     resolves where the wash is used. */
-  --press: color-mix(in srgb, var(--ink) 9%, transparent);
+     resolves where the wash is used. (Declared with the tints below, on `.kf-paper` too.) */
   --mono: 'Spline Sans Mono', ui-monospace, monospace;
   --body: 'Sora', system-ui, sans-serif;
   /* live width of the left nav rail (NavRail writes it on drag/expand); the map
@@ -267,19 +266,15 @@
      primary fill above (ink by day, light grey by night) nor with red/amber (danger/warning).
      A ROW in a list (a menu option, a picker row) is picked by the wash instead — a filled
      row is a slab. «Where you are» (rails, the armed tool) keeps its ink pill: that is a
-     place, not an answer. Night follows by itself: --blue / --on-fill are re-declared there. */
-  --sel: var(--blue);
-  --on-sel: var(--on-fill);
+     place, not an answer. Night follows by itself: --blue / --on-fill are re-declared there.
+     (--sel, --on-sel and --sel-wash are declared with the tints below, on `.kf-paper` too.) */
   --sel-shadow: 0 1px 2px rgba(20, 40, 80, .22);
-  --sel-wash: color-mix(in srgb, var(--blue) 14%, transparent);
   /* THE delete look (28.09.2026, owner pick A): a destructive action is a red OUTLINE — red ink,
      a red edge, the surface it stands on — with the bin and the word. Never a red fill: red never
      fills an action, and a filled red button beside a filled primary read as two primaries. The
      ink is --red-strong, not --red: #e8392b on white is 3.9:1, too thin for a 14px label. Night
-     follows by itself (--red / --red-strong are re-declared there). */
-  --del-ink: var(--red-strong);
-  --del-edge: color-mix(in srgb, var(--red) 40%, transparent);
-  --del-wash: color-mix(in srgb, var(--red) 10%, transparent);
+     follows by itself (--red / --red-strong are re-declared there). (Declared with the tints
+     below, on `.kf-paper` too.) */
   /* sticky-note pills (map note + plan text). Day = warm paper yellow; night re-declares
      to a deep amber so the note still reads AS a note on the dark map/board instead of
      glaring as a bright daylight sticky. */
@@ -299,9 +294,8 @@
      edge turns half-blue and a soft 3px halo rings it. The Trupp form went solid ink, the
      ContextPanel solid blue or a blue wash, the sheet title a blue underline — four answers to
      «which field am I typing in». A borderless field draws the edge as an inset ring:
-     `box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo)`. Night follows --blue. */
-  --focus-edge: color-mix(in srgb, var(--blue) 50%, transparent);
-  --focus-halo: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent);
+     `box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo)`. Night follows --blue.
+     (Declared with the tints below, on `.kf-paper` too.) */
   /* THE eyebrow — the small uppercase label over a section (28.09.2026). It came in 11/700,
      12/800, 10.5/700 and .04–.1em of tracking across the sheets. Colour --ink-faint; where the
      colour CARRIES a meaning (the amber Sicherungstrupp head, a red/amber state head) that colour
@@ -456,8 +450,20 @@
    DECLARED: the Kroki paper pins the day hues locally (17-rapport.css), and a tint computed on
    :root would carry the night blue onto the day paper. A new scope that re-declares a hue must
    be added here for the same reason. A mix over a SOLID (`…, var(--surface))`) is a different
-   colour and stays a literal mix. */
+   colour and stays a literal mix.
+   The tokens DERIVED from a hue (the press wash, «selected», delete, focus) live in this block for
+   the same reason (08.10.2026, stage 2 — they carried the night blue/red onto the day paper); their
+   comments stand in the :root block above. */
 :root, .kf-paper {
+  --press: color-mix(in srgb, var(--ink) 9%, transparent);
+  --sel: var(--blue);
+  --on-sel: var(--on-fill);
+  --sel-wash: color-mix(in srgb, var(--blue) 14%, transparent);
+  --del-ink: var(--red-strong);
+  --del-edge: color-mix(in srgb, var(--red) 40%, transparent);
+  --del-wash: color-mix(in srgb, var(--red) 10%, transparent);
+  --focus-edge: color-mix(in srgb, var(--blue) 50%, transparent);
+  --focus-halo: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent);
   --blue-5: color-mix(in srgb, var(--blue) 5%, transparent);
   --blue-8: color-mix(in srgb, var(--blue) 8%, transparent);
   --blue-12: color-mix(in srgb, var(--blue) 12%, transparent);

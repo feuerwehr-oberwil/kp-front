@@ -52,18 +52,18 @@
   position: absolute;
   inset: -9px;
   border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--ink) 35%, transparent);
+  border: 2px solid var(--ink-28);
   background: color-mix(in srgb, var(--surface) 35%, transparent);
 }
 .badge {
   position: absolute;
   left: 17px;
   top: -8px;
-  font: var(--fw-bold) 10px/1.4 var(--body);
+  font: var(--fw-bold) var(--fs-micro)/1.4 var(--body);
   color: var(--on-fill);
   background: var(--blue);
   border-radius: var(--r-pill);
-  padding: 1px 6px;
+  padding: 1px var(--sp-1);
 }
 .pending .badge { background: var(--amber-strong); }
 /* crosses go inert while a placement is mid-pair — a tap meant for the sheet must never be
@@ -95,10 +95,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px 8px 16px;
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
   border-radius: var(--r-ctl);
   background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--blue) 52%, transparent);
+  border: 1px solid var(--blue-45);
   box-shadow: var(--e4);
   animation: georefIn .16s var(--ease);
 }
@@ -129,8 +129,8 @@
 .acts { display: flex; align-items: center; gap: 8px; flex: none; }
 .checkBlend {
   min-width: 176px; display: grid; grid-template-columns: auto minmax(80px, 1fr) auto;
-  align-items: center; gap: 7px; padding: 0 4px; color: var(--ink-dim);
-  font: var(--fw-bold) 10.5px var(--body);
+  align-items: center; gap: var(--sp-2); padding: 0 4px; color: var(--ink-dim);
+  font: var(--fw-bold) var(--fs-micro) var(--body);
 }
 .checkBlend input { width: 100%; min-width: 0; height: 28px; margin: 0; accent-color: var(--blue); cursor: pointer; }
 .dot {
@@ -141,14 +141,14 @@
   flex: none;
   animation: georefPulse 1.3s var(--ease) infinite;
 }
-.promptText { display: block; font: var(--fw-bold) 13px var(--body); color: var(--ink); }
+.promptText { display: block; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 /* ⚠️ It WRAPS, on every width. This is the mode's only teaching, and «Hausecke, Hydrant,
    Wegkreu…» teaches nothing. The ellipsis used to be undone for phones alone — but during the
    split the bar's text column is HALF a screen while the window is still a tablet's, so every
    width from ~600 to ~900px cut the sentence mid-word: the same «the window is not the pane»
    trap as lib/whiteboard · sideInsets. Two lines of 11.5px cost less than an unreadable line. */
 .promptHint {
-  display: block; font: var(--fw-medium) 11.5px var(--body); color: var(--ink-dim); margin-top: 2px;
+  display: block; font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-dim); margin-top: 2px;
 }
 /* The Ampel as a LINE, for the bar that has no room for a band. Same reading as the phone card's
    status row, same source (georefMode · georefLamp) — only the shape differs, because the
@@ -156,7 +156,7 @@
    ⚠️ The `-strong` tones, never the bare ones: this is TEXT on a light surface by day and on a
    dark one at night, which is exactly the pair those tokens exist for (01-tokens.css). Bare
    --red on white is 4.0:1 at 11.5px — not enough for the one line carrying the warning. */
-.lampLine { display: block; font: 600 11.5px/1.35 var(--body); margin-top: 3px; }
+.lampLine { display: block; font: var(--fw-medium) var(--fs-micro)/1.35 var(--body); margin-top: 2px; }
 .lampLine b { font-weight: var(--fw-bold); }
 /* not italic: `i` is this card's shape for «the quieter half of a two-part line», nothing more */
 .lampLine i { font-style: normal; font-weight: var(--fw-medium); opacity: .9; }
@@ -165,7 +165,7 @@
 .lampLine_green { color: var(--green-strong); }
 /* ⚠️ `:global`. `.btn` is the app's shared button class (06-contextpanel.css); inside a CSS
    module a bare `.btn` would be hashed into a class nothing on the page carries. */
-.pill :global(.btn), .bar :global(.btn) { flex: none; padding: 7px 11px; font-size: var(--fs-1); white-space: nowrap; }
+.pill :global(.btn), .bar :global(.btn) { flex: none; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-1); white-space: nowrap; }
 .finishAction, .resetAction, .checkAction { min-width: 0; }
 .pill :global(.btn.link.on), .bar :global(.btn.link.on) {
   background: var(--sel); border-color: var(--sel); color: var(--on-sel);
@@ -185,15 +185,15 @@
    is not showing — the one open half NAMED. The quality detail and the (instruction-shaped)
    warning live behind the (i); the amber dot is what makes the fold findable without being
    open. Colours through tokens, never a frozen rgba — day and night both have to be right. */
-.statusRow { display: flex; align-items: center; gap: 9px; min-height: 24px; }
+.statusRow { display: flex; align-items: center; gap: var(--sp-2); min-height: 24px; }
 .sdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .sdot_red { background: var(--red); }
 .sdot_amber { background: var(--amber); }
 .sdot_green { background: var(--green); }
 .stext { min-width: 0; flex: 1 1 auto; }
-.stext b { display: block; font: var(--fw-bold) 13px var(--body); color: var(--ink); }
+.stext b { display: block; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 .stext i {
-  display: block; font-style: normal; font: var(--fw-medium) 11.5px/1.35 var(--body);
+  display: block; font-style: normal; font: var(--fw-medium) var(--fs-micro)/1.35 var(--body);
   color: var(--ink-dim); margin-top: 1px;
 }
 /* the (i) is THE InfoToggle (29.09.2026 — it was a bare 44px glyph that filled the choice blue
@@ -203,21 +203,21 @@
 .infoBtn { margin: -4px 0; }
 /* the folded-out quality detail: pair count, claimable ⌀, one sentence of what to DO next */
 .qfold {
-  border-radius: var(--r-sm); background: var(--fill-soft); padding: 9px 10px;
-  font: var(--fw-medium) 11.5px/1.45 var(--body); color: var(--ink-dim);
+  border-radius: var(--r-sm); background: var(--fill-soft); padding: var(--sp-3);
+  font: var(--fw-medium) var(--fs-micro)/1.45 var(--body); color: var(--ink-dim);
 }
 .qrow {
   display: flex; justify-content: space-between; gap: 12px;
-  font: 600 12px var(--body); color: var(--ink); margin-bottom: 5px;
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink); margin-bottom: var(--sp-1);
 }
-.qrow strong { font: var(--fw-bold) 12px var(--mono); }
+.qrow strong { font: var(--fw-bold) var(--fs-1) var(--mono); }
 /* the second sentence in the fold: what makes a good point. It moved in here on 15.09., when the
    bar's instruction shrank to «Dieselbe Stelle auf Modul und Karte antippen» — a tip you read
    once and never again does not belong on the line you read while tapping. */
-.qtip { margin-top: 5px; }
+.qtip { margin-top: var(--sp-1); }
 /* the one line of guidance under «Punkt setzen» — where the button acts, nothing more */
 .subline {
-  font: var(--fw-medium) 11.5px/1.4 var(--body); color: var(--ink-dim); text-align: center; margin-top: -3px;
+  font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); text-align: center; margin-top: -4px;
 }
 
 /* ── the marker popover ─────────────────────────────────────────────────────────────────── */
@@ -228,10 +228,10 @@
 .popAnchor {
   position: fixed;
   transform: translate(-50%, -100%);
-  margin-top: -20px;
+  margin-top: -24px;
   z-index: var(--z-mode-pill);
 }
-.popAnchor.popBelow { transform: translate(-50%, 0); margin-top: 22px; }
+.popAnchor.popBelow { transform: translate(-50%, 0); margin-top: var(--sp-5); }
 .pop {
   background: var(--surface);
   border: 1px solid var(--glass-edge);
@@ -245,8 +245,8 @@
   max-width: min(92vw, 304px);
 }
 .popHead {
-  display: flex; gap: 6px; align-items: baseline;
-  padding: 2px 6px 7px; font: var(--fw-bold) 12px var(--body); color: var(--ink); white-space: nowrap;
+  display: flex; gap: var(--sp-2); align-items: baseline;
+  padding: 2px var(--sp-1) var(--sp-2); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); white-space: nowrap;
 }
 .popHead i { font: var(--fw-medium) var(--fs-micro) var(--body); font-style: normal; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
 /* ⚠️ Columns sized by the WORDS, not by half the card. `1fr 1fr` gave «Punkt löschen» exactly
@@ -254,9 +254,9 @@
    button beside a one-line harmless one, i.e. the wrong one made to look like the bigger target.
    `minmax(min-content, 1fr)` plus `nowrap` means neither label can ever wrap; the card above is
    wide enough to hold both. The 44px touch height is untouched. */
-.popActs { display: grid; grid-template-columns: repeat(2, minmax(min-content, 1fr)); gap: 6px; }
+.popActs { display: grid; grid-template-columns: repeat(2, minmax(min-content, 1fr)); gap: var(--sp-2); }
 .popActs button {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
   min-height: var(--tap); padding: 0 8px; border-radius: var(--r-sm); border: 1px solid var(--border);
   background: var(--surface); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); cursor: pointer;
   white-space: nowrap;
@@ -265,19 +265,15 @@
 .popActs button:active { background-image: linear-gradient(var(--press), var(--press)); }
 .popActs svg { width: 15px; height: 15px; flex: none; }
 /* red never fills — it marks the destructive choice apart from the harmless one beside it */
-.popWarn { color: var(--red-strong); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.popWarn { color: var(--red-strong); border-color: var(--del-edge); }
 .popActs button.popWarn { color: var(--red-strong); }
 /* how an OPEN half becomes a pair by hand — one quiet line, only where it applies */
 .popHint {
-  padding: 7px 6px 2px; font: var(--fw-medium) var(--fs-micro)/1.35 var(--body); color: var(--ink-dim);
+  padding: var(--sp-2) var(--sp-1) 2px; font: var(--fw-medium) var(--fs-micro)/1.35 var(--body); color: var(--ink-dim);
 }
-/* the do-nothing exit, full width and quiet: Esc must never be the only way out on touch */
-.popKeep {
-  width: 100%; min-height: 38px; margin-top: 6px; border: 0; border-radius: var(--r-sm);
-  background: transparent; font: 600 var(--fs-1) var(--body); color: var(--ink-dim); cursor: pointer;
-}
-@media (hover: hover) { .popKeep:hover { background: var(--fill-soft); } }
-.popKeep:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* the do-nothing exit, full width and quiet: Esc must never be the only way out on touch. THE quiet
+   button (<Button variant="quiet" block>, 08.10.2026 — it was a 38px dim word of its own) */
+.popKeep { margin-top: var(--sp-2); }
 
 /* ── the quiet row ──────────────────────────────────────────────────────────────────────── */
 /* ⚠️ NOTHING here is the same weight as «Punkt setzen». «Zurücksetzen» used to sit a thumb's
@@ -419,7 +415,7 @@
 /* ── Passungs-Anzeige ────────────────────────────────────────────────────────────────────── */
 /* Technical language on purpose: Restfehler, Grundlinie, Drehung. The people who open this are
    asking whether the link can be trusted, and vague words cannot answer that. */
-.quality { width: min(92vw, 400px); max-width: 100%; display: grid; gap: 10px; padding: 12px; }
+.quality { width: min(92vw, 400px); max-width: 100%; display: grid; gap: var(--sp-3); padding: 12px; }
 .qHead { display: flex; align-items: center; gap: 8px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 /* the ✕ IS the global `.ip-x` (28.09.2026 — it was a 30px bare ✕ with a 15px glyph); this only
@@ -431,13 +427,13 @@
    dock that is 338px wide on a 360px phone, and it left the panel through its right edge. Both
    columns may now shrink and the value may drop onto its own line. */
 .qSummary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
-  gap: 2px 16px; padding: 2px 2px 4px; color: var(--ink-dim); font: 600 var(--fs-1)/1.4 var(--body); }
+  gap: 2px 16px; padding: 2px 2px 4px; color: var(--ink-dim); font: var(--fw-medium) var(--fs-1)/1.4 var(--body); }
 .qSummary span, .qSummary strong { min-width: 0; overflow-wrap: anywhere; }
-.qSummary span b { color: var(--ink); font: var(--fw-bold) 15px var(--mono); }
-.qSummary strong { color: var(--ink); font: var(--fw-bold) 15px/1.35 var(--body); text-align: right; }
+.qSummary span b { color: var(--ink); font: var(--fw-bold) var(--fs-3) var(--mono); }
+.qSummary strong { color: var(--ink); font: var(--fw-bold) var(--fs-3)/1.35 var(--body); text-align: right; }
 /* the calm twin of .qWarn: an approved fit states who vouches for it, and states it in the
    panel's own voice — an amber box would call a published reference a defect */
-.qNote { padding: 0 2px; color: var(--ink-dim); font: 600 12px/1.45 var(--body); }
+.qNote { padding: 0 2px; color: var(--ink-dim); font: var(--fw-medium) var(--fs-1)/1.45 var(--body); }
 /* THE form warning, amber and compact (`.form-warn`, 13-incident · 29.09.2026 — it was amber
    text inside an amber border); this keeps only the glyph on the first line of a long sentence */
 .qWarn { align-items: flex-start; }
@@ -448,19 +444,19 @@
    destructive reset gets its own final row; transfer fills that fourth cell when it exists. */
 .qActions :global(.btn) {
   width: 100%; min-width: 0; min-height: var(--tap); display: inline-flex; align-items: center;
-  justify-content: center; gap: 7px; white-space: normal; line-height: 1.25; text-align: center;
+  justify-content: center; gap: var(--sp-2); white-space: normal; line-height: 1.25; text-align: center;
 }
 .qActions:not(.qActionsFour) :global(.btn:last-child) { grid-column: 1 / -1; }
 .qActions svg { width: 15px; height: 15px; flex: none; }
 
 /* ── Passung auf Geschwistermodule übertragen ───────────────────────────────────────────── */
-.transferBody { margin: 0; color: var(--ink-dim); font: var(--fw-medium) 13px/1.5 var(--body); }
+.transferBody { margin: 0; color: var(--ink-dim); font: var(--fw-medium) var(--fs-2)/1.5 var(--body); }
 .transferList { display: flex; flex-direction: column; gap: 8px; }
 /* This is an option row, not ordinary action chrome: `--r-ctl` is the app-wide distinction
    between a selectable cell and a button. The whole 56px row is the touch target. */
 .transferRow {
-  width: 100%; min-height: 56px; display: flex; align-items: center; gap: 11px;
-  padding: 9px 11px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  width: 100%; min-height: 56px; display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3); border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); color: var(--ink); cursor: pointer; text-align: left;
 }
 @media (hover: hover) {
@@ -470,12 +466,12 @@
 .transferRow:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .transferRow:disabled { opacity: var(--disabled); cursor: default; }
 .transferIcon { width: 34px; height: 34px; flex: none; display: grid; place-items: center;
-  border-radius: var(--r-sm); color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
+  border-radius: var(--r-sm); color: var(--blue); background: var(--blue-12); }
 .transferIcon svg, .transferRow > svg { width: 17px; height: 17px; }
 .transferName { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.transferName b { font: var(--fw-bold) 13px var(--body); }
-.transferName small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font: var(--fw-medium) 11.5px var(--body); }
-.transferLinked { flex: none; color: var(--amber-strong); font: var(--fw-bold) 10.5px var(--body); }
+.transferName b { font: var(--fw-bold) var(--fs-2) var(--body); }
+.transferName small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font: var(--fw-medium) var(--fs-micro) var(--body); }
+.transferLinked { flex: none; color: var(--amber-strong); font: var(--fw-bold) var(--fs-micro) var(--body); }
 
 @keyframes georefIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes georefPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: .5; } }
@@ -510,8 +506,8 @@
     max-height: min(50dvh, calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
     overflow-y: auto;
     /* symmetric now that nothing hangs in a first column */
-    padding: 9px;
-    gap: 7px;
+    padding: var(--sp-2);
+    gap: var(--sp-2);
   }
   /* «Deckung prüfen» keeps the old two-up action row — it is its own one-line mode. */
   .bar .acts { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -522,7 +518,7 @@
   .bar .placeAction {
     width: 100%; min-height: 48px; border-radius: var(--r-sm);
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    font-size: 15px;
+    font-size: var(--fs-3);
   }
   .bar .placeAction svg { width: 18px; height: 18px; }
   /* no box, no border — the quiet row is text, or it is a second row of buttons again */
@@ -537,7 +533,7 @@
     /* `flex: 0 1 auto` overrides the card-wide `flex: none`: shrink before wrapping, wrap
        before clipping, and ellipsize only if even a line of its own is not enough. */
     flex: 0 1 auto;
-    min-width: 0; max-width: 100%; padding: 0 8px; min-height: var(--tap); font-size: 13px;
+    min-width: 0; max-width: 100%; padding: 0 8px; min-height: var(--tap); font-size: var(--fs-2);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   /* ⚠️ A SEGMENTED control, at the app's usual weight — it used to be the full 60px rail height
@@ -545,8 +541,8 @@
      primary button directly under it. Two big dark blocks in one card, only one of which does
      anything: that is what made the card read as heavier than the thing it is asking for. */
   .surfaceSwitch {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px;
-    position: static; box-sizing: border-box; margin: 0; padding: 3px;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-1);
+    position: static; box-sizing: border-box; margin: 0; padding: var(--sp-1);
     background: var(--fill-soft); border-radius: var(--r-ctl);
   }
   /* ⚠️ --tap (44px), like every other control in the app. 36 looked tidy in a screenshot and is
@@ -554,14 +550,14 @@
      two halves of the task, i.e. among the most-pressed controls in the mode. */
   .surfaceSwitch button {
     min-width: 0; min-height: var(--tap); display: inline-flex; align-items: center;
-    justify-content: center; gap: 6px; padding: 0 8px; border: 0; border-radius: var(--r-sm);
+    justify-content: center; gap: var(--sp-2); padding: 0 8px; border: 0; border-radius: var(--r-sm);
     background: transparent; color: var(--ink-dim); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer;
   }
   .surfaceSwitch button svg { width: 16px; height: 16px; }
   .surfaceSwitch button span {
-    min-width: 20px; padding: 1px 6px; border-radius: var(--r-pill);
-    background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink-dim);
-    font: var(--fw-bold) 10.5px/1.4 var(--body);
+    min-width: 20px; padding: 1px var(--sp-1); border-radius: var(--r-pill);
+    background: var(--ink-8); color: var(--ink-dim);
+    font: var(--fw-bold) var(--fs-micro)/1.4 var(--body);
   }
     /* the chosen half is THE choice fill, as every Segmented (01-tokens · --sel) — it was a white
      iOS-style pill, a look of its own */
@@ -581,7 +577,7 @@
      teaching — the status sub-line and the free-order helper — while the reading, the switch
      and the actions stay. The open-half sentence is still one (i) away in the fold. */
   @media (--phone-landscape) {
-    .bar { gap: 6px; }
+    .bar { gap: var(--sp-1); }
     .bar .stext i { display: none; }
     .bar .subline { display: none; }
     .surfaceSwitch { height: auto; }
@@ -613,25 +609,25 @@
 }
 .chooserOpt svg { width: 19px; height: 19px; flex: none; color: var(--ink-dim); }
 .chooserOpt > span { min-width: 0; }
-.chooserOpt b { display: block; font: var(--fw-bold) 13px/1.3 var(--body); }
-.chooserOpt i { display: block; font: var(--fw-medium) 11.5px/1.35 var(--body); font-style: normal; color: var(--ink-dim); margin-top: 2px; }
+.chooserOpt b { display: block; font: var(--fw-bold) var(--fs-2)/1.3 var(--body); }
+.chooserOpt i { display: block; font: var(--fw-medium) var(--fs-micro)/1.35 var(--body); font-style: normal; color: var(--ink-dim); margin-top: 2px; }
 /* the leading option wears the link tone — the same blue every georef instrument speaks */
 .chooserOptAuto { border-color: var(--blue-45);
   background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
 .chooserOptAuto svg, .chooserOptAuto b { color: var(--blue-strong); }
 .chooserOpt:active { background-image: linear-gradient(var(--press), var(--press)); }
-.chooserBusy { display: grid; gap: 7px; padding: 2px 4px 2px 0; }
+.chooserBusy { display: grid; gap: var(--sp-2); padding: 2px 4px 2px 0; }
 /* the matcher's REAL phases, checked off as the endpoint reports them */
-.stepRow { display: flex; align-items: center; gap: 9px; min-height: 22px;
-  font: 600 var(--fs-1) var(--body); color: var(--ink-faint); }
+.stepRow { display: flex; align-items: center; gap: var(--sp-2); min-height: 22px;
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 .stepRow svg { width: 15px; height: 15px; flex: none; color: var(--green-strong); }
 .stepNow { color: var(--ink); font-weight: var(--fw-bold); }
 .stepNow svg { color: var(--ink); }
 .stepDone { color: var(--ink-dim); }
 .stepDot { flex: none; width: 7px; height: 7px; margin: 0 4px;
-  border-radius: 50%; background: color-mix(in srgb, var(--ink) 18%, transparent); }
-.stepBar { display: block; height: 4px; margin: 6px 4px 2px 0; border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--blue) 14%, transparent); overflow: hidden; }
+  border-radius: 50%; background: var(--ink-16); }
+.stepBar { display: block; height: 4px; margin: var(--sp-2) var(--sp-1) 2px 0; border-radius: var(--r-pill);
+  background: var(--blue-16); overflow: hidden; }
 .stepBar > span { display: block; height: 100%; border-radius: var(--r-pill);
   background: var(--blue); transition: width .35s var(--ease); }
 
@@ -652,8 +648,8 @@
 
 /* Plangrösse — the app's Stepper grammar (07-toolrail.css · .step): bare ± buttons, a
    tabular-nums value between them, no outer box */
-.sizeStep { display: inline-flex; align-items: center; gap: 5px; flex: none; }
-.sizeLabel { font: 650 12px var(--body); color: var(--ink-dim); margin-right: 2px; white-space: nowrap; }
+.sizeStep { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none; }
+.sizeLabel { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); margin-right: 2px; white-space: nowrap; }
 .stepBtn {
   width: var(--tap); height: var(--tap); flex: none; border-radius: var(--r-sm);
   border: 1px solid var(--border); background: var(--surface-2); color: var(--ink);
@@ -663,7 +659,7 @@
 .stepBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .stepBtn:disabled { opacity: var(--disabled); cursor: default; }
 .stepBtn svg { width: 16px; height: 16px; }
-.sizeVal { min-width: 52px; text-align: center; font: 600 13px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.sizeVal { min-width: 52px; text-align: center; font: var(--fw-medium) var(--fs-2) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 .adjustAction { min-width: 0; }
 /* the desktop pill needs the quiet grammar too (it was phone-only before the proposal review) */
 .quietBtn { border-color: transparent; background: transparent; }
@@ -675,13 +671,13 @@
 .adjustHint {
   /* below the floating TopBar (04-topbar), which hovers over the map's own top edge */
   position: absolute; top: 92px; left: 50%; transform: translateX(-50%); z-index: 7;
-  background: var(--label-bg); color: var(--ink); padding: 8px 14px; border-radius: var(--r-sm);
-  font: 650 var(--fs-1) var(--body); white-space: nowrap; box-shadow: var(--e3); pointer-events: none;
+  background: var(--label-bg); color: var(--ink); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm);
+  font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap; box-shadow: var(--e3); pointer-events: none;
 }
 /* the turn's degrees, beside the pivot on the surface — never off a button at the bar */
 .pivotBadge {
   display: inline-block; background: var(--label-bg); color: var(--blue-strong);
-  padding: 3px 8px; border-radius: var(--r-xs); font: var(--fw-bold) 13px var(--body);
+  padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); font: var(--fw-bold) var(--fs-2) var(--body);
   font-variant-numeric: tabular-nums; box-shadow: var(--e3); pointer-events: none;
 }
 
@@ -697,7 +693,7 @@
    screen, so its content does too — the tablet card's own widths would leave a gap at the right,
    and the head is the handle the push-down starts on */
 @media (--phone) {
-  .quality, .chooser { width: auto; max-width: none; padding: 8px 20px 16px; }
+  .quality, .chooser { width: auto; max-width: none; padding: var(--sp-2) var(--sp-5) var(--sp-4); }
   .qHead, .chooserHeadRow { touch-action: none; }
   .qHead button, .chooserHeadRow button { touch-action: auto; }
 }

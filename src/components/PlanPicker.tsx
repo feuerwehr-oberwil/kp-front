@@ -5,6 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { useGeoPosition } from '../lib/useGeoPosition'
 import { useIsPhone } from '../lib/useIsPhone'
 import { Icon } from '../lib/icons'
+import { Button } from './Button'
 import { SearchField } from './SearchField'
 import { LoadingStatus } from './ShellLoader'
 import { matchesAnyQuery, searchQuery } from '../lib/search'
@@ -191,9 +192,9 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
         </div>
 
         {/* phone-friendly: let the map collapse so the list owns the narrow screen */}
-        <button className="pp-maptoggle" aria-expanded={mapOpen} onClick={() => setMapOpen((v) => !v)}>
-          <Icon id="map" /> {mapOpen ? pp.hideMap : pp.showMap}
-        </button>
+        <Button className="pp-maptoggle" icon={<Icon id="map" />} aria-expanded={mapOpen} onClick={() => setMapOpen((v) => !v)}>
+          {mapOpen ? pp.hideMap : pp.showMap}
+        </Button>
     </Overlay>
   )
 }
