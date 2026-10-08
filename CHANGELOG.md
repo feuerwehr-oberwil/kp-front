@@ -294,6 +294,9 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **The weather details showed an Open-Meteo reading 1–2 h off.** Open-Meteo sends its time in
+  UTC without a zone, and the top bar's details read it as the device's local time. It is read as
+  UTC now (`lib/weatherTime`); MeteoSwiss readings were never affected. *No action needed.*
 - **The ERG Schutzabstand ring follows the sun, not a 07–19 h clock.** The protective ring
   around a Gefahrentafel picked the day or night distance by the hour, so a December evening at
   17:30 drew the day ring and a June evening at 20:30 the night ring. It now asks the sun at the
