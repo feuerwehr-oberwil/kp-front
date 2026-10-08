@@ -42,9 +42,7 @@
     "spacing": 11
   },
   "src/components/Atemschutz.module.css": {
-    "fontSize": 45,
-    "weight": 13,
-    "spacing": 125
+    "fontSize": 6
   },
   "src/components/BandGrid.module.css": {
     "fontSize": 18,
@@ -52,9 +50,6 @@
     "spacing": 34
   },
   "src/components/Checklists.module.css": {
-    "fontSize": 20,
-    "weight": 12,
-    "spacing": 78,
     "shadow": 2
   },
   "src/components/GeorefMode.module.css": {
@@ -67,11 +62,6 @@
     "fontSize": 3,
     "weight": 2,
     "spacing": 12
-  },
-  "src/components/Mittel.module.css": {
-    "fontSize": 10,
-    "weight": 3,
-    "spacing": 35
   },
   "src/components/PdfScroller.module.css": {
     "spacing": 11,
@@ -104,11 +94,6 @@
     "fontSize": 9,
     "weight": 3,
     "spacing": 15
-  },
-  "src/components/TruppFinder.module.css": {
-    "fontSize": 5,
-    "weight": 3,
-    "spacing": 14
   },
   "src/components/VehicleGpsTable.module.css": {
     "fontSize": 2,
