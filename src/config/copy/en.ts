@@ -429,6 +429,7 @@ export const en: Localizable<Copy> = {
   done: 'Done',
   cancel: 'Cancel',
   exerciseBadge: 'Exercise',
+  exerciseInitial: 'E',
   keepPlacing: 'Place several',
   delete: 'Delete',
   remove: 'Remove',
