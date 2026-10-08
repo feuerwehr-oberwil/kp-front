@@ -65,8 +65,9 @@
   .help-modal { width: 100%; height: 100dvh; border-radius: 0; border: 0; }
   /* full-screen now — keep the header/close out of the notch and the content clear
      of the home indicator */
-  .help-head { padding-top: calc(var(--sp-4) + env(safe-area-inset-top)); }
+  .help-head { padding: calc(var(--sp-4) + env(safe-area-inset-top)) var(--sp-4) var(--sp-4); }
+  .help-search { padding-inline: var(--sp-4); }
   .help-toc { display: none; }
-  /* the text column on the head's and the search's 24px, like every sheet's body (.ip-body) */
-  .help-content { padding: var(--sp-2) var(--sp-5) calc(var(--sp-7) + env(safe-area-inset-bottom)); }
+  /* one 16px inset down the whole screen: the help is read here, and every px of column counts */
+  .help-content { padding: var(--sp-2) var(--sp-4) calc(var(--sp-7) + env(safe-area-inset-bottom)); }
 }
