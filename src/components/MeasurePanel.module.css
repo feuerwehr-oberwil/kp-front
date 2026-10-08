@@ -49,13 +49,9 @@
 .mp-prof-stats .mp-stat:nth-child(1) .mp-k :global(.i) { transform: rotate(-90deg); }
 .mp-prof-stats .mp-stat:nth-child(2) .mp-k :global(.i) { transform: rotate(90deg); }
 /* «Als Linie übernehmen» — keep the measured Strecke as a drawn line */
-.mp-adopt-btn { align-self: stretch; justify-content: center; gap: 8px; }
-.mp-adopt-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.mp-adopt-btn :global(.i) { width: 14px; height: 14px; }
+.mp-adopt-btn { align-self: stretch; }
 /* Plan-only: start/redo scale calibration straight from the panel */
-.mp-cal-btn { align-self: stretch; justify-content: center; gap: 8px; }
-.mp-cal-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.mp-cal-btn :global(.i) { width: 14px; height: 14px; }
+.mp-cal-btn { align-self: stretch; }
 /* …and its counterpart on a sheet whose metres come from the Kartenverknüpfung: the same slot,
    as a reading rather than a control (there is nothing here to calibrate). */
 .mp-cal-note { align-self: stretch; display: flex; align-items: center; justify-content: center; gap: 8px;

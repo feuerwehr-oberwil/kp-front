@@ -196,13 +196,8 @@
 .draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: var(--fs-3); line-height: 1; }
 .draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 8px; font-size: var(--fs-1); color: var(--ink-dim); }
 .draw-editor .de-conn-note.warn { color: var(--red); font-weight: var(--fw-bold); }
-/* ⚠️ a framed compact button at the note's end (28.09.2026, owner pick A) — it was an underlined
-   blue word, 12px, a hyperlink in a command app */
-.draw-editor .de-conn-reveal { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
-  font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
-.draw-editor .de-conn-reveal:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-@media (pointer: coarse) { .draw-editor .de-conn-reveal { min-height: var(--tap); } }
+/* (the note's «Ziel anzeigen» is THE button, <Button> — a framed button at the note's end since
+   28.09.2026, owner pick A; it was an underlined blue word, 12px, a hyperlink in a command app) */
 /* also a row: the 28px height and the 2px/4px margins made the last line of the panel sit tighter
    than everything above it, and its text started 4px in from the left edge the labels hold. */
 .draw-editor .de-conn-detach { display: inline-flex; align-items: center; margin: 0; min-height: 48px; padding: 2px 0;
@@ -213,7 +208,8 @@
 /* The GPS block at the head of the line editor while an end follows a vehicle (DrawEditor, D3):
    what it follows and how far off it is, the way back as the ONE filled button (green: it puts
    the line back where it was safe — the Meldung's «Am Einsatzort lassen» wears the same fill,
-   08-toasts · .ml-btn.prim.go), and the two quiet moves side by side under it. */
+   08-toasts · .ml-btn.prim.go), and the two other moves side by side under it (THE button,
+   <Button>, since 08.10.2026). */
 .draw-editor .de-gps { padding: 8px 0; }
 .draw-editor .de-gps-head { display: flex; align-items: flex-start; gap: 8px; min-height: 44px; padding: 4px 0; }
 .draw-editor .de-gps-head .i { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--amber-strong); }
@@ -225,13 +221,9 @@
 .draw-editor .de-gps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 /* three moves (stop/continue · on site · here): the odd one out takes the whole second line */
 .draw-editor .de-gps-row > :last-child:nth-child(odd) { grid-column: 1 / -1; }
-.draw-editor .de-gps-btn { min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--fill-soft); color: var(--ink); font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
-.draw-editor .de-gps-back:active:not(:disabled),
-.draw-editor .de-gps-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.draw-editor .de-gps-back:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
   .draw-editor .de-gps-back:hover { background: var(--green-solid-hover); border-color: var(--green-solid-hover); }
-  .draw-editor .de-gps-btn:hover { background: var(--surface); }
 }
 /* Verbundene Linien — flat rows in the sidebar idiom (hairline separators, chevron affordance),
    not floating cards; the row label uses the friendly line name, not the raw id. */
@@ -276,11 +268,8 @@
 .de-menu-tick { flex: none; width: 15px; height: 15px; visibility: hidden; color: var(--blue); }
 .de-menu-tick.on { visibility: visible; }
 .de-menu-tick svg { width: 100%; height: 100%; }
-.draw-editor .de-trupp-go { display: grid; place-items: center; width: 32px; min-height: 32px; padding: 0;
-  border: 0; background: none; color: var(--ink-dim); cursor: pointer; }
-@media (hover: hover) {
-  .draw-editor .de-trupp-go:hover { color: var(--blue); }
-}
+/* (the «›» to the coupled Trupp is THE icon button, <IconButton>, a --tap square at every pointer;
+   it was 32px and grew only under a finger) */
 
 /* ── the selection bar ────────────────────────────────────────────────────────────────
    ONE bar, bottom-centre of the Lage map and of the Plan board, for every selection there is
@@ -340,12 +329,8 @@ body[data-sel-arm="rotate"] .wb-canvas {
 /* «Fertig» carries its word: it is the way OUT of the editing state, and the bar's only label.
    ⚠️ NOT «Löschen» (02.09.) — deleting belongs in the object's own editor sheet and on the Delete
    key, not on chrome sitting two taps from every grip. */
-.sel-bar-done { height: 44px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--surface); color: var(--ink); font-size: var(--fs-2); font-weight: var(--fw-bold); cursor: pointer; white-space: nowrap; }
-@media (hover: hover) {
-  .sel-bar-done:hover { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); }
-}
-.sel-bar-done:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* …and it is THE button (<Button>, 08.10.2026); placement only here */
+.sel-bar-done { flex: none; white-space: nowrap; }
 
 /* ── the grips step aside while the whole object is moving (lib/transformChrome) ──────────────
    A selected Linie wears a pad on every vertex, a «+» in every gap, Verlängern on both ends and

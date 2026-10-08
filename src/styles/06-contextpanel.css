@@ -323,25 +323,12 @@
   .un-haz-link:hover { text-decoration: underline; }
 }
 .un-haz-link svg { width: 14px; height: 14px; flex: none; }
-.kv-x { flex: none; width: 32px; height: 32px; border-radius: var(--r-sm); border: none; cursor: pointer; display: grid; place-items: center;
-  background: var(--fill-soft); color: var(--ink-faint); }
-@media (hover: hover) {
-  .kv-x:hover { background: var(--red-12); color: var(--red); }
-}
-.kv-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.kv-x .i { width: 13px; height: 13px; }
+/* (a custom field's remove ✕ is THE icon button, <IconButton> — quiet, a --tap square at every
+   pointer, like the stepper's reset ✕; it was a 32px grey tile that only grew under a finger) */
 /* «Führung übergeben» — the ⇄ at the RIGHT END of the Einsatzleiter glyph's EL row (slim sweep
-   27.09.2026, item 9; it was a sentence with a parenthesis between the two rows): a 44px square
-   in the panel's tile family — the one corner, a faint fill, a 1px inset edge, an 18px glyph.
+   27.09.2026, item 9; it was a sentence with a parenthesis between the two rows): a 44px square,
+   <IconButton variant="secondary"> since 08.10.2026 (it was a hand-made tile of the same size).
    The Stv. row leaves the same 44px empty (.kv-swap-gap), so the two fields end on one line. */
-.kv-swap { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
-  border: 0; border-radius: var(--r-sm); background: var(--fill-soft); box-shadow: inset 0 0 0 1px var(--glass-edge);
-  color: var(--ink); cursor: pointer; }
-@media (hover: hover) {
-  .kv-swap:hover { background: var(--blue-8); color: var(--blue); }
-}
-.kv-swap:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.kv-swap .i { width: 18px; height: 18px; }
 .kv-swap-gap { flex: none; width: var(--tap); }
 /* «+ Feld» (27.09.2026; 28.09.2026 on the ONE «add» look, 13-incident `.cv-btn-add`): framed,
    --tap tall, the one corner, 14/700 ink on the surface. It was a 36px grey tile — a second add
@@ -413,13 +400,8 @@
   font-variant-numeric: tabular-nums; }
 .ctx-done-state > .i { flex: none; width: 26px; height: 26px; padding: 4px; box-sizing: border-box; border-radius: 50%;
   background: var(--ink-faint); color: var(--surface); stroke-width: 2.6; }
-.ctx-done-reopen { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-left: auto; padding: 0 2px;
-  border: 0; background: transparent; color: var(--ink); font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
-.ctx-done-reopen .i { width: 16px; height: 16px; color: var(--ink-dim); }
-@media (hover: hover) {
-  .ctx-done-reopen:hover, .ctx-done-reopen:hover .i { color: var(--blue); }
-}
-.ctx-done-reopen:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* «Wieder aktiv» is THE quiet button (<Button variant="quiet">, 08.10.2026); placement only */
+.ctx-done-reopen { margin-left: auto; }
 
 .ctx-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 12px 16px; }
 .ctx-actions > .btn { flex: 1 1 140px; }

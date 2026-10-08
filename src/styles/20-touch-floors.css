@@ -75,11 +75,8 @@
    Under the floor and with something within a pad's reach, so they GROW under a finger instead
    of getting an ::after pad (02-base): a pad would make the neighbour's edge answer for them. */
 @media (pointer: coarse) {
-  /* a Detail field's remove ✕ (32px), right after the value input it would otherwise overlap —
-     and a stray tap there deletes the row */
-  .kv-x { width: var(--tap); height: var(--tap); }
-  /* the drawing editor's «›» to the coupled Trupp (32px), beside the Trupp picker's trigger */
-  .draw-editor .de-trupp-go { width: var(--tap); min-height: var(--tap); }
+  /* (a Detail field's remove ✕ and the drawing editor's «›» to the coupled Trupp stood here at 32px;
+     both are <IconButton> since 08.10.2026, a --tap square at every pointer) */
   /* the capture app's «fehlt noch» chips (32px), wrapping in a 6px-gap row */
   .cv-missing-go { min-height: var(--tap); }
   /* the Verlauf's «wieder in …» offers on a closed Pendenz (≈24px), side by side 5px apart */

@@ -11,6 +11,7 @@ import { Icon } from '../lib/icons'
 import { fillTemplate, fmtElapsedHM, fmtSpanShort, formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import { Segmented } from './Segmented'
+import { Button } from './Button'
 import { LoadingStatus } from './ShellLoader'
 import s from './ReplayBar.module.css'
 import {
@@ -440,9 +441,9 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, 
             <span className={s['replay-caption-t']}>{fmtClock(current.ms)}</span>
             <span className={s['replay-caption-tx']} title={current.text}>{current.text}</span>
             {onShowEntry && (
-              <button className={s['replay-caption-go']} onClick={() => onShowEntry(current.id)}>
+              <Button className={s['replay-caption-go']} onClick={() => onShowEntry(current.id)}>
                 {rp.captionOpen}
-              </button>
+              </Button>
             )}
           </>) : (
             /* ⚠️ The row STAYS, empty. The playhead parks at the incident's start, where nothing

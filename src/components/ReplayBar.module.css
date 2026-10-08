@@ -152,7 +152,7 @@
      filled row 1px taller than the empty one — the mono time chip's line box is a hair taller
      than the button it sits beside. On a bar anchored to the BOTTOM even 1px shows up as the
      whole scrubber twitching as the playhead crosses an entry. */
-  height: 48px; box-sizing: border-box;
+  height: calc(var(--tap) + 16px); box-sizing: border-box;
   border-top: 1px solid var(--glass-edge); background: var(--blue-8);
   font-size: var(--fs-1); }
 .replay-caption-t { flex: none; font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold);
@@ -160,17 +160,6 @@
 .replay-caption-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; color: var(--ink); font-weight: var(--fw-medium); }
 .replay-caption-none { color: var(--ink-faint); font-weight: var(--fw-medium); }
-/* ⚠️ 12.5px, the interactive floor (AGENTS · the 3am tenet) — it was 11.5px until 23.08. The
-   caption's fixed 48px still holds it: 12.5px of text inside a 32px floor, with 8px of padding
-   either side, is 48px exactly. */
-.replay-caption-go { flex: none; border: 1px solid var(--border); background: var(--surface);
-  color: var(--ink-dim); border-radius: var(--r-xs); padding: 4px 12px; min-height: 32px;
-  font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
-@media (hover: hover) { .replay-caption-go:hover { color: var(--ink); background: var(--hover-strong); } }
-.replay-caption-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* …and the same on a touch screen, where the button grows to the gloved floor and takes the
-   row with it */
-@media (pointer: coarse) {
-  .replay-caption-go { min-height: var(--tap); }
-  .replay-caption { height: calc(var(--tap) + 16px); }
-}
+/* «im Verlauf» is THE button (<Button>, 08.10.2026: 44px at every pointer — it was 32px and grew
+   only under a finger), so the caption's fixed height is that floor plus 8px either side. */
+.replay-caption-go { flex: none; }
