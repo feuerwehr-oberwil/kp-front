@@ -1829,12 +1829,14 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .actHolding .holdTrack { opacity: .25; }
 .holdFill { stroke-linecap: round; }
 
-.nfBanner { display: grid; gap: var(--sp-2); margin: 0 0 var(--sp-3); padding: var(--sp-3); border-radius: var(--r-sm);
+/* sticky at the top of the board's scroll port: a card parked at the top of a phone's port (the
+   opened row) must never push the Notfall out of sight */
+.nfBanner { position: sticky; top: 0; z-index: 3; display: grid; gap: var(--sp-2); margin: 0 0 var(--sp-3); padding: var(--sp-3); border-radius: var(--r-sm);
   border-left: 4px solid var(--red); background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 .nfHead { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; color: var(--red-strong); }
 .nfHead > :global(.i) { width: 18px; height: 18px; flex: none; }
 .nfKicker { flex: none; font: var(--fw-heavy) var(--fs-1) var(--body); letter-spacing: .06em; text-transform: uppercase; }
-.nfName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.nfName { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere;
   font: var(--fw-heavy) var(--fs-3) var(--body); color: var(--ink); }
 .nfClock { flex: none; display: grid; justify-items: end; line-height: 1.1; }
 .nfClock b { font: var(--fw-heavy) var(--fs-5) var(--mono); font-variant-numeric: tabular-nums; color: var(--red-strong); }

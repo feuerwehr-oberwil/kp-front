@@ -145,3 +145,47 @@ just tapped stood on the next question's same button — Enter closed through «
 - *Closing over a crew inside is said* (staging r3 F4): the final «Trotzdem abschliessen»
   writes «Trupp N (…) beim Abschluss noch drin» per crew and no Austritt; the Rapport ends
   that sortie at the close with the same words while the Einsatz is closed.
+
+## The Atemschutznotfall (F1, 08.10.2026)
+
+One Trupp in distress, said by a person — never derived from a clock (`types · Trupp.notfallAt`,
+`lib/atemschutz · truppInNotfall / safetyReady / notfallFacts`, `components/AtemschutzNotfall`).
+Wording mirrors the AS emergency procedure (FwDV 7 / FKS) and is kept neutral and short
+(«Notfall», «Sicherungstrupp einsetzen»); the station's AS instructors check it before it is
+reworded.
+
+- *Raised and ended by a HOLD* (`NotfallHold`, `lib/nodeHold` — the app's one deliberate hold,
+  250 ms arm, ring to 825 ms): «Notfall» is a full-width tile under Rückzug | Raus on an
+  Atemschutz-Trupp that is inside, framed grey like its neighbours (colour is state), red only
+  while held. A tap only says how; a click without a pointer (keyboard) asks one question.
+  «Notfall beendet» replaces it on the Trupp in one. Never on a closed Einsatz or a viewer.
+- *What it writes* (`useTruppActions · triggerNotfall / endNotfall`): `notfallAt` on the Trupp
+  (the Notfall clock on every device through the trupps slice — a Link-Tafel writes it too), a
+  `notfall` / `notfallEnde` row in the Trupp's own log (the Atemschutz page of the Rapport; its
+  bar is the last KNOWN value, never printed as measured), ONE Verlauf row with the facts as they
+  stood — place (Auftrag/Ziel + the symbol's plan/storey or Karte), last Kontakt, last Druck with
+  its time, Kanal — and `atemschutz.notfall` / `.notfallEnde` events. The end row names the
+  duration; the status is untouched (out is its own report). Both are on the ↶ timeline; the
+  trigger also raises the confirm-with-undo toast (same counter-row). A Sicherungstrupp sent in
+  while a Notfall runs writes «… Sicherungstrupp eingesetzt – Notfall Trupp N (…), m:ss min nach
+  Auslösung».
+- *It outranks everything*: `truppAlarm` answers tier 2 with reason `notfall` before any clock,
+  in the field or not (a crew reported out on an older build keeps it until «beendet»). The tone,
+  the OS notification, the TopBar chip («Notfall · name» and the Notfall clock), the hose tone,
+  `MELDUNG_RANK.notfall = 0` (above the überfällig row and a dispatch) and the server push sweep
+  (`push.py · due_trupps`, keyed on the trigger, ≤ 30 s) all read it. The überfällig/Alarmdruck
+  row never names a Trupp in a Notfall (one emergency, one row). A NEW Notfall re-arms a bell
+  muted earlier in the Einsatz (`useAtemschutzMute · arm`).
+- *On the Tafel* the strip's row steps aside for a sticky banner at the top of every board:
+  who, the clock, the facts, and the first offer «Sicherungstrupp einsetzen» — the ready
+  Sicherungstrupp's ordinary Eintritt (several ⇒ a menu, none ⇒ «Kein Sicherungstrupp bereit» +
+  the «Bestimmen» door, one inside ⇒ «… drin seit hh:mm»). Elsewhere the Meldeleiste row offers
+  the same first (exactly one ready ⇒ it goes in and the Tafel opens).
+- *Ready* is what the board models: under PA, Auftrag «Sichern», angemeldet. An Atemschutz-Trupp
+  going in while none is ready gets one calm toast («Kein Sicherungstrupp bereit»), never a
+  question.
+- *Sync*: `notfallAt` merges per field; two devices holding at once raise ONE Notfall from the
+  EARLIER hold (`mergeWorkspace · mergeTrupp`); «beendet» on one side survives an unrelated edit
+  on the other.
+- *The Abschluss* asks about a running Notfall first («Zur Tafel» focused); closing anyway writes
+  «Notfall beim Abschluss nicht beendet» per Trupp.
