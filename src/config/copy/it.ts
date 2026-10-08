@@ -526,7 +526,7 @@ export const it: Localizable<Copy> = {
     shape: 'Tocca la carta per posizionare la forma. Attiva il lucchetto per metterne più di seguito.',
     rotationStart: 'Toccare il primo punto — dove si preleva l’acqua. Tenere premuto su un simbolo finché l’anello si chiude per posare il punto esattamente lì.',
     rotationEnd: 'Toccare il secondo punto — l’incendio. Toccando due volte lo stesso punto si posa una Rotazione di lunghezza standard.',
-    measure: 'Tocca i punti sulla carta. La distanza mostra lunghezza e profilo altimetrico, la superficie mostra area e perimetro. Trascina i punti per spostarli, il + al centro di un segmento inserisce un punto intermedio, clic destro su un punto per rimuoverlo.',
+    measure: 'Tocca i punti sulla carta. La distanza mostra lunghezza e profilo altimetrico, la superficie mostra area e perimetro. Trascina i punti per spostarli, il + al centro di un segmento inserisce un punto intermedio, tieni premuto un punto (clic destro sul computer) per rimuoverlo.',
 
     team: 'Tocca la carta e scegli la squadra dall\'elenco. Trascina per spostarla.',
   },
@@ -1543,7 +1543,7 @@ export const it: Localizable<Copy> = {
       text: 'Tocca il piano per inserire una nota.',
       resource: 'Tocca il piano per posizionare una squadra. Trascina per spostarla.',
       scale: 'Tocca i due estremi della scala stampata, poi inserisci la lunghezza reale. Dopodiché le linee con «Lunghezza» mostrano metri reali.',
-      measure: 'Tocca i punti sul piano. «Distanza» mostra la distanza, «Superficie» l’area + perimetro – in metri reali una volta calibrata la scala. Trascina i punti per spostarli, doppio tocco per rimuoverne uno.',
+      measure: 'Tocca i punti sul piano. «Distanza» mostra la distanza, «Superficie» l’area + perimetro – in metri reali una volta calibrata la scala. Trascina i punti per spostarli, tieni premuto un punto per rimuoverlo.',
     },
     scale: {
       tool: 'Scala',

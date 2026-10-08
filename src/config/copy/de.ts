@@ -902,7 +902,7 @@ export const de = {
     // zu ist, setzt den Punkt genau darauf.
     rotationStart: 'Ersten Punkt tippen – dort, wo das Wasser bezogen wird. Auf einem Zeichen halten, bis der Ring voll ist, setzt den Punkt genau darauf.',
     rotationEnd: 'Zweiten Punkt tippen – die Brandstelle. Nochmals auf denselben Punkt tippen legt eine Rotation in Standardlänge hin.',
-    measure: 'Punkte auf die Karte tippen. Strecke zeigt Distanz und Höhenprofil, Fläche zeigt Flächeninhalt und Umfang. Punkte ziehen zum Verschieben, das + in der Mitte einer Strecke setzt einen Zwischenpunkt, Rechtsklick auf einen Punkt entfernt ihn.',
+    measure: 'Punkte auf die Karte tippen. Strecke zeigt Distanz und Höhenprofil, Fläche zeigt Flächeninhalt und Umfang. Punkte ziehen zum Verschieben, das + in der Mitte einer Strecke setzt einen Zwischenpunkt, einen Punkt gedrückt halten (am Computer Rechtsklick) entfernt ihn.',
   },
   map: {
     incidentHere: 'Einsatzort',
@@ -2637,7 +2637,7 @@ export const de = {
       text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
       resource: 'Auf den Plan tippen, um einen Trupp zu setzen. Zum Verschieben ziehen.',
       scale: 'Die zwei Endpunkte des gedruckten Massstabs antippen, dann die reale Länge eingeben. Danach zeigen Linien mit «Länge» echte Meter.',
-      measure: 'Punkte auf den Plan tippen. «Strecke» zeigt die Distanz, «Fläche» den Inhalt + Umfang – in echten Metern, sobald der Massstab kalibriert ist. Punkte ziehen zum Verschieben, doppeltippen entfernt einen Punkt.',
+      measure: 'Punkte auf den Plan tippen. «Strecke» zeigt die Distanz, «Fläche» den Inhalt + Umfang – in echten Metern, sobald der Massstab kalibriert ist. Punkte ziehen zum Verschieben, einen Punkt gedrückt halten entfernt ihn.',
     },
     // Plan-Massstab (calibrate against a printed scale bar so plan lines read in metres)
     scale: {

@@ -10,9 +10,9 @@ const MOVE_TOL_PX = 8      // any movement past this is a drag/reshape, not a pr
  * `window` (capture phase) so it stays correct even when maplibre takes pointer capture
  * for the drag — the element's own pointer events would otherwise stop arriving.
  *
- * `press(fn)` returns the onPointerDown to spread on a handle; one hook instance serves a
- * whole list of handles (only one press is ever live at a time). `cancel()` lets the
- * Marker's onDrag abort the press the instant a real drag begins.
+ * `press(fn)` returns the onPointerDown (+ `data-holdaction`) to spread on a handle; one hook
+ * instance serves a whole list of handles (only one press is ever live at a time). `cancel()`
+ * lets the Marker's onDrag abort the press the instant a real drag begins.
  */
 export function useLongPress(opts?: { delayMs?: number; moveTolerancePx?: number }) {
   const delayMs = opts?.delayMs ?? DELAY_MS
@@ -58,6 +58,8 @@ export function useLongPress(opts?: { delayMs?: number; moveTolerancePx?: number
 
   return {
     cancel,
-    press: (fn: () => void) => ({ onPointerDown: (e: React.PointerEvent) => begin(e, fn) }),
+    // `data-holdaction`: the hold IS this control's gesture, so the app-wide hold-tooltip
+    // (lib/holdTooltip) must not answer the same press with a label bubble first
+    press: (fn: () => void) => ({ 'data-holdaction': true as const, onPointerDown: (e: React.PointerEvent) => begin(e, fn) }),
   }
 }

@@ -526,7 +526,7 @@ export const fr: Localizable<Copy> = {
     shape: 'Touchez la carte pour placer la forme. Activez le verrou pour en poser plusieurs à la suite.',
     rotationStart: 'Toucher le premier point — là où l’eau est puisée. Maintenir sur un symbole jusqu’à ce que l’anneau se ferme pour poser le point dessus.',
     rotationEnd: 'Toucher le second point — le sinistre. Toucher deux fois le même point pose une Rotation de longueur standard.',
-    measure: 'Touchez des points sur la carte. La distance affiche la longueur et le profil altimétrique, la surface affiche l’aire et le périmètre. Tirez les points pour déplacer, le + au milieu d’un segment insère un point intermédiaire, clic droit sur un point pour le supprimer.',
+    measure: 'Touchez des points sur la carte. La distance affiche la longueur et le profil altimétrique, la surface affiche l’aire et le périmètre. Tirez les points pour déplacer, le + au milieu d’un segment insère un point intermédiaire, maintenez un point (clic droit sur ordinateur) pour le supprimer.',
 
     team: 'Touche la carte et choisis le binôme dans la liste. Glisse pour le déplacer.',
   },
@@ -1543,7 +1543,7 @@ export const fr: Localizable<Copy> = {
       text: 'Touchez le plan pour poser une note.',
       resource: 'Touchez le plan pour placer une équipe. Tirez pour la déplacer.',
       scale: 'Touchez les deux extrémités de l’échelle imprimée, puis saisissez la longueur réelle. Ensuite, les lignes avec « Longueur » affichent des mètres réels.',
-      measure: 'Touchez des points sur le plan. « Distance » affiche la longueur, « Surface » l’aire + le périmètre – en mètres réels une fois l’échelle calibrée. Tirez les points pour déplacer, double appui pour en supprimer un.',
+      measure: 'Touchez des points sur le plan. « Distance » affiche la longueur, « Surface » l’aire + le périmètre – en mètres réels une fois l’échelle calibrée. Tirez les points pour déplacer, maintenez un point pour le supprimer.',
     },
     scale: {
       tool: 'Échelle',

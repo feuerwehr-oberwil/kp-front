@@ -1727,7 +1727,10 @@ to prod.
     instrument: it grows a target, it does not style one.
   - *A control whose press-and-hold IS its own gesture spreads `data-holdaction`* (the shared
     hooks already do), so the global hold-tooltip never claims it and asking «what is this»
-    can never also do it.
+    can never also do it. `useHoldRepeat`, `useHoldEntry`, `useNodeHold` and `useLongPress` return
+    the attribute WITH their handlers (08.10.2026): spread the props, and wrap `onPointerDown`
+    after the spread when a handle needs more. A bare `.press(…).onPointerDown(e)` call drops it
+    (the Plan's Messen nodes did, and popped «Gedrückt halten zum Löschen» mid-delete).
   - *The Karte turns like Google Maps, and in no other way* (24.09.2026, `lib/mapTwist`): two
     fingers pan and pinch freely, but the map only TURNS after a deliberate twist past
     `TWIST_ENGAGE_DEG` (12°) from where the fingers came down — and, fingers close together
