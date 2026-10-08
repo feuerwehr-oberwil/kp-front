@@ -1746,6 +1746,15 @@ to prod.
     `change` — the browser's own release, once per drag or keyboard step — never on `pointerup`;
     a gesture that is CANCELLED (iOS: the touch became a scroll) or left live when the popover
     closes drops its preview, unless a `change` still follows (then the browser did finish it).
+  - *One finger zooms the Plan like the Karte* (08.10.2026, `lib/tapDragZoom`): a **double tap**
+    zooms ×2 and **tap, then press-and-drag** zooms continuously (down = in, up = out, ×2 per
+    128 px) — MapLibre's own gestures and numbers (500 ms / 30 px), except that the drag zooms
+    about the FIRST tap instead of the screen centre. One pure state machine serves the boards
+    (`useBoardGestures`: selection tool only, presses on empty board only — objects swallow their
+    own; the second press never pans or deselects) and the PDF reader (`PdfScroller`: its double
+    tap still toggles fit ↔ 2×). Touch and pen only: a mouse has the wheel, and a double CLICK on
+    the board opens editors. The draw tools keep pinch only — on `.wb-ink` a double tap FINISHES
+    a Linie / Fläche. A second finger cancels the gesture and the pinch takes over.
 - **The phone's two bottom bars hold what 360px holds without scrolling** (18.09.2026) — five wide tiles at most, never a scrolling lane whose only cue is a fade.
   - *Tool bar:* `Auswahl · + Hinzufügen · Messen · Ansichten · Ebenen` (Plan: `… · Einpassen`) —
     five even tiles and NO hairline between the tools and the pinned controls. **«+» is the

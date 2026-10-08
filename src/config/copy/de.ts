@@ -431,6 +431,7 @@ export const de = {
           { kind: 'sub', text: 'Tippen & Ziehen (Touch/iPad)' },
           { kind: 'list', items: [
             'Ein Finger schiebt die Karte/den Plan; zwei Finger zoomen (Pinch).',
+            'Auch mit einem Finger: **doppeltippen** zoomt hinein; **tippen, nochmals drücken und ziehen** zoomt stufenlos – nach unten hinein, nach oben hinaus. Gleich auf Karte und Plan; während ein Zeichenwerkzeug aktiv ist, zoomen auf dem Plan nur zwei Finger.',
             'Nochmals auf **Auswahl** tippen schaltet den Knopf auf **Mehrfach**: ein gezogener Rahmen wählt mehrere Objekte; ausgewählte Objekte verschiebt man durch Ziehen.',
           ] },
           { kind: 'sub', text: 'Maus', only: 'keyboard' },
