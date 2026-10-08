@@ -13,6 +13,17 @@
 //
 // Every comparison that can meet a value the server sent back goes through here.
 
+/*
+ * ⚠️ **Key order is never a change** (25.09.2026). The server stores the blob as JSONB, which
+ * hands every object back with its keys RE-SORTED, while this device's own objects keep the
+ * order the code built them in. Anything that decides «changed / unchanged / same divergence»
+ * on synced data compares with `jsonEqual` or `canonicalJson` (`lib/jsonEqual`), never
+ * `JSON.stringify(a) === JSON.stringify(b)`: in `mergeById` an untouched entry read as «mine
+ * changed» against its re-sorted ancestor, and the other device's real edit lost the
+ * «both changed» LWW. Round-trip tests re-sort the server copy (`jsonb.test-utils ·
+ * serverRoundTrip`).
+ */
+
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 
 /** What JSON.stringify leaves out of an object (and writes as `null` in an array). */

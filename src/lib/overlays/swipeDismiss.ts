@@ -1,3 +1,21 @@
+/*
+ * **A phone bottom sheet is closed by pushing it down.** `overlays/swipeDismiss`, spread on the
+ * popup by `Sheet` and `Overlay` (`swipeToClose`, on by default) — never a per-surface copy. It
+ * measures that the popup IS a bottom sheet, leaves a scrolled body its own gesture, never starts
+ * on a control. ONE grab bar (`overlays/SheetGrab` → `.ui-sheet-grab`, the same 40×5px pill as the
+ * `.ctx` editors' `.sheet-grip`): `Sheet` draws it by default, a bespoke `Overlay` frame that IS
+ * a bottom sheet on a phone opts in with `grab` (composer, Verlauf, PlanPicker, audio player, …
+ * — never a frame that is full-screen or centred there, like the Trupp form on a tablet or the
+ * handed-over Tafel; on the full app's PHONE board it IS a bottom sheet since 24.09.2026 and
+ * wears the bar, see docs/atemschutz-board.md), and the one
+ * hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026), and so do
+ * the NON-modal map sheet Ebenen (`LayerPanel`, 29.09.2026), whose `.lc-title` is a handle, and
+ * the plan's NON-modal Passung dock (`GeorefDock`: Passung + «Karte verknüpfen» chooser; it
+ * portals into `.app` on a phone to cover the bars). The map picker (`MapPicker`) is an
+ * `Overlay grab` at the sheet cap: a map has no height to hug. The gesture needs the frame FLUSH with the bottom edge — which is why the phone
+ * Verlauf is a real bottom sheet now and no longer a card floating 8px off it.
+ */
+
 import { useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 

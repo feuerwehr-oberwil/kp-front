@@ -124,7 +124,7 @@ const serverMeta = (v: ServerVisit): LocalVisit['server'] => ({
 })
 
 /** Run `fn` under the visit's Web Lock. Another tab holding it ⇒ 'busy' (it is sending). A
- *  request the browser rejects (an inactive document) is NOT re-queued (AGENTS.md · Web Locks). */
+ *  request the browser rejects (an inactive document) is NOT re-queued (lib/tabLock · Web Locks). */
 async function withVisitLock<T>(id: string, fn: () => Promise<T>): Promise<T | 'busy'> {
   const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
   if (!locks?.request) return fn()

@@ -1,3 +1,13 @@
+/*
+ * ⚠️ **An attachment may name an object in the other document, and that is now the common
+ * case.** A Leitung end docked onto an object stores the object's id; both live surfaces resolve
+ * it, because it is the same id on both. The server-side print/export adapters cannot — they see
+ * one document at a time — and neither can a reader after the far side deleted it. Both land on
+ * the SAME safe answer every unresolvable attachment gets: the stored coordinate, which is
+ * exactly where the endpoint was dropped (`lineAttachments · resolveLinePoints`). Do not «fix»
+ * that by resolving across documents in an adapter; the fallback is the contract.
+ */
+
 import type { BoardAnno, BoardPoint, Drawing, Entity, GpsFollowState, LineAttachment, LineEndpoint, LineRoutingMode, LngLat } from '../types'
 import { rdpIndices } from './lineStyle'
 

@@ -2,6 +2,17 @@
    app.css so day/night theming stays correct. Calm, minimal, back-office desktop
    feel; controls still respect --tap. */
 
+/*
+ * **Admin tables stack below 860px of table width** (UI sweep 07.10.2026). `.adm-table-wrap` is
+ * a container; under 860px every `.adm-table` drops its header row and each row becomes a card:
+ * line 1 = the name (first cell or `.adm-c-main`) · state (`.adm-c-side`) · actions (`.adm-c-act`),
+ * every other cell under it, labelled by `data-label`. Use the shared `Table` (ui.tsx), or call
+ * `useCellLabels()` on a hand-written `<table>` – a cell without its column name is a bare «v3».
+ * Tag the status and ⋮ cells so the actions stay on the row's first line; never hide a cell.
+ * A viewer whose rows span (`rowSpan`) opts out with `.adm-table-scroll` and scrolls instead.
+ * The /admin sidebar is the drawer up to 1024px; header links move into it at ≤720px.
+ */
+
 .adm {
   position: fixed;
   inset: 0;

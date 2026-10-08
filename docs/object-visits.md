@@ -18,6 +18,33 @@ destination only receives copies.
 Naming: the code domain is `object_visits` / `objectVisits` / `ov`. **`backend/app/visits.py`,
 `api/visits.py`, `admin_visits.py` are web analytics and unrelated** — never touch or reuse them.
 
+## Rules that are easy to break
+
+- **Objektbesuche live beside the Einsatz, never inside it** (03.10.2026). The module
+  (`objectVisits.enabled`, `src/objectVisits/`, `src/components/objectVisits/`, backend
+  `object_visits*.py`, `api/integrations.py`) owns standalone visits: no incident, no workspace
+  blob, no media row. Its contract is [`docs/object-visits.md`](object-visits.md) — change
+  it with the code. Rules that are easy to break: `visits.py` / `admin_visits.py` are web
+  analytics and unrelated; checklist templates of `kind: "visit"` never reach an Einsatz surface
+  (`loadTemplates` drops them) and Einsatz kinds never reach a visit; a visit is «Gespeichert»
+  only when the server holds the latest revision AND every photo it references; a full photo
+  leaves the device only after a fresh server read says it is stored; revisions are cut at save
+  points, not keystrokes; a completed visit is corrected, never reopened; the SharePoint
+  IMPORTER stays GET-only (`sharepoint_graph.py`) and filing writes only through
+  `object_visit_sharepoint.py` with the separate `sharepoint_export_*` credentials; nothing
+  remote is ever deleted. Alarms and the new-Einsatz banner stay on the Objektbesuche surface.
+  «Neuer Objektbesuch» (05.10.2026) pushes once, at a visit's first completion, ONLY to the
+  accounts an admin ticked (`users.notify_object_visits`, default nobody) — never widen it to
+  every subscription; received visits are listed first on /admin › Objektbesuche.
+
+- **Visit planning keeps templates separate from rounds** (03.10.2026): `visit_programmes`
+  holds reusable organizer routes, never visible to crews. Annual publication is one
+  transaction with a stale-revision guard; a round's stable ref and stop snapshot survive
+  rescheduling/withdrawal. Never copy last year's completions into a new round. `scheduledOn`
+  is a calendar day, separate from `closesAt`; archived rounds retain visits and accept late
+  offline sync. Field history is collapsed, overdue work stays visible. Contract:
+  `docs/object-visits.md` · Visit programmes.
+
 ## Ids
 
 House rule (AGENTS.md · «IDs are prefixed timestamps»): every id the client mints is

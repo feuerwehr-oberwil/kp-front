@@ -1,3 +1,9 @@
+/*
+ * A Web Lock request rejected before a grant must not immediately requeue: an inactive
+ * document can reject forever and prevent navigation. Requeue only after a held lock is lost,
+ * and ignore grants that arrive after the owner stopped.
+ */
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**

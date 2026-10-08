@@ -1,3 +1,19 @@
+/*
+ * ⚠️ **Ownership decides the undo stack.** A surface's own objects belong to that surface's
+ * history — the Karte's `commit`, a plan's per-document `planHistory` / `useBoardDoc`. An edit
+ * that touches an object the surface does NOT own is a store-level act, and checkpoints on the
+ * store's stack: a per-sheet snapshot of annotations cannot express «this object was
+ * geo-anchored», so it could not undo an anchor flip at all. One gesture stays one step: a plan
+ * step opens a TOKEN (`useObjectStore · beginSheetStep`) whose first cross-ownership fold takes
+ * the step and whose remaining samples fold into it, and the token closes when the finger lifts
+ * — a plan step is a pointer gesture. With none open, every write is its own step, which is what
+ * the writers that are not gestures (the Trupp sweeps, a plan ↶, a Gebäude amend) need.
+ * ⚠️ The plan laid ITS entry when the step began, before anyone knew whom the fold would touch;
+ * when the store takes the step, that entry and its per-plan snapshot are withdrawn
+ * (`useObjectStore · onForeignStep` → `lib/planStepLink`, 25.09.2026). A plan-panel edit of a
+ * Karte-owned symbol used to cost two ↶, the second one reporting a lost step.
+ */
+
 import { useEffect, useMemo, useRef, type SetStateAction } from 'react'
 import { useUndoableDoc } from './useUndoableDoc'
 import {
@@ -96,7 +112,7 @@ export interface ObjectStore {
   /** checkpoint the store, then apply a map update — one undo step (no-op if readOnly).
    *  `gesture: false` — the step is an undo step but NOT a hand-placement: a restored snapshot
    *  («Zurück auf Stand am Einsatzort», lib/gpsReturn) writes through the fit instead of
-   *  flipping a plan-drawn object's anchor (AGENTS.md · «A MACHINE write never flips an anchor»). */
+   *  flipping a plan-drawn object's anchor (docs/tactical-objects.md · «A MACHINE write never flips an anchor»). */
   commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
   beginDrag: () => void
   endDrag: () => void
@@ -170,7 +186,7 @@ export interface ObjectStoreOptions {
   onForeignSheetEdit?: (events: ForeignSheetEditEvent[]) => void
   /**
    * ⚠️ A plan step's fold reached an object the sheet does not own, so THIS stack took the step
-   * (AGENTS · «Ownership decides the undo stack»). The plan surface laid its own checkpoint when
+   * (this file's header · «Ownership decides the undo stack»). The plan surface laid its own checkpoint when
    * the step began (IncidentWorkspace · rememberPlanStep), before anyone knew whom the edit would
    * touch — and one gesture is ONE step, so the caller withdraws that plan entry here. Without it
    * a plan-panel edit of a Karte-owned symbol cost two ↶ presses, and the second reported a lost

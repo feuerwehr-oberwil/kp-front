@@ -1,3 +1,9 @@
+/*
+ * ⚠️ A Mittel line coming back from a removal is a CHANGE even when its count/remark/Bestand equal
+ * the tombstone's (`useMittelActions`) — it compared «unchanged», so the removal toast's
+ * «Rückgängig» wrote nothing; it now writes and logs «… wiederhergestellt» (`mittel.logRestored`).
+ */
+
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, unitLabel } from './format'

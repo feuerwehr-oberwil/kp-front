@@ -43,7 +43,7 @@ export interface TruppMarker {
  * object, and is that object a marker somebody is standing on? Anything else — another line's
  * end, a Fahrzeug, a symbol, a marker nobody is bound to — answers `undefined` and nothing is
  * linked. `markers` may span both surfaces: an attachment legitimately names an object in the
- * other document (AGENTS.md · «An attachment may name an object in the other document»).
+ * other document (lib/lineAttachments · «An attachment may name an object in the other document»).
  */
 export function truppIdForAttachment(a: LineAttachment | undefined, markers: TruppMarker[]): string | undefined {
   const target = a?.target

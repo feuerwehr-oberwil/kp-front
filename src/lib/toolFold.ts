@@ -20,6 +20,19 @@
 // last-used member behind the first tap — each one idiom more than the sheet that already existed.
 // The vertical rail (tablet, desktop) has room for every tool and is unchanged.
 
+/*
+ * *Tool bar:* `Auswahl · + Hinzufügen · Messen · Ansichten · Ebenen` (Plan: `… · Einpassen`) —
+ * five even tiles and NO hairline between the tools and the pinned controls. **«+» is the
+ * one door to everything that is PUT ON the surface**: Linie · Fläche · Absperrkreis · Notiz ·
+ * Trupp are the first section of its sheet (`components/Palette` · `tools`, `lib/toolFold`),
+ * above the symbols and Formen, and search finds them by their word. «+» ALWAYS opens the sheet
+ * — it never re-arms a remembered tool — and while a tool out of the sheet is armed the tile is
+ * lit and wears that tool's glyph and word. Auswahl stays: it is the state, the one-tap way out,
+ * and the door to Mehrfach (a two-member pair flips on the second tap; anything larger gets a
+ * list, never a cycle). Add a tool that places something ⇒ add its id to `ADD_TOOLS`, in BOTH
+ * spellings if the Karte and the Plan name it differently.
+ */
+
 /** the tools that live in the «+» sheet on a phone, in sheet order.
  *  ⚠️ Both spellings: the Karte says `note` / `team`, a Plan says `text` / `resource`. */
 export const ADD_TOOLS: readonly string[] = ['line', 'area', 'circle', 'note', 'text', 'team', 'resource']

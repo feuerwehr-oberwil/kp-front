@@ -452,7 +452,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   /**
    * Detach several GPS ends in ONE store step — the geometry each gets is `shape(drawing, end)`,
    * written with `gesture: false` (restoring or cutting back a line is not a hand placing it: a
-   * plan-drawn hose keeps its sheet and storey — AGENTS.md · «A MACHINE write never flips an
+   * plan-drawn hose keeps its sheet and storey — docs/tactical-objects.md · «A MACHINE write never flips an
    * anchor»). Returns the lines whose vertices were REMOVED, for the caller's one Verlauf row.
    */
   const detachGpsEnds = (ends: readonly GpsDetach[], shape: (d: Drawing, e: GpsDetach) => { coords: LngLat[]; removed: boolean } | null): Drawing[] | null => {

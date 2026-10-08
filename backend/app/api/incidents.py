@@ -467,6 +467,10 @@ def _workspace_revision_conflict(server_rev: int, base_rev: int) -> HTTPExceptio
     )
 
 
+# **Alarm validation must preserve unchanged legacy data.** Full workspace saves validate at
+# `apply_workspace_put` against the stored incident, retaining exact existing malformed rows
+# while rejecting new, edited or duplicated invalid rows. Never silently drop operational
+# records or skip validation because a revision differs; return the normal conflict instead.
 async def apply_workspace_put(
     db: AsyncSession,
     incident_id: uuid.UUID,
@@ -552,7 +556,7 @@ async def put_workspace(
     # instead of the full JSONB row — and the doomed save (several tablets saving at once) is
     # refused HERE, before the full-blob SELECT and validation it would throw away. Purely an
     # optimization: the authoritative check stays the conditional UPDATE in apply_workspace_put,
-    # and the success path skips no validation (AGENTS.md · alarm validation).
+    # and the success path skips no validation (the alarm-validation note above apply_workspace_put).
     # ⚠️ Under the row lock (review of #235): read open, then a close commits, then this save's
     # UPDATE — which checks the revision, not the lifecycle — would land in the closed record.
     state = await _live_state(db, incident_id, lock=True)
@@ -650,7 +654,7 @@ async def put_workspace_record(
     Mirrors the capture endpoint's key merge: the server's own blob is the base and only
     RECORD_WORKSPACE_KEYS present in the submitted workspace are replaced, so what an ``el``
     session can change is bounded whatever its client sends — the full PUT stays editor-only
-    (AGENTS.md · role gating). Same ``base_rev`` conditional UPDATE as every other save, so a
+    (docs/roles-and-access.md). Same ``base_rev`` conditional UPDATE as every other save, so a
     concurrent editor makes this the identical 409, never a silent overwrite. Editors may use
     the route too, and only they latch ``editor_opened_at`` — an EL following along is not
     «the KP has this incident»."""
@@ -1084,6 +1088,12 @@ async def revoke_atemschutz_link(
     return ViewLinkOut(enabled=False, token=None)
 
 
+# The one accepted maintenance exception is whole-incident hard deletion through `/admin`:
+# `DELETE /api/incidents/{id}` is deployment-admin-only, and a real Einsatz must already be
+# archived (an Übung may be deleted in any state). It deliberately removes the full record and
+# its audit chain, so do not widen this to editors, individual production rows, or a mutable
+# history shortcut. Revisit external deletion evidence/retention policy before offering managed
+# hosting; the current trust boundary is one station operating its own deployment.
 @router.delete("/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_incident(
     incident_id: uuid.UUID,

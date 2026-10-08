@@ -1,3 +1,5 @@
+// Rules for this area that span modules: docs/undo.md.
+
 import { appConfig } from '../config/appConfig'
 import { newId } from './ids'
 import { keyMatcher, type RecordKey } from './undoKeys'

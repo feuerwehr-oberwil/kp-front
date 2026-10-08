@@ -124,6 +124,8 @@ incident the token was minted for, or a link to one incident reads every other o
 Fail-closed: no ``incident_link_key`` configured → the whole surface answers 403.
 """
 
+# Rules for this area that span modules: docs/roles-and-access.md.
+
 import contextlib
 import hashlib
 import logging

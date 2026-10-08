@@ -2,6 +2,16 @@
 // incident data. Pure derivation — the assistant never stores its own progress; reopening
 // it weeks later shows the true state (the 3am tenet: recognition, no memorized state).
 
+/*
+ * ⚠️ The «Einsatz» tile's badge is what the Rapport still has OPEN, in amber (26.09.2026, owner:
+ * «why is there 3 in the bottom when 6 are open?» — it was the head count). ONE number from ONE
+ * derivation: `lib/abschluss · abschlussFacts` → `missingSteps`, read by the Rapport's «⚠ n noch
+ * offen» chip and — through `useAbschluss`, which now counts the unsettled Abweichungen too — by
+ * the badge, the chooser's Rapport row (in the chip's words, `controlChipLabel`), the Abschluss
+ * confirm and the archive count (`rapportOneCount.test.tsx`). The head count lives on the
+ * chooser's Anwesenheit row.
+ */
+
 import type { ReportMeta } from './workspace'
 
 // 'verlauf' was dropped 2026-07-08: system rows make the journal non-empty on every real

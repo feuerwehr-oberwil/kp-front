@@ -123,3 +123,8 @@ file's own, which a production-mode backend refuses — hence `SEED_PIN`). After
 database again. Without `E2E_FLEET_SECRET`, the field scenario skips locally. In CI it fails instead: CI must
 never quietly drop it. It writes to its own Übung and to the server's fake fleet, so never run
 it against a station in use or a production deployment.
+
+## The six workspace workflows
+
+- CI enables the six workspace workflows and phone/tablet touch checks on its disposable stack.
+  Locally these mutations require `E2E_WORKFLOWS=1`; never target a station in use.
