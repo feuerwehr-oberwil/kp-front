@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { Fragment, useCallback, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
@@ -76,8 +76,10 @@ export function AnrueckendBlock({ incidentId, people, attendance, canEdit, onMar
     data.here > 0 && R.here(data.here),
   ].filter(Boolean) as string[]
   // each count stays on one line («1 da» never breaks after the number); the line wraps between them
+  // (the separator stays OUTSIDE the unbreakable span — inside it, the whole line had no break
+  // opportunity left and pushed the block past a phone's edge)
   const summary = answered === 0 ? R.noAnswers : parts.map((t, i) => (
-    <span key={t} className={s.anrPart}>{i > 0 ? ' · ' : ''}{t}</span>
+    <Fragment key={t}>{i > 0 ? ' · ' : ''}<span className={s.anrPart}>{t}</span></Fragment>
   ))
   const listed = data.coming.length + data.notComing.length + data.other.length
   const stand = clock(data.updatedAt)
