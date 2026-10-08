@@ -226,7 +226,7 @@ export function IncidentSwitcher({
     <div className="ip-switch" ref={ref}>
       <button className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} onClick={() => { setClockOpen(false); setOpen((v) => !v) }}
         aria-label={twoLine
-          ? [street, active.title, uhr.text ? `${uhr.label[uhr.mode]} ${uhr.text}` : ''].filter(Boolean).join(', ')
+          ? [street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', uhr.text ? `${uhr.label[uhr.mode]} ${uhr.text}` : ''].filter(Boolean).join(', ')
           : active ? active.title : cp.noIncident}
         aria-expanded={open && !sheetOpen}>
         {twoLine ? (
@@ -245,8 +245,14 @@ export function IncidentSwitcher({
           </>
         )}
         {/* persistent ÜBUNG marker in the chrome — a training must never read as a real
-            Einsatz mid-use (it also survives the phone's CSS-hidden title) */}
-        {active?.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
+            Einsatz mid-use (it also survives the phone's CSS-hidden title).
+            PHONE (08.10.2026, owner): ONE letter, «Ü», in a square amber tag. The word ellipsised
+            into «ÜBU…» and took the street with it («Sägestrass…») — the street is what the pill
+            is for, and the amber square says «Übung» as well as the word does. The word stays
+            the title and is part of the button's accessible name above. */}
+        {active?.is_exercise && (twoLine
+          ? <span className="ip-badge ip-badge-exercise ip-badge-initial" title={appConfig.copy.exerciseBadge}>{appConfig.copy.exerciseInitial}</span>
+          : <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>)}
         {/* Offline and sync-error get a LOUD text chip (not just the tiny mark) — offline
             blocks switching incidents to the server, and a failing sync means edits are
             stranded on this device; the operator needs to recognise both at a glance

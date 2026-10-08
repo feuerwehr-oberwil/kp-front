@@ -75,7 +75,10 @@
    itself never gives: squeezed below a readable width counts as «does not fit». «Eintrag» keeps
    its word the longest — writing the entry is what an officer does WHILE the alarm runs. :not(.tb-rem-count) keeps the reminder count, a
    number the bar exists to show.
-   ⚠️ No step takes a chip's ICON (final walk-through, R1): a bare red «5» said nothing. */
+   ⚠️ No step takes a chip's ICON (final walk-through, R1): a bare red «5» said nothing.
+   PHONE (08.10.2026): the pill's street counts as «does not fit» whenever it ellipsises, up to and
+   including the ↷ step — the weather and ↷ only come back with the room left once it is whole
+   (useHeadFit · STREET_BEFORE_STEP); past that step the 112px floor rules again. */
 .topbar.fit-1 :is(.tb-weather-cond, .tb-weather-temp) { display: none; }
 .topbar.fit-2 .tb-weather-wrap { display: none; }
 .topbar.fit-3 .tb-einsatzuhr { display: none; }

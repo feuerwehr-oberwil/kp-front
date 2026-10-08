@@ -5193,6 +5193,7 @@ export const it: Localizable<Copy> = {
   },
   sheetGrip: 'Regola l\'altezza del dettaglio',
   exerciseBadge: 'Esercitazione',
+  exerciseInitial: 'E',
   mapViews: {
     title: 'Viste',
     north: 'Verso nord',

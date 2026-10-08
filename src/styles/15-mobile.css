@@ -493,6 +493,11 @@
     font: var(--fw-bold) var(--fs-1)/1.1 var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
   .ip-switch-btn .ip-switch-clock svg { width: 12px; height: 12px; opacity: .8; }
   .topbar .ip-switch-two .ip-status { display: inline-flex; }
+  /* the Übung marker in this pill is ONE letter («Ü», copy.exerciseInitial) in an amber square
+     (08.10.2026, owner): the word ellipsised to «ÜBU…» and cost the street its last letters. A
+     fixed square — it never yields, there is nothing left in it to cut. */
+  .ip-switch-btn > .ip-badge-initial { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
+    padding: 0; font-size: var(--fs-1); line-height: 1; letter-spacing: 0; overflow: visible; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
   /* Verlauf goes icon-only. :not(.tb-rem-count) — the bare `span` selector also caught the
      reminder-count badge, so the number of due reminders vanished on exactly the device most

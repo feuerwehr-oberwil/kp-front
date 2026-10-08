@@ -33,8 +33,20 @@ export const HEAD_FIT_STEPS = [
 /** The title's floor: roughly eight characters, or the whole title if it is shorter. */
 const TITLE_FLOOR = 112
 
-/** Does the bar NOT fit — something painting past its edge, or the Einsatz pill squeezed? */
-export function headCrowded(bar: HTMLElement): boolean {
+/**
+ * PHONE: the street before ↷ and the weather (08.10.2026, coordinator's call after the one-letter
+ * Übung marker). On the phone the pill's first line is the STREET (panels/IncidentSwitcher ·
+ * twoLine) — where the Einsatz is, the one line the bar exists to show. Up to and including the
+ * ↷ step, a street that ellipsises at all counts as «does not fit», so the weather, the
+ * Einsatzdauer and ↷ only come back with what is LEFT once the street is whole (up to the pill's
+ * own max). Past that step the 112px floor rules again: a very long street does not take the
+ * Verlauf word, the alarm's name or ↶ with it. ↶ and Verlauf are not on this part of the ladder.
+ */
+export const STREET_BEFORE_STEP = HEAD_FIT_STEPS.indexOf('redo') + 1
+
+/** Does the bar NOT fit — something painting past its edge, or the Einsatz pill squeezed?
+ *  `step` is the ladder step being tried (Infinity = judge by the floors alone). */
+export function headCrowded(bar: HTMLElement, step = Infinity): boolean {
   if (bar.scrollWidth > bar.clientWidth + 1) return true
   const btn = bar.querySelector<HTMLElement>('.ip-switch-btn')
   if (!btn) return false
@@ -45,8 +57,10 @@ export function headCrowded(bar: HTMLElement): boolean {
   if (badge && badge.offsetParent !== null && badge.scrollWidth > badge.clientWidth + 1) return true
   // the title may ellipsise, but not below a readable floor
   const title = btn.querySelector<HTMLElement>('.ip-switch-title')
-  if (title && title.offsetParent !== null && title.scrollWidth > title.clientWidth + 1
-    && title.clientWidth < Math.min(title.scrollWidth, TITLE_FLOOR)) return true
+  const cut = !!title && title.offsetParent !== null && title.scrollWidth > title.clientWidth + 1
+  // the phone's street: whole before ↷ and the weather (STREET_BEFORE_STEP)
+  if (cut && step < STREET_BEFORE_STEP && btn.classList.contains('ip-switch-two')) return true
+  if (cut && title.clientWidth < Math.min(title.scrollWidth, TITLE_FLOOR)) return true
   return false
 }
 
@@ -56,18 +70,18 @@ export function headCrowded(bar: HTMLElement): boolean {
  * element into that step (0 = nothing collapsed) and must be idempotent — every fit starts again
  * from 0, so a head that got WIDER gives its words back. Returns the step it stopped at.
  */
-export function climbLadder(steps: number, apply: (step: number) => void, crowded: () => boolean): number {
+export function climbLadder(steps: number, apply: (step: number) => void, crowded: (step: number) => boolean): number {
   let step = 0
   apply(0)
-  while (step < steps && crowded()) apply(++step)
+  while (step < steps && crowded(step)) apply(++step)
   return step
 }
 
 /** Collapse step by step until the bar fits; returns the step it stopped at (0 = nothing). */
-export function fitHead(bar: HTMLElement, crowded: (bar: HTMLElement) => boolean = headCrowded): number {
+export function fitHead(bar: HTMLElement, crowded: (bar: HTMLElement, step: number) => boolean = headCrowded): number {
   return climbLadder(HEAD_FIT_STEPS.length, (step) => {
     for (let i = 1; i <= HEAD_FIT_STEPS.length; i++) bar.classList.toggle(`fit-${i}`, i <= step)
-  }, () => crowded(bar))
+  }, (step) => crowded(bar, step))
 }
 
 /**

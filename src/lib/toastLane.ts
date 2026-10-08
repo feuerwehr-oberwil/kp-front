@@ -42,6 +42,10 @@ export function laneOverSheet(sheetTop: number | null, { layoutHeight, ceiling, 
 export function openSheetTop(): number | null {
   // the VirtualKeyboard API (overlaysContent) resizes neither viewport, so its keyboard top is a
   // third foot a lifted sheet can stand on (visibleViewportBottom — CodeRabbit on #245)
+  // The full-screen picture (lib/ui · openPhoto) covers every sheet under it, and its ✕ is at the
+  // TOP — where a «no room above the sheet» lane would put the pill, right over it (08.10.2026).
+  // While it is up, the lane is the foot of the screen, as with no sheet at all.
+  if (document.querySelector('.photo-view[role="dialog"]')) return null
   const vv = window.visualViewport
   const bottoms = [window.innerHeight, vv ? vv.offsetTop + vv.height : window.innerHeight, visibleViewportBottom()]
   let top: number | null = null
