@@ -1375,6 +1375,8 @@
 .wheelpop-btn.clear { color: var(--red); border-color: var(--del-edge); }
 .wheelpop-btn.clear svg { width: 14px; height: 14px; display: block; }
 .wheelpop-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
+/* a note that blocks (a Wiedervorlage in the past) holds «OK» back until the wheels move */
+.wheelpop-btn:disabled { opacity: var(--disabled); cursor: default; }
 
 .cv-matgroup { display: flex; flex-direction: column; gap: 2px; }
 .cv-matgroup-head {
