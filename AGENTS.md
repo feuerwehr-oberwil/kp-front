@@ -595,6 +595,32 @@ to prod.
   the workspace blob (`IncidentSettings` in `src/lib/workspace.ts`). Overrides already written
   there keep applying as the layer above doctrine, but no surface offers new ones; add here only
   when the value must genuinely differ *per Einsatz* and be identical on every device.
+- **The empty Tafel starts with «Womit beginnen?», and its first Vorlage is the FKS «Erstes
+  Plakat»** (08.10.2026, staging). `components/TafelStart` lays three cards over the empty `tafel`
+  sheet on faint squared paper — **Objekt wählen** (the nearest objects from the SAME
+  `objectsNearIncidentResilient` answer the auto-surfacing reads, `useObjectPlans · nearObjects`, so
+  it costs no request; a tap on one takes it, the button opens the PlanPicker — the Tafel had no
+  door to it before), **Gebäude am Einsatzort** (opens the outline picker, `BUILDING_PICK_ID`; any
+  pre-selection is the picker's job, not the card's) and **Vorlage** (ONE entry: «Erstes Plakat
+  (FKS)»; Raumordnung/Organigramm are not approved). «Vorschlag» (`lib/tafelStart ·
+  startSuggestion`): an object ≤ 100 m or address-matched → Objekt; else a real Einsatzort →
+  Gebäude; else none. The layer is non-modal (only the cards take a press), never on a read-only
+  sheet, and hides while any tool other than Auswahl is armed. **Return rule**: the cards stand
+  only while the sheet holds nothing AND this device has never seen this Einsatz's Tafel hold
+  anything (`markTafelUsed`, a localStorage device flag like the nearby banner's) — so a
+  delete-all, its ↶, or ↶ of the Plakat never bring them back; the plain «Leeres Blatt» hint
+  stands in. Phone: stacked rows, suggested first. **The Plakat is ONE board anno** of kind
+  `plakat` (`BoardAnno.plakat`, `lib/plakat`) with no x/y — insert = one ↶ step, each field
+  commit (blur/Enter) = one step via `patchCommit`, and it syncs, persists and works offline like
+  any note. The sanitizer gate (`workspace · isBoardAnno`) accepts it by `isPlakatData`, never by
+  an anchor; nothing positional (bake, projection, plan print) sees it. It lies on the paper under
+  the ink, scaled from a 1000px design width, and turns passive while a drawing tool is armed; a
+  phone fills the same fields as a list (`TafelPlakat variant="list"`). Pre-fill only from what the
+  app holds (`lib/plakatSeed`): title/address, alarm time, Rapport Einsatzleiter, vehicles from
+  the Fahrzeugzeiten and the Karte, the wind as a «Wetter» suggestion, the FKS Absprachepunkte as
+  open ticks. The Rapport prints it as its own section after the Aufträge (`report_pdf ·
+  _plakat_section`, trends sent as WORDS — Helvetica has no ➚ ➘). ⚠️ A client older than this
+  drops a `plakat` anno at its gate, so this must not meet prod data before prod has the code.
 - **Lage and Plan should stay as close as possible in every regard** – same tools, controls,
   and behavior. Only the implementation that *must* differ because of the drawing surface /
   relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`,
