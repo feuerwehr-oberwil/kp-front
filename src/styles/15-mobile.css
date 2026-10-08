@@ -878,7 +878,7 @@
     /* opaque: it opens OVER another sheet (Einsatzdaten), whose words showed through the glass head */
     background: var(--surface); }
   .mp-sheet > .ui-sheet-grab { margin-bottom: -4px; }
-  .mp-sheet .mp-head { padding: 4px 20px 8px; touch-action: none; }
+  .mp-sheet .mp-head { padding: 4px var(--sp-5) 8px; touch-action: none; }
   .mp-sheet .mp-head button { touch-action: auto; }
 
   /* confirm dialog stays centred but fits the narrow screen with safe-area gutters */
