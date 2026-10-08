@@ -1201,7 +1201,8 @@
   /* uniform phone layout: the label (+ sub) always takes the full first line, the control drops
      to its own right-aligned line below — for EVERY row (seg AND stepper), so short rows don't
      stay inline while long ones wrap and the stepper doesn't sit left while segments sit right */
-  .set-row { flex-wrap: wrap; row-gap: 12px; }
+  /* 12 aside, not 16: the 12.5px hints («Verhindert das Abdunkeln während des Einsatzes») stay one line */
+  .set-row { flex-wrap: wrap; row-gap: 12px; padding-inline: var(--sp-3); }
   .set-row-l { flex: 1 1 100%; }
   .set-row .useg, .set-row .step { margin-left: auto; }
   /* the sliders take the full wrapped row rather than a 260px slot — a thumb needs the travel */
