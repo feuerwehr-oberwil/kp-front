@@ -61,6 +61,7 @@ async def test_system_shape_as_admin(client, editor, admin_login):
         "sttConfigured",
         "autoAlignConfigured",
         "cartoBasemapKey",
+        "microsoftLoginConfigured",
         "personnel",
         "alarms",
         "vehicles",

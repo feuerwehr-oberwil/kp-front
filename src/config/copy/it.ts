@@ -2070,6 +2070,14 @@ export const it: Localizable<Copy> = {
     submitPin: 'Accedi',
     retry: 'Riprova',
     offlineHint: 'Senza connessione non è possibile accedere. Gli interventi salvati si aprono solo se questo dispositivo era ancora connesso.',
+    microsoft: 'Accedi con Microsoft',
+    microsoftErrors: {
+      cancelled: 'Accesso Microsoft annullato.',
+      expired: 'L’accesso Microsoft ha richiesto troppo tempo. Riprova.',
+      failed: 'Accesso Microsoft non riuscito. Riprova o accedi con il PIN.',
+      unknown: 'Questo account Microsoft non è abilitato per KP Front. Accedi con il PIN o chiedi all’admin.',
+      inactive: 'L’account collegato è disattivato. Chiedi all’admin.',
+    },
   },
   splash: {
     stuck: 'L’avvio richiede più tempo del solito',
@@ -3795,6 +3803,10 @@ export const it: Localizable<Copy> = {
         object_visits: {
           title: 'Visite agli oggetti (organizzatore)',
           caption: 'Chiave con cui un organizzatore (p. es. fwo-admin) legge catalogo e modifiche e scrive liste. Si genera in «Visite agli oggetti › Integrazione».',
+        },
+        microsoft_login: {
+          title: 'Accedi con Microsoft',
+          caption: 'Facoltativo: una registrazione app Azure separata (solo accesso, «openid profile») perché gli account nominativi possano accedere anche con Microsoft invece del PIN. URI di reindirizzamento: <indirizzo di questa istanza>/api/auth/microsoft/callback. Entrano solo gli account dell’elenco, ciascuno come «account Microsoft=nome utente», separati da virgole. Il PIN resta sempre possibile. Guida: docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (archiviazione visite)',

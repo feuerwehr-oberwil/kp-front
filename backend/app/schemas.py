@@ -1995,6 +1995,9 @@ class ConfigIntegrations(BaseModel):
     autoAlignConfigured: bool = False
     # CARTO Basemaps client key. Public by design: MapLibre sends it as `?key=` on tile URLs.
     cartoBasemapKey: str | None = None
+    # «Mit Microsoft anmelden» is set up (auth/microsoft · enabled) — gates the login screen's
+    # button, so a station without it never sees the door.
+    microsoftLoginConfigured: bool = False
     personnel: ProviderCapability = Field(default_factory=ProviderCapability)
     alarms: ProviderCapability = Field(default_factory=ProviderCapability)
     vehicles: ProviderCapability = Field(default_factory=ProviderCapability)

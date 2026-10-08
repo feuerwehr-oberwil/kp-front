@@ -2070,6 +2070,14 @@ export const fr: Localizable<Copy> = {
     submitPin: 'Se connecter',
     retry: 'Réessayer',
     offlineHint: 'Sans connexion, aucune connexion au compte n’est possible. Les interventions enregistrées ne s’ouvrent que si cet appareil était encore connecté.',
+    microsoft: 'Se connecter avec Microsoft',
+    microsoftErrors: {
+      cancelled: 'Connexion Microsoft annulée.',
+      expired: 'La connexion Microsoft a pris trop de temps. Veuillez réessayer.',
+      failed: 'La connexion Microsoft a échoué. Veuillez réessayer ou vous connecter avec le NIP.',
+      unknown: 'Ce compte Microsoft n’est pas autorisé pour KP Front. Connectez-vous avec le NIP ou demandez à l’admin.',
+      inactive: 'Le compte associé est désactivé. Veuillez demander à l’admin.',
+    },
   },
   splash: {
     stuck: 'Le démarrage prend plus de temps que d’habitude',
@@ -3795,6 +3803,10 @@ export const fr: Localizable<Copy> = {
         object_visits: {
           title: 'Visites d’objets (organisateur)',
           caption: 'Clé avec laquelle un organisateur (p. ex. fwo-admin) lit le catalogue et les modifications et écrit des listes. Elle se génère sous « Visites d’objets › Intégration ».',
+        },
+        microsoft_login: {
+          title: 'Se connecter avec Microsoft',
+          caption: 'Facultatif : un enregistrement d’application Azure distinct (connexion seulement, «openid profile») pour que des comptes nommés puissent aussi se connecter avec Microsoft au lieu du NIP. URI de redirection : <adresse de cette instance>/api/auth/microsoft/callback. Seuls les comptes de la liste entrent, chacun sous la forme «compte Microsoft=nom d’utilisateur», séparés par des virgules. Le NIP reste toujours possible. Guide : docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (classement des visites)',
