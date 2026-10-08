@@ -27,6 +27,7 @@ import { doneOf } from './objectDone'
 import { isDaytime, lastSunEdge, type Coord } from './daylight'
 import { fillTemplate, formatTime } from './format'
 import { M_PER_LAT } from './geo'
+import { parseWeatherTime } from './weatherTime'
 
 /** The per-placard mode (SymbolProps.ergRings). Absent = 'small': the whole point is that the
  *  rings appear WITHOUT anybody drawing them, and the small-spill pair is the conservative
@@ -99,16 +100,6 @@ export function ergRingsFor(row: ErgTihRow | undefined, mode: ErgRingMode, now: 
 }
 
 // ── the wind behind the oval ─────────────────────────────────────────────────────────────
-
-/** An ISO time from the weather feed. Open-Meteo answers in GMT WITHOUT a zone suffix
- *  («2026-10-09T14:15»), which `Date.parse` would read as device-local time — so a stamp
- *  without a zone is UTC here. null for anything unreadable. */
-export function parseWeatherTime(iso: string | null | undefined): Date | null {
-  if (!iso) return null
-  const zoned = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso) ? iso : `${iso}Z`
-  const t = Date.parse(zoned)
-  return Number.isFinite(t) ? new Date(t) : null
-}
 
 /** The smaller angle between two bearings, 0–180 (backend observations · turn). */
 export function bearingTurn(a: number, b: number): number {
