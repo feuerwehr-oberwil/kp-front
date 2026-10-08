@@ -642,6 +642,29 @@ async def _personnel_autosync() -> None:
             await connector_state.record_failure(db, connector_state.DIVERA_PERSONNEL, e)
 
 
+async def _roster_snapshot_tick() -> None:
+    """Poll the station's published roster file, when one is configured and it is due.
+
+    ⚠️ Registered unconditionally and a no-op without a ``roster_snapshot_source`` — the same
+    shape as every credential-driven job, so a source pasted into Verwaltung is read within
+    one tick, without a restart. The tick is short (``TICK_SECONDS``); the run itself happens
+    only once ``roster.snapshotIntervalMin`` has passed since the last attempt, and an
+    unchanged file is recognised by its checksum and skipped. Every rule about what a run may
+    write is in app/roster_snapshot_ingest.py; failures are recorded by ``run`` itself.
+    """
+    from . import roster_snapshot_sync
+    from .credentials import load as load_credentials
+
+    async with async_session_maker() as db:
+        await load_credentials(db)
+        if not roster_snapshot_sync.configured() or not await roster_snapshot_sync.due(db):
+            return
+        try:
+            await roster_snapshot_sync.run(db, trigger="scheduled", skip_unchanged=True)
+        except Exception:
+            logger.exception("Roster snapshot poll failed")
+
+
 async def _demo_reset() -> None:
     """DEMO ONLY: wipe + reseed the synthetic Musterdorf incident/roster (see demo_reset.reset).
     Runs in-process so the public demo self-cleans on an exact cadence, instead of relying on the
@@ -826,6 +849,17 @@ def _start_scheduler_jobs() -> None:
         f"Mannschaft-Autosync ({PERSONNEL_SYNC_CRON['hour']:02d}:{PERSONNEL_SYNC_CRON['minute']:02d} "
         "Europe/Zurich, idle at autoSync 'off')"
     )
+    from .roster_snapshot_sync import TICK_SECONDS as ROSTER_SNAPSHOT_TICK_SECONDS
+
+    _scheduler.add_job(
+        _roster_snapshot_tick,
+        "interval",
+        seconds=ROSTER_SNAPSHOT_TICK_SECONDS,
+        id="roster_snapshot",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"Personenstamm-Snapshot ({ROSTER_SNAPSHOT_TICK_SECONDS}s tick, idle without a source)")
     # Keeps the snapshot the SYNCHRONOUS credential readers see from going stale — see
     # `_refresh_credentials`.
     _scheduler.add_job(

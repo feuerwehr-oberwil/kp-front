@@ -1255,15 +1255,20 @@ class ConnectorState(Base):
       -triggered ``POST /api/personnel/sync/execute``, so «zuletzt synchronisiert» is truthful
       whoever pressed it.
 
+    * ``roster_snapshot`` — the roster-snapshot poll (app/roster_snapshot_sync.py), written by
+      the scheduled tick and by «Jetzt abrufen».
+
     ``detail`` carries the connector-specific numbers the UI shows beside the timestamps (the
     personnel sync's added/updated/deactivated, and the stale members a 'safe' level leaves
-    outstanding). It is a report, never a resume point: nothing reads it back to decide what to
-    do next, so a lost row costs a line on a status card and nothing else.
+    outstanding). It is a report, never a resume point — with ONE exception: the roster
+    snapshot reads its ``lastGood`` back (which file the roster reflects, so an older copy is
+    refused and an unchanged one skipped). A lost row costs that connector one idempotent
+    re-apply; every other connector loses a line on a status card and nothing else.
     """
 
     __tablename__ = "connector_states"
 
-    #: 'divera_alarms' | 'traccar' | 'divera_personnel' (app/connector_state.py)
+    #: 'divera_alarms' | 'traccar' | 'divera_personnel' | 'roster_snapshot' (app/connector_state.py)
     name: Mapped[str] = mapped_column(String(32), primary_key=True)
     last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     #: NEVER touched by a failed run, and never by a run that fetched nothing.

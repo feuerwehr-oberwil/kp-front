@@ -6222,6 +6222,10 @@ export const de = {
       removed: 'Gelöscht – Anbindung aus.',
       failed: 'Aktion fehlgeschlagen',
       groups: {
+        roster_snapshot: {
+          title: 'Personenstamm (Snapshot)',
+          caption: 'Wo die Wehr ihren Personenstamm als Datei veröffentlicht (Format: docs/roster-snapshot.schema.json) – eine https://-Adresse oder ein absoluter Pfad auf diesem Server. KP Front liest sie stündlich und auf «Jetzt abrufen» unter System › Verbindungen. Zugangsdaten gehören ins Token, nicht in die Adresse. Leer = aus; Divera und CSV-Import bleiben unverändert.',
+        },
         object_visits: {
           title: 'Objektbesuche (Organisator)',
           caption: 'Schlüssel, mit dem ein Organisator (z. B. fwo-admin) Katalog und Änderungen liest und Listen schreibt. Erzeugt wird er unter «Objektbesuche › Integration».',
@@ -7628,6 +7632,26 @@ export const de = {
       // Die Zeile, die «safe» erzeugt: Abgänge werden gezählt und gemeldet, aber nie von selbst
       // deaktiviert. Führt auf die Mannschaft, wo sie erledigt werden.
       connLeavers: '{n} Abgänge warten',
+      // ── Personenstamm-Snapshot (docs/CONFIGURATION.md §4c) ──
+      // «Angehalten», nicht «offline»: die Datei kam an, aber sie würde zu viele Personen auf
+      // einmal deaktivieren. Das entscheidet ein Mensch – mit «Abgänge übernehmen» oder indem
+      // er die Datei korrigiert.
+      connRosterSnapshot: 'Personenstamm (Snapshot)',
+      snapHeld: 'angehalten',
+      snapHeldText: '{n} von {total} aktiven Personen würden deaktiviert (Grenze {limit}). Nichts geändert – bitte zuerst die Datei prüfen.',
+      snapRelease: 'Abgänge übernehmen',
+      snapHeldWho: 'Betroffen: {names}',
+      snapReleaseQ: '{n} Personen deaktivieren?',
+      snapRunNow: 'Jetzt abrufen',
+      snapRunning: 'Wird abgerufen …',
+      snapRunOk: 'Abgerufen',
+      snapRunFailed: 'Abruf fehlgeschlagen',
+      snapSummary: 'Letzter Abgleich: {created} neu · {updated} geändert · {deactivated} deaktiviert',
+      snapUnchanged: 'Datei unverändert seit dem letzten Abgleich',
+      snapUnmatched: '{n} nicht zugeordnet: {names}',
+      snapUnknownRanks: 'Unbekannte Dienstgrade (ohne Grad übernommen): {ranks}',
+      snapFileDate: 'Stand der Datei: {time}',
+      snapStale: 'Die Datei wurde seit über 7 Tagen nicht mehr erneuert.',
       // ── SharePoint: welche Ordner konfiguriert sind (nur Ansicht) ──
       spSources: 'Ordner laut Konfiguration',
       spSourcesHint: 'Schreibgeschützt – die Ordner stehen in der Konfiguration der Wehr. Wie sie aufgebaut sind, steht in der Dokumentation zur SharePoint-Anbindung.',

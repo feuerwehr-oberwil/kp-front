@@ -205,6 +205,14 @@ FIELDS: tuple[CredentialField, ...] = (
     # The organizer's bearer key for /api/integrations (docs/object-visits.md). Write-only like
     # every secret: the admin generates it, hands it to the organizer once, and can only rotate.
     CredentialField("object_visits_integration_key", "object_visits", True, "Organizer-Schlüssel"),
+    # --- Roster snapshot (docs/CONFIGURATION.md §4c) -----------------------------------
+    # WHERE the station's published roster file lives: an https:// address, or an absolute
+    # path on this server (self-hosted: a file a script drops next to the stack). Readable,
+    # like the Traccar URL — «is it pointing at the right file?» is a question an operator
+    # answers off the screen. Anything secret belongs in the token, not in the address.
+    CredentialField("roster_snapshot_source", "roster_snapshot", False, "Personenstamm-Quelle"),
+    # Sent as `Authorization: Bearer …`, and only over https (roster_snapshot_ingest.read_source).
+    CredentialField("roster_snapshot_token", "roster_snapshot", True, "Personenstamm-Token"),
     # --- SharePoint EXPORT (Objektbesuche delivery) -----------------------------------
     # ⚠️ A SECOND app registration, separate from the pull's on purpose: the pull is promised
     # read-only (`Sites.Selected` READ), and the delivery needs WRITE on one site. Sharing one
@@ -585,6 +593,17 @@ def validate(name: str, value: str) -> str:
             raise CredentialRefusedError("Ohne «/v1» am Ende – das hängt die App selber an.")
     if name == "healthcheck_ping_url":
         v = _require_url(name, v, https_only=False, message="Die Ping-Adresse muss mit https:// beginnen.")
+    if name == "roster_snapshot_source":
+        # A URL (https anywhere, plain http only inside the station's own network — the same
+        # rule as the STT server), or an absolute path for a file on this host.
+        if v.startswith(("https://", "http://")):
+            v = _require_url(
+                name, v, https_only=False, message="Die Quelle muss mit https:// beginnen oder ein absoluter Pfad sein."
+            )
+        elif not v.startswith(("file:///", "/")):
+            raise CredentialRefusedError(
+                "Die Quelle muss eine https://-Adresse oder ein absoluter Pfad sein (z. B. /data/roster.json)."
+            )
     if name == "vapid_subject" and not v.startswith(("mailto:", "https://")):
         raise CredentialRefusedError("Der VAPID-Kontakt muss «mailto:…» oder «https://…» sein.")
     if name == "stt_language" and not (2 <= len(v) <= 8):

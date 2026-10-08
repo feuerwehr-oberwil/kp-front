@@ -35,8 +35,13 @@ TRACCAR = "traccar"
 #: The Mannschaft sync — the nightly autosync and the hand-triggered execute.
 DIVERA_PERSONNEL = "divera_personnel"
 
+#: The roster snapshot (app/roster_snapshot_sync.py) — the scheduled poll and «Jetzt abrufen».
+#: ⚠️ The one row whose ``detail`` is read back: its ``lastGood`` is the time-travel guard and
+#: the «unchanged, skip» memo. Losing it costs one idempotent re-apply, nothing more.
+ROSTER_SNAPSHOT = "roster_snapshot"
+
 #: Every connector this table knows about, in the order a status surface reads best.
-NAMES = (DIVERA_ALARMS, TRACCAR, DIVERA_PERSONNEL)
+NAMES = (DIVERA_ALARMS, TRACCAR, DIVERA_PERSONNEL, ROSTER_SNAPSHOT)
 
 #: How long a repeated, unchanged report may be suppressed (the Traccar sweep's value).
 TRACCAR_THROTTLE_SECONDS = 300

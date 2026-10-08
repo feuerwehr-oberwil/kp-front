@@ -10,16 +10,16 @@ A committed artifact that no longer matches the code advertises a contract that 
 in force, the same failure `docs/openapi.json` had when it went 31 endpoints out of date.
 Regenerate with `just roster-schema` in the same change that touches the models.
 
-**2. Cross-repo drift.** kp-rück holds byte-identical copies of both schema files, pinned by
-the same checksums. Neither repository may import the other (`docs/RUNNING-BOTH.md`), so the
-copies stay copies and a hash holds them together — exactly the arrangement
-`test_alarm_keywords.py` and `test_telemetry_vendored.py` already use. **What this cannot
-catch, stated plainly:** editing the schema here and updating only this repository's hash
-leaves both suites green while the two copies diverge. Only a job that checks out both
-repositories actually compares them, and **this pair is in no such job yet** — kp-rück's
-`alarm-keyword-drift` and `telemetry-drift` are the two that exist, and adding a third for a
-contract nothing implements was left out of the change that published it. Until then, "copy it
-across and update both hashes in one change" is a habit, not a guarantee.
+**2. Cross-repo drift.** kp-rück holds byte-identical copies of both schema files AND of the
+code that reads them (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`), the
+reference producer (`scripts/roster_snapshot_from_csv.py`) and its example input, pinned by the
+same checksums (`VENDORED`, `SHARED`). Neither repository may import the other
+(`docs/RUNNING-BOTH.md`), so the copies stay copies and a hash holds them together — exactly
+the arrangement `test_alarm_keywords.py` and `test_telemetry_vendored.py` already use. **What
+this cannot catch, stated plainly:** editing a file here and updating only this repository's
+hash leaves this suite green while the two copies diverge. kp-rück's `roster-schema-drift` job
+checks out both repositories and diffs every one of these files; it is the only thing that
+actually compares them.
 
 **3. A medical field.** D30 of the estate architecture says the exclusion is a property of the
 payload, "enforced by a schema test that fails on any medical-shaped key, not by doctrine:
@@ -92,7 +92,27 @@ VENDORED = {
     "roster-snapshot-outcome.schema.json": "131cedd7246ccac71f9e1017af8e61bebe998dc09f04cc47df8d5d9bac9e78a9",
 }
 
+#: The rest of what is shared with kp-rück byte for byte: the code that reads a snapshot (so one
+#: file lands the same way in both products), the reference producer and its example input.
+#: Paths are repository-relative and identical on both sides.
+SHARED = {
+    "backend/app/roster_snapshot.py": "ddcfdcacaf0362a111886fc976e29b564227e90c26512a72bea80f5045fa7ed3",
+    "backend/app/roster_snapshot_ingest.py": "597c5d747b33478cd4c3b093ae80bf9da38f0541317e835f7e4423bcb1bda5e2",
+    "scripts/roster_snapshot_from_csv.py": "f3c6dfc9943231b6367aa2664e7bdad4988192fd820352f1e6354013a104fc65",
+    "docs/roster-snapshot.example.csv": "3addbbc94a755b66c7350d088177ccd2e89d6d888fcd63e87b78b33ccbfeb1f7",
+}
+
 repo_only = pytest.mark.skipif(not SNAPSHOT_SCHEMA.exists(), reason="repo root not available (running from the image)")
+
+
+@repo_only
+@pytest.mark.parametrize("path", sorted(SHARED))
+def test_the_shared_reader_matches_the_recorded_hash(path: str):
+    digest = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
+    assert digest == SHARED[path], (
+        f"{path} changed. It is byte-identical with kp-rück's copy: make the same edit there, run "
+        f"BOTH suites, and update the hash in BOTH repositories in the same change."
+    )
 
 
 # --- 1. drift against the code ----------------------------------------------------------
@@ -485,13 +505,19 @@ def test_roster_source_accepts_snapshot_beside_manual_and_divera():
         assert RosterConfig(source=value).source == value
 
 
-def test_the_registry_lists_the_provider_and_admits_it_is_not_built():
+def test_the_registry_lists_the_provider_and_it_is_built(monkeypatch):
+    # Flipped to True in the change that implemented the ingestion (app/roster_snapshot_sync.py).
+    from app import credentials
+
     entry = next(p for p in providers.integrations().providers if p.provider == "snapshot")
     assert entry.domain == "personnel"
-    assert entry.implemented is False, (
-        "flip this to True only in the change that actually implements snapshot ingestion — "
-        "a registry that claims a working provider is worse than one that omits it"
-    )
+    assert entry.implemented is True
+    # configured follows the source credential, and nothing else
     assert entry.configured is False and entry.active is False
-    # …and it must not have displaced the providers that do work.
+    monkeypatch.setenv("ROSTER_SNAPSHOT_SOURCE", "https://hr.example.ch/roster.json")
+    assert credentials.get("roster_snapshot_source")
+    entry = next(p for p in providers.integrations().providers if p.provider == "snapshot")
+    assert entry.configured is True and entry.active is True
+    # …and it must not have displaced the providers that do work, nor taken Divera's slot.
     assert {p.provider for p in providers.integrations().providers} >= {"divera", "traccar", "snapshot"}
+    assert providers.integrations().personnel.provider != "snapshot"
