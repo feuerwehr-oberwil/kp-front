@@ -2,6 +2,9 @@
 // surface uses these wrappers so behavior, theming, and the a11y contract live in one place.
 // The non-modal map tool-docks stay hand-rolled on purpose — see AGENTS.md ("Overlays go
 // through src/lib/overlays/") for which surfaces are deliberately excluded and why.
+
+// Rules for this area that span modules: docs/ui-conventions.md · «Overlays».
+
 export { Sheet, SheetClose, type SheetProps } from './Sheet'
 export { Overlay, type OverlayProps } from './Overlay'
 // for the ONE hand-rolled bottom sheet (components/Palette): the same bar, the same gesture

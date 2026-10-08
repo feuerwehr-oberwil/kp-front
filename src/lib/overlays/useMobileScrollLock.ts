@@ -1,3 +1,11 @@
+/*
+ * **Mobile modal scrolling** (01.10.2026): `useMobileScrollLock` prevents background touch
+ * scrolling and edge chaining while `Sheet` / `Overlay` is open, without making portalled
+ * pickers inert. Inner vertical lists and the composer's native horizontal suggestions keep
+ * their gestures. The composer's mobile Pendenz / time menus retain the sentence's caret for
+ * pointer picks (`Menu · keepFocusRef`); keyboard navigation still moves focus into the menu.
+ */
+
 import { useEffect } from 'react'
 import { useIsPhone } from '../useIsPhone'
 

@@ -19,6 +19,8 @@ labels that depend on locale/state (Trupp status, journal area) are resolved on 
 sent as strings, so the PDF matches the on-screen report exactly.
 """
 
+# Rules for this area that span modules: docs/rapport.md.
+
 from __future__ import annotations
 
 import io

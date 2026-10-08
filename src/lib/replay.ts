@@ -26,6 +26,19 @@
 // is what an anchor flip and a georef re-bake are about (IncidentWorkspace · onAnchorChange, and
 // the note on the re-bake in the fit effect).
 
+/*
+ * ⚠️ **Replay stays VIEW-based, deliberately** (`lib/replay`). A `Saved` blob carries the three
+ * legacy collections even though they are derived, so a recorded incident replays through
+ * anything that ever spoke those shapes — and a view is *what was on the screen*, whereas an
+ * object would have to be projected through a fit, and the only fit a replay has is TODAY's.
+ * The price is that the event stream has to be COHERENT across both views, so the seams pay it:
+ * an anchor flip emits the PAIR (the store reports the flip — `tacticalObjects · anchorChanges`
+ * — because neither surface can see the other's half), `board.move` is folded, and the georef
+ * re-bake deliberately emits NOTHING (n `entity.move` rows would claim n placements nobody made;
+ * the snapshot the ensuing save writes is what carries it). Full ledger:
+ * `docs/verlauf-coverage.md`.
+ */
+
 import { apiGet } from './api'
 import { isBoardAnno, isDrawing, isEntity, sanitizeWorkspace, type Saved } from './workspace'
 import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LayerId, LngLat, WeatherData } from '../types'

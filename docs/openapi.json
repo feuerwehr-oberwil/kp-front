@@ -2011,7 +2011,7 @@
           "incidents"
         ],
         "summary": "Put Workspace Record",
-        "description": "Save ONLY the record domains — the one write shape the ``el`` role has.\n\nMirrors the capture endpoint's key merge: the server's own blob is the base and only\nRECORD_WORKSPACE_KEYS present in the submitted workspace are replaced, so what an ``el``\nsession can change is bounded whatever its client sends — the full PUT stays editor-only\n(AGENTS.md · role gating). Same ``base_rev`` conditional UPDATE as every other save, so a\nconcurrent editor makes this the identical 409, never a silent overwrite. Editors may use\nthe route too, and only they latch ``editor_opened_at`` — an EL following along is not\n«the KP has this incident».",
+        "description": "Save ONLY the record domains — the one write shape the ``el`` role has.\n\nMirrors the capture endpoint's key merge: the server's own blob is the base and only\nRECORD_WORKSPACE_KEYS present in the submitted workspace are replaced, so what an ``el``\nsession can change is bounded whatever its client sends — the full PUT stays editor-only\n(docs/roles-and-access.md). Same ``base_rev`` conditional UPDATE as every other save, so a\nconcurrent editor makes this the identical 409, never a silent overwrite. Editors may use\nthe route too, and only they latch ``editor_opened_at`` — an EL following along is not\n«the KP has this incident».",
         "operationId": "put_workspace_record_api_incidents__incident_id__workspace_record_put",
         "parameters": [
           {

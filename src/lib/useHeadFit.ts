@@ -1,3 +1,15 @@
+/*
+ * What leaves the TOP BAR when it runs out of room is MEASURED, not ruled per breakpoint
+ * (`lib/useHeadFit`, 25.09.2026): one `fit-N` step at a time until it fits, lowest priority
+ * first — weather, Einsatzdauer, ↷, the gaps, the Verlauf word, the alarm's
+ * name, the Einsatz title (the pill stays: glyph + ÜBUNG), the «1?» count, and last the
+ * Eintrag's word (`'eintrag-word'`, 29.09.2026). The Einsatz pill never
+ * gives: squeezed below a readable width counts as «does not fit». A chip NEVER loses its icon —
+ * a bare number says nothing — and is at least a tap wide. A new chip in the bar takes its place
+ * in that ladder, never a `:has(...)` rule that hides a neighbour. The PAGE HEADS climb the same
+ * ladder (`climbLadder`, `lib/pageHeadFit`, 28.09.2026 — «ONE page head» in lib/pageHeadFit).
+ */
+
 import { useEffect, useLayoutEffect, type RefObject } from 'react'
 
 /**

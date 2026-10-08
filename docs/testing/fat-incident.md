@@ -7,6 +7,14 @@ A long or large Einsatz is exactly where the app matters most, and it is also wh
 per-save, per-object and per-row cost adds up. This page covers the tooling that measures
 this and what it found the first time it ran.
 
+## When to run them
+
+**Large / long incidents** (26.09.2026): `pnpm bench` times the pure hot paths and `just fat-perf
+[preset …]` plays a synthetic fat incident (`src/lib/fatIncident.ts`) into a throwaway backend and
+opens it on a CPU-throttled browser. Measurements, not gates. Run them when you change the save
+path, the Karte's rendering, the Verlauf or the Replay, and compare against the recorded run in
+[`docs/testing/fat-incident.md`](fat-incident.md).
+
 ## The fat incident
 
 `src/lib/fatIncident.ts` builds a synthetic, deterministic incident. It is sized against the

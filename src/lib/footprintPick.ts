@@ -16,6 +16,15 @@
 // Space: the picker's own — rings and pin in 0..1 of a square ±radiusM metre-bbox, so one unit
 // is `sideM` (= 2·radiusM) metres in either direction (see OsmOutline · loadBuildings).
 
+/*
+ * *The picker offers the building at the Einsatzort* (08.10.2026, `lib/footprintPick`). With
+ * no Gebäude yet and an Einsatz coordinate, the outline that contains the pin starts selected,
+ * with a note. If no outline contains it, the nearest one within 12 m is selected, but only when
+ * the runner-up is at least twice as far (no neighbour guessed). The pick is never committed
+ * without «Übernehmen» and never re-offered once the operator has changed the selection. There
+ * is no offer over a legacy (un-georeferenced) building.
+ */
+
 import type { Pt, Ring } from './footprint'
 
 /** how far from the pin an outline's edge may be and still be THE building (metres) */

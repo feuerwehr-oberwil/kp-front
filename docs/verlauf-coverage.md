@@ -438,3 +438,10 @@ not operator actions. Ordered by operational impact.
 - Deleting and creating belong in the same channel. The asymmetry is what makes people
   believe nothing is recorded at all.
 - The Verlauf is append-only: a correction is a new row, never an edited one.
+
+## Rules for new rows
+
+**Deleting and creating belong in the same channel, on both surfaces**: a single object removed
+on a Plan writes the Karte's «{name} entfernt» (24.09.2026, `drawingEdit · annoLogName`, as a
+`subjectId`, never a jump target), and «Gelöscht / erledigt» writes «Feuer EG gelöscht» /
+«Feuer EG wieder aktiv» from the act itself — one row per act ([`docs/verlauf-coverage.md`](verlauf-coverage.md)).

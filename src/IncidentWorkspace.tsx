@@ -4618,7 +4618,7 @@ export function IncidentWorkspace({
      files what is missing under ids every device derives the same way (lib/crewFiling), so two
      tablets converge on one row per person and one Verlauf line per Trupp. A machine write: raw
      `setAttendance`, never the undo timeline, and idempotent — once filed, nothing is left to
-     file (AGENTS.md · a machine writer writes nothing when nothing changed).
+     file (lib/useGpsFollow · a machine writer writes nothing when nothing changed).
      ⚠️ ONE-SHOT per (Trupp, person): the Trupp's `crewFiled` marker is stamped in the same pass,
      for the people filed now AND those already on the list, so somebody taken OFF the Anwesenheit
      later stays off on every device (types · Trupp.crewFiled). */

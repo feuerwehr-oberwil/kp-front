@@ -1,3 +1,13 @@
+/*
+ * *One red door per alarm on screen* (29.09.2026): the TopBar's Atemschutz chip hides while its
+ * alarm already has a door on screen — on the Trupps page (the head's «⚠ n» badge) and wherever
+ * the Meldeleiste shows a row naming the chip's Trupp for the chip's reason
+ * (`AtemschutzAlarmMeldung · azChipRedundant`, fed by `onShown`). It comes back the moment «Zum
+ * Trupp» takes that row down, and the amber «Kontakt fällig» chip never hides (it has no row and
+ * no badge). The top bar's `useHeadFit` key counts the chip only while it is drawn. Never hide
+ * it with CSS `:has(...)`.
+ */
+
 import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'

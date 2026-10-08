@@ -1,3 +1,29 @@
+/*
+ * *ONE page head, ONE ROW* (28.09.2026, owner: «fix the headers, especially the one from the
+ * trupps, which occupies way too much vertical space … as much space for the actual content as
+ * possible»). Trupps (the Atemschutz-Link board too), Anwesenheit, Material, Checkliste and
+ * Rapport wear one shape at every width ≥ 360: the titles block left — the `<h2>` and AT MOST
+ * one quiet line under it («✓ Gespeichert», the counts, the Checkliste's subtitle) — the tiles
+ * right, centred on each other; `--tap` + `--head-pad-y` above and below (60px on a phone, 68
+ * above; Surface.module.css · `.head`, tokens · `--head-*`). What does not fit gives up WORDS,
+ * MEASURED, never per breakpoint (`lib/pageHeadFit` · `usePageHeadFit`, on the top bar's
+ * `climbLadder`): (1) the quiet line's time («Gespeichert um 23:21» → «Gespeichert»), (2) each
+ * tile's word, lowest priority first — the glyph stays, the word is already its aria-label/title
+ * so the hold-tooltip says it, a count stays with its glyph («⚠ 4»), (3) the one primary tile
+ * shortens («+ Trupp anmelden» → «+ Trupp»; it keeps its word and its fill), then a head's own
+ * last words (the quiet «✓ Gespeichert» keeps its ✓ — a LOUD sync state never folds; the
+ * Rapport's title says the nav's «Rapport»), and only as the LAST resort (≤ 359px, a locale that
+ * cannot fit) the tiles take a second row (`data-fit-wrap`). Each head states its ladder where
+ * its tiles are drawn — `data-fold="<rank>"` on the part, `.fold-long` / `.fold-short` inside
+ * it (`HEAD_FOLD` in AtemschutzView / AnwesenheitView, `RP_FOLD` in ReportPreflight); text that
+ * must never be cut wears `data-fit-check`, and every `<h2>` is checked. A new tile takes a rank
+ * in that ladder — never a `useIsPhone` word switch, never a `@media` that drops a label, never
+ * a row of its own. The 27.09. «Trupps head: the title line, then the tile row under it» (a
+ * 121px phone head, 190 on the 820 tablet with «+ Trupp anmelden» wrapped to a third row) is
+ * superseded, and so is «icons below 1080px» on the Rapport. The one tile family stays:
+ * `.headTile` (Atemschutz.module.css) / `.head-tile` (13-incident.css).
+ */
+
 import type { RefObject } from 'react'
 import { climbLadder, useHeadFit } from './useHeadFit'
 

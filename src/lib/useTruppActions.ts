@@ -385,7 +385,7 @@ export function useTruppActions(deps: Deps) {
   const planLines = (planId: string): LinkableLine[] => (board[planId] ?? []).filter((a) => a.kind === 'draw')
 
   /** Every placed Trupp marker there is, BOTH surfaces in one list: a hose end may legitimately
-   *  be docked onto an object in the other document (AGENTS.md · unified objects), and the
+   *  be docked onto an object in the other document (docs/tactical-objects.md), and the
    *  automatic join must read that marker just as well as a native one. */
   const truppMarkers = (): TruppMarker[] => [
     ...entities.filter((e) => e.kind === 'team'),

@@ -15,7 +15,7 @@ import type { TimelineEvent, Trupp } from '../types'
  * so every device computes the same restart from the same fact:
  *  - the moment is the reopen row's `at` — never a device's own clock;
  *  - the Verlauf row id is derived (`azro-<reopen row>-<Trupp>`), so three tablets write ONE row
- *    (AGENTS.md · what every device OBSERVES is recorded under a DERIVED id, once);
+ *    (docs/sync-and-offline.md · what every device OBSERVES is recorded under a DERIVED id, once);
  *  - until the reopen row has arrived on this device, the alarm HOLDS (`reopenPending`) rather
  *    than ring against the old contact time for the second the Verlauf takes to catch up.
  *
@@ -66,7 +66,7 @@ export const clockRestartRowId = (reopenRowId: string, truppId: string): string 
 /**
  * The Trupps with the contact clock of every crew still inside restarted at the reopen. Only a
  * clock that last ran BEFORE the reopen moves: a Kontakt given since stands. Returns the SAME
- * array when nothing moves (a machine writer must be idempotent — AGENTS.md).
+ * array when nothing moves (a machine writer must be idempotent — lib/useGpsFollow).
  */
 export function clocksAfterReopen(trupps: Trupp[], reopen: LifecycleBoundary | null): Trupp[] {
   if (!reopen || reopen.kind !== 'reopened') return trupps

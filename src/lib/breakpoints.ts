@@ -11,6 +11,17 @@
 // `(--phone) and (pointer: coarse)` would need the definition distributed over its comma, and a
 // half-substituted media query does not fail — it silently never matches. The build stops on it.
 
+/*
+ * **Breakpoints have one source** (07.10.2026): `src/lib/breakpoints.ts`. Stylesheets write
+ * `@media (--phone)` (also `--phone-landscape`, `--not-phone`, `--tablet`), and
+ * `vite.config · customMedia` writes the query in; `useIsPhone` re-exports the same
+ * `PHONE_QUERY`. Never hand-copy a query (`breakpoints.test.ts` fails). A name must stand alone
+ * in its query (`(--phone) and (hover: none)` stops the build). ⚠️ A file another module
+ * `composes: … from` (Surface.module.css) is read by postcss-modules WITHOUT our plugin and keeps
+ * the literal query; the test pins it to `PHONE_QUERY`, and the build fails if a name ever
+ * reaches an emitted stylesheet unresolved.
+ */
+
 /** A phone turned sideways: short, landscape, at most 1000px wide (a tablet is 1024+). The second
  *  half of --phone, named because a few rules want only it (GeorefMode, PlanCompass). */
 export const PHONE_LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 520px) and (max-width: 1000px)'

@@ -1,3 +1,15 @@
+/*
+ * **Help describes the device it is read on** (29.09.2026). `HelpBlock` / `HelpSection` carry
+ * `only: 'phone' | 'wide' | 'keyboard'` (`lib/helpDevice · helpShows`): a phone reads about the
+ * two bottom bars and the FAB, never a left/right rail or a rail drag; the Tastaturkürzel section
+ * and the mouse/keys parts show only off a phone and where a fine pointer exists. Every locale
+ * carries its own sections array, so a device-specific block goes into all four
+ * (`helpDevice.test` checks the phone text of every locale for rail words). **A surface's
+ * explanation is one line; the long text lives in Hilfe**: the «Einsatz · lesen» share lede is
+ * «Kein Login · gilt auch nach dem Abschluss.» in the share sheet and in Rapport › Weitergeben
+ * alike; audiences and lifetimes are in Hilfe › Rapport & Abschluss.
+ */
+
 import type { HelpOnly } from '../config/copy/de'
 
 /**

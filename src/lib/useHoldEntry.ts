@@ -1,3 +1,20 @@
+/*
+ * *The FAB follows the THEME, not `--btn-primary`*: it wears the floating family's glass
+ * (26.09.2026 — the white surface by day and a raised `--ink-fill` at night until then made it
+ * the one piece of the bottom row in a colour of its own). `--btn-primary` inverts at night so a
+ * form's one action has an edge against its sheet; the FAB sits on no sheet, and inverted it was
+ * the one pale disc in a dark cab. Its
+ * hold OPENS a chooser (Sprachnotiz · Foto) that STAYS until one is tapped; the button is its ✕
+ * and a press elsewhere closes it (`useHoldEntry`, 21.09.2026). It was slide-and-release, which
+ * «Foto» cannot be on an iPhone: WebKit opens a file picker only for a real TAP, refuses a slid
+ * touch silently, and `navigator.userActivation.isActive` reads true while it does — two rounds
+ * of detecting the refusal ended in one chooser with two grammars. Do not bring the slide back.
+ * A tap on the FAB
+ * commits the composer with `flushSync` INSIDE the click and the textarea focuses itself as it
+ * attaches (`JournalComposer · attachText`): React otherwise commits a microtask later, and iOS
+ * gives a focus made outside the tap a caret and no keys.
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import { buzz } from './haptics'
 

@@ -34,6 +34,8 @@ Every PDFium object is created, used and closed under `pdfium_lock`, per BATCH �
 for a Rapport or a Kroki waits a few seconds at most, never for a pyramid.
 """
 
+# Rules for this area that span modules: docs/plans-and-buildings.md · «Plan PDFs and the tile pyramid».
+
 from __future__ import annotations
 
 import contextlib

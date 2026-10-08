@@ -1,3 +1,13 @@
+/*
+ * *The four mini sheets are one sheet* (29.09.2026): Druck · Kanal · Auftrag · Mannschaft are
+ * `TruppSheets · MiniSheet` — a bottom sheet with the grab bar and the swipe on a phone, a
+ * centred card on a tablet — with ONE head: the title is the QUESTION («Druck», «Restdruck» at
+ * «Raus melden», «Kanal», «Auftrag», «Mannschaft»), the line under it is whose
+ * (`truppSheetSub`: «Keller Laura · Trupp 3»). A field label that repeats the title goes. The
+ * hint under a pad/grid says what a tap does and never repeats a value the grid already marks
+ * (no «Zuletzt 240 bar» beside the ringed 240). A new per-Trupp quick sheet uses `MiniSheet`.
+ */
+
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
