@@ -378,6 +378,7 @@ export const it: Localizable<Copy> = {
           { kind: 'sub', text: 'Tocca e trascina (touch/iPad)' },
           { kind: 'list', items: [
             'Un dito sposta la carta/il piano; due dita zoomano (pinch).',
+            'Anche un dito solo zooma: **doppio tocco** ingrandisce; **toccare, premere di nuovo e trascinare** zooma in modo continuo – verso il basso ingrandisce, verso l’alto riduce. Uguale su carta e piano; mentre è attivo uno strumento di disegno, il piano si zooma solo con due dita.',
             'Toccando di nuovo **Selezione** il pulsante passa a **Multiplo**: un riquadro trascinato seleziona più oggetti; gli oggetti selezionati si spostano trascinando.',
             'Un pulsante che porta solo un segno dice la sua parola se lo **tieni premuto**: dopo un breve istante la parola compare come fumetto sopra di esso, su touch con una breve vibrazione. Rilasciando **non** si attiva il pulsante: chiedere che cosa sia una cosa non deve anche farla. Con il mouse basta passarci sopra.',
           ] },
