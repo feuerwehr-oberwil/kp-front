@@ -101,8 +101,8 @@ const LABEL_STYLE = {
   team: TEAM_LABEL_STYLE,
   /** `.measure-label.draw-label` — mono, never wraps, 2px/7px padding */
   readout: { font: '700 11px "Spline Sans Mono", ui-monospace, monospace', maxTextW: Infinity, chromeW: 14, chromeH: 4, lineH: 13.8 },
-  /** `.line-end-tag` — 2px/6px padding plus a 1.5px border; `inline-grid` stacks the Trupp row */
-  endTag: { font: '800 11px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 15, chromeH: 7, lineH: 11 },
+  /** `.line-end-tag` — 2px/4px padding plus a 1.5px border; `inline-grid` stacks the Trupp row */
+  endTag: { font: '800 11px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 11, chromeH: 7, lineH: 11 },
 } satisfies Record<string, LabelStyle>
 
 /** The end tag's text laid out the way `EndTag` lays it out: the Leitung's own facts on one

@@ -30,7 +30,7 @@ export const lineLabelAction = (truppId: string | undefined, tone: LineTone | un
 /** `.team-dot i` — the dot IS the position, so it is what sits on the coordinate. */
 export const TEAM_DOT_PX = 13
 /** `.team-dot` gap — the distance the name hangs off the dot. */
-export const TEAM_DOT_GAP = 6
+export const TEAM_DOT_GAP = 8
 /** The selected pill's accent cap, centre-to-left-edge: 1px border + 8px padding + half of the
  *  4px cap — so selecting a Trupp swaps the chrome without moving the point it states. */
 export const TEAM_PILL_CAP_PX = 11
@@ -40,9 +40,9 @@ export const TEAM_PILL_CAP_PX = 11
 export const TEAM_LTG_PX = 25
 /** `.team-link` + its gap — the «angedockt» glyph at the right end of the same strip. */
 /** the resting strip's name chip, as the label pass measures it (`.team-dot b` – 700 11px
- *  Sora, 6px padding each side, 15px line). ONE definition: MapView books the box with it and
+ *  Sora, 4px padding each side, 15px line). ONE definition: MapView books the box with it and
  *  MapMarkers centres a docked strip with it, so the two can never disagree. */
-export const TEAM_LABEL_STYLE = { font: '700 11px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 12, chromeH: 2, lineH: 15 }
+export const TEAM_LABEL_STYLE = { font: '700 11px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 8, chromeH: 2, lineH: 15 }
 /** the whole resting strip's width: [dot][gap][name][Ltg] */
 export const teamStripPx = (label: string, hasLtg: boolean): number =>
   TEAM_DOT_PX + TEAM_DOT_GAP + cachedLabelSize(label, TEAM_LABEL_STYLE).w + (hasLtg ? TEAM_LTG_PX : 0)
