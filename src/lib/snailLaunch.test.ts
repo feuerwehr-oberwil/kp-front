@@ -90,6 +90,24 @@ describe('snail launch', () => {
     expect(next.animations.map(a => a.currentTime)).toEqual([2_800, 2_800, 2_800])
   })
 
+  it('takes the clock from the start time, not from a frame that is still overdue', async () => {
+    // `currentTime` stands still between frames; here the last frame is long overdue.
+    const { svg, animation } = boot(400)
+    const shell = { animationName: 'fs-shell', currentTime: 400, startTime: performance.now() - 2_000 }
+    Object.defineProperty(svg, 'getAnimations', { value: vi.fn(() => [animation, shell]) })
+    const { waitForSnailArrival, continueSnailAnimation } = await import('./snailLaunch')
+    const waiting = waitForSnailArrival()
+    await vi.advanceTimersByTimeAsync(16)
+    await waiting
+    expect(vi.getTimerCount()).toBe(0) // no hold: the entrance has long ended
+    const next = reactSvg()
+    continueSnailAnimation(next.svg)
+    for (const { currentTime } of next.animations) {
+      expect(currentTime).toBeGreaterThanOrEqual(2_000)
+      expect(currentTime).toBeLessThan(2_100)
+    }
+  })
+
   it('starts in-workspace loaders at the idle instead of replaying the entrance', async () => {
     const { continueSnailAnimation } = await import('./snailLaunch')
     const { svg, animations } = reactSvg()

@@ -110,7 +110,13 @@ test.describe(() => {
 test.describe('loading snail', () => {
   test.use({ serviceWorkers: 'block' })
 
-  type Launch = { startedAt?: number; finishedAt?: number; arrivalElapsed?: number; replacedAt?: number; reactClock?: number }
+  type Launch = {
+    /** The boot cover's entrance at the moment React removes the cover: its own clock then
+     *  (performance time since the animation's `startTime`), its length and its play state. */
+    handover?: { clock: number; duration: number; playState: string }
+    replacedAt?: number
+    reactClock?: number
+  }
 
   async function prepareLaunch(page: Page, configDelay = 0) {
     await page.emulateMedia({ reducedMotion: 'no-preference' })
@@ -129,13 +135,29 @@ test.describe('loading snail', () => {
     await page.addInitScript(() => {
       const state: Launch = {}
       Object.assign(window, { __snailLaunch: state })
+      // ⚠️ Not `animationend`: WebKit and Chromium dispatch animation events only with a rendering
+      // update. On a loaded runner none came between the entrance's end and React's commit, the
+      // removed cover never got its `animationend`, and this test failed although the entrance
+      // had ended at least 60 ms earlier by its own clock (CI 08.10.2026: replaced at 694 ms, run 37805366133).
+      // So read the entrance's own clock at the very moment React takes the cover out: its first
+      // commit empties #root with `textContent = ''` (react-dom `clearContainer`).
+      const handover = (root: Node) => {
+        const cover = root instanceof Element ? root.querySelector(':scope > .boot-splash') : null
+        const arrival = cover?.querySelector('.firefighter-snail')?.getAnimations()
+          .find(animation => (animation as CSSAnimation).animationName === 'fs-arrival')
+        if (state.handover || !arrival || typeof arrival.startTime !== 'number') return
+        state.handover = {
+          clock: performance.now() - arrival.startTime,
+          duration: Number(arrival.effect?.getComputedTiming().duration),
+          playState: arrival.playState,
+        }
+      }
+      const textContent = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent')!
+      Object.defineProperty(Node.prototype, 'textContent', {
+        ...textContent,
+        set(this: Node, value: string | null) { handover(this); textContent.set!.call(this, value) },
+      })
       let sawBoot = false
-      document.addEventListener('animationstart', event => {
-        if (event.animationName === 'fs-arrival') state.startedAt = performance.now()
-      })
-      document.addEventListener('animationend', event => {
-        if (event.animationName === 'fs-arrival') { state.finishedAt = performance.now(); state.arrivalElapsed = event.elapsedTime }
-      })
       new MutationObserver(() => {
         if (document.querySelector('.boot-splash')) sawBoot = true
         else if (sawBoot && state.replacedAt === undefined) {
@@ -154,16 +176,16 @@ test.describe('loading snail', () => {
     await prepareLaunch(page)
     await page.goto('/')
     await expect.poll(async () => (await observation(page)).replacedAt).toBeDefined()
-    const launch = await observation(page)
-    expect(launch.startedAt).toBeDefined()
-    expect(launch.finishedAt).toBeDefined()
-    expect(launch.replacedAt!).toBeGreaterThanOrEqual(launch.finishedAt!)
-    // The animation's OWN clock says it ran to its end: `animationend` reports the elapsed time
-    // (0.63 s for the whole entrance). The wall clock between the two events is no measure of it —
-    // on a loaded runner `animationstart` arrives a few frames after the animation began, so the
-    // gap read 549–567 ms for a complete 630 ms run (CI, 01.10.2026).
-    expect(launch.arrivalElapsed).toBeGreaterThanOrEqual(0.629)
-    expect(launch.reactClock).toBeGreaterThanOrEqual(630)
+    const { handover, reactClock } = await observation(page)
+    // The entrance ran, on its own clock, to its end (630 ms) before React removed the cover.
+    // Its clock is performance time since the animation's `startTime`: unlike `currentTime`, which
+    // stands still between frames, it is exact at any moment, also when frames are overdue.
+    expect(handover, 'the cover must still carry its started entrance when React removes it').toBeDefined()
+    expect(handover!.duration).toBe(630)
+    expect(['running', 'finished']).toContain(handover!.playState)
+    expect(handover!.clock).toBeGreaterThanOrEqual(handover!.duration)
+    // React's snail continues that same clock instead of replaying (any of) the entrance.
+    expect(reactClock).toBeGreaterThanOrEqual(handover!.clock)
     await expect(page.locator('.boot-splash')).toHaveCount(0)
     await expect(page.locator('.login-state')).toBeVisible()
   })
@@ -172,8 +194,9 @@ test.describe('loading snail', () => {
     await prepareLaunch(page, 2_500)
     await page.goto('/')
     await expect.poll(async () => (await observation(page)).reactClock).toBeGreaterThan(2_000)
-    const launch = await observation(page)
-    expect(launch.replacedAt!).toBeGreaterThanOrEqual(launch.finishedAt!)
+    const { handover, reactClock } = await observation(page)
+    expect(handover!.clock).toBeGreaterThanOrEqual(handover!.duration)
+    expect(reactClock).toBeGreaterThanOrEqual(handover!.clock)
     await expect(page.locator('.login-state')).toBeVisible()
     await expect(page.locator('.boot-splash')).toHaveCount(0)
   })
