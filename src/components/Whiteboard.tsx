@@ -3130,7 +3130,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             ) : blank ? (
               // the «Erstes Plakat» lies ON the paper, under the ink, scaled with it (and passive
               // while a drawing tool is armed, so the pen writes over it)
-              plakat ? <TafelPlakat variant="sheet" data={plakat.plakat} readOnly={readOnly} scale={(sW || PLAKAT_BASE_W) / PLAKAT_BASE_W}
+              plakat ? <TafelPlakat variant="sheet" data={plakat.plakat} readOnly={readOnly} scale={(sW || PLAKAT_BASE_W) / PLAKAT_BASE_W} fitH={sH || undefined}
                 passive={tool !== 'pan' || isPhone} onChange={editPlakat} onRemove={() => void removePlakat()} />
                 : annos.length === 0 && !startShown && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
             ) : (
