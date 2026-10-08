@@ -49,6 +49,9 @@ export interface ReportOptions {
   /** print the Rapport-Beilagen (document/damage photos) as full-width plates at the end */
   attachments: boolean
   detailedAudit: boolean
+  /** the «Auswertung» Beilage — key figures, swimlanes, Lehren (lib/auswertung). Internal: it
+   *  prints on its own landscape sheet at the very end, after everything that gets signed. */
+  auswertung: boolean
 }
 
 export const defaultReportOptions: ReportOptions = {
@@ -84,6 +87,10 @@ export const defaultReportOptions: ReportOptions = {
   pendenzen: true,
   attachments: true,
   detailedAudit: false,
+  // ⚠️ ON for the Rapport (F7, 09.10.2026): the paper the station prints is the Kader's copy, and
+  // the debrief is what that copy is read for afterwards. Its own last sheet, so the signed part
+  // goes out without it. The QR-Erfassung's own PDF switches it off (CaptureApp).
+  auswertung: true,
 }
 
 export interface AuditProof {

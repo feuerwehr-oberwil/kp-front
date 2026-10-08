@@ -31,6 +31,13 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **«Auswertung» – a debrief sheet at the end of the Rapport PDF.** Key figures (Alarm bis 1.
+  Fahrzeug vor Ort, Alarm bis 1. Atemschutz-Eintritt, Funkkontakte eingehalten with the overrun
+  count, längster Atemschutz-Einsatz, Einsatzdauer – each defined in a footnote, «—» when the
+  record does not carry it), a vector swimlane timeline (Fahrzeuge, Trupps with their contacts and
+  fällig/überfällig stretches hatched so they survive a greyscale printer, checklist phases,
+  milestones) and the Lehren. Its own landscape sheet, last, so the signed part goes out without
+  it; ticked by default in the PDF ▾ menu as «Auswertung (intern)». *No action needed.*
 - **Anleitungen – a second kind of checklist, read-only and offline.** A template with
   `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
   «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on

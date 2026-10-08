@@ -6497,6 +6497,7 @@ export function IncidentWorkspace({
           trupps={allTrupps}
           contactIntervalMin={azIntervalMin}
           contactGraceSec={azGraceSec}
+          checklists={checklists}
           plans={planDocs}
           scene={{ entities, drawings, layers: mapLayers, byName: sym.byName, center: incidentView.center, view: { center: view.center, zoom: view.zoom }, captionMode: symbolCaptions ?? 'auto' }}
           board={board}
