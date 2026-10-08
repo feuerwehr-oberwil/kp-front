@@ -1152,7 +1152,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* the tier in a glyph and a word under the clock (B5, 08.10.2026) — fällig / überfällig / Alarmdruck
    no longer ride on colour alone. Inside the clock cell, so the row keeps its lines; shown on every
    width (unlike `.trowSub`), because the phone is where the sun is. */
-.trowTier { display: flex; align-items: center; justify-content: flex-end; gap: 3px; margin-top: var(--sp-1);
+.trowTier { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-1); margin-top: var(--sp-1);
   font-size: var(--fs-1); font-weight: var(--fw-heavy); line-height: 1; white-space: nowrap; color: var(--amber-strong); }
 .trowTier :global(.i) { width: 13px; height: 13px; flex: none; }
 .trowTierCrit { color: var(--red); }
