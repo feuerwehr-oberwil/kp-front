@@ -203,6 +203,7 @@ import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
+import { photoOverlay } from './lib/planProjection'
 import { photoMarker, photoPlacement, rememberPhotoGeo, rowGeoFor, rowPhotoGeo, withResolvedPhotos, type PhotoPlacement } from './lib/photoGeo'
 import { whenIdle } from './lib/idle'
 
@@ -1082,6 +1083,10 @@ export function IncidentWorkspace({
   // depends on it either churns or (the bug this replaced) silently keeps a stale `rows`
   const { swapPhoto, overlaySession: overlayRow, appendPatch: patchRow } = journal
   const timeline = journal.rows
+  /** the map's entities with every placed photo showing its row's CURRENT picture (the upload
+   *  swapped the blob: for the server URL, a reload re-minted the blob) — render only, never
+   *  written back (lib/photoGeo · withResolvedPhotos) */
+  const mapEntities = useMemo(() => withResolvedPhotos(entities, timeline), [entities, timeline])
   const [recent, setRecent] = useState<string[]>(init.recent)
   // most-recently-used symbols (shared by both surfaces' palettes) — newest first, deduped, capped
   const addRecent = (name: string) => setRecent((r) => [name, ...r.filter((x) => x !== name)].slice(0, 12))
@@ -1803,12 +1808,13 @@ export function IncidentWorkspace({
   // slices, so its identity changes iff one of them does — that's what re-fires the save in
   // useIncidentSync (replacing the old slice-keyed persistence effect's dependency array).
   const buildPayload = useCallback((): Saved => {
-    /* ⚠️ A `photo` entity never rides the blob: its `photoUrl` is a session `blob:` URL that
-     * means nothing on another device or after a reload. Nothing places one any more (it is
-     * legacy content), so it is kept on screen for as long as the incident is open and dropped
-     * HERE — at the wire, from the store and from its views together, so the two cannot
-     * disagree about what was saved. */
-    const persisted = objects.filter((o) => o.entity?.kind !== 'photo')
+    /* ⚠️ A LEGACY `photo` entity never rides the blob: its `photoUrl` is a session `blob:` URL
+     * that means nothing on another device or after a reload. It is kept on screen for as long
+     * as the incident is open and dropped HERE — at the wire, from the store and from its views
+     * together, so the two cannot disagree about what was saved. A photo marker placed from a
+     * Verlauf picture (F16) names that picture by row + index (`photoOf`, lib/photoGeo), which
+     * every device can resolve, and is part of the record like any placed object. */
+    const persisted = objects.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
     const views = viewsOf(persisted)
     return {
     objects: persisted,
@@ -2309,6 +2315,15 @@ export function IncidentWorkspace({
     twinLayers, twinLayerOpacity, activePlanId, selectedId, liveVehicles, livePeople, isVisible,
   })
 
+  /** the Karte's photo markers on the active georeferenced sheet — read-only there, a tap opens
+   *  the picture (lib/planProjection · photoOverlay). Nothing on a plan without a georeference. */
+  const planPhotos = useMemo(() => {
+    if (!activeLinkedPlan) return []
+    const plan = planFitsRef.current.get(activeLinkedPlan.id)
+    return plan ? photoOverlay(mapEntities.filter((e) => e.kind === 'photo' && isVisible(e.layer)), plan) : []
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- planFitsRef is read at fitsVersion
+  }, [activeLinkedPlan, mapEntities, isVisible, fitsVersion])
+
   // The journal is append-only: every action pushes a row, and nothing ever edits
   // or removes one — undo/redo log their own lines. So the stream stays a faithful
   // record of what happened across both surfaces (and could back a standalone screen).
@@ -2640,6 +2655,45 @@ export function IncidentWorkspace({
     setJournalOpen(false)
   }
 
+  // --- a Verlauf photo on the Karte (F16, lib/photoGeo) ---------------------------------------
+  // The reference point is the Einsatz's own coordinate; without one, the station's default view
+  // (incidentView.center falls back to it), at the coarser radius.
+  const ownIncidentCoord = incidentMeta.lng != null && incidentMeta.lat != null && (incidentMeta.lng !== 0 || incidentMeta.lat !== 0)
+  type PhotoRow = Pick<TimelineEvent, 'id' | 'photoGeo' | 'photoUrl' | 'photoUrls'>
+  const photoOnMap = (row: PhotoRow, i: number): PhotoPlacement | null =>
+    photoPlacement(row, i, incidentView.center, ownIncidentCoord, doc.entities)
+  /** the pictures of `row` that «Auf Karte setzen» would place — none where the Karte is locked */
+  const placeablePhotos = (row: PhotoRow): number[] => tacticalLocked || replayActive ? []
+    : (row.photoUrls ?? []).flatMap((_, i) => (photoOnMap(row, i)?.kind === 'place' ? [i] : []))
+  /**
+   * Put the pictures of `row` that know their place on the Karte: ONE store step (so ONE ↶
+   * takes them all back, like any placement), one Verlauf row naming it, and the Karte opened
+   * on the first with it selected — its panel IS the picture.
+   */
+  const placePhotos = (row: PhotoRow, only?: number) => {
+    const indices = placeablePhotos(row).filter((i) => only == null || i === only)
+    const made = indices.flatMap((i) => {
+      const geo = rowPhotoGeo(row, i)
+      return geo ? [photoMarker(newId('ph'), row, i, geo, appConfig.defaults.drawingLayerId)] : []
+    })
+    if (!made.length) return
+    const P = appConfig.copy.photoGeo
+    stepLabel.current = P.placedStep
+    commit((d) => ({ ...d, entities: [...d.entities, ...made] }))
+    for (const e of made) emit('entity.add', { id: e.id, kind: 'photo', entity: e })
+    // 'cam' + 'symbol': a Lage row («Kroki»). NOT 'photo' — that glyph and kind are the
+    // composer's own photo entry («Manuell», editable by hand) and the Beilage (lib/report).
+    log('cam', made.length === 1 ? P.logPlaced : fillTemplate(P.logPlacedN, { n: made.length }), 'symbol', undefined, made[0].id)
+    setJournalOpen(false); setMode('map'); setPanel(null)
+    setSelectedDrawingId(null); setSelectedId(made[0].id)
+    flyToMapVisible(made[0].coord, 18.4)
+  }
+  const showPhotoOnMap = (entityId: string) => {
+    const e = doc.entities.find((x) => x.id === entityId); if (!e) return
+    setJournalOpen(false); setMode('map'); setPanel(null)
+    setSelectedDrawingId(null); setSelectedId(entityId); flyToMapVisible(e.coord, 18.4)
+  }
+
   // quick-add a journal entry (text and/or voice memo), optionally pinned to the
   // current view so the row becomes a clickable, located marker.
   const addJournal = (d: JournalDraft) => {
@@ -2741,7 +2795,14 @@ export function IncidentWorkspace({
       // 'bell' for the timed one, the glyph the Erinnerung wears everywhere else it is met (the
       // banner, and the snooze row in the Verlauf). It was 'clock' until 23.08.; on the Verlauf
       // that glyph now means an Anwesenheits-Zeitenzeile and nothing else (lib/report · journalArea).
-      { icon: d.dueAt ? 'bell' : d.pendenz || d.noteFor ? 'circle' : icon, tone: 'success' },
+      {
+        icon: d.dueAt ? 'bell' : d.pendenz || d.noteFor ? 'circle' : icon, tone: 'success',
+        // a picture that knows where it was taken offers its place right here, at the moment it
+        // was taken — the toast is the one thing on screen (lib/photoGeo). Nothing without one.
+        action: placeablePhotos({ id: rowId, photoUrls, photoGeo }).length
+          ? { label: appConfig.copy.photoGeo.place, onClick: () => placePhotos({ id: rowId, photoUrls, photoGeo }) }
+          : undefined,
+      },
     )
   }
 
@@ -4992,7 +5053,7 @@ export function IncidentWorkspace({
       {(sym.ready || sym.error) ? guarded('map', (
         <MapView
           ref={mapRef}
-          entities={entities}
+          entities={mapEntities}
           readOnly={tacticalLocked}
           layers={mapLayers}
           byName={sym.byName}
@@ -5608,7 +5669,7 @@ export function IncidentWorkspace({
       {detailSlotFree && tool === 'select' && selected && selected.kind !== 'shape' && selected.kind !== 'note' && selected.kind !== 'team' && (
         <ContextPanel
           key={selected.id}
-          entity={selected}
+          entity={selected.kind === 'photo' ? withResolvedPhotos([selected], timeline)[0] : selected}
           readOnly={selected.live || tacticalLocked}
           svg={selected.symbolSvg ?? (selected.symbol === appConfig.symbols.vehicleName ? vehicleSymbolSvg(selected.label ?? '', selected.rotation ?? 0) : selected.symbol ? sym.byName[selected.symbol] : undefined)}
           onClose={() => setSelectedId(null)}
@@ -6173,6 +6234,7 @@ export function IncidentWorkspace({
           // and editable only in the one way it is on the Karte — a dropped Fahrzeug is «hier
           // ist es wirklich». Everything else the Karte holds arrives in `annos` as an object.
           live={planLive}
+          photos={planPhotos}
           onPlanLiveMove={tacticalLocked ? undefined : moveLiveOnSheet}
           onPlanProjection={showPlanSourceOnMap}
           /* ⚠️ REPLAY shows the recorded sheet and nothing else. `replayBoard` is the anno list as
@@ -6581,6 +6643,9 @@ export function IncidentWorkspace({
           mediaStatusOf={media.statusOf}
           onOpenPlayer={(e, seekSec) => setPlayer({ row: e, seekSec })}
           onEditText={!readOnly ? (id, text) => journal.appendPatch(id, { textEdit: text }) : undefined}
+          photoPlacement={photoOnMap}
+          onPhotoPlace={!tacticalLocked && !replayActive ? (e) => placePhotos(e) : undefined}
+          onPhotoShow={!replayActive ? showPhotoOnMap : undefined}
         />
       ))}
       {player && (

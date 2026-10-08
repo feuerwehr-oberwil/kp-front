@@ -264,7 +264,7 @@ describe('HEIF', () => {
   it('reads an Exif item past the head with one more targeted slice', async () => {
     const file = heif(tiff({ le: false, gps: OBERWIL }), EXIF_HEAD_BYTES + 10)
     expect(parseExif(file.slice(0, EXIF_HEAD_BYTES))).toBeNull()
-    const m = await readExif(new Blob([file]))
+    const m = await readExif(new Blob([file.buffer as ArrayBuffer]))
     expect(m?.lat).toBeCloseTo(47.513889, 5)
   })
 })
