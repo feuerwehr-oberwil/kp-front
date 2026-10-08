@@ -108,6 +108,8 @@ interface Props {
   variant: 'sheet' | 'list'
   /** sheet only: the scale from the design width onto the board */
   scale?: number
+  /** sheet only: the board's height in px — a Plakat taller than the paper is fitted onto it */
+  fitH?: number
   /** a drawing tool is armed: the poster lets the pen through (sheet only) */
   passive?: boolean
   onChange: (next: PlakatData) => void
@@ -121,8 +123,22 @@ interface Props {
  * persistence and undo). On the tablet it sits ON the Tafel under the ink, scaled with the paper;
  * on a phone it is the same fields in one column.
  */
-export function TafelPlakat({ data, readOnly, variant, scale = 1, passive = false, onChange, onRemove, topInset = 0 }: Props) {
+export function TafelPlakat({ data, readOnly, variant, scale = 1, fitH, passive = false, onChange, onRemove, topInset = 0 }: Props) {
   const p = P()
+  // the poster's own (unscaled) height: a full one may outgrow the A4 sheet, and then it is
+  // fitted onto the paper — like a plan, never running off it (the board zooms it back up)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const [naturalH, setNaturalH] = useState(0)
+  useLayoutEffect(() => {
+    const el = sheetRef.current
+    if (!el) return
+    const measure = () => setNaturalH(el.offsetHeight)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [variant])
   const put = <K extends PlakatListKey>(k: K, id: string, patch: Partial<PlakatRowOf<K>>) => {
     const next = putRow(data, k, id, patch)
     if (next !== data) onChange(next)
@@ -201,6 +217,7 @@ export function TafelPlakat({ data, readOnly, variant, scale = 1, passive = fals
   )
 
   if (variant === 'list') return <div className={cx(s.plakat, s.list)} style={{ paddingTop: topInset }} data-testid="tafel-plakat">{body}</div>
-  const style: CSSProperties = { width: PLAKAT_BASE_W, transform: `scale(${scale})` }
-  return <div className={cx(s.plakat, s.sheet, passive && s.passive)} style={style} data-testid="tafel-plakat">{body}</div>
+  const k = fitH && naturalH * scale > fitH ? fitH / naturalH : scale
+  const style: CSSProperties = { width: PLAKAT_BASE_W, transform: `translateX(${(PLAKAT_BASE_W * (scale - k)) / 2}px) scale(${k})` }
+  return <div ref={sheetRef} className={cx(s.plakat, s.sheet, passive && s.passive)} style={style} data-testid="tafel-plakat">{body}</div>
 }

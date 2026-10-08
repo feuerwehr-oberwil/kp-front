@@ -8,7 +8,7 @@
 .sheet {
   position: absolute; left: 0; top: 0; transform-origin: 0 0;
   box-sizing: border-box; padding: var(--sp-4);
-  display: flex; flex-direction: column; gap: var(--sp-3);
+  display: flex; flex-direction: column; gap: var(--sp-2);
 }
 /* a drawing tool is armed: the pen writes over the poster, nothing on it takes the press */
 .passive, .passive * { pointer-events: none !important; }
@@ -27,9 +27,11 @@
 .head .headEl { flex: 1 1 160px; }
 .headLabel { color: var(--ink-faint); font-size: var(--fs-1); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .04em; }
 .remove { margin-left: auto; color: var(--ink-dim); }
+/* on the sheet the bin keeps its 44 target but does not make the title line taller than its 32 */
+.sheet .remove { margin-block: calc((32px - var(--tap)) / 2); }
 
 .grid {
-  display: grid; gap: var(--sp-3);
+  display: grid; gap: var(--sp-2);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-areas:
     "front ordnung sanitaet"
@@ -48,7 +50,7 @@
 
 .box {
   display: flex; flex-direction: column; gap: 0; min-width: 0;
-  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-surface);
 }
 .h {
