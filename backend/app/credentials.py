@@ -211,6 +211,15 @@ FIELDS: tuple[CredentialField, ...] = (
     CredentialField("sharepoint_export_tenant_id", "sharepoint_export", False, "Azure Tenant-ID (Ablage)"),
     CredentialField("sharepoint_export_client_id", "sharepoint_export", False, "Azure Client-ID (Ablage)"),
     CredentialField("sharepoint_export_client_secret", "sharepoint_export", True, "Azure Client-Secret (Ablage)"),
+    # --- «Mit Microsoft anmelden» (optional, auth/microsoft) --------------------------------
+    # A THIRD app registration: sign-in (delegated `openid profile`), nothing else. Neither
+    # SharePoint registration is reused — those are app-only and must never sign a person in.
+    # The allow-list is readable on purpose: «who may get in this way» is exactly what an admin
+    # has to be able to check on the screen. Format: `identity=username, …` (auth/microsoft).
+    CredentialField("entra_login_tenant_id", "microsoft_login", False, "Azure Tenant-ID (Anmeldung)"),
+    CredentialField("entra_login_client_id", "microsoft_login", False, "Azure Client-ID (Anmeldung)"),
+    CredentialField("entra_login_client_secret", "microsoft_login", True, "Azure Client-Secret (Anmeldung)"),
+    CredentialField("entra_login_accounts", "microsoft_login", False, "Zugelassene Microsoft-Konten"),
 )
 
 BY_NAME: dict[str, CredentialField] = {f.name: f for f in FIELDS}
@@ -593,6 +602,8 @@ def validate(name: str, value: str) -> str:
         "sharepoint_client_id",
         "sharepoint_export_tenant_id",
         "sharepoint_export_client_id",
+        "entra_login_tenant_id",
+        "entra_login_client_id",
     ):
         # Both are GUIDs in the Azure portal. Checked because the alternative failure is a
         # 400 from a token endpoint half an hour later, in a log nobody is reading — and the
@@ -604,6 +615,17 @@ def validate(name: str, value: str) -> str:
                 "Das ist keine GUID. Tenant- und Client-ID stehen im Azure-Portal unter "
                 "«App-Registrierungen › Übersicht» und sehen aus wie "
                 "«00000000-0000-0000-0000-000000000000»."
+            ) from e
+    if name == "entra_login_accounts":
+        from .auth.microsoft import parse_accounts
+
+        try:
+            if not parse_accounts(v):
+                raise ValueError(v)
+        except ValueError as e:
+            raise CredentialRefusedError(
+                "Je Eintrag «Microsoft-Konto=Benutzername», getrennt durch Kommas – z. B. "
+                "«anna.muster@feuerwehr.ch=amuster». Statt der Adresse geht auch die Objekt-ID."
             ) from e
     if name == "object_visits_integration_key" and len(v) < 24:
         # A key an organizer authenticates with over the internet: long enough that guessing it
