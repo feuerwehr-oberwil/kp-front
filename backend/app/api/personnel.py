@@ -480,5 +480,5 @@ async def snapshot_sync(
 
     await load_credentials(db)
     if not roster_snapshot_sync.configured():
-        raise HTTPException(status_code=503, detail="Keine Personenstamm-Quelle eingerichtet")
+        raise HTTPException(status_code=503, detail="Weder Stationsdaten-Index noch Personenstamm-Quelle eingerichtet")
     return await roster_snapshot_sync.run(db, trigger="manual", force=(body or RosterSnapshotSyncBody()).force)

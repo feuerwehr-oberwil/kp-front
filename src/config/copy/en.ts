@@ -1273,6 +1273,7 @@ export const en: Localizable<Copy> = {
     clockFrozen: 'As at the close',
     clockWarn: 'Contact due',
     clockOverdue: 'Overdue',
+    rowDue: 'Due',
     clockAlarmPressure: 'Alarm pressure',
     clockAlarmLimit: 'Limit {bar} bar',
     overdueBadge: (n: number) => `${n} in alarm`,
@@ -4237,6 +4238,10 @@ export const en: Localizable<Copy> = {
       removed: 'Deleted – connection off.',
       failed: 'Action failed',
       groups: {
+        station_index: {
+          title: 'Station data (index)',
+          caption: 'One address for all station data: an index.json (https:// or an absolute path) that lists the roster and further files with checksums (format: docs/station-index.schema.json). If the index lists a roster, it wins; otherwise the roster source below. Empty = off.',
+        },
         roster_snapshot: {
           title: 'Roster file (snapshot)',
           caption: 'Where the brigade publishes its roster as a file (format: docs/roster-snapshot.schema.json) – an https:// address or an absolute path on this server. KP Front reads it hourly and on «Fetch now» under System › Connections. Credentials go in the token, not in the address. Empty = off; Divera and the CSV import are unchanged.',
@@ -5397,6 +5402,9 @@ export const en: Localizable<Copy> = {
       snapUnknownRanks: 'Unknown ranks (imported without a rank): {ranks}',
       snapFileDate: 'File dated: {time}',
       snapStale: 'The file has not been renewed for more than 7 days.',
+      snapViaIndex: 'Through the station data index of {time}.',
+      snapIndexNoRoster: 'The station data index of {time} lists no roster – the direct source was read.',
+      snapIndexNotRead: 'In the index, not read by this version yet: {kinds}.',
       spSources: 'Folders per configuration',
       spSourcesHint: 'Read-only – the folders are set in the brigade’s configuration. How they are laid out is documented with the SharePoint connector.',
       spInterval: 'Sync every {n} min',

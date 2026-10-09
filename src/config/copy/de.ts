@@ -2108,6 +2108,9 @@ export const de = {
     clockFrozen: 'Stand beim Abschluss',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
+    // the phone row's short tier word for its clock glyph (AtemschutzView · tierMark, B5): drawn
+    // as the glyph only since 09.10.2026, so this is the row's aria-label and the glyph's title
+    rowDue: 'Fällig',
     // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
     // Trupp dropped to, not a clock. The word must never read «Überfällig» there – the Verlauf
     // and the Rapport record two different events, and a radio check does not fix this one.
@@ -6497,6 +6500,10 @@ export const de = {
       removed: 'Gelöscht – Anbindung aus.',
       failed: 'Aktion fehlgeschlagen',
       groups: {
+        station_index: {
+          title: 'Stationsdaten (Index)',
+          caption: 'Eine Adresse für alle Stationsdaten: eine index.json (https:// oder absoluter Pfad), die Personenstamm und weitere Dateien mit Prüfsumme aufführt (Format: docs/station-index.schema.json). Führt der Index einen Personenstamm, gilt er; sonst die Personenstamm-Quelle darunter. Leer = aus.',
+        },
         roster_snapshot: {
           title: 'Personenstamm (Snapshot)',
           caption: 'Wo die Wehr ihren Personenstamm als Datei veröffentlicht (Format: docs/roster-snapshot.schema.json) – eine https://-Adresse oder ein absoluter Pfad auf diesem Server. KP Front liest sie stündlich und auf «Jetzt abrufen» unter System › Verbindungen. Zugangsdaten gehören ins Token, nicht in die Adresse. Leer = aus; Divera und CSV-Import bleiben unverändert.',
@@ -7934,6 +7941,9 @@ export const de = {
       snapUnknownRanks: 'Unbekannte Dienstgrade (ohne Grad übernommen): {ranks}',
       snapFileDate: 'Stand der Datei: {time}',
       snapStale: 'Die Datei wurde seit über 7 Tagen nicht mehr erneuert.',
+      snapViaIndex: 'Über den Stationsdaten-Index vom {time}.',
+      snapIndexNoRoster: 'Der Stationsdaten-Index vom {time} führt keinen Personenstamm – gelesen wurde die direkte Quelle.',
+      snapIndexNotRead: 'Im Index, von dieser Version noch nicht gelesen: {kinds}.',
       // ── SharePoint: welche Ordner konfiguriert sind (nur Ansicht) ──
       spSources: 'Ordner laut Konfiguration',
       spSourcesHint: 'Schreibgeschützt – die Ordner stehen in der Konfiguration der Wehr. Wie sie aufgebaut sind, steht in der Dokumentation zur SharePoint-Anbindung.',

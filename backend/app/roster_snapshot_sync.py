@@ -6,9 +6,11 @@ sibling application such as fwo-admin) publishes it as a ``roster-snapshot/1`` f
 ``roster.snapshotIntervalMin`` minutes and on demand («Jetzt abrufen» on System ›
 Verbindungen, ``POST /api/personnel/snapshot/sync``).
 
-**Off unless a source is set.** Nothing happens until the ``roster_snapshot_source``
-credential holds an address or a path (``/admin › Anbindungen``, or ``ROSTER_SNAPSHOT_SOURCE``
-in ``.env``). Divera and the CSV import are untouched by this module and stay the default —
+**Off unless a source is set.** Nothing happens until the ``station_index_source`` credential
+(the station index, app/station_index.py — owner decision X6/X7: one address for all station
+data) or the older ``roster_snapshot_source`` holds an address or a path (``/admin ›
+Anbindungen``, or ``STATION_INDEX_SOURCE`` / ``ROSTER_SNAPSHOT_SOURCE`` in ``.env``). The index
+wins when it lists a roster; the direct source is the fallback (:func:`fetch_roster`). Divera and the CSV import are untouched by this module and stay the default —
 a station can run both, in which case each writes what it carries and the later run wins a
 name (documented in §4c; most stations will run one).
 
@@ -29,12 +31,13 @@ import json
 import logging
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import connector_state
+from . import connector_state, station_index
 from .credentials import get as credential
 from .credentials import load as load_credentials
 from .models import ConnectorState, DeploymentConfig, Incident, Personnel, PersonnelExternalIdentity
@@ -45,7 +48,6 @@ from .roster_snapshot_ingest import (
     LastGood,
     LocalPerson,
     Reconciliation,
-    read_source,
     reconcile,
     refused_outcome,
     status_json,
@@ -59,8 +61,25 @@ TICK_SECONDS = 300
 
 
 def configured() -> bool:
-    """Is a snapshot source set? Synchronous, like every credential reader (load first)."""
-    return bool(credential("roster_snapshot_source"))
+    """Is a roster source set — the station index, or the direct roster file (the fallback)?
+    Synchronous, like every credential reader (load first)."""
+    return bool(credential("station_index_source") or credential("roster_snapshot_source"))
+
+
+async def fetch_roster(
+    *, transport: httpx.AsyncBaseTransport | None = None
+) -> tuple[bytes, Literal["index", "direct"], dict[str, Any] | None]:
+    """The roster bytes and how they were found — through the station index (``station_index_
+    source``), or the direct ``roster_snapshot_source`` as the fallback. The rule is the shared
+    :func:`station_index.read_via_index`, the same in KP Rück."""
+    return await station_index.read_via_index(
+        "roster",
+        index_source=credential("station_index_source") or None,
+        index_token=credential("station_index_token") or None,
+        direct_source=credential("roster_snapshot_source") or None,
+        direct_token=credential("roster_snapshot_token") or None,
+        transport=transport,
+    )
 
 
 async def roster_policy(db: AsyncSession) -> tuple[int, int]:
@@ -153,17 +172,15 @@ async def run(
     -applied plan can never ride out on the back of its own error line.
     """
     await load_credentials(db)
-    source = credential("roster_snapshot_source")
-    if not source:
-        raise ValueError("no roster snapshot source configured")
-    token = credential("roster_snapshot_token") or None
+    if not configured():
+        raise ValueError("no roster source configured")
     _interval, max_pct = await roster_policy(db)
     row = await _row(db)
     previous: dict[str, Any] = dict(row.detail or {}) if row else {}
     last_good = LastGood.from_json(previous.get("lastGood"))
 
     try:
-        raw = await read_source(source, token)
+        raw, via, index_summary = await fetch_roster()
     except ValueError as e:
         await db.rollback()
         status = {
@@ -199,7 +216,11 @@ async def run(
         if rec.refused is None and not rec.unchanged:
             await apply(db, rec, rows)
             applied_at = datetime.now(UTC).isoformat()
-        status = status_json(rec, trigger=trigger, last_good=last_good, applied_at=applied_at)
+        status = {
+            **status_json(rec, trigger=trigger, last_good=last_good, applied_at=applied_at),
+            "via": via,
+            "index": index_summary,
+        }
         await connector_state.record(
             db,
             connector_state.ROSTER_SNAPSHOT,
