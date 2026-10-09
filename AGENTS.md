@@ -162,8 +162,9 @@ to prod.
   German appears there only as domain terms and as «quoted» UI copy. User-facing text is German
   with i18n overlays (above). The gitignored internal station documents under `docs/` are the
   exception and may stay German.
-- **i18n / multilingual copy lives in `src/config/copy/`.** German (`de.ts`) is the canonical
-  base and the source of the `Copy` type; `en.ts` (full) / `fr.ts` / `it.ts` are
+- **i18n / multilingual copy lives in `src/config/copy/`.** German (`de.ts`, assembled from one
+  module per surface in `de/<surface>.ts`) is the canonical base and the source of the `Copy`
+  type; `en.ts` (full) / `fr.ts` / `it.ts` (each split the same way) are
   `Localizable<Copy>` partial overlays **deep-merged over German**, so any missing key falls
   back to the German string – a half-translated locale is always complete. `appConfig.copy` is
   a **getter** returning the active locale's catalogue (`copy/getCopy()`); read sites are
@@ -171,7 +172,7 @@ to prod.
   language), resolved **once at boot** (`/api/config` `identity.locale` → `de-CH`) by
   `applyLocale()` in `main.tsx`. It's set in deployment config (CLI/config file first; admin UI
   can inspect/basic-edit Station › Identität › Sprache), NOT per device. **Add a new string to
-  `de.ts` first** (it defines
+  `de/<surface>.ts` first** (it defines
   the shape); translate in the other locales as desired. Two caveats: (1) module-level captures
   like `const C = appConfig.copy.x` freeze the language at import – read inside the
   component/function instead; (2) a few copy values are structural DATA keys, not labels
