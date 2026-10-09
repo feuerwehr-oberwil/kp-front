@@ -1544,6 +1544,15 @@ export const de = {
     // «Sofortm-assn-ahme» is what an engine without a German dictionary makes of it. The record
     // keeps `entryTypes` — an invisible character has no business in the row's own text.
     entryTypesWrap: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofort­massnahme' } as Record<string, string>,
+    // The Art read off the sentence's first words (lib/journalEntry · readEntryLead), for the
+    // keyboard. ⚠️ Never the bare word — «Auftrag erledigt» is a Meldung. The FIRST lead of each is
+    // what Tab offers at the start of an empty sentence; the others are only recognised.
+    entryLeads: { auftrag: ['Auftrag an', 'Auftrag:'], sofort: ['Sofortmassnahme:', 'Sofort:'] } as Record<string, string[]>,
+    // …the placeholder on a device with a keyboard: what Enter does is the one thing a hardware
+    // keyboard user cannot guess (it used to be Ctrl+Enter, invisible anywhere).
+    textPlaceholderKeys: 'Was ist passiert? «Auftrag an …» · Enter erfasst, Umschalt+Enter neue Zeile',
+    // the saved toast's one-tap answer to an open Auftrag the entry names (reminders · answeredPendenz)
+    answeredDone: 'Erledigt: {text}',
     send: 'Erfassen',
     saved: 'Eintrag erfasst',
     // audio-note transcript editing (Verlauf row)
