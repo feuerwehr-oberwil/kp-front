@@ -116,10 +116,13 @@ export function expectNoClientErrors(reports: ClientErrorReport[], where: string
 }
 
 async function settleClientErrors(sink: ClientErrorSink, testInfo: TestInfo) {
+  let tiles = 0
   for (const { report, isTileBreak } of sink.tileBreaks) {
-    if (isTileBreak()) sink.expected.push({ ...report, excused: 'a basemap tile request failed on this device' })
+    if (isTileBreak()) { tiles++; sink.expected.push({ ...report, excused: 'a basemap tile request failed on this device' }) }
     else sink.reports.push(report)
   }
+  // one line in the run log, so a green run still says the guard let something pass
+  if (tiles) console.warn(`client-error guard: excused ${tiles} broken basemap tile report(s) in «${testInfo.title}» (client-errors-expected.json)`)
   if (sink.expected.length) {
     await testInfo.attach('client-errors-expected.json', { body: JSON.stringify(sink.expected, null, 2), contentType: 'application/json' })
   }
