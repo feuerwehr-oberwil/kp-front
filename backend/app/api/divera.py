@@ -77,6 +77,72 @@ async def webhook(
     return {"ok": True, "new": em is not None, "incident_id": str(inc.id) if inc else None}
 
 
+@router.get("/responses/{incident_id}")
+async def responses(incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> dict:
+    """The Divera Rückmeldungen for one Einsatz — who answered «komme» / «komme nicht».
+
+    Read-only and stored: the server's own poll keeps them (divera · store_responses); this read
+    never calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is
+    one more), the latest answer per person winning — but only alarms of the last
+    :data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is
+    hours over are not «anrückend». ``available: false`` = nothing to show (no Divera alarm, or the
+    poll never saw answers on it — ``reason: no_data``), and the Anwesenheit shows nothing at all.
+
+    Personal data, so: editor-only like the rest of /api/divera (the EL and the editors who mark
+    attendance; a viewer and an Einsatz-Link session are refused), and only for an Einsatz that is
+    still open — an archived one answers ``available: false``. A person comes out only if they
+    are on the Mannschaftsliste, under OUR id; an unknown Divera user is a count, never an id or a
+    note. The answers never enter the
+    workspace, an export or a Rapport, and are cleared after the Einsatz (divera · prune_responses).
+    A Divera answer is not presence — see app/divera_responses.
+    """
+    from datetime import datetime, timedelta
+
+    from ..divera_responses import RESPONSES_MAX_AGE_SECONDS, summarise
+    from ..models import Personnel, PersonnelExternalIdentity
+    from ..personnel import load_divera_response_kinds
+
+    inc = await get_incident_or_404(db, incident_id)
+    if inc.is_archived:
+        return {"available": False, "reason": "closed"}
+    now = datetime.now(UTC)
+    cutoff_ts = int(now.timestamp()) - RESPONSES_MAX_AGE_SECONDS
+    cutoff_dt = now - timedelta(seconds=RESPONSES_MAX_AGE_SECONDS)
+    blobs = (
+        (
+            await db.execute(
+                select(DiveraEmergency.responses_json).where(
+                    DiveraEmergency.taken_incident_id == incident_id,
+                    DiveraEmergency.responses_json.is_not(None),
+                    (DiveraEmergency.ts_create >= cutoff_ts)
+                    | (DiveraEmergency.ts_create.is_(None) & (DiveraEmergency.received_at >= cutoff_dt)),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not blobs:
+        return {"available": False, "reason": "no_data"}
+    identities = await db.execute(
+        select(PersonnelExternalIdentity.external_id, PersonnelExternalIdentity.personnel_id).where(
+            PersonnelExternalIdentity.provider == "divera"
+        )
+    )
+    person_by_ucr = {str(ext): str(pid) for ext, pid in identities.all()}
+    # the deprecated column, for a roster row that predates the identities table
+    legacy = await db.execute(select(Personnel.divera_id, Personnel.id).where(Personnel.divera_id.is_not(None)))
+    for ucr, pid in legacy.all():
+        person_by_ucr.setdefault(str(ucr), str(pid))
+    return summarise(
+        list(blobs),
+        await load_divera_response_kinds(db),
+        person_by_ucr,
+        # belt and braces: CurrentEditor admits no viewer today; the notes stay off if it ever does
+        with_notes=user.role != "viewer",
+    )
+
+
 @router.get("/pool", response_model=list[DiveraEmergencyOut])
 async def pool(_user: CurrentEditor, db: AsyncSession = Depends(get_db)):
     rows = (

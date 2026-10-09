@@ -332,6 +332,11 @@ to prod.
   ([`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)). The closed Einsatz, derived ids for what
   every device observes, and the review regression contracts:
   [`docs/sync-and-offline.md`](docs/sync-and-offline.md).
+- ⚠️ **A Divera answer is never presence** (X1, 08.10.2026). The Anwesenheit's «Anrückend»
+  block lists who answered «komme» / «komme nicht»; a person is anwesend only after the explicit
+  «da» tap. «kommt nicht» is its own muted group with ✕ + the word, never colour alone. The
+  answers are a logged-in read that never enters the workspace, an export or a link:
+  [`docs/divera-connector.md`](docs/divera-connector.md) › Rückmeldungen.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for

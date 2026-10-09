@@ -5076,6 +5076,13 @@ export function IncidentWorkspace({
         // Live crew positions, read next to the name — this is where somebody looks when
         // they want to know where a person is, and where they would pick up the phone.
         incidentId={incidentMeta.id}
+        // «Anrückend»: who answered the Divera alarm. On a station with Divera, while the Einsatz
+        // runs, for the EL and the editors (the read is editor-only), never for a link session or
+        // a replay. NOT gated on `divera_id`: an alarm ATTACHED to a manual Einsatz (api/divera ·
+        // attach) has answers too, and the server's `available: false` renders nothing. Nor on
+        // being online: offline the block keeps the last answers it had.
+        diveraResponsesFor={getDeploymentConfig().integrations?.diveraConfigured && (isEditor || isEl)
+          && running && !replayActive && !linkScoped ? incidentMeta.id : undefined}
         livePositions={livePeople.byPerson}
         incidentCenter={incidentView.center}
         onShowOnMap={(personId) => { setMode('map'); setPanel(null); focusEntity(`pos-${personId}`) }}

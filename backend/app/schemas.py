@@ -1652,6 +1652,12 @@ class RosterConfig(BaseModel):
     #     goes false, and every past Einsatz keeps its names.
     #   "off"            — nothing unattended; «Mannschaft synchronisieren» still works.
     autoSync: Literal["off", "safe", "full"] = "safe"
+    # What each Divera Rückmelde-Status MEANS for the Anwesenheit's «Anrückend» block (Divera
+    # only; see docs/divera-connector.md «Rückmeldungen»). Keyed by the status id («13») or its
+    # name («Komme nicht», case- and accent-insensitive; an id beats a name). Unset statuses are
+    # read off their name — «nicht»/«abwesend» → not_coming, «komme»/«N min» → coming, else other —
+    # so most stations never set this. Only for an Einheit whose words the default misreads.
+    diveraResponses: dict[str, Literal["coming", "not_coming", "other"]] = Field(default_factory=dict)
 
 
 class MittelStockEntry(BaseModel):

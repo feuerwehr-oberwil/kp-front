@@ -3329,6 +3329,68 @@
         }
       }
     },
+    "/api/divera/responses/{incident_id}": {
+      "get": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Responses",
+        "description": "The Divera Rückmeldungen for one Einsatz — who answered «komme» / «komme nicht».\n\nRead-only and stored: the server's own poll keeps them (divera · store_responses); this read\nnever calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is\none more), the latest answer per person winning — but only alarms of the last\n:data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is\nhours over are not «anrückend». ``available: false`` = nothing to show (no Divera alarm, or the\npoll never saw answers on it — ``reason: no_data``), and the Anwesenheit shows nothing at all.\n\nPersonal data, so: editor-only like the rest of /api/divera (the EL and the editors who mark\nattendance; a viewer and an Einsatz-Link session are refused), and only for an Einsatz that is\nstill open — an archived one answers ``available: false``. A person comes out only if they\nare on the Mannschaftsliste, under OUR id; an unknown Divera user is a count, never an id or a\nnote. The answers never enter the\nworkspace, an export or a Rapport, and are cleared after the Einsatz (divera · prune_responses).\nA Divera answer is not presence — see app/divera_responses.",
+        "operationId": "responses_api_divera_responses__incident_id__get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Responses Api Divera Responses  Incident Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/pool": {
       "get": {
         "tags": [
@@ -19449,6 +19511,18 @@
             ],
             "title": "Autosync",
             "default": "safe"
+          },
+          "diveraResponses": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "coming",
+                "not_coming",
+                "other"
+              ]
+            },
+            "type": "object",
+            "title": "Diveraresponses"
           }
         },
         "type": "object",

@@ -21,6 +21,7 @@ station **not** on Divera wires its dispatch up through
 - [Step 4 – what happens when an alarm lands](#step-4--what-happens-when-an-alarm-lands)
 - [Step 5 – the Mannschaft sync and `roster.autoSync`](#step-5--the-mannschaft-sync-and-rosterautosync)
 - [Step 6 – read the health rows](#step-6--read-the-health-rows)
+- [Rückmeldungen – «Anrückend» in the Anwesenheit](#rückmeldungen--anrückend-in-the-anwesenheit)
 - [What the connector will not do](#what-the-connector-will-not-do)
 - [When something is wrong](#when-something-is-wrong)
 
@@ -51,6 +52,7 @@ without the other two, and KP Front tells you which one is missing.
 | **Alarm intake – the primary one** | Divera POSTs each alarm to `/api/divera/webhook` the moment it fires | the webhook secret + a webhook in Divera (Step 3) |
 | **Alarm intake – the fallback** | KP Front polls Divera's `/alarms` every **120 s** and picks up anything it has not seen | the unit accesskey (Step 1) |
 | **Mannschaft** | KP Front reads the members out of Divera nightly and on demand, and derives each person's **Dienstgrad** from their Qualifikationen | the personnel accesskey + `roster.autoSync` (Step 5) |
+| **Rückmeldungen** | the same `/alarms` poll carries who answered «komme» / «komme nicht»; the Anwesenheit shows them as «Anrückend» | nothing extra – the unit accesskey, plus the Mannschaft sync for the names ([Rückmeldungen](#rückmeldungen--anrückend-in-the-anwesenheit)) |
 
 The webhook is the one that matters: it arrives in seconds, the poll arrives in up to two
 minutes. Run both – the poll is what covers the delivery that never arrived, and a station on
@@ -254,12 +256,69 @@ never carries a credential – see the URL warning in Step 1. The same data is s
 
 ---
 
+## Rückmeldungen – «Anrückend» in the Anwesenheit
+
+Since 2026-10-08 the Anwesenheit of an Einsatz with a Divera alarm (opened from it, or with an
+alarm attached to it) starts with an **«Anrückend»** block for the EL and the editors: one line of counts («9 kommen · 2 kommen nicht · 3 da»), then the people who said they
+are coming with their answer time and an estimated arrival, and «kommt nicht» in a group of its
+own – muted, with ✕ and the word on every row. One tap on «da» checks somebody in.
+
+**⚠️ An answer is never presence.** Nobody becomes anwesend because they pressed «komme» in
+Divera: the block lists them, a person on the scene taps «da». Once somebody is recorded they
+leave the block and stand in the list below.
+
+Where the data comes from, so nothing new has to be set up:
+
+- **The answers ride in the alarm poll.** Divera's `GET /api/v2/alarms` already carries, per
+  alarm, `ucr_answered` (status id → user → answer time + free-text note), `ucr_addressed` and
+  `ucr_read`. The poll stores them on the pool row (`divera_emergencies.responses_json`) of every
+  alarm it knows; a poll that saw nothing new writes nothing. For the first **10 minutes after an
+  alarm** the poll keeps its 30 s cadence although an Einsatz now runs – that is when the crew
+  answers – and drops to the running 120 s afterwards (`divera.RESPONSE_WINDOW_SECONDS`).
+  Devices only read what the server stored (`GET /api/divera/responses/{incident}`, every 30 s
+  while the block is on screen); they never make the server call Divera.
+- **The status names come from `/pull/all`**, which the Mannschaft sync fetches anyway; the
+  poll reuses that, and otherwise fetches it at most once every 6 h, only once an alarm has
+  answers to name, or once an answer uses a status id the cached list does not know (at most every
+  15 min, 5 s timeout). A key that cannot read it still stores the answers. They then count as
+  «andere» under «Status 13» until a name arrives, and a name the row already had is kept.
+- **The names of the people are the roster's.** Divera's user id under `ucr_answered` is the id
+  the Mannschaft sync stores as the `divera` external identity, so an answer finds its person on
+  the device. An answer from somebody who is not on the Mannschaftsliste is counted, not named.
+- **The estimated arrival** is the answer time plus the minutes the status promises (Divera's
+  status `time`, «Komme in 10 min»), and it reads «ca. 19:48». Divera has no live ETA; a status
+  without minutes shows no estimate.
+- **What counts as «kommt» / «kommt nicht»** is read off the status name, and a station whose
+  words differ sets `roster.diveraResponses` ([`CONFIGURATION.md` §4a](CONFIGURATION.md#4a-divera--auto-sync)).
+- Several alarms on one Einsatz (a Nachalarm attached to it) are merged; the latest answer per
+  person wins. An alarm counts for **6 hours** (`RESPONSES_MAX_AGE_SECONDS`): a dispatch that
+  is over is not «anrückend», and a Nachalarm the next day does not inherit the night's answers.
+- Somebody already recorded on this Einsatz, whether anwesend or gone again, never stands in
+  «Anrückend» again.
+- **Privacy** ([`PRIVACY.md`](../PRIVACY.md) › Divera answers). The read is editor-only (EL and
+  editors, not viewers and not an Einsatz-Link) and only for an open Einsatz. Only people on the
+  Mannschaftsliste come out, under the station's own id, and everybody else is a count. Of who
+  was alerted and who read the alarm, only the counts are stored. The answers, notes included,
+  are **deleted** when the Einsatz is closed and in any case 48 h after the alarm
+  (`divera.prune_responses`, swept every 10 min). They never enter the workspace, an export or
+  the Rapport.
+
+> ⚠️ **Unverified (08.10.2026):** whether the **unit** accesskey's `/alarms` fills
+> `ucr_answered` for every member or only for what that key «sees». The fields and their shape are
+> taken from Divera's spec and four independent clients; it has not been run against a live
+> Einheit. Check it on a Divera test Einheit before relying on it – never with a production key
+> in a shell. If the block stays at «Noch keine Rückmeldung» while people have answered, this is
+> the reason.
+
+---
+
 ## What the connector will not do
 
 - **It never writes to Divera.** No status, no alarm, no member change – there is no code in KP
   Front that can.
 - **It does not sync vehicles, Status or availability.** Live vehicle positions are Traccar's
-  job, and crew availability is answered in the Einsatz, not pulled.
+  job, and crew availability is answered in the Einsatz, not pulled. The alarm's Rückmeldungen
+  are READ (above) and shown as what they are – an answer, never a check-in.
 - **It does not create logins.** A synced person is a name on the Mannschaft list; who may log in
   is decided under `/admin` → **Mitglieder & Zugriff**, deliberately separately.
 - **It does not alarm.** If Divera is down, KP Front is not a fallback alerting path; an Einsatz

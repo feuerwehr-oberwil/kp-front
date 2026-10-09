@@ -28,3 +28,32 @@ export const takeDiveraAlarm = (diveraId: number) =>
  *  follow to this incident; the incident's own title/location stay untouched. */
 export const attachDiveraAlarm = (diveraId: number, incidentId: string) =>
   apiPost<{ ok: boolean; incident_id: string }>(`/api/divera/pool/${diveraId}/attach/${incidentId}`, {})
+
+/** What a Divera Rückmelde-Status means for the Anwesenheit (backend · divera_responses.classify;
+ *  the station can override it per status in `roster.diveraResponses`). */
+export type DiveraResponseKind = 'coming' | 'not_coming' | 'other'
+export interface DiveraAnswer {
+  /** OUR personnel id — the server maps the Divera user through the `divera` external identity
+   *  and sends only people on the Mannschaftsliste (everybody else is `counts.unmapped`) */
+  person_id: string
+  status_id: number
+  kind: DiveraResponseKind
+  answered_at: string | null
+  /** answer + the status's promised minutes — an ESTIMATE, null when the status promises none */
+  eta: string | null
+  /** Divera's free text («5 min», «Ferien») */
+  note: string
+}
+export interface DiveraResponses {
+  /** false = nothing to show: no Divera answers on this Einsatz (`no_data`), or it is closed */
+  available: boolean
+  reason?: 'no_data' | 'closed'
+  updated_at?: string | null
+  counts?: Record<DiveraResponseKind | 'answered' | 'addressed' | 'unanswered' | 'unmapped' | 'read', number>
+  statuses?: { id: number; name: string; kind: DiveraResponseKind; minutes: number; count: number }[]
+  answers?: DiveraAnswer[]
+}
+/** The stored Divera Rückmeldungen of one Einsatz (editor-only). READ-ONLY: the server's own
+ *  poll keeps them; this never makes the server call Divera. */
+export const getDiveraResponses = (incidentId: string) =>
+  apiGet<DiveraResponses>(`/api/divera/responses/${encodeURIComponent(incidentId)}`)
