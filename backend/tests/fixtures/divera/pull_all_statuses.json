@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "data": {
+    "cluster": {
+      "id": 1234,
+      "name": "Feuerwehr Test",
+      "status": {
+        "11": {"id": 11, "name": "Komme", "color_hex": "2ecc71", "time": 0, "show_on_alarm": true, "sorting": 1, "hidden": false},
+        "12": {"id": 12, "name": "Komme in 10 min", "color_hex": "f1c40f", "time": 10, "show_on_alarm": true, "sorting": 2, "hidden": false},
+        "13": {"id": 13, "name": "Komme nicht", "color_hex": "e74c3c", "time": 0, "show_on_alarm": true, "sorting": 3, "hidden": false},
+        "17": {"id": 17, "name": "Rückruf erbeten", "color_hex": "3498db", "time": 0, "show_on_alarm": true, "sorting": 4, "hidden": false},
+        "20": {"id": 20, "name": "Einsatzbereit", "color_hex": "27ae60", "time": 0, "show_on_alarm": false, "sorting": 5, "hidden": false},
+        "21": {"id": 21, "name": "Nicht einsatzbereit", "color_hex": "c0392b", "time": 0, "show_on_alarm": false, "sorting": 6, "hidden": false}
+      },
+      "statussorting": [11, 12, 13, 17, 20, 21],
+      "statussorting_alarm": [11, 12, 13, 17],
+      "consumer": {
+        "101": {"firstname": "Hans", "lastname": "Muster", "stdformat_name": "Muster, Hans", "qualifications": []},
+        "102": {"firstname": "Anna", "lastname": "Meier", "stdformat_name": "Meier, Anna", "qualifications": []},
+        "103": {"firstname": "Peter", "lastname": "Keller", "stdformat_name": "Keller, Peter", "qualifications": []},
+        "104": {"firstname": "Lea", "lastname": "Huber", "stdformat_name": "Huber, Lea", "qualifications": []},
+        "105": {"firstname": "Marco", "lastname": "Weber", "stdformat_name": "Weber, Marco", "qualifications": []},
+        "106": {"firstname": "Sara", "lastname": "Frei", "stdformat_name": "Frei, Sara", "qualifications": []}
+      }
+    }
+  }
+}

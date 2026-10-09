@@ -5182,6 +5182,26 @@ export const de = {
     viewBands: 'Schichten',
     viewLabel: 'Ansicht',
   },
+  // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
+  // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:
+  // erst «da» erfasst jemanden. «kommt nicht» steht in einer eigenen, gedämpften Gruppe — mit ✕
+  // und dem Wort, nie nur als Farbe.
+  anrueckend: {
+    title: 'Anrückend',
+    sourceBare: 'Divera',
+    coming: (n: number) => (n === 1 ? '1 kommt' : `${n} kommen`),
+    notComing: (n: number) => (n === 1 ? '1 kommt nicht' : `${n} kommen nicht`),
+    here: (n: number) => `${n} da`,
+    notComingGroup: (n: number) => `Kommt nicht (${n})`,
+    notComingWord: 'kommt nicht',
+    checkIn: 'da',
+    checkInLabel: '{name} ist da – als anwesend erfassen',
+    allHere: 'Alle, die kommen wollten, sind erfasst.',
+    unmapped: (n: number) => (n === 1 ? '1 Rückmeldung ohne Eintrag in der Mannschaftsliste' : `${n} Rückmeldungen ohne Eintrag in der Mannschaftsliste`),
+    hint: 'Eine Divera-Antwort ist keine Anwesenheit – erst «da» erfasst jemanden.',
+    collapse: 'Anrückend einklappen',
+    expand: 'Anrückend aufklappen',
+  },
   // Schicht planning – the command form «Zeitplan» (who × time), purely planning: planned bars
   // are hollow, actual Anwesenheit is filled. The plan never writes.
   zeitplan: {

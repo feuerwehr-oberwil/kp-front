@@ -112,6 +112,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `roster.nameOrder` | ✅ | Personen › **Personal** (§4) |
 | `roster.source` | ❌ | **file only** – «Personal» edits the crew and the name order, never where the crew comes from ([`SETUP.md` §4](SETUP.md)) |
 | `roster.autoSync` | ❌ | **file only** – how much the nightly Divera sync may do on its own (§4a) |
+| `roster.diveraResponses` | ❌ | **file only** – what each Divera Rückmelde-Status means for «Anrückend» (§4a) |
 | `roster.ranks` | ✅ | the CSV import's «Grade zuordnen» → `adopt` (§4b) – **and** the Arbeitsmappe (§9h). There is no rank *form* |
 | `mittel.units` | ❌ | **file only** – the Arbeitsmappe does not carry it |
 | `alarmKeywords` | ❌ | **file only** – it is a paste-a-document, not a fill-a-form (§1a) |
@@ -282,6 +283,10 @@ both now have browser pages – §9e and §9f.
                                                   // "safe" (default – joins/renames/Grade, never
                                                   // deactivates), "full" (also deactivates the
                                                   // members who left), "off" – see §4a
+    "diveraResponses": {},                        // Divera Rückmelde-Status → "coming" |
+                                                  // "not_coming" | "other", by id ("13") or name
+                                                  // ("Komme nicht"); "other" = ignored;
+                                                  // unset = read off the name – §4a
     // The station's Dienstgrade, MOST SENIOR FIRST – the order here IS the seniority order.
     // `key` is what a CSV import and a roster snapshot match on (§4b, §4c); `abbr` is the short
     // badge in lists; `tier` drives the «nur Offiziere» picker filter and the Anwesenheit
@@ -926,6 +931,27 @@ so one API hiccup would otherwise empty the Wehr overnight. And a run that fails
 «zuletzt synchronisiert»: the System card shows the last attempt and the last success separately,
 because a green tick standing through a fortnight of refused keys is the failure this connector
 is most likely to have.
+
+**`roster.diveraResponses` – what a Divera answer means** (since 2026-10-08). The Anwesenheit's
+«Anrückend» block sorts the Divera Rückmeldungen into *kommen* / *kommen nicht*; *other* answers
+are ignored
+(docs/divera-connector.md › Rückmeldungen). Divera has no such flag: each Einheit names its own
+statuses, so the default is read off the status **name** – «nicht», «kein», «abwesend»,
+«verhindert» → `not_coming` (checked first: «Komme nicht» also contains «komme»); «komm»,
+«unterwegs», «einsatzbereit», «N min» → `coming`; a status that promises minutes → `coming`;
+anything else → `other`. Only an Einheit whose words the default misreads sets this:
+
+```jsonc
+"roster": {
+  "diveraResponses": {
+    "17": "other",             // by status id (Divera › Verwaltung › Status) – an id beats a name
+    "Bereitschaft": "coming"   // by name, case- and accent-insensitive
+  }
+}
+```
+
+The setting changes only the grouping, of what the poll stores from then on. Nobody is ever
+marked present by an answer.
 
 ### 4b. `"manual"` – CSV import + hand entry
 - Admin imports a CSV and/or adds people in the UI. **CSV columns:**

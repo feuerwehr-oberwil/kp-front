@@ -3129,6 +3129,22 @@ export const en: Localizable<Copy> = {
     presentOnlyOff: 'Whole crew — tap for present only',
     onlyPresent: 'Present only',
   },
+  anrueckend: {
+    title: 'On the way',
+    sourceBare: 'Divera',
+    coming: (n: number) => (n === 1 ? '1 coming' : `${n} coming`),
+    notComing: (n: number) => (n === 1 ? '1 not coming' : `${n} not coming`),
+    here: (n: number) => `${n} here`,
+    notComingGroup: (n: number) => `Not coming (${n})`,
+    notComingWord: 'not coming',
+    checkIn: 'here',
+    checkInLabel: '{name} is here – record as present',
+    allHere: 'Everybody who said they would come is recorded.',
+    unmapped: (n: number) => (n === 1 ? '1 answer from somebody not on the crew list' : `${n} answers from people not on the crew list`),
+    hint: 'A Divera answer is not attendance – only «here» records somebody.',
+    collapse: 'Collapse «On the way»',
+    expand: 'Expand «On the way»',
+  },
   // Shift bands (BandGrid) — the schedule transposed: columns are named windows, not hours.
   schichten: {
     title: 'Shifts',

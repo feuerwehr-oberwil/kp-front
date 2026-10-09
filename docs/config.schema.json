@@ -1761,6 +1761,18 @@
           "title": "Autosync",
           "type": "string"
         },
+        "diveraResponses": {
+          "additionalProperties": {
+            "enum": [
+              "coming",
+              "not_coming",
+              "other"
+            ],
+            "type": "string"
+          },
+          "title": "Diveraresponses",
+          "type": "object"
+        },
         "snapshotIntervalMin": {
           "default": 60,
           "maximum": 1440,
