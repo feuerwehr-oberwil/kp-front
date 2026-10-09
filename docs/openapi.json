@@ -17157,6 +17157,19 @@
             },
             "type": "array",
             "title": "Quickphrases"
+          },
+          "lageRhythmMin": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 120.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lagerhythmmin"
           }
         },
         "type": "object",

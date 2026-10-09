@@ -193,6 +193,57 @@ class TestDueReminders:
         rows = [rem_row("stale", "created", "2026-07-02T12:00:00Z")]
         assert due_reminders(rows, NOW, "2026-07-02T13:00:00+00:00") == []
 
+    def test_retracted_reminder_does_not_fire(self):
+        rows = [
+            rem_row("r1", "created", "2026-07-02T14:00:00Z"),
+            {"id": "p1", "text": "", "patchOf": "row-r1-created", "retracted": True},
+        ]
+        assert due_reminders(rows, NOW, None) == []
+
+    def test_lagemeldung_bookings_supersede_each_other(self):
+        """Only the booking of the newest Lagemeldung row rings (frontend lib/lageRhythm)."""
+
+        def anchor(rid: str, at: str) -> dict:
+            return {"id": rid, "at": at, "text": "Lagemeldung", "lagemeldung": {"v": 1, "mode": "seit", "facts": {}}}
+
+        def booking(rid: str, due: str) -> dict:
+            return {
+                "id": f"row-{rid}",
+                "text": "Nächste Lagemeldung",
+                "reminder": {"op": "created", "id": rid, "dueAt": due, "purpose": "lagemeldung"},
+            }
+
+        rows = [
+            anchor("a1", "2026-07-02T13:00:00Z"),
+            booking("lgm-a1", "2026-07-02T13:20:00Z"),
+            anchor("a2", "2026-07-02T13:30:00Z"),
+            booking("lgm-a2", "2026-07-02T13:50:00Z"),
+        ]
+        assert [r["id"] for r in due_reminders(rows, NOW, None)] == ["lgm-a2"]
+        # the newest Lagemeldung taken back (retracted): its booking goes with it, the old one is back
+        rows.append({"id": "p", "text": "", "patchOf": "a2", "retracted": True})
+        rows.append({"id": "p2", "text": "", "patchOf": "row-lgm-a2", "retracted": True})
+        assert [r["id"] for r in due_reminders(rows, NOW, None)] == ["lgm-a1"]
+        # …and «Rückgängig» on the retraction (a later patch with retracted false) restores it
+        rows.append({"id": "p3", "text": "", "patchOf": "a2", "retracted": False})
+        rows.append({"id": "p4", "text": "", "patchOf": "row-lgm-a2", "retracted": False})
+        assert [r["id"] for r in due_reminders(rows, NOW, None)] == ["lgm-a2"]
+
+    def test_lagemeldung_start_booking_before_any_lagemeldung(self):
+        rows = [
+            {
+                "id": "x",
+                "text": "Lagemeldung",
+                "reminder": {
+                    "op": "created",
+                    "id": "lgm-start",
+                    "dueAt": "2026-07-02T13:00:00Z",
+                    "purpose": "lagemeldung",
+                },
+            }
+        ]
+        assert [r["id"] for r in due_reminders(rows, NOW, None)] == ["lgm-start"]
+
 
 def test_should_send_dedupes_and_renotifies_on_cadence():
     from app.config import settings
