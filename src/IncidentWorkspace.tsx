@@ -72,7 +72,6 @@ import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
-import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -88,11 +87,9 @@ import {
   type IncidentMeta,
   isIncidentRunning,
 } from './lib/incidents'
-import { useExpire } from './lib/useExpire'
 import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
-import { downloadBlob } from './lib/download'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { resolveMapDrawings } from './lib/lineAttachments'
 import { leitungOptions } from './lib/truppLines'
@@ -119,7 +116,7 @@ import type { NoteSize } from './types'
 import { TruppFinder } from './components/TruppFinder'
 import { counterNames, freshTeamLabel, markerOptions, markerSite, teamNoTaken } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
-import { clockRestartRowId, clocksAfterReopen, latestLifecycle } from './lib/reopenClocks'
+import { clockRestartRowId, clocksAfterReopen } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
 import { ghostRevival, ghostTrailLabel, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
@@ -154,6 +151,8 @@ import { ATTENDANCE_RECORDS } from './workspace/recordShapes'
 import { useMapActions } from './workspace/useMapActions'
 import { useRecordSlices } from './workspace/useRecordSlices'
 import { useRosterRoles } from './workspace/useRosterRoles'
+import { useMediaOutbox } from './workspace/useMediaOutbox'
+import { useLifecycleElsewhere } from './workspace/useLifecycleElsewhere'
 
 /** How long an edit has to sit still before it earns a Verlauf row. Long enough that a sentence
  *  being typed is ONE edit, short enough that reading the Verlauf a moment later already shows
@@ -239,8 +238,6 @@ interface WorkspaceProps {
   onOpenCoverDone?: () => void
 }
 
-/** How long the «auf einem anderen Gerät abgeschlossen / wieder geöffnet» row stands (V2). */
-const LIFECYCLE_NOTICE_MS = 120_000
 
 /** One Drehung of the Gebäude is one drag, not forty slider frames — see onReorient. */
 const REORIENT_FOLD_MS = 1500
@@ -1410,54 +1407,13 @@ export function IncidentWorkspace({
   const recordsSyncStatus = combinedSyncStatus(workspaceSyncStatus, journal.syncStatus, auditDelivery.status)
 
   // --- closed (or reopened) on ANOTHER device while open here (N3, staging 25.09.2026) ---------
-  // App flips `incidentMeta` in place when the change is heard (App · onIncidentClosed /
-  // onIncidentReopened) and hands the moment down (`lifecycleElsewhere`); `running` above turns
-  // every writer off — or back on. Left for this mount: say so (one Meldeleiste row, with the
-  // time), hand what is still queued to the server once after a close — so it is refused and
-  // PARKED rather than left pending in a read-only view — and count what was parked, because
-  // «nicht übernommen, aber gesichert» is the other half of the sentence. Once the Einsatz runs
-  // again («Wieder öffnen», here or elsewhere), what was parked is SENT — it prints as Nachträge.
-  const [lifecycleHiddenAt, setLifecycleHiddenAt] = useState<number | null>(null)
-  const [workspaceRefused, setWorkspaceRefused] = useState(() => sync.refusedCount)
-  useEffect(() => sync.subscribeRefused(setWorkspaceRefused), [sync])
-  /** everything the CLOSED Einsatz refused and this device still holds (journal · audit · saves) */
-  const closedRefusedTotal = journal.refusedCount + auditDelivery.closedCount + workspaceRefused
-  useEffect(() => {
-    if (running) return
-    // the journal store drains on its own loop (outboxReadOnly keeps it delivering); these two
-    // wait for their next trigger otherwise. Both are no-ops with nothing queued.
-    void sync.flush()
-    void flushEvents()
-  }, [running, sync, flushEvents])
-  // …and once it RUNS again with anything parked — a reopen seen on screen, or a device opening
-  // an Einsatz that was reopened while it was away — the parked entries are owed again. How many
-  // went is remembered for the reopen's row («werden jetzt nachgesendet»).
-  const [resentOnReopen, setResentOnReopen] = useState(0)
-  const { requeueRefused: requeueJournal } = journal
-  const { requeueClosed: requeueAudit } = auditDelivery
-  useEffect(() => {
-    if (!running || outboxReadOnly || closedRefusedTotal === 0) return
-    const n = closedRefusedTotal
-    void Promise.all([requeueJournal(), requeueAudit(), sync.requeueRefused()]).catch(() => {}).then(() => setResentOnReopen(n))
-  }, [running, outboxReadOnly, closedRefusedTotal, requeueJournal, requeueAudit, sync])
-  /** «Einträge sichern»: everything this device still holds that the server has not taken — owed
-   *  (outbox, rejected) and refused (the closed Einsatz, a role) alike. Exporting acknowledges
-   *  nothing — but it is what lets the sync lamp stop saying «not everything is on the server»
-   *  about entries the closed Einsatz refused (see `syncStatus` below). */
-  const [exportedClosedRefused, setExportedClosedRefused] = useState(0)
-  const exportEntries = useCallback(() => {
-    const data = { ...journal.recoveryData(), audit: auditDelivery.getRecoveryData(), workspaceRefused: sync.refusedRecoveryData() }
-    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)
-    setExportedClosedRefused(closedRefusedTotal)
-  }, [journal, auditDelivery, sync, incidentMeta.id, closedRefusedTotal])
-  // the newest close/reopen boundary in the Verlauf, the server's own rows (lib/reopenClocks) —
-  // the reopen's clock restart keys on it below, and the reopen's row names ITS time (N6)
-  const lifecycleBoundary = useMemo(() => latestLifecycle(journal.rows), [journal.rows])
-  const lifecycleRefused = lifecycleElsewhere?.event === 'closed' ? closedRefusedTotal : resentOnReopen
-  // ⚠️ …and it EXPIRES (V2, staging 25.09.2026): «wieder geöffnet» sat 110 px tall on a 360 phone
-  // until somebody found the ✕. Two minutes, like every notice that only informs — unless it
-  // carries entries this device still holds, whose «Einträge sichern» must not vanish unseen.
-  useExpire(lifecycleElsewhere?.at ?? null, LIFECYCLE_NOTICE_MS, lifecycleRefused > 0, setLifecycleHiddenAt)
+  // what this device still holds, sent again after a reopen (workspace/useLifecycleElsewhere)
+  const {
+    lifecycleHiddenAt, lifecycleBoundary, lifecycleRefused, exportEntries, setLifecycleHiddenAt,
+    closedRefusedTotal, exportedClosedRefused,
+  } = useLifecycleElsewhere({
+    sync, journal, auditDelivery, running, flushEvents, outboxReadOnly, incidentMeta, lifecycleElsewhere,
+  })
   // the row matches the state on screen: a «closed» row never stands over a live Einsatz, nor a
   // «reopened» one over a closed view; a new change shows again after an earlier ✕.
   // ⚠️ Not over the Rapport (V3): the strip lay over its head and the «Einsatzrapport (PDF)»
@@ -1574,47 +1530,15 @@ export function IncidentWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
   }, [])
 
-  // Offline media queue: reattaches queued captures to their rows after a reload, retries on
-  // reconnect, and swaps a row's local blob: URL for the persistent server URL on success.
-  const swapRowMedia = useCallback((rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string) => {
-    // a persistent server URL becomes an appended enrichment patch (the record stays
-    // append-only); a session blob: URL (queue restore) is a display-only overlay
-    if (kind === 'photo') {
-      // photos are a LIST: a queued upload that lands later must replace ITS OWN picture and
-      // leave the row's others alone. The store reads the current list itself — a copy taken
-      // here would be the one from whichever render created this callback (see swapPhoto).
-      swapPhoto(rowId, replaces ?? '', url)
-      return
-    }
-    if (url.startsWith('blob:')) overlayRow(rowId, { audioUrl: url })
-    else patchRow(rowId, { audioUrl: url })
-  }, [swapPhoto, overlayRow, patchRow])
-  const media = useMediaQueue({
-    incidentId: incidentMeta.id, readOnly: !canWriteRecord,
-    onUploaded: swapRowMedia, onRestore: swapRowMedia,
+  // the media queue, the one sync status the badge shows, «Jetzt synchronisieren» and the pre-close
+  // drain (workspace/useMediaOutbox)
+  const {
+    media, flushRecordOutboxes, swapRowMedia, syncStatus, closedRefusedUnexported, baseSyncStatus,
+    syncNow,
+  } = useMediaOutbox({
+    swapPhoto, overlayRow, patchRow, incidentMeta, canWriteRecord, closedRefusedTotal,
+    exportedClosedRefused, recordsSyncStatus, syncWorkspaceNow, journal, auditDelivery, sync, flushEvents,
   })
-  // ⚠️ The media queue is an operational outbox too (23.09.2026): a Foto or Sprachnotiz that has
-  // not reached the server is not saved, and one this device could not even store is `storage`.
-  // It used to be left out, so the badge said «gespeichert» over captures that lived only here.
-  // ⚠️ …and entries the CLOSED Einsatz refused keep the lamp amber (review of #235) until they
-  // are exported or sent after a reopen: not red — nobody can fix them by retrying — but not
-  // «gespeichert» either, because they are on this device only.
-  const closedRefusedUnexported = closedRefusedTotal > exportedClosedRefused
-  const baseSyncStatus = combinedSyncStatus(recordsSyncStatus, media.syncStatus)
-  const syncStatus = closedRefusedUnexported && baseSyncStatus === 'synced' ? 'pending' : baseSyncStatus
-  const syncNow = async () => {
-    await Promise.all([syncWorkspaceNow(), journal.retry(), auditDelivery.retry()])
-    await media.flush({ retry: true }).catch(() => {})
-    if (combinedSyncStatus(sync.syncStatus, journal.getStatus(), auditDelivery.getStatus(), media.getStatus()) !== 'synced') {
-      throw new Error('Operational records have not all been acknowledged')
-    }
-  }
-
-  /** the closing device's own queue, drained before the archive PATCH (useAbschluss) */
-  const { flush: flushJournal } = journal
-  const flushRecordOutboxes = useCallback(async () => {
-    await Promise.all([flushJournal(), flushEvents()]).catch(() => {})
-  }, [flushJournal, flushEvents])
 
   // --- ONE «Einsatz abschliessen» ------------------------------------------------------------
   //
