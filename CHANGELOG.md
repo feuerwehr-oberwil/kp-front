@@ -31,6 +31,17 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Lagemeldung auf Knopfdruck.** A «Lage» chip in the top bar (on a phone: a row in the Einsatz
+  menu) opens a draft Lagemeldung composed from the record – Trupps, map symbols, Verlauf,
+  vehicle times, Pendenzen, the Gebäude registers – in a fixed order (Zuerst · Lage · Menschen ·
+  Gefahren · Massnahmen · Mittel · Bedarf · Nächste), at most about one radio call (60 words).
+  It says what changed since the last one (Neu / Schlechter / Besser / Erledigt), always repeats
+  what is about life (a Trupp in Alarm, Vermisste), and shows everything it left out with the
+  reason. Every line can be ticked off, edited, or added back; «Funkansicht» shows it in big type
+  for the radio. Nothing is written until «Gemeldet», which writes one Verlauf row and books the
+  next Lagemeldung as an ordinary Wiedervorlage (20′ by default, 10/20/30/Übergabe per Einsatz,
+  `journal.lageRhythmMin` per station). The first one comes due 5′ after the first vehicle is
+  vor Ort. Deterministic, no AI (docs/lagemeldung.md). *Nothing to set up.*
 - **«Anrückend» – who answered the Divera alarm, in the Anwesenheit.** An Einsatz with a Divera
   alarm starts its crew list (EL and editors) with one line of counts («9 kommen · 2 kommen nicht
   · 3 da»), the people coming, and «kommt nicht» in a muted group of its own, ✕ and the word on
