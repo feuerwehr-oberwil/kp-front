@@ -402,6 +402,15 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Changed
 
+- **Files shared with KP Rück are checked from both sides.** `shared/MANIFEST.json` lists every
+  file the two products share by copy (telemetry sanitiser, alarm vocabulary, roster contract and
+  reader, alarm intake corpus, loading snail) with its owner and sha256, and replaces the hash
+  literals in the tests. The new CI job «Shared files match KP Rück» runs
+  `scripts/check_shared.py` against kp-rueck's branch of the same name, else its `main`, so an
+  edit to a shared file now goes red in the PR that made it, here as well as there. The script,
+  the manifest and `shared/README.md` (how to change a shared file) are byte-identical in both
+  repositories. *No action needed.*
+
 - **One calmer look across the app** (UI rounds 25.09.–08.10.2026). One corner radius, one light
   message surface for toasts and Meldungen – a failure is a dark pill with a red edge instead of
   a red slab –, heads on one row, slimmer Trupp cards, and one token scale for type, spacing and

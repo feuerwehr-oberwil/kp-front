@@ -246,6 +246,104 @@ describe('JournalComposer · the Art', () => {
   })
 })
 
+describe('JournalComposer · the keyboard (10.10.2026)', () => {
+  const chip = (name: string) => screen.getByRole('button', { name })
+  const field = () => screen.getByRole('textbox')
+
+  it('«Auftrag an …» lights the Auftrag chip and files the sentence without the lead', () => {
+    const { onSubmit } = setup()
+    type('Auftrag an Trupp 2: Frau Weber betreuen')
+    expect(chip('Auftrag').getAttribute('aria-pressed')).toBe('true')
+    send()
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ entryType: 'auftrag', text: 'Trupp 2: Frau Weber betreuen' })
+  })
+
+  it('«Sofort:» lights Sofortmassnahme; deleting the lead goes back to Info', () => {
+    setup()
+    type('Sofort: Rückzug')
+    expect(chip('Sofortmassnahme').getAttribute('aria-pressed')).toBe('true')
+    type('Rückzug')
+    expect(chip('Info').getAttribute('aria-pressed')).toBe('true')
+  })
+
+  // ⚠️ The bare word is news, not a kind of entry.
+  it('leaves «Auftrag erledigt …» an ordinary Meldung', () => {
+    const { onSubmit } = setup()
+    type('Auftrag erledigt, Trupp 2 zurück')
+    expect(chip('Info').getAttribute('aria-pressed')).toBe('true')
+    send()
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ text: 'Auftrag erledigt, Trupp 2 zurück' })
+    expect(onSubmit.mock.calls[0][0].entryType).toBeUndefined()
+  })
+
+  it('a chip tapped after the lead wins, and files the sentence as typed', () => {
+    const { onSubmit } = setup()
+    type('Auftrag an Trupp 2: Lüfter')
+    fireEvent.click(chip('Info'))
+    send()
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ text: 'Auftrag an Trupp 2: Lüfter' })
+    expect(onSubmit.mock.calls[0][0].entryType).toBeUndefined()
+  })
+
+  it('an Auftrag stays open by default, and the ring closes again with the chip', async () => {
+    const { onSubmit } = setup()
+    fireEvent.click(chip('Auftrag'))
+    await waitFor(() => expect(ring().dataset.state).toBe('1'))
+    fireEvent.click(chip('Info'))
+    await waitFor(() => expect(ring().dataset.state).toBe('0'))
+    fireEvent.click(chip('Auftrag'))
+    type('Trupp 2: Lüfter stellen')
+    send()
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ entryType: 'auftrag', pendenz: { urgent: false } })
+  })
+
+  it('a ring set by hand stays when the chip goes back to Info', async () => {
+    setup()
+    type('Werkhof stellt Absperrmaterial')
+    fireEvent.click(await menuRow(/^Neue Pendenz$/))
+    fireEvent.click(chip('Auftrag'))
+    fireEvent.click(chip('Info'))
+    await waitFor(() => expect(ring().dataset.state).toBe('1'))
+  })
+
+  it('Enter files, Umschalt+Enter does not', () => {
+    const { onSubmit } = setup()
+    type('Lüfter im EG gestellt')
+    fireEvent.keyDown(field(), { key: 'Enter', shiftKey: true })
+    expect(onSubmit).not.toHaveBeenCalled()
+    fireEvent.keyDown(field(), { key: 'Enter' })
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  it('an empty lead files nothing', () => {
+    const { onSubmit } = setup()
+    type('Auftrag an ')
+    fireEvent.keyDown(field(), { key: 'Enter' })
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('names the open Auftrag a reply answers, and only for a reply', () => {
+    const vocab = [{ name: 'Trupp 2', kind: 'trupp' as const }]
+    const open = [{ id: 'a2', text: 'Trupp 2: Lüfter stellen', createdAt: '2026-10-10T02:30:00.000Z' }]
+    const first = setup({ vocab, openPendenzen: open })
+    type('Trupp 2: Lüfter steht')
+    send()
+    expect(first.onSubmit.mock.calls[0][0].answers).toEqual({ id: 'a2', text: 'Trupp 2: Lüfter stellen' })
+    cleanup(); clearAllDrafts()
+    const second = setup({ vocab, openPendenzen: open })
+    type('Auftrag an Trupp 2: Lüfter abbauen')
+    send()
+    expect(second.onSubmit.mock.calls[0][0].answers).toBeUndefined()
+  })
+
+  it('Tab completes the lead on the first word only', () => {
+    setup()
+    type('auf')
+    fireEvent.keyDown(field(), { key: 'Tab' })
+    expect((field() as HTMLTextAreaElement).value).toBe('Auftrag an ')
+  })
+})
+
 // ⚠️ There is no «Eintrag · Erinnerung» mode any more: a due time is a property of ANY entry, so
 // «Auftrag erteilt» and «um 22:10 nachfassen» are one row rather than two rows about one thing.
 describe('JournalComposer · the clock', () => {
