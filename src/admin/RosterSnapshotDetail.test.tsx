@@ -81,4 +81,9 @@ describe('RosterSnapshotDetail', () => {
     expect(screen.getByText(fillTemplate(C.snapUnmatched, { n: 1, names: 'Meier Peter' }))).toBeTruthy()
     expect(screen.getByText(fillTemplate(C.snapUnknownRanks, { ranks: 'zgf' }))).toBeTruthy()
   })
+
+  it('names who waits for a running Einsatz before being taken off', () => {
+    render(<RosterSnapshotDetail counts={{ outcome: { created: 0 }, postponed: [{ display_name: 'Keller Urs', reason: 'absent_from_snapshot' }] }} onReload={vi.fn()} />)
+    expect(screen.getByText(fillTemplate(C.snapPostponed, { names: 'Keller Urs' }))).toBeTruthy()
+  })
 })

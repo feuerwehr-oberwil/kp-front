@@ -38,7 +38,14 @@ built on it, at 3am, invisibly. So the rules are written to fail towards «nothi
 * **Never empty the roster.** Even when forced, a run that would leave no active person is
   refused.
 * **Never travel back in time.** A snapshot older than the one already applied is refused — a
-  stale mirror or a cached copy must not undo a newer file.
+  stale mirror or a cached copy must not undo a newer file — and so is one stamped more than
+  ``FUTURE_TOLERANCE_MIN`` in the future, which would otherwise make every later file «older».
+  ``force`` (an admin, by hand) overrides the «older» check, so a wrong last-good can be cleared.
+* **Nobody is taken off while on duty.** A person the app reports busy (checked in to or
+  assigned in an open operation) keeps their place; the deactivation is postponed, reported,
+  and applied by a later run.
+* **Another feed's names are not renamed.** People linked to a provider in ``keep_names_for``
+  (Divera, while its sync runs and owns those names) keep the name they have.
 * **Deactivate, never delete.** Old Einsätze and Rapporte keep resolving the name.
 * **Only people the snapshot owns can be deactivated by absence.** «Absent from a complete
   file» applies only to people carrying THIS provider's identity. Hand-entered people and
@@ -58,7 +65,8 @@ In this order, and the first rule that decides wins:
    the wrong one would be permanent, because the link is what later decides deactivation.
 
 An entry whose identities point at two different local people, or at a person who already holds
-a DIFFERENT id at that provider, is ``conflicting_identity`` and skipped whole. **An existing
+a DIFFERENT id at that provider — also when that person was only found by name — is
+``conflicting_identity`` and skipped whole; it never becomes a second person of the same name. **An existing
 identity link is never overwritten** — not the Divera one, not any other. A person whose id
 changed in the source needs a human, and the outcome report names them.
 
@@ -77,7 +85,7 @@ import hashlib
 import unicodedata
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
@@ -99,6 +107,8 @@ DEFAULT_MAX_DEACTIVATE_PCT = 20
 #: A publisher whose `generated_at` stops moving for this long gets a warning, not a refusal —
 #: the file is still the best roster we have, it is just not getting newer.
 STALE_AFTER_DAYS = 7
+#: How far a publisher's clock may run ahead before its file is refused as «from the future».
+FUTURE_TOLERANCE_MIN = 5
 
 #: How many unmatched people a stored status lists by name (the count is always complete).
 STATUS_UNMATCHED_MAX = 100
@@ -280,6 +290,9 @@ class Reconciliation:
     creates: list[PersonWrite] = field(default_factory=list)
     updates: list[PersonWrite] = field(default_factory=list)
     deactivations: list[Deactivation] = field(default_factory=list)
+    #: deactivations held back because the person is on duty right now (``busy_ids``) — not
+    #: written, not counted against the cap; a later run applies them once the person is free
+    postponed: list[Deactivation] = field(default_factory=list)
     #: refused because it would deactivate too many — releasable with ``force``
     held: bool = False
     #: the same bytes as the last applied snapshot; nothing to do
@@ -366,13 +379,23 @@ def reconcile(
     force: bool = False,
     skip_unchanged: bool = False,
     now: datetime | None = None,
+    busy_ids: Collection[str] = (),
+    keep_names_for: Collection[str] = (),
 ) -> Reconciliation:
     """Decide what one snapshot does to ``people``. Pure; see the module docstring for the rules.
 
     ``known_ranks`` = the rank keys the station defines (None = accept any key). ``force``
-    releases a held run (the deactivation cap), never the other refusals. ``skip_unchanged``
-    returns an ``unchanged`` plan when the bytes equal ``last_good`` — what an unattended poll
-    wants; an on-demand run passes False so a changed rank list is picked up.
+    releases a held run (the deactivation cap) and the «older than applied» guard — the human
+    answer to a last-good that is wrong — never the other refusals. ``skip_unchanged`` returns
+    an ``unchanged`` plan when the bytes equal ``last_good`` — what an unattended poll wants; an
+    on-demand run passes False so a changed rank list is picked up. ``now`` (aware) enables the
+    stale flag and the «generated in the future» refusal.
+
+    ``busy_ids`` are people the app knows are on duty right now (checked in to, or assigned in,
+    an operation that is still open): their deactivation is POSTPONED — listed in ``postponed``
+    and applied by a later run once they are free. ``keep_names_for`` names providers whose
+    linked people keep the names they have: when another feed owns the name (and may match on
+    it), a snapshot must not rename under it.
     """
     raw_bytes = raw.encode("utf-8") if isinstance(raw, str) else raw
     sha = digest(raw_bytes)
@@ -383,13 +406,25 @@ def reconcile(
         return Reconciliation(outcome=_refuse(provider_fallback, str(e)), sha256=sha)
 
     stale = now is not None and (now - snap.generated_at).days >= STALE_AFTER_DAYS
+    if now is not None and snap.generated_at > now + timedelta(minutes=FUTURE_TOLERANCE_MIN):
+        # Accepted once, a future stamp would make every later, correct file «older than the one
+        # applied» — a feed that blocks itself for as long as the publisher's clock was wrong.
+        return Reconciliation(
+            outcome=_refuse(
+                snap.provider,
+                f"generated_at {snap.generated_at.isoformat()} is in the future — check the publisher's clock",
+                generated_at=snap.generated_at,
+            ),
+            snapshot=snap,
+            sha256=sha,
+        )
 
     if last_good is not None and last_good.provider == snap.provider:
         try:
             previous = datetime.fromisoformat(last_good.generated_at)
         except ValueError:
             previous = None
-        if previous is not None and snap.generated_at < previous:
+        if previous is not None and snap.generated_at < previous and not force:
             return Reconciliation(
                 outcome=_refuse(
                     snap.provider,
@@ -459,13 +494,23 @@ def reconcile(
     # Pass 2 — names, for what the keys did not place.
     for entry in pending:
         candidates: dict[str, LocalPerson] = {}
+        conflicted: set[str] = set()
         for key in _entry_names(entry):
             for person in by_name.get(key, []):
-                if provider in person.identities or person.id in claimed or _conflicts(entry, person):
+                if provider in person.identities or person.id in claimed:
+                    continue
+                if _conflicts(entry, person):
+                    # Same name, a DIFFERENT id at a provider the entry lists: a namesake, or an
+                    # id that changed at the source. A human decides — creating a second
+                    # «Muster Hans» is the one answer that is surely wrong.
+                    conflicted.add(person.id)
                     continue
                 candidates[person.id] = person
-        if len(candidates) > 1:
+        if len(candidates) + len(conflicted) > 1:
             _skip(entry, "ambiguous_name")
+            continue
+        if conflicted:
+            _skip(entry, "conflicting_identity")
             continue
         if len(candidates) == 1:
             person = next(iter(candidates.values()))
@@ -509,12 +554,13 @@ def reconcile(
             continue
         matched += 1
         changes: dict[str, str | None] = {}
-        if entry.display_name != target.display_name:
-            changes["display_name"] = entry.display_name
-        if entry.first_name is not None and entry.first_name != target.first_name:
-            changes["first_name"] = entry.first_name
-        if entry.last_name is not None and entry.last_name != target.last_name:
-            changes["last_name"] = entry.last_name
+        if not any(p in target.identities for p in keep_names_for):
+            if entry.display_name != target.display_name:
+                changes["display_name"] = entry.display_name
+            if entry.first_name is not None and entry.first_name != target.first_name:
+                changes["first_name"] = entry.first_name
+            if entry.last_name is not None and entry.last_name != target.last_name:
+                changes["last_name"] = entry.last_name
         if rank is not None and rank != target.rank:
             changes["rank"] = rank
         links = [(p, x) for p, x in _pairs(entry) if p not in target.identities]
@@ -546,6 +592,10 @@ def reconcile(
                 UnmatchedEntry(external_id=own_id, display_name=person.display_name, reason="absent_from_snapshot")
             )
 
+    busy = set(busy_ids)
+    postponed = [d for d in deactivations if d.person_id in busy]
+    deactivations = [d for d in deactivations if d.person_id not in busy]
+
     active_before = sum(1 for p in people if p.active)
     limit = deactivation_limit(active_before, max_deactivate_pct)
     active_after = active_before - len(deactivations) + len(creates) + sum(1 for u in updates if u.reactivate)
@@ -567,6 +617,7 @@ def reconcile(
             sha256=sha,
             stale=stale,
             deactivations=deactivations,
+            postponed=postponed,
             active_before=active_before,
             deactivation_limit=limit,
         )
@@ -582,6 +633,7 @@ def reconcile(
             held=True,
             stale=stale,
             deactivations=deactivations,
+            postponed=postponed,
             active_before=active_before,
             deactivation_limit=limit,
         )
@@ -602,6 +654,7 @@ def reconcile(
         creates=creates,
         updates=updates,
         deactivations=deactivations,
+        postponed=postponed,
         stale=stale,
         active_before=active_before,
         deactivation_limit=limit,
@@ -635,6 +688,7 @@ def status_json(
         "activeBefore": rec.active_before,
         "deactivationLimit": rec.deactivation_limit,
         "pendingDeactivations": len(rec.deactivations) if rec.refused else 0,
+        "postponed": [{"display_name": d.display_name, "reason": d.reason} for d in rec.postponed],
         "lastGood": good.as_json() if good else None,
         "appliedAt": applied_at,
     }

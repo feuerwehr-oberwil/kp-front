@@ -4936,6 +4936,7 @@ export const it: Localizable<Copy> = {
       snapHeldText: '{n} di {total} persone attive verrebbero disattivate (limite {limit}). Nulla è stato modificato – controllare prima il file.',
       snapRelease: 'Applicare le uscite',
       snapHeldWho: 'Interessati: {names}',
+      snapPostponed: 'In attesa della fine dell’intervento (ancora impegnati): {names}',
       snapReleaseQ: 'Disattivare {n} persone?',
       snapRunNow: 'Scarica ora',
       snapRunning: 'Download …',

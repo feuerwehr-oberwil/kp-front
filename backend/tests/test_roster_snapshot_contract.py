@@ -96,9 +96,9 @@ VENDORED = {
 #: file lands the same way in both products), the reference producer and its example input.
 #: Paths are repository-relative and identical on both sides.
 SHARED = {
-    "backend/app/roster_snapshot.py": "ddcfdcacaf0362a111886fc976e29b564227e90c26512a72bea80f5045fa7ed3",
-    "backend/app/roster_snapshot_ingest.py": "597c5d747b33478cd4c3b093ae80bf9da38f0541317e835f7e4423bcb1bda5e2",
-    "scripts/roster_snapshot_from_csv.py": "f3c6dfc9943231b6367aa2664e7bdad4988192fd820352f1e6354013a104fc65",
+    "backend/app/roster_snapshot.py": "864258b878395e09051151fd4d7b5d96c9ae986368f04c5aed943592395452a2",
+    "backend/app/roster_snapshot_ingest.py": "103a12de8b5ecbe7257d8c8203a759a3335d14be8b8efc61882babdc84151e94",
+    "scripts/roster_snapshot_from_csv.py": "fe9c63a4ad66503f09ed3fce12e745e165f549e3418ea5effe7e5837a306e926",
     "docs/roster-snapshot.example.csv": "3addbbc94a755b66c7350d088177ccd2e89d6d888fcd63e87b78b33ccbfeb1f7",
 }
 
@@ -480,6 +480,11 @@ def test_a_document_from_another_contract_version_is_refused():
             id="dupe-identity",
         ),
         pytest.param(lambda d: d.update({"provider": "Musterdorf Personalstamm"}), "not a key", id="provider-shape"),
+        pytest.param(
+            lambda d: d["people"][0]["identities"].append({"provider": d["provider"], "external_id": "x"}),
+            "a second id under the file's own provider cannot be stored",
+            id="own-provider-identity",
+        ),
         pytest.param(lambda d: d.update({"generated_at": "2026-08-02T04:00:00"}), "no offset", id="naive-time"),
         pytest.param(lambda d: d["people"][0].update({"external_id": ""}), "blank key", id="blank-id"),
     ],

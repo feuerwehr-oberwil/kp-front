@@ -262,3 +262,87 @@ def test_the_source_credential_takes_a_url_or_an_absolute_path(value, ok):
     else:
         with pytest.raises(CredentialRefusedError):
             validate("roster_snapshot_source", value)
+
+
+# --- review round (08.10.2026) ------------------------------------------------------------
+
+
+def _ten(source: Path, n: int = 10, *, at: str = "2026-08-02T04:00:00+00:00", keep: int | None = None) -> None:
+    people = [
+        {"external_id": f"p{i}", "display_name": f"Person{i:02d} Vorname", "active": True, "identities": []}
+        for i in range(n)
+    ]
+    listed = people[: keep if keep is not None else n]
+    _write(source, {**EXAMPLE_SNAPSHOT, "people": listed, "count": len(listed), "generated_at": at})
+
+
+async def test_a_run_that_crashes_writes_nothing_and_says_so(db_session, source, monkeypatch):
+    await roster_snapshot_sync.run(db_session, trigger="manual")
+    good = (await _state(db_session)).detail["lastGood"]
+    roster = sorted((p.display_name, p.is_active) for p in await _people(db_session))
+    doc = copy.deepcopy(EXAMPLE_SNAPSHOT)
+    doc["people"][0]["display_name"] = "Muster-Keller Hans"
+    doc["generated_at"] = "2026-08-03T04:00:00+00:00"
+    _write(source, doc)
+
+    async def boom(*args, **kwargs):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(roster_snapshot_sync, "apply", boom)
+    status = await roster_snapshot_sync.run(db_session, trigger="scheduled")
+
+    assert status["outcome"]["refused"].startswith("run failed")
+    state = await _state(db_session)
+    assert state.last_error == "RuntimeError" and state.detail["lastGood"] == good
+    db_session.expire_all()
+    assert sorted((p.display_name, p.is_active) for p in await _people(db_session)) == roster
+
+
+async def test_nobody_on_an_open_einsatz_is_deactivated_until_it_is_archived(db_session, source):
+    from app.models import Incident
+
+    _ten(source)
+    await roster_snapshot_sync.run(db_session, trigger="manual")
+    leaver = next(p for p in await _people(db_session) if p.display_name == "Person09 Vorname")
+    einsatz = Incident(
+        title="Brand", source="manual", map_workspace_json={"attendance": {str(leaver.id): {"present": True}}}
+    )
+    db_session.add(einsatz)
+    await db_session.commit()
+
+    _ten(source, keep=9, at="2026-08-03T04:00:00+00:00")
+    status = await roster_snapshot_sync.run(db_session, trigger="scheduled", skip_unchanged=True)
+    assert status["outcome"]["deactivated"] == 0
+    assert [p["display_name"] for p in status["postponed"]] == ["Person09 Vorname"]
+    await db_session.refresh(leaver)
+    assert leaver.is_active is True
+
+    einsatz.is_archived = True
+    await db_session.commit()
+    # the file has not changed — the postponed person is still picked up
+    status = await roster_snapshot_sync.run(db_session, trigger="scheduled", skip_unchanged=True)
+    assert status["outcome"]["deactivated"] == 1 and status["postponed"] == []
+    await db_session.refresh(leaver)
+    assert leaver.is_active is False
+
+
+async def test_while_divera_syncs_its_people_keep_their_names(db_session, source, monkeypatch):
+    doc = copy.deepcopy(EXAMPLE_SNAPSHOT)
+    doc["people"][0]["identities"] = [{"provider": "divera", "external_id": "4711"}]
+    doc["people"][0]["display_name"] = "Hans Muster"
+    _write(source, doc)
+    hans = Personnel(display_name="Muster Hans", is_active=True)
+    db_session.add(hans)
+    await db_session.flush()
+    db_session.add(PersonnelExternalIdentity(personnel_id=hans.id, provider="divera", external_id="4711"))
+    await db_session.commit()
+    monkeypatch.setenv("DIVERA_ACCESS_KEY", "k")
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "divera_access_key", "k")
+
+    await roster_snapshot_sync.run(db_session, trigger="manual")
+
+    await db_session.refresh(hans)
+    assert hans.display_name == "Muster Hans"  # the Divera sync owns it
+    assert ("Muster Hans", "musterdorf-personalstamm", "pers-0001") in await _identities(db_session)

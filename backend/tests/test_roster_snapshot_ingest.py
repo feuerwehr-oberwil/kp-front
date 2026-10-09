@@ -432,3 +432,77 @@ def test_a_feed_that_stopped_moving_is_flagged_stale_but_still_applied():
     now = datetime(2026, 10, 1, 4, tzinfo=UTC) + timedelta(days=8)
     rec = reconcile(raw, [], known_ranks=RANKS, now=now)
     assert rec.stale and rec.refused is None and rec.outcome.created == 1
+
+
+# --- review round (08.10.2026): the cases a first review found ---------------------------
+
+
+def test_a_namesake_with_a_different_divera_id_is_a_conflict_not_a_second_person():
+    """Local «Muster Hans» is divera:4711, the file's «Muster Hans» says divera:9999. Creating a
+    second Muster Hans was the bug; a human decides which it is."""
+    people = [LocalPerson("1", "Muster Hans", identities={"divera": "4711"})]
+    rec = reconcile(_snapshot([_person("p1", "Muster Hans", divera="9999")]), people, known_ranks=RANKS)
+    assert rec.outcome.created == 0 and not rec.creates and not rec.updates
+    assert [(u.external_id, u.reason) for u in rec.outcome.unmatched] == [("p1", "conflicting_identity")]
+
+
+def test_a_conflicting_and_a_clean_namesake_together_are_ambiguous():
+    people = [LocalPerson("1", "Muster Hans", identities={"divera": "4711"}), LocalPerson("2", "Muster Hans")]
+    rec = reconcile(_snapshot([_person("p1", "Muster Hans", divera="9999")]), people, known_ranks=RANKS)
+    assert [u.reason for u in rec.outcome.unmatched] == ["ambiguous_name"]
+    assert not rec.creates and not rec.updates
+
+
+def test_an_identity_under_the_snapshots_own_provider_is_refused_by_the_contract():
+    """Two ids for one person at one provider cannot be stored (one identity row per provider);
+    it used to crash every run at the write instead of being refused at the door."""
+    rec = reconcile(_snapshot([_person("p1", "Muster Hans", personalstamm="other")]), [], known_ranks=RANKS)
+    assert rec.refused and "own provider" in rec.refused
+    assert not rec.creates
+
+
+def test_a_file_from_the_future_is_refused():
+    now = datetime(2026, 10, 1, 4, tzinfo=UTC)
+    raw = _snapshot([_person("p1", "Muster Hans")], at="2026-10-01T05:00:00+00:00")
+    rec = reconcile(raw, [], known_ranks=RANKS, now=now)
+    assert rec.refused and "future" in rec.refused
+    # a few minutes of clock skew are fine
+    assert reconcile(raw, [], known_ranks=RANKS, now=now + timedelta(minutes=58)).refused is None
+
+
+def test_force_clears_a_last_good_that_blocks_every_newer_file():
+    good = LastGood("personalstamm", "2099-01-01T00:00:00+00:00", "abc", 1)  # written by a wrong clock
+    raw = _snapshot([_person("p1", "Muster Hans")])
+    assert reconcile(raw, [], known_ranks=RANKS, last_good=good).refused
+    rec = reconcile(raw, [], known_ranks=RANKS, last_good=good, force=True)
+    assert rec.refused is None and rec.last_good is not None
+    assert rec.last_good.generated_at.startswith("2026-10-01")
+
+
+def test_somebody_on_duty_is_not_taken_off_until_they_are_free():
+    people = _station(10)
+    listed = [_person(f"p{i}", f"Person{i:02d} Vorname") for i in range(9)]  # p9 left
+    rec = reconcile(_snapshot(listed), people, known_ranks=RANKS, busy_ids={"9"})
+    assert rec.refused is None and rec.deactivations == []
+    assert [d.person_id for d in rec.postponed] == ["9"]
+    assert status_json(rec, trigger="scheduled", last_good=None)["postponed"][0]["display_name"] == "Person09 Vorname"
+    # once free, the same file takes them off
+    later = reconcile(_snapshot(listed), people, known_ranks=RANKS)
+    assert [d.person_id for d in later.deactivations] == ["9"]
+
+
+def test_postponed_people_do_not_count_against_the_cap():
+    people = _station(10)
+    listed = [_person(f"p{i}", f"Person{i:02d} Vorname") for i in range(7)]  # 3 left, limit 2
+    assert reconcile(_snapshot(listed), people, known_ranks=RANKS).held
+    rec = reconcile(_snapshot(listed), people, known_ranks=RANKS, busy_ids={"9"})
+    assert not rec.held and len(rec.deactivations) == 2 and len(rec.postponed) == 1
+
+
+def test_a_name_another_feed_owns_is_not_renamed_and_the_run_stays_idempotent():
+    people = [LocalPerson("1", "Muster Hans", identities={"divera": "4711", "personalstamm": "p1"})]
+    raw = _snapshot([_person("p1", "Hans Muster", divera="4711")])
+    rec = reconcile(raw, people, known_ranks=RANKS, keep_names_for=("divera",))
+    assert rec.updates == []  # nothing to write: the name belongs to the Divera sync
+    renamed = reconcile(raw, people, known_ranks=RANKS)
+    assert renamed.updates[0].fields["display_name"] == "Hans Muster"  # without the rule it would

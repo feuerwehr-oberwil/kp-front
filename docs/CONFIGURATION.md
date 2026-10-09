@@ -1001,20 +1001,28 @@ wins a name, so most stations run one.
    skipped by the scheduled poll; «Jetzt abrufen» always reconciles.
 2. Validate against the contract – including the medical-key guard below. **Any failure – an
    unreachable URL, a 404, a missing file, an invalid or medically-keyed document, a file older
-   than the one already applied – changes nothing**: the roster stays as the last good snapshot
+   than the one already applied or stamped more than 5 minutes in the future, a run that crashes
+   while writing – changes nothing**: the roster stays as the last good snapshot
    left it, and the System card shows the reason next to «Stand der Datei» of that last good one.
 3. Match every person in the file to a local person, in this order: the snapshot's own key
    (`provider` + `external_id`); any identity the entry lists (`divera: 4711` finds the person
    the Divera sync created – **no duplicates, and the Divera link stays**); a name exactly one
    local person carries. Two candidates is `ambiguous_name`, identities pointing at two people –
-   or at a person who already holds a different id at that provider – is `conflicting_identity`;
-   both are skipped and reported. **An existing identity link is never rewritten.**
+   or at a person who already holds a different id at that provider, also one only found by name
+   – is `conflicting_identity`; both are skipped and reported, never created a second time. An
+   entry may not list an identity under the file's own `provider` (its id there is
+   `external_id`) – the contract refuses such a file. **An existing identity link is never rewritten.**
 4. Write: create the new people, update name / first / last / rank (a rank key the station does
    not define is reported, and the stored rank is left alone), attach missing identity links,
    reactivate people the file lists as active. Deactivate people the file lists as inactive and
    – only for `complete: true` – people carrying this provider's key whom the file no longer
    lists. Never anyone else: hand-entered people and people only Divera knows are never touched
-   by absence. **Never deleted**: old Einsätze and Rapporte keep resolving the name.
+   by absence. **Never deleted**: old Einsätze and Rapporte keep resolving the name. **Never
+   mid-Einsatz**: a person mentioned in an Einsatz that is not archived keeps their place; the
+   deactivation is postponed («Wartet auf das Einsatzende») and a later run applies it, even if
+   the file has not changed. **While a Divera key is set**, people linked to Divera keep the
+   name they have – the nightly Divera sync owns those names, and two feeds renaming each other
+   is noise in every list.
 5. **The cap.** A run that would deactivate more than `snapshotMaxDeactivatePct` of the active
    people (at least one is always allowed; `0` = never unattended, `100` = no cap) is **held**:
    nothing at all is written, the System card says «angehalten» with the numbers and lists who
@@ -1025,7 +1033,9 @@ wins a name, so most stations run one.
    has not moved for 7 days is flagged as stale.
 
 On demand: **«Jetzt abrufen»** on that card, or `POST /api/personnel/snapshot/sync`
-(`{"force": true}` releases a held run). Both need the admin session.
+(`{"force": true}` releases a held run, and also overrides the «older than applied» guard – the
+way out when a publisher's wrong clock left a last-good from the future). Both need the admin
+session.
 
 #### Producing the file
 

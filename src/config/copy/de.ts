@@ -7645,6 +7645,7 @@ export const de = {
       snapHeldText: '{n} von {total} aktiven Personen würden deaktiviert (Grenze {limit}). Nichts geändert – bitte zuerst die Datei prüfen.',
       snapRelease: 'Abgänge übernehmen',
       snapHeldWho: 'Betroffen: {names}',
+      snapPostponed: 'Wartet auf das Einsatzende (noch im Einsatz): {names}',
       snapReleaseQ: '{n} Personen deaktivieren?',
       snapRunNow: 'Jetzt abrufen',
       snapRunning: 'Wird abgerufen …',

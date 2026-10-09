@@ -101,6 +101,8 @@ def convert(text: str, *, provider: str, complete: bool = True, now: datetime | 
                 other = key[3:].strip()
                 if not PROVIDER_RE.match(other):
                     raise CsvError(f"column {key!r}: {other!r} is not a provider key")
+                if other == provider:
+                    raise CsvError(f"column {key!r}: that is --provider itself – its id is 'external_id'")
                 identities.append({"provider": other, "external_id": value})
         people.append(
             {

@@ -74,6 +74,7 @@ def test_no_column_outside_the_contract_survives_whatever_it_is_called():
         ("external_id,name,active\np1,Meier Anna,vielleicht\n", "active"),
         ("external_id,name,rank\np1,Meier Anna,Wachtmeister Grad\n", "rank key"),
         ("external_id,name\n", "nobody"),
+        ("external_id,name,id:wehr\np1,Meier Anna,x\n", "--provider itself"),
     ],
 )
 def test_a_broken_spreadsheet_is_refused_with_the_reason(csv, message):

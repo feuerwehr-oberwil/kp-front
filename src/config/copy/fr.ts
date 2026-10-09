@@ -4935,6 +4935,7 @@ export const fr: Localizable<Copy> = {
       snapHeldText: '{n} des {total} personnes actives seraient désactivées (limite {limit}). Rien n’a été modifié – vérifiez d’abord le fichier.',
       snapRelease: 'Appliquer les départs',
       snapHeldWho: 'Concernés : {names}',
+      snapPostponed: 'En attente de la fin de l’intervention (encore engagés) : {names}',
       snapReleaseQ: 'Désactiver {n} personnes ?',
       snapRunNow: 'Récupérer maintenant',
       snapRunning: 'Récupération …',

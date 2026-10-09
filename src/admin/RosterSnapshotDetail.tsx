@@ -14,6 +14,8 @@ export interface RosterSnapshotCounts {
   activeBefore?: number
   deactivationLimit?: number | null
   pendingDeactivations?: number
+  /** deactivations waiting because the person is in a running Einsatz */
+  postponed?: Array<{ display_name: string; reason: string }>
   unmatchedTotal?: number
   lastGood?: { generatedAt: string; count: number } | null
   outcome?: {
@@ -97,6 +99,11 @@ export function RosterSnapshotDetail({ counts, onReload }: {
             names: unmatched.slice(0, NAMES_SHOWN).map((u) => u.display_name).join(', ')
               + (unmatched.length > NAMES_SHOWN || unmatchedTotal > unmatched.length ? ' …' : ''),
           })}
+        </p>
+      )}
+      {(counts?.postponed?.length ?? 0) > 0 && (
+        <p className="adm-card-cap">
+          {fillTemplate(C.snapPostponed, { names: (counts?.postponed ?? []).map((p) => p.display_name).join(', ') })}
         </p>
       )}
       {unknownRanks.length > 0 && (

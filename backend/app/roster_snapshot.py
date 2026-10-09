@@ -356,6 +356,13 @@ class RosterSnapshot(BaseModel):
         pairs: set[tuple[str, str]] = set()
         for person in self.people:
             for identity in person.identities:
+                if identity.provider == self.provider:
+                    # The file's own key IS this provider's id; a second one under the same name
+                    # would be two ids for one person at one provider, which no consumer can store.
+                    raise ValueError(
+                        f"person {person.external_id}: identity provider {identity.provider!r} is the "
+                        f"snapshot's own provider — its id is 'external_id'"
+                    )
                 pair = (identity.provider, identity.external_id)
                 if pair in pairs:
                     raise ValueError(f"two people claim the identity {identity.provider}:{identity.external_id}")

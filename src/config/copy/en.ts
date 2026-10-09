@@ -5132,6 +5132,7 @@ export const en: Localizable<Copy> = {
       snapHeldText: '{n} of {total} active people would be deactivated (limit {limit}). Nothing changed – check the file first.',
       snapRelease: 'Apply departures',
       snapHeldWho: 'Affected: {names}',
+      snapPostponed: 'Waiting for the Einsatz to end (still on it): {names}',
       snapReleaseQ: 'Deactivate {n} people?',
       snapRunNow: 'Fetch now',
       snapRunning: 'Fetching …',

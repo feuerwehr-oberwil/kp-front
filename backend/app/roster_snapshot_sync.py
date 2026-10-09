@@ -25,6 +25,7 @@ deactivated and re-activated, never deleted, and an existing identity link is ne
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -36,7 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import connector_state
 from .credentials import get as credential
 from .credentials import load as load_credentials
-from .models import ConnectorState, DeploymentConfig, Personnel, PersonnelExternalIdentity
+from .models import ConnectorState, DeploymentConfig, Incident, Personnel, PersonnelExternalIdentity
 from .personnel import attach_external_identity, load_roster_ranks
 from .roster_snapshot_ingest import (
     DEFAULT_INTERVAL_MIN,
@@ -187,8 +188,12 @@ async def run(
             max_deactivate_pct=max_pct,
             last_good=last_good,
             force=force,
-            skip_unchanged=skip_unchanged,
+            # A run that postponed somebody must look again even when the file has not moved —
+            # the person it waited for may be free now.
+            skip_unchanged=skip_unchanged and not previous.get("postponed"),
             now=datetime.now(UTC),
+            busy_ids=await busy_person_ids(db, [p.id for p in people]),
+            keep_names_for=names_owned_elsewhere(),
         )
         applied_at = previous.get("appliedAt")
         if rec.refused is None and not rec.unchanged:
@@ -204,10 +209,25 @@ async def run(
         )
         await db.commit()
     except Exception as e:
+        # ⚠️ Rolled back FIRST, then reported like a refused file: nothing was written, the last
+        # good snapshot stands, and the card says why — a run that crashes must not look like
+        # one that never happened (or like the previous success).
         await db.rollback()
         logger.exception("Roster snapshot run failed")
-        await connector_state.record_failure(db, connector_state.ROSTER_SNAPSHOT, e)
-        raise
+        error = connector_state.safe_error(e)
+        status = {
+            **previous,
+            "trigger": trigger,
+            "outcome": refused_outcome(f"run failed: {error}", last_good=last_good).model_dump(
+                mode="json", by_alias=True
+            ),
+            "held": False,
+            "unchanged": False,
+            "pendingDeactivations": 0,
+        }
+        await connector_state.record(db, connector_state.ROSTER_SNAPSHOT, ok=False, error=error, detail=status)
+        await db.commit()
+        return status
     outcome = rec.outcome
     logger.info(
         "Roster snapshot (%s): %s — +%d created, %d updated, %d deactivated, %d unmatched",
@@ -219,6 +239,26 @@ async def run(
         len(outcome.unmatched),
     )
     return status
+
+
+def names_owned_elsewhere() -> tuple[str, ...]:
+    """Providers whose linked people keep their names. While a Divera key is set the nightly
+    Mannschaft sync owns those names; a snapshot renaming them would flip every name twice a day.
+    Without a key the snapshot is the only feed and may rename everybody."""
+    return ("divera",) if (credential("divera_personnel_access_key") or credential("divera_access_key")) else ()
+
+
+async def busy_person_ids(db: AsyncSession, person_ids: list[str]) -> set[str]:
+    """People mentioned in an Einsatz that is still running — their deactivation waits.
+
+    Attendance, Trupps and Funktionen all live in the workspace blob keyed by the person's id, so
+    the id appearing anywhere in an open Einsatz's blob is the test: a UUID does not occur by
+    accident. Few Einsätze are open at once, so reading their blobs is cheap."""
+    if not person_ids:
+        return set()
+    blobs = (await db.execute(select(Incident.map_workspace_json).where(Incident.is_archived.is_(False)))).scalars()
+    text = "\n".join(json.dumps(b) for b in blobs if b)
+    return {pid for pid in person_ids if pid in text}
 
 
 async def due(db: AsyncSession, *, now: datetime | None = None) -> bool:
