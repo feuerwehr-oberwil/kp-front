@@ -46,7 +46,7 @@ pnpm install
 pnpm dev     # Vite dev server on http://localhost:5188 (http origin required, not file://)
 pnpm build   # tsc --noEmit + vite build
 pnpm test    # vitest
-pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when you fix some, never raise it
+pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json); `pnpm lint:update` lowers it
 ```
 
 `just` (no argument) lists the recipes: `just dev` for the full local stack, `just bench` /
@@ -110,6 +110,9 @@ pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when
   plus a GitHub Release whose body is the committed CHANGELOG section. `docker-compose.yml`
   **pulls** that image by default (`KP_FRONT_TAG`); building from source is the commented path.
 - Replace files in place – no `_v2` / `-new` / `-fixed` variants.
+- Scratch scripts are named `.x-*` (git ignores them anywhere; never leave one in `site/`, which
+  is published). New work starts in a worktree off `origin/main`; `just doctor` warns when a
+  checkout is far behind it, `just wt-prune [--apply]` clears finished worktrees (CONTRIBUTING.md).
 - Match the surrounding code's style, naming, and comment density.
 - When writing docs, convert relative dates to absolute.
 - **A new rule goes where the next editor meets it**: a comment at the top of the module (or
@@ -123,11 +126,20 @@ pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when
 frontend has none – so run `pnpm lint && pnpm test` before pushing, since changes go straight
 to prod.
 
-- **Ratchets only go down.** The eslint warning ceiling (`--max-warnings` in `package.json`) and
-  the style-debt baseline (`src/styles/styleDebt.baseline.json`, below) are lowered when you fix
-  something and never raised to pass.
+- **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
+  lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
+  baseline (`src/styles/styleDebt.baseline.json`, below) and the vitest coverage floor are lowered
+  (the floor raised) when you fix something and never moved the other way to pass. The gzipped
+  entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget against
+  `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate growth is an
+  `--update` in its own commit, with the reason.
 - **e2e** runs on the production image in CI (`e2e/README.md`); every spec takes `test` from
   `e2e/helpers`, which fails on a client error or a render storm.
+- **The look is gated too.** CI's «Visual» job shoots nine frozen states and compares them with
+  `e2e/visual/baseline/` (`maxDiffPixels: 20`). A changed pixel you did not mean is a regression;
+  a look you changed on purpose gets new baselines from CI (`just visual-accept <run-id>`) in its
+  own commit, saying why – never to turn the check green, never shot on a laptop
+  ([`docs/testing/visual-regression.md`](docs/testing/visual-regression.md)).
 - **Large / long incidents and performance** are measured, not guessed:
   [`docs/testing/fat-incident.md`](docs/testing/fat-incident.md),
   [`docs/testing/perf-journeys.md`](docs/testing/perf-journeys.md).
@@ -294,6 +306,12 @@ to prod.
   ([`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)). The closed Einsatz, derived ids for what
   every device observes, and the review regression contracts:
   [`docs/sync-and-offline.md`](docs/sync-and-offline.md).
+- ⚠️ **A Divera answer is never presence** (X1, 08.10.2026). The Anwesenheit's «Anrückend»
+  block lists who answered «komme» / «komme nicht» — yes / no and names only, nothing else
+  stored; a person is anwesend only after the explicit «da» tap. «kommt nicht» is its own muted
+  group with ✕ + the word, never colour alone. The answers are an editor-only read that never
+  enters the workspace, an export or a link:
+  [`docs/divera-connector.md`](docs/divera-connector.md) › Rückmeldungen.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for

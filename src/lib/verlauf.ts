@@ -1,5 +1,5 @@
 import { appConfig } from '../config/appConfig'
-import { formatTime } from './format'
+import { formatTime, formatLocale } from './format'
 import type { JournalEntryType, TimelineEvent } from '../types'
 
 /**
@@ -55,7 +55,7 @@ export function groupByDay(events: readonly TimelineEvent[], now: Date = new Dat
         label:
           k === todayKey
             ? null
-            : (d ?? now).toLocaleDateString(appConfig.locale, {
+            : (d ?? now).toLocaleDateString(formatLocale(), {
                 weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
               }),
         events: [],

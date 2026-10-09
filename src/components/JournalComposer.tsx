@@ -7,10 +7,11 @@ import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { fillTemplate, formatTime, hhmm, pad2, stripUnprintable } from '../lib/format'
+import { fillTemplate, formatTime, hhmm, pad2, stripUnprintable, formatLocale } from '../lib/format'
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import { forgetLocalThumb, mintLocalThumb, thumbUrl } from '../lib/mediaUrl'
+import { forgetPhotoGeo, rememberPhotoGeo } from '../lib/photoGeo'
 import {
   MAX_AUDIO_UPLOAD_MB,
   MAX_FILE_UPLOAD_MB,
@@ -133,7 +134,7 @@ function dayLabel(day: string): string {
   const C = appConfig.copy.journal
   const diff = Math.round((date.getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / 86_400_000)
   const rel = diff === 0 ? C.dayToday : diff === 1 ? C.dayTomorrow : null
-  const stamp = date.toLocaleDateString(appConfig.locale, { weekday: 'short', day: '2-digit', month: '2-digit' })
+  const stamp = date.toLocaleDateString(formatLocale(), { weekday: 'short', day: '2-digit', month: '2-digit' })
   return rel ? `${rel} · ${stamp}` : stamp
 }
 
@@ -329,6 +330,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     const urls = picked.map((f) => URL.createObjectURL(f))
     setPhotos((ps) => [...ps, ...urls])
     picked.forEach((f, i) => void mintLocalThumb(urls[i], f).then(() => { if (alive.current) setThumbNonce((n) => n + 1) }))
+    // where each was taken, read off the ORIGINAL file now — the upload re-encodes it through a
+    // canvas, which keeps no metadata (lib/photoGeo). The row picks it up when it is saved.
+    picked.forEach((f, i) => void rememberPhotoGeo(urls[i], f))
   }
   // …and one write per change. Cheap enough (draftKeep), and it is the only thing that has to
   // stay in step with the five states above.
@@ -617,6 +621,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   }
   const discardPhoto = (url: string) => {
     forgetLocalThumb(url)
+    forgetPhotoGeo(url)
     URL.revokeObjectURL(url)
     setPhotos((ps) => ps.filter((p) => p !== url))
   }

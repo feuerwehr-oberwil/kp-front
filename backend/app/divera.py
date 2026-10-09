@@ -36,6 +36,7 @@ from .alarm_keywords import SHIPPED, InvalidVocabularyError, Vocabulary, parse
 from .config import settings
 from .credentials import get as credential
 from .database import dialect_insert
+from .divera_responses import cached_catalogue, classify_answers, ensure_catalogue, parse_responses_by_alarm, resolvable
 from .models import DiveraEmergency, Incident
 from .push import notify_new_alarm
 from .schemas import DiveraWebhookPayload
@@ -356,6 +357,61 @@ async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | N
     return await open_emergency(db, em)
 
 
+#: How long after a Divera alarm the poll keeps its fast (idle) cadence although an Einsatz now
+#: runs: the crew answers «komme» / «komme nicht» in the first minutes, and at the running
+#: cadence (120 s) the Anwesenheit's «Anrückend» would trail them by up to two minutes. Ten
+#: minutes at 30 s instead of 120 s is ≤ 15 extra calls per alarm, from the server alone — the
+#: devices still only read. After it, the running cadence applies as before.
+RESPONSE_WINDOW_SECONDS = 10 * 60
+
+
+async def response_window_open(db: AsyncSession, now: datetime) -> bool:
+    """A Divera alarm went out within :data:`RESPONSE_WINDOW_SECONDS` — answers are arriving."""
+    cutoff = int(now.timestamp()) - RESPONSE_WINDOW_SECONDS
+    n = (
+        await db.execute(select(func.count()).select_from(DiveraEmergency).where(DiveraEmergency.ts_create >= cutoff))
+    ).scalar_one()
+    return bool(n)
+
+
+async def prune_responses(db: AsyncSession, now: datetime) -> int:
+    """Clear stored Rückmeldungen nobody may read any more. Returns rows cleared.
+
+    The answers say who said they would come to THIS Einsatz, and exist for that one purpose. So they go once the Einsatz is no longer open (closed, archived, or
+    the incident deleted and the link nulled), and in any case
+    :data:`divera_responses.RESPONSES_RETENTION_SECONDS` after the alarm (PRIVACY.md). The pool
+    row itself — the alarm — stays: that is the intake history, and it is not personal.
+    """
+    from sqlalchemy import null, or_, update
+
+    from .divera_responses import RESPONSES_RETENTION_SECONDS
+    from .models import INCIDENT_ACTIVE_STATUSES
+
+    cutoff_ts = int(now.timestamp()) - RESPONSES_RETENTION_SECONDS
+    cutoff_dt = now - timedelta(seconds=RESPONSES_RETENTION_SECONDS)
+    open_incidents = select(Incident.id).where(
+        Incident.is_archived.is_(False), Incident.status.in_(INCIDENT_ACTIVE_STATUSES)
+    )
+    result = await db.execute(
+        update(DiveraEmergency)
+        .where(
+            DiveraEmergency.responses_json.is_not(None),
+            or_(
+                DiveraEmergency.ts_create < cutoff_ts,
+                DiveraEmergency.ts_create.is_(None) & (DiveraEmergency.received_at < cutoff_dt),
+                DiveraEmergency.taken_incident_id.is_(None) & DiveraEmergency.is_taken.is_(True),
+                DiveraEmergency.taken_incident_id.is_not(None)
+                & DiveraEmergency.taken_incident_id.not_in(open_incidents),
+            ),
+        )
+        # null(), not None: a JSON column renders a Python None as the JSON value 'null'
+        .values(responses_json=null(), responses_at=None)
+        .execution_options(synchronize_session=False)
+    )
+    # an UPDATE's result is a CursorResult; the plain Result type mypy sees has no rowcount
+    return int(getattr(result, "rowcount", 0) or 0)
+
+
 class DiveraApiError(Exception):
     """A Divera call failed, described WITHOUT the request URL.
 
@@ -409,6 +465,12 @@ async def fetch_and_upsert(db: AsyncSession) -> int:
         r = await client.get(url, params={"accesskey": credential("divera_access_key")})
         check_response(r)
         data = r.json()
+    # The Rückmeldungen ride in this same response. Their status NAMES come from /pull/all, and
+    # that fetch (≤ once per 6 h) happens HERE — before the upserts take their per-alarm locks,
+    # never while holding them.
+    responses = parse_responses_by_alarm(data)
+    used = {sid for answers in responses.values() for sid in answers.values()}
+    catalogue = await ensure_catalogue(used) if used else cached_catalogue()
     new = 0
     for alarm in parse_alarms_response(data)[: settings.divera_poll_max_alarms]:
         em = await upsert_emergency(db, alarm)
@@ -422,4 +484,65 @@ async def fetch_and_upsert(db: AsyncSession) -> int:
                 address=alarm.address,
                 target=None if inc else "divera",
             )
+    await store_responses(db, responses, catalogue)
     return new
+
+
+async def person_by_ucr(db: AsyncSession) -> dict[str, str]:
+    """Divera user id → our personnel id, through the ``divera`` external identity the Mannschaft
+    sync stores (and the deprecated ``personnel.divera_id`` for rows older than that table)."""
+    from .models import Personnel, PersonnelExternalIdentity
+
+    rows = await db.execute(
+        select(PersonnelExternalIdentity.external_id, PersonnelExternalIdentity.personnel_id).where(
+            PersonnelExternalIdentity.provider == "divera"
+        )
+    )
+    out = {str(ext): str(pid) for ext, pid in rows.all()}
+    legacy = await db.execute(select(Personnel.divera_id, Personnel.id).where(Personnel.divera_id.is_not(None)))
+    for ucr, pid in legacy.all():
+        out.setdefault(str(ucr), str(pid))
+    return out
+
+
+async def store_responses(db: AsyncSession, responses: dict[int, dict[str, str]], catalogue: dict | None) -> int:
+    """Record each known alarm's yes/no (app/divera_responses). Returns rows changed.
+
+    Only alarms already in the pool are touched — an answer to an alarm this station never took
+    in has nowhere to be shown. A poll that saw nothing new writes nothing. An answer whose status
+    nobody can classify yet (the names list not loaded) leaves what was stored before. Never
+    raises: the answers are a convenience on top of the alarm intake, and must not be able to
+    fail it.
+    """
+    if not responses:
+        return 0
+    from .personnel import load_divera_response_kinds
+
+    try:
+        # a SAVEPOINT: a failure here rolls back the answers only, never the alarms upserted above
+        async with db.begin_nested():
+            rows = (
+                (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id.in_(list(responses)))))
+                .scalars()
+                .all()
+            )
+            if not rows:
+                return 0
+            overrides = await load_divera_response_kinds(db)
+            roster = await person_by_ucr(db)
+            now = datetime.now(UTC)
+            changed = 0
+            for em in rows:
+                answers = responses[em.divera_id]
+                if em.responses_json is not None and not resolvable(answers, catalogue, overrides):
+                    continue
+                blob = classify_answers(answers, catalogue, overrides, roster)
+                if blob == em.responses_json:
+                    continue
+                em.responses_json = blob
+                em.responses_at = now
+                changed += 1
+        return changed
+    except Exception:  # noqa: BLE001 — see the docstring
+        logger.warning("Storing Divera Rückmeldungen failed", exc_info=True)
+        return 0

@@ -320,7 +320,7 @@ export const de = {
             '**Zugesagt** (voll) oder **Vorschlag** (hohl) – der Unterschied zwischen «kommt» und «könnte».',
             'Der **Zeitraum** oben bestimmt, wie viele Stunden auf einmal zu sehen sind.',
             'In **Schichten** werden dieselben Fenster zu benannten Bändern gruppiert («Nacht 22–06»): ein Band anzulegen schreibt keine Schicht, und eine gelöschte Zeile löscht keine Verfügbarkeit.',
-            'Beide Ansichten drucken: über das **Drucker-Menü** in der Kopfzeile – **Schichtplan** oder **Verfügbarkeiten**, als PDF oder direkt auf den Stationsdrucker.',
+            'Beide Ansichten drucken: über das **Drucker-Menü** in der Kopfzeile – **Schichtplan** oder **Verfügbarkeiten**, als PDF.',
           ] },
         ],
       },
@@ -383,7 +383,6 @@ export const de = {
             'Unter dem Titel steht, was erfasst ist – und als eigene Chips, was **noch offen** ist: Zeiten, Anwesenheit, Material, Einsatzleiter, Kurzbericht, Rückmeldung ELZ. Nichts davon blockiert je den Druck.',
             'Der **Kroki-Ausschnitt** liegt als Feld neben dem Formular: verschieben, zoomen, **Hoch/Quer** und der **Kroki-Stand** – welchen Zeitpunkt das Bild zeigt, mit Strichen dort, wo etwas passiert ist. Gedruckt wird genau das, was auf dem Schirm steht; es gibt keinen Bestätigungsschritt.',
             '**Einsatzrapport (PDF)** erzeugt den fertigen Rapport – serverseitig gerendert, ein Knopf. Das **▾** daneben öffnet **«Abschnitte»**: was aufs Papier kommt (Kroki, Pläne, Atemschutz, Anwesenheit, Material, Verlauf, Fotos, detaillierter Prüfnachweis). Das Menü bleibt beim Anhaken offen.',
-            'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** reiht den Rapport dort ein. Eingereiht ist nicht gedruckt – solange der Auftrag hängt, steht er als **offener Druckauftrag** unter dem Rapportkopf, mit **Prüfen** und **Abbrechen**. Erst wenn der Drucker «gedruckt» meldet, gilt der Rapport als erstellt.',
             'Hat die Wehr eigene Formulare hinterlegt (Verwaltung › Rapport), steht unter den Fotos **Formulare & Links** – eine Liste zum Abhaken. **Öffnen** ruft das Formular auf, mit Stichwort, Ort, Datum und Einsatzleiter bereits ausgefüllt, soweit der Link das vorsieht. Der Haken wird von Hand gesetzt: ob ein Formular abgeschickt wurde, sieht die App nicht.',
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
             'Kontaktperson und Rückmeldung ELZ haben am Ende der Zeile ein **Entfällt** – für den Fehlalarm oder die Ölspur, wo es beides nicht gibt. Das ist eine Antwort, keine Übergehung: sie wird festgehalten und steht so im Rapport.',
@@ -3196,6 +3195,10 @@ export const de = {
     ergTable3: 'siehe ERG Tabelle 3 (Behälter/Wind)',
     ergDayShort: 'Tag',
     ergNightShort: 'Nacht',
+    // why the ring on the Karte uses the day or the night distance (lib/ergRings · ergDayNote):
+    // the sun at the placard, «Nacht · Sonnenuntergang 16:42»
+    ergSunrise: 'Sonnenaufgang {t}',
+    ergSunset: 'Sonnenuntergang {t}',
     // The Schutzabstand rings on the Karte (lib/ergRings, Feldtest Manuel 07.09.): the
     // control sits under the distances it draws, and the ergSource caveat covers both.
     // Andocken (lib/docking): the panel row that makes the invisible bond visible
@@ -3451,6 +3454,17 @@ export const de = {
     // status 0 on the roster: the shared «Gespeicherte Einsätze bleiben offline verfügbar» is
     // not true from HERE — a device that reaches the login screen is not signed in any more
     offlineHint: 'Ohne Verbindung ist keine Anmeldung möglich. Gespeicherte Einsätze öffnen sich nur, wenn dieses Gerät noch angemeldet war.',
+    // optional second door onto the SAME accounts (backend auth/microsoft) — only drawn when the
+    // station set it up; the PIN tiles above stay the way in at the Schadenplatz
+    microsoft: 'Mit Microsoft anmelden',
+    // ?msLogin=<reason> on the way back from Microsoft
+    microsoftErrors: {
+      cancelled: 'Microsoft-Anmeldung abgebrochen.',
+      expired: 'Die Microsoft-Anmeldung hat zu lange gedauert. Bitte nochmals.',
+      failed: 'Microsoft-Anmeldung fehlgeschlagen. Bitte nochmals oder mit PIN anmelden.',
+      unknown: 'Dieses Microsoft-Konto ist für KP Front nicht freigeschaltet. Bitte mit PIN anmelden oder den Admin fragen.',
+      inactive: 'Das zugehörige Konto ist deaktiviert. Bitte den Admin fragen.',
+    },
   },
   // boot Splash: shown while the /me probe, the incident list or a lazy chunk settles. If a
   // stage takes unusually long the splash grows a status line + an action, so a stalled launch
@@ -3597,6 +3611,25 @@ export const de = {
   photoViewer: {
     title: 'Foto',
     download: 'Herunterladen',
+  },
+  // a Verlauf photo that knows where it was taken (EXIF, lib/photoGeo) — detail sheet, save
+  // toast, the photo marker on the Karte and on a georeferenced Plan
+  photoGeo: {
+    place: 'Auf Karte setzen',
+    placeN: '{n} Fotos auf Karte setzen',
+    show: 'Auf Karte zeigen',
+    placedStep: 'Foto auf Karte gesetzt',
+    logPlaced: 'Foto auf Karte gesetzt',
+    logPlacedN: '{n} Fotos auf Karte gesetzt',
+    where: 'Aufnahmeort',
+    whereN: 'Aufnahmeort Foto {n}',
+    distance: '{d} vom Einsatzort',
+    facing: 'Blick nach {dir}',
+    takenAt: 'aufgenommen {t}',
+    tooFar: 'Zu weit weg für die Karte',
+    marker: 'Foto vom Verlauf',
+    markerTaken: 'Foto vom Verlauf · aufgenommen {t}',
+    planMark: 'Foto – auf der Karte verschieben oder entfernen',
   },
   // running incident clock in the TopBar
   einsatzuhr: {
@@ -4124,6 +4157,69 @@ export const de = {
     atScene: 'Am Einsatzort',
     tapHint: 'Auf der Karte zeigen',
   },
+  // The Gebäude card under the Einsatz card in the incident menu (BuildingCard, KP Front F5):
+  // federal register hints (GWR, BFE) + the Einsatzobjekt's own Modul-1 notes. «Register-
+  // Hinweis», never «Fakt»: the register can be years behind the building.
+  building: {
+    title: 'Gebäude',
+    hint: 'Register-Hinweis',
+    hintTitle: 'Aus den Bundesregistern (GWR, BFE) – kann veraltet oder unvollständig sein. Vor Ort prüfen.',
+    floors: '{n} Geschosse',
+    floorsOne: '1 Geschoss',
+    flats: '{n} Wohnungen',
+    flatsOne: '1 Wohnung',
+    year: 'Baujahr {y}',
+    period: 'Bauperiode {p}',
+    shelter: 'Schutzraum',
+    heating: 'Heizung {e}',
+    hotWater: 'Warmwasser {e}',
+    pv: 'PV {kw}',
+    pvBare: 'PV',
+    pvTitle: 'Photovoltaik im BFE-Register{since} – kann fehlen, auch wenn eine Anlage da ist',
+    pvSince: ', in Betrieb seit {d}',
+    kw: '{n} kW',
+    energy: {
+      gas: 'Gas',
+      oil: 'Heizöl',
+      wood: 'Holz',
+      district: 'Fernwärme',
+      air: 'Wärmepumpe (Luft)',
+      geothermal: 'Wärmepumpe (Erdwärme)',
+      water: 'Wärmepumpe (Wasser)',
+      electricity: 'Elektro',
+      solar: 'Solar',
+      waste_heat: 'Abwärme',
+      other: 'andere',
+    },
+    status: {
+      planned: 'projektiert',
+      approved: 'bewilligt',
+      under_construction: 'im Bau',
+      unusable: 'nicht nutzbar',
+      demolished: 'abgebrochen',
+      not_built: 'nicht realisiert',
+    },
+    // the one line of sources under the chips — every fact names where it came from and when
+    srcGwr: 'GWR {a} · Stand {d}',
+    srcGwrNoAddr: 'GWR Stand {d}',
+    srcHeating: 'Heizung erfasst {d}',
+    srcPv: 'BFE abgefragt {d}',
+    srcCached: 'gespeichert {d}',
+    measures: 'Sofortmassnahmen',
+    remarks: 'Bemerkungen',
+    objectSource: '{name} · {src}',
+    objectNear: '{name} · in der Nähe ({m} m)',
+    objectNearNoDist: '{name} · in der Nähe',
+    visit: 'Letzter Objektbesuch {d}',
+    visitFindings: 'Letzter Objektbesuch {d} · {n} Mängel',
+    visitFindingsOne: 'Letzter Objektbesuch {d} · 1 Mangel',
+    // the chip on the Karte / in the plan's chip row that opens the card (BuildingFloat)
+    // not «Gebäude» alone: that word + the storey glyph is the rail's Gebäude tile, a surface
+    chipTitle: 'Gebäude-Info',
+    chipLabel: 'Gebäude-Steckbrief öffnen',
+    chipLabelHazards: 'Gebäude: {h} – Steckbrief öffnen',
+    measuresShort: 'Sofortmassn.',
+  },
   // TopBar incident switcher dropdown
   incidentSwitcher: {
     noIncident: 'Kein Einsatz',
@@ -4424,6 +4520,47 @@ export const de = {
     captionNone: 'Kein Eintrag zu diesem Zeitpunkt',
   },
   // Einsatzrapport: print preflight (ReportPreflight) + the printed document (ReportPrintView)
+  // Auswertung — the optional internal Beilage of the Rapport PDF (lib/auswertung, F7 09.10.2026):
+  // key figures, swimlanes, Lehren. ⚠️ No «→» in these: the paper is Helvetica (reportPdfDirect · forPaper).
+  auswertung: {
+    heading: 'Auswertung',
+    note: 'Für die Nachbesprechung – aus den Daten des Einsatzes abgeleitet, nicht Teil des unterzeichneten Rapports.',
+    missing: '—',
+    firstOnScene: 'Alarm bis 1. Fahrzeug vor Ort',
+    firstOnSceneDef: 'Von der Alarmierung bis zur frühesten «Vor Ort»-Zeit eines Fahrzeugs (Alarmierungs- / Ausrückzeiten).',
+    firstAs: 'Alarm bis 1. Atemschutz-Eintritt',
+    firstAsDef: 'Von der Alarmierung bis zum ersten Eintritt eines Trupps unter Atemschutz.',
+    contacts: 'Funkkontakte eingehalten',
+    contactsSub: '{n} überfällig von {total}',
+    contactsDef: 'Anteil der Funkkontakt-Intervalle unter Atemschutz, die endeten, bevor der Trupp überfällig war ({n} min + {g}). Ein Intervall läuft vom Eintritt oder einem Kontakt bis zum nächsten Kontakt, Druck, Rückzug oder Austritt; ein offenes zählt erst, wenn es überfällig wurde. Die Zeit zwischen Abschluss und Wiedereröffnen zählt nicht.',
+    contactsDefNoGrace: 'Anteil der Funkkontakt-Intervalle unter Atemschutz, die endeten, bevor der Trupp überfällig war ({n} min). Ein Intervall läuft vom Eintritt oder einem Kontakt bis zum nächsten Kontakt, Druck, Rückzug oder Austritt; ein offenes zählt erst, wenn es überfällig wurde. Die Zeit zwischen Abschluss und Wiedereröffnen zählt nicht.',
+    longestAs: 'Längster Atemschutz-Einsatz',
+    longestAsDef: 'Längste abgeschlossene Zeit eines Trupps unter Atemschutz, Eintritt bis Austritt.',
+    total: 'Einsatzdauer',
+    totalDef: 'Von der Alarmierung bis zum Einsatzende.',
+    totalRunning: 'Einsatz läuft noch',
+    truppLane: 'Trupp {no} · {name}',
+    groupPhases: 'Phasen (Checkliste)',
+    groupVehicles: 'Fahrzeuge',
+    groupTrupps: 'Trupps',
+    groupMilestones: 'Meilensteine',
+    noTimeline: 'Keine Fahrzeug-, Trupp- oder Checklisten-Zeiten erfasst.',
+    legendTravel: 'Anfahrt',
+    legendScene: 'vor Ort',
+    legendReturn: 'Rückfahrt',
+    legendAs: 'unter Atemschutz',
+    legendWork: 'im Einsatz ohne Atemschutz',
+    legendStandby: 'bereit',
+    legendContact: 'Funkkontakt',
+    legendFaellig: 'Kontakt fällig',
+    legendUeberfaellig: 'überfällig',
+    legendMilestone: 'Meilenstein',
+    legendPhase: 'Phase: erster bis letzter Haken',
+    footnotesHead: 'Definitionen',
+    lehrenSeePage1: 'Lehren / Sicherheit: siehe Seite 1',
+    graceMin: '{n} min',
+    graceSec: '{n} s',
+  },
   report: {
     erfasser: 'Erfasst durch',
     // print view chrome
@@ -4840,6 +4977,7 @@ export const de = {
     linksOpenedAction: 'Erledigt',
     linksOpenFailed: '{title} konnte nicht geöffnet werden – der Browser hat das Fenster blockiert.',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
+    toggleAuswertung: 'Auswertung (intern)',
     // «Detaillierter Prüfnachweis» doesn't say what is being ticked – nobody ticks what they
     // don't understand. It is about the bookkeeping rows in the printed Verlauf (who changed
     // what when), which are otherwise filtered out. The Prüfnachweis status above is unaffected.
@@ -4896,51 +5034,6 @@ export const de = {
     // genauso wie «Noch im Einsatz: 3».
     truppsDeployedConfirm: 'Noch im Einsatz: {n} – nie rausgemeldet',
     stateNote: 'Stand: ganzer Einsatz bis Rapport-Erstellung ({at}).',
-  },
-  // Station print relay — «Ausdrucken» (preflight + capture)
-  printRelay: {
-    send: 'Ausdrucken',
-    sending: 'Wird gesendet …',
-    // ⚠️ «In der Warteschlange», nicht «gesendet». Eingereiht ist nicht gedruckt: was die App
-    // weiss, ist dass der Auftrag in einer Warteschlange liegt. «Gesendet» klang nach erledigt –
-    // und war die erste Hälfte der Geschichte, die damit endete, den Einsatz abschliessen zu
-    // dürfen, obwohl kein Blatt existierte.
-    queued: 'In der Warteschlange',
-    // live status toast follows the job: Warteschlange → wird gedruckt → gedruckt / fehlgeschlagen
-    printing: 'Wird gedruckt …',
-    printed: 'Gedruckt',
-    printFailed: 'Druck fehlgeschlagen – Drucker prüfen',
-    // the same three stages as a chain INSIDE that toast — short, they stand next to each other
-    stepQueued: 'In der Warteschlange',
-    stepPrinting: 'Wird gedruckt',
-    stepPrinted: 'Gedruckt',
-    // Ein unerledigter Auftrag ist ein ZUSTAND und lebt am Rapportkopf, nicht im Toast: das
-    // Polling gibt nach 90 s auf, danach las den Auftrag niemand je wieder.
-    jobOpen: 'Druckauftrag offen',
-    jobOpenSince: 'Seit {t} in der Warteschlange',
-    jobCheck: 'Prüfen',
-    jobCancel: 'Abbrechen',
-    jobUnreachable: 'Druckauftrag nicht erreichbar – Verbindung prüfen',
-    // 404 vom Relay: der 7-Tage-Sweep des Backends hat den Auftrag weggeräumt – genau der Fall
-    // «Relay war eine Woche down». Ohne eigene Antwort blieb das Band für immer stehen, und
-    // «Prüfen» sagte «nicht erreichbar» über einen Host, der soeben geantwortet hatte. Kein
-    // «Rapport erstellt»-Stempel: ob je ein Blatt herauskam, weiss niemand – der Satz sagt das.
-    jobGone: 'Druckauftrag nicht mehr auffindbar – falls kein Ausdruck herauskam, erneut drucken.',
-    // every print goes through a confirm modal — no accidental paper (2026-07-18)
-    confirmTitle: 'Ausdrucken',
-    confirmMsg: 'Einsatzrapport an den Stationsdrucker senden?',
-    confirmBtn: 'Ausdrucken',
-    undo: 'Rückgängig',
-    cancelled: 'Druckauftrag abgebrochen',
-    undoTooLate: 'Zu spät – der Auftrag ist schon beim Drucker',
-    failed: 'Senden an Stationsdrucker fehlgeschlagen',
-    online: 'Stationsdrucker erreichbar',
-    offline: 'Stationsdrucker offline',
-    // ⚠️ Nur der Titel, kein Erklärtext. «Der Auftrag wird gedruckt, sobald das Relay wieder
-    // erreichbar ist» war der Satz, der Einreihen wie Drucken klingen liess – und danach stand
-    // «Rapport erstellt» auf dem Schirm. Der Titel ist die ganze Aussage.
-    offlineConfirmTitle: 'Stationsdrucker offline',
-    offlineConfirmBtn: 'Trotzdem senden',
   },
   // Anwesenheit surface (AnwesenheitView)
   anwesenheit: {
@@ -5154,6 +5247,26 @@ export const de = {
     viewPlan: 'Zeitplan',
     viewBands: 'Schichten',
     viewLabel: 'Ansicht',
+  },
+  // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
+  // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:
+  // erst «da» erfasst jemanden. «kommt nicht» steht in einer eigenen, gedämpften Gruppe — mit ✕
+  // und dem Wort, nie nur als Farbe.
+  anrueckend: {
+    title: 'Anrückend',
+    sourceBare: 'Divera',
+    coming: (n: number) => (n === 1 ? '1 kommt' : `${n} kommen`),
+    notComing: (n: number) => (n === 1 ? '1 kommt nicht' : `${n} kommen nicht`),
+    here: (n: number) => `${n} da`,
+    notComingGroup: (n: number) => `Kommt nicht (${n})`,
+    notComingWord: 'kommt nicht',
+    checkIn: 'da',
+    checkInLabel: '{name} ist da – als anwesend erfassen',
+    allHere: 'Alle, die kommen wollten, sind erfasst.',
+    unmapped: (n: number) => (n === 1 ? '1 Rückmeldung ohne Eintrag in der Mannschaftsliste' : `${n} Rückmeldungen ohne Eintrag in der Mannschaftsliste`),
+    hint: 'Eine Divera-Antwort ist keine Anwesenheit – erst «da» erfasst jemanden.',
+    collapse: 'Anrückend einklappen',
+    expand: 'Anrückend aufklappen',
   },
   // Schicht planning – the command form «Zeitplan» (who × time), purely planning: planned bars
   // are hollow, actual Anwesenheit is filled. The plan never writes.
@@ -6225,9 +6338,17 @@ export const de = {
       removed: 'Gelöscht – Anbindung aus.',
       failed: 'Aktion fehlgeschlagen',
       groups: {
+        roster_snapshot: {
+          title: 'Personenstamm (Snapshot)',
+          caption: 'Wo die Wehr ihren Personenstamm als Datei veröffentlicht (Format: docs/roster-snapshot.schema.json) – eine https://-Adresse oder ein absoluter Pfad auf diesem Server. KP Front liest sie stündlich und auf «Jetzt abrufen» unter System › Verbindungen. Zugangsdaten gehören ins Token, nicht in die Adresse. Leer = aus; Divera und CSV-Import bleiben unverändert.',
+        },
         object_visits: {
           title: 'Objektbesuche (Organisator)',
           caption: 'Schlüssel, mit dem ein Organisator (z. B. fwo-admin) Katalog und Änderungen liest und Listen schreibt. Erzeugt wird er unter «Objektbesuche › Integration».',
+        },
+        microsoft_login: {
+          title: 'Mit Microsoft anmelden',
+          caption: 'Freiwillig: eine eigene Azure-App-Registrierung (nur Anmeldung, «openid profile»), damit sich benannte Konten auch mit Microsoft statt PIN anmelden können. Redirect-URI: <Adresse dieser Instanz>/api/auth/microsoft/callback. Zugelassen sind nur die Konten in der Liste, je «Microsoft-Konto=Benutzername», durch Kommas getrennt. Die PIN bleibt immer möglich. Anleitung: docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (Ablage Objektbesuche)',
@@ -6254,8 +6375,8 @@ export const de = {
           caption: 'Browser-Key für die CARTO-Karten Voyager und Dark Matter. Er steht technisch bedingt in den Kachel-Anfragen; deshalb in CARTO auf die Domains dieser Installation beschränken.',
         },
         webhooks: {
-          title: 'Webhooks & Stationsdrucker',
-          caption: 'Gemeinsame Geheimnisse für die Alarm-Schnittstelle fremder Leitstellen und für den Druck-Agenten auf der Wache. Ohne Eintrag sind beide Türen zu.',
+          title: 'Webhooks',
+          caption: 'Gemeinsames Geheimnis für die Alarm-Schnittstelle fremder Leitstellen. Ohne Eintrag ist die Tür zu.',
         },
         sharepoint: {
           title: 'SharePoint (Stationsdaten)',
@@ -6469,12 +6590,6 @@ export const de = {
       linkPreview: 'Vorschau mit einem Beispiel-Einsatz',
       linkPreviewNone: 'Kein gültiger Link (http oder https) – dieser Eintrag erscheint nicht auf dem Rapport.',
       linkPreviewNoTitle: 'Ohne Titel erscheint dieser Eintrag nicht auf dem Rapport.',
-      // Nur für Wehren mit Stationsdrucker (Druck-Relay). Betrifft ausschliesslich den Weg
-      // zum Drucker – ein heruntergeladenes PDF ist immer in Leserichtung.
-      groupPrint: 'Druck am Stationsdrucker',
-      printTip: 'Betrifft nur den Rapport, der an den Stationsdrucker geschickt wird. Ein heruntergeladenes PDF bleibt immer in Leserichtung.',
-      reverseOrder: 'Seiten in umgekehrter Reihenfolge senden',
-      reverseOrderHint: 'Für Drucker, die das Blatt mit der bedruckten Seite nach oben auswerfen: der Stapel liegt sonst verkehrt herum und muss von Hand sortiert werden. Wirft dein Drucker nach unten aus, schalte es ab.',
     },
     // Alarme & Einsätze: die drei Uhren am Lebenslauf eines Einsatzes plus die Webhooks,
     // über die ein zweites System (z. B. der Zettel-Drucker von kp-rück) überhaupt erst
@@ -7093,6 +7208,14 @@ export const de = {
       coordsProjected: 'Das sieht nach LV95-Metern aus, nicht nach WGS84-Grad. Zuerst umrechnen.',
       noteLabel: 'Notiz',
       noteHint: 'woher die Angaben stammen',
+      // Sofortmassnahmen / Bemerkungen (KP Front F5): die zwei Felder des Modul-1-Blatts, auf der
+      // Gebäude-Karte des Einsatzes gezeigt. Freiwillig, von Hand – nichts liest sie aus dem PDF.
+      measuresLabel: 'Sofortmassnahmen',
+      measuresHint: 'eine pro Zeile – erscheinen auf der Gebäude-Karte des Einsatzes',
+      remarksLabel: 'Bemerkungen',
+      remarksHint: 'eine pro Zeile, z. B. Brandlast, PV-Anlage',
+      measuresSourceLabel: 'Quelle',
+      measuresSourceHint: 'z. B. «Modul 1, Stand 03.2024»',
       // Nur die Neuanlage hat noch einen Knopf: die Objekt-ID muss existieren, bevor ein Plan
       // darunter liegen kann. Ein bestehendes Objekt speichert sich beim Verlassen des Feldes.
       create: 'Objekt erstellen',
@@ -7607,8 +7730,6 @@ export const de = {
       directionOut: 'ausgehend',
       connOnline: 'online',
       connOffline: 'offline',
-      connLastSeen: 'Zuletzt gemeldet: {time}',
-      connPrintRelay: 'Stationsdrucker (Print-Agent)',
       connCapture: 'Erfassungs-Poster (QR)',
       connStats: 'Statistik-Export',
       connDiveraWebhook: 'Divera-Webhook',
@@ -7631,6 +7752,27 @@ export const de = {
       // Die Zeile, die «safe» erzeugt: Abgänge werden gezählt und gemeldet, aber nie von selbst
       // deaktiviert. Führt auf die Mannschaft, wo sie erledigt werden.
       connLeavers: '{n} Abgänge warten',
+      // ── Personenstamm-Snapshot (docs/CONFIGURATION.md §4c) ──
+      // «Angehalten», nicht «offline»: die Datei kam an, aber sie würde zu viele Personen auf
+      // einmal deaktivieren. Das entscheidet ein Mensch – mit «Abgänge übernehmen» oder indem
+      // er die Datei korrigiert.
+      connRosterSnapshot: 'Personenstamm (Snapshot)',
+      snapHeld: 'angehalten',
+      snapHeldText: '{n} von {total} aktiven Personen würden deaktiviert (Grenze {limit}). Nichts geändert – bitte zuerst die Datei prüfen.',
+      snapRelease: 'Abgänge übernehmen',
+      snapHeldWho: 'Betroffen: {names}',
+      snapPostponed: 'Wartet auf das Einsatzende (noch im Einsatz): {names}',
+      snapReleaseQ: '{n} Personen deaktivieren?',
+      snapRunNow: 'Jetzt abrufen',
+      snapRunning: 'Wird abgerufen …',
+      snapRunOk: 'Abgerufen',
+      snapRunFailed: 'Abruf fehlgeschlagen',
+      snapSummary: 'Letzter Abgleich: {created} neu · {updated} geändert · {deactivated} deaktiviert',
+      snapUnchanged: 'Datei unverändert seit dem letzten Abgleich',
+      snapUnmatched: '{n} nicht zugeordnet: {names}',
+      snapUnknownRanks: 'Unbekannte Dienstgrade (ohne Grad übernommen): {ranks}',
+      snapFileDate: 'Stand der Datei: {time}',
+      snapStale: 'Die Datei wurde seit über 7 Tagen nicht mehr erneuert.',
       // ── SharePoint: welche Ordner konfiguriert sind (nur Ansicht) ──
       spSources: 'Ordner laut Konfiguration',
       spSourcesHint: 'Schreibgeschützt – die Ordner stehen in der Konfiguration der Wehr. Wie sie aufgebaut sind, steht in der Dokumentation zur SharePoint-Anbindung.',

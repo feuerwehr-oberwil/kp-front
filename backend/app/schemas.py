@@ -4,7 +4,7 @@ import logging
 import math
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
@@ -762,6 +762,13 @@ class ObjectUpsertIn(ObjectIn):
 
     filing_folder: str | None = Field(default=None, max_length=300)
     refs: list[ObjectRefIn] | None = Field(default=None, max_length=50)
+    #: The object's Sofortmassnahmen and Bemerkungen (free text, one per line) and where they
+    #: came from. Written
+    #: only when SENT, like ``filing_folder``: a push from a manifest that has no such key must
+    #: not wipe what Verwaltung typed. Sent as null or "" clears them.
+    measures: str | None = Field(default=None, max_length=4000)
+    remarks: str | None = Field(default=None, max_length=4000)
+    measures_source: str | None = Field(default=None, max_length=300)
 
 
 class ObjectOut(ObjectIn):
@@ -775,6 +782,10 @@ class ObjectOut(ObjectIn):
     #: the browser», and the scheduled Planspeicher-Abgleich matches on nothing else
     #: (plans.py · pull_plans), so an object without one is one it never touches.
     source_key: str | None = None
+    #: Sofortmassnahmen / Bemerkungen (one per line) + their source — see ``ObjectSite.measures``.
+    measures: str | None = None
+    remarks: str | None = None
+    measures_source: str | None = None
     updated_at: datetime
 
 
@@ -802,6 +813,84 @@ class ObjectWithPlans(ObjectOut):
     # False when it was surfaced by proximity alone – the plan rail warns then, because a plan of
     # the neighbour looks exactly like a plan of the building on fire. None outside that endpoint.
     address_match: bool | None = None
+
+
+class BuildingGwrOut(BaseModel):
+    """GWR facts about the building — keys and numbers; the words are the app's copy."""
+
+    #: the register's export date for this entry («GWR Stand …»)
+    stand: date | None = None
+    floors: int | None = None
+    flats: int | None = None
+    year: int | None = None
+    #: «1919–1945» / «≤1918» / «≥2016» when the exact year is unknown
+    period: str | None = None
+    #: energy keys (gas, oil, wood, district, air, geothermal, water, electricity, solar,
+    #: waste_heat, unknown, other) of the first and second heat generator
+    heating: list[str] = Field(default_factory=list)
+    #: when the heating entry was last updated — it can be years old
+    heating_date: date | None = None
+    hot_water: list[str] = Field(default_factory=list)
+    #: True = a Zivilschutzraum is registered; None = none registered (never drawn)
+    shelter: bool | None = None
+    #: only when the building is NOT simply «bestehend» (planned, under_construction, …)
+    status: str | None = None
+
+
+class BuildingPlantOut(BaseModel):
+    """One registered electricity production plant on the building (BFE)."""
+
+    kind: Literal["pv", "other"]
+    #: the register's own category label in the requested language («Photovoltaik»)
+    label: str | None = None
+    power_kw: float | None = None
+    since: date | None = None
+
+
+class BuildingObjectOut(BaseModel):
+    """The Einsatzobjekt the card speaks for — the plan rail's object (api/objects ·
+    ranked_objects_near), or the one the operator picked."""
+
+    id: uuid.UUID
+    name: str
+    #: False = surfaced by proximity alone; the card says «in der Nähe» then
+    address_match: bool = False
+    distance_m: float | None = None
+    measures: str | None = None
+    remarks: str | None = None
+    measures_source: str | None = None
+    updated_at: datetime | None = None
+
+
+class BuildingVisitOut(BaseModel):
+    """The object's last completed Objektbesuch."""
+
+    id: str
+    visited_at: datetime | None = None
+    #: Mängel recorded on that visit
+    findings: int = 0
+
+
+class BuildingOut(BaseModel):
+    """``GET /api/incidents/{id}/building`` — the Gebäude card (app/building_facts).
+
+    Every half is optional and fails on its own: ``gwr_status``/``pv_status`` say whether the
+    register could be ASKED (``error``) as opposed to having nothing to say (``none``/``ok`` with
+    an empty list). ``registers`` says why they were not asked at all.
+    """
+
+    registers: Literal["on", "off", "outside_ch", "no_location"]
+    egid: str | None = None
+    #: the register's address of the matched building («Hauptstrasse 10, 4104 Oberwil»)
+    address: str | None = None
+    gwr: BuildingGwrOut | None = None
+    gwr_status: Literal["ok", "none", "error", "skipped"] = "skipped"
+    plants: list[BuildingPlantOut] = Field(default_factory=list)
+    pv_status: Literal["ok", "error", "skipped"] = "skipped"
+    #: when the registers were asked (the server caches an answer for a day)
+    registers_fetched_at: datetime | None = None
+    object: BuildingObjectOut | None = None
+    visit: BuildingVisitOut | None = None
 
 
 class PlanSourcesOut(BaseModel):
@@ -1054,6 +1143,11 @@ class MapConfig(BaseModel):
     defaultView: MapDefaultView = Field(default_factory=MapDefaultView)
     geocoder: MapGeocoder = Field(default_factory=MapGeocoder)
     externalLinks: list[MapExternalLink] = Field(default_factory=list)
+    # The Gebäude card's federal-register half (app/building_facts: GWR + BFE, both Swiss). Unset
+    # = on wherever the Einsatzort lies in Switzerland; false = never ask them (a station that does
+    # not want it, or one outside CH that wants to say so). The Objekt's Sofortmassnahmen are the
+    # station's own data and show either way.
+    buildingRegister: bool | None = None
 
 
 class ReferenceLayerConfig(BaseModel):
@@ -1426,16 +1520,6 @@ class ReportConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
     partnerOrgs: list[str] = Field(default_factory=list)
-    #: Send the Rapport to the STATION PRINTER with its pages in reverse order.
-    #:
-    #: A printer that ejects face-up delivers a stack that is back-to-front, so the rapport has
-    #: to be re-sorted by hand every time — which is exactly the moment nobody has. Reversing the
-    #: document fixes the stack. Only the relay path is affected; a downloaded PDF is always in
-    #: reading order, because that one is read on a screen.
-    #:
-    #: Default on: the relay is deliberately configured per station (PRINT_AGENT_SECRET), so
-    #: whoever switches the printer on can switch this off if theirs ejects face-down.
-    reversePrintOrder: bool = True
     #: How the SECOND Einsatzstunden figure on the rapport is rounded (the one in brackets).
     #:
     #: The first figure is the raw sum — what actually happened, never rounded. The second is
@@ -1546,9 +1630,11 @@ class RankConfig(BaseModel):
 class RosterConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     # "snapshot" = a roster file somebody else publishes, to the contract in
-    # docs/CONFIGURATION.md §4c (schema: docs/roster-snapshot.schema.json). The value is
-    # accepted and served; the ingestion that reads such a file is NOT built yet, so today a
-    # station on "snapshot" behaves exactly like "manual" — CSV and hand entry, nothing synced.
+    # docs/CONFIGURATION.md §4c (schema: docs/roster-snapshot.schema.json). Like the other two
+    # values this is a LABEL, not a switch: what actually reads a snapshot is the
+    # `roster_snapshot_source` credential (app/roster_snapshot_sync.py) — set it and the file
+    # is polled, leave it empty and nothing is fetched, whatever this says. CSV and hand entry
+    # keep working on every value.
     source: Literal["manual", "divera", "snapshot"] | None = None
     # Ordered rank list (most senior first). Empty → the frontend falls back to its in-code
     # Swiss default (see src/lib/rank.ts). Ranks reference these keys.
@@ -1568,6 +1654,20 @@ class RosterConfig(BaseModel):
     #     goes false, and every past Einsatz keeps its names.
     #   "off"            — nothing unattended; «Mannschaft synchronisieren» still works.
     autoSync: Literal["off", "safe", "full"] = "safe"
+    # What each Divera Rückmelde-Status MEANS for the Anwesenheit's «Anrückend» block (Divera
+    # only; see docs/divera-connector.md «Rückmeldungen»). Keyed by the status id («13») or its
+    # name («Komme nicht», case- and accent-insensitive; an id beats a name). Unset statuses are
+    # read off their name — «nicht»/«abwesend» → not_coming, «komme»/«N min» → coming, else other,
+    # which is not shown — so most stations never set this. Only for an Einheit whose words the
+    # default misreads. Applies to answers the poll stores from then on.
+    diveraResponses: dict[str, Literal["coming", "not_coming", "other"]] = Field(default_factory=dict)
+    # How often the roster snapshot is polled (minutes), when a source is configured. A roster
+    # changes a few times a month; «Jetzt abrufen» on System › Verbindungen covers the urgent one.
+    snapshotIntervalMin: int = Field(default=60, ge=5, le=1440)
+    # A complete snapshot that would deactivate MORE than this share of the active people in one
+    # run is held for a human (nothing written, a warning on System › Verbindungen). 0 = never
+    # deactivate unattended, 100 = no cap. See app/roster_snapshot_ingest.py.
+    snapshotMaxDeactivatePct: int = Field(default=20, ge=0, le=100)
 
 
 class MittelStockEntry(BaseModel):
@@ -1995,6 +2095,9 @@ class ConfigIntegrations(BaseModel):
     autoAlignConfigured: bool = False
     # CARTO Basemaps client key. Public by design: MapLibre sends it as `?key=` on tile URLs.
     cartoBasemapKey: str | None = None
+    # «Mit Microsoft anmelden» is set up (auth/microsoft · enabled) — gates the login screen's
+    # button, so a station without it never sees the door.
+    microsoftLoginConfigured: bool = False
     personnel: ProviderCapability = Field(default_factory=ProviderCapability)
     alarms: ProviderCapability = Field(default_factory=ProviderCapability)
     vehicles: ProviderCapability = Field(default_factory=ProviderCapability)

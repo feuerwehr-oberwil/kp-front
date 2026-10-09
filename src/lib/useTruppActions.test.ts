@@ -1033,7 +1033,6 @@ describe('the Atemschutz-Alarm rows — what ended it, and once for the whole Ei
     const emitted: [string, Record<string, unknown> | undefined, { observed?: string } | undefined][] = []
     const devices = [0, 1, 2].map(() => {
       const h = harness(baseTrupp({ name: 'Fabich Mischa' }))
-      // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
       return useTruppActions({ ...h.deps, emit: (op, payload, opts) => { emitted.push([op, payload, opts]) } })
     })
     for (const d of devices) {

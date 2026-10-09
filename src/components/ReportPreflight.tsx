@@ -5,7 +5,9 @@ import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
-import { buildDirectReportPayload, downloadDirectReportPdf, usedStackFloors } from '../lib/reportPdfDirect'
+import { downloadDirectReportPdf, usedStackFloors } from '../lib/reportPdfDirect'
+import { warmTemplates, type ChecklistState, type ChecklistTemplate } from '../lib/checklists'
+import { hadAtemschutzDeployment } from '../lib/auswertung'
 import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
@@ -15,10 +17,8 @@ import surface from './Surface.module.css'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { ShareIncident } from './panels/ShareIncident'
-import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
-import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, fmtSpanShort, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref, unitLabel } from '../lib/format'
+import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref, unitLabel } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import { closeTimeOf } from '../lib/api/incidents'
@@ -55,11 +55,11 @@ import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
 
 const NO_IDS = new Set<string>()
-/** The Rapport head's ladder (lib/pageHeadFit): «Ausdrucken» gives its word first, then
- *  «Abschliessen», then the Kontrolle chip keeps its ⚠ and its count («⚠ 4», the words stay its
+/** The Rapport head's ladder (lib/pageHeadFit): «Abschliessen» gives its word first, then
+ *  the Kontrolle chip keeps its ⚠ and its count («⚠ 4», the words stay its
  *  title), then the primary «Einsatzrapport (PDF)» shortens to «PDF ▾» (mockup 2), and last the
  *  title says what the nav calls this page, «Rapport». */
-const RP_FOLD = { print: 1, complete: 2, chip: 3, pdf: 4, title: 5 } as const
+const RP_FOLD = { complete: 1, chip: 2, pdf: 3, title: 4 } as const
 
 /**
  * «Zeig mir diese offene Angabe» — asked from OUTSIDE the sheet.
@@ -264,7 +264,7 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, canShare = canEdit, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit = true, canShare = canEdit, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -300,6 +300,9 @@ export function ReportPreflight({
    *  meant here. It is a per-incident setting, so nobody can look it up on the paper later. */
   contactIntervalMin?: number
   contactGraceSec?: number
+  /** the Checkliste tick state — the Auswertung's phase bands (lib/auswertung); the templates
+   *  that name the phases are read here, from the same warm cache the Checkliste tab uses */
+  checklists?: ChecklistState
   plans?: PlanDocument[]
   /** the Lage scene for the server-rendered Kroki (entities/drawings/layers/view) */
   scene?: {
@@ -382,10 +385,23 @@ export function ReportPreflight({
     const stack = plans.find((p) => p.floorStack)
     return stack && building ? usedStackFloors(building, board?.[stack.id] ?? []).length : 0
   }, [plans, building, board])
+  // The Auswertung names its phase bands after the checklist phases: the templates are already
+  // warm (IncidentWorkspace loads them when the Einsatz opens), so this resolves at once. Until
+  // it does — or offline with nothing cached — the PDF simply carries no phase lane.
+  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([])
+  useEffect(() => {
+    if (!checklists) return
+    let alive = true
+    warmTemplates().list.then((l) => { if (alive) setChecklistTemplates(l) }, () => {})
+    return () => { alive = false }
+  }, [checklists])
   const [options, setOptions] = useState<ReportOptions>(() => ({
     ...defaultReportOptions,
     kroki: mapContentCount > 0,
     atemschutz: truppCount > 0,
+    // the Auswertung is the contact log and the PA figures on one sheet: ticked when a crew went
+    // in under Atemschutz, unticked (still selectable) when nobody did (owner, 09.10.2026)
+    auswertung: hadAtemschutzDeployment(trupps),
     // The framing chosen for the LAST print of this Einsatz — the Kroki panel opens on it and
     // reports every settled pan back into this same field, so what the surface would print is
     // always what the crop on screen shows. Auto on first use: the operational extent decides
@@ -851,8 +867,7 @@ export function ReportPreflight({
     }
   }
   const [pdfBusy, setPdfBusy] = useState(false)
-  /** A rapport has just been produced (PDF in hand, or a print job on its way to the station
-   *  printer). The blob remembers WHEN, so the Rapport can tell whoever opens it next that the
+  /** A rapport has just been produced (the PDF in hand). The blob remembers WHEN, so the Rapport can tell whoever opens it next that the
    *  paper already exists — on this device or on any other.
    *  ⚠️ NOT through `persist`: this write lands SECONDS after the press that started it (a
    *  server-rendered PDF takes a moment), and `persist` merges the form state of the render it
@@ -862,35 +877,6 @@ export function ReportPreflight({
    *  — except `also`, the framing written by the same click (see startOutput). */
   const stampReportMade = (also: Partial<ReportMeta>) =>
     canEdit && onSaveMeta({ ...metaRef.current, ...also, reportMadeAt: new Date().toISOString() })
-  /** A job has been handed to the station relay and is not printed yet. Recorded on the blob,
-   *  not just in the toast: «in der Warteschlange» is a STATE and a toast is an event, and the
-   *  poll behind the toast gives up after 90 s. Whoever opens the Rapport next — after a reload,
-   *  on another device — has to see that a print is still outstanding. */
-  const holdPrintJob = (id: string, also: Partial<ReportMeta>) =>
-    canEdit && onSaveMeta({ ...metaRef.current, ...also, printJob: { id, at: new Date().toISOString() } })
-  /** Jobs already settled on THIS surface — the double-settle guard. The toast's `onSettled`
-   *  and this surface's own 15 s poll can both answer for the same job within one render, and
-   *  `metaRef` only catches up on the NEXT render — so without this, the second settler saw the
-   *  job still on the blob and wrote again, re-stamping `reportMadeAt` seconds later. A plain
-   *  synchronous Set: the first settle claims the id before any side effect, the second no-ops. */
-  const settledJobsRef = useRef(new Set<string>())
-  /** The job left the queue. `done` is the ONLY status that earns the «Rapport erstellt» stamp —
-   *  a failed or a cancelled job simply stops being outstanding, and `gone` (the relay no longer
-   *  knows the job — swept after 7 days) clears WITHOUT stamping: the outcome is unknown, and a
-   *  stamp would claim paper that may never have existed.
-   *  ⚠️ ONE write for both halves: `metaRef` only catches up on the next render, so stamping and
-   *  then clearing would merge the clear onto the blob as it was BEFORE the stamp.
-   *  ⚠️ Settles the NAMED job only: a settle that arrives late (the toast poll of a previous
-   *  job) must not clear a newer job that has since been queued. */
-  const settlePrintJob = (jobId: string, status: PrintJobStatus | 'gone') => {
-    if (!canEdit || metaRef.current.printJob?.id !== jobId || settledJobsRef.current.has(jobId)) return
-    settledJobsRef.current.add(jobId)
-    onSaveMeta({
-      ...metaRef.current,
-      ...(status === 'done' ? { reportMadeAt: new Date().toISOString() } : {}),
-      printJob: undefined,
-    })
-  }
   /** The one step left after the paper exists, offered beside the fact rather than demanded:
    *  the Einsatz is still open, and nobody archives one unless they know they have to.
    *  ⚠️ `undefined` while ANY Mindestangabe is missing — printing a half-filled sheet to finish
@@ -905,7 +891,7 @@ export function ReportPreflight({
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({
-        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, checklists, checklistTemplates,
         // the printed journal marks the same terms the app marks (lib/journalLinks) — the Trupps
         // included, or the paper would mark every name in a row except the crew it is about
         vocab: journalVocabulary(personnel, attendance, undefined, trupps),
@@ -922,146 +908,6 @@ export function ReportPreflight({
       setPdfBusy(false)
     }
   }
-  // Station print relay: hidden unless the deployment runs one (fail-closed backend);
-  // the dot mirrors the agent heartbeat, undo cancels while the job is still queued.
-  const [printStatus, setPrintStatus] = useState<PrintRelayStatus | null>(null)
-  const [printBusy, setPrintBusy] = useState(false)
-  useEffect(() => {
-    let alive = true
-    void fetchPrintStatus(editorPrintTransport()).then((s) => { if (alive) setPrintStatus(s) })
-    return () => { alive = false }
-  }, [])
-  // Opening this surface is a strong «about to print» signal: once we know the relay is
-  // available and the report carries a Kroki, warm the server's map-tile cache so the real
-  // enqueue render is near-instant. Fire once, best-effort — reframes reuse overlapping tiles.
-  const warmedRef = useRef(false)
-  useEffect(() => {
-    if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
-    warmedRef.current = true
-    const payload = buildDirectReportPayload({
-      incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
-      roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
-    })
-    void prewarmPrint(editorPrintTransport(), incident.id, payload)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [printStatus?.available, options.kroki, mapContentCount])
-  const R = appConfig.copy.printRelay
-  const sendToPrinter = async (framing: Partial<ReportMeta> = {}) => {
-    // ALWAYS confirm — «Ausdrucken» must never produce accidental paper; when the relay is
-    // offline the modal doubles as the store-and-forward warning. That one is now the TITLE and
-    // nothing else: «Stationsdrucker offline» is the whole statement, and the paragraph under it
-    // explaining that the job would be printed later was the sentence that made queuing sound
-    // like printing.
-    const ok = printStatus?.online
-      ? await confirmDialog({ title: R.confirmTitle, message: R.confirmMsg, confirmLabel: R.confirmBtn })
-      : await confirmDialog({ title: R.offlineConfirmTitle, message: '', confirmLabel: R.offlineConfirmBtn })
-    if (!ok) return
-    setPrintBusy(true)
-    try {
-      const t = editorPrintTransport()
-      const payload = buildDirectReportPayload({
-        incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
-        roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
-      })
-      const jobId = await enqueuePrint(t, incident.id, payload)
-      // ⚠️ NOT `stampReportMade`. EINGEREIHT IST NICHT GEDRUCKT: the stamp is the sole condition
-      // for the band «Rapport erstellt. Der Einsatz ist noch offen – abschliessen?», and until
-      // 22.08. it was set the instant the job left this device — including straight after the
-      // dialog that had just said the printer was offline. So the app offered to close an Einsatz
-      // whose rapport existed on no sheet of paper anywhere. What is recorded here is the OPEN
-      // JOB; the stamp waits for the relay to say `done` (settlePrintJob).
-      holdPrintJob(jobId, framing)
-      // …and the Abschluss offer rides the END of the job's own status chain, not a second toast
-      // beside it: the Einsatz is worth closing once the paper is out of the printer.
-      trackPrintJob(t, jobId, completeOffer(), {
-        relayOffline: !printStatus?.online,
-        onSettled: (status) => settlePrintJob(jobId, status),
-      })
-    } catch {
-      toast(R.failed, { icon: 'warn', tone: 'warn' })
-    } finally {
-      setPrintBusy(false)
-    }
-  }
-
-  // --- The print job that has NOT come out yet ------------------------------------------------
-  //
-  // `pollJobUntilDone` gives up after 90 s and its toast is gone from the screen long before
-  // that, and nothing ever read the job again — so a Rapport could sit for an hour claiming to
-  // have been printed while the relay had never come back. An unresolved job is a STATE: it
-  // lives on the blob, it shows under the head, and it is re-read for as long as this surface is
-  // open, across a reload and a change of device.
-  const pendingJob = reportMeta.printJob
-  const [jobBusy, setJobBusy] = useState(false)
-  // «Seit X min» must move. Computed from a bare Date.now() at render it froze at whatever
-  // minute the band appeared in (and read the clock during render, which the purity lint
-  // rightly flags) — a minute tick while a job is outstanding keeps the line honest. The
-  // interval only exists while the band does; an Einsatz without an open job pays nothing.
-  // No synchronous re-read when a job appears (the lint objects to setState in an effect
-  // body, and it is not needed): a just-queued job's negative span is clamped to «Seit 0 min»
-  // where the band renders it, which is the right sentence until the first tick.
-  const [jobNowMs, setJobNowMs] = useState(() => Date.now())
-  useEffect(() => {
-    if (!pendingJob) return
-    const iv = setInterval(() => setJobNowMs(Date.now()), 60_000)
-    return () => clearInterval(iv)
-  }, [pendingJob])
-  useEffect(() => {
-    const job = pendingJob
-    if (!job || !canEdit) return
-    let alive = true
-    const t = editorPrintTransport()
-    const read = async () => {
-      const s = await fetchJobStatus(t, job.id)
-      if (!alive) return
-      // 'gone' = the relay no longer knows the job (swept after 7 days — the relay-was-down-a-
-      // week case). Waiting longer can never resolve it, so stop showing it as open and say so
-      // honestly: the outcome is unknown, no «Rapport erstellt» stamp.
-      if (s === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
-      // null = the relay is unreachable right now, which says nothing about the job — keep it.
-      if (!s || s.status === 'queued' || s.status === 'printing') return
-      settlePrintJob(job.id, s.status)
-    }
-    void read()
-    const iv = setInterval(() => void read(), 15_000)
-    return () => { alive = false; clearInterval(iv) }
-    // keyed on the JOB, not on the writer — `settlePrintJob` is re-created every render
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingJob?.id, canEdit])
-  /** «Prüfen»: ask the relay once, now, and say what came back — including «nothing», which is
-   *  its own answer and used to be indistinguishable from «still queued». */
-  const checkPrintJob = async () => {
-    const job = metaRef.current.printJob
-    if (!job) return
-    setJobBusy(true)
-    const s = await fetchJobStatus(editorPrintTransport(), job.id)
-    setJobBusy(false)
-    // «nicht mehr auffindbar» and «nicht erreichbar» are different answers: the first is about
-    // the JOB (it stopped existing — clear it, outcome unknown), the second about the network.
-    if (s === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
-    if (!s) { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn' }); return }
-    if (s.status === 'done') { settlePrintJob(job.id, 'done'); toast(R.printed, { icon: 'check', tone: 'success' }); return }
-    if (s.status === 'failed') { settlePrintJob(job.id, 'failed'); toast(R.printFailed, { icon: 'warn', tone: 'warn' }); return }
-    if (s.status === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled); return }
-    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer', tone: 'warn' })
-  }
-  /** Give up on a job that is still in the queue. Refused once the agent has claimed it — the
-   *  paper may already be moving, and the button says so rather than pretending. */
-  const dropPrintJob = async () => {
-    const job = metaRef.current.printJob
-    if (!job) return
-    setJobBusy(true)
-    const res = await cancelPrint(editorPrintTransport(), job.id)
-    setJobBusy(false)
-    if (res === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled); return }
-    // The three refusals mean three different things (see printRelay · CancelOutcome):
-    // «zu spät» only when the relay actually SAID the job is past cancelling — a network
-    // failure used to wear the same words, claiming knowledge nobody had.
-    if (res === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
-    if (res === 'unreachable') { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn' }); return }
-    toast(R.undoTooLate, { icon: 'warn', tone: 'warn' })
-  }
-
   /** The ONE way an option changes — it also records the deviation, which is what outlives the
    *  hop to Anwesenheit/Mittel (see savedScroll). Set an option any other way and it is back to
    *  its seed the moment the operator steps off this surface. */
@@ -1107,7 +953,7 @@ export function ReportPreflight({
     () => [...auditMoments, ...activityMoments([], events)],
     [auditMoments, events],
   )
-  const startOutput = async (action: 'pdf' | 'print') => {
+  const startOutput = async () => {
     // ⚠️ A rapport that is still missing Mindestangaben may ALWAYS be produced — printing is
     // never blocked by what somebody has not typed yet, and a half-filled sheet taken to the
     // Magazin to be finished by hand is a real way of working. But a PDF that leaves the
@@ -1123,7 +969,7 @@ export function ReportPreflight({
         // the field in, and the «trotzdem» button below stays the one way to print regardless.
         items: missing.map((st2) => ({ label: A.steps[st2], onClick: () => jumpToStep(st2) })),
         note: P.exportIncompleteMsg,
-        confirmLabel: action === 'print' ? R.send : P.pdfFull,
+        confirmLabel: P.pdfFull,
         cancelLabel: appConfig.copy.cancel,
       })
       if (!ok) return
@@ -1147,8 +993,7 @@ export function ReportPreflight({
     // …and it rides along to the stamp that follows a successful export: that write lands after
     // this one, merges onto its own snapshot of the blob, and would otherwise drop the framing
     // that was just saved.
-    if (action === 'pdf') void downloadPdf(framing)
-    else void sendToPrinter(framing)
+    void downloadPdf(framing)
   }
   const P = appConfig.copy.preflight
   const A = appConfig.copy.abschluss
@@ -1413,14 +1258,13 @@ export function ReportPreflight({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ONE ROW (lib/pageHeadFit): the head folds its tiles' words — «Ausdrucken», «Abschliessen»,
-  // then «Einsatzrapport (PDF)» → «PDF» — until it fits; the Kontrolle chip's count is never cut
+  // ONE ROW (lib/pageHeadFit): the head folds its tiles' words — «Abschliessen», then
+  // «Einsatzrapport (PDF)» → «PDF» — until it fits; the Kontrolle chip's count is never cut
   // (`data-fit-check`). It was a breakpoint (words above 1080px, icons below) and, on a phone, a
   // second row under the title.
   const headRef = useRef<HTMLElement>(null)
   usePageHeadFit(headRef, [
-    missing.length, warnCount, checking, controlOk, !!onComplete, printStatus?.available, printStatus?.online,
-    printBusy, pdfBusy,
+    missing.length, warnCount, checking, controlOk, !!onComplete, pdfBusy,
   ].join('|'))
 
   return (
@@ -1567,20 +1411,6 @@ export function ReportPreflight({
                 <Icon id="archive" /><span className="rp-btn-label fold-long">{A.complete}</span>
               </button>
             )}
-            {printStatus?.available && (
-              <button className={`ip-btn head-tile print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
-                data-fold={RP_FOLD.print}
-                onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
-                title={printStatus.online ? R.online : R.offline}>
-                <span className="print-send-main">
-                  {printBusy ? <ShellLoader /> : <Icon id="printer" />}
-                  <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
-                  <span className="rp-btn-label fold-long">{printBusy ? R.sending : R.send}</span>
-                </span>
-                {/* the offline reason is the dot's colour, the button's name and the confirm a
-                    press raises — never a second line in the one-row head (13-incident.css) */}
-              </button>
-            )}
             {/* Press it and it prints, with whatever is set. The ▾ is the second door: the same
                 print again (so the menu is never a dead end for the one who opened it looking
                 for «drucken»), and the way into the section picker. Split rather than two
@@ -1591,7 +1421,7 @@ export function ReportPreflight({
                 phone it reads «PDF ▾» — the word, not a doc glyph whose meaning you had to know
                 (`.rp-btn-short`); the tablet keeps its full label. Same two doors as before. */}
             <span className="rp-split">
-              <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.pdf} disabled={pdfBusy} onClick={() => void startOutput('pdf')}
+              <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.pdf} disabled={pdfBusy} onClick={() => void startOutput()}
                 aria-busy={pdfBusy || undefined} aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
                 {pdfBusy ? <span className="fold-long"><ShellLoader /></span> : <Icon id="doc" className="rp-pdf-glyph fold-long" />}
                 <span className="rp-btn-label fold-long">{P.pdfFull}</span>
@@ -1647,6 +1477,10 @@ export function ReportPreflight({
                   { kind: 'check' as const, label: fillTemplate(P.toggleAttachments, { n: attachments.length }), checked: options.attachments && attachments.length > 0, disabled: attachments.length === 0, onChange: (v: boolean) => patchOpt({ attachments: v }) },
                   { kind: 'sep' as const },
                   { kind: 'check' as const, label: P.toggleDetailedAudit, checked: options.detailedAudit, onChange: (v: boolean) => patchOpt({ detailedAudit: v }) },
+                  // the internal Beilage (lib/auswertung): key figures, swimlanes, Lehren on the
+                  // LAST sheet, after everything that gets signed — so it comes off the stack
+                  // before the rapport leaves the station
+                  { kind: 'check' as const, label: P.toggleAuswertung, checked: options.auswertung, onChange: (v: boolean) => patchOpt({ auswertung: v }) },
                   { kind: 'sep' as const },
                   // the Beilagen in ORIGINAL quality — one ZIP with manifest + SHA-256 per file,
                   // for the digital Ablage. An ACTION among the section ticks, so it sits last;
@@ -1682,29 +1516,6 @@ export function ReportPreflight({
             <button type="button" className="ip-btn primary" onClick={() => void complete()}>
               <Icon id="archive" />{A.complete}
             </button>
-          </div>
-        )}
-        {/* …and its counterpart: a print that has been handed over and has not come back. It is
-            NOT dismissible — «Später» on the green band hides an offer, this one is an open
-            question about whether the rapport exists at all — and it stays until the relay says
-            done, failed or cancelled. Amber, because nothing is finished and nothing is wrong. */}
-        {pendingJob && (
-          <div className="rp-band rp-band-open">
-            <Icon id="printer" className="rp-band-wait" />
-            <span className="rp-band-txt">
-              <b>{R.jobOpen}</b>{' '}
-              {fillTemplate(R.jobOpenSince, { t: fmtSpanShort(Math.max(0, jobNowMs - Date.parse(pendingJob.at))) })}
-              {printStatus && !printStatus.online && ` · ${R.offline}`}
-            </span>
-            {/* The band stays VISIBLE for a viewer — an outstanding print is true information —
-                but the actions sit behind the same canEdit gate as every other control on this
-                surface (the disabled fieldsets above). A viewer's «Abbrechen» used to really
-                cancel the job at the relay while their own settlePrintJob no-oped: toast said
-                abgebrochen, the band stayed, and the editor's print was gone. */}
-            <fieldset className="report-fieldset" disabled={!canEdit}>
-              <button type="button" className="ip-btn" disabled={jobBusy} onClick={() => void checkPrintJob()}>{R.jobCheck}</button>
-              <button type="button" className="ip-btn ip-btn-danger" disabled={jobBusy} onClick={() => void dropPrintJob()}>{R.jobCancel}</button>
-            </fieldset>
           </div>
         )}
         {/* PHONE ONLY — `display: none` from 601px up, so tablet and desktop are byte-identical

@@ -279,14 +279,6 @@ class Settings(BaseSettings):
     # for the ones that were worked on and never closed).
     auto_archive_check_seconds: int = 3600
 
-    # --- Station print relay ---
-    # Shared secret for the on-site print agent (kp-rueck's `tools/print-agent/`,
-    # published as `kp-print-agent`; see tools/PRINT-AGENT.md) that polls
-    # /api/print-agent/* and prints queued Einsatzrapport-PDFs on the station printer.
-    # Fail-closed: unset → agent endpoints answer 403 and the app never shows the
-    # «An Stationsdrucker» button. Generate with `openssl rand -hex 24`.
-    print_agent_secret: str = ""
-
     # Dead-man's-switch: if set to a healthchecks.io / cron-monitor ping URL, a 60 s scheduler
     # job GETs it — the monitor alerts if the pings ever stop (app/scheduler silently dead).
     # Unset → the unconditionally registered job returns without making a request.

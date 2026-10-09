@@ -61,6 +61,7 @@ async def test_system_shape_as_admin(client, editor, admin_login):
         "sttConfigured",
         "autoAlignConfigured",
         "cartoBasemapKey",
+        "microsoftLoginConfigured",
         "personnel",
         "alarms",
         "vehicles",
@@ -93,11 +94,11 @@ async def test_system_shape_as_admin(client, editor, admin_login):
     # Connectors — every consumer/producer listed read-only, one row each.
     connectors = {c["id"]: c for c in body["connectors"]}
     assert set(connectors) == {
-        # The three POLLING connectors, which carry health as well as configuration.
+        # The four POLLING connectors, which carry health as well as configuration.
         "divera_alarms",
         "traccar",
         "divera_personnel",
-        "print_relay",
+        "roster_snapshot",
         "capture",
         "stats",
         "divera_webhook",
@@ -113,7 +114,6 @@ async def test_system_shape_as_admin(client, editor, admin_login):
         # wrong, and the whole point of this pair is that a reader can be trusted with it.
         assert set(c) >= {"lastAttempt", "lastSuccess", "lastError", "counts"}
     # nothing configured in the bare test env → no state, fail-closed everywhere
-    assert connectors["print_relay"]["state"] is None
     assert connectors["divera_alarms"] == {
         "id": "divera_alarms",
         "direction": "in",
@@ -169,24 +169,6 @@ async def test_generic_alarm_webhook_does_not_claim_a_specific_provider(monkeypa
     firehub = next(p for p in result.providers if p.provider == "firehub")
     assert firehub.configured is False
     assert firehub.active is False
-
-
-async def test_system_connector_print_relay_online(client, editor, admin_login, monkeypatch):
-    """With the relay secret set and a fresh heartbeat, the connector reports online."""
-    from datetime import UTC, datetime
-
-    from app.api import print_relay
-    from app.config import settings
-
-    monkeypatch.setattr(settings, "print_agent_secret", "print-agent-secret-0123456789ab")
-    monkeypatch.setattr(print_relay, "_last_seen", datetime.now(UTC))
-    await _login(client, editor)
-    await admin_login(client)
-    body = (await client.get("/api/system")).json()
-    relay = next(c for c in body["connectors"] if c["id"] == "print_relay")
-    assert relay["configured"] is True
-    assert relay["state"] == "online"
-    assert relay["detail"]  # last_seen iso timestamp
 
 
 async def test_setup_rows_tick_on_the_station_s_own_data(client, editor, admin_login, db_session, monkeypatch):

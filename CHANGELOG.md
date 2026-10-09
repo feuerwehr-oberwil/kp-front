@@ -31,6 +31,36 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **«Anrückend» – who answered the Divera alarm, in the Anwesenheit.** An Einsatz with a Divera
+  alarm starts its crew list (EL and editors) with one line of counts («9 kommen · 2 kommen nicht
+  · 3 da»), the people coming, and «kommt nicht» in a muted group of its own, ✕ and the word on
+  every row. One tap on «da» checks somebody in; an answer alone never does. Yes / no and names
+  only: no answer times, status words or notes are shown or stored. The answers ride in the
+  existing `/alarms` poll (new column `divera_emergencies.responses_json`), which keeps its 30 s
+  cadence for the first 10 min after an alarm. What a status means is read off its name, and
+  `roster.diveraResponses` overrides it (docs/divera-connector.md › Rückmeldungen). The answers
+  are deleted once the Einsatz is closed and in any case 48 h after the alarm (PRIVACY.md).
+  *Migration runs on boot; nothing to set up.*
+- **«Auswertung» – a debrief sheet at the end of the Rapport PDF.** Key figures (Alarm bis 1.
+  Fahrzeug vor Ort, Alarm bis 1. Atemschutz-Eintritt, Funkkontakte eingehalten with the overrun
+  count, längster Atemschutz-Einsatz, Einsatzdauer – each defined in a footnote, «—» when the
+  record does not carry it), a vector swimlane timeline (Fahrzeuge, Trupps with their contacts and
+  fällig/überfällig stretches hatched so they survive a greyscale printer, checklist phases,
+  milestones). Its own landscape sheet, last, so the signed part goes out without
+  it; «Auswertung (intern)» in the PDF ▾ menu, ticked by default when a crew went in under Atemschutz. *No action needed.*
+- **Roster snapshot: read the personnel list from a file the station publishes.** Set
+  «Personenstamm-Quelle» on /admin › Anbindungen to an `https://` address (optional bearer
+  token) or an absolute path, and the deployment polls that `roster-snapshot/1` file hourly
+  (`roster.snapshotIntervalMin`) and on «Jetzt abrufen» under System › Verbindungen. People are
+  matched by the snapshot's key, then by any identity it lists (an existing Divera link is
+  reused, never rewritten), then by a unique name; a failed fetch or an invalid file changes
+  nothing; a run that would deactivate more than `roster.snapshotMaxDeactivatePct` (20 %) of
+  the active people is held until an admin applies it; the roster is never emptied and nobody
+  is deleted. The outcome report sits on System › Verbindungen. Any tool can write the file –
+  `scripts/roster_snapshot_from_csv.py` turns a spreadsheet into one, and drops every column
+  that is not part of the contract (docs/CONFIGURATION.md §4c). The reading rules are
+  byte-identical with KP Rück's. *No action needed – without a source nothing is fetched;
+  Divera and the CSV import are unchanged and stay the default.*
 - **Anleitungen – a second kind of checklist, read-only and offline.** A template with
   `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
   «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on
@@ -49,6 +79,12 @@ so this file – not the log – is the record of what shipped up to that point.
   `e2e/perf/baseline.json`; a confirmed regression fails the PR. The table is posted on the PR as
   one comment that every push edits in place. `just perf` runs it locally,
   `just perf-accept <run-id>` takes a CI run as the new baseline (docs/testing/perf-journeys.md).
+- **CI compares the look against screenshots.** A «Visual» job shoots nine frozen states of the
+  production container (Karte by day and night and on a phone, Plan, Trupps on tablet and phone,
+  Verlauf, Rapport, kiosk) on a fixed clock and seeded data, and fails on more than 20 changed
+  pixels per state against `e2e/visual/baseline/`; the job summary names the states, the diffs are
+  an artifact. `just visual` runs it locally, `just visual-accept <run-id>` takes CI's pictures as
+  the new baselines (docs/testing/visual-regression.md).
 
 - **Objektbesuche: change the checklist of a draft, read the plans in the app.** The visit's ⋯
   menu gets «Checkliste wechseln»: answers that also exist in the new checklist stay, the rest
@@ -292,12 +328,44 @@ so this file – not the log – is the record of what shipped up to that point.
   events; the server acknowledges and drops them, so a mixed-version day converges on the
   server's record.
 
+### Removed
+
+- **The station print relay.** «Ausdrucken» / «An Stationsdrucker» on the Rapport, on the
+  Erfassungs-Poster and in the Zeitplan's paper sheet is gone, together with the server-side queue
+  behind it (`/api/print/*`, `/api/print-jobs/*`, `/api/print-agent/*` and the capture twins), the
+  open-print-job band under the Rapport head, the System card's print-agent row, the
+  `report.reversePrintOrder` switch and the `PRINT_AGENT_SECRET` credential. Nothing is lost on
+  paper: the Rapport and both Zeitplan sheets are still a PDF that prints from the device's own
+  dialog, the way they were printed all along – the relay had never queued a single job
+  in production. A migration drops the `print_jobs` table and deletes a stored agent secret; a
+  `PRINT_AGENT_SECRET` left in `.env` is ignored. A print agent still polling the old endpoints
+  now gets 404s and can be switched off (kp-rueck's agent keeps its own Rück job types).
+
 ### Fixed
 
 - **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
   the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
-  reader. Under the clock it now says «Fällig» with a clock glyph, «Überfällig» or «Alarmdruck»
-  with the warning triangle, in the space the row already had. The opened card keeps the same line.
+  reader. Under the clock it now carries a glyph: a clock for «fällig», the warning triangle for
+  «überfällig» and the Alarmdruck, in the space the row already had, and the row's spoken name
+  says the word. The opened card keeps the same line.
+- **Microsoft login stays hidden with an incomplete or invalid setup.** Environment values
+  now pass the same GUID and account-mapping validation as the admin form before the button
+  or login routes are enabled. Offline devices keep the PIN login available.
+
+- **The weather details showed an Open-Meteo reading 1–2 h off.** Open-Meteo sends its time in
+  UTC without a zone, and the top bar's details read it as the device's local time. It is read as
+  UTC now (`lib/weatherTime`); MeteoSwiss readings were never affected. *No action needed.*
+- **The ERG Schutzabstand ring follows the sun, not a 07–19 h clock.** The protective ring
+  around a Gefahrentafel picked the day or night distance by the hour, so a December evening at
+  17:30 drew the day ring and a June evening at 20:30 the night ring. It now asks the sun at the
+  placard (the same model as the automatic night theme), and the ring control says why:
+  «Nacht · Sonnenuntergang 16:42».
+- **Dates and times follow the station's language.** About 30 places spelled a fixed «de-CH»
+  (the weather's «Stand», the Atemschutz-Link, the Erfassung, the Verwaltung, the Verlauf's day
+  heads, the Rapport), so a French or Italian station read German weekdays and dates. They all go
+  through one helper now, which reads the deployment's language as its Swiss form (24-hour clock
+  for «en» too). A German station sees exactly what it saw. The admin tip for Textbausteine no
+  longer promises French, Italian or English standard phrases: the shipped ones stay German.
 - **The picked checklist survives a tab change.** The Checkliste surface fell back to the first
   list (on a phone, to the chooser) every time another tab was shown. The pick is now kept per
   Einsatz for the browser session, and survives a reload too.

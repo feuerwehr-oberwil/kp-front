@@ -23,7 +23,7 @@ const CLASSES: ComboMenuClasses = {
  * `value=""` + a non-empty placeholder makes it a pure prefill picker (it shows the placeholder
  * and never retains a selection, since the parent keeps value empty).
  */
-export function Combo({ value, options, groups, placeholder, searchPlaceholder, allowCustom, clearable = true, officerFilter, rankOf, statusOf, openTick, limit, onInput, onChange }: {
+export function Combo({ value, options, groups, placeholder, searchPlaceholder, allowCustom, clearable = true, officerFilter, rankOf, statusOf, openTick, limit, onChange }: {
   value: string
   options: string[]
   /** optional grouped rendering: section headers with their own options. When set, the menu

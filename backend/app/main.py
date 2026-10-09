@@ -112,6 +112,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from . import visits
 from .auth.cookies import ACCESS_COOKIE, ADMIN_COOKIE, REFRESH_COOKIE
 from .auth.incident_link import LINK_COOKIE, enforce_link_scope
+from .auth.microsoft import router as microsoft_login_router
 from .auth.router import router as auth_router
 from .auth.token_blocklist import token_blocklist
 from .config import settings
@@ -472,8 +473,8 @@ _UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _SESSION_COOKIES = (ACCESS_COOKIE, REFRESH_COOKIE, ADMIN_COOKIE, LINK_COOKIE)
 
 #: The explicit non-cookie credentials, as the routes that read them spell them (api/capture,
-#: api/divera, api/alarms, api/firehub, api/traccar, api/stats, api/print_relay).
-_CREDENTIAL_HEADERS = ("x-capture-token", "x-webhook-secret", "x-stats-token", "x-print-agent-secret")
+#: api/divera, api/alarms, api/firehub, api/traccar, api/stats).
+_CREDENTIAL_HEADERS = ("x-capture-token", "x-webhook-secret", "x-stats-token")
 
 #: `Sec-Fetch-Site` values a request from our own page (or a typed address) carries.
 _OWN_FETCH_SITES = frozenset({"same-origin", "none"})
@@ -690,6 +691,7 @@ async def ready() -> JSONResponse:
 # --- API routers (each phase registers here) ---
 P = settings.api_prefix
 app.include_router(auth_router, prefix=P)
+app.include_router(microsoft_login_router, prefix=P)
 
 
 def _register_optional_routers() -> None:
@@ -718,11 +720,11 @@ def _register_optional_routers() -> None:
         ("app.api.plan_alignments", "router"),
         ("app.api.objects", "router"),
         ("app.api.objects", "incidents_objects_router"),
+        ("app.api.building", "router"),
         ("app.api.events", "router"),
         ("app.api.journal", "router"),
         ("app.api.push", "router"),
         ("app.api.report", "router"),
-        ("app.api.print_relay", "router"),
         ("app.api.stats", "router"),
         ("app.api.system", "router"),
         ("app.api.credentials", "router"),

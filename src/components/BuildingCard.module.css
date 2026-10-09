@@ -1,0 +1,27 @@
+/* «Gebäude» (BuildingCard, KP Front F5): the body of the card its chip opens on the Karte / Plan
+   (BuildingFloat supplies the glass). The tags are the card
+   pill's (13-incident · .ip-card-pill): read-only, not chips you tap. A hazard is the amber tag
+   WITH the warn glyph and its word, so it never rests on colour alone. */
+.card { display: flex; flex-direction: column; gap: var(--sp-1); }
+.head { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.head .hint { margin-left: auto; }
+.close { flex: none; margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) 0; }
+.title { display: inline-flex; align-items: center; gap: var(--sp-1); font: var(--eyebrow); letter-spacing: var(--eyebrow-track);
+  text-transform: uppercase; color: var(--ink-faint); }
+.title svg, .hint svg { width: 12px; height: 12px; flex: none; }
+.hint { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; font: var(--fw-medium) var(--fs-micro)/var(--lh-micro) var(--body);
+  color: var(--ink-faint); white-space: nowrap; }
+.chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
+.chip { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; max-width: 100%; padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-xs); font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body);
+  color: var(--ink); background: var(--ink-8); }
+.chip > span { min-width: 0; overflow-wrap: anywhere; }
+.chip svg { width: 14px; height: 14px; flex: none; }
+.hazard { color: var(--amber-strong); background: var(--amber-16); }
+.sources { margin: 0; font: var(--fw-medium) var(--fs-micro)/var(--lh-micro) var(--body); color: var(--ink-faint); overflow-wrap: anywhere; }
+.notes { margin-top: var(--sp-1); }
+.notesLabel { font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
+.measures .notesLabel { color: var(--ink); }
+.lines { margin: 2px 0 0; padding-left: var(--sp-4); font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink); }
+.visit { display: flex; align-items: center; gap: var(--sp-1); margin: var(--sp-1) 0 0; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
+.visit svg { width: 14px; height: 14px; flex: none; }

@@ -183,14 +183,14 @@ class Incident(Base):
     # Stored in the clear rather than hashed, and that is a requirement, not laziness: the
     # Rapport has to be able to SHOW the link again — anything else means «lost it, mint a new
     # one, tell everybody», which is how a station ends up with five live links per Einsatz.
-    view_link_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    view_link_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # The Atemschutz link (2026-09-01) — the THIRD kind. Same shape as `view_link_key` (a random
     # secret that IS the link, URL `/l/a<this>`, cleared to revoke), opposite lifetime: it is
     # minted from a RUNNING Einsatz for somebody who is not on the FU, and it dies when the
     # Einsatz closes. What it opens is not the read-only viewer but the Atemschutzüberwachung of
     # this one Einsatz — a narrow write slice, enforced in auth/incident_link.
-    atemschutz_link_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    atemschutz_link_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     details_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     map_workspace_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
@@ -202,7 +202,14 @@ class Incident(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    __table_args__ = (Index("ix_incidents_archived_started", "is_archived", "started_at"),)
+    __table_args__ = (
+        Index("ix_incidents_archived_started", "is_archived", "started_at"),
+        # Both link keys are unique — the secret IS the credential. As unique INDEXES, the way
+        # their migrations (68cbf635f90e, 40a7d00c2b37) built them; `unique=True` on the column
+        # declared a unique CONSTRAINT instead, which only the tests' create_all ever had.
+        Index("ix_incidents_view_link_key", "view_link_key", unique=True),
+        Index("ix_incidents_atemschutz_link_key", "atemschutz_link_key", unique=True),
+    )
 
     @property
     def is_open(self) -> bool:
@@ -304,6 +311,11 @@ class DiveraEmergency(Base):
         ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
     )
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    # The alarm's Rückmeldungen as the poll last saw them (app/divera_responses · with_catalogue):
+    # who answered which status, who was addressed, how many read it. Personal data, so it lives
+    # here behind a logged-in read and never in the workspace blob, the export or a link.
+    responses_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    responses_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Personnel(Base):
@@ -395,35 +407,6 @@ class SttJob(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class PrintJob(Base):
-    """Queued Einsatzrapport-PDF for the station print relay.
-
-    The backend composes the PDF at enqueue time; the on-site agent polls, claims the
-    oldest ``queued`` row, prints it, and reports back. Rows are transient — the paper is
-    the artefact — and are swept after ``PRINT_JOB_RETENTION_DAYS`` (scheduler.py)."""
-
-    __tablename__ = "print_jobs"
-
-    id: Mapped[uuid.UUID] = _uuid_pk()
-    incident_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # 'report' | 'capture_report'
-    filename: Mapped[str] = mapped_column(Text, nullable=False)
-    pdf: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    # True only when the document renders the (coloured) Kroki — everything else prints
-    # monochrome at the agent (toner/ink discipline; decided 2026-07-18)
-    color: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="queued"
-    )  # queued|printing|done|failed|cancelled
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    requested_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
 class ObjectSite(Base):
     """Einsatzobjekt — a pre-planned site carrying its own module plans."""
 
@@ -451,6 +434,19 @@ class ObjectSite(Base):
     #: SharePoint pull and the manifest import (`folder`), backfilled from `source_note` where
     #: that names the folder; NULL = unknown, and `object_visits.object_folder` derives one.
     filing_folder: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: The object's «Sofortmassnahmen» as the station wrote them down — free text, one measure
+    #: per line («Gashaupthahn im Keller schliessen»). OPTIONAL and MANUAL: the only copy most
+    #: stations have is printed on the Modul-1 PDF, and parsing that is station-specific work
+    #: done outside this repo, then loaded with `admin_objects` (manifest key `measures`) or
+    #: typed in Verwaltung › Objektpläne. Shown on the Einsatz's Gebäude card (building_facts).
+    measures: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: The sheet's other box, «Bemerkungen» («Hohe Brandlast im Keller», «PV-Anlage auf dem
+    #: Dach»), same shape and same doors as `measures`. On the Oberwil sheets this is where most
+    #: of the writing is (52 of 122 Modul-1 sheets, against 2 with Sofortmassnahmen, 09.10.2026).
+    remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Where `measures` and `remarks` came from, in the station's words («Modul 1, Stand
+    #: 03.2024») — the card prints it beside them, because a measure without a source reads as a fact.
+    measures_source: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -1255,15 +1251,20 @@ class ConnectorState(Base):
       -triggered ``POST /api/personnel/sync/execute``, so «zuletzt synchronisiert» is truthful
       whoever pressed it.
 
+    * ``roster_snapshot`` — the roster-snapshot poll (app/roster_snapshot_sync.py), written by
+      the scheduled tick and by «Jetzt abrufen».
+
     ``detail`` carries the connector-specific numbers the UI shows beside the timestamps (the
     personnel sync's added/updated/deactivated, and the stale members a 'safe' level leaves
-    outstanding). It is a report, never a resume point: nothing reads it back to decide what to
-    do next, so a lost row costs a line on a status card and nothing else.
+    outstanding). It is a report, never a resume point — with ONE exception: the roster
+    snapshot reads its ``lastGood`` back (which file the roster reflects, so an older copy is
+    refused and an unchanged one skipped). A lost row costs that connector one idempotent
+    re-apply; every other connector loses a line on a status card and nothing else.
     """
 
     __tablename__ = "connector_states"
 
-    #: 'divera_alarms' | 'traccar' | 'divera_personnel' (app/connector_state.py)
+    #: 'divera_alarms' | 'traccar' | 'divera_personnel' | 'roster_snapshot' (app/connector_state.py)
     name: Mapped[str] = mapped_column(String(32), primary_key=True)
     last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     #: NEVER touched by a failed run, and never by a run that fetched nothing.

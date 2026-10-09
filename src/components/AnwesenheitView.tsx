@@ -31,6 +31,7 @@ import { SyncGlyph } from './SyncGlyph'
 import { Button, IconButton } from './Button'
 import { ZeitplanView } from './ZeitplanView'
 import { BandGrid } from './BandGrid'
+import { AnrueckendBlock } from './AnrueckendBlock'
 import s from './Anwesenheit.module.css'
 import c from './SurfaceControls.module.css'
 
@@ -234,17 +235,13 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
 /**
  * The chosen sheet, before it goes anywhere.
  *
- * Two menu entries and two ways out would be four entries; this is the fold. The sheet names what
- * it is about to produce — how many people, how many bands, as of when — which is both the
- * confirmation (paper is out of the machine before a toast has faded, and it does not undo) and
- * the sanity check on whether the search + rank filter above are set the way you meant.
+ * The sheet names what it is about to produce — how many people, how many bands, as of when —
+ * which is the sanity check on whether the search + rank filter above are set the way you meant.
  */
-function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, onClose }: {
+function PaperSheet({ sheet, people, bands, onDownload, onClose }: {
   sheet: ZeitplanSheet
   people: Person[]
   bands: number
-  printOnline?: boolean
-  onPrint?: () => void
   onDownload?: () => void
   onClose: () => void
 }) {
@@ -254,19 +251,9 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
   const [openedAt] = useState(() => new Date())
   return (
     <Sheet open onClose={onClose} fit title={schicht ? Z.sheetSchichtplanTitle : Z.sheetVerfuegbarkeitenTitle}
-      footer={
-        <>
-          {onDownload && (
-            <Button onClick={() => { onDownload(); onClose() }}>{Z.pdf}</Button>
-          )}
-          {onPrint && (
-            <Button variant="primary" icon={<Icon id="printer" />} onClick={() => { onPrint(); onClose() }}>
-              {appConfig.copy.printRelay.send}
-              <span className={`dot print-relay-dot${printOnline ? ' online' : ''}`} aria-hidden />
-            </Button>
-          )}
-        </>
-      }
+      footer={onDownload && (
+        <Button onClick={() => { onDownload(); onClose() }}>{Z.pdf}</Button>
+      )}
     >
       <p className={s.paperContent}>
         {schicht
@@ -335,8 +322,8 @@ export function AnwesenheitView({
   onAddGuest, onMarkPresent, onMarkLeft, onClear, onSetOrt, onJumpToTrupp, onReload, onUndo, onRedo, canUndo = false, canRedo = false, topBarUndoHidden = false, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
-  onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
-  livePositions, incidentCenter, onShowOnMap, incidentId,
+  onDownloadZeitplan,
+  livePositions, incidentCenter, onShowOnMap, incidentId, diveraResponsesFor,
 }: {
   people: Person[]
   attendance: AttendanceState
@@ -412,10 +399,8 @@ export function AnwesenheitView({
   onReplaceShift?: (sh: Shift, undoName?: string) => void
   onSetShiftTime?: (id: string, patch: { from?: string; to?: string }) => void
   onRemoveShift?: (id: string, personName: string) => void
-  /** print / download one of the two Schichtenplanung sheets (rendered server-side) */
-  onPrintZeitplan?: (people: Person[], sheet: ZeitplanSheet) => void
+  /** download one of the two Schichtenplanung sheets (rendered server-side) */
   onDownloadZeitplan?: (people: Person[], sheet: ZeitplanSheet) => void
-  zeitplanPrintOnline?: boolean
   /** Self-reported live positions, keyed by person id (see lib/usePersonPositions). Absent for
    *  a session that may not read them — a link-scoped phone gets no crew picture at all. */
   livePositions?: Map<string, LivePerson>
@@ -425,6 +410,10 @@ export function AnwesenheitView({
   onShowOnMap?: (personId: string) => void
   /** stamps the remembered tab, so switching Einsatz starts on the crew list again */
   incidentId?: string
+  /** The incident whose Divera Rückmeldungen the «Anrückend» block reads (AnrueckendBlock) —
+   *  set only for a running Einsatz on a station with Divera, for the EL and the editors.
+   *  Absent = no block, and no request: a station without Divera never sees it. */
+  diveraResponsesFor?: string
 }) {
   const [q, setQ] = useState('')
   const [rankSel, setRankSel] = useState<ReadonlySet<string>>(() => new Set())
@@ -668,6 +657,8 @@ export function AnwesenheitView({
    * about time), and never for a name that is already standing here — that offer could only
    * produce a second row reading exactly like the first. */
   const typedName = q.trim()
+  /** anything typed or ticked that narrows the crew list (the «Anrückend» block steps aside) */
+  const narrowed = !!typedName || presentOnly || stateSel.size > 0 || rankSel.size > 0 || noteOnly
   const guestOffer = !showPlan && !showBands && canEdit && onAddGuest && typedName && !knownNames.has(typedName)
     ? typedName : ''
   /* …and the query goes with it: the rows that answered «mus» are not the way to the next person,
@@ -758,22 +749,14 @@ export function AnwesenheitView({
               both instead of guessing which was meant. «Schichtplan» only exists once there are
               bands to put across the top; «Verfügbarkeiten» is the one that exists regardless, and
               the only one on which a freihändige Zeit appears at all. Picking one opens a sheet
-              that names its own contents and offers PDF and printer — which keeps the
-              confirmation before paper starts moving, without four menu entries.
+              that names its own contents and offers the PDF.
               Offered on the Zeitplan AND the Schichten tab: one surface, one way to paper. */}
-          {(showPlan || showBands) && (onPrintZeitplan || onDownloadZeitplan) && (
+          {(showPlan || showBands) && onDownloadZeitplan && (
             <Menu
               trigger={
                 <button className={c.iconBtn} aria-label={appConfig.copy.zeitplan.paperMenu}
                   title={appConfig.copy.zeitplan.paperMenu}>
-                  {/* icon + relay dot side by side, like the Rapport's print button — .iconBtn is
-                      inline-grid, so as two loose children they stacked (printer OVER the dot) */}
-                  <span className="print-send-main">
-                    <Icon id="printer" />
-                    {onPrintZeitplan && (
-                      <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
-                    )}
-                  </span>
+                  <Icon id="printer" />
                 </button>
               }
               popupClassName={c.menuPop}
@@ -1013,6 +996,13 @@ export function AnwesenheitView({
         />
       ) : (
         <div className={s.grid}>
+          {/* «Anrückend» — the Divera answers, as the grid's first cell across all columns. Only
+              on the unfiltered list: a search or a narrowing asks about the Mannschaft, and a block
+              that ignored it would stand there answering a different question. */}
+          {diveraResponsesFor && !narrowed && (
+            <AnrueckendBlock incidentId={diveraResponsesFor} people={people} attendance={attendance}
+              canEdit={canEdit} onMarkPresent={onMarkPresent} />
+          )}
           {rows.map((p) => {
             const a = attendance[p.id]
             const present = isPresent(a)
@@ -1121,8 +1111,6 @@ export function AnwesenheitView({
           sheet={paper}
           people={rows}
           bands={bands?.length ?? 0}
-          printOnline={zeitplanPrintOnline}
-          onPrint={onPrintZeitplan ? () => onPrintZeitplan(rows, paper) : undefined}
           onDownload={onDownloadZeitplan ? () => onDownloadZeitplan(rows, paper) : undefined}
           onClose={() => setPaper(null)}
         />
