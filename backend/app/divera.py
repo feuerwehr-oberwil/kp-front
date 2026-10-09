@@ -409,7 +409,8 @@ async def prune_responses(db: AsyncSession, now: datetime) -> int:
         .values(responses_json=null(), responses_at=None)
         .execution_options(synchronize_session=False)
     )
-    return result.rowcount or 0
+    # an UPDATE's result is a CursorResult; the plain Result type mypy sees has no rowcount
+    return int(getattr(result, "rowcount", 0) or 0)
 
 
 class DiveraApiError(Exception):

@@ -1,7 +1,7 @@
 """divera_emergencies.responses_json — the alarm's Rückmeldungen as the poll last saw them
 
 Revision ID: a1d2e3f4b5c6
-Revises: f9b8c7d6e5a4
+Revises: d3e6a9c2f5b8
 Create Date: 2026-10-08 20:00:00.000000
 """
 
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "a1d2e3f4b5c6"
-down_revision: str | None = "f9b8c7d6e5a4"
+down_revision: str | None = "d3e6a9c2f5b8"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
