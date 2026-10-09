@@ -31,6 +31,17 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Station index: one address for all station data.** A station publishes an `index.json`
+  next to its data files that lists them by kind with checksums (`station-index/1`,
+  docs/CONFIGURATION.md §4d); KP Front gets ONE setting for it – «Stationsdaten-Index» on
+  /admin › Anbindungen (`STATION_INDEX_SOURCE` + optional token) – and reads the roster through
+  it. A file that does not match the index's sha256 is refused and the roster stays as it was.
+  `scripts/station_index_build.py` writes the index for a folder. `vehicles`, `groups` and
+  `keywords` are reserved kinds: listed, reported as not read yet, format documented. KP Rück
+  reads the same index with byte-identical code. **Upgrade:** *no action needed* – without an
+  index nothing changes, and a station that set the roster source (`ROSTER_SNAPSHOT_SOURCE`)
+  keeps it as the fallback. To move to the index, publish `index.json` beside `roster.json` and
+  set the index address; the roster source can then be cleared.
 - **«Anrückend» – who answered the Divera alarm, in the Anwesenheit.** An Einsatz with a Divera
   alarm starts its crew list (EL and editors) with one line of counts («9 kommen · 2 kommen nicht
   · 3 da»), the people coming, and «kommt nicht» in a muted group of its own, ✕ and the word on
