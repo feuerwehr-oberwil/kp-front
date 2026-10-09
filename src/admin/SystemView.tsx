@@ -825,7 +825,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
             <div className="adm-sys-grid">
             {/* Verbindungen — ONE table for everything this deployment talks to:
                 provider integrations (Divera/Traccar) and every consumer/producer
-                (print-relay agent with live heartbeat, capture poster, stats export,
+                (capture poster, stats export,
                 webhooks, web push, STT). Read-only; configured via env/CLI/admin. */}
             <Card title={C.connectors} tip={C.connectorsTip}>
               {state.data.integrations || state.data.connectors?.length ? (
@@ -859,7 +859,6 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                           traccar: C.connTraccar,
                           divera_personnel: C.connDiveraPersonnel,
                           roster_snapshot: C.connRosterSnapshot,
-                          print_relay: C.connPrintRelay,
                           capture: C.connCapture,
                           stats: C.connStats,
                           divera_webhook: C.connDiveraWebhook,
@@ -896,11 +895,6 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                             <td>{conn.direction === 'in' ? C.directionIn : C.directionOut}</td>
                             <td>
                               <StatusBadge tone={health.tone} label="" state={health.state} />
-                              {conn.id === 'print_relay' && conn.detail && (
-                                <p className="adm-card-cap">
-                                  {fillTemplate(C.connLastSeen, { time: fmtClock(new Date(conn.detail)) })}
-                                </p>
-                              )}
                               {pollsFor(conn.id) && conn.configured && conn.lastSuccess && (
                                 <p className="adm-card-cap">
                                   {fillTemplate(C.connLastSuccess, { time: fmtRelTime(conn.lastSuccess) })}

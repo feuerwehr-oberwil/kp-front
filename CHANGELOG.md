@@ -305,6 +305,19 @@ so this file – not the log – is the record of what shipped up to that point.
   events; the server acknowledges and drops them, so a mixed-version day converges on the
   server's record.
 
+### Removed
+
+- **The station print relay.** «Ausdrucken» / «An Stationsdrucker» on the Rapport, on the
+  Erfassungs-Poster and in the Zeitplan's paper sheet is gone, together with the server-side queue
+  behind it (`/api/print/*`, `/api/print-jobs/*`, `/api/print-agent/*` and the capture twins), the
+  open-print-job band under the Rapport head, the System card's print-agent row, the
+  `report.reversePrintOrder` switch and the `PRINT_AGENT_SECRET` credential. Nothing is lost on
+  paper: the Rapport and both Zeitplan sheets are still a PDF that prints from the device's own
+  dialog, the way they were printed all along – the relay had never queued a single job
+  in production. A migration drops the `print_jobs` table and deletes a stored agent secret; a
+  `PRINT_AGENT_SECRET` left in `.env` is ignored. A print agent still polling the old endpoints
+  now gets 404s and can be switched off (kp-rueck's agent keeps its own Rück job types).
+
 ### Fixed
 
 - **The ERG Schutzabstand ring follows the sun, not a 07–19 h clock.** The protective ring

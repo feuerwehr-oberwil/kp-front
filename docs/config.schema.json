@@ -1651,11 +1651,6 @@
           "title": "Partnerorgs",
           "type": "array"
         },
-        "reversePrintOrder": {
-          "default": true,
-          "title": "Reverseprintorder",
-          "type": "boolean"
-        },
         "hoursRounding": {
           "$ref": "#/$defs/HoursRoundingConfig"
         },

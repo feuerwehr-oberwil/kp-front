@@ -54,7 +54,7 @@ a session of its own.
 
 # **Integration credentials are settable from `/admin`, encrypted, and read through an
 # accessor — never off `settings`.** Divera / Traccar / VAPID / STT / CARTO / the two webhook secrets /
-# the print-agent secret / `HEALTHCHECK_PING_URL` live in `integration_credentials`
+# `HEALTHCHECK_PING_URL` live in `integration_credentials`
 # (AES-256-GCM under an HKDF key derived from `SECRET_KEY`, which stays in `.env`), and every
 # consumer reads `app.credentials.get(name)` after `await load(db)`. **`.env` still wins where
 # it is set**, so no existing deployment changes. Two rules for anything added here: a
@@ -177,9 +177,8 @@ FIELDS: tuple[CredentialField, ...] = (
     # CARTO requires this value in every browser tile URL. It therefore is not a server
     # secret; CARTO's domain restrictions are the protection against reuse elsewhere.
     CredentialField("carto_api_key", "maps", False, "CARTO Basemap API-Key"),
-    # --- Webhooks + relay -------------------------------------------------------------
+    # --- Webhooks ---------------------------------------------------------------------
     CredentialField("alarm_webhook_secret", "webhooks", True, "Alarm-Webhook-Secret"),
-    CredentialField("print_agent_secret", "webhooks", True, "Print-Agent-Secret"),
     # --- Monitoring -------------------------------------------------------------------
     # ⚠️ Write-only, deliberately, even though it is barely a secret to this deployment.
     # api/system reports it as a BOOLEAN with the same reasoning: the ping address is a write

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, cleanup, act, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
 
 // The two pieces of behaviour the strict settings table added, and neither is layout:
 //
@@ -27,13 +28,12 @@ import {
   AlarmsSection, DoctrineSection, FleetSection, IdentitySection, MapSection, ReportSection,
 } from './ConfigSections'
 import { InfoTip } from './InfoTip'
-import { standardNote } from './ui'
+import { SettingRow, standardNote } from './ui'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 
 const C = appConfig.copy.admin.common
 const D = appConfig.copy.admin.doctrine
-const R = appConfig.copy.admin.report
 const SHIPPED_ALARM_BAR = appConfig.atemschutz.alarmBar
 
 /** The note as the column prints it for a given shipped default. */
@@ -174,7 +174,7 @@ describe('Textbausteine after the Journal page was folded into Rapport', () => {
     apiGet.mockReset().mockResolvedValue({
       version: 'v1',
       journal: { quickPhrases: ['Wasser marsch', 'Trupp zurück'] },
-      report: { hoursRounding: { stepMin: 30, graceMin: 5 }, reversePrintOrder: true, links: [], partnerOrgs: [] },
+      report: { hoursRounding: { stepMin: 30, graceMin: 5 }, links: [], partnerOrgs: [] },
     })
   })
   afterEach(() => { cleanup(); vi.useRealTimers() })
@@ -200,46 +200,44 @@ describe('Textbausteine after the Journal page was folded into Rapport', () => {
  * ⚠️ The row's HIT AREA, which is not the same thing as its layout.
  *
  * All four cells used to sit inside one <label>, so a click anywhere in the hover band activated
- * the control: reading what the Standard column said about the print order flipped the print
- * order. Only the label TEXT is a target now, and it reaches the control through `for`/id — which
+ * the control: reading what the Standard column said about a switch flipped the switch. Only the label TEXT is a target now, and it reaches the control through `for`/id — which
  * is the part that could rot silently, because a label pointing at nothing still LOOKS like a
  * label.
  */
 describe('a settings row is clickable on its label and nowhere else', () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    apiPut.mockReset().mockImplementation(async (_p: string, body: unknown) => body)
-    // reversePrintOrder OFF, so this row is the one with something in its Standard cell
-    apiGet.mockReset().mockResolvedValue({
-      version: 'v1',
-      report: { hoursRounding: { stepMin: 30, graceMin: 5 }, reversePrintOrder: false, links: [], partnerOrgs: [] },
-    })
-  })
-  afterEach(() => { cleanup(); vi.useRealTimers() })
+  afterEach(() => { cleanup() })
 
-  const box = () => document.querySelector<HTMLInputElement>('input[type="checkbox"]')!
-  const row = () => screen.getByText(R.reverseOrder).closest('.adm-set-row')!
-  const open = async () => {
-    render(<ConfigProvider><ConfigGate><ReportSection /></ConfigGate></ConfigProvider>)
-    await waitFor(() => expect(document.querySelector('input[type="checkbox"]')).toBeTruthy())
+  // A standalone row rather than a Station page: the binding is the ROW's, and no page has to
+  // happen to carry a checkbox with a Standard note for it to stay pinned.
+  const LABEL = 'Einstellung'
+  function Row() {
+    const [on, setOn] = useState(false)
+    return (
+      <SettingRow label={LABEL} standard={standardNote(on, true)}>
+        <input className="adm-set-check" type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+      </SettingRow>
+    )
   }
+  const box = () => document.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+  const row = () => screen.getByText(LABEL).closest('.adm-set-row')!
+  const open = () => render(<Row />)
 
-  it('binds the label to the control by id — no call site passes one', async () => {
-    await open()
-    expect(screen.getByLabelText(R.reverseOrder)).toBe(box())
+  it('binds the label to the control by id — no call site passes one', () => {
+    open()
+    expect(screen.getByLabelText(LABEL)).toBe(box())
     // the row itself is no longer a <label>: it may not wrap the control again
     expect(row().tagName).toBe('DIV')
   })
 
   it('toggles the checkbox from the label text', async () => {
-    await open()
+    open()
     expect(box().checked).toBe(false)
-    await act(async () => { fireEvent.click(screen.getByText(R.reverseOrder)) })
+    await act(async () => { fireEvent.click(screen.getByText(LABEL)) })
     expect(box().checked).toBe(true)
   })
 
   it('⚠️ leaves the control alone when the Standard cell is clicked', async () => {
-    await open()
+    open()
     const std = row().querySelector('.adm-set-std')!
     expect(std.textContent).toBe(note(C.standardOn)) // …i.e. this cell has something to read
     await act(async () => { fireEvent.click(std) })
@@ -266,7 +264,7 @@ describe('the settings grid', () => {
       version: 'v1',
       identity: {}, doctrine: { alarmBar: SHIPPED_ALARM_BAR },
       map: { defaultView: {}, geocoder: {}, externalLinks: [] },
-      report: { hoursRounding: { stepMin: 30, graceMin: 5 }, reversePrintOrder: true, links: [], partnerOrgs: [] },
+      report: { hoursRounding: { stepMin: 30, graceMin: 5 }, links: [], partnerOrgs: [] },
       alarms: { autoArchiveDays: 7, staleIncidentDays: 30, captureWindowHours: 12, webhooks: [], groups: [] },
     })
   })

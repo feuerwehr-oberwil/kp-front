@@ -176,17 +176,6 @@ async def _check_asset_scope(db: AsyncSession, data: ReportPayload, scope: Repor
             raise _out_of_scope()
 
 
-async def enforce_report_asset_scope(db: AsyncSession, payload: str, scope: ReportAssetScope) -> None:
-    """The scope check on a raw payload, for a caller that composes somewhere else.
-
-    ``resolve_report_assets`` runs this for every path that goes through it. The print queue
-    does not go through it with a scope: ``print_relay.enqueue_print_job`` owns the composer
-    call there and takes no scope argument, so its capture twin runs the check itself before
-    queueing anything. Same policy, same refusal, one implementation.
-    """
-    await _check_asset_scope(db, parse_report_payload(payload), scope)
-
-
 #: How much of a rejected Rapport payload may echo back in its 422 — enough to name the offending
 #: field, never enough to be worth POSTing a big body to provoke. Mirrors the caps the app-wide
 #: RequestValidationError handler applies in app/main.py.
@@ -332,7 +321,7 @@ async def compose_report_from_payload(
     scope: ReportAssetScope | None = None,
 ) -> tuple[bytes, ReportPayload]:
     """Validate the JSON `payload` and compose the Rapport-PDF — the one path shared by
-    the download endpoints (editor + capture) and the print-relay enqueue endpoints.
+    the download endpoints (editor + capture).
 
     `scope` narrows which server-owned assets the payload may reach (`ReportAssetScope`);
     omitting it keeps the station-wide behaviour every logged-in session already has.
@@ -347,20 +336,6 @@ async def compose_report_from_payload(
     except Exception as e:  # composition is best-effort — never 500 silently
         raise HTTPException(status_code=500, detail="Rapport-PDF konnte nicht erstellt werden.") from e
     return pdf, data
-
-
-async def warm_report_from_payload(payload: str) -> None:
-    """Best-effort tile-cache prewarm (fired when the rapport modal opens). Validates the
-    payload and warms the Kroki base tiles off the event loop so a later compose skips the
-    slow network round-trips. Swallows everything — a warm miss just means the real render
-    pays the cost, exactly as before."""
-    try:
-        data = ReportPayload.model_validate_json(payload)
-    except ValidationError:
-        return
-    from ..report_pdf import warm_report_tiles
-
-    await anyio.to_thread.run_sync(warm_report_tiles, data)
 
 
 def report_filename(title: str) -> str:

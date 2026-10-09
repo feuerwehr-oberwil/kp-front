@@ -154,7 +154,7 @@ def _polling_connector(cid: str, *, configured: bool, health: dict) -> dict:
 async def _connectors(db: AsyncSession) -> list[dict]:
     """Every consumer/producer this deployment talks to, read-only — one row each for the
     admin System card. Direction is from the backend's point of view: 'in' = something
-    sends/fetches data into us (webhooks, QR capture, stats pull, print agent, the Divera and
+    sends/fetches data into us (webhooks, QR capture, stats pull, the Divera and
     Traccar polls), 'out' = we push/call an external service (web push, STT).
 
     The three POLLING connectors carry health as well as configuration: when they last tried,
@@ -167,13 +167,11 @@ async def _connectors(db: AsyncSession) -> list[dict]:
     from ..models import DeploymentConfig
     from ..push import push_enabled
     from ..traccar import traccar_client
-    from .print_relay import relay_status
 
     await load_credentials(db)
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     health = await connector_state.states(db)
 
-    relay = relay_status()
     return [
         _polling_connector(
             connector_state.DIVERA_ALARMS,
@@ -196,14 +194,6 @@ async def _connectors(db: AsyncSession) -> list[dict]:
             configured=bool(credential("roster_snapshot_source")),
             health=health[connector_state.ROSTER_SNAPSHOT],
         ),
-        {
-            "id": "print_relay",
-            "direction": "in",
-            "configured": relay["configured"],
-            "state": ("online" if relay["online"] else "offline") if relay["configured"] else None,
-            "detail": relay["last_seen"],
-            **_NO_HEALTH,
-        },
         {
             "id": "capture",
             "direction": "in",
