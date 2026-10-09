@@ -17,6 +17,7 @@ __pycache__/
 /test-results/
 /playwright-report/
 /perf-results/
+/visual-results/
 /blob-report/
 /playwright/.cache/
 
