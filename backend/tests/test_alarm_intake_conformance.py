@@ -15,9 +15,9 @@ Two halves, asserted differently:
   hitting it in production.
 
 **What this test cannot do**: it never reads kp-rueck. Edit the corpus and this suite alone,
-and both repositories stay green while their copies fork. The ``alarm-contract-drift`` job in
-kp-rueck's ``.github/workflows/ci.yml`` is the only thing that compares them — same split as
-the telemetry and roster-snapshot contracts, for the same reason.
+and both repositories stay green while their copies fork. The file is listed in
+``shared/MANIFEST.json``; CI's «Shared files match KP Rück» job is the only thing that compares
+the two copies — same split as the telemetry and roster-snapshot contracts, for the same reason.
 
 **When a case here fails**, the fix is almost never to edit the corpus. A payload that changed
 verdict means the intake contract moved, and the corpus is what tells you it moved on one side
