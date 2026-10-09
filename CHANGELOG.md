@@ -49,6 +49,12 @@ so this file – not the log – is the record of what shipped up to that point.
   `e2e/perf/baseline.json`; a confirmed regression fails the PR. The table is posted on the PR as
   one comment that every push edits in place. `just perf` runs it locally,
   `just perf-accept <run-id>` takes a CI run as the new baseline (docs/testing/perf-journeys.md).
+- **CI compares the look against screenshots.** A «Visual» job shoots nine frozen states of the
+  production container (Karte by day and night and on a phone, Plan, Trupps on tablet and phone,
+  Verlauf, Rapport, kiosk) on a fixed clock and seeded data, and fails on more than 20 changed
+  pixels per state against `e2e/visual/baseline/`; the job summary names the states, the diffs are
+  an artifact. `just visual` runs it locally, `just visual-accept <run-id>` takes CI's pictures as
+  the new baselines (docs/testing/visual-regression.md).
 
 - **Objektbesuche: change the checklist of a draft, read the plans in the app.** The visit's ⋯
   menu gets «Checkliste wechseln»: answers that also exist in the new checklist stay, the rest
