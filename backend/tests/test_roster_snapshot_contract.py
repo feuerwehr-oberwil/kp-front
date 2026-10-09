@@ -65,7 +65,6 @@ roster-snapshot artifacts on purpose — `winfapAlias` is a legitimate, delibera
 in this product's station config, and this test says nothing about it.
 """
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -86,28 +85,7 @@ EXAMPLE_FILE = BACKEND / "roster.snapshot.example.json"
 #: Both halves of the contract, shared byte for byte with kp-rück (`shared/MANIFEST.json`).
 SCHEMAS = ("roster-snapshot.schema.json", "roster-snapshot-outcome.schema.json")
 
-#: Shared with kp-rück byte for byte, but not in `shared/MANIFEST.json` YET: kp-rueck's copies
-#: arrive with its station-index PR (#188), which moves them into the manifest in both
-#: repositories (`shared/README.md` · «Adding a shared file»). Until then this in-repo pin is
-#: all that holds them. Delete this dict and its test in that change.
-STATION_INDEX_PENDING = {
-    "backend/app/station_index.py": "716244cbb091950960bafda389da325afc5e9ed3f0519467edec76e7029002e1",
-    "scripts/station_index_build.py": "dcc96aab573692c0778bdee49f49a7c7a1b0778138eee0da547711fe88e16cce",
-    "docs/station-index.schema.json": "e555a5a26b25ed51d5a5319b82c8455d122721d955596534a228504233843ba7",
-    "docs/station-index.example.json": "607b30f7add0a6e8a93a61e362c5151952872e91b48737f953f0aa6e18526428",
-}
-
 repo_only = pytest.mark.skipif(not SNAPSHOT_SCHEMA.exists(), reason="repo root not available (running from the image)")
-
-
-@repo_only
-@pytest.mark.parametrize("path", sorted(STATION_INDEX_PENDING))
-def test_the_pending_station_index_matches_the_recorded_hash(path: str):
-    digest = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
-    assert digest == STATION_INDEX_PENDING[path], (
-        f"{path} changed. kp-rück carries (or is about to carry) the same bytes: make the same edit "
-        f"there and update the hash here in the same change."
-    )
 
 
 # --- 1. drift against the code ----------------------------------------------------------

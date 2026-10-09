@@ -97,6 +97,30 @@
       ]
     },
     {
+      "id": "station-index",
+      "title": "Station index",
+      "owner": "kp-front",
+      "question": "Could one station's index.json resolve to different files in the two products?",
+      "files": [
+        {
+          "path": "backend/app/station_index.py",
+          "sha256": "cb0ddf777d4f84c0d057dc0f9390a281517516e85c8a461d49f415dd5c447700"
+        },
+        {
+          "path": "scripts/station_index_build.py",
+          "sha256": "dcc96aab573692c0778bdee49f49a7c7a1b0778138eee0da547711fe88e16cce"
+        },
+        {
+          "path": "docs/station-index.schema.json",
+          "sha256": "e555a5a26b25ed51d5a5319b82c8455d122721d955596534a228504233843ba7"
+        },
+        {
+          "path": "docs/station-index.example.json",
+          "sha256": "607b30f7add0a6e8a93a61e362c5151952872e91b48737f953f0aa6e18526428"
+        }
+      ]
+    },
+    {
       "id": "alarm-intake",
       "title": "Alarm intake contract",
       "owner": "kp-front",
@@ -133,11 +157,11 @@
         },
         {
           "path": "shared/README.md",
-          "sha256": "46790f4bb1016d08618da681978ca473f091ffd64ee09c798a5a203cc30169f7"
+          "sha256": "f1bfd124145d6afcfad78ec2103e051d231bdfb56f33e229ecf1c301abb6279a"
         },
         {
           "path": "backend/tests/test_shared_files.py",
-          "sha256": "1a93b9bb5daa678290c4594daa63cfe3fc24197bf89187d383f9a97ba70df029"
+          "sha256": "fe684e104dbf665224c219695d4c6543f1b3a2786ecc1777510465d58c539bdf"
         }
       ]
     }

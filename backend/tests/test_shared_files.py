@@ -62,6 +62,7 @@ def test_the_manifest_still_covers_what_matters(check):
         "docs/roster-snapshot.schema.json",
         "docs/roster-snapshot-outcome.schema.json",
         "backend/app/roster_snapshot_ingest.py",
+        "backend/app/station_index.py",
         "docs/alarm-intake-conformance.json",
         "scripts/check_shared.py",
     } <= paths

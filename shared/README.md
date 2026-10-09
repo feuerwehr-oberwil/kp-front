@@ -12,6 +12,7 @@ they are shared **by copy**. There is no package and no third repository:
 | `telemetry` | one app could leak what the other strips |
 | `alarm-keywords` | the same alarm could be classified differently |
 | `roster-snapshot` | one station's roster file could be valid for one product and refused by the other |
+| `station-index` | one station's `index.json` could resolve to different files in the two products |
 | `alarm-intake` | one dispatch webhook could be accepted by one app and refused by the other |
 | `snail` | the two apps would show a different loading mascot |
 | `shared-check` | the two repositories would check different things |
