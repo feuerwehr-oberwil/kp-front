@@ -9,7 +9,11 @@
 // find out anyway.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { prepareUploadImage } from './imagePrep'
+import { parseExif, readExif } from './exif'
+
+const fixture = (name: string) => new Uint8Array(readFileSync(`src/lib/fixtures/exif/${name}`))
 
 /** Sizes the fake encoder returns, biggest first — one per quality rung. */
 let encoded: number[] = []
@@ -45,9 +49,34 @@ const aPhoto = () => new Blob([new Uint8Array(6_000_000)], { type: 'image/heic' 
 
 describe('prepareUploadImage keeps its own, different bargain', () => {
   it('passes a small file of an accepted type straight through', async () => {
-    const small = new Blob([new Uint8Array(1000)], { type: 'image/jpeg' })
+    const small = new Blob([fixture('no-exif.jpg')], { type: 'image/jpeg' })
     expect(await prepareUploadImage(small)).toBe(small)
     expect(qualities).toEqual([])
+  })
+
+  it('takes the metadata off a small file before it goes up — losslessly (review of #304)', async () => {
+    const withGps = new Blob([fixture('gps-only.jpg')], { type: 'image/jpeg' })
+    const up = await prepareUploadImage(withGps)
+    expect(up).not.toBe(withGps)
+    expect(qualities).toEqual([]) // not re-encoded
+    expect(up.type).toBe('image/jpeg')
+    expect(parseExif(new Uint8Array(await up.arrayBuffer()))).toBeNull()
+    expect(await readExif(withGps)).not.toBeNull() // …the original still had it
+  })
+
+  it('re-encodes a small ROTATED JPEG instead — its EXIF cannot go without turning the picture', async () => {
+    encoded = [50_000]
+    const rotated = new Blob([fixture('gps-heading.jpg')], { type: 'image/jpeg' })
+    const up = await prepareUploadImage(rotated)
+    expect(qualities).toHaveLength(1)
+    expect(up).not.toBe(rotated)
+  })
+
+  it('re-encodes a small file it cannot walk, rather than upload it as it came', async () => {
+    encoded = [50_000]
+    const junk = new Blob([new Uint8Array(1000)], { type: 'image/jpeg' })
+    expect(await prepareUploadImage(junk)).not.toBe(junk)
+    expect(qualities).toHaveLength(1)
   })
 
   it('falls back to the original file when the encode fails', async () => {

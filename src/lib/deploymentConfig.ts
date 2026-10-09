@@ -293,6 +293,8 @@ export interface DeploymentIntegrations {
   autoAlignConfigured?: boolean
   /** CARTO Basemaps browser key; public by design and restricted to deployment domains. */
   cartoBasemapKey?: string | null
+  /** «Mit Microsoft anmelden» is set up (backend auth/microsoft) — gates the login screen's button. */
+  microsoftLoginConfigured?: boolean
   personnel?: ProviderCapability
   alarms?: ProviderCapability
   vehicles?: ProviderCapability

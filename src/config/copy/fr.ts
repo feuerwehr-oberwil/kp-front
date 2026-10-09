@@ -2069,6 +2069,14 @@ export const fr: Localizable<Copy> = {
     submitPin: 'Se connecter',
     retry: 'Réessayer',
     offlineHint: 'Sans connexion, aucune connexion au compte n’est possible. Les interventions enregistrées ne s’ouvrent que si cet appareil était encore connecté.',
+    microsoft: 'Se connecter avec Microsoft',
+    microsoftErrors: {
+      cancelled: 'Connexion Microsoft annulée.',
+      expired: 'La connexion Microsoft a pris trop de temps. Veuillez réessayer.',
+      failed: 'La connexion Microsoft a échoué. Veuillez réessayer ou vous connecter avec le NIP.',
+      unknown: 'Ce compte Microsoft n’est pas autorisé pour KP Front. Connectez-vous avec le NIP ou demandez à l’admin.',
+      inactive: 'Le compte associé est désactivé. Veuillez demander à l’admin.',
+    },
   },
   splash: {
     stuck: 'Le démarrage prend plus de temps que d’habitude',
@@ -3824,6 +3832,10 @@ export const fr: Localizable<Copy> = {
           title: 'Visites d’objets (organisateur)',
           caption: 'Clé avec laquelle un organisateur (p. ex. fwo-admin) lit le catalogue et les modifications et écrit des listes. Elle se génère sous « Visites d’objets › Intégration ».',
         },
+        microsoft_login: {
+          title: 'Se connecter avec Microsoft',
+          caption: 'Facultatif : un enregistrement d’application Azure distinct (connexion seulement, «openid profile») pour que des comptes nommés puissent aussi se connecter avec Microsoft au lieu du NIP. URI de redirection : <adresse de cette instance>/api/auth/microsoft/callback. Seuls les comptes de la liste entrent, chacun sous la forme «compte Microsoft=nom d’utilisateur», séparés par des virgules. Le NIP reste toujours possible. Guide : docs/microsoft-login.md.',
+        },
         sharepoint_export: {
           title: 'SharePoint (classement des visites)',
           caption: 'Inscription d’application Azure séparée avec droit d’écriture (« Sites.Selected · write ») uniquement sur le site de classement. L’identifiant de lecture des données de station ne sert jamais à écrire.',
@@ -5251,6 +5263,23 @@ export const fr: Localizable<Copy> = {
   photoViewer: {
     title: 'Photo',
     download: 'Télécharger',
+  },
+  photoGeo: {
+    place: 'Placer sur la carte',
+    placeN: 'Placer {n} photos sur la carte',
+    show: 'Afficher sur la carte',
+    placedStep: 'Photo placée sur la carte',
+    logPlaced: 'Photo placée sur la carte',
+    logPlacedN: '{n} photos placées sur la carte',
+    where: 'Lieu de prise de vue',
+    whereN: 'Lieu de prise de vue photo {n}',
+    distance: 'à {d} du lieu d\'intervention',
+    facing: 'vue vers {dir}',
+    takenAt: 'prise à {t}',
+    tooFar: 'Trop loin pour la carte',
+    marker: 'Photo du journal',
+    markerTaken: 'Photo du journal · prise à {t}',
+    planMark: 'Photo – à déplacer ou supprimer sur la carte',
   },
   einsatzuhr: {
     title: 'Durée de l\'intervention – début {t}',
