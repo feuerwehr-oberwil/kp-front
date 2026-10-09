@@ -40,7 +40,7 @@ def integrations() -> ConfigIntegrations:
     alarm_webhook = bool(credential("alarm_webhook_secret"))
     alarm_provider = "divera" if divera else "webhook" if alarm_webhook else None
     traccar = bool(credential("traccar_url") and credential("traccar_email") and credential("traccar_password"))
-    snapshot = bool(credential("roster_snapshot_source"))
+    snapshot = bool(credential("station_index_source") or credential("roster_snapshot_source"))
     return ConfigIntegrations(
         diveraConfigured=divera,
         traccarConfigured=traccar,

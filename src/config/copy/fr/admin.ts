@@ -463,6 +463,10 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       removed: 'Supprimé – connexion coupée.',
       failed: 'Échec de l’action',
       groups: {
+        station_index: {
+          title: 'Données de la station (index)',
+          caption: 'Une adresse pour toutes les données de la station : un index.json (https:// ou chemin absolu) qui liste l’effectif et d’autres fichiers avec somme de contrôle (format : docs/station-index.schema.json). Si l’index contient un effectif, il prime ; sinon la source de l’effectif ci-dessous. Vide = désactivé.',
+        },
         roster_snapshot: {
           title: 'Fichier du personnel (snapshot)',
           caption: 'Où le corps publie son effectif sous forme de fichier (format : docs/roster-snapshot.schema.json) – une adresse https:// ou un chemin absolu sur ce serveur. KP Front le lit toutes les heures et sur «Récupérer maintenant» sous Système › Connexions. Les identifiants vont dans le jeton, pas dans l’adresse. Vide = désactivé ; Divera et l’import CSV restent inchangés.',
@@ -1626,6 +1630,9 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       snapUnknownRanks: 'Grades inconnus (repris sans grade) : {ranks}',
       snapFileDate: 'Date du fichier : {time}',
       snapStale: 'Le fichier n’a plus été renouvelé depuis plus de 7 jours.',
+      snapViaIndex: 'Via l’index des données de la station du {time}.',
+      snapIndexNoRoster: 'L’index des données de la station du {time} ne contient pas d’effectif – la source directe a été lue.',
+      snapIndexNotRead: 'Dans l’index, pas encore lu par cette version : {kinds}.',
       spSources: 'Dossiers selon la configuration',
       spSourcesHint: 'Lecture seule – les dossiers sont définis dans la configuration du corps. Leur structure est décrite dans la documentation de la connexion SharePoint.',
       spInterval: 'Synchronisation toutes les {n} min',
