@@ -11,10 +11,11 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentAdmin, CurrentUser, OptionalUser, UserOrAdmin, _admin_session_valid
+from ..building_facts import clean_measures
 from ..config import settings
 from ..database import get_db
 from ..geo_util import haversine_m
-from ..models import ObjectSite, ReferenceDataset
+from ..models import Incident, ObjectSite, ReferenceDataset
 from ..object_visits import attach_refs, is_integration_only, object_ids_with_plans
 from ..plans import plans_pull_enabled, store_plan
 from ..schemas import ObjectIn, ObjectOut, ObjectUpsertIn, ObjectWithPlans, PlanSourcesOut, ReferenceDatasetOut
@@ -28,6 +29,23 @@ router = APIRouter(prefix="/objects", tags=["objects"])
 _ALLOWED_PLAN_TYPES = {"application/pdf"}
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _is_link(user: object) -> bool:
+    return bool(getattr(user, "link_kind", None)) or bool(getattr(user, "link_scoped", False))
+
+
+def _for_reader(item: ObjectWithPlans, user: object) -> ObjectWithPlans:
+    """Leave the object's Modul-1 notes (``measures``/``remarks``) out for a link session.
+
+    A Rapport view link goes OUTSIDE the station (auth/incident_link · VIEW_LINK_ALLOWED) and
+    reaches these routes for the plans its Rapport points at — not for the station's operational
+    notes about the building. No link page reads them here anyway: the alarm link gets them, for
+    its own Einsatz only, from the Gebäude card (api/building), which the view link may not ask.
+    """
+    if _is_link(user):
+        item.measures = item.remarks = item.measures_source = None
+    return item
 
 
 async def _plans_for(db: AsyncSession, object_id: uuid.UUID) -> list[ReferenceDataset]:
@@ -98,7 +116,7 @@ async def list_objects(
         item = ObjectWithPlans.model_validate(o)
         item.plans = plans
         item.distance_m = dist
-        out.append(item)
+        out.append(_for_reader(item, _user))
     if ref_lat is not None:
         out.sort(key=lambda i: (i.distance_m is None, i.distance_m or 0))
     return out
@@ -132,7 +150,7 @@ async def get_object(object_id: uuid.UUID, _user: CurrentUser, db: AsyncSession 
         raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
     item = ObjectWithPlans.model_validate(o)
     item.plans = [ReferenceDatasetOut.model_validate(p) for p in await _plans_for(db, o.id)]
-    return item
+    return _for_reader(item, _user)
 
 
 @router.post("", response_model=ObjectOut, status_code=201)
@@ -152,10 +170,16 @@ async def upsert_object(
     if o is None:
         o = ObjectSite(id=object_id)
         db.add(o)
-    for k, v in body.model_dump(exclude={"filing_folder", "refs"}).items():
+    for k, v in body.model_dump(exclude={"filing_folder", "refs", "measures", "remarks", "measures_source"}).items():
         setattr(o, k, v)
     if "filing_folder" in body.model_fields_set:
         o.filing_folder = (body.filing_folder or "").strip() or None
+    if "measures" in body.model_fields_set:
+        o.measures = clean_measures(body.measures)
+    if "remarks" in body.model_fields_set:
+        o.remarks = clean_measures(body.remarks)
+    if "measures_source" in body.model_fields_set:
+        o.measures_source = (body.measures_source or "").strip() or None
     await db.flush()
     if body.refs:
         await attach_refs(db, o.id, [(r.source, r.id) for r in body.refs])
@@ -275,9 +299,12 @@ def _norm_addr(s: str | None) -> str:
     return re.sub(r"[^a-z0-9]", "", folded)
 
 
-@incidents_objects_router.get("/{incident_id}/objects", response_model=list[ObjectWithPlans])
-async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)):
-    inc = await get_incident_or_404(db, incident_id)
+async def ranked_objects_near(db: AsyncSession, inc: Incident) -> list[tuple[ObjectSite, float | None, bool]]:
+    """The Einsatzobjekte that belong to an incident, best first: ``(object, distance_m, address_match)``.
+
+    The one ranking both the plan rail (`objects_near_incident`) and the Gebäude card
+    (api/building) read, so the two can never name different objects for one Einsatz.
+    """
     objs = list((await db.execute(select(ObjectSite))).scalars())
     # An organizer's plan-less object (a key box) is not something to offer on the plan rail.
     with_plans = await object_ids_with_plans(db)
@@ -302,6 +329,13 @@ async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: 
 
     # address match first, then by distance (None distance last)
     candidates.sort(key=lambda c: (not c[2], c[1] is None, c[1] or 0))
+    return candidates
+
+
+@incidents_objects_router.get("/{incident_id}/objects", response_model=list[ObjectWithPlans])
+async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)):
+    inc = await get_incident_or_404(db, incident_id)
+    candidates = await ranked_objects_near(db, inc)
     plans_by_obj = await _plans_by_object(db, [o.id for o, _, _ in candidates])
     out: list[ObjectWithPlans] = []
     for o, dist, matched in candidates:
@@ -309,5 +343,5 @@ async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: 
         item.plans = [ReferenceDatasetOut.model_validate(p) for p in plans_by_obj.get(o.id, [])]
         item.distance_m = dist
         item.address_match = matched
-        out.append(item)
+        out.append(_for_reader(item, _user))
     return out

@@ -1,5 +1,5 @@
 import { ShellLoader } from '../ShellLoader'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../lib/icons'
 import { initials, roleLabel, fillTemplate, fmtSpanShort, streetPart, formatTime } from '../../lib/format'
 import { buildLabel } from '../../lib/buildInfo'
@@ -31,7 +31,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail, buildingSlot,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -90,6 +90,9 @@ export function IncidentSwitcher({
    *  factor. Cancelling the sheet therefore reveals the exact parent state; the rows that
    *  NAVIGATE close the menu deliberately instead (see `navKey`). */
   sheetOpen?: boolean
+  /** the Gebäude card (components/BuildingCard), drawn right under the Einsatz card — it is about
+   *  the building this Einsatz stands at, so it sits with the Einsatz, not among the app rows */
+  buildingSlot?: ReactNode
 }) {
   const cp = appConfig.copy.incidentSwitcher
   const cu = appConfig.copy.update
@@ -384,6 +387,7 @@ export function IncidentSwitcher({
               )}
             </div>
           )}
+          {active && buildingSlot}
           {/* The Einsätze group is about moving BETWEEN Einsätze. When nothing in it can
               render — no other incident, no «Neuer Einsatz», no «Alle Einsätze» — none of it
               shows, which is what an Einsatz-Link sees: it is bound to one Einsatz and switching
