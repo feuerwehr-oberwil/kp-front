@@ -177,29 +177,39 @@ function heifExifLocation(b: Bytes): { offset: number; length: number } | null {
   }
   if (exifId == null) return null
 
-  // iloc: FullBox; nibble sizes; per item its extents
+  // iloc: FullBox; nibble sizes; per item its extents.
+  // ⚠️ Every count and size here is the FILE's word, so none of them may drive a loop: a crafted
+  // box with zero-byte fields and extent_count 0xFFFF made the walk spin for seconds on the main
+  // thread (review of #304). The sizes must be the ones the spec allows, the extents are skipped
+  // by arithmetic rather than iterated, and nothing is read past the box's end.
   const v = b[iloc.body]
+  if (v > 2) return null
   let p = iloc.body + 4
+  if (p + 2 > iloc.end) return null
   const offSize = b[p] >> 4, lenSize = b[p] & 15, baseSize = b[p + 1] >> 4
   const idxSize = v === 1 || v === 2 ? b[p + 1] & 15 : 0
+  if (![offSize, lenSize, baseSize, idxSize].every((n) => n === 0 || n === 4 || n === 8)) return null
   p += 2
-  const count = v < 2 ? u16be(b, p) : u32be(b, p)
-  p += v < 2 ? 2 : 4
-  for (let n = 0; n < count && p < iloc.end; n++) {
-    const id = v < 2 ? u16be(b, p) : u32be(b, p)
-    p += v < 2 ? 2 : 4
+  const idSize = v < 2 ? 2 : 4
+  if (p + idSize > iloc.end) return null
+  const count = uNbe(b, p, idSize)
+  p += idSize
+  const extentSize = idxSize + offSize + lenSize
+  const head = idSize + (v === 1 || v === 2 ? 2 : 0) + 2 + baseSize + 2
+  for (let n = 0; n < count; n++) {
+    if (p + head > iloc.end) return null
+    const id = uNbe(b, p, idSize)
+    p += idSize
     let method = 0
     if (v === 1 || v === 2) { method = u16be(b, p) & 15; p += 2 }
     p += 2 // data_reference_index
     const base = uNbe(b, p, baseSize); p += baseSize
     const extents = u16be(b, p); p += 2
-    let first: { offset: number; length: number } | null = null
-    for (let e = 0; e < extents; e++) {
-      p += idxSize
-      const off = uNbe(b, p, offSize); p += offSize
-      const len = uNbe(b, p, lenSize); p += lenSize
-      if (e === 0) first = { offset: base + off, length: len }
-    }
+    if (p + extents * extentSize > iloc.end) return null
+    const first = extents > 0
+      ? { offset: base + uNbe(b, p + idxSize, offSize), length: uNbe(b, p + idxSize + offSize, lenSize) }
+      : null
+    p += extents * extentSize
     // construction_method 0 = a file offset; 1 (idat) / 2 (item) are not where cameras put it
     if (id === exifId) return method === 0 && first && first.length > 0 ? first : null
   }

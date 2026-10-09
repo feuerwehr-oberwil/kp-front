@@ -203,7 +203,7 @@ import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
-import { photoMarker, photoPlacement, rememberPhotoGeo, rowGeoFor, rowPhotoGeo, withResolvedPhotos, type PhotoPlacement } from './lib/photoGeo'
+import { photoGeoSettled, photoMarker, photoPlacement, photoUrlKey, rememberPhotoGeo, rowGeoFor, rowPhotoGeo, withPhotoUrls, withResolvedPhotos, type PhotoPlacement } from './lib/photoGeo'
 import { whenIdle } from './lib/idle'
 
 const prefs = loadPrefs()
@@ -1084,8 +1084,10 @@ export function IncidentWorkspace({
   const timeline = journal.rows
   /** the map's entities with every placed photo showing its row's CURRENT picture (the upload
    *  swapped the blob: for the server URL, a reload re-minted the blob) — render only, never
-   *  written back (lib/photoGeo · withResolvedPhotos) */
-  const mapEntities = useMemo(() => withResolvedPhotos(entities, timeline), [entities, timeline])
+   *  written back (lib/photoGeo · withPhotoUrls). Keyed by a STRING of the resolved URLs, so a
+   *  new Verlauf row does not rebuild the map's entity list while a photo marker stands. */
+  const photoKey = useMemo(() => photoUrlKey(entities, timeline), [entities, timeline])
+  const mapEntities = useMemo(() => withPhotoUrls(entities, photoKey), [entities, photoKey])
   const [recent, setRecent] = useState<string[]>(init.recent)
   // most-recently-used symbols (shared by both surfaces' palettes) — newest first, deduped, capped
   const addRecent = (name: string) => setRecent((r) => [name, ...r.filter((x) => x !== name)].slice(0, 12))
@@ -2664,12 +2666,14 @@ export function IncidentWorkspace({
     const indices = placeablePhotos(row).filter((i) => only == null || i === only)
     const made = indices.flatMap((i) => {
       const geo = rowPhotoGeo(row, i)
-      return geo ? [photoMarker(newId('ph'), row, i, geo, appConfig.defaults.drawingLayerId)] : []
+      return geo ? [photoMarker(row, i, geo, appConfig.defaults.drawingLayerId)] : []
     })
     if (!made.length) return
     const P = appConfig.copy.photoGeo
     stepLabel.current = P.placedStep
-    commit((d) => ({ ...d, entities: [...d.entities, ...made] }))
+    // the id is derived from the picture (lib/photoGeo · photoMarkerId): one another device put
+    // down a moment ago is the same marker, and stays as it is
+    commit((d) => ({ ...d, entities: [...d.entities, ...made.filter((m) => !d.entities.some((e) => e.id === m.id))] }))
     for (const e of made) emit('entity.add', { id: e.id, kind: 'photo', entity: e })
     // 'cam' + 'symbol': a Lage row («Kroki»). NOT 'photo' — that glyph and kind are the
     // composer's own photo entry («Manuell», editable by hand) and the Beilage (lib/report).
@@ -2686,7 +2690,11 @@ export function IncidentWorkspace({
 
   // quick-add a journal entry (text and/or voice memo), optionally pinned to the
   // current view so the row becomes a clickable, located marker.
-  const addJournal = (d: JournalDraft) => {
+  const addJournal = (d: JournalDraft, geoSettled = false) => {
+    // a save pressed the instant a picture was picked waits (a few ms, at most
+    // PHOTO_GEO_WAIT_MS) for its position to be read — it used to go out without it
+    const geoWait = geoSettled ? null : photoGeoSettled(d.photoUrls ?? [])
+    if (geoWait) { void geoWait.then(() => addJournal(d, true)); return }
     const onPlan = mode === 'plans'
     // ⚠️ No coordinate. «An aktueller Kartenmitte anheften» is gone (14.08.): it wrote the
     // centre of whatever happened to be on screen — neither where the author stood nor where
@@ -2695,7 +2703,8 @@ export function IncidentWorkspace({
     // by scrubbing the whole picture to the moment. Rows written BEFORE this still carry their
     // coord and stay clickable; nothing reads `pinned` to decide anything else.
     const photoUrls = d.photoUrls ?? []
-    const photoGeo = rowGeoFor(photoUrls)
+    // only positions near the Einsatz reach the record (lib/photoGeo · rowGeoFor)
+    const photoGeo = rowGeoFor(photoUrls, incidentView.center, ownIncidentCoord)
     const icon = d.audioUrl ? 'mic' : photoUrls.length ? 'photo' : 'type'
     const kind = d.audioUrl ? 'audio' : photoUrls.length ? 'photo' : 'journal'
     const imported = d.audioMeta?.source === 'imported'

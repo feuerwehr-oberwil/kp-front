@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
-  cardinalIndex, fmtDistance, forgetPhotoGeo, photoGeoOf, photoMarker, photoPlacement, PHOTO_NEAR_FALLBACK_M, PHOTO_NEAR_M,
-  rememberPhotoGeo, resolvePhotoUrl, rowGeoFor, rowPhotoGeo, takenClock, toPhotoGeo, validGeo, withResolvedPhotos,
+  cardinalIndex, fmtDistance, forgetPhotoGeo, nearIncident, photoGeoOf, photoGeoSettled, photoMarker, photoMarkerId, photoPlacement,
+  PHOTO_NEAR_FALLBACK_M, PHOTO_NEAR_M, photoUrlKey, rememberPhotoGeo, resolvePhotoUrl, rowGeoFor, rowPhotoGeo, takenClock, toPhotoGeo,
+  validGeo, withPhotoUrls, withResolvedPhotos,
 } from './photoGeo'
 import { parseExif } from './exif'
 import type { Entity, LngLat, PhotoGeo, TimelineEvent } from '../types'
@@ -46,11 +47,37 @@ describe('the session cache', () => {
   it('writes photoGeo only when at least one picture has a position', async () => {
     await rememberPhotoGeo('blob:g1', fixture('gps-only.jpg'))
     await rememberPhotoGeo('blob:g2', fixture('no-exif.jpg'))
-    const list = rowGeoFor(['blob:g2', 'blob:g1'])!
+    const list = rowGeoFor(['blob:g2', 'blob:g1'], OBERWIL, true)!
     expect(list[0]).toBeNull()
     expect(list[1]?.lat).toBeCloseTo(47.5139, 4)
-    expect(rowGeoFor(['blob:g2'])).toBeUndefined()
-    expect(rowGeoFor([])).toBeUndefined()
+    expect(rowGeoFor(['blob:g2'], OBERWIL, true)).toBeUndefined()
+    expect(rowGeoFor([], OBERWIL, true)).toBeUndefined()
+  })
+
+  it('never writes a position far from the Einsatz into the record — a home photo stays private', async () => {
+    await rememberPhotoGeo('blob:home', fixture('gps-sw-magnetic.jpg')) // Sydney
+    await rememberPhotoGeo('blob:here', fixture('gps-heading.jpg'))     // Oberwil
+    expect(rowGeoFor(['blob:home'], OBERWIL, true)).toBeUndefined()
+    expect(rowGeoFor(['blob:home'], OBERWIL, false)).toBeUndefined()
+    const mixed = rowGeoFor(['blob:home', 'blob:here'], OBERWIL, true)!
+    expect(mixed[0]).toBeNull()
+    expect(mixed[1]?.lat).toBeCloseTo(47.513889, 5)
+    // ~5.5 km out: outside the Einsatz radius, inside the station radius
+    const town: LngLat = [7.556944, 47.563889]
+    expect(rowGeoFor(['blob:here'], town, true)).toBeUndefined()
+    expect(rowGeoFor(['blob:here'], town, false)).toHaveLength(1)
+    expect(nearIncident({ lat: 47.513889, lng: 7.556944 }, town, false)).toBe(true)
+  })
+
+  it('lets a save wait for a position still being read — and never longer than it has to', async () => {
+    expect(photoGeoSettled(['blob:nothing-pending'])).toBeNull()
+    const reading = rememberPhotoGeo('blob:slow', fixture('gps-only.jpg'))
+    const settled = photoGeoSettled(['blob:slow', 'blob:nothing-pending'])
+    expect(settled).not.toBeNull()
+    await settled
+    await reading
+    expect(photoGeoOf('blob:slow')?.lat).toBeCloseTo(47.5139, 4)
+    expect(photoGeoSettled(['blob:slow'])).toBeNull()
   })
 })
 
@@ -102,9 +129,9 @@ describe('photoPlacement', () => {
   })
 
   it('offers «Auf Karte zeigen» once the picture is on the Karte', () => {
-    const m = photoMarker('ph1', r, 0, geo(), 'markup')
+    const m = photoMarker(r, 0, geo(), 'markup')
     const p = photoPlacement(r, 0, OBERWIL, true, [m])!
-    expect(p).toMatchObject({ kind: 'placed', entityId: 'ph1' })
+    expect(p).toMatchObject({ kind: 'placed', entityId: 'ph-j1-0' })
     // …a marker of ANOTHER picture of the row does not count
     const other = { ...m, photoOf: { row: 'j1', i: 1 } }
     expect(photoPlacement(r, 0, OBERWIL, true, [other])!.kind).toBe('place')
@@ -113,17 +140,29 @@ describe('photoPlacement', () => {
 
 describe('photoMarker', () => {
   it('stands where the picture was taken, carries heading + time, names its picture', () => {
-    const r = row({ photoUrls: ['blob:x'], photoGeo: [geo({ heading: 45, takenAt: '2026-10-08T14:32:05' })] })
-    const m = photoMarker('ph1', r, 0, rowPhotoGeo(r, 0)!, 'markup')
+    const r = row({ photoUrls: ['/api/media/x'], photoGeo: [geo({ heading: 45, takenAt: '2026-10-08T14:32:05' })] })
+    const m = photoMarker(r, 0, rowPhotoGeo(r, 0)!, 'markup')
     expect(m).toEqual({
-      id: 'ph1', kind: 'photo', layer: 'markup', coord: [7.5571, 47.5141],
-      photoUrl: 'blob:x', photoOf: { row: 'j1', i: 0 }, heading: 45, takenAt: '2026-10-08T14:32:05',
+      id: 'ph-j1-0', kind: 'photo', layer: 'markup', coord: [7.5571, 47.5141],
+      photoUrl: '/api/media/x', photoOf: { row: 'j1', i: 0 }, heading: 45, takenAt: '2026-10-08T14:32:05',
     })
+  })
+
+  it('never stores a session blob: URL — the marker is synced, the row resolves it', () => {
+    const r = row({ photoUrls: ['blob:x'], photoGeo: [geo()] })
+    expect('photoUrl' in photoMarker(r, 0, geo(), 'markup')).toBe(false)
+  })
+
+  it('derives its id from the picture, so two devices placing it make ONE marker', () => {
+    const r = row({ photoUrls: ['/a', '/b'], photoGeo: [geo(), geo()] })
+    expect(photoMarker(r, 1, geo(), 'markup').id).toBe(photoMarkerId('j1', 1))
+    expect(photoMarker(r, 1, geo(), 'markup').id).toBe(photoMarker({ ...r }, 1, geo(), 'markup').id)
+    expect(photoMarkerId('j1', 0)).not.toBe(photoMarkerId('j1', 1))
   })
 
   it('carries no heading key when the photo stated none', () => {
     const r = row({ photoUrls: ['/a'], photoGeo: [geo()] })
-    expect('heading' in photoMarker('ph1', r, 0, geo(), 'markup')).toBe(false)
+    expect('heading' in photoMarker(r, 0, geo(), 'markup')).toBe(false)
   })
 })
 
@@ -165,5 +204,35 @@ describe('words', () => {
   it('reads the clock off an EXIF time', () => {
     expect(takenClock('2026-10-08T14:32:05+02:00')).toBe('14:32')
     expect(takenClock(undefined)).toBeNull()
+  })
+})
+
+describe('photoUrlKey / withPhotoUrls — the map is rebuilt only when a picture changes', () => {
+  const marker: Entity = { id: 'ph-j1-0', kind: 'photo', layer: 'markup', coord: [7.5, 47.5], photoOf: { row: 'j1', i: 0 } }
+  const photoRow = row({ photoUrls: ['/api/media/a'], photoGeo: [geo()] })
+
+  it('is the same string when only OTHER rows arrive', () => {
+    const k1 = photoUrlKey([marker], [photoRow])
+    const k2 = photoUrlKey([marker], [photoRow, row({ id: 'j2', text: 'Brand unter Kontrolle', kind: 'journal' })])
+    expect(k1).toBe(k2)
+    expect(k1).toContain('/api/media/a')
+  })
+
+  it('changes when the marker’s picture does (the upload landed)', () => {
+    const pending = row({ photoUrls: ['blob:x'], photoGeo: [geo()] })
+    expect(photoUrlKey([marker], [pending])).not.toBe(photoUrlKey([marker], [photoRow]))
+  })
+
+  it('is empty — and leaves the list alone — without a photo marker', () => {
+    const plain: Entity[] = [{ id: 's', kind: 'symbol', layer: 'taktisch', coord: [7, 47] }]
+    expect(photoUrlKey(plain, [photoRow])).toBe('')
+    expect(withPhotoUrls(plain, '')).toBe(plain)
+  })
+
+  it('applies the key, and returns the same array once applied', () => {
+    const key = photoUrlKey([marker], [photoRow])
+    const once = withPhotoUrls([marker], key)
+    expect(once[0].photoUrl).toBe('/api/media/a')
+    expect(withPhotoUrls(once, key)).toBe(once)
   })
 })

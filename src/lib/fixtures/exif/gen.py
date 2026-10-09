@@ -41,3 +41,11 @@ try:
 except Exception as e:
     print('heic skipped', e)
 for f in sorted(os.listdir(out)): print(f, os.path.getsize(f'{out}/{f}'))
+
+# metadata-stripping fixtures (lib/stripMetadata): a PNG with text + eXIf chunks, a WebP with EXIF
+from PIL import PngImagePlugin
+info = PngImagePlugin.PngInfo(); info.add_text('Author', 'Max Muster'); info.add_text('Comment', 'Wohnzimmer')
+img((10, 120, 200)).save(f'{out}/meta.png', pnginfo=info, exif=gps_exif(47.5139, 7.5569, orientation=None))
+img((200, 120, 10)).save(f'{out}/meta.webp', exif=gps_exif(47.5139, 7.5569, orientation=None), quality=60)
+img((90, 90, 90)).save(f'{out}/plain.png')
+for f in ['meta.png', 'meta.webp', 'plain.png']: print(f, os.path.getsize(f'{out}/{f}'))

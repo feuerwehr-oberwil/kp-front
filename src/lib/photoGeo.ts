@@ -6,11 +6,15 @@
 //      (`rememberPhotoGeo`) — before lib/imagePrep re-encodes it through a canvas and every
 //      byte of metadata is gone;
 //   2. the row is written with `photoGeo` beside `photoUrls` (`rowGeoFor`): position, heading
-//      and time only. Nothing else from the file is kept (no camera, no owner, no serial);
+//      and time only, and only for a picture taken NEAR THE EINSATZ — a home photo's position
+//      never reaches the append-only record. Nothing else from the file is kept (no camera, no
+//      owner, no serial), and the uploaded file itself goes up without its metadata
+//      (lib/stripMetadata, lib/imagePrep);
 //   3. the row's detail sheet (and the save toast) offer «Auf Karte setzen» for a picture whose
 //      position lies near the Einsatz (`photoPlacement`) — and NOTHING for a picture without
 //      one: no empty button, no explanation where there is nothing to explain;
-//   4. placing writes ONE ordinary `kind: 'photo'` entity (`photoMarker`) through the store's
+//   4. placing writes ONE ordinary `kind: 'photo'` entity (`photoMarker`, its id derived from
+//      the picture so two devices placing it make one) through the store's
 //      `commit`, so it is a step on the one undo timeline like any placed symbol, synced and
 //      merged by id, selected and removed with the Karte's own chrome.
 //
@@ -79,10 +83,44 @@ export const photoGeoOf = (url: string): PhotoGeo | null => known.get(url) ?? nu
 
 export function forgetPhotoGeo(url: string) { known.delete(url); pending.delete(url) }
 
-/** `photoGeo` for a new row with these pictures — absent when none of them has a position. */
-export function rowGeoFor(urls: readonly string[]): (PhotoGeo | null)[] | undefined {
-  const geo = urls.map(photoGeoOf)
+/** Is a position near enough the Einsatz to belong to it? (`center`: the Einsatz's coordinate
+ *  when it has one — `ownCoord` — else the station's default view, at the coarser radius.) */
+export function nearIncident(g: Pick<PhotoGeo, 'lat' | 'lng'>, center: LngLat, ownCoord: boolean): boolean {
+  return haversineM(center, [g.lng, g.lat]) <= (ownCoord ? PHOTO_NEAR_M : PHOTO_NEAR_FALLBACK_M)
+}
+
+/**
+ * `photoGeo` for a new row with these pictures — absent when none of them has a position.
+ *
+ * ⚠️ Only a position NEAR THE EINSATZ is written (review of #304). The Verlauf is append-only and
+ * reaches every device on the Einsatz, link viewers included, and the Rapport: a picture from the
+ * library taken at home would otherwise put the operator's exact home coordinates into a record
+ * nobody can take them out of. Outside the radius the picture is recorded as having no position.
+ */
+export function rowGeoFor(urls: readonly string[], center: LngLat, ownCoord: boolean): (PhotoGeo | null)[] | undefined {
+  const geo = urls.map((u) => {
+    const g = photoGeoOf(u)
+    return g && nearIncident(g, center, ownCoord) ? g : null
+  })
   return geo.some(Boolean) ? geo : undefined
+}
+
+/** How long a save waits for a position still being read before it goes without one. The read
+ *  is a slice of the file's head (milliseconds); this only guards against a stuck file read. */
+export const PHOTO_GEO_WAIT_MS = 1500
+
+/**
+ * Resolves once every one of `urls` has finished reading (or after PHOTO_GEO_WAIT_MS) — `null`
+ * when nothing is pending, so the caller can stay synchronous on the ordinary path. A save
+ * pressed the instant a picture was picked used to go out without the position.
+ */
+export function photoGeoSettled(urls: readonly string[]): Promise<void> | null {
+  const waiting = urls.flatMap((u) => { const p = pending.get(u); return p ? [p] : [] })
+  if (!waiting.length) return null
+  return Promise.race([
+    Promise.all(waiting).then(() => undefined),
+    new Promise<void>((res) => setTimeout(res, PHOTO_GEO_WAIT_MS)),
+  ])
 }
 
 // ── step 3: reading a row ────────────────────────────────────────────────────────────────────
@@ -119,19 +157,30 @@ export function photoPlacement(
   const distanceM = haversineM(center, [geo.lng, geo.lat])
   const placed = entities.find((e) => e.kind === 'photo' && e.photoOf?.row === row.id && e.photoOf.i === i)
   if (placed) return { kind: 'placed', geo, distanceM, entityId: placed.id }
-  return distanceM <= (ownCoord ? PHOTO_NEAR_M : PHOTO_NEAR_FALLBACK_M)
+  return nearIncident(geo, center, ownCoord)
     ? { kind: 'place', geo, distanceM }
+    // only a row written before the radius applied at the write (or an Einsatz whose coordinate
+    // moved since) can still carry a position this far out
     : { kind: 'far', geo, distanceM }
 }
 
 // ── step 4: the marker ───────────────────────────────────────────────────────────────────────
 
-/** The photo marker for picture `i` of `row`, at the position it was taken from. */
-export function photoMarker(id: string, row: Pick<TimelineEvent, 'id' | 'photoUrl' | 'photoUrls'>, i: number, geo: PhotoGeo, layer: LayerId): Entity {
-  const e: Entity = {
-    id, kind: 'photo', layer, coord: [geo.lng, geo.lat],
-    photoUrl: rowPhotos(row)[i], photoOf: { row: row.id, i },
-  }
+/** The marker's id is DERIVED from the picture it shows: two devices placing the same photo at
+ *  the same time mint the same id, and the merge by id makes them one marker, not two. */
+export const photoMarkerId = (rowId: string, i: number) => `ph-${rowId}-${i}`
+
+/**
+ * The photo marker for picture `i` of `row`, at the position it was taken from.
+ *
+ * ⚠️ A session `blob:` URL is NOT stored: it means nothing on another device or after a reload,
+ * and the marker is synced. The map reads the row's current picture instead (`resolvePhotoUrl`);
+ * a picture already uploaded keeps its server URL here as the fallback.
+ */
+export function photoMarker(row: Pick<TimelineEvent, 'id' | 'photoUrl' | 'photoUrls'>, i: number, geo: PhotoGeo, layer: LayerId): Entity {
+  const e: Entity = { id: photoMarkerId(row.id, i), kind: 'photo', layer, coord: [geo.lng, geo.lat], photoOf: { row: row.id, i } }
+  const url = rowPhotos(row)[i]
+  if (url && !url.startsWith('blob:')) e.photoUrl = url
   if (geo.heading != null) e.heading = geo.heading
   if (geo.takenAt) e.takenAt = geo.takenAt
   return e
@@ -151,21 +200,39 @@ export function resolvePhotoUrl(e: Entity, rowsById: ReadonlyMap<string, Timelin
   return (Array.isArray(row.photoGeo) && row.photoGeo.length === urls.length && urls[ref.i]) || e.photoUrl
 }
 
-/** Swap every placed photo marker's URL for the row's current one — for the map's render only,
- *  never written back. Same array when nothing changes, so a memo downstream holds. */
-export function withResolvedPhotos(entities: Entity[], rows: readonly TimelineEvent[]): Entity[] {
-  if (!entities.some((e) => e.kind === 'photo' && e.photoOf)) return entities
+/**
+ * The URL every placed photo marker should show, as ONE string («id\turl» lines) — cheap to
+ * compute on each Verlauf change, and compared by value: the map's entity list is rebuilt only
+ * when a marker's picture actually changed, not on every new Verlauf row (review of #304).
+ */
+export function photoUrlKey(entities: readonly Entity[], rows: readonly TimelineEvent[]): string {
+  if (!entities.some((e) => e.kind === 'photo' && e.photoOf)) return ''
   const byId = new Map(rows.map((r) => [r.id, r]))
+  return entities
+    .filter((e) => e.kind === 'photo' && e.photoOf)
+    .map((e) => `${e.id}\t${resolvePhotoUrl(e, byId) ?? ''}`)
+    .join('\n')
+}
+
+/** Apply a `photoUrlKey` to the entities — for the map's render only, never written back. The
+ *  same array when nothing changes, so a memo downstream holds. */
+export function withPhotoUrls(entities: Entity[], key: string): Entity[] {
+  if (!key) return entities
+  const urls = new Map(key.split('\n').map((l) => { const [id, url] = l.split('\t'); return [id, url || undefined] as const }))
   let changed = false
   const out = entities.map((e) => {
-    if (e.kind !== 'photo' || !e.photoOf) return e
-    const url = resolvePhotoUrl(e, byId)
+    if (!urls.has(e.id)) return e
+    const url = urls.get(e.id)
     if (url === e.photoUrl) return e
     changed = true
     return { ...e, photoUrl: url }
   })
   return changed ? out : entities
 }
+
+/** Both in one, for a single entity (the selected marker's panel). */
+export const withResolvedPhotos = (entities: Entity[], rows: readonly TimelineEvent[]): Entity[] =>
+  withPhotoUrls(entities, photoUrlKey(entities, rows))
 
 /** Compass index 0–7 (N, NO, O, …) of a bearing — the eight words `copy.weather.cardinals` has. */
 export const cardinalIndex = (deg: number) => Math.round((((deg % 360) + 360) % 360) / 45) % 8

@@ -268,3 +268,54 @@ describe('HEIF', () => {
     expect(m?.lat).toBeCloseTo(47.513889, 5)
   })
 })
+
+// ── hostile HEIF: every count and size in it is the file's word ───────────────────────────────
+
+function hostileIloc(opts: { version: number; sizes: [number, number]; count: number; extents: number; body: number }): Uint8Array {
+  const s4 = (s: string) => [...s].map((c) => c.charCodeAt(0))
+  const u32 = (n: number) => [n >>> 24, (n >> 16) & 255, (n >> 8) & 255, n & 255]
+  const box = (type: string, body: number[]) => [...u32(body.length + 8), ...s4(type), ...body]
+  const ftyp = box('ftyp', [...s4('heic'), 0, 0, 0, 0, ...s4('mif1')])
+  const infe = box('infe', [2, 0, 0, 0, 0, 7, 0, 0, ...s4('Exif'), 0])
+  const iinf = box('iinf', [0, 0, 0, 0, 0, 1, ...infe])
+  // the items: id (u16/u32) [+ construction method] + data_reference_index + extent_count, no
+  // extent bytes at all — the sizes say zero
+  const idBytes = opts.version < 2 ? [0, 1] : [0, 0, 0, 1]
+  const item = [...idBytes, ...(opts.version ? [0, 0] : []), 0, 0, opts.extents >> 8, opts.extents & 255]
+  const items: number[] = []
+  while (items.length < opts.body) items.push(...item)
+  const countBytes = opts.version < 2 ? [opts.count >> 8, opts.count & 255] : u32(opts.count)
+  const iloc = box('iloc', [opts.version, 0, 0, 0, opts.sizes[0], opts.sizes[1], ...countBytes, ...items])
+  return new Uint8Array([...ftyp, ...box('meta', [0, 0, 0, 0, ...iinf, ...iloc])])
+}
+
+describe('hostile HEIF', () => {
+  it('does not spin on zero-size fields with extent_count 0xFFFF (it took ~7 s)', () => {
+    for (const version of [0, 1, 2]) {
+      const file = hostileIloc({ version, sizes: [0x00, 0x00], count: version < 2 ? 0xffff : 0xffffffff, extents: 0xffff, body: 200_000 })
+      const t0 = performance.now()
+      expect(parseExif(file)).toBeNull()
+      expect(performance.now() - t0).toBeLessThan(200)
+    }
+  })
+
+  it('refuses field sizes the spec does not allow, and an item count past the box', () => {
+    expect(parseExif(hostileIloc({ version: 1, sizes: [0x33, 0x30], count: 1, extents: 1, body: 16 }))).toBeNull()
+    expect(parseExif(hostileIloc({ version: 0, sizes: [0x44, 0x00], count: 0xffff, extents: 1, body: 0 }))).toBeNull()
+  })
+
+  it('survives a thousand random corruptions of real files, quickly', () => {
+    let seed = 0x1f16
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32)
+    const sources = [fixture('gps-heading.heic'), fixture('gps-heading.jpg'), heif(tiff({ le: true, gps: OBERWIL }), 64)]
+    const t0 = performance.now()
+    for (let k = 0; k < 1000; k++) {
+      const src = sources[k % sources.length]
+      const f = src.slice()
+      const hits = 1 + Math.floor(rnd() * 8)
+      for (let h = 0; h < hits; h++) f[Math.floor(rnd() * f.length)] = rnd() < 0.5 ? 0 : rnd() < 0.5 ? 0xff : Math.floor(rnd() * 256)
+      expect(() => parseExif(rnd() < 0.2 ? f.slice(0, Math.floor(rnd() * f.length)) : f)).not.toThrow()
+    }
+    expect(performance.now() - t0).toBeLessThan(2000)
+  })
+})
