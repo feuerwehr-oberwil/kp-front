@@ -1,6 +1,6 @@
 # Screenshot regression tests – did this change the look by accident?
 
-**Status:** CI job «Visual», since 2026-10-09 – not a required check yet (probation)
+**Status:** CI job «Visual», since 2026-10-09 – a required check since 2026-10-10 (owner decision)
 **Audience:** anyone whose PR turns the «Visual» check red, and whoever accepts a new baseline
 
 Every PR shoots nine frozen states of the app and compares them pixel by pixel with the baselines
