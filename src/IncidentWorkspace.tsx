@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
-import { IconSprite, Icon } from './lib/icons'
+import { IconSprite } from './lib/icons'
 import { layerPreset } from './lib/layerPreset'
 import { motionDuration, prefersReducedMotion } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
@@ -10,7 +10,7 @@ import { usePersonPositions } from './lib/usePersonPositions'
 import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
-import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
+import { SharePositionSheet } from './components/SharePosition'
 import { applyInitialState, autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type InitialState, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { viewsOf, type PlanFit } from './lib/tacticalObjects'
 import { saveLayerPrefs } from './lib/layerPrefs'
@@ -31,7 +31,7 @@ import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, VEHICLE_SYMBOLS } from './lib/symbols'
-import { bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord } from './lib/geo'
+import { bearingDeg, circlePolygon, haversineM, midCoord } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
 import { stampCrewFiled, unfiledTruppCrew } from './lib/crewFiling'
@@ -57,7 +57,6 @@ import { foldsIntoPrevious, keepMachineFields, REPORT_MACHINE_FIELDS, reportStep
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
-import { confirmLogout } from './lib/logoutConfirm'
 import { apiDelete } from './lib/api'
 import { initialMode, loadPrefs, savePrefs } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
@@ -76,22 +75,16 @@ import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
 import { onReachable } from './lib/connectivity'
-import { MapView } from './components/MapView'
 import { Splash } from './components/Splash'
-import { TopBar, WeatherBadge } from './components/TopBar'
 import { NavRail } from './components/NavRail'
-import { MapUtility } from './components/MapUtility'
 import { type ViewsApi } from './components/MapViewsMenu'
-import { LayerPanel } from './components/LayerPanel'
-import { planRasterRows, twinVisible, isTwinLayerId } from './lib/georefTwins'
+import { twinVisible, isTwinLayerId } from './lib/georefTwins'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
 import { ROTATION_DEFAULT_RUN_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TWO_POINT, rotationBox } from './lib/shapes'
 import { type JournalDraft } from './components/JournalComposer'
 import { composeJournalText } from './lib/journalEntry'
 import { journalVocabulary } from './lib/journalLinks'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
-import { getInstallPlatform, isStandalone } from './lib/installPrompt'
-import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
@@ -99,7 +92,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { azChipRedundant, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
+import { truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -115,7 +108,6 @@ import {
   type IncidentMeta,
   isIncidentRunning,
 } from './lib/incidents'
-import { closeTimeOf } from './lib/api/incidents'
 import { useExpire } from './lib/useExpire'
 import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
@@ -130,11 +122,8 @@ import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } from './lib/useObjectPlans'
 import { PlanPicker } from './components/PlanPicker'
-import { IncidentSwitcher } from './components/panels'
 import { fetchShareLink } from './lib/viewLink'
 import { useBuildingInfo } from './lib/useBuildingInfo'
-import { BuildingFloat } from './components/BuildingFloat'
-import { hasBuildingContent } from './lib/buildingCard'
 import { useWeather } from './lib/useWeather'
 import { useBootCover } from './lib/bootCover'
 import { ChecklistsView } from './components/ChecklistsView'
@@ -156,7 +145,7 @@ import { serverNowIso } from './lib/serverClock'
 import { clockRestartRowId, clocksAfterReopen, latestLifecycle } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
-import { ghostRevival, ghostTrailLabel, mapGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
+import { ghostRevival, ghostTrailLabel, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
@@ -181,6 +170,9 @@ import { MapToolDocks } from './workspace/MapToolDocks'
 import { MapDetailPanels } from './workspace/MapDetailPanels'
 import { RapportSurface } from './workspace/RapportSurface'
 import { PlansSurface } from './workspace/PlansSurface'
+import { MapControls } from './workspace/MapControls'
+import { WorkspaceTopBar } from './workspace/WorkspaceTopBar'
+import { MapStage } from './workspace/MapStage'
 
 const prefs = loadPrefs()
 
@@ -4662,6 +4654,13 @@ export function IncidentWorkspace({
       />
   )
 
+  /** «Namen ändern» from the TopBar's sharing pill: the picker opens over the status, which
+   *  `restore` brings back if it is cancelled (see the SharePositionSheet's onClose). */
+  const onShareChangeName = (restore: () => void) => {
+    shareStatusRestore.current = restore
+    setShareParent('status')
+    setSharePick('pick')
+  }
   /** The Gebäude's Drehung from the Plan (Whiteboard · onReorient) — one drag, one step. */
   const onReorient = (next: BuildingDoc) => {
     // The Drehung is a SLIDER with a live preview, so it writes many times per drag: one
@@ -4696,326 +4695,36 @@ export function IncidentWorkspace({
       <RemindersHost {...reminders.host} />
       {closedMeldung}
 
-      {/* the map mounts once the pack has loaded OR failed for good — with an empty glyph table a
-          symbol renders as its empty chip, which beats a splash that never ends (02.09.) */}
-      {(sym.ready || sym.error) ? guarded('map', (
-        <MapView
-          ref={mapRef}
-          entities={mapEntities}
-          readOnly={tacticalLocked}
-          layers={mapLayers}
-          byName={sym.byName}
-          symMul={symbolScale.map}
-          captionMode={symbolCaptions}
-          onCaptionSuppressionChange={setMapSuppressedCaptions}
-          initialCenter={incidentView.center}
-          fitPoints={initialFitPoints}
-          locateNonce={locateReq}
-          editNoteId={editNoteId}
-          onNoteText={noteTextLive}
-          onNoteCommit={noteTextCommit}
-          onNoteEdit={tacticalLocked ? undefined : (id) => { setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id) }}
-          // the ⚙ stays on a locked surface — it opens the note READ-ONLY (a long note is
-          // truncated on the map, and reading it is not editing it)
-          onNotePanel={(id) => {
-            if (tool === 'measure') return // the tap already landed as a measuring point (onSelect)
-            setNotePanelId(id)
-          }}
-          trupps={effTrupps}
-          truppSeverities={azAlarm.severities}
-          // …and it LANDS on the card: the board can be a wall of Trupps, so «Im Atemschutz
-          // zeigen» points at the one that was tapped (same gesture as the alarm row's «Zum
-          // Trupp»). Without the focus the jump answered «which one is this?» with a list.
-          onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
-          // the marker's half of the Trupp join — the same action the Atemschutz card's picker
-          // calls, so the takeover confirm and the «einrücken?» ask exist exactly once
-          onTeamTrupp={tacticalLocked ? undefined : (entityId, truppId) => {
-            if (truppId) void adoptTruppMarker(truppId, entityId)
-            else releaseTruppMarker(entityId)
-          }}
-          onTeamNewTrupp={tacticalLocked ? undefined : newTruppFromMarker}
-          onTeamMark={tacticalLocked ? undefined : markTeamPosition}
-          onTeamRename={tacticalLocked ? undefined : renameTeam}
-          onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
-          onTeamRemoveWithTrail={tacticalLocked ? undefined : (id) => void removeTeamWithTrail(id)}
-          // the searched areas removed Trupp markers left behind (lib/truppTrails)
-          ghostTrails={mapGhostTrails(trails)}
-          onGhostTrail={tacticalLocked ? undefined : (id) => void deleteGhostTrail(id)}
-          // «Lösen» on a joined Trupp marker: it lets go of the Leitung on BOTH sides (anchor +
-          // the Trupp's own number), which is a Trupp-record write and therefore outside the
-          // Karte's document undo — so it quits with the confirm-with-undo toast one-shot ops
-          // use here, and re-linking is the exact inverse call.
-          onTeamUnlink={tacticalLocked ? undefined : (entityId, lineId) => {
-            const marker = doc.entities.find((e) => e.id === entityId)
-            const truppId = marker?.truppId
-            if (!truppId) return
-            // …and the hose lets go of the marker with it (useTruppActions · unlinkTruppLine)
-            unlinkTruppLine(truppId)
-            // …and the marker steps away from the end it just left (15.09., «places it away»), so
-            // the two do not keep standing on one pixel looking joined. The hose end stays put.
-            const map = mapRef.current
-            if (map && marker?.coord) {
-              const p = map.project(marker.coord)
-              const c = map.unproject([p.x + 36, p.y + 36])
-              patchEntity(entityId, { coord: [c.lng, c.lat] })
-            }
-            undoToast(appConfig.copy.atemschutz.lineUnlinkedToast, () => { linkTruppLine(truppId, lineId) },
-              [recordKey('trupps', truppId), recordKey('objects', lineId), recordKey('objects', entityId)])
-          }}
-          // the pill's «Lösen» for the OTHER bond (15.09.): a docked marker lets go of its symbol
-          // without the detail sheet – dragging cannot part them any more, it moves both
-          onTeamUndock={tacticalLocked ? undefined : (entityId) => {
-            const marker = doc.entities.find((e) => e.id === entityId)
-            const host = doc.entities.find((e) => e.id === marker?.dockedTo)
-            if (!marker?.dockedTo) return
-            patchEntity(entityId, { dockedTo: undefined })
-            log('select', fillTemplate(appConfig.copy.log.teamUndocked, {
-              name: marker.label || appConfig.copy.entities.fallbackObjectName,
-              host: host?.label || appConfig.copy.entities.fallbackObjectName,
-            }), 'team', undefined, entityId)
-          }}
-          preparedOverlays={mapOverlays}
-          onSelectionDone={finishSelection}
-          // the linked sheets themselves, as a raster backdrop under the ink — a picture of the
-          // paper, not an object on it, which is why THIS one is not a projection of anything
-          georefPlanRasters={georefPlanRasters}
-          isVisible={isVisible}
-          selectedId={selectedId}
-          // Messen: a tap on a symbol is a measuring point FROM ITS CENTRE, never a selection —
-          // opening the detail panel mid-measurement read as the tool cancelling itself
-          // (Feldtest 09.09.). Drawings need no branch: `placing` already routes their taps to
-          // the plain map click, which appends the tapped point.
-          onSelect={(e) => {
-            if (tool === 'measure') { measure.setPath((d) => [...d, e.coord as LngLat]); return }
-            setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
-          }}
-          onMapClick={onMapClick}
-          drawings={drawings}
-          drawingsVisible={isVisible(appConfig.defaults.drawingLayerId)}
-          draft={draft}
-          draftKind={tool === 'area' && areaMode === 'nodes' ? 'area' : lineNodes ? 'line' : null}
-          placing={tool !== 'select'}
-          onDraftDrag={(i, c) => setDraft((pts) => pts.map((p, j) => (j === i ? c : p)))}
-          onDraftInsert={(i, c) => setDraft((pts) => { const next = [...pts]; next.splice(i, 0, c); return next })}
-          onDraftDelete={(i) => setDraft((pts) => pts.filter((_, j) => j !== i))}
-          onDraftPointAttachment={setDraftPointAttachment}
-          measurePoints={tool === 'measure' ? measure.path : []}
-          measureKind={tool === 'measure' ? measure.mode : null}
-          onMeasureDrag={(i, c) => measure.setPath((pts) => pts.map((p, j) => (j === i ? c : p)))}
-          onMeasureInsert={(i, c) => measure.setPath((pts) => { const next = [...pts]; next.splice(i, 0, c); return next })}
-          onMeasureDelete={(i) => measure.setPath((pts) => pts.filter((_, j) => j !== i))}
-          measureLabels={measure.labels}
-          draggable={!tacticalLocked && tool === 'select'}
-          onMarkerDragStart={startEntityMove}
-          onMarkerMove={streamEntityMove}
-          onMarkerDragEnd={finishEntityMove}
-          onRotate={(id, deg) => { if (tacticalLocked) return; setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], rotation: deg } })) }}
-          onShapeTransform={(id, patch, phase) => {
-            if (tacticalLocked) return
-            if (phase === 'start') { beginDrag(); return }
-            if (phase === 'move') { setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, ...patch } : e)) })); return }
-            endDrag()  // 'end' — fold the whole gesture into a single undo step
-          }}
-          onView={setView}
-          onBasemapUnavailable={onBasemapUnavailable}
-          onSettled={onMapSettled}
-          picking={coord.mode === 'aim'}
-          onCursor={coord.setAim}
-          onPick={(c) => {
-            coord.setPicked(c); coord.setAim(null)
-            coord.setMode('set')
-          }}
-          pickedPoint={coord.mode === 'set' ? coord.picked : null}
-          placeMagnet={tool === 'shape' && !!pendingShape && SHAPE_TWO_POINT[pendingShape] && !tacticalLocked}
-          placeAnchor={tool === 'shape' && !!pendingShape ? rotStart : null}
-          freehand={freehandKind}
-          onFreehand={onFreehand}
-          circleEnabled={tool === 'circle' && !tacticalLocked}
-          onCircle={createCircle}
-          drawColor={drawColor}
-          drawWidth={drawWidth}
-          drawDashed={drawDashed}
-          selectedDrawingId={selectedDrawingId}
-          flashDrawingId={flashDrawingId}
-          onSelectDrawing={(id, at) => {
-            // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for
-            // a drawing too big for its bounds to mean anything. Any other way into the selection
-            // (Verlauf jump, a just-finished stroke) leaves a stale id here and is simply ignored.
-            setDrawTap(at ? { id, x: at.x, y: at.y } : null)
-            setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
-          }}
-          onUnlockDrawing={tacticalLocked ? undefined : (id) => { patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
-          onUnlockShape={tacticalLocked ? undefined : (id) => { commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, locked: undefined } : e)) })); setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }}
-          onDelete={deleteEntity}
-          selectedDrawing={selectedDrawing}
-          onDrawingEdit={editDrawingCoords}
-          onDrawingRadius={editDrawingRadius}
-          onDrawingVertexInsert={insertDrawingVertex}
-          onDrawingVertexDelete={deleteDrawingVertex}
-          onDrawingAttachment={setDrawingAttachment}
-          onLabelMove={tacticalLocked ? undefined : moveLabel}
-          marqueeEnabled={tool === 'lasso' && !tacticalLocked && coord.mode === 'off'}
-          selectedDrawIds={selectedDrawIds}
-          selectedEntityIds={selectedEntityIds}
-          onMarquee={onMarquee}
-          onGroupTransform={transformGroup}
-        />
-      // the Karte's own card offers no «Zur Karte»: that button would lead to the view it is on
-      ), false) : (
-        <Splash inApp sub={appConfig.copy.loadingSubtitle} />
-      )}
+      <MapStage {...{
+        sym, guarded, mapRef, mapEntities, tacticalLocked, mapLayers, symbolScale, symbolCaptions,
+        setMapSuppressedCaptions, incidentView, initialFitPoints, locateReq, editNoteId, noteTextLive,
+        noteTextCommit, setSelectedId, setSelectedDrawingId, setEditNoteId, tool, setNotePanelId, effTrupps,
+        azAlarm, setMode, setPanel, setTruppFocus, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker,
+        markTeamPosition, renameTeam, clearTeamTrail, removeTeamWithTrail, trails, deleteGhostTrail, doc,
+        unlinkTruppLine, patchEntity, linkTruppLine, log, mapOverlays, finishSelection, georefPlanRasters,
+        isVisible, selectedId, measure, setSelectedDrawIds, setSelectedEntityIds, onMapClick, drawings,
+        draft, areaMode, lineNodes, setDraft, setDraftPointAttachment, startEntityMove, streamEntityMove,
+        finishEntityMove, setVehicleOverrides, beginDrag, setDocRaw, endDrag, setView, onBasemapUnavailable,
+        onMapSettled, coord, pendingShape, rotStart, freehandKind, onFreehand, createCircle, drawColor,
+        drawWidth, drawDashed, selectedDrawingId, flashDrawingId, setDrawTap, patchDrawingById, commit,
+        deleteEntity, selectedDrawing, editDrawingCoords, editDrawingRadius, insertDrawingVertex,
+        deleteDrawingVertex, setDrawingAttachment, moveLabel, selectedDrawIds, selectedEntityIds, onMarquee,
+        transformGroup,
+      }} />
 
-      <TopBar
-        incident={incidentView}
-        startedAt={incidentMeta.started_at}
-        // the declared Einsatzende wins over the server's closure stamp: it is what the EL said
-        // the Einsatz ended, and it is what the Rapport prints
-        // ⚠️ `closed_at` only while CLOSED (staging r3, F3): it is the FIRST Einsatzende and is
-        // kept across «Wieder öffnen», so a reopened Einsatz's clock stood frozen at the close on
-        // every device. The Rapport's own Einsatzende still stops it — that is a stated fact.
-        // …and the CURRENT close, not the first, once it is closed again (D2)
-        endedAt={reportMeta.endedAt ?? (running ? undefined : closeTimeOf(incidentMeta))}
-        recording={voice.recording}
-        recStartedAt={voice.recStartedAt}
-        journalOpen={journalOpen}
-        onToggleJournal={() => setJournalOpen((v) => !v)}
-        reminderCount={reminders.openCount}
-        // NOT a composer on a read-only surface: it used to open, take the text, and have the
-        // journal store drop the row — «ich kann keine Einträge erfassen», with no reason given.
-        // A tab that merely LOST THE LOCK keeps the button though: making it vanish answers the
-        // question just as badly, so it says what is in the way and offers the one tap out of it
-        // (the same «Hier bearbeiten» the banner carries, for when the banner is scrolled away).
-        onAddEntry={linkScoped ? undefined
-          : !readOnly ? () => setComposerOpen(true)
-          : tabLockLost && isEditor ? () => toast(appConfig.copy.tabLock.hint, {
-              icon: 'info',
-              action: { label: appConfig.copy.tabLock.takeOver, onClick: onTakeOverTab },
-            })
-          : undefined}
-        onHoldStart={linkScoped ? undefined : startVoiceMemo}
-        onHoldEnd={linkScoped ? undefined : voice.stop}
-        onHoldPhoto={linkScoped ? undefined : startQuickPhoto}
-        // ⚠️ ONE pair, ONE history (08.09.2026). It used to route by surface — «take back what you
-        // last did HERE» — which asked the operator to already know which surface his last tap
-        // landed on, and left the Tafel's actions reachable only through a toast that expired.
-        // It now steps the one global timeline and NAMES what it will take back, so an undo that
-        // lands on another surface is never invisible (lib/undoTimeline · IncidentWorkspace ·
-        // stepHistory).
-        onUndo={onHistoryPress('undo')}
-        onRedo={onHistoryPress('redo')}
-        canUndo={histCanUndo}
-        canRedo={histCanRedo}
-        undoLabel={undoLabel}
-        redoLabel={redoLabel}
-        // ⚠️ No longer gated by SURFACE (08.09.2026). It used to be «map, plans or anwesenheit,
-        // and not tacticalLocked», because on Checklisten or Mittel the pair would have stepped
-        // the map's document invisibly — the very thing that made it a per-surface control. With
-        // one timeline that reason is gone and the gate inverts: those surfaces are exactly the
-        // ones whose actions had no way back at all, and hiding the pair there would hide the
-        // only door to them. What is left is the honest question — may this session write
-        // anything? An Einsatzleiter may (the record surfaces), so `tacticalLocked` is the wrong
-        // test for it; a viewer may not, and gets nothing.
-        showHistory={canEditIncident || canEditRecord}
-        // On EVERY surface, not only the Karte: which way the smoke goes matters exactly as much
-        // on the Atemschutz board and a Modul as on the map, and the chip vanishing on a surface
-        // switch read as «the weather indicator is broken» in the field. Phones keep their
-        // map-only float (.phone-wx) — that bar is genuinely too narrow everywhere else.
-        weather={displayWeather}
-        onOpenWeather={openWeatherDetails}
-        bearing={view.bearing}
-        azAlarm={azAlarm}
-        // ONE red door per alarm on screen (29.09.2026, sweep 3 T1): on the Trupps board the head's
-        // «⚠ n» badge is it, elsewhere the Meldeleiste row naming the same Trupp; the chip comes
-        // back once «Zum Trupp» took that row down, and the amber lead always keeps it
-        azChipHidden={azChipRedundant(azAlarm, mode === 'atemschutz', azRowsShown)}
-        // …and the chip lands ON the urgent Trupp's card, like every other way in (Meldeleiste,
-        // Anwesenheit, the notification tap) — the chip names a Trupp, so the tap must find it.
-        onOpenAtemschutz={(truppId) => {
-          setMode('atemschutz'); setPanel(null)
-          if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
-        }}
-        // Only on the map surface: the chip is a caveat about what the MAP is showing, and on
-        // Plan/Atemschutz there are no vehicle symbols for it to qualify. During replay the
-        // positions are historical by definition, so a staleness warning would be nonsense.
-        gpsStale={mapUI && !replayActive && gpsStale}
-        gpsAgeMs={gpsAgeMs}
-        // On EVERY surface, unlike the GPS caveat above: this says what the device in your hand
-        // is doing, which does not stop being true because you switched to the Plan.
-        shareSlot={<SharePositionPill share={share} onChangeName={(restore) => {
-          shareStatusRestore.current = restore
-          setShareParent('status')
-          setSharePick('pick')
-        }} />}
-        // «Einsatz abgeschlossen»: a mode of the incident, so it stands beside the Einsatzname
-        // instead of floating as a fifth banner. Its two exits ride in the chip's menu.
-        archived={incidentMeta.is_archived}
-        onBackFromArchive={onBackFromArchive}
-        onReactivate={onReactivateActive}
-        // On the phone map surface the compass in the bottom bar already carries Einpassen
-        // (== centerIncident) + Mein Standort, so a top-bar center button here would just
-        // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
-        // alarm chip). A Plan's bottom bar carries «Einpassen» as its own tile too (20.09.2026:
-        // the top-bar twin went) – so this is left ONLY for the sheets that have no bar at all:
-        // a viewer-only Modul, the Gebäude pick surface, a replay. There the floating zoom is
-        // dropped on a phone (15-mobile.css · .wb-zoom-float) and this is the one way back.
-        mapNav={isPhone && mode === 'plans' && !phoneTools
-          ? { action: { icon: 'cross', label: appConfig.copy.nav.fit, onClick: () => planFit.current?.() } }
-          : null}
-        titleSlot={
-          <IncidentSwitcher
-            active={incidentMeta}
-            incidents={incidents}
-            isEditor={isEditor}
-            syncStatus={syncStatus}
-            syncDetail={(journal.syncStatus === 'error' || auditDelivery.status === 'error') && syncStatus !== 'storage' ? appConfig.copy.journal.delivery.short
-              : closedRefusedUnexported && baseSyncStatus === 'synced' ? appConfig.copy.journal.delivery.closedShort : undefined}
-            lastSyncedAt={lastSyncedAt}
-            startedAt={incidentMeta.started_at}
-            endedAt={reportMeta.endedAt ?? (running ? undefined : closeTimeOf(incidentMeta))}
-            user={{ display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' }}
-            onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
-            onSwitch={onSwitchIncident}
-            onHistory={linkScoped ? undefined : onOpenHistory}
-            onObjectVisits={linkScoped || !onOpenObjectVisits ? undefined : () => onOpenObjectVisits(activeObjectId ?? null)}
-            onEditMeta={canEditMeta ? onEditMeta : undefined}
-            onDivera={onOpenDivera}
-            onDatenquellen={onOpenDatenquellen}
-            // Einsatzrapport (PDF + Drucken) and «Alle Einsätze» are both refused for a link
-            // session — one generates a document with everyone's names, the other lists the
-            // Einsätze this link has nothing to do with.
-            // ⚠️ The SAME confirm the Rapport runs, with the same count in front of it — this row
-            // used to archive plainly (see confirmAndComplete). The badge puts the check where it
-            // can be read before the row is pressed, not only after.
-            onArchive={canEditIncident && !readOnly && !incidentMeta.is_archived ? () => { void confirmAndComplete() } : undefined}
-            // ONE number, the nav tile's and the Rapport head's (29.09.2026): a +1 for Trupps still
-            // out made this badge say 5 where the nav said 4 one tap away. The confirm names
-            // the Trupps that are still out («Trupps noch drin»), so nothing is lost.
-            archiveOpenCount={abschlussMissing.length}
-            // «Teilen» — THE door to the share sheet (06.09.): the bar's own Teilen button is
-            // gone on every width, so this Einsatz-Karte row is the one place an Einsatz is
-            // handed to somebody. Same gate as every minting door (`canShareLink`): editors,
-            // never a viewer, a read-only surface or a link session.
-            onShare={canShareLink ? () => setShareLink('view') : undefined}
-            onHelp={() => setHelpOpen(true)}
-            onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
-            onOfflineReadiness={() => setOfflineReadyOpen(true)}
-            onSyncNow={syncNow}
-            // ⚠️ No «Abmelden» for a link session (02.09.): a link is the literal page and owns
-            // no login on this device, so there is none to end here — and the row used to end
-            // the DEVICE's own one. Leaving the link means leaving the page.
-            // …and it always asks first (lib/logoutConfirm), saying what is still unsent here
-            onLogout={linkScoped ? undefined : () => {
-              void confirmLogout({
-                online: navigator.onLine,
-                unsyncedEntries: journal.pendingCount + journal.rejectedCount + media.pendingCount,
-                unsyncedOther: syncStatus !== 'synced',
-              }).then((ok) => { if (ok) void logout() })
-            }}
-            navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
-            sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
-          />
-        }
-      />
+      <WorkspaceTopBar {...{
+        incidentView, incidentMeta, reportMeta, running, voice, journalOpen, setJournalOpen, reminders,
+        linkScoped, readOnly, setComposerOpen, tabLockLost, isEditor, onTakeOverTab, startVoiceMemo,
+        startQuickPhoto, onHistoryPress, histCanUndo, histCanRedo, undoLabel, redoLabel, canEditIncident,
+        canEditRecord, displayWeather, openWeatherDetails, view, azAlarm, mode, azRowsShown, setMode,
+        setPanel, setTruppFocus, mapUI, replayActive, gpsStale, gpsAgeMs, share, onShareChangeName,
+        onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
+        auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
+        onSwitchIncident, onOpenHistory, onOpenObjectVisits, activeObjectId, canEditMeta, onEditMeta,
+        onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
+        setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
+        helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
+      }} />
 
 
       <WorkspaceMeldungen {...{
@@ -5062,100 +4771,12 @@ export function IncidentWorkspace({
         <TruppFinder trupps={placed} onPick={goToTrupp} onClose={() => setFindTruppOpen(false)} />
       )}
 
-      {mapUI && (
-        <>
-          {/* zoom + locate — normally folded into the right ToolRail footer; floats
-              top-right only on desktop where the rail is gone (replay, whose scrubber the rail's
-              Messen readout would collide with). On a phone the tool bar's footer carries
-              Ebenen + the compass, so this cluster isn't rendered there. */}
-          {mapUtility && (
-            <MapUtility
-              onZoomIn={() => mapRef.current?.zoomIn()}
-              onZoomOut={() => mapRef.current?.zoomOut()}
-              bearing={view.bearing}
-              views={viewsApi}
-              // `|| isEl`: saved camera views live in the shared blob (cameraViews), which the
-              // el record slice never pushes — offering «Speichern» would fake a shared save
-              readOnly={readOnly || isEl}
-              viewsOpen={viewsOpen}
-              onViewsOpenChange={toggleViews}
-              coordsOn={coord.mode !== 'off'}
-              onToggleCoords={coord.cycle}
-              layersOn={panel === 'layers'}
-              layersPreset={layersPreset}
-              onToggleLayers={() => togglePanel('layers')}
-            />
-          )}
-
-          {/* phone: the wind read-out floats top-right under the bar — the top bar clipped it at
-              the screen edge (that bar already carries switcher · Einsatzuhr · undo/redo ·
-              Verlauf). NOT on a read-only surface: there the top bar has room for the weather
-              (measured: 96px free with no undo/redo/Eintrag). The compass is NOT up here: it sits
-              in the tool bar, beside Ebenen, where the map's other controls are (05.08.2026). It
-              floated here again for one day (18.09.) and came back down — above the bar its menu
-              opened half a screen away from the thumb that asked for it. */}
-          {isPhone && !slimRail && displayWeather?.wind_dir_deg != null && (
-            <div className="phone-wx">
-              <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} popAlignOffset={-5} />
-            </div>
-          )}
-
-          {/* coordinate readout — bottom-centre; aiming follows the cursor, set is locked.
-              hidden during replay so it never stacks under the bottom-centre scrubber. The ✕ on
-              its right is the same exit in both states — the mode used to be leavable only from
-              the compass menu, two taps away, while it swallowed every map tap (02.09.). */}
-          {/* The Gebäude chip — the Karte's bottom-left chip row, the same place and recipe as the
-              plan's (Whiteboard · .wb-botleft), so Lage and Plan say it in one spot. Rendered only
-              with something to say: the row's presence alone lifts the message lane. Not during
-              replay (a past Lage, and its scrubber owns the foot) or «Karte verknüpfen». */}
-          {!replayActive && !georefMode.planId && hasBuildingContent(buildingInfo) && (
-            <div className="wb-botleft"><BuildingFloat info={buildingInfo} compact={isPhone} /></div>
-          )}
-
-          {coord.readout && !replayActive && (
-            <div className={`coord-read${coord.mode === 'aim' ? ' aiming' : ''}${tool === 'measure' ? ' coord-read-stacked' : ''}`} role="status">
-              <div className="cr-rows">
-                <div className="cr-row"><span className="cr-tag">LV95</span><span className="cr-val">{fmtLV95(coord.readout[0], coord.readout[1])}</span></div>
-                <div className="cr-row"><span className="cr-tag">WGS84</span><span className="cr-val">{fmtWGS(coord.readout[0], coord.readout[1])}</span></div>
-              </div>
-              <button type="button" className="cr-x" aria-label={appConfig.copy.nav.coordsExit} onClick={() => coord.setMode('off')}>
-                <Icon id="close" />
-              </button>
-              <div className="cr-hint">{coord.mode === 'aim' ? appConfig.copy.nav.coordsHint : appConfig.copy.nav.coordsLocked}</div>
-            </div>
-          )}
-
-        </>
-      )}
-
-      {/* click-away: a transparent full-screen backdrop closes the open map panel */}
-      {/* phone only: a tap-catcher behind the panel sheet to close it. On desktop the panel
-          floats as a side card, so NO backdrop — the map stays pannable with Ebenen open. */}
-      {/* ⚠️ The KARTE's backdrop, and only it (15.09.2026). The Plan half used to be here for a
-          LayerPanel the Plan no longer has — and with the panel gone the catcher was the whole
-          bug it was once written to avoid: a full-screen z28 sheet over the z20 whiteboard,
-          eating the first tap on a board that looked perfectly normal. */}
-      {mapUI && panel !== null && isPhone && <div className="mapctl-backdrop" onClick={() => setPanel(null)} />}
-
-      {/* the Ebenen dock (.layers-card z201) sits ABOVE the +Eintrag composer / Verlauf
-          scrim that covers every other map popup, so it needs an explicit guard to hide
-          with them — otherwise it pokes through the modal (parity with the tool popups) */}
-      {mapUI && panel === 'layers' && !composerOpen && !journalOpen && !offlineReadyOpen && (
-        <LayerPanel
-          layers={layers}
-          onToggle={toggleLayer}
-          onOpacity={setOpacity}
-          twins={planRasterRows(linkedPlans, twinLayers, twinLayerOpacity)}
-          // …directly under «Lage», wherever the deployment's config calls that group: the sheet
-          // a symbol was drawn on belongs beside that symbol, not past Wasser and Gefahren.
-          twinsAfterGroup={layers.find((l) => l.id === appConfig.defaults.operationalLayerId)?.group}
-          onShowAll={() => setAllLayers(true)}
-          onHideAll={() => setAllLayers(false)}
-          onReset={resetLayers}
-          preset={layersPreset}
-          onClose={() => setPanel(null)}
-        />
-      )}
+      <MapControls {...{
+        mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
+        layersPreset, togglePanel, isPhone, slimRail, displayWeather, openWeatherDetails, replayActive,
+        georefMode, buildingInfo, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
+        toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
+      }} />
 
       <MapDetailPanels {...{
         detailSlotFree, tacticalLocked, tool, selected, commit, setSelectedId, flyToMapVisible, deleteEntity,
