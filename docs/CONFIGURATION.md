@@ -38,7 +38,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
     [4c. `"snapshot"` – the roster-snapshot contract](#4c-snapshot--a-roster-file-somebody-else-publishes)
 - [5. User accounts, roles, and deployment administration](#5-user-accounts-roles-and-deployment-administration)
 - [6. Environment variables (secrets / infra)](#6-environment-variables-secrets--infra--operator-not-admin)
-  - [The twenty-four integration credentials – env **or** `/admin`](#the-twenty-four-integration-credentials--env-or-admin--anbindungen)
+  - [The twenty-six integration credentials – env **or** `/admin`](#the-twenty-six-integration-credentials--env-or-admin--anbindungen)
   - [6a. Objektplan-Pull](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in)
   - [6b. Three things that look like env vars and are not](#6b-three-things-that-look-like-env-vars-and-are-not)
   - [6c. SharePoint-Pull – the station's own folders](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)
@@ -68,7 +68,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 |-------|------|-------|-------------|
 | **Defaults** | National/safe fallbacks (FKS doctrine, symbol presets) | `src/config/appConfig.ts` | developers |
 | **Deployment config** ← *this doc* | Per-station settings + uploaded assets | DB `deployment_config` row + asset storage | technical deployment owner – forms at `/admin`, or the same rows as a config file via CLI |
-| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-four integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Anbindungen for those twenty-four. **Env wins and locks the field** (§6) |
+| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-six integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Anbindungen for those twenty-six. **Env wins and locks the field** (§6) |
 | **Per-incident settings** | Live operational knobs (synced) | workspace blob (`IncidentSettings`) | any **user**, in-incident |
 
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
@@ -963,24 +963,93 @@ storing only the adopted ones would strand every person already carrying `wm` or
 
 ### 4c. `"snapshot"` – a roster file somebody else publishes
 
-> **Status: contract only.** The schema, the example and the validator below are shipped and
-> versioned; **the ingestion is not built.** A deployment set to `"snapshot"` today behaves
-> exactly like `"manual"` – CSV and hand entry work, nothing is fetched, nothing is synced. The
-> contract is published first on purpose, so that what stations produce is designed rather than
-> whatever the first importer happened to need.
-
 Some stations keep their personnel list somewhere else entirely – a municipal HR system, a
-cantonal register, a sibling application, a nightly script. `"snapshot"` is for exactly that
-case: **that system publishes a JSON file to a URL, and this deployment reads it.** It is one
+cantonal register, a sibling application (fwo-admin), a spreadsheet. `"snapshot"` is for exactly
+that case: **that system publishes a JSON file, and this deployment reads it.** It is one
 personnel provider among several. It is selectable, it is disconnectable, and it is never
 required – disconnecting it leaves every local person exactly where they were, because local
 personnel are canonical and a provider only attaches identity and provenance.
 
-Nothing about a particular publisher is built into the app: any URL a deployment can read
-works, and the schema names no vendor.
+Nothing about a particular publisher is built into the app: any URL or file a deployment can
+read works, the schema names no vendor, and **KP Rück reads the same file with byte-identical
+rules** (`backend/app/roster_snapshot.py` + `roster_snapshot_ingest.py`, pinned by checksum in
+both repositories) – so a station running both apps publishes one file and feeds both the same
+way.
+
+#### Turning it on
+
+| what | where | default |
+|------|-------|---------|
+| the source – an `https://` address, plain `http://` only inside the station's own network, or an absolute path on the server (`/data/roster.json`, `file:///…`) | **/admin › Anbindungen › Personenstamm (Snapshot)**, or `ROSTER_SNAPSHOT_SOURCE` in `.env` | empty = **off**, nothing fetched |
+| a bearer token, sent as `Authorization: Bearer …` and **only over https** | same card, or `ROSTER_SNAPSHOT_TOKEN` | none |
+| how often to poll (minutes, 5–1440) | `roster.snapshotIntervalMin` (config document, §1) | `60` |
+| the deactivation cap (% of the active people one run may deactivate) | `roster.snapshotMaxDeactivatePct` | `20` |
+
+The source is a credential rather than a config field because the config document is public
+(`GET /api/config`) and travels in the Sicherung export; the address is readable on the card so
+an operator can check it is the right file – put anything secret in the token, not in a query
+string. `roster.source` stays a label: setting it to `"snapshot"` fetches nothing, and leaving it
+on `"divera"` does not stop a configured snapshot. Divera's nightly sync and the CSV import keep
+working beside it; if a station runs both feeds, each writes what it carries and the later run
+wins a name, so most stations run one.
+
+**What a run does** (`app/roster_snapshot_sync.py`, rules in `app/roster_snapshot_ingest.py`):
+
+1. Fetch the bytes (≤ 5 MB, 30 s). An unchanged file (same sha256 as the last applied one) is
+   skipped by the scheduled poll; «Jetzt abrufen» always reconciles.
+2. Validate against the contract – including the medical-key guard below. **Any failure – an
+   unreachable URL, a 404, a missing file, an invalid or medically-keyed document, a file older
+   than the one already applied or stamped more than 5 minutes in the future, a run that crashes
+   while writing – changes nothing**: the roster stays as the last good snapshot
+   left it, and the System card shows the reason next to «Stand der Datei» of that last good one.
+3. Match every person in the file to a local person, in this order: the snapshot's own key
+   (`provider` + `external_id`); any identity the entry lists (`divera: 4711` finds the person
+   the Divera sync created – **no duplicates, and the Divera link stays**); a name exactly one
+   local person carries. Two candidates is `ambiguous_name`, identities pointing at two people –
+   or at a person who already holds a different id at that provider, also one only found by name
+   – is `conflicting_identity`; both are skipped and reported, never created a second time. An
+   entry may not list an identity under the file's own `provider` (its id there is
+   `external_id`) – the contract refuses such a file. **An existing identity link is never rewritten.**
+4. Write: create the new people, update name / first / last / rank (a rank key the station does
+   not define is reported, and the stored rank is left alone), attach missing identity links,
+   reactivate people the file lists as active. Deactivate people the file lists as inactive and
+   – only for `complete: true` – people carrying this provider's key whom the file no longer
+   lists. Never anyone else: hand-entered people and people only Divera knows are never touched
+   by absence. **Never deleted**: old Einsätze and Rapporte keep resolving the name. **Never
+   mid-Einsatz**: a person mentioned in an Einsatz that is not archived keeps their place; the
+   deactivation is postponed («Wartet auf das Einsatzende») and a later run applies it, even if
+   the file has not changed. **While a Divera key is set**, people linked to Divera keep the
+   name they have – the nightly Divera sync owns those names, and two feeds renaming each other
+   is noise in every list.
+5. **The cap.** A run that would deactivate more than `snapshotMaxDeactivatePct` of the active
+   people (at least one is always allowed; `0` = never unattended, `100` = no cap) is **held**:
+   nothing at all is written, the System card says «angehalten» with the numbers and lists who
+   would go, and **«Abgänge übernehmen»** (admin, asks first) applies it. A run that would leave
+   **no** active person is refused even then.
+6. Record the outcome report (`roster-snapshot-outcome/1`) on `connector_states.roster_snapshot`,
+   served on `GET /api/system` and read on System › Verbindungen; a file whose `generated_at`
+   has not moved for 7 days is flagged as stale.
+
+On demand: **«Jetzt abrufen»** on that card, or `POST /api/personnel/snapshot/sync`
+(`{"force": true}` releases a held run, and also overrides the «older than applied» guard – the
+way out when a publisher's wrong clock left a last-good from the future). Both need the admin
+session.
+
+#### Producing the file
 
 - **Contract:** [`roster-snapshot.schema.json`](roster-snapshot.schema.json) (JSON Schema).
 - **Worked example:** `backend/roster.snapshot.example.json`.
+- **From a spreadsheet:** [`scripts/roster_snapshot_from_csv.py`](../scripts/roster_snapshot_from_csv.py)
+  – standard library only, no app needed. Columns `external_id` (your stable key – never reuse
+  or renumber one), `display_name`, optional `first_name`, `last_name`, `rank` (a rank *key*),
+  `active` and any number of `id:<provider>` columns (`id:divera`); **every other column is
+  dropped and named on stderr**, so a Tauglichkeit date in the export never reaches the file.
+  Example input: [`roster-snapshot.example.csv`](roster-snapshot.example.csv).
+  ```bash
+  python3 scripts/roster_snapshot_from_csv.py export.csv --provider meine-wehr --out /data/roster.json
+  ```
+  `--out` writes atomically, so a deployment polling that path never reads half a file; run it
+  from cron next to a self-hosted stack and point the source at the path.
 - **Validate a file you produced** – no database, no network, no deployment needed:
   ```bash
   cd backend && uv run python -m app.roster_snapshot validate my-roster.json
@@ -1037,9 +1106,9 @@ into `display_name`. Do not.
 #### What a consumer has to be able to say afterwards
 
 A roster that quietly loses people corrupts every attendance figure derived from it, invisibly.
-So the shape of the answer is fixed before anything implements the question:
-[`roster-snapshot-outcome.schema.json`](roster-snapshot-outcome.schema.json) is the report one
-ingestion run must be able to produce – `matched` / `created` / `updated` / `deactivated`,
+So the shape of the answer was fixed before anything implemented the question:
+[`roster-snapshot-outcome.schema.json`](roster-snapshot-outcome.schema.json) is the report every
+ingestion run produces (and the System card reads) – `matched` / `created` / `updated` / `deactivated`,
 every person it **could not place** with the reason (`no_identity_match`, `ambiguous_name`,
 `conflicting_identity`, `absent_from_snapshot`, `inactive_in_snapshot`), every `rank` key it did
 not recognise, and `refused` for "I changed nothing, and here is why". **Unmapped people are
@@ -1096,12 +1165,12 @@ The product role model is deliberately small:
 Set at deploy time, never in the repo. **Sixteen of them are also settable from the browser** –
 see the rule immediately below; everything else in the table really is deploy-time only.
 
-### The twenty-four integration credentials – env **or** `/admin` → Anbindungen
+### The twenty-six integration credentials – env **or** `/admin` → Anbindungen
 
 The station's integration settings – the three Divera keys, the Traccar trio, the VAPID trio, the
 four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`,
-`HEALTHCHECK_PING_URL` and the four SharePoint fields (§6c) – no
-longer have to come from `.env`. An admin can set and rotate them at `/admin` → **Anbindungen**,
+`HEALTHCHECK_PING_URL`, the four SharePoint fields (§6c) and the roster-snapshot source and
+token (§4c) – no longer have to come from `.env`. An admin can set and rotate them at `/admin` → **Anbindungen**,
 where they are stored **encrypted** in the `integration_credentials` table (AES-256-GCM, key
 derived from `SECRET_KEY` via HKDF-SHA256, the credential's own name as AAD) and take effect
 **without a restart** – the resolver re-reads the stored half every 30 s and immediately on a
@@ -1118,9 +1187,9 @@ Four rules, and none of them is optional reading:
    reason: a fallback that differed from the declared default would have read as a choice and
    locked VAPID-Kontakt out of the browser on every compose install. Blank means unset, and unset
    resolves to `mailto:kp-front@localhost`.)
-2. **Secrets are write-only.** They can be set and rotated over the API, never read back. Seven
+2. **Secrets are write-only.** They can be set and rotated over the API, never read back. Eight
    fields are readable because each earns it individually: `TRACCAR_URL` (a hostname the System
-   card already prints), `VAPID_PUBLIC_KEY` (already handed to every logged-in browser),
+   card already prints), `ROSTER_SNAPSHOT_SOURCE` (an operator checks it is the right file), `VAPID_PUBLIC_KEY` (already handed to every logged-in browser),
    `VAPID_SUBJECT`, `STT_BASE_URL`, `STT_MODEL`, `STT_LANGUAGE`, and `CARTO_API_KEY`. The CARTO
    key is the deliberate exception: CARTO requires it in every browser tile URL, so domain
    restrictions in CARTO – not secrecy – prevent use elsewhere. **Readable is not public**,
@@ -1175,6 +1244,7 @@ and locks the field – see the rule above).
 | 🔐 `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_CLIENT_SECRET`, `SHAREPOINT_SECRET_EXPIRES` | the Azure app registration behind the SharePoint pull ([§6c](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)), read-only, client-credentials flow. ⚠️ These four are the credentials that have **no `Settings` field**: they were introduced after the credential table existed, so the environment half is read straight off the process environment and the normal path is the browser. The two ids are readable (an operator compares them against the Azure portal); the secret is write-only. `SHAREPOINT_SECRET_EXPIRES` is not a credential but the ISO date (`JJJJ-MM-TT`) the secret lapses on – Azure caps it at 24 months and says nothing when it does, so this is what the System card counts down. Nothing set = no pull, fail-closed |
 | 🔐 `OBJECT_VISITS_INTEGRATION_KEY` | the Objektbesuche organizer's bearer key for `/api/integrations` ([`object-visits.md`](object-visits.md)); ≥ 24 characters, write-only, no `Settings` field (read off the environment, normally set in the browser). Unset = the organizer API answers 403 |
 | 🔐 `SHAREPOINT_EXPORT_TENANT_ID`, `SHAREPOINT_EXPORT_CLIENT_ID`, `SHAREPOINT_EXPORT_CLIENT_SECRET` | a SECOND Azure app registration, the only one KP Front writes with: the Objektbesuche delivery files visit reports into a destination folder ([`object-visits-sharepoint.md`](object-visits-sharepoint.md)), `Sites.Selected` **write** on one site. Separate from the pull's read-only registration on purpose. No `Settings` fields; ids readable, secret write-only. Incomplete = no delivery, fail-closed |
+| 🔐 `ROSTER_SNAPSHOT_SOURCE`, `ROSTER_SNAPSHOT_TOKEN` | the station's published roster file ([§4c](#4c-snapshot--a-roster-file-somebody-else-publishes)): an `https://` address (plain `http://` only on the station's own network) or an absolute path on the server, plus an optional bearer token sent only over https. No `Settings` fields (read off the environment, normally set in the browser); the source is readable, the token write-only. Unset = nothing fetched |
 | 🔐 `ENTRA_LOGIN_TENANT_ID`, `ENTRA_LOGIN_CLIENT_ID`, `ENTRA_LOGIN_CLIENT_SECRET`, `ENTRA_LOGIN_ACCOUNTS` | optional «Mit Microsoft anmelden» ([`microsoft-login.md`](microsoft-login.md)): a THIRD Azure app registration, sign-in only (delegated `openid profile`), redirect URI `<PUBLIC_URL>/api/auth/microsoft/callback`. `ENTRA_LOGIN_ACCOUNTS` is the allow-list, `identity=username, …` (object id or sign-in name → existing KP Front username). No `Settings` field, settable from `/admin › Anbindungen`; the secret is write-only, the rest readable. Any one unset = no button, routes 404 |
 | 🔐 `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
 | 🔐 `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments |
@@ -1244,7 +1314,7 @@ is fetched, and plans stay exactly as they were loaded. Index format and the rea
 
 Each of these is a **token or key stored in the database** and managed in the admin UI, not set
 at deploy time. They are listed here because that is where people go looking for them. (Unlike
-the twenty-four 🔐 credentials above, these three have **no** environment variable at all – there is
+the twenty-six 🔐 credentials above, these three have **no** environment variable at all – there is
 nothing to put in `.env` and nothing that could outrank the stored value.)
 
 | Feature | Where it is managed | What it does |

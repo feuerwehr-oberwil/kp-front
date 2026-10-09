@@ -40,6 +40,7 @@ def integrations() -> ConfigIntegrations:
     alarm_webhook = bool(credential("alarm_webhook_secret"))
     alarm_provider = "divera" if divera else "webhook" if alarm_webhook else None
     traccar = bool(credential("traccar_url") and credential("traccar_email") and credential("traccar_password"))
+    snapshot = bool(credential("roster_snapshot_source"))
     return ConfigIntegrations(
         diveraConfigured=divera,
         traccarConfigured=traccar,
@@ -100,17 +101,17 @@ def integrations() -> ConfigIntegrations:
                 active=traccar,
                 capabilities=["positions", "status"],
             ),
-            # Published contract, no ingestion yet — `implemented=False` says so out loud
-            # rather than letting a registry entry imply a working feature. A station
-            # selects it with `roster.source: "snapshot"`; the file it would read is
-            # specified in docs/CONFIGURATION.md §4c and docs/roster-snapshot.schema.json.
+            # A roster file the station publishes (docs/CONFIGURATION.md §4c), read by
+            # app/roster_snapshot_sync.py once `roster_snapshot_source` is set. Deliberately NOT
+            # promoted into `personnel` above: that slot gates the Divera sync controls, and a
+            # station running both must keep them.
             ProviderRegistration(
                 provider="snapshot",
                 domain="personnel",
-                configured=False,
-                active=False,
-                capabilities=["contract"],
-                implemented=False,
+                configured=snapshot,
+                active=snapshot,
+                capabilities=["pull", "schedule", "outcome"],
+                implemented=True,
             ),
         ],
     )

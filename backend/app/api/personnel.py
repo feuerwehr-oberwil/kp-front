@@ -6,13 +6,13 @@ import uuid
 
 import httpx
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, UploadFile
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import connector_state
 from .. import personnel as personnel_svc
-from ..auth.dependencies import EditorOrAdmin, OptionalUser, UserOrAdmin, _admin_session_valid
+from ..auth.dependencies import CurrentAdmin, EditorOrAdmin, OptionalUser, UserOrAdmin, _admin_session_valid
 from ..config import settings
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
@@ -454,3 +454,31 @@ async def sync_execute(
         detail=personnel_svc.sync_detail(result, trigger="manual"),
     )
     return result
+
+
+class RosterSnapshotSyncBody(BaseModel):
+    """``force`` releases a run the deactivation cap held — the human decision the hold waits
+    for. It never releases the other refusals (an invalid file, an older copy, an empty roster)."""
+
+    force: bool = False
+
+
+@router.post("/snapshot/sync")
+async def snapshot_sync(
+    _admin: CurrentAdmin,
+    body: RosterSnapshotSyncBody | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Read the roster snapshot now («Jetzt abrufen» on System › Verbindungen).
+
+    The same run the scheduler makes, minus the «unchanged, skip» shortcut — pressing the
+    button after a rank was added to the station's list must apply it. Answers the status
+    document either way: a refused or held run is a 200 with the reason in it, because the
+    report IS the answer; only «no source configured» is an error.
+    """
+    from .. import roster_snapshot_sync
+
+    await load_credentials(db)
+    if not roster_snapshot_sync.configured():
+        raise HTTPException(status_code=503, detail="Keine Personenstamm-Quelle eingerichtet")
+    return await roster_snapshot_sync.run(db, trigger="manual", force=(body or RosterSnapshotSyncBody()).force)
