@@ -45,6 +45,13 @@ so this file – not the log – is the record of what shipped up to that point.
   more than 15 km away, or a forecast turn of 45°+ within 2 h (from the Open-Meteo hours the
   weather request now also fetches, never recorded). The panel and a tag on the map name the
   wind's source, distance and time. *No action needed.*
+- **«Auswertung» – a debrief sheet at the end of the Rapport PDF.** Key figures (Alarm bis 1.
+  Fahrzeug vor Ort, Alarm bis 1. Atemschutz-Eintritt, Funkkontakte eingehalten with the overrun
+  count, längster Atemschutz-Einsatz, Einsatzdauer – each defined in a footnote, «—» when the
+  record does not carry it), a vector swimlane timeline (Fahrzeuge, Trupps with their contacts and
+  fällig/überfällig stretches hatched so they survive a greyscale printer, checklist phases,
+  milestones). Its own landscape sheet, last, so the signed part goes out without
+  it; ticked by default in the PDF ▾ menu as «Auswertung (intern)». *No action needed.*
 - **Anleitungen – a second kind of checklist, read-only and offline.** A template with
   `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
   «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on

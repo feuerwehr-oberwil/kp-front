@@ -21,11 +21,16 @@ import {
 } from './report'
 import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
-import { getDeploymentConfig } from './deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig } from './deploymentConfig'
+import { serverNow } from './serverClock'
 import { fillTemplate } from './format'
 import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
 import { symbolLegendText } from './symbols'
-import { doneBadge } from './objectDone'
+import { doneBadge, doneOf, doneWord } from './objectDone'
+import { auswertungForPdf, computeAuswertung } from './auswertung'
+import { fahrzeugRows } from './alarmzeiten'
+import type { ChecklistState, ChecklistTemplate } from './checklists'
+import { formatSymbolName } from './format'
 import { SHAPE_DEFS, shapeAspect } from './shapes'
 import { placardSvgForSymbol } from './placard'
 import { ensureErg } from './erg'
@@ -329,6 +334,36 @@ export interface DirectReportArgs {
   building?: BuildingDoc | null
   /** alternate endpoint/auth (capture view: poster token instead of the kiosk cookie) */
   transport?: import('./reportPdf').ReportTransport
+  /** the Checkliste tick state + its templates — the Auswertung's phase bands (lib/auswertung).
+   *  Absent = no phase lane; nothing else depends on it. */
+  checklists?: ChecklistState
+  checklistTemplates?: ChecklistTemplate[]
+  /** wall clock for what is still open on a running Einsatz (tests pin it) */
+  now?: number
+}
+
+/**
+ * The symbols marked «Gelöscht / erledigt», worded for the Auswertung's milestone lane — «Feuer
+ * gelöscht». From the Karte AND the sheets: a Feuer marked out on the Gebäude is the same
+ * milestone. A Karte object projected onto a sheet carries the same id and stamp, so one fact
+ * prints once.
+ */
+export function doneMilestones(entities: readonly Entity[] = [], board: BoardDoc = {}): { at: string; label: string }[] {
+  const seen = new Set<string>()
+  const out: { at: string; label: string }[] = []
+  const add = (id: string, symbol: string | undefined, props: Parameters<typeof doneOf>[0]) => {
+    const d = doneOf(props)
+    if (!d || !symbol) return
+    const label = `${formatSymbolName(symbol)} ${doneWord(symbol, 'inline')}`
+    const key = `${id}\u0000${d.at}`
+    const keyLabel = `${label}\u0000${d.at}`
+    if (seen.has(key) || seen.has(keyLabel)) return
+    seen.add(key); seen.add(keyLabel)
+    out.push({ at: d.at, label })
+  }
+  for (const e of entities) add(e.id, e.symbol, e)
+  for (const annos of Object.values(board)) for (const a of annos) if (a.kind === 'symbol') add(a.id, a.symbol, a)
+  return out
 }
 
 /**
@@ -483,7 +518,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       endedAt: meta.endedAt ? formatDateTime(meta.endedAt) : undefined,
       partnerContacts: meta.partnerContacts,
     },
-    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, krokiLandscape: draft.options.krokiLandscape },
+    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, krokiLandscape: draft.options.krokiLandscape, auswertung: draft.options.auswertung },
     // Beilagen: only the ones actually ON the server. A blob: URL is a photo that has not
     // finished uploading, and the server cannot fetch it — printing would silently drop it, so
     // it is left out here and the preflight says so beside the row.
@@ -603,6 +638,29 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     // the Tafel's «Erstes Plakat (FKS)» (08.10.2026) — its own section after the Aufträge,
     // only when the Tafel carries one (backend · report_pdf · PlakatIn)
     plakat: plakatPayload(board),
+    // the internal Beilage (lib/auswertung): computed HERE, where the ISO stamps are
+    auswertung: draft.options.auswertung
+      ? (() => {
+          const interval = args.contactIntervalMin ?? atemschutzDoctrine().contactIntervalMin
+          const grace = args.contactGraceSec ?? atemschutzDoctrine().contactGraceSec
+          const a = computeAuswertung({
+            alarmedAt: meta.alarmiertAt ?? incident.started_at,
+            // ⚠️ `closedAt`, not `closeTimeOf`: a REOPENED Einsatz still carries its old close
+            // time, and is running again — its open spans run to now, not to that close
+            endedAt: meta.endedAt ?? closedAt ?? null,
+            now: args.now ?? serverNow(),
+            vehicles: fahrzeugRows(cfg.fleet?.vehicles ?? [], meta.fahrzeuge).map((r) => ({ label: r.config.label, zeit: r.value })),
+            trupps,
+            contactIntervalMin: interval,
+            contactGraceSec: grace,
+            events,
+            doneMarks: doneMilestones(scene?.entities, board),
+            checklists: args.checklists,
+            templates: args.checklistTemplates,
+          })
+          return auswertungForPdf(a, { contactIntervalMin: interval, contactGraceSec: grace }, meta.lehren)
+        })()
+      : undefined,
   }
   return forPaper(payload) as Record<string, unknown>
 }
