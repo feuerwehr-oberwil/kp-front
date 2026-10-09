@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { Source, Layer } from 'react-map-gl/maplibre'
+import { Source, Layer, Marker } from 'react-map-gl/maplibre'
 import type { LayerDef, LayerId, PreparedMapOverlay } from '../types'
 import { circlePolygon } from '../lib/geo'
 import { vis, lineFeat } from '../lib/mapView'
@@ -169,6 +169,13 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
             />
           )}
         </Source>
+      ))}
+      {/* an overlay's own tag (the ERG oval's wind + source + time, lib/ergRings) — a DOM label
+          like the measure labels (the style carries no glyphs), hidden with its layer */}
+      {mapReady && preparedOverlays.map((overlay) => overlay.kind === 'polygon' && overlay.label && isVisible(overlay.layer) && (
+        <Marker key={`lbl-${overlay.id}`} longitude={overlay.label.at[0]} latitude={overlay.label.at[1]} anchor="center">
+          <div className="measure-label draw-label">{overlay.label.lines.map((l) => <div key={l}>{l}</div>)}</div>
+        </Marker>
       ))}
     </>
   )

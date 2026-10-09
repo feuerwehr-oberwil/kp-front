@@ -46,6 +46,10 @@ class WeatherData(BaseModel):
     observed_at: str | None = None  # ISO-8601 UTC
     source: str = "unknown"  # "meteoswiss" | "open-meteo"
     station: str | None = None  # nearest SMN station name (MeteoSwiss only)
+    # how far that station is from the asked point (MeteoSwiss only — Open-Meteo is a point model
+    # at the point itself). The nearest station may be up to 60 km off; the ERG oval only trusts
+    # one within ~15 km (src/lib/ergRings · ergWind).
+    station_distance_km: float | None = None
     # The next hours' wind from the Open-Meteo point forecast (the current hour first), so the
     # ERG corridor can say «Wind dreht auf 300° in ~40′» (src/lib/ergRings · ergWindShiftAhead).
     # Best-effort: None when Open-Meteo did not answer. A FORECAST, so it never enters the record
@@ -188,6 +192,7 @@ class WeatherClient:
             observed_at=_vqha80_timestamp(row.get("Date")),
             source="meteoswiss",
             station=best_name,
+            station_distance_km=round(best_d / 1000, 1),
         )
         # If the nearest station reports no wind at all, the reading is useless for us.
         if data.wind_dir_deg is None and data.wind_speed_kmh is None:

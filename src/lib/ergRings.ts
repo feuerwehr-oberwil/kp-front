@@ -11,13 +11,13 @@
 //
 // The protective distance is a DOWNWIND distance (F4, 09.10.2026 — owner: «not a triangle but
 // more of an oval shape»). With a usable live wind (the top bar's reading, backend weather ·
-// MeteoSwiss / Open-Meteo) it is drawn as an oval that starts at the placard and reaches the
-// ERG distance along the direction the wind blows TO; the isolation circle stays a circle
-// around the placard, so the two together are the keyhole. The ERG's own protective action
-// zone is a square of that side downwind; the oval is its core (width: appConfig.ergRings ·
-// corridorWidthRatio), not its corners — the panel says so. No wind, a calm one or a stale one
-// → the old full circle, and the panel says why (ergWind). Still derived, never stored: the
-// oval turns with the next reading and follows the marker. Karte only, like the rings.
+// MeteoSwiss / Open-Meteo) it is drawn as an oval leaning downwind that CONTAINS the ERG's
+// protective action zone — a square of side D downwind of the placard — whole, corners
+// included (ergZoneEllipse; #305 review: a narrower oval left buildings ERG puts in the zone
+// outside every line). The isolation circle stays a circle. No wind, a stale / future / far /
+// calm one, or a forecast turn within 2 h → the old full circle, and the panel says why
+// (ergWind). Still derived, never stored: the oval turns with the next reading and follows the
+// marker. Karte only, like the rings.
 
 import type { Entity, LngLat, PreparedMapOverlay, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
@@ -107,27 +107,44 @@ export function bearingTurn(a: number, b: number): number {
   return d > 180 ? 360 - d : d
 }
 
-/** Whether the live wind can aim the protective distance, and if not, why.
- *  `fromDeg` is the meteorological FROM bearing; `toDeg` (+180) is where a plume goes. */
+/** Whether the live wind can aim the protective distance, and if not, why. `fromDeg` is the
+ *  meteorological FROM bearing; `toDeg` (+180) is where a plume goes. `model`: the reading is
+ *  the Open-Meteo point model, not a station's measurement (the panel says «Windmodell»).
+ *  `shift`: the forecast turn that made it a circle (reason 'turning'). */
 export type ErgWind =
-  | { ok: true; fromDeg: number; toDeg: number; speedKmh: number; at: Date; source: string; station: string | null }
-  | { ok: false; reason: 'none' | 'calm' | 'stale'; speedKmh: number | null; at: Date | null; source: string | null; station: string | null }
+  | { ok: true; fromDeg: number; toDeg: number; speedKmh: number; at: Date; source: string; station: string | null; distanceKm: number | null; model: boolean }
+  | { ok: false; reason: 'none' | 'stale' | 'future' | 'far' | 'calm' | 'turning'; speedKmh: number | null; at: Date | null; source: string | null; station: string | null; distanceKm: number | null; model: boolean; shift?: { fromDeg: number; inMin: number } }
 
+/** The one judge of the wind behind the oval — the map and the panel both ask it, so they can
+ *  never disagree. Anything short of a fresh, near, steady wind with some strength is a circle:
+ *  - none     no reading, or no direction / no speed to judge it by
+ *  - stale    older than `windStaleMin`, or no time to prove it is current
+ *  - future   stamped more than `windFutureToleranceMin` AHEAD of this device — one of the two
+ *             clocks is wrong, and nothing says which (#305 review)
+ *  - far      the MeteoSwiss station is more than `windMaxStationKm` away (the backend picks the
+ *             nearest within 60 km — a wind 40 km off says little about this street)
+ *  - calm     under `windCalmBelowKmh` the direction of a 10-min mean is noise
+ *  - turning  the forecast turns it by `forecastShiftDeg`+ within `forecastWithinMin`: one oval
+ *             would point the wrong way half of that time (#305 review) */
 export function ergWind(w: WeatherData | null | undefined, now: Date): ErgWind {
   const cfg = appConfig.ergRings
   const at = parseWeatherTime(w?.observed_at)
-  const base = { at, source: w?.source ?? null, station: w?.station ?? null, speedKmh: w?.wind_speed_kmh ?? null }
-  // no reading, no direction, or no speed to judge it by — nothing aims anything
+  const base = {
+    at, source: w?.source ?? null, station: w?.station ?? null, speedKmh: w?.wind_speed_kmh ?? null,
+    distanceKm: w?.station_distance_km ?? null, model: w?.source === 'open-meteo',
+  }
   if (!w || w.wind_dir_deg == null || !Number.isFinite(w.wind_dir_deg) || w.wind_speed_kmh == null) return { ok: false, reason: 'none', ...base }
-  // a reading without a time cannot prove it is current; one from the past hour-ish can.
-  // (a time AHEAD of the device is a skewed clock, not a stale reading)
   if (!at || now.getTime() - at.getTime() > cfg.windStaleMin * 60_000) return { ok: false, reason: 'stale', ...base }
+  if (at.getTime() - now.getTime() > cfg.windFutureToleranceMin * 60_000) return { ok: false, reason: 'future', ...base }
+  if (base.distanceKm != null && base.distanceKm > cfg.windMaxStationKm) return { ok: false, reason: 'far', ...base }
   if (w.wind_speed_kmh < cfg.windCalmBelowKmh) return { ok: false, reason: 'calm', ...base }
+  const shift = ergWindShiftAhead(w, now)
+  if (shift) return { ok: false, reason: 'turning', shift, ...base }
   const fromDeg = ((w.wind_dir_deg % 360) + 360) % 360
-  return { ok: true, fromDeg, toDeg: (fromDeg + 180) % 360, speedKmh: w.wind_speed_kmh, at, source: w.source, station: w.station }
+  return { ok: true, fromDeg, toDeg: (fromDeg + 180) % 360, speedKmh: w.wind_speed_kmh, at, source: w.source, station: w.station, distanceKm: base.distanceKm, model: base.model }
 }
 
-/** The forecast turn worth a line: the first Open-Meteo hour within `forecastWithinMin` whose
+/** The forecast turn that matters: the first Open-Meteo hour within `forecastWithinMin` whose
  *  direction is at least `forecastShiftDeg` off BOTH the model's own current hour (model vs
  *  model — the station and the model are two instruments, backend observations) AND the wind
  *  measured now (never announce a turn to where the wind already blows). An hour too calm to
@@ -152,54 +169,92 @@ export function ergWindShiftAhead(w: WeatherData | null | undefined, now: Date):
   return null
 }
 
-/** The downwind oval: an ellipse whose upwind tip sits ON the placard and whose far tip is
- *  `lengthM` away along `toDeg` (compass bearing, 0 = N, clockwise), `widthM` across at its
- *  middle. A closed [lng, lat] ring (first point repeated), in the same local flat-earth
- *  metres as lib/geo · circlePolygon — kilometres, not continents. */
-export function ergCorridorRing(origin: LngLat, toDeg: number, lengthM: number, widthM: number, n = 72): LngLat[] {
+/** The ERG protective action zone for distance D: a SQUARE of side D downwind, the spill at the
+ *  middle of its upwind edge (ERG «Introduction to Table 1»). In wind-aligned metres
+ *  (along, across) its corners are (0, ±D/2) and (D, ±D/2). */
+export function ergSquareCorners(distanceM: number): [along: number, across: number][] {
+  const h = distanceM / 2
+  return [[0, -h], [0, h], [distanceM, h], [distanceM, -h]]
+}
+
+/** The drawn shape: an ellipse centred `corridorCenter`·D downwind with semi-axes
+ *  `corridorAlong`·D (along the wind) and `corridorAcross`·D, which CONTAINS the whole ERG square
+ *  (#305 review: an oval inside the square left buildings that ERG puts in the zone outside
+ *  every line). Containment, centre 0.5·D: (0.5/a)² + (0.5/b)² ≤ 1 at each corner; 0.8 / 0.7
+ *  gives 0.90 — the corners sit at ~95 % of the ellipse's radius, a small margin, while the
+ *  shape still leans downwind (it reaches 1.3·D downwind and 0.3·D upwind of the placard).
+ *  ergRings.test pins the containment numerically. Returns the (along, across) metres. */
+export function ergZoneEllipse(distanceM: number): { center: number; a: number; b: number } {
+  const cfg = appConfig.ergRings
+  return { center: cfg.corridorCenter * distanceM, a: cfg.corridorAlong * distanceM, b: cfg.corridorAcross * distanceM }
+}
+
+/** (along, across) metres in the wind's frame → [lng, lat], in the same local flat-earth metres
+ *  as lib/geo · circlePolygon — kilometres, not continents. Along the bearing is (sin θ east,
+ *  cos θ north), across to its right (cos θ east, −sin θ north). */
+export function windFrameToLngLat(origin: LngLat, toDeg: number, along: number, across: number): LngLat {
   const mPerLon = 111320 * Math.cos((origin[1] * Math.PI) / 180)
   const th = (toDeg * Math.PI) / 180
-  const a = lengthM / 2
-  const b = widthM / 2
+  const east = along * Math.sin(th) + across * Math.cos(th)
+  const north = along * Math.cos(th) - across * Math.sin(th)
+  return [origin[0] + east / mPerLon, origin[1] + north / M_PER_LAT]
+}
+
+/** The downwind oval for protective distance D around the placard at `origin`, the wind blowing
+ *  TO `toDeg` (compass bearing, 0 = N, clockwise). A closed [lng, lat] ring (first point repeated)
+ *  starting at its far downwind tip. */
+export function ergCorridorRing(origin: LngLat, toDeg: number, distanceM: number, n = 72): LngLat[] {
+  const { center, a, b } = ergZoneEllipse(distanceM)
   const ring: LngLat[] = []
   for (let i = 0; i <= n; i++) {
     const t = (2 * Math.PI * i) / n
-    const along = a * (1 - Math.cos(t)) // 0 at the placard, lengthM at the far tip
-    const across = b * Math.sin(t)
-    // along the bearing (sin θ east, cos θ north), across to its right (cos θ east, −sin θ north)
-    const east = along * Math.sin(th) + across * Math.cos(th)
-    const north = along * Math.cos(th) - across * Math.sin(th)
-    ring.push([origin[0] + east / mPerLon, origin[1] + north / M_PER_LAT])
+    ring.push(windFrameToLngLat(origin, toDeg, center + a * Math.cos(t), b * Math.sin(t)))
   }
   return ring
 }
 
+/** The oval's far downwind tip. */
+export function ergCorridorTip(origin: LngLat, toDeg: number, distanceM: number): LngLat {
+  const { center, a } = ergZoneEllipse(distanceM)
+  return windFrameToLngLat(origin, toDeg, center + a, 0)
+}
+
 const cardinal = (deg: number) => appConfig.copy.weather.cardinals[Math.round((((deg % 360) + 360) % 360) / 45) % 8]
 
-/** The panel's account of the protective distance's SHAPE — one line for what is drawn and
- *  why, one for the oval's assumption, one for a forecast turn — so the oval is never an
- *  unexplained claim (AGENTS.md 3am: source, time, assumption, «Planungshilfe / Schätzung»).
- *  Reads the copy inside the call (AGENTS.md · i18n). */
+/** «MeteoSchweiz Basel / Binningen (6 km) 12:12» / «Open-Meteo (Modell) 12:15» — where the wind
+ *  came from, how far off it was taken, and when. */
+function windSource(wind: ErgWind): string {
+  const C = appConfig.copy.contextPanel
+  const name = wind.source ? (C.ergWindSources[wind.source] ?? wind.source) : ''
+  const where = wind.station ? `${wind.station}${wind.distanceKm != null ? ` (${Math.round(wind.distanceKm)} km)` : ''}` : ''
+  return [name, where, wind.at && formatTime(wind.at)].filter(Boolean).join(' ')
+}
+
+/** The panel's account of the protective distance's SHAPE — what is drawn and with which wind,
+ *  the oval's assumption, or the circle and why — so the oval is never an unexplained claim
+ *  (AGENTS.md 3am: source, time, assumption, «Planungshilfe / Schätzung»). Reads the copy inside
+ *  the call (AGENTS.md · i18n). */
 export function ergWindNotes(w: WeatherData | null | undefined, now: Date): { shape: 'oval' | 'circle'; lines: string[] } {
   const C = appConfig.copy.contextPanel
   const wind = ergWind(w, now)
-  // «MeteoSchweiz Basel / Binningen 14:20» — where the wind came from and when it was measured
-  const src = [wind.source && (C.ergWindSources[wind.source] ?? wind.source), wind.station, wind.at && formatTime(wind.at)].filter(Boolean).join(' ')
+  const src = windSource(wind)
+  const kind = wind.model ? C.ergWindModel : C.ergWindMeasured
   if (!wind.ok) {
-    const why = wind.reason === 'calm'
-      ? fillTemplate(C.ergWindCalm, { kmh: Math.round(wind.speedKmh ?? 0), src })
-      : wind.reason === 'stale'
-        ? (wind.at ? fillTemplate(C.ergWindStale, { src }) : C.ergWindUntimed)
-        : C.ergWindNone
+    const why = wind.reason === 'none' ? C.ergWindNone
+      : wind.reason === 'stale' ? (wind.at ? fillTemplate(C.ergWindStale, { kind, src }) : fillTemplate(C.ergWindUntimed, { kind }))
+        : wind.reason === 'future' ? fillTemplate(C.ergWindFuture, { kind, src })
+          : wind.reason === 'far' ? fillTemplate(C.ergWindFar, { km: Math.round(wind.distanceKm ?? 0), src })
+            : wind.reason === 'calm' ? fillTemplate(C.ergWindCalm, { kmh: Math.round(wind.speedKmh ?? 0), src })
+              : fillTemplate(C.ergWindTurning, { from: cardinal(wind.shift?.fromDeg ?? 0), deg: Math.round(wind.shift?.fromDeg ?? 0), min: wind.shift?.inMin ?? 0, src })
     return { shape: 'circle', lines: [why] }
   }
-  const lines = [
-    fillTemplate(C.ergWindOval, { to: cardinal(wind.toDeg), from: cardinal(wind.fromDeg), deg: Math.round(wind.fromDeg), kmh: Math.round(wind.speedKmh), src }),
-    fillTemplate(C.ergWindAssume, { pct: Math.round(appConfig.ergRings.corridorWidthRatio * 100) }),
-  ]
-  const shift = ergWindShiftAhead(w, now)
-  if (shift) lines.push(fillTemplate(C.ergWindShift, { deg: Math.round(shift.fromDeg), from: cardinal(shift.fromDeg), min: shift.inMin }))
-  return { shape: 'oval', lines }
+  return {
+    shape: 'oval',
+    lines: [
+      fillTemplate(C.ergWindOval, { to: cardinal(wind.toDeg), from: cardinal(wind.fromDeg), deg: Math.round(wind.fromDeg), kmh: Math.round(wind.speedKmh), src }),
+      C.ergWindAssume,
+    ],
+  }
 }
 
 /** Every ring the current entity set earns, as ready-made map overlays. Pure and cheap: one
@@ -222,8 +277,21 @@ export function ergRingOverlays(entities: readonly Entity[], now: Date, weather?
       const isolation = ring.kind === 'isolation'
       // the protective distance runs downwind when the wind can say where that is; the same
       // overlay id either way, so the shape changes without the layer being remounted
+      // …and an oval carries its wind on the map too (source + time + «Schätzung»), at its centre
+      // on the wind axis — inside the shape and near the placard, so it is on screen whenever the
+      // oval is (the far tip fell off the edge at night) — never read off the map without its basis
       const shape = !isolation && wind.ok
-        ? { kind: 'polygon' as const, coords: ergCorridorRing(e.coord, wind.toDeg, ring.radiusM, ring.radiusM * cfg.corridorWidthRatio) }
+        ? {
+            kind: 'polygon' as const,
+            coords: ergCorridorRing(e.coord, wind.toDeg, ring.radiusM),
+            label: done ? undefined : {
+              at: windFrameToLngLat(e.coord, wind.toDeg, ergZoneEllipse(ring.radiusM).center, 0),
+              lines: [
+                fillTemplate(appConfig.copy.contextPanel.ergWindMapHead, { from: cardinal(wind.fromDeg), kmh: Math.round(wind.speedKmh) }),
+                fillTemplate(appConfig.copy.contextPanel.ergWindMapFoot, { src: windSource(wind) }),
+              ],
+            },
+          }
         : { kind: 'circle' as const, center: e.coord, radiusM: ring.radiusM }
       overlays.push({
         id: `erg-${e.id}-${ring.kind}`,

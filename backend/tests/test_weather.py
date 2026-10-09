@@ -88,6 +88,9 @@ async def test_meteoswiss_picks_nearest_station(patch_httpx):
     assert data is not None
     assert data.source == "meteoswiss"
     assert data.station == "Basel / Binningen"
+    # how far the station is — the ERG oval trusts only a near one (src/lib/ergRings · ergWind)
+    assert data.station_distance_km is not None
+    assert 4.0 < data.station_distance_km < 5.5
     assert data.wind_dir_deg == 225.0
     assert data.wind_speed_kmh == 12.5
     assert data.wind_gust_kmh == 28.4
@@ -171,6 +174,7 @@ async def test_open_meteo_primary(patch_httpx):
     assert data is not None
     assert data.source == "open-meteo"
     assert data.weather_code == 3
+    assert data.station_distance_km is None  # a point model at the point itself
 
 
 @pytest.mark.asyncio

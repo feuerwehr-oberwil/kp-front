@@ -3198,15 +3198,23 @@ export const de = {
     ergSunrise: 'Sonnenaufgang {t}',
     ergSunset: 'Sonnenuntergang {t}',
     // The protective distance's SHAPE (lib/ergRings · ergWindNotes, F4 09.10.2026): a downwind oval
-    // when the live wind can aim it, else the full circle and why. {src} = source, station, time.
+    // that contains the ERG protective zone when the live wind can aim it, else the full circle and
+    // why. {src} = source, station (distance), time; {kind} = Windmessung (station) / Windmodell.
     ergWindOval: 'Schutzabstand als Oval nach {to} – Wind aus {from} ({deg}°), {kmh} km/h · {src}',
-    ergWindAssume: 'Annahme: Länge = Schutzabstand, Breite {pct} % davon (ERG: Quadrat in Windrichtung) – Planungshilfe / Schätzung',
-    ergWindShift: 'Prognose: Wind dreht auf {from} ({deg}°) in ~{min}′',
+    ergWindAssume: 'Das Oval umschliesst die ERG-Schutzzone (Quadrat mit Seite = Schutzabstand, in Windrichtung) – Planungshilfe / Schätzung',
+    ergWindTurning: 'Schutzabstand als Kreis – Prognose: Wind dreht auf {from} ({deg}°) in ~{min}′ · {src}',
     ergWindCalm: 'Schutzabstand als Kreis – Wind schwach ({kmh} km/h), Richtung unsicher · {src}',
-    ergWindStale: 'Schutzabstand als Kreis – Windmessung veraltet · {src}',
-    ergWindUntimed: 'Schutzabstand als Kreis – Windmessung ohne Zeitangabe',
+    ergWindStale: 'Schutzabstand als Kreis – {kind} veraltet · {src}',
+    ergWindUntimed: 'Schutzabstand als Kreis – {kind} ohne Zeitangabe',
+    ergWindFuture: 'Schutzabstand als Kreis – {kind} mit Zeit in der Zukunft, Geräteuhr prüfen · {src}',
+    ergWindFar: 'Schutzabstand als Kreis – Messstation zu weit entfernt · {src}',
     ergWindNone: 'Schutzabstand als Kreis – kein Wind gemeldet',
-    ergWindSources: { meteoswiss: 'MeteoSchweiz', 'open-meteo': 'Open-Meteo' } as Record<string, string>,
+    ergWindMeasured: 'Windmessung',
+    ergWindModel: 'Windmodell',
+    ergWindSources: { meteoswiss: 'MeteoSchweiz', 'open-meteo': 'Open-Meteo (Modell)' } as Record<string, string>,
+    // the tag at the oval's far tip on the Karte
+    ergWindMapHead: 'ERG-Schutzzone · Wind aus {from}, {kmh} km/h',
+    ergWindMapFoot: '{src} · Schätzung',
     // The Schutzabstand rings on the Karte (lib/ergRings, Feldtest Manuel 07.09.): the
     // control sits under the distances it draws, and the ergSource caveat covers both.
     // Andocken (lib/docking): the panel row that makes the invisible bond visible

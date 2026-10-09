@@ -32,12 +32,13 @@ so this file – not the log – is the record of what shipped up to that point.
 ### Added
 
 - **The ERG Schutzabstand runs downwind.** With a usable live wind the protective distance
-  around a Gefahrentafel is drawn as an oval from the placard in the direction the wind blows
-  (length = ERG distance for day/night, width half of it); the isolation circle stays. No wind,
-  a calm one (< 5 km/h) or a reading older than 45 min keeps the full circle, and the panel says
-  why. The panel names the wind's source and time, the oval's assumption, and a forecast turn
-  within 2 h from the Open-Meteo hours the weather request now also fetches (never recorded).
-  *No action needed.*
+  around a Gefahrentafel is drawn as an oval leaning downwind that contains the whole ERG
+  protective action zone (a square of side D downwind of the placard, corners included); the
+  isolation circle stays. It stays the full circle – and the panel says why – without wind, with a
+  calm one (< 5 km/h), a reading older than 45 min or dated in the future, a MeteoSwiss station
+  more than 15 km away, or a forecast turn of 45°+ within 2 h (from the Open-Meteo hours the
+  weather request now also fetches, never recorded). The panel and a tag on the map name the
+  wind's source, distance and time. *No action needed.*
 - **Anleitungen – a second kind of checklist, read-only and offline.** A template with
   `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
   «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on

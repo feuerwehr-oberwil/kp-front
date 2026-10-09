@@ -163,6 +163,9 @@ export interface ContextPanelProps {
    *  as a downwind oval, and the control says so — source, time, assumption, forecast turn — or
    *  says why it is a circle (lib/ergRings · ergWindNotes, F4 09.10.2026). */
   ergWeather?: WeatherData | null
+  /** the instant the rings are judged at (ms): the replay's playhead while replaying, so the
+   *  panel says what the map draws; absent = now */
+  ergAtMs?: number
   /** «Übernehmen» on an ERG distance row (Feldtest 07.09.): turn that distance into a REAL
    *  Absperrkreis drawing around this symbol — editable, printable, synced — instead of the
    *  derived preview ring. Karte-only, like the rings. */
@@ -305,7 +308,7 @@ function LinkBtn({ onClick, text, name }: { onClick: () => void; text: string; n
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, projectionPlan, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, ergCoord, ergWeather, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, projectionPlan, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, ergCoord, ergWeather, ergAtMs, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onDone, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -1179,7 +1182,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                           Sonnenuntergang 16:42» (B1, 08.10.2026 — it was a silent 07–19 h clock) */}
                       <span className="un-haz-k">
                         {C.ergRingsLabel}
-                        <span className="un-erg-day">{ergDayNote(new Date(), ergCoord)}</span>
+                        <span className="un-erg-day">{ergDayNote(ergAtMs != null ? new Date(ergAtMs) : new Date(), ergCoord)}</span>
                       </span>
                       <Segmented
                         ariaLabel={C.ergRingsLabel}
@@ -1196,7 +1199,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                           (F4, 09.10.2026). Not while the rings are off — nothing is drawn. */}
                       {(entity.ergRings ?? DEFAULT_ERG_RING_MODE) !== 'off' && (
                         <ul className="un-erg-wind">
-                          {ergWindNotes(ergWeather, new Date()).lines.map((line) => <li key={line}>{line}</li>)}
+                          {ergWindNotes(ergWeather, ergAtMs != null ? new Date(ergAtMs) : new Date()).lines.map((line) => <li key={line}>{line}</li>)}
                         </ul>
                       )}
                     </div>

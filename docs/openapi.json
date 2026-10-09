@@ -20959,6 +20959,17 @@
             ],
             "title": "Station"
           },
+          "station_distance_km": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Station Distance Km"
+          },
           "wind_forecast": {
             "anyOf": [
               {

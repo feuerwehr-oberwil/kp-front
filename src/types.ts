@@ -290,6 +290,10 @@ export interface WeatherData {
   observed_at: string | null
   source: string
   station: string | null
+  /** how far the MeteoSwiss station is from the asked point, km (null for the Open-Meteo point
+   *  model, and from an older backend). Over appConfig.ergRings.windMaxStationKm the ERG oval
+   *  falls back to its circle (lib/ergRings · ergWind). */
+  station_distance_km?: number | null
   /** The next hours' wind from the Open-Meteo point forecast, current hour first (backend
    *  weather · WindForecast). Absent from an older backend and from every RECORDED reading —
    *  a forecast is not an observation. Read by lib/ergRings · ergWindShiftAhead. */
@@ -798,6 +802,8 @@ export type PreparedMapOverlay =
       kind: 'polygon'
       layer: LayerId
       coords: LngLat[]
+      /** a small two-line tag on the map (the ERG oval's wind, source and time) */
+      label?: { at: LngLat; lines: string[] }
       color: string
       fillOpacity?: number
       lineOpacity?: number

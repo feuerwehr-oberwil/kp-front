@@ -2619,15 +2619,14 @@ export function IncidentWorkspace({
     const id = window.setTimeout(() => setWindExpired((n) => n + 1), ms + 1000)
     return () => window.clearTimeout(id)
   }, [windAt, replayActive])
+  // the instant the rings are judged at in replay — shared with the ContextPanel, so the panel's
+  // reason is the map's (absent live: both read the clock)
+  const ergReplayAt = replayActive ? (replayAtMs ?? parseWeatherTime(displayWeather?.observed_at)?.getTime()) : undefined
   const mapOverlays = useMemo(
-    () => {
-      const replayAt = replayActive ? (replayAtMs ?? parseWeatherTime(displayWeather?.observed_at)?.getTime()) : undefined
-      const now = replayAt != null ? new Date(replayAt) : new Date()
-      return [...preparedOverlays, ...ergRingOverlays(entities, now, displayWeather)]
-    },
+    () => [...preparedOverlays, ...ergRingOverlays(entities, ergReplayAt != null ? new Date(ergReplayAt) : new Date(), displayWeather)],
     // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
     // rings drawn from an already-typed UN appear with it. windExpired: see above.
-    [entities, hazVersion, displayWeather, replayActive, replayAtMs, windExpired],
+    [entities, hazVersion, displayWeather, ergReplayAt, windExpired],
   )
   const seekToEvent = (e: TimelineEvent) => {
     const t = e.at ? Date.parse(e.at) : NaN
@@ -5662,6 +5661,7 @@ export function IncidentWorkspace({
           onErgRings={selected.kind === 'symbol' && !selected.live ? (mode) => patchEntity(selected.id, { ergRings: mode === 'small' ? undefined : mode }) : undefined}
           ergCoord={selected.coord}
           ergWeather={displayWeather}
+          ergAtMs={ergReplayAt}
           // «Übernehmen» (Feldtest 07.09.): the ERG distance becomes a REAL Absperrkreis around
           // the symbol — createCircle selects it, so the operator lands on the editable cordon.
           // The derived preview rings go quiet for this placard: the real circle replaces them,
