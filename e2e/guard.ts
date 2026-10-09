@@ -19,6 +19,12 @@ import { test as base, expect, type BrowserContext, type Page, type TestInfo } f
 // «kind: message» of the report body. Nothing else is excused. A crash is never excused, whatever
 // the list says: not the kinds render / surface-recrash / render-storm, and not the console /
 // uncaught line of a render loop. There is deliberately no switch that turns the guard off.
+//
+// One thing is excused without asking (09.10.2026): a basemap tile that broke — see
+// `TILE_BREAK`. A reload while the Karte is still fetching its tiles makes WebKit fail the
+// in-flight tile fetches («Load failed») and the half-read tile blobs («…createImageBitmap»),
+// and MapLibre hands both to MapView's error event — on CI, at random, in whichever smoke reloads
+// on the Karte. Third-party tiles failing is not a client error of ours.
 
 export interface ClientErrorReport {
   /** which browser context («device») saw it — `device 1` is the test's own `page` */
@@ -27,6 +33,8 @@ export interface ClientErrorReport {
   at: string
   /** the report body as sent (JSON), or the console / error text */
   detail: string
+  /** why the guard let it pass on its own (only in client-errors-expected.json) */
+  excused?: string
 }
 
 interface ClientErrorSink {
@@ -35,6 +43,10 @@ interface ClientErrorSink {
   /** what the test said it would provoke (attached, never failing) */
   expected: ClientErrorReport[]
   allow: readonly RegExp[]
+  /** reports that are a broken basemap tile if the network says so — decided when the test ends,
+   *  because the failed tile request and the report arrive in either order (so a mid-test
+   *  `expectNoClientErrors` does not see them yet) */
+  tileBreaks: { report: ClientErrorReport; isTileBreak: () => boolean }[]
 }
 
 const CLIENT_ERROR_PATH = '/api/diag/client-error'
@@ -43,6 +55,17 @@ const LOOP_SIGNS = /Minified React error #185|Maximum update depth exceeded|rend
 
 /** report kinds that ARE a crash — never excused by `expectedClientErrors` */
 const NEVER_EXCUSED = new Set(['render', 'surface-recrash', 'render-storm'])
+
+/** The basemap tile hosts — the same list as the service worker's `map-tiles` rule (vite.config.ts). */
+const BASEMAP_TILE = /^https:\/\/([a-d]\.)?(basemaps\.cartocdn\.com|tile\.openstreetmap\.org|[a-c]\.tile\.opentopomap\.org|server\.arcgisonline\.com|wmts\.geo\.admin\.ch|geowms\.bl\.ch)\//
+/** «kind: message» of what a broken tile reports: WebKit's words for a fetch that failed and for
+ *  a tile blob cut off while it was being decoded. Chromium's «Failed to fetch» is not here — no
+ *  Chromium run has shown it outside the offline drills, which list it themselves. */
+const TILE_BREAK = /^error: (Load failed|An error occured reading the Blob argument to createImageBitmap)$/
+/** how far apart the failed tile request and the report may be */
+const TILE_BREAK_WINDOW_MS = 3000
+/** a request the browser cancelled (navigation, teardown) — WebKit, Chromium, Firefox */
+const CANCELLED = /cancel|abort/i
 
 /** «kind: message» of a report body, for `expectedClientErrors` — '' if it is not one, or if
  *  its kind can never be excused */
@@ -55,13 +78,26 @@ function kindAndMessage(body: string): string {
 
 /** Start collecting every client error `context` reports. */
 function guardClientErrors(context: BrowserContext, device: string, sink: ClientErrorSink) {
+  // when this device saw a basemap tile request fail, and when one of its own requests failed
+  // for any other reason than a cancel
+  const tileFailures: number[] = []
+  const ownFailures: number[] = []
+  const near = (times: number[], at: number) => times.some((t) => Math.abs(t - at) <= TILE_BREAK_WINDOW_MS)
   const push = (source: ClientErrorReport['source'], detail: string) => {
-    const report = { device, source, at: new Date().toISOString(), detail: detail.slice(0, 4000) }
+    const now = Date.now()
+    const report = { device, source, at: new Date(now).toISOString(), detail: detail.slice(0, 4000) }
     const said = source === 'client-error' ? kindAndMessage(detail) : ''
     const excused = said !== '' && sink.allow.some((re) => re.test(said))
     if (excused) sink.expected.push(report)
+    // A broken tile, unless our own server's requests were failing at the same moment: then the
+    // same words could be ours, and the guard stays strict.
+    else if (TILE_BREAK.test(said)) sink.tileBreaks.push({ report, isTileBreak: () => near(tileFailures, now) && !near(ownFailures, now) })
     else sink.reports.push(report)
   }
+  context.on('requestfailed', (req) => {
+    if (BASEMAP_TILE.test(req.url())) tileFailures.push(Date.now())
+    else if (!CANCELLED.test(req.failure()?.errorText ?? '')) ownFailures.push(Date.now())
+  })
   const watch = (page: Page) => {
     page.on('console', (msg) => { if (msg.type() === 'error' && LOOP_SIGNS.test(msg.text())) push('console', msg.text()) })
     page.on('pageerror', (err) => { if (LOOP_SIGNS.test(err.message)) push('pageerror', `${err.message}\n${err.stack ?? ''}`) })
@@ -80,6 +116,10 @@ export function expectNoClientErrors(reports: ClientErrorReport[], where: string
 }
 
 async function settleClientErrors(sink: ClientErrorSink, testInfo: TestInfo) {
+  for (const { report, isTileBreak } of sink.tileBreaks) {
+    if (isTileBreak()) sink.expected.push({ ...report, excused: 'a basemap tile request failed on this device' })
+    else sink.reports.push(report)
+  }
   if (sink.expected.length) {
     await testInfo.attach('client-errors-expected.json', { body: JSON.stringify(sink.expected, null, 2), contentType: 'application/json' })
   }
@@ -112,7 +152,7 @@ export const test = base.extend<GuardOptions & GuardFixtures>({
   expectedClientErrors: [[], { option: true }],
   // auto: it runs for every test of every spec, whether the test asks for it or not
   clientErrorSink: [async ({ context, expectedClientErrors }, use, testInfo) => {
-    const sink: ClientErrorSink = { reports: [], expected: [], allow: expectedClientErrors }
+    const sink: ClientErrorSink = { reports: [], expected: [], allow: expectedClientErrors, tileBreaks: [] }
     guardClientErrors(context, 'device 1', sink)
     await use(sink)
     await settleClientErrors(sink, testInfo)
