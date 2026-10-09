@@ -1536,9 +1536,11 @@ class RankConfig(BaseModel):
 class RosterConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     # "snapshot" = a roster file somebody else publishes, to the contract in
-    # docs/CONFIGURATION.md §4c (schema: docs/roster-snapshot.schema.json). The value is
-    # accepted and served; the ingestion that reads such a file is NOT built yet, so today a
-    # station on "snapshot" behaves exactly like "manual" — CSV and hand entry, nothing synced.
+    # docs/CONFIGURATION.md §4c (schema: docs/roster-snapshot.schema.json). Like the other two
+    # values this is a LABEL, not a switch: what actually reads a snapshot is the
+    # `roster_snapshot_source` credential (app/roster_snapshot_sync.py) — set it and the file
+    # is polled, leave it empty and nothing is fetched, whatever this says. CSV and hand entry
+    # keep working on every value.
     source: Literal["manual", "divera", "snapshot"] | None = None
     # Ordered rank list (most senior first). Empty → the frontend falls back to its in-code
     # Swiss default (see src/lib/rank.ts). Ranks reference these keys.
@@ -1565,6 +1567,13 @@ class RosterConfig(BaseModel):
     # which is not shown — so most stations never set this. Only for an Einheit whose words the
     # default misreads. Applies to answers the poll stores from then on.
     diveraResponses: dict[str, Literal["coming", "not_coming", "other"]] = Field(default_factory=dict)
+    # How often the roster snapshot is polled (minutes), when a source is configured. A roster
+    # changes a few times a month; «Jetzt abrufen» on System › Verbindungen covers the urgent one.
+    snapshotIntervalMin: int = Field(default=60, ge=5, le=1440)
+    # A complete snapshot that would deactivate MORE than this share of the active people in one
+    # run is held for a human (nothing written, a warning on System › Verbindungen). 0 = never
+    # deactivate unattended, 100 = no cap. See app/roster_snapshot_ingest.py.
+    snapshotMaxDeactivatePct: int = Field(default=20, ge=0, le=100)
 
 
 class MittelStockEntry(BaseModel):
@@ -1992,6 +2001,9 @@ class ConfigIntegrations(BaseModel):
     autoAlignConfigured: bool = False
     # CARTO Basemaps client key. Public by design: MapLibre sends it as `?key=` on tile URLs.
     cartoBasemapKey: str | None = None
+    # «Mit Microsoft anmelden» is set up (auth/microsoft · enabled) — gates the login screen's
+    # button, so a station without it never sees the door.
+    microsoftLoginConfigured: bool = False
     personnel: ProviderCapability = Field(default_factory=ProviderCapability)
     alarms: ProviderCapability = Field(default_factory=ProviderCapability)
     vehicles: ProviderCapability = Field(default_factory=ProviderCapability)

@@ -540,6 +540,72 @@
         }
       }
     },
+    "/api/auth/microsoft/start": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Start",
+        "operationId": "start_api_auth_microsoft_start_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/microsoft/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Callback",
+        "operationId": "callback_api_auth_microsoft_callback_get",
+        "parameters": [
+          {
+            "name": "ms_login_tx",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ms Login Tx"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/session": {
       "get": {
         "tags": [
@@ -5818,6 +5884,75 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PersonnelSyncResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/personnel/snapshot/sync": {
+      "post": {
+        "tags": [
+          "personnel"
+        ],
+        "summary": "Snapshot Sync",
+        "description": "Read the roster snapshot now («Jetzt abrufen» on System › Verbindungen).\n\nThe same run the scheduler makes, minus the «unchanged, skip» shortcut — pressing the\nbutton after a rank was added to the station's list must apply it. Answers the status\ndocument either way: a refused or held run is a 200 with the reason in it, because the\nreport IS the answer; only «no source configured» is an error.",
+        "operationId": "snapshot_sync_api_personnel_snapshot_sync_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RosterSnapshotSyncBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Snapshot Sync Api Personnel Snapshot Sync Post"
                 }
               }
             }
@@ -13966,6 +14101,11 @@
             ],
             "title": "Cartobasemapkey"
           },
+          "microsoftLoginConfigured": {
+            "type": "boolean",
+            "title": "Microsoftloginconfigured",
+            "default": false
+          },
           "personnel": {
             "$ref": "#/components/schemas/ProviderCapability"
           },
@@ -18937,6 +19077,20 @@
             },
             "type": "object",
             "title": "Diveraresponses"
+          },
+          "snapshotIntervalMin": {
+            "type": "integer",
+            "maximum": 1440.0,
+            "minimum": 5.0,
+            "title": "Snapshotintervalmin",
+            "default": 60
+          },
+          "snapshotMaxDeactivatePct": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Snapshotmaxdeactivatepct",
+            "default": 20
           }
         },
         "type": "object",
@@ -19069,6 +19223,18 @@
         ],
         "title": "RosterRankOption",
         "description": "One rank the station's list knows, as the mapping sheet offers it."
+      },
+      "RosterSnapshotSyncBody": {
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "RosterSnapshotSyncBody",
+        "description": "``force`` releases a run the deactivation cap held — the human decision the hold waits\nfor. It never releases the other refusals (an invalid file, an older copy, an empty roster)."
       },
       "RosterUnknownRank": {
         "properties": {

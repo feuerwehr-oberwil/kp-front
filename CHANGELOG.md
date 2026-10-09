@@ -41,6 +41,19 @@ so this file – not the log – is the record of what shipped up to that point.
   `roster.diveraResponses` overrides it (docs/divera-connector.md › Rückmeldungen). The answers
   are deleted once the Einsatz is closed and in any case 48 h after the alarm (PRIVACY.md).
   *Migration runs on boot; nothing to set up.*
+- **Roster snapshot: read the personnel list from a file the station publishes.** Set
+  «Personenstamm-Quelle» on /admin › Anbindungen to an `https://` address (optional bearer
+  token) or an absolute path, and the deployment polls that `roster-snapshot/1` file hourly
+  (`roster.snapshotIntervalMin`) and on «Jetzt abrufen» under System › Verbindungen. People are
+  matched by the snapshot's key, then by any identity it lists (an existing Divera link is
+  reused, never rewritten), then by a unique name; a failed fetch or an invalid file changes
+  nothing; a run that would deactivate more than `roster.snapshotMaxDeactivatePct` (20 %) of
+  the active people is held until an admin applies it; the roster is never emptied and nobody
+  is deleted. The outcome report sits on System › Verbindungen. Any tool can write the file –
+  `scripts/roster_snapshot_from_csv.py` turns a spreadsheet into one, and drops every column
+  that is not part of the contract (docs/CONFIGURATION.md §4c). The reading rules are
+  byte-identical with KP Rück's. *No action needed – without a source nothing is fetched;
+  Divera and the CSV import are unchanged and stay the default.*
 - **Anleitungen – a second kind of checklist, read-only and offline.** A template with
   `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
   «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on
@@ -322,6 +335,10 @@ so this file – not the log – is the record of what shipped up to that point.
   now gets 404s and can be switched off (kp-rueck's agent keeps its own Rück job types).
 
 ### Fixed
+
+- **Microsoft login stays hidden with an incomplete or invalid setup.** Environment values
+  now pass the same GUID and account-mapping validation as the admin form before the button
+  or login routes are enabled. Offline devices keep the PIN login available.
 
 - **The weather details showed an Open-Meteo reading 1–2 h off.** Open-Meteo sends its time in
   UTC without a zone, and the top bar's details read it as the device's local time. It is read as

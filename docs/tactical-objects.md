@@ -84,6 +84,16 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   read-only but for the one gesture it always had: dropping a Fahrzeug writes the same
   held-in-place override the Karte writes.
 
+- **A Verlauf photo on the Karte is an object; on a sheet it is only shown** (F16, 08.10.2026).
+  «Auf Karte setzen» (lib/photoGeo) places an ordinary `kind: 'photo'` entity at the position the
+  picture's EXIF names, with its view cone from `heading`; it names its picture by Verlauf row +
+  index (`photoOf`), never by URL, because a picture placed offline is a session `blob:`. The
+  projection still answers `null` for it — media, not a place on the paper — and a georeferenced
+  sheet SHOWS it read-only instead (`planProjection · photoOverlay`, `PlanPhotoMarks`): a tap
+  opens the picture, moving or removing it is the Karte's. Not on the Gebäude stack (a GPS fix
+  has no storey), and nothing at all on a sheet without a georeference. Where a phone hands over
+  a position and where it does not: the header of `lib/exif.ts`.
+
 - ⚠️ **The aspect the fit is solved in is its own stored fact** (`measuredArByPlan`), NOT
   `PlanScale.ar`. `ar` is half of a pair — a sheet's ground width is `ar · mPerU` — so
   correcting it in place silently rescales every measured distance on that plan. The measured

@@ -905,7 +905,17 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               )
             })() : e.kind === 'photo' ? (
               // 56 px on the map — the small copy, for the same reason as the Verlauf chip
-              <div className="ts photo"><img src={thumbUrl(e.photoUrl)} alt="" decoding="async" /></div>
+              <div className="ts photo">
+                {/* the lens's bearing from the EXIF (lib/photoGeo), as a view cone from the spot
+                    it was taken on — ground-pinned, so it turns with the map like a vehicle */}
+                {e.heading != null && (
+                  <svg className="photo-cone" viewBox="0 0 120 120" aria-hidden
+                    style={{ transform: `translate(-50%, -50%) rotate(${e.heading - bearing}deg)` }}>
+                    <path d="M60 60 L28.4 11.4 A58 58 0 0 1 91.6 11.4 Z" />
+                  </svg>
+                )}
+                <img src={thumbUrl(e.photoUrl)} alt="" decoding="async" />
+              </div>
             ) : (() => {
               // the generic vehicle bakes its name + heading into the glyph (text stays
               // upright); every other symbol uses its library/static svg
