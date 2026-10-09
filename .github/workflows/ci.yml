@@ -431,3 +431,75 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down -v
+
+  # --- Visual: screenshot regression tests against committed baselines ---------------------
+  # Nine frozen states of the production container (Lage, Plan, Trupps, Verlauf, Rapport, kiosk;
+  # tablet and phone, one night) compared pixel by pixel with e2e/visual/baseline/
+  # (e2e/screens.visual.ts, docs/testing/visual-regression.md). It catches what no assertion
+  # names: a merged visual pass that a later merge silently undid (#231). Its own runner, in
+  # parallel with «Image» and «Performance», so it is never on the gate's critical path; not a
+  # required check yet. A red run's verdict table is in the job summary; the pictures (expected,
+  # actual, diff) are the `visual-results` artifact, and `just visual-accept <run-id>` takes its
+  # actuals as the new baselines — for a deliberate change only, in its own commit.
+  visual:
+    name: Visual (screenshots vs baseline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SEED_PIN: '194731'   # the same throwaway values as «Image» — see the notes there
+      ADMIN_SECRET: 'ci-only-admin-secret-not-a-credential'
+      ALARM_WEBHOOK_SECRET: 'ci-only-fleet-secret-not-a-credential'
+      COMPOSE_FILE: docker-compose.yml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Build and boot the production stack
+        uses: ./.github/actions/stack
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6; pnpm from packageManager
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install deps (Playwright)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Screenshots vs baseline (browser → running container) + report
+        env:
+          E2E_BASE_URL: http://localhost:8000
+          E2E_PIN: ${{ env.SEED_PIN }}
+          VISUAL: '1'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: visual-results/report.json
+        run: |
+          set +e
+          pnpm exec playwright test --project visual --reporter=list,json,html
+          shot=$?
+          node scripts/visual-report.mjs visual-results/report.json visual-results >> "$GITHUB_STEP_SUMMARY"
+          exit $shot
+
+      # expected / actual / diff per state, and the html report with its slider. `actual/` is what
+      # `just visual-accept <run-id>` takes as the new baselines.
+      - name: Upload the pictures (on failure)
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: visual-results
+          path: |
+            visual-results/
+            playwright-report/
+          retention-days: 14
+
+      - name: Client errors reported by the app (on failure)
+        if: failure()
+        run: docker compose logs --no-color app | grep 'kpfront.clienterror' || echo "no client-error lines in the container log"
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

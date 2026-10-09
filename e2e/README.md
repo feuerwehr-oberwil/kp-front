@@ -13,10 +13,11 @@ mount, a wedged session, a render loop on the Karte.
 | `demo.spec.ts` | the public demo's entry fits a phone | only against a demo deployment |
 | `workspace-flows.spec.ts` | undo, timeline, keyboard, Abschluss, replay across the workspace seams | CI; locally opt-in, `E2E_WORKFLOWS=1` |
 | `journeys.journey.ts` | performance journeys: requests, bytes, writes, leaks and interaction times on a busy Einsatz, compared against `e2e/perf/baseline.json` ([docs/testing/perf-journeys.md](../docs/testing/perf-journeys.md)) | CI job «Performance», chromium; opt-in elsewhere (`PERF_JOURNEYS=1`, `just perf`) |
+| `screens.visual.ts` | screenshot regression: nine frozen states (Lage, Plan, Trupps, Verlauf, Rapport, kiosk; tablet + phone, one night) compared pixel by pixel with `e2e/visual/baseline/` ([docs/testing/visual-regression.md](../docs/testing/visual-regression.md)) | CI job «Visual», chromium; opt-in elsewhere (`VISUAL=1`, `just visual`) |
 | `touch.spec.ts` | coarse-pointer time controls at 1024×768 and 390×844, clearing, reachable actions and overflow | CI; locally opt-in, `E2E_WORKFLOWS=1` |
 
 CI's *Image* job runs the suite against the production container it has just built
-(`.github/workflows/ci.yml`); the journeys run in their own job, «Performance», against a container of their own. Only the rows marked CI actually run in «Image»: the demo spec skips
+(`.github/workflows/ci.yml`); the journeys run in their own job, «Performance», and the screenshots in «Visual», each against a container of their own. Only the rows marked CI actually run in «Image»: the demo spec skips
 on a station image. CI sets `E2E_WORKFLOWS=1` for its disposable stack; local workflow and touch tests skip without that flag. `playwright.config.ts`
 starts no servers.
 
