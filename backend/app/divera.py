@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 # ("BMA / Unechte Alarme"). Migrating a stored value to settle a capital letter is not worth
 # it, so the disagreement is named in the JSON and the labels stay local.
 #
-# Mirrored for the operator-facing wizard in src/config/copy/de.ts (`intake.kategorien`),
+# Mirrored for the operator-facing wizard in src/config/copy/de/intake.ts (`intake.kategorien`),
 # which copy.test.ts checks against the shared keyword file.
 CATEGORY_LABELS: dict[str, str] = {
     "brandbekaempfung": "Brandbekämpfung",

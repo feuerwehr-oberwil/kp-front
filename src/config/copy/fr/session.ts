@@ -1,0 +1,154 @@
+// French copy · demo, login, boot, errors, updates, install, session.
+// One slice of the `fr` overlay, assembled in ../fr.ts; the German base is ../de/session.ts.
+
+import type { Copy, Localizable } from '../index'
+
+type Keys =
+  | 'demo' | 'login' | 'splash' | 'errorBoundary' | 'surfaceError' | 'symbols' | 'update'
+  | 'install' | 'meldeleiste' | 'session' | 'tabLock'
+
+export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
+  login: {
+    subtitle: 'Aide à la conduite',
+    pinEnter: 'Saisir le NIP',
+    connectionFailed: 'Échec de la connexion au serveur',
+    loadingRoster: 'Chargement de l’effectif…',
+    noUsers: 'Aucun utilisateur enregistré',
+    whoAreYou: 'Qui es-tu ?',
+    loginFailed: 'Échec de la connexion',
+    pleaseWait: 'Un instant, s’il te plaît…',
+    clearDigit: 'Effacer',
+    submitPin: 'Se connecter',
+    retry: 'Réessayer',
+    offlineHint: 'Sans connexion, aucune connexion au compte n’est possible. Les interventions enregistrées ne s’ouvrent que si cet appareil était encore connecté.',
+    microsoft: 'Se connecter avec Microsoft',
+    microsoftErrors: {
+      cancelled: 'Connexion Microsoft annulée.',
+      expired: 'La connexion Microsoft a pris trop de temps. Veuillez réessayer.',
+      failed: 'La connexion Microsoft a échoué. Veuillez réessayer ou vous connecter avec le NIP.',
+      unknown: 'Ce compte Microsoft n’est pas autorisé pour KP Front. Connectez-vous avec le NIP ou demandez à l’admin.',
+      inactive: 'Le compte associé est désactivé. Veuillez demander à l’admin.',
+    },
+  },
+  splash: {
+    stuck: 'Le démarrage prend plus de temps que d’habitude',
+    stuckHint: 'Connexion faible ou serveur inaccessible. Les interventions enregistrées sont disponibles hors ligne.',
+    reload: 'Redémarrer',
+  },
+  errorBoundary: {
+    title: 'Une erreur est survenue',
+    body: 'La vue n’a pas pu être chargée. Vos modifications locales sont enregistrées et conservées.',
+    bodyRepeat: 'Cette intervention ne s’ouvre pas – même après un rechargement. Fermez-la pour revenir à la vue d’ensemble ; les données enregistrées restent sur le serveur.',
+    reload: 'Recharger',
+    closeIncident: 'Fermer l’intervention',
+    discardLocal: 'Supprimer la copie locale',
+    discardLocalHint: 'Supprime uniquement la copie sur cet appareil et recharge l’intervention depuis le serveur. Les modifications de cet appareil non encore synchronisées seront perdues.',
+    discardLocalOffline: 'Impossible sans connexion – l’intervention ne pourrait plus être rechargée depuis le serveur.',
+    discardLocalOfflineUnsynced: 'Des modifications de cet appareil n’ont pas encore été transmises.',
+    bodyRepeatRoot: 'L’app ne démarre pas – même après un rechargement. Réinitialise les listes locales ; les interventions et modifications enregistrées sont conservées.',
+    resetShell: 'Réinitialiser l’app',
+    resetShellHint: 'Vide uniquement la liste des interventions et les données de connexion sur cet appareil. Les interventions et leurs modifications restent enregistrées.',
+  },
+  surfaceError: {
+    title: 'Cette vue n’a pas pu être chargée',
+    body: 'Le reste de l’intervention continue – la surveillance des porteurs reste active, tes modifications sont enregistrées.',
+    retry: 'Reconstruire la vue',
+    toMap: 'Vers la carte',
+    repeatHint: 'Cette vue plante à répétition – merci de le signaler dans le retour.',
+  },
+  symbols: {
+    loadFailedTitle: 'La bibliothèque de symboles n’a pas pu être chargée',
+    loadFailedSub: 'La carte et le croquis continuent sans graphismes de symboles',
+    retry: 'Réessayer',
+    dismiss: 'Masquer',
+  },
+  meldeleiste: {
+    region: 'Messages',
+    more: '+{n} autre message',
+    moreMany: '+{n} autres messages',
+    less: 'Afficher moins',
+  },
+  session: {
+    expiredTitle: 'Connexion expirée',
+    expiredHint: 'Les modifications restent sur cet appareil et seront synchronisées après la connexion',
+    relogin: 'Se reconnecter',
+  },
+  tabLock: {
+    title: 'Ouvert dans un autre onglet',
+    hint: 'Cet onglet est en lecture seule – l’édition est active dans l’autre onglet.',
+    takeOver: 'Éditer ici',
+  },
+  update: {
+    available: 'Mise à jour prête',
+    hint: 'Active au prochain démarrage – fermer complètement l’app et la rouvrir.',
+    hintApply: 'Une pression suffit – l’app se recharge brièvement.',
+    apply: 'Mettre à jour',
+    applying: 'Mise à jour …',
+    dismiss: 'OK',
+    updated: 'Mise à jour effectuée – {v}',
+  },
+  install: {
+    menu: 'Installer comme app',
+    bannerTitle: 'Installer KP Front comme app',
+    bannerHint: 'Hors ligne, plein écran, icône propre.',
+    bannerAction: 'Guide',
+    dismiss: 'Plus tard',
+    title: 'Installer comme app',
+    why: 'Installé, KP Front fonctionne comme une app : disponible hors ligne sur place, en plein écran sans barre du navigateur, avec sa propre icône sur l’écran d’accueil.',
+    nativeButton: 'Installer maintenant',
+    nativeHint: 'Le navigateur demandera une confirmation – valider avec « Installer ».',
+    manualIntro: 'Ou manuellement :',
+    installed: 'Installé ! Lancer désormais KP Front depuis l’icône de l’app.',
+    alreadyStandalone: 'KP Front fonctionne déjà comme app installée.',
+    ios: {
+      intro: 'Sur iPad/iPhone :',
+      steps: [
+        'Toucher le symbole de partage {share} dans la barre d’outils',
+        'Choisir « Sur l’écran d’accueil »',
+        'Confirmer avec « Ajouter »',
+      ],
+      note: 'Si « Sur l’écran d’accueil » manque : ouvrir la page dans Safari.',
+    },
+    android: {
+      intro: 'Dans Chrome sur Android :',
+      steps: [
+        'Toucher le menu ⋮ en haut à droite',
+        'Choisir « Installer l’application »',
+        'Confirmer',
+      ],
+      note: 'Dans d’autres navigateurs : menu → « Ajouter à l’écran d’accueil ».',
+    },
+    desktop: {
+      intro: 'Dans Chrome ou Edge :',
+      steps: [
+        'Ouvrir le menu du navigateur ⋮ en haut à droite',
+        'Choisir « Installer KP Front » et confirmer',
+      ],
+      note: 'Selon la version, l’entrée est directe ou sous « Enregistrer et partager ». Si une icône d’installation apparaît à droite de la barre d’adresse, elle fonctionne aussi. Si rien n’apparaît, KP Front est déjà installé sur cet appareil.',
+    },
+    macSafari: {
+      intro: 'Dans Safari sur Mac :',
+      steps: [
+        'Ouvrir le menu « Fichier »',
+        'Choisir « Ajouter au Dock »',
+        'Confirmer avec « Ajouter »',
+      ],
+      note: '',
+    },
+    unsupported: 'Ce navigateur ne permet pas l’installation. Ouvrir de préférence la page dans Chrome, Edge ou Safari et installer là.',
+  },
+  demo: {
+    ribbon: 'DÉMO',
+    ariaLabel: 'Instance de démonstration avec des données fictives',
+    actionBlocked: 'Impossible dans la démo.',
+    welcome: {
+      title: 'Bienvenue sur PC Front',
+      intro: 'Une intervention préparée avec des données fictives. Dessine, conduis les équipes et teste librement la conduite de l’intervention.',
+      reloadWarn: 'Tous les visiteurs travaillent ensemble. La démo est réinitialisée à minuit et à midi.',
+      canTitle: 'Ce que tu peux essayer',
+      can: ['Modifier la carte et le plan', 'Conduire les équipes ARI et le matériel', 'Ouvrir les plans d’objet et le rapport'],
+      cta: 'C\'est parti',
+      meta: 'Aucune donnée réelle · La création d’interventions est bloquée',
+    },
+  },
+}

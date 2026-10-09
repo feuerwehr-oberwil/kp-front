@@ -12,7 +12,7 @@ export { test, expect, expectNoClientErrors, type ClientErrorReport } from './gu
 // with E2E_PIN if a deployment seeds a different one.
 export const PIN = process.env.E2E_PIN || '000000'
 
-// The ErrorBoundary render-throw fallback (copy/de.ts → errorBoundary.title). If this
+// The ErrorBoundary render-throw fallback (copy/de/session.ts → errorBoundary.title). If this
 // is on screen a surface crashed on mount — the exact failure this smoke exists to catch.
 const CRASH_TITLE = 'Ein Fehler ist aufgetreten'
 
