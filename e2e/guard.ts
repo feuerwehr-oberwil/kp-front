@@ -1,4 +1,4 @@
-import { test as base, expect, type BrowserContext, type Page, type TestInfo } from '@playwright/test'
+import { test as base, expect, type BrowserContext, type Page, type Request, type TestInfo } from '@playwright/test'
 
 // ── The client-error guard (24.09.2026) ─────────────────────────────────────────────────────
 // Every spec imports `test` from ./helpers (which re-exports this one), never from
@@ -24,7 +24,9 @@ import { test as base, expect, type BrowserContext, type Page, type TestInfo } f
 // `TILE_BREAK`. A reload while the Karte is still fetching its tiles makes WebKit fail the
 // in-flight tile fetches («Load failed») and the half-read tile blobs («…createImageBitmap»),
 // and MapLibre hands both to MapView's error event — on CI, at random, in whichever smoke reloads
-// on the Karte. Third-party tiles failing is not a client error of ours.
+// on the Karte. Third-party tiles failing is not a client error of ours. The network events do
+// not reliably show it: in the trace of one such failure, 15 «Load failed» reports came with 3
+// `requestfailed` events for tiles, so the test is «tiles were loading then», not «a tile failed».
 
 export interface ClientErrorReport {
   /** which browser context («device») saw it — `device 1` is the test's own `page` */
@@ -46,7 +48,7 @@ interface ClientErrorSink {
   expected: ClientErrorReport[]
   allow: readonly RegExp[]
   /** reports that are a broken basemap tile if the network says so — decided when the test ends,
-   *  because the failed tile request and the report arrive in either order (so a mid-test
+   *  because the tile traffic and the report arrive in either order (so a mid-test
    *  `expectNoClientErrors` does not see them yet) */
   tileBreaks: { report: ClientErrorReport; notATileBreak: () => string }[]
 }
@@ -64,8 +66,10 @@ const BASEMAP_TILE = /^https:\/\/([a-d]\.)?(basemaps\.cartocdn\.com|tile\.openst
  *  a tile blob cut off while it was being decoded. Chromium's «Failed to fetch» is not here — no
  *  Chromium run has shown it outside the offline drills, which list it themselves. */
 const TILE_BREAK = /^error: (Load failed|An error occured reading the Blob argument to createImageBitmap)$/
-/** how far apart the failed tile request and the report may be */
+/** how far from the report the device's tile traffic may be */
 const TILE_BREAK_WINDOW_MS = 3000
+/** how long a tile request that never reported an end counts as loading */
+const TILE_UNENDED_MS = 10_000
 /** a request the browser cancelled (navigation, teardown) — WebKit, Chromium, Firefox */
 const CANCELLED = /cancel|abort/i
 
@@ -80,16 +84,16 @@ function kindAndMessage(body: string): string {
 
 /** Start collecting every client error `context` reports. */
 function guardClientErrors(context: BrowserContext, device: string, sink: ClientErrorSink) {
-  // when this device saw a basemap tile request fail, and when one of its own requests failed
-  // for any other reason than a cancel
-  const tileFailures: { at: number; what: string }[] = []
+  // this device's basemap tile requests (start, and end if one was ever reported — a cancelled
+  // one often never is), and its other requests that failed for another reason than a cancel
+  const tiles = new Map<Request, { start: number; end?: number }>()
   const ownFailures: { at: number; what: string }[] = []
-  const near = (failures: typeof ownFailures, at: number) => failures.filter((f) => Math.abs(f.at - at) <= TILE_BREAK_WINDOW_MS)
   /** '' if it is a broken tile, else why not */
   const notATileBreak = (at: number) => {
-    const own = near(ownFailures, at)
+    const own = ownFailures.filter((f) => Math.abs(f.at - at) <= TILE_BREAK_WINDOW_MS)
     if (own.length) return `another request failed then: ${own.slice(0, 3).map((f) => f.what).join('; ')}`
-    return near(tileFailures, at).length ? '' : `no basemap request failed within ${TILE_BREAK_WINDOW_MS} ms (${tileFailures.length} in the test)`
+    const loading = [...tiles.values()].some((t) => t.start <= at + TILE_BREAK_WINDOW_MS && (t.end ?? t.start + TILE_UNENDED_MS) >= at - TILE_BREAK_WINDOW_MS)
+    return loading ? '' : `no basemap tile was loading within ${TILE_BREAK_WINDOW_MS} ms (${tiles.size} tile requests in the test)`
   }
   const push = (source: ClientErrorReport['source'], detail: string) => {
     const now = Date.now()
@@ -102,11 +106,14 @@ function guardClientErrors(context: BrowserContext, device: string, sink: Client
     else if (TILE_BREAK.test(said)) sink.tileBreaks.push({ report, notATileBreak: () => notATileBreak(now) })
     else sink.reports.push(report)
   }
+  const ended = (req: Request) => { const t = tiles.get(req); if (t) t.end = Date.now() }
+  context.on('requestfinished', ended)
   context.on('requestfailed', (req) => {
+    ended(req)
     const error = req.failure()?.errorText ?? ''
-    const failure = { at: Date.now(), what: `${req.method()} ${req.url().slice(0, 120)} – ${error}` }
-    if (BASEMAP_TILE.test(req.url())) tileFailures.push(failure)
-    else if (!CANCELLED.test(error)) ownFailures.push(failure)
+    if (!BASEMAP_TILE.test(req.url()) && !CANCELLED.test(error)) {
+      ownFailures.push({ at: Date.now(), what: `${req.method()} ${req.url().slice(0, 120)} – ${error}` })
+    }
   })
   const watch = (page: Page) => {
     page.on('console', (msg) => { if (msg.type() === 'error' && LOOP_SIGNS.test(msg.text())) push('console', msg.text()) })
@@ -116,6 +123,7 @@ function guardClientErrors(context: BrowserContext, device: string, sink: Client
   context.on('page', watch)
   // context-level, so a request the service worker forwards is seen too
   context.on('request', (req) => {
+    if (BASEMAP_TILE.test(req.url())) tiles.set(req, { start: Date.now() })
     if (req.method() === 'POST' && new URL(req.url()).pathname === CLIENT_ERROR_PATH) push('client-error', req.postData() ?? '')
   })
 }
@@ -126,14 +134,14 @@ export function expectNoClientErrors(reports: ClientErrorReport[], where: string
 }
 
 async function settleClientErrors(sink: ClientErrorSink, testInfo: TestInfo) {
-  let tiles = 0
+  let excused = 0
   for (const { report, notATileBreak } of sink.tileBreaks) {
     const why = notATileBreak()
-    if (!why) { tiles++; sink.expected.push({ ...report, excused: 'a basemap tile request failed on this device' }) }
+    if (!why) { excused++; sink.expected.push({ ...report, excused: 'basemap tiles were loading on this device then' }) }
     else sink.reports.push({ ...report, notExcused: why })
   }
   // one line in the run log, so a green run still says the guard let something pass
-  if (tiles) console.warn(`client-error guard: excused ${tiles} broken basemap tile report(s) in «${testInfo.title}» (client-errors-expected.json)`)
+  if (excused) console.warn(`client-error guard: excused ${excused} broken basemap tile report(s) in «${testInfo.title}» (client-errors-expected.json)`)
   if (sink.expected.length) {
     await testInfo.attach('client-errors-expected.json', { body: JSON.stringify(sink.expected, null, 2), contentType: 'application/json' })
   }
