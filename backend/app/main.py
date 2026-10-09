@@ -720,6 +720,7 @@ def _register_optional_routers() -> None:
         ("app.api.plan_alignments", "router"),
         ("app.api.objects", "router"),
         ("app.api.objects", "incidents_objects_router"),
+        ("app.api.building", "router"),
         ("app.api.events", "router"),
         ("app.api.journal", "router"),
         ("app.api.push", "router"),

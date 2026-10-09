@@ -94,6 +94,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `identity.*` (`appName`, `locale`, `accentColor`, `helpIntro`, `kommandant`) | ✅ | Station › **Station & Karte** |
 | `identity.assets` | ✅ | the branding uploads – **not** part of this document (see the ⚠️ below and §3a) |
 | `map.defaultView`, `map.geocoder.*` | ✅ | Station › **Station & Karte** |
+| `map.buildingRegister` | ❌ | config-as-code only (`admin_config`); unset = on in CH ([`building-card.md`](building-card.md)) |
 | `map.externalLinks` | ✅ | Station › **Station & Karte** – ⚠️ editable, but as shipped its only renderer is the field app's «Datenquellen» panel, which is **unreachable**. Configuring it changes nothing anybody can see today |
 | `referenceLayers` – raster (WMS/WMTS) and GeoJSON, incl. the file upload | ✅ | Station › **Kartenebenen** (§2) |
 | `referenceLayers[].nightColor` · `.opacity` · `.maxzoom` · `.symbol` · `.autoActivate` | ❌ | file only – the forms **merge** over the stored row, so a CLI-set value survives an edit |
@@ -216,7 +217,10 @@ both now have browser pages – §9e and §9f.
                                                  // (also the region whose official street names
                                                  //  the backend caches to retry a typo –
                                                  //  «haupstrasse 12» → «Hauptstrasse 12»)
-    }
+    },
+    "buildingRegister": null                     // the Gebäude card's federal-register half (GWR + BFE):
+                                                 // null = on wherever the Einsatzort lies in CH,
+                                                 // false = never ask them (docs/building-card.md)
   },
 
   "referenceLayers": [ /* see §2 – entirely station-supplied, none bundled */ ],
