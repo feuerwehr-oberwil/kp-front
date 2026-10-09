@@ -48,6 +48,7 @@ def source(tmp_path: Path, monkeypatch) -> Path:
     path = tmp_path / "roster.json"
     path.write_text(json.dumps(EXAMPLE_SNAPSHOT), encoding="utf-8")
     monkeypatch.setenv("ROSTER_SNAPSHOT_SOURCE", str(path))
+    monkeypatch.delenv("STATION_INDEX_SOURCE", raising=False)  # the direct source, unless a test sets the index
     return path
 
 
@@ -346,3 +347,67 @@ async def test_while_divera_syncs_its_people_keep_their_names(db_session, source
     await db_session.refresh(hans)
     assert hans.display_name == "Muster Hans"  # the Divera sync owns it
     assert ("Muster Hans", "musterdorf-personalstamm", "pers-0001") in await _identities(db_session)
+
+
+# --- through the station index (X6/X7, 09.10.2026) ----------------------------------------
+
+
+def _index_folder(folder: Path, roster: dict[str, Any] | None) -> Path:
+    import hashlib
+
+    files = []
+    if roster is not None:
+        raw = json.dumps(roster).encode()
+        (folder / "roster.json").write_bytes(raw)
+        files.append(
+            {
+                "kind": "roster",
+                "path": "roster.json",
+                "schema": "roster-snapshot/1",
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
+        )
+    files.append({"kind": "vehicles", "path": "vehicles.json", "schema": "vehicles-snapshot/1", "sha256": "1" * 64})
+    index = {
+        "schema": "station-index/1",
+        "schema_version": 1,
+        "generated_at": "2026-10-09T04:00:00+00:00",
+        "provider": "musterdorf",
+        "files": files,
+    }
+    (folder / "index.json").write_text(json.dumps(index))
+    return folder / "index.json"
+
+
+async def test_the_roster_is_read_through_the_station_index(db_session, tmp_path, monkeypatch):
+    monkeypatch.delenv("ROSTER_SNAPSHOT_SOURCE", raising=False)
+    index = _index_folder(tmp_path, EXAMPLE_SNAPSHOT)
+    monkeypatch.setenv("STATION_INDEX_SOURCE", str(index))
+
+    status = await roster_snapshot_sync.run(db_session, trigger="manual")
+
+    assert status["via"] == "index" and status["outcome"]["created"] == 3
+    assert [(f["kind"], f["read"]) for f in status["index"]["files"]] == [("roster", True), ("vehicles", False)]
+    assert len(await _people(db_session)) == 3
+
+
+async def test_an_index_without_a_roster_falls_back_to_the_direct_source(db_session, source, tmp_path, monkeypatch):
+    folder = tmp_path / "index"
+    folder.mkdir()
+    monkeypatch.setenv("STATION_INDEX_SOURCE", str(_index_folder(folder, None)))
+
+    status = await roster_snapshot_sync.run(db_session, trigger="manual")
+
+    assert status["via"] == "direct" and status["outcome"]["created"] == 3
+
+
+async def test_a_roster_that_does_not_match_the_index_changes_nothing(db_session, tmp_path, monkeypatch):
+    monkeypatch.delenv("ROSTER_SNAPSHOT_SOURCE", raising=False)
+    index = _index_folder(tmp_path, EXAMPLE_SNAPSHOT)
+    monkeypatch.setenv("STATION_INDEX_SOURCE", str(index))
+    (tmp_path / "roster.json").write_text(json.dumps({**EXAMPLE_SNAPSHOT, "provider": "anders"}))
+
+    status = await roster_snapshot_sync.run(db_session, trigger="manual")
+
+    assert "sha256" in status["outcome"]["refused"]
+    assert await _people(db_session) == []

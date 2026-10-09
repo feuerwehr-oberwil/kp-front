@@ -68,9 +68,21 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   that writes into closed Einsätze or uses the print queue needs to change.
 - **Objektbesuche organizers** (fwo-admin and the like): deploy this release before an organizer
   that schedules rounds; the organizer's domain must be allowed for the station's CARTO key.
+- **Roster snapshot / station index** (new, optional): nothing changes unless a source is set. A
+  station that set «Personenstamm-Quelle» keeps it – it is the fallback; to move to the one
+  address, publish `index.json` beside `roster.json` (`scripts/station_index_build.py`) and set
+  «Stationsdaten-Index».
 
 ### Added
 
+- **Station index: one address for all station data.** A station publishes an `index.json`
+  next to its data files that lists them by kind with checksums (`station-index/1`,
+  docs/CONFIGURATION.md §4d); KP Front gets ONE setting for it – «Stationsdaten-Index» on
+  /admin › Anbindungen (`STATION_INDEX_SOURCE` + optional token) – and reads the roster through
+  it. A file that does not match the index's sha256 is refused and the roster stays as it was.
+  `scripts/station_index_build.py` writes the index for a folder. `vehicles`, `groups` and
+  `keywords` are reserved kinds: listed, reported as not read yet, format documented. KP Rück
+  reads the same index with byte-identical code. *No action needed – see Upgrade notes.*
 - **Objektbesuche: visit an object without an Einsatz, offline** (module `objectVisits`, off by
   default). A member opens «Objektbesuche» from the launcher, picks an object from a work list,
   the search or «In der Nähe», answers a station checklist of the new kind `visit` (OK / Mangel /
