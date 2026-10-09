@@ -1,14 +1,12 @@
 // Führungsformular «Zeitplan» — building the print payload and getting the sheet out.
 //
-// The server composes the PDF (backend/app/zeitplan_pdf.py); nothing renders here. Two ways
-// out, the same pair the Einsatzrapport offers: download the file, or queue it on the station
-// printer for the sheet you hang at the front.
+// The server composes the PDF (backend/app/zeitplan_pdf.py); nothing renders here. The way out
+// is the same as the Einsatzrapport's: download the file and print it from the device.
 
 import type { AttendanceState, Person, Shift, ShiftBand } from '../types'
 import { shiftsFor, sortBands } from './shifts'
 import { rankAbbr, rankLabel } from './rank'
 import { intervalsOf } from './attendanceIntervals'
-import { editorPrintTransport, enqueuePrint } from './printRelay'
 import { linkSessionHeaders } from './linkMode'
 
 const BASE = import.meta.env.VITE_KP_RUECK_URL ?? ''
@@ -118,14 +116,4 @@ export async function downloadZeitplanPdf(incidentId: string, payload: ZeitplanP
   a.remove()
   // let the download start before the object URL goes away
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
-}
-
-/** Queue the sheet on the station printer; resolves to the job id (for the live toast). */
-export function printZeitplan(incidentId: string, payload: ZeitplanPrintPayload): Promise<string> {
-  const t = editorPrintTransport(BASE)
-  return enqueuePrint(
-    { ...t, enqueueUrl: (id) => `${BASE}/api/incidents/${encodeURIComponent(id)}/zeitplan/print` },
-    incidentId,
-    payload,
-  )
 }

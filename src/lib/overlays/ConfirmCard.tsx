@@ -96,9 +96,7 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
         <Dialog.Popup role="alertdialog" className="confirm-card ui-dialog" initialFocus={safeAnswer === 'alt' && altLabel ? altRef : danger || safeAnswer === 'cancel' ? cancelRef : confirmRef} aria-label={title ?? message}>
           {title && <Dialog.Title className="confirm-title" render={<h3 />}>{title}</Dialog.Title>}
           {/* An empty message renders NOTHING, not an empty paragraph with its own margin: some
-              confirms are a title and two buttons («Stationsdrucker offline» — the title already
-              is the whole statement, and the paragraph under it was an explanation nobody needed
-              to read twice). */}
+              confirms are a title and two buttons, the title already being the whole statement). */}
           {message && <p className="confirm-msg">{message}</p>}
           {/* the open points as a LIST, not as a comma-separated run-on — this is the part
               somebody has to act on, item by item, and a paragraph is read to the end by

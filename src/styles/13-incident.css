@@ -1811,15 +1811,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* the ladder's «close up» step: 4px apart (6 until 08.10.2026), 8px inside */
 .rp-head[data-fit-tight] .rp-head-actions { gap: 4px; }
 .rp-head[data-fit-tight] .rp-head-actions :is(.rp-state, .rp-split-main)[data-folded] { padding: 0 8px; }
-/* ⚠️ «Ausdrucken» is ONE line in every state (owner, staging 26.09.2026). It used to keep its
-   offline reason as a second line and grow to fit it: «Stationsdrucker offline» took two thirds of
-   a phone's row and stood twice as tall as the squares. The relay's dot says it (amber = offline) —
-   beside the glyph while the word stands, as a badge on the printer's corner once the tile is a
-   square — and the reason is said where it matters: a press asks «Stationsdrucker offline» before
-   it queues anything (ReportPreflight · startOutput), and it is the button's name. */
-.rp-head-actions .ip-btn.print-send.offline { flex-direction: row; align-items: center; padding-block: 0; }
-.rp-head-actions .print-send-main { position: relative; }
-.rp-head-actions .print-send[data-folded] .print-relay-dot { position: absolute; top: -3px; right: -6px; box-shadow: 0 0 0 2px var(--surface); }
 /* ⚠️ Rendered on every width, hidden everywhere but the phone — so the tab STATE is always
    there (a resize cannot land on a surface with no tab chosen) while the layout above 600px
    never sees it. Declared BEFORE the media query below, which turns it back on.

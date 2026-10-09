@@ -15,13 +15,11 @@ from app.models import Incident, JournalEntry
 from app.schemas import JournalAppendIn, TruppsPut
 
 
-@pytest.mark.parametrize("second", ["render", "reverse"])
 @pytest.mark.parametrize("page_count", [1, 2])
-def test_pdfium_lifetimes_never_overlap_between_report_operations(monkeypatch, second, page_count):
+def test_pdfium_lifetimes_never_overlap_between_report_operations(monkeypatch, page_count):
     import pypdfium2
 
     from app import kroki
-    from app.api.print_relay import reverse_pdf_pages
 
     owners = {}
     overlaps = []
@@ -36,8 +34,6 @@ def test_pdfium_lifetimes_never_overlap_between_report_operations(monkeypatch, s
                 owners[self.owner] = owners.get(self.owner, 0) + 1
             time.sleep(0.02)  # Release the GIL while the other request reaches PDFium.
 
-        new = classmethod(lambda cls: cls())
-
         def __getitem__(self, index):
             return SimpleNamespace(
                 get_size=lambda: (100, 100),
@@ -46,12 +42,6 @@ def test_pdfium_lifetimes_never_overlap_between_report_operations(monkeypatch, s
 
         def __len__(self):
             return page_count
-
-        def import_pages(self, *args):
-            pass
-
-        def save(self, buf):
-            buf.write(b"pdf")
 
         def close(self):
             with guard:
@@ -62,45 +52,16 @@ def test_pdfium_lifetimes_never_overlap_between_report_operations(monkeypatch, s
     monkeypatch.setattr(pypdfium2, "PdfDocument", Document)
     monkeypatch.setattr(kroki, "_overlay_board_annos", lambda base, *args: base)
 
-    def run(kind):
+    def run():
         start.wait(timeout=2)
-        if kind == "render":
-            kroki.render_plan_page(b"pdf", [], None)
-        else:
-            reverse_pdf_pages(b"pdf")
+        kroki.render_plan_page(b"pdf", [], None)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results = [pool.submit(run, kind) for kind in ("render", second)]
+        results = [pool.submit(run) for _ in range(2)]
         for result in results:
             result.result(timeout=5)
     assert not any(overlaps), "PDFium documents from concurrent requests overlapped"
     assert not owners, "PDFium documents escaped the protected lifetime without closing"
-
-
-async def test_print_queue_waits_for_pdfium_off_the_event_loop(db_session, monkeypatch):
-    from app.api import print_relay
-
-    threads = []
-
-    async def compose(db, payload):
-        return b"pdf", SimpleNamespace(options=SimpleNamespace(kroki=False))
-
-    async def reverse_order(db):
-        return True
-
-    def reverse(pdf):
-        threads.append(threading.get_ident())
-        return pdf
-
-    monkeypatch.setattr(print_relay, "compose_report_from_payload", compose)
-    monkeypatch.setattr(print_relay, "wants_reverse_order", reverse_order)
-    monkeypatch.setattr(print_relay, "relay_available", lambda: True)
-    monkeypatch.setattr(print_relay, "reverse_pdf_pages", reverse)
-    incident = Incident(title="Synthetic print", source="manual")
-    db_session.add(incident)
-    await db_session.flush()
-    await print_relay.enqueue_print_job(db_session, incident, "{}", kind="report", requested_by=None)
-    assert threads and threads[0] != threading.get_ident()
 
 
 async def test_unauthenticated_streamed_request_stops_at_body_cap(client):

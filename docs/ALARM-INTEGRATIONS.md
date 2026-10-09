@@ -270,40 +270,9 @@ describe how the *Einsatz* was opened, which after an attach is no longer where 
 come from. Everything a sender holds pending for `alarm.source_ref` now belongs to
 `incident.id` – the same flush as above, for the case where the incident already existed.
 
-### Example adapter: kp-rueck thermal QR slip
-
-If the station runs [kp-rueck](https://github.com/feuerwehr-oberwil/kp-rueck) with its print
-agent, a per-alarm slip (times + capture QR) is a few lines – kp-rueck's existing
-`POST /api/print/qr-code` does the printing:
-
-```python
-# tiny webhook receiver → kp-rueck slip. Run anywhere both hosts are reachable.
-from fastapi import FastAPI, Request
-import httpx
-
-KP_RUECK = "https://kp-rueck.example.org"
-app = FastAPI()
-
-@app.post("/kp-front")
-async def incident_created(req: Request):
-    p = await req.json()
-    if p.get("event") != "incident.created":
-        return {"ok": True}  # an attach is not a new Einsatz — one slip per Einsatz
-    inc, url = p["incident"], p.get("capture_url")
-    label = f"{inc['title']}\n{inc.get('address') or ''}\nAlarm: {inc['started_at'][11:16]}"
-    # kp-rueck's endpoint has a TRAILING SLASH, requires `title`, calls the payload field
-    # `qr_content`, and is editor-gated — so the receiver needs a logged-in kp-rueck session
-    # cookie (or a master token), not just network reachability.
-    async with httpx.AsyncClient(cookies=KP_RUECK_SESSION) as c:
-        await c.post(f"{KP_RUECK}/api/print/qr-code/",
-                     json={"qr_content": url or inc["id"], "title": inc["title"],
-                           "subtitle": label})
-    return {"ok": True}
-```
-
 ## 3. The Erfassungs-Poster (station capture)
 
-Independent of any printing: the admin UI (Personen › Erfassungsblatt) prints a **static A4
+The admin UI (Personen › Erfassungsblatt) prints a **static A4
 poster** for the Magazin wall. Scanning it opens `/e/<token>` – attendance, material,
 Einsatzende and notes for incidents of the last `alarms.captureWindowHours` (default 12),
 no login. Trust model: access to the station = permission, like the clipboard it replaces.
@@ -437,7 +406,6 @@ Off the list, each for a stated reason:
 | Refused | Why |
 | --- | --- |
 | Einsatzrapport / Zeitplan **PDF** | generates a document carrying attendance and names |
-| Rapport / Zeitplan **print**, print-job cancel | makes the station's printer print, or kills someone else's job, from a forwarded URL |
 | Push subscriptions | writes rows tied to a user |
 | Geocoding, Overpass | billable third-party calls, and an open proxy |
 | `media/*/peaks`, `media/*/transcription` | `GET`s that are not reads – they write a file or mutate a job row |

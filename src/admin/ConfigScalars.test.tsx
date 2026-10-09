@@ -3,7 +3,7 @@ import { render, screen, cleanup, act, fireEvent, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The scalars and paste-a-value fields that had no browser form at all: the Hilfe intro, the two
-// geocoder settings, the printer switch, the three incident clocks and the webhooks.
+// geocoder settings, the three incident clocks and the webhooks.
 //
 // Every one of them sits on a page that PUTs the WHOLE config document with a 700 ms autosave, so
 // the rule they all follow is the one FleetVehiclesEditor and the map centre already follow: an
@@ -21,13 +21,12 @@ const { apiGet, apiPut, ApiError } = vi.hoisted(() => {
 vi.mock('../lib/api', () => ({ apiGet, apiPut, ApiError }))
 
 import { ConfigProvider } from './ConfigContext'
-import { AlarmsSection, IdentitySection, MapSection, ReportSection } from './ConfigSections'
+import { AlarmsSection, IdentitySection, MapSection } from './ConfigSections'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 
 const M = appConfig.copy.admin.map
 const A = appConfig.copy.admin.alarms
-const R = appConfig.copy.admin.report
 const I = appConfig.copy.admin.identity
 
 /** Let the 700 ms autosave debounce elapse. */
@@ -42,7 +41,7 @@ const STATION = {
   version: 'v1',
   identity: { appName: 'Feuerwehr Musterdorf', helpIntro: null },
   map: { defaultView: { center: [7.5547, 47.5072], zoom: 14 }, geocoder: { defaultLocality: null, bboxLv95: null }, externalLinks: [] },
-  report: { reversePrintOrder: true, links: [], partnerOrgs: [] },
+  report: { links: [], partnerOrgs: [] },
   alarms: { autoArchiveDays: 7, staleIncidentDays: 30, captureWindowHours: 12, webhooks: [] },
 }
 
@@ -149,17 +148,6 @@ describe('map.externalLinks — the cantonal GIS deep links', () => {
     const preview = document.querySelector('.adm-formlink-preview')!.textContent!
     expect(preview).toContain('E=26')
     expect(preview).not.toContain('{E}')
-  })
-})
-
-describe('report.reversePrintOrder — the one switch a print-relay station meets', () => {
-  it('starts from the shipped default (on) and stores the flip', async () => {
-    await setup(<ReportSection />, () => screen.queryByText(R.reverseOrder))
-    const box = document.querySelector<HTMLInputElement>('input[type="checkbox"]')!
-    expect(box.checked).toBe(true)
-    await act(async () => { fireEvent.click(box) })
-    await settle()
-    expect(sent()?.report.reversePrintOrder).toBe(false)
   })
 })
 
