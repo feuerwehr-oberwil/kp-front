@@ -351,6 +351,11 @@
   background: currentColor; box-shadow: inset 0 0 0 2.5px var(--surface); }
 /* the item's own words, truncated — the chip is a target, not the entry */
 .jc-phrase-pendenz { white-space: nowrap; text-overflow: ellipsis; }
+/* «Lagemeldung zusammenstellen» (F3) — like the Pendenz chip it changes what happens rather than
+   inserting a word, so it wears the radio glyph and the blue of a door, not the text's ink */
+.jc-phrase-lage { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--blue-strong);
+  background: var(--blue-8); border-color: var(--blue-45); white-space: nowrap; }
+.jc-phrase-lage .i { width: 15px; height: 15px; flex: none; }
 /* the picker's own list. It borrows the shared menu look (.rp-print-menu) and adds the one thing
    that surface never needed: a ceiling. Every open item is in here, and at a Lagerapport that is a
    dozen — each wrapping to as many lines as its Auftrag takes, because this is a list you pick

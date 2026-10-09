@@ -1,0 +1,92 @@
+/* The Lagemeldung composer (F3, layout ★A «Zeilen-Entwurf») and its Funkansicht.
+   One row per line: tick · slot · text · tag. On a phone the slot label stands ABOVE the text
+   (one column) and the sheet is the ordinary slide-up. The tags are read-only badges, never chips
+   you tap; a change is a WORD (Neu, Besser …) in its tone, never a colour alone. */
+/* the footer wraps on a phone: the radio length on its own line above the three buttons */
+.sheet :global(.ui-sheet-foot) { flex-wrap: wrap; }
+.title { display: inline-flex; align-items: baseline; gap: var(--sp-2); }
+.titleAt { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-dim); }
+
+.modes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); }
+.modeNote, .first { font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
+.first b { color: var(--ink); }
+
+.lines { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--border-soft); }
+.empty { padding: var(--sp-3) 0; font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink-dim); }
+.row { display: grid; grid-template-columns: var(--tap) 104px minmax(0, 1fr) auto; align-items: center; gap: 0 var(--sp-2);
+  min-height: var(--tap); padding: 2px 0; border-bottom: 1px solid var(--border-soft); }
+.tick { display: grid; place-items: center; width: var(--tap); height: var(--tap); border: none; border-radius: var(--r-sm);
+  background: none; color: var(--ink); cursor: pointer; }
+.tick > svg { width: 20px; height: 20px; }
+button.tick[aria-pressed='true'] { color: var(--green-strong); }
+.slot { font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .02em; }
+.text { min-height: var(--tap); padding: var(--sp-1) 0; border: none; background: none; text-align: left; cursor: text;
+  font: var(--fw-medium) var(--fs-3)/var(--lh-3) var(--body); color: var(--ink); overflow-wrap: anywhere; }
+.edit { width: 100%; min-height: var(--tap); font: var(--fw-medium) var(--fs-3)/var(--lh-3) var(--body); resize: vertical; }
+.off .text, .off .slot { color: var(--ink-faint); text-decoration: line-through; text-decoration-thickness: 1px; }
+.off .tags { opacity: var(--disabled); }
+.t0 .text { font-weight: var(--fw-bold); }
+
+.tags { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-1); }
+.tag { padding: 2px var(--sp-2); border-radius: var(--r-xs); white-space: nowrap;
+  font: var(--fw-bold) var(--fs-micro)/var(--lh-micro) var(--body); text-transform: uppercase; letter-spacing: .03em; }
+.neu { color: var(--blue-strong); background: var(--blue-12); }
+.schlechter { color: var(--red-strong); background: var(--red-12); }
+.besser, .erledigt { color: var(--green-strong); background: var(--green-12); }
+.gleich { color: var(--ink-dim); background: var(--ink-8); }
+.est { color: var(--amber-strong); background: var(--amber-12); }
+.ask { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2);
+  font: var(--fw-bold) var(--fs-2)/var(--lh-2) var(--body); color: var(--red-strong); }
+
+.nextRow { align-items: start; padding-block: var(--sp-2); }
+.nextRow .slot { padding-top: var(--sp-1); }
+.nextRow > .tick { color: var(--ink-dim); }
+.nextBody { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; grid-column: 3 / -1; }
+.nextText { font: var(--fw-medium) var(--fs-3)/var(--lh-3) var(--body); color: var(--ink); }
+.windDown { font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); color: var(--amber-strong); }
+
+.under { display: flex; padding: var(--sp-1) 0; }
+
+.hidden { margin-top: var(--sp-2); border-top: 1px solid var(--border-soft); }
+.hiddenHead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); width: 100%; min-height: var(--tap);
+  border: none; background: none; cursor: pointer; text-align: left; color: var(--ink);
+  font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); }
+.hiddenHead > svg { width: 16px; height: 16px; flex: none; }
+.hiddenCount { font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
+.hiddenList { display: flex; flex-direction: column; margin: 0; padding: 0 0 var(--sp-2) var(--sp-5); list-style: none; }
+.hiddenItem { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-2); min-height: var(--tap); border-bottom: 1px solid var(--border-soft); }
+.hiddenText { flex: 1 1 12em; min-width: 0; font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink); }
+.hiddenWhy { font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-faint); }
+
+.source { margin: var(--sp-3) 0 0; font: var(--fw-medium) var(--fs-micro)/var(--lh-micro) var(--body); color: var(--ink-faint); }
+
+/* the footer's readout: «≈ 27 s» big, the words beside it; amber past one radio call */
+.length { display: inline-flex; align-items: baseline; gap: var(--sp-2); margin-right: auto;
+  font: var(--fw-bold) var(--fs-3)/var(--lh-3) var(--mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+.words { font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
+.over, .over .words { color: var(--amber-strong); }
+
+/* ── Funkansicht: a page you READ — full screen, big type ── */
+.radio { position: fixed; inset: 0; z-index: var(--z-dialog); display: flex; flex-direction: column;
+  background: var(--surface); color: var(--ink);
+  padding: calc(var(--sp-4) + env(safe-area-inset-top)) max(var(--sp-5), env(safe-area-inset-right)) calc(var(--sp-4) + env(safe-area-inset-bottom)) max(var(--sp-5), env(safe-area-inset-left)); }
+.radioHead { display: flex; align-items: center; gap: var(--sp-2); font: var(--fw-bold) var(--fs-3)/var(--lh-3) var(--body); color: var(--ink-dim); }
+.radioHead > svg { width: 20px; height: 20px; }
+.radioText { flex: 1; overflow-y: auto; padding: var(--sp-4) 0; }
+.radioText p { margin: 0 0 var(--sp-4); font: var(--fw-medium) var(--fs-6)/var(--lh-6) var(--body); }
+.radioText b { font-weight: var(--fw-heavy); }
+.radioFoot { display: flex; justify-content: flex-end; gap: var(--sp-3); }
+
+@media (--phone), (--phone-landscape) {
+  /* one column: the slot label above the text, the tag under it — the tick keeps its 44px */
+  .row { grid-template-columns: var(--tap) minmax(0, 1fr) auto; grid-template-areas: 'tick slot tags' 'tick text text'; padding-block: var(--sp-1); }
+  .row > .tick { grid-area: tick; align-self: start; }
+  .row > .slot { grid-area: slot; }
+  .row > .text, .row > .edit { grid-area: text; }
+  .row > .tags { grid-area: tags; }
+  .length { flex-basis: 100%; }
+  .nextRow { grid-template-areas: 'tick slot slot' 'tick next next'; }
+  .nextBody { grid-area: next; }
+  .ask { grid-column: 2 / -1; }
+  .radioText p { font-size: var(--fs-5); line-height: var(--lh-5); }
+}
