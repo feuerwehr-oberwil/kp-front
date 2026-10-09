@@ -4454,6 +4454,47 @@ export const de = {
     captionNone: 'Kein Eintrag zu diesem Zeitpunkt',
   },
   // Einsatzrapport: print preflight (ReportPreflight) + the printed document (ReportPrintView)
+  // Auswertung — the optional internal Beilage of the Rapport PDF (lib/auswertung, F7 09.10.2026):
+  // key figures, swimlanes, Lehren. ⚠️ No «→» in these: the paper is Helvetica (reportPdfDirect · forPaper).
+  auswertung: {
+    heading: 'Auswertung',
+    note: 'Für die Nachbesprechung – aus den Daten des Einsatzes abgeleitet, nicht Teil des unterzeichneten Rapports.',
+    missing: '—',
+    firstOnScene: 'Alarm bis 1. Fahrzeug vor Ort',
+    firstOnSceneDef: 'Von der Alarmierung bis zur frühesten «Vor Ort»-Zeit eines Fahrzeugs (Alarmierungs- / Ausrückzeiten).',
+    firstAs: 'Alarm bis 1. Atemschutz-Eintritt',
+    firstAsDef: 'Von der Alarmierung bis zum ersten Eintritt eines Trupps unter Atemschutz.',
+    contacts: 'Funkkontakte eingehalten',
+    contactsSub: '{n} überfällig von {total}',
+    contactsDef: 'Anteil der Funkkontakt-Intervalle unter Atemschutz, die endeten, bevor der Trupp überfällig war ({n} min + {g}). Ein Intervall läuft vom Eintritt oder einem Kontakt bis zum nächsten Kontakt, Druck, Rückzug oder Austritt; ein offenes zählt erst, wenn es überfällig wurde. Die Zeit zwischen Abschluss und Wiedereröffnen zählt nicht.',
+    contactsDefNoGrace: 'Anteil der Funkkontakt-Intervalle unter Atemschutz, die endeten, bevor der Trupp überfällig war ({n} min). Ein Intervall läuft vom Eintritt oder einem Kontakt bis zum nächsten Kontakt, Druck, Rückzug oder Austritt; ein offenes zählt erst, wenn es überfällig wurde. Die Zeit zwischen Abschluss und Wiedereröffnen zählt nicht.',
+    longestAs: 'Längster Atemschutz-Einsatz',
+    longestAsDef: 'Längste abgeschlossene Zeit eines Trupps unter Atemschutz, Eintritt bis Austritt.',
+    total: 'Einsatzdauer',
+    totalDef: 'Von der Alarmierung bis zum Einsatzende.',
+    totalRunning: 'Einsatz läuft noch',
+    truppLane: 'Trupp {no} · {name}',
+    groupPhases: 'Phasen (Checkliste)',
+    groupVehicles: 'Fahrzeuge',
+    groupTrupps: 'Trupps',
+    groupMilestones: 'Meilensteine',
+    noTimeline: 'Keine Fahrzeug-, Trupp- oder Checklisten-Zeiten erfasst.',
+    legendTravel: 'Anfahrt',
+    legendScene: 'vor Ort',
+    legendReturn: 'Rückfahrt',
+    legendAs: 'unter Atemschutz',
+    legendWork: 'im Einsatz ohne Atemschutz',
+    legendStandby: 'bereit',
+    legendContact: 'Funkkontakt',
+    legendFaellig: 'Kontakt fällig',
+    legendUeberfaellig: 'überfällig',
+    legendMilestone: 'Meilenstein',
+    legendPhase: 'Phase: erster bis letzter Haken',
+    footnotesHead: 'Definitionen',
+    lehrenSeePage1: 'Lehren / Sicherheit: siehe Seite 1',
+    graceMin: '{n} min',
+    graceSec: '{n} s',
+  },
   report: {
     erfasser: 'Erfasst durch',
     // print view chrome
@@ -4870,6 +4911,7 @@ export const de = {
     linksOpenedAction: 'Erledigt',
     linksOpenFailed: '{title} konnte nicht geöffnet werden – der Browser hat das Fenster blockiert.',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
+    toggleAuswertung: 'Auswertung (intern)',
     // «Detaillierter Prüfnachweis» doesn't say what is being ticked – nobody ticks what they
     // don't understand. It is about the bookkeeping rows in the printed Verlauf (who changed
     // what when), which are otherwise filtered out. The Prüfnachweis status above is unaffected.
