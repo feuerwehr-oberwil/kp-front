@@ -8,11 +8,11 @@ runs on `"manual"` or `"divera"` exactly as before.
 
 **This module is the contract, not the ingestion.** It defines the document, validates one,
 prints its JSON Schema and prints a worked example. It does not fetch, schedule, match or write
-anything — a deployment reading a snapshot into `personnel` is a separate piece of work, and
-the schema is published first on purpose so the contract is designed rather than left to
-emerge from whatever the first importer happened to need. Nothing in the running application
-imports this module yet; what reads it today is the CLI below and
-``tests/test_roster_snapshot_contract.py``.
+anything: the shared rules for that are ``roster_snapshot_ingest.py`` (fetch + reconcile, pure),
+and each product writes the result into its own tables in its own wrapper. This file, the
+ingest module and both schemas are byte-identical in KP Front and KP Rück, pinned by checksum
+on both sides and diffed by kp-rück's ``roster-schema-drift`` job — editing any of them is a
+two-repository change.
 
 Run from ``backend/`` via ``uv run python -m app.roster_snapshot <cmd>``:
 
@@ -356,6 +356,13 @@ class RosterSnapshot(BaseModel):
         pairs: set[tuple[str, str]] = set()
         for person in self.people:
             for identity in person.identities:
+                if identity.provider == self.provider:
+                    # The file's own key IS this provider's id; a second one under the same name
+                    # would be two ids for one person at one provider, which no consumer can store.
+                    raise ValueError(
+                        f"person {person.external_id}: identity provider {identity.provider!r} is the "
+                        f"snapshot's own provider — its id is 'external_id'"
+                    )
                 pair = (identity.provider, identity.external_id)
                 if pair in pairs:
                     raise ValueError(f"two people claim the identity {identity.provider}:{identity.external_id}")

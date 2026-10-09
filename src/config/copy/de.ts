@@ -3451,6 +3451,17 @@ export const de = {
     // status 0 on the roster: the shared «Gespeicherte Einsätze bleiben offline verfügbar» is
     // not true from HERE — a device that reaches the login screen is not signed in any more
     offlineHint: 'Ohne Verbindung ist keine Anmeldung möglich. Gespeicherte Einsätze öffnen sich nur, wenn dieses Gerät noch angemeldet war.',
+    // optional second door onto the SAME accounts (backend auth/microsoft) — only drawn when the
+    // station set it up; the PIN tiles above stay the way in at the Schadenplatz
+    microsoft: 'Mit Microsoft anmelden',
+    // ?msLogin=<reason> on the way back from Microsoft
+    microsoftErrors: {
+      cancelled: 'Microsoft-Anmeldung abgebrochen.',
+      expired: 'Die Microsoft-Anmeldung hat zu lange gedauert. Bitte nochmals.',
+      failed: 'Microsoft-Anmeldung fehlgeschlagen. Bitte nochmals oder mit PIN anmelden.',
+      unknown: 'Dieses Microsoft-Konto ist für KP Front nicht freigeschaltet. Bitte mit PIN anmelden oder den Admin fragen.',
+      inactive: 'Das zugehörige Konto ist deaktiviert. Bitte den Admin fragen.',
+    },
   },
   // boot Splash: shown while the /me probe, the incident list or a lazy chunk settles. If a
   // stage takes unusually long the splash grows a status line + an action, so a stalled launch
@@ -3597,6 +3608,25 @@ export const de = {
   photoViewer: {
     title: 'Foto',
     download: 'Herunterladen',
+  },
+  // a Verlauf photo that knows where it was taken (EXIF, lib/photoGeo) — detail sheet, save
+  // toast, the photo marker on the Karte and on a georeferenced Plan
+  photoGeo: {
+    place: 'Auf Karte setzen',
+    placeN: '{n} Fotos auf Karte setzen',
+    show: 'Auf Karte zeigen',
+    placedStep: 'Foto auf Karte gesetzt',
+    logPlaced: 'Foto auf Karte gesetzt',
+    logPlacedN: '{n} Fotos auf Karte gesetzt',
+    where: 'Aufnahmeort',
+    whereN: 'Aufnahmeort Foto {n}',
+    distance: '{d} vom Einsatzort',
+    facing: 'Blick nach {dir}',
+    takenAt: 'aufgenommen {t}',
+    tooFar: 'Zu weit weg für die Karte',
+    marker: 'Foto vom Verlauf',
+    markerTaken: 'Foto vom Verlauf · aufgenommen {t}',
+    planMark: 'Foto – auf der Karte verschieben oder entfernen',
   },
   // running incident clock in the TopBar
   einsatzuhr: {
@@ -6222,9 +6252,17 @@ export const de = {
       removed: 'Gelöscht – Anbindung aus.',
       failed: 'Aktion fehlgeschlagen',
       groups: {
+        roster_snapshot: {
+          title: 'Personenstamm (Snapshot)',
+          caption: 'Wo die Wehr ihren Personenstamm als Datei veröffentlicht (Format: docs/roster-snapshot.schema.json) – eine https://-Adresse oder ein absoluter Pfad auf diesem Server. KP Front liest sie stündlich und auf «Jetzt abrufen» unter System › Verbindungen. Zugangsdaten gehören ins Token, nicht in die Adresse. Leer = aus; Divera und CSV-Import bleiben unverändert.',
+        },
         object_visits: {
           title: 'Objektbesuche (Organisator)',
           caption: 'Schlüssel, mit dem ein Organisator (z. B. fwo-admin) Katalog und Änderungen liest und Listen schreibt. Erzeugt wird er unter «Objektbesuche › Integration».',
+        },
+        microsoft_login: {
+          title: 'Mit Microsoft anmelden',
+          caption: 'Freiwillig: eine eigene Azure-App-Registrierung (nur Anmeldung, «openid profile»), damit sich benannte Konten auch mit Microsoft statt PIN anmelden können. Redirect-URI: <Adresse dieser Instanz>/api/auth/microsoft/callback. Zugelassen sind nur die Konten in der Liste, je «Microsoft-Konto=Benutzername», durch Kommas getrennt. Die PIN bleibt immer möglich. Anleitung: docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (Ablage Objektbesuche)',
@@ -7620,6 +7658,27 @@ export const de = {
       // Die Zeile, die «safe» erzeugt: Abgänge werden gezählt und gemeldet, aber nie von selbst
       // deaktiviert. Führt auf die Mannschaft, wo sie erledigt werden.
       connLeavers: '{n} Abgänge warten',
+      // ── Personenstamm-Snapshot (docs/CONFIGURATION.md §4c) ──
+      // «Angehalten», nicht «offline»: die Datei kam an, aber sie würde zu viele Personen auf
+      // einmal deaktivieren. Das entscheidet ein Mensch – mit «Abgänge übernehmen» oder indem
+      // er die Datei korrigiert.
+      connRosterSnapshot: 'Personenstamm (Snapshot)',
+      snapHeld: 'angehalten',
+      snapHeldText: '{n} von {total} aktiven Personen würden deaktiviert (Grenze {limit}). Nichts geändert – bitte zuerst die Datei prüfen.',
+      snapRelease: 'Abgänge übernehmen',
+      snapHeldWho: 'Betroffen: {names}',
+      snapPostponed: 'Wartet auf das Einsatzende (noch im Einsatz): {names}',
+      snapReleaseQ: '{n} Personen deaktivieren?',
+      snapRunNow: 'Jetzt abrufen',
+      snapRunning: 'Wird abgerufen …',
+      snapRunOk: 'Abgerufen',
+      snapRunFailed: 'Abruf fehlgeschlagen',
+      snapSummary: 'Letzter Abgleich: {created} neu · {updated} geändert · {deactivated} deaktiviert',
+      snapUnchanged: 'Datei unverändert seit dem letzten Abgleich',
+      snapUnmatched: '{n} nicht zugeordnet: {names}',
+      snapUnknownRanks: 'Unbekannte Dienstgrade (ohne Grad übernommen): {ranks}',
+      snapFileDate: 'Stand der Datei: {time}',
+      snapStale: 'Die Datei wurde seit über 7 Tagen nicht mehr erneuert.',
       // ── SharePoint: welche Ordner konfiguriert sind (nur Ansicht) ──
       spSources: 'Ordner laut Konfiguration',
       spSourcesHint: 'Schreibgeschützt – die Ordner stehen in der Konfiguration der Wehr. Wie sie aufgebaut sind, steht in der Dokumentation zur SharePoint-Anbindung.',

@@ -17,6 +17,7 @@
 // upload began. One at a time, the peak is one picture.
 
 import { serialQueue } from './serialQueue'
+import { stripImageMetadata } from './stripMetadata'
 
 const decodeLane = serialQueue()
 
@@ -44,7 +45,14 @@ const SERVER_OK = new Set(['image/jpeg', 'image/png', 'image/webp'])
  */
 export async function prepareUploadImage(file: Blob, maxEdge = MAX_EDGE): Promise<Blob> {
   const smallEnough = file.size <= 1_500_000
-  if (smallEnough && SERVER_OK.has(file.type)) return file
+  if (smallEnough && SERVER_OK.has(file.type)) {
+    // …but never WITH its metadata (review of #304): the pass-through uploaded the camera's whole
+    // EXIF — the GPS fix of wherever it was taken among it. Taken off losslessly; a rotated JPEG,
+    // or anything that cannot be cleaned with confidence, goes through the canvas below instead.
+    // What the app keeps of a picture's metadata was read off the original before (lib/photoGeo).
+    const clean = await stripped(file)
+    if (clean) return clean
+  }
   return decodeLane(async () => {
     try {
       const canvas = await decodeToCanvas(file, maxEdge)
@@ -54,6 +62,16 @@ export async function prepareUploadImage(file: Blob, maxEdge = MAX_EDGE): Promis
       return file
     }
   })
+}
+
+/** `file` without its metadata (lib/stripMetadata), or `null` when it has to be re-encoded. */
+async function stripped(file: Blob): Promise<Blob | null> {
+  try {
+    const r = stripImageMetadata(new Uint8Array(await file.arrayBuffer()), file.type)
+    return r.kind === 'unchanged' ? file : r.kind === 'clean' ? new Blob([r.bytes as Uint8Array<ArrayBuffer>], { type: file.type }) : null
+  } catch {
+    return null
+  }
 }
 
 /**

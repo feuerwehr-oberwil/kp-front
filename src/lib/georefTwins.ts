@@ -519,6 +519,8 @@ function omit<T extends object, K extends readonly (keyof T)[]>(o: T, keys: K): 
 const ENTITY_MAP_ONLY = [
   'coord', 'layer', 'kind', 'symbolSvg', 'badge', 'photoUrl', 'live', 'directed', 'noteW',
   'sizeM', 'reachM', 'truppId', 'trail', 't', 'floor',
+  // a photo marker's picture reference and EXIF facts — a photo is never a sheet anno
+  'photoOf', 'heading', 'takenAt',
 ] as const satisfies readonly (keyof Entity)[]
 type _EntityKeysAccounted = Assert<Exclude<keyof Entity, (typeof ENTITY_MAP_ONLY)[number]> extends keyof BoardAnno ? true : false>
 
