@@ -59,7 +59,7 @@ beforeEach(() => {
   installLocalStorage()
   login.mockReset().mockResolvedValue(undefined)
 })
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('LoginScreen — auto-login at the remembered PIN length', () => {
   it('a first login still needs the ✓, and its length is remembered on success', async () => {
@@ -115,6 +115,16 @@ describe('LoginScreen — «Mit Microsoft anmelden»', () => {
     expect(button()?.getAttribute('href')).toBe('/api/auth/microsoft/start')
     fireEvent.click(screen.getByText('Keller Anna'))
     expect(button()).toBeNull() // the PIN pad is the whole screen once a face is picked
+  })
+
+  it('is hidden offline even where configured, while the PIN remains available', async () => {
+    cfg.microsoft = true
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    render(<LoginScreen />)
+    await act(async () => {})
+    expect(button()).toBeNull()
+    fireEvent.click(screen.getByText('Keller Anna'))
+    expect(screen.getByRole('button', { name: 'Anmelden' })).toBeTruthy()
   })
 
   it('says why a sign-in came back, once, and takes the reason out of the address bar', async () => {

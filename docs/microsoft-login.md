@@ -62,9 +62,11 @@ environment wins, as for every credential):
 | `ENTRA_LOGIN_CLIENT_SECRET` | the secret's **value** (write-only once saved) |
 | `ENTRA_LOGIN_ACCOUNTS` | the allow-list: `identity=username` pairs, separated by commas, e.g. `anna.muster@feuerwehr.ch=amuster, 0b6c…-object-id=bkeller` |
 
-The button appears once all four are set. The identity is matched against the token's `oid` (the
-user's object id: stable, and the stronger choice) or its `preferred_username` (the sign-in name or
-UPN). Both are compared case-insensitively. The username is the KP Front `username`
+The button appears once all four are set and valid: tenant/client IDs must be GUIDs and the
+allow-list must contain valid `identity=username` pairs. Invalid environment values keep the
+button hidden and the Microsoft routes closed, just like an incomplete setup. The identity is
+matched against the token's `oid` (the user's object id: stable, and the stronger choice) or its
+`preferred_username` (the sign-in name or UPN). Both are compared case-insensitively. The username is the KP Front `username`
 (`/admin › Benutzer`). Any active account can be listed. The role it signs in with is the
 account's own.
 

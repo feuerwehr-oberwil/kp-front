@@ -294,6 +294,10 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **Microsoft login stays hidden with an incomplete or invalid setup.** Environment values
+  now pass the same GUID and account-mapping validation as the admin form before the button
+  or login routes are enabled. Offline devices keep the PIN login available.
+
 - **The ERG Schutzabstand ring follows the sun, not a 07–19 h clock.** The protective ring
   around a Gefahrentafel picked the day or night distance by the hour, so a December evening at
   17:30 drew the day ring and a June evening at 20:30 the night ring. It now asks the sun at the
