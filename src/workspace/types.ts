@@ -7,3 +7,6 @@ export type WorkspaceMode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anw
 
 /** What placing a Verlauf row's pictures on the Karte reads off the row (lib/photoGeo). */
 export type PhotoRow = Pick<TimelineEvent, 'id' | 'photoGeo' | 'photoUrl' | 'photoUrls'>
+
+/** A one-shot's own counter-rows for ↶ and ↷ (IncidentWorkspace · rememberOneShot) */
+export interface OneShotRows { undo: () => void; redo: () => void }

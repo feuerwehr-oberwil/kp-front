@@ -11,9 +11,8 @@ import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionSheet } from './components/SharePosition'
-import { applyInitialState, autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type InitialState, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
-import { viewsOf, type PlanFit } from './lib/tacticalObjects'
-import { saveLayerPrefs } from './lib/layerPrefs'
+import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, type Doc, type ReportMeta, type Saved } from './lib/workspace'
+import { type PlanFit } from './lib/tacticalObjects'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { routeHotkey } from './lib/hotkeyRoute'
@@ -42,8 +41,8 @@ import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/att
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
-import { boardViewOf, useObjectStore } from './lib/useObjectStore'
-import { carryUndoThroughMerge, fieldsOf, listById, planViewChanges, recordByKey, recordKey, workspaceChanges, type RecordedField, type RecordKey, type RecordShape } from './lib/undoKeys'
+import { useObjectStore } from './lib/useObjectStore'
+import { fieldsOf, listById, recordByKey, recordKey, type RecordedField, type RecordKey, type RecordShape } from './lib/undoKeys'
 import { useGpsFollow } from './lib/useGpsFollow'
 import { freshBefore, gpsReleaseRow, gpsRevertWords, routingPatch, useGpsNotices, type GpsEnd } from './lib/gpsReturn'
 import { useUndoTimeline } from './lib/useUndoTimeline'
@@ -92,7 +91,7 @@ import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
-import { keepPlanSteps, planStackTouches, type BoardHistory } from './components/useBoardDoc'
+import { planStackTouches, type BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
@@ -156,7 +155,7 @@ import { whenIdle } from './lib/idle'
 import { useSessionRole, useWorkspaceFlags } from './workspace/access'
 import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
 import { loadReportPreflight, loadWhiteboard, requestReportStep } from './workspace/lazySurfaces'
-import type { WorkspaceMode } from './workspace/types'
+import type { OneShotRows, WorkspaceMode } from './workspace/types'
 import { WorkspaceMeldungen } from './workspace/WorkspaceMeldungen'
 import { WorkspaceSheets } from './workspace/WorkspaceSheets'
 import { JournalLayer } from './workspace/JournalLayer'
@@ -168,8 +167,8 @@ import { MapControls } from './workspace/MapControls'
 import { WorkspaceTopBar } from './workspace/WorkspaceTopBar'
 import { MapStage } from './workspace/MapStage'
 import { useJournalWriters } from './workspace/useJournalWriters'
-
-const prefs = loadPrefs()
+import { useWorkspaceBlob } from './workspace/useWorkspaceBlob'
+import { prefs } from './workspace/bootPrefs'
 
 /**
  * Let a drawing go from an object that is disappearing off the Karte, pinning the endpoint where
@@ -234,8 +233,6 @@ function isFreeText(el: HTMLElement): boolean {
 // clear the legacy cookie field so a later reset can't be resurrected from a stale cookie.
 if (prefs.pickedObject) savePrefs({ ...loadPrefs(), pickedObject: undefined })
 
-/** A one-shot's own counter-rows for ↶ and ↷ (IncidentWorkspace · rememberOneShot) */
-export interface OneShotRows { undo: () => void; redo: () => void }
 
 interface WorkspaceProps {
   incidentMeta: IncidentMeta
@@ -1397,129 +1394,30 @@ export function IncidentWorkspace({
     window.open(url, '_blank', 'noopener,noreferrer')
   }, [incidentView.center])
 
-  // Honest reporting for the workspace load gate — once per incident mount, so a persistently
-  // malformed server blob (re-applied on every poll) nudges the operator once, not endlessly.
-  const gateWarned = useRef(false)
-  const reportGate = useCallback((g: WorkspaceGate) => {
-    if (gateWarned.current || (g.dropped === 0 && !g.newerSchema)) return
-    gateWarned.current = true
-    if (g.dropped > 0) toast(fillTemplate(appConfig.copy.offline.wsDropped, { n: g.dropped }), { icon: 'warn', tone: 'warn' })
-    if (g.newerSchema) toast(appConfig.copy.offline.wsNewer, { icon: 'warn', tone: 'warn' })
-  }, [])
-  useEffect(() => { reportGate(bootGate) }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+  // The open fold windows — a burst still collecting into one undo step. Declared up here because
+  // a remote merge closes all three (applyWorkspace, below).
+  /** the Rapport's step that stands (saveReportMeta / reportSet), so the next keystroke can decide
+   *  whether it belongs to it */
+  const lastReportStep = useRef<{ key: string; at: number } | null>(null)
+  /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
+   *  letter (same window and the same reason as the Rapportangaben). */
+  const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
+  /** …and the Gebäude-Drehung, which is a slider: one drag is one step (see onReorient). */
+  const lastReorient = useRef<{ at: number; from: BuildingDoc; drop: () => void } | null>(null)
 
-  // Write an authoritative workspace (conflict take-server or live-follow poll) into App's
-  // state slices. useIncidentSync wraps this with its skip-save guard and drives it from the
-  // poll/auto-merge paths; the state lives here, so the writer does too.
-  // …reached through a ref because the Anwesenheit's history is created much further down (it
-  // needs the roster and the attendance actions), while this merge path has to exist up here.
-  // Same shape as `planHist` below.
-  const sliceRebase = useRef<((next: InitialState, keep: ((step: string) => boolean) | null) => void) | null>(null)
-  // …and the ghost-trail reconciliation's re-seed, for the same reason: the hook that owns it
-  // (lib/useGhostTrails) needs the tactical store, which is built further down.
-  const ghostReseedRef = useRef<(() => void) | null>(null)
-  /* The blob's `layerState` as it stands on the SERVER — carried through untouched.
-   *
-   * Which Ebenen are on is a device preference now (lib/layerPrefs), so this device's toggles
-   * must not travel; but the field is not ours to empty either. It is what `lib/replay` folds
-   * `layer.toggle` onto when an old Einsatz is scrubbed, and it is the one-time seed a second
-   * device reads on its first open (lib/workspace · deriveInitial). So: never written from the
-   * live layers, never wiped — whatever the record already says goes back unchanged. */
-  const syncedLayerState = useRef<Saved['layerState']>(bootGate.ws?.layerState ?? [])
-  const applyWorkspace = useCallback((ws: Saved) => {
-    const gate = sanitizeWorkspace(ws)
-    reportGate(gate)
-    syncedLayerState.current = gate.ws?.layerState ?? []
-    const next = deriveInitial(gate.ws, incidentMeta.id, prefs, incidentMeta.type)
-    // every synced slice takes the merged value (the objects come in with their history below)
-    // ⚠️ One setter per slice, typed (lib/workspace · WorkspaceAppliers): a synced slice without
-    // a line here fails tsc. This was a hand-kept list until 25.09.2026, and it had lost `mittel`.
-    applyInitialState(next, {
-      // the store swaps in below, WITH its history (carryUndoThroughMerge: `rebaseObjects`, or
-      // `replaceObjects` when the bookkeeping fails) — a replace here would drop every Karte step
-      objects: () => {},
-      layers: setLayers, timeline: journal.ingestLegacy,
-      recent: setRecent, building: setBuilding,
-      vehicleOverrides: setVehicleOverrides, checklists: setChecklists, trupps: setTrupps, attendance: setAttendance, mittel: setMittel, shifts: setShifts, bands: setBands, cameraViews: setCameraViews, trails: setTrails, planScale: setPlanScale, reportMeta: setReportMeta, attachments: setAttachments, settings: setIncidentSettings, planBindings: setPlanBindings, pickedObjectId: setPickedObjectId, intakeReviewedAt: setIntakeReviewedAt,
-    })
-    /* ⚠️ WHAT THE MERGE CHANGED, record by record — and the undo timeline keeps everything else
-     * (25.09.2026, reversing 08.09.: this path used to drop the whole timeline, and with three
-     * devices on an Einsatz that greyed ↶ out within seconds of any save anywhere).
-     * `changed` is every record whose value differs between the live state and the one being
-     * written (lib/undoKeys · workspaceChanges — the objects read LIVE, the slices as rendered),
-     * plus every plan sheet whose drawn view that moves (derived only when an object changed).
-     * The timeline drops each entry whose inverse touches one of them (and the older ones behind
-     * a dropped one that touch what it touched); each domain then keeps exactly the steps whose
-     * entries survived, re-laid onto the merged state: the store per object, the slices per
-     * record, a plan's stack whole (useBoardDoc · planStackTouches); still-standing undo toasts
-     * are spent where their records moved. An echo changes nothing and drops nothing.
-     * ⚠️ All or nothing (undoKeys · carryUndoThroughMerge): if any of it throws, the old rule
-     * applies — the whole timeline and every history go — and the merged state still lands. */
-    carryUndoThroughMerge(undoHist, () => {
-      const changed = workspaceChanges({ ...liveWs.current, objects: liveObjects() }, next)
-      for (const k of planViewChanges(boardRef.current, () => boardViewOf(next.objects, getFits()), changed)) changed.add(k)
-      return changed
-    }, [
-      // the whole store swaps in — the Karte AND every sheet, they are one collection now
-      { rebase: (keep) => rebaseObjects(next.objects, keep), drop: () => replaceObjects(next.objects) },
-      // Anwesenheit, Mittel, Checklisten, Rapport, Zeitplan
-      { rebase: (keep) => sliceRebase.current?.(next, keep), drop: () => sliceRebase.current?.(next, null) },
-      // `keep` is a set captured by the merge — never re-read inside the lazy updater
-      { rebase: (keep) => setPlanHistory((h) => keepPlanSteps(h, keep)), drop: () => setPlanHistory({}) },
-    ], {
-      onFail: (e) => console.error('undo bookkeeping failed on merge — history dropped', e),
-      // F8: ↶ must never quietly turn into an older act on another surface — say it once
-      onTopDropped: (e) => toast(fillTemplate(appConfig.copy.undoTopDropped, { what: appConfig.copy.undoDroppedWhat[e.domain] }), { icon: 'warn' }),
-    })
-    // …and the ghost-trail reconciliation re-seeds instead of running: the store was REPLACED, so
-    // every marker on it would read as «vanished» and the merge would ghost the whole picture.
-    // Through a ref, because the hook that owns it is declared further down this component.
-    ghostReseedRef.current?.()
-    // …and every OPEN fold window with them — the Rapport's typing burst, the Bildlegende, the
-    // Gebäude-Drehung (the plan sheet-step token is re-opened by the store itself when its step
-    // went, useObjectStore · rebaseObjects). A burst still collecting points at a state the merge has replaced:
-    // folding the next write into it would write a pre-merge value back, and — worse — lay no
-    // step of its own, so the edit that followed a merge would be the one thing with no way back.
-    lastReportStep.current = null; lastCaptionStep.current = null; lastReorient.current = null
-    // Drop any selection pointing at an entity/drawing that no longer exists after the merge.
-    setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
-    setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
-    setSelectedDrawIds((ids) => ids.filter((id) => next.doc.drawings.some((d) => d.id === id)))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incidentMeta.id, incidentMeta.type])
-
-  // Build the workspace blob from the current slices. The memo deps are exactly the persisted
-  // slices, so its identity changes iff one of them does — that's what re-fires the save in
-  // useIncidentSync (replacing the old slice-keyed persistence effect's dependency array).
-  const buildPayload = useCallback((): Saved => {
-    /* ⚠️ A LEGACY `photo` entity never rides the blob: its `photoUrl` is a session `blob:` URL
-     * that means nothing on another device or after a reload. It is kept on screen for as long
-     * as the incident is open and dropped HERE — at the wire, from the store and from its views
-     * together, so the two cannot disagree about what was saved. A photo marker placed from a
-     * Verlauf picture (F16) names that picture by row + index (`photoOf`, lib/photoGeo), which
-     * every device can resolve, and is part of the record like any placed object. */
-    const persisted = objects.filter((o) => o.entity?.kind !== 'photo' || !!o.entity.photoOf)
-    const views = viewsOf(persisted)
-    return {
-    objects: persisted,
-    entities: views.entities,
-    drawings: views.drawings, recent, board: views.board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, settings: incidentSettings, planBindings, intakeReviewedAt,
-    // ⚠️ NOT `layers` — the Ebenen this device is looking at stay on this device (see
-    // syncedLayerState above and lib/layerPrefs). The record's own value goes back unchanged.
-    layerState: syncedLayerState.current,
-    // Verlauf rows live in the journal store now; the blob echoes an older incident's legacy
-    // rows only until they're safely on the server, then ships empty forever (see JournalStore).
-    timeline: journal.blobTimeline,
-    schemaVersion: WORKSPACE_SCHEMA_VERSION,
-  }
-  }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, incidentSettings, planBindings, intakeReviewedAt])
-
-  // …and they are remembered here instead, per incident, on this device only. Written on every
-  // change (not just on a deliberate toggle) so the set derived at boot — including the
-  // category pre-activation — is what this device comes back to.
-  useEffect(() => {
-    saveLayerPrefs(incidentMeta.id, layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })))
-  }, [layers, incidentMeta.id])
+  // The blob both ways — the load gate's toast, applyWorkspace (merge in) and buildPayload (save
+  // out), and this device's own Ebenen (workspace/useWorkspaceBlob)
+  const { buildPayload, applyWorkspace, ghostReseedRef, sliceRebase } = useWorkspaceBlob({
+    bootGate, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides, setChecklists,
+    setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails, setPlanScale,
+    setReportMeta, setAttachments, setIncidentSettings, setPlanBindings, setPickedObjectId,
+    setIntakeReviewedAt, undoHist, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
+    setPlanHistory, lastReportStepRef: lastReportStep, lastCaptionStepRef: lastCaptionStep,
+    lastReorientRef: lastReorient, setSelectedId, setSelectedDrawingId, setSelectedDrawIds, objects, recent,
+    activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel,
+    shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, incidentSettings, planBindings,
+    intakeReviewedAt, layers,
+  })
 
   // SCBA contact-clock alarm runs app-wide (not just on the Atemschutz surface) so an überfällig
   // Trupp alerts no matter which page is open. Paused during replay (read-only past view).
@@ -1684,8 +1582,6 @@ export function IncidentWorkspace({
    * reaches the workspace; it simply lays no step down.
    */
   const reportSetRef = useRef<UndoableSlice<ReportMeta>['set']>((u) => { setReportMeta(u); return false })
-  /** the step that stands, so the next keystroke can decide whether it belongs to it */
-  const lastReportStep = useRef<{ key: string; at: number } | null>(null)
   const saveReportMeta = useCallback((next: ReportMeta) => {
     reportSetRef.current((prev) => {
       // «Entfällt» and a value are two answers to the same question — resolve the contradiction
@@ -1818,11 +1714,6 @@ export function IncidentWorkspace({
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
    *  timeline helper is created much further down — the same shape `reportSetRef` uses. */
   const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => Dropper>(() => Object.assign(() => {}, { standing: () => false }))
-  /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
-   *  letter (same window and the same reason as the Rapportangaben above). */
-  const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
-  /** …and the Gebäude-Drehung, which is a slider: one drag is one step (see onReorient). */
-  const lastReorient = useRef<{ at: number; from: BuildingDoc; drop: () => void } | null>(null)
   // the row media uploads and the Rapport-Beilagen — lib/useRowMediaUpload. ⚠️ The two refs go in
   // as the REF OBJECTS: rememberOneShotRef is assigned much further down, and lastCaptionStep is
   // reset by the remote hydrate above.
