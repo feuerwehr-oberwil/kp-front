@@ -41,9 +41,7 @@ import { stampCrewFiled, unfiledTruppCrew } from './lib/crewFiling'
 import { registerMeldeleisteHost } from './lib/meldeleisteHost'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
-import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
-import { trackPrintJob } from './lib/printJobToast'
-import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
+import { buildZeitplanPayload, downloadZeitplanPdf, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
 import { connectedLineLabel } from './lib/connectedLines'
 import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
@@ -4212,8 +4210,7 @@ export function IncidentWorkspace({
    */
   // ⚠️ the machine's own bookkeeping rides OUTSIDE the snapshots (lib/reportUndo ·
   // keepMachineFields): it lays no step of its own, so it travels inside whatever step stands —
-  // and a ↶ that handed back an outstanding `printJob` would leave `settlePrintJob` nothing to
-  // stamp, i.e. lose the «in der Warteschlange» / «Rapport erstellt» marks to an undone sentence.
+  // and a ↶ must not lose the «Rapport erstellt» mark to an undone sentence.
   const reportHist = useUndoableSlice(reportMeta, setReportMeta, !canWriteRecord, keepMachineFields, REPORT_RECORDS)
   const reportHistRef = useRef(reportHist); reportHistRef.current = reportHist
   const reportSet: typeof reportHist.set = (u) => {
@@ -4225,7 +4222,7 @@ export function IncidentWorkspace({
     const laid = hist.set(u, {
       coalesce: (prev, next) => {
         const step = reportStepOf(prev, next)
-        // the app's own bookkeeping (reportMadeAt / printJob / krokiPrint) — it rides along with
+        // the app's own bookkeeping (reportMadeAt / krokiPrint) — it rides along with
         // whatever step stands and never becomes one of its own
         if (!step) { lastReportStep.current = null; return true }
         const now = Date.now()
@@ -4310,15 +4307,7 @@ export function IncidentWorkspace({
   // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
   // writes no shift, deleting one deletes no shift — see useBandActions.
   const bandActions = useBandActions({ bands, setBands: setBandsUndoable, shifts, setShifts: setShiftsUndoable })
-  // The Zeitplan-Führungsformular on paper. The relay status is fetched once per incident and
-  // fail-closed (null → no printer button at all); the PDF download needs no relay.
-  const [zeitplanRelay, setZeitplanRelay] = useState<PrintRelayStatus | null>(null)
-  useEffect(() => {
-    if (linkScoped) return // the relay is refused for a link session — don't even ask
-    let alive = true
-    void fetchPrintStatus(editorPrintTransport()).then((st) => { if (alive) setZeitplanRelay(st) })
-    return () => { alive = false }
-  }, [linkScoped])
+  // The Zeitplan-Führungsformular on paper: the PDF, printed through the device's own dialog.
   const zeitplanPayload = (rowPeople: Person[], sheet: ZeitplanSheet) => buildZeitplanPayload(
     rowPeople, attendance, shifts,
     { title: incidentMeta.title, address: incidentMeta.address, startedAt: incidentMeta.started_at },
@@ -4327,15 +4316,6 @@ export function IncidentWorkspace({
   )
   const onDownloadZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) => {
     void downloadZeitplanPdf(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
-      .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
-  }
-  // No confirmDialog here any more: the sheet picked from the printer menu IS the confirmation.
-  // It names the sheet, how many people are on it and as of when, and offers PDF and printer side
-  // by side — so paper still never starts moving on one stray thumb, and choosing WHICH sheet did
-  // not cost four menu entries and a second dialog on top of them.
-  const onPrintZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) => {
-    void printZeitplan(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
-      .then((jobId) => trackPrintJob(editorPrintTransport(), jobId))
       .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
   }
   // assigning someone to a Trupp implies they're on scene — mark every roster-linked member
@@ -4962,11 +4942,9 @@ export function IncidentWorkspace({
         onReplaceShift={canEditRecord ? replaceShift : undefined}
         onSetShiftTime={canEditRecord ? setShiftTime : undefined}
         onRemoveShift={canEditRecord ? removeShift : undefined}
-        // Zeitplan-PDF and Zeitplan-Druck are both refused for a link session (the sheet
-        // carries the crew's names) — without either prop the block hides itself
-        onPrintZeitplan={!linkScoped && zeitplanRelay?.available ? onPrintZeitplan : undefined}
+        // the Zeitplan-PDF is refused for a link session (the sheet carries the crew's names) —
+        // without the prop the block hides itself
         onDownloadZeitplan={linkScoped ? undefined : onDownloadZeitplan}
-        zeitplanPrintOnline={!!zeitplanRelay?.online}
         // Live crew positions, read next to the name — this is where somebody looks when
         // they want to know where a person is, and where they would pick up the phone.
         incidentId={incidentMeta.id}

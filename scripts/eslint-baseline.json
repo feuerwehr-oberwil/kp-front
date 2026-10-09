@@ -7,7 +7,7 @@
     "react-hooks/preserve-manual-memoization": 8,
     "react-hooks/purity": 27,
     "react-hooks/refs": 122,
-    "react-hooks/set-state-in-effect": 78,
+    "react-hooks/set-state-in-effect": 77,
     "react-refresh/only-export-components": 117
   }
 }

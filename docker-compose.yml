@@ -145,9 +145,6 @@ services:
       # Public origin (https://front.example.org) for absolute links in outbound webhooks
       # and capture posters. Empty = links omitted.
       PUBLIC_URL: ${PUBLIC_URL:-}
-      # Station print relay («An Stationsdrucker» queue + on-site polling agent).
-      # Empty = agent endpoints 403 and the button never renders (fail-closed).
-      PRINT_AGENT_SECRET: ${PRINT_AGENT_SECRET:-}
       # Web Push (killed-app alarms). ./scripts/setup.sh mints the pair into the encrypted
       # credential store, not into .env — a value here WINS over the stored one and makes the
       # field read-only in /admin → Zugangsdaten. Leave all three blank unless you deliberately

@@ -16,20 +16,18 @@ import { jsonEqual } from './jsonEqual'
  * value or a row appear or disappear is its own.
  */
 
-/** ⚠️ Not the operator's edits. `reportMadeAt`, `printJob` and `krokiPrint` are written by the
- *  app — a PDF was produced, a print job is outstanding, the last print was framed like this —
+/** ⚠️ Not the operator's edits. `reportMadeAt` and `krokiPrint` are written by the app — a PDF
+ *  was produced, the last print was framed like this —
  *  and a ↶ that offered to take one of those back would be answering a question nobody asked.
  *  A write that touches only these lays no step down at all. */
-export const REPORT_MACHINE_FIELDS: readonly (keyof ReportMeta)[] = ['reportMadeAt', 'printJob', 'krokiPrint']
+export const REPORT_MACHINE_FIELDS: readonly (keyof ReportMeta)[] = ['reportMadeAt', 'krokiPrint']
 
 /**
  * A restored snapshot, with the app's own bookkeeping taken from the LIVE state instead.
  *
  * Those fields lay no step down (above), so they ride along inside whatever step stands — and a
  * ↶ of that step would hand back the bookkeeping as it was when the step was taken. That wipes
- * a `printJob` that is still outstanding: `settlePrintJob` then finds nothing to stamp and the
- * «in der Warteschlange» / «Rapport erstellt» marks are simply gone, for an undo of a sentence
- * somebody typed. So they ride OUTSIDE the snapshot: a step back moves the operator's Rapport
+ * the «Rapport erstellt» stamp of a PDF made since, for an undo of a sentence somebody typed. So they ride OUTSIDE the snapshot: a step back moves the operator's Rapport
  * and leaves the machine's answer about the world exactly as it is.
  */
 export function keepMachineFields(restored: ReportMeta, live: ReportMeta): ReportMeta {

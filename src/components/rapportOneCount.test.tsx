@@ -16,11 +16,6 @@ import type { AttendanceEntry, PlanDocument, TimelineEvent } from '../types'
 // Rapport's chip counted them. Pinned end to end: the chip, the Abschluss's list, the badge and
 // the chooser's row say the same number from the same inputs (lib/abschluss · abschlussFacts).
 
-vi.mock('../lib/printRelay', async (orig) => ({
-  ...(await orig<typeof import('../lib/printRelay')>()),
-  fetchPrintStatus: vi.fn(async () => ({ available: false, online: false })),
-  prewarmPrint: vi.fn(async () => {}),
-}))
 vi.mock('../lib/incidents', async (orig) => ({
   ...(await orig<typeof import('../lib/incidents')>()),
   verifyChain: vi.fn(async () => ({ intact: true, broken_at_seq: null, count: 0, head: null })),

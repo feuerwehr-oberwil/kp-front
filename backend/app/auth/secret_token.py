@@ -1,8 +1,8 @@
 """The one shape every secret-gated surface uses: 403 when off, 401 when wrong.
 
 Seven surfaces are guarded by a single long-lived secret rather than a login — the alarm
-intake, the Divera and FireHub webhooks, the Traccar fake feed, the print relay, the
-statistics export, the Erfassungs-Poster. Each of them read its secret, refused with a 403
+intake, the Divera and FireHub webhooks, the Traccar fake feed, the organizer integration,
+the statistics export, the Erfassungs-Poster. Each of them read its secret, refused with a 403
 when none was configured, accepted the token from a query parameter or a header, compared it
 in constant time and answered 401 otherwise: the same eight lines, once per surface.
 
@@ -38,8 +38,8 @@ class SecretGate:
     invalid_detail: str
     #: Query parameter carrying the token, for senders that cannot set a header — an alerting
     #: system with a fixed payload can still put ``?secret=…`` in the target URL it is given.
-    #: ``None`` for a surface whose only caller is a program we ship (the print agent): there
-    #: the header is the whole convention, and a URL-borne secret would only leak into logs.
+    #: ``None`` for a surface whose callers can always set a header (the organizer integration):
+    #: there the header is the whole convention, and a URL-borne secret would only leak into logs.
     query_param: str | None = None
 
     def check(self, expected: str | None, provided: str | None) -> None:
