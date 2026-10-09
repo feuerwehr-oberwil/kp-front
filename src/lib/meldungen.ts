@@ -17,6 +17,11 @@ export type MeldungTone = 'alarm' | 'warn' | 'info' | 'calm'
 /** The ranking, and the whole design in a dozen lines. Lower stands higher on the strip. Adding a
  *  kind means deciding, once, where it stands — the point. */
 export const MELDUNG_RANK = {
+  /** an Atemschutznotfall — somebody HELD «Notfall» on a Trupp (F1, 08.10.2026). A person said a
+   *  crew is in distress, which outranks every clock: above the überfällig/Alarmdruck row, above
+   *  a fresh dispatch, above everything. Its own kind so the alarm rows' bookkeeping (one row per
+   *  reason, «Zum Trupp» takes it down) never touches it — this row stays until «Notfall beendet». */
+  notfall: 0,
   /** an Atemschutztrupp is überfällig or has reached its Alarmdruck — the audible alarm's own
    *  row, and the ONLY message on this strip about somebody who can die in the next minutes.
    *  It outranks the dispatch on purpose: a fresh alarm can wait twenty seconds, a Trupp out of

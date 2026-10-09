@@ -509,6 +509,11 @@ describe('report proof and Atemschutz labels', () => {
     // a stand-down prints «Nicht eingesetzt», never «Austritt» (staging r2, N8)
     expect(readingKindLabel('exit', true)).toBe(appConfig.copy.atemschutz.statusNotDeployed)
     expect(readingKindLabel('exit')).toBe(appConfig.copy.atemschutz.readingKind.exit)
+    // the two ends of an Atemschutznotfall print as themselves on the Atemschutz page (F1), and
+    // the bar they carry is the last KNOWN value, never a reading
+    expect([readingKindLabel('notfall'), readingKindLabel('notfallEnde')]).toEqual(['Notfall ausgelöst', 'Notfall beendet'])
+    expect(readingBarIsMeasured('notfall')).toBe(false)
+    expect(readingBarIsMeasured('notfallEnde')).toBe(false)
     /* ⚠️ …and the CARD's mini-log says the same words (04.09., Feldtest Manuel). It read
      * «Angemeldet · Eingerückt · Austritt» — one row in the button's language between two in the
      * record's. The buttons stay «Einrücken»/«Raus melden»: those are pressed by somebody

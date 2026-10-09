@@ -466,6 +466,72 @@ export function entryPressureConfirmed(t: Pick<Trupp, 'readings'>): boolean {
   return false
 }
 
+/* ── Atemschutznotfall (F1, 08.10.2026) ───────────────────────────────────────────────────────
+ * One Trupp in distress, said by a person (the held «Notfall»), not derived from a clock. These
+ * helpers are the one place «is there a Notfall», «who can go in for them» and «what do we last
+ * know about them» are answered — the board's banner, the Meldeleiste row, the Abschluss and the
+ * Verlauf row all read them, so no two of them can describe the same emergency differently. */
+
+/** Is this Trupp in an Atemschutznotfall right now? A removed card is not on the board, so it
+ *  cannot be in one there (its record still prints the rows). */
+export function truppInNotfall(t: Partial<Pick<Trupp, 'notfallAt' | 'removedAt'>>): boolean {
+  return !!t.notfallAt && !t.removedAt
+}
+
+/** Can «Notfall» be held on this Trupp? An Atemschutz-Trupp that is INSIDE (in the field, by the
+ *  same test the contact clock uses) and not already in one — a crew standing at the vehicle, or
+ *  a work squad without a cylinder, has nobody inside to send a Sicherungstrupp for. */
+export function notfallOffered(t: Trupp): boolean {
+  return truppInField(t) && !truppInNotfall(t)
+}
+
+/**
+ * The Sicherungstrupp(s) READY to go in: under Atemschutz, Auftrag «Sichern», angemeldet (not yet
+ * in), on the board. That is the whole model of «ready» the app has (AtemschutzView · the phone
+ * board's Sicherungstrupp section, useTruppActions · safetyEntry), so the Notfall offers exactly
+ * these and the «kein Sicherungstrupp bereit» hint fires exactly when there are none.
+ * Kept in the caller's order (pass the board's hand-set order); never a Trupp in a Notfall.
+ */
+export function safetyReady(trupps: readonly Trupp[]): Trupp[] {
+  return trupps.filter((t) => !t.removedAt && isAtemschutzTrupp(t) && t.auftrag === 'sichern'
+    && t.status === 'angemeldet' && !t.entryTime && !truppInNotfall(t))
+}
+
+/** …and the Sicherungstrupp already sent IN (Auftrag «Sichern», in the field) — what the banner
+ *  names instead of offering a second one. */
+export function safetyInside(trupps: readonly Trupp[]): Trupp[] {
+  return trupps.filter((t) => !t.removedAt && isAtemschutzTrupp(t) && t.auftrag === 'sichern' && truppInField(t) && !truppInNotfall(t))
+}
+
+/** What the record last KNOWS about a Trupp in a Notfall — the facts the banner, the Meldeleiste
+ *  row and the Verlauf row name. Pure; the PLACE is the caller's (it knows the plans and the map). */
+export interface NotfallFacts {
+  /** seconds since the Notfall was triggered */
+  sinceSec: number
+  /** the last pressure the record holds, and when it was reported (null = the Eingangsdruck,
+   *  never reported since). Never a Schätzung: these are the facts somebody REPORTED. */
+  bar: number
+  barAt: string | null
+  barAgeSec: number | null
+  /** the last Funkkontakt (ISO) — the Eintritt until the crew was first reached */
+  contactAt: string | null
+  funkkanal: number | null
+}
+
+export function notfallFacts(t: Trupp, now: number): NotfallFacts {
+  const at = ms(t.notfallAt) || now
+  const barAt = t.lastPressureTime || null
+  const barMs = ms(barAt ?? undefined)
+  return {
+    sinceSec: Math.max(0, Math.round((now - at) / SEC)),
+    bar: t.lastPressureBar ?? t.entryPressureBar,
+    barAt,
+    barAgeSec: barMs ? Math.max(0, Math.round((now - barMs) / SEC)) : null,
+    contactAt: t.lastContactTime || t.entryTime || null,
+    funkkanal: t.funkkanal ?? null,
+  }
+}
+
 export function contactSeverity(sinceContactSec: number | null, contactIntervalMin: number, contactGraceSec: number): 0 | 1 | 2 {
   if (sinceContactSec == null) return 0
   const interval = contactIntervalMin * 60
@@ -515,14 +581,18 @@ export function alarmBarFor(
   return t.status === 'rueckzug' ? doctrine.alarmBarRueckzug ?? doctrine.alarmBar : doctrine.alarmBar
 }
 
-/** One Trupp's alarm state — the tier plus WHY, because the two emergencies read differently. */
+/** WHY a Trupp is in alarm. `notfall` (F1, 08.10.2026) is the Atemschutznotfall somebody HELD
+ *  on the card — a person said a crew is in distress, which outranks both clocks. */
+export type AlarmReason = 'contact' | 'pressure' | 'notfall'
+
+/** One Trupp's alarm state — the tier plus WHY, because the emergencies read differently. */
 export interface TruppAlarm {
-  /** 0 silent · 1 «Kontakt fällig» · 2 alarm (überfällig OR at the Alarmdruck) */
+  /** 0 silent · 1 «Kontakt fällig» · 2 alarm (überfällig, at the Alarmdruck, or Notfall) */
   sev: 0 | 1 | 2
   /** what the tier is ABOUT — null while silent. The card shows a clock for `contact` and the
    *  bar it dropped to for `pressure`; the word must never say «überfällig» for a pressure
    *  alarm, because the Verlauf and the Rapport record two different events. */
-  reason: 'contact' | 'pressure' | null
+  reason: AlarmReason | null
   /** the Alarmdruck line THIS Trupp is held to (see alarmBarFor); null when none is configured */
   line: number | null
 }
@@ -543,14 +613,18 @@ export interface TruppAlarm {
  * null there, so no clock and no cylinder are being watched.
  */
 export function truppAlarm(
-  t: Pick<Trupp, 'status'>,
+  t: Pick<Trupp, 'status'> & Partial<Pick<Trupp, 'notfallAt' | 'removedAt'>>,
   live: Pick<TruppLive, 'sinceContactSec' | 'currentBar'>,
   contactIntervalMin: number, contactGraceSec: number,
   doctrine: { alarmBar?: number; alarmBarRueckzug?: number },
 ): TruppAlarm {
-  if (live.sinceContactSec == null) return { sev: 0, reason: null, line: null }
   const line = doctrine.alarmBar == null ? null
     : alarmBarFor(t, { alarmBar: doctrine.alarmBar, alarmBarRueckzug: doctrine.alarmBarRueckzug })
+  // ⚠️ The Notfall FIRST, and whatever the clock says (F1): a person held «Notfall» on this crew,
+  // and nothing a gauge or a radio check reports can outrank that — nor can a status the crew
+  // reached on another device (see types · Trupp.notfallAt). It ends only by «Notfall beendet».
+  if (truppInNotfall(t)) return { sev: 2, reason: 'notfall', line }
+  if (live.sinceContactSec == null) return { sev: 0, reason: null, line: null }
   if (line != null && pressureAlarm(live.currentBar, line)) return { sev: 2, reason: 'pressure', line }
   const sev = contactSeverity(live.sinceContactSec, contactIntervalMin, contactGraceSec)
   return { sev, reason: sev > 0 ? 'contact' : null, line }
@@ -566,9 +640,10 @@ export interface AtemschutzAlarmState {
    *  object can stay REFERENCE-STABLE between transitions (the 1 Hz tick must not re-render App). */
   urgent: {
     id: string; name: string; sinceContactSec: number; contactAt: number; severity: 1 | 2
-    /** WHY this Trupp is the loudest — the two are different emergencies and the chip has to
-     *  say which one. `contact` ticks a clock; `pressure` shows the bar it dropped to. */
-    reason: 'contact' | 'pressure'
+    /** WHY this Trupp is the loudest — they are different emergencies and the chip has to
+     *  say which one. `contact` ticks a clock; `pressure` shows the bar it dropped to; `notfall`
+     *  ticks the Notfall clock (`contactAt` is then the trigger's ms). */
+    reason: AlarmReason
     /** the cylinder pressure, on a `pressure` alarm */
     bar?: number
   } | null
@@ -598,6 +673,20 @@ export function peakAtemschutzAlarm(
   const severities: Record<string, 1 | 2> = {}
   let bestRank = -1
   for (const t of trupps) {
+    // ⚠️ A Notfall outranks everything, in the field or not (F1): its own rank band above every
+    // clock, the longest-running Notfall first, and the chip ticks from the trigger
+    if (truppInNotfall(t)) {
+      peak = 2
+      severities[t.id] = 2
+      const at = Date.parse(t.notfallAt!) || now
+      const since = Math.max(0, Math.round((now - at) / 1000))
+      const rank = 3_000_000_000 + since
+      if (rank > bestRank) {
+        bestRank = rank
+        urgent = { id: t.id, name: t.name, sinceContactSec: since, contactAt: at, severity: 2, reason: 'notfall' }
+      }
+      continue
+    }
     const { sinceContactSec, currentBar } = deriveTruppLive(t, now, contactIntervalMin, contactGraceSec)
     if (sinceContactSec == null) continue // not in the field → no contact clock, no PA
     // the shared tier — the same one the board's cards, rows, badge and sort read (truppAlarm)
@@ -626,7 +715,7 @@ export function peakAtemschutzAlarm(
 
 /** «Trupp a is on the strip for reason r» — the unit the Meldeleiste's
  *  `onShown` reports (AtemschutzAlarmMeldungen) and the TopBar chip reads. */
-export const alarmRowKey = (id: string, reason: 'contact' | 'pressure') => `${id}:${reason}`
+export const alarmRowKey = (id: string, reason: AlarmReason) => `${id}:${reason}`
 
 /**
  * Is the TopBar's Atemschutz chip saying what another door on screen already says (T1)? Only a
@@ -635,7 +724,7 @@ export const alarmRowKey = (id: string, reason: 'contact' | 'pressure') => `${id
  * chip's reason. The amber «Kontakt fällig» has neither, so it always stands.
  */
 export function azChipRedundant(
-  alarm: { peak: 0 | 1 | 2; urgent: { id: string; reason: 'contact' | 'pressure' } | null },
+  alarm: { peak: 0 | 1 | 2; urgent: { id: string; reason: AlarmReason } | null },
   onBoard: boolean,
   shownKeys: readonly string[],
 ): boolean {

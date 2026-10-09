@@ -72,6 +72,30 @@ class TestDueTrupps:
         ws["settings"] = {"contactIntervalMin": 5, "contactGraceSec": 60}
         assert [t["id"] for t in due_trupps(ws, {"contactIntervalMin": 10}, NOW)] == ["a"]
 
+    def test_a_notfall_outranks_every_clock_and_is_keyed_on_its_trigger(self):
+        """The Atemschutznotfall (F1, 08.10.2026): ``notfallAt`` set ⇒ due with reason
+        ``notfall``, whatever the contact clock and the gauge say — and even for a crew already
+        reported out (it ends only by «Notfall beendet», src/types.ts · Trupp.notfallAt). The
+        crossing is the trigger, so a renotify round never treats it as a new Notfall."""
+        fresh = trupp(
+            "a", "2026-07-02T14:09:50Z", entryPressureBar=300, lastPressureBar=90, notfallAt="2026-07-02T14:08:00Z"
+        )
+        out = trupp("b", "2026-07-02T13:00:00Z", status="raus", notfallAt="2026-07-02T14:05:00Z")
+        alerts = due_trupps({"trupps": [fresh, out]}, {}, NOW)
+        assert alerts == [
+            {"id": "a", "name": "Trupp a", "since": ms("2026-07-02T14:08:00Z"), "reason": "notfall"},
+            {"id": "b", "name": "Trupp b", "since": ms("2026-07-02T14:05:00Z"), "reason": "notfall"},
+        ]
+        assert _atemschutz_message(alerts[0]) == (
+            "Atemschutz-Notfall – Trupp a",
+            "Notfall ausgelöst – Sicherungstrupp einsetzen.",
+        )
+
+    def test_a_removed_card_or_a_work_squad_raises_no_notfall(self):
+        removed = trupp("r", "2026-07-02T14:09:50Z", notfallAt="2026-07-02T14:08:00Z", removedAt="2026-07-02T14:09:00Z")
+        plain = trupp("p", "2026-07-02T14:09:50Z", kind="einfach", notfallAt="2026-07-02T14:08:00Z")
+        assert due_trupps({"trupps": [removed, plain]}, {}, NOW) == []
+
     def test_contact_falls_back_to_entry(self):
         ws = {"trupps": [trupp("a", None)]}  # entered 14:00, never a contact → due at 14:06
         assert [t["id"] for t in due_trupps(ws, {}, NOW)] == ["a"]
@@ -325,6 +349,39 @@ async def test_sweep_stays_silent_for_an_uebung(db_session, monkeypatch):
 
     async def fake_broadcast(_db, **kw):  # pragma: no cover — the gate must keep this unreached
         raise AssertionError("an Übung must not broadcast")
+
+    monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+    assert await push_mod.check_and_push(db_session, NOW) == 0
+
+
+async def test_sweep_stays_silent_about_atemschutz_on_a_closed_einsatz(db_session, monkeypatch):
+    """Closed but not yet archived (review of #300): the Tafel is frozen, nobody can enter the
+    Kontakt or hold «Notfall beendet» — so neither an overdue crew nor a Notfall is pushed, every
+    120 s, about an Einsatz that is over."""
+    import app.push as push_mod
+    from app.models import DeploymentConfig, Incident
+
+    push_mod._notified.clear()
+    db_session.add(DeploymentConfig(id=1, config_json={}))
+    db_session.add(
+        Incident(
+            title="Zimmerbrand",
+            source="manual",
+            status="abgeschlossen",
+            is_archived=False,
+            is_exercise=False,
+            map_workspace_json={
+                "trupps": [
+                    trupp("a", "2026-07-02T13:00:00Z"),
+                    trupp("b", "2026-07-02T14:09:30Z", notfallAt="2026-07-02T14:08:00Z"),
+                ]
+            },
+        )
+    )
+    await db_session.commit()
+
+    async def fake_broadcast(_db, **kw):  # pragma: no cover — the gate must keep this unreached
+        raise AssertionError("a closed Einsatz must not broadcast an Atemschutz alarm")
 
     monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
     assert await push_mod.check_and_push(db_session, NOW) == 0
@@ -765,3 +822,125 @@ def test_gen_vapid_emits_a_matching_urlsafe_pair():
     key = ec.derive_private_key(int.from_bytes(raw_priv, "big"), ec.SECP256R1())
     derived = key.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
     assert derived == raw_pub
+
+
+class TestNotfallOnSave:
+    """The Atemschutznotfall is pushed the moment its save commits (F1, 08.10.2026) — the 30 s
+    sweep stays the fallback and shares its crossing key, so a device never gets it twice."""
+
+    def test_changes_name_what_a_save_raised_and_ended(self):
+        from app.push import notfall_changes
+
+        n = "2026-07-02T14:08:00Z"
+        before = [trupp("a", None), trupp("b", None, notfallAt=n), trupp("c", None, notfallAt=n)]
+        after = [
+            trupp("a", None, notfallAt=n),  # raised
+            trupp("b", None),  # ended
+            trupp("c", None, notfallAt=n),  # running — a re-save raises nothing
+            trupp("d", None, notfallAt=n, kind="einfach"),  # never for a work squad
+            trupp("e", None, notfallAt=n, removedAt=n),  # nor for a card off the board
+        ]
+        raised, ended = notfall_changes(before, after)
+        assert [a["id"] for a in raised] == ["a"]
+        assert raised[0] == {
+            "id": "a",
+            "name": "Trupp a",
+            "since": ms("2026-07-02T14:08:00+00:00"),
+            "reason": "notfall",
+        }
+        assert [a["id"] for a in ended] == ["b"]
+        assert notfall_changes(None, "garbage") == ([], [])
+
+    async def test_a_saved_notfall_is_pushed_at_once_and_the_sweep_does_not_repeat_it(
+        self, client, editor, db_session, monkeypatch
+    ):
+        import asyncio
+
+        import app.push as push_mod
+
+        push_mod._notified.clear()
+        monkeypatch.setattr(push_mod, "push_enabled", lambda: True)
+        sent: list[dict] = []
+
+        async def fake_committed(_factory, **kw):
+            sent.append(kw)
+
+        monkeypatch.setattr(push_mod, "_broadcast_committed", fake_committed)
+
+        async def settle():
+            await asyncio.gather(*list(push_mod._inflight))
+
+        r = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+        assert r.status_code == 200
+        inc = (await client.post("/api/incidents", json={"title": "Notfall"})).json()["id"]
+        base = {"id": "tr1", "name": "Keller Anna", "status": "aktiv", "entryTime": "2026-07-02T14:00:00Z"}
+
+        async def save(t: dict) -> None:
+            rev = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace_rev"]
+            r = await client.put(f"/api/incidents/{inc}/workspace/trupps", json={"trupps": [t], "base_rev": rev})
+            assert r.status_code == 200, r.text
+            await settle()
+
+        await save(base)
+        assert sent == []  # no Notfall, no push
+        await save({**base, "notfallAt": "2026-07-02T14:08:00Z"})
+        assert len(sent) == 1
+        assert sent[0]["title"] == "Atemschutz-Notfall – Keller Anna"
+        assert sent[0]["target"] == "atemschutz:tr1"
+        assert sent[0]["dedup_key"] == f"az:{inc}:tr1:{ms('2026-07-02T14:08:00+00:00')}:notfall"
+        # a re-save of the running Notfall (a Kontakt) pushes nothing more…
+        await save({**base, "notfallAt": "2026-07-02T14:08:00Z", "lastContactTime": "2026-07-02T14:09:00Z"})
+        assert len(sent) == 1
+
+        # …and the sweep finds it already announced
+        swept: list[dict] = []
+
+        async def fake_broadcast(_db, **kw):
+            swept.append(kw)
+            return 1
+
+        monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+        await push_mod.check_and_push(db_session)
+        assert swept == []
+
+        # «Notfall beendet» once, replacing the tray entry, with no sweep ledger behind it
+        # two devices held at once: the merge moves the trigger to the EARLIER hold — the same
+        # Notfall, never announced twice, and its new key is claimed against the sweep too
+        await save({**base, "notfallAt": "2026-07-02T14:07:58Z"})
+        assert len(sent) == 1
+        await push_mod.check_and_push(db_session)
+        assert swept == []
+
+        await save(base)
+        assert len(sent) == 2
+        assert sent[1]["title"] == "Notfall beendet – Keller Anna"
+        assert sent[1]["tag"] == "atemschutz-tr1"
+        assert sent[1]["dedup_key"] is None
+        await save(base)
+        assert len(sent) == 2
+
+    async def test_a_closed_einsatz_is_not_pushed_on_save(self, db_session, monkeypatch):
+        import app.push as push_mod
+
+        monkeypatch.setattr(push_mod, "push_enabled", lambda: True)
+        closed = SimpleNamespace(id="i1", is_exercise=False, is_open=False)
+        after = [trupp("a", None, notfallAt="2026-07-02T14:08:00Z")]
+        assert await push_mod.notify_notfall_changes(db_session, closed, [trupp("a", None)], after) == 0
+
+    async def test_an_uebung_is_not_pushed_on_save_either(self, client, editor, monkeypatch):
+        import app.push as push_mod
+
+        push_mod._notified.clear()
+        monkeypatch.setattr(push_mod, "push_enabled", lambda: True)
+        sent: list[dict] = []
+
+        async def fake_committed(_factory, **kw):
+            sent.append(kw)
+
+        monkeypatch.setattr(push_mod, "_broadcast_committed", fake_committed)
+        await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+        inc = (await client.post("/api/incidents", json={"title": "Übung", "is_exercise": True})).json()["id"]
+        t = {"id": "tr1", "name": "Keller Anna", "status": "aktiv", "notfallAt": "2026-07-02T14:08:00Z"}
+        r = await client.put(f"/api/incidents/{inc}/workspace/trupps", json={"trupps": [t], "base_rev": 0})
+        assert r.status_code == 200, r.text
+        assert sent == []

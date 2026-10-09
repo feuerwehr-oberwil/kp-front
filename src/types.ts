@@ -1028,9 +1028,14 @@ export interface TruppReading {
    * stays `entry`/`exit` (lib/report · truppRunTimes), because the crew's Einsatzzeit is unbroken
    * by putting a mask on.
    *
+   * ⚠️ `notfall` / `notfallEnde` are the two ends of an Atemschutznotfall (F1, 08.10.2026 —
+   * see Trupp.notfallAt). They carry the last KNOWN bar like a `contact` does, never a reading:
+   * nobody read a gauge for them. In the Trupp's own log so the Atemschutz page of the Rapport
+   * shows the emergency where the crew's record is read, not only in the Einsatzjournal.
+   *
    * Rows written before these kinds existed keep theirs — the log is append-only.
    */
-  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug' | 'exit' | 'resume' | 'paOn' | 'paOff' | 'crew'
+  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug' | 'exit' | 'resume' | 'paOn' | 'paOff' | 'crew' | 'notfall' | 'notfallEnde'
   /**
    * WHO the Trupp was at this moment — written by a `crew` row only (12.09., docs/trupp-naming.md).
    *
@@ -1180,6 +1185,19 @@ export interface Trupp {
    *  at the reopen (the restart ends it); one opened on an older contact had already been ended
    *  by this one (N4, staging 26.09.2026). */
   contactBeforeRestart?: string
+  /**
+   * Atemschutznotfall (F1, 08.10.2026): the moment somebody HELD «Notfall» on this Trupp — the
+   * Notfall clock runs from here on every device. Absent = no emergency. Set by
+   * useTruppActions · triggerNotfall, cleared by endNotfall (both hold-to-confirm, both on the ↶
+   * timeline, both a Verlauf row and a `notfall`/`notfallEnde` reading).
+   *
+   * ⚠️ Independent of `status` on purpose: a Notfall is ended by a person saying so, never by a
+   * side effect — a crew carried out and reported «raus» on an older build still shows its
+   * Notfall until somebody holds «Notfall beendet». While set, the Trupp is tier 2 with reason
+   * `notfall` (lib/atemschutz · truppAlarm), which outranks both other alarms everywhere.
+   * Merged as the EARLIER stamp when two devices triggered it at once (mergeWorkspace).
+   */
+  notfallAt?: string
   /** last recorded cylinder pressure (bar) + when (ISO) — logged for the record, never predicted */
   lastPressureBar?: number
   lastPressureTime?: string
