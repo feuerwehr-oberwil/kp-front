@@ -36,9 +36,10 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 - [4. Roster / personnel](#4-roster--personnel)
   - [4a. `"divera"`](#4a-divera--auto-sync) · [4b. `"manual"`](#4b-manual--csv-import--hand-entry) ·
     [4c. `"snapshot"` – the roster-snapshot contract](#4c-snapshot--a-roster-file-somebody-else-publishes)
+    [4d. The station index – one address for all station data](#4d-the-station-index--one-address-for-all-station-data)
 - [5. User accounts, roles, and deployment administration](#5-user-accounts-roles-and-deployment-administration)
 - [6. Environment variables (secrets / infra)](#6-environment-variables-secrets--infra--operator-not-admin)
-  - [The twenty-six integration credentials – env **or** `/admin`](#the-twenty-six-integration-credentials--env-or-admin--anbindungen)
+  - [The twenty-eight integration credentials – env **or** `/admin`](#the-twenty-eight-integration-credentials--env-or-admin--anbindungen)
   - [6a. Objektplan-Pull](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in)
   - [6b. Three things that look like env vars and are not](#6b-three-things-that-look-like-env-vars-and-are-not)
   - [6c. SharePoint-Pull – the station's own folders](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)
@@ -68,7 +69,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 |-------|------|-------|-------------|
 | **Defaults** | National/safe fallbacks (FKS doctrine, symbol presets) | `src/config/appConfig.ts` | developers |
 | **Deployment config** ← *this doc* | Per-station settings + uploaded assets | DB `deployment_config` row + asset storage | technical deployment owner – forms at `/admin`, or the same rows as a config file via CLI |
-| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-six integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Anbindungen for those twenty-six. **Env wins and locks the field** (§6) |
+| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-eight integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Anbindungen for those twenty-eight. **Env wins and locks the field** (§6) |
 | **Per-incident settings** | Live operational knobs (synced) | workspace blob (`IncidentSettings`) | any **user**, in-incident |
 
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
@@ -94,6 +95,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `identity.*` (`appName`, `locale`, `accentColor`, `helpIntro`, `kommandant`) | ✅ | Station › **Station & Karte** |
 | `identity.assets` | ✅ | the branding uploads – **not** part of this document (see the ⚠️ below and §3a) |
 | `map.defaultView`, `map.geocoder.*` | ✅ | Station › **Station & Karte** |
+| `map.buildingRegister` | ❌ | config-as-code only (`admin_config`); unset = on in CH ([`building-card.md`](building-card.md)) |
 | `map.externalLinks` | ✅ | Station › **Station & Karte** – ⚠️ editable, but as shipped its only renderer is the field app's «Datenquellen» panel, which is **unreachable**. Configuring it changes nothing anybody can see today |
 | `referenceLayers` – raster (WMS/WMTS) and GeoJSON, incl. the file upload | ✅ | Station › **Kartenebenen** (§2) |
 | `referenceLayers[].nightColor` · `.opacity` · `.maxzoom` · `.symbol` · `.autoActivate` | ❌ | file only – the forms **merge** over the stored row, so a CLI-set value survives an edit |
@@ -112,6 +114,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `roster.nameOrder` | ✅ | Personen › **Personal** (§4) |
 | `roster.source` | ❌ | **file only** – «Personal» edits the crew and the name order, never where the crew comes from ([`SETUP.md` §4](SETUP.md)) |
 | `roster.autoSync` | ❌ | **file only** – how much the nightly Divera sync may do on its own (§4a) |
+| `roster.diveraResponses` | ❌ | **file only** – what each Divera Rückmelde-Status means for «Anrückend» (§4a) |
 | `roster.ranks` | ✅ | the CSV import's «Grade zuordnen» → `adopt` (§4b) – **and** the Arbeitsmappe (§9h). There is no rank *form* |
 | `mittel.units` | ❌ | **file only** – the Arbeitsmappe does not carry it |
 | `alarmKeywords` | ❌ | **file only** – it is a paste-a-document, not a fill-a-form (§1a) |
@@ -215,7 +218,10 @@ both now have browser pages – §9e and §9f.
                                                  // (also the region whose official street names
                                                  //  the backend caches to retry a typo –
                                                  //  «haupstrasse 12» → «Hauptstrasse 12»)
-    }
+    },
+    "buildingRegister": null                     // the Gebäude card's federal-register half (GWR + BFE):
+                                                 // null = on wherever the Einsatzort lies in CH,
+                                                 // false = never ask them (docs/building-card.md)
   },
 
   "referenceLayers": [ /* see §2 – entirely station-supplied, none bundled */ ],
@@ -282,6 +288,10 @@ both now have browser pages – §9e and §9f.
                                                   // "safe" (default – joins/renames/Grade, never
                                                   // deactivates), "full" (also deactivates the
                                                   // members who left), "off" – see §4a
+    "diveraResponses": {},                        // Divera Rückmelde-Status → "coming" |
+                                                  // "not_coming" | "other", by id ("13") or name
+                                                  // ("Komme nicht"); "other" = ignored;
+                                                  // unset = read off the name – §4a
     // The station's Dienstgrade, MOST SENIOR FIRST – the order here IS the seniority order.
     // `key` is what a CSV import and a roster snapshot match on (§4b, §4c); `abbr` is the short
     // badge in lists; `tier` drives the «nur Offiziere» picker filter and the Anwesenheit
@@ -927,6 +937,27 @@ so one API hiccup would otherwise empty the Wehr overnight. And a run that fails
 because a green tick standing through a fortnight of refused keys is the failure this connector
 is most likely to have.
 
+**`roster.diveraResponses` – what a Divera answer means** (since 2026-10-08). The Anwesenheit's
+«Anrückend» block sorts the Divera Rückmeldungen into *kommen* / *kommen nicht*; *other* answers
+are ignored
+(docs/divera-connector.md › Rückmeldungen). Divera has no such flag: each Einheit names its own
+statuses, so the default is read off the status **name** – «nicht», «kein», «abwesend»,
+«verhindert» → `not_coming` (checked first: «Komme nicht» also contains «komme»); «komm»,
+«unterwegs», «einsatzbereit», «N min» → `coming`; a status that promises minutes → `coming`;
+anything else → `other`. Only an Einheit whose words the default misreads sets this:
+
+```jsonc
+"roster": {
+  "diveraResponses": {
+    "17": "other",             // by status id (Divera › Verwaltung › Status) – an id beats a name
+    "Bereitschaft": "coming"   // by name, case- and accent-insensitive
+  }
+}
+```
+
+The setting changes only the grouping, of what the poll stores from then on. Nobody is ever
+marked present by an answer.
+
 ### 4b. `"manual"` – CSV import + hand entry
 - Admin imports a CSV and/or adds people in the UI. **CSV columns:**
   | column | required | meaning |
@@ -1127,6 +1158,68 @@ contract is a two-repository change.
 > anyone (§8). And `roster.source` is a *preference*, not a lock: CSV import and hand entry
 > remain available on every setting.
 
+### 4d. The station index – one address for all station data
+
+Owner decision X6/X7 (09.10.2026): a station keeps its shared data in **one place** and feeds
+both apps the same way. That place is a folder – on a web server, an object store, or next to a
+self-hosted stack – with an **`index.json`** that lists the data files in it **by kind**, each
+with its contract version and sha256. KP Front and KP Rück each get ONE setting, the address of
+that index, and read the kinds they understand. The reader (`backend/app/station_index.py`) and
+the builder script are byte-identical in both repositories.
+
+```json
+{
+  "schema": "station-index/1",
+  "schema_version": 1,
+  "generated_at": "2026-10-09T04:00:00+00:00",
+  "provider": "musterdorf",
+  "files": [
+    { "kind": "roster", "path": "roster.json", "schema": "roster-snapshot/1",
+      "sha256": "<64 hex>", "bytes": 1234 }
+  ]
+}
+```
+
+- **Contract:** [`station-index.schema.json`](station-index.schema.json), example
+  [`station-index.example.json`](station-index.example.json); `cd backend && uv run python -m
+  app.station_index validate index.json` checks one without a network.
+- **Turning it on:** /admin › Anbindungen › **Stationsdaten (Index)** – `STATION_INDEX_SOURCE`
+  (an `https://` address of the `index.json`, or its absolute path on the server) and optional
+  `STATION_INDEX_TOKEN` (bearer, https only, sent to the index and to its siblings, which always
+  live on the same host). Empty = off.
+- **Which roster is read:** when the index lists a `roster`, that one – the rest of §4c applies
+  unchanged (matching, the hold, the report on System › Verbindungen, which now also says the
+  roster came «über den Stationsdaten-Index» and names listed kinds this version does not read).
+  When the index lists no roster, the **direct** `ROSTER_SNAPSHOT_SOURCE` of §4c is read as
+  before – that setting stays as the fallback, and a station that set it needs to change nothing.
+  An index that is set but cannot be read is an error on the card, never a silent fallback.
+- **What is checked:** a listed file is read only when it hashes to the index's sha256 (and has
+  its `bytes`, if given) – a file swapped after the index was written is refused for that run and
+  the roster stays as it was. Paths are relative (`roster.json`, `personal/roster.json`), never
+  `..`, absolute or another host. A kind this version knows is read only at the version it
+  implements (`roster-snapshot/1`).
+- **Writing the index:** put the data files in the folder, then run
+  `python3 scripts/station_index_build.py <folder> --provider <key>` (stdlib only). It lists every
+  `*.json` whose top-level `schema` is `<kind>-snapshot/<n>`, skips the rest, and writes
+  `index.json` atomically – last, so the checksums are the files' final ones. fwo-admin, an HR
+  export or a cron job all end with that one step.
+
+#### The other kinds – reserved, not read yet
+
+`vehicles`, `groups` and `keywords` are **reserved kind names**; an index may list them today and
+both apps report them as «noch nicht gelesen». They are not ingested yet because each would write
+station configuration that is edited by hand today (`fleet.vehicles`, `alarms.groups`,
+`alarmKeywords` here; the vehicles table in KP Rück), and doing that from a feed is a change of who
+owns the data, not a mapping. The intended shapes follow the roster's envelope (`schema`,
+`schema_version`, `generated_at`, `provider`, `complete`, `count`, items with a stable
+`external_id` and `identities[]`, no free-form maps):
+
+| kind | contract | items |
+|---|---|---|
+| `vehicles` | `vehicles-snapshot/1` | `external_id`, `call_sign` (Funkrufname), `type` key, `active`, `identities` (e.g. a `traccar` device id) |
+| `groups` | `groups-snapshot/1` | `external_id`, `name`, `members` (roster `external_id`s), `identities` (e.g. a Divera group id) |
+| `keywords` | `keywords-snapshot/1` | the existing `alarmKeywords` document (§1a) inside the envelope |
+
 ---
 
 ## 5. User accounts, roles, and deployment administration
@@ -1165,7 +1258,7 @@ The product role model is deliberately small:
 Set at deploy time, never in the repo. **Sixteen of them are also settable from the browser** –
 see the rule immediately below; everything else in the table really is deploy-time only.
 
-### The twenty-six integration credentials – env **or** `/admin` → Anbindungen
+### The twenty-eight integration credentials – env **or** `/admin` → Anbindungen
 
 The station's integration settings – the three Divera keys, the Traccar trio, the VAPID trio, the
 four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`,
@@ -1187,9 +1280,10 @@ Four rules, and none of them is optional reading:
    reason: a fallback that differed from the declared default would have read as a choice and
    locked VAPID-Kontakt out of the browser on every compose install. Blank means unset, and unset
    resolves to `mailto:kp-front@localhost`.)
-2. **Secrets are write-only.** They can be set and rotated over the API, never read back. Eight
+2. **Secrets are write-only.** They can be set and rotated over the API, never read back. Nine
    fields are readable because each earns it individually: `TRACCAR_URL` (a hostname the System
-   card already prints), `ROSTER_SNAPSHOT_SOURCE` (an operator checks it is the right file), `VAPID_PUBLIC_KEY` (already handed to every logged-in browser),
+   card already prints), `ROSTER_SNAPSHOT_SOURCE` and `STATION_INDEX_SOURCE` (an operator checks
+   it is the right file), `VAPID_PUBLIC_KEY` (already handed to every logged-in browser),
    `VAPID_SUBJECT`, `STT_BASE_URL`, `STT_MODEL`, `STT_LANGUAGE`, and `CARTO_API_KEY`. The CARTO
    key is the deliberate exception: CARTO requires it in every browser tile URL, so domain
    restrictions in CARTO – not secrecy – prevent use elsewhere. **Readable is not public**,
@@ -1244,6 +1338,7 @@ and locks the field – see the rule above).
 | 🔐 `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_CLIENT_SECRET`, `SHAREPOINT_SECRET_EXPIRES` | the Azure app registration behind the SharePoint pull ([§6c](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)), read-only, client-credentials flow. ⚠️ These four are the credentials that have **no `Settings` field**: they were introduced after the credential table existed, so the environment half is read straight off the process environment and the normal path is the browser. The two ids are readable (an operator compares them against the Azure portal); the secret is write-only. `SHAREPOINT_SECRET_EXPIRES` is not a credential but the ISO date (`JJJJ-MM-TT`) the secret lapses on – Azure caps it at 24 months and says nothing when it does, so this is what the System card counts down. Nothing set = no pull, fail-closed |
 | 🔐 `OBJECT_VISITS_INTEGRATION_KEY` | the Objektbesuche organizer's bearer key for `/api/integrations` ([`object-visits.md`](object-visits.md)); ≥ 24 characters, write-only, no `Settings` field (read off the environment, normally set in the browser). Unset = the organizer API answers 403 |
 | 🔐 `SHAREPOINT_EXPORT_TENANT_ID`, `SHAREPOINT_EXPORT_CLIENT_ID`, `SHAREPOINT_EXPORT_CLIENT_SECRET` | a SECOND Azure app registration, the only one KP Front writes with: the Objektbesuche delivery files visit reports into a destination folder ([`object-visits-sharepoint.md`](object-visits-sharepoint.md)), `Sites.Selected` **write** on one site. Separate from the pull's read-only registration on purpose. No `Settings` fields; ids readable, secret write-only. Incomplete = no delivery, fail-closed |
+| 🔐 `STATION_INDEX_SOURCE`, `STATION_INDEX_TOKEN` | the station index ([§4d](#4d-the-station-index--one-address-for-all-station-data)): the address or absolute path of the station's `index.json`, plus an optional bearer token sent only over https (to the index and its same-host siblings). When the index lists a roster it replaces the direct roster source below. No `Settings` fields; the source is readable, the token write-only. Unset = nothing fetched |
 | 🔐 `ROSTER_SNAPSHOT_SOURCE`, `ROSTER_SNAPSHOT_TOKEN` | the station's published roster file ([§4c](#4c-snapshot--a-roster-file-somebody-else-publishes)): an `https://` address (plain `http://` only on the station's own network) or an absolute path on the server, plus an optional bearer token sent only over https. No `Settings` fields (read off the environment, normally set in the browser); the source is readable, the token write-only. Unset = nothing fetched |
 | 🔐 `ENTRA_LOGIN_TENANT_ID`, `ENTRA_LOGIN_CLIENT_ID`, `ENTRA_LOGIN_CLIENT_SECRET`, `ENTRA_LOGIN_ACCOUNTS` | optional «Mit Microsoft anmelden» ([`microsoft-login.md`](microsoft-login.md)): a THIRD Azure app registration, sign-in only (delegated `openid profile`), redirect URI `<PUBLIC_URL>/api/auth/microsoft/callback`. `ENTRA_LOGIN_ACCOUNTS` is the allow-list, `identity=username, …` (object id or sign-in name → existing KP Front username). No `Settings` field, settable from `/admin › Anbindungen`; the secret is write-only, the rest readable. Any one unset = no button, routes 404 |
 | 🔐 `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
@@ -1316,7 +1411,7 @@ is fetched, and plans stay exactly as they were loaded. Index format and the rea
 
 Each of these is a **token or key stored in the database** and managed in the admin UI, not set
 at deploy time. They are listed here because that is where people go looking for them. (Unlike
-the twenty-six 🔐 credentials above, these three have **no** environment variable at all – there is
+the twenty-eight 🔐 credentials above, these three have **no** environment variable at all – there is
 nothing to put in `.env` and nothing that could outrank the stored value.)
 
 | Feature | Where it is managed | What it does |

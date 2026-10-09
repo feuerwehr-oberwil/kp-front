@@ -165,6 +165,9 @@ import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } 
 import { PlanPicker } from './components/PlanPicker'
 import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet, ShareIncidentSheet } from './components/panels'
 import { fetchShareLink } from './lib/viewLink'
+import { useBuildingInfo } from './lib/useBuildingInfo'
+import { BuildingFloat } from './components/BuildingFloat'
+import { hasBuildingContent } from './lib/buildingCard'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
 import { useWeatherLayer } from './lib/useWeatherLayer'
@@ -1298,6 +1301,12 @@ export function IncidentWorkspace({
     legacyPlanIds,
     preserveLegacy,
   })
+
+  // The Gebäude-Steckbrief (KP Front F5) — a chip in the Karte's and the plan's bottom-left chip
+  // row (BuildingFloat): fetched with the Einsatz so it is cached for offline before anybody taps it. Only the operator's MANUAL pick is passed — without
+  // one the server ranks the objects exactly as the plan rail does. Refetched when the address or
+  // point changes. A Rapport view link may not ask.
+  const buildingInfo = useBuildingInfo(incidentMeta, manualObject?.id ?? null, user?.link_kind !== 'view')
 
   // PWA: pre-download the current map area + plans/symbols/geodata so the base map and
   // reference data render offline at the scene (delivers the `offline`/`cachedTiles` promise).
@@ -5024,6 +5033,13 @@ export function IncidentWorkspace({
         // Live crew positions, read next to the name — this is where somebody looks when
         // they want to know where a person is, and where they would pick up the phone.
         incidentId={incidentMeta.id}
+        // «Anrückend»: who answered the Divera alarm. On a station with Divera, while the Einsatz
+        // runs, for the EL and the editors (the read is editor-only), never for a link session or
+        // a replay. NOT gated on `divera_id`: an alarm ATTACHED to a manual Einsatz (api/divera ·
+        // attach) has answers too, and the server's `available: false` renders nothing. Nor on
+        // being online: offline the block keeps the last answers it had.
+        diveraResponsesFor={getDeploymentConfig().integrations?.diveraConfigured && (isEditor || isEl)
+          && running && !replayActive && !linkScoped ? incidentMeta.id : undefined}
         livePositions={livePeople.byPerson}
         incidentCenter={incidentView.center}
         onShowOnMap={(personId) => { setMode('map'); setPanel(null); focusEntity(`pos-${personId}`) }}
@@ -5583,6 +5599,14 @@ export function IncidentWorkspace({
               hidden during replay so it never stacks under the bottom-centre scrubber. The ✕ on
               its right is the same exit in both states — the mode used to be leavable only from
               the compass menu, two taps away, while it swallowed every map tap (02.09.). */}
+          {/* The Gebäude chip — the Karte's bottom-left chip row, the same place and recipe as the
+              plan's (Whiteboard · .wb-botleft), so Lage and Plan say it in one spot. Rendered only
+              with something to say: the row's presence alone lifts the message lane. Not during
+              replay (a past Lage, and its scrubber owns the foot) or «Karte verknüpfen». */}
+          {!replayActive && !georefMode.planId && hasBuildingContent(buildingInfo) && (
+            <div className="wb-botleft"><BuildingFloat info={buildingInfo} compact={isPhone} /></div>
+          )}
+
           {coord.readout && !replayActive && (
             <div className={`coord-read${coord.mode === 'aim' ? ' aiming' : ''}${tool === 'measure' ? ' coord-read-stacked' : ''}`} role="status">
               <div className="cr-rows">
@@ -6243,6 +6267,7 @@ export function IncidentWorkspace({
           // the rail lists). A link session is bound to one object, so it gets no switch.
           objectName={activeObjectName}
           objectAddress={activeObjectAddress}
+          buildingInfo={buildingInfo}
           // only the AUTO-surfaced object can be «merely nearby»; a manual pick is the operator's
           objectNearby={activeObjectNearby}
           incidentId={incidentMeta.id}
@@ -6595,6 +6620,7 @@ export function IncidentWorkspace({
           trupps={allTrupps}
           contactIntervalMin={azIntervalMin}
           contactGraceSec={azGraceSec}
+          checklists={checklists}
           plans={planDocs}
           scene={{ entities, drawings, layers: mapLayers, byName: sym.byName, center: incidentView.center, view: { center: view.center, zoom: view.zoom }, captionMode: symbolCaptions ?? 'auto' }}
           board={board}

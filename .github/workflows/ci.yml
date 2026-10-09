@@ -15,6 +15,12 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # The sibling product the «Shared files» job compares against. THE ONE LINE A FORK CHANGES:
+  # point it at your own kp-rueck fork to keep the check meaningful, or set it to "" to switch
+  # it off — it then skips with a notice instead of failing you against upstream's files.
+  SIBLING_REPO: "feuerwehr-oberwil/kp-rueck"
+
 jobs:
   # --- Frontend: type-check + production build --------------------------------------
   frontend:
@@ -130,9 +136,81 @@ jobs:
         run: |
           mkdir -p /tmp/scan
           git archive HEAD | tar -x -C /tmp/scan
+          # From GHCR, the same image (same digest) as Docker Hub's zricethezav/gitleaks,
+          # without Docker Hub's anonymous pull limit.
           docker run --rm -v /tmp/scan:/repo \
-            zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
             detect --source /repo --no-git --redact --exit-code 1
+
+  # --- Shared files: the copies KP Front and KP Rück hold of the same files ------------
+  # shared/MANIFEST.json lists every file the two products share by copy (telemetry sanitiser,
+  # alarm vocabulary, roster contract + reader, alarm intake corpus, loading snail, this check).
+  # backend/tests/test_shared_files.py holds THIS checkout to it, offline; this job is the only
+  # thing that reads kp-rueck, and kp-rueck runs the same script against this repository.
+  # It compares against kp-rueck's branch of the SAME NAME when one exists (on a push to main:
+  # the merged branch, read from the merge commit), else its default branch — so a change made
+  # in both repositories on equally named branches is green in both PRs at once.
+  # SKIPS with a notice when SIBLING_REPO is "" or cannot be checked out; never skips on drift.
+  # How to change a shared file: shared/README.md.
+  shared-files:
+    name: Shared files match KP Rück
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Pick the sibling's paired branch
+        id: pair
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          ref="$HEAD_REF"
+          if [ -z "$ref" ]; then
+            ref=$(printf '%s\n' "$HEAD_MESSAGE" | head -n 1 | sed -nE 's|^Merge pull request #[0-9]+ from [^/]+/(.+)$|\1|p')
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      # `continue-on-error`: no branch of that name is the normal case, not a failure.
+      - name: Check out the sibling's paired branch
+        id: paired
+        if: env.SIBLING_REPO != '' && steps.pair.outputs.ref != ''
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ env.SIBLING_REPO }}
+          ref: ${{ steps.pair.outputs.ref }}
+          path: .sibling
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out the sibling's default branch
+        id: default
+        if: env.SIBLING_REPO != '' && steps.paired.outcome != 'success'
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ env.SIBLING_REPO }}
+          path: .sibling
+          fetch-depth: 1
+          persist-credentials: false
+
+      # The runner's own python3: the script is standard library only.
+      - name: Compare the shared files
+        env:
+          SIBLING_STATUS: ${{ steps.paired.outcome == 'success' && 'success' || steps.default.outcome }}
+          SIBLING_REF: ${{ steps.paired.outcome == 'success' && steps.pair.outputs.ref || 'its default branch' }}
+        run: |
+          if [ -z "${SIBLING_REPO:-}" ]; then
+            echo "::notice::SIBLING_REPO is empty — the shared-files check is switched off for this fork."
+            exit 0
+          fi
+          if [ "$SIBLING_STATUS" != "success" ]; then
+            echo "::notice::Could not check out ${SIBLING_REPO} (private, renamed or unreachable) — skipping."
+            echo "::notice::Set SIBLING_REPO in .github/workflows/ci.yml to a repository this workflow can read, or to ''."
+            exit 0
+          fi
+          echo "Comparing with ${SIBLING_REPO} at ${SIBLING_REF}"
+          python3 scripts/check_shared.py --sibling .sibling
 
   # --- Backend: ruff + migrations + pytest ------------------------------------------
   backend:
@@ -144,7 +222,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16@sha256:c1b3783309b6499c795eed7c20135a1a4d25cae1b575c3d52c6f536129a1b109
+        # ECR Public mirror of the Docker Official Image (same digest): Docker Hub's anonymous
+        # pull limit failed CI jobs at random (09.10.2026). Same for every image CI pulls.
+        image: public.ecr.aws/docker/library/postgres:16@sha256:c1b3783309b6499c795eed7c20135a1a4d25cae1b575c3d52c6f536129a1b109
         env:
           POSTGRES_USER: kpfront
           POSTGRES_PASSWORD: kpfront

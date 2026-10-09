@@ -1,4 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BuildingFloat } from './BuildingFloat'
+import type { BuildingInfo } from '../lib/api/building'
 import { LineMarker } from './LineMarker'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import type { BoardAnno, BoardKind, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
@@ -291,6 +293,9 @@ interface Props {
   /** set when the AUTO-surfaced object is only the nearest one with plans, not the incident's
    *  own address – the chip turns amber and reads the distance (lib/useObjectPlans) */
   objectNearby?: { distanceM: number; objectId: string } | null
+  /** the Gebäude-Steckbrief (lib/api/building) — its chip joins this row beside the Objekt chip,
+   *  the same chip the Karte's row carries (BuildingFloat, Lage ↔ Plan) */
+  buildingInfo?: BuildingInfo | null
   /** the Einsatz the banner's dismissal is remembered for, and the address it contrasts with */
   incidentId?: string
   incidentAddress?: string | null
@@ -345,7 +350,7 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -2812,6 +2817,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       <span>{objectChipText}</span>
     </button>
   )
+  // The Gebäude-Steckbrief's chip, beside the Objekt chip and only where that one stands with an
+  // Objekt bound: these plans are of THAT building, and the Karte's row carries the same chip.
+  // The floor stack and the Tafel drop it with the Objekt chip (`objectChipHidden`).
+  // ⚠️ Not on a PHONE's plan (09.10.2026, measured at 390px): that row is one line beside the FAB
+  // (09-whiteboard · .wb-botleft), and a hazard is glyph + WORD, so «⚠ Gas · PV» took the room the
+  // Objekt chip's name needs — the name went down to its glyph, and «which object are these
+  // plans of» stopped being answered. On a phone the Karte's row carries the chip, one tap away.
+  const buildingFloat = !isPhone && !objectChipHidden && (objectName || objectAddress)
+    ? <BuildingFloat info={buildingInfo ?? null} />
+    : null
 
 
   // The banner half of the same warning (owner, 14.09.): the chip is permanent but small, and at
@@ -2897,7 +2912,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             too, or the read-out would blink out on exactly the plans nobody can annotate. No
             Maßstab beside it here: there is nothing to calibrate on a document. */}
         {nearbyBanner}
-        <div className="wb-botleft">{objectChip}</div>
+        <div className="wb-botleft">{objectChip}{buildingFloat}</div>
         <PdfScroller key={active.id} url={planUrl(active.imageUrl)} />
       </div>
     )
@@ -4411,6 +4426,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           (GeorefMode · GeorefModeBars), so this row simply stays empty of it. */}
       {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
       {objectChip}
+      {buildingFloat}
       {buildingChip}
       {/* Maßstab — trust chip: shows where the active plan's scale comes from. A manually
           calibrated scale remains a control because tapping it edits that calibration. An

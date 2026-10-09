@@ -191,7 +191,7 @@ async def _connectors(db: AsyncSession) -> list[dict]:
         ),
         _polling_connector(
             connector_state.ROSTER_SNAPSHOT,
-            configured=bool(credential("roster_snapshot_source")),
+            configured=bool(credential("station_index_source") or credential("roster_snapshot_source")),
             health=health[connector_state.ROSTER_SNAPSHOT],
         ),
         {

@@ -80,6 +80,11 @@ export interface ObjectInput {
   lat: number | null
   lng: number | null
   source_note: string | null
+  /** the Gebäude card's Modul-1 notes (KP Front F5) — one per line; null clears, ABSENT keeps
+   *  (the server writes them only when sent, so an older form never wipes them) */
+  measures?: string | null
+  remarks?: string | null
+  measures_source?: string | null
 }
 
 /** What the upsert answers: `ObjectOut`, i.e. the object WITHOUT its plans. */

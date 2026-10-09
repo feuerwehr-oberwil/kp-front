@@ -86,4 +86,24 @@ describe('RosterSnapshotDetail', () => {
     render(<RosterSnapshotDetail counts={{ outcome: { created: 0 }, postponed: [{ display_name: 'Keller Urs', reason: 'absent_from_snapshot' }] }} onReload={vi.fn()} />)
     expect(screen.getByText(fillTemplate(C.snapPostponed, { names: 'Keller Urs' }))).toBeTruthy()
   })
+
+  it('says the roster came through the station index and names the kinds it does not read yet', () => {
+    render(
+      <RosterSnapshotDetail
+        counts={{
+          outcome: { created: 0 },
+          via: 'index',
+          index: {
+            generatedAt: '2026-10-09T04:00:00+00:00',
+            files: [
+              { kind: 'roster', schema: 'roster-snapshot/1', read: true, known: true },
+              { kind: 'vehicles', schema: 'vehicles-snapshot/1', read: false, known: false },
+            ],
+          },
+        }}
+        onReload={vi.fn()}
+      />,
+    )
+    expect(screen.getByText(new RegExp(fillTemplate(C.snapIndexNotRead, { kinds: 'vehicles' }).replace('.', '\\.')))).toBeTruthy()
+  })
 })

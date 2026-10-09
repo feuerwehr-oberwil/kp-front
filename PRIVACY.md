@@ -87,6 +87,21 @@ nowhere else. Beyond that, the rules are deliberately narrow.
 Turning off sharing on the phone removes the position immediately — it does not merely stop
 updating it.
 
+## Divera answers («Anrückend»)
+
+On a station connected to Divera 24/7, the Anwesenheit shows who answered the alarm «kommt» or
+«kommt nicht», so the command post knows who is still on the way
+([`docs/divera-connector.md`](docs/divera-connector.md) › Rückmeldungen). An answer is never
+attendance: nobody is marked present because of it.
+
+| | |
+|---|---|
+| Where it comes from | The station's own Divera account, read by the station's own server, the same way the alarm itself is. Nothing is written back to Divera. |
+| What is stored | Per alarm: which people on the station's own Mannschaftsliste said «kommt» and which «kommt nicht», and how many answers came from people not on the list. **Nothing else.** It keeps no Divera user id, no answer time, no status wording, no free-text note, and no record of who was alerted or who read the alarm. Answers that are neither yes nor no are dropped. |
+| Who sees it | Signed-in editor and EL accounts, and only for an Einsatz that is still open. Viewer accounts and anyone on an Einsatz-Link see nothing. |
+| How long | The answers count for «Anrückend» for 6 hours after the alarm. They are **deleted** once the Einsatz is closed, and in any case 48 hours after the alarm, even if Divera has since been disconnected. The alarm itself stays in the intake history. |
+| Where it does *not* appear | The Verlauf, the audit trail, the Einsatzrapport, the statistics export, or the workspace that syncs to devices. A device keeps the last answers it saw in memory while the app is open, never on disk. |
+
 Everything below is about the maintainer channels.
 
 ## The short version

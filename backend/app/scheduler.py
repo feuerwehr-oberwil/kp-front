@@ -112,7 +112,9 @@ async def _poll_divera() -> None:
 #: The devices now only READ the pool, and the server alone polls: every 30 s while NO Einsatz is
 #: running (the fallback that brings a dispatch the webhook missed within half a minute), at the
 #: configured `divera_poll_interval_seconds` (120 s) while one is — the dispatch is in, and the
-#: webhook, which stays the primary intake, carries the rest.
+#: webhook, which stays the primary intake, carries the rest. For the first 10 min after an alarm
+#: the fast cadence stays on although the Einsatz runs: the crew's Rückmeldungen ride in this poll
+#: (divera · RESPONSE_WINDOW_SECONDS).
 DIVERA_IDLE_POLL_SECONDS = 30
 #: On a 429 the poll waits BASE, then doubles per further 429, up to MAX; a success resets it.
 DIVERA_BACKOFF_BASE_SECONDS = 60.0
@@ -132,17 +134,50 @@ def divera_tick_seconds() -> int:
     return max(1, min(DIVERA_IDLE_POLL_SECONDS, settings.divera_poll_interval_seconds))
 
 
+#: How often the stored Rückmeldungen are swept for ones nobody may read any more
+#: (divera · prune_responses). Runs whether or not a key is set: a key removed after an Einsatz
+#: must not keep that Einsatz's notes forever.
+DIVERA_PRUNE_SECONDS = 600
+_divera_last_prune: float | None = None
+
+
+async def _prune_divera_responses() -> None:
+    global _divera_last_prune
+    from .divera import prune_responses
+
+    clock = _divera_now()
+    if _divera_last_prune is not None and clock - _divera_last_prune < DIVERA_PRUNE_SECONDS:
+        return
+    _divera_last_prune = clock
+    async with async_session_maker() as db:
+        try:
+            cleared = await prune_responses(db, datetime.now(UTC))
+            await db.commit()
+            if cleared:
+                logger.info("Divera Rückmeldungen cleared on %d alarm(s) (Einsatz over or past retention)", cleared)
+        except Exception:  # noqa: BLE001 — a failed sweep is retried on the next one
+            await db.rollback()
+            logger.warning("Clearing Divera Rückmeldungen failed", exc_info=True)
+
+
 async def _divera_tick() -> None:
     """Decide whether this tick polls Divera: backed off, or not due at the current cadence."""
     global _divera_last_poll
     from .vehicle_presence import running_incident_exists
 
+    await _prune_divera_responses()
     clock = _divera_now()
     if clock < _divera_backoff_until:
         return
+    from .divera import response_window_open
+
     async with async_session_maker() as db:
         try:
-            running = await running_incident_exists(db, datetime.now(UTC))
+            now = datetime.now(UTC)
+            running = await running_incident_exists(db, now)
+            # …except while the crew is still answering the alarm (divera · RESPONSE_WINDOW_SECONDS)
+            if running and await response_window_open(db, now):
+                running = False
         except Exception:  # noqa: BLE001 — unsure is «running»: the slower, cheaper cadence
             logger.warning("Divera cadence check failed; polling at the running cadence", exc_info=True)
             running = True
