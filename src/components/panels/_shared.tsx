@@ -1,6 +1,7 @@
 // Shared primitives for the incident panels: the Modal shell + two formatting/coord
 // helpers used by more than one panel. Split out of the former IncidentPanels.tsx.
 import { Sheet } from '../../lib/overlays'
+import { localeDateTime } from '../../lib/format'
 
 // ⚠️ `footer` is FORWARDED, and an action row belongs in it. Sheet places the footer as a
 // SIBLING of the scrolling `.ip-body`; a `.ip-actions` div passed as a child lands inside
@@ -20,7 +21,7 @@ export function Modal({ title, onClose, children, footer, wide, fit }: { title: 
 
 export function fmtWhen(iso: string): string {
   try {
-    return new Date(iso).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    return localeDateTime(iso, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
   } catch {
     return iso
   }

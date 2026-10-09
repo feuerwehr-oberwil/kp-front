@@ -3193,6 +3193,10 @@ export const de = {
     ergTable3: 'siehe ERG Tabelle 3 (Behälter/Wind)',
     ergDayShort: 'Tag',
     ergNightShort: 'Nacht',
+    // why the ring on the Karte uses the day or the night distance (lib/ergRings · ergDayNote):
+    // the sun at the placard, «Nacht · Sonnenuntergang 16:42»
+    ergSunrise: 'Sonnenaufgang {t}',
+    ergSunset: 'Sonnenuntergang {t}',
     // The Schutzabstand rings on the Karte (lib/ergRings, Feldtest Manuel 07.09.): the
     // control sits under the distances it draws, and the ergSource caveat covers both.
     // Andocken (lib/docking): the panel row that makes the invisible bond visible

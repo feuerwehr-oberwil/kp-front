@@ -140,6 +140,7 @@ describe('WorkspaceSync · LOAD — three devices, one login, 200 edits each', (
     const settled = () => devices.every((dev) => dev.made === EDITS && !dev.sync.hasUnsynced)
     let ticks = 0
     for (; ticks < 20_000 && !settled(); ticks++) await vi.advanceTimersByTimeAsync(50)
+    // eslint-disable-next-line no-console -- opt-in debug output, LOAD_DEBUG=1 only
     if (process.env.LOAD_DEBUG) console.log(JSON.stringify({ ticks, puts: server.puts, conflicts: server.conflicts, rev: server.rev, made: devices.map((d) => d.made), dirty: devices.map((d) => d.sync.hasUnsynced), errors: devices.map((d) => d.errors) }))
     expect(settled()).toBe(true)
 

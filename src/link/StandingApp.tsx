@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { deploymentName } from '../lib/deploymentConfig'
-import { formatTime } from '../lib/format'
+import { formatTime, formatLocale } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { AuthProvider, useAuth } from '../lib/auth'
@@ -104,7 +104,7 @@ function IdleScreen({ terminal, checkedAt }: { terminal: boolean; checkedAt: num
         {terminal ? (
           <>
             <div className="sl-clock">{formatTime(clock)}</div>
-            <div className="sl-date">{clock.toLocaleDateString(appConfig.locale, { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+            <div className="sl-date">{clock.toLocaleDateString(formatLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div>
           </>
         ) : (
           /* three rings on one 6s cycle, 2s apart — a breath, not a pulse. The glyph in the
@@ -134,7 +134,7 @@ function IdleScreen({ terminal, checkedAt }: { terminal: boolean; checkedAt: num
 function Chooser({ candidates, onPick }: { candidates: StandingCandidate[]; onPick: (id: string) => void }) {
   const C = appConfig.copy.standingLink
   const time = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : ''
+    iso ? formatTime(new Date(iso)) : ''
   return (
     <Shell>
       <p>{C.chooseTitle}</p>

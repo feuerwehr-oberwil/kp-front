@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { apiGet, apiPut, ApiError } from '../lib/api'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, localeDateTime } from '../lib/format'
 import { downloadBlob } from '../lib/download'
 import { Sheet } from '../lib/overlays'
 import { SettingRow, SettingsNote } from './ui'
@@ -17,14 +17,11 @@ interface ConfigMeta {
   updated_by_name: string | null
 }
 
-const DE_DATE = new Intl.DateTimeFormat('de-CH', {
-  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-})
-
 function formatDate(iso: string | null): string | null {
   if (!iso) return null
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? null : DE_DATE.format(d)
+  return Number.isNaN(d.getTime()) ? null
+    : localeDateTime(d, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 type State =
