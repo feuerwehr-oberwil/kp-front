@@ -127,6 +127,9 @@ services:
       # for the point-based weather code (or uses it as fallback). An explicitly empty URL
       # disables the whole weather client; absent keeps the application default.
       OPEN_METEO_URL: ${OPEN_METEO_URL-https://api.open-meteo.com/v1/forecast}
+      # The Karte's radar + warnings layer (app/weather_layer). Blank = the default (on), see
+      # app/config.py · weather_layer_enabled; false switches the layer and its fetches off.
+      WEATHER_LAYER_ENABLED: ${WEATHER_LAYER_ENABLED:-}
       # ⚠️ The dead-man's switch, and it has to be listed here like everything else: an
       # operator who sets HEALTHCHECK_PING_URL in .env and never sees a ping would have no way
       # to tell "the monitor is misconfigured" from "compose never passed it in". Blank = off,
