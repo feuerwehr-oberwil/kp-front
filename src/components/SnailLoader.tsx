@@ -6,6 +6,8 @@
  * asset. Keep both stages at the same size; never replace the boot markup with an external image.
  * The boot cover paints immediately and stays through the SVG's 630 ms skid arrival, even on
  * a cached launch (`lib/snailLaunch`). React launch loading stages continue that animation clock.
+ * Those 630 ms count from the cover's first frame, which WebKit can send long after the boot
+ * work is done; until then the SVG has no animation to read (09.10.2026).
  * That clock is `performance.now() - animation.startTime`, never `now - currentTime`:
  * `currentTime` stands still until the next frame, and on a loaded device that made React rewind
  * the entrance by up to 20 ms (08.10.2026). The e2e reads it the same way at the moment React
