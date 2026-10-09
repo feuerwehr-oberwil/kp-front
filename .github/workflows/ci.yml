@@ -130,8 +130,10 @@ jobs:
         run: |
           mkdir -p /tmp/scan
           git archive HEAD | tar -x -C /tmp/scan
+          # From GHCR, the same image (same digest) as Docker Hub's zricethezav/gitleaks,
+          # without Docker Hub's anonymous pull limit.
           docker run --rm -v /tmp/scan:/repo \
-            zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
             detect --source /repo --no-git --redact --exit-code 1
 
   # --- Backend: ruff + migrations + pytest ------------------------------------------
@@ -144,7 +146,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16@sha256:c1b3783309b6499c795eed7c20135a1a4d25cae1b575c3d52c6f536129a1b109
+        # ECR Public mirror of the Docker Official Image (same digest): Docker Hub's anonymous
+        # pull limit failed CI jobs at random (09.10.2026). Same for every image CI pulls.
+        image: public.ecr.aws/docker/library/postgres:16@sha256:c1b3783309b6499c795eed7c20135a1a4d25cae1b575c3d52c6f536129a1b109
         env:
           POSTGRES_USER: kpfront
           POSTGRES_PASSWORD: kpfront

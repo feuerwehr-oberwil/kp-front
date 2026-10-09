@@ -100,6 +100,10 @@ SHARED = {
     "backend/app/roster_snapshot_ingest.py": "103a12de8b5ecbe7257d8c8203a759a3335d14be8b8efc61882babdc84151e94",
     "scripts/roster_snapshot_from_csv.py": "fe9c63a4ad66503f09ed3fce12e745e165f549e3418ea5effe7e5837a306e926",
     "docs/roster-snapshot.example.csv": "3addbbc94a755b66c7350d088177ccd2e89d6d888fcd63e87b78b33ccbfeb1f7",
+    "backend/app/station_index.py": "716244cbb091950960bafda389da325afc5e9ed3f0519467edec76e7029002e1",
+    "scripts/station_index_build.py": "dcc96aab573692c0778bdee49f49a7c7a1b0778138eee0da547711fe88e16cce",
+    "docs/station-index.schema.json": "e555a5a26b25ed51d5a5319b82c8455d122721d955596534a228504233843ba7",
+    "docs/station-index.example.json": "607b30f7add0a6e8a93a61e362c5151952872e91b48737f953f0aa6e18526428",
 }
 
 repo_only = pytest.mark.skipif(not SNAPSHOT_SCHEMA.exists(), reason="repo root not available (running from the image)")
