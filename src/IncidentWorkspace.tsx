@@ -30,7 +30,7 @@ import { clearAllDrafts } from './lib/draftKeep'
 import { newId, newRowId } from './lib/ids'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
-import { fillTemplate, fmtFileSize, formatSymbolName, formatTime } from './lib/format'
+import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
@@ -45,7 +45,6 @@ import { lineLabel } from './lib/lineDecor'
 import { connectedLineLabel } from './lib/connectedLines'
 import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
-import { cartoRasterTiles } from './lib/carto'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
@@ -64,7 +63,7 @@ import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
 import { Overlay } from './lib/overlays'
-import { apiDelete, LINK_REFUSED_EVENT } from './lib/api'
+import { apiDelete } from './lib/api'
 import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
 import { currentFix, makePhotoPositionSource } from './lib/devicePosition'
 import { useAttendanceActions } from './lib/useAttendanceActions'
@@ -82,7 +81,6 @@ import { useIncidentPlanBindings } from './lib/useIncidentPlanBindings'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
-import { useOnline } from './lib/useOnline'
 import { onReachable } from './lib/connectivity'
 import { MapView } from './components/MapView'
 import { Splash } from './components/Splash'
@@ -112,7 +110,6 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
-import { isStorageDegraded } from './lib/idb'
 import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
@@ -142,7 +139,6 @@ import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
 import { askStoreyRemoval, storeyAddedRow, storeyRemovedRow, storeyRestoredRow, storeySubject } from './lib/storeyRemoval'
 import { floorPackOf, packFloorNames, packStoreys } from './lib/floorPackBinding'
 import { floorLabel } from './lib/whiteboard'
-import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import {
   WorkspaceSync, uploadMedia,
   type IncidentMeta,
@@ -172,8 +168,6 @@ import { hasBuildingContent } from './lib/buildingCard'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
 import { useBootCover } from './lib/bootCover'
-import { fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
-import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit } from './lib/storageBudget'
 import { ChecklistsView } from './components/ChecklistsView'
 import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
@@ -207,6 +201,8 @@ import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
 import { photoGeoLate, photoGeoSettled, photoMarker, setDevicePositionSource, photoPlacement, photoUrlKey, rememberPhotoGeo, rowGeoFor, rowPhotoGeo, withPhotoUrls, withResolvedPhotos, type PhotoPlacement } from './lib/photoGeo'
 import { whenIdle } from './lib/idle'
+import { useSessionRole, useWorkspaceFlags } from './workspace/access'
+import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
 
 const prefs = loadPrefs()
 
@@ -363,49 +359,7 @@ export function IncidentWorkspace({
   onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
   needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
-  // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
-  // inspect, but every editing affordance is hidden and commit() is neutered so
-  // nothing can mutate the document (defense in depth).
-  const { user, logout } = useAuth()
-  /**
-   * The Atemschutz-Link session (auth · AuthUser.link_kind): a link holder who may OPERATE the
-   * Atemschutzüberwachung of this one Einsatz — Trupp anmelden, Eingerückt, Kontakt, Druck,
-   * Rückzug, Draussen, bearbeiten, entfernen — and nothing else. It renders as «Tafel pur»
-   * (the lite branch at the bottom of this component), which is why the rest of the workspace
-   * never has to reason about it beyond the three flags below.
-   */
-  const asLink = isAtemschutzLinkKind(user?.link_kind)
-  // ⚠️ `asLink` is NOT read-only. Its writes are real (the trupp slice of the workspace, journal
-  // rows of kind 'team', `atemschutz.*` events — the backend allowlists exactly those), and
-  // read-only would neuter `commit`, the journal store and the sync push alike, leaving a board
-  // whose Kontakt button did nothing. What it is NOT is an editor: `isEditor`/`canEditIncident`
-  // stay false, so every affordance outside the Tafel is withheld exactly as for a viewer.
-  /** The `el` ROLE (Einsatzleiter function, 07.09.): the asLink pattern generalised — NOT
-   *  read-only (its record writes are real: the `workspace/record` slice, journal rows,
-   *  record-vocabulary events, Beilagen uploads — the backend allowlists exactly those), and
-   *  NOT an editor (`isEditor`/`canEditIncident` stay false, `tacticalLocked` is permanently
-   *  on, and the sync pushes only the record slice, so a local doc write could never reach
-   *  the server). Distinct from `elView` below, which is an EDITOR's hands-off mode. */
-  const isEl = user?.role === 'el'
-  /** A LINK page whose own Einsatz answered 403 (api · LINK_REFUSED_EVENT, D1): nothing it takes
-   *  from here can ever be delivered, so it takes nothing — the Tafel freezes read-only and says
-   *  why. Permanent for this page: a revoked link does not come back. */
-  const [linkRefused, setLinkRefused] = useState(false)
-  useEffect(() => {
-    if (!asLink) return
-    const onRefused = (e: Event) => { if ((e as CustomEvent<string>).detail === incidentMeta.id) setLinkRefused(true) }
-    window.addEventListener(LINK_REFUSED_EVENT, onRefused)
-    return () => window.removeEventListener(LINK_REFUSED_EVENT, onRefused)
-  }, [asLink, incidentMeta.id])
-  /** the session may write nothing at all (a viewer, a view link, a refused Atemschutz-Link) */
-  const roleReadOnly = (user?.role !== 'editor' && !asLink && !isEl) || linkRefused
-  const baseReadOnly = roleReadOnly || forceReadOnly || tabLockLost
-  const isEditor = user?.role === 'editor'
-  // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. Read-only is not
-  // enough here — a plain viewer may still generate the Rapport/Zeitplan PDFs and drive the
-  // station printer, and all of that is refused for a link (backend/app/auth/incident_link.py).
-  // Same rule as everywhere else: never show a control that will fail.
-  const linkScoped = !!user?.link_scoped
+  const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
   // Phones are a live viewer + field-capture device: lock all TACTICAL editing (tools,
   // map drawing/placing, plan annotation) even for a editor — but keep journal capture
   // + sync alive (those hang off `readOnly`, which stays false for a editor). Tablets
@@ -433,79 +387,8 @@ export function IncidentWorkspace({
   // …and the field you are actually typing in stays above it (one listener for the whole app)
   useScrollFocusIntoView()
   const { active: replayActive, setActive: setReplayActive, ws: replayWs, onState: onReplayState, onVehicles: onReplayVehicles, exit: exitReplay, entities: replayEntities, board: replayBoard, building: replayBuilding } = useReplay()
-  /** The Einsatz is still RUNNING (`isIncidentRunning`, the twin of the backend's `is_open`).
-   *  ⚠️ Read LIVE off `incidentMeta`, not only at the open (N3, staging 25.09.2026): when another
-   *  device closes the Einsatz, App flips this meta in place (App · onIncidentClosed) and the
-   *  workspace turns into the closed view WITHOUT a remount — the operator stays on the surface
-   *  they were on, every editing affordance goes, the Atemschutz clocks freeze and the alarm, the
-   *  GPS pass, the presence log, the weather stamp and the Wiedervorlagen stop writing. An
-   *  Einsatz opened closed (forceReadOnly) lands in the same place. */
-  const running = isIncidentRunning(incidentMeta)
-  const readOnly = baseReadOnly || replayActive || !running
-  /** Who may DELIVER what this device already queued — the outboxes' own read-only, which is about
-   *  owning the per-incident slot (a viewer, a demoted tab, a replay), NOT about the Einsatz being
-   *  over. A device that hears of the close with a Kontakt still in its outbox must send it, so
-   *  the server can refuse it and the store park it as «refused» (kept, exported, said out loud);
-   *  a read-only store would sit on it unclassified for ever. Nothing new is queued meanwhile:
-   *  every writer gates on the flags derived from `readOnly` above — except the Rapport, which a
-   *  closed Einsatz still takes (`canEditRapport`), so an Einsatz opened closed out of «Alle
-   *  Einsätze» (forceReadOnly) delivers too. */
-  const outboxReadOnly = roleReadOnly || tabLockLost || replayActive
-  // Führungsansicht: an EDITOR's hands-off mode — tactical editing locked like a phone, but
-  // journal capture and read-only symbol details stay live. It belongs to the LOGIN, set by the
-  // admin (Benutzer · el_view_default), and nothing else (05.10.2026, owner: «drop
-  // Führungsansicht in settings. We can use users»). The per-device toggle in the Einstellungen
-  // is gone; a stored `prefs.elView` from an older build is ignored (lib/prefs).
-  const elView = isEditor && (user?.el_view_default ?? false)
-  // «not edit anything» is broader than the tactical surfaces: EL view also locks the
-  // Atemschutz / Mittel / checklist / dispatch actions that hang off this flag.
-  //
-  // ⚠️ `readOnly`, not `replayActive`: this used to miss `forceReadOnly`, so an ARCHIVED Einsatz
-  // opened from «Alle Einsätze» — the view whose banner says «Nur ansehen – zum Bearbeiten
-  // reaktivieren» — still let an editor tick a checklist, mark someone present and log Mittel.
-  // The edits were saved and (correctly) badged as Nachträge, but nobody had asked for them:
-  // the unlock is «Reaktivieren», deliberately, once, with its own confirm.
-  const canEditIncident = isEditor && !readOnly && !elView
-  /** …and the ONE slice an Atemschutz-Link may write. Everything Atemschutz-side gates on this
-   *  rather than on `canEditIncident`, so the handed-over Tafel is operable while the rest of
-   *  the workspace stays as read-only for it as it is for any viewer. */
-  const canEditTrupps = canEditIncident || (asLink && !readOnly)
-  /** «may keep the incident RECORD» — the Einsatzleiter function (07.09.): Anwesenheit (incl.
-   *  Zeitplan), Mittel, Checklisten and the Rapport (incl. Beilagen). True for the `el` role
-   *  AND for an editor in the Führungsansicht — the EL's view means the same thing whichever
-   *  account holds the device; a plain editor has it anyway via `canEditIncident`. The
-   *  backend enforces the same boundary (`workspace/record` · RECORD_WORKSPACE_KEYS), so this
-   *  flag is presentation, not the protection. */
-  const canEditRecord = (isEditor || isEl) && !readOnly
-  /** «may correct the RAPPORT» — the record surfaces, AND the Rapport of a CLOSED Einsatz
-   *  (staging r3, F10). The Abschluss promises «Spätere Korrekturen bleiben möglich und
-   *  erscheinen als Nachträge», and the server takes exactly that after the close (the record
-   *  keys, the `report.` events, the Verlauf rows that are not live — api/incidents ·
-   *  incident_closed). The Rapport therefore stays editable once the Einsatz is closed, its
-   *  changes printing as Nachträge; the Tafel, the Karte, the Anwesenheit/Mittel/Checklisten
-   *  surfaces stay read-only there (their unlock is «Wieder öffnen», as decided on 28.08.). */
-  const canEditRapport = canEditRecord || ((isEditor || isEl) && !running && !outboxReadOnly)
-  /** «may correct the EINSATZDATEN» — the dispatch facts at the head of the record: Stichwort,
-   *  Kategorie, Priorität, Ort, Alarmierungszeit, Alarmmeldung, Übung. The `el` role keeps the
-   *  record, so it owns the head of it too (10.09.) — the asLink pattern again: not an editor,
-   *  but the one surface outside its slice it may write. The LIFECYCLE stays with the editors
-   *  (Abschluss, Archivieren, Rapport fertig) and gates on `canEditIncident` as before; the
-   *  backend draws the identical line (PATCH /incidents/{id} · EL_META_FIELDS). */
-  const canEditMeta = canEditIncident || (isEl && !readOnly)
-  /**
-   * «may write the incident RECORD at large» — the flag every writer that used to gate on bare
-   * `readOnly` now uses.
-   *
-   * ⚠️ It is not `canEditIncident`. That one also excludes the Führungsansicht, where journal
-   * capture and media upload deliberately stay live (see `elView`); gating these on it would
-   * silently switch off half of what an EL device is for. What has to be excluded is the
-   * Atemschutz-Link: it is genuinely not read-only — it operates the Tafel — but it owns
-   * exactly ONE slice, and everything outside that slice is refused by the backend. Left on
-   * bare `readOnly`, those writers would drain a media queue that cannot upload and dirty a
-   * blob whose push carries only Trupps. (The weather log it also gated is the SERVER's since
-   * 24.09.2026 — app/observations.)
-   */
-  const canWriteRecord = !readOnly && !asLink
+  const { running, readOnly, outboxReadOnly, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canEditMeta, canWriteRecord, tacticalLocked } =
+    useWorkspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, forceReadOnly, tabLockLost, replayActive, incidentMeta })
   // «Standort zu Fotos» (lib/devicePosition): a session that writes the record lends the device's
   // position to a picture without one — after asking ONCE per device, with the reason.
   const [photoPosition, setPhotoPositionState] = useState<boolean | undefined>(() => loadPrefs().photoPosition)
@@ -523,10 +406,6 @@ export function IncidentWorkspace({
     }))
     return () => setDevicePositionSource(null)
   }, [canWriteRecord, setPhotoPosition])
-  // Phones edit like tablets — the tool bar is simply always there on the drawing surfaces
-  // (stacked above the surface bar). Viewers and the EL-Ansicht stay hands-off; a brigade
-  // that wants a view-only phone uses exactly those.
-  const tacticalLocked = readOnly || elView || isEl
 
   // Seed all state slices once from this incident's workspace (the component is keyed
   // by incident id upstream, so this runs exactly once per incident). The blob passes the
@@ -1322,177 +1201,11 @@ export function IncidentWorkspace({
   // point changes. A Rapport view link may not ask.
   const buildingInfo = useBuildingInfo(incidentMeta, manualObject?.id ?? null, user?.link_kind !== 'view')
 
-  // PWA: pre-download the current map area + plans/symbols/geodata so the base map and
-  // reference data render offline at the scene (delivers the `offline`/`cachedTiles` promise).
-  // One box around the incident (editable radius) — caches the map AND crops the region-wide
-  // Leitungskataster GeoJSON to the scene via a `bbox` query the backend honours. A FIXED box
-  // (not unioned with the viewport) keeps the tile count predictable on a memory-tight iPad.
-  const incidentBounds = useMemo(() => {
-    const [clng, clat] = incidentView.center
-    const dLat = offlineRadiusM / 111320
-    const dLng = offlineRadiusM / (111320 * Math.cos((clat * Math.PI) / 180))
-    return { west: clng - dLng, south: clat - dLat, east: clng + dLng, north: clat + dLat }
-  }, [incidentView.center, offlineRadiusM])
-  const geoBbox = useMemo(
-    () => `bbox=${incidentBounds.west.toFixed(5)},${incidentBounds.south.toFixed(5)},${incidentBounds.east.toFixed(5)},${incidentBounds.north.toFixed(5)}`,
-    [incidentBounds],
-  )
-  // append the incident bbox to a reference/geo: URL so render + offline cache pull the SAME
-  // cropped slice (non-geo URLs pass through unchanged).
-  const withGeoBbox = useCallback(
-    (url: string) => (url.includes('/api/reference/geo:') ? `${url}${url.includes('?') ? '&' : '?'}${geoBbox}` : url),
-    [geoBbox],
-  )
-  // Online: render the FULL region-wide geodata (e.g. all PV-Anlagen across town), not just the
-  // incident box — an operator zooming out expects to see the whole town. Offline: fall back to
-  // the cropped `bbox` slice, which is exactly what `downloadOffline` warmed into the SW cache.
-  const online = useOnline()
-
-  const [offlineProgress, setOfflineProgress] = useState<{ done: number; total: number } | null>(null)
-  // The running download's controller. Aborting stops the tile workers (offlineTiles · signal);
-  // `cancelOffline` is what the sheet's «Abbrechen» will call, and the unmount effect below
-  // calls it so an Einsatz switch does not leave three workers pulling tiles for a map nobody
-  // is looking at.
-  const offlineAbort = useRef<AbortController | null>(null)
-  const cancelOffline = useCallback(() => { offlineAbort.current?.abort() }, [])
-  useEffect(() => cancelOffline, [cancelOffline])
-  // `quiet` = the automatic self-warm (Offline-Vorbereitung, see the effect below): no dialogs,
-  // no toasts — the Offline-Bereitschaft sheet is where the resulting truth is read. A tight
-  // storage budget silently takes the reduced download instead of asking; the manual button
-  // remains the place where that trade is offered as a question.
-  const downloadOffline = useCallback(async ({ quiet = false } = {}) => {
-    const map = mapRef.current?.getMap()
-    if (!map) return
-    const base = layers.find((l) => l.base && l.visible)
-    const templates = base?.tiles ?? cartoRasterTiles('rastertiles/voyager', ['a'])
-    const rasterOverlays = layers.filter((l) => !l.base && l.tiles?.length).map((l) => l.tiles as string[])
-    const bounds = incidentBounds
-    // warm: per-object plan PDFs and the geojson overlays cropped to the box. NOT the symbol
-    // library — it is a bundled asset (Workbox precaches every .json in the build) and the app
-    // stopped reading the backend's copy of it entirely (lib/useSymbols · 01.09.).
-    const warmUrls = [
-      ...Object.values(backendPlans),
-      ...layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
-    ]
-    // Pre-flight: everything cached for offline shares ONE origin quota, so a download into a
-    // nearly-full bucket used to succeed at the expense of whatever wrote next — the incident
-    // record. Predict the cost and, when it won't fit, offer the reduced download instead of
-    // silently starting a doomed one. An unknown budget is never treated as a full one.
-    const HARD_CAP = 1200
-    const coverageTileCount = Math.min(tilesForBounds(bounds, 14, 17).length, HARD_CAP)
-    const rasterSourceCount = 1 + rasterOverlays.length
-    const tileCount = coverageTileCount * rasterSourceCount
-    const extraBytes = warmUrls.length * WARM_BYTES
-    const budget = await estimateStorage()
-    const fit = prefetchFit(budget, tileCount, extraBytes)
-    let cap = HARD_CAP
-    if (!fit.fits && budget) {
-      const co = appConfig.copy.offline
-      const reducedTotal = fittedTileCap(budget, HARD_CAP * rasterSourceCount, extraBytes)
-      const reduced = Math.floor(reducedTotal / rasterSourceCount)
-      if (reduced === 0) {
-        // not even the plans fit — nothing useful to offer but the honest refusal
-        if (!quiet) toast(fillTemplate(co.dlNoSpace, { free: fmtFileSize(budget.free) }), { icon: 'map', tone: 'warn' })
-        return
-      }
-      if (!quiet) {
-        const ok = await confirmDialog({
-          title: co.dlTightTitle,
-          message: fillTemplate(co.dlTightMsg, {
-            need: fmtFileSize(fit.needBytes), free: fmtFileSize(budget.free), pct: String(Math.round((reduced / coverageTileCount) * 100)),
-          }),
-          confirmLabel: co.dlTightConfirm,
-          cancelLabel: appConfig.copy.cancel,
-        })
-        if (!ok) return
-      }
-      cap = reduced
-    }
-    setOfflineProgress({ done: 0, total: 1 })
-    const ctrl = new AbortController()
-    offlineAbort.current = ctrl
-    // throttle progress to whole-percent changes so we don't re-render this (huge) component
-    // ~750× during the download — a real contributor to memory/CPU pressure on the device.
-    let lastPct = -1
-    try {
-      const res = await predownloadArea({
-        templates,
-        overlayTemplates: rasterOverlays,
-        bounds,
-        minZoom: 14,
-        // z17 (building-level), not 18: z18 ~4× the tiles and OOMs an iPad mid-download
-        maxZoom: 17,
-        cap,
-        warmUrls,
-        signal: ctrl.signal,
-        onProgress: (done, total) => {
-          const pct = total ? Math.floor((done / total) * 100) : 0
-          if (pct !== lastPct) { lastPct = pct; setOfflineProgress({ done, total }) }
-        },
-      })
-      // ⚠️ FOUR OUTCOMES, FOUR MESSAGES — not one message with different numbers. The bar
-      // reaches 100 % whatever happens (it counts attempts finished, and it has to, or a dead
-      // host would hang it for ever), so «fertig» said nothing about «geklappt»: tapped in the
-      // Magazin on dead WLAN this toasted a green «Karte offline verfügbar (0 Kacheln)», and the
-      // one figure that contradicted it stood in a bracket nobody reads at 03:10. Green is now
-      // earned: it needs every FETCHABLE tile AND every plan/Ebene to have come back — a 404 is
-      // not a miss (the tile does not exist at a layer's edge; «Weiterladen» could never fill
-      // it, so counting it kept «Teilweise geladen» on screen for ever). Only retryable
-      // failures (network/5xx) make the download partial. And all-404 with zero hits is its own
-      // sentence: the source has no coverage here (or the Kachel-URL is wrong) — «kein Netz»
-      // would mis-describe a host that answered every single request.
-      const co = appConfig.copy.offline
-      const got = res.fetched + res.warmFetched
-      const retry = { label: co.dlRetry, onClick: () => { void downloadOfflineRef.current() } }
-      if (quiet) return // self-warm: the Offline-Bereitschaft sheet reports the resulting truth
-      if (got === 0 && res.failed > 0) {
-        toast(co.dlNone, { icon: 'map', tone: 'warn', action: retry })
-      } else if (got === 0 && res.notFound > 0) {
-        // no retry offer: every request was answered, retrying returns the same 404s
-        toast(co.dlNoCoverage, { icon: 'map', tone: 'warn' })
-      } else if (res.failed > 0) {
-        // capped AND partial: keep saying «Ausschnitt begrenzt», or «Weiterladen» promises
-        // tiles the cap will exclude again
-        toast(fillTemplate(res.capped ? co.dlPartialCapped : co.dlPartial, { n: got, total: got + res.failed }), { icon: 'map', tone: 'warn', action: { ...retry, label: co.dlContinue } })
-      } else {
-        toast(fillTemplate(res.capped ? co.dlDoneCapped : co.dlDone, { n: res.fetched }), { icon: 'map', tone: 'success' })
-      }
-    } catch {
-      // a cancel is not a failure: the operator (or the unmount) asked for it, nothing to report
-      if (!quiet && !ctrl.signal.aborted) toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })
-    } finally {
-      if (offlineAbort.current === ctrl) offlineAbort.current = null
-      setOfflineProgress(null)
-    }
-  }, [layers, backendPlans, incidentBounds, withGeoBbox])
-  // «Weiterladen» / «Nochmals» re-runs the same download. Through a ref because the action rides
-  // on a toast that outlives the render it was made in, and the callback cannot name itself.
-  const downloadOfflineRef = useRef(downloadOffline)
-  useEffect(() => { downloadOfflineRef.current = downloadOffline }, [downloadOffline])
-  // ── Offline-Vorbereitung: the device prepares ITSELF (28.08. field feedback) ──
-  // The button relied on someone remembering it before losing coverage. Now, ~30 s after an
-  // Einsatz is open (long enough for the map, plans and layer list to have settled), the same
-  // download runs quietly — installed app only, exactly like the sheet's own reasoning: a
-  // browser tab's cache is evicted too readily to call it «bereit». Re-armed when what there is
-  // to warm changes (another Objekt's plans, a new Leitungs-Ebene), so a plan attached mid-
-  // incident still gets pulled; the signature keeps one warm per state, not one per minute.
-  // Offline-Vorbereitung «Aus» (device pref) switches all of this off; the button always stays.
-  // …and re-armed when the operator grows the offline radius (29.08.): the readiness probe
-  // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
-  // «nicht geladen» forever. Centre and raster-reference ids are explicit too: a corrected
-  // Einsatz location or newly configured WMS/WMTS layer owes the device another warm pass.
-  const offlineWarmSig = `${incidentMeta.id}|${incidentView.center.join(',')}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson || (!l.base && l.tiles?.length)).map((l) => l.id).join(',')}`
-  const offlineWarmed = useRef('')
-  useEffect(() => {
-    if (!offlineAuto || !isStandalone()) return
-    if (offlineWarmed.current === offlineWarmSig) return
-    const t = setTimeout(() => {
-      if (!navigator.onLine || isStorageDegraded()) return // this round stays owed — the ref is only stamped on a start
-      offlineWarmed.current = offlineWarmSig
-      void downloadOfflineRef.current({ quiet: true })
-    }, 30_000)
-    return () => clearTimeout(t)
-  }, [offlineAuto, offlineWarmSig])
+  // PWA: the Offline-Vorbereitung — the incident box, the warm download and its probe URLs
+  // (workspace/useOfflinePrefetch).
+  const { withGeoBbox, online, offlineProgress, cancelOffline, downloadOffline, offlineProbeUrls } = useOfflinePrefetch({
+    incidentId: incidentMeta.id, center: incidentView.center, offlineRadiusM, offlineAuto, mapRef, layers, backendPlans,
+  })
   // the Gebäude (floor-stack) document only exists once a building is picked; it sits
   // directly after «Umrisse» (the OSM outline you pick the building from) in the CATALOG —
   // the rail shows the two as one morphing tile (railPlanDocs below).
@@ -3889,45 +3602,6 @@ export function IncidentWorkspace({
   // is append-only in spirit: a no-op tap never logs, "Gegangen" keeps the earlier presence,
   // and a person in an active Trupp can't be marked gone until the Trupp is out (checkout rule).
   const { people: personnel, loading: personnelLoading, error: personnelError, reload: reloadPersonnel } = usePersonnel()
-  // Offline-readiness: the representative URLs the readiness sheet probes against the SW
-  // Cache to report REAL offline presence (not a guess) for the runtime-cached resources.
-  const offlineProbeUrls = useMemo(() => {
-    const base = layers.find((l) => l.base && l.visible)
-    const tpls = base?.tiles ?? []
-    // The downloader cycles tile subdomains (Carto = a/b/c/d), so a given tile lands under ONE
-    // of them. Probe the incident-centre tile across ALL subdomains and pass if any is cached —
-    // checking only [0] gave a false "nicht geladen".
-    let tiles: string[] = []
-    if (tpls.length) {
-      const z = 16
-      const [lng, lat] = incidentView.center
-      const x = Math.floor(((lng + 180) / 360) * 2 ** z)
-      const r = (lat * Math.PI) / 180
-      const y = Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z)
-      tiles = tpls.map((t) => t.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)))
-    }
-    const z = 16
-    const [lng, lat] = incidentView.center
-    const x = Math.floor(((lng + 180) / 360) * 2 ** z)
-    const r = (lat * Math.PI) / 180
-    const y = Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z)
-    const covered = tilesForBounds(incidentBounds, 14, 17).slice(0, 1200)
-    const centreIndex = covered.findIndex((tile) => tile.z === z && tile.x === x && tile.y === y)
-    return {
-      tiles,
-      plan: Object.values(backendPlans)[0] ?? null,
-      // Every vector and raster reference layer. Raster layers use one representative centre
-      // tile; vector layers use the incident crop. These are exact URLs from the warm pass.
-      references: [
-        ...layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
-        ...layers.filter((l) => !l.base && l.tiles?.length).map((l) => {
-          const templates = l.tiles as string[]
-          const template = templates[Math.max(0, centreIndex) % templates.length]
-          return fillTileTemplate(template, z, x, y)
-        }),
-      ],
-    }
-  }, [layers, incidentView.center, incidentBounds, backendPlans, withGeoBbox])
   /** The roster as a PICKER sees it: the Mannschaft plus everybody recorded on this Einsatz who
    *  is not on it (lib/guests). A Gast used to be nameable exactly once — on the Anwesenheit that
    *  created them — and was then invisible to the Trupp form, the Fahrer field and the

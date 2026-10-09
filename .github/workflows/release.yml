@@ -89,6 +89,11 @@ jobs:
           # Hub's anonymous pull limit failed this step at random (09.10.2026). mirror.gcr.io is
           # Google's cache of Docker Hub: the same image, same digest.
           driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
+          # The Dockerfile's base is named on Docker Hub (so Dependabot can read it); BuildKit
+          # asks Google's Hub mirror first (same digests) and falls back to Hub itself.
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4

@@ -207,20 +207,24 @@ def test_without_names_only_a_station_override_classifies():
 # --- the poll -----------------------------------------------------------------------------
 
 
-async def _roster(db_session):
+async def _roster(db_session) -> set[str]:
+    """Divera users 101–106 on the roster; returns their personnel ids."""
+    ids: set[str] = set()
     for ucr in range(101, 107):
         p = Personnel(display_name=f"P {ucr}", is_active=True)
         db_session.add(p)
         await db_session.flush()
         db_session.add(PersonnelExternalIdentity(personnel_id=p.id, provider="divera", external_id=str(ucr)))
+        ids.add(str(p.id))
     await db_session.flush()
+    return ids
 
 
 async def test_the_poll_stores_yes_no_for_known_alarms_and_fetches_names_once(db_session, patch_httpx, monkeypatch):
     monkeypatch.setattr(settings, "divera_access_key", "unit-key")
     monkeypatch.setattr(settings, "divera_api_url", "https://app.divera247.com/api/v2")
     calls = patch_httpx(_divera)
-    await _roster(db_session)
+    roster_ids = await _roster(db_session)
     # an unarchived Einsatz is running, so neither alarm opens a new one; 4711 is ours already
     inc = Incident(title="B2 Brand", source="divera", status="offen", divera_id=4711, started_at=datetime.now(UTC))
     db_session.add(inc)
@@ -236,7 +240,11 @@ async def test_the_poll_stores_yes_no_for_known_alarms_and_fetches_names_once(db
     assert stored["unmapped"] == {"coming": 1, "not_coming": 0}
     # nothing but that: no status, no time, no note, no Divera id
     assert set(stored) == {"coming", "not_coming", "unmapped"}
-    assert "Ferien" not in json.dumps(stored) and "999" not in json.dumps(stored)
+    # Every stored id is one of OUR personnel ids — so no Divera user id (999 or any other) got
+    # through. Not «"999" not in json.dumps(stored)»: the ids are random UUIDs, and one
+    # containing «999» failed CI on 09.10.2026.
+    assert set(stored["coming"]) | set(stored["not_coming"]) <= roster_ids
+    assert "Ferien" not in json.dumps(stored)
     first_at = em.responses_at
     assert calls.count("/api/v2/pull/all") == 1
 
